@@ -1,0 +1,280 @@
+import { cityBySlug, nearestCity } from '@/lib/geo';
+import { env } from '@/lib/env';
+import { isCategoryId } from './categories';
+import { matchSignals, type MatchRow } from './match';
+import {
+  getLastRunTimes,
+  insertMatches,
+  insertNewSignals,
+  loadProfiles,
+  logRun,
+  pruneOldSignals,
+  type Db,
+  type SignalRowInput,
+  type StoredSignal,
+} from './store';
+import type { Adapter, Severity, SignalInput } from './types';
+
+export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
+
+export interface SourceResult {
+  id: string;
+  status: SourceStatus;
+  fetched: number;
+  /** signals that passed validation */
+  valid: number;
+  inserted: number;
+  matched: number;
+  /** up to three titles, for the live probe */
+  samples: string[];
+  logs: string[];
+  error?: string;
+  missingEnv?: string[];
+  ms: number;
+}
+
+export interface ScanReport {
+  dry: boolean;
+  startedAt: string;
+  ms: number;
+  sources: SourceResult[];
+  totals: { fetched: number; inserted: number; matched: number };
+  pruned?: boolean;
+  error?: string;
+}
+
+export interface RunOptions {
+  /** run only this adapter id (bypasses the cadence check) */
+  source?: string;
+  /** fetch + parse only: no DB reads or writes */
+  dry?: boolean;
+  now?: Date;
+  /** per-adapter timeout in ms (default 40000) */
+  adapterTimeoutMs?: number;
+  /** override adapter list (tests) */
+  adapters?: Adapter[];
+  fetchImpl?: typeof fetch;
+}
+
+export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
+const FIRST_RUN_LOOKBACK_MS = 48 * 3600_000;
+const CADENCE_SLACK_MS = 60_000;
+
+export function isDue(adapter: Adapter, lastRunMs: number | undefined, nowMs: number): boolean {
+  if (lastRunMs === undefined) return true;
+  return nowMs - lastRunMs >= adapter.cadenceMinutes * 60_000 - CADENCE_SLACK_MS;
+}
+
+export function missingEnvFor(adapter: Adapter, e: Record<string, string | undefined> = env): string[] {
+  return (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+}
+
+/** Validate and normalize adapter output. Drops malformed rows and duplicate externalIds. */
+export function normalizeSignals(adapter: Adapter, input: SignalInput[]): SignalInput[] {
+  const seen = new Set<string>();
+  const out: SignalInput[] = [];
+  for (const s of input) {
+    if (!s || typeof s.externalId !== 'string' || !s.externalId || typeof s.title !== 'string' || !s.title.trim()) continue;
+    const t = Date.parse(s.occurredAt);
+    if (!Number.isFinite(t)) continue;
+    if (seen.has(s.externalId)) continue;
+    seen.add(s.externalId);
+    const sev = Math.min(3, Math.max(1, Math.round(Number(s.severity) || 1))) as Severity;
+    const lat = typeof s.lat === 'number' && Number.isFinite(s.lat) && Math.abs(s.lat) <= 90 ? s.lat : null;
+    const lon = typeof s.lon === 'number' && Number.isFinite(s.lon) && Math.abs(s.lon) <= 180 ? s.lon : null;
+    const hasBoth = lat !== null && lon !== null;
+    out.push({
+      ...s,
+      source: s.source || adapter.id,
+      kind: s.kind || adapter.kind,
+      title: s.title.trim().slice(0, 300),
+      summary: s.summary ? String(s.summary).slice(0, 600) : null,
+      lat: hasBoth ? lat : null,
+      lon: hasBoth ? lon : null,
+      state: s.state ? s.state.trim().toUpperCase().slice(0, 2) : null,
+      categories: Array.from(new Set((s.categories ?? []).filter((c) => isCategoryId(c)))),
+      severity: sev,
+      occurredAt: new Date(t).toISOString(),
+    });
+  }
+  return out;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/** Nearest city slug within 40 mi, or an exact city+state slug when there are no coordinates. */
+export function placeSlugFor(s: SignalInput): string | null {
+  try {
+    if (typeof s.lat === 'number' && typeof s.lon === 'number') return nearestCity(s.lat, s.lon, 40)?.slug ?? null;
+    if (s.city && s.state) return cityBySlug(`${slugify(s.city)}-${s.state.toLowerCase()}`)?.slug ?? null;
+  } catch {
+    /* geo lookup must never break a scan */
+  }
+  return null;
+}
+
+const ERROR_LOG = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i;
+
+interface Fetched {
+  adapter: Adapter;
+  result: SourceResult;
+  signals: SignalInput[];
+  startedAt: string;
+}
+
+async function fetchOne(adapter: Adapter, since: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
+  const t0 = Date.now();
+  const startedAt = new Date(t0).toISOString();
+  const logs: string[] = [];
+  const result: SourceResult = { id: adapter.id, status: 'ok', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs, ms: 0 };
+  let signals: SignalInput[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const raw = await Promise.race([
+      adapter.fetch({ since, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`adapter timeout after ${timeoutMs} ms`)), timeoutMs);
+      }),
+    ]);
+    const list = Array.isArray(raw) ? raw : [];
+    result.fetched = list.length;
+    signals = normalizeSignals(adapter, list);
+    result.valid = signals.length;
+    result.samples = signals.slice(0, 3).map((s) => s.title);
+    // Adapters swallow errors and return []: an empty result with an error-looking log is a broken source, not a quiet day.
+    if (list.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
+      result.status = 'error';
+      result.error = logs.filter((l) => ERROR_LOG.test(l)).join(' | ').slice(0, 500);
+    }
+  } catch (e) {
+    result.status = 'error';
+    result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  result.ms = Date.now() - t0;
+  return { adapter, result, signals, startedAt };
+}
+
+export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
+  const now = opts.now ?? new Date();
+  const t0 = Date.now();
+  const dry = !!opts.dry;
+  const timeoutMs = opts.adapterTimeoutMs ?? DEFAULT_ADAPTER_TIMEOUT_MS;
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  // Lazy so unit tests (and dry probes of a single adapter list) do not load every adapter module.
+  const all = opts.adapters ?? (await import('./registry')).ALL_ADAPTERS;
+  const report: ScanReport = { dry, startedAt: now.toISOString(), ms: 0, sources: [], totals: { fetched: 0, inserted: 0, matched: 0 } };
+
+  if (!dry && !db) {
+    report.error = 'database client unavailable';
+    return report;
+  }
+
+  const selected = opts.source ? all.filter((a) => a.id === opts.source) : all;
+  if (opts.source && selected.length === 0) {
+    report.error = `unknown source "${opts.source}"`;
+    return report;
+  }
+
+  let lastRuns: Record<string, number> = {};
+  if (!dry && db && !opts.source) {
+    try {
+      lastRuns = await getLastRunTimes(db);
+    } catch (e) {
+      report.error = e instanceof Error ? e.message : String(e);
+      return report;
+    }
+  }
+
+  const due: Adapter[] = [];
+  for (const a of selected) {
+    const missing = missingEnvFor(a);
+    if (missing.length) {
+      report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
+    } else if (!dry && !opts.source && !isDue(a, lastRuns[a.id], now.getTime())) {
+      report.sources.push({ id: a.id, status: 'skipped(cadence)', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs: [], ms: 0 });
+    } else due.push(a);
+  }
+
+  const fetched = await Promise.all(
+    due.map((a) => {
+      const last = lastRuns[a.id];
+      const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
+      return fetchOne(a, since, timeoutMs, fetchImpl);
+    }),
+  );
+
+  if (dry || !db) {
+    for (const f of fetched) report.sources.push(f.result);
+  } else {
+    // Phase 1: persist new signals per source.
+    const storedAll: StoredSignal[] = [];
+    for (const f of fetched) {
+      if (f.result.status !== 'error' && f.signals.length) {
+        try {
+          const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
+          const inserted = await insertNewSignals(db, rows);
+          f.result.inserted = inserted.length;
+          storedAll.push(...inserted);
+        } catch (e) {
+          f.result.status = 'error';
+          f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+        }
+      }
+      report.sources.push(f.result);
+    }
+
+    // Phase 2: match all new signals at once so the per-user cap applies per scan.
+    if (storedAll.length) {
+      try {
+        const profiles = await loadProfiles(db);
+        const rows: MatchRow[] = matchSignals(storedAll, profiles);
+        await insertMatches(db, rows);
+        const sourceById = new Map(storedAll.map((s) => [s.id, s.source]));
+        const bySource = new Map<string, number>();
+        for (const r of rows) {
+          const src = sourceById.get(r.signal_id);
+          if (src) bySource.set(src, (bySource.get(src) ?? 0) + 1);
+        }
+        for (const f of fetched) f.result.matched = bySource.get(f.adapter.id) ?? 0;
+      } catch (e) {
+        report.error = `matching failed: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+
+    // Phase 3: log one scan_runs row per adapter that ran.
+    const finishedAt = new Date().toISOString();
+    for (const f of fetched) {
+      try {
+        await logRun(db, {
+          source: f.adapter.id,
+          started_at: f.startedAt,
+          finished_at: finishedAt,
+          fetched: f.result.fetched,
+          inserted: f.result.inserted,
+          matched: f.result.matched,
+          error: f.result.error ?? null,
+        });
+      } catch (e) {
+        report.error = `${report.error ? report.error + '; ' : ''}${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+
+    try {
+      report.pruned = await pruneOldSignals(db, now);
+    } catch (e) {
+      report.error = `${report.error ? report.error + '; ' : ''}prune: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  for (const s of report.sources) {
+    report.totals.fetched += s.fetched;
+    report.totals.inserted += s.inserted;
+    report.totals.matched += s.matched;
+  }
+  report.ms = Date.now() - t0;
+  return report;
+}

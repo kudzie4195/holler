@@ -1,0 +1,4 @@
+[
+ {"inspection_id":"2612345","dba_name":"JOES TACO SHACK","aka_name":"JOES TACOS","license_":"2345678","facility_type":"Restaurant","risk":"Risk 1 (High)","address":"4000 W MADISON ST","city":"CHICAGO","state":"IL","zip":"60624","inspection_date":"2026-11-10T00:00:00.000","inspection_type":"Canvass","results":"Fail","violations":"3. MANAGEMENT, FOOD EMPLOYEE AND CONDITIONAL EMPLOYEE; 38. INSECT, RODENT, ANIMAL OR ANY OTHER PEST PRESENCE IN THE ESTABLISHMENT","latitude":"41.8808","longitude":"-87.7254"},
+ {"inspection_id":"2612346","dba_name":"LAKEVIEW CAFE","facility_type":"Restaurant","address":"3100 N BROADWAY","zip":"60657","inspection_date":"2026-11-10T00:00:00.000","inspection_type":"Canvass","results":"Pass","latitude":"41.9400","longitude":"-87.6440"}
+]

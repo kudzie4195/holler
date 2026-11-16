@@ -1,0 +1,7 @@
+{"posts":[
+ {"uri":"at://did:plc:abc123/app.bsky.feed.post/3kxyz111","cid":"bafy1","author":{"did":"did:plc:abc123","handle":"jamie.bsky.social","displayName":"Jamie"},"record":{"$type":"app.bsky.feed.post","text":"Anyone know a good plumber in Marietta GA? Water heater just died and it is 40 degrees out","createdAt":"2026-11-15T22:10:00.000Z"},"indexedAt":"2026-11-15T22:10:05.000Z"},
+ {"uri":"at://did:plc:def456/app.bsky.feed.post/3kxyz222","author":{"handle":"sam.example.com"},"record":{"text":"looking for a roofer near Austin, TX. Hail got us last week, please recommend someone honest","createdAt":"2026-11-15T20:00:00.000Z"}},
+ {"uri":"at://did:plc:ghi789/app.bsky.feed.post/3kxyz333","author":{"handle":"promo.bsky.social"},"record":{"text":"Need a plumber in Atlanta? Call us today for a free estimate! Licensed and insured.","createdAt":"2026-11-15T19:00:00.000Z"}},
+ {"uri":"at://did:plc:jkl012/app.bsky.feed.post/3kxyz444","author":{"handle":"fan.bsky.social"},"record":{"text":"Highly recommend Joe's Plumbing in Atlanta, fixed my sink in an hour","createdAt":"2026-11-15T18:00:00.000Z"}},
+ {"uri":"at://did:plc:mno345/app.bsky.feed.post/3kxyz555","author":{"handle":"nowhere.bsky.social"},"record":{"text":"Anyone know a good electrician? Need one asap","createdAt":"2026-11-15T17:00:00.000Z"}}
+],"cursor":"abc"}

@@ -1,0 +1,5 @@
+[
+ {"camis":"50012345","dba":"GOLDEN WOK","boro":"Queens","building":"4012","street":"MAIN ST","zipcode":"11354","cuisine_description":"Chinese","inspection_date":"2026-11-09T00:00:00.000","violation_code":"04L","violation_description":"Evidence of mice or live mice present in facility's food and/or non-food areas.","critical_flag":"Critical","score":"41","grade":"C","latitude":"40.7590","longitude":"-73.8300"},
+ {"camis":"50012345","dba":"GOLDEN WOK","boro":"Queens","building":"4012","street":"MAIN ST","zipcode":"11354","inspection_date":"2026-11-09T00:00:00.000","violation_code":"10F","violation_description":"Non-food contact surface improperly constructed.","critical_flag":"Not Critical","score":"41","grade":"C","latitude":"40.7590","longitude":"-73.8300"},
+ {"camis":"50099999","dba":"CORNER DELI","boro":"Bronx","building":"10","street":"E 149 ST","zipcode":"10451","inspection_date":"2026-11-09T00:00:00.000","violation_description":"Hot food item not held at or above 140F.","critical_flag":"Critical","score":"9","grade":"A","latitude":"40.8160","longitude":"-73.9190"}
+]

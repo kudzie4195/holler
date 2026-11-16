@@ -1,0 +1,4 @@
+[
+ {"restaurant_name":"Barton Creek Grill","zip_code":"78704","inspection_date":"2026-10-30T00:00:00.000","score":"62","address":"2101 S Lamar Blvd","facility_id":"10012345","process_description":"Routine Inspection","lat":"30.2450","lng":"-97.7690","inspectionid":"2026-10-30-10012345"},
+ {"restaurant_name":"Pecan Street Diner","zip_code":"78701","inspection_date":"2026-10-30T00:00:00.000","score":"92","address":"100 Congress Ave","inspectionid":"2026-10-30-10012346","lat":"30.2640","lng":"-97.7440"}
+]

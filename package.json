@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.119.0",
     "ai": "^7.0.173",
     "all-the-cities": "^3.1.0",
+    "geist": "^1.9.2",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -32,6 +33,7 @@
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
     "typescript": "^5",
+    "vite": "^8.3.8",
     "vitest": "^5.1.0"
   }
 }

@@ -1,0 +1,4 @@
+[
+ {"permit_number":"202611123456","permit_type_definition":"otc alterations permit","description":"reroofing, tear off existing roofing and install new torch down roofing","status":"issued","issued_date":"2026-11-13T00:00:00.000","estimated_cost":"18000","street_number":"1450","street_name":"Lombard","street_suffix":"St","zipcode":"94123","location":{"type":"Point","coordinates":[-122.4290,37.8003]}},
+ {"permit_number":"202611123457","permit_type_definition":"electrical","description":"install ev charger in garage","status":"issued","issued_date":"2026-11-13T00:00:00.000","street_number":"88","street_name":"Dolores","street_suffix":"St","zipcode":"94110","location":{"latitude":"37.7690","longitude":"-122.4262","human_address":"{}"}}
+]

@@ -1,0 +1,5 @@
+{"_embedded":{"events":[
+ {"id":"vvG1HZ4aBcDeFg","name":"Atlanta Falcons vs. Tampa Bay Buccaneers","url":"https://www.ticketmaster.com/event/0E00612345678901","dates":{"start":{"localDate":"2026-11-22","localTime":"13:00:00","dateTime":"2026-11-22T18:00:00Z"}},"classifications":[{"segment":{"name":"Sports"},"genre":{"name":"Football"}}],"_embedded":{"venues":[{"name":"Mercedes-Benz Stadium","postalCode":"30313","city":{"name":"Atlanta"},"state":{"name":"Georgia","stateCode":"GA"},"location":{"longitude":"-84.400","latitude":"33.755"}}]}},
+ {"id":"vvG1ZZ9aXyWvUt","name":"Taylor Concert","url":"https://www.ticketmaster.com/event/0E00999","dates":{"start":{"localDate":"2026-11-20"}},"classifications":[{"segment":{"name":"Music"},"genre":{"name":"Pop"}}],"_embedded":{"venues":[{"name":"State Farm Arena","city":{"name":"Atlanta"},"state":{"stateCode":"GA"},"location":{"longitude":"-84.396","latitude":"33.757"}}]}},
+ {"id":"vvBROKEN","name":"No date event","dates":{"start":{}}}
+]},"page":{"size":200,"totalElements":3,"totalPages":1,"number":0}}

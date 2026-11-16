@@ -1,0 +1,4 @@
+[
+ {"number_key":"26BLD-04512","comp_type":"BLDG","comp_type_desc":"Building Permit","sub_type_desc":"Residential Alteration","date_issued":"2026-11-14T00:00:00.000","location":"2219 Madison Rd","desc_of_work":"Replace roof covering and repair sheathing, single family dwelling","entry_comments":"Approved"},
+ {"number_key":"26BLD-04512","comp_type":"BLDG","comp_type_desc":"Building Permit","date_issued":"2026-11-14T00:00:00.000","desc_of_work":"Replace roof covering and repair sheathing, single family dwelling","entry_comments":"Second comment row"}
+]

@@ -1,0 +1,133 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.001.1",
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-84.60, 33.80], [-84.20, 33.80], [-84.20, 34.10], [-84.60, 34.10], [-84.60, 33.80]]]
+      },
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.001.1",
+        "areaDesc": "Cobb, GA; Fulton, GA",
+        "geocode": { "SAME": ["013067", "013121"], "UGC": ["GAC067", "GAC121"] },
+        "sent": "2026-11-16T15:02:00-05:00",
+        "effective": "2026-11-16T15:02:00-05:00",
+        "onset": "2026-11-16T15:02:00-05:00",
+        "expires": "2026-11-16T15:45:00-05:00",
+        "ends": "2026-11-16T15:45:00-05:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "severity": "Severe",
+        "certainty": "Observed",
+        "urgency": "Immediate",
+        "event": "Severe Thunderstorm Warning",
+        "senderName": "NWS Peachtree City GA",
+        "headline": "Severe Thunderstorm Warning issued November 16 at 3:02PM EST until 3:45PM EST by NWS Peachtree City GA",
+        "description": "At 302 PM EST, a severe thunderstorm was located near Marietta. HAZARD...Golf ball size hail and 60 mph wind gusts.",
+        "instruction": "Move to an interior room on the lowest floor of a building."
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.002.1",
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.002.1",
+        "areaDesc": "Madison; Haywood; Buncombe",
+        "geocode": { "SAME": ["037115", "037087", "037021", "047029"], "UGC": ["NCZ049", "NCZ050", "NCZ051", "TNZ018"] },
+        "sent": "2026-11-16T04:00:00-05:00",
+        "effective": "2026-11-16T04:00:00-05:00",
+        "onset": "2026-11-16T18:00:00-05:00",
+        "expires": "2026-11-17T10:00:00-05:00",
+        "ends": "2026-11-17T18:00:00-05:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "severity": "Severe",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "event": "Winter Storm Warning",
+        "senderName": "NWS Greenville-Spartanburg SC",
+        "headline": "Winter Storm Warning issued November 16 at 4:00AM EST until November 17 at 6:00PM EST",
+        "description": "Heavy snow expected. Total snow accumulations of 6 to 10 inches."
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.003.1",
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[-95.60, 29.60], [-95.20, 29.60], [-95.20, 29.90], [-95.60, 29.90], [-95.60, 29.60]]],
+          [[[-95.10, 29.70], [-95.00, 29.70], [-95.00, 29.75], [-95.10, 29.75], [-95.10, 29.70]]]
+        ]
+      },
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.003.1",
+        "areaDesc": "Harris, TX",
+        "geocode": { "SAME": ["048201"], "UGC": ["TXC201"] },
+        "sent": "2026-11-16T10:00:00-06:00",
+        "effective": "2026-11-16T10:00:00-06:00",
+        "onset": "2026-11-16T10:00:00-06:00",
+        "expires": "2026-11-16T14:00:00-06:00",
+        "ends": "2026-11-16T14:00:00-06:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "severity": "Severe",
+        "certainty": "Likely",
+        "urgency": "Immediate",
+        "event": "Flash Flood Warning",
+        "senderName": "NWS Houston/Galveston TX",
+        "headline": "Flash Flood Warning issued November 16 at 10:00AM CST until 2:00PM CST",
+        "description": "Flash flooding is ongoing or expected to begin shortly."
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.004.1",
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.004.1",
+        "areaDesc": "Coastal Waters from Tybee Island to Altamaha Sound",
+        "geocode": { "SAME": ["075330"], "UGC": ["AMZ330"] },
+        "sent": "2026-11-16T09:00:00-05:00",
+        "effective": "2026-11-16T09:00:00-05:00",
+        "expires": "2026-11-16T21:00:00-05:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "severity": "Minor",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "event": "Small Craft Advisory",
+        "senderName": "NWS Charleston SC",
+        "headline": "Small Craft Advisory issued November 16 at 9:00AM EST",
+        "description": "Winds 20 to 25 kt."
+      }
+    },
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.005.1",
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fixture.005.1",
+        "areaDesc": "Maricopa County",
+        "geocode": { "SAME": ["004013"], "UGC": ["AZZ540"] },
+        "sent": "2026-11-16T08:00:00-07:00",
+        "effective": "2026-11-16T08:00:00-07:00",
+        "onset": "2026-11-16T12:00:00-07:00",
+        "ends": "2026-11-16T20:00:00-07:00",
+        "expires": "2026-11-16T20:00:00-07:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "severity": "Moderate",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "event": "Excessive Heat Warning",
+        "senderName": "NWS Phoenix AZ",
+        "headline": "Excessive Heat Warning issued November 16 at 8:00AM MST",
+        "description": "Dangerously hot conditions with highs up to 112."
+      }
+    }
+  ]
+}
