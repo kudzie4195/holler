@@ -5,6 +5,7 @@ import { StaticChip } from '@/components/chip';
 import { ExampleAlerts } from '@/components/example-alert';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
+import { CADENCE_SHORT } from '@/lib/seo/cadence';
 
 export const metadata: Metadata = {
   title: { absolute: 'Holler: know when your town needs you' },
@@ -18,7 +19,7 @@ const steps = [
   },
   {
     title: 'We watch the public record',
-    body: 'Storm reports, permits, 311 requests, events and people asking for help. Sources are checked every 15 to 60 minutes.',
+    body: `Storm reports, permits, 311 requests, events and people asking for help. ${CADENCE_SHORT}`,
   },
   {
     title: 'You get a short alert',
@@ -35,7 +36,7 @@ const sources = [
   { name: 'Health inspections', note: 'Failed inspections, where the health department publishes them.' },
   { name: 'Federal contracts', note: 'New awards and bids on USAspending.gov and SAM.gov.' },
   { name: 'Events', note: 'Big concerts, games and festivals from public listings.' },
-  { name: 'Airport delays', note: 'Ground stops and delays from the FAA.' },
+  { name: 'Airport delays', note: 'Ground stops and delays at 40 major airports, from the FAA.' },
   { name: 'People asking online', note: 'Public posts like "anyone recommend a roofer?" found through licensed search APIs.' },
 ];
 
@@ -82,11 +83,11 @@ const faqs = [
   },
   {
     q: 'How fast are the alerts?',
-    a: 'Sources are scanned every 15 to 60 minutes, depending on the source. Emails go out at most once an hour, so you get a digest instead of a flood.',
+    a: 'Weather alerts and airport delays are checked every 15 minutes, storm and earthquake reports every 30 minutes, and posts from people asking online every one to six hours. City records, federal contracts and events are checked a few times a day, and some cities publish permits a day or more after they are issued. Emails go out at most once an hour. You get a digest, not a flood.',
   },
   {
     q: 'Does it work in my town?',
-    a: 'Weather, disasters, federal contracts and airport status cover the whole US. Permits, 311 and inspections depend on whether your city publishes open data. Your city page under City pages shows what is flowing there.',
+    a: 'Weather alerts, disasters and federal contracts cover the whole US, and airport status covers 40 major airports. Permits, 311 and inspections come from the cities Holler has connected so far, such as Chicago, New York and Austin. Your city page under City pages shows what is flowing there.',
   },
   {
     q: 'Can I cancel?',
@@ -115,8 +116,8 @@ export default function Home() {
             <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">For people with a truck, not a pitch deck</p>
             <h1 className="mt-4 text-4xl text-ink md:text-6xl">Know when your town needs you.</h1>
             <p className="mt-5 max-w-xl text-lg text-muted">
-              Holler watches storms, permits, 311 reports, events and neighbors asking for help. When something nearby fits
-              what you do, you get a short alert.
+              Holler watches storms, permits, 311 reports, events and neighbors asking for help, and when something nearby
+              fits what you do, you get a short alert.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/signup" size="lg">
@@ -151,7 +152,7 @@ export default function Home() {
         <section id="sources" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
           <h2 className="text-2xl text-ink md:text-4xl">Ten kinds of signal, one feed</h2>
           <p className="mt-4 max-w-2xl text-lg text-muted">
-            Everything comes from public sources, and every alert links back to where it came from.
+            Everything comes from public sources, and each alert links to the page or dataset it came from so you can check it yourself.
           </p>
           <ul className="mt-10 grid gap-4 sm:grid-cols-2">
             {sources.map((s) => (
@@ -164,7 +165,7 @@ export default function Home() {
             ))}
           </ul>
           <p className="mt-6 max-w-2xl text-sm text-muted">
-            Not every city publishes every dataset. You only get alerts from what is public where you work.
+            Not every city publishes every dataset, and Holler has connected only some of them. You only get alerts from what is public where you work.
           </p>
         </section>
 

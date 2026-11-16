@@ -1,3 +1,4 @@
+import { CADENCE_LONG } from './cadence';
 import { sourceInfo } from './sources';
 import { tradeLabel } from './trades';
 import { KIND_NOUN, SECTIONS, SECTION_BY_ID } from './sections';
@@ -61,9 +62,9 @@ export function buildIntro(city: CityRef, data: PlaceData): string {
   const v = pickVariant(city.slug, 'intro', 3);
   if (!data.ok || data.total === 0 || !data.latestAt || !data.earliestAt) {
     return [
-      `Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days. Scans run every 15 to 60 minutes, and new records appear here as they come in.`,
-      `Nothing yet for ${place}. Holler has not recorded any public records there in the last ${WINDOW_DAYS} days, but it scans every 15 to 60 minutes and new records appear here as they come in.`,
-      `This page is empty for now. Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days, and scans run every 15 to 60 minutes, so new records appear here as they come in.`,
+      `Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days. Weather alerts are checked every 15 minutes and city records a few times a day, so new records appear here as they come in.`,
+      `Nothing yet for ${place}. Holler has not recorded any public records there in the last ${WINDOW_DAYS} days, but weather alerts are checked every 15 minutes and city records a few times a day, and new records appear here as they come in.`,
+      `This page is empty for now. Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days, and weather alerts are checked every 15 minutes while city records are checked a few times a day. New records appear here as they come in.`,
     ][v];
   }
 
@@ -169,9 +170,9 @@ export function buildFaq(city: CityRef, data: PlaceData): { q: string; a: string
         `Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days. Anything within 40 miles of the city center would be tagged to ${city.name}.`,
       ][v('how')];
   const often = [
-    `Holler scans its sources every 15 to 60 minutes, and this page refreshes about every 6 hours. The time of the last refresh is shown near the top.`,
-    `Sources are scanned every 15 to 60 minutes. This page refreshes about every 6 hours, and the time of the last refresh is shown near the top.`,
-    `This page refreshes about every 6 hours, and the time of the last refresh is shown near the top. Holler scans its sources every 15 to 60 minutes.`,
+    `${CADENCE_LONG} This page refreshes about every 6 hours. The time of the last refresh is shown near the top.`,
+    `This page refreshes about every 6 hours, and the time of the last refresh is shown near the top. ${CADENCE_LONG}`,
+    `Sources are checked on their own schedules. ${CADENCE_LONG} This page refreshes about every 6 hours, and the time of the last refresh is shown near the top.`,
   ][v('often')];
   const alerts = [
     `Pick what your business does and how far you travel, and Holler emails you when something nearby matches. It costs $5 a month after a 7-day free trial, and no card is needed to start. Holler never posts anything for you.`,

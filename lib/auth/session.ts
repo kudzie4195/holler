@@ -19,6 +19,7 @@ export interface Profile {
   trial_ends_at: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  email_verified_at: string | null;
   created_at: string;
 }
 

@@ -142,6 +142,8 @@ export function parseNws(raw: unknown): SignalInput[] {
 
     const id = (typeof p.id === 'string' && p.id) || (typeof feat.id === 'string' && feat.id) || '';
     if (!id) continue;
+    // Live shape: properties.id is "urn:oid:..."; the https URL is the feature-level id and properties["@id"].
+    const link = [feat.id, p['@id'], p.id].find((v): v is string => typeof v === 'string' && /^https?:\/\//.test(v)) ?? null;
     const level = levelOf(event);
     let severity: Severity = rule.sev[level];
     if (p.severity === 'Extreme' && severity < 3 && level === 'warning') severity = 3;
@@ -168,7 +170,7 @@ export function parseNws(raw: unknown): SignalInput[] {
       kind: 'alert' as const,
       title: shortArea ? `${event}: ${shortArea}` : event,
       summary: clip(headline && description ? `${headline}. ${description}` : headline || description, 320) || null,
-      url: id.startsWith('http') ? id : null,
+      url: link,
       categories,
       severity,
       occurredAt,

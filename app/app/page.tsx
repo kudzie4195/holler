@@ -4,6 +4,7 @@ import { Card } from '@/components/card';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
+import { VerifyNotice } from './verify-notice';
 import { computeAccess } from '@/lib/auth/access';
 import { cityPageFor } from '@/lib/auth/city-link';
 import { requireProfile } from '@/lib/auth/session';
@@ -97,6 +98,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
             Thanks. Your payment went through. It can take a few seconds to show up here.
           </Notice>
         ) : null}
+        {profile.email_verified_at ? null : <VerifyNotice />}
         <TrialBanner access={access} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>

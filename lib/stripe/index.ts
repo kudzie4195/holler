@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { env } from '../env';
 
 export * from './status';
+export * from './scope';
 
 let cached: Stripe | null = null;
 

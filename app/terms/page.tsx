@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DocPage, DocSection } from '@/components/doc-page';
+import { CADENCE_SHORT } from '@/lib/seo/cadence';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -45,7 +46,7 @@ export default function TermsPage() {
       <DocSection title="Data can be wrong">
         <p>
           Alerts come from public sources that can be late, incomplete or mistaken. Holler gives them to you as it finds
-          them and does not check them. Verify before you drive across town, buy supplies or promise a customer anything.
+          them and does not check them. {CADENCE_SHORT} Some sources publish their own records a day or more after the fact. Verify before you drive across town, buy supplies or promise a customer anything.
           We do not guarantee that you will receive every alert or that any alert is accurate.
         </p>
       </DocSection>

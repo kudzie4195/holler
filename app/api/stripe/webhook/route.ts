@@ -1,7 +1,7 @@
 import type Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
-import { billingNotConfigured, getStripe, mapStripeStatus } from '@/lib/stripe';
+import { billingNotConfigured, getStripe, isHollerMetadata, mapStripeStatus } from '@/lib/stripe';
 
 
 function idOf(x: string | { id: string } | null | undefined): string | null {
@@ -28,8 +28,10 @@ export async function POST(req: Request) {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.client_reference_id;
-      if (userId) {
+      // Shared Stripe account: ignore other products' checkouts (200 so Stripe does not retry).
+      if (!isHollerMetadata(session.metadata)) return Response.json({ received: true, ignored: 'not_holler' });
+      const userId = session.client_reference_id ?? session.metadata?.user_id;
+      if (userId && session.mode === 'subscription') {
         const subId = idOf(session.subscription);
         let status = mapStripeStatus('active')!;
         if (subId) {
@@ -56,6 +58,7 @@ export async function POST(req: Request) {
       event.type === 'customer.subscription.deleted'
     ) {
       const sub = event.data.object as Stripe.Subscription;
+      if (!isHollerMetadata(sub.metadata)) return Response.json({ received: true, ignored: 'not_holler' });
       const status = event.type === 'customer.subscription.deleted' ? 'canceled' : mapStripeStatus(sub.status);
       if (status) {
         const patch = {
@@ -69,6 +72,10 @@ export async function POST(req: Request) {
         if (userId) q = q.eq('user_id', userId);
         else if (customerId) q = q.eq('stripe_customer_id', customerId);
         else return Response.json({ received: true });
+        // An old or duplicate subscription must not flip the status of the one the user is paying for.
+        q = event.type === 'customer.subscription.deleted'
+          ? q.eq('stripe_subscription_id', sub.id)
+          : q.or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${sub.id}`);
         const { error } = await q;
         if (error) throw new Error(error.message);
       }

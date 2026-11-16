@@ -2,7 +2,8 @@
  * Fixture provenance (label every fixture; the sandbox cannot reach these APIs):
  *
  * tests/fixtures/nws-alerts.json   ASSUMED. Shape follows the NWS /alerts/active GeoJSON FeatureCollection
- *   (properties: id, areaDesc, geocode.UGC, sent/effective/onset/expires/ends, status, messageType, severity,
+ *   (feature id and properties["@id"] hold the https://api.weather.gov/alerts/urn:oid:... URL, properties.id is the bare
+ *   urn:oid:..., per the independent review of 2026-11-16 which saw a published live sample; properties: id, @id, areaDesc, geocode.UGC, sent/effective/onset/expires/ends, status, messageType, severity,
  *   certainty, urgency, event, senderName, headline, description). weather.gov/documentation/services-web-api
  *   confirms GeoJSON + CAP content and the User-Agent rule but api.weather.gov blocked automated fetch, so field
  *   names are from the published CAP/NWS schema, values are invented.
@@ -80,6 +81,15 @@ describe('parseNws', () => {
     expect(out.length).toBeGreaterThan(0);
     expectValid(out);
     expect(out.some((s) => /Small Craft/.test(s.title))).toBe(false);
+  });
+
+  it('links every alert to its api.weather.gov URL; properties.id stays the urn used for dedupe', () => {
+    for (const s of out) {
+      expect(s.url).toMatch(/^https:\/\/api\.weather\.gov\/alerts\/urn:oid:/);
+      expect(s.externalId).toMatch(/^urn:oid:/);
+    }
+    const noFeatureId = parseNws({ features: [{ properties: { id: 'urn:oid:x', '@id': 'https://api.weather.gov/alerts/urn:oid:x', event: 'Flash Flood Warning', status: 'Actual', areaDesc: 'Fulton, GA', geocode: { UGC: ['GAC121'] } } }] });
+    expect(noFeatureId[0].url).toBe('https://api.weather.gov/alerts/urn:oid:x');
   });
 
   it('uses the polygon centroid for severe thunderstorm and adds hail trades', () => {

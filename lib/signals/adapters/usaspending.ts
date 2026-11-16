@@ -16,7 +16,18 @@ import { CITIES } from '@/lib/geo';
 const ENDPOINT = 'https://api.usaspending.gov/api/v2/search/spending_by_award/';
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 
-export const NAICS_PREFIXES = ['561720', '561730', '561710', '561612', '238', '236', '562', '722'];
+/**
+ * The API accepts only 2, 4 or 6 digit codes in naics_codes (usaspending-api search/filters/elasticsearch/naics.py:
+ * "naics code filtering only supported for codes with lengths of 2, 4, and 6"). Families are therefore sent as 4 digit groups;
+ * the 6 digit NAICS on each returned award is what drives the category mapping.
+ */
+export const NAICS_PREFIXES = [
+  '561720', '561730', '561710', '561612', // janitorial, landscaping, pest control, security guards
+  '2361', '2362', // residential and nonresidential building construction
+  '2381', '2382', '2383', '2389', // specialty trade contractors
+  '5621', '5622', '5629', // waste collection, treatment, remediation
+  '7223', '7225', // special food services, restaurants
+];
 
 /** NAICS code (any length) to Holler categories. Longest/most specific rule wins, then falls back to the family. */
 export function naicsToCategories(code: string | null | undefined): CategoryId[] {
@@ -82,9 +93,11 @@ function titleCase(s: string): string {
 }
 
 function dateIso(v: unknown): string | null {
-  const t = str(v);
+  let t = str(v);
   if (!t) return null;
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00Z` : t);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) t = `${t}T00:00:00Z`;
+  else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(t)) t = `${t.replace(' ', 'T')}Z`;
+  const d = new Date(t);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -153,7 +166,9 @@ export function parseUsaSpending(raw: unknown): SignalInput[] {
           zip,
           categories,
           severity,
-          occurredAt: dateIso(r['Start Date']) ?? dateIso(r['Last Modified Date']) ?? new Date().toISOString(),
+          // Recent activity, not the contract start: the request filters on last_modified_date, so old contracts with a recent
+          // modification must not be stored with a 2019 date (the daily prune would delete them and the next scan would re-insert and re-notify).
+          occurredAt: dateIso(r['Last Modified Date']) ?? dateIso(r['Start Date']) ?? new Date().toISOString(),
           data: { naics: naicsCode || null, amount: hasAmount ? amount : null, awardId: str(r['Award ID']) || null },
         });
       } catch {
@@ -173,7 +188,7 @@ export function buildUsaSpendingBody(since: Date, now: Date = new Date()) {
   return {
     filters: {
       award_type_codes: ['A', 'B', 'C', 'D'],
-      time_period: [{ start_date: day(start), end_date: day(now) }],
+      time_period: [{ start_date: day(start), end_date: day(now), date_type: 'last_modified_date' }],
       naics_codes: { require: NAICS_PREFIXES },
     },
     fields: [

@@ -67,7 +67,7 @@ export function parseTicketmaster(raw: unknown): SignalInput[] {
           kind: 'event',
           title: `${name}${venueName ? ` at ${venueName}` : ''}${city ? `, ${city}${state ? ` ${state}` : ''}` : ''}`.slice(0, 200),
           summary:
-            [segment && genre ? `${segment} / ${genre}` : segment || genre, `starts ${when.toISOString().slice(0, 16).replace('T', ' ')} UTC`]
+            [segment && genre ? `${segment} / ${genre}` : segment || genre, startsText(start, when)]
               .filter(Boolean)
               .join(', ') || null,
           url: str(ev.url) || null,
@@ -90,6 +90,16 @@ export function parseTicketmaster(raw: unknown): SignalInput[] {
   } catch {
     return [];
   }
+}
+
+/** Venue-local start when the API gives it (an 8 pm show must not read as the next day in UTC). */
+function startsText(start: Obj, when: Date): string {
+  const d = str(start.localDate);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const t = /^\d{2}:\d{2}/.exec(str(start.localTime))?.[0];
+    return t ? `starts ${d} ${t} local time` : `starts ${d}`;
+  }
+  return `starts ${when.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
 export function buildTicketmasterUrl(apiKey: string, now: Date, page: number): string {

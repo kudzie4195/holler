@@ -41,9 +41,14 @@ export async function GET(req: Request) {
   }
   const started = Date.now();
   const now = new Date();
-  const admin = createAdminClient();
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return Response.json({ error: 'not_configured' }, { status: 503 });
+  }
 
-  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_no_email_provider: 0, failed: 0 };
+  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
 
   const { data: matches, error } = await admin
     .from('holler_matches')
@@ -66,7 +71,7 @@ export async function GET(req: Request) {
 
   const { data: profiles, error: pErr } = await admin
     .from('holler_profiles')
-    .select('user_id, business_name, alert_email, subscription_status, trial_ends_at, last_notified_at')
+    .select('user_id, business_name, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at')
     .in('user_id', userIds);
   if (pErr) return Response.json({ error: 'profiles_failed', detail: pErr.message }, { status: 500 });
 
@@ -75,6 +80,7 @@ export async function GET(req: Request) {
     const d = decideNotify(p, now);
     if (d.ok) eligible.push(p);
     else if (d.reason === 'throttled') counts.skipped_throttled++;
+    else if (d.reason === 'unverified') counts.skipped_unverified++;
     else if (d.reason === 'not_entitled') counts.skipped_not_entitled++;
     else counts.skipped_alerts_off++;
   }
@@ -118,7 +124,8 @@ export async function GET(req: Request) {
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
-        headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>` },
+        // RFC 8058 one-click: both headers are required for Gmail/Yahoo bulk-sender rules.
+        headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
       });
       if ('skipped' in res && res.skipped) {
         counts.skipped_no_email_provider++;

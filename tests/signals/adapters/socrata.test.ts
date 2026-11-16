@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { adapters, buildSocrataAdapter, buildSocrataQuery, categorize, extractLatLon, parseSocrata } from '@/lib/signals/adapters/socrata';
-import { SOCRATA_DATASETS, type SocrataDataset } from '@/lib/signals/adapters/socrata-datasets';
+import { adapters, buildSocrataAdapter, buildSocrataQuery, categorize, extractLatLon, parseSocrata, toFloatingLocal, toIso } from '@/lib/signals/adapters/socrata';
+import { SOCRATA_DATASETS, lookbackDays, type SocrataDataset } from '@/lib/signals/adapters/socrata-datasets';
 
 const fx = (name: string): unknown => JSON.parse(readFileSync(join(__dirname, '../../fixtures', name), 'utf8'));
 const ds = (id: string): SocrataDataset => {
@@ -30,7 +30,7 @@ describe('socrata parsers on fixtures', () => {
     expect(roof.lon).toBeCloseTo(-87.6779, 3);
     expect(roof.city).toBe('Chicago');
     expect(roof.state).toBe('IL');
-    expect(roof.occurredAt).toBe('2026-11-12T00:00:00.000Z');
+    expect(roof.occurredAt).toBe('2026-11-12T06:00:00.000Z'); // midnight Chicago (CST) is 06:00Z
     expect(roof.title).toMatch(/^New permit in Chicago: TEAR OFF/);
     expect(out.find((s) => s.externalId === '101234568')!.categories).toContain('electrical');
     const nc = out.find((s) => s.externalId === '101234569')!;
@@ -147,9 +147,36 @@ describe('socrata category rules', () => {
 describe('socrata query + config', () => {
   it('builds $where on the date field, $order desc, $limit 500', () => {
     const p = buildSocrataQuery(ds('socrata-chicago-permits'), new Date('2026-11-10T12:30:45.123Z'));
-    expect(p.get('$where')).toBe("issue_date > '2026-11-10T12:30:45'");
+    // fixed 7 day lookback in Chicago local time (CST, UTC-6)
+    expect(p.get('$where')).toBe("issue_date > '2026-11-03T06:30:45'");
     expect(p.get('$order')).toBe('issue_date DESC');
     expect(p.get('$limit')).toBe('500');
+  });
+  it('Chicago 311 run at 15:00Z: the window reaches back 3 days in local time and includes rows filed in the last 3 hours', () => {
+    const now = new Date('2026-11-16T15:00:00Z');
+    const where = buildSocrataQuery(ds('socrata-chicago-311'), now).get('$where')!;
+    // Review's recomputed failing case: the old query was created_date > '2026-11-16T11:50:00' (UTC digits vs local stamps).
+    expect(where).toContain("created_date > '2026-11-13T09:00:00'");
+    const lower = /created_date > '([^']+)'/.exec(where)![1];
+    const recentLocal = '2026-11-16T07:30:00'; // filed 13:30Z, i.e. 90 minutes before the run
+    expect(recentLocal > lower).toBe(true);
+    expect('2026-11-16T05:50:00' > lower).toBe(true); // the row the old window excluded
+    expect('2026-11-13T08:59:59' > lower).toBe(false);
+    // a run two scans later still sees the same row: no dependence on the previous run time
+    const later = buildSocrataQuery(ds('socrata-chicago-311'), new Date('2026-11-16T21:00:00Z')).get('$where')!;
+    expect(recentLocal > /created_date > '([^']+)'/.exec(later)![1]).toBe(true);
+  });
+  it('lookbacks: 3 days for 311, 7 days for permits and inspections; DST and zones are applied per dataset', () => {
+    expect(lookbackDays(ds('socrata-chicago-311'))).toBe(3);
+    expect(lookbackDays(ds('socrata-chicago-permits'))).toBe(7);
+    expect(lookbackDays(ds('socrata-chicago-inspections'))).toBe(7);
+    // LA in summer is PDT (UTC-7); NYC in winter is EST (UTC-5)
+    expect(toFloatingLocal(new Date('2026-07-01T12:00:00Z'), 'America/Los_Angeles')).toBe('2026-07-01T05:00:00');
+    expect(toFloatingLocal(new Date('2026-11-16T15:00:00Z'), 'America/New_York')).toBe('2026-11-16T10:00:00');
+    expect(toIso('2026-07-01T05:00:00', 'America/Los_Angeles')).toBe('2026-07-01T12:00:00.000Z');
+    expect(toIso('2026-11-16T09:00:00.000', 'America/Chicago')).toBe('2026-11-16T15:00:00.000Z');
+    expect(toIso('2026-11-16T09:00:00Z', 'America/Chicago')).toBe('2026-11-16T09:00:00.000Z');
+    for (const d of SOCRATA_DATASETS) expect(() => new Intl.DateTimeFormat('en-US', { timeZone: d.tz })).not.toThrow();
   });
   it('311 queries narrow server-side on the type column; inspections add their extraWhere', () => {
     expect(buildSocrataQuery(ds('socrata-nyc-311'), new Date()).get('$where')).toContain("upper(complaint_type) like '%RODENT%'");

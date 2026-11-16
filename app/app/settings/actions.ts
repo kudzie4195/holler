@@ -1,11 +1,11 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import Stripe from 'stripe';
-import { env } from '@/lib/env';
+import { getStripe, isHollerMetadata } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getProfile, getUser } from '@/lib/auth/session';
+import { isHollerOnly, withoutHoller } from '@/lib/auth/membership';
 import { saveProfile } from '@/lib/auth/profile';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 
@@ -19,37 +19,82 @@ export interface DeleteState {
   error?: string;
 }
 
+const DELETE_ERROR = "We couldn't delete your account. Try again in a moment.";
+
 /**
- * Deletes the auth user (profiles and matches cascade via foreign keys).
- * An active Stripe subscription is cancelled first so a deleted account is never billed again.
+ * Deletes the user's Holler account on a project shared with other products.
+ *  1. Cancels only Holler subscriptions (metadata.app === 'holler'); if that fails nothing else is deleted.
+ *  2. Deletes Holler rows (matches, then profile).
+ *  3. Deletes the auth user ONLY when app_metadata.products is exactly ['holler']. Otherwise it just removes
+ *     'holler' from products, so the other products' account, data and billing are untouched.
+ *  4. Signs out this session only (scope 'local').
  */
 export async function deleteAccount(): Promise<DeleteState> {
   const user = await getUser();
   if (!user) redirect('/login');
 
   try {
+    const admin = createAdminClient();
     const profile = await getProfile(user.id);
-    if (profile?.stripe_subscription_id && env.STRIPE_SECRET_KEY) {
+
+    const stripe = getStripe();
+    if (stripe && profile && (profile.stripe_subscription_id || profile.stripe_customer_id)) {
       try {
-        await new Stripe(env.STRIPE_SECRET_KEY).subscriptions.cancel(profile.stripe_subscription_id);
-      } catch (e) {
-        const code = (e as { code?: string }).code;
-        if (code !== 'resource_missing') {
-          return { error: "We couldn't cancel your subscription, so we haven't deleted anything. Open Manage billing, cancel there, then try again." };
+        const ids = new Set<string>();
+        if (profile.stripe_customer_id) {
+          const subs = await stripe.subscriptions.list({ customer: profile.stripe_customer_id, status: 'all', limit: 100 });
+          for (const sub of subs.data) {
+            if (isHollerMetadata(sub.metadata) && sub.status !== 'canceled' && sub.status !== 'incomplete_expired') ids.add(sub.id);
+          }
         }
+        if (profile.stripe_subscription_id) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
+            if (isHollerMetadata(sub.metadata) && sub.status !== 'canceled' && sub.status !== 'incomplete_expired') ids.add(sub.id);
+          } catch (e) {
+            if ((e as { code?: string }).code !== 'resource_missing') throw e;
+          }
+        }
+        for (const id of ids) {
+          try {
+            await stripe.subscriptions.cancel(id);
+          } catch (e) {
+            if ((e as { code?: string }).code !== 'resource_missing') throw e;
+          }
+        }
+      } catch {
+        return { error: "We couldn't cancel your subscription, so we haven't deleted anything. Open Manage billing, cancel there, then try again." };
       }
     }
-    const { error } = await createAdminClient().auth.admin.deleteUser(user.id);
-    if (error) return { error: "We couldn't delete your account. Try again in a moment." };
+
+    // Holler rows only. Matches first; profile last.
+    const { error: mErr } = await admin.from('holler_matches').delete().eq('user_id', user.id);
+    if (mErr) return { error: DELETE_ERROR };
+    const { error: pErr } = await admin.from('holler_profiles').delete().eq('user_id', user.id);
+    if (pErr) return { error: DELETE_ERROR };
+
+    const { data: fresh, error: gErr } = await admin.auth.admin.getUserById(user.id);
+    if (gErr || !fresh?.user) return { error: DELETE_ERROR };
+    const appMetadata = fresh.user.app_metadata;
+    if (isHollerOnly(appMetadata)) {
+      const { error } = await admin.auth.admin.deleteUser(user.id);
+      if (error) return { error: DELETE_ERROR };
+    } else {
+      const { error } = await admin.auth.admin.updateUserById(user.id, {
+        app_metadata: { products: withoutHoller(appMetadata), holler_email_verified_at: null },
+      });
+      if (error) return { error: DELETE_ERROR };
+    }
   } catch {
-    return { error: "We couldn't delete your account. Try again in a moment." };
+    return { error: DELETE_ERROR };
   }
 
   try {
     const supabase = await createClient();
-    await supabase.auth.signOut();
+    // 'local': never end the user's sessions in other products.
+    await supabase.auth.signOut({ scope: 'local' });
   } catch {
-    // The user is already gone; the stale cookie is harmless and fails verification.
+    // The stale cookie is harmless and fails verification.
   }
   redirect('/');
 }

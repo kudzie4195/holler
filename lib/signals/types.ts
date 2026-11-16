@@ -35,6 +35,8 @@ export interface SignalInput {
 
 export interface AdapterContext {
   since: Date;
+  /** run clock; adapters that use fixed lookback windows read this instead of `since` */
+  now?: Date;
   fetch: typeof fetch;
   env: Record<string, string | undefined>;
   log: (m: string) => void;

@@ -65,7 +65,7 @@ const WRAP_OPEN =
 const WRAP_CLOSE = '</div>';
 
 function button(href: string, label: string): string {
-  return `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="background:#E8590C;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:999px;display:inline-block;font-weight:600">${escapeHtml(label)}</a></p>`;
+  return `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="background:#E8590C;color:#16181D;text-decoration:none;padding:12px 20px;border-radius:999px;display:inline-block;font-weight:600">${escapeHtml(label)}</a></p>`;
 }
 
 export function renderDigest(opts: {
@@ -149,5 +149,21 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
     button(opts.appUrl, 'Open your feed') +
     WRAP_CLOSE;
   const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, people asking for a recommendation. Scans run every 15 to 60 minutes.\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOpen your feed: ${opts.appUrl}\n`;
+  return { subject, html, text };
+}
+
+/** Welcome plus the email-confirmation link sent right after signup (and on resend). */
+export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number }): Rendered {
+  const days = opts.trialDays ?? 7;
+  const subject = 'Welcome to Holler: confirm your email';
+  const html =
+    WRAP_OPEN +
+    `<h1 style="font-size:22px;margin:0 0 12px 0">Welcome to Holler</h1>` +
+    `<p>Your ${days}-day free trial has started. No card needed. Holler never posts anything for you.</p>` +
+    `<p>One step left: confirm this email address so we can send you alerts. The link works for 7 days.</p>` +
+    button(opts.verifyUrl, 'Confirm my email') +
+    `<p style="font-size:14px;color:#5D6470">You can set up what you do and where you work any time at <a href="${escapeHtml(opts.appUrl)}" style="color:#5D6470">${escapeHtml(opts.appUrl)}</a>. If you did not sign up, ignore this email and nothing happens.</p>` +
+    WRAP_CLOSE;
+  const text = `Welcome to Holler\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOne step left: confirm this email address so we can send you alerts. The link works for 7 days.\n\n${opts.verifyUrl}\n\nYou can set up what you do and where you work any time: ${opts.appUrl}\n\nIf you did not sign up, ignore this email and nothing happens.\n`;
   return { subject, html, text };
 }

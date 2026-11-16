@@ -6,6 +6,7 @@ import {
   RULES_BY_SUBTYPE,
   SOCRATA_DATASETS,
   datasetPageUrl,
+  lookbackDays,
   type SocrataDataset,
 } from './socrata-datasets';
 
@@ -74,12 +75,37 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
   return null;
 }
 
-/** SODA floating timestamps have no zone; treat them as UTC so output is stable. */
-export function toIso(v: unknown): string | null {
+/** Offset (ms) of `tz` from UTC at the instant `ms`. */
+function tzOffsetMs(tz: string, ms: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(ms));
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - Math.floor(ms / 1000) * 1000;
+}
+
+/** Format an instant as a SODA floating timestamp (local wall clock in `tz`, no zone). */
+export function toFloatingLocal(d: Date, tz: string): string {
+  return new Date(d.getTime() + tzOffsetMs(tz, d.getTime())).toISOString().slice(0, 19);
+}
+
+/**
+ * SODA floating timestamps hold local wall-clock time with no zone. With `tz` they are converted to a true UTC instant;
+ * without `tz` they are read as UTC. Values that carry a zone are used as is.
+ */
+export function toIso(v: unknown, tz?: string): string | null {
   if (typeof v !== 'string' || !v) return null;
   const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(v);
-  const d = new Date(hasZone ? v : `${v}Z`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  if (hasZone) {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const asUtc = new Date(`${v}Z`);
+  if (Number.isNaN(asUtc.getTime())) return null;
+  if (!tz) return asUtc.toISOString();
+  let guess = asUtc.getTime() - tzOffsetMs(tz, asUtc.getTime());
+  guess = asUtc.getTime() - tzOffsetMs(tz, guess); // second pass settles DST edges
+  return new Date(guess).toISOString();
 }
 
 export function categorize(ds: SocrataDataset, text: string): { categories: CategoryId[]; severity: Severity } {
@@ -108,12 +134,12 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
     try {
       if (!item || typeof item !== 'object') continue;
       const row = item as Row;
-      const occurredAt = toIso(row[ds.dateField]);
+      const occurredAt = toIso(row[ds.dateField], ds.tz);
       const rawId = s(row, ds.idField);
       if (!occurredAt || !rawId) continue;
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
-      const externalId = ds.subtype === 'inspection' ? `${rawId}:${occurredAt.slice(0, 10)}` : rawId;
+      const externalId = ds.subtype === 'inspection' ? `${rawId}:${s(row, ds.dateField).slice(0, 10)}` : rawId;
       if (seen.has(externalId)) continue;
 
       const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
@@ -172,9 +198,14 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
   return out;
 }
 
-/** Builds the SODA query string. $where is on the date field; newest first; $limit 500. */
-export function buildSocrataQuery(ds: SocrataDataset, since: Date): URLSearchParams {
-  const sinceStr = since.toISOString().slice(0, 19); // floating timestamp, no zone
+/**
+ * Builds the SODA query string. $where is a fixed lookback on the date field, expressed in the dataset's own local
+ * wall-clock time (the column is a floating timestamp), so it does not depend on when the last scan ran or how late the
+ * portal published. Duplicates are absorbed by unique(source, external_id). Newest first; $limit 500.
+ */
+export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams {
+  const from = new Date(now.getTime() - lookbackDays(ds) * 86_400_000);
+  const sinceStr = toFloatingLocal(from, ds.tz);
   const clauses = [`${ds.dateField} > '${sinceStr}'`];
   if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
   if (ds.subtype === '311' && ds.typeFilterField) {
@@ -203,7 +234,7 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     sourceUrl: datasetPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
-        const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${buildSocrataQuery(ds, ctx.since).toString()}`;
+        const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${buildSocrataQuery(ds, ctx.now ?? new Date()).toString()}`;
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         if (token) headers['X-App-Token'] = token;

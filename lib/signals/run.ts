@@ -13,6 +13,7 @@ import {
   type SignalRowInput,
   type StoredSignal,
 } from './store';
+import { normalizeState } from './adapters/usaspending';
 import type { Adapter, Severity, SignalInput } from './types';
 
 export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
@@ -29,6 +30,8 @@ export interface SourceResult {
   samples: string[];
   logs: string[];
   error?: string;
+  /** dry probes only: newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
+  latestOccurredAt?: string | null;
   missingEnv?: string[];
   ms: number;
 }
@@ -69,6 +72,16 @@ export function missingEnvFor(adapter: Adapter, e: Record<string, string | undef
   return (adapter.requiresEnv ?? []).filter((k) => !e[k]);
 }
 
+function safeHttpUrl(u: unknown): string | null {
+  if (typeof u !== 'string' || !u) return null;
+  try {
+    const p = new URL(u);
+    return p.protocol === 'http:' || p.protocol === 'https:' ? p.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Validate and normalize adapter output. Drops malformed rows and duplicate externalIds. */
 export function normalizeSignals(adapter: Adapter, input: SignalInput[]): SignalInput[] {
   const seen = new Set<string>();
@@ -91,7 +104,8 @@ export function normalizeSignals(adapter: Adapter, input: SignalInput[]): Signal
       summary: s.summary ? String(s.summary).slice(0, 600) : null,
       lat: hasBoth ? lat : null,
       lon: hasBoth ? lon : null,
-      state: s.state ? s.state.trim().toUpperCase().slice(0, 2) : null,
+      state: normalizeState(s.state),
+      url: safeHttpUrl(s.url),
       categories: Array.from(new Set((s.categories ?? []).filter((c) => isCategoryId(c)))),
       severity: sev,
       occurredAt: new Date(t).toISOString(),
@@ -124,7 +138,7 @@ interface Fetched {
   startedAt: string;
 }
 
-async function fetchOne(adapter: Adapter, since: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
+async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
@@ -133,7 +147,7 @@ async function fetchOne(adapter: Adapter, since: Date, timeoutMs: number, fetchI
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error(`adapter timeout after ${timeoutMs} ms`)), timeoutMs);
       }),
@@ -203,12 +217,15 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     due.map((a) => {
       const last = lastRuns[a.id];
       const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, timeoutMs, fetchImpl);
+      return fetchOne(a, since, now, timeoutMs, fetchImpl);
     }),
   );
 
   if (dry || !db) {
-    for (const f of fetched) report.sources.push(f.result);
+    for (const f of fetched) {
+      f.result.latestOccurredAt = f.signals.reduce<string | null>((m, s) => (m === null || s.occurredAt > m ? s.occurredAt : m), null);
+      report.sources.push(f.result);
+    }
   } else {
     // Phase 1: persist new signals per source.
     const storedAll: StoredSignal[] = [];

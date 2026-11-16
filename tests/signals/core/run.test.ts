@@ -87,6 +87,27 @@ describe('runScan dry run', () => {
     expect(r.totals.fetched).toBe(4);
   });
 
+  it('dry mode reports latestOccurredAt per source (null when quiet) and passes the run clock to adapters', async () => {
+    const stale = adapter({ id: 'stale', fetch: async () => [sig({ occurredAt: '2026-11-01T00:00:00Z' }), sig({ externalId: 'z', occurredAt: '2026-11-03T05:00:00Z' })] });
+    const quiet = adapter({ id: 'quiet', fetch: async () => [] });
+    let seenNow: Date | undefined;
+    const clock = adapter({ id: 'clock', fetch: async (ctx) => { seenNow = ctx.now; return []; } });
+    const now = new Date('2026-11-16T15:00:00Z');
+    const r = await runScan({ dry: true, now, adapters: [stale, quiet, clock] });
+    const by = Object.fromEntries(r.sources.map((x) => [x.id, x]));
+    expect(by.stale.latestOccurredAt).toBe('2026-11-03T05:00:00.000Z');
+    expect(by.quiet.latestOccurredAt).toBeNull();
+    expect(seenNow?.toISOString()).toBe(now.toISOString());
+  });
+
+  it('normalizes full state names and drops non-http urls', () => {
+    const [a, b] = normalizeSignals(adapter(), [sig({ state: 'Georgia', url: 'javascript:alert(1)' }), sig({ externalId: 'q', state: 'ga', url: 'https://example.gov/x' })]);
+    expect(a.state).toBe('GA');
+    expect(a.url).toBeNull();
+    expect(b.state).toBe('GA');
+    expect(b.url).toBe('https://example.gov/x');
+  });
+
   it('reports skipped(env) for adapters whose env is missing, without fetching', async () => {
     let called = false;
     const a = adapter({ id: 'needskey', requiresEnv: ['SAM_API_KEY'], fetch: async () => { called = true; return []; } });

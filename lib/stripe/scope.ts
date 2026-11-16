@@ -1,0 +1,41 @@
+/**
+ * Holler may share a Stripe account (and the Supabase auth users) with other products.
+ * Everything Holler creates is tagged metadata.app = 'holler', and everything Holler reads or cancels
+ * must carry that tag.
+ */
+export const APP_TAG = 'holler';
+
+export function hollerMetadata(userId: string): { app: string; user_id: string } {
+  return { app: APP_TAG, user_id: userId };
+}
+
+export function isHollerMetadata(metadata: Record<string, string> | null | undefined): boolean {
+  return metadata?.app === APP_TAG;
+}
+
+const DAY_MS = 86_400_000;
+/** Stripe Checkout requires subscription_data.trial_end to be at least 48 hours out (see Stripe SDK types). */
+const MIN_TRIAL_END_MS = 2 * DAY_MS + 5 * 60_000;
+
+export type TrialParams = { trial_end: number } | { trial_period_days: number } | Record<string, never>;
+
+/**
+ * Keeps the app-side free trial intact when someone subscribes early: no charge until trial_ends_at.
+ * - trial already over: charge now (no trial params)
+ * - at least 48 h left: exact trial_end timestamp
+ * - less than 48 h left: Checkout rejects trial_end, so use whole trial_period_days (rounded up, minimum 1),
+ *   which can only ever add a few free hours, never charge inside the trial.
+ */
+export function trialParams(trialEndsAt: string | null | undefined, now: number = Date.now()): TrialParams {
+  const end = trialEndsAt ? new Date(trialEndsAt).getTime() : NaN;
+  if (!Number.isFinite(end)) return {};
+  const left = end - now;
+  if (left <= 0) return {};
+  if (left >= MIN_TRIAL_END_MS) return { trial_end: Math.ceil(end / 1000) };
+  return { trial_period_days: Math.max(1, Math.ceil(left / DAY_MS)) };
+}
+
+/** Statuses that already have a live Holler subscription. Checkout must not create a second one. */
+export function alreadySubscribed(status: string | null | undefined): boolean {
+  return status === 'active' || status === 'past_due';
+}

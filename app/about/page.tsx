@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { ButtonLink } from '@/components/button';
+import { CADENCE_LONG } from '@/lib/seo/cadence';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -50,7 +51,7 @@ export default function AboutPage() {
       </DocSection>
 
       <DocSection title="Where the data comes from">
-        <p>Everything comes from official APIs, open data and licensed search APIs, and each alert links to the page it came from.</p>
+        <p>Everything comes from official APIs, open data and licensed search APIs, and each alert links to the page or dataset it came from.</p>
         <ul>
           {sources.map((s) => (
             <li key={s.name}>
@@ -62,10 +63,11 @@ export default function AboutPage() {
           ))}
         </ul>
         <p>
-          Coverage is uneven. Weather, disasters, federal contracts and airport status cover the whole US, but permits, 311
-          and inspections only exist where a city publishes them. Some sources can be late, and a few will be wrong.
-          Check the source before you act.
+          Coverage is uneven. Weather, disasters and federal contracts cover the whole US, and airport status covers 40
+          major airports. Permits, 311 and inspections come only from the cities we have connected so far, such as Chicago,
+          New York and Austin. Some sources can be late, and a few will be wrong. Check the source before you act.
         </p>
+        <p>{CADENCE_LONG}</p>
       </DocSection>
 
       <DocSection title="What we never do">

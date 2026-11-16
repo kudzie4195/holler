@@ -43,16 +43,20 @@ export function friendlyAuthError(error: AuthLikeError): { message: string; stat
     return { message: 'Too many tries. Wait a minute, then try again.', status: 429 };
   }
   if (code === 'invalid_credentials') {
-    return { message: "That email and password don't match.", status: 401 };
-  }
-  if (code === 'email_exists' || code === 'user_already_exists') {
-    return { message: 'There is already an account with that email. Log in instead.', status: 409 };
+    return { message: INVALID_LOGIN_MESSAGE, status: 401 };
   }
   if (code === 'weak_password') {
     return { message: error.message || 'Pick a stronger password.', status: 400 };
   }
   return { message: 'Something went wrong on our side. Try again in a moment.', status: 500 };
 }
+
+/** True when an auth error means the email is already registered (never shown to the caller; see signup). */
+export function isEmailTaken(error: AuthLikeError): boolean {
+  return error.code === 'email_exists' || error.code === 'user_already_exists';
+}
+
+export const INVALID_LOGIN_MESSAGE = "That email and password don't match.";
 
 export function isConfigError(e: unknown): boolean {
   return e instanceof Error && /not configured/i.test(e.message);

@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { adapters as usaAdapters, buildUsaSpendingBody, naicsToCategories, parseUsaSpending } from '@/lib/signals/adapters/usaspending';
+import { adapters as usaAdapters, NAICS_PREFIXES, buildUsaSpendingBody, naicsToCategories, parseUsaSpending } from '@/lib/signals/adapters/usaspending';
 import { adapters as samAdapters, buildSamUrl, parseSam } from '@/lib/signals/adapters/sam';
 
 const fx = (name: string): unknown => JSON.parse(readFileSync(join(__dirname, '../../fixtures', name), 'utf8'));
@@ -52,7 +52,7 @@ describe('parseUsaSpending', () => {
     expect(a.severity).toBe(2);
     expect(a.title).toContain('$2.5M');
     expect(a.url).toContain('https://www.usaspending.gov/award/CONT_AWD_W912EF26P0042');
-    expect(a.occurredAt).toBe('2026-11-03T00:00:00.000Z');
+    expect(a.occurredAt).toBe('2026-11-05T00:00:00.000Z'); // Last Modified Date wins over Start Date (2026-11-03)
   });
   it('handles bare-string NAICS and small awards (severity 1)', () => {
     const l = out.find((s) => s.externalId.startsWith('CONT_AWD_47PA0126F0007'))!;
@@ -64,8 +64,31 @@ describe('parseUsaSpending', () => {
     const body = buildUsaSpendingBody(new Date('2026-11-10T00:00:00Z'), new Date('2026-11-16T00:00:00Z'));
     expect(body.filters.award_type_codes).toEqual(['A', 'B', 'C', 'D']);
     expect(body.filters.naics_codes.require).toContain('561720');
-    expect(body.filters.time_period[0]).toEqual({ start_date: '2026-11-10', end_date: '2026-11-16' });
+    expect(body.filters.time_period[0]).toEqual({ start_date: '2026-11-10', end_date: '2026-11-16', date_type: 'last_modified_date' });
     expect(body.limit).toBe(100);
+  });
+  it('every NAICS code sent is 2, 4 or 6 digits (the API rejects other lengths with HTTP 400)', () => {
+    const codes = buildUsaSpendingBody(new Date('2026-11-10T00:00:00Z'), new Date('2026-11-16T00:00:00Z')).filters.naics_codes.require;
+    expect(codes.length).toBeGreaterThan(0);
+    for (const c of codes) {
+      expect(c).toMatch(/^\d+$/);
+      expect([2, 4, 6]).toContain(c.length);
+    }
+    expect(NAICS_PREFIXES).toEqual(codes);
+  });
+  it('every trade rule the mapper uses is reachable from a requested code', () => {
+    for (const full of ['236118', '236220', '238160', '238220', '238910', '562111', '562910', '722330', '722511']) {
+      const covered = NAICS_PREFIXES.some((p) => full.startsWith(p));
+      expect(covered, full).toBe(true);
+      expect(naicsToCategories(full).length, full).toBeGreaterThan(0);
+    }
+  });
+  it('occurredAt uses the last modified date (recent activity), not the contract start', () => {
+    const old = parseUsaSpending({
+      results: [{ 'Award ID': 'OLD1', generated_internal_id: 'CONT_OLD1', Description: 'ROOF REPAIR', 'Start Date': '2019-03-01',
+        'Last Modified Date': '2026-11-14 08:30:00', NAICS: { code: '238160' }, 'Primary Place of Performance': { state_code: 'GA', city_name: 'ATLANTA' } }],
+    });
+    expect(old[0].occurredAt).toBe('2026-11-14T08:30:00.000Z');
   });
   it('adapter POSTs to the spending_by_award endpoint', async () => {
     let method = '';

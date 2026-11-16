@@ -78,7 +78,7 @@ describe('draft fallback', () => {
 
 describe('notify gating', () => {
   const now = new Date('2026-06-01T12:00:00Z');
-  const base = { alert_email: true, subscription_status: 'trialing', trial_ends_at: '2026-06-03T00:00:00Z', last_notified_at: null };
+  const base = { alert_email: true, subscription_status: 'trialing', trial_ends_at: '2026-06-03T00:00:00Z', last_notified_at: null, email_verified_at: '2026-05-30T00:00:00Z' };
   it('allows trialing inside trial and active', () => {
     expect(decideNotify(base, now).ok).toBe(true);
     expect(decideNotify({ ...base, subscription_status: 'active', trial_ends_at: '2020-01-01T00:00:00Z' }, now).ok).toBe(true);
@@ -88,6 +88,10 @@ describe('notify gating', () => {
     expect(decideNotify({ ...base, subscription_status: 'past_due' }, now)).toEqual({ ok: false, reason: 'not_entitled' });
     expect(decideNotify({ ...base, subscription_status: 'canceled' }, now)).toEqual({ ok: false, reason: 'not_entitled' });
     expect(decideNotify({ ...base, alert_email: false }, now)).toEqual({ ok: false, reason: 'alerts_off' });
+  });
+  it('only emails verified addresses', () => {
+    expect(decideNotify({ ...base, email_verified_at: null }, now)).toEqual({ ok: false, reason: 'unverified' });
+    expect(decideNotify({ ...base, subscription_status: 'active', email_verified_at: null }, now)).toEqual({ ok: false, reason: 'unverified' });
   });
   it('honors the 60 minute rule at the boundary', () => {
     expect(decideNotify({ ...base, last_notified_at: '2026-06-01T11:01:00Z' }, now)).toEqual({ ok: false, reason: 'throttled' });

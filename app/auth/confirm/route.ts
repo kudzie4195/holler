@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth/redirect';
+import { originAllowed } from '@/lib/auth/origin';
+import { siteUrl } from '@/lib/env';
 
 const TYPES: EmailOtpType[] = ['recovery', 'email', 'signup', 'magiclink', 'invite', 'email_change'];
 
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(url, 303);
   };
 
+  if (!originAllowed(request, siteUrl)) return fail();
   if (!tokenHash || !type || !TYPES.includes(type)) return fail();
 
   try {

@@ -36,6 +36,15 @@ export function BillingButton({
       } else if (res.status === 401) {
         hardNavigate('/login');
         return;
+      } else if (res.status === 409 && endpoint === '/api/stripe/checkout') {
+        // Already subscribed: manage it in the billing portal instead of creating a second subscription.
+        const portal = await fetch('/api/stripe/portal', { method: 'POST' });
+        const body = (await portal.json().catch(() => ({}))) as { url?: string };
+        if (portal.ok && body.url) {
+          window.location.href = body.url;
+          return;
+        }
+        setMessage('You already have a subscription. Open Settings to manage billing.');
       } else if (res.ok) {
         const body = (await res.json().catch(() => ({}))) as { url?: string };
         if (body.url) {

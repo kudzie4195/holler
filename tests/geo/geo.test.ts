@@ -179,7 +179,9 @@ describe('summarize and copy', () => {
     for (const c of CITIES.slice(0, 30)) {
       const faq = buildFaq({ name: c.name, state: c.state, slug: c.slug }, data).map((f) => f.a).join(' ');
       expect(faq).toContain('40 miles');
-      expect(faq).toContain('15 to 60 minutes');
+      expect(faq).toContain('every 15 minutes');
+      expect(faq).toContain('a few times a day');
+      expect(faq).not.toContain('15 to 60');
       expect(faq).toContain('$5 a month');
       expect(faq).toContain('7 public records');
     }
