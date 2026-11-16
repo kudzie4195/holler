@@ -1,3 +1,5 @@
+import { CADENCE_SHORT } from '../seo/cadence';
+
 export interface DigestItem {
   kind: string;
   title: string;
@@ -144,11 +146,11 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
   const html =
     WRAP_OPEN +
     `<h1 style="font-size:22px;margin:0 0 12px 0">Welcome, ${escapeHtml(noDash(opts.businessName))}</h1>` +
-    `<p>Holler watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, people asking for a recommendation. Scans run every 15 to 60 minutes.</p>` +
+    `<p>Holler watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, people asking for a recommendation. ${CADENCE_SHORT}</p>` +
     `<p>Your ${days}-day free trial has started. No card needed. Holler never posts anything for you.</p>` +
     button(opts.appUrl, 'Open your feed') +
     WRAP_CLOSE;
-  const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, people asking for a recommendation. Scans run every 15 to 60 minutes.\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOpen your feed: ${opts.appUrl}\n`;
+  const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, people asking for a recommendation. ${CADENCE_SHORT}\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOpen your feed: ${opts.appUrl}\n`;
   return { subject, html, text };
 }
 

@@ -41,7 +41,7 @@ export default function PrivacyPage() {
           <li>Resend delivers our emails.</li>
           <li>
             An AI model provider, reached through Vercel&apos;s AI Gateway, writes draft replies. When you ask for a draft,
-            we send it the text of that one alert and your business name. Nothing else.
+            we send it the text of that one alert, your business name, your trades and your city. Nothing else.
           </li>
         </ul>
         <p>We do not sell your data, and we do not run advertising trackers.</p>

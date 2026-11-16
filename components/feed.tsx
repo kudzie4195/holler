@@ -8,6 +8,7 @@ import { Card } from './card';
 import { EmptyState } from './empty-state';
 import { setMatchStatus } from '@/app/app/actions';
 import { sourceLabel } from './signal-meta';
+import { CADENCE_SHORT } from '@/lib/seo/cadence';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -84,7 +85,7 @@ export function Feed({
         }
       >
         <p>
-          Holler scans its sources every 15 to 60 minutes. When something matches what you do and where you work, it
+          {CADENCE_SHORT} When something matches what you do and where you work, it
           lands here and in your email. Quiet days happen.
         </p>
       </EmptyState>
