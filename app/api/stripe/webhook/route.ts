@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
 import { billingNotConfigured, getStripe, mapStripeStatus } from '@/lib/stripe';
 
-export const dynamic = 'force-dynamic';
 
 function idOf(x: string | { id: string } | null | undefined): string | null {
   if (!x) return null;

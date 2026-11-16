@@ -40,10 +40,11 @@ const INSPECTION_RE = /inspect|health dep|restaurant|food service|sanitation/i;
 
 /**
  * Which section a signal belongs to. Kinds map one to one except 'civic', which holds both
- * 311 requests and inspections: ASSUMED split by keyword on source id and title because the
- * civic adapters (W3) set no finer-grained field in the contract.
+ * 311 requests and inspections. The Socrata adapter sets `data.subtype` ('permit' | '311' |
+ * 'inspection'); that is used when present. The keyword regex on source id and title is only a
+ * fallback for rows written before the subtype existed.
  */
-export function sectionFor(kind: string, source: string, title: string): SectionId | null {
+export function sectionFor(kind: string, source: string, title: string, subtype?: string | null): SectionId | null {
   switch (kind) {
     case 'alert':
       return 'alerts';
@@ -55,6 +56,8 @@ export function sectionFor(kind: string, source: string, title: string): Section
     case 'permit':
       return 'permits';
     case 'civic':
+      if (subtype === 'inspection') return 'inspections';
+      if (subtype === '311') return 'requests311';
       return INSPECTION_RE.test(`${source} ${title}`) ? 'inspections' : 'requests311';
     case 'contract':
       return 'contracts';

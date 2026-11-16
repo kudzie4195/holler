@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/env';
 import { billingNotConfigured, getStripe, PRICE_CENTS } from '@/lib/stripe';
 
-export const dynamic = 'force-dynamic';
 
 export async function POST() {
   const stripe = getStripe();

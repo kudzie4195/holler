@@ -11,7 +11,6 @@ import {
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 
 export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
 
 const MAX_USERS_PER_RUN = 150;
 const MAX_ITEMS_IN_DIGEST = 10;

@@ -13,6 +13,8 @@ export interface SignalRowDb {
   severity: number;
   occurred_at: string;
   expires_at: string | null;
+  /** holler_signals.data->>'subtype' (permit | 311 | inspection), when the adapter set it */
+  subtype?: string | null;
 }
 
 export interface SectionItem {
@@ -111,7 +113,7 @@ export function summarize(
 
   for (const r of inWindow) {
     sources.add(r.source);
-    const sec = sectionFor(r.kind, r.source, r.title);
+    const sec = sectionFor(r.kind, r.source, r.title, r.subtype);
     if (!sec) continue;
     if (sec === 'alerts') {
       const exp = r.expires_at ? Date.parse(r.expires_at) : null;

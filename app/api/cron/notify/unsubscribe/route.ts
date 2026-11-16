@@ -3,7 +3,6 @@ import { env } from '@/lib/env';
 import { verifyUnsubscribeToken } from '@/lib/email/token';
 import { escapeHtml } from '@/lib/email/templates';
 
-export const dynamic = 'force-dynamic';
 
 function page(title: string, body: string, status = 200): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escapeHtml(title)}</title></head><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;background:#FBFAF7;color:#16181D;margin:0;padding:48px 24px"><main style="max-width:480px;margin:0 auto"><h1 style="font-size:24px;letter-spacing:-0.02em">${escapeHtml(title)}</h1><p style="color:#5D6470;line-height:1.5">${escapeHtml(body)}</p><p><a href="/app/settings" style="color:#E8590C">Email settings</a></p></main></body></html>`;

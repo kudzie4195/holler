@@ -133,6 +133,12 @@ describe('summarize and copy', () => {
     expect(data.sections.inspections?.[0].id).toBe(6);
     expect(data.sections.asks?.[0].url).toBeNull();
   });
+  it('uses data.subtype for civic rows and only falls back to the regex when it is missing', () => {
+    expect(sectionFor('civic', 'socrata-x-311', 'Restaurant grease complaint', '311')).toBe('requests311');
+    expect(sectionFor('civic', 'socrata-x', 'Pothole', 'inspection')).toBe('inspections');
+    expect(sectionFor('civic', 'socrata-x', 'Restaurant inspection failed', null)).toBe('inspections');
+    expect(sectionFor('civic', 'socrata-x', 'Pothole', undefined)).toBe('requests311');
+  });
   it('tallies trades for the week and the window', () => {
     expect(data.weekTrades.find((t) => t.id === 'roofing')?.count).toBe(2);
     expect(data.windowTrades.find((t) => t.id === 'roofing')?.count).toBe(3);

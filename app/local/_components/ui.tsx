@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Footer } from '@/components/footer';
+import { TopNav } from '@/components/top-nav';
 
 /* Plain Tailwind using W1's tokens from app/globals.css. Primary button uses accent-hover (#C94A08) with white text for AA contrast. */
 
+/** Shared shell for /local pages: same TopNav (skip link targets #main) and Footer as the rest of the site. */
 export function Page({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 bg-background px-4 py-8 text-base text-ink sm:py-12">
-      {children}
-    </main>
+    <>
+      <TopNav />
+      <main id="main" className="mx-auto w-full max-w-3xl flex-1 bg-background px-4 py-8 text-base text-ink sm:py-12">
+        {children}
+      </main>
+      <Footer />
+    </>
   );
 }
 

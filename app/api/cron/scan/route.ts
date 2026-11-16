@@ -21,8 +21,8 @@ function authorized(req: NextRequest, secret: string): boolean {
 
 export async function GET(req: NextRequest) {
   const secret = env.CRON_SECRET;
-  if (!secret) return Response.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
-  if (!authorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  // Fail closed: with no CRON_SECRET configured nobody can authenticate, so the answer is the same 401 (no config leak).
+  if (!secret || !authorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const params = req.nextUrl.searchParams;
   const dry = params.get('dry') === '1' || params.get('dry') === 'true';

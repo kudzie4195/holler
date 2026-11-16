@@ -1,28 +1,20 @@
+import { ALL_ADAPTERS } from '@/lib/signals/registry';
+
 /**
- * Citation info per adapter id. This is a LOCAL map. lib/signals/registry.ts now exists but imports W3 adapter files that were
- * still missing, so importing it would break tsc and the build. Labels and URLs for nws, spc, fema, usgs
- * and faa are copied from those adapters' `label` and `sourceUrl` (sourced). The W3 ids
- * (socrata, usaspending, sam, ticketmaster, bluesky, websearch) are assumed. Unknown ids fall back to a prettified id with no home link (the item URL is still linked).
- * Ids with a suffix (for example "socrata:atlanta-311" or "socrata-nyc") resolve by prefix.
+ * Citation info per adapter id, taken from the real adapters in lib/signals/registry.ts ALL_ADAPTERS
+ * (id, label, sourceUrl). Server-side only: the registry imports every adapter. Client components use
+ * lib/signals/source-meta.ts (a static copy, kept in sync by tests/signals/core/source-meta.test.ts).
+ * Unknown ids (for example rows written by a retired adapter) fall back to a prettified id with no home link;
+ * the item's own URL is still linked.
  */
 export interface SourceInfo {
   label: string;
   homeUrl?: string;
 }
 
-const SOURCES: Record<string, SourceInfo> = {
-  nws: { label: 'National Weather Service alerts', homeUrl: 'https://www.weather.gov/alerts' },
-  spc: { label: 'NOAA Storm Prediction Center storm reports', homeUrl: 'https://www.spc.noaa.gov/climo/reports/' },
-  fema: { label: 'FEMA disaster declarations', homeUrl: 'https://www.fema.gov/disaster/declarations' },
-  usgs: { label: 'USGS earthquakes', homeUrl: 'https://earthquake.usgs.gov/earthquakes/map/' },
-  faa: { label: 'FAA airport status', homeUrl: 'https://nasstatus.faa.gov/' },
-  socrata: { label: 'City open data portal' },
-  usaspending: { label: 'USAspending.gov', homeUrl: 'https://www.usaspending.gov/' },
-  sam: { label: 'SAM.gov', homeUrl: 'https://sam.gov/' },
-  ticketmaster: { label: 'Ticketmaster Discovery API', homeUrl: 'https://developer.ticketmaster.com/' },
-  bluesky: { label: 'Bluesky public posts', homeUrl: 'https://bsky.app/' },
-  websearch: { label: 'Public web search' },
-};
+const SOURCES: Record<string, SourceInfo> = Object.fromEntries(
+  ALL_ADAPTERS.map((a) => [a.id.toLowerCase(), { label: a.label, homeUrl: a.sourceUrl } satisfies SourceInfo]),
+);
 
 function prettify(id: string): string {
   return id
@@ -32,10 +24,8 @@ function prettify(id: string): string {
 }
 
 export function sourceInfo(sourceId: string): SourceInfo {
-  const id = (sourceId ?? '').toLowerCase();
-  if (SOURCES[id]) return SOURCES[id];
-  const prefix = id.split(/[:_-]/)[0];
-  if (prefix && SOURCES[prefix]) return SOURCES[prefix];
+  const hit = SOURCES[(sourceId ?? '').toLowerCase()];
+  if (hit) return hit;
   return { label: prettify(sourceId || 'public record') };
 }
 

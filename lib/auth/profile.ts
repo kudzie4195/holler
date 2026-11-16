@@ -59,6 +59,7 @@ export async function saveProfile(
     return { error: 'Fix the highlighted fields and try again.', fieldErrors: { zip: "We couldn't find that ZIP code. Check it and try again." } };
   }
 
+  // Only columns granted to the `authenticated` role (see 0001_holler.sql). updated_at is set by trigger.
   const row: Record<string, unknown> = {
     user_id: userId,
     business_name: parsed.data.business_name,
@@ -69,7 +70,6 @@ export async function saveProfile(
     lat: place.lat,
     lon: place.lon,
     radius_mi: parsed.data.radius,
-    updated_at: new Date().toISOString(),
   };
   if (typeof opts.alertEmail === 'boolean') row.alert_email = opts.alertEmail;
 

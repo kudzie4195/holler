@@ -141,3 +141,35 @@ create table if not exists public.holler_scan_runs (
 create index if not exists holler_scan_runs_source_started_idx on public.holler_scan_runs (source, started_at desc);
 
 alter table public.holler_scan_runs enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- Privileges. RLS decides which rows; these grants decide which columns.
+-- Users must never be able to write billing fields (subscription_status,
+-- trial_ends_at, stripe_*, last_notified_at) or draft/notified/signals directly.
+-- Server-only writes use the service role (bypasses grants and RLS).
+-- ---------------------------------------------------------------------------
+revoke insert, update on table public.holler_profiles from anon, authenticated;
+grant insert (user_id, business_name, categories, zip, city, state, lat, lon, radius_mi, alert_email)
+  on table public.holler_profiles to authenticated;
+grant update (business_name, categories, zip, city, state, lat, lon, radius_mi, alert_email, updated_at)
+  on table public.holler_profiles to authenticated;
+
+revoke insert, update, delete on table public.holler_matches from anon, authenticated;
+grant update (status) on table public.holler_matches to authenticated;
+
+revoke insert, update, delete on table public.holler_signals from anon, authenticated;
+revoke insert, update, delete on table public.holler_scan_runs from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Public per-place signal counts (60 days). security_invoker so the caller's
+-- RLS on holler_signals applies (public read policy).
+-- ---------------------------------------------------------------------------
+create or replace view public.holler_place_counts
+  with (security_invoker = true) as
+select place_slug, count(*)::int as signals_60d
+from public.holler_signals
+where place_slug is not null
+  and occurred_at > now() - interval '60 days'
+group by place_slug;
+
+grant select on public.holler_place_counts to anon, authenticated;

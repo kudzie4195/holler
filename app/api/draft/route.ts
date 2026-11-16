@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDraft } from '@/lib/ai/draft';
 
 export const maxDuration = 30;
-export const dynamic = 'force-dynamic';
 
 const Body = z.object({ matchId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]) });
 
@@ -53,7 +53,9 @@ export async function POST(req: Request) {
     city: profile.city ?? signal.city,
   });
 
-  const { error: upErr } = await supabase
+  // Ownership was verified above (match selected with user_id = user.id). `draft` is not in the
+  // authenticated role's column grants, so the write goes through the admin client.
+  const { error: upErr } = await createAdminClient()
     .from('holler_matches')
     .update({ draft })
     .eq('id', matchId)

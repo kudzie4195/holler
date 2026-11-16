@@ -16,7 +16,7 @@ afterEach(() => vi.unstubAllEnvs());
 describe('GET /api/cron/scan auth', () => {
   it('fails closed when CRON_SECRET is not configured', async () => {
     const GET = await load(undefined);
-    expect((await GET(req('?key=anything'))).status).toBe(500);
+    expect((await GET(req('?key=anything'))).status).toBe(401);
   });
   it('rejects missing or wrong credentials', async () => {
     const GET = await load('s3cret');

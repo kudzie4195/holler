@@ -191,10 +191,10 @@ export function buildSocrataQuery(ds: SocrataDataset, since: Date): URLSearchPar
 export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
   const label =
     ds.subtype === 'permit'
-      ? `${ds.city} building permits`
+      ? `${ds.city} open data: building permits`
       : ds.subtype === '311'
-        ? `${ds.city} 311 requests`
-        : `${ds.city} food inspections`;
+        ? `${ds.city} open data: 311 requests`
+        : `${ds.city} open data: food inspections`;
   return {
     id: ds.id,
     label,
