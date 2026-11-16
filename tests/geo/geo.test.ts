@@ -3,7 +3,7 @@ import { CITIES, STATES, citiesInState, cityBySlug, haversineMi, lookupZip, near
 import { INDEX_MIN_SIGNALS, isIndexable } from '../../lib/seo/threshold';
 import { selectIndexableCities, FALLBACK_CITY_COUNT } from '../../lib/seo/select';
 import { summarize, type SignalRowDb } from '../../lib/seo/summarize';
-import { buildIntro, buildHelps } from '../../lib/seo/view';
+import { buildIntro, buildHelps, buildFaq } from '../../lib/seo/view';
 import { sectionFor } from '../../lib/seo/sections';
 import { jsonLdString } from '../../lib/seo/serialize';
 
@@ -149,8 +149,40 @@ describe('summarize and copy', () => {
   it('writes an intro from the data with no em dashes', () => {
     const intro = buildIntro({ name: 'Atlanta', state: 'GA', slug: 'atlanta-ga' }, data);
     expect(intro).toContain('7 public records');
-    expect(intro).toContain('1 weather alert is active');
+    expect(intro).toMatch(/1 weather alert( is active|, as of)/);
     expect(intro).not.toContain('\u2014');
+  });
+  it('varies intro and FAQ across cities with different data and never uses em dashes', () => {
+    const quiet = summarize('chicago-il', [], '2026-11-14T12:00:00Z');
+    const busy = data;
+    const atl = { name: 'Atlanta', state: 'GA', slug: 'atlanta-ga' };
+    const chi = { name: 'Chicago', state: 'IL', slug: 'chicago-il' };
+    const first = (t: string) => t.split(/(?<=[.!?])\s+/)[0];
+    expect(first(buildIntro(atl, busy))).not.toBe(first(buildIntro(chi, quiet)));
+    expect(first(buildIntro(atl, quiet))).not.toBe(first(buildIntro(chi, quiet)));
+    // Across many slugs the generator uses more than one skeleton (no data and with data).
+    const slugs = CITIES.slice(0, 60).map((c) => c.slug);
+    const shape = (d: typeof busy) =>
+      new Set(slugs.map((s) => buildIntro({ name: 'X', state: 'ZZ', slug: s }, d).replace(/X, ZZ|X/g, '').slice(0, 25)));
+    expect(shape(quiet).size).toBeGreaterThan(1);
+    expect(shape(busy).size).toBeGreaterThan(1);
+    // Deterministic for the same slug.
+    expect(buildIntro(atl, busy)).toBe(buildIntro(atl, busy));
+    for (const city of [atl, chi]) {
+      for (const d of [busy, quiet]) {
+        const text = [buildIntro(city, d), ...buildFaq(city, d).flatMap((f) => [f.q, f.a])].join(' ');
+        expect(text).not.toContain('\u2014');
+      }
+    }
+  });
+  it('keeps the FAQ facts in every variant', () => {
+    for (const c of CITIES.slice(0, 30)) {
+      const faq = buildFaq({ name: c.name, state: c.state, slug: c.slug }, data).map((f) => f.a).join(' ');
+      expect(faq).toContain('40 miles');
+      expect(faq).toContain('15 to 60 minutes');
+      expect(faq).toContain('$5 a month');
+      expect(faq).toContain('7 public records');
+    }
   });
   it('escapes < in JSON-LD', () => {
     expect(jsonLdString({ a: '</script>' })).not.toContain('</script>');

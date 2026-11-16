@@ -22,14 +22,14 @@ export default function PrivacyPage() {
           <li>The alerts we matched to you, what you did with them (saved, done, dismissed), and any draft replies you asked for.</li>
           <li>Your subscription status and trial end date.</li>
         </ul>
-        <p>Your public city page and our data sources never show any of this.</p>
+        <p>Neither your public city page nor our data sources ever show any of this.</p>
       </DocSection>
 
       <DocSection title="Where the alert data comes from">
         <p>
           Alerts are built from public data: government feeds, city open data, public event listings and public posts
-          found through licensed search APIs. For public posts we keep the title, a short snippet and the link. We keep
-          these alerts for about 120 days, then delete them.
+          found through licensed search APIs. For public posts we keep the title, a short snippet and the link. Alerts
+          stay for about 120 days. Then they are deleted.
         </p>
       </DocSection>
 
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
             we send it the text of that one alert and your business name. Nothing else.
           </li>
         </ul>
-        <p>We do not sell your data and we do not run advertising trackers.</p>
+        <p>We do not sell your data, and we do not run advertising trackers.</p>
       </DocSection>
 
       <DocSection title="Cookies">
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
       </DocSection>
 
       <DocSection title="Changes">
-        <p>If we change this page in a way that matters, we will say so by email. The date at the top shows the latest version.</p>
+        <p>If we change this page in a way that matters, we will say so by email, and the date at the top shows the latest version.</p>
       </DocSection>
     </DocPage>
   );

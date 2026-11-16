@@ -36,21 +36,21 @@ export default function AboutPage() {
     >
       <DocSection title="What it is">
         <p>
-          A storm rolls through and the roofers who hear about it first get the calls. A health inspection fails and a
-          cleaning crew could help. A neighbor posts &quot;anyone recommend a plumber?&quot; and the first useful reply
+          A storm rolls through, and the roofers who hear about it first get the calls. A health inspection fails and a
+          cleaning crew could help. When a neighbor posts &quot;anyone recommend a plumber?&quot; the first useful reply
           often wins the job.
         </p>
         <p>
-          Holler watches for moments like these in public data. You tell us what you do and where you work. When
+          Holler watches for moments like these in public data. You tell us what you do and where you work, and when
           something nearby matches, you get a short alert with a link to the source. That is the whole product.
         </p>
         <p>
-          It costs $5 a month after a 7-day free trial. You do not need a card to start.
+          It costs $5 a month after a 7-day free trial. No card needed to start.
         </p>
       </DocSection>
 
       <DocSection title="Where the data comes from">
-        <p>Official APIs, open data and licensed search APIs. Each alert links to the page it came from.</p>
+        <p>Everything comes from official APIs, open data and licensed search APIs, and each alert links to the page it came from.</p>
         <ul>
           {sources.map((s) => (
             <li key={s.name}>
@@ -62,7 +62,7 @@ export default function AboutPage() {
           ))}
         </ul>
         <p>
-          Coverage is uneven. Weather, disasters, federal contracts and airport status cover the whole US. Permits, 311
+          Coverage is uneven. Weather, disasters, federal contracts and airport status cover the whole US, but permits, 311
           and inspections only exist where a city publishes them. Some sources can be late, and a few will be wrong.
           Check the source before you act.
         </p>
