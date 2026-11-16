@@ -2,13 +2,12 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { AuthCard, AuthCardSkeleton } from '@/components/auth-card';
 import { Button, ButtonLink } from '@/components/button';
+import { isConfirmType } from '@/lib/auth/otp';
 import { safeNext } from '@/lib/auth/redirect';
 
 export const metadata: Metadata = {
   title: 'Reset your password',
 };
-
-const TYPES = ['recovery', 'email', 'signup', 'magiclink', 'invite', 'email_change'];
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -34,7 +33,7 @@ async function Continue({ searchParams }: Props) {
   const type = one('type');
   const next = safeNext(one('next'), '/app');
 
-  if (!tokenHash || !type || !TYPES.includes(type)) {
+  if (!tokenHash || !isConfirmType(type)) {
     return (
       <AuthCard title="That link isn't valid" subtitle="Reset links work once and don't last long. Ask for a fresh one.">
         <ButtonLink href="/forgot" full size="lg">

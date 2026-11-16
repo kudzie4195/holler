@@ -63,7 +63,7 @@ export default async function SettingsPage() {
           </form>
           <div className="border-t border-line pt-6">
             <h3 className="text-lg font-semibold text-ink">Delete account</h3>
-            <p className="mb-4 mt-1 text-muted">Removes your data from Holler for good.</p>
+            <p className="mb-4 mt-1 text-muted">Deletes your Holler profile, alerts and billing. Your sign-in is shared with other apps we run, so it stays.</p>
             <DeleteAccount />
           </div>
         </Card>

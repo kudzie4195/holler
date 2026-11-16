@@ -1,12 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env, siteUrl } from '@/lib/env';
 import {
-  decideNotify,
+  chunk,
+  planNotify,
+  type PlanProfile,
   renderDigest,
   sendEmail,
   signUnsubscribeToken,
   type DigestItem,
-  type NotifyProfile,
 } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 
@@ -14,7 +15,9 @@ export const maxDuration = 60;
 
 const MAX_USERS_PER_RUN = 150;
 const MAX_ITEMS_IN_DIGEST = 10;
-const MATCH_FETCH_LIMIT = 3000;
+// PostgREST caps a response at 1000 rows, so read in pages of 1000 and stop after MAX_PAGES (newest first).
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 15;
 
 interface SignalRow {
   kind: string;
@@ -30,8 +33,7 @@ interface MatchRow {
   created_at: string;
   signal: SignalRow | SignalRow[] | null;
 }
-interface ProfileRow extends NotifyProfile {
-  user_id: string;
+interface ProfileRow extends PlanProfile {
   business_name: string;
 }
 
@@ -48,19 +50,27 @@ export async function GET(req: Request) {
     return Response.json({ error: 'not_configured' }, { status: 503 });
   }
 
-  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
+  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, matches_skipped_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
 
-  const { data: matches, error } = await admin
-    .from('holler_matches')
-    .select('id, user_id, created_at, signal:holler_signals(kind, title, url, city, state, occurred_at)')
-    .eq('notified', false)
-    .eq('status', 'new')
-    .order('created_at', { ascending: false })
-    .limit(MATCH_FETCH_LIMIT);
-  if (error) return Response.json({ error: 'query_failed', detail: error.message }, { status: 500 });
+  // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
+  const matches: MatchRow[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data, error } = await admin
+      .from('holler_matches')
+      .select('id, user_id, created_at, signal:holler_signals(kind, title, url, city, state, occurred_at)')
+      .eq('notified', false)
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (error) return Response.json({ error: 'query_failed', detail: error.message }, { status: 500 });
+    const rows = (data ?? []) as unknown as MatchRow[];
+    matches.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
 
   const byUser = new Map<string, MatchRow[]>();
-  for (const m of (matches ?? []) as unknown as MatchRow[]) {
+  for (const m of matches) {
     const list = byUser.get(m.user_id) ?? [];
     list.push(m);
     byUser.set(m.user_id, list);
@@ -69,21 +79,32 @@ export async function GET(req: Request) {
   counts.users_considered = userIds.length;
   if (userIds.length === 0) return Response.json({ ok: true, ...counts, ms: Date.now() - started });
 
-  const { data: profiles, error: pErr } = await admin
-    .from('holler_profiles')
-    .select('user_id, business_name, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at')
-    .in('user_id', userIds);
-  if (pErr) return Response.json({ error: 'profiles_failed', detail: pErr.message }, { status: 500 });
-
-  const eligible: ProfileRow[] = [];
-  for (const p of (profiles ?? []) as ProfileRow[]) {
-    const d = decideNotify(p, now);
-    if (d.ok) eligible.push(p);
-    else if (d.reason === 'throttled') counts.skipped_throttled++;
-    else if (d.reason === 'unverified') counts.skipped_unverified++;
-    else if (d.reason === 'not_entitled') counts.skipped_not_entitled++;
-    else counts.skipped_alerts_off++;
+  const profiles: ProfileRow[] = [];
+  for (const ids of chunk(userIds)) {
+    const { data, error: pErr } = await admin
+      .from('holler_profiles')
+      .select('user_id, business_name, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at, created_at')
+      .in('user_id', ids);
+    if (pErr) return Response.json({ error: 'profiles_failed', detail: pErr.message }, { status: 500 });
+    profiles.push(...((data ?? []) as ProfileRow[]));
   }
+
+  const plan = planNotify(userIds, profiles, now);
+  counts.skipped_throttled = plan.counts.throttled ?? 0;
+  counts.skipped_alerts_off = plan.counts.alerts_off ?? 0;
+  counts.skipped_unverified = (plan.counts.unverified ?? 0) + (plan.counts.unverified_grace ?? 0);
+  counts.skipped_not_entitled = (plan.counts.not_entitled ?? 0) + (plan.counts.past_due ?? 0) + (plan.counts.missing ?? 0);
+
+  // Ineligible users will never be emailed these matches: mark them notified so they stop crowding out paying users.
+  const skipMatchIds = plan.skip.flatMap((id) => (byUser.get(id) ?? []).map((m) => m.id));
+  for (const ids of chunk(skipMatchIds)) {
+    const { error: sErr } = await admin.from('holler_matches').update({ notified: true }).in('id', ids);
+    if (sErr) counts.failed++;
+    else counts.matches_skipped_marked += ids.length;
+  }
+
+  const profileById = new Map(profiles.map((p) => [p.user_id, p]));
+  const eligible = plan.send.map((id) => profileById.get(id)).filter((p): p is ProfileRow => !!p);
 
   for (const p of eligible.slice(0, MAX_USERS_PER_RUN)) {
     if (Date.now() - started > 50_000) break;
@@ -136,7 +157,11 @@ export async function GET(req: Request) {
         continue;
       }
       const ids = rows.map((r) => r.m.id);
-      const { error: mErr } = await admin.from('holler_matches').update({ notified: true }).in('id', ids);
+      let mErr = null;
+      for (const part of chunk(ids)) {
+        const r = await admin.from('holler_matches').update({ notified: true }).in('id', part);
+        if (r.error) mErr = r.error;
+      }
       const { error: lErr } = await admin
         .from('holler_profiles')
         .update({ last_notified_at: now.toISOString() })

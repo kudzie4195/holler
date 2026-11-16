@@ -26,6 +26,7 @@ export const LIMITS = {
   forgotEmail: (email: string): Limit => ({ key: rateKey('forgot', 'email', email), max: 3, windowSeconds: 3600 }),
   forgotIp: (ip: string): Limit => ({ key: rateKey('forgot', 'ip', ip), max: 10, windowSeconds: 3600 }),
   loginIp: (ip: string): Limit => ({ key: rateKey('login', 'ip', ip), max: 20, windowSeconds: 900 }),
+  draftUser: (userId: string): Limit => ({ key: rateKey('draft', 'user', userId), max: 20, windowSeconds: 3600 }),
   verifyResendUser: (userId: string): Limit => ({ key: rateKey('verify', 'user', userId), max: 3, windowSeconds: 3600 }),
 } as const;
 

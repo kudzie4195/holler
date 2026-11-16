@@ -37,7 +37,9 @@ export const getUser = cache(async (): Promise<User | null> => {
 
 export const getProfile = cache(async (userId: string): Promise<Profile | null> => {
   const supabase = await createClient();
-  const { data } = await supabase.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
+  const { data, error } = await supabase.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
+  // "No row" is data === null. A DB error must reach the error boundary, never look like "no profile".
+  if (error) throw new Error(`profile lookup failed: ${error.code ?? 'unknown'}`);
   return (data as Profile | null) ?? null;
 });
 

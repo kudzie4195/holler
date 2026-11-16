@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDraft } from '@/lib/ai/draft';
+import { hit, LIMITS } from '@/lib/auth/ratelimit';
 
 export const maxDuration = 30;
 
@@ -44,6 +45,18 @@ export async function POST(req: Request) {
     .eq('user_id', user.id)
     .maybeSingle();
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
+
+  // AI cost path: 20 drafts per hour per user. Fails closed if the limiter is down.
+  const limited = await hit([LIMITS.draftUser(user.id)]);
+  if (limited === 'limited') {
+    return Response.json(
+      { error: 'rate_limited', message: "You've used 20 drafts this hour. Try again in a bit." },
+      { status: 429, headers: { 'Retry-After': '3600' } },
+    );
+  }
+  if (limited === 'error') {
+    return Response.json({ error: 'unavailable', message: 'Drafts are unavailable right now. Try again in a moment.' }, { status: 503 });
+  }
 
   const { draft } = await generateDraft({
     businessName: profile.business_name,

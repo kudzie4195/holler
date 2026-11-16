@@ -1,6 +1,6 @@
 // Fixtures: hand-written (assumed). Covers the pure pieces of the shared-project isolation work (P1-3, P1-4, P1-6).
 import { describe, expect, it } from 'vitest';
-import { hasHollerTag, isHollerOnly, productsOf, withoutHoller } from '../../lib/auth/membership';
+import { hasHollerTag, hasLeftHoller, leaveHollerPatch, productsOf, rejoinHollerPatch, withHoller, withoutHoller } from '../../lib/auth/membership';
 import { clientIp, LIMITS, rateKey } from '../../lib/auth/limits';
 import { signScopedToken, signUnsubscribeToken, signVerifyToken, verifyScopedToken, verifyUnsubscribeToken, verifyVerifyToken } from '../../lib/email/token';
 import { alreadySubscribed, hollerMetadata, isHollerMetadata, trialParams } from '../../lib/stripe/scope';
@@ -14,14 +14,23 @@ describe('membership (app_metadata.products)', () => {
     expect(hasHollerTag(undefined)).toBe(false);
     expect(hasHollerTag({ products: 'holler' })).toBe(false);
   });
-  it('only deletes the auth user when holler is the sole product', () => {
-    expect(isHollerOnly({ products: ['holler'] })).toBe(true);
-    expect(isHollerOnly({ products: ['holler', 'clovermap'] })).toBe(false);
-    expect(isHollerOnly({ products: ['clovermap'] })).toBe(false);
-    expect(isHollerOnly({ products: [] })).toBe(false);
-    expect(isHollerOnly({ products: ['holler', 'holler'] })).toBe(false);
-    expect(isHollerOnly({})).toBe(false); // legacy / other-product user without the tag: never delete
-    expect(isHollerOnly(null)).toBe(false);
+  it('leaving Holler never deletes the shared user: it only strips the tag and stamps holler_left_at', () => {
+    const now = new Date('2026-11-16T12:00:00Z');
+    expect(leaveHollerPatch({ products: ['holler'] }, now)).toEqual({
+      products: [],
+      holler_email_verified_at: null,
+      holler_left_at: '2026-11-16T12:00:00.000Z',
+    });
+    expect(leaveHollerPatch({ products: ['clovermap', 'holler'] }, now).products).toEqual(['clovermap']);
+    expect(leaveHollerPatch({}, now).products).toEqual([]);
+  });
+  it('lets a former member back in and re-tags them', () => {
+    expect(hasLeftHoller({ products: [], holler_left_at: '2026-11-16T12:00:00.000Z' })).toBe(true);
+    expect(hasLeftHoller({ products: ['clovermap'] })).toBe(false);
+    expect(hasLeftHoller({ holler_left_at: null })).toBe(false);
+    expect(hasLeftHoller(undefined)).toBe(false);
+    expect(rejoinHollerPatch({ products: ['clovermap'], holler_left_at: 'x' })).toEqual({ products: ['clovermap', 'holler'], holler_left_at: null });
+    expect(withHoller({ products: ['holler'] })).toEqual(['holler']);
   });
   it('removes only holler', () => {
     expect(withoutHoller({ products: ['holler', 'clovermap'] })).toEqual(['clovermap']);
@@ -44,6 +53,8 @@ describe('rate limit keys and ip', () => {
     expect(LIMITS.forgotEmail('a@b.com')).toMatchObject({ max: 3, windowSeconds: 3600 });
     expect(LIMITS.forgotIp('1.1.1.1')).toMatchObject({ max: 10, windowSeconds: 3600 });
     expect(LIMITS.loginIp('1.1.1.1')).toMatchObject({ max: 20, windowSeconds: 900 });
+    expect(LIMITS.draftUser('u1')).toMatchObject({ max: 20, windowSeconds: 3600 });
+    expect(LIMITS.draftUser('u1').key).not.toContain('u1');
   });
 });
 

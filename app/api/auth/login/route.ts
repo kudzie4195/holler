@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { friendlyAuthError, INVALID_LOGIN_MESSAGE, isConfigError, jsonError, readJson } from '@/lib/auth/api';
-import { hasHollerTag } from '@/lib/auth/membership';
+import { hasHollerTag, hasLeftHoller, rejoinHollerPatch } from '@/lib/auth/membership';
 import { clientIp, hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit';
 
 const body = z.object({
@@ -34,6 +34,17 @@ export async function POST(request: Request) {
     }
 
     let member = hasHollerTag(data.user.app_metadata);
+    if (!member && hasLeftHoller(data.user.app_metadata)) {
+      // Former member coming back: re-tag. They have no profile, so they land in onboarding.
+      const { error: rErr } = await admin.auth.admin.updateUserById(data.user.id, {
+        app_metadata: rejoinHollerPatch(data.user.app_metadata),
+      });
+      if (rErr) {
+        await supabase.auth.signOut({ scope: 'local' });
+        return jsonError('Something went wrong on our side. Try again in a moment.', 500);
+      }
+      member = true;
+    }
     if (!member) {
       const { data: profile, error: pErr } = await admin
         .from('holler_profiles')

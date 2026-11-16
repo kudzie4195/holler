@@ -250,11 +250,13 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
         hardNavigate('/login');
         return;
       }
-      const body = (await res.json().catch(() => ({}))) as { draft?: string };
+      const body = (await res.json().catch(() => ({}))) as { draft?: string; message?: unknown };
       if (res.ok && body.draft) {
         onDraft(item.id, body.draft);
       } else if (res.status === 400 || res.status === 404) {
         setError('Drafts only work for people asking for help.');
+      } else if ((res.status === 429 || res.status === 503) && typeof body.message === 'string') {
+        setError(body.message);
       } else {
         setError("We couldn't write a draft just now. Try again.");
       }

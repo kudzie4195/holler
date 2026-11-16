@@ -20,7 +20,7 @@ export function DeleteAccount() {
   return (
     <form action={action} className="flex flex-col gap-4 rounded-xl border border-danger/30 bg-danger-soft p-4">
       <p className="text-ink">
-        This deletes your profile, your matches and your drafts, and cancels your subscription. It can&apos;t be undone.
+        This deletes your profile, your matches and your drafts, and cancels your subscription. Your sign-in is shared with other apps we run, so it stays. It can&apos;t be undone.
       </p>
       {state.error ? (
         <Notice tone="danger" role="alert">

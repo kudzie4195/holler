@@ -5,7 +5,7 @@ import { getStripe, isHollerMetadata } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getProfile, getUser } from '@/lib/auth/session';
-import { isHollerOnly, withoutHoller } from '@/lib/auth/membership';
+import { leaveHollerPatch } from '@/lib/auth/membership';
 import { saveProfile } from '@/lib/auth/profile';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 
@@ -25,8 +25,8 @@ const DELETE_ERROR = "We couldn't delete your account. Try again in a moment.";
  * Deletes the user's Holler account on a project shared with other products.
  *  1. Cancels only Holler subscriptions (metadata.app === 'holler'); if that fails nothing else is deleted.
  *  2. Deletes Holler rows (matches, then profile).
- *  3. Deletes the auth user ONLY when app_metadata.products is exactly ['holler']. Otherwise it just removes
- *     'holler' from products, so the other products' account, data and billing are untouched.
+ *  3. Strips 'holler' from app_metadata.products and sets holler_left_at. The shared auth user is NEVER deleted
+ *     (other products depend on it), so a retry after any partial failure is safe.
  *  4. Signs out this session only (scope 'local').
  */
 export async function deleteAccount(): Promise<DeleteState> {
@@ -75,16 +75,10 @@ export async function deleteAccount(): Promise<DeleteState> {
 
     const { data: fresh, error: gErr } = await admin.auth.admin.getUserById(user.id);
     if (gErr || !fresh?.user) return { error: DELETE_ERROR };
-    const appMetadata = fresh.user.app_metadata;
-    if (isHollerOnly(appMetadata)) {
-      const { error } = await admin.auth.admin.deleteUser(user.id);
-      if (error) return { error: DELETE_ERROR };
-    } else {
-      const { error } = await admin.auth.admin.updateUserById(user.id, {
-        app_metadata: { products: withoutHoller(appMetadata), holler_email_verified_at: null },
-      });
-      if (error) return { error: DELETE_ERROR };
-    }
+    const { error } = await admin.auth.admin.updateUserById(user.id, {
+      app_metadata: leaveHollerPatch(fresh.user.app_metadata, new Date()),
+    });
+    if (error) return { error: DELETE_ERROR };
   } catch {
     return { error: DELETE_ERROR };
   }

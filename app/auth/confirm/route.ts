@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { isConfirmType } from '@/lib/auth/otp';
 import { safeNext } from '@/lib/auth/redirect';
 import { originAllowed } from '@/lib/auth/origin';
 import { siteUrl } from '@/lib/env';
-
-const TYPES: EmailOtpType[] = ['recovery', 'email', 'signup', 'magiclink', 'invite', 'email_change'];
 
 /**
  * Two-step confirm so email link scanners (which GET every link) cannot burn single-use tokens.
@@ -25,19 +24,20 @@ export async function POST(request: NextRequest) {
     return typeof v === 'string' ? v : null;
   };
   const tokenHash = field('token_hash');
-  const type = field('type') as EmailOtpType | null;
+  const rawType = field('type');
+  const type: EmailOtpType | null = isConfirmType(rawType) ? rawType : null;
   const next = safeNext(field('next'), '/app');
 
   const fail = () => {
     const url = request.nextUrl.clone();
-    url.pathname = type === 'recovery' ? '/forgot' : '/login';
+    url.pathname = '/forgot';
     url.search = '';
     url.searchParams.set('error', 'link');
     return NextResponse.redirect(url, 303);
   };
 
   if (!originAllowed(request, siteUrl)) return fail();
-  if (!tokenHash || !type || !TYPES.includes(type)) return fail();
+  if (!tokenHash || !type) return fail();
 
   try {
     const supabase = await createClient();
