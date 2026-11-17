@@ -1,5 +1,5 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { permitTitle, permitTypeFields, publicSummary, scrubText } from './permit-privacy';
+import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import type { CategoryId } from '@/lib/signals/categories';
 import { categorize, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
@@ -167,7 +167,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       if (categories.length === 0) continue;
 
       const titleBits = ds.titleFields.map((x) => str(a, x)).filter(Boolean);
-      const summaryBits = ds.summaryFields.map((x) => str(a, x)).filter(Boolean);
+      const summaryBits = ds.summaryFields.map((x) => summaryPart(x, str(a, x))).filter(Boolean);
       // Business rows never carry a street address (home addresses of sole proprietors).
       const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' '));
       const parts = [...new Set(summaryBits)];

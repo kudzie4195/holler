@@ -179,3 +179,16 @@ describe('plainType', () => {
     expect(plainType('Residential Heating System')).toBe('Residential Heating System');
   });
 });
+
+describe('summaryPart', () => {
+  it('formats money columns and rounds float noise', async () => {
+    const { summaryPart } = await import('../../../lib/signals/adapters/permit-privacy');
+    expect(summaryPart('estprojectcost', '3148.8000000000002')).toBe('$3,149 job value');
+    expect(summaryPart('total_job_valuation', '450000')).toBe('$450,000 job value');
+    expect(summaryPart('valuation', '0.0')).toBe('');
+    expect(summaryPart('reported_cost', 'n/a')).toBe('');
+    expect(summaryPart('total_square_feet', '1200.50000001')).toBe('1200.5');
+    expect(summaryPart('score', '88')).toBe('88');
+    expect(summaryPart('status', 'Issued')).toBe('Issued');
+  });
+});

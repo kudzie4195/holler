@@ -1,7 +1,7 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { permitTitle, permitTypeFields, publicSummary, scrubText } from './permit-privacy';
+import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -241,7 +241,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' '));
-      const summaryBits = ds.summaryFields.map((f) => s(row, f)).filter(Boolean);
+      const summaryBits = ds.summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];

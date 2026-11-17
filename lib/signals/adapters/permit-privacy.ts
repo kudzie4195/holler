@@ -202,6 +202,25 @@ export function publicSummary(parts: string[], opts: { max?: number; minChars?: 
   return joined || null;
 }
 
+/** Summary columns that hold a money amount (job cost, valuation). Square footage, scores and zip codes are not money. */
+const MONEY_FIELD_RE = /cost|valuation|value|constrval/i;
+
+/**
+ * One summary part for display. Money columns become "$3,149 job value" (0 or unparseable is dropped);
+ * long float noise such as 7807.6999999999998 in any numeric column is rounded.
+ */
+export function summaryPart(field: string, raw: string): string {
+  const v = raw.trim();
+  if (!v) return '';
+  const num = /^-?\d+(?:\.\d+)?$/.test(v) ? Number(v) : NaN;
+  if (MONEY_FIELD_RE.test(field)) {
+    if (!Number.isFinite(num) || num <= 0) return '';
+    return `$${Math.round(num).toLocaleString('en-US')} job value`;
+  }
+  if (Number.isFinite(num) && /\.\d{3,}$/.test(v)) return String(Math.round(num * 100) / 100);
+  return v;
+}
+
 // ---- Permit titles ----------------------------------------------------------------------------------------------------------------
 
 /** Column names that hold a type or class (a short code-like value) rather than a description. */
