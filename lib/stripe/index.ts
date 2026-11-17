@@ -1,9 +1,11 @@
 import Stripe from 'stripe';
 import { env } from '../env';
+import { MONTHLY_PRICE_CENTS } from './plans';
 
 export * from './status';
 export * from './scope';
 export * from './plans';
+export * from './products';
 
 let cached: Stripe | null = null;
 
@@ -18,5 +20,5 @@ export function billingNotConfigured(): Response {
   return Response.json({ error: 'billing_not_configured' }, { status: 503 });
 }
 
-/** Monthly price in cents. Kept for existing imports; plans live in ./plans. */
-export const PRICE_CENTS = 500;
+/** Starter monthly price in cents. Kept for existing imports; prices live in ./plans (PRICES_CENTS). */
+export const PRICE_CENTS = MONTHLY_PRICE_CENTS;

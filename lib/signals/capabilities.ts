@@ -74,7 +74,8 @@ const TAGGED: Record<SignalTypeId, CategoryId[]> = {
   event: TICKETMASTER_TRADES,
   'event-permit': fromRules(EVENT_RULES),
   contract: NAICS_RULES.flatMap(([, cats]) => cats),
-  // Every category has ask keywords (ASK_TERMS in websearch.ts and CATEGORIES keywords for the classifier).
+  // Every category has ask keywords (ASK_TERMS in websearch.ts and CATEGORIES keywords for the classifier). Resident requests made on
+  // Holler (source 'holler-request', lib/requests) are kind 'ask' too, for the trades in lib/requests/trades.ts; they are not an adapter.
   ask: CATEGORY_IDS,
 };
 
@@ -91,6 +92,10 @@ export const TRADE_SIGNALS: Record<CategoryId, SignalTypeId[]> = Object.fromEntr
 /**
  * Signal types whose adapters all need an optional key (each inner list is one adapter's full set of keys; any one adapter is enough).
  * Types missing here work with no optional keys.
+ * 'ask' stays here on purpose: every ADAPTER that feeds it (web search, Bluesky) needs a key, and public copy built from this table
+ * describes those public posts. The one keyless 'ask' source is resident requests made on Holler at /request, which is not an adapter
+ * and only exists for trades that already have a keyless source. Copy names it on its own ("requests residents post on Holler"),
+ * never as "people asking online", and never implies Holler reads social sites.
  */
 export const SIGNAL_NEEDS_KEY: Partial<Record<SignalTypeId, string[][]>> = {
   event: [['TICKETMASTER_API_KEY']],

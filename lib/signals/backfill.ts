@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
+import { matchScope, type ScopeArea } from '@/lib/plan';
 
 export const BACKFILL_DAYS = 14;
 export const BACKFILL_CAP = 25;
@@ -11,6 +12,8 @@ export const BACKFILL_MAX_PAGES = 3;
 export const BACKFILL_SEVERE_LIMIT = 100;
 /** State-level rows (no coordinates, severity 2+) for the profile's state: their own small query, so nothing can crowd them out. */
 export const BACKFILL_STATE_LIMIT = 100;
+/** Keyword watches (Pro): rows per area (and per state for state-level rows) whose title or summary contains a watched phrase. */
+export const BACKFILL_KEYWORD_LIMIT = 200;
 
 const DAY = 86_400_000;
 /** Events that start within this many days are worth a first-login match; anything further out is not read. */
@@ -23,6 +26,8 @@ interface SignalRow extends MatchSignal {
 }
 
 const COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+/** Keyword reads also need the text the phrase is matched against. */
+const KEYWORD_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
 /** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
 const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
@@ -36,7 +41,7 @@ const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at
  */
 async function readNear(
   db: Db,
-  profile: MatchProfile,
+  profile: Pick<MatchProfile, 'lat' | 'lon' | 'radius_mi' | 'categories'>,
   since: string,
   until: string,
   opts: { minSeverity: number; limit: number; maxPages: number },
@@ -80,7 +85,13 @@ async function readNear(
 }
 
 /** State-level rows (no coordinates) for the profile's state at severity 2+, unexpired, newest first. */
-async function readStateLevel(db: Db, profile: MatchProfile, since: string, until: string, nowIso: string): Promise<SignalRow[]> {
+async function readStateLevel(
+  db: Db,
+  profile: Pick<MatchProfile, 'state' | 'categories'>,
+  since: string,
+  until: string,
+  nowIso: string,
+): Promise<SignalRow[]> {
   if (!profile.state || !/^[A-Za-z]{2}$/.test(profile.state)) return [];
   const { data, error } = await db
     .from('holler_signals')
@@ -94,6 +105,70 @@ async function readStateLevel(db: Db, profile: MatchProfile, since: string, unti
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order('occurred_at', { ascending: false })
     .limit(BACKFILL_STATE_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SignalRow[];
+}
+
+/**
+ * PostgREST or() filter: title or summary contains any watched phrase (ilike, case-insensitive). Values are double-quoted, and
+ * keywords are limited to letters, digits, spaces, hyphens, apostrophes and ampersands when saved, so nothing here can break the filter.
+ * This is only a prefilter; matchOne applies the whole-phrase rule afterwards.
+ */
+export function keywordOrFilter(keywords: string[]): string {
+  const safe = keywords.map((k) => k.replace(/["\\,()*%]/g, ' ').trim()).filter(Boolean);
+  return safe.flatMap((k) => [`title.ilike."*${k}*"`, `summary.ilike."*${k}*"`]).join(',');
+}
+
+/** Keyword reads for one area: a lat/lon box around it (matchOne does the exact distance test), unexpired, newest first. */
+async function readKeywordsNear(
+  db: Db,
+  area: ScopeArea,
+  radiusMi: number,
+  keywords: string[],
+  since: string,
+  until: string,
+  nowIso: string,
+): Promise<SignalRow[]> {
+  if (typeof area.lat !== 'number' || typeof area.lon !== 'number' || !Number.isFinite(area.lat) || !Number.isFinite(area.lon)) return [];
+  const filter = keywordOrFilter(keywords);
+  if (!filter) return [];
+  const r = Math.min(Math.max(radiusMi, 0.1), 150);
+  const dLat = r / 68.9;
+  const dLon = r / (68.9 * Math.max(0.05, Math.cos(((Math.min(89, Math.abs(area.lat) + dLat)) * Math.PI) / 180)));
+  const { data, error } = await db
+    .from('holler_signals')
+    .select(KEYWORD_COLUMNS)
+    .gte('lat', area.lat - dLat)
+    .lte('lat', area.lat + dLat)
+    .gte('lon', area.lon - dLon)
+    .lte('lon', area.lon + dLon)
+    .gte('occurred_at', since)
+    .lte('occurred_at', until)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .or(filter)
+    .order('occurred_at', { ascending: false })
+    .limit(BACKFILL_KEYWORD_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SignalRow[];
+}
+
+/** Keyword reads for state-level rows (no coordinates, severity 2+) in one state. */
+async function readKeywordsState(db: Db, state: string, keywords: string[], since: string, until: string, nowIso: string): Promise<SignalRow[]> {
+  if (!/^[A-Za-z]{2}$/.test(state)) return [];
+  const filter = keywordOrFilter(keywords);
+  if (!filter) return [];
+  const { data, error } = await db
+    .from('holler_signals')
+    .select(KEYWORD_COLUMNS)
+    .is('lat', null)
+    .eq('state', state.toUpperCase())
+    .gte('severity', 2)
+    .gte('occurred_at', since)
+    .lte('occurred_at', until)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .or(filter)
+    .order('occurred_at', { ascending: false })
+    .limit(BACKFILL_KEYWORD_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []) as SignalRow[];
 }
@@ -112,18 +187,29 @@ export interface BackfillResult {
  */
 export async function backfillMatches(db: Db, profile: MatchProfile, now: Date = new Date()): Promise<BackfillResult> {
   try {
-    if (!profile.categories?.length) return { matched: 0, considered: 0 };
+    if (!profile.categories?.length && !(Array.isArray(profile.keywords) && profile.keywords.length)) return { matched: 0, considered: 0 };
     const nowIso = now.toISOString();
     const since = new Date(now.getTime() - BACKFILL_DAYS * DAY).toISOString();
     const until = new Date(now.getTime() + BACKFILL_AHEAD_DAYS * DAY).toISOString();
 
-    const [near, severe, state] = await Promise.all([
-      readNear(db, profile, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }),
-      readNear(db, profile, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }),
-      readStateLevel(db, profile, since, until, nowIso),
-    ]);
+    // Only what the current plan allows: a Starter profile with saved Pro extras reads its main area and first 5 trades only.
+    const scope = matchScope(profile);
+    const states = [...new Set(scope.areas.map((a) => a.state?.toUpperCase()).filter((x): x is string => Boolean(x)))];
+    const reads: Promise<SignalRow[]>[] = [];
+    if (scope.categories.length) {
+      for (const a of scope.areas) {
+        const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: scope.categories };
+        reads.push(readNear(db, at, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }));
+        reads.push(readNear(db, at, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }));
+      }
+      for (const st of states) reads.push(readStateLevel(db, { state: st, categories: scope.categories }, since, until, nowIso));
+    }
+    if (scope.keywords.length) {
+      for (const a of scope.areas) reads.push(readKeywordsNear(db, a, profile.radius_mi, scope.keywords, since, until, nowIso));
+      for (const st of states) reads.push(readKeywordsState(db, st, scope.keywords, since, until, nowIso));
+    }
     const byId = new Map<number, SignalRow>();
-    for (const r of [...near, ...severe, ...state]) if (!byId.has(r.id)) byId.set(r.id, r);
+    for (const r of (await Promise.all(reads)).flat()) if (!byId.has(r.id)) byId.set(r.id, r);
     const rows = [...byId.values()].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
     const hits: Hit[] = [];
     for (const s of rows) {
@@ -152,14 +238,11 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
   }
 }
 
-/** Loads the saved profile for a user and backfills it. Never throws. */
+/** Loads the saved profile (plan, extra areas and keywords included) for a user and backfills every area the plan allows. Never throws. */
 export async function backfillForUser(db: Db, userId: string, now: Date = new Date()): Promise<BackfillResult> {
   try {
-    const { data, error } = await db
-      .from('holler_profiles')
-      .select('user_id,categories,lat,lon,state,radius_mi')
-      .eq('user_id', userId)
-      .maybeSingle();
+    // '*' so a database without migration 0004 still works (no plan columns means Starter limits).
+    const { data, error } = await db.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
     if (error || !data) throw new Error(error?.message ?? 'profile not found');
     return await backfillMatches(db, data as MatchProfile, now);
   } catch (e) {

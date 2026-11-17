@@ -17,6 +17,12 @@ export interface Profile {
   alert_email: boolean;
   subscription_status: string;
   trial_ends_at: string;
+  /** 'starter' | 'pro' (migration 0004). Missing on a database without 0004: read it through lib/plan effectiveTier, never directly. */
+  plan?: string | null;
+  /** Pro extra service areas, jsonb array of {zip, city, state, lat, lon}. Read with lib/plan parseExtraAreas. */
+  extra_areas?: unknown;
+  /** Pro keyword watches. */
+  keywords?: string[] | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   email_verified_at: string | null;

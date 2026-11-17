@@ -93,6 +93,17 @@ export function SignupForm({ city }: { city?: string | null }) {
       <Button type="submit" size="lg" full disabled={pending}>
         {pending ? 'Creating your account...' : 'Create account'}
       </Button>
+      <p className="text-center text-sm text-muted">
+        By creating an account you agree to the{' '}
+        <Link href="/terms" className="font-medium text-accent-text underline">
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="font-medium text-accent-text underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </form>
   );
 }

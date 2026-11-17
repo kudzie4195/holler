@@ -3,12 +3,14 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDraft } from '@/lib/ai/draft';
 import { hit, LIMITS } from '@/lib/auth/ratelimit';
+import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 
 export const maxDuration = 30;
 
 const Body = z.object({ matchId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]) });
 
 interface SignalRow {
+  source: string;
   kind: string;
   title: string;
   summary: string | null;
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
 
   const { data: match, error } = await supabase
     .from('holler_matches')
-    .select('id, user_id, signal:holler_signals(kind, title, summary, city)')
+    .select('id, user_id, signal:holler_signals(source, kind, title, summary, city)')
     .eq('id', matchId)
     .eq('user_id', user.id)
     .maybeSingle();
@@ -37,6 +39,9 @@ export async function POST(req: Request) {
   const raw = match.signal as unknown as SignalRow | SignalRow[] | null;
   const signal = Array.isArray(raw) ? raw[0] : raw;
   if (!signal) return Response.json({ error: 'not_found' }, { status: 404 });
+  // A resident's request (made on /request) is never sent to the AI model: businesses answer it in their own words through the
+  // Reply box. Checked before anything else is read or counted.
+  if (signal.source === HOLLER_REQUEST_SOURCE) return Response.json({ error: 'resident_request' }, { status: 400 });
   if (signal.kind !== 'ask') return Response.json({ error: 'not_an_ask' }, { status: 400 });
 
   const { data: profile } = await supabase

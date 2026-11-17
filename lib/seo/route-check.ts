@@ -1,5 +1,6 @@
 import citiesJson from '../geo/cities.json';
 import { CATEGORIES } from '../signals/categories';
+import { GUIDE_SLUGS } from './guides';
 import { parseWeek } from './week';
 
 /**
@@ -39,7 +40,7 @@ function segments(pathname: string): string[] {
 
 /**
  * 'skip' for paths this check does not own, 'ok' for a known page, 'not-found' for an unknown slug.
- * Trade ids are read from CATEGORIES at call time. A weekly page /local/<state>/<city>/week/<YYYY-MM-DD> is 'ok' only for a
+ * Trade ids are read from CATEGORIES at call time; guide slugs from lib/seo/guides (GUIDE_SLUGS). A weekly page /local/<state>/<city>/week/<YYYY-MM-DD> is 'ok' only for a
  * Monday inside the current week and the 11 before it, judged at `nowMs` (see lib/seo/week.ts).
  */
 export function decidePublicRoute(pathname: string, nowMs: number = Date.now()): RouteDecision {
@@ -57,6 +58,11 @@ export function decidePublicRoute(pathname: string, nowMs: number = Date.now()):
     if (a === undefined) return 'ok';
     if (b !== undefined) return 'not-found';
     return CATEGORIES.some((c) => c.id === a) ? 'ok' : 'not-found';
+  }
+  if (root === 'guides') {
+    if (a === undefined) return 'ok';
+    if (b !== undefined) return 'not-found';
+    return GUIDE_SLUGS.includes(a) ? 'ok' : 'not-found';
   }
   return 'skip';
 }

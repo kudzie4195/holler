@@ -26,47 +26,52 @@ export function CheckForm({
     .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
     .filter((g) => g.options.length > 0);
   return (
-    <form action="/check" method="get" noValidate className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      <div className="sm:w-32">
-        <Input
-          id={`${idPrefix}-zip`}
-          name="zip"
-          label="ZIP code"
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          placeholder="30030"
-          defaultValue={zip}
-          error={zipError}
-        />
-      </div>
-      <div className="sm:min-w-0 sm:flex-1">
-        <Select id={`${idPrefix}-trade`} name="trade" label="What you do" defaultValue={trade} error={tradeError}>
-          <option value="">Pick a trade</option>
-          {groups.map((g) =>
-            g.label ? (
-              <optgroup key={g.label} label={g.label}>
-                {g.options.map((o) => (
+    // Layout follows the width of the box the form sits in (container queries), not the screen: the home hero column is about
+    // 520px on a desktop, /check is wider, phones are narrow. Narrow: one column. From 24rem: ZIP and trade side by side, button on its
+    // own row, so the trade select never shrinks to a sliver beside the long button. From 48rem: all three in one row.
+    <div className="@container">
+      <form action="/check" method="get" noValidate className="grid grid-cols-1 gap-4 @sm:grid-cols-[8rem_minmax(0,1fr)] @3xl:grid-cols-[8rem_minmax(0,1fr)_auto] @3xl:items-start">
+        <div className="min-w-0">
+          <Input
+            id={`${idPrefix}-zip`}
+            name="zip"
+            label="ZIP code"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            maxLength={10}
+            placeholder="30030"
+            defaultValue={zip}
+            error={zipError}
+          />
+        </div>
+        <div className="min-w-0">
+          <Select id={`${idPrefix}-trade`} name="trade" label="What you do" defaultValue={trade} error={tradeError}>
+            <option value="">Pick a trade</option>
+            {groups.map((g) =>
+              g.label ? (
+                <optgroup key={g.label} label={g.label}>
+                  {g.options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : (
+                g.options.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.label}
                   </option>
-                ))}
-              </optgroup>
-            ) : (
-              g.options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))
-            ),
-          )}
-        </Select>
-      </div>
-      <div className="sm:pt-[1.625rem]">
-        <Button type="submit" size="md" full className="sm:w-auto">
-          {submitLabel}
-        </Button>
-      </div>
-    </form>
+                ))
+              ),
+            )}
+          </Select>
+        </div>
+        <div className="@sm:col-span-2 @3xl:col-span-1 @3xl:pt-[1.625rem]">
+          <Button type="submit" size="md" full className="@sm:w-auto">
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

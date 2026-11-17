@@ -1,7 +1,7 @@
 // Launch kit: .env.example, supabase/cron.sql, LAUNCH.md and scripts/smoke.mjs.
 // The smoke script is run for real as a child process against a small local http server that imitates the routes.
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
@@ -78,8 +78,25 @@ describe('LAUNCH.md', () => {
       at = i;
     }
   });
-  it('names all three migrations, the three webhook events and the smoke command', () => {
-    for (const s of ['0001_holler.sql', '0002_holler_hardening.sql', '0003_holler_ops.sql', 'checkout.session.completed', 'customer.subscription.updated', 'customer.subscription.deleted', 'node scripts/smoke.mjs']) expect(md).toContain(s);
+  it('names every migration in the folder, the four webhook events and the smoke command', () => {
+    const migrations = readdirSync(path.join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
+    expect(migrations).toEqual(expect.arrayContaining(['0001_holler.sql', '0002_holler_hardening.sql', '0003_holler_ops.sql', '0004_holler_plans.sql', '0005_holler_requests.sql']));
+    for (const m of migrations) expect(md, m).toContain(`supabase/migrations/${m}`);
+    // Listed in apply order.
+    const at = migrations.map((m) => md.indexOf(`Run \`supabase/migrations/${m}\``));
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    for (const s of ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'exactly these four', 'node scripts/smoke.mjs']) expect(md).toContain(s);
+  });
+  it('round 3: portal cancels at period end with plan switching off, new routes are smoke-checked, optional keys need a Privacy update', () => {
+    expect(md).toMatch(/cancel \*\*at the end of the billing period\*\*/);
+    expect(md).toMatch(/Switching plans[^\n]*\*\*off\*\*/);
+    for (const r of ['/pricing', '/request', '/guides', '/faq', '/data']) {
+      expect(md).toContain(`\`${r}\``);
+      expect(read('scripts/smoke.mjs')).toContain(`'${r}'`);
+    }
+    expect(md).toMatch(/optional source key[\s\S]*Bluesky, Serper or Brave, Ticketmaster, SAM\.gov[\s\S]*app\/privacy\/page\.tsx/);
+    expect(md).toContain('Pro `$9.99` a month or `$96` a year');
   });
   it('mentions every ENV_KEYS key that a founder must act on, and no em dash', () => {
     for (const k of ENV_KEYS) expect(md, k).toContain(k);

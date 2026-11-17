@@ -11,7 +11,13 @@ vi.mock('@/lib/geo', async (orig) => ({
   lookupZip: (zip: string) => ({ zip, city: 'Marietta', state: 'GA', lat: 33.95, lon: -84.55 }),
 }));
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: async () => ({ from: () => ({ upsert: async (row: any) => (h.upserts.push(row), { error: null }) }) }),
+  // saveProfile reads the saved row first (plan limits): none here, so a first save on Starter limits.
+  createClient: async () => ({
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
+      upsert: async (row: any) => (h.upserts.push(row), { error: null }),
+    }),
+  }),
 }));
 
 import { saveProfile } from '../../lib/auth/profile';

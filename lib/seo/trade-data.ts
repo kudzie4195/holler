@@ -1,8 +1,9 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { publicClient } from './client';
 import { safeUrl } from './summarize';
 import { WINDOW_DAYS } from './threshold';
 import { UPCOMING_DAYS, orderLatest } from '@/lib/time';
+import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
 export const TRADE_LIST_LIMIT = 10;
@@ -38,6 +39,7 @@ interface Row {
   city: string | null;
   state: string | null;
   occurred_at: string;
+  expires_at?: string | null;
 }
 
 /**
@@ -69,7 +71,8 @@ export function isTradeIndexable(itemCount: number): boolean {
 /**
  * Latest national signals tagged with a trade: anon client, holler_signals only, `categories` contains
  * the trade id, newest first, last 60 days, 10 rows, plus up to 3 events that start in the next 14 days (listed first, soonest first). Two small indexed queries (gin on categories) per trade,
- * so at most one key per CategoryId. Cached 6 hours; failures are cached for 60 s.
+ * so at most one key per CategoryId. Cached 6 hours; failures are cached for 60 s. Ended resident requests are left out (query and
+ * rows), and a list that holds a live request is cached 15 minutes only.
  */
 export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
   'use cache';
@@ -81,7 +84,7 @@ export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
   }
   try {
     const nowMs = Date.now();
-    const base = () => sb.from('holler_signals').select('id,source,kind,title,url,city,state,occurred_at').contains('categories', [trade]);
+    const base = () => sb.from('holler_signals').select('id,source,kind,title,url,city,state,occurred_at,expires_at').contains('categories', [trade]).or(liveRequestsFilter(nowIso));
     const [recent, upcoming] = await Promise.all([
       base()
         .gte('occurred_at', new Date(nowMs - WINDOW_DAYS * DAY).toISOString())
@@ -97,8 +100,14 @@ export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
         .abortSignal(AbortSignal.timeout(10_000)),
     ]);
     if (recent.error) throw new Error(recent.error.message);
-    const rows = [...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])] as unknown as Row[];
-    cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
+    const rows = withoutEndedRequests([...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])] as unknown as Row[], nowMs);
+    // A live resident request in the list: tag the entry and keep it 15 minutes at most (see REQUEST_CACHE_LIFE).
+    if (hasRequestRows(rows)) cacheTag(REQUEST_CACHE_TAG);
+    cacheLife(
+      hasRequestRows(rows)
+        ? REQUEST_CACHE_LIFE
+        : { stale: 300, revalidate: 21600, expire: 86400 },
+    );
     return { ok: true, trade, asOf: nowIso, items: orderTradeItems(toTradeItems(rows), nowMs) };
   } catch (e) {
     console.error('[seo] loadTradeSignals failed:', trade, e instanceof Error ? e.message : 'unknown');

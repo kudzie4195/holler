@@ -93,6 +93,20 @@ describe('contact line in emails', () => {
     expect(m.renderWelcome({ businessName: 'A', appUrl: 'https://x.test/app' }).html).toContain('mailto:help@x.com');
   });
 
+  it('ends every member email with the sender and postal address (CAN-SPAM)', async () => {
+    const m = await load({ SUPPORT_EMAIL: 'help@x.com' });
+    const { COMPANY } = await import('../../lib/legal/company');
+    for (const r of [
+      m.renderDigest(digestArgs),
+      m.renderVerifyEmail({ verifyUrl: 'https://x.test/v', appUrl: 'https://x.test/app' }),
+      m.renderPasswordReset({ resetUrl: 'https://x.test/r' }),
+      m.renderWelcome({ businessName: 'A', appUrl: 'https://x.test/app' }),
+    ]) {
+      expect(r.html).toContain(COMPANY.addressLine);
+      expect(r.text).toContain(`${COMPANY.legalName}, ${COMPANY.addressLine}`);
+    }
+  });
+
   it('the verify email no longer claims the trial has started at signup (F-19)', async () => {
     const m = await load({});
     const v = m.renderVerifyEmail({ verifyUrl: 'https://x.test/v', appUrl: 'https://x.test/app' });

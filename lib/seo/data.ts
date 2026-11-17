@@ -1,9 +1,10 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { publicClient } from './client';
 import { WINDOW_DAYS } from './threshold';
 import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type SignalRowDb } from './summarize';
 import type { SectionId } from './sections';
 import { UPCOMING_DAYS, newestPast } from '../time';
+import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
 const ROW_COLUMNS = 'id,source,kind,title,summary,url,categories,severity,occurred_at,expires_at,subtype:data->>subtype';
@@ -15,6 +16,8 @@ const QUERY_TIMEOUT_MS = 10_000;
  * Cached for 6 hours (SPEC: revalidate = 21600). `export const revalidate` is removed in this
  * Next.js version when cacheComponents is on, so the 6 h lifetime is set here with cacheLife.
  * Failures are cached for only 60 s so a DB blip does not pin an empty page for 6 hours.
+ * Resident requests that have ended are left out (in the query and again on the rows), and a page that lists a live request is
+ * cached for 15 minutes only, so a closed request leaves it promptly.
  */
 export async function loadPlaceData(slug: string): Promise<PlaceData> {
   'use cache';
@@ -34,11 +37,12 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       .eq('place_slug', slug)
       .gte('occurred_at', since)
       .lte('occurred_at', until)
+      .or(liveRequestsFilter(nowIso))
       .order('occurred_at', { ascending: false })
       .limit(ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as unknown as SignalRowDb[];
+    const rows = withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], now.getTime());
 
     const exactSectionCounts: Partial<Record<SectionId, number>> = {};
     if (typeof count === 'number' && count > rows.length) {
@@ -56,6 +60,7 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
             .eq('kind', kind)
             .gte('occurred_at', since)
             .lte('occurred_at', until)
+            .or(liveRequestsFilter(nowIso))
             .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
           return { section, n: r.error ? 0 : (r.count ?? 0) };
         }),
@@ -63,7 +68,13 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       for (const { section, n } of results) exactSectionCounts[section] = (exactSectionCounts[section] ?? 0) + n;
     }
 
-    cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
+    // A live resident request in the list: tag the entry and keep it 15 minutes at most (see REQUEST_CACHE_LIFE).
+    if (hasRequestRows(rows)) cacheTag(REQUEST_CACHE_TAG);
+    cacheLife(
+      hasRequestRows(rows)
+        ? REQUEST_CACHE_LIFE
+        : { stale: 300, revalidate: 21600, expire: 86400 },
+    );
     return summarize(slug, rows, nowIso, {
       limit: DEFAULT_ITEM_LIMIT,
       totalOverride: typeof count === 'number' ? count : rows.length,

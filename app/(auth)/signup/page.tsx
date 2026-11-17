@@ -37,10 +37,6 @@ async function Signup({ searchParams }: { searchParams: PageProps<'/signup'>['se
           <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-accent-text underline">
             Log in
           </Link>
-          <br />
-          By creating an account you agree to the{' '}
-          <Link href="/terms" className="underline">Terms</Link> and{' '}
-          <Link href="/privacy" className="underline">Privacy Policy</Link>.
         </>
       }
     >

@@ -32,7 +32,7 @@ export function Logo({
   const inner = (
     <>
       <LogoMark size={size} />
-      <span className="text-lg font-semibold tracking-[-0.03em] text-ink">holler</span>
+      <span className="font-display text-xl font-semibold tracking-[-0.025em] text-ink">holler</span>
     </>
   );
   const cls = `inline-flex items-center gap-2 ${className}`;

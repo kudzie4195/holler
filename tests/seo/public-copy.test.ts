@@ -72,7 +72,7 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     const n = homeCopy(NONE);
     const a = homeCopy(ALL);
     expect(n.steps.map((s) => s.title)).toEqual(a.steps.map((s) => s.title));
-    expect(n.comparison.map((r) => r.label)).toEqual(a.comparison.map((r) => r.label));
+    expect(n.flatPrice.rows.map((r) => r.label)).toEqual(a.flatPrice.rows.map((r) => r.label));
     expect(n.faqs.map((f) => f.q)).toEqual(a.faqs.map((f) => f.q));
     expect(n.who.map((w) => w.title)).toEqual(a.who.map((w) => w.title));
     expect(n.sources.length).toBe(a.sources.length - 2);
@@ -92,6 +92,32 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(allText(homeCopy(NONE).faqs)).not.toContain('six hours');
     expect(allText(homeCopy(ALL).faqs)).toContain('every six hours');
     expect(aboutCopy(NONE).cadence).toContain('every 30 minutes');
+  });
+
+  it('no draft reply promise on the home page or /about without a people-asking key; with a key it is still there', () => {
+    for (const text of [allText(homeCopy(NONE)), allText(aboutCopy(NONE)), llmsText(llmsInput, NONE)]) expect(text.toLowerCase()).not.toContain('draft');
+    expect(allText(homeCopy(NONE).steps)).toContain('reply to a resident request through Holler');
+    expect(allText(homeCopy(ALL).steps)).toContain('draft reply');
+    expect(allText(homeCopy(ALL).faqs)).toContain('draft reply');
+    expect(allText(aboutCopy(ALL))).toContain('draft reply');
+  });
+
+  it('the home page names no competitor and quotes no outside price: no $199, upvotes, Reddit bot or SaaS founders; only Holler pricing', () => {
+    for (const has of [NONE, ALL]) {
+      const t = allText(homeCopy(has));
+      expect(t).not.toMatch(/\$199|upvote|Reddit|SaaS|bought accounts|Other tools|typical/i);
+      expect(homeCopy(has).flatPrice.heading).toBe('One flat price, no bill per lead');
+      expect(t).toContain('No per-lead fees');
+      expect(t).toContain('Starter is $5 a month and Pro is $9.99 a month');
+      expect(t).toContain('Any time, from Settings');
+    }
+  });
+
+  it('home FAQ and /about say Holler sends a message only when the business writes the reply and presses send', () => {
+    expect(allText(homeCopy(NONE).faqs)).toContain('never posts or messages anyone unless you write the reply and press send');
+    expect(allText(homeCopy(NONE).faqs)).not.toContain('messages anyone on your behalf');
+    expect(allText(aboutCopy(NONE).whatItIs)).toContain('plus a free page where residents can ask local businesses for help');
+    expect(allText(aboutCopy(NONE).whatItIs)).toContain('Holler is new');
   });
 
   it('the three page files hold no key-gated wording of their own (it all comes from lib/seo/public-copy.ts)', () => {

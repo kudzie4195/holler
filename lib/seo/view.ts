@@ -1,4 +1,5 @@
-import { CADENCE_LONG } from './cadence';
+import { cadenceLong } from './cadence';
+import { flagsFor, type Flags } from './public-copy';
 import { sourceInfo } from './sources';
 import { tradeLabel } from './trades';
 import { KIND_NOUN, SECTIONS, SECTION_BY_ID } from './sections';
@@ -137,7 +138,8 @@ export function buildHelps(data: PlaceData, max = 8): HelpsBlock | null {
   };
 }
 
-export function buildFaq(city: CityRef, data: PlaceData): { q: string; a: string }[] {
+/** `flags` says which optional sources are on (default: the keys set on this deployment). With none on, the cadence names keyless sources only. */
+export function buildFaq(city: CityRef, data: PlaceData, flags: Flags = flagsFor()): { q: string; a: string }[] {
   const place = `${city.name}, ${city.state}`;
   const labels = [...new Set(data.sources.map((s) => sourceInfo(s).label))];
   const hasData = data.ok && data.total > 0 && !!data.latestAt;
@@ -163,15 +165,16 @@ export function buildFaq(city: CityRef, data: PlaceData): { q: string; a: string
         `Nothing so far. Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days, and records are tagged to ${city.name} when they fall within 40 miles of the city center.`,
         `Holler has not recorded any public records for ${place} in the last ${WINDOW_DAYS} days. Anything within 40 miles of the city center would be tagged to ${city.name}.`,
       ][v('how')];
+  const cadence = cadenceLong({ ask: flags.ask, event: flags.event });
   const often = [
-    `${CADENCE_LONG} This page refreshes about every 6 hours. The time of the last refresh is shown near the top.`,
-    `This page refreshes about every 6 hours, and the time of the last refresh is shown near the top. ${CADENCE_LONG}`,
-    `Sources are checked on their own schedules. ${CADENCE_LONG} This page refreshes about every 6 hours, and the time of the last refresh is shown near the top.`,
+    `${cadence} This page refreshes about every 6 hours. The time of the last refresh is shown near the top.`,
+    `This page refreshes about every 6 hours, and the time of the last refresh is shown near the top. ${cadence}`,
+    `Sources are checked on their own schedules. ${cadence} This page refreshes about every 6 hours, and the time of the last refresh is shown near the top.`,
   ][v('often')];
   const alerts = [
-    `Pick what your business does and how far you travel, and Holler emails you when something nearby matches. It costs $5 a month after a 7-day free trial, and no card is needed to start. Holler never posts anything for you.`,
-    `Pick what your business does and how far you travel. Holler emails you when something nearby matches. It costs $5 a month after a 7-day free trial, with no card needed to start, and Holler never posts anything for you.`,
-    `Holler emails you when something nearby matches what your business does and how far you travel, and you pick both. It costs $5 a month after a 7-day free trial. No card is needed to start, and Holler never posts anything for you.`,
+    `Pick what your business does and how far you travel, and Holler emails you when something nearby matches. Plans start at $5 a month after a 7-day free trial, and no card is needed to start. Holler never posts anything for you.`,
+    `Pick what your business does and how far you travel. Holler emails you when something nearby matches. Plans start at $5 a month after a 7-day free trial, with no card needed to start, and Holler never posts anything for you.`,
+    `Holler emails you when something nearby matches what your business does and how far you travel, and you pick both. Plans start at $5 a month after a 7-day free trial. No card is needed to start, and Holler never posts anything for you.`,
   ][v('alerts')];
   return [
     { q: `Where does the ${city.name} information come from?`, a: where },

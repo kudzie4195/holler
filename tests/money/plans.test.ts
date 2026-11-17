@@ -72,7 +72,7 @@ describe('statusForSubscriptionEvent (F-8)', () => {
   });
   it('falls back to the event status when the fresh read failed', () => {
     expect(statusForSubscriptionEvent('customer.subscription.updated', 'past_due', null)).toBe('past_due');
-    expect(statusForSubscriptionEvent('customer.subscription.updated', 'unpaid', undefined)).toBe('past_due');
+    expect(statusForSubscriptionEvent('customer.subscription.updated', 'unpaid', undefined)).toBe('canceled');
   });
   it('deleted is always canceled, whatever the body says', () => {
     expect(statusForSubscriptionEvent('customer.subscription.deleted', 'active', 'active')).toBe('canceled');

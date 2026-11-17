@@ -39,3 +39,17 @@ export function trialParams(trialEndsAt: string | null | undefined, now: number 
 export function alreadySubscribed(status: string | null | undefined): boolean {
   return status === 'active' || status === 'past_due';
 }
+
+/**
+ * True only when the request says its body is JSON (media type exactly application/json, parameters allowed). A cross-site HTML
+ * form can only send form-encoded or text/plain bodies, and a "text/plain; application/json" header is text/plain, so it fails.
+ * State-changing billing routes answer 415 otherwise.
+ */
+export function isJsonRequest(req: Request): boolean {
+  const ct = req.headers.get('content-type') ?? '';
+  return ct.split(';')[0].trim().toLowerCase() === 'application/json';
+}
+
+export function unsupportedMediaType(): Response {
+  return Response.json({ error: 'unsupported_media_type' }, { status: 415 });
+}

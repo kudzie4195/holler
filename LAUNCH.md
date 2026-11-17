@@ -9,17 +9,20 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 
 - [ ] You have: the Supabase project (shared with the other product), a Vercel project, a Stripe account, a Resend account, and a domain.
 - [ ] `<SITE>` below means the final https address, for example `https://holler.example`. No trailing slash.
-- [ ] Generate the cron secret once and keep it in your password manager: `openssl rand -hex 32`. Call it `<CRON_SECRET>`. Do not rotate it later: it also signs unsubscribe and email-verify links, so rotating breaks every link already emailed.
+- [ ] Generate the cron secret once and keep it in your password manager: `openssl rand -hex 32`. Call it `<CRON_SECRET>`. Do not rotate it later: it also signs unsubscribe and email-verify links and the close link in every resident-request email, so rotating breaks every link already emailed. After a rotation, a resident cannot close an open request from an older email, and the owner's remove links stop working too. The request still ends by itself after 14 days. To end one by hand: `update holler_requests set status='closed', closed_at=now(), email=null, description=null, public_summary=null where public_id='<req_...>';` (the next scan cron run deletes its public record).
 
 ## 1. Apply the database migrations (Supabase SQL editor, in this order, each file once)
 
 - [ ] Run `supabase/migrations/0001_holler.sql`
 - [ ] Run `supabase/migrations/0002_holler_hardening.sql`
 - [ ] Run `supabase/migrations/0003_holler_ops.sql`
+- [ ] Run `supabase/migrations/0004_holler_plans.sql` (Starter and Pro: `plan`, `extra_areas`, `keywords` on `holler_profiles`, and the plan-limits trigger)
+- [ ] Run `supabase/migrations/0005_holler_requests.sql` (resident requests: `holler_requests`, `holler_request_replies`, the reply guard with the 5-per-request and 10-per-business-per-day caps, a check that keeps free text off the public request record, and a trigger that deletes a business's reply records when its profile is deleted)
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
+- [ ] Check: `select plan, extra_areas, keywords from holler_profiles limit 1;` and `select count(*) from holler_requests;` both return without error.
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all three are additive and idempotent, and re-running them in any order is tested to succeed. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
+Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all five are additive and idempotent. If you ever re-run one, run 0001 to 0005 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 
@@ -29,6 +32,7 @@ Every object is named `holler_*`. Nothing else in the shared project is touched.
 - [ ] Create an API key (sending access). This is `RESEND_API_KEY`.
 - [ ] Decide the From address: `Holler <alerts@mail.<yourdomain>>`. This is `EMAIL_FROM`. Without it Holler sends nothing, on purpose.
 - [ ] Pick a monitored inbox for `SUPPORT_EMAIL` (it becomes reply-to on every email and shows on the Privacy and Terms pages) and `ADMIN_EMAIL` (gets the daily health email).
+- [ ] Resend dashboard > Domains > this domain > Configuration: keep **open tracking and click tracking OFF**. Holler promises no tracking pixels (Privacy), and click tracking would rewrite the one-time confirm and close links through a Resend redirect, so the tokens would sit in Resend's link logs.
 - [ ] If the other product uses the same Resend account and has a webhook there, check that Holler mail does not feed its bounce and complaint numbers. A separate domain or webhook filter avoids it.
 
 ## 3. Set environment variables (Vercel > Project > Settings > Environment Variables, Production)
@@ -54,12 +58,14 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
 - [ ] `INDEXNOW_KEY` (tells Bing and other IndexNow search engines about new pages; set it in step 10, where it is explained)
+- [ ] Before you set any optional source key later (Bluesky, Serper or Brave, Ticketmaster, SAM.gov), update `app/privacy/page.tsx` first. The Privacy page today names only the keyless public sources. Bluesky in particular stores each post's author handle, and web search stores snippets of public posts, so the page must say so before those sources run.
 
 ## 4. Deploy
 
 - [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
 - [ ] Confirm the build is green and `<SITE>` loads.
+- [ ] Know this: `REQUESTS_ENABLED` is the off switch for new resident requests. Leave it unset (on). Set it to `0` if the form is abused: the API answers 503 at once, and the `/request` page shows "Requests are paused" after the next deploy. Requests already made keep working. On top of that, at most 300 confirmation emails go out per day site-wide.
 - [ ] Know this: adding or removing an optional key (Brave, Serper, Bluesky, Ticketmaster, SAM) needs a redeploy before the public pages change. The home page, /about and /llms.txt are built at deploy time and name a source only when its key was set then. Onboarding and Settings read the keys on each request, so off Vercel they can disagree with the home page until you rebuild.
 - [ ] Know this: the free /check page caches database reads with `use cache: remote`, which Next.js documents as a cache shared by all server instances that the hosting provider supplies. If you host somewhere other than Vercel, set `cacheHandlers.remote` in `next.config.ts` or every instance caches alone.
 - [ ] Add the domain in Vercel > Domains if you have not, and confirm HTTPS works.
@@ -70,6 +76,7 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 node scripts/smoke.mjs <SITE> <CRON_SECRET>
 ```
 
+- [ ] The script also loads the round 3 pages: `/pricing`, `/request`, `/guides`, `/faq` and `/data`. Each must answer 200. Open `/request` in a browser once and check the form shows.
 - [ ] The last line says `PASS`. Exit code 0. This holds with only the required keys set: a source skipped for a missing optional key (Bluesky, Brave, Serper, Ticketmaster, SAM) is a `WARN` line, never a `FAIL`.
 - [ ] Every `FAIL` line is fixed. Common ones: a cron route that answers 200 without a key means the auth check did not ship, and a cron route that answers 401 with the right secret means `CRON_SECRET` on Vercel differs from the one you passed; `/app` not redirecting means the proxy is not deployed; 404 check failing on the bad city page means the city validation did not ship.
 - [ ] `WARN` lines are fine if you understand them (optional pages, sources skipped for a missing key).
@@ -97,15 +104,18 @@ The smoke test prints one row per source: `status`, `fetched`, `parsed`, `latest
 
 Do this once in test mode (use `sk_test_...` and a test webhook) to prove it works, then repeat with live keys.
 
-- [ ] Stripe Dashboard > Settings > Billing > Customer portal: save the portal settings (cancel subscription on). The Manage billing button fails until you do.
+- [ ] Stripe Dashboard > Settings > Billing > Customer portal: save the portal settings. The Manage billing button fails until you do.
+  - Cancel subscription: on, and set to cancel **at the end of the billing period**. The Terms promise the plan stays on until the end of the period already paid for.
+  - Switching plans (customers can switch plans or prices): **off**. Plan switches must go through Settings in Holler (`/api/stripe/change-plan`), which sets `metadata.tier` and prorates. A switch made in the portal would leave Holler on the wrong plan.
 - [ ] Developers > Webhooks > Add endpoint: `<SITE>/api/stripe/webhook`
-- [ ] Events to send, exactly these three: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+- [ ] Events to send, exactly these four: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
 - [ ] Copy the signing secret (`whsec_...`) into `STRIPE_WEBHOOK_SECRET`. Set `STRIPE_SECRET_KEY`. Redeploy.
-- [ ] Prices are created inline at checkout: `$5` a month or `$48` a year. There is nothing to create in the Stripe product catalog.
+- [ ] Prices are created inline at checkout: Starter `$5` a month or `$48` a year, Pro `$9.99` a month or `$96` a year. There is nothing to create in the Stripe product catalog. The first plan switch creates two products, `holler_starter` and `holler_pro`, by itself.
 - [ ] The Stripe account may be shared with the other product. Holler tags everything `metadata.app = holler` and ignores events without it. If the other product uses the same webhook URL style, give Holler its own endpoint, as above.
 - [ ] Test pass: complete a checkout with card `4242 4242 4242 4242` for monthly, then again on a second test account for yearly. After each, `select subscription_status, stripe_subscription_id from holler_profiles where user_id = '<USER_ID>';` shows `active`.
 - [ ] Cancel from Manage billing. The status becomes `canceled` within a minute.
-- [ ] Webhook delivery log in Stripe shows 200 for all three events.
+- [ ] Test a plan switch: on the monthly test account, Settings > Move to Pro. `select plan from holler_profiles where user_id = '<USER_ID>';` shows `pro`, and the next Stripe invoice preview shows a prorated line.
+- [ ] Webhook delivery log in Stripe shows 200 for all four events.
 - [ ] Live: repeat the endpoint creation in live mode, swap in the live `STRIPE_SECRET_KEY` and live `STRIPE_WEBHOOK_SECRET`, redeploy.
 
 ## 9. First real signup test (use a real inbox you can read)

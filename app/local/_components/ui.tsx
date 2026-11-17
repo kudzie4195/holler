@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
+import { env } from '@/lib/env';
 
 /* Plain Tailwind using W1's tokens from app/globals.css. Primary button uses accent-hover (#C94A08) with white text for AA contrast. */
 
@@ -55,7 +56,7 @@ export function H2({ children, id }: { children: ReactNode; id?: string }) {
 
 export function Card({ children }: { children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-surface p-5 shadow-[0_1px_2px_rgb(0_0_0/.04),0_4px_16px_rgb(0_0_0/.04)]">
+    <section className="rounded-card border border-line bg-surface p-5 shadow-soft">
       {children}
     </section>
   );
@@ -65,7 +66,7 @@ export function PrimaryLink({ href, children }: { href: string; children: ReactN
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent-hover px-6 py-3 text-lg font-bold text-white hover:bg-[#A83D06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent-hover px-6 py-3 text-lg font-bold text-white hover:bg-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
       {children}
     </Link>
@@ -74,3 +75,32 @@ export function PrimaryLink({ href, children }: { href: string; children: ReactN
 
 export const linkClass =
   'underline underline-offset-2 hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+
+/**
+ * One-line public-records note for city, weekly and trade pages (legal.md (d), kept to one sentence): where the records come from,
+ * no agency affiliation, and how to get one fixed or removed (SUPPORT_EMAIL when set, always the Terms link).
+ */
+export function PublicRecordsNote() {
+  const support = env.SUPPORT_EMAIL?.trim() || null;
+  return (
+    <p className="mt-8 text-xs text-muted">
+      Most records here come from public government records, which can be late or wrong; Holler is not affiliated with any agency, and to
+      fix or remove a record,{' '}
+      {support ? (
+        <>
+          email{' '}
+          <a href={`mailto:${support}`} className="underline underline-offset-2 hover:text-ink">
+            {support}
+          </a>{' '}
+          with the page link or see our{' '}
+        </>
+      ) : (
+        <>see our </>
+      )}
+      <Link href="/terms" className="underline underline-offset-2 hover:text-ink">
+        Terms
+      </Link>
+      .
+    </p>
+  );
+}

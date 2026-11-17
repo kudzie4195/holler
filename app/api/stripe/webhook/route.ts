@@ -1,8 +1,21 @@
 import type Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
-import { billingNotConfigured, getStripe, isHollerMetadata, mapStripeStatus, statusForSubscriptionEvent } from '@/lib/stripe';
+import { billingNotConfigured, getStripe, isHollerMetadata, mapStripeStatus, statusForSubscriptionEvent, tierFromMetadata } from '@/lib/stripe';
 
+
+/**
+ * The subscription as Stripe has it now, or null when Stripe says it no longer exists (resource_missing). Any other failure throws,
+ * so the handler answers 500 and Stripe delivers the event again (P1-3): a stale event body is never used in its place.
+ */
+async function freshSubscription(stripe: Stripe, id: string): Promise<Pick<Stripe.Subscription, 'status' | 'metadata'> | null> {
+  try {
+    return await stripe.subscriptions.retrieve(id);
+  } catch (e) {
+    if ((e as { code?: string } | null)?.code === 'resource_missing') return null;
+    throw e;
+  }
+}
 
 function idOf(x: string | { id: string } | null | undefined): string | null {
   if (!x) return null;
@@ -34,47 +47,59 @@ export async function POST(req: Request) {
       if (userId && session.mode === 'subscription') {
         const subId = idOf(session.subscription);
         let status = mapStripeStatus('active')!;
+        // The subscription's own metadata decides the plan; the session's metadata (same tier, set by our checkout) is the fallback.
+        let tier = tierFromMetadata(session.metadata);
         if (subId) {
-          try {
-            const sub = await stripe.subscriptions.retrieve(subId);
+          // No fallback on a failed read (P1-3): it throws, the handler answers 500 and Stripe delivers the event again later.
+          const sub = await freshSubscription(stripe, subId);
+          if (!sub) status = 'canceled';
+          else {
             status = mapStripeStatus(sub.status) ?? status;
-          } catch {
-            // fall back to active: checkout completed means payment method accepted
+            if (isHollerMetadata(sub.metadata)) tier = tierFromMetadata(sub.metadata);
           }
         }
-        const { error } = await admin
+        let q = admin
           .from('holler_profiles')
           .update({
             subscription_status: status,
+            plan: tier,
             stripe_customer_id: idOf(session.customer),
             stripe_subscription_id: subId,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId);
+        // A replayed (resent or late) checkout for a subscription that has since ended must not replace the member's current one
+        // (P2-1). It may only write to a row that has no subscription yet or that already points at this one.
+        if (status === 'canceled' && subId) q = q.or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${subId}`);
+        const { error } = await q;
         if (error) throw new Error(error.message);
       }
     } else if (
+      event.type === 'customer.subscription.created' ||
       event.type === 'customer.subscription.updated' ||
       event.type === 'customer.subscription.deleted'
     ) {
       const sub = event.data.object as Stripe.Subscription;
       if (!isHollerMetadata(sub.metadata)) return Response.json({ received: true, ignored: 'not_holler' });
-      // Events can arrive out of order, so for updates read the subscription's current status instead of trusting the event body (F-8).
+      // Events can arrive out of order, so for created/updated read the subscription's current status and metadata instead of
+      // trusting the event body (F-8). A plan switch changes metadata.tier, so the tier follows the same rule.
       let freshStatus: string | null = null;
-      if (event.type === 'customer.subscription.updated') {
-        try {
-          freshStatus = (await stripe.subscriptions.retrieve(sub.id)).status;
-        } catch {
-          // fall back to the event's own status; Stripe retries the webhook if we return 500 below
-        }
+      let tier = tierFromMetadata(sub.metadata);
+      if (event.type !== 'customer.subscription.deleted') {
+        // P1-3: never fall back to the (possibly stale) event body. If the read fails, the throw answers 500 and Stripe retries.
+        const fresh = await freshSubscription(stripe, sub.id);
+        freshStatus = fresh ? fresh.status : 'canceled';
+        if (fresh && isHollerMetadata(fresh.metadata)) tier = tierFromMetadata(fresh.metadata);
       }
       const status = statusForSubscriptionEvent(event.type, sub.status, freshStatus);
       if (status) {
-        const patch = {
+        // Cancel only changes the status. The stored plan stays, and lib/plan effectiveTier gives a canceled member Starter limits.
+        const patch: Record<string, unknown> = {
           subscription_status: status,
           stripe_subscription_id: sub.id,
           updated_at: new Date().toISOString(),
         };
+        if (event.type !== 'customer.subscription.deleted') patch.plan = tier;
         const userId = sub.metadata?.user_id;
         const customerId = idOf(sub.customer);
         let q = admin.from('holler_profiles').update(patch);

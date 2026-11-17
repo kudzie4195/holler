@@ -119,7 +119,7 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[]): Promi
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, title, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
+      .select('id, source, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     inserted.push(...((data ?? []) as StoredSignal[]));
   }
@@ -129,6 +129,17 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[]): Promi
 export interface LoadedProfile extends MatchProfile {
   subscription_status: string;
   trial_ends_at: string | null;
+}
+
+/** Columns a matcher needs from holler_profiles, plan limits included (plan, extra_areas, keywords come from migration 0004). */
+export const PROFILE_MATCH_COLUMNS =
+  'user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at, plan, extra_areas, keywords';
+/** The same without the 0004 columns: read only when the database does not have them yet, which gives every profile Starter limits. */
+const PROFILE_MATCH_COLUMNS_LEGACY = 'user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at';
+
+function missingPlanColumn(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e);
+  return /(plan|extra_areas|keywords)/.test(m) && /does not exist|could not find/i.test(m);
 }
 
 /**
@@ -146,21 +157,31 @@ export function canSeeAlerts(p: { subscription_status: string; trial_ends_at: st
 
 /**
  * Profiles eligible for matching: has categories and can still see alerts (not canceled, not past an unpaid trial).
+ * Each row carries plan, subscription_status, extra_areas and keywords, so matchOne/matchSignals apply the plan limits.
  * Paged with .range() because PostgREST silently caps one response at 1000 rows.
  */
 export async function loadProfiles(db: Db, now: Date = new Date()): Promise<MatchProfile[]> {
-  let rows: LoadedProfile[];
-  try {
-    rows = await readAllPages<LoadedProfile>(
+  const read = (columns: string) =>
+    readAllPages<LoadedProfile>(
       (from, to) =>
         db
           .from('holler_profiles')
-          .select('user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at')
+          .select(columns)
           .neq('subscription_status', 'canceled')
           .order('user_id', { ascending: true })
           .range(from, to),
       100,
     );
+  let rows: LoadedProfile[];
+  try {
+    try {
+      rows = await read(PROFILE_MATCH_COLUMNS);
+    } catch (e) {
+      // Code deployed before migration 0004 ran: keep matching on Starter limits instead of matching nobody.
+      if (!missingPlanColumn(e)) throw e;
+      console.error('loadProfiles: plan columns missing (apply migration 0004); matching with Starter limits');
+      rows = await read(PROFILE_MATCH_COLUMNS_LEGACY);
+    }
   } catch (e) {
     throw new Error(`profiles read failed: ${e instanceof Error ? e.message : String(e)}`);
   }

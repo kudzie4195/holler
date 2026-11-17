@@ -11,7 +11,10 @@ import { signalTypeActive, sourceActive } from './signal-types';
 type Has = (...k: EnvKey[]) => boolean;
 
 export interface Flags {
-  /** People asking for a recommendation: needs Brave, Serper or both Bluesky keys. */
+  /**
+   * Public posts from people asking for a recommendation: needs Brave, Serper or both Bluesky keys. Resident requests made on Holler
+   * (/request) are also kind 'ask' but need no key and are not covered by this flag; they are described as requests posted on Holler.
+   */
   ask: boolean;
   /** Big ticketed events: needs the Ticketmaster key. */
   event: boolean;
@@ -82,7 +85,8 @@ export interface HomeCopy {
   sources: { name: string; note: string }[];
   sourcesNote: string;
   who: { title: string; body: string }[];
-  comparison: { label: string; holler: string; other: string }[];
+  /** Holler's own pricing model, stated plainly. No other product is named or implied. */
+  flatPrice: { heading: string; intro: string; rows: { label: string; body: string }[] };
   faqs: { q: string; a: string }[];
   /** The first example is always a type that needs no key. The 'ask' example is added only when people-asking is on. */
   examples: ExampleAlert[];
@@ -150,7 +154,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
   ];
 
   return {
-    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. $5 a month after a 7-day free trial. No card to start.`,
+    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from $5 a month after a 7-day free trial. No card to start.`,
     heroLead: `Holler watches ${joinList(watched)}, and when something nearby fits what you do, you get a short alert.`,
     steps: [
       {
@@ -160,7 +164,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
       { title: 'We watch the public record', body: `${cap(joinList(stepWatch))}. ${CADENCE_SHORT}` },
       {
         title: 'You get a short alert',
-        body: 'An email and a feed. Open the source, save it, or ask for a draft reply that you edit and post yourself.',
+        body: `An email and a feed. Open the source, save it, or reply to a resident request through Holler.${f.ask ? ' For public posts, you can also ask for a draft reply that you edit and post yourself.' : ''}`,
       },
     ],
     sourcesHeading: 'Public signals, one feed',
@@ -180,25 +184,25 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
         body: f.event ? 'Airport delays and event crowds, before the rush starts.' : 'Airport delays and new building permits, before the rush starts.',
       },
     ],
-    comparison: [
-      { label: 'Price', holler: '$5 a month or $48 a year', other: '$199 a month' },
-      {
-        label: 'What it watches',
-        holler: `Public sources across the country: weather, permits, 311${f.event ? ', events' : ''} and more`,
-        other: 'One website',
-      },
-      { label: 'Posting', holler: 'Never posts for you, so there is nothing to get banned', other: 'Often sells upvotes and posts from bought accounts' },
-      { label: 'Built for', holler: 'Roofers, plumbers, cleaners, food trucks, drivers', other: 'SaaS founders' },
-    ],
+    flatPrice: {
+      heading: 'One flat price, no bill per lead',
+      intro: 'Starter is $5 a month and Pro is $9.99 a month. Neither plan charges you for an alert, a record or a reply.',
+      rows: [
+        { label: 'Price', body: 'Starter is $5 a month and Pro is $9.99 a month. Paying yearly costs less.' },
+        { label: 'Per lead', body: 'No per-lead fees. A busy week costs the same as a quiet one.' },
+        { label: 'Trial', body: 'Seven days free, on Starter limits, with no card.' },
+        { label: 'Cancel', body: 'Any time, from Settings.' },
+      ],
+    },
     faqs: [
       {
         q: 'Do you post for me?',
-        a: 'No. Holler never posts, comments or messages anyone on your behalf, and it never touches your social accounts. If you ask for a draft reply, you get text to edit and post yourself.',
+        a: `No. Holler never posts or messages anyone unless you write the reply and press send, and it never touches your social accounts.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
       },
       { q: 'Where does the data come from?', a: dataAnswer },
       {
         q: 'Do I need a card to try it?',
-        a: 'No. You get 7 days free with no card. After that it is $5 a month or $48 a year. If you do not subscribe, your feed locks and your account stays put until you decide.',
+        a: 'No. You get 7 days free with no card. After that, Starter is $5 a month or $48 a year, and Pro is $9.99 a month or $96 a year. If you do not subscribe, your feed locks and your account stays put until you decide.',
       },
       {
         q: 'How fast are the alerts?',
@@ -210,7 +214,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
       },
       {
         q: 'Can I cancel?',
-        a: 'Any time, from Settings. You can also delete your account there, which removes your profile, matches and drafts.',
+        a: 'Any time, from Settings. You can also delete your account there, which removes your profile and your matches.',
       },
     ],
     examples,
@@ -270,12 +274,13 @@ export function aboutCopy(has: Has = hasEnv): AboutCopy {
 
   return {
     metaDescription:
-      'Holler turns public data into short alerts for local businesses. See where the data comes from and what we never do.',
+      'Holler turns public data into short alerts for local businesses. See where the data comes from, what we never do and what the two plans cost.',
     sources,
     whatItIs: [
       `${opener}${third}`,
-      'Holler watches for moments like these in public data. You tell us what you do and where you work, and when something nearby matches, you get a short alert with a link to the source. That is the whole product.',
-      'It costs $5 a month, or $48 a year if you pay yearly, after a 7-day free trial that needs no card to start. Cancel from Settings whenever you like.',
+      'Holler watches for moments like these in public data. You tell us what you do and where you work, and when something nearby matches, you get a short alert with a link to the source. That, plus a free page where residents can ask local businesses for help, is the whole product.',
+      'There are two plans. Starter is $5 a month, or $48 a year, for one service area and up to five trades. Pro is $9.99 a month, or $96 a year, for up to three areas and 15 trades. Both start with a 7-day free trial that needs no card. Cancel from Settings whenever you like.',
+      'Holler is new, so judge it on the records and the source links, not on a customer count.',
     ],
     dataIntro: `Everything comes from official APIs and open data${f.search ? ' and licensed search APIs' : ''}, and each alert links to the page or dataset it came from.`,
     coverage:
@@ -339,7 +344,7 @@ export function llmsText(input: LlmsInput, has: Has = hasEnv): string {
     '',
     '## Pricing',
     '',
-    '$5 per month or $48 per year, after a 7-day free trial. No card is needed to start.',
+    'Starter: $5 per month or $48 per year. Pro: $9.99 per month or $96 per year. Both start with a 7-day free trial; no card is needed to start.',
     '',
     '## Pages',
     '',

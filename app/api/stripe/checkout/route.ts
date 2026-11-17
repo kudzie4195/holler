@@ -2,13 +2,34 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/env';
-import { alreadySubscribed, billingNotConfigured, getStripe, hollerMetadata, parsePlan, priceDataFor, trialParams } from '@/lib/stripe';
+import {
+  alreadySubscribed,
+  billingNotConfigured,
+  getStripe,
+  hollerMetadata,
+  isHollerMetadata,
+  isJsonRequest,
+  parsePlan,
+  parseTier,
+  priceDataFor,
+  trialParams,
+  unsupportedMediaType,
+} from '@/lib/stripe';
+
+/**
+ * Stripe statuses that Holler stores as 'canceled' (no paid access) although the subscription is still open in Stripe. Before a new
+ * checkout, such a leftover subscription is canceled so the member never ends up with two.
+ */
+const LEFTOVER = new Set(['unpaid', 'paused']);
 
 export async function POST(req: Request) {
   const stripe = getStripe();
   if (!stripe) return billingNotConfigured();
+  // Content-Type: application/json is required (an empty body is fine), so a cross-site HTML form cannot start a checkout.
+  if (!isJsonRequest(req)) return unsupportedMediaType();
 
-  // Body is optional: no body means monthly. Anything that is not monthly or annual is a 400, never a guess.
+  // Body is optional: no body means Starter monthly. A plan that is not monthly or annual, or a tier that is not starter or pro,
+  // is a 400, never a guess.
   let body: unknown;
   const rawBody = await req.text();
   if (rawBody.trim()) {
@@ -20,6 +41,8 @@ export async function POST(req: Request) {
   }
   const plan = parsePlan(body);
   if (!plan) return Response.json({ error: 'invalid_plan' }, { status: 400 });
+  const tier = parseTier(body);
+  if (!tier) return Response.json({ error: 'invalid_tier' }, { status: 400 });
 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -29,17 +52,29 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from('holler_profiles')
-    .select('stripe_customer_id, business_name, subscription_status, trial_ends_at')
+    .select('stripe_customer_id, stripe_subscription_id, business_name, subscription_status, trial_ends_at')
     .eq('user_id', user.id)
     .maybeSingle();
   if (error) return Response.json({ error: 'profile_lookup_failed' }, { status: 500 });
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
   // Already paying (or in Stripe's retry window): a second checkout would create a second subscription.
+  // Moving between Starter and Pro goes through POST /api/stripe/change-plan instead.
   if (alreadySubscribed(profile.subscription_status as string | null)) {
     return Response.json({ error: 'already_subscribed' }, { status: 409 });
   }
 
   try {
+    // Owner decision: unpaid and paused count as canceled here. If that subscription is still open in Stripe, close it first
+    // (Stripe also stops collecting its old invoices on cancel), so a fresh checkout cannot leave two Holler subscriptions behind.
+    const oldSubId = profile.stripe_subscription_id as string | null;
+    if (oldSubId) {
+      const old = await stripe.subscriptions.retrieve(oldSubId).catch((e: { code?: string }) => {
+        if (e?.code === 'resource_missing') return null;
+        throw e;
+      });
+      if (old && isHollerMetadata(old.metadata) && LEFTOVER.has(old.status)) await stripe.subscriptions.cancel(old.id);
+    }
+
     let customerId = profile.stripe_customer_id as string | null;
     if (!customerId) {
       // The idempotency key makes a retry (for example after the save below fails) return the same customer, not a second one.
@@ -63,15 +98,16 @@ export async function POST(req: Request) {
       mode: 'subscription',
       customer: customerId,
       client_reference_id: user.id,
-      metadata: { ...hollerMetadata(user.id), plan },
+      metadata: { ...hollerMetadata(user.id), plan, tier },
       line_items: [
         {
           quantity: 1,
-          price_data: priceDataFor(plan),
+          price_data: priceDataFor(plan, tier),
         },
       ],
-      // No charge during the free trial that started in the app. Same trial rule for monthly and annual.
-      subscription_data: { metadata: { ...hollerMetadata(user.id), plan }, ...trialParams(profile.trial_ends_at as string | null) },
+      // No charge during the free trial that started in the app. Same trial rule for every plan and interval.
+      // The webhook reads tier from the subscription's metadata to set holler_profiles.plan.
+      subscription_data: { metadata: { ...hollerMetadata(user.id), plan, tier }, ...trialParams(profile.trial_ends_at as string | null) },
       success_url: `${siteUrl}/app?upgraded=1`,
       cancel_url: `${siteUrl}/app/settings`,
     });

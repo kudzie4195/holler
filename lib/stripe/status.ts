@@ -3,7 +3,11 @@ export type HollerStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 /**
  * Map a Stripe subscription status to holler_profiles.subscription_status.
  * Returns null when the event should not change the stored status (e.g. 'incomplete').
- * Our free trial is app-side (no card), so a Stripe 'trialing' subscription is treated as paid access.
+ * Our free trial is app-side (no card), so a Stripe 'trialing' subscription is treated as paid access (owner decision: a trial
+ * member who subscribes to Pro with a card gets Pro limits at once).
+ * 'past_due' (Stripe is still retrying the card) keeps access. 'unpaid' (retries ran out) and 'paused' (a trial ended with no way to
+ * pay) are not paid: they are stored as 'canceled', which removes paid access and Pro limits but deletes nothing. If the member
+ * pays later, Stripe sends the subscription as 'active' again and the webhook stores that.
  */
 export function mapStripeStatus(s: string): HollerStatus | null {
   switch (s) {
@@ -11,9 +15,9 @@ export function mapStripeStatus(s: string): HollerStatus | null {
     case 'trialing':
       return 'active';
     case 'past_due':
+      return 'past_due';
     case 'unpaid':
     case 'paused':
-      return 'past_due';
     case 'canceled':
     case 'incomplete_expired':
       return 'canceled';

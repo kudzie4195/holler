@@ -1,12 +1,13 @@
 'use client';
 
 import { hardNavigate } from './format';
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Badge, StatusBadge } from './badge';
 import { Button, ButtonLink } from './button';
 import { Card } from './card';
 import { EmptyState } from './empty-state';
-import { setMatchStatus } from '@/app/app/actions';
+import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
+import { RequestReply, type RequestReplyState } from './request-reply';
 import { sourceLabel } from './signal-meta';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 
@@ -29,6 +30,13 @@ export interface FeedItem {
 
 type Filter = 'all' | 'ask' | 'signals';
 
+/** Source id of resident requests made on Holler (/request). Matches lib/requests/constants.ts REQUEST_SOURCE. */
+export const REQUEST_SOURCE = 'holler-request';
+
+function itemSourceLabel(source: string): string {
+  return source === REQUEST_SOURCE ? 'Request made on Holler' : sourceLabel(source);
+}
+
 export function Feed({
   items: initial,
   cityPage,
@@ -44,6 +52,27 @@ export function Feed({
   const [showClosed, setShowClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const [replyStates, setReplyStates] = useState<Record<number, RequestReplyState>>({});
+
+  // Resident requests: ask the server which ones this business already answered (or that are closed). page.tsx does not pass this.
+  const requestIds = initial.filter((i) => i.source === REQUEST_SOURCE).map((i) => i.id);
+  const requestKey = requestIds.join(',');
+  useEffect(() => {
+    if (!requestKey) return;
+    let alive = true;
+    getRequestReplyStates(requestKey.split(',').map(Number))
+      .then((states) => {
+        if (alive) setReplyStates((cur) => ({ ...states, ...cur }));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [requestKey]);
+
+  function markReplied(id: number) {
+    setReplyStates((cur) => ({ ...cur, [id]: 'replied' }));
+  }
 
   const open = items.filter((i) => i.status === 'new' || i.status === 'saved');
   const closedCount = items.length - open.length;
@@ -152,7 +181,13 @@ export function Feed({
         <ul className="mt-6 flex flex-col gap-4">
           {visible.map((item) => (
             <li key={item.id}>
-              <MatchCard item={item} onStatus={update} onDraft={setDraft} />
+              <MatchCard
+                item={item}
+                onStatus={update}
+                onDraft={setDraft}
+                replyState={replyStates[item.id]}
+                onReplied={markReplied}
+              />
             </li>
           ))}
         </ul>
@@ -165,17 +200,23 @@ function MatchCard({
   item,
   onStatus,
   onDraft,
+  replyState,
+  onReplied,
 }: {
   item: FeedItem;
   onStatus: (id: number, status: MatchStatus) => void;
   onDraft: (id: number, draft: string) => void;
+  replyState?: RequestReplyState;
+  onReplied?: (id: number) => void;
 }) {
   const closed = item.status === 'done' || item.status === 'dismissed';
+  // A resident request has no outside source page and is answered through Holler, so it gets Reply instead of the source link and draft.
+  const isRequest = item.source === REQUEST_SOURCE;
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <Badge kind={item.kind} />
-        <span>{sourceLabel(item.source)}</span>
+        <span>{itemSourceLabel(item.source)}</span>
         <span aria-hidden="true">·</span>
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
           {item.ago}
@@ -200,7 +241,7 @@ function MatchCard({
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {item.url ? (
+        {item.url && !isRequest ? (
           <a
             href={item.url}
             target="_blank"
@@ -214,7 +255,11 @@ function MatchCard({
             </svg>
           </a>
         ) : null}
-        {item.kind === 'ask' ? <DraftControls item={item} onDraft={onDraft} /> : null}
+        {isRequest ? (
+          <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} />
+        ) : item.kind === 'ask' ? (
+          <DraftControls item={item} onDraft={onDraft} />
+        ) : null}
         {item.status === 'new' ? (
           <>
             <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>Save</Button>
@@ -235,7 +280,7 @@ function MatchCard({
       </div>
 
       {/* key: a fresh draft from "Redraft reply" replaces whatever was edited. */}
-      {item.kind === 'ask' && item.draft ? <DraftPanel key={item.draft} item={item} /> : null}
+      {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} /> : null}
     </Card>
   );
 }
@@ -310,7 +355,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={4}
-        className="mt-2 w-full resize-y rounded-xl border border-line bg-surface p-3 text-base text-ink hover:border-ink/40"
+        className="mt-2 w-full resize-y rounded-xl border border-line-strong bg-surface p-3 text-base text-ink hover:border-ink"
       />
       <div className="mt-2 flex items-center gap-3">
         <Button size="sm" variant="secondary" onClick={copy}>

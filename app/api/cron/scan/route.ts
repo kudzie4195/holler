@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import { runScan, SCAN_DEADLINE_MS } from '@/lib/signals/run';
+import { runRequestPurge } from '@/lib/requests/purge-run';
 
 // Cache Components is enabled, so route segment `dynamic` is not available; a handler that reads the request is always dynamic.
 export const maxDuration = 60;
@@ -37,8 +38,17 @@ export async function GET(req: NextRequest) {
     db = createAdminClient();
   }
 
-  // Fetching is capped at 40 s per adapter; writes stop at SCAN_DEADLINE_MS so matching, run logs and the response finish inside maxDuration.
-  const report = await runScan({ dry, source, deadlineMs: SCAN_DEADLINE_MS }, db);
+  // Resident-request housekeeping BEFORE the scan (never on a dry run): deletes the public record of ended requests, wipes old
+  // emails and descriptions, drops stale unconfirmed rows. It is bounded (PURGE_BUDGET_MS), reports its own errors and can never fail
+  // or change the scan's answer. Running it first means a slow scan cannot starve it (review P1-5).
+  const purgeStart = Date.now();
+  const requests = db ? await runRequestPurge(db) : null;
+  const purgeMs = Date.now() - purgeStart;
+
+  // Fetching is capped at 40 s per adapter; writes stop at the deadline so matching, run logs and the response finish inside
+  // maxDuration. The time the purge used comes off the scan's budget.
+  const deadlineMs = Math.max(20_000, SCAN_DEADLINE_MS - purgeMs);
+  const report = await runScan({ dry, source, deadlineMs }, db);
   const status = report.error && report.sources.length === 0 ? (report.error.startsWith('unknown source') ? 400 : 500) : 200;
-  return Response.json(report, { status, headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ ...report, requests }, { status, headers: { 'Cache-Control': 'no-store' } });
 }

@@ -56,7 +56,8 @@ async function load() {
   return { checkout: (await import('../../app/api/stripe/checkout/route')).POST, webhook: (await import('../../app/api/stripe/webhook/route')).POST };
 }
 
-const post = (body?: string) => new Request('http://x.test/api/stripe/checkout', { method: 'POST', body, headers: body ? { 'content-type': 'application/json' } : {} });
+// Checkout requires Content-Type: application/json (billing-fix P2-4); an empty JSON-typed body still means Starter monthly.
+const post = (body?: string) => new Request('http://x.test/api/stripe/checkout', { method: 'POST', body, headers: { 'content-type': 'application/json' } });
 const TRIAL_END = new Date(Date.now() + 5 * 86_400_000).toISOString();
 
 beforeEach(() => {
@@ -163,12 +164,12 @@ describe('POST /api/stripe/webhook customer.subscription.updated (F-8)', () => {
     expect(ctx.updates[0].patch).toMatchObject({ subscription_status: 'active', stripe_subscription_id: 'sub_1' });
   });
 
-  it('falls back to the event status when the fresh read fails', async () => {
+  it('P1-3: a failed fresh read answers 500 so Stripe retries, and the stale event status is not written', async () => {
     ctx.construct.mockResolvedValue(event('past_due'));
     ctx.retrieve.mockRejectedValue(new Error('network'));
     const { webhook } = await load();
-    expect((await webhook(hook())).status).toBe(200);
-    expect(ctx.updates[0].patch).toMatchObject({ subscription_status: 'past_due' });
+    expect((await webhook(hook())).status).toBe(500);
+    expect(ctx.updates).toHaveLength(0);
   });
 
   it('does not fetch for a deleted event and stores canceled', async () => {

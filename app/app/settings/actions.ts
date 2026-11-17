@@ -11,6 +11,7 @@ import { saveProfile } from '@/lib/auth/profile';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
+import { cleanKeyword, parseExtraAreas, parseKeywords } from '@/lib/plan';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
@@ -39,17 +40,27 @@ export async function saveSettings(_prev: ProfileFormState, formData: FormData):
   return result;
 }
 
-/** True when categories, ZIP or radius differ from the saved profile (or there was no profile). */
+/**
+ * True when anything matching reads changed: categories, ZIP, radius, the extra ZIPs or the keyword watches (or there was no profile).
+ * A new extra area or keyword therefore triggers the same backfill as a new main ZIP, and the backfill covers every area the plan allows.
+ */
 function targetingChanged(
-  before: { categories: string[] | null; zip: string | null; radius_mi: number } | null,
+  before: { categories: string[] | null; zip: string | null; radius_mi: number; extra_areas?: unknown; keywords?: unknown } | null,
   formData: FormData,
 ): boolean {
   if (!before) return true;
-  const cats = (list: string[]) => [...new Set(list)].sort().join(',');
+  const set = (list: string[]) => [...new Set(list)].sort().join(',');
+  const has = (k: string) => formData.has(k);
   return (
-    cats(formData.getAll('categories').map(String)) !== cats(before.categories ?? []) ||
+    set(formData.getAll('categories').map(String)) !== set(before.categories ?? []) ||
     String(formData.get('zip') ?? '').trim() !== (before.zip ?? '') ||
-    Number(formData.get('radius') ?? 25) !== before.radius_mi
+    Number(formData.get('radius') ?? 25) !== before.radius_mi ||
+    // Extra ZIPs and keywords are only on the form for Pro members; when absent they did not change.
+    (has('extra_zip') &&
+      set(formData.getAll('extra_zip').map((v) => String(v).trim()).filter(Boolean)) !== set(parseExtraAreas(before.extra_areas).map((a) => a.zip))) ||
+    (has('keyword') &&
+      set(formData.getAll('keyword').map((v) => cleanKeyword(String(v)).toLowerCase()).filter(Boolean)) !==
+        set(parseKeywords(before.keywords).map((k) => k.toLowerCase())))
   );
 }
 

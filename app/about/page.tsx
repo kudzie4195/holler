@@ -32,6 +32,7 @@ export default function AboutPage() {
             <li key={s.name}>
               <a href={s.href} target="_blank" rel="noopener noreferrer">
                 {s.name}
+                <span className="sr-only"> (opens in a new tab)</span>
               </a>
               . {s.what}
             </li>
@@ -43,7 +44,7 @@ export default function AboutPage() {
 
       <DocSection title="What we never do">
         <ul>
-          <li>We never post, comment or message anyone for you.</li>
+          <li>We never post for you, and we message nobody unless you write the reply and press send.</li>
           <li>We never log in to, or connect to, your social accounts.</li>
           <li>We never sell upvotes, fake reviews or bought accounts.</li>
           <li>We never use data from LinkedIn, Facebook, Nextdoor or Craigslist, and we do not scrape sites that forbid it.</li>
@@ -59,10 +60,17 @@ export default function AboutPage() {
         </p>
       </DocSection>
 
-      <div>
-        <ButtonLink href="/signup" size="lg">
-          Start free for 7 days
-        </ButtonLink>
+      <div className="rounded-card border border-line bg-sand p-6 shadow-soft md:p-8">
+        <p className="font-display text-2xl text-ink">Try it on your own town.</p>
+        <p className="mt-2 text-muted">Seven days free. No card to start.</p>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <ButtonLink href="/signup" size="lg">
+            Start free for 7 days
+          </ButtonLink>
+          <ButtonLink href="/check" variant="secondary" size="lg">
+            Check your area
+          </ButtonLink>
+        </div>
       </div>
     </DocPage>
   );

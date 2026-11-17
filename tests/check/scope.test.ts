@@ -15,7 +15,7 @@ import { CATEGORIES } from '@/lib/signals/categories';
 import { fakeSignalsDb, type Row } from '../fixtures/fake-signals-db';
 
 const h = vi.hoisted(() => ({ db: null as unknown }));
-vi.mock('next/cache', () => ({ cacheLife: vi.fn() }));
+vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/seo/client', () => ({ publicClient: () => h.db }));
 import { loadCheck } from '@/lib/check/load';
 import { groupItems } from '@/lib/check/group';

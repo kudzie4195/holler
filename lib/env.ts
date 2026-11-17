@@ -19,6 +19,7 @@ export const ENV_KEYS = [
   'BLUESKY_HANDLE',
   'BLUESKY_APP_PASSWORD',
   'INDEXNOW_KEY',
+  'REQUESTS_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -46,6 +47,7 @@ export const env: Record<EnvKey, string | undefined> = {
   BLUESKY_HANDLE: process.env.BLUESKY_HANDLE,
   BLUESKY_APP_PASSWORD: process.env.BLUESKY_APP_PASSWORD,
   INDEXNOW_KEY: process.env.INDEXNOW_KEY,
+  REQUESTS_ENABLED: process.env.REQUESTS_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

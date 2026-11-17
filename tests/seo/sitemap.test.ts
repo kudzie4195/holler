@@ -16,7 +16,8 @@ describe('sitemap entries', () => {
     const atl = find(es, '/local/georgia/atlanta-ga');
     expect(atl).toBeDefined();
     expect(atl && 'lastModified' in atl).toBe(false);
-    expect(es.every((e) => !e.lastModified)).toBe(true);
+    // Guides carry their own reviewed date; every other entry here has no known change time.
+    expect(es.filter((e) => !e.url.includes('/guides/')).every((e) => !e.lastModified)).toBe(true);
   });
   it('ignores a malformed latest_at', () => {
     const es = buildEntries({ places: ok({ 'atlanta-ga': 12 }, { 'atlanta-ga': 'garbage' }), trades: [] });

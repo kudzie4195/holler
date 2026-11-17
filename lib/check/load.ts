@@ -1,8 +1,9 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { publicClient } from '@/lib/seo/client';
 import { UPCOMING_DAYS } from '@/lib/time';
 import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI } from './scope';
 import type { CheckItem } from './group';
+import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = 30;
@@ -16,7 +17,7 @@ const STATE_LIMIT = 20;
 /** Rows that have not started yet (events, event permits). Read separately so they cannot crowd out the recent records. */
 const UPCOMING_LIMIT = 12;
 const QUERY_TIMEOUT_MS: number = 8000;
-const COLUMNS = 'id,source,kind,title,url,city,state,lat,lon,severity,occurred_at';
+const COLUMNS = 'id,source,kind,title,url,city,state,lat,lon,severity,occurred_at,expires_at';
 
 export interface CheckData {
   /** false when the database could not be read (env missing, timeout, error). Render the empty state. */
@@ -38,6 +39,7 @@ interface Row {
   lon: number | null;
   severity: number;
   occurred_at: string;
+  expires_at?: string | null;
 }
 
 
@@ -126,7 +128,11 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (upcoming.error) console.error('[check] upcoming read failed:', upcoming.error.code ?? upcoming.error.message);
     if (stateLevel.error) console.error('[check] state-level read failed:', stateLevel.error.code ?? stateLevel.error.message);
     const rowsOf = (r: { error: unknown; data: unknown }): Row[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as Row[]));
-    const data: Row[] = [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)];
+    // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
+    const data: Row[] = withoutEndedRequests(
+      [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)],
+      now.getTime(),
+    );
 
     const seen = new Set<number>();
     const items: CheckItem[] = [];
@@ -146,7 +152,13 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         severity: r.severity,
       });
     }
-    cacheLife({ stale: 300, revalidate: 3600, expire: 7200 });
+    // A live resident request in the list: tag the entry and keep it 15 minutes at most, so a closed request leaves /check promptly.
+    if (hasRequestRows(data)) cacheTag(REQUEST_CACHE_TAG);
+    cacheLife(
+      hasRequestRows(data)
+        ? REQUEST_CACHE_LIFE
+        : { stale: 300, revalidate: 3600, expire: 7200 },
+    );
     return { ok: true, items, checkedAt };
   } catch (e) {
     console.error('[check] loadCheck failed:', e instanceof Error ? e.message : 'unknown');

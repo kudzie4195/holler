@@ -33,7 +33,9 @@ export const SECTIONS: SectionDef[] = [
   { id: 'contracts', title: 'Federal contracts', noun: ['federal contract', 'federal contracts'], blurb: 'Contract awards and opportunities with a local place of performance.' },
   { id: 'events', title: 'Big events', noun: ['big event', 'big events'], blurb: 'Large ticketed events and city event permits that bring crowds to town.' },
   { id: 'airport', title: 'Airport status', noun: ['airport status notice', 'airport status notices'], blurb: 'Delays and ground stops at nearby airports.' },
-  { id: 'asks', title: 'People asking for local help', noun: ['public post asking for a recommendation', 'public posts asking for a recommendation'], blurb: 'Public posts where someone asked for a local recommendation. Titles only, with a link to the original.' },
+  // Kind 'ask' holds resident requests made on Holler (no key needed) and, only when their keys are set, public posts found through
+  // search or Bluesky. The wording fits both and never says Holler reads social sites.
+  { id: 'asks', title: 'Requests for local help', noun: ['request for local help', 'requests for local help'], blurb: 'People near here who asked for a local service. Each one names where it came from. Contact details are never shown.' },
 ];
 
 export const SECTION_BY_ID: Record<SectionId, SectionDef> = Object.fromEntries(
@@ -90,5 +92,5 @@ export const KIND_NOUN: Record<string, string> = {
   contract: 'federal contracts',
   event: 'events',
   travel: 'airport notices',
-  ask: 'public asks',
+  ask: 'requests for local help',
 };

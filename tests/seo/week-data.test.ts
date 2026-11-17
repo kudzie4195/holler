@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
   client: null as unknown,
   calls: [] as { table: string; ops: [string, unknown[]][] }[],
   result: { data: [] as unknown[], error: null as { message: string } | null, count: 0 as number | null },
   throwIt: false,
 }));
-vi.mock('next/cache', () => ({ cacheLife: h.cacheLife }));
+vi.mock('next/cache', () => ({ cacheLife: h.cacheLife, cacheTag: h.cacheTag }));
 vi.mock('@/lib/seo/client', () => ({
   publicClient: () => h.client,
 }));
@@ -22,7 +23,7 @@ function recorder() {
       const call = { table, ops: [] as [string, unknown[]][] };
       h.calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'gte', 'lte', 'lt', 'order', 'limit', 'abortSignal']) {
+      for (const m of ['select', 'eq', 'gte', 'lte', 'lt', 'or', 'order', 'limit', 'abortSignal']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;

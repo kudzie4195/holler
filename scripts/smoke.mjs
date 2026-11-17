@@ -7,7 +7,7 @@
 // Exit code 0 = PASS, 1 = FAIL. WARN lines never fail the run.
 // With the secret it calls /api/cron/scan?dry=1 (fetch and parse, writes nothing) and prints one row per source.
 
-const PUBLIC_PAGES = ['/', '/about', '/privacy', '/terms', '/login', '/signup', '/local', '/local/georgia', '/local/georgia/atlanta-ga'];
+const PUBLIC_PAGES = ['/', '/about', '/privacy', '/terms', '/login', '/signup', '/local', '/local/georgia', '/local/georgia/atlanta-ga', '/pricing', '/request', '/guides', '/faq', '/data'];
 // Built by other units this round. A miss is a WARN, not a FAIL.
 const OPTIONAL_PAGES = ['/check'];
 const CRON_ROUTES = ['/api/cron/scan', '/api/cron/notify', '/api/cron/health'];

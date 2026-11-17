@@ -78,3 +78,27 @@ describe('weekly pages /local/<state>/<city>/week/<date>', () => {
   });
 });
 
+
+// Build gate (b) 8a: /guides/<unknown-slug> streamed a 200 not-found page. The proxy now 404s it on the first request, like /for.
+describe('guide pages /guides/<slug>', () => {
+  it('every known guide slug is ok, and the hub is ok', async () => {
+    const { GUIDE_SLUGS } = await import('../../lib/seo/guides');
+    expect(GUIDE_SLUGS.length).toBeGreaterThan(0);
+    for (const s of GUIDE_SLUGS) expect(decidePublicRoute(`/guides/${s}`), s).toBe('ok');
+    expect(decidePublicRoute('/guides')).toBe('ok');
+    expect(decidePublicRoute('/guides/')).toBe('ok');
+  });
+  it('unknown slugs, extra segments and changed case are 404', () => {
+    expect(decidePublicRoute('/guides/not-a-guide')).toBe('not-found');
+    expect(decidePublicRoute('/guides/storm-damage-leads-from-weather-alerts-and-storm-reports/extra')).toBe('not-found');
+    expect(decidePublicRoute('/guides/STORM-DAMAGE-LEADS-FROM-WEATHER-ALERTS-AND-STORM-REPORTS')).toBe('not-found');
+    expect(decidePublicRoute('/guides/%E0%A4%A')).toBe('not-found');
+  });
+  it('proxy.ts runs the check for /guides/<slug> (matcher and branch), not for the hub', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('../../proxy.ts', import.meta.url), 'utf8');
+    expect(src).toContain("'/guides/:path+'");
+    expect(src).toContain("pathname.startsWith('/guides/')");
+    expect(decidePublicRoute('/guidesx')).toBe('skip');
+  });
+});

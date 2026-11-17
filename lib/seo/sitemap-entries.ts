@@ -4,6 +4,7 @@ import { CATEGORIES } from '@/lib/signals/categories';
 import { absoluteUrl } from './canonical';
 import { loadPlaceCounts, type PlaceCounts } from './data';
 import { selectIndexableCities } from './select';
+import { GUIDES, guidePath } from './guides';
 import { isTradeIndexable, loadTradeSignals } from './trade-data';
 import { tradePath } from './trade-view';
 import { newestPast } from '../time';
@@ -66,7 +67,14 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; 
     entry('/about', 'monthly', 0.5),
     entry('/for', 'weekly', 0.8),
     entry('/local', 'daily', 0.8),
+    entry('/guides', 'monthly', 0.7),
+    entry('/faq', 'monthly', 0.6),
+    entry('/data', 'daily', 0.6),
+    entry('/pricing', 'monthly', 0.7),
+    entry('/request', 'monthly', 0.5),
   ];
+  // A guide's lastmod is its own reviewed date, a constant in the guide data. The other new pages have no stored change time, so none is given.
+  for (const g of GUIDES) entries.push(entry(guidePath(g.slug), 'monthly', 0.7, toDate(g.lastReviewed)));
   for (const s of STATES) {
     const cities = citiesInState(s.code);
     if (cities.length === 0) continue;

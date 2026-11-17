@@ -21,7 +21,7 @@ import {
 } from '@/lib/seo/trade-view';
 import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass } from '../../local/_components/ui';
+import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../local/_components/ui';
 
 type Props = { params: Promise<{ trade: string }> };
 
@@ -178,6 +178,7 @@ export default async function TradePage({ params }: Props) {
           </div>
         </div>
       </div>
+      <PublicRecordsNote />
     </Page>
   );
 }

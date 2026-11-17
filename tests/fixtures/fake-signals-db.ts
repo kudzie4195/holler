@@ -22,7 +22,7 @@ export interface FakeLog {
   returned: number;
 }
 
-function splitTop(s: string): string[] {
+export function splitTop(s: string): string[] {
   const out: string[] = [];
   let depth = 0;
   let cur = '';
@@ -38,7 +38,7 @@ function splitTop(s: string): string[] {
   return out;
 }
 
-function evalTerm(term: string, r: Row): boolean {
+export function evalTerm(term: string, r: Row): boolean {
   if (term.startsWith('and(')) return splitTop(term.slice(4, -1)).every((t) => evalTerm(t, r));
   if (term.startsWith('or(')) return splitTop(term.slice(3, -1)).some((t) => evalTerm(t, r));
   const m = /^([a-z_]+)\.([a-z]+)\.(.*)$/.exec(term);
@@ -49,6 +49,7 @@ function evalTerm(term: string, r: Row): boolean {
   switch (op) {
     case 'is': return val === 'null' ? v == null : v != null;
     case 'eq': return String(v) === val;
+    case 'neq': return v == null ? false : String(v) !== val;
     case 'gt': return v != null && cmp(v, val) > 0;
     case 'gte': return v != null && cmp(v, val) >= 0;
     case 'lt': return v != null && cmp(v, val) < 0;

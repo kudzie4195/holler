@@ -12,6 +12,8 @@ export interface SendEmailInput {
   html: string;
   text: string;
   headers?: Record<string, string>;
+  /** Reply-To for this message. When absent, SUPPORT_EMAIL (if set) is used, as before. */
+  replyTo?: string;
 }
 
 export type SendEmailResult =
@@ -24,7 +26,8 @@ export type SendEmailResult =
  * - No RESEND_API_KEY: skipped ('no_api_key').
  * - No EMAIL_FROM: skipped ('no_from'). There is no default sender on purpose: a made-up From address is undeliverable
  *   and looks like it worked (F-16).
- * - SUPPORT_EMAIL, when set, is the reply-to, so "reply to this email" reaches a real inbox.
+ * - Reply-To: `input.replyTo` when given (resident request replies use the business's address); otherwise SUPPORT_EMAIL, when set,
+ *   so "reply to this email" reaches a real inbox.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!env.RESEND_API_KEY) {
@@ -35,6 +38,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     console.log(`[email] EMAIL_FROM missing, skipped "${input.subject}"`);
     return { skipped: true, reason: 'no_from' };
   }
+  const replyTo = input.replyTo?.trim() || env.SUPPORT_EMAIL || undefined;
   try {
     const resend = new Resend(env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
@@ -44,7 +48,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       html: input.html,
       text: input.text,
       headers: input.headers,
-      ...(env.SUPPORT_EMAIL ? { replyTo: env.SUPPORT_EMAIL } : {}),
+      ...(replyTo ? { replyTo } : {}),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true, id: data?.id };

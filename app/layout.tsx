@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { siteUrl } from '@/lib/env';
+import { siteLd } from '@/lib/seo/jsonld';
+import { jsonLdString } from '@/lib/seo/serialize';
 import './globals.css';
 
 const description =
-  'Holler sends a short alert when public data, such as weather alerts, storm reports and city records, shows your town may need what you do. $5 a month.';
+  'Holler sends a short alert when public data, such as weather alerts, storm reports and city records, shows your town may need what you do. Plans from $5 a month.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#FBFAF7',
+  themeColor: '#FAF6EE',
   width: 'device-width',
   initialScale: 1,
 };
@@ -41,7 +43,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="bg-background text-ink antialiased">{children}</body>
+      <body className="bg-background text-ink antialiased">
+        {/* Organization + WebSite, once for the whole site (lib/seo/jsonld.ts siteLd). Static: no request data. */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(siteLd()) }} />
+        {children}
+      </body>
     </html>
   );
 }

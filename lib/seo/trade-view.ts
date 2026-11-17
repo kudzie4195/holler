@@ -6,7 +6,7 @@ import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
 import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive, tradeComingSoon } from './signal-types';
 
-export const TRADE_PRICE_LINE = '$5 a month or $48 a year, with 7 days free and no card to start.';
+export const TRADE_PRICE_LINE = 'From $5 a month or $48 a year, with 7 days free and no card to start.';
 
 export const HOW_IT_WORKS: string[] = [
   'Pick what you do. Add your ZIP and how far you will drive, from 5 to 100 miles.',
@@ -141,8 +141,8 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
       a: comingSoon
-        ? 'It costs $5 a month or $48 a year, with a 7-day free trial and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.'
-        : 'It costs $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
+        ? 'Plans start at $5 a month or $48 a year, with a 7-day free trial and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.'
+        : 'Plans start at $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
     },
     {
       q: 'Does Holler post or contact anyone for me?',

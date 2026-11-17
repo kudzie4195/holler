@@ -1,8 +1,9 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { publicClient } from './client';
 import { SECTIONS, sectionFor, type SectionId } from './sections';
 import { safeUrl, type SectionItem, type SignalRowDb } from './summarize';
 import { WEEK_MS, isCurrentWeek, parseWeek, weekNeighbors } from './week';
+import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const ROW_COLUMNS = 'id,source,kind,title,summary,url,categories,severity,occurred_at,expires_at,subtype:data->>subtype';
 /** Hard limit on the single query. PostgREST would cap one response at 1000 rows anyway. */
@@ -96,6 +97,7 @@ export function groupWeekRows(rows: SignalRowDb[], limit: number = WEEK_ITEM_LIM
  * first, hard limit, anon client. Cached with 'use cache': a day for a finished week, 6 hours for the current week, and a minute
  * when the database cannot be read (the page then shows an empty state, never a 500). A date outside the window returns valid:false.
  */
+// Resident requests that have ended are left out (query and rows); a week that lists a live request is cached 15 minutes only.
 export async function loadWeekData(slug: string, week: string): Promise<WeekData> {
   'use cache';
   const now = new Date();
@@ -123,12 +125,21 @@ export async function loadWeekData(slug: string, week: string): Promise<WeekData
       .eq('place_slug', slug)
       .gte('occurred_at', new Date(startMs).toISOString())
       .lte('occurred_at', new Date(upper).toISOString())
+      .or(liveRequestsFilter(nowIso))
       .order('occurred_at', { ascending: false })
       .limit(WEEK_ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as unknown as SignalRowDb[];
-    cacheLife(current ? { stale: 300, revalidate: 21600, expire: 86400 } : { stale: 3600, revalidate: 86400, expire: 172800 });
+    const rows = withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], nowMs);
+    // A live resident request in the list: tag the entry and keep it 15 minutes at most (see REQUEST_CACHE_LIFE).
+    if (hasRequestRows(rows)) cacheTag(REQUEST_CACHE_TAG);
+    cacheLife(
+      hasRequestRows(rows)
+        ? REQUEST_CACHE_LIFE
+        : current
+          ? { stale: 300, revalidate: 21600, expire: 86400 }
+          : { stale: 3600, revalidate: 86400, expire: 172800 },
+    );
     return {
       ...emptyWeekData(slug, iso, startMs, nowIso, { ...base, ok: true }),
       ...groupWeekRows(rows),

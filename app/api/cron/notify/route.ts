@@ -10,6 +10,8 @@ import {
   type DigestItem,
 } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
+import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
+import { requestTextByPublicId } from '@/lib/requests/details';
 
 export const maxDuration = 60;
 
@@ -20,6 +22,9 @@ const PAGE_SIZE = 1000;
 const MAX_PAGES = 15;
 
 interface SignalRow {
+  source?: string | null;
+  external_id?: string | null;
+  expires_at?: string | null;
   kind: string;
   title: string;
   url: string | null;
@@ -57,7 +62,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(kind, title, url, city, state, occurred_at)')
+      .select('id, user_id, created_at, signal:holler_signals(source, external_id, expires_at, kind, title, url, city, state, occurred_at)')
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -106,13 +111,25 @@ export async function GET(req: Request) {
   const profileById = new Map(profiles.map((p) => [p.user_id, p]));
   const eligible = plan.send.map((id) => profileById.get(id)).filter((p): p is ProfileRow => !!p);
 
+  // A resident request's filtered description is not in the public record. For the request matches of the members about to be
+  // emailed, read it here with the service role by the request's public id (open requests only). A failed read only drops the text.
+  const requestIds = eligible
+    .slice(0, MAX_USERS_PER_RUN)
+    .flatMap((p) => byUser.get(p.user_id) ?? [])
+    .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal))
+    .filter((s): s is SignalRow => !!s && s.source === HOLLER_REQUEST_SOURCE && typeof s.external_id === 'string')
+    .map((s) => s.external_id as string);
+  const requestText = requestIds.length > 0 ? await requestTextByPublicId(admin, requestIds, now) : new Map<string, string>();
+
   for (const p of eligible.slice(0, MAX_USERS_PER_RUN)) {
     if (Date.now() - started > 50_000) break;
     try {
       const userMatches = byUser.get(p.user_id) ?? [];
       const rows = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
-        .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s);
+        // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
+        // match goes with it (ON DELETE CASCADE).
+        .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()));
       if (rows.length === 0) continue;
 
       const { data: userRes, error: uErr } = await admin.auth.admin.getUserById(p.user_id);
@@ -128,6 +145,7 @@ export async function GET(req: Request) {
         place: [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
+        detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

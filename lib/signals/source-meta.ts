@@ -2,6 +2,8 @@
  * Static source metadata (id, label, sourceUrl) for every adapter in lib/signals/registry.ts ALL_ADAPTERS.
  * Client-safe: the registry imports every adapter (and lib/env), so client components import this instead.
  * Derived from the adapter configs on 2026-11-17; tests/signals/core/source-meta.test.ts fails if it drifts from ALL_ADAPTERS.
+ * One entry is not an adapter: 'holler-request', the public record of a resident request made on Holler (lib/requests). It needs no
+ * key and reads nothing outside Holler; its link is the /request page on this site (a relative URL, so this file stays client-safe).
  */
 export interface SourceMeta {
   id: string;
@@ -62,7 +64,11 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "bluesky": { id: "bluesky", label: "People asking on Bluesky", sourceUrl: "https://bsky.app/" },
   "websearch-brave": { id: "websearch-brave", label: "People asking for recommendations (web search)", sourceUrl: "https://search.brave.com/" },
   "websearch-serper": { id: "websearch-serper", label: "People asking for recommendations (web search)", sourceUrl: "https://serper.dev/" },
+  "holler-request": { id: "holler-request", label: "Requests made on Holler", sourceUrl: "/request" },
 };
+
+/** Source ids in SOURCE_META that are not adapters (Holler's own records). */
+export const NON_ADAPTER_SOURCES = ['holler-request'] as const;
 
 export function getSourceMeta(sourceId: string): SourceMeta | undefined {
   return SOURCE_META[(sourceId ?? '').toLowerCase()];

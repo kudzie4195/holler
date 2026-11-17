@@ -28,7 +28,7 @@ export const LOCAL_MI = 25;
 
 const GROUPS: { id: string; title: string; kinds: string[] }[] = [
   { id: 'weather', title: 'Weather and disasters', kinds: ['alert', 'report', 'disaster', 'quake'] },
-  { id: 'ask', title: 'People asking for help', kinds: ['ask'] },
+  { id: 'ask', title: 'Requests for local help', kinds: ['ask'] },
   { id: 'permit', title: 'Building permits', kinds: ['permit'] },
   { id: 'civic', title: '311, inspections and city records', kinds: ['civic'] },
   { id: 'contract', title: 'Federal contracts', kinds: ['contract'] },

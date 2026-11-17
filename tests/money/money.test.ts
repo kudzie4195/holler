@@ -105,7 +105,9 @@ describe('stripe status mapping', () => {
     expect(mapStripeStatus('active')).toBe('active');
     expect(mapStripeStatus('trialing')).toBe('active');
     expect(mapStripeStatus('past_due')).toBe('past_due');
-    expect(mapStripeStatus('unpaid')).toBe('past_due');
+    // Owner decision (billing-fix 7): unpaid and paused are not paid. Stored as canceled: no paid access, no Pro limits, nothing deleted.
+    expect(mapStripeStatus('unpaid')).toBe('canceled');
+    expect(mapStripeStatus('paused')).toBe('canceled');
     expect(mapStripeStatus('canceled')).toBe('canceled');
     expect(mapStripeStatus('incomplete_expired')).toBe('canceled');
     expect(mapStripeStatus('incomplete')).toBeNull();

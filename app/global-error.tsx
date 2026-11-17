@@ -13,8 +13,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body
         style={{
           margin: 0,
-          background: '#FBFAF7',
-          color: '#16181D',
+          background: '#FAF6EE',
+          color: '#191714',
           fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           minHeight: '100vh',
           display: 'flex',
@@ -23,8 +23,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <main style={{ maxWidth: 448, padding: '64px 20px' }}>
-          <h1 style={{ fontSize: 36, letterSpacing: '-0.02em', margin: 0 }}>Something went wrong on our side.</h1>
-          <p style={{ fontSize: 18, color: '#5D6470', marginTop: 12 }}>
+          <h1 style={{ fontSize: 36, fontFamily: "'Iowan Old Style', 'Palatino Linotype', Georgia, serif", fontWeight: 560, letterSpacing: '-0.018em', margin: 0 }}>Something went wrong on our side.</h1>
+          <p style={{ fontSize: 18, color: '#5C574F', marginTop: 12 }}>
             Your account and data are fine. Try again, and if it keeps happening, check back in a few minutes.
           </p>
           <button
@@ -37,7 +37,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               borderRadius: 999,
               border: 0,
               background: '#E8590C',
-              color: '#16181D',
+              color: '#191714',
               fontSize: 16,
               fontWeight: 600,
               cursor: 'pointer',

@@ -47,3 +47,24 @@ export function groupCategories(categories: ChipCategory[]): ChipGroup[] {
   if (out.length === 1) out[0] = { ...out[0], label: null };
   return out;
 }
+
+/** Plan limits for the trade chips. Pure, tested in tests/plan/form.test.ts. */
+export interface TradeLimitView {
+  max: number;
+  /** Trades matching uses on this plan: the first `max` saved picks. */
+  used: string[];
+  /** Saved picks beyond the plan (kept, not used). Only after a downgrade. */
+  unused: string[];
+  /** True when no more chips can be turned on. */
+  full: boolean;
+}
+
+export function tradeLimitView(picked: string[], max: number): TradeLimitView {
+  return { max, used: picked.slice(0, max), unused: picked.slice(max), full: picked.length >= max };
+}
+
+/** Toggle one chip: removing always works, adding only below the plan's limit. */
+export function toggleTrade(picked: string[], id: string, max: number): string[] {
+  if (picked.includes(id)) return picked.filter((c) => c !== id);
+  return picked.length >= max ? picked : [...picked, id];
+}

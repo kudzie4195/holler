@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ButtonLink } from '@/components/button';
 import { CheckForm } from '@/components/check-form';
 import { Card } from '@/components/card';
@@ -6,6 +7,8 @@ import { StaticChip } from '@/components/chip';
 import { Badge } from '@/components/badge';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
+import { Pricing } from '@/components/pricing';
+import { MainStreet } from '@/components/illustrations/main-street';
 import { homeCopy, type ExampleAlert } from '@/lib/seo/public-copy';
 
 export function generateMetadata(): Metadata {
@@ -49,6 +52,26 @@ function faqLd(faqs: { q: string; a: string }[]) {
   };
 }
 
+const publicSources = [
+  'National Weather Service',
+  'NOAA Storm Prediction Center',
+  'FEMA',
+  'USGS',
+  'FAA',
+  'USAspending.gov',
+  'City open-data portals',
+];
+
+const learn = [
+  { href: '/guides', title: 'Guides', body: 'Short, plain guides for local trades. Start here if you are new.' },
+  {
+    href: '/data',
+    title: 'Local public records in numbers',
+    body: 'Counts of the public records Holler has read in the last 7 and 30 days.',
+  },
+  { href: '/faq', title: 'FAQ', body: 'Plans, data sources, coverage and privacy, answered in plain words.' },
+];
+
 export default function Home() {
   const copy = homeCopy();
   const jsonLd = faqLd(copy.faqs);
@@ -57,161 +80,206 @@ export default function Home() {
       <TopNav />
       <main id="main">
         {/* Hero */}
-        <section className="mx-auto grid w-full max-w-5xl gap-12 px-5 pb-16 pt-12 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-14 md:pb-24 md:pt-20">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">For people with a truck, not a pitch deck</p>
-            <h1 className="mt-4 text-4xl text-ink md:text-6xl">Know when your town needs you.</h1>
-            <p className="mt-5 max-w-xl text-lg text-muted">{copy.heroLead}</p>
-            <div className="mt-8">
-              <CheckForm idPrefix="hero" />
+        <div className="hero-paper">
+          <section className="mx-auto grid w-full max-w-5xl gap-12 px-5 pb-14 pt-10 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-14 md:pb-20 md:pt-16">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">For people with a truck, not a pitch deck</p>
+              <h1 className="mt-4 text-[2.5rem] leading-[1.05] text-ink sm:text-5xl md:text-6xl">Know when your town needs you.</h1>
+              <p className="mt-5 max-w-xl text-lg text-muted">{copy.heroLead}</p>
+              <div className="mt-8 rounded-card border border-line bg-surface p-4 shadow-soft sm:p-5">
+                <CheckForm idPrefix="hero" />
+              </div>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <ButtonLink href="/signup" variant="secondary">
+                  Start free trial
+                </ButtonLink>
+                <ButtonLink href="/local" variant="ghost">
+                  See a city page
+                </ButtonLink>
+              </div>
+              <p className="mt-4 text-sm text-muted">
+                No card to start. Starter is $5 a month and Pro is $9.99. Holler never posts for you.
+              </p>
             </div>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <ButtonLink href="/signup" variant="secondary">
-                Start free trial
-              </ButtonLink>
-              <ButtonLink href="/local" variant="ghost">
-                See a city page
-              </ButtonLink>
+            <div className="min-w-0">
+              <MainStreet className="h-auto w-full" />
+              <div className="mt-5 sm:px-4">
+                <ExampleAlerts examples={copy.examples} />
+              </div>
             </div>
-            <p className="mt-4 text-sm text-muted">No card to start. $5 a month or $48 a year after. Holler never posts for you.</p>
+          </section>
+        </div>
+
+        {/* Trust strip: names only, no logos, no endorsement implied */}
+        <section aria-labelledby="reads-from" className="border-y border-line bg-surface">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-6 md:flex-row md:items-center md:gap-6">
+            <h2 id="reads-from" className="shrink-0 font-sans text-sm font-semibold tracking-normal text-ink">
+              Reads public data from
+            </h2>
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
+              {publicSources.map((s) => (
+                <li key={s} className="flex items-center gap-2">
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  {s}
+                </li>
+              ))}
+            </ul>
           </div>
-          <ExampleAlerts examples={copy.examples} />
         </section>
 
         {/* How it works */}
-        <section id="how" className="border-y border-line bg-surface">
-          <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-            <h2 className="text-2xl text-ink md:text-4xl">How it works</h2>
-            <ol className="mt-10 grid gap-8 md:grid-cols-3 md:gap-10">
-              {copy.steps.map((s, i) => (
-                <li key={s.title}>
-                  <span className="font-mono text-sm tabular-nums text-accent-text">0{i + 1}</span>
-                  <h3 className="mt-2 text-lg text-ink">{s.title}</h3>
+        <section id="how" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
+          <h2 className="text-3xl text-ink md:text-4xl">How it works</h2>
+          <ol className="mt-10 grid gap-5 md:grid-cols-3">
+            {copy.steps.map((s, i) => (
+              <li key={s.title}>
+                <Card className="h-full">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft font-mono text-sm font-semibold tabular-nums text-accent-text"
+                  >
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-4 text-lg text-ink">{s.title}</h3>
                   <p className="mt-2 text-muted">{s.body}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* Sources */}
-        <section id="sources" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-          <h2 className="text-2xl text-ink md:text-4xl">{copy.sourcesHeading}</h2>
-          <p className="mt-4 max-w-2xl text-lg text-muted">{copy.sourcesIntro}</p>
-          <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-            {copy.sources.map((s) => (
-              <li key={s.name}>
-                <Card className="h-full !p-5">
-                  <h3 className="text-lg text-ink">{s.name}</h3>
-                  <p className="mt-1 text-muted">{s.note}</p>
                 </Card>
               </li>
             ))}
-          </ul>
-          <p className="mt-6 max-w-2xl text-sm text-muted">{copy.sourcesNote}</p>
+          </ol>
+        </section>
+
+        {/* Sources */}
+        <section id="sources" className="border-y border-line bg-surface">
+          <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
+            <h2 className="text-3xl text-ink md:text-4xl">{copy.sourcesHeading}</h2>
+            <p className="mt-4 max-w-2xl text-lg text-muted">{copy.sourcesIntro}</p>
+            <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+              {copy.sources.map((s) => (
+                <li key={s.name}>
+                  <Card className="h-full !bg-background !p-5">
+                    <h3 className="text-lg text-ink">{s.name}</h3>
+                    <p className="mt-1 text-muted">{s.note}</p>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-6 max-w-2xl text-sm text-muted">{copy.sourcesNote}</p>
+          </div>
         </section>
 
         {/* Who it's for */}
-        <section id="who" className="border-y border-line bg-surface">
-          <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-            <h2 className="text-2xl text-ink md:text-4xl">Built for people who show up</h2>
-            <ul className="mt-8 flex flex-wrap gap-2">
-              {trades.map((t) => (
-                <li key={t}>
-                  <StaticChip>{t}</StaticChip>
-                </li>
-              ))}
-              <li>
-                <StaticChip className="text-muted">and more</StaticChip>
+        <section id="who" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
+          <h2 className="text-3xl text-ink md:text-4xl">Built for people who show up</h2>
+          <ul className="mt-8 flex flex-wrap gap-2">
+            {trades.map((t) => (
+              <li key={t}>
+                <StaticChip>{t}</StaticChip>
               </li>
-            </ul>
-            <dl className="mt-10 grid gap-6 md:grid-cols-3">
-              {copy.who.map((w) => (
-                <div key={w.title}>
-                  <dt className="font-semibold text-ink">{w.title}</dt>
-                  <dd className="mt-1 text-muted">{w.body}</dd>
+            ))}
+            <li>
+              <StaticChip className="text-muted">and more</StaticChip>
+            </li>
+          </ul>
+          <dl className="mt-10 grid gap-5 md:grid-cols-3">
+            {copy.who.map((w) => (
+              <div key={w.title} className="rounded-card border border-line bg-sand p-5">
+                <dt className="font-semibold text-ink">{w.title}</dt>
+                <dd className="mt-1 text-muted">{w.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        {/* Residents */}
+        <section aria-labelledby="residents" className="border-y border-line bg-sage">
+          <div className="mx-auto grid w-full max-w-5xl gap-8 px-5 py-14 md:grid-cols-[1.4fr_1fr] md:items-center md:py-20">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sage-ink">For homeowners and renters</p>
+              <h2 id="residents" className="mt-3 text-3xl text-ink md:text-4xl">
+                Need something done at home?
+              </h2>
+              <p className="mt-4 max-w-xl text-lg text-ink/80">
+                Anyone can ask for a local service on Holler, and it costs nothing. Businesses nearby that do that kind of work see your
+                request and reply to you by email.
+              </p>
+              <p className="mt-3 max-w-xl text-sm text-muted">
+                Once you confirm it, a public page shows only the service and your city. Businesses see your email address only if you reply to them.
+              </p>
+            </div>
+            <div className="flex md:justify-end">
+              <ButtonLink href="/request" size="lg">
+                Request a service
+              </ButtonLink>
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl text-ink md:text-4xl">Two plans. Both cheap on purpose.</h2>
+            <p className="mt-4 text-lg text-muted">
+              Starter is $5 a month for one service area and up to five trades. Pro is $9.99 a month for up to three areas, 15 trades
+              and five keyword watches. Try it free for a week. No card.
+            </p>
+          </div>
+          <div className="mt-10">
+            <Pricing />
+          </div>
+          <p className="mt-6 text-sm text-muted">
+            Yearly billing and the full list are on the{' '}
+            <Link href="/pricing" className="inline-flex min-h-11 items-center font-medium text-ink underline underline-offset-2 hover:text-accent-text">
+              pricing page
+            </Link>
+            .
+          </p>
+        </section>
+
+        {/* Pricing model: Holler's own terms, stated plainly. No other product is named. */}
+        <section aria-labelledby="flat-price" className="border-y border-line bg-surface">
+          <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
+            <h2 id="flat-price" className="text-3xl text-ink md:text-4xl">
+              {copy.flatPrice.heading}
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg text-muted">{copy.flatPrice.intro}</p>
+            <dl className="mt-10 grid gap-5 sm:grid-cols-2 md:grid-cols-4">
+              {copy.flatPrice.rows.map((row) => (
+                <div key={row.label} className="rounded-card border border-line bg-background p-5">
+                  <dt className="font-semibold text-ink">{row.label}</dt>
+                  <dd className="mt-1 text-muted">{row.body}</dd>
                 </div>
               ))}
             </dl>
           </div>
         </section>
 
-        {/* Pricing */}
-        <section id="pricing" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-          <div className="grid gap-10 md:grid-cols-2 md:items-center">
-            <div>
-              <h2 className="text-2xl text-ink md:text-4xl">One price. Cheap on purpose.</h2>
-              <p className="mt-4 text-lg text-muted">
-                Try it for a week. If it finds you a job, it paid for the year. If not, walk away. You never entered a card.
-              </p>
-            </div>
-            <Card className="!p-7">
-              <p className="flex items-baseline gap-2">
-                <span className="font-mono text-6xl font-semibold tabular-nums tracking-tight text-ink">$5</span>
-                <span className="text-lg text-muted">a month</span>
-              </p>
-              <p className="mt-1 text-lg text-muted">or $48 a year</p>
-              <p className="mt-1 font-semibold text-accent-text">7-day free trial. No card to start.</p>
-              <ul className="mt-6 flex flex-col gap-3 text-ink">
-                {[
-                  'Every source, every trade',
-                  'Email alerts, at most one an hour',
-                  'Draft replies you edit and post yourself',
-                  'Cancel any time from Settings',
-                ].map((li) => (
-                  <li key={li} className="flex gap-3">
-                    <svg className="mt-1 shrink-0 text-success" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                      <path d="m4 9.5 3.2 3.2L14 5.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span>{li}</span>
-                  </li>
-                ))}
-              </ul>
-              <ButtonLink href="/signup" size="lg" full className="mt-7">
-                Start free for 7 days
-              </ButtonLink>
-            </Card>
-          </div>
-        </section>
-
-        {/* Comparison */}
-        <section className="border-y border-line bg-surface">
-          <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-            <h2 className="text-2xl text-ink md:text-4xl">Other tools charge $199 a month to watch one site</h2>
-            <p className="mt-4 max-w-2xl text-lg text-muted">
-              Holler costs $5, reads far more than one website, and keeps its hands off your accounts.
-            </p>
-            <div className="mt-10 overflow-hidden rounded-card border border-line bg-surface">
-              <div aria-hidden="true" className="grid grid-cols-2 bg-background text-sm font-semibold md:grid-cols-[1fr_1.5fr_1.5fr]">
-                <div className="hidden px-5 py-3 md:block" />
-                <div className="px-4 py-3 text-accent-text md:px-5">Holler</div>
-                <div className="px-4 py-3 text-muted md:px-5">A typical $199/mo Reddit bot</div>
-              </div>
-              <ul>
-                {copy.comparison.map((row) => (
-                  <li key={row.label} className="grid grid-cols-2 border-t border-line md:grid-cols-[1fr_1.5fr_1.5fr]">
-                    <p className="col-span-2 px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-muted md:col-span-1 md:px-5 md:py-4 md:text-sm md:normal-case md:tracking-normal">
-                      {row.label}
-                    </p>
-                    <p className="px-4 py-3 font-medium text-ink md:px-5 md:py-4">
-                      <span className="sr-only">Holler: </span>
-                      {row.holler}
-                    </p>
-                    <p className="px-4 py-3 text-muted md:px-5 md:py-4">
-                      <span className="sr-only">A typical $199 a month Reddit bot: </span>
-                      {row.other}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+        {/* Learn */}
+        <section aria-labelledby="learn" className="mx-auto w-full max-w-5xl px-5 pt-16 md:pt-24">
+          <h2 id="learn" className="text-3xl text-ink md:text-4xl">
+            Learn more
+          </h2>
+          <ul className="mt-8 grid gap-4 md:grid-cols-3">
+            {learn.map((l) => (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  className="group flex h-full flex-col rounded-card border border-line bg-surface p-5 shadow-soft transition-[box-shadow,border-color] duration-150 hover:border-ink/25 hover:shadow-lift"
+                >
+                  <span className="text-lg font-semibold text-ink group-hover:underline group-hover:underline-offset-4">{l.title}</span>
+                  <span className="mt-1 text-muted">{l.body}</span>
+                  <span aria-hidden="true" className="mt-4 text-sm font-semibold text-accent-text">
+                    Read &rarr;
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* FAQ */}
         <section id="faq" className="mx-auto w-full max-w-3xl px-5 py-16 md:py-24">
-          <h2 className="text-2xl text-ink md:text-4xl">Questions</h2>
-          <div className="mt-8 divide-y divide-line border-y border-line">
+          <h2 className="text-3xl text-ink md:text-4xl">Questions</h2>
+          <div className="mt-8 divide-y divide-line overflow-hidden rounded-card border border-line bg-surface px-5 shadow-soft">
             {copy.faqs.map((f) => (
               <details key={f.q} className="group py-1">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-lg font-semibold text-ink [&::-webkit-details-marker]:hidden">
@@ -235,9 +303,9 @@ export default function Home() {
 
         {/* Final CTA */}
         <section className="mx-auto w-full max-w-5xl px-5 pb-20 md:pb-28">
-          <div className="rounded-card bg-ink px-6 py-12 text-center md:px-12 md:py-16">
-            <h2 className="mx-auto max-w-xl text-2xl text-white md:text-4xl">Find out what is happening near you this week.</h2>
-            <p className="mx-auto mt-4 max-w-md text-white/75">Seven days free. No card. Set up in about a minute.</p>
+          <div className="rounded-card bg-ink px-6 py-12 text-center shadow-lift md:px-12 md:py-16">
+            <h2 className="mx-auto max-w-xl text-3xl text-white md:text-4xl">Find out what is happening near you this week.</h2>
+            <p className="mx-auto mt-4 max-w-md text-white/80">Seven days free. No card. Set up in about a minute.</p>
             <div className="mt-8 flex justify-center">
               <ButtonLink href="/signup" size="lg">
                 Start free for 7 days
@@ -267,7 +335,7 @@ function ExampleAlerts({ examples }: { examples: ExampleAlert[] }) {
       </div>
       <div className="flex flex-col gap-4">
         {examples.map((e) => (
-          <Card key={e.title} className="!p-4 sm:!p-5">
+          <Card key={e.title} className="!p-4 !shadow-lift sm:!p-5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
               <Badge kind={e.kind} />
               <span>{e.source}</span>

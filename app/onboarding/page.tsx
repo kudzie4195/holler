@@ -51,6 +51,9 @@ async function Onboarding({ searchParams }: { searchParams: PageProps<'/onboardi
         categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
         defaults={{ business_name: '', categories: [], zip: '', radius: 25, alert_email: true }}
         submitLabel="Start my free week"
+        // The free week uses Starter limits; the Pro fields show locked with a link to the plans.
+        tier="starter"
+        upgradeHref="/pricing"
         zipHint={
           city
             ? `You came from the ${city.name}, ${city.state} page. Enter the ZIP you work out of.`

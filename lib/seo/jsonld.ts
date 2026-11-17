@@ -1,4 +1,5 @@
 import { absoluteUrl } from './canonical';
+import { COMPANY } from '@/lib/legal/company';
 
 type Json = Record<string, unknown>;
 
@@ -102,6 +103,100 @@ export function itemListLd(name: string, items: { name: string; url: string }[])
       name: it.name,
       url: it.url,
     })),
+  };
+}
+
+/** The publisher node reused by articles and datasets. Not a site-wide schema: pages that need one reference it. */
+export function organizationLd(): Json {
+  return {
+    '@type': 'Organization',
+    name: 'Holler',
+    url: absoluteUrl('/'),
+  };
+}
+
+/** COMPANY's mailing address as a schema.org PostalAddress ("City, ST 12345" is split; anything else is left out, never guessed). */
+function companyPostalAddress(): Json {
+  const m = /^(.+), ([A-Z]{2}) (\d{5}(?:-\d{4})?)$/.exec(COMPANY.addressLines[1] ?? '');
+  return {
+    '@type': 'PostalAddress',
+    streetAddress: COMPANY.addressLines[0],
+    ...(m ? { addressLocality: m[1], addressRegion: m[2], postalCode: m[3] } : {}),
+    addressCountry: 'US',
+  };
+}
+
+/**
+ * Site-wide Organization + WebSite graph, rendered once in app/layout.tsx. Built on organizationLd(); the legal name and mailing
+ * address come from lib/legal/company.ts. No phone and no sameAs: Holler has neither yet, and none is invented.
+ */
+export function siteLd(): Json {
+  const org = {
+    ...organizationLd(),
+    '@id': absoluteUrl('/#organization'),
+    legalName: COMPANY.legalName,
+    logo: absoluteUrl('/icon.svg'),
+    address: companyPostalAddress(),
+  };
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      org,
+      {
+        '@type': 'WebSite',
+        '@id': absoluteUrl('/#website'),
+        name: COMPANY.brand,
+        url: absoluteUrl('/'),
+        inLanguage: 'en-US',
+        publisher: { '@id': absoluteUrl('/#organization') },
+      },
+    ],
+  };
+}
+
+/** A guide. dateModified is the guide's own reviewed date (a constant in its data), never the render time. */
+export function articleLd(opts: {
+  headline: string;
+  description: string;
+  path: string;
+  datePublished: string;
+  dateModified: string;
+}): Json {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: opts.headline,
+    description: opts.description,
+    url: absoluteUrl(opts.path),
+    mainEntityOfPage: absoluteUrl(opts.path),
+    datePublished: opts.datePublished,
+    dateModified: opts.dateModified,
+    inLanguage: 'en-US',
+    author: organizationLd(),
+    publisher: organizationLd(),
+  };
+}
+
+/** The numbers page. temporalCoverage is an ISO interval; dateModified is the newest record's time when known. */
+export function datasetLd(opts: {
+  name: string;
+  description: string;
+  path: string;
+  temporalCoverage: string;
+  dateModified: string;
+  variables: string[];
+}): Json {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Dataset',
+    name: opts.name,
+    description: opts.description,
+    url: absoluteUrl(opts.path),
+    creator: organizationLd(),
+    isAccessibleForFree: true,
+    temporalCoverage: opts.temporalCoverage,
+    dateModified: opts.dateModified,
+    variableMeasured: opts.variables,
   };
 }
 

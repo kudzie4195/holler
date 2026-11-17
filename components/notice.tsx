@@ -17,7 +17,7 @@ export function Notice({
   role?: 'alert' | 'status';
 }) {
   return (
-    <div role={role} className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
+    <div role={role} className={`rounded-control border px-4 py-3 text-sm leading-relaxed ${tones[tone]}`}>
       {children}
     </div>
   );

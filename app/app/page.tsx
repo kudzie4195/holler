@@ -9,6 +9,10 @@ import { computeAccess } from '@/lib/auth/access';
 import { cityPageFor } from '@/lib/auth/city-link';
 import { requireProfile } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
+import { priceLabel, renewalNote } from '@/lib/stripe/plans';
+import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requestTextForMember } from '@/lib/requests/details';
 
 interface SignalRow {
   id: number;
@@ -20,6 +24,7 @@ interface SignalRow {
   city: string | null;
   state: string | null;
   occurred_at: string;
+  expires_at: string | null;
 }
 
 interface MatchRow {
@@ -39,7 +44,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,occurred_at)',
+      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,occurred_at,expires_at)',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -49,16 +54,34 @@ async function loadDashboard() {
   const access = computeAccess(profile, now);
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
-  const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => m.signal);
+  // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
+  const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
+    const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
+    return !!s && !isEndedRequest(s, now);
+  });
+  // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
+  // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
+  const requestMatchIds = rows
+    .filter((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal)?.source === HOLLER_REQUEST_SOURCE)
+    .map((m) => m.id);
+  let requestText: Record<number, string> = {};
+  if (!access.locked && requestMatchIds.length > 0) {
+    try {
+      requestText = await requestTextForMember(createAdminClient(), user.id, requestMatchIds, new Date(now));
+    } catch {
+      requestText = {};
+    }
+  }
   const items: FeedItem[] = rows.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+    const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const base: FeedItem = {
       id: m.id,
       status: m.status,
       kind: s.kind,
       source: s.source,
       title: s.title,
-      summary: s.summary,
+      summary: isRequest ? (requestText[m.id] ?? null) : s.summary,
       url: s.url,
       distance: formatDistance(m.distance_mi),
       place: [s.city, s.state].filter(Boolean).join(', ') || null,
@@ -115,12 +138,22 @@ export default async function AppHome(props: PageProps<'/app'>) {
                 {items.length > 0
                   ? `${items.length} ${items.length === 1 ? 'match is' : 'matches are'} waiting. `
                   : ''}
-                Keep your alerts for $5 a month. Cancel any time.
+                Starter is {priceLabel('starter', 'monthly')} a month. Pro is {priceLabel('pro', 'monthly')} a month and covers more areas
+                and trades. Cancel any time.
               </p>
-              <div className="mt-5 flex justify-center">
-                <BillingButton endpoint="/api/stripe/checkout" unavailableMessage="Billing opens soon. Check back shortly.">
-                  Keep my alerts for $5/mo
+              <div className="mt-5 flex flex-col items-center gap-3">
+                <BillingButton
+                  endpoint="/api/stripe/checkout"
+                  tier="starter"
+                  plan="monthly"
+                  unavailableMessage="Billing opens soon. Check back shortly."
+                  note={renewalNote('starter', 'monthly', { inTrial: !access.trialEnded })}
+                >
+                  Keep my alerts for {priceLabel('starter', 'monthly')}/mo
                 </BillingButton>
+                <Link href="/app/settings#billing-h" className="text-sm font-medium text-accent-text underline">
+                  See both plans and yearly prices
+                </Link>
               </div>
             </Card>
           </LockedFeed>
@@ -153,11 +186,11 @@ function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
             <strong className="font-semibold">
               {access.daysLeft} {access.daysLeft === 1 ? 'day' : 'days'} left
             </strong>{' '}
-            in your free trial. Keep alerts after that for $5/mo.
+            in your free trial. Plans start at {priceLabel('starter', 'monthly')} a month.
           </span>
-          <BillingButton endpoint="/api/stripe/checkout" variant="secondary" size="sm">
-            Subscribe
-          </BillingButton>
+          <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline md:min-h-9">
+            Pick a plan
+          </Link>
         </div>
       </Notice>
     );

@@ -8,7 +8,7 @@ import { Crumbs, H1, H2, Page, linkClass } from '../local/_components/ui';
 
 const TITLE = 'Local alerts by trade';
 const DESCRIPTION =
-  'Pick your trade and see what Holler sends: storm and hail reports, permits, city records and the public alerts that fit your trade. $5 a month, 7 days free.';
+  'Pick your trade and see what Holler sends: storm and hail reports, permits, city records and the public alerts that fit your trade. Plans from $5 a month, 7 days free.';
 
 export const metadata: Metadata = {
   title: { absolute: `${TITLE} | Holler` },

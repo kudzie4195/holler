@@ -14,7 +14,7 @@ function Cta({ citySlug, children }: { citySlug: string | null; children?: React
       <ButtonLink href={href} size="lg" className="max-w-full whitespace-normal! py-3 text-center">
         Get these by email. 7 days free, no card
       </ButtonLink>
-      <p className="mt-3 text-sm text-white/75">Then $5 a month or $48 a year. Holler never posts for you.</p>
+      <p className="mt-3 text-sm text-white/75">Then from $5 a month or $48 a year. Holler never posts for you.</p>
     </div>
   );
 }

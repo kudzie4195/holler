@@ -56,7 +56,7 @@ export function isCurrentWeek(startMs: number, nowMs: number): boolean {
   return startMs === mondayOf(nowMs);
 }
 
-/** Neighbouring weeks that exist: previous only inside the 12 week window, next only when it has started. */
+/** Adjacent weeks that exist: previous only inside the 12 week window, next only when it has started. */
 export function weekNeighbors(startMs: number, nowMs: number): { prev: string | null; next: string | null } {
   const current = mondayOf(nowMs);
   const prev = startMs - WEEK_MS;

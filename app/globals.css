@@ -3,26 +3,70 @@
 /*
   Holler design tokens (SPEC "Design system").
   Colors are exposed as Tailwind utilities: bg-background, bg-surface, text-ink,
-  text-muted, border-line, bg-accent, text-accent-text, etc.
+  text-muted, border-line, bg-accent, text-accent-text, bg-sand, bg-sage, etc.
 
-  Contrast notes (computed, WCAG relative luminance):
-  - accent #E8590C is 3.6:1 on white, so it is used for marks, rings and large
-    display only. White text on it fails AA. Primary buttons use ink text on
-    accent (5.0:1). Orange text on light surfaces uses accent-text #C94A08 (4.7:1
-    on white, 4.5:1 on paper).
+  Look: a well-kept local hardware store. Warm paper, a friendly serif for
+  h1/h2 and the wordmark (Fraunces, self-hosted, latin only), soft cards.
+
+  Contrast notes (computed, WCAG relative luminance; full table in gates/r3/design.md):
+  - accent #E8590C is 3.3:1 on background, so it is used for marks, rings and
+    large display only. White text on it fails AA. Primary buttons use ink text
+    on accent (5.0:1). Orange text on light surfaces uses accent-text #AD4205
+    (5.5:1 on background, 5.0:1 on sand, sage and accent-soft).
+  - muted #5C574F is at least 6.0:1 on every light surface token.
+  - sage-ink #3B5A40 is 6.5:1 on sage.
   - success and warn have separate "ink" variants for small text.
+  - line-strong #8f8572 is the border of form controls (WCAG 1.4.11 needs 3:1 for the edge of a control):
+    3.58:1 on surface, 3.38:1 on background, 3.08:1 on sand. The decorative line token stays light.
 */
+
+/* Fraunces (OFL), latin subset, variable weight axis. One file, about 36 KB, fetched only when a heading needs it. */
+@font-face {
+  font-family: 'Fraunces Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+  Metric-matched fallback for Fraunces, so headings do not move when the web font swaps in (font-display: swap above).
+  It draws Georgia, scaled to Fraunces' average glyph width. Same method as next/font: size-adjust is the ratio of the average
+  character widths (Fraunces 938/2000 over Georgia 913/2048 = 105.2%), and the overrides are the Fraunces ascent (1956),
+  descent (510) and line gap (0) per 2000 units, divided by that scale. Numbers come from next's capsize metrics table (regular weight).
+  Devices without Georgia use the next font in --font-display and shift as before.
+*/
+@font-face {
+  font-family: 'Fraunces Fallback';
+  src: local('Georgia');
+  size-adjust: 105.2%;
+  ascent-override: 93%;
+  descent-override: 24.2%;
+  line-gap-override: 0%;
+}
+
 @theme {
-  --color-background: #fbfaf7;
-  --color-surface: #ffffff;
-  --color-ink: #16181d;
-  --color-muted: #5d6470;
-  --color-line: #e7e4dd;
+  --color-background: #faf6ee;
+  --color-surface: #fffdf9;
+  --color-ink: #191714;
+  --color-muted: #5c574f;
+  --color-line: #e5dccb;
+  /* Borders of inputs, selects and text areas: 3:1 or better against surface, background and sand. */
+  --color-line-strong: #8f8572;
+  /* Alternating bands and soft tints. Text on them: ink, muted or sage-ink. */
+  --color-sand: #f3ebdd;
+  --color-sage: #e7ede3;
+  --color-sage-ink: #3b5a40;
+  /* Decorative only (illustrations), never behind text. */
+  --color-sky: #dde8ec;
+  --color-brick: #c98a6b;
   --color-accent: #e8590c;
   --color-accent-hover: #c94a08;
   --color-accent-bright: #e15509;
-  --color-accent-text: #c94a08;
-  --color-accent-soft: #fdebdd;
+  --color-accent-text: #ad4205;
+  --color-accent-soft: #fbe8d8;
   --color-success: #2f8f5b;
   --color-success-ink: #1f6b41;
   --color-success-soft: #e2f1e8;
@@ -56,6 +100,8 @@
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  /* h1, h2 and the wordmark only. */
+  --font-display: 'Fraunces Variable', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
 
   /* Type scale: 14 / 16 / 18 / 24 / 36 / 56 */
   --text-sm: 0.875rem;
@@ -71,8 +117,11 @@
   --text-6xl: 3.5rem;
   --text-6xl--line-height: 1.02;
 
-  --radius-card: 12px;
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+  --radius-card: 16px;
+  --radius-control: 12px;
+  /* Warm-tinted shadows: resting cards use soft, hover/featured use lift. */
+  --shadow-soft: 0 1px 2px rgb(74 52 24 / 0.05), 0 6px 20px rgb(74 52 24 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(74 52 24 / 0.06), 0 14px 32px rgb(74 52 24 / 0.1);
 }
 
 @layer base {
@@ -102,6 +151,15 @@
     line-height: 1.12;
   }
 
+  /* Fraunces runs wide and heavy: lighter weight, slightly tighter tracking. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 560;
+    letter-spacing: -0.018em;
+    font-optical-sizing: auto;
+  }
+
   p {
     text-wrap: pretty;
   }
@@ -110,8 +168,9 @@
     text-underline-offset: 3px;
   }
 
+  /* accent-text, not accent: at least 4.9:1 against every light surface, so the ring stays visible on sand and sage too. */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-accent-text);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -149,12 +208,12 @@
   .range-holler::-webkit-slider-runnable-track {
     height: 6px;
     border-radius: 999px;
-    background: var(--color-line);
+    background: var(--color-line-strong);
   }
   .range-holler::-moz-range-track {
     height: 6px;
     border-radius: 999px;
-    background: var(--color-line);
+    background: var(--color-line-strong);
   }
   .range-holler::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -177,7 +236,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(90deg, #efece5 0%, #f6f3ee 50%, #efece5 100%);
+    background: linear-gradient(90deg, var(--color-line) 0%, var(--color-sand) 50%, var(--color-line) 100%);
     background-size: 200% 100%;
     border-radius: 8px;
   }
@@ -185,6 +244,26 @@
     .skeleton {
       animation: shimmer 1.4s ease-in-out infinite;
     }
+  }
+}
+
+@layer components {
+  /* Hero backdrop: a soft warm glow plus faint paper grain, CSS only (no image request). */
+  .hero-paper {
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(60rem 28rem at 85% -10%, rgb(232 89 12 / 0.07), transparent 70%),
+      radial-gradient(40rem 24rem at -10% 110%, rgb(59 90 64 / 0.06), transparent 70%),
+      repeating-linear-gradient(0deg, rgb(74 52 24 / 0.018) 0 1px, transparent 1px 3px);
+  }
+
+  /* Horizontal link row on narrow screens: scrolls with no visible scrollbar. The cue that it scrolls (fade and arrow) is a
+     separate element in top-nav.tsx, so nothing here masks a link or its focus ring. */
+  .nav-scroll {
+    scrollbar-width: none;
+  }
+  .nav-scroll::-webkit-scrollbar {
+    display: none;
   }
 }
 

@@ -2,7 +2,7 @@ import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { siteUrl } from '@/lib/env';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendEmail } from '@/lib/email';
+import { renderPasswordReset, sendEmail } from '@/lib/email';
 import { jsonError, readJson } from '@/lib/auth/api';
 import { clientIp, hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit';
 
@@ -36,12 +36,8 @@ export async function POST(request: Request) {
         const hashed = data?.properties?.hashed_token;
         if (error || !hashed || data?.user?.id !== memberId) return;
         const link = `${siteUrl}/auth/confirm?token_hash=${encodeURIComponent(hashed)}&type=recovery&next=${encodeURIComponent('/reset')}`;
-        await sendEmail({
-          to: email,
-          subject: 'Reset your Holler password',
-          text: `Someone asked to reset the password for your Holler account.\n\nOpen this link to choose a new one:\n${link}\n\nIf that wasn't you, ignore this email. Nothing changes until the link is used.`,
-          html: `<p>Someone asked to reset the password for your Holler account.</p><p><a href="${link}">Choose a new password</a></p><p>If that wasn't you, ignore this email. Nothing changes until the link is used.</p>`,
-        });
+        const mail = renderPasswordReset({ resetUrl: link });
+        await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
       } catch (e) {
         console.error('forgot-password failed', e instanceof Error ? e.message : e);
       }
