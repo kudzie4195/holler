@@ -5,9 +5,10 @@ import { updateSession } from '@/lib/supabase/proxy';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // Public SEO paths: no cookies, no session, no Supabase. Unknown slugs get a real 404 on the first
-  // request by rewriting to a path that does not exist, which renders app/not-found.tsx with status 404.
+  // request by rewriting to a path that does not exist, which renders app/not-found.tsx with status 404. That includes weekly pages
+  // (/local/<state>/<city>/week/<date>) whose date is malformed, not a Monday, in the future or older than the 12 week window.
   if (pathname === '/local' || pathname.startsWith('/local/') || pathname === '/for' || pathname.startsWith('/for/')) {
-    if (decidePublicRoute(pathname) === 'not-found') {
+    if (decidePublicRoute(pathname, Date.now()) === 'not-found') {
       const res = NextResponse.rewrite(new URL('/_holler-not-found', request.url), { status: 404 });
       res.headers.set('x-robots-tag', 'noindex');
       return res;

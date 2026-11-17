@@ -15,6 +15,7 @@ import {
   type StoredSignal,
 } from './store';
 import { normalizeState } from './adapters/usaspending';
+import { pingNewSignals, type PingNewSignalsInput, type PingOutcome } from '@/lib/seo/indexnow';
 import type { Adapter, Severity, SignalInput } from './types';
 
 export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
@@ -45,6 +46,8 @@ export interface ScanReport {
   sources: SourceResult[];
   totals: { fetched: number; inserted: number; matched: number };
   pruned?: boolean;
+  /** IndexNow ping for this run. Absent when it was skipped (no key, localhost, dry run, nothing new). */
+  indexNow?: PingOutcome;
   error?: string;
 }
 
@@ -66,6 +69,8 @@ export interface RunOptions {
   deadlineMs?: number;
   /** test hook: milliseconds clock (default Date.now) */
   clock?: () => number;
+  /** test hook for the IndexNow ping after a non-dry scan (config, fetch, log, memory). Defaults read INDEXNOW_KEY and NEXT_PUBLIC_SITE_URL. */
+  indexNow?: Partial<Pick<PingNewSignalsInput, 'config' | 'fetchImpl' | 'log' | 'timeoutMs' | 'memory'>>;
 }
 
 export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
@@ -339,6 +344,15 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           report.error = `${report.error ? report.error + '; ' : ''}${msg}`;
         }
       }
+    }
+
+    // One IndexNow ping per run for the city pages and the current weekly page that got new rows. It never throws, gives up after 5 s,
+    // and is skipped when the scan is already close to the route limit. A key-less or localhost site skips it silently.
+    if (storedAll.length && clock() - t0 <= deadlineMs + 2_000) {
+      const outcome = await pingNewSignals({ db, inserted: storedAll, now, ...opts.indexNow }).catch(
+        (): PingOutcome => ({ status: 'failed', urls: 0, error: 'unexpected' }),
+      );
+      if (outcome.status !== 'skipped') report.indexNow = outcome;
     }
 
     // The daily prune is optional work: skip it when the scan is already close to the route limit.

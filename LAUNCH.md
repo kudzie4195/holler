@@ -53,6 +53,7 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`, both or neither (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day). With only one of the two, or neither, the Bluesky source is skipped. For each matched post Holler keeps the snippet, the link and the author's public handle.
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
+- [ ] `INDEXNOW_KEY` (tells Bing and other IndexNow search engines about new pages; set it in step 10, where it is explained)
 
 ## 4. Deploy
 
@@ -119,7 +120,18 @@ Do this once in test mode (use `sk_test_...` and a test webhook) to prove it wor
 - [ ] Settings > Delete account removes your Holler profile and matches.
 - [ ] `<SITE>/privacy` and `<SITE>/terms` show your `SUPPORT_EMAIL`.
 
-## 10. Rollback
+## 10. Tell search engines about the pages (IndexNow, Bing Webmaster Tools)
+
+IndexNow is a free protocol: Holler sends a short list of changed URLs to `https://api.indexnow.org/indexnow` and the participating search engines share it. It helps Bing, and through Bing the assistants that read its index (Copilot and others). It does not replace the sitemap.
+
+- [ ] Make a key: `openssl rand -hex 16`. It must be 8 to 128 characters: letters, digits and dashes only. Set it as `INDEXNOW_KEY` in Vercel (Production), then redeploy.
+- [ ] Open `<SITE>/indexnow-key.txt`. It must show exactly the key and nothing else. A 404 means the key is unset, malformed, or the redeploy has not finished.
+- [ ] Verify the site in Bing Webmaster Tools (https://www.bing.com/webmasters): add `<SITE>`, then verify with the DNS record or the meta tag. Under Sitemaps, submit `<SITE>/sitemap.xml`.
+- [ ] Launch-day ping, once. First `curl -H "Authorization: Bearer <CRON_SECRET>" "<SITE>/api/cron/indexnow?dry=1"` shows how many sitemap URLs would go out. Then run the same URL without `?dry=1`. Each batch should say `sent` with HTTP 200 or 202. A 403 means the engine could not read the key file at `keyLocation`. A 422 means the URLs are not on the host in `NEXT_PUBLIC_SITE_URL`. A 429 means wait before trying again.
+- [ ] Do not put that route on a schedule. IndexNow asks for changed URLs only, and every scan that writes new records already pings once (at most 200 URLs): city pages with 5 or more records in 60 days, and the current weekly page when that week has 10 or more.
+- [ ] No `INDEXNOW_KEY`, or a `localhost` site URL, means no pings and no errors. A failed ping is logged as `[indexnow] ping failed` and never fails or slows a scan by more than 5 seconds.
+
+## 11. Rollback
 
 Pick the smallest one that fixes the problem.
 

@@ -44,3 +44,34 @@ describe('sitemap entries', () => {
     expect(find(es, '/for/hvac')).toBeUndefined();
   });
 });
+
+describe('sitemap weekly pages', () => {
+  const NOW = Date.parse('2026-11-17T12:00:00Z'); // Monday of the week is 2026-11-16
+  const weekUrls = (es: SitemapEntry[]) => es.filter((e) => e.url.includes('/week/'));
+  const places = ok(
+    { 'atlanta-ga': 40, 'raleigh-nc': 12, 'dallas-tx': 9, 'chicago-il': 30, 'austin-tx': 25 },
+    {
+      'atlanta-ga': '2026-11-17T08:00:00.000Z', // this week, 40 records: listed
+      'raleigh-nc': '2026-11-16T01:00:00.000Z', // this week, 12 records: listed
+      'dallas-tx': '2026-11-17T08:00:00.000Z', // this week but only 9 in 60 days: cannot reach 10 this week, not listed
+      'chicago-il': '2026-11-13T08:00:00.000Z', // no record since Monday: not listed
+      // austin-tx has no latest_at: cannot tell, not listed
+    },
+  );
+  it('lists the current week only for listed cities that can reach 10 records, with the real lastmod', () => {
+    const es = buildEntries({ places, trades: [], now: NOW });
+    expect(weekUrls(es).map((e) => e.url.replace(/^https?:\/\/[^/]+/, '')).sort()).toEqual([
+      '/local/georgia/atlanta-ga/week/2026-11-16',
+      '/local/north-carolina/raleigh-nc/week/2026-11-16',
+    ]);
+    expect(find(es, '/atlanta-ga/week/2026-11-16')?.lastModified?.toISOString()).toBe('2026-11-17T08:00:00.000Z');
+  });
+  it('adds none without a clock, so existing callers are unchanged', () => {
+    expect(weekUrls(buildEntries({ places, trades: [] }))).toEqual([]);
+  });
+  it('adds none when the database is down, and never lists a city that is not in the sitemap', () => {
+    expect(weekUrls(buildEntries({ places: { ok: false, counts: {}, latest: {}, partial: false }, trades: [], now: NOW }))).toEqual([]);
+    const thin = ok({ 'atlanta-ga': 4 }, { 'atlanta-ga': '2026-11-17T08:00:00.000Z' });
+    expect(weekUrls(buildEntries({ places: thin, trades: [], now: NOW }))).toEqual([]);
+  });
+});

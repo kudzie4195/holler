@@ -7,6 +7,7 @@ import { selectIndexableCities } from './select';
 import { isTradeIndexable, loadTradeSignals } from './trade-data';
 import { tradePath } from './trade-view';
 import { newestPast } from '../time';
+import { WEEK_INDEX_MIN, mondayOf, isoDay, weekPath } from './week';
 
 export interface SitemapEntry {
   url: string;
@@ -47,9 +48,15 @@ function entry(path: string, changeFrequency: SitemapEntry['changeFrequency'], p
  * Pure builder. City `lastModified` is the place's `latest_at` from holler_place_counts; with no
  * latest_at (column not migrated yet, or DB down) the field is left out. With the DB down no city pages
  * are listed at all, only state pages. Trade pages are listed only when their live list is long enough to be indexable.
+ *
+ * Weekly pages (only when `now` is given): holler_place_counts holds the 60 day count and the newest record per place, nothing per week,
+ * and one query per city is not allowed. So a city already listed gets its CURRENT week page when the view proves two necessary
+ * conditions for the page's own 10 record threshold: 10 or more records in 60 days and a record dated since this Monday. Earlier weeks
+ * are not listed (the view cannot say which of them reach 10); they stay reachable from the city and weekly pages, and each page sets
+ * its own noindex when its week is thin.
  */
-export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[] }): SitemapEntry[] {
-  const { places, trades } = input;
+export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; now?: number }): SitemapEntry[] {
+  const { places, trades, now } = input;
   const { slugs } = selectIndexableCities(places);
   const bySlug = new Map(CITIES.map((c) => [c.slug, c]));
 
@@ -74,6 +81,15 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[] }
     if (!c) continue;
     entries.push(entry(cityPath(c), 'daily', 0.6, toDate(places.latest[slug])));
   }
+  if (now !== undefined) {
+    const monday = mondayOf(now);
+    for (const slug of slugs) {
+      const c = bySlug.get(slug);
+      const latest = places.latest[slug];
+      if (!c || !latest || (places.counts[slug] ?? 0) < WEEK_INDEX_MIN || Date.parse(latest) < monday) continue;
+      entries.push(entry(weekPath(cityPath(c), isoDay(monday)), 'daily', 0.5, toDate(latest)));
+    }
+  }
   return entries;
 }
 
@@ -91,5 +107,5 @@ export async function buildSitemapEntries(): Promise<SitemapEntry[]> {
     // lastmod must not be in the future: skip events that have not started.
     latestAt: newestPast(l.items.map((i) => i.occurredAt)),
   }));
-  return buildEntries({ places, trades });
+  return buildEntries({ places, trades, now: Date.now() });
 }

@@ -4,15 +4,17 @@ import { notFound } from 'next/navigation';
 import { CITIES, cityBySlug, cityPath, nearbyCities, stateBySlug, stateSlugFor } from '@/lib/geo';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { loadPlaceData } from '@/lib/seo/data';
-import { breadcrumbLd, faqLd, itemListLd, placeLd } from '@/lib/seo/jsonld';
+import { breadcrumbLd, faqLd, itemListLd, placeLd, webPageLd } from '@/lib/seo/jsonld';
 import { SECTIONS } from '@/lib/seo/sections';
 import { sourceInfo } from '@/lib/seo/sources';
 import { isIndexable } from '@/lib/seo/threshold';
 import { buildH1, buildSearchDescription, buildTitle } from '@/lib/seo/titles';
+import { citySummary } from '@/lib/seo/week-summary';
+import { thisAndLastWeek, weekPath } from '@/lib/seo/week';
 import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
-import { buildFaq, buildHelps, buildIntro, fmtDateTime, fmtItemTime } from '@/lib/seo/view';
-import type { SectionItem } from '@/lib/seo/summarize';
+import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/seo/view';
 import { JsonLd } from '../../_components/jsonld';
+import { SectionCard } from '../../_components/records';
 import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass } from '../../_components/ui';
 
 // SPEC asks for `export const revalidate = 21600`. That segment option is removed when
@@ -41,7 +43,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await loadPlaceData(city.slug);
   const path = cityPath(city);
   const title = buildTitle(city, data);
-  const description = buildSearchDescription(city, data);
+  // The quotable sentence is the description when there is one (it is not cut to 155 characters, so it never ends mid sentence).
+  const description = citySummary(city, data) ?? buildSearchDescription(city, data);
   const indexable = isIndexable(data.total);
   return {
     title: { absolute: title },
@@ -53,44 +56,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; asOf: string }) {
-  const src = sourceInfo(item.source);
-  return (
-    <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-        <span>
-          Source:{' '}
-          {src.homeUrl ? (
-            <a href={src.homeUrl} target="_blank" rel="noopener" className={linkClass}>
-              {src.label}
-            </a>
-          ) : (
-            src.label
-          )}
-        </span>
-        <time dateTime={item.occurredAt} className="font-mono">
-          {fmtItemTime(item.occurredAt, asOf)}
-        </time>
-      </div>
-      <p className="mt-1 font-medium leading-snug">
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel={ask ? 'nofollow ugc noopener' : 'noopener'}
-            className={linkClass}
-          >
-            {item.title}
-          </a>
-        ) : (
-          item.title
-        )}
-      </p>
-      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[15px] text-muted">{item.summary}</p> : null}
-    </li>
-  );
-}
-
 export default async function CityPage({ params }: Props) {
   const { state, city: citySlug } = await params;
   const r = resolve(state, citySlug);
@@ -100,7 +65,9 @@ export default async function CityPage({ params }: Props) {
   const path = cityPath(city);
   const place = `${city.name}, ${city.state}`;
 
+  const summary = citySummary(city, data);
   const intro = buildIntro(city, data);
+  const weeks = data.ok && data.total > 0 ? thisAndLastWeek(Date.parse(data.asOf)) : null;
   const helps = buildHelps(data);
   const faq = buildFaq(city, data);
   const nearby = nearbyCities(city.slug, 6);
@@ -118,7 +85,7 @@ export default async function CityPage({ params }: Props) {
   );
 
   const ld: Record<string, unknown>[] = [
-    placeLd({ name: place, city: city.name, state: city.state, lat: city.lat, lon: city.lon, path }),
+    placeLd({ name: place, city: city.name, state: city.state, lat: city.lat, lon: city.lon, path, description: summary }),
     breadcrumbLd([
       { name: 'Home', path: '/' },
       { name: 'Local', path: '/local' },
@@ -127,6 +94,7 @@ export default async function CityPage({ params }: Props) {
     ]),
     faqLd(faq),
   ];
+  if (data.ok) ld.push(webPageLd({ name: buildH1(city, data), path, dateModified: data.asOf, about: place, description: summary }));
   if (listItems.length) ld.push(itemListLd(`Recent public records for ${place}`, listItems));
 
   return (
@@ -141,10 +109,29 @@ export default async function CityPage({ params }: Props) {
         ]}
       />
       <H1>{buildH1(city, data)}</H1>
+      {summary ? (
+        <>
+          <p className="mt-4 max-w-2xl text-xl font-medium leading-snug">{summary}</p>
+          <p className="mt-1 text-sm text-muted">
+            Counts computed <time dateTime={data.asOf} className="font-mono">{fmtDate(data.asOf)}</time>.
+          </p>
+        </>
+      ) : null}
       <p className="mt-4 max-w-2xl text-lg leading-relaxed">{intro}</p>
       {data.ok ? (
         <p className="mt-2 text-sm text-muted">
           Last refreshed <time dateTime={data.asOf} className="font-mono">{fmtDateTime(data.asOf)}</time>
+        </p>
+      ) : null}
+      {weeks ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-5 text-sm text-muted">
+          <span>Records by week:</span>
+          <Link href={weekPath(path, weeks.thisWeek)} className={`${linkClass} inline-flex min-h-11 items-center`}>
+            This week
+          </Link>
+          <Link href={weekPath(path, weeks.lastWeek)} className={`${linkClass} inline-flex min-h-11 items-center`}>
+            Last week
+          </Link>
         </p>
       ) : null}
       <div className="mt-6">
@@ -155,25 +142,7 @@ export default async function CityPage({ params }: Props) {
       <div className="mt-10 flex flex-col gap-6">
         {visible.map((s) => {
           const items = data.sections[s.id] ?? [];
-          const total = data.counts[s.id] ?? items.length;
-          return (
-            <Card key={s.id}>
-              <H2 id={s.id}>
-                {s.title} <span className="font-mono text-base font-normal text-muted">({total.toLocaleString('en-US')})</span>
-              </H2>
-              <p className="mt-1 text-sm text-muted">{s.blurb}</p>
-              <ul className="mt-4">
-                {items.map((it) => (
-                  <ItemRow key={it.id} item={it} ask={s.id === 'asks'} asOf={data.asOf} />
-                ))}
-              </ul>
-              {total > items.length ? (
-                <p className="mt-3 text-sm text-muted">
-                  Showing the {items.length} most recent of {total.toLocaleString('en-US')}.
-                </p>
-              ) : null}
-            </Card>
-          );
+          return <SectionCard key={s.id} def={s} items={items} total={data.counts[s.id] ?? items.length} asOf={data.asOf} />;
         })}
 
         {helps ? (

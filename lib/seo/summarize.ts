@@ -1,6 +1,6 @@
 import { WINDOW_DAYS } from './threshold';
 import { sectionFor, SECTIONS, type SectionId } from './sections';
-import { UPCOMING_DAYS, newestPast, orderLatest } from '../time';
+import { UPCOMING_DAYS, isUpcoming, newestPast, orderLatest } from '../time';
 
 /** Row shape selected from holler_signals (no jsonb data column). */
 export interface SignalRowDb {
@@ -51,6 +51,13 @@ export interface PlaceData {
   windowCounts: Partial<Record<SectionId, number>>;
   /** Same, for the last 7 days only. */
   weekCounts: Partial<Record<SectionId, number>>;
+  /**
+   * Records per section that already happened in the last 7 days: nothing dated ahead, expired alerts included. Feeds the quotable
+   * summary sentence on the city page, which counts the past only.
+   */
+  pastWeekCounts: Partial<Record<SectionId, number>>;
+  /** False when the row query was truncated before it reached back 7 days, so pastWeekCounts are lower bounds. */
+  pastWeekExact: boolean;
   weekTrades: TradeTally[];
   windowTrades: TradeTally[];
   sources: string[];
@@ -64,7 +71,7 @@ const DAY = 86_400_000;
 const ALERT_NO_EXPIRY_DAYS = 3;
 
 export function emptyPlaceData(slug: string, asOf: string, ok: boolean): PlaceData {
-  return { ok, slug, asOf, total: 0, sections: {}, counts: {}, windowCounts: {}, weekCounts: {}, weekTrades: [], windowTrades: [], sources: [], earliestAt: null, latestAt: null };
+  return { ok, slug, asOf, total: 0, sections: {}, counts: {}, windowCounts: {}, weekCounts: {}, pastWeekCounts: {}, pastWeekExact: true, weekTrades: [], windowTrades: [], sources: [], earliestAt: null, latestAt: null };
 }
 
 export function safeUrl(u: string | null | undefined): string | null {
@@ -104,7 +111,7 @@ export function summarize(
   slug: string,
   rows: SignalRowDb[],
   nowIso: string,
-  opts: { limit?: number; totalOverride?: number; exactSectionCounts?: Partial<Record<SectionId, number>> } = {},
+  opts: { limit?: number; totalOverride?: number; exactSectionCounts?: Partial<Record<SectionId, number>>; truncated?: boolean } = {},
 ): PlaceData {
   const limit = opts.limit ?? DEFAULT_ITEM_LIMIT;
   const now = Date.parse(nowIso);
@@ -122,6 +129,7 @@ export function summarize(
   const counts: Partial<Record<SectionId, number>> = {};
   const windowCounts: Partial<Record<SectionId, number>> = {};
   const weekCounts: Partial<Record<SectionId, number>> = {};
+  const pastWeekCounts: Partial<Record<SectionId, number>> = {};
   const sources = new Set<string>();
 
   for (const r of inWindow) {
@@ -130,6 +138,7 @@ export function summarize(
     if (!sec) continue;
     windowCounts[sec] = (windowCounts[sec] ?? 0) + 1;
     if (Date.parse(r.occurred_at) >= weekStart && Date.parse(r.occurred_at) <= weekEnd) weekCounts[sec] = (weekCounts[sec] ?? 0) + 1;
+    if (Date.parse(r.occurred_at) >= weekStart && !isUpcoming(r.occurred_at, now)) pastWeekCounts[sec] = (pastWeekCounts[sec] ?? 0) + 1;
     if (sec === 'alerts') {
       const exp = r.expires_at ? Date.parse(r.expires_at) : null;
       const active = exp !== null ? exp > now : Date.parse(r.occurred_at) >= now - ALERT_NO_EXPIRY_DAYS * DAY;
@@ -163,6 +172,11 @@ export function summarize(
     if (typeof v === 'number' && v > 0 && !windowCounts[k as SectionId]) windowCounts[k as SectionId] = v;
   }
 
+  // Rows come newest first and the query stops at a row cap. If the oldest row read is still inside the last 7 days, older rows of that
+  // week may be missing, so the past-week counts are lower bounds.
+  const oldestRead = rows.reduce((m, r) => Math.min(m, Date.parse(r.occurred_at)), Infinity);
+  const pastWeekExact = !opts.truncated || oldestRead < weekStart;
+
   const times = inWindow.map((r) => Date.parse(r.occurred_at)).filter(Number.isFinite);
   return {
     ok: true,
@@ -173,6 +187,8 @@ export function summarize(
     counts,
     windowCounts,
     weekCounts,
+    pastWeekCounts,
+    pastWeekExact,
     weekTrades: tally(inWindow.filter((r) => Date.parse(r.occurred_at) >= weekStart && Date.parse(r.occurred_at) <= weekEnd)),
     windowTrades: tally(inWindow),
     sources: [...sources].sort(),

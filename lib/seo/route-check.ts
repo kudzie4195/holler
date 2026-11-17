@@ -1,5 +1,6 @@
 import citiesJson from '../geo/cities.json';
 import { CATEGORIES } from '../signals/categories';
+import { parseWeek } from './week';
 
 /**
  * Pure 404 decision for public SEO paths, used by proxy.ts so an unknown slug returns HTTP 404 on the
@@ -38,16 +39,19 @@ function segments(pathname: string): string[] {
 
 /**
  * 'skip' for paths this check does not own, 'ok' for a known page, 'not-found' for an unknown slug.
- * Trade ids are read from CATEGORIES at call time.
+ * Trade ids are read from CATEGORIES at call time. A weekly page /local/<state>/<city>/week/<YYYY-MM-DD> is 'ok' only for a
+ * Monday inside the current week and the 11 before it, judged at `nowMs` (see lib/seo/week.ts).
  */
-export function decidePublicRoute(pathname: string): RouteDecision {
+export function decidePublicRoute(pathname: string, nowMs: number = Date.now()): RouteDecision {
   const [root, a, b, ...rest] = segments(pathname);
   if (root === 'local') {
     if (a === undefined) return 'ok';
     if (!STATE_SLUGS.has(a)) return 'not-found';
     if (b === undefined) return 'ok';
-    if (rest.length > 0) return 'not-found';
-    return CITY_STATE.get(b) === a ? 'ok' : 'not-found';
+    if (CITY_STATE.get(b) !== a) return 'not-found';
+    if (rest.length === 0) return 'ok';
+    if (rest.length === 2 && rest[0] === 'week') return parseWeek(rest[1], nowMs).ok ? 'ok' : 'not-found';
+    return 'not-found';
   }
   if (root === 'for') {
     if (a === undefined) return 'ok';

@@ -11,6 +11,8 @@ const CHUNK = 200;
 export interface StoredSignal extends MatchSignal {
   source: string;
   title: string;
+  /** nearest city slug, read back so the scan can tell IndexNow which city pages changed */
+  place_slug?: string | null;
 }
 
 export interface ScanRunRecord {
@@ -117,7 +119,7 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[]): Promi
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, title, categories, lat, lon, state, severity, occurred_at, subtype:data->>subtype');
+      .select('id, source, title, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     inserted.push(...((data ?? []) as StoredSignal[]));
   }

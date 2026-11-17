@@ -68,6 +68,7 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       limit: DEFAULT_ITEM_LIMIT,
       totalOverride: typeof count === 'number' ? count : rows.length,
       exactSectionCounts,
+      truncated: typeof count === 'number' && count > rows.length,
     });
   } catch (e) {
     console.error('[seo] loadPlaceData failed:', slug, e instanceof Error ? e.message : 'unknown');

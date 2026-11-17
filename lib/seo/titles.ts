@@ -24,7 +24,7 @@ export const MAX_TITLE_TYPES = 3;
 /** Titles longer than this drop the " | Holler" suffix so they are not cut off in results. */
 const TITLE_SUFFIX_MAX = 66;
 
-function joinList(parts: string[]): string {
+export function joinList(parts: string[]): string {
   if (parts.length <= 1) return parts.join('');
   if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -45,6 +45,12 @@ const COUNTY_SUBTYPE: Partial<Record<SectionId, 'permit' | '311' | 'inspection' 
   business: 'business',
   violations: 'violation',
 };
+
+/** True when this city's records of the section's type come from a county dataset, so wording should say "area". */
+export function isCountyFeed(id: SectionId, slug?: string): boolean {
+  const sub = COUNTY_SUBTYPE[id];
+  return !!sub && !!slug && (COUNTY_FEEDS[slug] ?? []).includes(sub);
+}
 
 /** Record-type phrases to put in the title: present in the window, priority order, at most three. */
 export function titleTypes(data: PlaceData, slug?: string): string[] {

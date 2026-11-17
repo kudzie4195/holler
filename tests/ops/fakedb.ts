@@ -59,6 +59,7 @@ class Builder implements PromiseLike<{ data: any; error: { message: string } | n
   order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
   range(a: number, b: number) { this.rangeFrom = a; this.rangeTo = b; return this; }
   limit(n: number) { this.limitN = n; return this; }
+  abortSignal() { return this; }
 
   then<T1 = any, T2 = never>(onF?: ((v: any) => T1 | PromiseLike<T1>) | null, onR?: ((e: any) => T2 | PromiseLike<T2>) | null) {
     return Promise.resolve(this.run()).then(onF, onR);
