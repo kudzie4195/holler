@@ -78,10 +78,13 @@ export const HEALTH_LOOKBACK_HOURS = 96;
 /** Kinds that produce rows nearly every day: weather alerts, storm reports, and city records (permits, 311, inspections, licenses). */
 const PRODUCTIVE_KINDS = new Set(['alert', 'report', 'permit', 'civic']);
 
+/** Kinds that can be empty for days in calm weather. They keep the errored, stale and watch rules but never raise zero_rows_3d. */
+const MAY_BE_EMPTY_FOR_DAYS = new Set(['report']);
+
 /**
  * Does this source normally return rows every day? Decided from the registry's kind and cadence:
  * productive kind, and checked at least daily (a source polled less often than that is too quiet to judge by days).
- * Known false alarm: storm reports (spc) can legitimately be empty for days in winter.
+ * Storm reports (spc) can legitimately be empty for days in calm weather, so planHealth never raises zero_rows_3d for them.
  */
 export function expectsRows(a: Pick<HealthAdapter, 'kind' | 'cadenceMinutes'>): boolean {
   return PRODUCTIVE_KINDS.has(a.kind) && a.cadenceMinutes <= 24 * 60;
@@ -180,7 +183,7 @@ export function planHealth(input: {
       const earliest = rows[rows.length - 1].t;
       const coversWindow = earliest <= nowMs - ZERO_ROW_DAYS * DAY + 1.5 * a.cadenceMinutes * MIN;
       const fetched72 = in72.reduce((n, x) => n + (x.r.fetched ?? 0), 0);
-      if (coversWindow && in72.length > 0 && fetched72 === 0) {
+      if (coversWindow && in72.length > 0 && fetched72 === 0 && !MAY_BE_EMPTY_FOR_DAYS.has(a.kind)) {
         problems.push('zero_rows_3d');
         problemLines.push({ sev: 3, line: `${a.id}: zero rows fetched for ${ZERO_ROW_DAYS} days running` });
       } else if (in24.length > 0 && fetched24 === 0) {

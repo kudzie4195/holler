@@ -17,14 +17,17 @@
  *   X-API-KEY, body q, gl, hl, num 1..100, page, tbs qdr:h|d|w|m|y, autocorrect) and https://docs.rs/crate/spider_agent/2.51.6/source/src/search/serper.rs.
  *   Result text is hand-written.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEFAULT_ADAPTER_TIMEOUT_MS } from '@/lib/signals/run';
 import { CATEGORIES, classifyText } from '@/lib/signals/categories';
 import { adapters as bskyAdapters, buildBlueskyUrl, parseBluesky, planBlueskyQueries, postUrl, resetBlueskySession } from '@/lib/signals/adapters/bluesky';
 import {
   ASK_TERMS,
+  BRAVE_QUERY_CAP,
   QUERY_BUDGET,
+  braveTuning,
   adapters as webAdapters,
   allCombos,
   looksLikeRequest,
@@ -37,6 +40,9 @@ import {
 
 const fx = (name: string): unknown => JSON.parse(readFileSync(join(__dirname, '../../fixtures', name), 'utf8'));
 const NOW = new Date('2026-11-16T12:00:00Z');
+
+// The Brave adapter waits ~1.1 s between requests in production. Tests turn the wait off except in the pacing block below.
+braveTuning.spacingMs = 0;
 
 describe('looksLikeRequest', () => {
   const asks = [
@@ -109,7 +115,7 @@ describe('parseBluesky', () => {
   it('postUrl builds from handle + rkey', () => expect(postUrl('x.y', 'at://did/app.bsky.feed.post/abc')).toBe('https://bsky.app/profile/x.y/post/abc'));
   it('query plan is built from CATEGORIES, rotates, and every term classifies back to its category', () => {
     const a = planBlueskyQueries(new Date('2026-11-16T12:00:00Z'));
-    const b = planBlueskyQueries(new Date('2026-11-16T13:00:00Z'));
+    const b = planBlueskyQueries(new Date('2026-11-16T18:00:00Z'));
     expect(a).toHaveLength(12);
     expect(a.map((x) => x.q)).not.toEqual(b.map((x) => x.q));
     expect(a).toEqual(planBlueskyQueries(new Date('2026-11-16T12:30:00Z')));
@@ -432,4 +438,74 @@ describe('websearch failure modes and request shape', () => {
       });
     });
   }
+});
+
+describe('Brave pacing (entry plan: about 1 request per second)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    braveTuning.spacingMs = 0;
+  });
+
+  it('runs one request at a time, at least 1.1 s apart, capped at 20, and finishes well inside the 40 s engine timeout', async () => {
+    vi.useFakeTimers();
+    braveTuning.spacingMs = 1100;
+    const starts: number[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const f = (async () => {
+      starts.push(Date.now());
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 200)); // a realistic response time
+      inFlight--;
+      return new Response(JSON.stringify(fx('websearch-brave.json')), { status: 200 });
+    }) as unknown as typeof fetch;
+    const t0 = Date.now();
+    const p = webAdapters[0].fetch({ since: NOW, env: { BRAVE_SEARCH_API_KEY: 'bk' }, log: () => {}, fetch: f });
+    await vi.runAllTimersAsync();
+    const out = await p;
+    const elapsed = Date.now() - t0;
+    expect(BRAVE_QUERY_CAP).toBe(20);
+    expect(starts).toHaveLength(20);
+    expect(maxInFlight).toBe(1);
+    for (let i = 1; i < starts.length; i++) expect(starts[i] - starts[i - 1]).toBeGreaterThanOrEqual(1100);
+    expect(elapsed).toBeLessThan(DEFAULT_ADAPTER_TIMEOUT_MS - 10_000);
+    expect(out.length).toBeGreaterThan(0);
+  });
+
+  it('stops starting new queries after the start deadline even when every response is slow, so the run cannot overrun the engine timeout', async () => {
+    vi.useFakeTimers();
+    braveTuning.spacingMs = 1100;
+    const logs: string[] = [];
+    const starts: number[] = [];
+    const f = (async () => {
+      starts.push(Date.now());
+      await new Promise((r) => setTimeout(r, 5000));
+      return new Response(JSON.stringify({ web: { results: [] } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const t0 = Date.now();
+    const p = webAdapters[0].fetch({ since: NOW, env: { BRAVE_SEARCH_API_KEY: 'bk' }, log: (m) => logs.push(m), fetch: f });
+    await vi.runAllTimersAsync();
+    await p;
+    expect(starts.length).toBeLessThan(20);
+    expect(Math.max(...starts) - t0).toBeLessThanOrEqual(braveTuning.startDeadlineMs + 5000);
+    expect(Date.now() - t0).toBeLessThan(DEFAULT_ADAPTER_TIMEOUT_MS);
+    expect(logs.some((l) => /deadline reached/.test(l))).toBe(true);
+  });
+
+  it('Serper is untouched: it still runs in parallel batches with no spacing', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const f = (async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return new Response(JSON.stringify(fx('websearch-serper.json')), { status: 200 });
+    }) as unknown as typeof fetch;
+    const t0 = Date.now();
+    await webAdapters[1].fetch({ since: NOW, env: { SERPER_API_KEY: 'sk' }, log: () => {}, fetch: f });
+    expect(maxInFlight).toBe(4);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
 });

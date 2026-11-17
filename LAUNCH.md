@@ -50,6 +50,7 @@ Needed for a real launch:
 Optional data sources (each missing key shows up as "skipped(env)" and in the health email as not configured; nothing breaks):
 
 - [ ] `BRAVE_SEARCH_API_KEY` or `SERPER_API_KEY` (people asking for a recommendation)
+- [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD` (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day)
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
 

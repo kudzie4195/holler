@@ -1,3 +1,4 @@
+import { relativeTime } from '../time';
 import { CADENCE_SHORT } from '../seo/cadence';
 import { env } from '../env';
 
@@ -53,14 +54,7 @@ function noDash(s: string): string {
 }
 
 export function timeAgo(iso: string, now: Date = new Date()): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const mins = Math.max(0, Math.round((now.getTime() - t) / 60000));
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 48) return `${hrs} hr ago`;
-  return `${Math.round(hrs / 24)} days ago`;
+  return relativeTime(iso, now.getTime(), 'email');
 }
 
 const WRAP_OPEN =

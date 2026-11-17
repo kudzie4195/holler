@@ -84,7 +84,7 @@ const faqs = [
   },
   {
     q: 'How fast are the alerts?',
-    a: 'Weather alerts and airport delays are checked every 15 minutes, storm and earthquake reports every 30 minutes, and posts from people asking online every one to six hours. City records, federal contracts and events are checked a few times a day, and some cities publish permits a day or more after they are issued. Emails go out at most once an hour. You get a digest, not a flood.',
+    a: 'Weather alerts and airport delays are checked every 15 minutes, storm and earthquake reports every 30 minutes, and posts from people asking online every six hours. City records, federal contracts and events are checked a few times a day, and some cities publish permits a day or more after they are issued. Emails go out at most once an hour. You get a digest, not a flood.',
   },
   {
     q: 'Does it work in my town?',

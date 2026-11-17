@@ -3,6 +3,7 @@ import { publicClient } from './client';
 import { WINDOW_DAYS } from './threshold';
 import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type SignalRowDb } from './summarize';
 import type { SectionId } from './sections';
+import { UPCOMING_DAYS, newestPast } from '../time';
 
 const DAY = 86_400_000;
 const ROW_COLUMNS = 'id,source,kind,title,summary,url,categories,severity,occurred_at,expires_at,subtype:data->>subtype';
@@ -26,11 +27,13 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
   }
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
+    const until = new Date(now.getTime() + UPCOMING_DAYS * DAY).toISOString();
     const { data, error, count } = await sb
       .from('holler_signals')
       .select(ROW_COLUMNS, { count: 'exact' })
       .eq('place_slug', slug)
       .gte('occurred_at', since)
+      .lte('occurred_at', until)
       .order('occurred_at', { ascending: false })
       .limit(ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -52,6 +55,7 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
             .eq('place_slug', slug)
             .eq('kind', kind)
             .gte('occurred_at', since)
+            .lte('occurred_at', until)
             .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
           return { section, n: r.error ? 0 : (r.count ?? 0) };
         }),
@@ -113,9 +117,12 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
     const rows = (res.data ?? []) as unknown as { place_slug: string; signals_60d: number; latest_at?: string | null }[];
     const counts: Record<string, number> = {};
     const latest: Record<string, string> = {};
+    const loadedAt = Date.now();
     for (const r of rows) {
       counts[r.place_slug] = r.signals_60d;
-      if (r.latest_at && Number.isFinite(Date.parse(r.latest_at))) latest[r.place_slug] = r.latest_at;
+      // latest_at is the max occurred_at, which can be an event that has not happened yet. A sitemap lastmod must not be in the future.
+      const past = newestPast([r.latest_at], loadedAt);
+      if (past) latest[r.place_slug] = past;
     }
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     // One row per place, so the cap is only hit if there are more than 1000 distinct places.

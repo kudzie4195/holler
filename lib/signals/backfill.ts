@@ -6,6 +6,8 @@ export const BACKFILL_CAP = 25;
 export const BACKFILL_ROW_LIMIT = 2000;
 
 const DAY = 86_400_000;
+/** Events that start within this many days are worth a first-login match; anything further out is not read. */
+const BACKFILL_AHEAD_DAYS = 7;
 
 type Db = Pick<SupabaseClient, 'from'>;
 
@@ -30,12 +32,14 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     if (!profile.categories?.length) return { matched: 0, considered: 0 };
     const nowIso = now.toISOString();
     const since = new Date(now.getTime() - BACKFILL_DAYS * DAY).toISOString();
+    const until = new Date(now.getTime() + BACKFILL_AHEAD_DAYS * DAY).toISOString();
 
     const { data, error } = await db
       .from('holler_signals')
       .select('id,categories,lat,lon,state,severity,occurred_at,expires_at')
       .overlaps('categories', profile.categories)
       .gte('occurred_at', since)
+      .lte('occurred_at', until)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .order('occurred_at', { ascending: false })
       .limit(BACKFILL_ROW_LIMIT);
@@ -49,7 +53,9 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
       const m = matchOne(s, profile);
       if (m) hits.push({ s, distance_mi: m.distance_mi });
     }
-    hits.sort((a, b) => b.s.severity - a.s.severity || Date.parse(b.s.occurred_at) - Date.parse(a.s.occurred_at));
+    // A future start time ranks as "now", so an event next week never outranks a fresh record of the same severity.
+    const rank = (iso: string) => Math.min(Date.parse(iso), now.getTime());
+    hits.sort((a, b) => b.s.severity - a.s.severity || rank(b.s.occurred_at) - rank(a.s.occurred_at));
     const picked = hits.slice(0, BACKFILL_CAP);
     if (picked.length === 0) return { matched: 0, considered: rows.length };
 

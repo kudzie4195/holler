@@ -1,12 +1,15 @@
 import { cacheLife } from 'next/cache';
 import { publicClient } from '@/lib/seo/client';
 import { cityBySlug } from '@/lib/geo';
+import { UPCOMING_DAYS } from '@/lib/time';
 import { nearbySlugs } from './scope';
 import type { CheckItem } from './group';
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = 30;
 const ROW_LIMIT = 60;
+/** Rows that have not started yet (events, event permits). Read separately so they cannot crowd out the recent records. */
+const UPCOMING_LIMIT = 12;
 const QUERY_TIMEOUT_MS: number = 8000;
 const COLUMNS = 'id,source,kind,title,url,city,state,severity,occurred_at';
 
@@ -53,19 +56,34 @@ export async function loadCheck(citySlug: string | null, state: string, trade: s
     const stateLevel = `and(lat.is.null,state.eq.${state},severity.gte.2)`;
     const scope = slugs.length ? `place_slug.in.(${slugs.join(',')}),${stateLevel}` : stateLevel;
 
-    const { data, error } = await sb
-      .from('holler_signals')
-      .select(COLUMNS)
-      .or(scope)
-      .or(`expires_at.is.null,expires_at.gt.${checkedAt}`)
-      .overlaps('categories', [trade])
-      .gte('occurred_at', new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString())
-      .order('occurred_at', { ascending: false })
-      .limit(ROW_LIMIT)
-      .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
-    if (error) return fail();
+    const base = () =>
+      sb
+        .from('holler_signals')
+        .select(COLUMNS)
+        .or(scope)
+        .or(`expires_at.is.null,expires_at.gt.${checkedAt}`)
+        .overlaps('categories', [trade]);
+    // Two small indexed queries on the same key: what already happened (newest first) and what starts in the next
+    // UPCOMING_DAYS (soonest first). One combined newest-first query would let far-future events fill the row limit.
+    const [recent, upcoming] = await Promise.all([
+      base()
+        .gte('occurred_at', new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString())
+        .lte('occurred_at', checkedAt)
+        .order('occurred_at', { ascending: false })
+        .limit(ROW_LIMIT)
+        .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
+      base()
+        .gt('occurred_at', checkedAt)
+        .lte('occurred_at', new Date(now.getTime() + UPCOMING_DAYS * DAY).toISOString())
+        .order('occurred_at', { ascending: true })
+        .limit(UPCOMING_LIMIT)
+        .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
+    ]);
+    if (recent.error) return fail();
+    // A failed upcoming read only drops the upcoming rows.
+    const data = [...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])];
 
-    const items: CheckItem[] = ((data ?? []) as unknown as Row[]).map((r) => ({
+    const items: CheckItem[] = (data as unknown as Row[]).map((r) => ({
       id: r.id,
       kind: r.kind,
       source: r.source,

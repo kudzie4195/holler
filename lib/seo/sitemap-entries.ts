@@ -6,6 +6,7 @@ import { loadPlaceCounts, type PlaceCounts } from './data';
 import { selectIndexableCities } from './select';
 import { isTradeIndexable, loadTradeSignals } from './trade-data';
 import { tradePath } from './trade-view';
+import { newestPast } from '../time';
 
 export interface SitemapEntry {
   url: string;
@@ -84,7 +85,8 @@ export async function buildSitemapEntries(): Promise<SitemapEntry[]> {
   const trades: TradeLive[] = live.map((l) => ({
     id: l.trade,
     count: l.items.length,
-    latestAt: l.items[0]?.occurredAt ?? null,
+    // lastmod must not be in the future: skip events that have not started.
+    latestAt: newestPast(l.items.map((i) => i.occurredAt)),
   }));
   return buildEntries({ places, trades });
 }

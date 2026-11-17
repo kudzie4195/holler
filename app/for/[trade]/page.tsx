@@ -15,7 +15,7 @@ import {
   tradePath,
   tradeTitle,
 } from '@/lib/seo/trade-view';
-import { fmtDateTime } from '@/lib/seo/view';
+import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
 import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass } from '../../local/_components/ui';
 
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function LiveRow({ item }: { item: TradeSignalItem }) {
+function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
   const src = sourceInfo(item.source);
   const place = item.city && item.state ? `${item.city}, ${item.state}` : item.state;
   return (
@@ -60,7 +60,7 @@ function LiveRow({ item }: { item: TradeSignalItem }) {
           )}
         </span>
         <time dateTime={item.occurredAt} className="font-mono">
-          {fmtDateTime(item.occurredAt)}
+          {fmtItemTime(item.occurredAt, asOf)}
         </time>
         {place ? <span>{place}</span> : null}
       </div>
@@ -130,7 +130,7 @@ export default async function TradePage({ params }: Props) {
             </p>
             <ul className="mt-4">
               {live.items.map((it) => (
-                <LiveRow key={it.id} item={it} />
+                <LiveRow key={it.id} item={it} asOf={live.asOf} />
               ))}
             </ul>
             <p className="mt-3 text-sm text-muted">

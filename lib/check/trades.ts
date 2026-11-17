@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@/lib/signals/categories';
+import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 
 export interface TradeOption {
   id: string;
@@ -9,15 +9,8 @@ export interface TradeGroup {
   options: TradeOption[];
 }
 
-const GROUP_LABELS: Record<string, string> = {
-  home: 'Home and property',
-  storm: 'Storm and damage',
-  auto: 'Auto',
-  business: 'Business services',
-  'food-events': 'Food and events',
-  other: 'Other',
-};
-const GROUP_ORDER = ['home', 'storm', 'auto', 'business', 'food-events', 'other'];
+const GROUP_LABELS: Record<string, string> = Object.fromEntries(CATEGORY_GROUPS.map((g) => [g.id, g.label]));
+const GROUP_ORDER: string[] = CATEGORY_GROUPS.map((g) => g.id);
 
 /** Reads CATEGORIES at runtime. Grouped by `group` when entries have it, otherwise one flat list. */
 export function tradeGroups(): TradeGroup[] {

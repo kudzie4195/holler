@@ -9,7 +9,9 @@ import { adapters as usa, parseUsaSpending } from '@/lib/signals/adapters/usaspe
 import { adapters as sam, parseSam } from '@/lib/signals/adapters/sam';
 import { adapters as tm, parseTicketmaster } from '@/lib/signals/adapters/ticketmaster';
 import { adapters as bsky, parseBluesky } from '@/lib/signals/adapters/bluesky';
-import { adapters as web, parseBrave, parseSerper } from '@/lib/signals/adapters/websearch';
+import { adapters as web, braveTuning, parseBrave, parseSerper } from '@/lib/signals/adapters/websearch';
+
+braveTuning.spacingMs = 0; // production waits 1.1 s between Brave requests
 
 const garbage: unknown[] = [
   null, undefined, 0, 'x', true, [], {}, [null, 1, 'a', [], {}], { results: 'no' }, { posts: [null, 7, { uri: 1 }] },

@@ -13,7 +13,7 @@ const counts: HealthCounts = { newSignups24h: 4, activeSubscribers: 2, trialing:
 const nws: HealthAdapter = { id: 'nws', label: 'NWS alerts', kind: 'alert', cadenceMinutes: 15 };
 const spc: HealthAdapter = { id: 'spc', label: 'Storm reports', kind: 'report', cadenceMinutes: 30 };
 const permits: HealthAdapter = { id: 'socrata-x-permits', label: 'X permits', kind: 'permit', cadenceMinutes: 360 };
-const ask: HealthAdapter = { id: 'bluesky', label: 'Bluesky', kind: 'ask', cadenceMinutes: 60 };
+const ask: HealthAdapter = { id: 'bluesky', label: 'Bluesky', kind: 'ask', cadenceMinutes: 360 };
 const sam: HealthAdapter = { id: 'sam-gov', label: 'SAM', kind: 'contract', cadenceMinutes: 720, missingEnv: ['SAM_API_KEY'] };
 
 /** Healthy history: one run per cadence for `days` days. */
@@ -109,6 +109,22 @@ describe('planHealth: problems', () => {
     expect(r.sources.find((s) => s.id === 'socrata-x-permits')!.problems).toEqual(['zero_rows_3d']);
     expect(r.sources.find((s) => s.id === 'bluesky')!.problems).toEqual([]);
     expect(r.problems).toContain('socrata-x-permits: zero rows fetched for 3 days running');
+  });
+
+  it('does not raise zero_rows_3d for storm reports, but still flags errored and stale runs for them', () => {
+    const quiet = planHealth({ adapters: [nws, spc], runs: [...history(nws), ...history(spc, 4, 0)], counts, now: NOW });
+    expect(quiet.sources.find((s) => s.id === 'spc')!.problems).toEqual([]);
+    expect(quiet.problems.some((l) => l.startsWith('spc:'))).toBe(false);
+    expect(quiet.ok).toBe(true);
+    const errored = planHealth({
+      adapters: [nws, spc],
+      runs: [...history(nws), ...history(spc, 4, 0), { source: 'spc', started_at: ago(MIN), fetched: 0, inserted: 0, error: 'boom' }],
+      counts,
+      now: NOW,
+    });
+    expect(errored.sources.find((s) => s.id === 'spc')!.problems).toEqual(['errored']);
+    const stale = planHealth({ adapters: [nws, spc], runs: [...history(nws), ...history(spc, 4, 0).filter((r) => Date.parse(r.started_at!) < NOW.getTime() - 5 * HOUR)], counts, now: NOW });
+    expect(stale.sources.find((s) => s.id === 'spc')!.problems).toContain('stale');
   });
 
   it('does not flag zero rows when one run in the 3 days fetched something', () => {

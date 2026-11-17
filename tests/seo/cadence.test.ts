@@ -13,11 +13,11 @@ describe('public cadence wording matches the adapters', () => {
     expect(mins(['spc', 'usgs'])).toEqual([30, 30]);
     expect(CADENCE_LONG).toContain('every 30 minutes');
   });
-  it('one to six hours: posts from people asking online', () => {
+  it('six hours: posts from people asking online', () => {
     expect(mins(['bluesky', 'websearch-brave', 'websearch-serper'].filter((id) => ALL_ADAPTERS.some((a) => a.id === id)))).toSatisfy(
-      (m: (number | undefined)[]) => m.length > 0 && m.every((x) => x !== undefined && x >= 60 && x <= 360),
+      (m: (number | undefined)[]) => m.length > 0 && m.every((x) => x === 360),
     );
-    expect(CADENCE_LONG).toContain('every one to six hours');
+    expect(CADENCE_LONG).toContain('every six hours');
   });
   it('a few times a day: every city, contract and event source runs between every 3 and 12 hours', () => {
     const slow = ALL_ADAPTERS.filter((a) => a.id.startsWith('socrata-') || ['usaspending', 'sam-gov', 'ticketmaster', 'fema'].includes(a.id));

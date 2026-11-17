@@ -4,6 +4,7 @@ import { tradeLabel } from './trades';
 import { KIND_NOUN, SECTIONS, SECTION_BY_ID } from './sections';
 import { WINDOW_DAYS } from './threshold';
 import type { PlaceData } from './summarize';
+import { isUpcoming } from '../time';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -19,6 +20,11 @@ export function fmtDateTime(iso: string): string {
   const hh = String(d.getUTCHours()).padStart(2, '0');
   const mm = String(d.getUTCMinutes()).padStart(2, '0');
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${hh}:${mm} UTC`;
+}
+
+/** Item time for a list row: "Nov 14, 18:30 UTC" for a past record, "Starts Dec 5, 19:00 UTC" for one that has not happened yet at `asOfIso`. */
+export function fmtItemTime(iso: string, asOfIso: string): string {
+  return isUpcoming(iso, Date.parse(asOfIso)) ? `Starts ${fmtDateTime(iso)}` : fmtDateTime(iso);
 }
 
 function plural(n: number, one: string, many: string): string {

@@ -24,13 +24,20 @@ import { env } from '@/lib/env';
  * Two adapters, one per key, because Adapter.requiresEnv is "all of". The Serper adapter steps aside when a Brave key
  * is set so we never pay for both. With neither key the engine reports skipped(env) for each.
  * Only title, snippet and URL are stored. Nothing is scraped; we never fetch the result pages.
- * Brave's free plan is limited to about 1 request per second; queries run 4 at a time, so a free key will see HTTP 429 and the run stops with an error log.
+ * Brave's entry plan allows about 1 request per second, so the Brave adapter runs its queries one at a time, about 1.1 s apart, and
+ * caps a run at 20 queries. Worst case it stops starting queries after BRAVE_START_DEADLINE_MS (24 s) and each request times out
+ * after 8 s, so the whole adapter ends inside the engine's 40 s per-adapter timeout (DEFAULT_ADAPTER_TIMEOUT_MS in run.ts) with a margin.
+ * Serper has no such limit and keeps its parallel batches of 4.
  */
 
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 export const QUERY_BUDGET = 40;
 export const TOP_CITY_COUNT = 25;
 const RUN_DEADLINE_MS = 35_000;
+/** Brave pacing. Mutable only so tests can turn the delay off; production values are the defaults. */
+export const BRAVE_QUERY_CAP = 20;
+export const braveTuning = { spacingMs: 1100, startDeadlineMs: 24_000, requestTimeoutMs: 8000 };
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // --- Request-pattern filter ---------------------------------------------------------------------
 
@@ -377,21 +384,29 @@ async function runQueries(
   call: (q: PlannedQuery) => Promise<Response>,
   parse: (json: unknown, q: PlannedQuery) => SignalInput[],
   stats: (json: unknown) => { rows: number; usable: number } | null,
+  pace?: { spacingMs: number; startDeadlineMs: number },
 ): Promise<SignalInput[]> {
   const started = Date.now();
   const out: SignalInput[] = [];
   const seen = new Set<string>();
-  const BATCH = 4;
+  const BATCH = pace ? 1 : 4;
   let responses = 0;
+  let lastStart = 0;
   let withResults = 0;
   let rows = 0;
   let usable = 0;
   for (let i = 0; i < queries.length; i += BATCH) {
-    if (Date.now() - started > RUN_DEADLINE_MS) {
+    if (pace && i > 0) {
+      // Start-to-start spacing: wait out whatever is left of the gap since the previous request began.
+      const wait = lastStart + pace.spacingMs - Date.now();
+      if (wait > 0) await sleep(wait);
+    }
+    if (Date.now() - started > (pace ? pace.startDeadlineMs : RUN_DEADLINE_MS)) {
       ctx.log(`${id}: deadline reached after ${i} of ${queries.length} queries`);
       break;
     }
     const batch = queries.slice(i, i + BATCH);
+    lastStart = Date.now();
     const settled = await Promise.all(
       batch.map(async (q) => {
         try {
@@ -463,7 +478,7 @@ const brave: Adapter = {
         ctx.log('websearch-brave: skipped(env) BRAVE_SEARCH_API_KEY missing');
         return [];
       }
-      const plan = planQueries(new Date(), CADENCE);
+      const plan = planQueries(new Date(), CADENCE, BRAVE_QUERY_CAP);
       return await runQueries(
         ctx,
         'websearch-brave',
@@ -472,10 +487,11 @@ const brave: Adapter = {
         (q) =>
           ctx.fetch(
             `https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({ q: q.q, count: '10', freshness: 'pw', country: 'US', search_lang: 'en' })}`,
-            { headers: { Accept: 'application/json', 'X-Subscription-Token': key, 'User-Agent': UA }, signal: AbortSignal.timeout(15000) },
+            { headers: { Accept: 'application/json', 'X-Subscription-Token': key, 'User-Agent': UA }, signal: AbortSignal.timeout(braveTuning.requestTimeoutMs) },
           ),
         (json, q) => parseBrave(json, { queryCity: q.city }),
         braveRowStats,
+        { spacingMs: braveTuning.spacingMs, startDeadlineMs: braveTuning.startDeadlineMs },
       );
     } catch (e) {
       ctx.log(`error: websearch-brave ${e instanceof Error ? e.message : String(e)}`);

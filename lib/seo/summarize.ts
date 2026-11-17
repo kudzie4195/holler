@@ -1,5 +1,6 @@
 import { WINDOW_DAYS } from './threshold';
 import { sectionFor, SECTIONS, type SectionId } from './sections';
+import { UPCOMING_DAYS, newestPast, orderLatest } from '../time';
 
 /** Row shape selected from holler_signals (no jsonb data column). */
 export interface SignalRowDb {
@@ -109,8 +110,14 @@ export function summarize(
   const now = Date.parse(nowIso);
   const windowStart = now - WINDOW_DAYS * DAY;
   const weekStart = now - 7 * DAY;
+  // Events and event permits can be dated ahead. They count when they start within UPCOMING_DAYS; anything further out is not shown yet.
+  const windowEnd = now + UPCOMING_DAYS * DAY;
+  const weekEnd = now + 7 * DAY;
 
-  const inWindow = rows.filter((r) => Date.parse(r.occurred_at) >= windowStart);
+  const inWindow = rows.filter((r) => {
+    const t = Date.parse(r.occurred_at);
+    return t >= windowStart && t <= windowEnd;
+  });
   const grouped: Partial<Record<SectionId, SectionItem[]>> = {};
   const counts: Partial<Record<SectionId, number>> = {};
   const windowCounts: Partial<Record<SectionId, number>> = {};
@@ -122,7 +129,7 @@ export function summarize(
     const sec = sectionFor(r.kind, r.source, r.title, r.subtype);
     if (!sec) continue;
     windowCounts[sec] = (windowCounts[sec] ?? 0) + 1;
-    if (Date.parse(r.occurred_at) >= weekStart) weekCounts[sec] = (weekCounts[sec] ?? 0) + 1;
+    if (Date.parse(r.occurred_at) >= weekStart && Date.parse(r.occurred_at) <= weekEnd) weekCounts[sec] = (weekCounts[sec] ?? 0) + 1;
     if (sec === 'alerts') {
       const exp = r.expires_at ? Date.parse(r.expires_at) : null;
       const active = exp !== null ? exp > now : Date.parse(r.occurred_at) >= now - ALERT_NO_EXPIRY_DAYS * DAY;
@@ -146,11 +153,10 @@ export function summarize(
   for (const def of SECTIONS) {
     const items = grouped[def.id];
     if (!items?.length) continue;
-    items.sort((a, b) => {
-      if (def.id === 'alerts' && b.severity !== a.severity) return b.severity - a.severity;
-      return Date.parse(b.occurredAt) - Date.parse(a.occurredAt);
-    });
-    sections[def.id] = items.slice(0, limit);
+    // Upcoming items first (soonest first), then everything else newest first. Alerts rank by severity first.
+    const ordered = orderLatest(items, (i) => i.occurredAt, now);
+    if (def.id === 'alerts') ordered.sort((a, b) => b.severity - a.severity); // stable: ties keep the order above
+    sections[def.id] = ordered.slice(0, limit);
   }
   for (const [k, v] of Object.entries(opts.exactSectionCounts ?? {})) {
     if (typeof v === 'number' && v >= (counts[k as SectionId] ?? 0) && k !== 'alerts') counts[k as SectionId] = v;
@@ -167,10 +173,11 @@ export function summarize(
     counts,
     windowCounts,
     weekCounts,
-    weekTrades: tally(inWindow.filter((r) => Date.parse(r.occurred_at) >= weekStart)),
+    weekTrades: tally(inWindow.filter((r) => Date.parse(r.occurred_at) >= weekStart && Date.parse(r.occurred_at) <= weekEnd)),
     windowTrades: tally(inWindow),
     sources: [...sources].sort(),
     earliestAt: times.length ? new Date(Math.min(...times)).toISOString() : null,
-    latestAt: times.length ? new Date(Math.max(...times)).toISOString() : null,
+    // The newest record that has already happened: wording like "the most recent one is dated ..." must never name a future date.
+    latestAt: newestPast(inWindow.map((r) => r.occurred_at), now),
   };
 }

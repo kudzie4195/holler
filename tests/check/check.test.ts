@@ -30,6 +30,7 @@ describe('parseCheckParams', () => {
   });
 });
 
+const NOW = Date.UTC(2026, 10, 17, 12, 0); // the fixtures are built relative to this time
 const item = (id: number, kind: string, minsAgo: number): CheckItem => ({
   id,
   kind,
@@ -43,22 +44,22 @@ const item = (id: number, kind: string, minsAgo: number): CheckItem => ({
 
 describe('groupItems', () => {
   it('groups kinds and orders groups by newest item', () => {
-    const g = groupItems([item(1, 'permit', 50), item(2, 'report', 10), item(3, 'alert', 30), item(4, 'ask', 5)]);
+    const g = groupItems([item(1, 'permit', 50), item(2, 'report', 10), item(3, 'alert', 30), item(4, 'ask', 5)], NOW);
     expect(g.map((x) => x.id)).toEqual(['ask', 'weather', 'permit']);
     expect(g[1].items.map((i) => i.id)).toEqual([2, 3]);
   });
   it('caps per group and overall', () => {
     const many = Array.from({ length: 40 }, (_, i) => item(i, 'permit', i));
-    const g = groupItems(many);
+    const g = groupItems(many, NOW);
     expect(g).toHaveLength(1);
     expect(g[0].items).toHaveLength(MAX_PER_GROUP);
     const mixed = ['permit', 'civic', 'report', 'ask', 'event'].flatMap((k, ki) =>
       Array.from({ length: 10 }, (_, i) => item(ki * 100 + i, k, i + ki)),
     );
-    expect(groupItems(mixed).reduce((n, x) => n + x.items.length, 0)).toBe(MAX_ITEMS);
+    expect(groupItems(mixed, NOW).reduce((n, x) => n + x.items.length, 0)).toBe(MAX_ITEMS);
   });
   it('puts unknown kinds in a fallback group and never loses them', () => {
-    expect(groupItems([item(1, 'mystery', 1)])[0].title).toBe('Other records');
+    expect(groupItems([item(1, 'mystery', 1)], NOW)[0].title).toBe('Other records');
   });
   it('only links http(s)', () => {
     expect(safeUrl('https://x.gov/a')).toBe('https://x.gov/a');

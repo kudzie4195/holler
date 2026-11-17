@@ -1,3 +1,5 @@
+import { CATEGORY_GROUPS } from '@/lib/signals/categories';
+
 /** Trade chips grouped by category `group`. Pure, so it is tested without React. */
 export interface ChipCategory {
   id: string;
@@ -13,15 +15,8 @@ export interface ChipGroup {
   items: ChipCategory[];
 }
 
-/** Display order and heading for each known group. */
-export const GROUP_ORDER: { key: string; label: string }[] = [
-  { key: 'home', label: 'Home and property' },
-  { key: 'storm', label: 'Storm and damage' },
-  { key: 'auto', label: 'Auto' },
-  { key: 'business', label: 'Business' },
-  { key: 'food-events', label: 'Food and events' },
-  { key: 'other', label: 'Other' },
-];
+/** Display order and heading for each known group. One source: CATEGORY_GROUPS in lib/signals/categories.ts. */
+export const GROUP_ORDER: { key: string; label: string }[] = CATEGORY_GROUPS.map((g) => ({ key: g.id, label: g.label }));
 
 const KNOWN = new Set(GROUP_ORDER.map((g) => g.key));
 

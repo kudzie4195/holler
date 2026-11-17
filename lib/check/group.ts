@@ -15,6 +15,8 @@ export interface CheckGroup {
   items: CheckItem[];
 }
 
+import { isUpcoming, orderLatest, toMs } from '@/lib/time';
+
 export const MAX_ITEMS = 20;
 export const MAX_PER_GROUP = 8;
 
@@ -33,11 +35,13 @@ function groupIdFor(kind: string): string {
 }
 
 /**
- * Newest first, at most MAX_PER_GROUP per group and MAX_ITEMS overall (so one busy feed such as permits
- * cannot crowd out weather alerts). Groups are ordered by their newest item.
+ * Upcoming items first (soonest start first, so an event next week reads in order), then everything else newest first.
+ * At most MAX_PER_GROUP per group and MAX_ITEMS overall (so one busy feed such as permits cannot crowd out weather alerts).
+ * Groups are ordered by their newest item that is not in the future, so a far-off event never pins its group to the top;
+ * a group with only upcoming items goes after the groups that have recent items.
  */
-export function groupItems(items: CheckItem[]): CheckGroup[] {
-  const sorted = [...items].sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
+export function groupItems(items: CheckItem[], now: number = Date.now()): CheckGroup[] {
+  const sorted = orderLatest(items, (i) => i.occurredAt, now);
   const buckets = new Map<string, CheckItem[]>();
   let total = 0;
   for (const it of sorted) {
@@ -50,7 +54,14 @@ export function groupItems(items: CheckItem[]): CheckGroup[] {
     total++;
   }
   const titleOf = (id: string) => GROUPS.find((g) => g.id === id)?.title ?? 'Other records';
-  return [...buckets.entries()].map(([id, list]) => ({ id, title: titleOf(id), items: list }));
+  const newestPastMs = (list: CheckItem[]) => {
+    const past = list.filter((i) => !isUpcoming(i.occurredAt, now)).map((i) => toMs(i.occurredAt));
+    return past.length ? Math.max(...past) : -Infinity;
+  };
+  return [...buckets.entries()]
+    .map(([id, list]) => ({ id, title: titleOf(id), items: list, key: newestPastMs(list) }))
+    .sort((a, b) => b.key - a.key)
+    .map(({ id, title, items: list }) => ({ id, title, items: list }));
 }
 
 /** Only plain web links are shown as links. */

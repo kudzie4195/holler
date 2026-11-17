@@ -10,7 +10,7 @@ import { sourceInfo } from '@/lib/seo/sources';
 import { isIndexable } from '@/lib/seo/threshold';
 import { buildH1, buildSearchDescription, buildTitle } from '@/lib/seo/titles';
 import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
-import { buildFaq, buildHelps, buildIntro, fmtDateTime } from '@/lib/seo/view';
+import { buildFaq, buildHelps, buildIntro, fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { JsonLd } from '../../_components/jsonld';
 import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass } from '../../_components/ui';
@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function ItemRow({ item, ask }: { item: SectionItem; ask: boolean }) {
+function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; asOf: string }) {
   const src = sourceInfo(item.source);
   return (
     <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
@@ -69,7 +69,7 @@ function ItemRow({ item, ask }: { item: SectionItem; ask: boolean }) {
           )}
         </span>
         <time dateTime={item.occurredAt} className="font-mono">
-          {fmtDateTime(item.occurredAt)}
+          {fmtItemTime(item.occurredAt, asOf)}
         </time>
       </div>
       <p className="mt-1 font-medium leading-snug">
@@ -164,7 +164,7 @@ export default async function CityPage({ params }: Props) {
               <p className="mt-1 text-sm text-muted">{s.blurb}</p>
               <ul className="mt-4">
                 {items.map((it) => (
-                  <ItemRow key={it.id} item={it} ask={s.id === 'asks'} />
+                  <ItemRow key={it.id} item={it} ask={s.id === 'asks'} asOf={data.asOf} />
                 ))}
               </ul>
               {total > items.length ? (

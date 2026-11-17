@@ -11,7 +11,7 @@ function Cta({ citySlug, children }: { citySlug: string | null; children?: React
   return (
     <div className="mt-8 rounded-card bg-ink px-6 py-8 text-center">
       {children}
-      <ButtonLink href={href} size="lg">
+      <ButtonLink href={href} size="lg" className="max-w-full whitespace-normal! py-3 text-center">
         Get these by email. 7 days free, no card
       </ButtonLink>
       <p className="mt-3 text-sm text-white/75">Then $5 a month or $48 a year. Holler never posts for you.</p>
@@ -38,7 +38,7 @@ export function CheckResults({
   citySlug: string | null;
   now: number;
 }) {
-  const groups = groupItems(items);
+  const groups = groupItems(items, now);
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
 
   if (shown === 0) {

@@ -1,4 +1,6 @@
-/** What Holler watches for a trade, in plain words. Used only for the "nothing yet" state. Unknown trades get the default. */
+import { TRADE_FACTS } from '@/lib/seo/trade-pages';
+
+/** What Holler watches for a trade, in plain words. Used only for the "nothing yet" state. A trade without a hand-written line here uses the signals on its /for page; an unknown trade gets the default. */
 const DEFAULT = [
   'weather alerts and storm reports',
   'building permits and 311 requests where the city publishes them',
@@ -25,5 +27,9 @@ const BY_TRADE: Record<string, string[]> = {
 };
 
 export function watchesFor(trade: string): string[] {
-  return BY_TRADE[trade] ?? DEFAULT;
+  const own = BY_TRADE[trade];
+  if (own) return own;
+  const facts = TRADE_FACTS[trade];
+  if (facts?.signals.length) return facts.signals.slice(0, 5).map((s) => s.signal.charAt(0).toLowerCase() + s.signal.slice(1));
+  return DEFAULT;
 }

@@ -19,9 +19,9 @@ import { ASK_TERMS, looksLikeRequest, resolveCityFromText } from './websearch';
  *   2. GET <pds>/xrpc/app.bsky.feed.searchPosts with `Authorization: Bearer <accessJwt>` and `atproto-proxy: did:web:api.bsky.app#bsky_appview`
  *      (the documented PDS-to-AppView proxy route, as described in the cyanheads issue). <pds> is the didDoc #atproto_pds endpoint, default https://bsky.social.
  * Without credentials it still tries the keyless public host once per run (it may be reopened) and logs an error that names the two env keys when refused.
- * NOTE FOR THE COMMANDER: lib/env.ts does not list BLUESKY_HANDLE / BLUESKY_APP_PASSWORD, and run.ts passes only lib/env's `env` as ctx.env, so both keys
- * must be added to ENV_KEYS and `env` (and .env.example) or this adapter will never see them. createSession can be rate limited (the cyanheads issue saw
- * 10 per identifier per day); the session is cached in module memory for warm invocations and renewed with refreshSession, but a cold start logs in again.
+ * BLUESKY_HANDLE and BLUESKY_APP_PASSWORD are in ENV_KEYS (lib/env.ts) and .env.example. createSession is rate limited (the cyanheads issue saw
+ * 10 per identifier per day) and every serverless cold start logs in again, so the adapter runs every 360 minutes (4 runs a day); the session is
+ * also cached in module memory for warm invocations and renewed with refreshSession.
  *
  * Request parameters (confirmed from the lexicon): q (required), sort top|latest (default latest), since (inclusive datetime or YYYY-MM-DD),
  * until, mentions, author, lang, domain, url, tag[], limit 1..100 (default 25), cursor. Response: { posts[] (app.bsky.feed.defs#postView:
@@ -35,7 +35,7 @@ const ENTRYWAY = 'https://bsky.social';
 const APPVIEW_PROXY = 'did:web:api.bsky.app#bsky_appview';
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 const QUERIES_PER_RUN = 12;
-const CADENCE = 60;
+const CADENCE = 360;
 const PHRASES = ['recommend a', 'looking for a', 'need a'];
 
 export interface BlueskyQuery {

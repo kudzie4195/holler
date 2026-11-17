@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@/lib/signals/categories';
+import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts } from './trade-pages';
 
@@ -17,15 +17,9 @@ export interface TradeEntry {
   facts: TradeFacts;
 }
 
-export const GROUP_LABELS: Record<string, string> = {
-  home: 'Home and property',
-  storm: 'Storm and emergency work',
-  auto: 'Auto and roadside',
-  business: 'Business and commercial',
-  'food-events': 'Food and events',
-  other: 'Other trades',
-};
-const GROUP_ORDER = ['home', 'storm', 'auto', 'business', 'food-events', 'other'];
+/** One source for group names and order: CATEGORY_GROUPS in lib/signals/categories.ts. */
+export const GROUP_LABELS: Record<string, string> = Object.fromEntries(CATEGORY_GROUPS.map((g) => [g.id, g.label]));
+const GROUP_ORDER: string[] = CATEGORY_GROUPS.map((g) => g.id);
 
 /** Every trade that has a page, in CATEGORIES order. `group` is read at runtime and may be absent. */
 export function tradeEntries(): TradeEntry[] {
@@ -82,15 +76,15 @@ export function tradeFaq(t: TradeEntry): { q: string; a: string }[] {
   return [
     {
       q: `What does Holler send ${t.facts.noun}?`,
-      a: `Holler watches for ${list}. You pick your trade and how far you travel, and it emails you when something nearby matches. Each alert links to the public source.`,
+      a: `Holler watches for ${list}. You pick your trade and how far you will drive, and a short email arrives whenever something nearby matches what you do. Each one links to the public source.`,
     },
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
-      a: TRADE_PRICE_LINE,
+      a: 'It costs $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
     },
     {
       q: 'Does Holler post or contact anyone for me?',
-      a: 'No. Holler only sends you alerts. It never posts, messages or touches your social accounts, so there is nothing to get banned.',
+      a: 'No. Holler only sends alerts to you, and it never posts, messages or touches your social accounts, so there is nothing on any platform for anyone to ban.',
     },
   ];
 }
