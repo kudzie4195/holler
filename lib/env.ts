@@ -32,7 +32,8 @@ export const env: Record<EnvKey, string | undefined> = {
   CRON_SECRET: process.env.CRON_SECRET,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
-  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  // Vercel stores this key as `resend_api_key_holler` (sensitive keys cannot be renamed); either name works.
+  RESEND_API_KEY: process.env.RESEND_API_KEY ?? process.env.resend_api_key_holler,
   EMAIL_FROM: process.env.EMAIL_FROM,
   AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
   BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
