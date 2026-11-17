@@ -30,6 +30,9 @@ create table if not exists public.holler_rate_limits (
   count int not null default 0
 );
 
+-- The daily prune deletes by window_start; without this index that delete scans the whole table (0003 carries a guarded copy).
+create index if not exists holler_rate_limits_window_idx on public.holler_rate_limits (window_start);
+
 alter table public.holler_rate_limits enable row level security;
 revoke all on table public.holler_rate_limits from public, anon, authenticated;
 

@@ -184,3 +184,33 @@ describe('settings save does not wait for the backfill (after())', () => {
     vi.doUnmock('next/server');
   });
 });
+
+describe('settings save creating a first profile stamps the trial (verify P2-4)', () => {
+  it('records the stamp when there was no profile, and never when one already existed; a failing stamp never breaks the save', async () => {
+    const stamped: string[] = [];
+    const load = async (before: unknown, boom = false) => {
+      vi.resetModules();
+      vi.doMock('next/navigation', () => ({ redirect: () => { throw new Error('redirect'); } }));
+      vi.doMock('next/server', () => ({ after: () => {} }));
+      vi.doMock('@/lib/stripe', () => ({ getStripe: () => null, isHollerMetadata: () => false }));
+      vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ marker: 'admin' }) }));
+      vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => ({}) }));
+      vi.doMock('@/lib/auth/session', () => ({ getUser: async () => ({ id: 'u9' }), getProfile: async () => before }));
+      vi.doMock('@/lib/auth/profile', () => ({ saveProfile: async () => ({ ok: true, message: 'Saved.' }) }));
+      vi.doMock('@/lib/signals/backfill-run', () => ({ backfillWithLimit: async () => ({ ran: false, reason: 'limited' }) }));
+      vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async (_a: unknown, id: string) => { stamped.push(id); if (boom) throw new Error('x'); return 'first'; } }));
+      return (await import('../../app/app/settings/actions')).saveSettings;
+    };
+    const fd = () => { const f = new FormData(); f.append('categories', 'roofing'); f.append('zip', '30303'); f.append('radius', '25'); return f; };
+    expect(await (await load(null))({}, fd())).toEqual({ ok: true, message: 'Saved.' });
+    expect(stamped).toEqual(['u9']);
+    stamped.length = 0;
+    await (await load({ categories: ['roofing'], zip: '30303', radius_mi: 25, created_at: iso(-5) }))({}, fd());
+    expect(stamped).toEqual([]);
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await (await load(null, true))({}, fd())).toEqual({ ok: true, message: 'Saved.' });
+    spy.mockRestore();
+    vi.doUnmock('@/lib/auth/trial');
+    vi.doUnmock('next/server');
+  });
+});

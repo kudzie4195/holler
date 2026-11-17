@@ -124,6 +124,34 @@ describe('violation addresses: block level only, Socrata and ArcGIS', () => {
     expect(blockAddress('')).toBe('');
   });
 
+  it("verify P2-6: lot, trailer and space numbers and a second joined address drop the whole address; APT4 and a fractional number are handled", () => {
+    // dropped entirely (the review's leaks)
+    for (const a of ['12 Main St Lot 34', '12 MAIN ST LOT #34', '12 Main St Trailer 24', '6411 MONTEREY ROAD TRAILER #24', '300 PARK RD SPC 7', '300 PARK RD SPACE 12B',
+      '300 PARK RD TRLR 9', '123 MAIN ST & 45 ELM ST', '123 MAIN ST AND 45 ELM ST', '123 Main St and 45 Elm St', '123 MAIN ST&45 ELM ST']) {
+      expect(blockAddress(a), a).toBe('');
+    }
+    // unit-style suffixes without a space are stripped like the spaced ones
+    expect(blockAddress('123 MAIN ST APT4')).toBe('100 block of MAIN ST');
+    expect(blockAddress('123 MAIN ST UNIT5')).toBe('100 block of MAIN ST');
+    expect(blockAddress('123 MAIN ST STE100')).toBe('100 block of MAIN ST');
+    // fractional house numbers
+    expect(blockAddress('1915 1/4 APEX AVENUE')).toBe('1900 block of APEX AVENUE');
+    expect(blockAddress('1200 1/2 MAIN ST')).toBe('1200 block of MAIN ST');
+    // still fine: ranges, ordinals, plain streets, and street names that merely contain the words
+    expect(blockAddress('1200-1210 MAIN ST')).toBe('1200 block of MAIN ST');
+    expect(blockAddress('100 1st Ave')).toBe('100 block of 1st Ave');
+    expect(blockAddress('500 SPACE CENTER BLVD')).toBe('500 block of SPACE CENTER BLVD');
+    expect(blockAddress('900 LOTUS LN')).toBe('900 block of LOTUS LN');
+    expect(blockAddress('45 TRAILWOOD DR')).toBe('0-99 block of TRAILWOOD DR');
+    // nothing it returns holds a digit run that could be a lot, trailer or second house number
+    for (const a of ['12 Main St Lot 34', '123 MAIN ST & 45 ELM ST', '300 PARK RD SPC 7']) expect(blockAddress(a)).not.toMatch(/\d/);
+  });
+
+  it('verify P2-7: the LA business exclusion list carries the near-duplicate spellings seen live', () => {
+    const where = ds('socrata-la-business').extraWhere ?? '';
+    for (const s of ['Other Personal Care Services', 'Musical Groups and Artists', 'Other Management Consulting Services']) expect(where).toContain(`'${s}'`);
+  });
+
   it('no output of blockAddress contains the exact house number', () => {
     for (const n of [101, 199, 1234, 5678, 99999, 407, 2318]) {
       const out = blockAddress(`${n} Elm St`);

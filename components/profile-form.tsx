@@ -37,7 +37,9 @@ export function ProfileForm({
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ProfileFormState);
   const [name, setName] = useState(defaults.business_name);
-  const [picked, setPicked] = useState<string[]>(defaults.categories);
+  // Coming-soon trades are never offered, so a saved one (from before the keys changed) drops out of the picks and the count.
+  const comingSoon = new Set(categories.filter((c) => c.comingSoon).map((c) => c.id));
+  const [picked, setPicked] = useState<string[]>(defaults.categories.filter((id) => !comingSoon.has(id)));
   const [zip, setZip] = useState(defaults.zip);
   const [radius, setRadius] = useState(defaults.radius);
   const [alertEmail, setAlertEmail] = useState(defaults.alert_email);
@@ -75,6 +77,14 @@ export function ProfileForm({
               {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
               <div className="flex flex-wrap gap-2">
                 {g.items.map((c) => {
+                  if (c.comingSoon) {
+                    return (
+                      <Chip key={c.id} selected={false} disabled aria-disabled="true">
+                        {c.label}
+                        <span className="ml-2 text-xs font-normal">Coming soon</span>
+                      </Chip>
+                    );
+                  }
                   const selected = picked.includes(c.id);
                   return (
                     <Chip key={c.id} selected={selected} disabled={!selected && full} onClick={() => toggle(c.id)}>

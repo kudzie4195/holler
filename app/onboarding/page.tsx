@@ -7,6 +7,7 @@ import { ProfileForm } from '@/components/profile-form';
 import { getProfile, requireUser } from '@/lib/auth/session';
 import { cleanCitySlug } from '@/lib/auth/redirect';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { tradeComingSoon } from '@/lib/seo/signal-types';
 import { cityBySlug } from '@/lib/geo';
 import { completeOnboarding } from './actions';
 
@@ -47,7 +48,7 @@ async function Onboarding({ searchParams }: { searchParams: PageProps<'/onboardi
     <Card className="mt-8">
       <ProfileForm
         action={completeOnboarding}
-        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group }))}
+        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
         defaults={{ business_name: '', categories: [], zip: '', radius: 25, alert_email: true }}
         submitLabel="Start my free week"
         zipHint={

@@ -16,7 +16,7 @@ import {
   tradeFaq,
   tradePath,
   tradeTitle,
-  showsCityRecords,
+  cityRecordsCaveat,
   visibleSignals,
 } from '@/lib/seo/trade-view';
 import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
@@ -88,6 +88,7 @@ export default async function TradePage({ params }: Props) {
   const live = await loadTradeSignals(t.id);
   const faq = tradeFaq(t);
   const signals = visibleSignals(t);
+  const caveat = cityRecordsCaveat(signals);
   const path = tradePath(t.id);
   const checkHref = `/check?trade=${encodeURIComponent(t.id)}`;
 
@@ -127,12 +128,7 @@ export default async function TradePage({ params }: Props) {
               </li>
             ))}
           </ul>
-          {showsCityRecords(signals) ? (
-            <p className="mt-4 text-sm text-muted">
-              Permits, 311 requests, inspections, business licenses and code violations come only from the cities Holler has
-              connected so far.
-            </p>
-          ) : null}
+          {caveat ? <p className="mt-4 text-sm text-muted">{caveat}</p> : null}
         </Card>
 
         {live.items.length > 0 ? (

@@ -9,6 +9,7 @@ import { getProfile, getUser } from '@/lib/auth/session';
 import { leaveHollerPatch } from '@/lib/auth/membership';
 import { saveProfile } from '@/lib/auth/profile';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
+import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
@@ -16,6 +17,16 @@ export async function saveSettings(_prev: ProfileFormState, formData: FormData):
   if (!user) redirect('/login?next=/app/settings');
   const before = await getProfile(user.id).catch(() => null);
   const result = await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' });
+  // A server action can be called without the page's guard, so this save may create the user's FIRST profile (no onboarding). The database
+  // trigger (migration 0003, holler_profiles_trial_from_stamp) already stops a returning user from getting a second trial; this records
+  // the trial start for a first-time user so it counts later. Never throws into the save.
+  if (result.ok && !before) {
+    try {
+      await applyTrialRules(createAdminClient(), user.id);
+    } catch (e) {
+      console.error('settings trial rules failed:', e instanceof Error ? e.message : e);
+    }
+  }
   if (result.ok && targetingChanged(before, formData)) {
     // After the response: the save never waits for the 1000-row read, and a failure never reaches the user.
     // Limited to 6 an hour per user (backfillWithLimit), so repeated saves cannot hammer the database.

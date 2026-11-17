@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { backfillMatches, BACKFILL_CAP, BACKFILL_DAYS } from '@/lib/signals/backfill';
+import { backfillMatches, BACKFILL_CAP, BACKFILL_DAYS, BACKFILL_PAGE_LIMIT } from '@/lib/signals/backfill';
+import { fakeSignalsDb } from '../../fixtures/fake-signals-db';
 import type { MatchProfile } from '@/lib/signals/match';
 
 const NOW = new Date('2026-11-17T12:00:00Z');
@@ -29,35 +30,40 @@ const sig = (id: number, over: Partial<Sig> = {}): Sig => ({
   ...over,
 });
 
-/** Fake db: records calls, returns canned signals (ignores filters, like a stub, so the code's own filters are tested too). */
+/**
+ * Fake db built on the shared PostgREST double (tests/fixtures/fake-signals-db.ts): holler_signals_near applies category overlap, the
+ * unexpired test, the time window, the distance test and the limit like the SQL function does; plain selects apply their filters too.
+ */
 function fakeDb(signals: Sig[], opts: { selectError?: boolean; upsertError?: boolean; throwOnFrom?: boolean } = {}) {
   const upserts: { rows: Record<string, unknown>[]; options: Record<string, unknown> }[] = [];
-  const calls: string[] = [];
+  const base = fakeSignalsDb(signals as never, { now: NOW, rpcError: opts.selectError ? 'down' : undefined });
   const db = {
+    rpc(...a: Parameters<typeof base.rpc>) {
+      if (opts.throwOnFrom) throw new Error('boom');
+      return base.rpc(...a);
+    },
     from(table: string) {
       if (opts.throwOnFrom) throw new Error('boom');
-      if (table === 'holler_signals') {
-        const q: Record<string, unknown> = {};
-        for (const m of ['select', 'overlaps', 'gte', 'lte', 'or', 'order']) q[m] = (...a: unknown[]) => (calls.push(`${m}:${a.join('|')}`), q);
-        q.limit = (n: number) => (calls.push(`limit:${n}`), Promise.resolve(opts.selectError ? { data: null, error: { message: 'down' } } : { data: signals, error: null }));
-        return q;
+      if (table === 'holler_matches') {
+        return {
+          upsert: (rows: Record<string, unknown>[], options: Record<string, unknown>) => {
+            upserts.push({ rows, options });
+            return Promise.resolve({ error: opts.upsertError ? { message: 'nope' } : null });
+          },
+        };
       }
-      return {
-        upsert: (rows: Record<string, unknown>[], options: Record<string, unknown>) => {
-          upserts.push({ rows, options });
-          return Promise.resolve({ error: opts.upsertError ? { message: 'nope' } : null });
-        },
-      };
+      return base.from(table);
     },
   };
-  return { db: db as never, upserts, calls };
+  return { db: db as never, upserts, log: base.log };
 }
+const rpcArgs = (f: { log: ReturnType<typeof fakeSignalsDb>['log'] }) => f.log.filter((l) => l.kind === 'rpc').map((l) => l.args!);
 
 describe('backfillMatches', () => {
   it('reads at most 7 days ahead and ranks a future event as now, so it does not outrank a fresh record of the same severity', async () => {
     const f = fakeDb([sig(1, { occurred_at: hoursAgo(30) }), sig(2, { occurred_at: new Date(NOW.getTime() + 5 * 86_400_000).toISOString() }), sig(3, { occurred_at: hoursAgo(1) })]);
     await backfillMatches(f.db, profile, NOW);
-    expect(f.calls.some((c) => c.startsWith('lte:occurred_at|') && c.includes('2026-11-24'))).toBe(true);
+    expect(rpcArgs(f)[0].p_until).toBe('2026-11-24T12:00:00.000Z');
     // ranks: id 2 and id 3 are both "now or 1 h ago" -> 2 (clamped to now) then 3, then the 30 h old one
     expect(f.upserts[0].rows.map((r) => r.signal_id)).toEqual([2, 3, 1]);
   });
@@ -79,9 +85,7 @@ describe('backfillMatches', () => {
     await backfillMatches(f.db, profile, NOW);
     expect(f.upserts[0].rows.map((r) => r.signal_id).sort()).toEqual([2, 3]);
     const since = new Date(NOW.getTime() - BACKFILL_DAYS * 86_400_000).toISOString();
-    expect(f.calls).toContain(`gte:occurred_at|${since}`);
-    expect(f.calls).toContain('limit:1000');
-    expect(f.calls.some((c) => c.startsWith('overlaps:categories'))).toBe(true);
+    expect(rpcArgs(f)[0]).toMatchObject({ p_since: since, p_limit: BACKFILL_PAGE_LIMIT, p_categories: ['roofing'], p_lat: 33.749, p_lon: -84.388, p_radius_mi: 25 });
   });
 
   it('inserts notified = true with upsert ignoring duplicates', async () => {

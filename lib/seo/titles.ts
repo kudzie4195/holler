@@ -1,7 +1,8 @@
 import type { SectionId } from './sections';
 import type { PlaceData } from './summarize';
 import { WINDOW_DAYS } from './threshold';
-import { COUNTY_FEEDS } from '@/lib/signals/capabilities';
+import { CITY_FEEDS, COUNTY_FEEDS } from '@/lib/signals/capabilities';
+import { SIGNAL_PHRASES } from './signal-types';
 
 /**
  * Search-intent titles for city pages. A title names only record types the city actually has in the
@@ -85,6 +86,19 @@ export function buildH1(city: TitleCity, data: PlaceData): string {
   return `${list.charAt(0).toUpperCase()}${list.slice(1)} in ${city.name}, ${city.state}`;
 }
 
+/**
+ * Description opener for a city with no records to count yet. Weather alerts and storm reports are national, so they are always
+ * true. City record types are named only when CITY_FEEDS says the city has a live feed for them (at most two, airports left out
+ * because they are not a city record), and county feeds say "area". Otherwise the wording stays neutral.
+ */
+function neutralFallback(city: TitleCity): string {
+  const feeds = (city.slug ? (CITY_FEEDS[city.slug] ?? []) : []).filter((t) => t !== 'airport').slice(0, 2);
+  const county = city.slug ? (COUNTY_FEEDS[city.slug] ?? []) : [];
+  const named = feeds.map((t) => (county.includes(t) ? `area ${SIGNAL_PHRASES[t]}` : SIGNAL_PHRASES[t]));
+  const list = joinList(['weather alerts', 'storm reports', ...named, 'other public records']);
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}`;
+}
+
 /** Meta description (max 155 chars) that states what is on the page, with real counts. */
 export function buildSearchDescription(city: TitleCity, data: PlaceData): string {
   const place = `${city.name}, ${city.state}`;
@@ -96,7 +110,7 @@ export function buildSearchDescription(city: TitleCity, data: PlaceData): string
   } else if (data.ok && data.total > 0) {
     d = `Recent public records for ${place} from the last ${WINDOW_DAYS} days, each linked to its source.`;
   } else {
-    d = `Local weather alerts, storm reports, permits, 311 requests, contracts and events for ${place}, each with its source.`;
+    d = `${neutralFallback(city)} for ${place}, each with its source.`;
   }
   return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
 }

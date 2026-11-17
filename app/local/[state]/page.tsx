@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!st || citiesInState(st.code).length === 0) return { title: 'Not found', robots: { index: false } };
   const path = `/local/${st.slug}`;
   const title = `What's happening in ${st.name}`;
-  const description = `Local weather alerts, storm reports, permits, 311 requests, contracts and events for ${citiesInState(st.code).length} cities in ${st.name}, each with its public source.`;
+  const description = `Weather alerts, storm reports and other public records for ${citiesInState(st.code).length} cities in ${st.name}, each with its public source.`;
   return {
     title: { absolute: `${title} | Holler` },
     description,

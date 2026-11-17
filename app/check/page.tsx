@@ -9,7 +9,7 @@ import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
-import { CHECK_RADIUS_MI, deriveScope, withinRadius } from '@/lib/check/scope';
+import { CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
 import { lookupZip, nearestCity } from '@/lib/geo';
@@ -103,12 +103,12 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   }
 
   const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
-  const items = data.items.filter((i) => withinRadius(place, { lat: i.lat ?? null, lon: i.lon ?? null }));
+  // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
 
   return (
     <>
       <CheckForm zip={params.zip} trade={params.trade} />
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={items} checkedAt={data.checkedAt} />
+      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
     </>
   );
 }

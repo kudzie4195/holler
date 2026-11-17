@@ -3,43 +3,18 @@ import { ButtonLink } from '@/components/button';
 import { CheckForm } from '@/components/check-form';
 import { Card } from '@/components/card';
 import { StaticChip } from '@/components/chip';
-import { ExampleAlerts } from '@/components/example-alert';
+import { Badge } from '@/components/badge';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
-import { CADENCE_SHORT } from '@/lib/seo/cadence';
+import { homeCopy, type ExampleAlert } from '@/lib/seo/public-copy';
 
-export const metadata: Metadata = {
-  title: { absolute: 'Holler: know when your town needs you' },
-  alternates: { canonical: '/' },
-};
-
-const steps = [
-  {
-    title: 'Tell us what you do and where',
-    body: 'Your business name, up to five trades, a ZIP code and how far you will drive. One screen, about a minute.',
-  },
-  {
-    title: 'We watch the public record',
-    body: `Storm reports, permits, 311 requests, events and people asking for help. ${CADENCE_SHORT}`,
-  },
-  {
-    title: 'You get a short alert',
-    body: 'An email and a feed. Open the source, save it, or ask for a draft reply that you edit and post yourself.',
-  },
-];
-
-const sources = [
-  { name: 'Weather alerts', note: 'Warnings and watches from the National Weather Service.' },
-  { name: 'Hail and wind reports', note: 'Local storm reports from NOAA Storm Prediction Center.' },
-  { name: 'Disasters', note: 'FEMA declarations and USGS earthquake reports.' },
-  { name: 'Building permits', note: 'New permits, where your city publishes them.' },
-  { name: '311 requests', note: 'Complaints and service requests from city open data.' },
-  { name: 'Health inspections', note: 'Failed inspections, where the health department publishes them.' },
-  { name: 'Federal contracts', note: 'New awards and bids on USAspending.gov and SAM.gov.' },
-  { name: 'Events', note: 'Big concerts, games and festivals from public listings.' },
-  { name: 'Airport delays', note: 'Ground stops and delays at 40 major airports, from the FAA.' },
-  { name: 'People asking online', note: 'Public posts like "anyone recommend a roofer?" found through licensed search APIs.' },
-];
+export function generateMetadata(): Metadata {
+  return {
+    title: { absolute: 'Holler: know when your town needs you' },
+    description: homeCopy().metaDescription,
+    alternates: { canonical: '/' },
+  };
+}
 
 const trades = [
   'Roofers',
@@ -62,51 +37,21 @@ const trades = [
   'Real estate',
 ];
 
-const comparison = [
-  { label: 'Price', holler: '$5 a month or $48 a year', other: '$199 a month' },
-  { label: 'What it watches', holler: '10+ public sources: weather, permits, 311, events and more', other: 'One website' },
-  { label: 'Posting', holler: 'Never posts for you, so there is nothing to get banned', other: 'Often sells upvotes and posts from bought accounts' },
-  { label: 'Built for', holler: 'Roofers, plumbers, cleaners, food trucks, drivers', other: 'SaaS founders' },
-];
-
-const faqs = [
-  {
-    q: 'Do you post for me?',
-    a: 'No. Holler never posts, comments or messages anyone on your behalf, and it never touches your social accounts. If you ask for a draft reply, you get text to edit and post yourself.',
-  },
-  {
-    q: 'Where does the data come from?',
-    a: 'Official APIs and open data: the National Weather Service, NOAA, FEMA, USGS, the FAA, city open data portals, USAspending.gov and SAM.gov. People asking online come from licensed search APIs and Bluesky search, and we keep the title, a short snippet, the link and, for Bluesky posts, the author handle. We do not scrape sites that forbid it.',
-  },
-  {
-    q: 'Do I need a card to try it?',
-    a: 'No. You get 7 days free with no card. After that it is $5 a month or $48 a year. If you do not subscribe, your feed locks and your account stays put until you decide.',
-  },
-  {
-    q: 'How fast are the alerts?',
-    a: 'Weather alerts and airport delays are checked every 15 minutes, storm and earthquake reports every 30 minutes, and posts from people asking online every six hours. City records, federal contracts and events are checked a few times a day, and some cities publish permits a day or more after they are issued. Emails go out at most once an hour. You get a digest, not a flood.',
-  },
-  {
-    q: 'Does it work in my town?',
-    a: 'Weather alerts, disasters and federal contracts cover the whole US, and airport status covers 40 major airports. Permits, 311 and inspections come from the cities Holler has connected so far, such as Chicago, New York and Austin. Your city page under City pages shows what is flowing there.',
-  },
-  {
-    q: 'Can I cancel?',
-    a: 'Any time, from Settings. You can also delete your account there, which removes your profile, matches and drafts.',
-  },
-];
-
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'FAQPage',
-  mainEntity: faqs.map((f) => ({
-    '@type': 'Question',
-    name: f.q,
-    acceptedAnswer: { '@type': 'Answer', text: f.a },
-  })),
-};
+function faqLd(faqs: { q: string; a: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  };
+}
 
 export default function Home() {
+  const copy = homeCopy();
+  const jsonLd = faqLd(copy.faqs);
   return (
     <>
       <TopNav />
@@ -116,10 +61,7 @@ export default function Home() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">For people with a truck, not a pitch deck</p>
             <h1 className="mt-4 text-4xl text-ink md:text-6xl">Know when your town needs you.</h1>
-            <p className="mt-5 max-w-xl text-lg text-muted">
-              Holler watches storms, permits, 311 reports, events and neighbors asking for help, and when something nearby
-              fits what you do, you get a short alert.
-            </p>
+            <p className="mt-5 max-w-xl text-lg text-muted">{copy.heroLead}</p>
             <div className="mt-8">
               <CheckForm idPrefix="hero" />
             </div>
@@ -133,7 +75,7 @@ export default function Home() {
             </div>
             <p className="mt-4 text-sm text-muted">No card to start. $5 a month or $48 a year after. Holler never posts for you.</p>
           </div>
-          <ExampleAlerts />
+          <ExampleAlerts examples={copy.examples} />
         </section>
 
         {/* How it works */}
@@ -141,7 +83,7 @@ export default function Home() {
           <div className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
             <h2 className="text-2xl text-ink md:text-4xl">How it works</h2>
             <ol className="mt-10 grid gap-8 md:grid-cols-3 md:gap-10">
-              {steps.map((s, i) => (
+              {copy.steps.map((s, i) => (
                 <li key={s.title}>
                   <span className="font-mono text-sm tabular-nums text-accent-text">0{i + 1}</span>
                   <h3 className="mt-2 text-lg text-ink">{s.title}</h3>
@@ -154,12 +96,10 @@ export default function Home() {
 
         {/* Sources */}
         <section id="sources" className="mx-auto w-full max-w-5xl px-5 py-16 md:py-24">
-          <h2 className="text-2xl text-ink md:text-4xl">Ten kinds of signal, one feed</h2>
-          <p className="mt-4 max-w-2xl text-lg text-muted">
-            Everything comes from public sources, and each alert links to the page or dataset it came from so you can check it yourself.
-          </p>
+          <h2 className="text-2xl text-ink md:text-4xl">{copy.sourcesHeading}</h2>
+          <p className="mt-4 max-w-2xl text-lg text-muted">{copy.sourcesIntro}</p>
           <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-            {sources.map((s) => (
+            {copy.sources.map((s) => (
               <li key={s.name}>
                 <Card className="h-full !p-5">
                   <h3 className="text-lg text-ink">{s.name}</h3>
@@ -168,9 +108,7 @@ export default function Home() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 max-w-2xl text-sm text-muted">
-            Not every city publishes every dataset, and Holler has connected only some of them. You only get alerts from what is public where you work.
-          </p>
+          <p className="mt-6 max-w-2xl text-sm text-muted">{copy.sourcesNote}</p>
         </section>
 
         {/* Who it's for */}
@@ -188,18 +126,12 @@ export default function Home() {
               </li>
             </ul>
             <dl className="mt-10 grid gap-6 md:grid-cols-3">
-              <div>
-                <dt className="font-semibold text-ink">Roofers and glass shops</dt>
-                <dd className="mt-1 text-muted">Hail and wind reports, the same afternoon they land.</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink">Food trucks and caterers</dt>
-                <dd className="mt-1 text-muted">Big events and festivals coming to your side of town.</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-ink">Drivers and movers</dt>
-                <dd className="mt-1 text-muted">Airport delays and event crowds, before the rush starts.</dd>
-              </div>
+              {copy.who.map((w) => (
+                <div key={w.title}>
+                  <dt className="font-semibold text-ink">{w.title}</dt>
+                  <dd className="mt-1 text-muted">{w.body}</dd>
+                </div>
+              ))}
             </dl>
           </div>
         </section>
@@ -256,7 +188,7 @@ export default function Home() {
                 <div className="px-4 py-3 text-muted md:px-5">A typical $199/mo Reddit bot</div>
               </div>
               <ul>
-                {comparison.map((row) => (
+                {copy.comparison.map((row) => (
                   <li key={row.label} className="grid grid-cols-2 border-t border-line md:grid-cols-[1fr_1.5fr_1.5fr]">
                     <p className="col-span-2 px-4 pt-4 text-xs font-semibold uppercase tracking-wide text-muted md:col-span-1 md:px-5 md:py-4 md:text-sm md:normal-case md:tracking-normal">
                       {row.label}
@@ -280,7 +212,7 @@ export default function Home() {
         <section id="faq" className="mx-auto w-full max-w-3xl px-5 py-16 md:py-24">
           <h2 className="text-2xl text-ink md:text-4xl">Questions</h2>
           <div className="mt-8 divide-y divide-line border-y border-line">
-            {faqs.map((f) => (
+            {copy.faqs.map((f) => (
               <details key={f.q} className="group py-1">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-lg font-semibold text-ink [&::-webkit-details-marker]:hidden">
                   {f.q}
@@ -320,5 +252,48 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
     </>
+  );
+}
+
+/** Static, clearly labelled illustration of what an alert looks like. Not live data. The first example needs no key; see homeCopy. */
+function ExampleAlerts({ examples }: { examples: ExampleAlert[] }) {
+  return (
+    <div role="group" aria-label="Example alerts, not live data" className="relative">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
+          {examples.length > 1 ? 'Example alerts' : 'Example alert'}
+        </span>
+        <span className="text-xs text-muted">Illustration, not live data</span>
+      </div>
+      <div className="flex flex-col gap-4">
+        {examples.map((e) => (
+          <Card key={e.title} className="!p-4 sm:!p-5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+              <Badge kind={e.kind} />
+              <span>{e.source}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono text-xs tabular-nums">{e.time}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono text-xs tabular-nums">{e.distance}</span>
+            </div>
+            <p className="mt-3 text-lg font-semibold leading-snug text-ink">{e.title}</p>
+            <p className="mt-1 text-muted">{e.body}</p>
+            <div className="mt-4 flex flex-wrap gap-2" aria-hidden="true">
+              {e.actions.map((a) =>
+                a === 'Draft reply' ? (
+                  <span key={a} className="inline-flex min-h-9 items-center rounded-full bg-accent px-4 text-sm font-semibold text-ink">
+                    {a}
+                  </span>
+                ) : (
+                  <span key={a} className="inline-flex min-h-9 items-center rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink">
+                    {a}
+                  </span>
+                ),
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
   );
 }

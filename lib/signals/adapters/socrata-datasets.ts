@@ -85,6 +85,20 @@ export const NAME_COLUMN_OK = ['park_facility_name'];
 /** Subtypes whose records can describe a private individual (sole proprietors, home addresses, private hosts). */
 export const PERSON_RISK_SUBTYPES: SocrataSubtype[] = ['business', 'violation', 'event-permit'];
 
+/**
+ * New residential construction. "new" or "erect", then at most 4 plain words, then a residential noun, all inside one field; or "new home",
+ * "new house", "new residential" back to back. Rows that mention a garage, barn, shed, accessory building, carport, pool or farm structure
+ * anywhere in the text are excluded. Exported for tests and for lib/signals/capabilities.ts (which reads the rule table).
+ */
+export const NEW_HOME_RE = new RegExp(
+  '^(?![\\s\\S]*\\b(?:garage|barn|shed|accessory|carport|pool|greenhouse|stable|coop|poultry|chicken|livestock|agricultur\\w*|farm|gazebo|pergola)\\b)' +
+    '[\\s\\S]*?\\b(?:' +
+    '(?:new|erect)(?:\\s+[\\w/-]+){0,4}?\\s+(?:single.?family|multi.?family|dwellings?|residences?|townhomes?|townhouses?|apartments?|condo(?:minium)?s?|duplex|triplex|fourplex|sfr)' +
+    '|new\\s+(?:home|house|residential)' +
+    ')\\b',
+  'i',
+);
+
 export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bre-?roof|\broof|\bshingle/i, add: ['roofing'] },
   { re: /\bpools?\b|\bspa\b|swimming/i, add: ['pool-spa'] },
@@ -97,9 +111,11 @@ export const PERMIT_RULES: CategoryRule[] = [
     re: /new (construction|single|residential|building|home|dwelling|house|multi|commercial)/i,
     add: ['general-contractor', 'landscaping', 'cleaning'],
   },
-  // A new home gets sold and then moved into: new residential construction is a lead for agents and movers.
-  // Only residential new-build wording counts; commercial new construction does not.
-  { re: /new (single|residential|home|dwelling|house|multi)|new construction[\s\S]{0,60}?(residential|single.?family|dwelling|multi.?family|townhome|townhouse)/i, add: ['real-estate', 'moving'] },
+  // A new home gets sold and then moved into: new RESIDENTIAL construction is a lead for agents and movers.
+  // The words "new" and a residential noun must sit close together inside one field (no "|" between them), so a furnace "for home" or a
+  // class label ("New | Residential") never counts. Agricultural and accessory structures never count, wherever the word appears
+  // ("New single story Chicken Barn accessory building" and "New single story detached 3 car garage" are live Austin rows, verify.md P2-8).
+  { re: NEW_HOME_RE, add: ['real-estate', 'moving'] },
   // Trades added in round 2.
   { re: /\bfenc(e|es|ing)\b|\bfendrive\b/i, add: ['fencing'] },
   { re: /\bdriveways?\b|\bconcrete\b|\bpaving\b|\bpavers?\b|\bsidewalks?\b|\basphalt\b|\bflatwork\b|\bfendrive\b/i, add: ['concrete-paving'] },
@@ -487,20 +503,20 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-sf-business', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'g8m3-pdis',
     kind: 'civic', subtype: 'business', idField: 'uniqueid', dateField: 'location_start_date', locationField: 'location',
-    titleFields: [], textFields: ['lic_code_description', 'lic_code_descriptions_list'], summaryFields: ['lic_code_description'],
+    titleFields: [], textFields: ['lic_code_description', 'lic_code_descriptions_list', 'self_reported_naics_code'], summaryFields: ['lic_code_description'],
     zipField: 'business_zip',
     extraWhere: "location_end_date IS NULL AND (lic_code_description IS NULL OR lic_code_description NOT IN ('TATTOO, BODY PIERCING, PRACTITIONER','GENERAL MASSAGE PRACTITIONER','OUTCALL MASSAGE SERVICE','TOW CAR DRIVER','RENEWAL OF COMMERCIAL DOG WALKER - OWNER','RENEWAL OF COMMERCIAL DOG WALKER - EMPLOYEE','TOUR GUIDE: OWNER - WALKING'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.sf.gov', 'g8m3-pdis'), fieldSource: 'sourced',
-    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: no name column is read (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row.',
+    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: no name column is read (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row. self_reported_naics_code (a 6-digit NAICS code, never a name) is read as a text field only so the parser can tell a live feed from a changed one: live 2026-11-17, 267 of 268 rows since 2026-11-03 have no lic_code_description and every row has the NAICS code (review verify.md N2).',
   },
   {
     id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',
     kind: 'civic', subtype: 'business', idField: 'location_account', dateField: 'location_start_date', locationField: 'location_1',
     titleFields: [], textFields: ['primary_naics_description'], summaryFields: ['primary_naics_description'],
     zipField: 'zip_code',
-    extraWhere: "location_end_date IS NULL AND (primary_naics_description IS NULL OR primary_naics_description NOT IN ('Independent artists, writers, & performers','Motion picture & video industries (except video rental)','Lessors of real estate (including mini warehouses & self-storage units)','All other personal services','Individual & family services','Home health care services','Legal services','Offices of physicians (except mental health specialists)','Offices of mental health practitioners (except physicians)','Offices of all other miscellaneous health practitioners','Offices of physical, occupational & speech therapists, & audiologists','Offices of real estate agents & brokers','Agents & managers for artists, athletes, entertainers, & other public figures','Other direct selling establishments (including door-to-door retailing, frozen food plan providers, party plan merchandisers, & coffee-break service providers)'))", windowForwardDays: 0,
+    extraWhere: "location_end_date IS NULL AND (primary_naics_description IS NULL OR primary_naics_description NOT IN ('Independent artists, writers, & performers','Motion picture & video industries (except video rental)','Lessors of real estate (including mini warehouses & self-storage units)','All other personal services','Individual & family services','Home health care services','Legal services','Offices of physicians (except mental health specialists)','Offices of mental health practitioners (except physicians)','Offices of all other miscellaneous health practitioners','Offices of physical, occupational & speech therapists, & audiologists','Offices of real estate agents & brokers','Agents & managers for artists, athletes, entertainers, & other public figures','Other direct selling establishments (including door-to-door retailing, frozen food plan providers, party plan merchandisers, & coffee-break service providers)','Other Personal Care Services','Musical Groups and Artists','Other Management Consulting Services'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.lacity.org', '6rrh-rzua'), fieldSource: 'sourced',
-    note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. PRIVACY: no name column is read (dba_name, business_name): both can be a sole proprietor personal name. Title is the NAICS description only, no street address. Sole-proprietor-heavy NAICS groups are excluded (live group-by 2026-11-17).',
+    note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. PRIVACY: no name column is read (dba_name, business_name): both can be a sole proprietor personal name. Title is the NAICS description only, no street address. Sole-proprietor-heavy NAICS groups are excluded (live group-by 2026-11-17; the last three spellings were seen live by the verification review, verify.md P2-7).',
   },
   {
     id: 'socrata-nyc-business', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'w7w3-xahh',

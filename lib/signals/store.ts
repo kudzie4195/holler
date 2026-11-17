@@ -204,6 +204,18 @@ export async function pruneOldSignals(db: Db, now = new Date()): Promise<boolean
     .from('holler_scan_runs')
     .delete()
     .lt('started_at', new Date(now.getTime() - 30 * 86400_000).toISOString());
+  // The area checker writes one holler_rate_limits row per visitor. The table has no other cleanup beyond a 1 in 100 chance inside the
+  // limiter RPC, so the daily prune removes rows older than two days (a window is at most an hour; migration 0002/0003 index window_start).
+  // Best effort: a failure here (table missing, privileges) never fails the prune of signals.
+  try {
+    const { error: rlErr } = await db
+      .from('holler_rate_limits')
+      .delete()
+      .lt('window_start', new Date(now.getTime() - 2 * 86400_000).toISOString());
+    if (rlErr) console.error('prune: holler_rate_limits delete failed:', rlErr.message);
+  } catch (e) {
+    console.error('prune: holler_rate_limits delete failed:', e instanceof Error ? e.message : String(e));
+  }
   await logRun(db, {
     source: '_prune',
     started_at: started,

@@ -43,3 +43,151 @@ create index if not exists holler_scan_runs_started_idx on public.holler_scan_ru
 -- partial predicate keeps rows without coordinates (state-level alerts) out of it.
 -- ---------------------------------------------------------------------------
 create index if not exists holler_signals_lat_lon_idx on public.holler_signals (lat, lon) where lat is not null;
+
+-- ---------------------------------------------------------------------------
+-- holler_signals_near: records with coordinates inside a radius, newest first, limited AFTER the distance test.
+-- Why a function: a bounding box with a row limit (what the checker and the first-login backfill used) fills the limit with rows
+-- that are in the box but outside the circle (a few hours of NYC 311 and heat complaints reach Morristown NJ, Stamford CT and
+-- Trenton NJ), and the page then trims them to nothing. Here the great-circle distance is computed in SQL, so the limit applies to
+-- rows that really are inside the radius.
+--  - The lat/lon box is only a prefilter, so holler_signals_lat_lon_idx serves it. The box is slightly generous (68.9 mi per degree
+--    of latitude, a little below the true 69.09) and drops its longitude test when it would cross the antimeridian.
+--  - Rows without coordinates (state-level alerts) are never returned here. Read them with their own query so nothing crowds them out.
+--  - p_limit is clamped to 1..500 and the radius to 0.1..150 miles inside the function, so no caller can ask for the table.
+--  - p_soonest_first orders ascending, for "what starts next" reads (upcoming events); the default is newest first.
+--  - SECURITY INVOKER with a fixed search_path: it reads only public.holler_signals, under the caller's own RLS (anyone may select).
+-- Re-runnable: create or replace, then grants.
+-- ---------------------------------------------------------------------------
+create or replace function public.holler_signals_near(
+  p_lat double precision,
+  p_lon double precision,
+  p_radius_mi real,
+  p_categories text[],
+  p_since timestamptz,
+  p_until timestamptz,
+  p_limit int default 100,
+  p_soonest_first boolean default false
+)
+returns table (
+  id bigint,
+  source text,
+  external_id text,
+  kind text,
+  title text,
+  summary text,
+  url text,
+  lat double precision,
+  lon double precision,
+  city text,
+  state text,
+  county text,
+  zip text,
+  place_slug text,
+  categories text[],
+  severity smallint,
+  occurred_at timestamptz,
+  expires_at timestamptz,
+  data jsonb,
+  distance_mi double precision
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with b as (
+    select
+      least(greatest(coalesce(p_radius_mi, 25)::double precision, 0.1), 150) as r,
+      p_lat as lat0,
+      p_lon as lon0
+  ),
+  box as (
+    select
+      r, lat0, lon0,
+      r / 68.9 as d_lat,
+      r / (68.9 * greatest(0.05, cos(radians(least(89, abs(lat0) + r / 68.9))))) as d_lon
+    from b
+  )
+  select
+    s.id, s.source, s.external_id, s.kind, s.title, s.summary, s.url, s.lat, s.lon, s.city, s.state, s.county, s.zip,
+    s.place_slug, s.categories, s.severity, s.occurred_at, s.expires_at, s.data, d.distance_mi
+  from box
+  join public.holler_signals s
+    on s.lat is not null
+   and s.lon is not null
+   and s.lat between box.lat0 - box.d_lat and box.lat0 + box.d_lat
+   and (abs(box.lon0) + box.d_lon > 180 or s.lon between box.lon0 - box.d_lon and box.lon0 + box.d_lon)
+  cross join lateral (
+    select 3958.8 * 2 * asin(least(1, sqrt(
+      power(sin(radians(s.lat - box.lat0) / 2), 2)
+      + cos(radians(box.lat0)) * cos(radians(s.lat)) * power(sin(radians(s.lon - box.lon0) / 2), 2)
+    ))) as distance_mi
+  ) d
+  where s.categories && p_categories
+    and (s.expires_at is null or s.expires_at > now())
+    and s.occurred_at >= p_since
+    and s.occurred_at <= p_until
+    and d.distance_mi <= box.r
+  order by
+    case when p_soonest_first then s.occurred_at end asc,
+    s.occurred_at desc,
+    s.id desc
+  limit least(greatest(coalesce(p_limit, 100), 1), 500)
+$$;
+
+revoke all on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean) from public;
+grant execute on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean) to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- The area checker now writes one holler_rate_limits row per visitor, and the daily prune deletes rows older than two days.
+-- Without an index on window_start that delete is a sequential scan of the whole table.
+-- ---------------------------------------------------------------------------
+-- 0002 creates the table and the same index; this guarded copy covers a database where 0002 has not run yet (it then gets the index when 0002 does).
+do $$
+begin
+  if to_regclass('public.holler_rate_limits') is not null then
+    create index if not exists holler_rate_limits_window_idx on public.holler_rate_limits (window_start);
+  end if;
+end
+$$;
+
+-- ---------------------------------------------------------------------------
+-- One free trial per person, enforced where the row is written.
+-- lib/auth/trial.ts stamps app_metadata.holler_trial_started_at (a returning user's first profile created_at, or the day they left).
+-- It only ran in onboarding, so a returning user could get a fresh 7 days by saving settings (an upsert) or by inserting their own
+-- profile with their own JWT. This BEFORE INSERT trigger reads the stamp and cuts trial_ends_at to stamp + 7 days.
+--  - least(): never lengthens a trial, and a first-time user (no stamp) keeps the column default untouched.
+--  - On first onboarding the stamp equals the profile's created_at, so stamp + 7 days equals the default: nothing is shortened.
+--  - SECURITY DEFINER so it can read auth.users (authenticated users cannot); fixed search_path; an unparseable stamp is ignored.
+--  - If the shared project has no auth.users with that column the exception handler lets the insert through unchanged.
+-- ---------------------------------------------------------------------------
+create or replace function public.holler_profiles_trial_from_stamp()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v text;
+  v_start timestamptz;
+begin
+  begin
+    select raw_app_meta_data ->> 'holler_trial_started_at' into v from auth.users where id = new.user_id;
+    if v is not null then
+      v_start := v::timestamptz;
+      new.trial_ends_at := least(new.trial_ends_at, v_start + interval '7 days');
+    end if;
+  exception when others then
+    -- never block a signup because of a bad stamp
+    null;
+  end;
+  return new;
+end;
+$$;
+
+revoke all on function public.holler_profiles_trial_from_stamp() from public, anon, authenticated;
+
+drop trigger if exists holler_profiles_trial_from_stamp on public.holler_profiles;
+create trigger holler_profiles_trial_from_stamp
+  before insert on public.holler_profiles
+  for each row execute function public.holler_profiles_trial_from_stamp();

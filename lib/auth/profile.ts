@@ -2,6 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { tradeComingSoon } from '@/lib/seo/signal-types';
 import { createClient } from '@/lib/supabase/server';
 import type { ProfileFormState } from './profile-types';
 
@@ -49,7 +50,8 @@ export async function saveProfile(
   }
 
   const valid = new Set<string>(CATEGORIES.map((c) => c.id));
-  const categories = [...new Set(parsed.data.categories)].filter((c) => valid.has(c));
+  // Trades with no live data source in this configuration ("coming soon") are dropped from a submission, never saved.
+  const categories = [...new Set(parsed.data.categories)].filter((c) => valid.has(c) && !tradeComingSoon(c));
   if (categories.length === 0) {
     return { error: 'Fix the highlighted fields and try again.', fieldErrors: { categories: 'Pick at least one thing you do.' } };
   }

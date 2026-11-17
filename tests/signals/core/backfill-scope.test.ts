@@ -1,117 +1,88 @@
 /**
- * Review P1-1: backfill read the newest 1000 rows for the whole country, so a user outside NYC got nothing.
- * The fake below behaves like PostgREST: it applies every filter the code sends (overlaps, gte, lte, and the AND of two or() groups),
- * orders by occurred_at desc and returns at most 1000 rows, so the test fails if the location filter is missing or wrong.
+ * Backfill location scope. Review P1-1 (backfill read the newest 1000 national rows) and P2-1 (corner starvation: a Trenton NJ profile at
+ * 50 miles has a bounding box that reaches Manhattan, 54.8 miles away and outside the circle, so 1500 NYC rows used up the 1000-row limit
+ * and 10 local rows were never read).
+ * The fix reads through holler_signals_near, which applies the great-circle distance in SQL before the limit, plus a separate
+ * state-level query. The fake (tests/fixtures/fake-signals-db.ts) honours that function's semantics and PostgREST's 1000-row cap; the
+ * function itself is tested against a real Postgres in /home/claude/gates/pg/migtest.mjs.
  */
 import { describe, expect, it } from 'vitest';
-import { BACKFILL_CAP, BACKFILL_ROW_LIMIT, backfillMatches, scopeFilter } from '@/lib/signals/backfill';
+import { BACKFILL_CAP, BACKFILL_MAX_PAGES, BACKFILL_PAGE_LIMIT, BACKFILL_STATE_LIMIT, backfillMatches } from '@/lib/signals/backfill';
 import { MAX_BUSINESS_PER_USER, type MatchProfile } from '@/lib/signals/match';
 import { haversineMi } from '@/lib/geo';
+import { fakeSignalsDb, type Row } from '../../fixtures/fake-signals-db';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type Row = Record<string, any>;
 const NOW = new Date('2026-11-17T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
-
-function splitTop(s: string): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let cur = '';
-  for (const ch of s) {
-    if (ch === '(') depth++;
-    if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
-      out.push(cur);
-      cur = '';
-    } else cur += ch;
-  }
-  out.push(cur);
-  return out;
-}
-function evalTerm(term: string, r: Row): boolean {
-  if (term.startsWith('and(')) return splitTop(term.slice(4, -1)).every((t) => evalTerm(t, r));
-  if (term.startsWith('or(')) return splitTop(term.slice(3, -1)).some((t) => evalTerm(t, r));
-  const m = /^([a-z_]+)\.([a-z]+)\.(.*)$/.exec(term);
-  if (!m) throw new Error(`fake PostgREST cannot parse "${term}"`);
-  const [, col, op, val] = m;
-  const v = r[col];
-  switch (op) {
-    case 'is': return val === 'null' ? v === null || v === undefined : v !== null;
-    case 'eq': return v === val;
-    case 'gt': return v != null && (typeof v === 'number' ? v > Number(val) : String(v) > val);
-    case 'gte': return v != null && (typeof v === 'number' ? v >= Number(val) : String(v) >= val);
-    case 'lte': return v != null && (typeof v === 'number' ? v <= Number(val) : String(v) <= val);
-    default: throw new Error(`fake PostgREST: unsupported operator ${op}`);
-  }
-}
-
-function fakePostgrest(signals: Row[]) {
-  const upserts: Row[][] = [];
-  const queries: { orGroups: string[]; limit: number | null; returned: number }[] = [];
-  const db = {
-    from(table: string) {
-      if (table === 'holler_matches') {
-        return { upsert: (rows: Row[]) => (upserts.push(rows), Promise.resolve({ error: null })) };
-      }
-      const filters: ((r: Row) => boolean)[] = [];
-      const orGroups: string[] = [];
-      let limit: number | null = null;
-      const q: any = {
-        select: () => q,
-        overlaps: (c: string, vs: string[]) => (filters.push((r) => (r[c] as string[]).some((x) => vs.includes(x))), q),
-        gte: (c: string, v: string) => (filters.push((r) => r[c] >= v), q),
-        lte: (c: string, v: string) => (filters.push((r) => r[c] <= v), q),
-        or: (g: string) => (orGroups.push(g), filters.push((r) => splitTop(g).some((t) => evalTerm(t, r))), q),
-        order: () => q,
-        limit: (n: number) => {
-          limit = n;
-          const rows = signals
-            .filter((r) => filters.every((f) => f(r)))
-            .sort((a, b) => (a.occurred_at < b.occurred_at ? 1 : -1))
-            .slice(0, Math.min(n, 1000)); // PostgREST max_rows
-          queries.push({ orGroups, limit, returned: rows.length });
-          return Promise.resolve({ data: rows.map((r) => ({ ...r })), error: null });
-        },
-      };
-      return q;
-    },
-  };
-  return { db: db as never, upserts, queries };
-}
-
 const NYC = { lat: 40.7128, lon: -74.006 };
 let nextId = 1;
-const sig = (over: Row): Row => ({ id: nextId++, categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, subtype: null, ...over });
+const sig = (over: Row): Row => ({ id: nextId++, categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over });
+const run = async (signals: Row[], profile: MatchProfile) => {
+  const fake = fakeSignalsDb(signals, { now: NOW });
+  const r = await backfillMatches(fake as never, profile, NOW);
+  return { r, fake, matched: (fake.upserts[0] ?? []).map((x) => x.signal_id as number) };
+};
 
-describe('backfill location filter (review P1-1 reproduction)', () => {
+describe('backfill location filter', () => {
   const atlantaHvac: MatchProfile = { user_id: 'u-atl', categories: ['hvac'], lat: 33.749, lon: -84.388, state: 'GA', radius_mi: 25 };
 
-  it('1200 newer NYC heat rows must not hide 10 Atlanta rows: all 10 are found', async () => {
+  it('1200 newer NYC heat rows must not hide 10 Atlanta rows: all 10 are found (P1-1)', async () => {
     nextId = 1;
     const nyc = Array.from({ length: 1200 }, (_, i) => sig({ ...NYC, state: 'NY', occurred_at: hoursAgo(1 + (i % 9) / 10), categories: ['hvac', 'plumbing'] }));
     const atl = Array.from({ length: 10 }, (_, i) => sig({ lat: 33.75 + i * 0.005, lon: -84.39, state: 'GA', occurred_at: hoursAgo(48 + i) }));
-    const f = fakePostgrest([...nyc, ...atl]);
-    const r = await backfillMatches(f.db, atlantaHvac, NOW);
+    const { r, matched } = await run([...nyc, ...atl], atlantaHvac);
     expect(r.error).toBeUndefined();
     expect(r.matched).toBe(10);
-    expect(f.upserts[0].map((x) => x.signal_id).sort((a, b) => a - b)).toEqual(atl.map((x) => x.id));
-    expect(f.queries[0].limit).toBe(BACKFILL_ROW_LIMIT);
-    expect(f.queries[0].orGroups).toHaveLength(2); // not-expired AND scope
+    expect(matched.sort((a, b) => a - b)).toEqual(atl.map((x) => x.id));
   });
 
-  it('without the filter this data gives 0 (proves the fake reproduces the review)', async () => {
+  it("P2-1: Trenton NJ at 50 miles, 1500 NYC rows in the old bounding box (Manhattan is 54.8 miles away) and 10 local rows: all 10 are found", async () => {
     nextId = 1;
-    const nyc = Array.from({ length: 1200 }, () => sig({ ...NYC, state: 'NY', occurred_at: hoursAgo(1) }));
-    const atl = Array.from({ length: 10 }, () => sig({ lat: 33.75, lon: -84.39, state: 'GA', occurred_at: hoursAgo(48) }));
-    const f = fakePostgrest([...nyc, ...atl]);
-    // what the old query did: same filters minus the scope group
-    const old = (f.db as any).from('holler_signals').select().overlaps('categories', ['hvac']).limit(1000);
-    const rows = (await old).data as Row[];
-    expect(rows).toHaveLength(1000);
-    expect(rows.some((x) => x.state === 'GA')).toBe(false);
+    const trenton = { lat: 40.2171, lon: -74.7429 };
+    expect(haversineMi(trenton.lat, trenton.lon, 40.75, -73.97)).toBeGreaterThan(50); // outside the circle ...
+    // ... but inside the old latitude/longitude box of a 50 mile radius (the review's bug)
+    const dLat = (50 / 69) * 1.02;
+    const dLon = (50 / (69 * Math.cos(((trenton.lat + dLat) * Math.PI) / 180))) * 1.02;
+    expect(40.75).toBeLessThanOrEqual(trenton.lat + dLat);
+    expect(-73.97).toBeLessThanOrEqual(trenton.lon + dLon);
+    const nyc = Array.from({ length: 1500 }, (_, i) => sig({ lat: 40.75 + (i % 30) * 0.003, lon: -73.97 + (i % 7) * 0.003, state: 'NY', occurred_at: hoursAgo(i / 150) }));
+    const local = Array.from({ length: 10 }, (_, i) => sig({ lat: 40.22 + i * 0.01, lon: -74.76, state: 'NJ', occurred_at: hoursAgo(30 + i) }));
+    const { r, matched } = await run([...nyc, ...local], { user_id: 'u-tren', categories: ['hvac'], ...trenton, state: 'NJ', radius_mi: 50 });
+    expect(r.error).toBeUndefined();
+    expect(r.matched).toBe(10);
+    expect(r.considered).toBe(10);
+    expect(matched.sort((a, b) => a - b)).toEqual(local.map((x) => x.id));
   });
 
-  it('also finds state-level rows (no coordinates, severity 2+) for the profile state, not other states or mild ones', async () => {
+  it('a record exactly outside the circle is never read, whatever the box would say', async () => {
+    nextId = 1;
+    const base = { lat: 40.2171, lon: -74.7429 };
+    const inside = sig({ lat: base.lat + 49 / 69.09, lon: base.lon, state: 'NJ' });
+    const outside = sig({ lat: base.lat + 51 / 69.09, lon: base.lon, state: 'NJ' });
+    const { matched } = await run([inside, outside], { user_id: 'u', categories: ['hvac'], ...base, state: 'NJ', radius_mi: 50 });
+    expect(matched).toEqual([inside.id]);
+  });
+
+  it('the radius sent to SQL is the profile radius, and the centre is the profile point', async () => {
+    nextId = 1;
+    const { fake } = await run([], { user_id: 'u', categories: ['hvac'], lat: 40.2171, lon: -74.7429, state: 'NJ', radius_mi: 50 });
+    const rpc = fake.log.filter((l) => l.kind === 'rpc');
+    expect(rpc).toHaveLength(1);
+    expect(rpc[0].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_categories: ['hvac'] });
+  });
+
+  it('pages back in time while a page is full: a dense metro still surfaces an older severe record, up to the page cap', async () => {
+    nextId = 1;
+    const many = Array.from({ length: BACKFILL_PAGE_LIMIT + 120 }, (_, i) => sig({ ...NYC, state: 'NY', severity: 1, occurred_at: hoursAgo(1 + i / 100) }));
+    const severeOld = sig({ ...NYC, state: 'NY', severity: 3, occurred_at: hoursAgo(24 * 5) });
+    const { r, fake, matched } = await run([...many, severeOld], { user_id: 'u', categories: ['hvac'], ...NYC, state: 'NY', radius_mi: 25 });
+    expect(fake.log.filter((l) => l.kind === 'rpc').length).toBeLessThanOrEqual(BACKFILL_MAX_PAGES);
+    expect(fake.log.filter((l) => l.kind === 'rpc').length).toBe(2);
+    expect(r.considered).toBe(BACKFILL_PAGE_LIMIT + 121);
+    expect(matched[0]).toBe(severeOld.id); // most severe first, even though it is the oldest
+  });
+
+  it('also finds state-level rows (no coordinates, severity 2+) for the profile state, not other states or mild ones, with their own query', async () => {
     nextId = 1;
     const rows = [
       sig({ state: 'GA', severity: 2 }),
@@ -119,61 +90,50 @@ describe('backfill location filter (review P1-1 reproduction)', () => {
       sig({ state: 'AL', severity: 3 }),
       ...Array.from({ length: 1100 }, () => sig({ ...NYC, state: 'NY', occurred_at: hoursAgo(1) })),
     ];
-    const f = fakePostgrest(rows);
-    await backfillMatches(f.db, atlantaHvac, NOW);
-    expect(f.upserts[0].map((x) => x.signal_id)).toEqual([rows[0].id]);
+    const { matched, fake } = await run(rows, atlantaHvac);
+    expect(matched).toEqual([rows[0].id]);
+    const sel = fake.log.filter((l) => l.kind === 'select');
+    expect(sel).toHaveLength(1);
+    expect(sel[0].name).toContain('eq:state=GA');
+    expect(BACKFILL_STATE_LIMIT).toBeGreaterThan(0);
   });
 
-  it('a profile with no coordinates still gets its state-level rows', () => {
-    expect(scopeFilter({ lat: null, lon: null, state: 'GA', radius_mi: 25 })).toBe('and(lat.is.null,state.eq.GA,severity.gte.2)');
-    expect(scopeFilter({ lat: null, lon: null, state: null, radius_mi: 25 })).toBeNull();
+  it('a state-level row cannot be crowded out by the coordinate read (separate queries): 1500 local rows and one freeze warning', async () => {
+    nextId = 1;
+    const local = Array.from({ length: 1500 }, (_, i) => sig({ lat: 33.75, lon: -84.39, state: 'GA', severity: 1, occurred_at: hoursAgo(1 + i / 200) }));
+    const freeze = sig({ state: 'GA', severity: 3, occurred_at: hoursAgo(200) });
+    const { matched } = await run([...local, freeze], atlantaHvac);
+    expect(matched[0]).toBe(freeze.id);
+    expect(matched).toHaveLength(BACKFILL_CAP);
   });
 
-  it('keeps the whole circle inside the box at latitudes 25, 45 and 65 and radii 5, 25 and 100 (walk around the circle)', () => {
-    for (const lat of [25, 45, 65]) {
-      for (const radius of [5, 25, 100]) {
-        const lon = -100;
-        const f = scopeFilter({ lat, lon, state: null, radius_mi: radius })!;
-        const num = (re: RegExp) => Number(re.exec(f)![1]);
-        const latLo = num(/lat\.gte\.(-?[0-9.]+)/), latHi = num(/lat\.lte\.(-?[0-9.]+)/);
-        const lonLo = num(/lon\.gte\.(-?[0-9.]+)/), lonHi = num(/lon\.lte\.(-?[0-9.]+)/);
-        // a point on the radius circle, found by bisection along each bearing using the same haversine the matcher uses
-        for (let b = 0; b < 360; b += 3) {
-          const br = (b * Math.PI) / 180;
-          let lo = 0, hi = 2 * radius / 69;
-          for (let i = 0; i < 40; i++) {
-            const mid = (lo + hi) / 2;
-            const p = { lat: lat + mid * Math.cos(br), lon: lon + (mid * Math.sin(br)) / Math.cos((lat * Math.PI) / 180) };
-            if (haversineMi(lat, lon, p.lat, p.lon) <= radius) lo = mid; else hi = mid;
-          }
-          const p = { lat: lat + lo * Math.cos(br), lon: lon + (lo * Math.sin(br)) / Math.cos((lat * Math.PI) / 180) };
-          expect(p.lat >= latLo && p.lat <= latHi && p.lon >= lonLo && p.lon <= lonHi, `lat ${lat} r ${radius} bearing ${b}`).toBe(true);
-        }
-      }
-    }
+  it('a profile with no coordinates still gets its state-level rows and runs no distance query; one with neither reads nothing', async () => {
+    nextId = 1;
+    const a = await run([sig({ state: 'GA' }), sig({ lat: 33.75, lon: -84.39, state: 'GA' })], { ...atlantaHvac, lat: null, lon: null });
+    expect(a.fake.log.some((l) => l.kind === 'rpc')).toBe(false);
+    expect(a.matched).toHaveLength(1);
+    const b = await run([sig({ state: 'GA' })], { ...atlantaHvac, lat: null, lon: null, state: null });
+    expect(b.fake.log).toHaveLength(0);
+    expect(b.r).toEqual({ matched: 0, considered: 0 });
   });
 
   it('caps new-business rows at 5 per backfill, nearest first, without touching the other rows', async () => {
     nextId = 1;
     const cleaning: MatchProfile = { ...atlantaHvac, categories: ['cleaning'] };
-    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['cleaning'], subtype: 'business', lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
-    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['cleaning'], subtype: '311', lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
-    const f = fakePostgrest([...biz, ...other]);
-    const r = await backfillMatches(f.db, cleaning, NOW);
-    const ids = f.upserts[0].map((x) => x.signal_id);
+    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: 'business' }, lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
+    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: '311' }, lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
+    const { r, matched } = await run([...biz, ...other], cleaning);
     expect(r.matched).toBe(MAX_BUSINESS_PER_USER + 3);
-    const bizIds = ids.filter((id) => biz.some((b) => b.id === id));
+    const bizIds = matched.filter((id) => biz.some((b) => b.id === id));
     expect(bizIds).toHaveLength(5);
-    // nearest 5: the last five generated (smallest offset)
     expect(new Set(bizIds)).toEqual(new Set(biz.slice(7).map((b) => b.id)));
-    expect(ids.filter((id) => other.some((o) => o.id === id))).toHaveLength(3);
+    expect(matched.filter((id) => other.some((o) => o.id === id))).toHaveLength(3);
   });
 
   it('still caps everything at 25', async () => {
     nextId = 1;
     const rows = Array.from({ length: 80 }, (_, i) => sig({ lat: 33.75, lon: -84.39, state: 'GA', occurred_at: hoursAgo(i + 1) }));
-    const f = fakePostgrest(rows);
-    const r = await backfillMatches(f.db, atlantaHvac, NOW);
+    const { r } = await run(rows, atlantaHvac);
     expect(r.matched).toBe(BACKFILL_CAP);
   });
 });

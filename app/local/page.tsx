@@ -7,7 +7,7 @@ import { JsonLd } from './_components/jsonld';
 import { Crumbs, H1, Page, linkClass } from './_components/ui';
 
 const TITLE = 'Local activity by state';
-const DESCRIPTION = `Weather alerts, storm reports, permits, 311 requests, contracts and events for ${CITIES.length} US cities, each with its public source.`;
+const DESCRIPTION = `Weather alerts, storm reports and other public records for ${CITIES.length} US cities, each with its public source.`;
 
 export const metadata: Metadata = {
   title: { absolute: `${TITLE} | Holler` },

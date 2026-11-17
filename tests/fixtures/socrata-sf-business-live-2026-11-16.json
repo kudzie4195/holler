@@ -1,0 +1,235 @@
+[
+ {
+  "uniqueid": "1437465-11-261-1190780",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "94521",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -121.986,
+    37.974
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437470-11-261-1190782",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94110",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.413,
+    37.735
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437462-11-261-1145457",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "811420",
+  "business_zip": "94107",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.388,
+    37.756
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437452-11-261-1190738",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "94109",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.417,
+    37.786
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437479-11-261-1190789",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94110",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.414,
+    37.762
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437439-11-261-1190770",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "811420",
+  "business_zip": "94107",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.391,
+    37.755
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437457-11-261-1190777",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "94124",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.396,
+    37.725
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437496-11-261-1190796",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94105",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.392,
+    37.79
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437499-11-261-1190797",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "811420",
+  "business_zip": "94107",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.394,
+    37.764
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437354-11-261-1190731",
+  "location_start_date": "2026-11-14T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "94121",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.495,
+    37.777
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437367-11-261-1190738",
+  "location_start_date": "2026-11-14T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94109",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.417,
+    37.786
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437373-11-261-1190741",
+  "location_start_date": "2026-11-14T00:00:00.000",
+  "self_reported_naics_code": "811420",
+  "business_zip": "94107",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.399,
+    37.763
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437332-11-261-1190721",
+  "location_start_date": "2026-11-13T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "94102",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.409,
+    37.784
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437342-11-261-1190725",
+  "location_start_date": "2026-11-13T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94116",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.476,
+    37.743
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437320-11-261-1190715",
+  "location_start_date": "2026-11-13T00:00:00.000",
+  "self_reported_naics_code": "811420",
+  "business_zip": "94123",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.442,
+    37.796
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437298-11-261-1190486",
+  "location_start_date": "2026-11-13T00:00:00.000",
+  "self_reported_naics_code": "518210",
+  "business_zip": "90036",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -118.348,
+    34.062
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437415-11-261-1190760",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "self_reported_naics_code": "812111",
+  "business_zip": "94117",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.453,
+    37.766
+   ]
+  }
+ },
+ {
+  "uniqueid": "1437455-11-261-1190776",
+  "location_start_date": "2026-11-16T00:00:00.000",
+  "business_zip": "94134",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -122.415,
+    37.713
+   ]
+  }
+ }
+]

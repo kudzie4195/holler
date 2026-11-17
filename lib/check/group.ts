@@ -5,7 +5,7 @@ export interface CheckItem {
   title: string;
   url: string | null;
   place: string | null;
-  /** Coordinates of the record, null for state-level records. Used only to trim to the ZIP's own radius. */
+  /** Coordinates of the record, null for state-level records. Kept for callers; the distance test already ran in SQL. */
   lat?: number | null;
   lon?: number | null;
   occurredAt: string;

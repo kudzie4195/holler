@@ -136,15 +136,20 @@ export function privatePosition<T extends { lat: number; lon: number }>(pos: T |
 
 /**
  * Street address at block level only: "2318 W 47TH ST" becomes "2300 block of W 47TH ST" (house number rounded down to the hundred,
- * "0-99 block of" below 100). Unit and apartment suffixes are dropped. An address that does not start with a house number followed by a
- * street (an intersection, a parcel id, free text) returns '' so nothing exact can be stored.
+ * "0-99 block of" below 100). Apartment, unit and suite suffixes ("APT 4", "APT4", "#5B", "UNIT 5", "STE 100") are dropped, and so is a
+ * fractional house number ("1915 1/4"). The whole address is DROPPED (returns '') when it
+ *  - names a lot, trailer or space number ("12 MAIN ST LOT 34", "TRAILER #24", "SPC 7": one mobile-home pad, still identifying at block level), or
+ *  - joins a second address with "&" or "and" ("123 MAIN ST & 45 ELM ST": a second exact address would survive the cut), or
+ *  - does not start with a house number followed by a street (an intersection, a parcel id, free text).
  */
 export function blockAddress(raw: string): string {
   const t = raw.replace(/\s+/g, ' ').trim();
-  const m = t.match(/^(\d{1,6})(?:\s*-\s*\d{1,6})?[A-Za-z]?\s+(.+)$/);
+  if (/&|\band\b/i.test(t)) return '';
+  if (/\b(?:lot|trlr|trailer|trl|tr|space|spc|sp)\b\.?\s*#?\s*[A-Za-z]?\d/i.test(t)) return '';
+  const m = t.match(/^(\d{1,6})(?:\s*-\s*\d{1,6})?[A-Za-z]?(?:\s+\d\/\d)?\s+(.+)$/);
   if (!m) return '';
   const street = m[2]
-    .replace(/\s*(#|\b(?:apt|apartment|unit|ste|suite|fl|floor|rm|room|bldg)\b).*$/i, '')
+    .replace(/\s*(#|\b(?:apt|apartment|unit|ste|suite|fl|floor|rm|room|bldg)\b|\b(?:apt|unit|ste|rm)(?=\d)).*$/i, '')
     .replace(/[,;|].*$/, '')
     .trim();
   if (!street || /^\d+$/.test(street) || /\d{3,}/.test(street.replace(/\b\d+(?:ST|ND|RD|TH)\b/gi, ''))) return '';

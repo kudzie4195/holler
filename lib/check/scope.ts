@@ -1,10 +1,22 @@
-import { haversineMi, stateByCode } from '@/lib/geo';
+import { stateByCode } from '@/lib/geo';
 
-/** What a new subscriber gets by default (radius_mi default in holler_profiles), so the checker shows what a subscription would send. */
+/** What a new subscriber gets by default (radius_mi default in holler_profiles). Used for the nearest-city lookup and the watch list, not for the records read. */
 export const CHECK_RADIUS_MI = 25;
+
+/**
+ * Radius, in miles, of the records the checker reads: measured from the CENTRE of the grid cell the ZIP falls in (the cached query is keyed
+ * on the cell, never on the ZIP), by great-circle distance in SQL (holler_signals_near). A ZIP can sit up to MAX_CELL_OFFSET_MI from its
+ * cell centre, so 25 + 12.3 = 37.3 rounded up to 38 guarantees every record within 25 miles of any ZIP in the cell is read. The other
+ * side of that guarantee: a record can be up to 38 + 12.3 = 50 miles from a ZIP at the far corner of its cell, 38 for a ZIP at the
+ * centre. The page therefore says "within about 40 miles", never "25".
+ */
+export const CHECK_SEARCH_RADIUS_MI = 38;
+/** The honest wording for the radius above ("within about 40 miles of <ZIP place>"). */
+export const CHECK_RADIUS_LABEL_MI = 40;
+/** Distance from a cell centre to its farthest corner: sqrt(2) * 0.125 degrees * 69.09 mi, at the equator where degrees are widest. */
+export const MAX_CELL_OFFSET_MI = 12.3;
 /** Cache grid, in degrees. 0.25 degrees is about 17 miles north to south, so a few thousand cells cover the country. */
 export const GRID_DEGREES = 0.25;
-const MI_PER_DEG_LAT = 69;
 
 /** US territories and military mail codes. Holler has no source rows for these yet. */
 export const UNCOVERED_STATE_CODES = ['PR', 'VI', 'GU', 'AS', 'MP', 'AA', 'AE', 'AP'];
@@ -17,13 +29,6 @@ export interface CheckScope {
   state: string;
   /** false for territories and military codes: Holler does not cover them yet. */
   covered: boolean;
-}
-
-export interface Box {
-  latMin: number;
-  latMax: number;
-  lonMin: number;
-  lonMax: number;
 }
 
 function snap(v: number): number {
@@ -44,26 +49,4 @@ export function deriveScope(zip: { lat: number; lon: number; state: string }): C
 /** Stable string form of the cache key. The raw ZIP never appears in it. */
 export function scopeKey(scope: CheckScope, trade: string): string {
   return `${scope.cellLat.toFixed(2)}:${scope.cellLon.toFixed(2)}|${scope.state}|${trade}`;
-}
-
-/**
- * Bounding box that contains the circle of `miles` around any point inside the grid cell.
- * The longitude margin uses the widest parallel inside the box, so the box never undershoots at high latitudes.
- */
-export function cellBox(cellLat: number, cellLon: number, miles: number = CHECK_RADIUS_MI): Box {
-  const half = GRID_DEGREES / 2;
-  const dLat = half + miles / MI_PER_DEG_LAT;
-  const widestLat = Math.min(89, Math.max(Math.abs(cellLat - dLat), Math.abs(cellLat + dLat)));
-  const dLon = half + miles / (MI_PER_DEG_LAT * Math.cos((widestLat * Math.PI) / 180));
-  return { latMin: cellLat - dLat, latMax: cellLat + dLat, lonMin: cellLon - dLon, lonMax: cellLon + dLon };
-}
-
-/** A record with coordinates is shown when it is inside the radius around the ZIP itself, as the matcher would decide. */
-export function withinRadius(
-  zip: { lat: number; lon: number },
-  item: { lat: number | null; lon: number | null },
-  miles: number = CHECK_RADIUS_MI,
-): boolean {
-  if (item.lat == null || item.lon == null) return true; // state-level record, already limited to the ZIP's state
-  return haversineMi(zip.lat, zip.lon, item.lat, item.lon) <= miles;
 }

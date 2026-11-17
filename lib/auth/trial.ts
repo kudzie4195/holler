@@ -11,6 +11,10 @@ export type TrialOutcome = 'first' | 'returning' | 'unchanged' | 'error';
  *  - First profile: records holler_trial_started_at (the profile's created_at) in app_metadata. The default trial_ends_at stands.
  *  - Already stamped (deleted and came back, or re-submitted onboarding): sets trial_ends_at to start + 7 days, which for a returning
  *    user is usually already past, so they land on the upgrade card instead of a new trial.
+ * The database enforces the same rule where rows are written (migration 0003, trigger holler_profiles_trial_from_stamp: a BEFORE INSERT
+ * trigger cuts trial_ends_at to stamp + 7 days), so a profile saved from settings or inserted directly with the user's own JWT cannot
+ * dodge it. This function still does two jobs the trigger cannot: it writes the stamp for a first profile, and it repairs a row that
+ * was inserted before the trigger existed.
  * Needs the admin client: authenticated users cannot update trial_ends_at or app_metadata. Never throws; a failure is logged and the
  * save carries on.
  */

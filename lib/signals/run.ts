@@ -262,13 +262,16 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     // Phase 1: persist new signals per source.
     const storedAll: StoredSignal[] = [];
     const skippedForTime = new Set<Fetched>();
-    for (const f of fetched) {
+    // Oldest last successful run first (never run = first), so a source the deadline skipped is the first one written on the next tick.
+    // In a fixed order the same late sources were skipped on every tick and a 6 hour feed could starve forever. Array.sort is stable,
+    // so sources with equal ages keep their registry order.
+    const writeOrder = [...fetched].sort((a, b) => (lastRuns[a.adapter.id] ?? 0) - (lastRuns[b.adapter.id] ?? 0));
+    for (const f of writeOrder) {
       if (clock() - t0 > deadlineMs && f.result.status !== 'error' && f.signals.length) {
         // Out of time for new writes. Not logged below, so this source is due again on the next tick and nothing is silently lost.
         f.result.status = 'error';
         f.result.error = `deadline: scan passed ${Math.round(deadlineMs / 1000)} s before this source was written; it will retry next tick`;
         skippedForTime.add(f);
-        report.sources.push(f.result);
         continue;
       }
       if (f.result.status !== 'error' && f.signals.length) {
@@ -282,8 +285,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
         }
       }
-      report.sources.push(f.result);
     }
+    // The report keeps the registry order whatever order the writes happened in.
+    for (const f of fetched) report.sources.push(f.result);
 
     // Phase 2: match all new signals at once so the per-user cap applies per scan.
     if (storedAll.length) {

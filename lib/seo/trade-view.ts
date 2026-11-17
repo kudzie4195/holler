@@ -4,7 +4,7 @@ import type { CategoryId } from '@/lib/signals/categories';
 import type { EnvKey } from '@/lib/env';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
-import { CITY_TYPES, SIGNAL_PHRASES, activeTradeSignals, signalTypeActive } from './signal-types';
+import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive } from './signal-types';
 
 export const TRADE_PRICE_LINE = '$5 a month or $48 a year, with 7 days free and no card to start.';
 
@@ -61,9 +61,30 @@ export function tradeLead(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): strin
   return t.facts.keyless && gatedOut(t.id, has) ? t.facts.keyless.lead : t.facts.lead;
 }
 
+/** Plain names of the record types that exist only in connected cities (airport status is a separate, named feed). */
+const CITY_RECORD_NAMES: Partial<Record<TradeSignal['type'], string>> = {
+  permit: 'Building permits',
+  '311': '311 requests',
+  inspection: 'inspections',
+  business: 'business licenses',
+  violation: 'code violations',
+  'event-permit': 'city event permits',
+};
+
+/**
+ * The one caveat sentence a trade page shows under "what Holler sends": built only from the city-record types that this trade's
+ * visible sentences are about, so it never names a type the trade does not get. Null when none of them is a city record.
+ */
+export function cityRecordsCaveat(signals: TradeSignal[]): string | null {
+  const names = [...new Set(signals.map((s) => CITY_RECORD_NAMES[s.type]).filter((n): n is string => Boolean(n)))];
+  if (!names.length) return null;
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)} come only from the cities Holler has connected so far.`;
+}
+
 /** True when a visible sentence is about a record type that exists only in connected cities. */
 export function showsCityRecords(signals: TradeSignal[]): boolean {
-  return signals.some((s) => (CITY_TYPES as string[]).includes(s.type));
+  return cityRecordsCaveat(signals) !== null;
 }
 
 export function tradeEntry(id: string): TradeEntry | undefined {

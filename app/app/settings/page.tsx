@@ -10,6 +10,7 @@ import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
 import { ANNUAL_SAVINGS_PERCENT } from '@/lib/stripe/plans';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { tradeComingSoon } from '@/lib/seo/signal-types';
 import { saveSettings } from './actions';
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group }))}
+            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,

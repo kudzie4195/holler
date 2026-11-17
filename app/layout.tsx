@@ -5,7 +5,7 @@ import { siteUrl } from '@/lib/env';
 import './globals.css';
 
 const description =
-  'Holler watches public data and local posts, then sends a short alert when your town needs what you do. $5 a month after a 7-day free trial. No card to start.';
+  'Holler sends a short alert when public data, such as weather alerts, storm reports and city records, shows your town may need what you do. $5 a month.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

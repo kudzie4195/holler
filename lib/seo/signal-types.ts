@@ -45,3 +45,33 @@ export function signalTypeActive(type: SignalTypeId, has: (...k: EnvKey[]) => bo
 export function activeTradeSignals(trade: string, has: (...k: EnvKey[]) => boolean = hasEnv): SignalTypeId[] {
   return typesForTrade(trade).filter((t) => signalTypeActive(t, has));
 }
+
+type Has = (...k: EnvKey[]) => boolean;
+
+/**
+ * Sources that public copy names. Some feed a signal type that other sources also feed, so the type-level check
+ * (signalTypeActive) is not enough: 'contract' works without a key (USAspending) but SAM.gov needs SAM_API_KEY, and 'ask'
+ * works with Brave or Serper alone, so Bluesky may be named only when both of its keys are set.
+ * Each inner array is one way to switch the source on (all keys in it must be set); any one way is enough.
+ */
+export type SourceId = 'sam' | 'ticketmaster' | 'bluesky' | 'search';
+export const SOURCE_NEEDS_KEY: Record<SourceId, EnvKey[][]> = {
+  sam: [['SAM_API_KEY']],
+  ticketmaster: [['TICKETMASTER_API_KEY']],
+  bluesky: [['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD']],
+  search: [['BRAVE_SEARCH_API_KEY'], ['SERPER_API_KEY']],
+};
+
+/** True when the named source has the keys it needs on this deployment. */
+export function sourceActive(source: SourceId, has: Has = hasEnv): boolean {
+  return SOURCE_NEEDS_KEY[source].some((keys) => has(...keys));
+}
+
+/**
+ * True when no record type of this trade can be delivered on this deployment (for example childcare and beauty, whose only
+ * source is people asking, without a search or Bluesky key). Onboarding and settings show these chips last, disabled.
+ * Unknown ids are not "coming soon": they receive nothing and are not offered at all.
+ */
+export function tradeComingSoon(trade: string, has: Has = hasEnv): boolean {
+  return typesForTrade(trade).length > 0 && activeTradeSignals(trade, has).length === 0;
+}
