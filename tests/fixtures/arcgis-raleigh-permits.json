@@ -1,0 +1,65 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "permitnum": "BLDNR-009646-2026",
+    "issueddate": 1794515352237,
+    "description": "Jubala Roasting SUITE E upfit with new HVAC rooftop unit, 7320 SF BUILDING IS 1 STORY MIXED",
+    "permittype": "Building",
+    "workclass": "Tenant Upfit",
+    "proposedworkdescription": "Roasting facility upfit",
+    "estprojectcost": 250000,
+    "originaladdress1": "7320 Example Rd",
+    "originalzip": "27616",
+    "latitude_perm": 35.7587,
+    "longitude_perm": -78.6475
+   },
+   "geometry": {
+    "x": -78.64747476435598,
+    "y": 35.75872458736161
+   }
+  },
+  {
+   "attributes": {
+    "permitnum": "BLDR-020627-2026",
+    "issueddate": 1794355096570,
+    "description": "New single family home Two Apples Properties Lot 2 Custom Sealed Crawl Rear Covered Porch",
+    "permittype": "Building",
+    "workclass": "New",
+    "estprojectcost": 450000,
+    "originaladdress1": "Lot 2 Sample Ct"
+   },
+   "geometry": {
+    "x": -78.62694162150798,
+    "y": 35.77498270928783
+   }
+  },
+  {
+   "attributes": {
+    "permitnum": "BLDNR-033823-2025",
+    "issueddate": 1794335485723,
+    "description": "Build-out of an ~80,000 sf fitness club on levels 1-4 with large pool deck",
+    "permittype": "Building",
+    "workclass": "Tenant Upfit"
+   },
+   "geometry": {
+    "x": -78.62255629197365,
+    "y": 35.83036528431777
+   }
+  },
+  {
+   "attributes": {
+    "permitnum": "ELCR-000001-2026",
+    "issueddate": 1794335485000,
+    "description": "Zoning variance review",
+    "permittype": "Zoning",
+    "workclass": "Review"
+   },
+   "geometry": {
+    "x": -78.6,
+    "y": 35.8
+   }
+  }
+ ],
+ "exceededTransferLimit": true
+}

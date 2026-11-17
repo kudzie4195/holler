@@ -5,7 +5,14 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 /**
  * National Weather Service active alerts.
  * Endpoint: https://api.weather.gov/alerts/active (GeoJSON FeatureCollection, CAP-derived properties).
- * A User-Agent header is required by NWS (sourced: weather.gov/documentation/services-web-api).
+ * Request (confirmed 2026-11-17): weather.gov/documentation/services-web-api (User-Agent required, /alerts/active, filters) and the
+ * OpenAPI query parameters status=actual|test|..., message_type=alert|update|cancel (alex-gekas.github.io/nws-api-reference/endpoints/alerts).
+ * Response (confirmed 2026-11-17 against two independent schema/sample sources: apis.io/schemas/weather-gov/weather-gov-alert and
+ * the sample on fastcrw.com/playground/pergamon/weathergov): feature.id is the https://api.weather.gov/alerts/urn:oid:... URL,
+ * properties has "@id", "@type", id (urn:oid:...), areaDesc, geocode{SAME[],UGC[]}, affectedZones, references, sent, effective,
+ * onset (nullable), expires, ends (nullable), status, messageType, category, severity, certainty, urgency, event, sender, senderName,
+ * headline (nullable), description, instruction (nullable), response, parameters, geometry is null for most zone-based alerts.
+ * api.weather.gov itself refuses automated fetch (robots), so a raw live capture was not possible from the sandbox.
  */
 export const NWS_URL = 'https://api.weather.gov/alerts/active?status=actual&message_type=alert';
 
@@ -201,6 +208,29 @@ export function parseNws(raw: unknown): SignalInput[] {
   return out;
 }
 
+/** Structural counts used by the silent-empty check: rows that carry an event name and an id. */
+export function nwsRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const features = (raw as { features?: unknown[] } | null)?.features;
+  if (!Array.isArray(features)) return null;
+  let usable = 0;
+  for (const f of features) {
+    const feat = f as { id?: unknown; properties?: Record<string, unknown> } | null;
+    const p = feat?.properties;
+    if (p && typeof p.event === 'string' && (typeof p.id === 'string' || typeof feat?.id === 'string')) usable++;
+  }
+  return { rows: features.length, usable };
+}
+
+/** Reads a body as JSON and turns an HTML or other non-JSON page into a clear error. */
+async function readJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(/^\s*</.test(text) ? 'expected JSON but received an HTML page' : 'expected JSON but received non-JSON text');
+  }
+}
+
 export function nwsUserAgent(): string {
   return `Holler/1.0 (+${siteUrl}/about; contact@holler)`;
 }
@@ -217,8 +247,18 @@ export const nwsAdapter: Adapter = {
         headers: { 'User-Agent': nwsUserAgent(), Accept: 'application/geo+json' },
         signal: AbortSignal.timeout(15000),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return parseNws(await res.json());
+      if (!res.ok) throw new Error(`HTTP ${res.status}${res.status === 403 || res.status === 429 ? ' (User-Agent rejected or rate limited)' : ''}`);
+      const json = await readJson(res);
+      const stats = nwsRowStats(json);
+      if (!stats) {
+        const keys = json && typeof json === 'object' ? Object.keys(json as object).slice(0, 8).join(',') : typeof json;
+        ctx.log(`error: nws response has no features array, wrapper may have changed (top-level keys: ${keys})`);
+        return [];
+      }
+      const out = parseNws(json);
+      if (stats.rows > 0 && stats.usable === 0) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+      else if (out.length === 0 && stats.rows >= 50) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed (no row matched a known event type)`);
+      return out;
     } catch (e) {
       ctx.log(`error: nws fetch failed: ${e instanceof Error ? e.message : String(e)}`);
       return [];

@@ -4,6 +4,7 @@ import { env } from '../env';
 export * from './templates';
 export * from './token';
 export * from './notify-logic';
+export * from './health';
 
 export interface SendEmailInput {
   to: string;
@@ -14,26 +15,36 @@ export interface SendEmailInput {
 }
 
 export type SendEmailResult =
-  | { skipped: true }
+  | { skipped: true; reason: 'no_api_key' | 'no_from' }
   | { skipped?: false; ok: true; id?: string }
   | { skipped?: false; ok: false; error: string };
 
-export const DEFAULT_FROM = 'Holler <alerts@holler.local>';
-
+/**
+ * Sends through Resend.
+ * - No RESEND_API_KEY: skipped ('no_api_key').
+ * - No EMAIL_FROM: skipped ('no_from'). There is no default sender on purpose: a made-up From address is undeliverable
+ *   and looks like it worked (F-16).
+ * - SUPPORT_EMAIL, when set, is the reply-to, so "reply to this email" reaches a real inbox.
+ */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!env.RESEND_API_KEY) {
     console.log(`[email] RESEND_API_KEY missing, skipped "${input.subject}"`);
-    return { skipped: true };
+    return { skipped: true, reason: 'no_api_key' };
+  }
+  if (!env.EMAIL_FROM) {
+    console.log(`[email] EMAIL_FROM missing, skipped "${input.subject}"`);
+    return { skipped: true, reason: 'no_from' };
   }
   try {
     const resend = new Resend(env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
-      from: env.EMAIL_FROM || DEFAULT_FROM,
+      from: env.EMAIL_FROM,
       to: input.to,
       subject: input.subject,
       html: input.html,
       text: input.text,
       headers: input.headers,
+      ...(env.SUPPORT_EMAIL ? { replyTo: env.SUPPORT_EMAIL } : {}),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true, id: data?.id };

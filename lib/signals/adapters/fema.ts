@@ -5,11 +5,16 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 /**
  * OpenFEMA Disaster Declarations Summaries v2.
  * Endpoint: https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries (OData-style $filter/$orderby/$top).
- * Response: { metadata: {...}, DisasterDeclarationsSummaries: [ { disasterNumber, state, declarationType,
- * declarationDate, incidentType, declarationTitle, designatedArea, fipsStateCode, fipsCountyCode,
- * incidentBeginDate, incidentEndDate, iaProgramDeclared, paProgramDeclared, ... } ] }.
+ * Confirmed 2026-11-17 by a live WebFetch of that endpoint: top-level keys are `metadata` and `DisasterDeclarationsSummaries`; each row has
+ * femaDeclarationString, disasterNumber (number), state, declarationType, declarationDate ("2026-10-27T00:00:00.000Z"), fyDeclared,
+ * incidentType, declarationTitle, ihProgramDeclared, iaProgramDeclared, paProgramDeclared, hmProgramDeclared, incidentBeginDate,
+ * incidentEndDate, disasterCloseoutDate, tribalRequest, fipsStateCode, fipsCountyCode, placeCode, designatedArea ("Bay (County)"),
+ * declarationRequestNumber, incidentId, region, lastRefresh, hash, id. The metadata object carries skip, select, rundate, top, filter,
+ * format, metadata, orderby, entityname, version, url, count.
+ * Query syntax confirmed live: `$filter=declarationDate ge '2026-10-18T00:00:00.000z'`, `$orderby=declarationDate desc`, `$top=N`, `$select=a,b`
+ * all returned data; fema.gov/about/openfema/api documents $top default 1000 / max 10000, $select (case-sensitive field names), $orderby, ISO-8601 date
+ * literals in single quotes. The wrapper key is the entity name (metadata.entityname), which the docs page does not state; the live response does.
  * One row per designated county, so rows are aggregated to one state-level signal per disaster.
- * Field names: assumed from OpenFEMA data dictionary (the docs page could not be fetched from this sandbox).
  */
 const BASE = 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
 
@@ -92,6 +97,15 @@ export function parseFema(raw: unknown): SignalInput[] {
   return out;
 }
 
+async function readJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(/^\s*</.test(text) ? 'expected JSON but received an HTML page' : 'expected JSON but received non-JSON text');
+  }
+}
+
 export const femaAdapter: Adapter = {
   id: 'fema',
   label: 'FEMA disaster declarations',
@@ -107,7 +121,16 @@ export const femaAdapter: Adapter = {
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return parseFema(await res.json());
+      const json = await readJson(res);
+      const rows = (json as { DisasterDeclarationsSummaries?: unknown } | null)?.DisasterDeclarationsSummaries;
+      if (!Array.isArray(rows)) {
+        const keys = json && typeof json === 'object' ? Object.keys(json as object).slice(0, 8).join(',') : typeof json;
+        ctx.log(`error: fema response has no DisasterDeclarationsSummaries array, wrapper key may have changed (top-level keys: ${keys})`);
+        return [];
+      }
+      const out = parseFema(json);
+      if (rows.length > 0 && out.length === 0) ctx.log(`error: parsed 0 of ${rows.length} rows, shape may have changed`);
+      return out;
     } catch (e) {
       ctx.log(`error: fema fetch failed: ${e instanceof Error ? e.message : String(e)}`);
       return [];

@@ -1,0 +1,37 @@
+[
+ {
+  "permitno": "1001234",
+  "status": "Issued",
+  "stno": "4500",
+  "stname": "MAIN",
+  "suffix": "ST",
+  "city": "BETHESDA",
+  "zip": "20814",
+  "issueddate": "2026-10-28T11:10:54.000",
+  "declaredvaluation": "22000",
+  "description": "Replace windows and siding on single family dwelling",
+  "applicationtype": "RESIDENTIAL",
+  "worktype": "ALTER",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    -77.0947,
+    38.9847
+   ]
+  }
+ },
+ {
+  "permitno": "1001235",
+  "status": "Issued",
+  "stno": "12",
+  "stname": "ELM",
+  "suffix": "AVE",
+  "issueddate": "2026-10-28T10:10:54.000",
+  "description": "Install new hardwood flooring throughout",
+  "worktype": "ALTER",
+  "location": {
+   "latitude": "39.0100",
+   "longitude": "-77.1000"
+  }
+ }
+]

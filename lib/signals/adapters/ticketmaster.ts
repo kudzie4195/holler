@@ -4,17 +4,25 @@ import { env } from '@/lib/env';
 
 /**
  * Ticketmaster Discovery API v2, Event Search.
- * Docs (sourced): https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
+ * Docs (confirmed 2026-11-17 by fetching developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/ and .../discovery-manual/v2):
  *  - GET https://app.ticketmaster.com/discovery/v2/events.json?apikey=...&countryCode=US&startDateTime=&endDateTime=&size=&page=&sort=&segmentName=
- *  - limits: 5,000 calls/day, 5 req/s, size*page < 1000
- *  - response: _embedded.events[] {id,name,url,dates.start{dateTime,localDate},classifications[],_embedded.venues[]{name,city.name,state.stateCode,postalCode,location{latitude,longitude}}}, page{size,totalElements,totalPages,number}
- * Assumed: startDateTime/endDateTime use ISO 8601 UTC without milliseconds (YYYY-MM-DDTHH:mm:ssZ), the format Ticketmaster's examples use.
+ *  - startDateTime/endDateTime: the manual's parameter table shows the example value "2017-01-01T00:00:00Z" (ISO 8601 UTC, no milliseconds);
+ *    the prose does not define the format.
+ *  - segmentName is listed as an Array, but the docs never say that several values may be comma separated (only source, venueId, attractionId say so),
+ *    so one request is made per segment (Sports, Music) instead of "Sports,Music".
+ *  - sort allowed: name,asc|desc, date,asc|desc, relevance,asc|desc, distance,asc, random, ... Default relevance,desc. size default 20, page default 0, size*page < 1000.
+ *  - limits: 5,000 calls/day, 5 req/s; 429 body error code policies.ratelimit.QuotaViolation; 401 body {fault:{faultstring:"Invalid ApiKey",detail:{errorcode:"oauth.v2.InvalidApiKey"}}}.
+ *  - response: _links, _embedded.events[] {name,type,id,test,url,locale,images,sales,dates{start{localDate,localTime,dateTime,dateTBD,dateTBA,timeTBA,noSpecificTime},timezone,status},
+ *    classifications[]{primary,segment{id,name},genre,subGenre}, promoter, _embedded{venues[]{name,id,postalCode,timezone,city{name},state{name,stateCode},
+ *    country{countryCode},address,location{longitude,latitude} (strings in the sample),markets}, attractions[]}}, page{size,totalElements,totalPages,number}.
+ *    With zero matches the API returns page{totalElements:0} and no _embedded key.
  * Assumed: the API has no capacity filter, so "large" is approximated by segment Sports/Music and relevance sort (top results nationwide).
  */
 
 const ENDPOINT = 'https://app.ticketmaster.com/discovery/v2/events.json';
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
-const PAGES = 2;
+const PAGES = 1;
+const SEGMENTS = ['Sports', 'Music'];
 const SIZE = 200;
 
 type Obj = Record<string, unknown>;
@@ -102,7 +110,7 @@ function startsText(start: Obj, when: Date): string {
   return `starts ${when.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-export function buildTicketmasterUrl(apiKey: string, now: Date, page: number): string {
+export function buildTicketmasterUrl(apiKey: string, now: Date, page: number, segment: string = SEGMENTS[0]): string {
   const iso = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
   const end = new Date(now.getTime() + 7 * 86_400_000);
   const p = new URLSearchParams({
@@ -110,12 +118,28 @@ export function buildTicketmasterUrl(apiKey: string, now: Date, page: number): s
     countryCode: 'US',
     startDateTime: iso(now),
     endDateTime: iso(end),
-    segmentName: 'Sports,Music',
+    segmentName: segment,
     sort: 'relevance,desc',
     size: String(SIZE),
     page: String(page),
   });
   return `${ENDPOINT}?${p.toString()}`;
+}
+
+/** Structural counts for the silent-empty check. null means the wrapper is missing although the page says events exist. */
+export function ticketmasterRowStats(raw: unknown): { rows: number; usable: number; total: number } | 'wrapper' | null {
+  if (!isObj(raw)) return 'wrapper';
+  const total = isObj(raw.page) ? Number(raw.page.totalElements) : NaN;
+  const events = isObj(raw._embedded) ? raw._embedded.events : undefined;
+  if (events === undefined) {
+    // Zero matches: documented as a response with page.totalElements 0 and no _embedded.
+    if (isObj(raw.page) && total === 0) return null;
+    return 'wrapper';
+  }
+  if (!Array.isArray(events)) return 'wrapper';
+  let usable = 0;
+  for (const e of events) if (isObj(e) && str(e.id) && str(e.name)) usable++;
+  return { rows: events.length, usable, total };
 }
 
 const ticketmaster: Adapter = {
@@ -132,25 +156,51 @@ const ticketmaster: Adapter = {
       return [];
     }
     const out: SignalInput[] = [];
+    const seen = new Set<string>();
     try {
       const now = new Date();
-      for (let page = 0; page < PAGES; page++) {
-        const res = await ctx.fetch(buildTicketmasterUrl(key, now, page), {
-          headers: { Accept: 'application/json', 'User-Agent': UA },
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!res.ok) {
-          ctx.log(`ticketmaster: HTTP ${res.status}`);
-          break;
+      outer: for (const segment of SEGMENTS) {
+        for (let page = 0; page < PAGES; page++) {
+          const res = await ctx.fetch(buildTicketmasterUrl(key, now, page, segment), {
+            headers: { Accept: 'application/json', 'User-Agent': UA },
+            signal: AbortSignal.timeout(15000),
+          });
+          const text = await res.text();
+          if (!res.ok) {
+            const hint = res.status === 401 || res.status === 403 ? ' (apikey invalid or missing)' : res.status === 429 ? ' (rate limit or daily quota exceeded)' : '';
+            ctx.log(`error: ticketmaster HTTP ${res.status}${hint}`);
+            break outer;
+          }
+          let json: unknown;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            ctx.log(`error: ticketmaster ${/^\s*</.test(text) ? 'returned an HTML page instead of JSON' : 'returned non-JSON text'}`);
+            break outer;
+          }
+          if (isObj(json) && isObj(json.fault)) {
+            ctx.log(`error: ticketmaster fault ${str((json.fault as Obj).faultstring) || 'unknown'}`);
+            break outer;
+          }
+          const stats = ticketmasterRowStats(json);
+          if (stats === 'wrapper') {
+            const keys = isObj(json) ? Object.keys(json).slice(0, 8).join(',') : typeof json;
+            ctx.log(`error: ticketmaster response has no _embedded.events array, wrapper may have changed (top-level keys: ${keys})`);
+            break outer;
+          }
+          const parsed = parseTicketmaster(json);
+          if (stats && stats.rows > 0 && parsed.length === 0) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+          for (const s of parsed) {
+            if (seen.has(s.externalId)) continue;
+            seen.add(s.externalId);
+            out.push(s);
+          }
+          const totalPages = isObj(json) && isObj(json.page) ? Number(json.page.totalPages) : 0;
+          if (!(totalPages > page + 1)) break;
         }
-        const json = await res.json();
-        const parsed = parseTicketmaster(json);
-        out.push(...parsed);
-        const totalPages = isObj(json) && isObj(json.page) ? Number(json.page.totalPages) : 0;
-        if (!(totalPages > page + 1)) break;
       }
     } catch (e) {
-      ctx.log(`ticketmaster: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.log(`error: ticketmaster ${e instanceof Error ? e.message : String(e)}`);
     }
     return out;
   },

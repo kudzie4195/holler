@@ -7,6 +7,7 @@ import { Input } from './input';
 import { Notice } from './notice';
 import { Slider } from './slider';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
+import { groupCategories, type ChipCategory } from './profile-form-groups';
 
 export interface ProfileDefaults {
   business_name: string;
@@ -28,7 +29,7 @@ export function ProfileForm({
   zipHint,
 }: {
   action: (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
-  categories: { id: string; label: string }[];
+  categories: ChipCategory[];
   defaults: ProfileDefaults;
   submitLabel: string;
   showAlertToggle?: boolean;
@@ -43,6 +44,7 @@ export function ProfileForm({
 
   const fe = state.fieldErrors ?? {};
   const full = picked.length >= MAX_CATEGORIES;
+  const groups = groupCategories(categories);
 
   function toggle(id: string) {
     setPicked((cur) => (cur.includes(id) ? cur.filter((c) => c !== id) : cur.length >= MAX_CATEGORIES ? cur : [...cur, id]));
@@ -67,15 +69,22 @@ export function ProfileForm({
         <p id="cat-hint" className="mt-1 text-sm text-muted">
           Pick up to {MAX_CATEGORIES}. <span className="font-mono tabular-nums">{picked.length}/{MAX_CATEGORIES}</span> chosen.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {categories.map((c) => {
-            const selected = picked.includes(c.id);
-            return (
-              <Chip key={c.id} selected={selected} disabled={!selected && full} onClick={() => toggle(c.id)}>
-                {c.label}
-              </Chip>
-            );
-          })}
+        <div className="mt-3 flex flex-col gap-5">
+          {groups.map((g) => (
+            <div key={g.key} role="group" aria-label={g.label ?? undefined}>
+              {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                {g.items.map((c) => {
+                  const selected = picked.includes(c.id);
+                  return (
+                    <Chip key={c.id} selected={selected} disabled={!selected && full} onClick={() => toggle(c.id)}>
+                      {c.label}
+                    </Chip>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
         {picked.map((id) => (
           <input key={id} type="hidden" name="categories" value={id} />

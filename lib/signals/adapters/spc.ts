@@ -4,11 +4,18 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
 /**
  * NOAA Storm Prediction Center preliminary local storm reports (CSV).
- * Files: today_filtered_{torn,hail,wind}.csv and yesterday_filtered_{torn,hail,wind}.csv under
- * https://www.spc.noaa.gov/climo/reports/ (file names given in the task; column names sourced from
- * https://www.spc.noaa.gov/climo/reports/today.html).
- * Columns: Time(HHMM UTC), F_Scale|Size|Speed, Location, County, State, Lat, Lon, Comments.
- * Hail Size is in hundredths of an inch (100 = 1.00 in). Wind Speed is mph or UNK.
+ * Files under https://www.spc.noaa.gov/climo/reports/ :
+ *   today_filtered_{torn,hail,wind}.csv and yesterday_filtered_{torn,hail,wind}.csv  (per hazard; torn confirmed by
+ *     clearspot.me/en/blog/spc-tornado-csv-reports which names today_filtered_torn.csv; hail/wind follow the same pattern, unconfirmed),
+ *   today_filtered.csv and yesterday_filtered.csv (all hazards in ONE file, confirmed by pynimbus.readthedocs.io/en/latest/tutorials/stormreports.html),
+ *   YYMMDD_rpts_filtered.csv (same layout, confirmed by github.com/GateHouseMedia/tornado-tools and apify.com/bigsky-data-tools).
+ * Combined files hold one section per hazard, each section starting with its own header row (a row whose Time cell is "Time"),
+ * in the order tornado, wind, hail (github.com/WxBDM/PyNimbus PyNimbus/spcreports.py, github.com/GateHouseMedia/tornado-tools gettornadoes.py).
+ * Columns (spc.noaa.gov/climo/reports/today.html table headings): Time (HHMM UTC), F_Scale | Speed | Size, Location, County, State, Lat, Lon, Comments.
+ * Hail Size is in hundredths of an inch (dev.to/wishbone_data hail article); Wind Speed is mph or UNK.
+ * Lat/Lon in the CSV are signed decimal degrees (apify.com/bigsky-data-tools output 35.96,-94.87; PyNimbus plots the raw floats). The HTML page
+ * prints hundredths-of-degree integers (3814, 9148), which toCoords still accepts.
+ * The raw .csv files themselves are robots-blocked for WebFetch, so no verbatim file capture exists (see tests/signals/core/adapters.test.ts header).
  * A report "day" runs 1200 UTC to 1159 UTC the next day.
  */
 export type SpcType = 'torn' | 'hail' | 'wind';
@@ -77,31 +84,62 @@ function reportUrl(day: string): string {
   return `${BASE}${y.slice(2)}${m}${d}_rpts.html`;
 }
 
-export function parseSpc(raw: unknown): SignalInput[] {
-  const r = raw as Partial<SpcInput> | null;
-  if (!r || typeof r.csv !== 'string' || !r.type || !r.day) return [];
-  const lines = r.csv.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const header = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
-  const idx = (names: string[]) => header.findIndex((h) => names.includes(h));
-  const iTime = idx(['time']);
-  const iVal = idx(['size', 'speed', 'f_scale', 'fscale', 'f-scale']);
-  const iLoc = idx(['location']);
-  const iCounty = idx(['county']);
-  const iState = idx(['state']);
-  const iLat = idx(['lat']);
-  const iLon = idx(['lon']);
-  const iCom = idx(['comments']);
-  if (iTime < 0 || iLoc < 0 || iState < 0 || iLat < 0 || iLon < 0) return [];
+function sectionType(header: string[], fallback: SpcType): SpcType {
+  if (header.includes('f_scale') || header.includes('fscale') || header.includes('f-scale')) return 'torn';
+  if (header.includes('speed')) return 'wind';
+  if (header.includes('size')) return 'hail';
+  return fallback;
+}
 
-  const out: SignalInput[] = [];
-  for (const line of lines.slice(1)) {
+/** Row counts for the silent-empty check: rows = data rows seen, usable = rows with a time and coordinates. */
+export interface SpcScan {
+  signals: SignalInput[];
+  rows: number;
+  usable: number;
+  /** false when text was present but no recognisable header row (HTML error page, renamed columns). */
+  headerOk: boolean;
+}
+
+export function scanSpc(raw: unknown): SpcScan {
+  const empty: SpcScan = { signals: [], rows: 0, usable: 0, headerOk: true };
+  const r = raw as Partial<SpcInput> | null;
+  if (!r || typeof r.csv !== 'string' || !r.type || !r.day) return empty;
+  const lines = r.csv.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length === 0) return empty;
+
+  const res: SpcScan = { signals: [], rows: 0, usable: 0, headerOk: false };
+  let cols: { type: SpcType; iTime: number; iVal: number; iLoc: number; iCounty: number; iState: number; iLat: number; iLon: number; iCom: number } | null = null;
+
+  for (const line of lines) {
     const c = parseCsvLine(line);
+    if ((c[0] ?? '').trim().toLowerCase() === 'time') {
+      // Header row: the first line of a per-hazard file, or the start of each section in a combined file.
+      const header = c.map((h) => h.trim().toLowerCase());
+      const idx = (names: string[]) => header.findIndex((h) => names.includes(h));
+      const next = {
+        type: sectionType(header, r.type),
+        iTime: idx(['time']),
+        iVal: idx(['size', 'speed', 'f_scale', 'fscale', 'f-scale']),
+        iLoc: idx(['location']),
+        iCounty: idx(['county']),
+        iState: idx(['state']),
+        iLat: idx(['lat']),
+        iLon: idx(['lon']),
+        iCom: idx(['comments']),
+      };
+      cols = next.iLoc < 0 || next.iState < 0 || next.iLat < 0 || next.iLon < 0 ? null : next;
+      if (cols) res.headerOk = true;
+      continue;
+    }
+    if (!cols) continue; // data before any valid header
+    res.rows++;
+    const { type, iTime, iVal, iLoc, iCounty, iState, iLat, iLon, iCom } = cols;
     // Comments is the last column and may contain commas: rejoin.
     const comments = iCom >= 0 ? c.slice(iCom).join(',').trim() : '';
     const coords = toCoords(c[iLat] ?? '', c[iLon] ?? '');
     const occurredAt = occurredIso(r.day, (c[iTime] ?? '').trim());
     if (!coords || !occurredAt) continue;
+    res.usable++;
     const location = (c[iLoc] ?? '').trim();
     const county = (c[iCounty] ?? '').trim() || null;
     const state = (c[iState] ?? '').trim().toUpperCase() || null;
@@ -111,9 +149,9 @@ export function parseSpc(raw: unknown): SignalInput[] {
     let title: string;
     let categories: CategoryId[];
     let severity: Severity;
-    const data: Record<string, unknown> = { type: r.type, day: r.day, comments, value: val };
+    const data: Record<string, unknown> = { type, day: r.day, comments, value: val };
 
-    if (r.type === 'hail') {
+    if (type === 'hail') {
       const size = parseInt(val, 10);
       if (!Number.isFinite(size) || size < 100) continue; // below 1.00 in: not roof/auto-glass relevant
       const inches = size / 100;
@@ -121,7 +159,7 @@ export function parseSpc(raw: unknown): SignalInput[] {
       categories = HAIL_CATS;
       severity = inches >= 2 ? 3 : 2;
       data.hailInches = inches;
-    } else if (r.type === 'wind') {
+    } else if (type === 'wind') {
       const mph = parseInt(val, 10);
       const damage = /damage|down|blown|uproot|snapped|power|roof|tree/i.test(comments);
       if (!Number.isFinite(mph) && !damage) continue;
@@ -137,9 +175,9 @@ export function parseSpc(raw: unknown): SignalInput[] {
       if (val && val !== 'UNK') data.fScale = val;
     }
 
-    out.push({
+    res.signals.push({
       source: 'spc',
-      externalId: `${r.type}:${r.day}:${(c[iTime] ?? '').trim()}:${coords.lat.toFixed(2)}:${coords.lon.toFixed(2)}`,
+      externalId: `${type}:${r.day}:${(c[iTime] ?? '').trim()}:${coords.lat.toFixed(2)}:${coords.lon.toFixed(2)}`,
       kind: 'report',
       title,
       summary: comments || null,
@@ -155,7 +193,11 @@ export function parseSpc(raw: unknown): SignalInput[] {
       data,
     });
   }
-  return out;
+  return res;
+}
+
+export function parseSpc(raw: unknown): SignalInput[] {
+  return scanSpc(raw).signals;
 }
 
 function convectiveDay(now: Date, daysBack: number): string {
@@ -171,27 +213,39 @@ export const spcAdapter: Adapter = {
   sourceUrl: 'https://www.spc.noaa.gov/climo/reports/',
   async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
     const now = new Date();
-    const jobs: { name: string; type: SpcType; day: string }[] = [];
-    for (const type of ['torn', 'hail', 'wind'] as SpcType[]) {
-      jobs.push({ name: `today_filtered_${type}.csv`, type, day: convectiveDay(now, 0) });
-      jobs.push({ name: `yesterday_filtered_${type}.csv`, type, day: convectiveDay(now, 1) });
-    }
-    const results = await Promise.all(
-      jobs.map(async (j) => {
-        try {
-          const res = await ctx.fetch(BASE + j.name, {
-            headers: { 'User-Agent': `Holler/1.0 (+${siteUrl}/about; contact@holler)` },
-            signal: AbortSignal.timeout(15000),
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return { ok: true as const, signals: parseSpc({ csv: await res.text(), type: j.type, day: j.day }) };
-        } catch (e) {
-          ctx.log(`error: spc ${j.name} failed: ${e instanceof Error ? e.message : String(e)}`);
-          return { ok: false as const, signals: [] as SignalInput[] };
+    const ua = `Holler/1.0 (+${siteUrl}/about; contact@holler)`;
+
+    /** One CSV file: fetch, validate, parse. Returns null when the file could not be used (an error was logged). */
+    async function load(name: string, type: SpcType, day: string): Promise<SignalInput[] | null> {
+      try {
+        const res = await ctx.fetch(BASE + name, { headers: { 'User-Agent': ua }, signal: AbortSignal.timeout(15000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const csv = await res.text();
+        const scan = scanSpc({ csv, type, day });
+        if (csv.trim() && !scan.headerOk) {
+          throw new Error(/^\s*</.test(csv) ? 'received an HTML page instead of CSV' : 'no recognisable header row (Time,...,Lat,Lon), columns may have changed');
         }
-      }),
-    );
-    return results.flatMap((r) => r.signals);
+        if (scan.rows > 0 && scan.usable === 0) ctx.log(`error: spc ${name} parsed 0 of ${scan.rows} rows, shape may have changed`);
+        return scan.signals;
+      } catch (e) {
+        ctx.log(`error: spc ${name} failed: ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      }
+    }
+
+    const out: SignalInput[] = [];
+    for (const [prefix, daysBack] of [['today', 0], ['yesterday', 1]] as const) {
+      const day = convectiveDay(now, daysBack);
+      const perType = await Promise.all((['torn', 'hail', 'wind'] as SpcType[]).map((t) => load(`${prefix}_filtered_${t}.csv`, t, day)));
+      if (perType.every((r) => r === null)) {
+        // Per-hazard file names are only partly confirmed; the combined file name is documented by PyNimbus.
+        const combined = await load(`${prefix}_filtered.csv`, 'torn', day);
+        if (combined) out.push(...combined);
+        continue;
+      }
+      for (const r of perType) if (r) out.push(...r);
+    }
+    return out;
   },
 };
 

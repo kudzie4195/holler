@@ -5,12 +5,19 @@ import { CITIES } from '@/lib/geo';
 
 /**
  * USAspending.gov API v2, no key. POST /api/v2/search/spending_by_award/
- * Docs (sourced): https://github.com/fedspendingtransparency/usaspending-api/blob/master/usaspending_api/api_contracts/contracts/v2/search/spending_by_award.md
- *  - body: filters{award_type_codes (required), time_period[{start_date,end_date}], naics_codes{require[],exclude[]}}, fields[], limit, page, sort, order
- *  - contract field names: Award ID, Recipient Name, Award Amount, Description, Start Date, Place of Performance City Code,
- *    Place of Performance State Code, Place of Performance Zip5, Primary Place of Performance, NAICS, generated_internal_id, Awarding Agency, Last Modified Date
- *  - response: results[], page_metadata{page,hasNext}
- * Assumed: shape of "Primary Place of Performance" ({city_name, state_code}) and "NAICS" ({code, description}); the parser accepts strings too.
+ * Request (confirmed 2026-11-17):
+ *  - contract md github.com/fedspendingtransparency/usaspending-api/blob/master/usaspending_api/api_contracts/contracts/v2/search/spending_by_award.md:
+ *    filters.award_type_codes required (A-D = contracts), fields required, sort must be one of the requested fields, order asc|desc,
+ *    limit (100 is the maximum used by clients, sharedcontext.ai/skills/external/1102tools/usaspending-api), page, naics_codes as
+ *    {require[],exclude[]} or an array of strings.
+ *  - api_contracts/search_filters.md lists time_period[].date_type members action_date (default), date_signed, last_modified_date, new_awards_only.
+ *  - 2, 4 or 6 digit NAICS only (usaspending-api search/filters/elasticsearch/naics.py).
+ * Response (confirmed 2026-11-17 from usaspending_api/search/v2/views/spending_by_award.py and the contract md): results[] rows keyed by the requested
+ * field names plus internal_id and generated_internal_id; `NAICS` and `PSC` are objects {code, description}; `Primary Place of Performance`
+ * is an object {location_country_code, country_name, state_code, state_name, city_name, county_code, county_name, congressional_code, zip4, zip5};
+ * the separate "Place of Performance ..." keys in the contract md are not row keys in the Elasticsearch code path, so the parser reads the nested object first
+ * and falls back to the flat keys. Top level: spending_level, limit, results, page_metadata{page,hasNext}, messages[].
+ * A live POST could not be made (WebFetch is GET only), so a verbatim response was not captured.
  */
 
 const ENDPOINT = 'https://api.usaspending.gov/api/v2/search/spending_by_award/';
@@ -137,7 +144,7 @@ export function parseUsaSpending(raw: unknown): SignalInput[] {
         const stateCode = normalizeState(str(popObj.state_code) || str(r['Place of Performance State Code']));
         if (!stateCode) continue;
         const city = findCity(cityName, stateCode);
-        const zip = str(r['Place of Performance Zip5']).slice(0, 5) || null;
+        const zip = str(popObj.zip5).slice(0, 5) || str(r['Place of Performance Zip5']).slice(0, 5) || null;
 
         const amount = typeof r['Award Amount'] === 'number' ? (r['Award Amount'] as number) : Number(r['Award Amount']);
         const hasAmount = Number.isFinite(amount) && amount > 0;
@@ -213,6 +220,18 @@ export function buildUsaSpendingBody(since: Date, now: Date = new Date()) {
   };
 }
 
+/** Structural counts for the silent-empty check: rows that carry an award id. */
+export function usaspendingRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const results = (raw as { results?: unknown } | null)?.results;
+  if (!Array.isArray(results)) return null;
+  let usable = 0;
+  for (const r of results) {
+    const o = r as Record<string, unknown> | null;
+    if (o && typeof o === 'object' && (str(o.generated_internal_id) || str(o['Award ID']))) usable++;
+  }
+  return { rows: results.length, usable };
+}
+
 const usaspending: Adapter = {
   id: 'usaspending',
   label: 'Federal contract awards (USAspending.gov)',
@@ -228,12 +247,30 @@ const usaspending: Adapter = {
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) {
-        ctx.log(`usaspending: HTTP ${res.status}`);
+        const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160);
+        ctx.log(`error: usaspending HTTP ${res.status}${detail && !/^\s*</.test(detail) ? ` ${detail}` : ''}`);
         return [];
       }
-      return parseUsaSpending(await res.json());
+      const text = await res.text();
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        ctx.log(`error: usaspending ${/^\s*</.test(text) ? 'returned an HTML page instead of JSON' : 'returned non-JSON text'}`);
+        return [];
+      }
+      const stats = usaspendingRowStats(json);
+      if (!stats) {
+        const keys = json && typeof json === 'object' ? Object.keys(json as object).slice(0, 8).join(',') : typeof json;
+        ctx.log(`error: usaspending response has no results array, wrapper may have changed (top-level keys: ${keys})`);
+        return [];
+      }
+      const out = parseUsaSpending(json);
+      // The request filters on NAICS server side, so every returned row should be mappable: 0 of N means the shape moved.
+      if (stats.rows > 0 && out.length === 0) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+      return out;
     } catch (e) {
-      ctx.log(`usaspending: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.log(`error: usaspending ${e instanceof Error ? e.message : String(e)}`);
       return [];
     }
   },

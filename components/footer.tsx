@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { Logo } from './logo';
 
 const links = [
-  { href: '/local', label: 'City pages' },
+  { href: '/check', label: 'Check your area' },
+  { href: '/for', label: 'By trade' },
+  { href: '/local', label: 'By city' },
   { href: '/about', label: 'About' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },

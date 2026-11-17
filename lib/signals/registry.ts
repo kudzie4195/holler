@@ -5,6 +5,7 @@ import { adapters as fema } from './adapters/fema';
 import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
+import { adapters as arcgis } from './adapters/arcgis';
 import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
@@ -18,6 +19,7 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...usgs,
   ...faa,
   ...socrata,
+  ...arcgis,
   ...usaspending,
   ...sam,
   ...ticketmaster,

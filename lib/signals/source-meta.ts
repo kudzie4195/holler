@@ -1,7 +1,7 @@
 /**
  * Static source metadata (id, label, sourceUrl) for every adapter in lib/signals/registry.ts ALL_ADAPTERS.
  * Client-safe: the registry imports every adapter (and lib/env), so client components import this instead.
- * Derived from the adapter configs on 2026-11-16; tests/signals/core/source-meta.test.ts fails if it drifts from ALL_ADAPTERS.
+ * Derived from the adapter configs on 2026-11-17; tests/signals/core/source-meta.test.ts fails if it drifts from ALL_ADAPTERS.
  */
 export interface SourceMeta {
   id: string;
@@ -35,6 +35,27 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "socrata-batonrouge-311": { id: "socrata-batonrouge-311", label: "Baton Rouge open data: 311 requests", sourceUrl: "https://data.brla.gov/d/7ixm-mnvx" },
   "socrata-cincinnati-permits": { id: "socrata-cincinnati-permits", label: "Cincinnati open data: building permits", sourceUrl: "https://data.cincinnati-oh.gov/d/thvx-5mem" },
   "socrata-cincinnati-311": { id: "socrata-cincinnati-311", label: "Cincinnati open data: 311 requests", sourceUrl: "https://data.cincinnati-oh.gov/d/gcej-gmiw" },
+  "socrata-cambridge-permits": { id: "socrata-cambridge-permits", label: "Cambridge open data: building permits", sourceUrl: "https://data.cambridgema.gov/d/3wsm-e5jx" },
+  "socrata-norfolk-permits": { id: "socrata-norfolk-permits", label: "Norfolk open data: building permits", sourceUrl: "https://data.norfolk.gov/d/fahm-yuh4" },
+  "socrata-buffalo-permits": { id: "socrata-buffalo-permits", label: "Buffalo open data: building permits", sourceUrl: "https://data.buffalony.gov/d/9p2d-f3yt" },
+  "socrata-montgomery-permits": { id: "socrata-montgomery-permits", label: "Montgomery County open data: building permits", sourceUrl: "https://data.montgomerycountymd.gov/d/m88u-pqki" },
+  "socrata-orlando-permits": { id: "socrata-orlando-permits", label: "Orlando open data: building permits", sourceUrl: "https://data.cityoforlando.net/d/ryhf-m453" },
+  "socrata-kansascity-311": { id: "socrata-kansascity-311", label: "Kansas City open data: 311 requests", sourceUrl: "https://data.kcmo.org/d/d4px-6rwg" },
+  "socrata-cambridge-311": { id: "socrata-cambridge-311", label: "Cambridge open data: 311 requests", sourceUrl: "https://data.cambridgema.gov/d/2z9k-mv9g" },
+  "socrata-oakland-311": { id: "socrata-oakland-311", label: "Oakland open data: 311 requests", sourceUrl: "https://data.oaklandca.gov/d/quth-gb8e" },
+  "socrata-chicago-violations": { id: "socrata-chicago-violations", label: "Chicago open data: code violations", sourceUrl: "https://data.cityofchicago.org/d/22u3-xenr" },
+  "socrata-austin-violations": { id: "socrata-austin-violations", label: "Austin open data: code violations", sourceUrl: "https://data.austintexas.gov/d/6wtj-zbtb" },
+  "socrata-chicago-business": { id: "socrata-chicago-business", label: "Chicago open data: new business licenses", sourceUrl: "https://data.cityofchicago.org/d/uupf-x98q" },
+  "socrata-sf-business": { id: "socrata-sf-business", label: "San Francisco open data: new business licenses", sourceUrl: "https://data.sf.gov/d/g8m3-pdis" },
+  "socrata-la-business": { id: "socrata-la-business", label: "Los Angeles open data: new business licenses", sourceUrl: "https://data.lacity.org/d/6rrh-rzua" },
+  "socrata-nyc-business": { id: "socrata-nyc-business", label: "New York City open data: new business licenses", sourceUrl: "https://data.cityofnewyork.us/d/w7w3-xahh" },
+  "socrata-orlando-business": { id: "socrata-orlando-business", label: "Orlando open data: new business licenses", sourceUrl: "https://data.cityoforlando.net/d/7388-4re5" },
+  "socrata-nyc-events": { id: "socrata-nyc-events", label: "New York City open data: special event permits", sourceUrl: "https://data.cityofnewyork.us/d/tvpp-9vvx" },
+  "socrata-chicago-events": { id: "socrata-chicago-events", label: "Chicago open data: special event permits", sourceUrl: "https://data.cityofchicago.org/d/pk66-w54g" },
+  "arcgis-dekalb-permits": { id: "arcgis-dekalb-permits", label: "DeKalb County open data: building permits", sourceUrl: "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0" },
+  "arcgis-raleigh-permits": { id: "arcgis-raleigh-permits", label: "Raleigh open data: building permits", sourceUrl: "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0" },
+  "arcgis-dc-permits": { id: "arcgis-dc-permits", label: "Washington open data: building permits", sourceUrl: "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4" },
+  "arcgis-mecklenburg-permits": { id: "arcgis-mecklenburg-permits", label: "Mecklenburg County open data: building permits", sourceUrl: "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0" },
   "usaspending": { id: "usaspending", label: "Federal contract awards (USAspending.gov)", sourceUrl: "https://www.usaspending.gov/" },
   "sam-gov": { id: "sam-gov", label: "Federal bid opportunities (SAM.gov)", sourceUrl: "https://sam.gov/" },
   "ticketmaster": { id: "ticketmaster", label: "Big events this week (Ticketmaster)", sourceUrl: "https://www.ticketmaster.com/" },

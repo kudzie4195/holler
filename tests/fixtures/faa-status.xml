@@ -61,15 +61,21 @@
     <Airport_Closure_List>
       <Airport>
         <ARPT>SNA</ARPT>
-        <Reason>[NOTAM text]</Reason>
+        <Reason>!SNA 11/020 SNA AD AP CLSD DLY 0730-1415 2611150730-2611211415</Reason>
         <Start>Nov 15 at 07:30 UTC.</Start>
         <Reopen>Nov 21 at 14:15 UTC.</Reopen>
       </Airport>
       <Airport>
         <ARPT>LAS</ARPT>
-        <Reason>[NOTAM text]</Reason>
+        <Reason>!LAS 10/118 LAS AD AP CLSD TO NON SKED TRANSIENT GA ACFT EXC PPR 702-261-4960 2610281926-2701272300</Reason>
         <Start>Oct 28 at 19:26 UTC.</Start>
         <Reopen>Jan 27 at 23:00 UTC.</Reopen>
+      </Airport>
+      <Airport>
+        <ARPT>MSY</ARPT>
+        <Reason>!MSY 11/044 MSY AD AP CLSD 2611161800-2611170600</Reason>
+        <Start>Nov 16 at 18:00 UTC.</Start>
+        <Reopen>Nov 17 at 06:00 UTC.</Reopen>
       </Airport>
     </Airport_Closure_List>
   </Delay_type>

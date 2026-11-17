@@ -40,12 +40,14 @@ async function Onboarding({ searchParams }: { searchParams: PageProps<'/onboardi
   const sp = await searchParams;
   const slug = cleanCitySlug(typeof sp.city === 'string' ? sp.city : null);
   const city = slug ? cityBySlug(slug) : null;
+  // F-19: lib/geo only maps ZIP to place (lookupZip), never city to ZIP, and a city has many ZIPs. So the city only changes
+  // the hint text and the ZIP field stays empty. Never guess a ZIP.
 
   return (
     <Card className="mt-8">
       <ProfileForm
         action={completeOnboarding}
-        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
+        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group }))}
         defaults={{ business_name: '', categories: [], zip: '', radius: 25, alert_email: true }}
         submitLabel="Start my free week"
         zipHint={

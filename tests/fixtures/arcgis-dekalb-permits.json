@@ -1,0 +1,50 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "applicationNumber": "BC-2026-1001",
+    "issuedDateTime": 1794608408000,
+    "workType": "D-OWNF",
+    "WorkTypeDescription": "Owner Change Only",
+    "OccupancyTypeDescription": "Business",
+    "statusDescription": "Issued",
+    "location": "5047 MEMORIAL DRIVE, SUITE-D, STONE MOUNTAIN GA 30083",
+    "primaryContactName": "PRIVATE CONTACT"
+   },
+   "geometry": {
+    "x": -84.22710839907374,
+    "y": 33.79230595393666
+   }
+  },
+  {
+   "attributes": {
+    "applicationNumber": "MC-2026-2002",
+    "issuedDateTime": 1794588029000,
+    "workType": "M-RAC",
+    "WorkTypeDescription": "Residential Air Conditioning",
+    "OccupancyTypeDescription": "Single Family Dwelling",
+    "statusDescription": "Issued",
+    "location": ""
+   },
+   "geometry": {
+    "x": -84.18155577244342,
+    "y": 33.770469628755116
+   }
+  },
+  {
+   "attributes": {
+    "applicationNumber": "BC-2026-3003",
+    "issuedDateTime": 1794583479000,
+    "workType": "D-NEW ",
+    "WorkTypeDescription": "New Construction",
+    "OccupancyTypeDescription": "Single Family Dwelling",
+    "statusDescription": "Issued",
+    "location": "12 Example Ln"
+   },
+   "geometry": {
+    "x": -84.32080759827731,
+    "y": 33.829367376645166
+   }
+  }
+ ]
+}

@@ -3,12 +3,17 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
 /**
  * FAA National Airspace System status.
- * Endpoint: https://nasstatus.faa.gov/api/airport-status-information (XML).
- * Structure (sourced: sample fetched from the endpoint): <AIRPORT_STATUS_INFORMATION><Update_Time/>
- * <Delay_type><Name/> then one of Ground_Stop_List>Program{ARPT,Reason,End_Time},
- * Ground_Delay_List>Ground_Delay{ARPT,Reason,Avg,Max},
- * Arrival_Departure_Delay_List>Delay{ARPT,Reason,Arrival_Departure[Type]{Min,Max,Trend}},
- * Airport_Closure_List>Airport{ARPT,Reason,Start,Reopen}.
+ * Endpoint: https://nasstatus.faa.gov/api/airport-status-information (XML). Live WebFetch 2026-11-17 confirmed root
+ * <AIRPORT_STATUS_INFORMATION> with <Update_Time>Tue Nov 17 11:28:12 2026 GMT</Update_Time>, <Dtd_File>, and <Delay_type><Name/> blocks;
+ * the closure block is <Airport_Closure_List><Airport><ARPT/><Reason/><Start/><Reopen/></Airport>. No delays or ground stops were
+ * active at fetch time, so the other list shapes are confirmed only by the FAA Ruby gem (rubydoc.info/gems/faa: GroundStop reads ARPT,
+ * Reason, End_Time; GroundDelay reads ARPT, Reason, Avg, Max) and by the earlier sample the fixture was copied from:
+ * Ground_Stop_List>Program{ARPT,Reason,End_Time}, Ground_Delay_List>Ground_Delay{ARPT,Reason,Avg,Max},
+ * Arrival_Departure_Delay_List>Delay{ARPT,Reason,Arrival_Departure[Type]{Min,Max,Trend}}. Delay/Arrival_Departure is the least confirmed.
+ * IMPORTANT: closure <Reason> is raw NOTAM text such as "!LAX 05/277 LAX AD AP CLSD TO NON SKED TRANSIENT GA ACFT EXC 24HR PPR ..." or
+ * "!SNA 11/020 SNA AD AP CLSD DLY 0730-1415 2611150730-2611211415". Most are partial or recurring night closures, so only a notice
+ * that closes the whole airport with no qualifier is reported as a closure (see isFullClosure).
+ * The same data is also served as JSON at /api/airport-events (used by the faadelays library); the XML endpoint is kept.
  */
 export const FAA_URL = 'https://nasstatus.faa.gov/api/airport-status-information';
 
@@ -78,6 +83,26 @@ export function durationMinutes(s: string | null): number | null {
   return (h ? parseInt(h[1], 10) * 60 : 0) + (m ? parseInt(m[1], 10) : 0);
 }
 
+/** True for a NOTAM that closes the whole airport round the clock: "AP CLSD" with no aircraft-class, exception or daily-window qualifier. */
+export function isFullClosure(notam: string | null): boolean {
+  const t = (notam ?? '').toUpperCase();
+  if (!/\bAP CLSD\b/.test(t)) return false;
+  return !/\b(DLY|EXC|EXCEPT|TO\s+(GA|NON|TRANSIENT|ALL|ACFT|MIL|HEL)|ACFT|GA|TRANSIENT|NON SKED|PPR|HEL|MIL|SKED|WEF|TIL)\b/.test(t.replace(/^!\S+\s+\S+\s+\S+\s+AD\s+/, ''));
+}
+
+/** Structural counts for the silent-empty check: list entries seen, and entries that carry an airport code. */
+export function faaRowStats(xml: string): { rows: number; usable: number } {
+  let rows = 0;
+  let usable = 0;
+  for (const name of ['Program', 'Ground_Delay', 'Delay', 'Airport']) {
+    for (const b of blocks(xml, name)) {
+      rows++;
+      if (tag(b, 'ARPT')) usable++;
+    }
+  }
+  return { rows, usable };
+}
+
 export function parseFaa(raw: unknown): SignalInput[] {
   const xml = typeof raw === 'string' ? raw : '';
   if (!xml.includes('AIRPORT_STATUS_INFORMATION')) return [];
@@ -133,7 +158,9 @@ export function parseFaa(raw: unknown): SignalInput[] {
     push('delay', tag(b, 'ARPT'), tag(b, 'Reason'), maxMin >= 90 ? 2 : 1, `Delays up to ${maxStr}`, { max: maxStr, trend: tag(b, 'Trend') });
   }
   for (const b of blocks(xml, 'Airport')) {
-    push('closure', tag(b, 'ARPT'), 'closure notice', 2, '', { start: tag(b, 'Start'), reopen: tag(b, 'Reopen') });
+    const notam = tag(b, 'Reason');
+    if (!isFullClosure(notam)) continue; // partial, GA-only or nightly closures are not a reason to avoid the airport
+    push('closure', tag(b, 'ARPT'), 'airport closed per NOTAM', 2, '', { start: tag(b, 'Start'), reopen: tag(b, 'Reopen'), notam });
   }
   return out;
 }
@@ -151,7 +178,14 @@ export const faaAdapter: Adapter = {
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return parseFaa(await res.text());
+      const xml = await res.text();
+      if (!xml.includes('AIRPORT_STATUS_INFORMATION')) {
+        throw new Error(/^\s*<(!doctype|html)/i.test(xml) ? 'received an HTML page instead of XML' : 'response is not the AIRPORT_STATUS_INFORMATION document, format may have changed');
+      }
+      const stats = faaRowStats(xml);
+      const out = parseFaa(xml);
+      if (stats.rows > 0 && stats.usable === 0) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+      return out;
     } catch (e) {
       ctx.log(`error: faa fetch failed: ${e instanceof Error ? e.message : String(e)}`);
       return [];

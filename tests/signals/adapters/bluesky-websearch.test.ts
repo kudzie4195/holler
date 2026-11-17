@@ -1,18 +1,27 @@
 /**
- * Fixture provenance
- * - tests/fixtures/bluesky-search.json: shape (posts[].uri/cid/author.handle/record.text/record.createdAt/indexedAt) SOURCED from
- *   https://dev.to/agenthustler/scraping-bluesky-in-2026-at-protocol-makes-it-surprisingly-easy-56d6 (reads post.author.handle, post.record.text,
- *   post.record.createdAt) and the app.bsky.feed.defs#postView lexicon. Post text is ASSUMED (hand-written).
- * - tests/fixtures/websearch-brave.json: shape (web.results[].title/url/description/page_age) SOURCED from
- *   https://api-dashboard.search.brave.com/app/documentation/web-search/get-started (only title/url/description are documented there; page_age is ASSUMED).
- * - tests/fixtures/websearch-serper.json: shape (organic[].title/link/snippet/date/position) PARTLY SOURCED from the sample JSON on https://serper.dev/
- *   (title, link, snippet, position, date). Request side is ASSUMED. Result text is hand-written.
+ * Fixture provenance (re-checked 2026-11-17)
+ * - tests/fixtures/bluesky-search.json: SOURCED for shape: app.bsky.feed.searchPosts output { posts[] (app.bsky.feed.defs#postView: uri, cid, author{did,handle},
+ *   record{text,createdAt}, indexedAt), cursor, hitsTotal } from https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/feed/searchPosts.json
+ *   and the walkthrough https://dev.to/agenthustler/scraping-bluesky-in-2026-at-protocol-makes-it-surprisingly-easy-56d6. Post text is hand-written.
+ *   AUTH: unauthenticated searchPosts returns HTTP 403 (HTML body) on public.api.bsky.app and api.bsky.app as of Sep-Nov 2026
+ *   (https://github.com/cyanheads/bluesky-mcp-server/issues/32, https://github.com/kamoras/civitas/pull/594, https://github.com/Rackbops/docket/issues/125).
+ *   The adapter logs in with an app password (com.atproto.server.createSession on bsky.social, lexicon fetched from the atproto repo) and proxies to the AppView.
+ *   The createSession response body used in the tests is hand-written from the lexicon (accessJwt, refreshJwt, handle, did, didDoc). ASSUMED: that the PDS
+ *   proxy route (atproto-proxy: did:web:api.bsky.app#bsky_appview) accepts searchPosts for an app-password session today; no live call was possible.
+ * - tests/fixtures/websearch-brave.json: SOURCED for field names: web.results[] title, url, description, page_age, age, type "search_result" from
+ *   https://api-dashboard.search.brave.com/api-reference/web/search/get (fetched), request parameters q, count (max 20), freshness pd|pw|pm|py, country, search_lang and
+ *   the X-Subscription-Token header from https://api-dashboard.search.brave.com/app/documentation/web-search/get-started. page_age format (ISO without zone) is ASSUMED.
+ *   Result text is hand-written.
+ * - tests/fixtures/websearch-serper.json: SOURCED for response: organic[] title, link, snippet, position, date (https://serper.dev/ sample JSON; OpenAPI at
+ *   https://apis.io/apis/serper/serper-search-api/). Request SOURCED from two independent places: that OpenAPI listing (POST https://google.serper.dev/search, header
+ *   X-API-KEY, body q, gl, hl, num 1..100, page, tbs qdr:h|d|w|m|y, autocorrect) and https://docs.rs/crate/spider_agent/2.51.6/source/src/search/serper.rs.
+ *   Result text is hand-written.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CATEGORIES, classifyText } from '@/lib/signals/categories';
-import { adapters as bskyAdapters, buildBlueskyUrl, parseBluesky, planBlueskyQueries, postUrl } from '@/lib/signals/adapters/bluesky';
+import { adapters as bskyAdapters, buildBlueskyUrl, parseBluesky, planBlueskyQueries, postUrl, resetBlueskySession } from '@/lib/signals/adapters/bluesky';
 import {
   ASK_TERMS,
   QUERY_BUDGET,
@@ -204,4 +213,223 @@ describe('websearch adapters and env', () => {
     expect(await webAdapters[1].fetch({ since: NOW, env: { SERPER_API_KEY: 's' }, log: () => {}, fetch: f })).toEqual([]);
     expect(await webAdapters[0].fetch({ since: NOW, env: {}, log: () => {}, fetch: f })).toEqual([]);
   });
+});
+
+// --- Failure modes and auth --------------------------------------------------------------------------
+
+const ERROR_LIKE = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i; // same pattern as lib/signals/run.ts
+
+type Call = { url: string; init?: RequestInit };
+async function runAdapter(a: (typeof bskyAdapters)[number], f: (c: Call) => Response | Promise<Response>, env: Record<string, string | undefined> = {}) {
+  const logs: string[] = [];
+  const calls: Call[] = [];
+  const fetchImpl = (async (u: unknown, init?: RequestInit) => {
+    const c = { url: String(u), init };
+    calls.push(c);
+    return f(c);
+  }) as unknown as typeof fetch;
+  const out = await a.fetch({ since: NOW, fetch: fetchImpl, env, log: (m) => logs.push(m) });
+  return { out, logs, calls };
+}
+const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status });
+const forbiddenHtml = () => new Response('<html><body>403 Forbidden. Request forbidden by administrative rules.</body></html>', { status: 403 });
+
+function jwt(expSeconds: number): string {
+  const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  return `${b64({ alg: 'ES256K' })}.${b64({ exp: expSeconds })}.sig`;
+}
+const sessionBody = (pds = 'https://morel.us-east.host.bsky.network', exp = Math.floor(Date.now() / 1000) + 7200) => ({
+  accessJwt: jwt(exp),
+  refreshJwt: 'refresh-1',
+  handle: 'holler.example.com',
+  did: 'did:plc:abc123',
+  didDoc: { service: [{ id: '#atproto_pds', type: 'AtprotoPersonalDataServer', serviceEndpoint: pds }] },
+  active: true,
+});
+
+describe('bluesky auth', () => {
+  beforeEach(() => resetBlueskySession());
+
+  it('without credentials: tries the keyless public host, and a 403 HTML page logs an error that names the env keys', async () => {
+    const r = await runAdapter(bskyAdapters[0], forbiddenHtml);
+    expect(r.out).toEqual([]);
+    expect(r.calls).toHaveLength(4); // first batch only, then stops
+    expect(r.calls[0].url.startsWith('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?')).toBe(true);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes('403') && l.includes('BLUESKY_HANDLE') && l.includes('BLUESKY_APP_PASSWORD'))).toBe(true);
+  });
+
+  it('keyless success still works if Bluesky reopens search', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => json(fx('bluesky-search.json')));
+    expect(r.out.length).toBeGreaterThan(0);
+    expect(r.logs).toEqual([]);
+  });
+
+  it('with credentials: createSession on bsky.social, then searchPosts on the PDS with Bearer + atproto-proxy', async () => {
+    const r = await runAdapter(
+      bskyAdapters[0],
+      (c) => (c.url.includes('com.atproto.server.createSession') ? json(sessionBody()) : json(fx('bluesky-search.json'))),
+      { BLUESKY_HANDLE: 'holler.example.com', BLUESKY_APP_PASSWORD: 'abcd-efgh-ijkl-mnop' },
+    );
+    const login = r.calls[0];
+    expect(login.url).toBe('https://bsky.social/xrpc/com.atproto.server.createSession');
+    expect(login.init?.method).toBe('POST');
+    expect(JSON.parse(String(login.init?.body))).toEqual({ identifier: 'holler.example.com', password: 'abcd-efgh-ijkl-mnop' });
+    const search = r.calls[1];
+    expect(search.url.startsWith('https://morel.us-east.host.bsky.network/xrpc/app.bsky.feed.searchPosts?')).toBe(true);
+    const h = search.init?.headers as Record<string, string>;
+    expect(h.Authorization).toMatch(/^Bearer /);
+    expect(h['atproto-proxy']).toBe('did:web:api.bsky.app#bsky_appview');
+    expect(r.out.length).toBeGreaterThan(0);
+    expect(r.logs).toEqual([]);
+  });
+
+  it('reuses the cached session on the next run instead of logging in again', async () => {
+    const env = { BLUESKY_HANDLE: 'holler.example.com', BLUESKY_APP_PASSWORD: 'pw' };
+    const f = (c: Call) => (c.url.includes('createSession') ? json(sessionBody()) : json(fx('bluesky-search.json')));
+    const first = await runAdapter(bskyAdapters[0], f, env);
+    const second = await runAdapter(bskyAdapters[0], f, env);
+    expect(first.calls.filter((c) => c.url.includes('createSession'))).toHaveLength(1);
+    expect(second.calls.filter((c) => c.url.includes('createSession'))).toHaveLength(0);
+  });
+
+  it('refreshes an expiring session with refreshSession before creating a new one', async () => {
+    const env = { BLUESKY_HANDLE: 'holler.example.com', BLUESKY_APP_PASSWORD: 'pw' };
+    const soon = Math.floor(Date.now() / 1000) + 60; // inside the 5 minute renewal window
+    await runAdapter(bskyAdapters[0], (c) => (c.url.includes('createSession') ? json(sessionBody(undefined, soon)) : json({ posts: [] })), env);
+    const second = await runAdapter(
+      bskyAdapters[0],
+      (c) => (c.url.includes('refreshSession') ? json(sessionBody()) : json({ posts: [] })),
+      env,
+    );
+    expect(second.calls[0].url).toBe('https://morel.us-east.host.bsky.network/xrpc/com.atproto.server.refreshSession');
+    expect((second.calls[0].init?.headers as Record<string, string>).Authorization).toBe('Bearer refresh-1');
+    expect(second.calls.some((c) => c.url.includes('createSession'))).toBe(false);
+  });
+
+  it('a wrong app password logs an error and makes no search calls', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => json({ error: 'AuthenticationRequired' }, 401), { BLUESKY_HANDLE: 'h', BLUESKY_APP_PASSWORD: 'bad' });
+    expect(r.out).toEqual([]);
+    expect(r.calls).toHaveLength(1);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes('401') && /app password/i.test(l))).toBe(true);
+  });
+
+  it('createSession rate limiting (429) and a session body without tokens both log errors', async () => {
+    const env = { BLUESKY_HANDLE: 'h', BLUESKY_APP_PASSWORD: 'p' };
+    const limited = await runAdapter(bskyAdapters[0], () => json({}, 429), env);
+    expect(limited.logs.some((l) => ERROR_LIKE.test(l) && l.includes('429'))).toBe(true);
+    resetBlueskySession();
+    const odd = await runAdapter(bskyAdapters[0], () => json({ token: 'x' }), env);
+    expect(odd.logs.some((l) => ERROR_LIKE.test(l) && /accessJwt/.test(l))).toBe(true);
+  });
+
+  it('a 403 even with a session logs an error and stops', async () => {
+    const r = await runAdapter(bskyAdapters[0], (c) => (c.url.includes('createSession') ? json(sessionBody()) : forbiddenHtml()), { BLUESKY_HANDLE: 'h', BLUESKY_APP_PASSWORD: 'p' });
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes('403'))).toBe(true);
+  });
+});
+
+describe('bluesky failure modes', () => {
+  beforeEach(() => resetBlueskySession());
+  for (const status of [429, 500, 502]) {
+    it(`HTTP ${status} logs an error-like line`, async () => {
+      const r = await runAdapter(bskyAdapters[0], () => new Response('x', { status }));
+      expect(r.out).toEqual([]);
+      expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes(String(status)))).toBe(true);
+    });
+  }
+  it('an HTML page with 200 logs an error', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => new Response('<html>cdn challenge</html>', { status: 200 }));
+    expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('a changed wrapper key (no posts array in any response) logs an error', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => json({ results: [{ uri: 'x' }] }));
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => /no posts array/.test(l) && ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('posts with no uri/author/text logs the silent-empty error', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => json({ posts: [{ id: 1 }, { id: 2 }] }));
+    expect(r.logs.some((l) => /parsed 0 of \d+ rows, shape may have changed/.test(l))).toBe(true);
+  });
+  it('an empty posts array is a quiet hour', async () => {
+    const r = await runAdapter(bskyAdapters[0], () => json({ posts: [] }));
+    expect(r.logs).toEqual([]);
+  });
+});
+
+describe('websearch failure modes and request shape', () => {
+  const braveEnv = { BRAVE_SEARCH_API_KEY: 'bk' };
+  const serperEnv = { SERPER_API_KEY: 'sk' };
+
+  it('Brave: GET with X-Subscription-Token, freshness=pw, count 10 and a documented country/search_lang', async () => {
+    const r = await runAdapter(webAdapters[0], () => json(fx('websearch-brave.json')), braveEnv);
+    const u = new URL(r.calls[0].url);
+    expect(u.origin + u.pathname).toBe('https://api.search.brave.com/res/v1/web/search');
+    expect(u.searchParams.get('freshness')).toBe('pw');
+    expect(Number(u.searchParams.get('count'))).toBeLessThanOrEqual(20);
+    expect(u.searchParams.get('country')).toBe('US');
+    expect((r.calls[0].init?.headers as Record<string, string>)['X-Subscription-Token']).toBe('bk');
+  });
+  it('Serper: POST google.serper.dev/search with X-API-KEY and tbs qdr:w in a JSON body', async () => {
+    const r = await runAdapter(webAdapters[1], () => json(fx('websearch-serper.json')), serperEnv);
+    expect(r.calls[0].url).toBe('https://google.serper.dev/search');
+    expect(r.calls[0].init?.method).toBe('POST');
+    const h = r.calls[0].init?.headers as Record<string, string>;
+    expect(h['X-API-KEY']).toBe('sk');
+    expect(h['Content-Type']).toBe('application/json');
+    const body = JSON.parse(String(r.calls[0].init?.body));
+    expect(body).toMatchObject({ gl: 'us', num: 10, tbs: 'qdr:w' });
+    expect(typeof body.q).toBe('string');
+  });
+
+  const cases: [string, (typeof webAdapters)[number], Record<string, string>, unknown][] = [
+    ['brave', webAdapters[0], braveEnv, fx('websearch-brave.json')],
+    ['serper', webAdapters[1], serperEnv, fx('websearch-serper.json')],
+  ];
+  for (const [name, adapter, env, good] of cases) {
+    describe(name, () => {
+      it('parses the good fixture with no error log', async () => {
+        const r = await runAdapter(adapter, () => json(good), env);
+        expect(r.out.length).toBeGreaterThan(0);
+        expect(r.logs.filter((l) => ERROR_LIKE.test(l))).toEqual([]);
+      });
+      for (const status of [401, 403, 422, 429, 500]) {
+        it(`HTTP ${status} logs an error-like line and stops early`, async () => {
+          const r = await runAdapter(adapter, () => new Response('{"error":"x"}', { status }), env);
+          expect(r.out).toEqual([]);
+          expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes(String(status)))).toBe(true);
+          if (status === 401 || status === 403 || status === 429) expect(r.calls.length).toBeLessThanOrEqual(4);
+        });
+      }
+      it('an HTML page with 200 logs an error', async () => {
+        const r = await runAdapter(adapter, () => new Response('<html>captcha</html>', { status: 200 }), env);
+        expect(r.out).toEqual([]);
+        expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
+      });
+      it('a changed wrapper key in every response logs an error', async () => {
+        const r = await runAdapter(adapter, () => json({ results: [{ title: 't', url: 'https://x.test' }] }), env);
+        expect(r.out).toEqual([]);
+        expect(r.logs.some((l) => /results array, wrapper key may have changed/.test(l) && ERROR_LIKE.test(l))).toBe(true);
+      });
+      it('hits with no title or url logs the silent-empty error', async () => {
+        const body = name === 'brave' ? { web: { results: [{ foo: 1 }, { bar: 2 }] } } : { organic: [{ foo: 1 }, { bar: 2 }] };
+        const r = await runAdapter(adapter, () => json(body), env);
+        expect(r.logs.some((l) => /parsed 0 of \d+ rows, shape may have changed/.test(l))).toBe(true);
+      });
+      it('hits that are simply not asks are a quiet day, not an error', async () => {
+        const body =
+          name === 'brave'
+            ? { web: { results: [{ title: 'Atlanta Roofing Company', url: 'https://acme.example/atlanta', description: 'We offer roof repair. Call us today.' }] } }
+            : { organic: [{ title: 'Atlanta Roofing Company', link: 'https://acme.example/atlanta', snippet: 'We offer roof repair. Call us today.' }] };
+        const r = await runAdapter(adapter, () => json(body), env);
+        expect(r.out).toEqual([]);
+        expect(r.logs).toEqual([]);
+      });
+      it('a whole run of responses with no results key is treated as a changed wrapper', async () => {
+        // one empty answer is normal (the API omits the key when there are no hits); 3 or more answers that all lack it is not
+        const r = await runAdapter(adapter, () => json({ type: 'search', query: {} }), env);
+        expect(r.logs.some((l) => /wrapper key may have changed/.test(l))).toBe(true);
+      });
+    });
+  }
 });

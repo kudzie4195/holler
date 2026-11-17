@@ -7,12 +7,36 @@ import { createClient } from '@/lib/supabase/server';
 import { getProfile, getUser } from '@/lib/auth/session';
 import { leaveHollerPatch } from '@/lib/auth/membership';
 import { saveProfile } from '@/lib/auth/profile';
+import { backfillForUser } from '@/lib/signals/backfill';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
   if (!user) redirect('/login?next=/app/settings');
-  return saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' });
+  const before = await getProfile(user.id).catch(() => null);
+  const result = await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' });
+  if (result.ok && targetingChanged(before, formData)) {
+    try {
+      await backfillForUser(createAdminClient(), user.id);
+    } catch (e) {
+      console.error('settings backfill failed:', e instanceof Error ? e.message : e);
+    }
+  }
+  return result;
+}
+
+/** True when categories, ZIP or radius differ from the saved profile (or there was no profile). */
+function targetingChanged(
+  before: { categories: string[] | null; zip: string | null; radius_mi: number } | null,
+  formData: FormData,
+): boolean {
+  if (!before) return true;
+  const cats = (list: string[]) => [...new Set(list)].sort().join(',');
+  return (
+    cats(formData.getAll('categories').map(String)) !== cats(before.categories ?? []) ||
+    String(formData.get('zip') ?? '').trim() !== (before.zip ?? '') ||
+    Number(formData.get('radius') ?? 25) !== before.radius_mi
+  );
 }
 
 export interface DeleteState {

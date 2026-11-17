@@ -1,0 +1,46 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "PERMIT_ID": "B2700462",
+    "ISSUE_DATE": 1794286800000,
+    "DESC_OF_WORK": "Installation of 1 Sump Pump w/backup, and 25 LNFT Drain Tile.",
+    "PERMIT_TYPE_NAME": "CONSTRUCTION",
+    "PERMIT_SUBTYPE_NAME": "ALTERATION AND REPAIR",
+    "FULL_ADDRESS": "1200 EXAMPLE ST SE",
+    "ZIPCODE": 20003,
+    "OWNER_NAME": "PRIVATE OWNER"
+   },
+   "geometry": {
+    "x": -77.00851426452682,
+    "y": 38.885223677123115
+   }
+  },
+  {
+   "attributes": {
+    "PERMIT_ID": "B2700489",
+    "ISSUE_DATE": 1794459600000,
+    "DESC_OF_WORK": "INTERIOR RENOVATION TO 6TH FLOOR OFFICE SPACE FOR NEW SPEC SUITE.  PARTITIONS, FURNITURE, FINISHES, MEP AND LIFE SAFETY.  NO STRUCTURAL.  3207 SQUARE FEET.  65 OCCUPANTS.  SPEC 650.",
+    "PERMIT_TYPE_NAME": "CONSTRUCTION",
+    "FULL_ADDRESS": "600 EXAMPLE AVE SW"
+   },
+   "geometry": {
+    "x": -77.00860856370309,
+    "y": 38.87630037621788
+   }
+  },
+  {
+   "attributes": {
+    "PERMIT_ID": "B2603377",
+    "ISSUE_DATE": 1794286800000,
+    "DESC_OF_WORK": "FRONT PORCH REPLACEMENT AND NEW FENCE",
+    "PERMIT_TYPE_NAME": "CONSTRUCTION",
+    "FULL_ADDRESS": "300 SAMPLE PL NE"
+   },
+   "geometry": {
+    "x": -76.99470190641391,
+    "y": 38.90079237297229
+   }
+  }
+ ]
+}

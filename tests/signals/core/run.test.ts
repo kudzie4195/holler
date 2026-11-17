@@ -83,6 +83,7 @@ describe('runScan dry run', () => {
     const s = r.sources[0];
     expect(s.status).toBe('ok');
     expect(s.fetched).toBe(4);
+    expect(s.parsed).toBe(4);
     expect(s.samples).toEqual(['Hail near Marietta', 'Second', 'Third']);
     expect(r.totals.fetched).toBe(4);
   });
@@ -136,7 +137,7 @@ describe('runScan dry run', () => {
     const r = await runScan({ dry: true, adapters: [slow, adapter({ id: 'fast' })], adapterTimeoutMs: 50 });
     const by = Object.fromEntries(r.sources.map((s) => [s.id, s]));
     expect(by.slow.status).toBe('error');
-    expect(by.slow.error).toMatch(/timeout/);
+    expect(by.slow.error).toBe('timeout');
     expect(by.fast.status).toBe('ok');
   });
 

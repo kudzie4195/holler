@@ -4,9 +4,11 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
 /**
  * USGS earthquake GeoJSON summary feed, M2.5+ past day.
- * Feed: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson (sourced: USGS feed docs).
- * Feature: { id, geometry: {coordinates: [lon, lat, depthKm]}, properties: {mag, place, time(ms), url, sig, tsunami, alert, status, type} }
- * (sourced: earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php).
+ * Feed: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson. Confirmed 2026-11-17 by a live WebFetch and by the
+ * feed docs (earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php): FeatureCollection { metadata{generated,url,title,status,api,count}, bbox,
+ * features[] }. Feature: { type, id ("hv75071182"), geometry{type:Point, coordinates:[lon, lat, depthKm]},
+ * properties{mag, place, time (epoch ms), url, sig, tsunami, alert (null), status, type, ...} }.
+ * Live rows can carry mag slightly below 2.5 (e.g. 2.46, the feed rounds); those are dropped by MIN_MAG on purpose.
  */
 export const USGS_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
 const MIN_MAG = 2.5;
@@ -65,6 +67,28 @@ export function parseUsgs(raw: unknown): SignalInput[] {
   return out;
 }
 
+/** Structural counts for the silent-empty check. Non-US quakes are dropped on purpose and do not count as parse failures. */
+export function usgsRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const features = (raw as { features?: unknown[] } | null)?.features;
+  if (!Array.isArray(features)) return null;
+  let usable = 0;
+  for (const f of features) {
+    const feat = f as { id?: unknown; geometry?: { coordinates?: unknown }; properties?: Record<string, unknown> } | null;
+    const p = feat?.properties;
+    if (p && typeof p.mag === 'number' && typeof p.time === 'number' && Array.isArray(feat?.geometry?.coordinates) && typeof feat?.id === 'string') usable++;
+  }
+  return { rows: features.length, usable };
+}
+
+async function readJson(res: Response): Promise<unknown> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(/^\s*</.test(text) ? 'expected JSON but received an HTML page' : 'expected JSON but received non-JSON text');
+  }
+}
+
 export const usgsAdapter: Adapter = {
   id: 'usgs',
   label: 'USGS earthquakes',
@@ -75,7 +99,16 @@ export const usgsAdapter: Adapter = {
     try {
       const res = await ctx.fetch(USGS_URL, { signal: AbortSignal.timeout(15000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return parseUsgs(await res.json());
+      const json = await readJson(res);
+      const stats = usgsRowStats(json);
+      if (!stats) {
+        const keys = json && typeof json === 'object' ? Object.keys(json as object).slice(0, 8).join(',') : typeof json;
+        ctx.log(`error: usgs response has no features array, wrapper may have changed (top-level keys: ${keys})`);
+        return [];
+      }
+      const out = parseUsgs(json);
+      if (stats.rows > 0 && stats.usable === 0) ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+      return out;
     } catch (e) {
       ctx.log(`error: usgs fetch failed: ${e instanceof Error ? e.message : String(e)}`);
       return [];

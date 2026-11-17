@@ -1,11 +1,189 @@
 {
   "type": "FeatureCollection",
-  "metadata": { "generated": 1794000000000, "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson", "title": "USGS Magnitude 2.5+ Earthquakes, Past Day", "status": 200, "api": "1.14.1", "count": 5 },
+  "metadata": {
+    "generated": 1794000000000,
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson",
+    "title": "USGS Magnitude 2.5+ Earthquakes, Past Day",
+    "status": 200,
+    "api": "2.8.2",
+    "count": 7
+  },
   "features": [
-    { "type": "Feature", "properties": { "mag": 4.3, "place": "9 km SW of Ridgecrest, CA", "time": 1793990000000, "updated": 1793990900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ci00000001", "tsunami": 0, "sig": 284, "status": "reviewed", "type": "earthquake", "alert": null }, "geometry": { "type": "Point", "coordinates": [-117.7, 35.55, 6.2] }, "id": "ci00000001" },
-    { "type": "Feature", "properties": { "mag": 2.6, "place": "45 km SE of Sand Point, Alaska", "time": 1793991000000, "updated": 1793991900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ak00000002", "tsunami": 0, "sig": 104, "status": "automatic", "type": "earthquake", "alert": null }, "geometry": { "type": "Point", "coordinates": [-159.0, 54.9, 35.0] }, "id": "ak00000002" },
-    { "type": "Feature", "properties": { "mag": 5.1, "place": "30 km W of Ensenada, Mexico", "time": 1793992000000, "updated": 1793992900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us00000003", "tsunami": 0, "sig": 400, "status": "reviewed", "type": "earthquake", "alert": "green" }, "geometry": { "type": "Point", "coordinates": [-116.9, 31.9, 10.0] }, "id": "us00000003" },
-    { "type": "Feature", "properties": { "mag": 2.2, "place": "3 km N of Medford, OK", "time": 1793993000000, "updated": 1793993900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ok00000004", "tsunami": 0, "sig": 80, "status": "automatic", "type": "earthquake", "alert": null }, "geometry": { "type": "Point", "coordinates": [-97.7, 36.8, 5.0] }, "id": "ok00000004" },
-    { "type": "Feature", "properties": { "mag": 5.4, "place": "off the coast of Oregon", "time": 1793994000000, "updated": 1793994900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us00000005", "tsunami": 0, "sig": 449, "status": "reviewed", "type": "earthquake", "alert": "green" }, "geometry": { "type": "Point", "coordinates": [-126.5, 43.9, 10.0] }, "id": "us00000005" }
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 4.3,
+        "place": "9 km SW of Ridgecrest, CA",
+        "time": 1793990000000,
+        "updated": 1793990900000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ci00000001",
+        "tsunami": 0,
+        "sig": 284,
+        "status": "reviewed",
+        "type": "earthquake",
+        "alert": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.7,
+          35.55,
+          6.2
+        ]
+      },
+      "id": "ci00000001"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 2.6,
+        "place": "45 km SE of Sand Point, Alaska",
+        "time": 1793991000000,
+        "updated": 1793991900000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ak00000002",
+        "tsunami": 0,
+        "sig": 104,
+        "status": "automatic",
+        "type": "earthquake",
+        "alert": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -159.0,
+          54.9,
+          35.0
+        ]
+      },
+      "id": "ak00000002"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 5.1,
+        "place": "30 km W of Ensenada, Mexico",
+        "time": 1793992000000,
+        "updated": 1793992900000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us00000003",
+        "tsunami": 0,
+        "sig": 400,
+        "status": "reviewed",
+        "type": "earthquake",
+        "alert": "green"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -116.9,
+          31.9,
+          10.0
+        ]
+      },
+      "id": "us00000003"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 2.2,
+        "place": "3 km N of Medford, OK",
+        "time": 1793993000000,
+        "updated": 1793993900000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ok00000004",
+        "tsunami": 0,
+        "sig": 80,
+        "status": "automatic",
+        "type": "earthquake",
+        "alert": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.7,
+          36.8,
+          5.0
+        ]
+      },
+      "id": "ok00000004"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 5.4,
+        "place": "off the coast of Oregon",
+        "time": 1793994000000,
+        "updated": 1793994900000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us00000005",
+        "tsunami": 0,
+        "sig": 449,
+        "status": "reviewed",
+        "type": "earthquake",
+        "alert": "green"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -126.5,
+          43.9,
+          10.0
+        ]
+      },
+      "id": "us00000005"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 2.46,
+        "place": "21 km ESE of Naalehu, Hawaii",
+        "time": 1794866228630,
+        "updated": 1794866800000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/hv75071182",
+        "tsunami": 0,
+        "sig": 93,
+        "status": "automatic",
+        "type": "earthquake",
+        "alert": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -155.376998901367,
+          19.0201663970947,
+          29.6000003814697
+        ]
+      },
+      "id": "hv75071182"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "mag": 4.6,
+        "place": "146 km SSE of Isangel, Vanuatu",
+        "time": 1794866158945,
+        "updated": 1794867000000,
+        "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000tyns",
+        "tsunami": 0,
+        "sig": 326,
+        "status": "reviewed",
+        "type": "earthquake",
+        "alert": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          169.818,
+          -20.7669,
+          119.853
+        ]
+      },
+      "id": "us7000tyns"
+    }
+  ],
+  "bbox": [
+    -179.9,
+    -62.5,
+    -3.4,
+    179.9,
+    71.4,
+    620.0
   ]
 }

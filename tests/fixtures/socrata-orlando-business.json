@@ -1,0 +1,35 @@
+[
+ {
+  "case_number": "BTR-2026-9001",
+  "business_name": "COLONIAL GRILL AND BAR",
+  "business_address": "800 N ORANGE AVE",
+  "license_type": "Business Tax Receipt",
+  "license_category": "RESTAU",
+  "license_status": "Active",
+  "business_open_date": "2026-11-03T00:00:00.000",
+  "business_owner_name": "PRIVATE OWNER",
+  "business_email": "x@example.com",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.3789,
+    28.553
+   ]
+  }
+ },
+ {
+  "case_number": "BTR-2026-9002",
+  "business_name": "SUMMIT CONSULTING GROUP",
+  "business_address": "200 S ORANGE AVE",
+  "license_type": "Business Tax Receipt",
+  "license_category": "PROFES",
+  "business_open_date": "2026-11-08T00:00:00.000",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.3792,
+    28.5384
+   ]
+  }
+ }
+]

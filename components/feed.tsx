@@ -32,9 +32,12 @@ type Filter = 'all' | 'ask' | 'signals';
 export function Feed({
   items: initial,
   cityPage,
+  firstRun = false,
 }: {
   items: FeedItem[];
   cityPage: { href: string; label: string } | null;
+  /** New account: the feed was filled from the last two weeks, so say so. */
+  firstRun?: boolean;
 }) {
   const [items, setItems] = useState(initial);
   const [filter, setFilter] = useState<Filter>('all');
@@ -100,6 +103,11 @@ export function Feed({
 
   return (
     <div>
+      {firstRun ? (
+        <p className="mb-4 text-muted">
+          Here is what the last two weeks looked like near you. New alerts arrive by email.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label="Filter matches" className="flex flex-wrap gap-2">
           {tabs.map((t) => (

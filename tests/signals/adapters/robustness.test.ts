@@ -36,6 +36,34 @@ describe('parsers never throw on malformed input', () => {
   });
 });
 
+describe('every adapter in this unit logs an error-like line on each failure mode', () => {
+  const ERROR_LIKE = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i; // same pattern as lib/signals/run.ts
+  const env = { SAM_API_KEY: 'k', TICKETMASTER_API_KEY: 'k', BRAVE_SEARCH_API_KEY: 'k', SERPER_API_KEY: 'k' };
+  const modes: [string, typeof fetch][] = [
+    ['network down', (async () => { throw new Error('network down'); }) as unknown as typeof fetch],
+    ['HTTP 500', (async () => new Response('oops', { status: 500 })) as unknown as typeof fetch],
+    ['HTTP 403', (async () => new Response('forbidden', { status: 403 })) as unknown as typeof fetch],
+    ['HTTP 429', (async () => new Response('slow down', { status: 429 })) as unknown as typeof fetch],
+    ['HTML with 200', (async () => new Response('<html>not json</html>', { status: 200 })) as unknown as typeof fetch],
+  ];
+  // The Serper adapter steps aside (quietly, on purpose) when a Brave key is present, so it is tested with only its own key.
+  const targets = [...usa, ...sam, ...tm, ...bsky, ...web.filter((a) => a.id !== 'websearch-serper')];
+  for (const [mode, f] of modes) {
+    it(`${mode}`, async () => {
+      for (const a of targets) {
+        const logs: string[] = [];
+        const out = await a.fetch({ since: new Date(), env, log: (m) => logs.push(m), fetch: f });
+        expect(out, a.id).toEqual([]);
+        expect(logs.some((l) => ERROR_LIKE.test(l)), `${a.id} (${mode}) logged: ${JSON.stringify(logs)}`).toBe(true);
+      }
+      const serper = web.find((a) => a.id === 'websearch-serper')!;
+      const logs: string[] = [];
+      await serper.fetch({ since: new Date(), env: { SERPER_API_KEY: 'k' }, log: (m) => logs.push(m), fetch: f });
+      expect(logs.some((l) => ERROR_LIKE.test(l)), `serper (${mode}) logged: ${JSON.stringify(logs)}`).toBe(true);
+    });
+  }
+});
+
 describe('every adapter honours the contract', () => {
   const all = [...socrata, ...usa, ...sam, ...tm, ...bsky, ...web];
   it('has unique ids, a sourceUrl, a cadence and a kind', () => {

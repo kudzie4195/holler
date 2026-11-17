@@ -1,12 +1,17 @@
 /**
- * Fixture provenance
- * - tests/fixtures/usaspending-awards.json: top-level shape (results[], page_metadata.hasNext, field names such as "Award ID",
- *   "Place of Performance State Code", "generated_internal_id") is SOURCED from
+ * Fixture provenance (re-checked 2026-11-17)
+ * - tests/fixtures/usaspending-awards.json: SOURCED. Top-level keys (spending_level, limit, results, page_metadata) and field names from
  *   https://github.com/fedspendingtransparency/usaspending-api/blob/master/usaspending_api/api_contracts/contracts/v2/search/spending_by_award.md.
- *   The nested shapes of "Primary Place of Performance" ({state_code, city_name}) and "NAICS" ({code, description}) are ASSUMED;
- *   the second fixture row uses a bare string NAICS to cover the other possibility.
- * - tests/fixtures/sam-opportunities.json: top-level keys and item field names are SOURCED from https://open.gsa.gov/api/get-opportunities-public-api/.
- *   placeOfPerformance.city/state as {code,name} objects and totalRecords are ASSUMED.
+ *   The nested shapes ARE now confirmed from the row builder in
+ *   https://github.com/fedspendingtransparency/usaspending-api/blob/master/usaspending_api/search/v2/views/spending_by_award.py:
+ *   NAICS = {code, description}; "Primary Place of Performance" = {location_country_code, country_name, state_code, state_name, city_name,
+ *   county_code, county_name, congressional_code, zip4, zip5}. The flat "Place of Performance ..." keys in the fixture follow the contract md but are NOT
+ *   row keys in that code path, so the parser reads the nested object first. The second row's bare-string NAICS is a tolerance case, not the real shape.
+ *   Request: date_type "last_modified_date" is a listed member in api_contracts/search_filters.md; naics_codes {require,exclude} in the same file;
+ *   2/4/6 digit NAICS only. No verbatim POST response was captured (WebFetch is GET only), values are invented.
+ * - tests/fixtures/sam-opportunities.json: SOURCED from https://open.gsa.gov/api/get-opportunities-public-api/ (fetched 2026-11-17): totalRecords, limit,
+ *   offset, opportunitiesData, item keys, placeOfPerformance.city {code,name} and state {code}, postedDate YYYY-MM-DD, naicsCode string, uiLink, description as a URL.
+ *   fullParentPathName is the shape of the docs' second example. Values are invented. ASSUMED: `offset` is a page index in production (the docs say "Page index").
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -133,5 +138,114 @@ describe('parseSam', () => {
     const none = await samAdapters[0].fetch({ since: new Date(), fetch: (async () => { throw new Error('should not be called'); }) as unknown as typeof fetch, env: {}, log: (m) => logs.push(m) });
     expect(none).toEqual([]);
     expect(logs[0]).toContain('SAM_API_KEY');
+  });
+});
+
+const ERROR_LIKE = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i; // same pattern as lib/signals/run.ts
+
+async function run(a: (typeof usaAdapters)[number], f: (url: string, init?: RequestInit) => Response | Promise<Response>, env: Record<string, string> = {}) {
+  const logs: string[] = [];
+  const urls: string[] = [];
+  const fetchImpl = (async (u: unknown, init?: RequestInit) => {
+    urls.push(String(u));
+    return f(String(u), init);
+  }) as unknown as typeof fetch;
+  const out = await a.fetch({ since: new Date('2026-11-16T00:00:00Z'), fetch: fetchImpl, env, log: (m) => logs.push(m) });
+  return { out, logs, urls };
+}
+const htmlPage = () => new Response('<html><body>Maintenance</body></html>', { status: 200 });
+
+describe('USAspending failure modes', () => {
+  it('parses the fixture with no error log', async () => {
+    const r = await run(usaAdapters[0], () => new Response(JSON.stringify(fx('usaspending-awards.json')), { status: 200 }));
+    expect(r.out).toHaveLength(3);
+    expect(r.logs).toEqual([]);
+  });
+  it('reads the zip from Primary Place of Performance.zip5 when the flat key is absent', () => {
+    const out = parseUsaSpending({ results: [{ generated_internal_id: 'CONT_X', Description: 'ROOF REPAIR', NAICS: { code: '238160' }, 'Primary Place of Performance': { state_code: 'GA', city_name: 'ATLANTA', zip5: '30303' } }] });
+    expect(out[0].zip).toBe('30303');
+  });
+  for (const status of [400, 401, 403, 422, 429, 500, 503]) {
+    it(`HTTP ${status} logs an error-like line and returns []`, async () => {
+      const r = await run(usaAdapters[0], () => new Response('{"detail":"bad"}', { status }));
+      expect(r.out).toEqual([]);
+      expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes(String(status)))).toBe(true);
+    });
+  }
+  it('an HTML page with 200 logs an error', async () => {
+    const r = await run(usaAdapters[0], htmlPage);
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('a changed wrapper key logs an error', async () => {
+    const r = await run(usaAdapters[0], () => new Response(JSON.stringify({ awards: [{ id: 1 }] }), { status: 200 }));
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => /no results array/.test(l) && ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('N rows and 0 parsed logs the silent-empty error', async () => {
+    const r = await run(usaAdapters[0], () => new Response(JSON.stringify({ results: [{ internal_id: 1 }, { internal_id: 2, 'Award ID': 'A' }] }), { status: 200 }));
+    expect(r.out).toEqual([]);
+    expect(r.logs).toContain('error: parsed 0 of 2 rows, shape may have changed');
+  });
+  it('an empty results array is a quiet day', async () => {
+    const r = await run(usaAdapters[0], () => new Response('{"results":[],"page_metadata":{"page":1,"hasNext":false}}', { status: 200 }));
+    expect(r.logs).toEqual([]);
+  });
+});
+
+describe('SAM failure modes and paging', () => {
+  const env = { SAM_API_KEY: 'k' };
+  it('parses the fixture with no error log', async () => {
+    const r = await run(samAdapters[0], () => new Response(JSON.stringify(fx('sam-opportunities.json')), { status: 200 }), env);
+    expect(r.out).toHaveLength(2);
+    expect(r.logs).toEqual([]);
+    expect(r.urls).toHaveLength(1); // totalRecords 3 fits in one page
+  });
+  for (const status of [400, 401, 403, 429, 500]) {
+    it(`HTTP ${status} logs an error-like line and returns []`, async () => {
+      const r = await run(samAdapters[0], () => new Response('{"message":"x"}', { status }), env);
+      expect(r.out).toEqual([]);
+      expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes(String(status)))).toBe(true);
+    });
+  }
+  it('404 "No Data found" is a quiet empty window, any other 404 is an error', async () => {
+    const quiet = await run(samAdapters[0], () => new Response('No Data found', { status: 404 }), env);
+    expect(quiet.logs).toEqual([]);
+    const bad = await run(samAdapters[0], () => new Response('Not Found', { status: 404 }), env);
+    expect(bad.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('an HTML page with 200 logs an error', async () => {
+    const r = await run(samAdapters[0], htmlPage, env);
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('a changed wrapper key logs an error', async () => {
+    const r = await run(samAdapters[0], () => new Response(JSON.stringify({ totalRecords: 5, opportunities: [{ noticeId: 'a' }] }), { status: 200 }), env);
+    expect(r.out).toEqual([]);
+    expect(r.logs.some((l) => /no opportunitiesData array/.test(l) && ERROR_LIKE.test(l))).toBe(true);
+  });
+  it('rows with no noticeId/title log the silent-empty error', async () => {
+    const r = await run(samAdapters[0], () => new Response(JSON.stringify({ totalRecords: 2, opportunitiesData: [{ id: 'a' }, { id: 'b' }] }), { status: 200 }), env);
+    expect(r.logs).toContain('error: parsed 0 of 2 rows, shape may have changed');
+  });
+  it('25 or more well-formed notices that all fall outside our trades is an error; a handful is quiet', async () => {
+    const mk = (n: number) => Array.from({ length: n }, (_, i) => ({ noticeId: `n${i}`, title: 'Software license renewal', type: 'Solicitation', naicsCode: '511210', postedDate: '2026-11-14', placeOfPerformance: { state: { code: 'VA' } } }));
+    const big = await run(samAdapters[0], () => new Response(JSON.stringify({ totalRecords: 30, opportunitiesData: mk(30) }), { status: 200 }), env);
+    expect(big.logs.some((l) => /parsed 0 of 30 rows/.test(l))).toBe(true);
+    const small = await run(samAdapters[0], () => new Response(JSON.stringify({ totalRecords: 3, opportunitiesData: mk(3) }), { status: 200 }), env);
+    expect(small.logs).toEqual([]);
+  });
+  it('offset is a page index: pages 0, 1, 2 for a 2500 record window, then stops', async () => {
+    const page = (n: number) => ({ totalRecords: 2500, limit: 1000, offset: n, opportunitiesData: [] });
+    let i = 0;
+    const r = await run(samAdapters[0], () => new Response(JSON.stringify(page(i++)), { status: 200 }), env);
+    expect(r.urls.map((u) => new URL(u).searchParams.get('offset'))).toEqual(['0', '1', '2']);
+  });
+  it('a 7 day window at most, MM/dd/yyyy, api_key param', () => {
+    const u = new URL(buildSamUrl('KEY', new Date('2026-10-01T00:00:00Z'), new Date('2026-11-16T00:00:00Z')));
+    expect(u.searchParams.get('api_key')).toBe('KEY');
+    expect(u.searchParams.get('postedFrom')).toBe('11/09/2026');
+    expect(u.searchParams.get('postedTo')).toBe('11/16/2026');
+    expect(u.searchParams.get('offset')).toBe('0');
   });
 });

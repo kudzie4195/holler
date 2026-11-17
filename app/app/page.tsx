@@ -72,12 +72,15 @@ async function loadDashboard() {
       : base;
   });
 
-  return { profile, access, cityPage, items, failed: Boolean(error) };
+  // Accounts under 3 days old were filled from the 14-day backfill at signup.
+  const firstRun = now - new Date(profile.created_at).getTime() < 3 * 86_400_000;
+
+  return { profile, access, cityPage, items, firstRun, failed: Boolean(error) };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, access, cityPage, items, failed } = await loadDashboard();
+  const { profile, access, cityPage, items, firstRun, failed } = await loadDashboard();
 
   return (
     <>
@@ -122,7 +125,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
             </Card>
           </LockedFeed>
         ) : (
-          <Feed items={items} cityPage={cityPage} />
+          <Feed items={items} cityPage={cityPage} firstRun={firstRun} />
         )}
       </div>
     </>

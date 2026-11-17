@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ButtonLink } from '@/components/button';
+import { CheckForm } from '@/components/check-form';
 import { Card } from '@/components/card';
 import { StaticChip } from '@/components/chip';
 import { ExampleAlerts } from '@/components/example-alert';
@@ -62,7 +63,7 @@ const trades = [
 ];
 
 const comparison = [
-  { label: 'Price', holler: '$5 a month', other: '$199 a month' },
+  { label: 'Price', holler: '$5 a month or $48 a year', other: '$199 a month' },
   { label: 'What it watches', holler: '10+ public sources: weather, permits, 311, events and more', other: 'One website' },
   { label: 'Posting', holler: 'Never posts for you, so there is nothing to get banned', other: 'Often sells upvotes and posts from bought accounts' },
   { label: 'Built for', holler: 'Roofers, plumbers, cleaners, food trucks, drivers', other: 'SaaS founders' },
@@ -79,7 +80,7 @@ const faqs = [
   },
   {
     q: 'Do I need a card to try it?',
-    a: 'No. You get 7 days free with no card. After that it is $5 a month. If you do not subscribe, your feed locks and your account stays put until you decide.',
+    a: 'No. You get 7 days free with no card. After that it is $5 a month or $48 a year. If you do not subscribe, your feed locks and your account stays put until you decide.',
   },
   {
     q: 'How fast are the alerts?',
@@ -119,15 +120,18 @@ export default function Home() {
               Holler watches storms, permits, 311 reports, events and neighbors asking for help, and when something nearby
               fits what you do, you get a short alert.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href="/signup" size="lg">
-                Start free for 7 days
+            <div className="mt-8">
+              <CheckForm idPrefix="hero" />
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <ButtonLink href="/signup" variant="secondary">
+                Start free trial
               </ButtonLink>
-              <ButtonLink href="/local" size="lg" variant="secondary">
+              <ButtonLink href="/local" variant="ghost">
                 See a city page
               </ButtonLink>
             </div>
-            <p className="mt-4 text-sm text-muted">No card to start. $5 a month after. Holler never posts for you.</p>
+            <p className="mt-4 text-sm text-muted">No card to start. $5 a month or $48 a year after. Holler never posts for you.</p>
           </div>
           <ExampleAlerts />
         </section>
@@ -214,6 +218,7 @@ export default function Home() {
                 <span className="font-mono text-6xl font-semibold tabular-nums tracking-tight text-ink">$5</span>
                 <span className="text-lg text-muted">a month</span>
               </p>
+              <p className="mt-1 text-lg text-muted">or $48 a year</p>
               <p className="mt-1 font-semibold text-accent-text">7-day free trial. No card to start.</p>
               <ul className="mt-6 flex flex-col gap-3 text-ink">
                 {[

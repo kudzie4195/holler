@@ -75,6 +75,8 @@ export interface PlaceCounts {
   ok: boolean;
   /** place_slug to number of signals in the last WINDOW_DAYS days */
   counts: Record<string, number>;
+  /** place_slug to ISO time of its newest signal (holler_place_counts.latest_at). Empty when the column is missing. */
+  latest: Record<string, string>;
   /** true when the row cap was hit, so counts are lower bounds */
   partial: boolean;
 }
@@ -91,23 +93,35 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
   const sb = publicClient();
   if (!sb) {
     cacheLife({ stale: 300, revalidate: 60, expire: 300 });
-    return { ok: false, counts: {}, partial: false };
+    return { ok: false, counts: {}, latest: {}, partial: false };
   }
   try {
-    const res = await sb
+    let res: { data: unknown; error: { message: string } | null } = await sb
       .from('holler_place_counts')
-      .select('place_slug, signals_60d')
+      .select('place_slug, signals_60d, latest_at')
       .range(0, VIEW_ROW_CAP - 1)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
+    if (res.error) {
+      // latest_at arrives with migration 0003. Until then, read the counts without it (no lastmod in the sitemap).
+      res = await sb
+        .from('holler_place_counts')
+        .select('place_slug, signals_60d')
+        .range(0, VIEW_ROW_CAP - 1)
+        .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
+    }
     if (res.error) throw new Error(res.error.message);
-    const rows = (res.data ?? []) as unknown as { place_slug: string; signals_60d: number }[];
+    const rows = (res.data ?? []) as unknown as { place_slug: string; signals_60d: number; latest_at?: string | null }[];
     const counts: Record<string, number> = {};
-    for (const r of rows) counts[r.place_slug] = r.signals_60d;
+    const latest: Record<string, string> = {};
+    for (const r of rows) {
+      counts[r.place_slug] = r.signals_60d;
+      if (r.latest_at && Number.isFinite(Date.parse(r.latest_at))) latest[r.place_slug] = r.latest_at;
+    }
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     // One row per place, so the cap is only hit if there are more than 1000 distinct places.
-    return { ok: true, counts, partial: rows.length >= VIEW_ROW_CAP };
+    return { ok: true, counts, latest, partial: rows.length >= VIEW_ROW_CAP };
   } catch {
     cacheLife({ stale: 300, revalidate: 60, expire: 300 });
-    return { ok: false, counts: {}, partial: false };
+    return { ok: false, counts: {}, latest: {}, partial: false };
   }
 }

@@ -1,0 +1,36 @@
+[
+ {
+  "uniqueid": "1234567-02-001",
+  "certificate_number": "1234567",
+  "ownership_name": "SAMPLE OWNER PERSON",
+  "dba_name": "Mission Taqueria",
+  "full_business_address": "2100 Mission St San Francisco CA 94110",
+  "city": "San Francisco",
+  "state": "CA",
+  "business_zip": "94110",
+  "dba_start_date": "2026-11-02T00:00:00.000",
+  "location_start_date": "2026-11-02T00:00:00.000",
+  "lic_code_description": "Food Service",
+  "lic_code_descriptions_list": "Food Service",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    "-122.4194",
+    "37.7599"
+   ]
+  }
+ },
+ {
+  "uniqueid": "1234568-02-001",
+  "ownership_name": "ANOTHER OWNER",
+  "dba_name": "Bayview Bookkeeping",
+  "full_business_address": "3rd St San Francisco CA 94124",
+  "business_zip": "94124",
+  "location_start_date": "2026-11-09T00:00:00.000",
+  "lic_code_description": "Professional Services",
+  "location": {
+   "latitude": "37.7300",
+   "longitude": "-122.3900"
+  }
+ }
+]

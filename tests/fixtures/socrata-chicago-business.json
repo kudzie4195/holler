@@ -1,0 +1,45 @@
+[
+ {
+  "id": "3011111-20261112",
+  "license_id": "3011111",
+  "doing_business_as_name": "WINDY CITY CAFE",
+  "address": "1840 W DIVISION ST",
+  "zip_code": "60622",
+  "license_description": "Retail Food Establishment",
+  "business_activity": "Retail sales of prepared food",
+  "application_type": "ISSUE",
+  "license_start_date": "2026-11-12T00:00:00.000",
+  "date_issued": "2026-11-12T00:00:00.000",
+  "license_status": "AAI",
+  "latitude": "41.9033",
+  "longitude": "-87.6741",
+  "legal_name": "PRIVATE OWNER NAME LLC"
+ },
+ {
+  "id": "3011112-20261113",
+  "license_id": "3011112",
+  "doing_business_as_name": "NORTH SIDE PRINT AND SHIP",
+  "address": "3300 N LINCOLN AVE",
+  "zip_code": "60657",
+  "license_description": "Limited Business License",
+  "business_activity": "Shipping and printing services",
+  "application_type": "ISSUE",
+  "date_issued": "2026-11-13T00:00:00.000",
+  "license_status": "AAI",
+  "latitude": "41.9427",
+  "longitude": "-87.6753",
+  "legal_name": "JANE Q SAMPLE"
+ },
+ {
+  "id": "3011113-20261113",
+  "doing_business_as_name": "",
+  "address": "500 W MADISON ST",
+  "zip_code": "60661",
+  "license_description": "Regulated Business License",
+  "business_activity": "Tattooing",
+  "application_type": "ISSUE",
+  "date_issued": "2026-11-13T00:00:00.000",
+  "latitude": "41.8819",
+  "longitude": "-87.6402"
+ }
+]

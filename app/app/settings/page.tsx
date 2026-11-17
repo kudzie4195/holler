@@ -8,6 +8,7 @@ import { ProfileForm } from '@/components/profile-form';
 import { computeAccess } from '@/lib/auth/access';
 import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
+import { ANNUAL_SAVINGS_PERCENT } from '@/lib/stripe/plans';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { saveSettings } from './actions';
 
@@ -32,7 +33,7 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
+            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group }))}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,
@@ -91,7 +92,7 @@ function BillingBlock({
     return (
       <div className="flex flex-col gap-4">
         <p>
-          <strong className="font-semibold">Active.</strong> <span className="font-mono tabular-nums">$5</span> a month. Change your card or cancel any time.
+          <strong className="font-semibold">Active.</strong> Change your card or cancel any time.
         </p>
         <BillingButton endpoint="/api/stripe/portal" variant="secondary">
           Manage billing
@@ -119,11 +120,20 @@ function BillingBlock({
   return (
     <div className="flex flex-col gap-4">
       <p>
-        <strong className="font-semibold">{headline}</strong> Keep alerts for <span className="font-mono tabular-nums">$5</span> a month.
-        Cancel any time.
+        <strong className="font-semibold">{headline}</strong> Keep alerts for <span className="font-mono tabular-nums">$5</span> a month,
+        or <span className="font-mono tabular-nums">$48</span> a year (save {ANNUAL_SAVINGS_PERCENT}%). Cancel any time.
       </p>
       {unavailable}
-      {stripeReady ? <BillingButton endpoint="/api/stripe/checkout">Subscribe for $5/mo</BillingButton> : null}
+      {stripeReady ? (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <BillingButton endpoint="/api/stripe/checkout" plan="monthly">
+            Subscribe for $5/mo
+          </BillingButton>
+          <BillingButton endpoint="/api/stripe/checkout" plan="annual" variant="secondary">
+            Pay $48/year, save {ANNUAL_SAVINGS_PERCENT}%
+          </BillingButton>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,35 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "permit_number": "COM-UPF-25-000303",
+    "issue_date": 1793854800000,
+    "description": "Commercial Upfit Interior Completion Permit related records:  - COM-MEC-25-003482 - COM-ELC-25-006848 - COM-PLM-25-001654",
+    "type_of_work": "Upfit",
+    "permit_type": "Commercial Upfit",
+    "description_of_work": "Upfit HVAC and electrical for restaurant",
+    "project_address": "100 N Tryon St",
+    "zip_code": "28202",
+    "owner_name": "PRIVATE OWNER"
+   },
+   "geometry": {
+    "x": -80.82484261355431,
+    "y": 35.199946106195
+   }
+  },
+  {
+   "attributes": {
+    "permit_number": "COM-NEW-25-000090",
+    "issue_date": 1793595600000,
+    "description": "Commercial New Construction Permit related records:  - COM-MEC-25-003488",
+    "type_of_work": "New",
+    "permit_type": "Commercial New Construction",
+    "project_address": "9000 Example Pkwy"
+   },
+   "geometry": {
+    "x": -80.8363868899405,
+    "y": 35.44060695682921
+   }
+  }
+ ]
+}

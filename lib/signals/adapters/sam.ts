@@ -5,13 +5,20 @@ import { findCity, naicsToCategories, normalizeState } from './usaspending';
 
 /**
  * SAM.gov Get Opportunities Public API v2.
- * Docs (sourced): https://open.gsa.gov/api/get-opportunities-public-api/
+ * Docs (confirmed 2026-11-17 by fetching https://open.gsa.gov/api/get-opportunities-public-api/):
  *  - GET https://api.sam.gov/opportunities/v2/search?api_key=...&postedFrom=MM/dd/yyyy&postedTo=MM/dd/yyyy&limit=<=1000&offset=0
- *  - optional ncode (<=6 digits), state, ptype; response opportunitiesData[] with noticeId, title, solicitationNumber, postedDate, type,
- *    naicsCode, placeOfPerformance{city,state,zip,country}, uiLink, responseDeadLine, description, fullParentPathName, active
- * Assumed: placeOfPerformance.city / .state are objects {code,name} in live responses; the parser accepts plain strings too.
- * Assumed: the "reponseDeadLine" typo in the request table is request-side only; response key read as responseDeadLine.
- * Rate limit note: SAM keys without a federal role are limited per day, so this adapter makes at most 3 calls per run and runs twice a day.
+ *    postedFrom/postedTo are mandatory and at most 1 year apart; `offset` is documented as "Page index" (default 0), so page N is offset=N;
+ *    optional ncode (<=6 digits), state, ptype (u,p,a,r,s,o,g,k,i).
+ *  - response: totalRecords, limit, offset, opportunitiesData[], links[]. Item keys: noticeId, title, solicitationNumber, department, subTier,
+ *    office, postedDate (YYYY-MM-DD), type, baseType, archiveType, archiveDate, typeOfSetAsideDescription, typeOfSetAside, responseDeadLine,
+ *    naicsCode (string or null), classificationCode, active, award, pointOfContact, description (a URL, not text), organizationType,
+ *    officeAddress{zipcode,city (string),countryCode,state (string)}, placeOfPerformance{city{code,name},state{code},country{code},streetAddress,zip}
+ *    (null when absent), additionalInfoLink, uiLink, links. A second documented example uses fullParentPathName/fullParentPathCode/resourceLinks instead.
+ *  - errors: 400 (bad dates/limit), 401, 403 (invalid or missing api_key), 404 "No Data found", 500. 429 is not documented.
+ *  - daily quota by role (sharedcontext.ai/skills/external/1102tools/sam-gov-api): 10 per day without a SAM role, 1,000 with one. This adapter
+ *    makes at most 3 calls per run and runs twice a day, so a key with no role (10/day) is enough; a role is not needed.
+ * Not confirmed: whether `offset` really is a page index in production (the docs say so; one third-party note calls it a record skip for another SAM API).
+ * The "reponseDeadLine" typo in the request table is request-side only; the response key is read as responseDeadLine, with the typo as a fallback.
  */
 
 const ENDPOINT = 'https://api.sam.gov/opportunities/v2/search';
@@ -104,16 +111,26 @@ function mdY(d: Date): string {
   return `${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()}`;
 }
 
-export function buildSamUrl(apiKey: string, since: Date, now: Date, offset = 0): string {
+/** `page` is the zero-based page index: the docs define `offset` as a page index, not a record offset. */
+export function buildSamUrl(apiKey: string, since: Date, now: Date, page = 0): string {
   const from = new Date(Math.max(since.getTime(), now.getTime() - 7 * 86_400_000));
   const p = new URLSearchParams({
     api_key: apiKey,
     postedFrom: mdY(from),
     postedTo: mdY(now),
     limit: String(PAGE),
-    offset: String(offset),
+    offset: String(page),
   });
   return `${ENDPOINT}?${p.toString()}`;
+}
+
+/** Structural counts for the silent-empty check: notices that carry an id and a title. */
+export function samRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const data = isObj(raw) ? raw.opportunitiesData : null;
+  if (!Array.isArray(data)) return null;
+  let usable = 0;
+  for (const it of data) if (isObj(it) && str(it.noticeId) && str(it.title)) usable++;
+  return { rows: data.length, usable };
 }
 
 const sam: Adapter = {
@@ -133,21 +150,43 @@ const sam: Adapter = {
     try {
       const now = new Date();
       for (let page = 0; page < MAX_PAGES; page++) {
-        const res = await ctx.fetch(buildSamUrl(key, ctx.since, now, page * PAGE), {
+        const res = await ctx.fetch(buildSamUrl(key, ctx.since, now, page), {
           headers: { Accept: 'application/json', 'User-Agent': UA },
           signal: AbortSignal.timeout(15000),
         });
+        const text = await res.text();
         if (!res.ok) {
-          ctx.log(`sam-gov: HTTP ${res.status}`);
+          // The docs list 404 "No Data found" for an empty window: that is a quiet day, not a failure.
+          if (res.status === 404 && /no data found/i.test(text)) break;
+          const hint = res.status === 401 || res.status === 403 ? ' (api_key invalid, missing or not allowed)' : res.status === 429 ? ' (daily request quota exhausted)' : '';
+          const detail = /^\s*</.test(text) ? '' : ` ${text.replace(/\s+/g, ' ').slice(0, 120)}`;
+          ctx.log(`error: sam-gov HTTP ${res.status}${hint}${detail}`);
           break;
         }
-        const json = (await res.json()) as Obj;
-        all.push(...parseSam(json));
+        let json: Obj;
+        try {
+          json = JSON.parse(text) as Obj;
+        } catch {
+          ctx.log(`error: sam-gov ${/^\s*</.test(text) ? 'returned an HTML page instead of JSON' : 'returned non-JSON text'}`);
+          break;
+        }
+        const stats = samRowStats(json);
+        if (!stats) {
+          const keys = isObj(json) ? Object.keys(json).slice(0, 8).join(',') : typeof json;
+          ctx.log(`error: sam-gov response has no opportunitiesData array, wrapper may have changed (top-level keys: ${keys})`);
+          break;
+        }
+        const parsed = parseSam(json);
+        // Most notices are outside our trades, so a small page may legitimately parse to nothing; a large page cannot.
+        if (stats.rows > 0 && (stats.usable === 0 || (stats.rows >= 25 && parsed.length === 0))) {
+          ctx.log(`error: parsed 0 of ${stats.rows} rows, shape may have changed`);
+        }
+        all.push(...parsed);
         const total = Number(json?.totalRecords);
         if (!Number.isFinite(total) || (page + 1) * PAGE >= total) break;
       }
     } catch (e) {
-      ctx.log(`sam-gov: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.log(`error: sam-gov ${e instanceof Error ? e.message : String(e)}`);
     }
     return all;
   },

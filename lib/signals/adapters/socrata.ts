@@ -108,7 +108,7 @@ export function toIso(v: unknown, tz?: string): string | null {
   return new Date(guess).toISOString();
 }
 
-export function categorize(ds: SocrataDataset, text: string): { categories: CategoryId[]; severity: Severity } {
+export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): { categories: CategoryId[]; severity: Severity } {
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
   for (const rule of RULES_BY_SUBTYPE[ds.subtype]) {
@@ -117,57 +117,93 @@ export function categorize(ds: SocrataDataset, text: string): { categories: Cate
       if (rule.severity && rule.severity > severity) severity = rule.severity;
     }
   }
-  classifyText(text).forEach((c) => set.add(c));
+  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone.
+  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit') classifyText(text).forEach((c) => set.add(c));
   return { categories: [...set], severity };
 }
 
+export interface ParseReport {
+  items: SignalInput[];
+  /** raw rows received */
+  rows: number;
+  /** rows that had an id, a parseable date and at least one non-empty text field: the shape the config expects */
+  shapeOk: number;
+}
+
+function externalIdFor(row: Row, ds: SocrataDataset): string {
+  if (ds.idFields?.length) {
+    const parts = ds.idFields.map((f) => s(row, f));
+    return parts.every(Boolean) ? parts.join(':') : '';
+  }
+  return s(row, ds.idField);
+}
+
+function buildTitle(ds: SocrataDataset, row: Row, titleBits: string[], summaryBits: string[], address: string): string {
+  switch (ds.subtype) {
+    case 'permit':
+      return `New permit in ${ds.city}: ${trunc(titleBits[0] ?? 'building permit', 110)}`;
+    case '311': {
+      const uniq = [...new Set(titleBits.map((b) => b.toLowerCase()))].map(
+        (l) => titleBits.find((b) => b.toLowerCase() === l) as string,
+      );
+      return `311 request in ${ds.city}: ${trunc(uniq.join(' / ') || 'service request', 110)}`;
+    }
+    case 'business':
+      return titleBits[0]
+        ? `New business in ${ds.city}: ${trunc(titleBits[0], 100)}`
+        : `New business license in ${ds.city}: ${trunc(summaryBits[0] ?? 'business', 100)}`;
+    case 'violation':
+      return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? 'property violation', 110)}`;
+    case 'event-permit':
+      return `Permitted event in ${ds.city}: ${trunc(titleBits[0] ?? 'special event', 80)}${address ? ` at ${trunc(address, 60)}` : ''}`;
+    default:
+      return `Failed inspection in ${ds.city}: ${trunc(s(row, ds.nameField) || 'food establishment', 100)}`;
+  }
+}
+
 /**
- * Pure parser. Rows with no matching trade are dropped (a permit for a sign or a 311 pothole is noise
+ * Pure parser with counts. Rows with no matching trade are dropped (a permit for a doghouse or a 311 pothole is noise
  * for local trades). Inspections are kept only when the dataset's failure rule says so.
- * Never throws: malformed input returns [].
+ * `shapeOk` counts rows that look like the configured shape before any trade filtering, so the adapter can tell
+ * "columns changed" (shapeOk 0) from "nothing relevant today". Never throws: malformed input returns an empty report.
  */
-export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
-  if (!Array.isArray(raw)) return [];
-  const out: SignalInput[] = [];
+export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseReport {
+  const report: ParseReport = { items: [], rows: 0, shapeOk: 0 };
+  if (!Array.isArray(raw)) return report;
+  report.rows = raw.length;
+  const out = report.items;
   const seen = new Set<string>();
   for (const item of raw) {
     try {
       if (!item || typeof item !== 'object') continue;
       const row = item as Row;
       const occurredAt = toIso(row[ds.dateField], ds.tz);
-      const rawId = s(row, ds.idField);
-      if (!occurredAt || !rawId) continue;
+      const rawId = externalIdFor(row, ds);
+      const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
+      if (!occurredAt || !rawId || !text) continue;
+      report.shapeOk += 1;
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       const externalId = ds.subtype === 'inspection' ? `${rawId}:${s(row, ds.dateField).slice(0, 10)}` : rawId;
       if (seen.has(externalId)) continue;
 
-      const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
       const { categories, severity } = categorize(ds, text);
       if (categories.length === 0) continue;
 
       const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
-      let title: string;
-      if (ds.subtype === 'permit') {
-        title = `New permit in ${ds.city}: ${trunc(titleBits[0] ?? 'building permit', 110)}`;
-      } else if (ds.subtype === '311') {
-        const uniq = [...new Set(titleBits.map((b) => b.toLowerCase()))].map(
-          (l) => titleBits.find((b) => b.toLowerCase() === l) as string,
-        );
-        title = `311 request in ${ds.city}: ${trunc(uniq.join(' / ') || 'service request', 110)}`;
-      } else {
-        title = `Failed inspection in ${ds.city}: ${trunc(s(row, ds.nameField) || 'food establishment', 100)}`;
-      }
-
       const address = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       const summaryBits = ds.summaryFields.map((f) => s(row, f)).filter(Boolean);
-      // 311 summaries leave the street address out; permits and inspections are business/property records.
+      const title = buildTitle(ds, row, titleBits, summaryBits, address);
+
+      // 311 summaries leave the street address out; permits, inspections, businesses, violations and events are
+      // business/property records. Only the configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
       const summary = trunc(summaryParts.join(' | '), 280) || null;
 
       const pos = extractLatLon(row, ds);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
+      const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       seen.add(externalId);
       out.push({
         source: ds.id,
@@ -184,6 +220,7 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
         categories,
         severity,
         occurredAt,
+        ...(expiresAt ? { expiresAt } : {}),
         data: {
           dataset: ds.datasetId,
           domain: ds.domain,
@@ -195,7 +232,11 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
       // skip malformed row
     }
   }
-  return out;
+  return report;
+}
+
+export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
+  return parseSocrataReport(raw, ds).items;
 }
 
 /**
@@ -207,6 +248,10 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   const from = new Date(now.getTime() - lookbackDays(ds) * 86_400_000);
   const sinceStr = toFloatingLocal(from, ds.tz);
   const clauses = [`${ds.dateField} > '${sinceStr}'`];
+  if (ds.windowForwardDays != null) {
+    const to = new Date(now.getTime() + ds.windowForwardDays * 86_400_000);
+    clauses.push(`${ds.dateField} <= '${toFloatingLocal(to, ds.tz)}'`);
+  }
   if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
   if (ds.subtype === '311' && ds.typeFilterField) {
     const ors = CIVIC_TYPE_KEYWORDS.map((k) => `upper(${ds.typeFilterField}) like '%${k}%'`);
@@ -219,13 +264,17 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   return p;
 }
 
+const LABEL_SUFFIX: Record<SocrataDataset['subtype'], string> = {
+  permit: 'building permits',
+  '311': '311 requests',
+  inspection: 'food inspections',
+  business: 'new business licenses',
+  violation: 'code violations',
+  'event-permit': 'special event permits',
+};
+
 export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
-  const label =
-    ds.subtype === 'permit'
-      ? `${ds.city} open data: building permits`
-      : ds.subtype === '311'
-        ? `${ds.city} open data: 311 requests`
-        : `${ds.city} open data: food inspections`;
+  const label = `${ds.city} open data: ${LABEL_SUFFIX[ds.subtype]}`;
   return {
     id: ds.id,
     label,
@@ -243,7 +292,21 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
           ctx.log(`${ds.id}: HTTP ${res.status}`);
           return [];
         }
-        return parseSocrata(await res.json(), ds);
+        const body: unknown = await res.json();
+        if (!Array.isArray(body)) {
+          ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
+          return [];
+        }
+        const report = parseSocrataReport(body, ds);
+        if (report.rows > 0 && report.items.length === 0) {
+          if (report.shapeOk === 0) {
+            ctx.log(`error: parsed 0 of ${report.rows} rows, shape may have changed (${ds.id})`);
+          } else {
+            // Rows look right but none map to a trade (or none failed): a quiet window, not a broken source.
+            ctx.log(`${ds.id}: ${report.rows} rows, 0 matched a trade`);
+          }
+        }
+        return report.items;
       } catch (e) {
         ctx.log(`${ds.id}: ${e instanceof Error ? e.message : String(e)}`);
         return [];

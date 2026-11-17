@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DocPage, DocSection } from '@/components/doc-page';
+import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Privacy',
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  const support = env.SUPPORT_EMAIL?.trim();
   return (
     <DocPage
       title="Privacy"
@@ -60,7 +62,16 @@ export default function PrivacyPage() {
             subscription. Stripe may keep payment records for as long as the law requires.
           </li>
         </ul>
-        <p>If you have a question about your data, reply to any email from Holler.</p>
+        <p>
+          If you have a question about your data,{' '}
+          {support ? (
+            <>
+              write to <a href={`mailto:${support}`}>{support}</a>.
+            </>
+          ) : (
+            'use the contact link in any Holler email.'
+          )}
+        </p>
       </DocSection>
 
       <DocSection title="Changes">

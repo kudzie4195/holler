@@ -20,9 +20,9 @@ const ds = (id: string): SocrataDataset => {
 };
 
 describe('socrata parsers on fixtures', () => {
-  it('Chicago permits: roof, electrical and new construction map to trades; sign permit is dropped', () => {
+  it('Chicago permits: roof, electrical and new construction map to trades; sign permit maps to signs-printing', () => {
     const out = parseSocrata(fx('socrata-chicago-permits.json'), ds('socrata-chicago-permits'));
-    expect(out).toHaveLength(3);
+    expect(out).toHaveLength(4);
     const roof = out.find((s) => s.externalId === '101234567')!;
     expect(roof.kind).toBe('permit');
     expect(roof.categories).toContain('roofing');
@@ -35,7 +35,7 @@ describe('socrata parsers on fixtures', () => {
     expect(out.find((s) => s.externalId === '101234568')!.categories).toContain('electrical');
     const nc = out.find((s) => s.externalId === '101234569')!;
     expect(nc.categories).toEqual(expect.arrayContaining(['general-contractor', 'landscaping', 'cleaning']));
-    expect(out.find((s) => s.externalId === '101234570')).toBeUndefined();
+    expect(out.find((s) => s.externalId === '101234570')!.categories).toEqual(['signs-printing']);
   });
 
   it('Chicago 311: rodent -> pest-control, graffiti -> painting+cleaning, tree -> tree-service, pothole dropped', () => {
@@ -139,8 +139,17 @@ describe('socrata category rules', () => {
       expect(categorize(d, text).categories).toEqual(expect.arrayContaining(expected as never[]));
     });
   }
-  it('"sign" permit text gets no category', () => {
-    expect(categorize(permit, 'PERMIT - SIGNS install illuminated wall sign').categories).toEqual([]);
+  it('"sign" permit text now maps to signs-printing only', () => {
+    expect(categorize(permit, 'PERMIT - SIGNS install illuminated wall sign').categories).toEqual(['signs-printing']);
+  });
+  it('new trade keywords', () => {
+    const t = (x: string) => categorize(permit, x).categories;
+    expect(t('Install 6 ft fence')).toContain('fencing');
+    expect(t('Replace driveway and sidewalk')).toContain('concrete-paving');
+    expect(t('Replace windows and entry door')).toContain('windows-doors');
+    expect(t('New vinyl siding and gutters')).toContain('siding-gutters');
+    expect(t('Install hardwood flooring')).toContain('flooring');
+    expect(t('Interior renovation 6th floor office')).not.toContain('flooring');
   });
 });
 

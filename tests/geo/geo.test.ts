@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CITIES, STATES, citiesInState, cityBySlug, haversineMi, lookupZip, nearbyCities, nearestCity, stateBySlug } from '../../lib/geo';
 import { INDEX_MIN_SIGNALS, isIndexable } from '../../lib/seo/threshold';
-import { selectIndexableCities, FALLBACK_CITY_COUNT } from '../../lib/seo/select';
+import { selectIndexableCities } from '../../lib/seo/select';
 import { summarize, type SignalRowDb } from '../../lib/seo/summarize';
 import { buildIntro, buildHelps, buildFaq } from '../../lib/seo/view';
 import { sectionFor } from '../../lib/seo/sections';
@@ -92,11 +92,10 @@ describe('index threshold', () => {
 });
 
 describe('sitemap selection', () => {
-  it('falls back to the top 200 cities when counts are unavailable', () => {
+  it('lists no city pages when counts are unavailable (they would render noindex)', () => {
     const r = selectIndexableCities({ ok: false, counts: {} });
     expect(r.usedFallback).toBe(true);
-    expect(r.slugs).toHaveLength(FALLBACK_CITY_COUNT);
-    expect(r.slugs[0]).toBe(CITIES[0].slug);
+    expect(r.slugs).toEqual([]);
   });
   it('keeps only cities at or above the threshold when counts exist', () => {
     const r = selectIndexableCities({ ok: true, counts: { 'atlanta-ga': 5, 'dallas-tx': 4 } });

@@ -1,4 +1,4 @@
-const keys = [
+export const ENV_KEYS = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -14,9 +14,13 @@ const keys = [
   'SAM_API_KEY',
   'TICKETMASTER_API_KEY',
   'SOCRATA_APP_TOKEN',
+  'SUPPORT_EMAIL',
+  'ADMIN_EMAIL',
+  'BLUESKY_HANDLE',
+  'BLUESKY_APP_PASSWORD',
 ] as const;
 
-export type EnvKey = (typeof keys)[number];
+export type EnvKey = (typeof ENV_KEYS)[number];
 
 // NEXT_PUBLIC_* must be referenced literally so Next can inline them in client bundles.
 export const env: Record<EnvKey, string | undefined> = {
@@ -35,6 +39,10 @@ export const env: Record<EnvKey, string | undefined> = {
   SAM_API_KEY: process.env.SAM_API_KEY,
   TICKETMASTER_API_KEY: process.env.TICKETMASTER_API_KEY,
   SOCRATA_APP_TOKEN: process.env.SOCRATA_APP_TOKEN,
+  SUPPORT_EMAIL: process.env.SUPPORT_EMAIL,
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+  BLUESKY_HANDLE: process.env.BLUESKY_HANDLE,
+  BLUESKY_APP_PASSWORD: process.env.BLUESKY_APP_PASSWORD,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

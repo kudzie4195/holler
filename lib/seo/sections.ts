@@ -5,6 +5,8 @@ export type SectionId =
   | 'permits'
   | 'requests311'
   | 'inspections'
+  | 'business'
+  | 'violations'
   | 'contracts'
   | 'events'
   | 'airport'
@@ -26,8 +28,10 @@ export const SECTIONS: SectionDef[] = [
   { id: 'permits', title: 'Building permits', noun: ['building permit', 'building permits'], blurb: 'Permits filed with the city or county.' },
   { id: 'requests311', title: '311 requests', noun: ['311 request', '311 requests'], blurb: 'Service requests and complaints residents sent to the city.' },
   { id: 'inspections', title: 'Inspections', noun: ['inspection record', 'inspection records'], blurb: 'Health and safety inspection results published by the city.' },
+  { id: 'business', title: 'New businesses', noun: ['new business license', 'new business licenses'], blurb: 'Business licenses newly issued or registered with the city. New shops and offices tend to need a lot of services.' },
+  { id: 'violations', title: 'Code violations', noun: ['code violation', 'code violations'], blurb: 'Building and property code violations cited by the city. Each one usually means a repair is due.' },
   { id: 'contracts', title: 'Federal contracts', noun: ['federal contract', 'federal contracts'], blurb: 'Contract awards and opportunities with a local place of performance.' },
-  { id: 'events', title: 'Big events', noun: ['big event', 'big events'], blurb: 'Large events that bring crowds to town.' },
+  { id: 'events', title: 'Big events', noun: ['big event', 'big events'], blurb: 'Large ticketed events and city event permits that bring crowds to town.' },
   { id: 'airport', title: 'Airport status', noun: ['airport status notice', 'airport status notices'], blurb: 'Delays and ground stops at nearby airports.' },
   { id: 'asks', title: 'People asking for local help', noun: ['public post asking for a recommendation', 'public posts asking for a recommendation'], blurb: 'Public posts where someone asked for a local recommendation. Titles only, with a link to the original.' },
 ];
@@ -40,8 +44,9 @@ const INSPECTION_RE = /inspect|health dep|restaurant|food service|sanitation/i;
 
 /**
  * Which section a signal belongs to. Kinds map one to one except 'civic', which holds both
- * 311 requests and inspections. The Socrata adapter sets `data.subtype` ('permit' | '311' |
- * 'inspection'); that is used when present. The keyword regex on source id and title is only a
+ * 311 requests, inspections, new businesses and code violations. The Socrata/ArcGIS adapters set
+ * `data.subtype` ('permit' | '311' | 'inspection' | 'business' | 'violation' | 'event-permit'); that is used when present.
+ * Events (kind 'event') stay in one section whether they are 'event-permit' or ticketed. The keyword regex on source id and title is only a
  * fallback for rows written before the subtype existed.
  */
 export function sectionFor(kind: string, source: string, title: string, subtype?: string | null): SectionId | null {
@@ -57,6 +62,8 @@ export function sectionFor(kind: string, source: string, title: string, subtype?
       return 'permits';
     case 'civic':
       if (subtype === 'inspection') return 'inspections';
+      if (subtype === 'business') return 'business';
+      if (subtype === 'violation') return 'violations';
       if (subtype === '311') return 'requests311';
       return INSPECTION_RE.test(`${source} ${title}`) ? 'inspections' : 'requests311';
     case 'contract':

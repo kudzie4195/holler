@@ -1,0 +1,30 @@
+[
+ {
+  "id": "501",
+  "permit_type": "Roof",
+  "status": "Issued",
+  "full_address": "10 Sample St, Cambridge, MA",
+  "applicant_submit_date": "2026-11-04T00:00:00.000",
+  "issue_date": "2026-11-12T00:00:00.000",
+  "latitude": "42.3736",
+  "longitude": "-71.1097"
+ },
+ {
+  "id": "502",
+  "permit_type": "Electrical",
+  "status": "Issued",
+  "full_address": "20 Example Ave",
+  "issue_date": "2026-11-12T00:00:00.000",
+  "latitude": "42.3800",
+  "longitude": "-71.1200"
+ },
+ {
+  "id": "503",
+  "permit_type": "Food Establishment",
+  "status": "Issued",
+  "full_address": "30 Other Rd",
+  "issue_date": "2026-11-12T00:00:00.000",
+  "latitude": "42.3700",
+  "longitude": "-71.1100"
+ }
+]

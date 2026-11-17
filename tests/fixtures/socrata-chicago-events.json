@@ -1,0 +1,21 @@
+[
+ {
+  "requestor_": "PRIVATE REQUESTOR",
+  "organization": "PRIVATE ORG",
+  "park_number": "1042",
+  "park_facility_name": "Humboldt Park",
+  "reservation_start_date": "2026-11-21T00:00:00.000",
+  "reservation_end_date": "2026-11-21T00:00:00.000",
+  "event_type": "Permit - Event 1 Cluster 3",
+  "event_description": "Community gathering",
+  "permit_status": "Approved"
+ },
+ {
+  "park_number": "1043",
+  "park_facility_name": "Garfield Park Conservatory",
+  "reservation_start_date": "2026-11-28T00:00:00.000",
+  "reservation_end_date": "2026-11-28T00:00:00.000",
+  "event_type": "Venue Rental - Wedding",
+  "permit_status": "Approved"
+ }
+]

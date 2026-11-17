@@ -21,16 +21,17 @@ export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
 export interface SourceResult {
   id: string;
   status: SourceStatus;
+  /** raw rows the adapter returned */
   fetched: number;
-  /** signals that passed validation */
-  valid: number;
+  /** rows that passed validation (fetched minus malformed and duplicate rows) */
+  parsed: number;
   inserted: number;
   matched: number;
   /** up to three titles, for the live probe */
   samples: string[];
   logs: string[];
   error?: string;
-  /** dry probes only: newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
+  /** newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
   latestOccurredAt?: string | null;
   missingEnv?: string[];
   ms: number;
@@ -131,6 +132,17 @@ export function placeSlugFor(s: SignalInput): string | null {
 
 const ERROR_LOG = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i;
 
+class TimeoutError extends Error {
+  constructor() {
+    super('timeout');
+    this.name = 'TimeoutError';
+  }
+}
+
+function latestOf(signals: SignalInput[]): string | null {
+  return signals.reduce<string | null>((m, s) => (m === null || s.occurredAt > m ? s.occurredAt : m), null);
+}
+
 interface Fetched {
   adapter: Adapter;
   result: SourceResult;
@@ -142,20 +154,24 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
-  const result: SourceResult = { id: adapter.id, status: 'ok', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs, ms: 0 };
+  const result: SourceResult = { id: adapter.id, status: 'ok', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs, latestOccurredAt: null, ms: 0 };
   let signals: SignalInput[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
       adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`adapter timeout after ${timeoutMs} ms`)), timeoutMs);
+        timer = setTimeout(() => {
+          logs.push(`adapter timeout after ${timeoutMs} ms`);
+          reject(new TimeoutError());
+        }, timeoutMs);
       }),
     ]);
     const list = Array.isArray(raw) ? raw : [];
     result.fetched = list.length;
     signals = normalizeSignals(adapter, list);
-    result.valid = signals.length;
+    result.parsed = signals.length;
+    result.latestOccurredAt = latestOf(signals);
     result.samples = signals.slice(0, 3).map((s) => s.title);
     // Adapters swallow errors and return []: an empty result with an error-looking log is a broken source, not a quiet day.
     if (list.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
@@ -164,7 +180,8 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
     }
   } catch (e) {
     result.status = 'error';
-    result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+    // A timeout is recorded as exactly "timeout" so the health email and dashboards can group on it.
+    result.error = e instanceof TimeoutError ? 'timeout' : (e instanceof Error ? e.message : String(e)).slice(0, 500);
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -207,9 +224,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   for (const a of selected) {
     const missing = missingEnvFor(a);
     if (missing.length) {
-      report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
+      report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
     } else if (!dry && !opts.source && !isDue(a, lastRuns[a.id], now.getTime())) {
-      report.sources.push({ id: a.id, status: 'skipped(cadence)', fetched: 0, valid: 0, inserted: 0, matched: 0, samples: [], logs: [], ms: 0 });
+      report.sources.push({ id: a.id, status: 'skipped(cadence)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [], ms: 0 });
     } else due.push(a);
   }
 
@@ -222,10 +239,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   );
 
   if (dry || !db) {
-    for (const f of fetched) {
-      f.result.latestOccurredAt = f.signals.reduce<string | null>((m, s) => (m === null || s.occurredAt > m ? s.occurredAt : m), null);
-      report.sources.push(f.result);
-    }
+    for (const f of fetched) report.sources.push(f.result);
   } else {
     // Phase 1: persist new signals per source.
     const storedAll: StoredSignal[] = [];
@@ -247,7 +261,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     // Phase 2: match all new signals at once so the per-user cap applies per scan.
     if (storedAll.length) {
       try {
-        const profiles = await loadProfiles(db);
+        const profiles = await loadProfiles(db, now);
         const rows: MatchRow[] = matchSignals(storedAll, profiles);
         await insertMatches(db, rows);
         const sourceById = new Map(storedAll.map((s) => [s.id, s.source]));
@@ -258,7 +272,15 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         }
         for (const f of fetched) f.result.matched = bySource.get(f.adapter.id) ?? 0;
       } catch (e) {
-        report.error = `matching failed: ${e instanceof Error ? e.message : String(e)}`;
+        const msg = `matching failed: ${e instanceof Error ? e.message : String(e)}`;
+        report.error = msg;
+        // These signals are stored but nobody was matched. Put it on the scan_runs row so the health email shows it.
+        for (const f of fetched) {
+          if (f.result.inserted > 0) {
+            f.result.status = 'error';
+            f.result.error = msg.slice(0, 500);
+          }
+        }
       }
     }
 

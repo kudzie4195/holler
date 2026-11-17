@@ -20,16 +20,18 @@ export function Page({ children }: { children: ReactNode }) {
 
 export function Crumbs({ items }: { items: { name: string; href?: string }[] }) {
   return (
-    <nav aria-label="Breadcrumb" className="mb-4 text-sm text-muted">
-      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <nav aria-label="Breadcrumb" className="-mt-2 mb-2 text-sm text-muted">
+      <ol className="flex flex-wrap items-center gap-x-2">
         {items.map((c, i) => (
           <li key={c.name} className="flex items-center gap-2">
             {c.href ? (
-              <Link href={c.href} className="underline underline-offset-2 hover:text-ink">
+              <Link href={c.href} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-ink">
                 {c.name}
               </Link>
             ) : (
-              <span aria-current="page">{c.name}</span>
+              <span aria-current="page" className="inline-flex min-h-11 items-center">
+                {c.name}
+              </span>
             )}
             {i < items.length - 1 ? <span aria-hidden="true">/</span> : null}
           </li>

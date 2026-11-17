@@ -1,7 +1,7 @@
 import type Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
-import { billingNotConfigured, getStripe, isHollerMetadata, mapStripeStatus } from '@/lib/stripe';
+import { billingNotConfigured, getStripe, isHollerMetadata, mapStripeStatus, statusForSubscriptionEvent } from '@/lib/stripe';
 
 
 function idOf(x: string | { id: string } | null | undefined): string | null {
@@ -59,7 +59,16 @@ export async function POST(req: Request) {
     ) {
       const sub = event.data.object as Stripe.Subscription;
       if (!isHollerMetadata(sub.metadata)) return Response.json({ received: true, ignored: 'not_holler' });
-      const status = event.type === 'customer.subscription.deleted' ? 'canceled' : mapStripeStatus(sub.status);
+      // Events can arrive out of order, so for updates read the subscription's current status instead of trusting the event body (F-8).
+      let freshStatus: string | null = null;
+      if (event.type === 'customer.subscription.updated') {
+        try {
+          freshStatus = (await stripe.subscriptions.retrieve(sub.id)).status;
+        } catch {
+          // fall back to the event's own status; Stripe retries the webhook if we return 500 below
+        }
+      }
+      const status = statusForSubscriptionEvent(event.type, sub.status, freshStatus);
       if (status) {
         const patch = {
           subscription_status: status,

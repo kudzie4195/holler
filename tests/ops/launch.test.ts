@@ -1,0 +1,236 @@
+// Launch kit: .env.example, supabase/cron.sql, LAUNCH.md and scripts/smoke.mjs.
+// The smoke script is run for real as a child process against a small local http server that imitates the routes.
+import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { ENV_KEYS } from '../../lib/env';
+import { formatTable, judgeScan, parseArgs } from '../../scripts/smoke.mjs';
+
+const root = path.resolve(__dirname, '../..');
+const read = (p: string) => readFileSync(path.join(root, p), 'utf8');
+
+describe('.env.example', () => {
+  const text = read('.env.example');
+  it('lists every ENV_KEYS key exactly once, each with a comment line right above', () => {
+    const lines = text.split('\n');
+    for (const k of ENV_KEYS) {
+      const idx = lines.findIndex((l) => l.startsWith(`${k}=`));
+      expect(idx, `${k} missing`).toBeGreaterThan(-1);
+      expect(lines.filter((l) => l.startsWith(`${k}=`))).toHaveLength(1);
+      expect(lines[idx - 1].startsWith('# '), `${k} has no comment`).toBe(true);
+      expect(/^# (REQUIRED|RECOMMENDED|OPTIONAL)/.test(lines[idx - 1]), `${k} comment must say required, recommended or optional`).toBe(true);
+    }
+  });
+  it('marks exactly the five spec-required keys as REQUIRED', () => {
+    const lines = text.split('\n');
+    const required = ENV_KEYS.filter((k) => lines[lines.findIndex((l) => l.startsWith(`${k}=`)) - 1].startsWith('# REQUIRED'));
+    expect(required).toEqual(['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXT_PUBLIC_SITE_URL', 'CRON_SECRET']);
+  });
+  it('has no real-looking secret and no key that is not in ENV_KEYS', () => {
+    expect(text).not.toMatch(/sk_(live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{8,}|re_[A-Za-z0-9]{12,}|eyJ[A-Za-z0-9]{10,}/);
+    const keys = text.split('\n').filter((l) => /^[A-Z][A-Z0-9_]+=/.test(l)).map((l) => l.split('=')[0]);
+    for (const k of keys) expect(ENV_KEYS as readonly string[]).toContain(k);
+  });
+  it('has no em dash', () => expect(text).not.toContain('—'));
+});
+
+describe('supabase/cron.sql', () => {
+  const sql = read('supabase/cron.sql');
+  const code = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+  it('schedules the three named jobs with the right cadence', () => {
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-scan',\s*'\*\/15 \* \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-notify',\s*'7,22,37,52 \* \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-health',\s*'0 13 \* \* \*'/);
+  });
+  it('calls net.http_get on /api/cron/<name> with an Authorization Bearer header', () => {
+    for (const n of ['scan', 'notify', 'health']) expect(code).toContain(`|| '/api/cron/${n}'`);
+    expect(code.match(/net\.http_get\(/g)).toHaveLength(3);
+    expect(code.match(/'Authorization', 'Bearer ' \|\|/g)).toHaveLength(3);
+    expect(code).toContain('timeout_milliseconds := 58000');
+  });
+  it('reads the secret from Vault, and the only literals are the placeholders', () => {
+    expect(code).toContain("vault.create_secret('<CRON_SECRET>'");
+    expect(code).toContain("vault.create_secret('https://<SITE>'");
+    expect(code.match(/decrypted_secret from vault\.decrypted_secrets/g)!.length).toBeGreaterThanOrEqual(6);
+    expect(code).not.toMatch(/Bearer [A-Za-z0-9]{16,}/);
+  });
+  it('unschedules before it schedules (rerunnable) and documents the unschedule statements', () => {
+    expect(code.indexOf('cron.unschedule(jobname)')).toBeLessThan(code.indexOf('cron.schedule('));
+    for (const n of ['holler-scan', 'holler-notify', 'holler-health']) expect(sql).toContain(`select cron.unschedule('${n}');`);
+  });
+  it('only touches holler-* jobs and holler_* secrets, and is not in the migrations folder', () => {
+    expect(code).not.toMatch(/cron\.schedule\(\s*'(?!holler-)/);
+    for (const m of code.matchAll(/where name = '([^']+)'/g)) expect(m[1].startsWith('holler_')).toBe(true);
+  });
+});
+
+describe('LAUNCH.md', () => {
+  const md = read('LAUNCH.md');
+  it('has the ordered launch steps', () => {
+    const order = ['Apply the database migrations', 'Resend', 'Set environment variables', 'Deploy', 'Run the smoke test', 'Review the dry-run table', 'Schedule the cron jobs', 'Stripe', 'First real signup test', 'Rollback'];
+    let at = -1;
+    for (const h of order) {
+      const i = md.search(new RegExp(`^## \\d+\\. .*${h}`, 'm'));
+      expect(i, `missing step "${h}"`).toBeGreaterThan(at);
+      at = i;
+    }
+  });
+  it('names all three migrations, the three webhook events and the smoke command', () => {
+    for (const s of ['0001_holler.sql', '0002_holler_hardening.sql', '0003_holler_ops.sql', 'checkout.session.completed', 'customer.subscription.updated', 'customer.subscription.deleted', 'node scripts/smoke.mjs']) expect(md).toContain(s);
+  });
+  it('mentions every ENV_KEYS key that a founder must act on, and no em dash', () => {
+    for (const k of ENV_KEYS) expect(md, k).toContain(k);
+    expect(md).not.toContain('—');
+  });
+});
+
+describe('smoke.mjs pure helpers', () => {
+  it('parseArgs', () => {
+    expect(parseArgs(['https://holler.example/', 'sec'])).toEqual({ base: 'https://holler.example', secret: 'sec' });
+    expect(parseArgs(['https://holler.example'])).toEqual({ base: 'https://holler.example', secret: null });
+    expect(parseArgs([]).help).toBe(true);
+    expect(parseArgs(['nope']).error).toMatch(/not a URL/);
+    expect(parseArgs(['ftp://x.test']).error).toMatch(/not a URL/);
+  });
+  it('judgeScan fails on error, and on fetched>0 with parsed 0, warns on skipped(env), passes quiet sources', () => {
+    const j = judgeScan({
+      sources: [
+        { id: 'a', status: 'ok', fetched: 5, parsed: 5, latestOccurredAt: '2026-11-17T00:00:00Z' },
+        { id: 'quiet', status: 'ok', fetched: 0, parsed: 0, latestOccurredAt: null },
+        { id: 'broken', status: 'error', fetched: 0, parsed: 0, error: 'HTTP 503' },
+        { id: 'drift', status: 'ok', fetched: 40, parsed: 0 },
+        { id: 'k', status: 'skipped(env)', fetched: 0, parsed: 0, missingEnv: ['SAM_API_KEY'] },
+      ],
+    });
+    expect(j.failures).toEqual(['broken: error HTTP 503', 'drift: fetched 40 rows but parsed 0 (shape may have changed)']);
+    expect(j.warnings).toEqual(['k: skipped, needs SAM_API_KEY']);
+    expect(j.rows).toHaveLength(5);
+    expect(judgeScan({ sources: [] }).failures).toEqual(['scan returned no sources']);
+  });
+  it('formatTable aligns columns', () => {
+    const t = formatTable([{ a: 'x', b: 'long value' }], ['a', 'b']).split('\n');
+    expect(t[0]).toBe('a  b');
+    expect(t[1]).toBe('-  ----------');
+  });
+});
+
+// --- end to end: run the script against a fake site -------------------------------------------------------------
+type Handler = (url: URL, headers: http.IncomingHttpHeaders) => { status: number; body?: string; headers?: Record<string, string> };
+let server: http.Server | null = null;
+
+async function start(handler: Handler): Promise<string> {
+  server = http.createServer((req, res) => {
+    const out = handler(new URL(req.url ?? '/', 'http://x'), req.headers);
+    res.writeHead(out.status, out.headers ?? {});
+    res.end(out.body ?? '');
+  });
+  await new Promise<void>((r) => server!.listen(0, '127.0.0.1', r));
+  return `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
+}
+afterEach(async () => {
+  await new Promise<void>((r) => (server ? server.close(() => r()) : r()));
+  server = null;
+});
+
+const SECRET = 'smoke-secret';
+const scan = {
+  sources: [
+    { id: 'nws', status: 'ok', fetched: 12, parsed: 12, latestOccurredAt: '2026-11-17T11:50:00.000Z' },
+    { id: 'sam-gov', status: 'skipped(env)', fetched: 0, parsed: 0, missingEnv: ['SAM_API_KEY'] },
+  ],
+};
+
+function goodSite(over: Partial<Record<string, ReturnType<Handler>>> = {}, scanBody: unknown = scan): Handler {
+  return (url, headers) => {
+    const p = url.pathname;
+    if (over[p]) return over[p]!;
+    if (p.startsWith('/api/cron/')) {
+      if (headers.authorization !== `Bearer ${SECRET}`) return { status: 401, body: '{"error":"unauthorized"}' };
+      if (p === '/api/cron/scan') return { status: 200, body: JSON.stringify(scanBody) };
+      if (p === '/api/cron/health') return { status: 200, body: JSON.stringify({ ok: true, subject: 'Holler health: all sources OK', problemCount: 0 }) };
+      return { status: 200, body: '{}' };
+    }
+    if (p === '/app') return { status: 307, headers: { location: '/login?next=/app' } };
+    if (p === '/robots.txt') return { status: 200, body: 'User-agent: *\nAllow: /\nSitemap: https://x.test/sitemap.xml\n' };
+    if (p === '/sitemap.xml') return { status: 200, body: '<?xml version="1.0"?><urlset><url><loc>https://x.test/</loc></url></urlset>' };
+    if (p === '/llms.txt') return { status: 200, body: '# Holler\n'.repeat(10) };
+    if (p === '/local/georgia/nowhere-xx') return { status: 404, body: 'not found' };
+    if (p === '/check') return { status: 404 };
+    return { status: 200, body: '<html></html>' };
+  };
+}
+
+function run(args: string[]): Promise<{ code: number; out: string }> {
+  return new Promise((resolve) => {
+    execFile(process.execPath, [path.join(root, 'scripts/smoke.mjs'), ...args], { timeout: 60_000 }, (err, stdout, stderr) => {
+      resolve({ code: err ? ((err as { code?: number }).code ?? 1) : 0, out: stdout + stderr });
+    });
+  });
+}
+
+describe('scripts/smoke.mjs end to end', () => {
+  it('passes on a healthy site (public checks only), warns for the optional page', async () => {
+    const base = await start(goodSite());
+    const r = await run([base]);
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toContain('PASS: ');
+    expect(r.out).toContain('GET /local/georgia/nowhere-xx -> 404');
+    expect(r.out).toContain('GET /app signed out -> 307 to /login?next=/app');
+    expect(r.out).toContain('GET /api/cron/scan without key -> 401');
+    expect(r.out).toContain('WARN  GET /check');
+    expect(r.out).toContain('skipped the authenticated cron checks');
+  });
+
+  it('with the secret prints the per-source table and passes', async () => {
+    const base = await start(goodSite());
+    const r = await run([base, SECRET]);
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toMatch(/source\s+status\s+fetched\s+parsed\s+latestOccurredAt/);
+    expect(r.out).toMatch(/nws\s+ok\s+12\s+12\s+2026-11-17T11:50:00.000Z/);
+    expect(r.out).toMatch(/sam-gov\s+skipped\(env\)\s+0\s+0/);
+    expect(r.out).toContain('WARN  sam-gov: skipped, needs SAM_API_KEY');
+    expect(r.out).toContain('GET /api/cron/health?dry=1 -> 200');
+    expect(r.out.trim().split('\n').pop()).toMatch(/^PASS:/);
+  });
+
+  it('fails (exit 1) when a source returns rows that parse to nothing', async () => {
+    const base = await start(goodSite({}, { sources: [{ id: 'socrata-x', status: 'ok', fetched: 50, parsed: 0 }] }));
+    const r = await run([base, SECRET]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('FAIL  socrata-x: fetched 50 rows but parsed 0');
+    expect(r.out.trim().split('\n').pop()).toMatch(/^FAIL:/);
+  });
+
+  it('fails on a soft 404, an open cron route, a missing page and an /app that does not redirect', async () => {
+    const base = await start(
+      goodSite({
+        '/local/georgia/nowhere-xx': { status: 200, body: 'not found body' },
+        '/api/cron/notify': { status: 200, body: '{}' },
+        '/about': { status: 500 },
+        '/app': { status: 200 },
+      }),
+    );
+    const r = await run([base]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('FAIL  GET /local/georgia/nowhere-xx -> 200, expected 404');
+    expect(r.out).toContain('FAIL  GET /api/cron/notify without key -> 200, expected 401');
+    expect(r.out).toContain('FAIL  GET /about -> 500');
+    expect(r.out).toContain('FAIL  GET /app signed out -> 200');
+  });
+
+  it('fails when a cron route rejects the right secret (wrong CRON_SECRET deployed)', async () => {
+    const base = await start(goodSite());
+    const r = await run([base, 'not-the-deployed-secret']);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('FAIL  GET /api/cron/scan?dry=1 -> 401');
+  });
+
+  it('fails cleanly when the site is unreachable', async () => {
+    const r = await run(['http://127.0.0.1:1']);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('FAIL');
+  });
+});

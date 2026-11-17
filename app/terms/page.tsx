@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DocPage, DocSection } from '@/components/doc-page';
+import { env } from '@/lib/env';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 
 export const metadata: Metadata = {
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
+  const support = env.SUPPORT_EMAIL?.trim();
   return (
     <DocPage
       title="Terms"
@@ -26,9 +28,9 @@ export default function TermsPage() {
       <DocSection title="Trial and billing">
         <ul>
           <li>You get a 7-day free trial. No card is needed to start.</li>
-          <li>After the trial, Holler costs $5 a month, billed through Stripe.</li>
+          <li>After the trial, Holler costs $5 a month, or $48 a year if you pick the yearly plan. Billing goes through Stripe.</li>
           <li>If you do not subscribe, your feed locks. Your account stays until you delete it.</li>
-          <li>You can cancel any time from Settings. Cancelling stops the next charge. We do not prorate partial months.</li>
+          <li>You can cancel any time from Settings. Cancelling stops the next charge. We do not prorate partial months or years.</li>
         </ul>
       </DocSection>
 
@@ -62,7 +64,14 @@ export default function TermsPage() {
       <DocSection title="Changes and contact">
         <p>
           We may change the service or these terms. If a change matters, we will tell you by email before it takes
-          effect. For questions, reply to any email from Holler.
+          effect. For questions,{' '}
+          {support ? (
+            <>
+              write to <a href={`mailto:${support}`}>{support}</a>.
+            </>
+          ) : (
+            'use the contact link in any Holler email.'
+          )}
         </p>
       </DocSection>
     </DocPage>

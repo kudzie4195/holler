@@ -1,0 +1,34 @@
+[
+ {
+  "apno": "BF-26-7001",
+  "aptype": "FENDRIVE",
+  "issued": "2026-11-13T00:00:00.000",
+  "stname": "ELMWOOD AVE",
+  "zip": "14222",
+  "descofwork": "Install 6 ft privacy fence and new driveway apron",
+  "value": "6500",
+  "latitude": "42.9000",
+  "longitude": "-78.8800",
+  "applicant": "PRIVATE APPLICANT"
+ },
+ {
+  "apno": "BF-26-7002",
+  "aptype": "HEATING",
+  "issued": "2026-11-13T00:00:00.000",
+  "stname": "MAIN ST",
+  "zip": "14203",
+  "descofwork": "Replace furnace",
+  "latitude": "42.8900",
+  "longitude": "-78.8700"
+ },
+ {
+  "apno": "BF-26-7003",
+  "aptype": "USE",
+  "issued": "2026-11-13T00:00:00.000",
+  "stname": "DELAWARE AVE",
+  "zip": "14209",
+  "descofwork": "Change of use",
+  "latitude": "42.9200",
+  "longitude": "-78.8600"
+ }
+]

@@ -6,15 +6,25 @@ import { env } from '@/lib/env';
 /**
  * Licensed web-search adapters for public "anyone recommend a ___ in ___" asks.
  *
- * Brave Search API (sourced: https://api-dashboard.search.brave.com/app/documentation/web-search/get-started):
- *   GET https://api.search.brave.com/res/v1/web/search?q=&count=(<=20)&freshness=pd|pw|pm|py&country=US
- *   header X-Subscription-Token; response web.results[] {title,url,description,(age|page_age)}
- * Serper (ASSUMED, from memory; docs page could not be fetched):
- *   POST https://google.serper.dev/search, header X-API-KEY, body {q, gl:'us', num, tbs:'qdr:w'}; response organic[] {title,link,snippet,date}
+ * Brave Search API (confirmed 2026-11-17 from api-dashboard.search.brave.com/app/documentation/web-search/get-started and
+ * .../api-reference/web/search/get):
+ *   GET https://api.search.brave.com/res/v1/web/search?q=&count=(max 20, default 20)&freshness=pd|pw|pm|py|YYYY-MM-DDtoYYYY-MM-DD&country=US&search_lang=en
+ *   header X-Subscription-Token; response web.results[] {type:"search_result", title, url, description (string|null), page_age (string|null, the
+ *   page's published or modified date), age (string|null, human readable such as "2 days ago")}, query.more_results_available.
+ *   Errors 404/422/429 share {type:"ErrorResponse", error:{id,status,detail,meta,code(INTERNAL|QUOTA_LIMITED|RATE_LIMITED|...)},time}; 401 has no documented schema.
+ *   The documented pages do not show a verbatim response, so web.results is confirmed by field table, not by a captured payload.
+ *   A query with no web hits returns no `web` key (not documented, standard behaviour), so a missing key is only an error when every response lacks it.
+ * Serper (confirmed 2026-11-17 by two independent sources: the OpenAPI listing at apis.io/apis/serper/serper-search-api and the Rust client
+ *   docs.rs/crate/spider_agent/2.51.6/source/src/search/serper.rs; response keys also from the sample JSON on serper.dev):
+ *   POST https://google.serper.dev/search, header X-API-KEY (+ Content-Type: application/json), body {q (required), gl (default us), hl (default en),
+ *   num (1..100, default 10), page (>=1), tbs (qdr:h|d|w|m|y), autocorrect}; response organic[] {title, link, snippet, position, date?, sitelinks?, attributes?},
+ *   plus searchParameters, knowledgeGraph, answerBox, peopleAlsoAsk, relatedSearches. Errors 400, 401, 429 (rate limit or credits exhausted) with {message}.
+ *   `tbs: 'qdr:w'` is therefore valid (the primary serper.dev docs page itself is a JS app and could not be read).
  *
  * Two adapters, one per key, because Adapter.requiresEnv is "all of". The Serper adapter steps aside when a Brave key
  * is set so we never pay for both. With neither key the engine reports skipped(env) for each.
  * Only title, snippet and URL are stored. Nothing is scraped; we never fetch the result pages.
+ * Brave's free plan is limited to about 1 request per second; queries run 4 at a time, so a free key will see HTTP 429 and the run stops with an error log.
  */
 
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
@@ -161,6 +171,15 @@ export const ASK_TERMS: Record<CategoryId, string> = {
   beauty: 'hair stylist',
   'janitorial-commercial': 'commercial cleaning company',
   security: 'security camera installer',
+  fencing: 'fence company',
+  'concrete-paving': 'concrete contractor',
+  'windows-doors': 'window replacement company',
+  'siding-gutters': 'gutter installer',
+  flooring: 'flooring installer',
+  handyman: 'handyman',
+  'signs-printing': 'sign shop',
+  'business-services': 'bookkeeper',
+  'public-adjuster': 'public adjuster',
 };
 
 export interface PlannedQuery {
@@ -317,6 +336,23 @@ export function parseSerper(raw: unknown, opts?: { queryCity?: City | null; now?
   }
 }
 
+/** Structural counts for the silent-empty check: result rows that carry a title and a url, across one response. */
+export function braveRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const results = isObj(raw) && isObj(raw.web) ? raw.web.results : null;
+  if (!Array.isArray(results)) return null;
+  let usable = 0;
+  for (const r of results) if (isObj(r) && typeof r.title === 'string' && typeof r.url === 'string') usable++;
+  return { rows: results.length, usable };
+}
+
+export function serperRowStats(raw: unknown): { rows: number; usable: number } | null {
+  const results = isObj(raw) ? raw.organic : null;
+  if (!Array.isArray(results)) return null;
+  let usable = 0;
+  for (const r of results) if (isObj(r) && typeof r.title === 'string' && typeof r.link === 'string') usable++;
+  return { rows: results.length, usable };
+}
+
 // --- Adapters -----------------------------------------------------------------------------------
 
 export type WebSearchProvider = 'brave' | 'serper' | 'skipped(env)';
@@ -327,18 +363,29 @@ export function websearchProvider(e: Record<string, string | undefined>): WebSea
   return 'skipped(env)';
 }
 
-/** Runs queries in small parallel batches (rate limits), stops on 429 or when the run deadline passes. */
+/**
+ * Runs queries in small parallel batches (rate limits), stops on 401/403/429 or when the run deadline passes.
+ * Every failure mode logs an "error:" line (run.ts turns error-like logs into status error when nothing was parsed).
+ * Most search hits are not asks, so "parsed 0" is normal; the silent-empty check therefore looks at structure: hits with no
+ * title/url at all, or responses that never contain the results array.
+ */
 async function runQueries(
   ctx: AdapterContext,
   id: string,
+  keyName: string,
   queries: PlannedQuery[],
   call: (q: PlannedQuery) => Promise<Response>,
   parse: (json: unknown, q: PlannedQuery) => SignalInput[],
+  stats: (json: unknown) => { rows: number; usable: number } | null,
 ): Promise<SignalInput[]> {
   const started = Date.now();
   const out: SignalInput[] = [];
   const seen = new Set<string>();
   const BATCH = 4;
+  let responses = 0;
+  let withResults = 0;
+  let rows = 0;
+  let usable = 0;
   for (let i = 0; i < queries.length; i += BATCH) {
     if (Date.now() - started > RUN_DEADLINE_MS) {
       ctx.log(`${id}: deadline reached after ${i} of ${queries.length} queries`);
@@ -350,16 +397,35 @@ async function runQueries(
         try {
           const res = await call(q);
           if (res.status === 429) {
-            ctx.log(`${id}: rate limited (429)`);
+            ctx.log(`error: ${id} rate limited (HTTP 429), quota or per-second limit reached`);
+            return { stop: true, signals: [] as SignalInput[] };
+          }
+          if (res.status === 401 || res.status === 403) {
+            ctx.log(`error: ${id} HTTP ${res.status}, check ${keyName}`);
             return { stop: true, signals: [] as SignalInput[] };
           }
           if (!res.ok) {
-            ctx.log(`${id}: HTTP ${res.status}`);
+            ctx.log(`error: ${id} HTTP ${res.status}`);
             return { stop: false, signals: [] as SignalInput[] };
           }
-          return { stop: false, signals: parse(await res.json(), q) };
+          const text = await res.text();
+          let json: unknown;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            ctx.log(`error: ${id} ${/^\s*</.test(text) ? 'returned an HTML page instead of JSON' : 'returned non-JSON text'}`);
+            return { stop: false, signals: [] as SignalInput[] };
+          }
+          responses++;
+          const st = stats(json);
+          if (st) {
+            withResults++;
+            rows += st.rows;
+            usable += st.usable;
+          }
+          return { stop: false, signals: parse(json, q) };
         } catch (e) {
-          ctx.log(`${id}: ${e instanceof Error ? e.message : String(e)}`);
+          ctx.log(`error: ${id} ${e instanceof Error ? e.message : String(e)}`);
           return { stop: false, signals: [] as SignalInput[] };
         }
       }),
@@ -372,6 +438,11 @@ async function runQueries(
       }
     }
     if (settled.some((r) => r.stop)) break;
+  }
+  if (responses >= 3 && withResults === 0) {
+    ctx.log(`error: ${id} none of ${responses} responses contained the results array, wrapper key may have changed`);
+  } else if (rows > 0 && usable === 0) {
+    ctx.log(`error: ${id} parsed 0 of ${rows} rows, shape may have changed`);
   }
   return out;
 }
@@ -396,6 +467,7 @@ const brave: Adapter = {
       return await runQueries(
         ctx,
         'websearch-brave',
+        'BRAVE_SEARCH_API_KEY',
         plan,
         (q) =>
           ctx.fetch(
@@ -403,9 +475,10 @@ const brave: Adapter = {
             { headers: { Accept: 'application/json', 'X-Subscription-Token': key, 'User-Agent': UA }, signal: AbortSignal.timeout(15000) },
           ),
         (json, q) => parseBrave(json, { queryCity: q.city }),
+        braveRowStats,
       );
     } catch (e) {
-      ctx.log(`websearch-brave: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.log(`error: websearch-brave ${e instanceof Error ? e.message : String(e)}`);
       return [];
     }
   },
@@ -433,6 +506,7 @@ const serper: Adapter = {
       return await runQueries(
         ctx,
         'websearch-serper',
+        'SERPER_API_KEY',
         plan,
         (q) =>
           ctx.fetch('https://google.serper.dev/search', {
@@ -442,9 +516,10 @@ const serper: Adapter = {
             signal: AbortSignal.timeout(15000),
           }),
         (json, q) => parseSerper(json, { queryCity: q.city }),
+        serperRowStats,
       );
     } catch (e) {
-      ctx.log(`websearch-serper: ${e instanceof Error ? e.message : String(e)}`);
+      ctx.log(`error: websearch-serper ${e instanceof Error ? e.message : String(e)}`);
       return [];
     }
   },

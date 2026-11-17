@@ -17,10 +17,22 @@ export function TopNav({ ctaHref = '/signup' }: { ctaHref?: string }) {
           <Logo />
           <nav aria-label="Main" className="flex items-center gap-1 sm:gap-2">
             <Link
+              href="/check"
+              className="hidden min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted hover:text-ink md:inline-flex"
+            >
+              Check your area
+            </Link>
+            <Link
+              href="/for"
+              className="hidden min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted hover:text-ink md:inline-flex"
+            >
+              By trade
+            </Link>
+            <Link
               href="/local"
               className="hidden min-h-11 items-center rounded-full px-3 text-sm font-medium text-muted hover:text-ink md:inline-flex"
             >
-              City pages
+              By city
             </Link>
             <Link
               href="/about"

@@ -1,0 +1,49 @@
+[
+ {
+  "id": "13001",
+  "violation_date": "2026-11-14T00:00:00.000",
+  "violation_code": "CN070034",
+  "violation_status": "OPEN",
+  "violation_description": "REPAIR EXTERIOR WALL",
+  "violation_inspector_comments": "OWNER JOHN DOE WAS NOTIFIED",
+  "address": "4123 W MADISON ST",
+  "latitude": "41.8807",
+  "longitude": "-87.7314"
+ },
+ {
+  "id": "13002",
+  "violation_date": "2026-11-14T00:00:00.000",
+  "violation_status": "OPEN",
+  "violation_description": "MAINTAIN OR REPAIR ELECT ELEVA",
+  "address": "500 N STATE ST",
+  "latitude": "41.8900",
+  "longitude": "-87.6280"
+ },
+ {
+  "id": "13003",
+  "violation_date": "2026-11-15T00:00:00.000",
+  "violation_status": "OPEN",
+  "violation_description": "REPAIR PORCH SYSTEM",
+  "address": "1900 S KOSTNER AVE",
+  "latitude": "41.8560",
+  "longitude": "-87.7343"
+ },
+ {
+  "id": "13004",
+  "violation_date": "2026-11-15T00:00:00.000",
+  "violation_status": "OPEN",
+  "violation_description": "ARRANGE PREMISE INSPECTION",
+  "address": "700 E 79TH ST",
+  "latitude": "41.7510",
+  "longitude": "-87.6050"
+ },
+ {
+  "id": "13005",
+  "violation_date": "2026-11-16T00:00:00.000",
+  "violation_status": "OPEN",
+  "violation_description": "RODENT HARBORAGE AND ACCUMULATION OF RUBBISH AT REAR YARD",
+  "address": "2200 W 47TH ST",
+  "latitude": "41.8085",
+  "longitude": "-87.6820"
+ }
+]

@@ -1,0 +1,32 @@
+[
+ {
+  "permit_number": "BLD-26-1001",
+  "address": "100 Granby St",
+  "latitude": "36.8500",
+  "longitude": "-76.2900",
+  "type": "Building",
+  "work_type": "Reroof/Solar Panels",
+  "status": "Issued",
+  "application_date": "2026-11-01T00:00:00.000",
+  "issue_date": "2026-11-10T00:00:00.000",
+  "project_cost": "12000"
+ },
+ {
+  "permit_number": "MEC-26-2002",
+  "address": "200 Colley Ave",
+  "latitude": "36.8600",
+  "longitude": "-76.2950",
+  "type": "Mechanical",
+  "work_type": "Replacement",
+  "issue_date": "2026-11-10T00:00:00.000"
+ },
+ {
+  "permit_number": "ZON-26-3003",
+  "address": "300 Main St",
+  "latitude": "36.8400",
+  "longitude": "-76.2800",
+  "type": "Zoning",
+  "work_type": "New",
+  "issue_date": "2026-11-10T00:00:00.000"
+ }
+]

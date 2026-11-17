@@ -28,18 +28,53 @@ function chunks<T>(arr: T[], n = CHUNK): T[][] {
   return out;
 }
 
-/** Latest started_at per source from holler_scan_runs. */
+/** PostgREST caps one response at 1000 rows (Supabase default max_rows), so everything that can exceed that is read in pages. */
+export const PAGE_SIZE = 1000;
+
+/**
+ * Read every row a query returns, one 1000-row page at a time.
+ * `build(from, to)` must return the same ordered query for the given inclusive range. Stops after `maxPages`.
+ */
+export async function readAllPages<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+  maxPages = 50,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let page = 0; page < maxPages; page++) {
+    const { data, error } = await build(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
+/**
+ * Latest started_at per source from holler_scan_runs (last 3 days).
+ * Paged: 40 sources at 15 to 720 minute cadences write about 350 rows a day, so one 1000-row page can drop a slow
+ * source off the end, which would make it look "never run" and re-run it on every tick.
+ */
 export async function getLastRunTimes(db: Db): Promise<Record<string, number>> {
   const since = new Date(Date.now() - 3 * 86400_000).toISOString();
-  const { data, error } = await db
-    .from('holler_scan_runs')
-    .select('source, started_at')
-    .gte('started_at', since)
-    .order('started_at', { ascending: false })
-    .limit(1000);
-  if (error) throw new Error(`scan_runs read failed: ${error.message}`);
+  let rows: { source: string | null; started_at: string | null }[];
+  try {
+    rows = await readAllPages(
+      (from, to) =>
+        db
+          .from('holler_scan_runs')
+          .select('source, started_at')
+          .gte('started_at', since)
+          .order('started_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, to),
+      10,
+    );
+  } catch (e) {
+    throw new Error(`scan_runs read failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
   const out: Record<string, number> = {};
-  for (const r of (data ?? []) as { source: string | null; started_at: string | null }[]) {
+  for (const r of rows) {
     if (!r.source || !r.started_at) continue;
     const t = Date.parse(r.started_at);
     if (Number.isFinite(t) && !(r.source in out)) out[r.source] = t;
@@ -88,16 +123,45 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[]): Promi
   return inserted;
 }
 
-/** Profiles eligible for matching: has categories, not canceled, and not past an unpaid trial. */
-export async function loadProfiles(db: Db): Promise<MatchProfile[]> {
-  const { data, error } = await db
-    .from('holler_profiles')
-    .select('user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at')
-    .neq('subscription_status', 'canceled');
-  if (error) throw new Error(`profiles read failed: ${error.message}`);
-  return ((data ?? []) as (MatchProfile & { subscription_status: string; trial_ends_at: string | null })[]).filter(
-    (p) => Array.isArray(p.categories) && p.categories.length > 0,
-  );
+export interface LoadedProfile extends MatchProfile {
+  subscription_status: string;
+  trial_ends_at: string | null;
+}
+
+/**
+ * Can this profile still see alerts in the app? (F-11)
+ * Mirrors lib/auth/access.ts computeAccess, with one difference: a canceled profile never matches.
+ * active and past_due keep access (past_due is Stripe's retry window); trialing keeps it until trial_ends_at;
+ * an unknown status is treated as trialing, like computeAccess does.
+ */
+export function canSeeAlerts(p: { subscription_status: string; trial_ends_at: string | null }, nowMs: number = Date.now()): boolean {
+  if (p.subscription_status === 'canceled') return false;
+  if (p.subscription_status === 'active' || p.subscription_status === 'past_due') return true;
+  const end = p.trial_ends_at ? Date.parse(p.trial_ends_at) : NaN;
+  return Number.isFinite(end) && end > nowMs;
+}
+
+/**
+ * Profiles eligible for matching: has categories and can still see alerts (not canceled, not past an unpaid trial).
+ * Paged with .range() because PostgREST silently caps one response at 1000 rows.
+ */
+export async function loadProfiles(db: Db, now: Date = new Date()): Promise<MatchProfile[]> {
+  let rows: LoadedProfile[];
+  try {
+    rows = await readAllPages<LoadedProfile>(
+      (from, to) =>
+        db
+          .from('holler_profiles')
+          .select('user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at')
+          .neq('subscription_status', 'canceled')
+          .order('user_id', { ascending: true })
+          .range(from, to),
+      100,
+    );
+  } catch (e) {
+    throw new Error(`profiles read failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
 }
 
 export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {

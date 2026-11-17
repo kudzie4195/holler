@@ -8,7 +8,9 @@ import { breadcrumbLd, faqLd, itemListLd, placeLd } from '@/lib/seo/jsonld';
 import { SECTIONS } from '@/lib/seo/sections';
 import { sourceInfo } from '@/lib/seo/sources';
 import { isIndexable } from '@/lib/seo/threshold';
-import { buildDescription, buildFaq, buildHelps, buildIntro, fmtDateTime } from '@/lib/seo/view';
+import { buildH1, buildSearchDescription, buildTitle } from '@/lib/seo/titles';
+import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
+import { buildFaq, buildHelps, buildIntro, fmtDateTime } from '@/lib/seo/view';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { JsonLd } from '../../_components/jsonld';
 import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass } from '../../_components/ui';
@@ -38,8 +40,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city } = r;
   const data = await loadPlaceData(city.slug);
   const path = cityPath(city);
-  const title = `What's happening in ${city.name}, ${city.state} | Holler`;
-  const description = buildDescription(city, data);
+  const title = buildTitle(city, data);
+  const description = buildSearchDescription(city, data);
   const indexable = isIndexable(data.total);
   return {
     title: { absolute: title },
@@ -138,7 +140,7 @@ export default async function CityPage({ params }: Props) {
           { name: place },
         ]}
       />
-      <H1>What&apos;s happening in {place}</H1>
+      <H1>{buildH1(city, data)}</H1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed">{intro}</p>
       {data.ok ? (
         <p className="mt-2 text-sm text-muted">
@@ -184,7 +186,13 @@ export default async function CityPage({ params }: Props) {
               {helps.rows.map((row) => (
                 <li key={row.id} className="flex items-baseline justify-between gap-4 border-t border-line py-2">
                   <span>
-                    <span className="font-medium">{row.label}</span>
+                    {tradeEntry(row.id) ? (
+                      <Link href={tradePath(row.id)} className={`${linkClass} inline-flex min-h-11 items-center font-medium`}>
+                        {row.label}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{row.label}</span>
+                    )}
                     {row.from ? <span className="block text-sm text-muted">from {row.from}</span> : null}
                   </span>
                   <span className="font-mono text-sm">{row.count.toLocaleString('en-US')}</span>

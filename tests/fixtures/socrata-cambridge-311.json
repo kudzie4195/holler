@@ -1,0 +1,32 @@
+[
+ {
+  "ticket_id": "7001",
+  "city": "Cambridge",
+  "issue_type": "Rodent Sighting",
+  "issue_category": "Public Health",
+  "ticket_status": "Open",
+  "issue_description": "Saw a rat near my house, call me Bob",
+  "ticket_created_date_time": "2026-11-15T14:00:00.000",
+  "address": "100 Main St",
+  "lat": "42.3625",
+  "lng": "-71.0862"
+ },
+ {
+  "ticket_id": "7002",
+  "issue_type": "Tree Pruning Request",
+  "issue_category": "Trees",
+  "ticket_status": "Open",
+  "ticket_created_date_time": "2026-11-15T15:00:00.000",
+  "lat": "42.3700",
+  "lng": "-71.1000"
+ },
+ {
+  "ticket_id": "7003",
+  "issue_type": "Vehicle blocking a bike lane",
+  "issue_category": "Traffic",
+  "ticket_status": "Open",
+  "ticket_created_date_time": "2026-11-15T16:00:00.000",
+  "lat": "42.3600",
+  "lng": "-71.1000"
+ }
+]

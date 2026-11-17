@@ -1,0 +1,29 @@
+[
+ {
+  "license_nbr": "2099001-DCA",
+  "business_name": "SAMPLE PERSON",
+  "dba_trade_name": "FLATBUSH LOCKSMITH",
+  "business_category": "Locksmith",
+  "license_type": "Business",
+  "license_status": "Active",
+  "license_creation_date": "2026-10-28T00:00:00.000",
+  "address_building": "1200",
+  "address_street_name": "FLATBUSH AVE",
+  "address_borough": "Brooklyn",
+  "address_zip": "11226",
+  "latitude": "40.6410",
+  "longitude": "-73.9570"
+ },
+ {
+  "license_nbr": "2099002-DCA",
+  "business_name": "ANOTHER PERSON",
+  "dba_trade_name": "",
+  "business_category": "Home Improvement Contractor",
+  "license_type": "Business",
+  "license_status": "Active",
+  "license_creation_date": "2026-10-29T00:00:00.000",
+  "address_street_name": "QUEENS BLVD",
+  "address_borough": "Queens",
+  "address_zip": "11373"
+ }
+]

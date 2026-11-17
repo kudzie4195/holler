@@ -9,7 +9,7 @@ import type { CategoryId } from '@/lib/signals/categories';
  *             assumed = inferred (value vocabularies such as permit_type text, failure rules)
  */
 
-export type SocrataSubtype = 'permit' | '311' | 'inspection';
+export type SocrataSubtype = 'permit' | '311' | 'inspection' | 'business' | 'violation' | 'event-permit';
 
 export interface CategoryRule {
   re: RegExp;
@@ -26,10 +26,12 @@ export interface SocrataDataset {
   /** IANA zone of the portal's floating (zoneless) timestamps; they hold local wall-clock time. */
   tz: string;
   datasetId: string;
-  kind: 'permit' | 'civic';
+  kind: 'permit' | 'civic' | 'event';
   subtype: SocrataSubtype;
   /** Row field that uniquely identifies the record (combined with the date for inspections). */
   idField: string;
+  /** Datasets with no single id column: these fields are joined with ':' to build the external id. */
+  idFields?: string[];
   /** calendar_date column used for $where / $order. */
   dateField: string;
   latField?: string;
@@ -46,6 +48,12 @@ export interface SocrataDataset {
   textFields: string[];
   summaryFields: string[];
   addressFields?: string[];
+  /** Overrides the default lookback (days) of the $where window. */
+  lookbackOverride?: number;
+  /** When set, adds `dateField <= now + N days` (0 = never in the future). Needed for upcoming events and for portals that carry future-dated rows. */
+  windowForwardDays?: number;
+  /** Event permits: column holding the end of the event, used as expiresAt. */
+  endDateField?: string;
   /** Business name field (inspections). */
   nameField?: string;
   zipField?: string;
@@ -68,7 +76,7 @@ export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bre-?roof|\broof|\bshingle/i, add: ['roofing'] },
   { re: /\bpools?\b|\bspa\b|swimming/i, add: ['pool-spa'] },
   { re: /\bsolar|photovoltaic|\bpv\b/i, add: ['solar'] },
-  { re: /\bhvac|mechanical|furnace|air.?condition|\ba\/c\b|heat pump|ductwork|\bboiler/i, add: ['hvac'] },
+  { re: /\bhvac|mechanical|furnace|air.?condition|\ba\/c\b|heat pump|ductwork|\bboiler|\bheating\b/i, add: ['hvac'] },
   { re: /\bplumb|water heater|\bsewer|backflow|gas line/i, add: ['plumbing'] },
   { re: /\belectric|\bwiring|\bpanel upgrade|service upgrade|ev charger|generator/i, add: ['electrical'] },
   { re: /\bdemolition|\bdemo\b|wrecking|\braze\b/i, add: ['junk-removal'] },
@@ -76,6 +84,14 @@ export const PERMIT_RULES: CategoryRule[] = [
     re: /new (construction|single|residential|building|home|dwelling|house|multi|commercial)/i,
     add: ['general-contractor', 'landscaping', 'cleaning'],
   },
+  // Trades added in round 2.
+  { re: /\bfenc(e|es|ing)\b|\bfendrive\b/i, add: ['fencing'] },
+  { re: /\bdriveways?\b|\bconcrete\b|\bpaving\b|\bpavers?\b|\bsidewalks?\b|\basphalt\b|\bflatwork\b|\bfendrive\b/i, add: ['concrete-paving'] },
+  { re: /\bwindows?\b|\bdoors?\b/i, add: ['windows-doors'] },
+  { re: /\bsiding\b|\bgutters?\b|\bdownspouts?\b|\bsoffits?\b|\bfascia\b/i, add: ['siding-gutters'] },
+  // "floor" alone is in most commercial descriptions ("6th floor office"), so only flooring work phrases count.
+  { re: /\bflooring\b|\bhardwood\b|\bfloor (replacement|installation|covering|refinish)|\b(replace|install|new) floors?\b/i, add: ['flooring'] },
+  { re: /\bsigns?\b|\bsignage\b/i, add: ['signs-printing'] },
 ];
 
 export const CIVIC_RULES: CategoryRule[] = [
@@ -83,12 +99,55 @@ export const CIVIC_RULES: CategoryRule[] = [
   { re: /\btrees?\b|\blimbs?\b|\bstump/i, add: ['tree-service'] },
   { re: /graffiti/i, add: ['painting', 'cleaning'] },
   {
-    re: /illegal dump|\bdumping|bulk(y)? (item|trash|pick)|\bjunk|\bdebris|abandoned (furniture|mattress)/i,
+    re: /illegal dump|\billdump\b|\bdumping|bulk(y)? (item|trash|pick)|\bbulky\b|\bjunk|\bdebris|abandoned (furniture|mattress)/i,
     add: ['junk-removal'],
   },
+  { re: /\bweeds?\b|\bovergrown|\b(high|tall) grass|\bvacant lot/i, add: ['lawn-care', 'landscaping'] },
+  { re: /\bproperty violation|\bhealthy homes|\bbldgmaint\b|\bbuilding maint|\bvacant (building|house|structure)/i, add: ['general-contractor', 'handyman'] },
   { re: /no heat|\bheat\b|heating|\bboiler|hot water/i, add: ['hvac', 'plumbing'], severity: 2 },
   { re: /\bsewer|water (main|leak)|\bhydrant|\bflood/i, add: ['plumbing'] },
   { re: /\bmold\b/i, add: ['restoration'] },
+];
+
+/** Code and building enforcement. Text is the violation type or description only (never inspector comments or owner fields). */
+export const VIOLATION_RULES: CategoryRule[] = [
+  { re: /\bweeds?\b|\bovergrown|\b(high|tall) grass|\bgrass\b|\bvegetation|\bbrush\b/i, add: ['lawn-care', 'landscaping'] },
+  { re: /property abatement/i, add: ['junk-removal', 'lawn-care', 'landscaping'] },
+  { re: /\btrash|\brubbish|\bgarbage|\bdebris|\bjunk|\bdump|\bbulk|\blitter|\bwaste\b|\btires?\b/i, add: ['junk-removal'] },
+  { re: /\binoperable|\babandoned vehicle|\bjunk vehicle/i, add: ['towing', 'junk-removal'] },
+  { re: /\brodent|\brats?\b|\bmice\b|\bvermin|\binfest|\broach|\bbed ?bug|\bpests?\b/i, add: ['pest-control'] },
+  { re: /\broof|\bshingle/i, add: ['roofing', 'general-contractor'] },
+  { re: /\bsiding\b|\bgutters?\b|\bsoffits?\b|\bfascia\b/i, add: ['siding-gutters', 'general-contractor'] },
+  {
+    re: /exterior wall|\bfacade|\bmasonry|\bbrick\b|\bstucco|\bfoundation|\bporch|\bstair|\bdeck\b|\bbalcon|\bstructur|\bunsafe|\bdilapidat|\bdeteriorat|\bcollapse|\bvacant|\bboarded|\bbuilding maint|\bdemolition|without (a )?permit|\bunpermitted/i,
+    add: ['general-contractor', 'handyman'],
+  },
+  { re: /\bunsafe|\bdangerous|\bcollapse|\bimminent/i, add: [], severity: 2 },
+  { re: /\bfenc(e|es|ing)\b/i, add: ['fencing'] },
+  { re: /\bwindows?\b|\bdoors?\b/i, add: ['windows-doors', 'handyman'] },
+  { re: /\bpaint|\bpeeling|\bgraffiti/i, add: ['painting'] },
+  { re: /\bplumb|\bsewer|\bwater (leak|heater)|\bleak/i, add: ['plumbing'] },
+  { re: /\belectric|\bwiring|\bsmoke detector/i, add: ['electrical'] },
+  { re: /\bheat\b|\bheating|\bfurnace|\bboiler|\bhvac|\bair.?condition/i, add: ['hvac'] },
+  { re: /\bmold\b|\bwater damage|\bfire damage|\bflood/i, add: ['restoration'] },
+  { re: /\bdriveway|\bsidewalk|\bpavement|\bconcrete|\bparking lot|\basphalt/i, add: ['concrete-paving'] },
+  { re: /\bfloors?\b/i, add: ['flooring'] },
+  { re: /\btrees?\b|\blimbs?\b|\bstump/i, add: ['tree-service'] },
+  { re: /\bpools?\b|\bswimming/i, add: ['pool-spa'] },
+];
+
+/** A new business needs signs, books, insurance, cleaning, security. Food businesses also need pest control and HVAC. */
+export const BUSINESS_RULES: CategoryRule[] = [
+  { re: /./, add: ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning'] },
+  {
+    re: /restau|\bcafe\b|coffee|bakery|\bpizza|\btaco|\bgrill\b|kitchen|\bfood\b|\bdeli\b|\bbbq\b|barbecue|\bbar\b|tavern|brew|sushi|diner|eatery|bistro|burger|retail food|\bliquor|catering/i,
+    add: ['pest-control', 'hvac'],
+  },
+];
+
+/** A permitted event needs food, event services, security and cleanup. */
+export const EVENT_RULES: CategoryRule[] = [
+  { re: /./, add: ['food-truck', 'catering', 'event-services', 'security', 'cleaning'] },
 ];
 
 /** Applied to every row that passed the dataset's failure test. */
@@ -100,11 +159,15 @@ export const RULES_BY_SUBTYPE: Record<SocrataSubtype, CategoryRule[]> = {
   permit: PERMIT_RULES,
   '311': CIVIC_RULES,
   inspection: INSPECTION_RULES,
+  business: BUSINESS_RULES,
+  violation: VIOLATION_RULES,
+  'event-permit': EVENT_RULES,
 };
 
 /** Keywords for the server-side upper(type) like '%X%' narrowing of 311 feeds (re-checked client side). */
 export const CIVIC_TYPE_KEYWORDS = [
   'RODENT', 'RAT', 'MICE', 'VERMIN', 'PEST', 'TREE', 'GRAFFITI', 'DUMP', 'JUNK', 'DEBRIS', 'HEAT', 'SEWER', 'MOLD', 'BULK',
+  'PROPERTY VIOL', 'HEALTHY HOMES', 'BLDG', 'WEED', 'OVERGROWN', 'VACANT',
 ];
 
 // --- Failure rules for inspections -------------------------------------------------------------
@@ -305,18 +368,177 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     zipField: 'zipcode', typeFilterField: 'sr_type_desc', cadenceMinutes: 180, verified: true,
     verifiedUrl: D('data.cincinnati-oh.gov', 'gcej-gmiw'), fieldSource: 'sourced',
   },
+  // ======================= Round 2 (U3 coverage), all checked 2026-11-17 =======================
+  // Verification: metadata from https://<domain>/api/views/<id>.json (column names + types, rowsUpdatedAt), plus a live
+  // `$select=max(<date col>)` or group-by query on /resource/<id>.json to confirm recent records and value vocabularies.
+  // ---- More permit cities ----
+  {
+    id: 'socrata-cambridge-permits', city: 'Cambridge', state: 'MA', tz: 'America/New_York', domain: 'data.cambridgema.gov', datasetId: '3wsm-e5jx',
+    kind: 'permit', subtype: 'permit', idField: 'id', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['permit_type'], textFields: ['permit_type'], summaryFields: ['permit_type', 'status'], addressFields: ['full_address'],
+    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.cambridgema.gov', '3wsm-e5jx'), fieldSource: 'sourced',
+    note: 'Cambridge Permit Finder. Updated 2026-11-17, max issue_date 2026-11-13, 559 rows since Nov 1. The set has only permit_type (Electrical, Plumbing, Mechanical, Roof, Tree Removal, Dumpster...) so only trade-like types map.',
+  },
+  {
+    id: 'socrata-norfolk-permits', city: 'Norfolk', state: 'VA', tz: 'America/New_York', domain: 'data.norfolk.gov', datasetId: 'fahm-yuh4',
+    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['work_type', 'type'], textFields: ['type', 'work_type', 'use_type'], summaryFields: ['type', 'work_type', 'project_cost'], addressFields: ['address'],
+    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.norfolk.gov', 'fahm-yuh4'), fieldSource: 'sourced',
+    note: 'Updated 2026-11-16. issue_date holds future dates (max 2026-12-24), so the query caps it at now (windowForwardDays 0).',
+  },
+  {
+    id: 'socrata-buffalo-permits', city: 'Buffalo', state: 'NY', tz: 'America/New_York', domain: 'data.buffalony.gov', datasetId: '9p2d-f3yt',
+    kind: 'permit', subtype: 'permit', idField: 'apno', dateField: 'issued', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['descofwork', 'aptype'], textFields: ['descofwork', 'aptype'], summaryFields: ['aptype', 'value'], addressFields: ['stname'], zipField: 'zip',
+    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.buffalony.gov', '9p2d-f3yt'), fieldSource: 'sourced',
+    note: 'Updated 2026-11-16, max issued 2026-11-15, 428 rows since Nov 1. aptype values seen: REPAIR, ELECTRICAL, PLUMBING, HEATING, FENDRIVE, GC, TEAROUT. Only the street name is published, no house number.',
+  },
+  {
+    id: 'socrata-montgomery-permits', city: 'Montgomery County', state: 'MD', tz: 'America/New_York', domain: 'data.montgomerycountymd.gov', datasetId: 'm88u-pqki',
+    kind: 'permit', subtype: 'permit', idField: 'permitno', dateField: 'issueddate', locationField: 'location',
+    titleFields: ['description', 'worktype'], textFields: ['description', 'worktype', 'applicationtype'], summaryFields: ['worktype', 'declaredvaluation', 'status'],
+    addressFields: ['stno', 'predir', 'stname', 'suffix', 'postdir'], zipField: 'zip',
+    lookbackOverride: 30, windowForwardDays: 0, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.montgomerycountymd.gov', 'm88u-pqki'), fieldSource: 'sourced',
+    note: 'Residential Permit. rowsUpdatedAt 2026-11-13 but max issueddate is 2026-10-28, so the portal lags about 2 weeks: 30 day lookback. The Commercial set (i26v-w6bd) has the same columns but was last updated 2026-10-30 and is left out.',
+  },
+  {
+    id: 'socrata-orlando-permits', city: 'Orlando', state: 'FL', tz: 'America/New_York', domain: 'data.cityoforlando.net', datasetId: 'ryhf-m453',
+    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_permit_date', locationField: 'geocoded_column',
+    titleFields: ['project_name', 'worktype', 'application_type'], textFields: ['worktype', 'application_type', 'project_name', 'plan_review_type'],
+    summaryFields: ['application_type', 'worktype', 'estimated_cost'], addressFields: ['permit_address'],
+    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.cityoforlando.net', 'ryhf-m453'), fieldSource: 'sourced',
+    note: 'Updated 2026-11-16, max issue_permit_date 2026-11-16. worktype values seen: Roof, Repair, LowVoltage, New, Alt, Irrigation, Sign, Fence. property_owner_name and contractor columns are never read.',
+  },
+  {
+    id: 'socrata-pgcounty-permits', city: "Prince George's County", state: 'MD', tz: 'America/New_York', domain: 'data.princegeorgescountymd.gov', datasetId: 'weik-ttee',
+    kind: 'permit', subtype: 'permit', idField: 'permit_case_id', dateField: 'permit_issuance_date', fallbackCenter: { lat: 38.8296, lon: -76.8466 },
+    titleFields: ['case_name', 'permit_type'], textFields: ['case_name', 'permit_type', 'permit_category'], summaryFields: ['permit_type', 'permit_category', 'expected_construction_cost'],
+    addressFields: ['street_address'], zipField: 'zip_code', windowForwardDays: 0, cadenceMinutes: 720, verified: false,
+    verifiedUrl: D('data.princegeorgescountymd.gov', 'weik-ttee'), fieldSource: 'sourced',
+    note: 'DISABLED: columns verified, but the latest permit_issuance_date is 2026-09-25 (rowsUpdatedAt 2026-10-01), so a 7 day window returns nothing. location is a text column.',
+  },
+  // ---- More 311 cities ----
+  {
+    id: 'socrata-kansascity-311', city: 'Kansas City', state: 'MO', tz: 'America/Chicago', domain: 'data.kcmo.org', datasetId: 'd4px-6rwg',
+    kind: 'civic', subtype: '311', idField: 'workorder_', dateField: 'open_date_time', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['issue_type', 'issue_sub_type'], textFields: ['issue_type', 'issue_sub_type', 'reported_issue'], summaryFields: ['issue_type', 'issue_sub_type', 'current_status'],
+    typeFilterField: 'issue_type', cadenceMinutes: 180, verified: true, verifiedUrl: D('data.kcmo.org', 'd4px-6rwg'), fieldSource: 'sourced',
+    note: 'Updated 2026-11-16, max open_date_time 2026-11-16. issue_type values seen: Property Violations, Illegal Dumping, Trash Recycling Bulky Services, Healthy Homes, Trees City Row. KC building permits (ntw8-aacc, last updated 2025-06) and Property Violations (nhtf-e75a, archived 2022) are stale and not used.',
+  },
+  {
+    id: 'socrata-cambridge-311', city: 'Cambridge', state: 'MA', tz: 'America/New_York', domain: 'data.cambridgema.gov', datasetId: '2z9k-mv9g',
+    kind: 'civic', subtype: '311', idField: 'ticket_id', dateField: 'ticket_created_date_time', latField: 'lat', lonField: 'lng',
+    titleFields: ['issue_type'], textFields: ['issue_type', 'issue_category'], summaryFields: ['issue_type', 'ticket_status'],
+    typeFilterField: 'issue_type', cadenceMinutes: 180, verified: true, verifiedUrl: D('data.cambridgema.gov', '2z9k-mv9g'), fieldSource: 'sourced',
+    note: 'Commonwealth Connect, updated 2026-11-17. issue_description (free text from residents) is never read.',
+  },
+  {
+    id: 'socrata-oakland-311', city: 'Oakland', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.oaklandca.gov', datasetId: 'quth-gb8e',
+    kind: 'civic', subtype: '311', idField: 'requestid', dateField: 'datetimeinit', locationField: 'reqaddress',
+    titleFields: ['reqcategory', 'description'], textFields: ['reqcategory', 'description'], summaryFields: ['reqcategory', 'description', 'status'], zipField: 'zipcode',
+    typeFilterField: 'reqcategory', cadenceMinutes: 180, verified: true, verifiedUrl: D('data.oaklandca.gov', 'quth-gb8e'), fieldSource: 'sourced',
+    note: 'Updated 2026-11-16, max datetimeinit 2026-11-15. reqcategory values seen: ILLDUMP, BLDGMAINT, TREES, GRAFFITI, ABANDONED AUTO. reqaddress is a location column; its JSON shape is assumed (GeoJSON or {latitude,longitude}).',
+  },
+  // ---- Code and building violations ----
+  {
+    id: 'socrata-chicago-violations', city: 'Chicago', state: 'IL', tz: 'America/Chicago', domain: 'data.cityofchicago.org', datasetId: '22u3-xenr',
+    kind: 'civic', subtype: 'violation', idField: 'id', dateField: 'violation_date', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['violation_description'], textFields: ['violation_description'], summaryFields: ['violation_description', 'violation_status'], addressFields: ['address'],
+    extraWhere: "violation_status = 'OPEN'", cadenceMinutes: 360, verified: true, verifiedUrl: D('data.cityofchicago.org', '22u3-xenr'), fieldSource: 'sourced',
+    note: 'Building Violations, updated 2026-11-17. violation_status values seen: OPEN, COMPLIED, NO ENTRY. violation_inspector_comments is free text and is never read. Many rows are elevator or inspection-scheduling codes; the rules drop those.',
+  },
+  {
+    id: 'socrata-austin-violations', city: 'Austin', state: 'TX', tz: 'America/Chicago', domain: 'data.austintexas.gov', datasetId: '6wtj-zbtb',
+    kind: 'civic', subtype: 'violation', idField: 'case_id', dateField: 'opened_date', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['description'], textFields: ['description', 'case_type'], summaryFields: ['description', 'status'], addressFields: ['address'], zipField: 'zip_code',
+    cadenceMinutes: 360, verified: true, verifiedUrl: D('data.austintexas.gov', '6wtj-zbtb'), fieldSource: 'sourced',
+    note: 'Austin Code Complaint Cases, updated 2026-11-17. description values seen: Property Abatement, Land Use Violation(s), Structure Condition Violation(s), Work Without Permit. The inspector column is never read.',
+  },
+  // ---- New business licenses and registrations (record only newly issued / started rows) ----
+  {
+    id: 'socrata-chicago-business', city: 'Chicago', state: 'IL', tz: 'America/Chicago', domain: 'data.cityofchicago.org', datasetId: 'uupf-x98q',
+    kind: 'civic', subtype: 'business', idField: 'id', dateField: 'date_issued', latField: 'latitude', lonField: 'longitude',
+    titleFields: ['doing_business_as_name'], textFields: ['doing_business_as_name', 'license_description', 'business_activity'],
+    summaryFields: ['license_description', 'business_activity'], addressFields: ['address'], zipField: 'zip_code',
+    extraWhere: "application_type = 'ISSUE'", windowForwardDays: 0, cadenceMinutes: 720, verified: true,
+    verifiedUrl: D('data.cityofchicago.org', 'uupf-x98q'), fieldSource: 'sourced',
+    note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. legal_name and account fields are never read.",
+  },
+  {
+    id: 'socrata-sf-business', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'g8m3-pdis',
+    kind: 'civic', subtype: 'business', idField: 'uniqueid', dateField: 'location_start_date', locationField: 'location',
+    titleFields: ['dba_name'], textFields: ['dba_name', 'lic_code_description', 'lic_code_descriptions_list'], summaryFields: ['lic_code_description'],
+    addressFields: ['full_business_address'], zipField: 'business_zip', extraWhere: 'location_end_date IS NULL', windowForwardDays: 0,
+    cadenceMinutes: 720, verified: true, verifiedUrl: D('data.sf.gov', 'g8m3-pdis'), fieldSource: 'sourced',
+    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. ownership_name is never read; uniqueid is assumed unique per row.',
+  },
+  {
+    id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',
+    kind: 'civic', subtype: 'business', idField: 'location_account', dateField: 'location_start_date', locationField: 'location_1',
+    titleFields: ['dba_name'], textFields: ['dba_name', 'primary_naics_description'], summaryFields: ['primary_naics_description'],
+    addressFields: ['street_address'], zipField: 'zip_code', extraWhere: 'location_end_date IS NULL', windowForwardDays: 0,
+    cadenceMinutes: 720, verified: true, verifiedUrl: D('data.lacity.org', '6rrh-rzua'), fieldSource: 'sourced',
+    note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. Only dba_name is used as a name: business_name is often a sole proprietor\'s personal name.',
+  },
+  {
+    id: 'socrata-nyc-business', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'w7w3-xahh',
+    kind: 'civic', subtype: 'business', idField: 'license_nbr', dateField: 'license_creation_date', latField: 'latitude', lonField: 'longitude',
+    fallbackCenter: { lat: 40.7128, lon: -74.006 },
+    titleFields: ['dba_trade_name'], textFields: ['dba_trade_name', 'business_category', 'license_type'], summaryFields: ['business_category'],
+    addressFields: ['address_building', 'address_street_name', 'address_borough'], zipField: 'address_zip',
+    extraWhere: "license_status = 'Active' AND business_category NOT IN ('Tow Truck Driver','Sightseeing Guide','Ticket Seller Individual','Pedicab Driver','Process Server Individual')",
+    lookbackOverride: 30, windowForwardDays: 0, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofnewyork.us', 'w7w3-xahh'), fieldSource: 'sourced',
+    note: 'DCWP Issued Licenses, updated 2026-11-06, max license_creation_date 2026-10-30, hence the 30 day lookback. Individual licences (drivers, guides) are excluded; business_name is never read because it can be a person.',
+  },
+  {
+    id: 'socrata-orlando-business', city: 'Orlando', state: 'FL', tz: 'America/New_York', domain: 'data.cityoforlando.net', datasetId: '7388-4re5',
+    kind: 'civic', subtype: 'business', idField: 'case_number', dateField: 'business_open_date', locationField: 'geocoded_column',
+    titleFields: ['business_name'], textFields: ['business_name', 'license_type', 'license_category'], summaryFields: ['license_type', 'license_category'],
+    addressFields: ['business_address'], extraWhere: 'business_close_date IS NULL', windowForwardDays: 0,
+    cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityoforlando.net', '7388-4re5'), fieldSource: 'sourced',
+    note: 'Business Tax Receipts, updated 2026-11-16, 214 rows opened since Oct 15. business_open_date holds garbage future dates (max year 8201), so the query caps it at now. business_owner_name, email and phone are never read.',
+  },
+  // ---- Special event and film permits (upcoming events: window runs forward) ----
+  {
+    id: 'socrata-nyc-events', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'tvpp-9vvx',
+    kind: 'event', subtype: 'event-permit', idField: 'event_id', dateField: 'start_date_time', endDateField: 'end_date_time',
+    fallbackCenter: { lat: 40.7128, lon: -74.006 },
+    titleFields: ['event_type'], textFields: ['event_type'], summaryFields: ['event_type', 'event_borough'], addressFields: ['event_location'],
+    extraWhere: "event_type NOT IN ('Sport - Youth','Sport - Adult','Theater Load in and Load Outs')",
+    lookbackOverride: 1, windowForwardDays: 14, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofnewyork.us', 'tvpp-9vvx'), fieldSource: 'sourced',
+    note: 'NYC Permitted Event Information, updated 2026-11-12, rows through 2027. No coordinates, so signals carry the city centre (data.approxLocation = true). event_name is never read (can hold a private host).',
+  },
+  {
+    id: 'socrata-chicago-events', city: 'Chicago', state: 'IL', tz: 'America/Chicago', domain: 'data.cityofchicago.org', datasetId: 'pk66-w54g',
+    kind: 'event', subtype: 'event-permit', idField: 'park_number', idFields: ['park_number', 'reservation_start_date', 'event_type'],
+    dateField: 'reservation_start_date', endDateField: 'reservation_end_date', fallbackCenter: { lat: 41.8781, lon: -87.6298 },
+    titleFields: ['event_type'], textFields: ['event_type'], summaryFields: ['event_type', 'permit_status'], addressFields: ['park_facility_name'],
+    extraWhere: "permit_status = 'Approved' AND (event_type like 'Permit - Event%' OR event_type like 'Venue Rental%' OR event_type like 'Permit - Media: Filming%')",
+    lookbackOverride: 1, windowForwardDays: 14, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofchicago.org', 'pk66-w54g'), fieldSource: 'sourced',
+    note: 'Chicago Park District outdoor event permits, updated 2026-11-16. No id or coordinates: the id is park_number + start + type, location is the city centre (approx). requestor_, organization and event_description are never read.',
+  },
+  {
+    id: 'socrata-nyc-filmpermits', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'tg4x-b46p',
+    kind: 'event', subtype: 'event-permit', idField: 'eventid', dateField: 'startdatetime', endDateField: 'enddatetime',
+    fallbackCenter: { lat: 40.7128, lon: -74.006 },
+    titleFields: ['category', 'subcategoryname'], textFields: ['category', 'eventtype'], summaryFields: ['eventtype', 'borough'], addressFields: ['parkingheld'], zipField: 'zipcode_s',
+    lookbackOverride: 1, windowForwardDays: 14, cadenceMinutes: 720, verified: false, verifiedUrl: D('data.cityofnewyork.us', 'tg4x-b46p'), fieldSource: 'sourced',
+    note: 'DISABLED: columns verified, but max(enteredon) is 2026-08-14 and max(startdatetime) 2026-08-17 (rowsUpdatedAt 2026-10-27 is a re-publish of old rows). NYC Permitted Event Information above carries film shoots as "Production Event".',
+  },
 ];
 
 /**
- * Atlanta: NOT included. A search for an official City of Atlanta building-permit endpoint found only
- * the Sacramento ArcGIS service (services5.arcgis.com/54falWtcpty3V47Z, owner contact sacgis@cityofsacramento.org)
- * and DeKalb County. No Atlanta-owned endpoint was verified, so nothing is configured.
+ * Atlanta has no Socrata portal. Its ArcGIS layers are handled in arcgis-datasets.ts (see the Atlanta notes there).
  */
-export const ATLANTA_NOTE = 'No verified Atlanta open-data permit endpoint; not configured.';
+export const ATLANTA_NOTE = 'Atlanta is not on Socrata. See arcgis-datasets.ts.';
 
 /** Fixed lookback for the $where window. 311 rows appear within hours; permits and inspections are date-only and publish late. */
 export function lookbackDays(ds: SocrataDataset): number {
-  return ds.subtype === '311' ? 3 : 7;
+  if (ds.lookbackOverride != null) return ds.lookbackOverride;
+  if (ds.subtype === '311') return 3;
+  if (ds.subtype === 'business') return 14;
+  if (ds.subtype === 'event-permit') return 1;
+  return 7;
 }
 
 export function datasetPageUrl(ds: SocrataDataset): string {

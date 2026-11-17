@@ -110,18 +110,6 @@ export function buildIntro(city: CityRef, data: PlaceData): string {
   return `${lead} ${counted}${groupsSentence} ${radius}`;
 }
 
-/** First sentence(s) of the intro, trimmed for a meta description (max 155 chars). */
-export function buildDescription(city: CityRef, data: PlaceData): string {
-  const place = `${city.name}, ${city.state}`;
-  let d: string;
-  if (data.ok && data.total > 0) {
-    d = `${plural(data.total, 'public record', 'public records')} for ${place} in the last ${WINDOW_DAYS} days: weather alerts, storm reports, permits, 311, contracts and events, each with its source.`;
-  } else {
-    d = `Local weather alerts, storm reports, permits, 311 requests, contracts and events for ${place}, each with its source.`;
-  }
-  return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
-}
-
 export interface HelpsBlock {
   heading: string;
   rows: { id: string; label: string; count: number; from: string }[];

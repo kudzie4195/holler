@@ -1,0 +1,49 @@
+[
+ {
+  "permit_number": "BLD2026-10001",
+  "application_type": "Building Permit",
+  "worktype": "Roof",
+  "project_name": "Re-roof single family home",
+  "permit_address": "123 E Jackson St",
+  "issue_permit_date": "2026-11-16T00:00:00.000",
+  "estimated_cost": "15000",
+  "property_owner_name": "PRIVATE OWNER",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.37,
+    28.54
+   ]
+  }
+ },
+ {
+  "permit_number": "BLD2026-10002",
+  "application_type": "Building Permit",
+  "worktype": "Fence",
+  "project_name": "Aluminum fence",
+  "permit_address": "55 W Colonial Dr",
+  "issue_permit_date": "2026-11-16T00:00:00.000",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.38,
+    28.55
+   ]
+  }
+ },
+ {
+  "permit_number": "ENG2026-10003",
+  "application_type": "Engineering",
+  "worktype": "SFR",
+  "project_name": "Lot grading",
+  "permit_address": "9 Pine St",
+  "issue_permit_date": "2026-11-16T00:00:00.000",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.39,
+    28.56
+   ]
+  }
+ }
+]

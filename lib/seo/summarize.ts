@@ -13,7 +13,7 @@ export interface SignalRowDb {
   severity: number;
   occurred_at: string;
   expires_at: string | null;
-  /** holler_signals.data->>'subtype' (permit | 311 | inspection), when the adapter set it */
+  /** holler_signals.data->>'subtype' (permit | 311 | inspection | business | violation | event-permit), when the adapter set it */
   subtype?: string | null;
 }
 
@@ -46,6 +46,10 @@ export interface PlaceData {
   sections: Partial<Record<SectionId, SectionItem[]>>;
   /** Total count per section (alerts: unexpired only). */
   counts: Partial<Record<SectionId, number>>;
+  /** Records per section over the whole window, expired alerts included. Drives titles: a type is named only if present. */
+  windowCounts: Partial<Record<SectionId, number>>;
+  /** Same, for the last 7 days only. */
+  weekCounts: Partial<Record<SectionId, number>>;
   weekTrades: TradeTally[];
   windowTrades: TradeTally[];
   sources: string[];
@@ -59,7 +63,7 @@ const DAY = 86_400_000;
 const ALERT_NO_EXPIRY_DAYS = 3;
 
 export function emptyPlaceData(slug: string, asOf: string, ok: boolean): PlaceData {
-  return { ok, slug, asOf, total: 0, sections: {}, counts: {}, weekTrades: [], windowTrades: [], sources: [], earliestAt: null, latestAt: null };
+  return { ok, slug, asOf, total: 0, sections: {}, counts: {}, windowCounts: {}, weekCounts: {}, weekTrades: [], windowTrades: [], sources: [], earliestAt: null, latestAt: null };
 }
 
 export function safeUrl(u: string | null | undefined): string | null {
@@ -109,12 +113,16 @@ export function summarize(
   const inWindow = rows.filter((r) => Date.parse(r.occurred_at) >= windowStart);
   const grouped: Partial<Record<SectionId, SectionItem[]>> = {};
   const counts: Partial<Record<SectionId, number>> = {};
+  const windowCounts: Partial<Record<SectionId, number>> = {};
+  const weekCounts: Partial<Record<SectionId, number>> = {};
   const sources = new Set<string>();
 
   for (const r of inWindow) {
     sources.add(r.source);
     const sec = sectionFor(r.kind, r.source, r.title, r.subtype);
     if (!sec) continue;
+    windowCounts[sec] = (windowCounts[sec] ?? 0) + 1;
+    if (Date.parse(r.occurred_at) >= weekStart) weekCounts[sec] = (weekCounts[sec] ?? 0) + 1;
     if (sec === 'alerts') {
       const exp = r.expires_at ? Date.parse(r.expires_at) : null;
       const active = exp !== null ? exp > now : Date.parse(r.occurred_at) >= now - ALERT_NO_EXPIRY_DAYS * DAY;
@@ -146,6 +154,7 @@ export function summarize(
   }
   for (const [k, v] of Object.entries(opts.exactSectionCounts ?? {})) {
     if (typeof v === 'number' && v >= (counts[k as SectionId] ?? 0) && k !== 'alerts') counts[k as SectionId] = v;
+    if (typeof v === 'number' && v > 0 && !windowCounts[k as SectionId]) windowCounts[k as SectionId] = v;
   }
 
   const times = inWindow.map((r) => Date.parse(r.occurred_at)).filter(Number.isFinite);
@@ -156,6 +165,8 @@ export function summarize(
     total: Math.max(opts.totalOverride ?? 0, inWindow.length),
     sections,
     counts,
+    windowCounts,
+    weekCounts,
     weekTrades: tally(inWindow.filter((r) => Date.parse(r.occurred_at) >= weekStart)),
     windowTrades: tally(inWindow),
     sources: [...sources].sort(),

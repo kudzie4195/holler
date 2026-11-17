@@ -6,7 +6,7 @@ import { Button, type ButtonSize, type ButtonVariant } from './button';
 
 /**
  * POSTs to a billing endpoint (/api/stripe/checkout or /api/stripe/portal) and follows the returned url.
- * ASSUMED response contract from W5: 200 {"url": "https://..."}; 503 when Stripe is not configured; 401 when signed out.
+ * Checkout takes an optional {plan: 'monthly' | 'annual'} body. Response contract: 200 {"url": "https://..."}; 503 when Stripe is not configured; 401 when signed out.
  */
 export function BillingButton({
   endpoint,
@@ -15,6 +15,7 @@ export function BillingButton({
   size = 'md',
   full,
   unavailableMessage = "Billing opens soon, you're on the free trial.",
+  plan,
 }: {
   endpoint: '/api/stripe/checkout' | '/api/stripe/portal';
   children: React.ReactNode;
@@ -22,6 +23,8 @@ export function BillingButton({
   size?: ButtonSize;
   full?: boolean;
   unavailableMessage?: string;
+  /** Checkout only: which plan to start. Omitted means monthly (the server default). */
+  plan?: 'monthly' | 'annual';
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -30,7 +33,10 @@ export function BillingButton({
     setPending(true);
     setMessage(null);
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
+      const res =
+        endpoint === '/api/stripe/checkout' && plan
+          ? await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) })
+          : await fetch(endpoint, { method: 'POST' });
       if (res.status === 503) {
         setMessage(unavailableMessage);
       } else if (res.status === 401) {

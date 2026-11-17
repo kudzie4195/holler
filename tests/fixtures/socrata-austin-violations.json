@@ -1,0 +1,47 @@
+[
+ {
+  "case_id": "2026-401001",
+  "status": "Open",
+  "address": "1500 E 12TH ST",
+  "zip_code": "78702",
+  "opened_date": "2026-11-13T09:15:00.000",
+  "case_type": "Complaints",
+  "description": "Property Abatement",
+  "inspector": "PRIVATE INSPECTOR",
+  "latitude": "30.2750",
+  "longitude": "-97.7230"
+ },
+ {
+  "case_id": "2026-401002",
+  "status": "Open",
+  "address": "900 W 6TH ST",
+  "zip_code": "78703",
+  "opened_date": "2026-11-13T10:00:00.000",
+  "case_type": "Complaints",
+  "description": "Structure Condition Violation(s)",
+  "latitude": "30.2700",
+  "longitude": "-97.7550"
+ },
+ {
+  "case_id": "2026-401003",
+  "status": "Open",
+  "address": "77 SAMPLE DR",
+  "zip_code": "78745",
+  "opened_date": "2026-11-14T08:00:00.000",
+  "case_type": "Complaints",
+  "description": "Land Use Violation(s)",
+  "latitude": "30.2100",
+  "longitude": "-97.7900"
+ },
+ {
+  "case_id": "2026-401004",
+  "status": "Open",
+  "address": "310 EXAMPLE LN",
+  "zip_code": "78741",
+  "opened_date": "2026-11-14T11:00:00.000",
+  "case_type": "Complaints",
+  "description": "Work Without Permit",
+  "latitude": "30.2300",
+  "longitude": "-97.7400"
+ }
+]
