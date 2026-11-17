@@ -166,10 +166,13 @@ revoke insert, update, delete on table public.holler_scan_runs from anon, authen
 -- ---------------------------------------------------------------------------
 create or replace view public.holler_place_counts
   with (security_invoker = true) as
-select place_slug, count(*)::int as signals_60d, max(occurred_at) as latest_at
+select place_slug,
+       count(*)::int as signals_60d,
+       max(occurred_at) filter (where occurred_at <= now()) as latest_at
 from public.holler_signals
 where place_slug is not null
   and occurred_at > now() - interval '60 days'
+  and occurred_at <= now() + interval '14 days'
 group by place_slug;
 
 grant select on public.holler_place_counts to anon, authenticated;

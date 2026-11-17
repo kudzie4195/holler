@@ -25,6 +25,11 @@ export interface TradeFacts {
   headline: string;
   /** One or two sentences under the headline that say what this trade gets. */
   lead: string;
+  /**
+   * Replacement headline and lead for a deployment where an optional key is missing and the default text leans on the signal type that
+   * key feeds ('ask' or 'event'). Used by tradeHeadline and tradeLead in trade-view.ts. Only needed when the default names that type.
+   */
+  keyless?: { headline: string; lead: string };
   signals: TradeSignal[];
 }
 
@@ -141,6 +146,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'house cleaners',
     headline: 'New-home and request alerts for house cleaners',
     lead: 'Most cleaning work comes from people asking a neighbor for a name. Holler shows you who asked, and where new homes are opening.',
+    keyless: { headline: 'New-home and new-business alerts for house cleaners', lead: 'A finished build or a new office needs a first clean. Holler shows you where new homes are opening and who just registered a business.' },
     signals: [
       { signal: 'People asking for a cleaner', type: 'ask', why: 'Someone posted for a recurring or move-out clean. A good reply in the first hour often wins it.' },
       { signal: 'Building permits for new homes', type: 'permit', why: 'A finished build needs a post-construction clean before the owners move in.' },
@@ -285,6 +291,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'locksmiths',
     headline: 'New-business alerts for locksmiths',
     lead: 'Locksmith work is part emergency and part scheduled. Holler shows new businesses that need locks, and people posting that they are locked out.',
+    keyless: { headline: 'New-business alerts for locksmiths', lead: 'Locksmith work is part emergency and part scheduled. Holler shows new businesses that need locks.' },
     signals: [
       { signal: 'New business licenses', type: 'business', why: 'A new shop or office needs locks keyed, rekeyed or fitted with access control before opening.' },
       { signal: 'Building permits for new homes and remodels', type: 'permit', why: 'New doors and hardware go in at the end of every build.' },
@@ -321,6 +328,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'food truck owners',
     headline: 'Event and crowd alerts for food trucks',
     lead: 'Where the crowd goes, the line forms. Holler lists the big events nearby so you can book a spot before the day.',
+    keyless: { headline: 'Event permit alerts for food trucks', lead: 'Where the crowd goes, the line forms. Holler lists the city event permits nearby so you can book a spot before the day.' },
     signals: [
       { signal: 'Big events and concerts', type: 'event', why: 'A sold-out show or game puts thousands of hungry people within walking distance of a curb.' },
       { signal: 'City event permits', type: 'event-permit', why: 'Street fairs and festivals often need vendors, and organizers fill those spots weeks ahead.' },
@@ -333,6 +341,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'caterers',
     headline: 'Event alerts for caterers',
     lead: 'Catering is booked weeks ahead. Holler shows you the events and public projects that need food.',
+    keyless: { headline: 'Event permit alerts for caterers', lead: 'Catering is booked weeks ahead. Holler shows you the event permits and public projects that need food.' },
     signals: [
       { signal: 'Big events', type: 'event', why: 'Conventions, tournaments and festivals bring organizers, sponsors and hospitality suites that need food.' },
       { signal: 'New business licenses', type: 'business', why: 'A new office or shop often throws a grand opening with food, and the owner has not booked it yet.' },
@@ -345,6 +354,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'event service pros',
     headline: 'Big event alerts for DJs, photographers and rental crews',
     lead: 'Events pull in suppliers from miles around. Holler lists the large ones nearby so you can pitch before the vendor list closes.',
+    keyless: { headline: 'Event permit alerts for DJs, photographers and rental crews', lead: 'Events pull in suppliers from miles around. Holler lists the permitted ones nearby so you can pitch before the vendor list closes.' },
     signals: [
       { signal: 'Big events and festivals', type: 'event', why: 'Organizers hire sound, lighting, photo and rental crews, usually weeks before the date.' },
       { signal: 'City event permits', type: 'event-permit', why: 'A permit for a street event means someone is already planning and has a budget.' },
@@ -357,6 +367,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'rideshare and delivery drivers',
     headline: 'Airport delay and event alerts for rideshare and delivery drivers',
     lead: 'Demand spikes when plans change. Holler tells you where the surge is about to be.',
+    keyless: { headline: 'Airport delay alerts for rideshare and delivery drivers', lead: 'Demand spikes when plans change. Holler tells you about airport delays and weather that change where riders and orders go.' },
     signals: [
       { signal: 'Airport delays and ground stops', type: 'airport', why: 'Stranded travelers book rides and order food to the terminal, and a ground stop puts a wave of riders in your lane.' },
       { signal: 'Big events', type: 'event', why: 'Crowds leaving a stadium all want a ride in the same 20 minutes.' },
@@ -369,6 +380,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'childcare providers',
     headline: 'Parent request alerts for childcare providers',
     lead: 'Parents look for care when schedules break. Holler shows you the public posts where a parent asks for a nanny, sitter or daycare near you.',
+    keyless: { headline: 'Alerts for childcare providers', lead: "Holler's childcare alerts depend on a source that is not switched on for this launch, so there is nothing to send childcare providers yet." },
     signals: [
       { signal: 'Winter storm and severe weather warnings', type: 'weather-alert', why: 'School closures leave families scrambling for same-day care.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Displaced families and recovery workers need care for kids while they rebuild.' },
@@ -381,6 +393,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'hair and beauty pros',
     headline: 'Client request alerts for hair and beauty pros',
     lead: 'Beauty bookings follow weddings, proms and big nights out. Holler shows you the public posts where someone asks for a stylist.',
+    keyless: { headline: 'Alerts for hair and beauty pros', lead: "Holler's beauty alerts depend on a source that is not switched on for this launch, so there is nothing to send hair and beauty pros yet." },
     signals: [
       { signal: 'Big events', type: 'event', why: 'Concerts, galas and festivals send clients looking for hair, nails and makeup the same week.' },
       { signal: 'New business licenses', type: 'business', why: 'A new salon or suite nearby may need booth renters or stylists, and a new office means clients.' },
@@ -489,6 +502,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     noun: 'sign and print shops',
     headline: 'New-business alerts for sign and print shops',
     lead: 'Every new business needs a sign. Holler shows you who is registering, and who is posting that they need a printer.',
+    keyless: { headline: 'New-business alerts for sign and print shops', lead: 'Every new business needs a sign. Holler shows you who is registering.' },
     signals: [
       { signal: 'New business licenses', type: 'business', why: 'A business that has just registered needs a storefront sign, window graphics and printed menus or cards.' },
       { signal: 'Building permits for commercial build-outs', type: 'permit', why: 'A permit for a storefront build-out usually comes with a sign permit and a rush to open.' },

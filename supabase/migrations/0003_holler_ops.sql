@@ -8,6 +8,8 @@
 -- RLS on holler_signals applies, and the grants are re-asserted so this file stands alone.
 -- latest_at ignores rows that have not started yet (events and event permits are stored with a future occurred_at),
 -- so a city with an upcoming event still gets a real last-modified time and never one in the future.
+-- The count covers rows from the last 60 days up to 14 days ahead, so a mistyped far-future date is never counted.
+-- 0001 defines the same view with the same text, so re-running 0001 never changes it.
 -- ---------------------------------------------------------------------------
 create or replace view public.holler_place_counts
   with (security_invoker = true) as
@@ -17,6 +19,7 @@ select place_slug,
 from public.holler_signals
 where place_slug is not null
   and occurred_at > now() - interval '60 days'
+  and occurred_at <= now() + interval '14 days'
 group by place_slug;
 
 grant select on public.holler_place_counts to anon, authenticated;

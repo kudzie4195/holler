@@ -30,7 +30,7 @@ export default function PrivacyPage() {
       <DocSection title="Where the alert data comes from">
         <p>
           Alerts are built from public data: government feeds, city open data, public event listings and public posts
-          found through licensed search APIs. For public posts we keep the title, a short snippet and the link. Alerts
+          found through licensed search APIs and Bluesky search. For public posts we keep the title, a short snippet and the link, and for Bluesky posts the author&apos;s public handle. Alerts
           stay for about 120 days. Then they are deleted.
         </p>
       </DocSection>

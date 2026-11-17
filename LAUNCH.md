@@ -19,7 +19,7 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all three are additive and idempotent, and re-running them in any order is tested to succeed. One catch: 0001 also defines the `holler_place_counts` view, so if you ever re-run 0001, run 0003 once more after it so the view keeps its newer definition (city last-modified dates in the sitemap depend on it).
+Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all three are additive and idempotent, and re-running them in any order is tested to succeed. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it.
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 
@@ -47,10 +47,10 @@ Needed for a real launch:
 - [ ] `STRIPE_SECRET_KEY` (after step 8 test pass, the live key)
 - [ ] `STRIPE_WEBHOOK_SECRET` (step 8)
 
-Optional data sources (each missing key shows up as "skipped(env)" and in the health email as not configured; nothing breaks):
+Optional data sources. Each missing key shows up as "skipped(env)" in the scan table and under "Not configured" in the health email. That is not an error: the smoke test prints a `WARN` line and still passes, and the health subject does not say "need attention". Public pages (trade pages and the /check "what Holler watches" list) also stop naming a signal type whose key is missing: "people asking" needs a Brave or Serper key, or both Bluesky keys; "big events" needs the Ticketmaster key.
 
 - [ ] `BRAVE_SEARCH_API_KEY` or `SERPER_API_KEY` (people asking for a recommendation)
-- [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD` (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day)
+- [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`, both or neither (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day). With only one of the two, or neither, the Bluesky source is skipped. For each matched post Holler keeps the snippet, the link and the author's public handle.
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
 
@@ -68,7 +68,7 @@ Optional data sources (each missing key shows up as "skipped(env)" and in the he
 node scripts/smoke.mjs <SITE> <CRON_SECRET>
 ```
 
-- [ ] The last line says `PASS`. Exit code 0.
+- [ ] The last line says `PASS`. Exit code 0. This holds with only the required keys set: a source skipped for a missing optional key (Bluesky, Brave, Serper, Ticketmaster, SAM) is a `WARN` line, never a `FAIL`.
 - [ ] Every `FAIL` line is fixed. Common ones: a cron route that answers 200 without a key means the auth check did not ship, and a cron route that answers 401 with the right secret means `CRON_SECRET` on Vercel differs from the one you passed; `/app` not redirecting means the proxy is not deployed; 404 check failing on the bad city page means the city validation did not ship.
 - [ ] `WARN` lines are fine if you understand them (optional pages, sources skipped for a missing key).
 
@@ -80,7 +80,7 @@ The smoke test prints one row per source: `status`, `fetched`, `parsed`, `latest
 - [ ] No source has `fetched` above 0 with `parsed` at 0. That means the source changed its format.
 - [ ] Sources with `fetched` 0 are quiet or broken. For `nws`, `faa` and the city feeds, 0 is suspicious: open that source's page from `lib/signals/source-meta.ts` and compare.
 - [ ] `latestOccurredAt` is recent for the fast sources (`nws`, `faa`). Old dates mean a stale feed.
-- [ ] Every `skipped(env)` is a key you chose not to set.
+- [ ] Every `skipped(env)` is a key you chose not to set. It does not count as `error`.
 
 ## 7. Schedule the cron jobs
 
@@ -89,7 +89,7 @@ The smoke test prints one row per source: `status`, `fetched`, `parsed`, `latest
 - [ ] Run the file. It stores both values in Vault and creates `holler-scan` (every 15 minutes), `holler-notify` (every 15 minutes, offset 7), `holler-health` (daily 13:00 UTC).
 - [ ] After 20 minutes run the CHECK queries at the bottom of the file: three jobs, `succeeded` in `cron.job_run_details`, status 200 in `net._http_response`.
 - [ ] `select source, started_at, fetched, inserted, error from holler_scan_runs order by started_at desc limit 20;` shows real rows.
-- [ ] Trigger the health email once by hand and confirm it arrives at `ADMIN_EMAIL`: `curl -H "Authorization: Bearer <CRON_SECRET>" <SITE>/api/cron/health`. The JSON has `email.status`: `sent` is good. `skipped` means `RESEND_API_KEY` or `EMAIL_FROM` is missing. `no_recipient` means neither `ADMIN_EMAIL` nor `SUPPORT_EMAIL` is set. Right after launch it will list sources that have not run yet; that clears within a day.
+- [ ] Trigger the health email once by hand and confirm it arrives at `ADMIN_EMAIL`: `curl -H "Authorization: Bearer <CRON_SECRET>" <SITE>/api/cron/health`. The JSON has `email.status`: `sent` is good. `skipped` means `RESEND_API_KEY` or `EMAIL_FROM` is missing. `no_recipient` means neither `ADMIN_EMAIL` nor `SUPPORT_EMAIL` is set. Right after launch it will list sources that have not run yet; that clears within a day. Sources skipped for a missing optional key are listed under "Not configured" and never make the subject say "need attention"; once every configured source has run cleanly the subject reads "Holler health: all sources OK".
 
 ## 8. Stripe
 

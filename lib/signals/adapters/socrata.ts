@@ -124,11 +124,37 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
 
 /**
  * Business rows are rounded to 2 decimals (about 1 km): enough for a 5 mile alert radius and the nearest-city lookup, too coarse to
- * point at a home. Everything else keeps its exact point.
+ * point at a home. Code-violation rows are rounded to 3 decimals (about 100 m, a block): holler_signals is public, and a violation
+ * record is often a private home. Everything else keeps its exact point.
  */
 export function privatePosition<T extends { lat: number; lon: number }>(pos: T | null, subtype: string): T | null {
-  if (!pos || subtype !== 'business') return pos;
-  return { ...pos, lat: Math.round(pos.lat * 100) / 100, lon: Math.round(pos.lon * 100) / 100 };
+  if (!pos) return pos;
+  const f = subtype === 'business' ? 100 : subtype === 'violation' ? 1000 : 0;
+  if (!f) return pos;
+  return { ...pos, lat: Math.round(pos.lat * f) / f, lon: Math.round(pos.lon * f) / f };
+}
+
+/**
+ * Street address at block level only: "2318 W 47TH ST" becomes "2300 block of W 47TH ST" (house number rounded down to the hundred,
+ * "0-99 block of" below 100). Unit and apartment suffixes are dropped. An address that does not start with a house number followed by a
+ * street (an intersection, a parcel id, free text) returns '' so nothing exact can be stored.
+ */
+export function blockAddress(raw: string): string {
+  const t = raw.replace(/\s+/g, ' ').trim();
+  const m = t.match(/^(\d{1,6})(?:\s*-\s*\d{1,6})?[A-Za-z]?\s+(.+)$/);
+  if (!m) return '';
+  const street = m[2]
+    .replace(/\s*(#|\b(?:apt|apartment|unit|ste|suite|fl|floor|rm|room|bldg)\b).*$/i, '')
+    .replace(/[,;|].*$/, '')
+    .trim();
+  if (!street || /^\d+$/.test(street) || /\d{3,}/.test(street.replace(/\b\d+(?:ST|ND|RD|TH)\b/gi, ''))) return '';
+  const hundred = Math.floor(Number(m[1]) / 100) * 100;
+  return hundred === 0 ? `0-99 block of ${street}` : `${hundred} block of ${street}`;
+}
+
+/** Violation rows store a block-level address; every other subtype keeps what the config asks for. */
+export function publicAddress(subtype: string, raw: string): string {
+  return subtype === 'violation' ? blockAddress(raw) : raw;
 }
 
 export interface ParseReport {
@@ -201,7 +227,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
 
       const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
-      const address = ds.subtype === 'business' ? '' : (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
+      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' '));
       const summaryBits = ds.summaryFields.map((f) => s(row, f)).filter(Boolean);
       const title = buildTitle(ds, row, titleBits, summaryBits, address);
 

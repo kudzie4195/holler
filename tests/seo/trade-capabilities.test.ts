@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORIES } from '../../lib/signals/categories';
 import { SIGNAL_TYPE_IDS, TRADE_SIGNALS } from '../../lib/signals/capabilities';
 import { TRADE_FACTS } from '../../lib/seo/trade-pages';
-import { tradeDescription, tradeEntries, tradeFaq, visibleSignals } from '../../lib/seo/trade-view';
+import { tradeDescription, tradeEntries, tradeFaq, tradeHeadline, tradeLead, visibleSignals } from '../../lib/seo/trade-view';
 import { SIGNAL_PHRASES } from '../../lib/seo/signal-types';
 
 // Words that name a record type, and the types that make the claim true. A headline or lead that uses the word
@@ -47,10 +47,30 @@ describe('trade pages only promise what the trade receives', () => {
     expect(src).toContain('visibleSignals(t)');
     expect(src).not.toMatch(/t\.facts\.signals\.map/);
   });
-  it('every page keeps at least one sentence, and thin trades are shorter, not padded', () => {
-    for (const t of tradeEntries()) expect(visibleSignals(t).length, t.id).toBeGreaterThanOrEqual(1);
+  it('every page keeps at least one sentence when keys are set, and thin trades are shorter, not padded', () => {
+    const all = (id: string) => TRADE_SIGNALS[id as keyof typeof TRADE_SIGNALS];
+    for (const t of tradeEntries()) expect(visibleSignals(t, all(t.id)).length, t.id).toBeGreaterThanOrEqual(1);
     const childcare = tradeEntries().find((x) => x.id === 'childcare')!;
-    expect(visibleSignals(childcare).length).toBeLessThan(childcare.facts.signals.length);
+    expect(visibleSignals(childcare, all('childcare')).length).toBeLessThan(childcare.facts.signals.length);
+  });
+  it('with no optional keys only trades fed by a key alone show no sentence, and their copy says so', () => {
+    const empty = tradeEntries().filter((t) => visibleSignals(t).length === 0).map((t) => t.id).sort();
+    expect(empty).toEqual(['beauty', 'childcare']);
+    for (const id of empty) {
+      const t = tradeEntries().find((x) => x.id === id)!;
+      expect(tradeHeadline(t, () => false)).toBe(t.facts.keyless!.headline);
+      expect(tradeLead(t, () => false)).toMatch(/not switched on/);
+    }
+  });
+  it('keyless headline and lead name no ask or event wording; keyed ones fall back to the default', () => {
+    for (const t of tradeEntries()) {
+      const off = `${tradeHeadline(t, () => false)} ${tradeLead(t, () => false)}`;
+      const needsKey = (TRADE_SIGNALS[t.id as keyof typeof TRADE_SIGNALS] ?? []).some((x) => x === 'ask' || x === 'event');
+      if (t.facts.keyless) expect(needsKey, t.id).toBe(true);
+      expect(off, `${t.id} copy with no keys`).not.toMatch(/asking|posting|requests? alerts|big events?|concerts?|\bgames\b/i);
+      expect(tradeHeadline(t, () => true), t.id).toBe(t.facts.headline);
+      expect(tradeLead(t, () => true), t.id).toBe(t.facts.lead);
+    }
   });
   it('headlines and leads name only record types the trade receives', () => {
     for (const [id, f] of Object.entries(TRADE_FACTS)) {

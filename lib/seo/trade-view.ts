@@ -1,13 +1,16 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
+import { TRADE_SIGNALS } from '@/lib/signals/capabilities';
+import type { CategoryId } from '@/lib/signals/categories';
+import type { EnvKey } from '@/lib/env';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
-import { CITY_TYPES, SIGNAL_PHRASES, typesForTrade } from './signal-types';
+import { CITY_TYPES, SIGNAL_PHRASES, activeTradeSignals, signalTypeActive } from './signal-types';
 
 export const TRADE_PRICE_LINE = '$5 a month or $48 a year, with 7 days free and no card to start.';
 
 export const HOW_IT_WORKS: string[] = [
   'Pick what you do. Add your ZIP and how far you will drive, from 5 to 100 miles.',
-  'Holler checks public weather, city, federal and event data every few minutes to a few hours.',
+  'Holler checks public weather, city and federal data every few minutes to a few hours.',
   'When something nearby matches, you get a short email with the source link. Holler never posts anything for you.',
 ];
 
@@ -35,11 +38,27 @@ export function tradeEntries(): TradeEntry[] {
 
 /**
  * The "why it means work" sentences a trade page may show: only those whose record type the trade really receives
- * (TRADE_SIGNALS in lib/signals/capabilities.ts, derived from the adapters). Order is kept. `received` can be passed
+ * (TRADE_SIGNALS in lib/signals/capabilities.ts, derived from the adapters) and whose keys are configured (activeTradeSignals). Order is kept. `received` can be passed
  * in by tests; production code never does.
  */
-export function visibleSignals(t: Pick<TradeEntry, 'id' | 'facts'>, received: readonly string[] = typesForTrade(t.id)): TradeSignal[] {
+export function visibleSignals(t: Pick<TradeEntry, 'id' | 'facts'>, received: readonly string[] = activeTradeSignals(t.id)): TradeSignal[] {
   return t.facts.signals.filter((s) => received.includes(s.type));
+}
+
+type Has = (...k: EnvKey[]) => boolean;
+
+/** True when a key-gated type that this trade can receive is switched off here, so the default headline and lead may overclaim. */
+function gatedOut(id: string, has?: Has): boolean {
+  return (TRADE_SIGNALS[id as CategoryId] ?? []).some((t) => !signalTypeActive(t, has));
+}
+
+/** The headline for this deployment: the trade's `keyless` text when a key-gated type it leans on is off, else the default. */
+export function tradeHeadline(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): string {
+  return t.facts.keyless && gatedOut(t.id, has) ? t.facts.keyless.headline : t.facts.headline;
+}
+
+export function tradeLead(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): string {
+  return t.facts.keyless && gatedOut(t.id, has) ? t.facts.keyless.lead : t.facts.lead;
 }
 
 /** True when a visible sentence is about a record type that exists only in connected cities. */
@@ -71,14 +90,14 @@ export function tradePath(id: string): string {
 }
 
 export function tradeTitle(t: TradeEntry): string {
-  const base = t.facts.headline;
+  const base = tradeHeadline(t);
   return base.length + 9 <= 66 ? `${base} | Holler` : base;
 }
 
 export function tradeDescription(t: TradeEntry): string {
   const kinds = [...new Set(visibleSignals(t).map((s) => s.type))].slice(0, 3).map((k) => SIGNAL_PHRASES[k]);
   const what = kinds.length ? `when ${kinds.join(', ')} point to work nearby` : 'when public records point to work nearby';
-  const d = `${t.facts.headline}. Holler emails ${t.facts.noun} ${what}. ${TRADE_PRICE_LINE}`;
+  const d = `${tradeHeadline(t)}. Holler emails ${t.facts.noun} ${what}. ${TRADE_PRICE_LINE}`;
   return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
 }
 
@@ -89,11 +108,13 @@ function lowerFirst(s: string): string {
 /** 2 to 3 questions, each answered from the trade's own data file or the fixed price and rules. */
 export function tradeFaq(t: TradeEntry): { q: string; a: string }[] {
   const names = visibleSignals(t).map((s) => lowerFirst(s.signal));
-  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? 'public records near you');
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '');
   return [
     {
       q: `What does Holler send ${t.facts.noun}?`,
-      a: `Holler watches for ${list}. You pick your trade and how far you will drive, and a short email arrives whenever something nearby matches what you do. Each one links to the public source.`,
+      a: list
+        ? `Holler watches for ${list}. You pick your trade and how far you will drive, and a short email arrives whenever something nearby matches what you do. Each one links to the public source.`
+        : 'Nothing yet. The sources behind this trade are not switched on for this launch, so Holler has no alerts to send it today.',
     },
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
@@ -110,9 +131,9 @@ export function serviceLd(t: TradeEntry): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'Service',
-    name: t.facts.headline,
+    name: tradeHeadline(t),
     serviceType: 'Local lead and storm alerts',
-    description: t.facts.lead,
+    description: tradeLead(t),
     url: absoluteUrl(tradePath(t.id)),
     audience: { '@type': 'Audience', audienceType: t.label },
     provider: { '@type': 'Organization', name: 'Holler', url: absoluteUrl('/') },

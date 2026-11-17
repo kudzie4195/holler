@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseSocrata, buildSocrataQuery } from '@/lib/signals/adapters/socrata';
+import { parseSocrata, buildSocrataQuery, blockAddress } from '@/lib/signals/adapters/socrata';
 import { parseArcgis } from '@/lib/signals/adapters/arcgis';
 import {
   NAME_COLUMN_OK,
@@ -90,10 +90,78 @@ describe('person-name rows: no name in any stored field', () => {
     }
   });
 
-  it('violation summaries keep the property address but never owner, inspector or comment text', () => {
+  it('violation summaries keep a block-level address, never the house number, owner, inspector or comment text', () => {
     const items = parseSocrata(fx('socrata-chicago-violations-people.json'), ds('socrata-chicago-violations'));
-    expect(items[0].summary).toContain('2318 W 47TH ST');
+    expect(items[0].summary).toContain('2300 block of W 47TH ST');
+    expect(items[1].summary).toContain('7700 block of S CHAPPEL AVE');
+    const hay = everyString(items).join('\n');
+    for (const exact of ['2318', '7710']) expect(hay.includes(exact), `exact house number ${exact} stored`).toBe(false);
     expectNoNames(items, 'violations');
+  });
+
+  it('violation coordinates are rounded to 3 decimals', () => {
+    const items = parseSocrata(fx('socrata-chicago-violations-people.json'), ds('socrata-chicago-violations'));
+    expect(items[0].lat).toBe(41.808);
+    expect(items[0].lon).toBe(-87.684);
+    for (const s of items) {
+      expect(Math.abs((s.lat as number) * 1000 - Math.round((s.lat as number) * 1000))).toBeLessThan(1e-6);
+      expect(Math.abs((s.lon as number) * 1000 - Math.round((s.lon as number) * 1000))).toBeLessThan(1e-6);
+    }
+  });
+});
+
+describe('violation addresses: block level only, Socrata and ArcGIS', () => {
+  it('blockAddress rounds down, strips units and drops what it cannot parse', () => {
+    expect(blockAddress('1234 W Main St')).toBe('1200 block of W Main St');
+    expect(blockAddress('1200 W Main St')).toBe('1200 block of W Main St');
+    expect(blockAddress('47 Oak Ave')).toBe('0-99 block of Oak Ave');
+    expect(blockAddress('2318 W 47TH ST APT 3B')).toBe('2300 block of W 47TH ST');
+    expect(blockAddress('2318 W 47TH ST #4')).toBe('2300 block of W 47TH ST');
+    expect(blockAddress('2318 W 47TH ST, CHICAGO IL 60632')).toBe('2300 block of W 47TH ST');
+    expect(blockAddress('MAIN ST & 5TH AVE')).toBe('');
+    expect(blockAddress('PARCEL 14-20-300-001')).toBe('');
+    expect(blockAddress('2318')).toBe('');
+    expect(blockAddress('')).toBe('');
+  });
+
+  it('no output of blockAddress contains the exact house number', () => {
+    for (const n of [101, 199, 1234, 5678, 99999, 407, 2318]) {
+      const out = blockAddress(`${n} Elm St`);
+      expect(out.includes(String(n)), `${n} -> ${out}`).toBe(false);
+    }
+  });
+
+  it('Socrata violation row with an exact number stores no exact number in any field; unparseable address is dropped', () => {
+    const d = ds('socrata-chicago-violations');
+    const base = {
+      id: 'V1', violation_date: '2026-11-12T00:00:00.000', violation_description: 'RODENT INFESTATION IN REAR YARD', violation_status: 'OPEN',
+      latitude: '41.808234', longitude: '-87.684177',
+    };
+    const [ok] = parseSocrata([{ ...base, address: '4471 N LINCOLN AVE' }], d);
+    expect(JSON.stringify(ok)).not.toContain('4471');
+    expect(ok.summary).toContain('4400 block of N LINCOLN AVE');
+    expect(JSON.stringify(ok)).not.toContain('41.808234');
+    const [bad] = parseSocrata([{ ...base, address: 'LOT 4471' }], d);
+    expect(JSON.stringify(bad)).not.toContain('4471');
+    expect(bad.summary).not.toMatch(/block of|LOT/);
+  });
+
+  it('ArcGIS violation row: block address and 3-decimal point', () => {
+    const d: ArcgisDataset = {
+      ...ARCGIS_DATASETS[0], id: 'arcgis-test-violations', subtype: 'violation', kind: 'civic', idField: 'ID', dateField: 'OPENED',
+      titleFields: ['TYPE'], textFields: ['TYPE'], summaryFields: ['TYPE'], addressFields: ['ADDR'], latField: undefined, lonField: undefined, zipField: undefined,
+    };
+    const raw = {
+      features: [{ attributes: { ID: 'A1', OPENED: Date.parse('2026-11-12T10:00:00Z'), TYPE: 'Overgrown weeds and trash', ADDR: '3355 Peachtree Rd NE' }, geometry: { x: -84.388123, y: 33.841987 } }],
+    };
+    const [it1] = parseArcgis(raw, d);
+    expect(it1).toBeTruthy();
+    expect(JSON.stringify(it1)).not.toContain('3355');
+    expect(it1.summary).toContain('3300 block of Peachtree Rd NE');
+    expect(it1.lat).toBe(33.842);
+    expect(it1.lon).toBe(-84.388);
+    const [none] = parseArcgis({ features: [{ attributes: { ID: 'A2', OPENED: Date.parse('2026-11-12T10:00:00Z'), TYPE: 'Overgrown weeds', ADDR: 'Peachtree at 14th' }, geometry: { x: -84.388, y: 33.84 } }] }, d);
+    expect(none.summary).not.toMatch(/block of|Peachtree/);
   });
 });
 

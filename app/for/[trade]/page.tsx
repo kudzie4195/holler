@@ -11,6 +11,8 @@ import {
   serviceLd,
   tradeDescription,
   tradeEntry,
+  tradeHeadline,
+  tradeLead,
   tradeFaq,
   tradePath,
   tradeTitle,
@@ -103,8 +105,8 @@ export default async function TradePage({ params }: Props) {
         ]}
       />
       <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'By trade', href: '/for' }, { name: t.label }]} />
-      <H1>{t.facts.headline}</H1>
-      <p className="mt-4 max-w-2xl text-lg leading-relaxed">{t.facts.lead}</p>
+      <H1>{tradeHeadline(t)}</H1>
+      <p className="mt-4 max-w-2xl text-lg leading-relaxed">{tradeLead(t)}</p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <PrimaryLink href={checkHref}>Check your area</PrimaryLink>
         <PrimaryLink href="/signup">Start free</PrimaryLink>
@@ -114,6 +116,9 @@ export default async function TradePage({ params }: Props) {
       <div className="mt-10 flex flex-col gap-6">
         <Card>
           <H2 id="what-you-get">What Holler sends {t.facts.noun}</H2>
+          {signals.length === 0 ? (
+            <p className="mt-4 text-muted">Nothing yet. The sources behind this trade are not switched on for this launch.</p>
+          ) : null}
           <ul className="mt-4 flex flex-col gap-4">
             {signals.map((s) => (
               <li key={s.signal}>
