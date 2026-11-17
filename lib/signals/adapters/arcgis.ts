@@ -1,4 +1,6 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
+import { permitTitle, permitTypeFields, publicSummary, scrubText } from './permit-privacy';
+import type { CategoryId } from '@/lib/signals/categories';
 import { categorize, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 
@@ -111,10 +113,13 @@ function position(f: { attributes: Attrs; geometry?: unknown }, ds: ArcgisDatase
   return null;
 }
 
-function title(ds: ArcgisDataset, titleBits: string[], summaryBits: string[], address: string): string {
+function title(ds: ArcgisDataset, a: Attrs, titleBitsRaw: string[], summaryBits: string[], address: string, categories: CategoryId[], text: string): string {
+  // Free-text columns can hold names and phone numbers: titles never copy them raw.
+  if (ds.subtype === 'permit') {
+    return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => str(a, f)).filter(Boolean), categories, text);
+  }
+  const titleBits = ds.subtype === 'business' || ds.subtype === 'inspection' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
-    case 'permit':
-      return `New permit in ${ds.city}: ${trunc(titleBits[0] ?? 'building permit', 110)}`;
     case '311':
       return `311 request in ${ds.city}: ${trunc([...new Set(titleBits)].join(' / ') || 'service request', 110)}`;
     case 'business':
@@ -174,8 +179,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         source: ds.id,
         externalId,
         kind: ds.kind,
-        title: title(ds, titleBits, summaryBits, address),
-        summary: trunc(parts.join(' | '), 280) || null,
+        title: title(ds, a, titleBits, summaryBits, address, categories, text),
+        summary: ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined }),
         url: arcgisPageUrl(ds),
         lat: pos?.lat ?? null,
         lon: pos?.lon ?? null,

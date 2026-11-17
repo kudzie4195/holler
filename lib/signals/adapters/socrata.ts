@@ -1,6 +1,7 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
+import { permitTitle, permitTypeFields, publicSummary, scrubText } from './permit-privacy';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -180,10 +181,13 @@ function externalIdFor(row: Row, ds: SocrataDataset): string {
   return s(row, ds.idField);
 }
 
-function buildTitle(ds: SocrataDataset, row: Row, titleBits: string[], summaryBits: string[], address: string): string {
+function buildTitle(ds: SocrataDataset, row: Row, titleBitsRaw: string[], summaryBits: string[], address: string, categories: CategoryId[], text: string): string {
+  // Free-text columns (permit descriptions, 311 details, violation text) can hold names and phone numbers: titles never copy them raw.
+  if (ds.subtype === 'permit') {
+    return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => s(row, f)).filter(Boolean), categories, text);
+  }
+  const titleBits = ds.subtype === 'business' || ds.subtype === 'inspection' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
-    case 'permit':
-      return `New permit in ${ds.city}: ${trunc(titleBits[0] ?? 'building permit', 110)}`;
     case '311': {
       const uniq = [...new Set(titleBits.map((b) => b.toLowerCase()))].map(
         (l) => titleBits.find((b) => b.toLowerCase() === l) as string,
@@ -243,13 +247,15 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
         if (sector) summaryBits.push(sector);
       }
-      const title = buildTitle(ds, row, titleBits, summaryBits, address);
+      const title = buildTitle(ds, row, titleBits, summaryBits, address, categories, text);
 
       // 311 summaries leave the street address out; permits, inspections, businesses, violations and events are
       // business/property records. Only the configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
-      const summary = trunc(summaryParts.join(' | '), 280) || null;
+      const summary = ds.subtype === 'business'
+        ? trunc(summaryParts.join(' | '), 280) || null
+        : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
 
       const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;

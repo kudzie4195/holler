@@ -31,7 +31,7 @@ describe('socrata parsers on fixtures', () => {
     expect(roof.city).toBe('Chicago');
     expect(roof.state).toBe('IL');
     expect(roof.occurredAt).toBe('2026-11-12T06:00:00.000Z'); // midnight Chicago (CST) is 06:00Z
-    expect(roof.title).toMatch(/^New permit in Chicago: TEAR OFF/);
+    expect(roof.title).toBe('Renovation/Alteration permit in Chicago');
     expect(out.find((s) => s.externalId === '101234568')!.categories).toContain('electrical');
     const nc = out.find((s) => s.externalId === '101234569')!;
     expect(nc.categories).toEqual(expect.arrayContaining(['general-contractor', 'landscaping', 'cleaning']));
