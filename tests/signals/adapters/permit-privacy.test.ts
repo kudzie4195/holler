@@ -21,12 +21,12 @@ const CASES: Case[] = [
   {
     id: 'socrata-batonrouge-permits',
     row: { permitnumber: 'BR1', issueddate: D, projectdescription: 'Residential home for Caleb & Susan Leger', permittype: 'New Residential', designation: 'Residential', lat: '30.45', long: '-91.15' },
-    titleRe: /^New Residential permit in Baton Rouge$/,
+    titleRe: /^New home permit in Baton Rouge$/,
   },
   {
     id: 'socrata-nola-permits',
     row: { numstring: 'NO1', issuedate: D, description: 'Install 3-ton HVAC system with electric air handler and condenser unit. Edgar Young 813-0256.', type: 'Mechanical', projectname: 'Edgar Young 813-0256' },
-    titleRe: /^Mechanical permit in New Orleans$/,
+    titleRe: /^HVAC permit in New Orleans$/,
   },
   {
     id: 'socrata-nola-permits',
@@ -36,7 +36,7 @@ const CASES: Case[] = [
   {
     id: 'socrata-montgomery-permits',
     row: { permitno: 'MC1', issueddate: D, description: 'Customer Wants To Use ePlans,Construct new detached single family home HOUSE- 7341 PORCHES- 427RETAINING WALL', worktype: 'Construct', applicationtype: 'RESIDENTIAL' },
-    titleRe: /^Construct permit in Montgomery County$/,
+    titleRe: /^New home permit in Montgomery County$/,
   },
   {
     id: 'socrata-nyc-permits',
@@ -46,12 +46,12 @@ const CASES: Case[] = [
   {
     id: 'socrata-sf-permits',
     row: { permit_number: 'SF1', issued_date: D, description: 'replace three windows front facade house size for size with jeld-wen premium wood clad, 0.28 u-factor. same as existing', permit_type_definition: 'otc alterations permit' },
-    titleRe: /^Otc Alterations permit in San Francisco$/,
+    titleRe: /^Window and door permit in San Francisco$/,
   },
   {
     id: 'socrata-chicago-permits',
     row: { permit_: 'CH1', issue_date: D, work_description: 'SCOPE: ROOF REPLACEMENT. AREA: 1247 SQ. FT. ROOF COVERING: ASPHALT SHINGLES. LOCATION: HOUSE AND GARAGE.', permit_type: 'PERMIT - RENOVATION/ALTERATION', latitude: '41.9', longitude: '-87.6' },
-    titleRe: /^Renovation\/Alteration permit in Chicago$/,
+    titleRe: /^Roof permit in Chicago$/,
   },
 ];
 
@@ -162,5 +162,20 @@ describe('classification still reads the original text', () => {
     expect(classifyText('SCOPE: ROOF REPLACEMENT. ASPHALT SHINGLES')).toContain('roofing');
     expect(classifyText('Install 3-ton HVAC system')).toContain('hvac');
     expect(NEW_HOME_RE.test('Construct new detached single family home')).toBe(true);
+  });
+});
+
+describe('plainType', () => {
+  it('drops city process jargon and keeps real work types', async () => {
+    const { plainType } = await import('../../../lib/signals/adapters/permit-privacy');
+    expect(plainType('Express Program')).toBeNull();
+    expect(plainType('Post Card')).toBeNull();
+    expect(plainType('Supplemental')).toBeNull();
+    expect(plainType('Building Combo')).toBeNull();
+    expect(plainType('Otc Alterations')).toBe('Alterations');
+    expect(plainType('New')).toBe('New construction');
+    expect(plainType('Construct')).toBe('New construction');
+    expect(plainType('Demolition')).toBe('Demolition');
+    expect(plainType('Residential Heating System')).toBe('Residential Heating System');
   });
 });

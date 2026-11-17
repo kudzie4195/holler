@@ -231,6 +231,20 @@ export function typeLabel(value: string): string | null {
   return t;
 }
 
+/** City-internal process names that say nothing about the work. */
+const JARGON_RE = /\b(?:express|program|post card|supplemental|combo|loop|otc|over the counter|e-?plans?|walk-?thru|misc(?:ellaneous)?)\b/i;
+
+/** Tidies a type label for the public title, or drops it when it is process jargon. */
+export function plainType(label: string | null): string | null {
+  if (!label) return null;
+  if (/^(?:new|construct|construction|general|other|residential|commercial)$/i.test(label)) {
+    return /^(?:new|construct|construction)$/i.test(label) ? 'New construction' : null;
+  }
+  const cleaned = label.replace(/\b(?:otc|over the counter)\b\s*/gi, '').trim();
+  if (!cleaned || JARGON_RE.test(cleaned)) return null;
+  return cleaned;
+}
+
 /** Trade label used in "<label> permit in <city>". Order matters: the first match wins. */
 const TRADE_LABELS: [CategoryId, string][] = [
   ['roofing', 'Roof'],
@@ -263,7 +277,8 @@ export function tradeLabel(categories: CategoryId[], text: string): string | nul
  * the first one that is short and code-like names the work, else the matched trade, else plain "Permit in <City>".
  */
 export function permitTitle(city: string, typeValues: string[], categories: CategoryId[], classifierText: string): string {
-  const candidates = [...typeValues.map(typeLabel), tradeLabel(categories, classifierText)].filter((x): x is string => Boolean(x));
+  // A matched trade reads better than a city's internal permit code ("Roof" beats "Express Program"), so it wins when present.
+  const candidates = [tradeLabel(categories, classifierText), ...typeValues.map(typeLabel).map(plainType)].filter((x): x is string => Boolean(x));
   for (const label of candidates) {
     const t = `${label} permit in ${city}`;
     if (t.length <= MAX_TITLE_CHARS) return t;
