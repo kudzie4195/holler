@@ -214,3 +214,61 @@ describe('settings save creating a first profile stamps the trial (verify P2-4)'
     vi.doUnmock('next/server');
   });
 });
+
+describe('delete account writes the trial stamp before it deletes the profile (final verify P2-11)', () => {
+  const run = async (opts: { failStamp?: boolean; meta?: Record<string, unknown> }) => {
+    const events: string[] = [];
+    const meta: Record<string, unknown> = { products: ['holler'], ...(opts.meta ?? {}) };
+    vi.resetModules();
+    vi.doMock('next/navigation', () => ({ redirect: () => { throw new Error('redirect'); } }));
+    vi.doMock('next/server', () => ({ after: () => {} }));
+    vi.doMock('@/lib/stripe', () => ({ getStripe: () => null, isHollerMetadata: () => false }));
+    vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => ({ auth: { signOut: async () => ({}) } }) }));
+    vi.doMock('@/lib/auth/session', () => ({ getUser: async () => ({ id: 'u1' }), getProfile: async () => ({ created_at: iso(-3) }) }));
+    vi.doMock('@/lib/auth/profile', () => ({ saveProfile: async () => ({ ok: true }) }));
+    vi.doMock('@/lib/signals/backfill-run', () => ({ backfillWithLimit: async () => ({ ran: false }) }));
+    vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => 'first' }));
+    vi.doMock('@/lib/supabase/admin', () => ({
+      createAdminClient: () => ({
+        from: (table: string) => ({ delete: () => ({ eq: async () => (events.push(`delete:${table}`), { error: null }) }) }),
+        auth: {
+          admin: {
+            getUserById: async () => ({ data: { user: { id: 'u1', app_metadata: meta } }, error: null }),
+            updateUserById: async (_id: string, attrs: { app_metadata: Record<string, unknown> }) => {
+              if (opts.failStamp && 'holler_trial_started_at' in attrs.app_metadata && !('products' in attrs.app_metadata)) return { error: { message: 'down' } };
+              events.push('update:' + Object.keys(attrs.app_metadata).sort().join('+'));
+              Object.assign(meta, attrs.app_metadata);
+              return { error: null };
+            },
+          },
+        },
+      }),
+    }));
+    const { deleteAccount } = await import('../../app/app/settings/actions');
+    let result: unknown = 'redirected';
+    try {
+      result = await deleteAccount();
+    } catch {
+      // redirect('/') throws in this fake: success
+    }
+    return { events, meta, result };
+  };
+
+  it('stamps first (stamp only), deletes matches then profile, then strips the product tag', async () => {
+    const { events, meta } = await run({});
+    expect(events).toEqual(['update:holler_trial_started_at', 'delete:holler_matches', 'delete:holler_profiles', expect.stringMatching(/^update:holler_email_verified_at\+holler_left_at\+products$/)]);
+    expect(meta.holler_trial_started_at).toBe(iso(-3));
+  });
+
+  it('if the stamp cannot be written, nothing is deleted and the user sees the error', async () => {
+    const { events, result } = await run({ failStamp: true });
+    expect(events).toEqual([]);
+    expect(result).toEqual({ error: expect.stringContaining("couldn't delete") });
+  });
+
+  it('an existing stamp is left alone (no stamp write at all)', async () => {
+    const { events, meta } = await run({ meta: { holler_trial_started_at: iso(-40) } });
+    expect(events[0]).toBe('delete:holler_matches');
+    expect(meta.holler_trial_started_at).toBe(iso(-40));
+  });
+});

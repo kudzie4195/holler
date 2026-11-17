@@ -18,10 +18,13 @@ export interface CheckGroup {
   items: CheckItem[];
 }
 
-import { isUpcoming, orderLatest, toMs } from '@/lib/time';
+import { haversineMi } from '@/lib/geo';
+import { isUpcoming, toMs } from '@/lib/time';
 
 export const MAX_ITEMS = 20;
 export const MAX_PER_GROUP = 8;
+/** Records this close to the ZIP (miles) count as "local" for ordering. It is the radius a new subscriber gets by default. */
+export const LOCAL_MI = 25;
 
 const GROUPS: { id: string; title: string; kinds: string[] }[] = [
   { id: 'weather', title: 'Weather and disasters', kinds: ['alert', 'report', 'disaster', 'quake'] },
@@ -37,14 +40,46 @@ function groupIdFor(kind: string): string {
   return GROUPS.find((g) => g.kinds.includes(kind))?.id ?? 'other';
 }
 
+/** Distance in miles from the ZIP to a record, or null when the record has no coordinates (state-level alerts) or no origin was given. */
+export function distanceFrom(origin: { lat: number; lon: number } | undefined, it: CheckItem): number | null {
+  if (!origin || typeof it.lat !== 'number' || typeof it.lon !== 'number') return null;
+  const d = haversineMi(origin.lat, origin.lon, it.lat, it.lon);
+  return Number.isFinite(d) ? d : null;
+}
+
 /**
- * Upcoming items first (soonest start first, so an event next week reads in order), then everything else newest first.
- * At most MAX_PER_GROUP per group and MAX_ITEMS overall (so one busy feed such as permits cannot crowd out weather alerts).
- * Groups are ordered by their newest item that is not in the future, so a far-off event never pins its group to the top;
- * a group with only upcoming items goes after the groups that have recent items.
+ * What the page puts first, in this order:
+ *  0. active severe weather and disaster records (severity 2 or more), most severe then newest;
+ *  1. upcoming records (events), soonest start first;
+ *  2. records within LOCAL_MI of the ZIP, closest first (only when the ZIP's position is known);
+ *  3. everything else, newest first.
+ * Both what is kept under the caps and the order inside each group follow this order.
  */
-export function groupItems(items: CheckItem[], now: number = Date.now()): CheckGroup[] {
-  const sorted = orderLatest(items, (i) => i.occurredAt, now);
+function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: number; lon: number }): number {
+  const rank = (it: CheckItem): number => {
+    if (it.severity >= 2 && groupIdFor(it.kind) === 'weather') return 0;
+    if (isUpcoming(it.occurredAt, now)) return 1;
+    const d = distanceFrom(origin, it);
+    return d !== null && d <= LOCAL_MI ? 2 : 3;
+  };
+  const ra = rank(a);
+  const rb = rank(b);
+  if (ra !== rb) return ra - rb;
+  const newest = toMs(b.occurredAt) - toMs(a.occurredAt);
+  if (ra === 0) return b.severity - a.severity || newest;
+  if (ra === 1) return toMs(a.occurredAt) - toMs(b.occurredAt);
+  if (ra === 2) return (distanceFrom(origin, a) ?? 0) - (distanceFrom(origin, b) ?? 0) || newest;
+  return newest;
+}
+
+/**
+ * Orders the records as compareItems says, keeps at most MAX_PER_GROUP per group and MAX_ITEMS overall (so one busy feed such as
+ * permits cannot crowd out weather alerts), and groups them. Groups with an active severe alert come first, then groups are ordered by
+ * their newest item that is not in the future, so a far-off event never pins its group to the top; a group with only upcoming items goes
+ * after the groups that have recent items. `origin` is the ZIP's own position; without it nothing counts as local.
+ */
+export function groupItems(items: CheckItem[], now: number = Date.now(), origin?: { lat: number; lon: number }): CheckGroup[] {
+  const sorted = items.slice().sort((a, b) => compareItems(a, b, now, origin));
   const buckets = new Map<string, CheckItem[]>();
   let total = 0;
   for (const it of sorted) {
@@ -61,9 +96,10 @@ export function groupItems(items: CheckItem[], now: number = Date.now()): CheckG
     const past = list.filter((i) => !isUpcoming(i.occurredAt, now)).map((i) => toMs(i.occurredAt));
     return past.length ? Math.max(...past) : -Infinity;
   };
+  const hasSevere = (id: string, list: CheckItem[]) => id === 'weather' && list.some((i) => i.severity >= 2);
   return [...buckets.entries()]
-    .map(([id, list]) => ({ id, title: titleOf(id), items: list, key: newestPastMs(list) }))
-    .sort((a, b) => b.key - a.key)
+    .map(([id, list]) => ({ id, title: titleOf(id), items: list, key: newestPastMs(list), severe: hasSevere(id, list) ? 1 : 0 }))
+    .sort((a, b) => b.severe - a.severe || b.key - a.key)
     .map(({ id, title, items: list }) => ({ id, title, items: list }));
 }
 

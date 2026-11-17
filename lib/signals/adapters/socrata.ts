@@ -3,6 +3,7 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signa
 import { env } from '@/lib/env';
 import {
   CIVIC_TYPE_KEYWORDS,
+  NAICS_SECTORS,
   RULES_BY_SUBTYPE,
   SOCRATA_DATASETS,
   datasetPageUrl,
@@ -138,14 +139,15 @@ export function privatePosition<T extends { lat: number; lon: number }>(pos: T |
  * Street address at block level only: "2318 W 47TH ST" becomes "2300 block of W 47TH ST" (house number rounded down to the hundred,
  * "0-99 block of" below 100). Apartment, unit and suite suffixes ("APT 4", "APT4", "#5B", "UNIT 5", "STE 100") are dropped, and so is a
  * fractional house number ("1915 1/4"). The whole address is DROPPED (returns '') when it
- *  - names a lot, trailer or space number ("12 MAIN ST LOT 34", "TRAILER #24", "SPC 7": one mobile-home pad, still identifying at block level), or
+ *  - names a lot, trailer or space number, written with or without a space ("12 MAIN ST LOT 34", "LOT34", "SP34", "TRLR24", "SPACE A-12",
+ *    "TRAILER #24", "SPC 7": one mobile-home pad, still identifying at block level), or
  *  - joins a second address with "&" or "and" ("123 MAIN ST & 45 ELM ST": a second exact address would survive the cut), or
  *  - does not start with a house number followed by a street (an intersection, a parcel id, free text).
  */
 export function blockAddress(raw: string): string {
   const t = raw.replace(/\s+/g, ' ').trim();
   if (/&|\band\b/i.test(t)) return '';
-  if (/\b(?:lot|trlr|trailer|trl|tr|space|spc|sp)\b\.?\s*#?\s*[A-Za-z]?\d/i.test(t)) return '';
+  if (/\b(?:lot|trlr|trailer|trl|tr|space|spc|sp)(?=[\s#.\-]*[A-Za-z]?-?\d)/i.test(t)) return '';
   const m = t.match(/^(\d{1,6})(?:\s*-\s*\d{1,6})?[A-Za-z]?(?:\s+\d\/\d)?\s+(.+)$/);
   if (!m) return '';
   const street = m[2]
@@ -191,7 +193,9 @@ function buildTitle(ds: SocrataDataset, row: Row, titleBits: string[], summaryBi
     case 'business':
       return titleBits[0]
         ? `New business in ${ds.city}: ${trunc(titleBits[0], 100)}`
-        : `New business license in ${ds.city}: ${trunc(summaryBits[0] ?? 'business', 100)}`;
+        : summaryBits[0]
+          ? `New business license in ${ds.city}: ${trunc(summaryBits[0], 100)}`
+          : `New business license in ${ds.city}`;
     case 'violation':
       return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? 'property violation', 110)}`;
     case 'event-permit':
@@ -234,6 +238,11 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' '));
       const summaryBits = ds.summaryFields.map((f) => s(row, f)).filter(Boolean);
+      // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
+      if (!summaryBits.length && ds.naicsField) {
+        const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
+        if (sector) summaryBits.push(sector);
+      }
       const title = buildTitle(ds, row, titleBits, summaryBits, address);
 
       // 311 summaries leave the street address out; permits, inspections, businesses, violations and events are

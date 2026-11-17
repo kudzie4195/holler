@@ -165,3 +165,25 @@ describe('P2: city and state descriptions, trade caveat, coming-soon trades', ()
     expect(beauty.items[beauty.items.length - 1].comingSoon).toBe(true);
   });
 });
+
+describe('final verify P2-9 and P2-10: no promise a trade or a city cannot keep', () => {
+  it('childcare and beauty FAQ promise no alerts without a people-asking key, and do with one', async () => {
+    const { tradeFaq } = await import('../../lib/seo/trade-view');
+    for (const id of ['childcare', 'beauty']) {
+      const t = tradeEntries().find((x) => x.id === id)!;
+      const none = tradeFaq(t, NONE).map((f) => f.q + ' ' + f.a).join(' ');
+      expect(none).not.toMatch(/see real alerts/i);
+      expect(none).toContain('no alerts to send this trade yet');
+      expect(tradeFaq(t, setOf('BRAVE_SEARCH_API_KEY')).map((f) => f.a).join(' ')).toMatch(/see real alerts/i);
+    }
+    const roofing = tradeEntries().find((x) => x.id === 'roofing')!;
+    expect(tradeFaq(roofing, NONE)[1].a).toMatch(/see real alerts/i);
+  });
+  it('llms.txt says city records exist only for the connected cities, with and without keys', () => {
+    for (const has of [NONE, ALL]) {
+      const t = llmsText(llmsInput, has);
+      expect(t).toMatch(/City records \(building permits, 311 requests, inspections, new business licenses, code violations and event permits\) exist only for the cities Holler has connected/);
+      expect(t).not.toMatch(/active weather alerts, storm reports, disaster declarations and earthquakes, building permits/);
+    }
+  });
+});

@@ -1,10 +1,10 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { TRADE_SIGNALS } from '@/lib/signals/capabilities';
 import type { CategoryId } from '@/lib/signals/categories';
-import type { EnvKey } from '@/lib/env';
+import { hasEnv, type EnvKey } from '@/lib/env';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
-import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive } from './signal-types';
+import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive, tradeComingSoon } from './signal-types';
 
 export const TRADE_PRICE_LINE = '$5 a month or $48 a year, with 7 days free and no card to start.';
 
@@ -127,7 +127,8 @@ function lowerFirst(s: string): string {
 }
 
 /** 2 to 3 questions, each answered from the trade's own data file or the fixed price and rules. */
-export function tradeFaq(t: TradeEntry): { q: string; a: string }[] {
+export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: string }[] {
+  const comingSoon = tradeComingSoon(t.id, has);
   const names = visibleSignals(t).map((s) => lowerFirst(s.signal));
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '');
   return [
@@ -139,7 +140,9 @@ export function tradeFaq(t: TradeEntry): { q: string; a: string }[] {
     },
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
-      a: 'It costs $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
+      a: comingSoon
+        ? 'It costs $5 a month or $48 a year, with a 7-day free trial and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.'
+        : 'It costs $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
     },
     {
       q: 'Does Holler post or contact anyone for me?',

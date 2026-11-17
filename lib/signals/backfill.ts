@@ -7,6 +7,8 @@ export const BACKFILL_CAP = 25;
 export const BACKFILL_PAGE_LIMIT = 500;
 /** At most this many pages: the newest 1500 records inside the radius. Pages only continue while a page comes back full. */
 export const BACKFILL_MAX_PAGES = 3;
+/** Severity 2+ rows with coordinates inside the radius: their own read, so a dense feed of routine rows cannot bury a severe report. */
+export const BACKFILL_SEVERE_LIMIT = 100;
 /** State-level rows (no coordinates, severity 2+) for the profile's state: their own small query, so nothing can crowd them out. */
 export const BACKFILL_STATE_LIMIT = 100;
 
@@ -27,14 +29,24 @@ const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at
 /**
  * Records with coordinates inside the profile's own radius, newest first. The distance test runs in SQL (holler_signals_near,
  * migration 0003) BEFORE the row limit, so a dense neighbour feed (NYC 311 next to a Trenton NJ profile at 50 miles) cannot use up
- * the limit with rows that are in the bounding box but outside the circle. Pages back in time while a page is full.
+ * the limit with rows that are in the bounding box but outside the circle. Pages back in time while a page is full, with a keyset
+ * cursor (the oldest row's occurred_at as p_until plus its id as p_before_id), so thousands of rows that share one timestamp
+ * (a date-only feed) are read in full instead of returning the same page again.
+ * `minSeverity` 2 with `maxPages` 1 is the separate severe read.
  */
-async function readNear(db: Db, profile: MatchProfile, since: string, until: string): Promise<SignalRow[]> {
+async function readNear(
+  db: Db,
+  profile: MatchProfile,
+  since: string,
+  until: string,
+  opts: { minSeverity: number; limit: number; maxPages: number },
+): Promise<SignalRow[]> {
   if (typeof profile.lat !== 'number' || typeof profile.lon !== 'number' || !Number.isFinite(profile.lat) || !Number.isFinite(profile.lon)) return [];
   const out: SignalRow[] = [];
   const seen = new Set<number>();
   let pageUntil = until;
-  for (let page = 0; page < BACKFILL_MAX_PAGES; page++) {
+  let beforeId: number | null = null;
+  for (let page = 0; page < opts.maxPages; page++) {
     const { data, error } = await db
       .rpc('holler_signals_near', {
         p_lat: profile.lat,
@@ -43,7 +55,10 @@ async function readNear(db: Db, profile: MatchProfile, since: string, until: str
         p_categories: profile.categories,
         p_since: since,
         p_until: pageUntil,
-        p_limit: BACKFILL_PAGE_LIMIT,
+        p_limit: opts.limit,
+        p_soonest_first: false,
+        p_min_severity: opts.minSeverity,
+        p_before_id: beforeId,
       })
       .select(RPC_COLUMNS);
     if (error) throw new Error(error.message);
@@ -56,8 +71,10 @@ async function readNear(db: Db, profile: MatchProfile, since: string, until: str
         fresh++;
       }
     }
-    if (rows.length < BACKFILL_PAGE_LIMIT || fresh === 0) break;
-    pageUntil = rows[rows.length - 1].occurred_at; // newest first, so the last row is the oldest of this page
+    if (rows.length < opts.limit || fresh === 0) break;
+    const last = rows[rows.length - 1]; // newest first, so the last row is the oldest of this page
+    pageUntil = last.occurred_at;
+    beforeId = last.id;
   }
   return out;
 }
@@ -100,11 +117,14 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const since = new Date(now.getTime() - BACKFILL_DAYS * DAY).toISOString();
     const until = new Date(now.getTime() + BACKFILL_AHEAD_DAYS * DAY).toISOString();
 
-    const [near, state] = await Promise.all([
-      readNear(db, profile, since, until),
+    const [near, severe, state] = await Promise.all([
+      readNear(db, profile, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }),
+      readNear(db, profile, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }),
       readStateLevel(db, profile, since, until, nowIso),
     ]);
-    const rows = [...near, ...state].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
+    const byId = new Map<number, SignalRow>();
+    for (const r of [...near, ...severe, ...state]) if (!byId.has(r.id)) byId.set(r.id, r);
+    const rows = [...byId.values()].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);

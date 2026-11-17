@@ -62,10 +62,13 @@ const DELETE_ERROR = "We couldn't delete your account. Try again in a moment.";
 /**
  * Deletes the user's Holler account on a project shared with other products.
  *  1. Cancels only Holler subscriptions (metadata.app === 'holler'); if that fails nothing else is deleted.
- *  2. Deletes Holler rows (matches, then profile).
- *  3. Strips 'holler' from app_metadata.products, sets holler_left_at and stamps holler_trial_started_at (so coming back never grants a second trial). The shared auth user is NEVER deleted
+ *  2. Writes the trial stamp (app_metadata.holler_trial_started_at, from the profile's created_at) BEFORE any row is deleted, so a failure
+ *     later cannot leave a deleted profile with no stamp (the profile is the only record of when the trial started; without the stamp
+ *     coming back would grant a second trial). The write is idempotent and touches nothing else.
+ *  3. Deletes Holler rows (matches, then profile).
+ *  4. Strips 'holler' from app_metadata.products and sets holler_left_at. The shared auth user is NEVER deleted
  *     (other products depend on it), so a retry after any partial failure is safe.
- *  4. Signs out this session only (scope 'local').
+ *  5. Signs out this session only (scope 'local').
  */
 export async function deleteAccount(): Promise<DeleteState> {
   const user = await getUser();
@@ -103,6 +106,15 @@ export async function deleteAccount(): Promise<DeleteState> {
       } catch {
         return { error: "We couldn't cancel your subscription, so we haven't deleted anything. Open Manage billing, cancel there, then try again." };
       }
+    }
+
+    // Stamp first: the profile row is the only record of when the trial started, and the next step deletes it.
+    const { data: before, error: bErr } = await admin.auth.admin.getUserById(user.id);
+    if (bErr || !before?.user) return { error: DELETE_ERROR };
+    const stamp = leaveHollerPatch(before.user.app_metadata, new Date(), profile?.created_at).holler_trial_started_at;
+    if (stamp !== undefined) {
+      const { error: sErr } = await admin.auth.admin.updateUserById(user.id, { app_metadata: { holler_trial_started_at: stamp } });
+      if (sErr) return { error: DELETE_ERROR };
     }
 
     // Holler rows only. Matches first; profile last.

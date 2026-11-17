@@ -60,9 +60,9 @@ describe('checker states', () => {
     expect(html).toContain('Holler does not cover San Juan, PR yet');
     expect(html).not.toContain('What Holler watches');
   });
-  it('empty results use the honest "about 40 miles" wording and do not promise instant alerts', () => {
+  it('empty results use the honest "about 25 to 50 miles" wording and do not promise instant alerts', () => {
     const html = render('results');
-    expect(html).toContain('within about 40 miles of Absarokee, MT');
+    expect(html).toContain('within about 25 to 50 miles of Absarokee, MT');
     expect(html).not.toMatch(/the moment/i);
     expect(html).toContain('every 15 minutes to 12 hours');
     expect(html).toContain('at most once an hour');

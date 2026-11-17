@@ -2,6 +2,7 @@ import { Button } from './button';
 import { Input } from './input';
 import { Select } from './select';
 import { tradeGroups } from '@/lib/check/trades';
+import { tradeComingSoon } from '@/lib/seo/signal-types';
 
 /** Plain GET form to /check. No client JS needed, so it works in the landing hero too. */
 export function CheckForm({
@@ -19,7 +20,11 @@ export function CheckForm({
   submitLabel?: string;
   idPrefix?: string;
 }) {
-  const groups = tradeGroups();
+  // A trade that no record type can reach on this deployment (childcare and beauty without a people-asking key) is left out, as onboarding
+  // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
+  const groups = tradeGroups()
+    .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
+    .filter((g) => g.options.length > 0);
   return (
     <form action="/check" method="get" noValidate className="flex flex-col gap-4 sm:flex-row sm:items-start">
       <div className="sm:w-32">

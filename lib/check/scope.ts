@@ -8,13 +8,18 @@ export const CHECK_RADIUS_MI = 25;
  * on the cell, never on the ZIP), by great-circle distance in SQL (holler_signals_near). A ZIP can sit up to MAX_CELL_OFFSET_MI from its
  * cell centre, so 25 + 12.3 = 37.3 rounded up to 38 guarantees every record within 25 miles of any ZIP in the cell is read. The other
  * side of that guarantee: a record can be up to 38 + 12.3 = 50 miles from a ZIP at the far corner of its cell, 38 for a ZIP at the
- * centre. The page therefore says "within about 40 miles", never "25".
+ * centre. The page therefore says "within about 25 to 50 miles" and shows each record's real distance from the ZIP, never a flat "40".
  */
 export const CHECK_SEARCH_RADIUS_MI = 38;
-/** The honest wording for the radius above ("within about 40 miles of <ZIP place>"). */
-export const CHECK_RADIUS_LABEL_MI = 40;
+/** The honest wording for the radius above ("<trade> within about 25 to 50 miles of <ZIP place>"). */
+export const CHECK_RADIUS_LABEL = 'about 25 to 50 miles';
 /** Distance from a cell centre to its farthest corner: sqrt(2) * 0.125 degrees * 69.09 mi, at the equator where degrees are widest. */
 export const MAX_CELL_OFFSET_MI = 12.3;
+/**
+ * Radius of the extra "close to home" read, from the cell centre: 25 - MAX_CELL_OFFSET_MI = 12.7 miles. Every record it returns is within
+ * 25 miles of every ZIP in the cell, so a dense feed 30 to 38 miles out can never push the nearby rows off the page.
+ */
+export const CHECK_CORE_RADIUS_MI = 12.7;
 /** Cache grid, in degrees. 0.25 degrees is about 17 miles north to south, so a few thousand cells cover the country. */
 export const GRID_DEGREES = 0.25;
 

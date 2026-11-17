@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildSocrataAdapter, parseSocrataReport } from '@/lib/signals/adapters/socrata';
+import { buildSocrataAdapter, buildSocrataQuery, parseSocrataReport } from '@/lib/signals/adapters/socrata';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 
 const rows = JSON.parse(readFileSync(join(__dirname, '../../fixtures/socrata-sf-business-live-2026-11-16.json'), 'utf8')) as Record<string, unknown>[];
@@ -44,10 +44,23 @@ describe('N2: the SF business feed parses live rows that have no license-code de
     expect(r.shapeOk).toBe(17);
     expect(r.items).toHaveLength(17);
     for (const s of r.items) {
-      expect(s.title).toBe('New business license in San Francisco: business');
+      expect(s.title).toMatch(/^New business license in San Francisco: (Information and media|Other services)$/); // 518210, 812111, 811420
+      expect(s.title).not.toMatch(/: business$/);
       expect(s.kind).toBe('civic');
       expect(s.categories.length).toBeGreaterThan(0);
     }
+  });
+
+  it('P2-3: the query keeps only rows located in San Francisco (the dataset also lists Clovis, Livermore, San Jose, even New York)', () => {
+    expect(ds.extraWhere).toContain("city = 'San Francisco'");
+    expect(buildSocrataQuery(ds, new Date('2026-11-17T12:00:00Z')).get('$where')).toContain("city = 'San Francisco'");
+  });
+
+  it('P2-3: a sector from the NAICS prefix names the row; an unknown or missing code gives a plain title with no placeholder', () => {
+    const one = (code: string | undefined) => parseSocrataReport([{ uniqueid: 'u1', location_start_date: '2026-11-10T00:00:00.000', business_zip: '94110', location: { latitude: '37.76', longitude: '-122.41' }, ...(code ? { self_reported_naics_code: code } : { lic_code_description_x: 'x' }) }], ds).items;
+    expect(one('722511')[0].title).toBe('New business license in San Francisco: Food service and lodging');
+    expect(one('541330')[0].title).toBe('New business license in San Francisco: Professional, scientific and technical services');
+    expect(one('999999')[0].title).toBe('New business license in San Francisco');
   });
 
   it('stores no name, no street address and no exact point', () => {
@@ -55,7 +68,7 @@ describe('N2: the SF business feed parses live rows that have no license-code de
     const hay = JSON.stringify(items);
     expect(hay).not.toMatch(new RegExp(PERSONAL.join('|'), 'i'));
     for (const s of items) {
-      expect(s.summary ?? '').toBe('');
+      expect(s.summary).toMatch(/^(Information and media|Other services)$/); // a sector name, never a name or an address
       expect(Math.abs((s.lat as number) * 100 - Math.round((s.lat as number) * 100))).toBeLessThan(1e-6); // 2 decimals
       expect(Object.keys(s.data ?? {}).sort()).toEqual(['dataset', 'domain', 'subtype']);
     }

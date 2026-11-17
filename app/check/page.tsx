@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { CheckForm } from '@/components/check-form';
@@ -49,6 +50,8 @@ export default function CheckPage(props: PageProps<'/check'>) {
 }
 
 async function Check({ searchParams }: { searchParams: PageProps<'/check'>['searchParams'] }) {
+  // Opt this render into request time before the clock is read: without it Next logs "Date.now() while prerendering" on every request.
+  await connection();
   const sp = await searchParams;
   const params = parseCheckParams({ zip: sp.zip, trade: sp.trade });
 
@@ -79,6 +82,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     citySlug: city?.slug ?? null,
     watches: watchList(params.trade, city?.slug ?? null),
     now,
+    origin: { lat: place.lat, lon: place.lon },
   };
 
   // Territories and military mail codes have no source rows yet: say so, read nothing.

@@ -297,20 +297,10 @@ export interface LlmsInput {
 
 export function llmsText(input: LlmsInput, has: Has = hasEnv): string {
   const f = flagsFor(has);
-  const types = [
-    'active weather alerts',
-    'storm reports',
-    'disaster declarations and earthquakes',
-    'building permits',
-    '311 requests',
-    'inspections',
-    'new business licenses',
-    'code violations',
-    'federal contracts',
-    ...(f.event ? ['big events'] : []),
-    'event permits',
-    'airport status',
-  ];
+  // Weather, storm, disaster and earthquake records exist for every city page; the open-data record types only for the cities Holler has
+  // connected to a city portal. Airport status and federal contracts are tagged to the places they name.
+  const everywhere = ['active weather alerts', 'storm reports', 'disaster declarations and earthquakes', 'federal contracts', ...(f.event ? ['big events'] : []), 'airport status'];
+  const connectedOnly = ['building permits', '311 requests', 'inspections', 'new business licenses', 'code violations', 'event permits'];
   const asks = f.ask ? ', and public posts where someone asked for a local recommendation (titles and links only)' : '';
   const sourceLines = [
     '- National Weather Service alerts: https://www.weather.gov/alerts',
@@ -331,7 +321,7 @@ export function llmsText(input: LlmsInput, has: Has = hasEnv): string {
     '',
     '## What the public pages contain',
     '',
-    `Each of ${input.cityCount} US cities with 50,000 or more people has a page that lists recent public records tagged to that city: ${joinList(types)}${asks}. Every item names its source and links to it. Records are tagged to a city when they fall within 40 miles of it. Pages refresh about every 6 hours. Pages with fewer than 5 records in the last 60 days are marked noindex.`,
+    `Each of ${input.cityCount} US cities with 50,000 or more people has a page that lists recent public records tagged to that city: ${joinList(everywhere)}${asks}. City records (${joinList(connectedOnly)}) exist only for the cities Holler has connected to a city open data portal, so most city pages list the first group alone. Every item names its source and links to it. Records are tagged to a city when they fall within 40 miles of it. Pages refresh about every 6 hours. Pages with fewer than 5 records in the last 60 days are marked noindex.`,
     '',
     '## Public data sources',
     '',

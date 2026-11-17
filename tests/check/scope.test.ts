@@ -2,7 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import zipcodes from 'zipcodes';
 import { lookupZip, nearestCity, haversineMi } from '@/lib/geo';
 import {
-  CHECK_RADIUS_LABEL_MI,
+  CHECK_CORE_RADIUS_MI,
+  CHECK_RADIUS_LABEL,
   CHECK_RADIUS_MI,
   CHECK_SEARCH_RADIUS_MI,
   GRID_DEGREES,
@@ -17,6 +18,7 @@ const h = vi.hoisted(() => ({ db: null as unknown }));
 vi.mock('next/cache', () => ({ cacheLife: vi.fn() }));
 vi.mock('@/lib/seo/client', () => ({ publicClient: () => h.db }));
 import { loadCheck } from '@/lib/check/load';
+import { groupItems } from '@/lib/check/group';
 
 describe('check scope: the ZIP\'s own place, a coarse grid cell, never the raw ZIP', () => {
   it('two ZIPs in the same cell and state share a key; the raw ZIP is not in it', () => {
@@ -78,9 +80,10 @@ describe('the cell-centre radius covers a 25 mile circle around every ZIP in the
     expect(haversineMi(0, 0, half, half)).toBeLessThanOrEqual(MAX_CELL_OFFSET_MI);
     expect(haversineMi(0, 0, half, half)).toBeGreaterThan(MAX_CELL_OFFSET_MI - 0.3);
   });
-  it('CHECK_SEARCH_RADIUS_MI is at least 25 plus the largest ZIP offset, and the label says "about 40"', () => {
+  it('CHECK_SEARCH_RADIUS_MI is at least 25 plus the largest ZIP offset, and the label says "about 25 to 50"', () => {
     expect(CHECK_SEARCH_RADIUS_MI).toBeGreaterThanOrEqual(CHECK_RADIUS_MI + MAX_CELL_OFFSET_MI);
-    expect(CHECK_RADIUS_LABEL_MI).toBe(40);
+    expect(CHECK_RADIUS_LABEL).toBe('about 25 to 50 miles');
+    expect(CHECK_CORE_RADIUS_MI + MAX_CELL_OFFSET_MI).toBeLessThanOrEqual(CHECK_RADIUS_MI);
     // the farthest a shown record can be from a ZIP is the search radius plus the offset: about 50, and 38 from the cell centre
     expect(CHECK_SEARCH_RADIUS_MI + MAX_CELL_OFFSET_MI).toBeLessThan(51);
   });
@@ -158,10 +161,27 @@ describe('N1: a dense feed 26 to 60 miles away must not empty the page (the revi
       // Every record with coordinates is inside the stated search radius from the cell centre (the SQL distance test ran before the limit).
       for (const it of r.items) if (it.lat != null && it.lon != null) expect(haversineMi(sc.cellLat, sc.cellLon, it.lat, it.lon)).toBeLessThanOrEqual(CHECK_SEARCH_RADIUS_MI);
       const rpc = fake.log.filter((l) => l.kind === 'rpc');
-      expect(rpc).toHaveLength(2);
+      expect(rpc).toHaveLength(4); // newest in radius, close to home, severity 2+, upcoming
       expect(rpc[0].returned).toBeLessThanOrEqual(100);
     });
   }
+  it('P2-1: 400 newer cluster rows 30 to 38 miles out do not hide the local rows or an 18 mile severity 3 warning at Morristown', async () => {
+    nid = 1;
+    const z = lookupZip('07960')!;
+    const sc = deriveScope(z);
+    const cluster = Array.from({ length: 400 }, (_, i) => sig({ title: `cluster${i}`, state: 'NY', lat: sc.cellLat, lon: sc.cellLon + (30 + (i % 70) / 10) / (69.09 * Math.cos((sc.cellLat * Math.PI) / 180)), occurred_at: hoursAgo(0.01 + i / 1000) }));
+    const local = Array.from({ length: 5 }, (_, i) => sig({ title: `local${i}`, state: 'NJ', lat: z.lat + (i + 1) * 0.01, lon: z.lon, occurred_at: hoursAgo(48 + i) }));
+    const warning = sig({ title: 'warning3', kind: 'report', severity: 3, state: 'NJ', lat: z.lat + 18 / 69.09, lon: z.lon, occurred_at: hoursAgo(24) });
+    const { r } = await checkZip('07960', 'hvac', [...cluster, ...local, warning]);
+    const titles = r.items.map((i) => i.title);
+    for (let i = 0; i < 5; i++) expect(titles).toContain(`local${i}`);
+    expect(titles).toContain('warning3');
+    // and the page shows them: severe first, then the closest, then the newest
+    const shown = groupItems(r.items, NOW.getTime(), { lat: z.lat, lon: z.lon }).flatMap((g) => g.items.map((i) => i.title));
+    expect(shown).toContain('warning3');
+    expect(shown.filter((t) => t.startsWith('local'))).toHaveLength(5);
+    expect(shown[0]).toBe('warning3');
+  });
   it('the limit is applied after the distance: 150 newer rows 45 miles out (inside the old bounding box) do not push out an older row at the ZIP', async () => {
     nid = 1;
     const z = lookupZip('06901')!;
@@ -231,10 +251,12 @@ describe('loadCheck query shape', () => {
   it('calls holler_signals_near centred on the cell with the stated radius, the trade, a 30 day window; state rows are a separate indexed read', async () => {
     const { fake, sc } = await checkZip('10301', 'roofing', []);
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
-    expect(rpc).toHaveLength(2);
-    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 100, p_soonest_first: false });
+    expect(rpc).toHaveLength(4);
+    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 100, p_soonest_first: false, p_min_severity: 1 });
     expect(Date.parse(rpc[0].args!.p_until) - Date.parse(rpc[0].args!.p_since)).toBe(30 * 86_400_000);
-    expect(rpc[1].args).toMatchObject({ p_limit: 12, p_soonest_first: true });
+    expect(rpc[1].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_limit: 30, p_min_severity: 1 });
+    expect(rpc[2].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_limit: 20, p_min_severity: 2 });
+    expect(rpc[3].args).toMatchObject({ p_limit: 12, p_soonest_first: true });
     const sel = fake.log.filter((l) => l.kind === 'select');
     expect(sel).toHaveLength(1);
     expect(sel[0].name).toContain('is:lat');

@@ -59,6 +59,11 @@ export interface SocrataDataset {
   /** Business name field (inspections). */
   nameField?: string;
   zipField?: string;
+  /**
+   * Business feeds with no license-type text: a NAICS code column. Its first two digits name a sector (NAICS_SECTORS), which becomes the
+   * title and summary ("New business license in San Francisco: Food service"). The code itself is never stored.
+   */
+  naicsField?: string;
   /** Raw SoQL appended with AND. Only used when the column type is sourced. */
   extraWhere?: string;
   /** 311 only: server-side narrowing on this text column with upper(col) like '%KEYWORD%'. */
@@ -85,19 +90,51 @@ export const NAME_COLUMN_OK = ['park_facility_name'];
 /** Subtypes whose records can describe a private individual (sole proprietors, home addresses, private hosts). */
 export const PERSON_RISK_SUBTYPES: SocrataSubtype[] = ['business', 'violation', 'event-permit'];
 
+const NEW_HOME_NOUN = '(?:single.?fam\\w*|multi.?family|dwellings?|residences?|res\\.|townhomes?|townhouses?|apartments?|condo\\w*|duplex|triplex|fourplex|sfr|sfd)';
+const NEW_HOME_ACCESSORY =
+  '(?:garage|barn|shed|accessory|carport|pool|greenhouse|stable|coop|poultry|chicken|livestock|agricultur\\w*|farm|gazebo|pergola|solar|pv)';
 /**
- * New residential construction. "new" or "erect", then at most 4 plain words, then a residential noun, all inside one field; or "new home",
- * "new house", "new residential" back to back. Rows that mention a garage, barn, shed, accessory building, carport, pool or farm structure
- * anywhere in the text are excluded. Exported for tests and for lib/signals/capabilities.ts (which reads the rule table).
+ * New residential construction. Positive: "new" or "erect", then at most 5 plain words, then a residential noun (single family, dwelling,
+ * residence, "res.", duplex, sfr, sfd and so on), all inside one field; or "new home", "new house", "new residential" back to back.
+ * Negative: the row is an accessory or farm structure only when the accessory noun is the head noun after "new" or "erect" with no
+ * residential noun in between ("New single story detached 3 car garage", "New residential solar PV system"). A house that merely has a
+ * garage or carport ("New construction of a 2-story single family residence with attached garage") still counts. Checked against 19 live
+ * Austin new residential permits (verify round 2 P2-4: the earlier "garage anywhere" exclusion dropped 8 of the 10 houses it should keep).
+ * Exported for tests and for lib/signals/capabilities.ts (which reads the rule table).
  */
 export const NEW_HOME_RE = new RegExp(
-  '^(?![\\s\\S]*\\b(?:garage|barn|shed|accessory|carport|pool|greenhouse|stable|coop|poultry|chicken|livestock|agricultur\\w*|farm|gazebo|pergola)\\b)' +
-    '[\\s\\S]*?\\b(?:' +
-    '(?:new|erect)(?:\\s+[\\w/-]+){0,4}?\\s+(?:single.?family|multi.?family|dwellings?|residences?|townhomes?|townhouses?|apartments?|condo(?:minium)?s?|duplex|triplex|fourplex|sfr)' +
-    '|new\\s+(?:home|house|residential)' +
-    ')\\b',
+  `^(?![\\s\\S]*?(?:\\b(?:new|erect)\\b(?:\\s+(?!${NEW_HOME_NOUN})[\\w/.-]+){0,5}?\\s+(?:detached\\s+)?${NEW_HOME_ACCESSORY}\\b|\\bnew\\s+residential\\s+${NEW_HOME_ACCESSORY}\\b))` +
+    `[\\s\\S]*?(?:\\b(?:new|erect)\\b(?:\\s+[\\w/.\\-\\[\\]]+){0,5}?\\s+${NEW_HOME_NOUN}(?![\\w])|\\bnew\\s+(?:home|house|residential)\\b)`,
   'i',
 );
+
+/** NAICS two-digit sectors (the public Census Bureau list), shortened for a title. Codes 31 to 33, 44 to 45 and 48 to 49 are single sectors. */
+export const NAICS_SECTORS: Record<string, string> = {
+  '11': 'Farming and fishing',
+  '21': 'Mining and oil and gas',
+  '22': 'Utilities',
+  '23': 'Construction',
+  '31': 'Manufacturing',
+  '32': 'Manufacturing',
+  '33': 'Manufacturing',
+  '42': 'Wholesale trade',
+  '44': 'Retail',
+  '45': 'Retail',
+  '48': 'Transportation and warehousing',
+  '49': 'Transportation and warehousing',
+  '51': 'Information and media',
+  '52': 'Finance and insurance',
+  '53': 'Real estate and rental',
+  '54': 'Professional, scientific and technical services',
+  '55': 'Company management',
+  '56': 'Administrative and support services',
+  '61': 'Education',
+  '62': 'Health care and social assistance',
+  '71': 'Arts, entertainment and recreation',
+  '72': 'Food service and lodging',
+  '81': 'Other services',
+  '92': 'Public administration',
+};
 
 export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bre-?roof|\broof|\bshingle/i, add: ['roofing'] },
@@ -504,10 +541,10 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-sf-business', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'g8m3-pdis',
     kind: 'civic', subtype: 'business', idField: 'uniqueid', dateField: 'location_start_date', locationField: 'location',
     titleFields: [], textFields: ['lic_code_description', 'lic_code_descriptions_list', 'self_reported_naics_code'], summaryFields: ['lic_code_description'],
-    zipField: 'business_zip',
-    extraWhere: "location_end_date IS NULL AND (lic_code_description IS NULL OR lic_code_description NOT IN ('TATTOO, BODY PIERCING, PRACTITIONER','GENERAL MASSAGE PRACTITIONER','OUTCALL MASSAGE SERVICE','TOW CAR DRIVER','RENEWAL OF COMMERCIAL DOG WALKER - OWNER','RENEWAL OF COMMERCIAL DOG WALKER - EMPLOYEE','TOUR GUIDE: OWNER - WALKING'))", windowForwardDays: 0,
+    zipField: 'business_zip', naicsField: 'self_reported_naics_code',
+    extraWhere: "city = 'San Francisco' AND location_end_date IS NULL AND (lic_code_description IS NULL OR lic_code_description NOT IN ('TATTOO, BODY PIERCING, PRACTITIONER','GENERAL MASSAGE PRACTITIONER','OUTCALL MASSAGE SERVICE','TOW CAR DRIVER','RENEWAL OF COMMERCIAL DOG WALKER - OWNER','RENEWAL OF COMMERCIAL DOG WALKER - EMPLOYEE','TOUR GUIDE: OWNER - WALKING'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.sf.gov', 'g8m3-pdis'), fieldSource: 'sourced',
-    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: no name column is read (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row. self_reported_naics_code (a 6-digit NAICS code, never a name) is read as a text field only so the parser can tell a live feed from a changed one: live 2026-11-17, 267 of 268 rows since 2026-11-03 have no lic_code_description and every row has the NAICS code (review verify.md N2).',
+    note: 'Registered Business Locations, updated 2026-11-15. The dataset covers every business registered in the city, including ones located in other cities (live 2026-11-17: Clovis, Livermore, San Jose, Fremont, Stockton, even New York), so the query keeps only city = San Francisco (verify round 2 P2-3). location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: no name column is read (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row. self_reported_naics_code (a 6-digit NAICS code, never a name) is read as a text field only so the parser can tell a live feed from a changed one: live 2026-11-17, 267 of 268 rows since 2026-11-03 have no lic_code_description and every row has the NAICS code (review verify.md N2).',
   },
   {
     id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',

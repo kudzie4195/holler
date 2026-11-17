@@ -3,7 +3,7 @@
  * It honours the SEMANTICS of the SQL function in supabase/migrations/0003_holler_ops.sql (the migration itself is tested against a real
  * Postgres in /home/claude/gates/pg/migtest.mjs):
  *   - only rows with coordinates, category overlap, unexpired (expires_at null or in the future), occurred_at in [since, until],
- *     great-circle distance <= radius (radius clamped to 0.1..150 miles), newest first (or soonest first), limit clamped to 1..500 and
+ *     great-circle distance <= radius (radius clamped to 0.1..150 miles), severity >= p_min_severity (default 1), the p_before_id keyset cursor, newest first (or soonest first), limit clamped to 1..500 and
  *     applied AFTER the distance test, adds distance_mi;
  *   - PostgREST's own max-rows cap (1000) on every response.
  * Plain selects apply is/eq/gte/lte/gt/lt/overlaps/or()/order/limit the way PostgREST does, so a missing filter fails a test.
@@ -81,6 +81,9 @@ export function fakeSignalsDb(signals: Row[], opts: { now?: Date; maxRows?: numb
       .filter((r) => (r.categories ?? []).some((c: string) => cats.includes(c)))
       .filter((r) => !r.expires_at || Date.parse(r.expires_at) > now.getTime())
       .filter((r) => Date.parse(r.occurred_at) >= since && Date.parse(r.occurred_at) <= until)
+      .filter((r) => (r.severity ?? 1) >= Number(a.p_min_severity ?? 1))
+      // keyset cursor: strictly after (p_until, p_before_id) in (occurred_at desc, id desc) order
+      .filter((r) => a.p_before_id == null || Date.parse(r.occurred_at) < until || r.id < Number(a.p_before_id))
       .map((r) => ({ ...r, distance_mi: haversineMi(a.p_lat, a.p_lon, r.lat, r.lon) }))
       .filter((r) => r.distance_mi <= radius);
     const asc = !!a.p_soonest_first;

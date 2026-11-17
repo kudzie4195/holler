@@ -58,7 +58,8 @@ describe('migrations are holler-only and additive', () => {
     });
 
     it(`${f}: never drops a table, column, schema or function`, () => {
-      const clean = stripComments(sql);
+      // The one allowed drop: a superseded holler_ function signature (`drop function if exists public.holler_...`), so an upgrade never leaves two overloads.
+      const clean = stripComments(sql).replace(/\bdrop\s+function\s+if\s+exists\s+(?:public\.)?holler_[a-z_]+\s*\([^)]*\)\s*;/gi, '');
       expect(clean).not.toMatch(/\bdrop\s+(table|column|schema|function|type|extension|view|index)\b/i);
       expect(clean).not.toMatch(/\btruncate\b/i);
     });

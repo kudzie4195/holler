@@ -51,13 +51,22 @@ create index if not exists holler_signals_lat_lon_idx on public.holler_signals (
 -- Trenton NJ), and the page then trims them to nothing. Here the great-circle distance is computed in SQL, so the limit applies to
 -- rows that really are inside the radius.
 --  - The lat/lon box is only a prefilter, so holler_signals_lat_lon_idx serves it. The box is slightly generous (68.9 mi per degree
---    of latitude, a little below the true 69.09) and drops its longitude test when it would cross the antimeridian.
+--    of latitude, a little below the true 69.09) and spans the whole -180..180 range when it would cross the antimeridian.
 --  - Rows without coordinates (state-level alerts) are never returned here. Read them with their own query so nothing crowds them out.
 --  - p_limit is clamped to 1..500 and the radius to 0.1..150 miles inside the function, so no caller can ask for the table.
 --  - p_soonest_first orders ascending, for "what starts next" reads (upcoming events); the default is newest first.
+--  - p_min_severity (default 1) keeps only rows at that severity or higher, so a short severe-only read cannot be crowded out by a dense
+--    feed of severity-1 rows (the checker and the first-login backfill each make one).
+--  - p_before_id (default null) is a keyset cursor for newest-first paging: pass the oldest row's occurred_at as p_until and its id here and the
+--    next page starts strictly after that row in (occurred_at desc, id desc) order, so a feed with many identical timestamps pages in full.
+--  - The longitude test is a plain BETWEEN on values computed from the parameters (-180..180 when the box would cross the antimeridian), with
+--    no OR, so holler_signals_lat_lon_idx can take both bounds even in a generic plan (a non-inlined SQL function is planned without parameter values).
 --  - SECURITY INVOKER with a fixed search_path: it reads only public.holler_signals, under the caller's own RLS (anyone may select).
--- Re-runnable: create or replace, then grants.
+-- Upgrade: the earlier 8-argument version is dropped first, so PostgREST never sees two overloads (PGRST203). Re-runnable in any order with
+-- 0001/0002: drop if exists on the old signature, create or replace on the new one, then grants.
 -- ---------------------------------------------------------------------------
+drop function if exists public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean);
+
 create or replace function public.holler_signals_near(
   p_lat double precision,
   p_lon double precision,
@@ -66,7 +75,9 @@ create or replace function public.holler_signals_near(
   p_since timestamptz,
   p_until timestamptz,
   p_limit int default 100,
-  p_soonest_first boolean default false
+  p_soonest_first boolean default false,
+  p_min_severity int default 1,
+  p_before_id bigint default null
 )
 returns table (
   id bigint,
@@ -107,16 +118,23 @@ as $$
       r / 68.9 as d_lat,
       r / (68.9 * greatest(0.05, cos(radians(least(89, abs(lat0) + r / 68.9))))) as d_lon
     from b
+  ),
+  bounds as (
+    select
+      r, lat0, lon0, d_lat,
+      case when abs(lon0) + d_lon > 180 then -180::double precision else lon0 - d_lon end as lon_lo,
+      case when abs(lon0) + d_lon > 180 then 180::double precision else lon0 + d_lon end as lon_hi
+    from box
   )
   select
     s.id, s.source, s.external_id, s.kind, s.title, s.summary, s.url, s.lat, s.lon, s.city, s.state, s.county, s.zip,
     s.place_slug, s.categories, s.severity, s.occurred_at, s.expires_at, s.data, d.distance_mi
-  from box
+  from bounds box
   join public.holler_signals s
     on s.lat is not null
    and s.lon is not null
    and s.lat between box.lat0 - box.d_lat and box.lat0 + box.d_lat
-   and (abs(box.lon0) + box.d_lon > 180 or s.lon between box.lon0 - box.d_lon and box.lon0 + box.d_lon)
+   and s.lon between box.lon_lo and box.lon_hi
   cross join lateral (
     select 3958.8 * 2 * asin(least(1, sqrt(
       power(sin(radians(s.lat - box.lat0) / 2), 2)
@@ -128,6 +146,8 @@ as $$
     and s.occurred_at >= p_since
     and s.occurred_at <= p_until
     and d.distance_mi <= box.r
+    and s.severity >= coalesce(p_min_severity, 1)
+    and (p_before_id is null or s.occurred_at < p_until or s.id < p_before_id)
   order by
     case when p_soonest_first then s.occurred_at end asc,
     s.occurred_at desc,
@@ -135,8 +155,8 @@ as $$
   limit least(greatest(coalesce(p_limit, 100), 1), 500)
 $$;
 
-revoke all on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean) from public;
-grant execute on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean) to anon, authenticated, service_role;
+revoke all on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean, int, bigint) from public;
+grant execute on function public.holler_signals_near(double precision, double precision, real, text[], timestamptz, timestamptz, int, boolean, int, bigint) to anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- The area checker now writes one holler_rate_limits row per visitor, and the daily prune deletes rows older than two days.

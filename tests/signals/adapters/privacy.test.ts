@@ -127,8 +127,15 @@ describe('violation addresses: block level only, Socrata and ArcGIS', () => {
   it("verify P2-6: lot, trailer and space numbers and a second joined address drop the whole address; APT4 and a fractional number are handled", () => {
     // dropped entirely (the review's leaks)
     for (const a of ['12 Main St Lot 34', '12 MAIN ST LOT #34', '12 Main St Trailer 24', '6411 MONTEREY ROAD TRAILER #24', '300 PARK RD SPC 7', '300 PARK RD SPACE 12B',
-      '300 PARK RD TRLR 9', '123 MAIN ST & 45 ELM ST', '123 MAIN ST AND 45 ELM ST', '123 Main St and 45 Elm St', '123 MAIN ST&45 ELM ST']) {
+      '300 PARK RD TRLR 9',
+      // P2-5: the same numbers written without a space or with a letter prefix and a dash (each names one mobile-home pad)
+      '12 MAIN ST LOT34', '1200 MAIN ST SP34', '800 W ROOSEVELT RD TRLR24', '402 RIVER RD SPACE A-12', '9 ELM ST SPC 7', '12 Main St Lot#34', 'TRAILER #24 5 OAK ST',
+      '123 MAIN ST & 45 ELM ST', '123 MAIN ST AND 45 ELM ST', '123 Main St and 45 Elm St', '123 MAIN ST&45 ELM ST']) {
       expect(blockAddress(a), a).toBe('');
+    }
+    // P2-5: street names that merely start with those letters are kept
+    for (const a of ['99 Andover Rd', '10 Lotus Ln', '5 Spruce St', '300 Trail Ridge Dr', '42 SPC Way', '100 Spring St', '1200 Lottie Ave', '77 Sparrow Ct', '15 Tremont St']) {
+      expect(blockAddress(a), a).not.toBe('');
     }
     // unit-style suffixes without a space are stripped like the spaced ones
     expect(blockAddress('123 MAIN ST APT4')).toBe('100 block of MAIN ST');

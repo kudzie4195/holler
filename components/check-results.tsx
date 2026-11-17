@@ -3,8 +3,8 @@ import { ButtonLink } from './button';
 import { Card } from './card';
 import { timeAgo } from './format';
 import { sourceLabel } from './signal-meta';
-import { safeUrl, groupItems, type CheckItem } from '@/lib/check/group';
-import { CHECK_RADIUS_LABEL_MI } from '@/lib/check/scope';
+import { distanceFrom, groupItems, safeUrl, type CheckItem } from '@/lib/check/group';
+import { CHECK_RADIUS_LABEL } from '@/lib/check/scope';
 
 function Cta({ citySlug, children }: { citySlug: string | null; children?: React.ReactNode }) {
   const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
@@ -30,6 +30,7 @@ export function CheckResults({
   citySlug,
   watches,
   now,
+  origin,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -41,14 +42,16 @@ export function CheckResults({
   /** Record types Holler really watches for this trade in this area (see lib/check/watch.ts). */
   watches: string[];
   now: number;
+  /** The ZIP's own position, used to order records by distance and to show how far each one is. */
+  origin?: { lat: number; lon: number };
 }) {
-  const groups = mode === 'results' ? groupItems(items, now) : [];
+  const groups = mode === 'results' ? groupItems(items, now, origin) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
 
   if (shown === 0) {
     const trade = tradeLabel.toLowerCase();
     const intro: Record<CheckMode, string> = {
-      results: `Nothing in the public record within about ${CHECK_RADIUS_LABEL_MI} miles of ${placeLabel} matched ${trade} in the last 30 days. Holler checked ${timeAgo(checkedAt, now)}.`,
+      results: `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last 30 days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
@@ -85,10 +88,10 @@ export function CheckResults({
   return (
     <section aria-labelledby="check-heading" className="mt-10">
       <h2 id="check-heading" className="text-2xl text-ink">
-        {tradeLabel} within about {CHECK_RADIUS_LABEL_MI} miles of {placeLabel}, last 30 days
+        {tradeLabel} within {CHECK_RADIUS_LABEL} of {placeLabel}, last 30 days
       </h2>
       <p className="mt-2 text-muted">
-        {shown < items.length ? `The ${shown} most relevant of ${items.length >= 60 ? '60 or more' : items.length} records. ` : ''}
+        {shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}
         Every record links to its source. Checked {timeAgo(checkedAt, now)}.
       </p>
       <div className="mt-6 flex flex-col gap-8">
@@ -98,12 +101,14 @@ export function CheckResults({
             <ul className="mt-3 flex flex-col gap-3">
               {g.items.map((it) => {
                 const href = safeUrl(it.url);
+                const miles = distanceFrom(origin, it);
                 return (
                   <li key={it.id}>
                     <Card as="article" className="!p-4 md:!p-5">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                         <Badge kind={it.kind} />
                         {it.place ? <span>{it.place}</span> : null}
+                        {miles !== null ? <span>{miles < 1 ? 'under 1 mi away' : `${Math.round(miles)} mi away`}</span> : null}
                         <span aria-hidden="true">·</span>
                         <time dateTime={it.occurredAt} className="font-mono text-xs tabular-nums">
                           {timeAgo(it.occurredAt, now)}
