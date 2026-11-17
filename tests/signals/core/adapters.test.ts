@@ -163,7 +163,7 @@ describe('parseSpc', () => {
   it('hail >= 1.00 in maps to roof/glass/body/restoration/insurance; smaller is dropped', () => {
     expect(hail).toHaveLength(3);
     expect(hail.some((s) => /0\.75/.test(s.title))).toBe(false);
-    for (const s of hail) expect(s.categories).toEqual(['roofing', 'auto-glass', 'auto-body', 'restoration', 'insurance']);
+    for (const s of hail) expect(s.categories).toEqual(['roofing', 'auto-glass', 'auto-body', 'restoration', 'insurance', 'public-adjuster']);
     const big = hail.find((s) => /2\.00 inch/.test(s.title))!;
     expect(big.severity).toBe(3);
     expect(big.state).toBe('IL');
@@ -173,7 +173,7 @@ describe('parseSpc', () => {
 
   it('wind maps to tree/roof/restoration and drops weak routine gusts', () => {
     expect(wind).toHaveLength(3);
-    for (const s of wind) expect(s.categories).toEqual(['tree-service', 'roofing', 'restoration']);
+    for (const s of wind) expect(s.categories).toEqual(['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster']);
     expect(wind.some((s) => /40 mph/.test(s.title))).toBe(false);
     const damage = wind.find((s) => /Wind damage/.test(s.title))!;
     expect(damage.summary).toContain('trees down'); // comma in quoted comment is preserved

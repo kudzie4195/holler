@@ -122,6 +122,15 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
   return { categories: [...set], severity };
 }
 
+/**
+ * Business rows are rounded to 2 decimals (about 1 km): enough for a 5 mile alert radius and the nearest-city lookup, too coarse to
+ * point at a home. Everything else keeps its exact point.
+ */
+export function privatePosition<T extends { lat: number; lon: number }>(pos: T | null, subtype: string): T | null {
+  if (!pos || subtype !== 'business') return pos;
+  return { ...pos, lat: Math.round(pos.lat * 100) / 100, lon: Math.round(pos.lon * 100) / 100 };
+}
+
 export interface ParseReport {
   items: SignalInput[];
   /** raw rows received */
@@ -191,7 +200,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       if (categories.length === 0) continue;
 
       const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
-      const address = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
+      // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
+      const address = ds.subtype === 'business' ? '' : (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       const summaryBits = ds.summaryFields.map((f) => s(row, f)).filter(Boolean);
       const title = buildTitle(ds, row, titleBits, summaryBits, address);
 
@@ -201,7 +211,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       if (address && ds.subtype !== '311') summaryParts.push(address);
       const summary = trunc(summaryParts.join(' | '), 280) || null;
 
-      const pos = extractLatLon(row, ds);
+      const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       seen.add(externalId);

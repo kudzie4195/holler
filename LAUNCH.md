@@ -19,7 +19,7 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. Run each file once. Re-running 0001 after 0003 errors at the view (it cannot drop `latest_at`) and changes nothing, so if you see that error you ran an old file again.
+Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all three are additive and idempotent, and re-running them in any order is tested to succeed. One catch: 0001 also defines the `holler_place_counts` view, so if you ever re-run 0001, run 0003 once more after it so the view keeps its newer definition (city last-modified dates in the sitemap depend on it).
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 
@@ -56,8 +56,10 @@ Optional data sources (each missing key shows up as "skipped(env)" and in the he
 
 ## 4. Deploy
 
+- [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
 - [ ] Confirm the build is green and `<SITE>` loads.
+- [ ] Know this: the free /check page caches database reads with `use cache: remote`, which Next.js documents as a cache shared by all server instances that the hosting provider supplies. If you host somewhere other than Vercel, set `cacheHandlers.remote` in `next.config.ts` or every instance caches alone.
 - [ ] Add the domain in Vercel > Domains if you have not, and confirm HTTPS works.
 
 ## 5. Run the smoke test

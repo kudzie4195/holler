@@ -1,4 +1,5 @@
 import { siteUrl } from '@/lib/env';
+import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
 /**
@@ -15,6 +16,8 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
  * that closes the whole airport with no qualifier is reported as a closure (see isFullClosure).
  * The same data is also served as JSON at /api/airport-events (used by the faadelays library); the XML endpoint is kept.
  */
+/** Airport delays and closures change demand for airport rides and deliveries. */
+export const FAA_TRADES: CategoryId[] = ['rideshare-delivery'];
 export const FAA_URL = 'https://nasstatus.faa.gov/api/airport-status-information';
 
 /** Top 40 US airports by traffic: code -> [lat, lon, city, state]. Coordinates are approximate (assumed, from public airport data). */
@@ -133,7 +136,7 @@ export function parseFaa(raw: unknown): SignalInput[] {
       lon: ap.lon,
       city: ap.city,
       state: ap.state,
-      categories: ['rideshare-delivery'],
+      categories: FAA_TRADES,
       severity,
       occurredAt: occurred.toISOString(),
       expiresAt: new Date(occurred.getTime() + 3 * 3600_000).toISOString(),

@@ -1,0 +1,44 @@
+[
+ {
+  "id": "4100001-20261112",
+  "license_number": "2900001",
+  "doing_business_as_name": "Olga Torres",
+  "legal_name": "TORRES, OLGA",
+  "license_description": "Limited Business License",
+  "business_activity": "Instructional services",
+  "address": "2318 W 47TH ST",
+  "zip_code": "60609",
+  "application_type": "ISSUE",
+  "date_issued": "2026-11-12T00:00:00.000",
+  "latitude": "41.8082",
+  "longitude": "-87.6841"
+ },
+ {
+  "id": "4100002-20261112",
+  "license_number": "2900002",
+  "doing_business_as_name": "REGINALD JACKSON JR",
+  "legal_name": "JACKSON REGINALD JR",
+  "license_description": "Regulated Business License",
+  "business_activity": "Locksmith",
+  "address": "7710 S CHAPPEL AVE",
+  "zip_code": "60649",
+  "application_type": "ISSUE",
+  "date_issued": "2026-11-13T00:00:00.000",
+  "latitude": "41.7547",
+  "longitude": "-87.5792"
+ },
+ {
+  "id": "4100003-20261113",
+  "license_number": "2900003",
+  "doing_business_as_name": "Charles von Weise",
+  "legal_name": "VON WEISE CHARLES",
+  "license_description": "Shared Housing Unit Operator",
+  "business_activity": "Short term rental of a dwelling unit",
+  "address": "1522 N DAMEN AVE",
+  "zip_code": "60622",
+  "application_type": "ISSUE",
+  "date_issued": "2026-11-13T00:00:00.000",
+  "latitude": "41.9087",
+  "longitude": "-87.6775"
+ }
+]

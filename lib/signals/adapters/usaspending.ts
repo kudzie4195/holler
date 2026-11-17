@@ -36,31 +36,32 @@ export const NAICS_PREFIXES = [
   '7223', '7225', // special food services, restaurants
 ];
 
+export const NAICS_RULES: [string, CategoryId[]][] = [
+  ['561720', ['janitorial-commercial', 'cleaning']],
+  ['561730', ['landscaping', 'lawn-care']],
+  ['561710', ['pest-control']],
+  ['561740', ['cleaning']],
+  ['561210', ['janitorial-commercial']],
+  ['561612', ['security']],
+  ['561621', ['security']],
+  ['238160', ['roofing']],
+  ['238220', ['plumbing', 'hvac']],
+  ['238210', ['electrical']],
+  ['238320', ['painting']],
+  ['238910', ['general-contractor', 'landscaping']],
+  ['238', ['general-contractor']],
+  ['236', ['general-contractor']],
+  ['237', ['general-contractor']],
+  ['562910', ['restoration']],
+  ['562', ['junk-removal']],
+  ['722', ['food-truck', 'catering']],
+];
+
 /** NAICS code (any length) to Holler categories. Longest/most specific rule wins, then falls back to the family. */
 export function naicsToCategories(code: string | null | undefined): CategoryId[] {
   const c = (code ?? '').replace(/\D/g, '');
   if (!c) return [];
-  const rules: [string, CategoryId[]][] = [
-    ['561720', ['janitorial-commercial', 'cleaning']],
-    ['561730', ['landscaping', 'lawn-care']],
-    ['561710', ['pest-control']],
-    ['561740', ['cleaning']],
-    ['561210', ['janitorial-commercial']],
-    ['561612', ['security']],
-    ['561621', ['security']],
-    ['238160', ['roofing']],
-    ['238220', ['plumbing', 'hvac']],
-    ['238210', ['electrical']],
-    ['238320', ['painting']],
-    ['238910', ['general-contractor', 'landscaping']],
-    ['238', ['general-contractor']],
-    ['236', ['general-contractor']],
-    ['237', ['general-contractor']],
-    ['562910', ['restoration']],
-    ['562', ['junk-removal']],
-    ['722', ['food-truck', 'catering']],
-  ];
-  for (const [prefix, cats] of rules) {
+  for (const [prefix, cats] of NAICS_RULES) {
     if (c.startsWith(prefix)) return cats;
   }
   return [];

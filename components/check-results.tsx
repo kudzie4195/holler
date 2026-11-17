@@ -4,7 +4,7 @@ import { Card } from './card';
 import { timeAgo } from './format';
 import { sourceLabel } from './signal-meta';
 import { safeUrl, groupItems, type CheckItem } from '@/lib/check/group';
-import { watchesFor } from '@/lib/check/watch';
+import { CHECK_RADIUS_MI } from '@/lib/check/scope';
 
 function Cta({ citySlug, children }: { citySlug: string | null; children?: React.ReactNode }) {
   const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
@@ -19,53 +19,65 @@ function Cta({ citySlug, children }: { citySlug: string | null; children?: React
   );
 }
 
+export type CheckMode = 'results' | 'unreadable' | 'limited' | 'uncovered';
+
 export function CheckResults({
   items,
-  ok,
+  mode,
   checkedAt,
   placeLabel,
-  trade,
   tradeLabel,
   citySlug,
+  watches,
   now,
 }: {
   items: CheckItem[];
-  ok: boolean;
+  mode: CheckMode;
   checkedAt: string;
   placeLabel: string;
   trade: string;
   tradeLabel: string;
   citySlug: string | null;
+  /** Record types Holler really watches for this trade in this area (see lib/check/watch.ts). */
+  watches: string[];
   now: number;
 }) {
-  const groups = groupItems(items, now);
+  const groups = mode === 'results' ? groupItems(items, now) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
 
   if (shown === 0) {
-    const watches = watchesFor(trade);
+    const trade = tradeLabel.toLowerCase();
+    const intro: Record<CheckMode, string> = {
+      results: `Nothing in the public record within ${CHECK_RADIUS_MI} miles of ${placeLabel} matched ${trade} in the last 30 days. Holler checked ${timeAgo(checkedAt, now)}.`,
+      unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
+      limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
+      uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
+    };
     return (
       <section aria-labelledby="check-heading" className="mt-10">
         <h2 id="check-heading" className="text-2xl text-ink">
-          Holler is watching {placeLabel} for {tradeLabel.toLowerCase()} work
+          {mode === 'uncovered' ? `Holler does not cover ${placeLabel} yet` : `Holler is watching near ${placeLabel} for ${trade} work`}
         </h2>
-        <p className="mt-3 max-w-2xl text-muted">
-          {ok
-            ? `Nothing in the public record near ${placeLabel} matched ${tradeLabel.toLowerCase()} in the last 30 days. Holler checked ${timeAgo(checkedAt, now)}.`
-            : `We could not load recent records just now, so this page shows what Holler watches instead.`}
-        </p>
-        <Card className="mt-6">
-          <h3 className="text-lg text-ink">What Holler watches for this trade</h3>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-muted">
-            {watches.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-          <p className="mt-4 text-muted">
-            Quiet stretches happen, and some cities publish more than others. The first alert arrives the moment something nearby
-            fits.
-          </p>
-        </Card>
-        <Cta citySlug={citySlug} />
+        <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
+        {mode !== 'uncovered' ? (
+          <Card className="mt-6">
+            <h3 className="text-lg text-ink">What Holler watches for this trade near you</h3>
+            {watches.length > 0 ? (
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-muted">
+                {watches.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-muted">No public source tags this trade in your area yet.</p>
+            )}
+            <p className="mt-4 text-muted">
+              Quiet stretches happen, and some places publish more than others. Holler scans its sources every 15 minutes to 12
+              hours, depending on the source, and emails you at most once an hour. An alert can trail the event by a little.
+            </p>
+          </Card>
+        ) : null}
+        {mode !== 'uncovered' ? <Cta citySlug={citySlug} /> : null}
       </section>
     );
   }
@@ -73,7 +85,7 @@ export function CheckResults({
   return (
     <section aria-labelledby="check-heading" className="mt-10">
       <h2 id="check-heading" className="text-2xl text-ink">
-        {tradeLabel} near {placeLabel}, last 30 days
+        {tradeLabel} within {CHECK_RADIUS_MI} miles of {placeLabel}, last 30 days
       </h2>
       <p className="mt-2 text-muted">
         {shown < items.length ? `The ${shown} most relevant of ${items.length >= 60 ? '60 or more' : items.length} records. ` : ''}
@@ -100,7 +112,7 @@ export function CheckResults({
                       <p className="mt-2 font-semibold leading-snug text-ink">{it.title}</p>
                       <p className="mt-2 text-sm text-muted">
                         {href ? (
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-accent-text underline">
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-accent-text underline">
                             Source: {sourceLabel(it.source)}
                             <span className="sr-only"> (opens in a new tab)</span>
                           </a>

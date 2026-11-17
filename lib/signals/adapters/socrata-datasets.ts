@@ -40,6 +40,8 @@ export interface SocrataDataset {
   locationField?: string;
   /** Text column that holds "(lat, lon)" (Dallas). Format assumed. */
   latLonTextField?: string;
+  /** County-level feeds only: a point inside the county (the county seat). Used to say which city pages the rows land on. */
+  countyAnchor?: { lat: number; lon: number };
   /** Used only when the dataset has no usable coordinates: city centre, flagged approx in `data`. */
   fallbackCenter?: { lat: number; lon: number };
   /** Fields joined to build the title. First non-empty for permits, all unique for 311. */
@@ -72,6 +74,17 @@ export interface SocrataDataset {
 
 // --- Category rules ---------------------------------------------------------------------------
 
+/**
+ * Column names that can hold a person's name (owner, applicant, DBA, requestor, host...). Business, violation and event-permit
+ * datasets must never read one of these into a title, summary, address or classifier text, because the output is stored and shown
+ * publicly. Enforced by tests/signals/adapters/privacy.test.ts. `NAME_COLUMN_OK` lists place or type columns that merely end in "name".
+ */
+export const NAME_LIKE_COLUMN =
+  /(dba|owner|applicant|contact|licensee|requestor|requester|inspector|complainant|legal|business_name|ownership|permittee|contractor|host|organization|trade_name|first_name|last_name|full_name|restaurant_name|(^|_)name$)/i;
+export const NAME_COLUMN_OK = ['park_facility_name'];
+/** Subtypes whose records can describe a private individual (sole proprietors, home addresses, private hosts). */
+export const PERSON_RISK_SUBTYPES: SocrataSubtype[] = ['business', 'violation', 'event-permit'];
+
 export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bre-?roof|\broof|\bshingle/i, add: ['roofing'] },
   { re: /\bpools?\b|\bspa\b|swimming/i, add: ['pool-spa'] },
@@ -84,6 +97,9 @@ export const PERMIT_RULES: CategoryRule[] = [
     re: /new (construction|single|residential|building|home|dwelling|house|multi|commercial)/i,
     add: ['general-contractor', 'landscaping', 'cleaning'],
   },
+  // A new home gets sold and then moved into: new residential construction is a lead for agents and movers.
+  // Only residential new-build wording counts; commercial new construction does not.
+  { re: /new (single|residential|home|dwelling|house|multi)|new construction[\s\S]{0,60}?(residential|single.?family|dwelling|multi.?family|townhome|townhouse)/i, add: ['real-estate', 'moving'] },
   // Trades added in round 2.
   { re: /\bfenc(e|es|ing)\b|\bfendrive\b/i, add: ['fencing'] },
   { re: /\bdriveways?\b|\bconcrete\b|\bpaving\b|\bpavers?\b|\bsidewalks?\b|\basphalt\b|\bflatwork\b|\bfendrive\b/i, add: ['concrete-paving'] },
@@ -136,9 +152,13 @@ export const VIOLATION_RULES: CategoryRule[] = [
   { re: /\bpools?\b|\bswimming/i, add: ['pool-spa'] },
 ];
 
-/** A new business needs signs, books, insurance, cleaning, security. Food businesses also need pest control and HVAC. */
+/**
+ * A new business needs signs, books, insurance, cleaning, security and keys/lock hardware for the new space.
+ * Food businesses also need pest control and HVAC. Only the license type and activity are ever classified or stored,
+ * never a business or owner name (see NAME_COLUMN in tests/signals/business-privacy.test.ts).
+ */
 export const BUSINESS_RULES: CategoryRule[] = [
-  { re: /./, add: ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning'] },
+  { re: /./, add: ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning', 'locksmith'] },
   {
     re: /restau|\bcafe\b|coffee|bakery|\bpizza|\btaco|\bgrill\b|kitchen|\bfood\b|\bdeli\b|\bbbq\b|barbecue|\bbar\b|tavern|brew|sushi|diner|eatery|bistro|burger|retail food|\bliquor|catering/i,
     add: ['pest-control', 'hvac'],
@@ -394,7 +414,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     note: 'Updated 2026-11-16, max issued 2026-11-15, 428 rows since Nov 1. aptype values seen: REPAIR, ELECTRICAL, PLUMBING, HEATING, FENDRIVE, GC, TEAROUT. Only the street name is published, no house number.',
   },
   {
-    id: 'socrata-montgomery-permits', city: 'Montgomery County', state: 'MD', tz: 'America/New_York', domain: 'data.montgomerycountymd.gov', datasetId: 'm88u-pqki',
+    id: 'socrata-montgomery-permits', city: 'Montgomery County', state: 'MD', countyAnchor: { lat: 39.084, lon: -77.1528 }, tz: 'America/New_York', domain: 'data.montgomerycountymd.gov', datasetId: 'm88u-pqki',
     kind: 'permit', subtype: 'permit', idField: 'permitno', dateField: 'issueddate', locationField: 'location',
     titleFields: ['description', 'worktype'], textFields: ['description', 'worktype', 'applicationtype'], summaryFields: ['worktype', 'declaredvaluation', 'status'],
     addressFields: ['stno', 'predir', 'stname', 'suffix', 'postdir'], zipField: 'zip',
@@ -410,7 +430,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     note: 'Updated 2026-11-16, max issue_permit_date 2026-11-16. worktype values seen: Roof, Repair, LowVoltage, New, Alt, Irrigation, Sign, Fence. property_owner_name and contractor columns are never read.',
   },
   {
-    id: 'socrata-pgcounty-permits', city: "Prince George's County", state: 'MD', tz: 'America/New_York', domain: 'data.princegeorgescountymd.gov', datasetId: 'weik-ttee',
+    id: 'socrata-pgcounty-permits', city: "Prince George's County", state: 'MD', countyAnchor: { lat: 38.8296, lon: -76.8466 }, tz: 'America/New_York', domain: 'data.princegeorgescountymd.gov', datasetId: 'weik-ttee',
     kind: 'permit', subtype: 'permit', idField: 'permit_case_id', dateField: 'permit_issuance_date', fallbackCenter: { lat: 38.8296, lon: -76.8466 },
     titleFields: ['case_name', 'permit_type'], textFields: ['case_name', 'permit_type', 'permit_category'], summaryFields: ['permit_type', 'permit_category', 'expected_construction_cost'],
     addressFields: ['street_address'], zipField: 'zip_code', windowForwardDays: 0, cadenceMinutes: 720, verified: false,
@@ -458,45 +478,47 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-chicago-business', city: 'Chicago', state: 'IL', tz: 'America/Chicago', domain: 'data.cityofchicago.org', datasetId: 'uupf-x98q',
     kind: 'civic', subtype: 'business', idField: 'id', dateField: 'date_issued', latField: 'latitude', lonField: 'longitude',
-    titleFields: ['doing_business_as_name'], textFields: ['doing_business_as_name', 'license_description', 'business_activity'],
-    summaryFields: ['license_description', 'business_activity'], addressFields: ['address'], zipField: 'zip_code',
-    extraWhere: "application_type = 'ISSUE'", windowForwardDays: 0, cadenceMinutes: 720, verified: true,
+    titleFields: [], textFields: ['license_description', 'business_activity'],
+    summaryFields: ['license_description', 'business_activity'], zipField: 'zip_code',
+    extraWhere: "application_type = 'ISSUE' AND license_description NOT IN ('Pop-Up Retail User','Peddler License','Pharmaceutical Representative','Shared Housing Unit Operator','Pop-Up Food Est. User - Tier I')", windowForwardDays: 0, cadenceMinutes: 720, verified: true,
     verifiedUrl: D('data.cityofchicago.org', 'uupf-x98q'), fieldSource: 'sourced',
-    note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. legal_name and account fields are never read.",
+    note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. PRIVACY: no name column is read (doing_business_as_name, legal_name, account fields): 12 of 60 live DBA values were bare personal names, and Shared Housing Unit Operator rows are home addresses. Title is the license type only, no street address, and individual license types are excluded (live group-by of license_description for ISSUE rows, 2026-11-17).",
   },
   {
     id: 'socrata-sf-business', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'g8m3-pdis',
     kind: 'civic', subtype: 'business', idField: 'uniqueid', dateField: 'location_start_date', locationField: 'location',
-    titleFields: ['dba_name'], textFields: ['dba_name', 'lic_code_description', 'lic_code_descriptions_list'], summaryFields: ['lic_code_description'],
-    addressFields: ['full_business_address'], zipField: 'business_zip', extraWhere: 'location_end_date IS NULL', windowForwardDays: 0,
+    titleFields: [], textFields: ['lic_code_description', 'lic_code_descriptions_list'], summaryFields: ['lic_code_description'],
+    zipField: 'business_zip',
+    extraWhere: "location_end_date IS NULL AND (lic_code_description IS NULL OR lic_code_description NOT IN ('TATTOO, BODY PIERCING, PRACTITIONER','GENERAL MASSAGE PRACTITIONER','OUTCALL MASSAGE SERVICE','TOW CAR DRIVER','RENEWAL OF COMMERCIAL DOG WALKER - OWNER','RENEWAL OF COMMERCIAL DOG WALKER - EMPLOYEE','TOUR GUIDE: OWNER - WALKING'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.sf.gov', 'g8m3-pdis'), fieldSource: 'sourced',
-    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. ownership_name is never read; uniqueid is assumed unique per row.',
+    note: 'Registered Business Locations, updated 2026-11-15. location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: no name column is read (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row.',
   },
   {
     id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',
     kind: 'civic', subtype: 'business', idField: 'location_account', dateField: 'location_start_date', locationField: 'location_1',
-    titleFields: ['dba_name'], textFields: ['dba_name', 'primary_naics_description'], summaryFields: ['primary_naics_description'],
-    addressFields: ['street_address'], zipField: 'zip_code', extraWhere: 'location_end_date IS NULL', windowForwardDays: 0,
+    titleFields: [], textFields: ['primary_naics_description'], summaryFields: ['primary_naics_description'],
+    zipField: 'zip_code',
+    extraWhere: "location_end_date IS NULL AND (primary_naics_description IS NULL OR primary_naics_description NOT IN ('Independent artists, writers, & performers','Motion picture & video industries (except video rental)','Lessors of real estate (including mini warehouses & self-storage units)','All other personal services','Individual & family services','Home health care services','Legal services','Offices of physicians (except mental health specialists)','Offices of mental health practitioners (except physicians)','Offices of all other miscellaneous health practitioners','Offices of physical, occupational & speech therapists, & audiologists','Offices of real estate agents & brokers','Agents & managers for artists, athletes, entertainers, & other public figures','Other direct selling establishments (including door-to-door retailing, frozen food plan providers, party plan merchandisers, & coffee-break service providers)'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.lacity.org', '6rrh-rzua'), fieldSource: 'sourced',
-    note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. Only dba_name is used as a name: business_name is often a sole proprietor\'s personal name.',
+    note: 'Listing of Active Businesses, updated 2026-11-16. location_start_date holds future dates (max 2027-04-17), so the query caps it at now. PRIVACY: no name column is read (dba_name, business_name): both can be a sole proprietor personal name. Title is the NAICS description only, no street address. Sole-proprietor-heavy NAICS groups are excluded (live group-by 2026-11-17).',
   },
   {
     id: 'socrata-nyc-business', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'w7w3-xahh',
     kind: 'civic', subtype: 'business', idField: 'license_nbr', dateField: 'license_creation_date', latField: 'latitude', lonField: 'longitude',
     fallbackCenter: { lat: 40.7128, lon: -74.006 },
-    titleFields: ['dba_trade_name'], textFields: ['dba_trade_name', 'business_category', 'license_type'], summaryFields: ['business_category'],
-    addressFields: ['address_building', 'address_street_name', 'address_borough'], zipField: 'address_zip',
+    titleFields: [], textFields: ['business_category', 'license_type'], summaryFields: ['business_category'],
+    zipField: 'address_zip',
     extraWhere: "license_status = 'Active' AND business_category NOT IN ('Tow Truck Driver','Sightseeing Guide','Ticket Seller Individual','Pedicab Driver','Process Server Individual')",
     lookbackOverride: 30, windowForwardDays: 0, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofnewyork.us', 'w7w3-xahh'), fieldSource: 'sourced',
-    note: 'DCWP Issued Licenses, updated 2026-11-06, max license_creation_date 2026-10-30, hence the 30 day lookback. Individual licences (drivers, guides) are excluded; business_name is never read because it can be a person.',
+    note: 'DCWP Issued Licenses, updated 2026-11-06, max license_creation_date 2026-10-30, hence the 30 day lookback. Individual licences (drivers, guides) are excluded; PRIVACY: no name column is read (dba_trade_name, business_name): both can be a person. Title is the business category, no street address.',
   },
   {
     id: 'socrata-orlando-business', city: 'Orlando', state: 'FL', tz: 'America/New_York', domain: 'data.cityoforlando.net', datasetId: '7388-4re5',
     kind: 'civic', subtype: 'business', idField: 'case_number', dateField: 'business_open_date', locationField: 'geocoded_column',
-    titleFields: ['business_name'], textFields: ['business_name', 'license_type', 'license_category'], summaryFields: ['license_type', 'license_category'],
-    addressFields: ['business_address'], extraWhere: 'business_close_date IS NULL', windowForwardDays: 0,
+    titleFields: [], textFields: ['license_type', 'license_category'], summaryFields: ['license_type', 'license_category'],
+    extraWhere: "business_close_date IS NULL AND license_category NOT IN ('PROFES','PEDDLE','MASSEU') AND license_type NOT IN ('INSURANCE ADJUSTER','INSTRUCTOR/TUTOR','MISC PEDDLER','FOOD PEDDLER')", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityoforlando.net', '7388-4re5'), fieldSource: 'sourced',
-    note: 'Business Tax Receipts, updated 2026-11-16, 214 rows opened since Oct 15. business_open_date holds garbage future dates (max year 8201), so the query caps it at now. business_owner_name, email and phone are never read.',
+    note: 'Business Tax Receipts, updated 2026-11-16, 214 rows opened since Oct 15. business_open_date holds garbage future dates (max year 8201), so the query caps it at now. business_owner_name, email and phone are never read. PRIVACY: business_name is not read either: 18 of 60 live values were personal names (nurse practitioners, sole proprietors). Title is the license type only, no street address, and the PROFES, PEDDLE and MASSEU categories (individuals, 2026-11-17 group-by) are excluded.',
   },
   // ---- Special event and film permits (upcoming events: window runs forward) ----
   {

@@ -18,7 +18,8 @@ import { ASK_TERMS, looksLikeRequest, resolveCityFromText } from './websearch';
  *      (lexicons/com/atproto/server/createSession.json; renew with com.atproto.server.refreshSession and the refresh token).
  *   2. GET <pds>/xrpc/app.bsky.feed.searchPosts with `Authorization: Bearer <accessJwt>` and `atproto-proxy: did:web:api.bsky.app#bsky_appview`
  *      (the documented PDS-to-AppView proxy route, as described in the cyanheads issue). <pds> is the didDoc #atproto_pds endpoint, default https://bsky.social.
- * Without credentials it still tries the keyless public host once per run (it may be reopened) and logs an error that names the two env keys when refused.
+ * Without credentials the adapter is skipped by the engine (requiresEnv, reported as skipped(env)), never attempted keyless: the public host
+ * answers 403 permanently, which would make every run an error and the daily health email never "all OK".
  * BLUESKY_HANDLE and BLUESKY_APP_PASSWORD are in ENV_KEYS (lib/env.ts) and .env.example. createSession is rate limited (the cyanheads issue saw
  * 10 per identifier per day) and every serverless cold start logs in again, so the adapter runs every 360 minutes (4 runs a day); the session is
  * also cached in module memory for warm invocations and renewed with refreshSession.
@@ -36,6 +37,10 @@ const APPVIEW_PROXY = 'did:web:api.bsky.app#bsky_appview';
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 const QUERIES_PER_RUN = 12;
 const CADENCE = 360;
+/** The engine kills an adapter at 40 s and drops everything it fetched, so this one finishes well inside that. */
+const REQUEST_TIMEOUT_MS = 8_000;
+const LOGIN_BUDGET_MS = 12_000;
+const BATCH_START_DEADLINE_MS = 20_000;
 const PHRASES = ['recommend a', 'looking for a', 'need a'];
 
 export interface BlueskyQuery {
@@ -181,7 +186,7 @@ async function postJson(ctx: AdapterContext, url: string, body: unknown, bearer?
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': UA, ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 }
 
@@ -227,6 +232,7 @@ const bluesky: Adapter = {
   kind: 'ask',
   cadenceMinutes: CADENCE,
   sourceUrl: 'https://bsky.app/',
+  requiresEnv: ['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD'],
   async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
     const out: SignalInput[] = [];
     const seen = new Set<string>();
@@ -237,19 +243,32 @@ const bluesky: Adapter = {
     try {
       const handle = ctx.env.BLUESKY_HANDLE?.trim();
       const password = ctx.env.BLUESKY_APP_PASSWORD?.trim();
-      let auth: Session | null = null;
-      if (handle && password) {
+      if (!handle || !password) {
+        // The engine skips this adapter without both keys; this guards a direct call. Not an error: there is nothing to attempt.
+        ctx.log('bluesky: BLUESKY_HANDLE and BLUESKY_APP_PASSWORD are not set, nothing to do');
+        return [];
+      }
+      const started = Date.now();
+      let auth: Session;
+      try {
+        let loginTimer: ReturnType<typeof setTimeout> | undefined;
         try {
-          auth = await ensureSession(ctx, handle, password);
-        } catch (e) {
-          ctx.log(`error: bluesky login failed: ${e instanceof Error ? e.message : String(e)}`);
-          return [];
+          auth = await Promise.race([
+            ensureSession(ctx, handle, password),
+            new Promise<never>((_, reject) => {
+              loginTimer = setTimeout(() => reject(new Error(`login took longer than ${LOGIN_BUDGET_MS / 1000} s`)), LOGIN_BUDGET_MS);
+            }),
+          ]);
+        } finally {
+          if (loginTimer) clearTimeout(loginTimer);
         }
+      } catch (e) {
+        ctx.log(`error: bluesky login failed: ${e instanceof Error ? e.message : String(e)}`);
+        return [];
       }
       const plan = planBlueskyQueries(new Date());
-      const started = Date.now();
       for (let i = 0; i < plan.length; i += 4) {
-        if (Date.now() - started > 30_000) {
+        if (Date.now() - started > BATCH_START_DEADLINE_MS) {
           ctx.log(`bluesky: deadline reached after ${i} of ${plan.length} queries`);
           break;
         }
@@ -257,19 +276,16 @@ const bluesky: Adapter = {
         const results = await Promise.all(
           batch.map(async (b) => {
             try {
-              const url = auth ? buildBlueskyUrl(b.q, ctx.since, `${auth.pds}/xrpc/app.bsky.feed.searchPosts`) : buildBlueskyUrl(b.q, ctx.since);
-              const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
-              if (auth) {
-                headers.Authorization = `Bearer ${auth.accessJwt}`;
-                headers['atproto-proxy'] = APPVIEW_PROXY;
-              }
-              const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+              const url = buildBlueskyUrl(b.q, ctx.since, `${auth.pds}/xrpc/app.bsky.feed.searchPosts`);
+              const headers: Record<string, string> = {
+                Accept: 'application/json',
+                'User-Agent': UA,
+                Authorization: `Bearer ${auth.accessJwt}`,
+                'atproto-proxy': APPVIEW_PROXY,
+              };
+              const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
               if (res.status === 401 || res.status === 403) {
-                ctx.log(
-                  auth
-                    ? `error: bluesky HTTP ${res.status} even with a session, check the app password and that auth is accepted`
-                    : `error: bluesky HTTP ${res.status}, search requires auth: set BLUESKY_HANDLE and BLUESKY_APP_PASSWORD (an app password)`,
-                );
+                ctx.log(`error: bluesky HTTP ${res.status} even with a session, check the app password and that auth is accepted`);
                 return { blocked: true, signals: [] as SignalInput[] };
               }
               if (res.status === 429) {

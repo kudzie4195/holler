@@ -18,16 +18,17 @@ const ds = (id: string): SocrataDataset => {
   return d;
 };
 const run = (id: string) => parseSocrata(fx(`${id}.json`), ds(id));
-const BUSINESS_TRADES = ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning'];
+const BUSINESS_TRADES = ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning', 'locksmith'];
 
 describe('business parsers', () => {
-  it('Chicago: name, type, address only; food gets pest-control + hvac; no owner names', () => {
+  it('Chicago: license type only (no name, no address); food gets pest-control + hvac; no owner names', () => {
     const out = run('socrata-chicago-business');
     expect(out).toHaveLength(3);
     const cafe = out.find((s) => s.externalId === '3011111-20261112')!;
     expect(cafe.kind).toBe('civic');
     expect(cafe.data?.subtype).toBe('business');
-    expect(cafe.title).toBe('New business in Chicago: WINDY CITY CAFE');
+    expect(cafe.title).toBe('New business license in Chicago: Retail Food Establishment');
+    expect(cafe.summary).not.toMatch(/WINDY CITY|N CLARK|CLARK ST/i);
     expect(cafe.categories).toEqual(expect.arrayContaining([...BUSINESS_TRADES, 'pest-control', 'hvac']));
     expect(out.find((s) => s.externalId === '3011112-20261113')!.categories).not.toContain('pest-control');
     expect(out.find((s) => s.externalId === '3011113-20261113')!.title).toMatch(/^New business license in Chicago: Regulated/);
@@ -41,11 +42,12 @@ describe('business parsers', () => {
   it('SF, LA, NYC, Orlando parse; owner fields never appear', () => {
     const sf = run('socrata-sf-business');
     expect(sf).toHaveLength(2);
-    expect(sf[0].lat).toBeCloseTo(37.7599, 3);
+    expect(sf[0].lat).toBe(37.76); // business points are rounded to 2 decimals
     expect(sf[0].categories).toContain('pest-control');
     const la = run('socrata-la-business');
     expect(la).toHaveLength(2);
-    expect(la[0].title).toBe('New business in Los Angeles: SUNSET PIZZA');
+    expect(la[0].title).toMatch(/^New business license in Los Angeles: /);
+    expect(JSON.stringify(la)).not.toMatch(/SUNSET PIZZA/);
     expect(la[1].title).toMatch(/^New business license in Los Angeles: Administrative/);
     const nyc = run('socrata-nyc-business');
     expect(nyc).toHaveLength(2);
@@ -53,7 +55,7 @@ describe('business parsers', () => {
     const orl = run('socrata-orlando-business');
     expect(orl).toHaveLength(2);
     expect(orl[0].categories).toContain('hvac');
-    expect(orl[0].lat).toBeCloseTo(28.553, 3);
+    expect(orl[0].lat).toBe(28.55);
     const all = JSON.stringify([...sf, ...la, ...nyc, ...orl]);
     expect(all).not.toMatch(/SAMPLE OWNER|ANOTHER OWNER|JOHN SAMPLE|JANE SAMPLE|SAMPLE PERSON|ANOTHER PERSON|PRIVATE OWNER|example\.com/);
   });

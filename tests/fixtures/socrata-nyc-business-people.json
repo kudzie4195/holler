@@ -1,0 +1,32 @@
+[
+ {
+  "license_nbr": "2099101-DCA",
+  "business_name": "ANGELA M ROSSI",
+  "dba_trade_name": "Angela Rossi",
+  "business_category": "Home Improvement Contractor",
+  "license_type": "Business",
+  "license_status": "Active",
+  "license_creation_date": "2026-10-28T00:00:00.000",
+  "address_building": "88",
+  "address_street_name": "BAY RIDGE PKWY",
+  "address_borough": "Brooklyn",
+  "address_zip": "11209",
+  "latitude": "40.6330",
+  "longitude": "-74.0270"
+ },
+ {
+  "license_nbr": "2099102-DCA",
+  "business_name": "TYRONE WILLIAMS",
+  "dba_trade_name": "Tyrone Williams",
+  "business_category": "Locksmith",
+  "license_type": "Business",
+  "license_status": "Active",
+  "license_creation_date": "2026-10-29T00:00:00.000",
+  "address_building": "410",
+  "address_street_name": "E 187TH ST",
+  "address_borough": "Bronx",
+  "address_zip": "10458",
+  "latitude": "40.8590",
+  "longitude": "-73.8940"
+ }
+]

@@ -1,6 +1,7 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { absoluteUrl } from './canonical';
-import { TRADE_FACTS, type TradeFacts } from './trade-pages';
+import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
+import { CITY_TYPES, SIGNAL_PHRASES, typesForTrade } from './signal-types';
 
 export const TRADE_PRICE_LINE = '$5 a month or $48 a year, with 7 days free and no card to start.';
 
@@ -32,6 +33,20 @@ export function tradeEntries(): TradeEntry[] {
   return out;
 }
 
+/**
+ * The "why it means work" sentences a trade page may show: only those whose record type the trade really receives
+ * (TRADE_SIGNALS in lib/signals/capabilities.ts, derived from the adapters). Order is kept. `received` can be passed
+ * in by tests; production code never does.
+ */
+export function visibleSignals(t: Pick<TradeEntry, 'id' | 'facts'>, received: readonly string[] = typesForTrade(t.id)): TradeSignal[] {
+  return t.facts.signals.filter((s) => received.includes(s.type));
+}
+
+/** True when a visible sentence is about a record type that exists only in connected cities. */
+export function showsCityRecords(signals: TradeSignal[]): boolean {
+  return signals.some((s) => (CITY_TYPES as string[]).includes(s.type));
+}
+
 export function tradeEntry(id: string): TradeEntry | undefined {
   return tradeEntries().find((t) => t.id === id);
 }
@@ -61,7 +76,9 @@ export function tradeTitle(t: TradeEntry): string {
 }
 
 export function tradeDescription(t: TradeEntry): string {
-  const d = `${t.facts.headline}. Holler emails ${t.facts.noun} when weather, permits, city records or public posts point to work nearby. ${TRADE_PRICE_LINE}`;
+  const kinds = [...new Set(visibleSignals(t).map((s) => s.type))].slice(0, 3).map((k) => SIGNAL_PHRASES[k]);
+  const what = kinds.length ? `when ${kinds.join(', ')} point to work nearby` : 'when public records point to work nearby';
+  const d = `${t.facts.headline}. Holler emails ${t.facts.noun} ${what}. ${TRADE_PRICE_LINE}`;
   return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
 }
 
@@ -71,8 +88,8 @@ function lowerFirst(s: string): string {
 
 /** 2 to 3 questions, each answered from the trade's own data file or the fixed price and rules. */
 export function tradeFaq(t: TradeEntry): { q: string; a: string }[] {
-  const names = t.facts.signals.map((s) => lowerFirst(s.signal));
-  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+  const names = visibleSignals(t).map((s) => lowerFirst(s.signal));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? 'public records near you');
   return [
     {
       q: `What does Holler send ${t.facts.noun}?`,

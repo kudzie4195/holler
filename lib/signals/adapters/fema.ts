@@ -18,14 +18,14 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
  */
 const BASE = 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
 
-const REBUILD: CategoryId[] = ['restoration', 'general-contractor', 'roofing', 'insurance', 'tree-service', 'junk-removal'];
+const REBUILD: CategoryId[] = ['restoration', 'general-contractor', 'roofing', 'insurance', 'public-adjuster', 'tree-service', 'junk-removal'];
 
-function categoriesFor(incidentType: string): CategoryId[] {
+export function categoriesFor(incidentType: string): CategoryId[] {
   const t = incidentType.toLowerCase();
   if (/hurricane|tropical|typhoon|coastal storm|tornado|severe storm|straight-line|wind/.test(t)) return [...REBUILD, 'electrical', 'towing'];
-  if (/flood|dam|levee|mud|landslide|tsunami/.test(t)) return ['restoration', 'plumbing', 'junk-removal', 'insurance', 'general-contractor', 'pest-control'];
+  if (/flood|dam|levee|mud|landslide|tsunami/.test(t)) return ['restoration', 'plumbing', 'junk-removal', 'insurance', 'public-adjuster', 'general-contractor', 'pest-control'];
   if (/snow|ice|freez|winter/.test(t)) return ['snow-removal', 'tree-service', 'electrical', 'plumbing', 'hvac', 'restoration'];
-  if (/fire/.test(t)) return ['restoration', 'insurance', 'general-contractor', 'tree-service', 'junk-removal'];
+  if (/fire/.test(t)) return ['restoration', 'insurance', 'public-adjuster', 'general-contractor', 'tree-service', 'junk-removal'];
   if (/earthquake|volcan/.test(t)) return ['general-contractor', 'restoration', 'insurance', 'plumbing', 'electrical'];
   if (/drought/.test(t)) return ['landscaping', 'lawn-care', 'pool-spa'];
   return []; // biological, chemical, terrorism, other: shown on public pages, not matched to trades
@@ -81,7 +81,9 @@ export function parseFema(raw: unknown): SignalInput[] {
       categories: categoriesFor(incident),
       severity,
       occurredAt: new Date(t).toISOString(),
-      expiresAt: r.incidentEndDate && Number.isFinite(Date.parse(r.incidentEndDate)) ? new Date(Date.parse(r.incidentEndDate)).toISOString() : null,
+      // A declaration does not expire, and it usually comes AFTER the incident period closes, so incidentEndDate is already in the
+      // past on insert (live: DR-4955 FL declared 2026-10-27, incident ended 2026-10-12). Age is handled by the windows and the prune.
+      expiresAt: null,
       data: {
         disasterNumber: r.disasterNumber,
         declarationType: type,

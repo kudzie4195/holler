@@ -1,6 +1,11 @@
 import { haversineMi } from '@/lib/geo';
 
 export const MAX_MATCHES_PER_USER = 25;
+/**
+ * New-business license rows are tagged for six trades at once, so on a busy city a cleaning or insurance user would fill the whole
+ * 25-row cap with licenses. At most this many `business` rows per user per scan (and per backfill), nearest first.
+ */
+export const MAX_BUSINESS_PER_USER = 5;
 /** State-level (no coordinates) signals only match when severity is at least this. */
 export const STATE_LEVEL_MIN_SEVERITY = 2;
 
@@ -21,6 +26,9 @@ export interface MatchSignal {
   state: string | null;
   severity: number;
   occurred_at: string;
+  /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
+  subtype?: string | null;
+  data?: { subtype?: unknown } | null;
 }
 
 export interface MatchRow {
@@ -57,19 +65,53 @@ export function matchOne(signal: MatchSignal, profile: MatchProfile): { distance
   return { distance_mi: null };
 }
 
+export function subtypeOf(s: Pick<MatchSignal, 'subtype' | 'data'>): string | null {
+  if (typeof s.subtype === 'string' && s.subtype) return s.subtype;
+  const d = s.data?.subtype;
+  return typeof d === 'string' && d ? d : null;
+}
+
+export interface Hit {
+  s: MatchSignal;
+  distance_mi: number | null;
+}
+
+/** A start time in the future ranks as "now": a record dated next year never outranks a fresh one of the same severity. */
+function rankTime(iso: string, nowMs: number): number {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? Math.min(t, nowMs) : 0;
+}
+
 /**
- * Match new signals to profiles. Per user: most severe first, then newest, capped at `cap`.
+ * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest), then everything is ordered most
+ * severe first, newest first (future dates clamped to now) and cut to `cap`.
  */
-export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], cap = MAX_MATCHES_PER_USER): MatchRow[] {
+export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER, maxBusiness = MAX_BUSINESS_PER_USER): Hit[] {
+  const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
+  const biz = hits
+    .filter(isBiz)
+    .sort(
+      (a, b) =>
+        (a.distance_mi ?? Infinity) - (b.distance_mi ?? Infinity) || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs),
+    )
+    .slice(0, maxBusiness);
+  const keep = [...hits.filter((h) => !isBiz(h)), ...biz];
+  keep.sort((a, b) => b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs));
+  return keep.slice(0, cap);
+}
+
+/**
+ * Match new signals to profiles. Per user: business rows capped, then most severe first, then newest, capped at `cap`.
+ */
+export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], cap = MAX_MATCHES_PER_USER, now: Date = new Date()): MatchRow[] {
   const out: MatchRow[] = [];
   for (const p of profiles) {
-    const hits: { s: MatchSignal; distance_mi: number | null }[] = [];
+    const hits: Hit[] = [];
     for (const s of signals) {
       const m = matchOne(s, p);
       if (m) hits.push({ s, distance_mi: m.distance_mi });
     }
-    hits.sort((a, b) => b.s.severity - a.s.severity || Date.parse(b.s.occurred_at) - Date.parse(a.s.occurred_at));
-    for (const h of hits.slice(0, cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi });
+    for (const h of pickHits(hits, now.getTime(), cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi });
   }
   return out;
 }

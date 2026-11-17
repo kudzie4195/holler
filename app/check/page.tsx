@@ -1,23 +1,31 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
+import { clientIp, hit } from '@/lib/auth/ratelimit';
+import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
-import { deriveScope } from '@/lib/check/scope';
+import { CHECK_RADIUS_MI, deriveScope, withinRadius } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
-import { cityBySlug, lookupZip } from '@/lib/geo';
+import { watchList } from '@/lib/check/watch';
+import { lookupZip, nearestCity } from '@/lib/geo';
 
-// Results views (with query params) share this canonical, so only /check itself is indexed.
-export const metadata: Metadata = {
-  title: 'See what happened near you',
-  description:
-    'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.',
-  alternates: { canonical: '/check' },
-  robots: { index: true, follow: true },
-};
+// Only /check itself is indexed. Every ?zip=&trade= variant is noindex (tens of thousands of combinations, one canonical).
+export async function generateMetadata(props: PageProps<'/check'>): Promise<Metadata> {
+  const sp = await props.searchParams;
+  const variant = sp.zip !== undefined || sp.trade !== undefined;
+  return {
+    title: 'See what happened near you',
+    description:
+      'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.',
+    alternates: { canonical: '/check' },
+    robots: variant ? { index: false, follow: true } : { index: true, follow: true },
+  };
+}
 
 export default function CheckPage(props: PageProps<'/check'>) {
   return (
@@ -61,24 +69,46 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   }
 
   const scope = deriveScope(place);
-  const data = await loadCheck(scope.citySlug, scope.state, params.trade);
-  const city = scope.citySlug ? cityBySlug(scope.citySlug) : undefined;
-  const now = nowMs();
   const placeLabel = `${place.city}, ${place.state}`;
+  const city = nearestCity(place.lat, place.lon, CHECK_RADIUS_MI);
+  const now = nowMs();
+  const common = {
+    placeLabel,
+    trade: params.trade,
+    tradeLabel: tradeLabel(params.trade),
+    citySlug: city?.slug ?? null,
+    watches: watchList(params.trade, city?.slug ?? null),
+    now,
+  };
+
+  // Territories and military mail codes have no source rows yet: say so, read nothing.
+  if (!scope.covered) {
+    return (
+      <>
+        <CheckForm zip={params.zip} trade={params.trade} />
+        <CheckResults {...common} mode="uncovered" items={[]} checkedAt={new Date(now).toISOString()} />
+      </>
+    );
+  }
+
+  const h = await headers();
+  const gate = await gateCheck(clientIp(new Request('https://holler.invalid/check', { headers: h })), hit);
+  if (gate === 'limited') {
+    return (
+      <>
+        <CheckForm zip={params.zip} trade={params.trade} />
+        <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+      </>
+    );
+  }
+
+  const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
+  const items = data.items.filter((i) => withinRadius(place, { lat: i.lat ?? null, lon: i.lon ?? null }));
 
   return (
     <>
       <CheckForm zip={params.zip} trade={params.trade} />
-      <CheckResults
-        items={data.items}
-        ok={data.ok}
-        checkedAt={data.checkedAt}
-        placeLabel={placeLabel}
-        trade={params.trade}
-        tradeLabel={tradeLabel(params.trade)}
-        citySlug={city?.slug ?? null}
-        now={now}
-      />
+      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={items} checkedAt={data.checkedAt} />
     </>
   );
 }

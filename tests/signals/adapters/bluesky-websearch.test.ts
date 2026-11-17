@@ -127,12 +127,8 @@ describe('parseBluesky', () => {
     expect(u.searchParams.get('sort')).toBe('latest');
     expect(u.searchParams.get('since')).toBe(NOW.toISOString());
   });
-  it('declares no env requirement and logs a 403 clearly, returning []', async () => {
-    expect(bskyAdapters[0].requiresEnv).toBeUndefined();
-    const logs: string[] = [];
-    const out2 = await bskyAdapters[0].fetch({ since: NOW, env: {}, log: (m) => logs.push(m), fetch: (async () => new Response('forbidden', { status: 403 })) as unknown as typeof fetch });
-    expect(out2).toEqual([]);
-    expect(logs.some((l) => l.includes('403') && l.includes('auth'))).toBe(true);
+  it('requires both keys (so a keyless launch reports skipped(env), not an error)', () => {
+    expect(bskyAdapters[0].requiresEnv).toEqual(['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD']);
   });
 });
 
@@ -256,18 +252,15 @@ const sessionBody = (pds = 'https://morel.us-east.host.bsky.network', exp = Math
 describe('bluesky auth', () => {
   beforeEach(() => resetBlueskySession());
 
-  it('without credentials: tries the keyless public host, and a 403 HTML page logs an error that names the env keys', async () => {
-    const r = await runAdapter(bskyAdapters[0], forbiddenHtml);
-    expect(r.out).toEqual([]);
-    expect(r.calls).toHaveLength(4); // first batch only, then stops
-    expect(r.calls[0].url.startsWith('https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?')).toBe(true);
-    expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes('403') && l.includes('BLUESKY_HANDLE') && l.includes('BLUESKY_APP_PASSWORD'))).toBe(true);
+  it('declares both keys, so the engine reports skipped(env) instead of an error without them', () => {
+    expect(bskyAdapters[0].requiresEnv).toEqual(['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD']);
   });
 
-  it('keyless success still works if Bluesky reopens search', async () => {
-    const r = await runAdapter(bskyAdapters[0], () => json(fx('bluesky-search.json')));
-    expect(r.out.length).toBeGreaterThan(0);
-    expect(r.logs).toEqual([]);
+  it('a direct call without credentials makes no request and logs nothing error-like (never the keyless 403 path)', async () => {
+    const r = await runAdapter(bskyAdapters[0], forbiddenHtml);
+    expect(r.out).toEqual([]);
+    expect(r.calls).toHaveLength(0);
+    expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(false);
   });
 
   it('with credentials: createSession on bsky.social, then searchPosts on the PDS with Bearer + atproto-proxy', async () => {
@@ -335,31 +328,79 @@ describe('bluesky auth', () => {
   });
 });
 
+const CREDS = { BLUESKY_HANDLE: 'holler.example.com', BLUESKY_APP_PASSWORD: 'abcd-efgh-ijkl-mnop' };
+/** Logs in fine, then answers every search call with `f`. */
+const afterLogin = (f: (c: Call) => Response | Promise<Response>) => (c: Call) => (c.url.includes('createSession') ? json(sessionBody()) : f(c));
+
 describe('bluesky failure modes', () => {
   beforeEach(() => resetBlueskySession());
   for (const status of [429, 500, 502]) {
     it(`HTTP ${status} logs an error-like line`, async () => {
-      const r = await runAdapter(bskyAdapters[0], () => new Response('x', { status }));
+      const r = await runAdapter(bskyAdapters[0], afterLogin(() => new Response('x', { status })), CREDS);
       expect(r.out).toEqual([]);
       expect(r.logs.some((l) => ERROR_LIKE.test(l) && l.includes(String(status)))).toBe(true);
     });
   }
   it('an HTML page with 200 logs an error', async () => {
-    const r = await runAdapter(bskyAdapters[0], () => new Response('<html>cdn challenge</html>', { status: 200 }));
+    const r = await runAdapter(bskyAdapters[0], afterLogin(() => new Response('<html>cdn challenge</html>', { status: 200 })), CREDS);
     expect(r.logs.some((l) => ERROR_LIKE.test(l))).toBe(true);
   });
   it('a changed wrapper key (no posts array in any response) logs an error', async () => {
-    const r = await runAdapter(bskyAdapters[0], () => json({ results: [{ uri: 'x' }] }));
+    const r = await runAdapter(bskyAdapters[0], afterLogin(() => json({ results: [{ uri: 'x' }] })), CREDS);
     expect(r.out).toEqual([]);
     expect(r.logs.some((l) => /no posts array/.test(l) && ERROR_LIKE.test(l))).toBe(true);
   });
   it('posts with no uri/author/text logs the silent-empty error', async () => {
-    const r = await runAdapter(bskyAdapters[0], () => json({ posts: [{ id: 1 }, { id: 2 }] }));
+    const r = await runAdapter(bskyAdapters[0], afterLogin(() => json({ posts: [{ id: 1 }, { id: 2 }] })), CREDS);
     expect(r.logs.some((l) => /parsed 0 of \d+ rows, shape may have changed/.test(l))).toBe(true);
   });
   it('an empty posts array is a quiet hour', async () => {
-    const r = await runAdapter(bskyAdapters[0], () => json({ posts: [] }));
+    const r = await runAdapter(bskyAdapters[0], afterLogin(() => json({ posts: [] })), CREDS);
     expect(r.logs).toEqual([]);
+  });
+  it('stays inside the engine timeout: login is capped, batches stop starting after 20 s, each request is capped at 8 s', async () => {
+    vi.useFakeTimers();
+    try {
+      const seen: (AbortSignal | undefined | null)[] = [];
+      const logs: string[] = [];
+      // login and each search call "take" 9 s of fake clock, so the 20 s batch deadline must cut the run after the second batch
+      let searches = 0;
+      const fetchImpl = (async (u: unknown, init?: RequestInit) => {
+        seen.push(init?.signal);
+        if (String(u).includes('createSession')) {
+          await new Promise((r) => setTimeout(r, 9_000)); // a slow login counts against the same 20 s deadline
+          return json(sessionBody());
+        }
+        searches++;
+        await new Promise((r) => setTimeout(r, 9_000));
+        return json({ posts: [] });
+      }) as unknown as typeof fetch;
+      const t0 = Date.now();
+      const run = bskyAdapters[0].fetch({ since: NOW, fetch: fetchImpl, env: CREDS, log: (m) => logs.push(m) });
+      await vi.runAllTimersAsync();
+      await run;
+      // login ends at 9 s, batches start at 9 and 18 s; the third would start at 27 s and is refused. Real requests are capped at 8 s, so the worst case is 20 + 8 = 28 s.
+      expect(searches).toBe(8);
+      expect(Date.now() - t0).toBeLessThanOrEqual(28_000);
+      expect(logs.some((l) => /deadline reached/.test(l))).toBe(true);
+      // every request carried a timeout signal (AbortSignal.timeout) so none can hang past 8 s
+      expect(seen.every((x) => x instanceof AbortSignal)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('a login that hangs is abandoned after 12 s and reported as an error, not a hang', async () => {
+    vi.useFakeTimers();
+    try {
+      const logs: string[] = [];
+      const fetchImpl = (() => new Promise(() => {})) as unknown as typeof fetch;
+      const p = bskyAdapters[0].fetch({ since: NOW, fetch: fetchImpl, env: CREDS, log: (m) => logs.push(m) });
+      await vi.advanceTimersByTimeAsync(12_500);
+      expect(await p).toEqual([]);
+      expect(logs.some((l) => ERROR_LIKE.test(l) && /login/.test(l))).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

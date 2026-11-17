@@ -19,6 +19,17 @@ function row(kind: string, subtype: string | null, daysAgo = 2, extra: Partial<S
 }
 const data = (rows: SignalRowDb[]) => summarize('chicago-il', rows, NOW);
 
+describe('title builder: county feeds', () => {
+  it('Atlanta has no city permit feed (DeKalb County permits land on it), so the title says "area"', () => {
+    const atl = { name: 'Atlanta', state: 'GA', slug: 'atlanta-ga' };
+    const d = summarize('atlanta-ga', [row('permit', 'permit'), row('report', null)], NOW);
+    expect(buildTitle(atl, d)).toBe('Atlanta, GA area building permits and storm reports this week');
+    expect(buildH1(atl, d)).toBe('Area building permits and storm reports in Atlanta, GA');
+    // Chicago's permits come from its own city portal, so no "area".
+    expect(buildTitle({ ...city }, summarize('chicago-il', [row('permit', 'permit')], NOW))).toBe('Chicago, IL building permits this week | Holler');
+  });
+});
+
 describe('title builder', () => {
   it('names only record types the city has, in priority order', () => {
     const d = data([row('civic', '311'), row('report', null), row('permit', 'permit'), row('permit', 'permit')]);

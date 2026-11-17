@@ -79,9 +79,12 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[] }
 
 export async function buildSitemapEntries(): Promise<SitemapEntry[]> {
   'use cache';
-  cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
   const places = await loadPlaceCounts();
   const live = await Promise.all(CATEGORIES.map((c) => loadTradeSignals(c.id)));
+  // An explicit outer lifetime wins over the shorter ones inside the loaders, so it is chosen after the reads:
+  // a failed read is remembered for a minute, a good one for 6 hours.
+  const healthy = places.ok && live.every((l) => l.ok);
+  cacheLife(healthy ? { stale: 300, revalidate: 21600, expire: 86400 } : { stale: 60, revalidate: 60, expire: 300 });
   const trades: TradeLive[] = live.map((l) => ({
     id: l.trade,
     count: l.items.length,

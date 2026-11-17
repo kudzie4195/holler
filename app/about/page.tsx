@@ -79,8 +79,8 @@ export default function AboutPage() {
           <li>We never sell your email or business details.</li>
         </ul>
         <p>
-          When we find a public post where someone is asking for help, we keep only the title, a short snippet and the
-          link. If you ask for a draft reply, you get text to edit and post yourself.
+          When we find a public post where someone is asking for help, we keep the title, a short snippet, the link
+          and, for Bluesky posts, the author handle. If you ask for a draft reply, you get text to edit and post yourself.
         </p>
       </DocSection>
 

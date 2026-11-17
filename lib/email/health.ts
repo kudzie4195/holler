@@ -182,10 +182,12 @@ export function planHealth(input: {
       // 3 days of history means a run at (or just after) the 72 h mark; a source that only started yesterday is not judged yet.
       const earliest = rows[rows.length - 1].t;
       const coversWindow = earliest <= nowMs - ZERO_ROW_DAYS * DAY + 1.5 * a.cadenceMinutes * MIN;
-      const fetched72 = in72.reduce((n, x) => n + (x.r.fetched ?? 0), 0);
-      if (coversWindow && in72.length > 0 && fetched72 === 0 && !MAY_BE_EMPTY_FOR_DAYS.has(a.kind)) {
+      // `inserted` (new rows), not `fetched`: fetched counts every row inside the dataset's lookback window (7 to 30 days), so a portal that
+      // stopped publishing still "fetches" the same old rows for that long and would be flagged only after the window drains plus 3 days.
+      const inserted72 = in72.reduce((n, x) => n + (x.r.inserted ?? 0), 0);
+      if (coversWindow && in72.length > 0 && inserted72 === 0 && !MAY_BE_EMPTY_FOR_DAYS.has(a.kind)) {
         problems.push('zero_rows_3d');
-        problemLines.push({ sev: 3, line: `${a.id}: zero rows fetched for ${ZERO_ROW_DAYS} days running` });
+        problemLines.push({ sev: 3, line: `${a.id}: no new rows for ${ZERO_ROW_DAYS} days running` });
       } else if (in24.length > 0 && fetched24 === 0) {
         watch.push(`${a.id}: nothing fetched in the last 24 h`);
       }

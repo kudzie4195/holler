@@ -34,7 +34,7 @@ function numOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const BASE_CATEGORIES: CategoryId[] = ['food-truck', 'catering', 'event-services', 'rideshare-delivery', 'cleaning'];
+export const BASE_CATEGORIES: CategoryId[] = ['food-truck', 'catering', 'event-services', 'rideshare-delivery', 'cleaning'];
 
 /** Pure parser for a Discovery API events response. */
 export function parseTicketmaster(raw: unknown): SignalInput[] {

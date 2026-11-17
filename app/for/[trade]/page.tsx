@@ -14,6 +14,8 @@ import {
   tradeFaq,
   tradePath,
   tradeTitle,
+  showsCityRecords,
+  visibleSignals,
 } from '@/lib/seo/trade-view';
 import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
@@ -52,7 +54,7 @@ function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
         <span>
           Source:{' '}
           {src.homeUrl ? (
-            <a href={src.homeUrl} target="_blank" rel="noopener" className={linkClass}>
+            <a href={src.homeUrl} target="_blank" rel="noopener" className={`${linkClass} inline-flex min-h-11 items-center`}>
               {src.label}
             </a>
           ) : (
@@ -83,6 +85,7 @@ export default async function TradePage({ params }: Props) {
   if (!t) notFound();
   const live = await loadTradeSignals(t.id);
   const faq = tradeFaq(t);
+  const signals = visibleSignals(t);
   const path = tradePath(t.id);
   const checkHref = `/check?trade=${encodeURIComponent(t.id)}`;
 
@@ -112,13 +115,19 @@ export default async function TradePage({ params }: Props) {
         <Card>
           <H2 id="what-you-get">What Holler sends {t.facts.noun}</H2>
           <ul className="mt-4 flex flex-col gap-4">
-            {t.facts.signals.map((s) => (
+            {signals.map((s) => (
               <li key={s.signal}>
                 <p className="font-medium">{s.signal}</p>
                 <p className="mt-1 text-muted">{s.why}</p>
               </li>
             ))}
           </ul>
+          {showsCityRecords(signals) ? (
+            <p className="mt-4 text-sm text-muted">
+              Permits, 311 requests, inspections, business licenses and code violations come only from the cities Holler has
+              connected so far.
+            </p>
+          ) : null}
         </Card>
 
         {live.items.length > 0 ? (

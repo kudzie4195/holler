@@ -1,0 +1,50 @@
+[
+ {
+  "case_number": "BTR-2026-9101",
+  "business_name": "ALEXANDRA VANWAGNER/ADVENTHEALTH MEDICAL GROUP CRI",
+  "business_address": "601 E ROLLINS ST",
+  "license_type": "NURSE PRACTITIONER",
+  "license_category": "PROFES",
+  "business_open_date": "2026-11-03T00:00:00.000",
+  "business_owner_name": "ALEXANDRA VANWAGNER",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.3665,
+    28.564
+   ]
+  }
+ },
+ {
+  "case_number": "BTR-2026-9102",
+  "business_name": "GARRETT MAYS",
+  "business_address": "4410 LAKE FRANCES DR",
+  "license_type": "SERVICE",
+  "license_category": "SERREP",
+  "business_open_date": "2026-11-04T00:00:00.000",
+  "business_owner_name": "GARRETT MAYS",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.429,
+    28.493
+   ]
+  }
+ },
+ {
+  "case_number": "BTR-2026-9103",
+  "business_name": "CHARLES JEFFREY LAX EC13014488",
+  "business_address": "912 GREENE AVE",
+  "license_type": "CONTRACTOR DBPR",
+  "license_category": "CONTRA",
+  "business_open_date": "2026-11-05T00:00:00.000",
+  "business_owner_name": "CHARLES JEFFREY LAX",
+  "geocoded_column": {
+   "type": "Point",
+   "coordinates": [
+    -81.351,
+    28.542
+   ]
+  }
+ }
+]

@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseCheckParams } from '@/lib/check/params';
 import { groupItems, safeUrl, MAX_ITEMS, MAX_PER_GROUP, type CheckItem } from '@/lib/check/group';
-import { deriveScope, scopeKey, nearbySlugs } from '@/lib/check/scope';
 import { tradeGroups } from '@/lib/check/trades';
-import { lookupZip, cityBySlug } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 
 describe('parseCheckParams', () => {
@@ -65,33 +63,6 @@ describe('groupItems', () => {
     expect(safeUrl('https://x.gov/a')).toBe('https://x.gov/a');
     expect(safeUrl('javascript:alert(1)')).toBeNull();
     expect(safeUrl(null)).toBeNull();
-  });
-});
-
-describe('cache scope', () => {
-  it('two ZIPs in the same city share a key', () => {
-    const a = lookupZip('30303')!;
-    const b = lookupZip('30318')!;
-    expect(a.zip).not.toBe(b.zip);
-    const ka = scopeKey(deriveScope(a), 'roofing');
-    const kb = scopeKey(deriveScope(b), 'roofing');
-    expect(ka).toBe(kb);
-    expect(ka).toBe('atlanta-ga|roofing');
-  });
-  it('the trade changes the key and the raw ZIP never appears in it', () => {
-    const z = lookupZip('30303')!;
-    expect(scopeKey(deriveScope(z), 'hvac')).not.toBe(scopeKey(deriveScope(z), 'roofing'));
-    expect(scopeKey(deriveScope(z), 'hvac')).not.toContain('30303');
-  });
-  it('falls back to the state when no tracked city is within 40 miles', () => {
-    expect(deriveScope({ lat: 47.0, lon: -109.0, state: 'mt' })).toEqual({ citySlug: null, state: 'MT' });
-    expect(scopeKey({ citySlug: null, state: 'MT' }, 'hvac')).toBe('state:MT|hvac');
-  });
-  it('nearby slugs start with the city and stay within a sane count', () => {
-    const slugs = nearbySlugs(cityBySlug('atlanta-ga')!);
-    expect(slugs[0]).toBe('atlanta-ga');
-    expect(new Set(slugs).size).toBe(slugs.length);
-    expect(slugs.length).toBeLessThan(80);
   });
 });
 

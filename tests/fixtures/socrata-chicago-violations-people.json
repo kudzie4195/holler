@@ -1,0 +1,25 @@
+[
+ {
+  "id": "14001",
+  "violation_date": "2026-11-12T00:00:00.000",
+  "violation_description": "EXTERIOR WALLS DEFECTIVE: BRICK",
+  "violation_status": "OPEN",
+  "address": "2318 W 47TH ST",
+  "violation_inspector_comments": "Spoke with owner Olga Torres, who said she would repair it",
+  "property_owner": "Olga Torres",
+  "inspector_name": "Dana Whitfield",
+  "latitude": "41.8082",
+  "longitude": "-87.6841"
+ },
+ {
+  "id": "14002",
+  "violation_date": "2026-11-13T00:00:00.000",
+  "violation_description": "RODENT INFESTATION IN REAR YARD",
+  "violation_status": "OPEN",
+  "address": "7710 S CHAPPEL AVE",
+  "violation_inspector_comments": "Reginald Jackson Jr was notified in person",
+  "property_owner": "Reginald Jackson Jr",
+  "latitude": "41.7547",
+  "longitude": "-87.5792"
+ }
+]

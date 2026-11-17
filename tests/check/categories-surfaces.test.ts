@@ -3,7 +3,8 @@ import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { groupCategories } from '@/components/profile-form-groups';
 import { tradeGroups } from '@/lib/check/trades';
 import { groupTrades, tradeEntries } from '@/lib/seo/trade-view';
-import { watchesFor } from '@/lib/check/watch';
+import { watchTypes } from '@/lib/check/watch';
+import { TRADE_SIGNALS } from '@/lib/signals/capabilities';
 
 // Every surface that lists trades reads CATEGORIES and CATEGORY_GROUPS. None keeps its own list, so adding a category
 // (or a group) shows up everywhere and nothing silently stops at 32.
@@ -38,8 +39,9 @@ describe('every trade surface covers all categories', () => {
     expect(tradeGroups().map((x) => x.label)).toEqual(used(labels));
     expect(groupTrades(tradeEntries()).map((x) => x.title)).toEqual(used(labels));
   });
-  it('the checker has its own "what Holler watches" lines for every trade, not just the default', () => {
-    const def = watchesFor('__none__');
-    for (const c of CATEGORIES) expect(watchesFor(c.id), c.id).not.toBe(def);
+  it('the checker\'s "what Holler watches" list never names a type the trade does not receive', () => {
+    for (const c of CATEGORIES) {
+      for (const t of watchTypes(c.id, 'atlanta-ga')) expect(TRADE_SIGNALS[c.id], `${c.id}/${t}`).toContain(t);
+    }
   });
 });

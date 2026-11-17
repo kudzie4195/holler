@@ -28,7 +28,7 @@ export function stateFromPlace(place: string): string | null {
   return null;
 }
 
-const QUAKE_TRADES: CategoryId[] = ['general-contractor', 'restoration', 'insurance', 'plumbing', 'electrical'];
+export const QUAKE_TRADES: CategoryId[] = ['general-contractor', 'restoration', 'insurance', 'plumbing', 'electrical'];
 
 export function parseUsgs(raw: unknown): SignalInput[] {
   const features = (raw as { features?: unknown[] } | null)?.features;

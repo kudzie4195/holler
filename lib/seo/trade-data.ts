@@ -100,7 +100,8 @@ export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
     const rows = [...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])] as unknown as Row[];
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     return { ok: true, trade, asOf: nowIso, items: orderTradeItems(toTradeItems(rows), nowMs) };
-  } catch {
+  } catch (e) {
+    console.error('[seo] loadTradeSignals failed:', trade, e instanceof Error ? e.message : 'unknown');
     cacheLife({ stale: 300, revalidate: 60, expire: 300 });
     return { ok: false, trade, asOf: nowIso, items: [] };
   }

@@ -18,7 +18,7 @@ export const NWS_URL = 'https://api.weather.gov/alerts/active?status=actual&mess
 
 type Level = 'warning' | 'watch' | 'advisory';
 
-interface Rule {
+export interface Rule {
   re: RegExp;
   categories: CategoryId[];
   /** severity per alert level */
@@ -26,19 +26,22 @@ interface Rule {
 }
 
 // Order matters: first match wins.
-const RULES: Rule[] = [
-  { re: /^tornado/i, categories: ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'auto-body', 'electrical', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
-  { re: /hurricane|tropical storm|typhoon|storm surge/i, categories: ['roofing', 'tree-service', 'restoration', 'general-contractor', 'insurance', 'electrical', 'towing', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
-  { re: /severe thunderstorm/i, categories: ['roofing', 'tree-service', 'restoration', 'insurance'], sev: { warning: 2, watch: 1, advisory: 1 } },
-  { re: /flash flood|flood/i, categories: ['restoration', 'plumbing', 'junk-removal', 'towing', 'auto-repair'], sev: { warning: 2, watch: 1, advisory: 1 } },
+export const NWS_RULES: Rule[] = [
+  { re: /^tornado/i, categories: ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'public-adjuster', 'auto-body', 'electrical', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
+  { re: /hurricane|tropical storm|typhoon|storm surge/i, categories: ['roofing', 'tree-service', 'restoration', 'general-contractor', 'insurance', 'public-adjuster', 'electrical', 'towing', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
+  { re: /severe thunderstorm/i, categories: ['roofing', 'tree-service', 'restoration', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
+  { re: /flash flood|flood/i, categories: ['restoration', 'plumbing', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /ice storm/i, categories: ['tree-service', 'electrical', 'snow-removal', 'towing', 'hvac'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /blizzard|winter storm|lake effect snow|heavy snow|snow squall|winter weather/i, categories: ['snow-removal', 'towing', 'hvac', 'tree-service', 'plumbing'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /extreme cold|wind chill|arctic/i, categories: ['hvac', 'plumbing', 'towing', 'snow-removal'], sev: { warning: 2, watch: 1, advisory: 1 } },
-  { re: /freeze|frost/i, categories: ['plumbing', 'hvac', 'landscaping', 'pool-spa'], sev: { warning: 2, watch: 1, advisory: 1 } },
+  { re: /freeze|frost/i, categories: ['plumbing', 'hvac', 'landscaping', 'pool-spa', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /heat/i, categories: ['hvac', 'pool-spa', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /high wind|extreme wind|wind advisory|^wind/i, categories: ['tree-service', 'roofing', 'restoration', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /red flag|fire weather|wildfire|fire warning/i, categories: ['restoration', 'tree-service', 'landscaping', 'insurance'], sev: { warning: 2, watch: 1, advisory: 1 } },
 ];
+
+/** Added to a severe thunderstorm alert whose text reports damaging hail. */
+export const NWS_HAIL_EXTRA: CategoryId[] = ['auto-body', 'auto-glass'];
 
 function levelOf(event: string): Level {
   if (/warning|emergency/i.test(event)) return 'warning';
@@ -47,7 +50,7 @@ function levelOf(event: string): Level {
 }
 
 export function ruleFor(event: string): Rule | undefined {
-  return RULES.find((r) => r.re.test(event));
+  return NWS_RULES.find((r) => r.re.test(event));
 }
 
 type Pos = [number, number];
@@ -159,7 +162,7 @@ export function parseNws(raw: unknown): SignalInput[] {
     const categories = [...rule.categories];
     const description = typeof p.description === 'string' ? p.description : '';
     if (/severe thunderstorm/i.test(event) && /\b(1|1\.\d+|2|2\.\d+)\s*(inch|in)\b[^.]{0,20}hail|hail[^.]{0,40}\b(1|1\.\d+|2|2\.\d+)\s*(inch|in)\b|quarter size|golf ball|baseball|tennis ball|ping pong/i.test(description)) {
-      categories.push('auto-body', 'auto-glass');
+      categories.push(...NWS_HAIL_EXTRA);
     }
 
     const areaDesc = typeof p.areaDesc === 'string' ? p.areaDesc : '';

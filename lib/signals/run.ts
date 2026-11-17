@@ -1,6 +1,7 @@
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
+import { MAX_FUTURE_DAYS } from './run-limits';
 import { matchSignals, type MatchRow } from './match';
 import {
   getLastRunTimes,
@@ -58,9 +59,20 @@ export interface RunOptions {
   /** override adapter list (tests) */
   adapters?: Adapter[];
   fetchImpl?: typeof fetch;
+  /**
+   * Wall-clock budget in ms from the start of runScan after which no NEW source is written (default SCAN_DEADLINE_MS). Matching and the
+   * run log for sources already written always happen. Sources skipped here are not logged, so they are due again on the next tick.
+   */
+  deadlineMs?: number;
+  /** test hook: milliseconds clock (default Date.now) */
+  clock?: () => number;
 }
 
 export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
+/** The scan route has maxDuration = 60 s. Fetching takes up to 40 s, so new writes stop at 48 s and leave 12 s for matching, logging and the response. */
+export const SCAN_DEADLINE_MS = 48_000;
+/** Run-log inserts per round trip batch (about 45 adapters). */
+const LOG_CONCURRENCY = 10;
 const FIRST_RUN_LOOKBACK_MS = 48 * 3600_000;
 const CADENCE_SLACK_MS = 60_000;
 
@@ -83,14 +95,18 @@ function safeHttpUrl(u: unknown): string | null {
   }
 }
 
-/** Validate and normalize adapter output. Drops malformed rows and duplicate externalIds. */
-export function normalizeSignals(adapter: Adapter, input: SignalInput[]): SignalInput[] {
+export { MAX_FUTURE_DAYS };
+const MIN_OCCURRED_MS = Date.UTC(2000, 0, 1);
+
+/** Validate and normalize adapter output. Drops malformed rows, rows dated absurdly (before 2000 or more than 60 days ahead) and duplicate externalIds. */
+export function normalizeSignals(adapter: Adapter, input: SignalInput[], now: Date = new Date()): SignalInput[] {
+  const latest = now.getTime() + MAX_FUTURE_DAYS * 86_400_000;
   const seen = new Set<string>();
   const out: SignalInput[] = [];
   for (const s of input) {
     if (!s || typeof s.externalId !== 'string' || !s.externalId || typeof s.title !== 'string' || !s.title.trim()) continue;
     const t = Date.parse(s.occurredAt);
-    if (!Number.isFinite(t)) continue;
+    if (!Number.isFinite(t) || t > latest || t < MIN_OCCURRED_MS) continue;
     if (seen.has(s.externalId)) continue;
     seen.add(s.externalId);
     const sev = Math.min(3, Math.max(1, Math.round(Number(s.severity) || 1))) as Severity;
@@ -169,7 +185,7 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
     ]);
     const list = Array.isArray(raw) ? raw : [];
     result.fetched = list.length;
-    signals = normalizeSignals(adapter, list);
+    signals = normalizeSignals(adapter, list, now);
     result.parsed = signals.length;
     result.latestOccurredAt = latestOf(signals);
     result.samples = signals.slice(0, 3).map((s) => s.title);
@@ -191,7 +207,9 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
 
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
   const now = opts.now ?? new Date();
-  const t0 = Date.now();
+  const clock = opts.clock ?? Date.now;
+  const t0 = clock();
+  const deadlineMs = opts.deadlineMs ?? SCAN_DEADLINE_MS;
   const dry = !!opts.dry;
   const timeoutMs = opts.adapterTimeoutMs ?? DEFAULT_ADAPTER_TIMEOUT_MS;
   const fetchImpl = opts.fetchImpl ?? fetch;
@@ -243,7 +261,16 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   } else {
     // Phase 1: persist new signals per source.
     const storedAll: StoredSignal[] = [];
+    const skippedForTime = new Set<Fetched>();
     for (const f of fetched) {
+      if (clock() - t0 > deadlineMs && f.result.status !== 'error' && f.signals.length) {
+        // Out of time for new writes. Not logged below, so this source is due again on the next tick and nothing is silently lost.
+        f.result.status = 'error';
+        f.result.error = `deadline: scan passed ${Math.round(deadlineMs / 1000)} s before this source was written; it will retry next tick`;
+        skippedForTime.add(f);
+        report.sources.push(f.result);
+        continue;
+      }
       if (f.result.status !== 'error' && f.signals.length) {
         try {
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
@@ -262,7 +289,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     if (storedAll.length) {
       try {
         const profiles = await loadProfiles(db, now);
-        const rows: MatchRow[] = matchSignals(storedAll, profiles);
+        const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         await insertMatches(db, rows);
         const sourceById = new Map(storedAll.map((s) => [s.id, s.source]));
         const bySource = new Map<string, number>();
@@ -285,27 +312,38 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     }
 
     // Phase 3: log one scan_runs row per adapter that ran.
+    // Always runs (even past the deadline), concurrently in small batches: 45 sequential inserts would eat the time that is left.
     const finishedAt = new Date().toISOString();
-    for (const f of fetched) {
-      try {
-        await logRun(db, {
-          source: f.adapter.id,
-          started_at: f.startedAt,
-          finished_at: finishedAt,
-          fetched: f.result.fetched,
-          inserted: f.result.inserted,
-          matched: f.result.matched,
-          error: f.result.error ?? null,
-        });
-      } catch (e) {
-        report.error = `${report.error ? report.error + '; ' : ''}${e instanceof Error ? e.message : String(e)}`;
+    const toLog = fetched.filter((f) => !skippedForTime.has(f));
+    for (let i = 0; i < toLog.length; i += LOG_CONCURRENCY) {
+      const results = await Promise.allSettled(
+        toLog.slice(i, i + LOG_CONCURRENCY).map((f) =>
+          logRun(db, {
+            source: f.adapter.id,
+            started_at: f.startedAt,
+            finished_at: finishedAt,
+            fetched: f.result.fetched,
+            inserted: f.result.inserted,
+            matched: f.result.matched,
+            error: f.result.error ?? null,
+          }),
+        ),
+      );
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+          report.error = `${report.error ? report.error + '; ' : ''}${msg}`;
+        }
       }
     }
 
-    try {
-      report.pruned = await pruneOldSignals(db, now);
-    } catch (e) {
-      report.error = `${report.error ? report.error + '; ' : ''}prune: ${e instanceof Error ? e.message : String(e)}`;
+    // The daily prune is optional work: skip it when the scan is already close to the route limit.
+    if (clock() - t0 <= deadlineMs + 4_000) {
+      try {
+        report.pruned = await pruneOldSignals(db, now);
+      } catch (e) {
+        report.error = `${report.error ? report.error + '; ' : ''}prune: ${e instanceof Error ? e.message : String(e)}`;
+      }
     }
   }
 
@@ -314,6 +352,6 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     report.totals.inserted += s.inserted;
     report.totals.matched += s.matched;
   }
-  report.ms = Date.now() - t0;
+  report.ms = clock() - t0;
   return report;
 }

@@ -28,9 +28,28 @@ export function hasLeftHoller(appMetadata: unknown): boolean {
   return typeof at === 'string' && at.length > 0;
 }
 
-/** app_metadata patch applied when a user deletes their Holler account. Keeps every other product's tags. */
-export function leaveHollerPatch(appMetadata: unknown, now: Date): Record<string, unknown> {
-  return { products: withoutHoller(appMetadata), holler_email_verified_at: null, holler_left_at: now.toISOString() };
+export const TRIAL_DAYS = 7;
+
+/** When this person's one free trial started (ISO), recorded in app_metadata so deleting the account cannot reset it. */
+export function trialStartedAt(appMetadata: unknown): string | null {
+  const at = (appMetadata as { holler_trial_started_at?: unknown } | null | undefined)?.holler_trial_started_at;
+  return typeof at === 'string' && Number.isFinite(Date.parse(at)) ? at : null;
+}
+
+/** The only trial end this person can ever have: start + 7 days. */
+export function trialEndFromStart(startedAt: string): string {
+  return new Date(Date.parse(startedAt) + TRIAL_DAYS * 86_400_000).toISOString();
+}
+
+/**
+ * app_metadata patch applied when a user deletes their Holler account. Keeps every other product's tags.
+ * Also stamps the trial start (from the profile being deleted) when no stamp exists yet, so an account that predates the stamp
+ * cannot delete and re-onboard for a second trial.
+ */
+export function leaveHollerPatch(appMetadata: unknown, now: Date, profileCreatedAt?: string | null): Record<string, unknown> {
+  const patch: Record<string, unknown> = { products: withoutHoller(appMetadata), holler_email_verified_at: null, holler_left_at: now.toISOString() };
+  if (!trialStartedAt(appMetadata) && profileCreatedAt && Number.isFinite(Date.parse(profileCreatedAt))) patch.holler_trial_started_at = profileCreatedAt;
+  return patch;
 }
 
 /** app_metadata patch applied when a former member logs in again. */

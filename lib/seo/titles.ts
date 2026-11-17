@@ -1,6 +1,7 @@
 import type { SectionId } from './sections';
 import type { PlaceData } from './summarize';
 import { WINDOW_DAYS } from './threshold';
+import { COUNTY_FEEDS } from '@/lib/signals/capabilities';
 
 /**
  * Search-intent titles for city pages. A title names only record types the city actually has in the
@@ -31,14 +32,27 @@ function joinList(parts: string[]): string {
 export interface TitleCity {
   name: string;
   state: string;
+  /** City slug. When the city's records of a type come from a county dataset, the title says "area" instead of implying a city feed. */
+  slug?: string;
 }
 
+/** Section ids whose records can come from a county dataset (CityFeeds subtype). */
+const COUNTY_SUBTYPE: Partial<Record<SectionId, 'permit' | '311' | 'inspection' | 'business' | 'violation'>> = {
+  permits: 'permit',
+  requests311: '311',
+  inspections: 'inspection',
+  business: 'business',
+  violations: 'violation',
+};
+
 /** Record-type phrases to put in the title: present in the window, priority order, at most three. */
-export function titleTypes(data: PlaceData): string[] {
+export function titleTypes(data: PlaceData, slug?: string): string[] {
   if (!data.ok || data.total === 0) return [];
   const out: string[] = [];
+  const county = slug ? (COUNTY_FEEDS[slug] ?? []) : [];
   for (const t of TITLE_PRIORITY) {
-    if ((data.windowCounts[t.id] ?? 0) > 0) out.push(t.phrase);
+    const sub = COUNTY_SUBTYPE[t.id];
+    if ((data.windowCounts[t.id] ?? 0) > 0) out.push(sub && county.includes(sub) ? `area ${t.phrase}` : t.phrase);
     if (out.length === MAX_TITLE_TYPES) break;
   }
   return out;
@@ -56,7 +70,7 @@ export function neutralTitle(city: TitleCity): string {
 
 /** Document title, e.g. "Chicago, IL building permits, 311 requests and storm reports this week | Holler". */
 export function buildTitle(city: TitleCity, data: PlaceData): string {
-  const types = titleTypes(data);
+  const types = titleTypes(data, city.slug);
   if (!types.length) return `${neutralTitle(city)} | Holler`;
   const when = allThisWeek(data) ? 'this week' : `in the last ${WINDOW_DAYS} days`;
   const base = `${city.name}, ${city.state} ${joinList(types)} ${when}`;
@@ -65,7 +79,7 @@ export function buildTitle(city: TitleCity, data: PlaceData): string {
 
 /** On-page H1: the same record types, phrased as what the page lists. */
 export function buildH1(city: TitleCity, data: PlaceData): string {
-  const types = titleTypes(data);
+  const types = titleTypes(data, city.slug);
   if (!types.length) return neutralTitle(city);
   const list = joinList(types);
   return `${list.charAt(0).toUpperCase()}${list.slice(1)} in ${city.name}, ${city.state}`;
@@ -74,7 +88,7 @@ export function buildH1(city: TitleCity, data: PlaceData): string {
 /** Meta description (max 155 chars) that states what is on the page, with real counts. */
 export function buildSearchDescription(city: TitleCity, data: PlaceData): string {
   const place = `${city.name}, ${city.state}`;
-  const types = titleTypes(data);
+  const types = titleTypes(data, city.slug);
   let d: string;
   if (types.length && data.total > 0) {
     const n = data.total.toLocaleString('en-US');

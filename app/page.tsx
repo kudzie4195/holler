@@ -76,7 +76,7 @@ const faqs = [
   },
   {
     q: 'Where does the data come from?',
-    a: 'Official APIs and open data: the National Weather Service, NOAA, FEMA, USGS, the FAA, city open data portals, USAspending.gov and SAM.gov. People asking online come from licensed search APIs, and we keep only the title, a short snippet and the link. We do not scrape sites that forbid it.',
+    a: 'Official APIs and open data: the National Weather Service, NOAA, FEMA, USGS, the FAA, city open data portals, USAspending.gov and SAM.gov. People asking online come from licensed search APIs and Bluesky search, and we keep the title, a short snippet, the link and, for Bluesky posts, the author handle. We do not scrape sites that forbid it.',
   },
   {
     q: 'Do I need a card to try it?',

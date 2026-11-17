@@ -6,12 +6,14 @@
 -- CREATE OR REPLACE VIEW may append columns at the end, so existing readers of
 -- (place_slug, signals_60d) keep working. security_invoker stays on so the caller's
 -- RLS on holler_signals applies, and the grants are re-asserted so this file stands alone.
+-- latest_at ignores rows that have not started yet (events and event permits are stored with a future occurred_at),
+-- so a city with an upcoming event still gets a real last-modified time and never one in the future.
 -- ---------------------------------------------------------------------------
 create or replace view public.holler_place_counts
   with (security_invoker = true) as
 select place_slug,
        count(*)::int as signals_60d,
-       max(occurred_at) as latest_at
+       max(occurred_at) filter (where occurred_at <= now()) as latest_at
 from public.holler_signals
 where place_slug is not null
   and occurred_at > now() - interval '60 days'
@@ -31,3 +33,10 @@ grant select on public.holler_place_counts to anon, authenticated;
 -- and the existing index starts with source.
 -- ---------------------------------------------------------------------------
 create index if not exists holler_scan_runs_started_idx on public.holler_scan_runs (started_at desc);
+
+-- ---------------------------------------------------------------------------
+-- The area checker reads holler_signals by a latitude/longitude bounding box around the ZIP (25 miles), so a ZIP with
+-- no tracked city nearby still sees records that carry coordinates. A btree on (lat, lon) serves the lat range; the
+-- partial predicate keeps rows without coordinates (state-level alerts) out of it.
+-- ---------------------------------------------------------------------------
+create index if not exists holler_signals_lat_lon_idx on public.holler_signals (lat, lon) where lat is not null;

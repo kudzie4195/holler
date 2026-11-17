@@ -102,13 +102,26 @@ describe('planHealth: problems', () => {
   it('flags zero rows for 3 days on a productive source, but not on a quiet kind', () => {
     const r = planHealth({
       adapters: [permits, ask],
-      runs: [...history(permits, 4, 0), ...history(ask, 4, 0)],
+      runs: [...history(permits, 4, 0, { inserted: 0 }), ...history(ask, 4, 0, { inserted: 0 })],
       counts,
       now: NOW,
     });
     expect(r.sources.find((s) => s.id === 'socrata-x-permits')!.problems).toEqual(['zero_rows_3d']);
     expect(r.sources.find((s) => s.id === 'bluesky')!.problems).toEqual([]);
-    expect(r.problems).toContain('socrata-x-permits: zero rows fetched for 3 days running');
+    expect(r.problems).toContain('socrata-x-permits: no new rows for 3 days running');
+  });
+
+  it('review P2-16: a portal that stopped publishing still "fetches" its old lookback rows, but inserts nothing, so it is flagged', () => {
+    // 10 rows fetched on every run (the dataset window still holds old permits), 0 new for 3 days
+    const r = planHealth({ adapters: [permits], runs: history(permits, 4, 10, { inserted: 0 }), counts, now: NOW });
+    expect(r.sources[0].problems).toEqual(['zero_rows_3d']);
+    expect(r.ok).toBe(false);
+  });
+
+  it('review P2-16: new rows inserted on any run in the 3 days keep a source healthy even if later runs fetch the same rows', () => {
+    const runs = history(permits, 4, 10, { inserted: 0 });
+    runs[3] = { ...runs[3], inserted: 4 };
+    expect(planHealth({ adapters: [permits], runs, counts, now: NOW }).ok).toBe(true);
   });
 
   it('does not raise zero_rows_3d for storm reports, but still flags errored and stale runs for them', () => {
@@ -127,9 +140,9 @@ describe('planHealth: problems', () => {
     expect(stale.sources.find((s) => s.id === 'spc')!.problems).toContain('stale');
   });
 
-  it('does not flag zero rows when one run in the 3 days fetched something', () => {
-    const runs = history(permits, 4, 0);
-    runs[5] = { ...runs[5], fetched: 2 };
+  it('does not flag zero rows when one run in the 3 days inserted something', () => {
+    const runs = history(permits, 4, 0, { inserted: 0 });
+    runs[5] = { ...runs[5], fetched: 2, inserted: 2 };
     const r = planHealth({ adapters: [permits], runs, counts, now: NOW });
     expect(r.ok).toBe(true);
   });
@@ -171,7 +184,7 @@ describe('planHealth: problems', () => {
 
   it('orders problems: errors first, then stale, then zero rows', () => {
     const runs = [
-      ...history(permits, 4, 0),
+      ...history(permits, 4, 0, { inserted: 0 }),
       { source: 'spc', started_at: ago(10 * HOUR), fetched: 3, inserted: 0, error: null },
       { source: 'nws', started_at: ago(MIN), fetched: 0, inserted: 0, error: 'HTTP 500' },
     ];

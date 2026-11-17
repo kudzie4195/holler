@@ -40,7 +40,7 @@ describe('parsers never throw on malformed input', () => {
 
 describe('every adapter in this unit logs an error-like line on each failure mode', () => {
   const ERROR_LIKE = /\b(error|failed|failure|timeout|timed out|http\s?[45]\d\d|status\s?[45]\d\d)\b/i; // same pattern as lib/signals/run.ts
-  const env = { SAM_API_KEY: 'k', TICKETMASTER_API_KEY: 'k', BRAVE_SEARCH_API_KEY: 'k', SERPER_API_KEY: 'k' };
+  const env = { SAM_API_KEY: 'k', TICKETMASTER_API_KEY: 'k', BRAVE_SEARCH_API_KEY: 'k', SERPER_API_KEY: 'k', BLUESKY_HANDLE: 'h.example.com', BLUESKY_APP_PASSWORD: 'pw' };
   const modes: [string, typeof fetch][] = [
     ['network down', (async () => { throw new Error('network down'); }) as unknown as typeof fetch],
     ['HTTP 500', (async () => new Response('oops', { status: 500 })) as unknown as typeof fetch],

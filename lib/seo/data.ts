@@ -69,7 +69,8 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       totalOverride: typeof count === 'number' ? count : rows.length,
       exactSectionCounts,
     });
-  } catch {
+  } catch (e) {
+    console.error('[seo] loadPlaceData failed:', slug, e instanceof Error ? e.message : 'unknown');
     cacheLife({ stale: 300, revalidate: 60, expire: 300 });
     return emptyPlaceData(slug, nowIso, false);
   }
@@ -127,7 +128,8 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     // One row per place, so the cap is only hit if there are more than 1000 distinct places.
     return { ok: true, counts, latest, partial: rows.length >= VIEW_ROW_CAP };
-  } catch {
+  } catch (e) {
+    console.error('[seo] loadPlaceCounts failed:', e instanceof Error ? e.message : 'unknown');
     cacheLife({ stale: 300, revalidate: 60, expire: 300 });
     return { ok: false, counts: {}, latest: {}, partial: false };
   }

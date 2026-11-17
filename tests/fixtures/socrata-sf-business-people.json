@@ -1,0 +1,40 @@
+[
+ {
+  "uniqueid": "9100001-02-001",
+  "ownership_name": "Lewis, Kelly",
+  "dba_name": "Kelly Lewis",
+  "full_business_address": "1455 Funston Ave San Francisco CA 94122",
+  "city": "San Francisco",
+  "state": "CA",
+  "business_zip": "94122",
+  "location_start_date": "2026-11-05T00:00:00.000",
+  "lic_code_description": "Professional Services",
+  "lic_code_descriptions_list": "Professional Services",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    "-122.4698",
+    "37.7632"
+   ]
+  }
+ },
+ {
+  "uniqueid": "9100002-02-001",
+  "ownership_name": "Barnett, Molly",
+  "dba_name": "Molly Barnett Psy.D",
+  "full_business_address": "3698 Sacramento St San Francisco CA 94118",
+  "city": "San Francisco",
+  "state": "CA",
+  "business_zip": "94118",
+  "location_start_date": "2026-11-06T00:00:00.000",
+  "lic_code_description": "Multiple",
+  "lic_code_descriptions_list": "Professional Services, Real Estate",
+  "location": {
+   "type": "Point",
+   "coordinates": [
+    "-122.4540",
+    "37.7878"
+   ]
+  }
+ }
+]

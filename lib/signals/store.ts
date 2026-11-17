@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchProfile, MatchRow, MatchSignal } from './match';
 import type { SignalInput } from './types';
+import { MAX_FUTURE_DAYS } from './run-limits';
 
 export type Db = SupabaseClient;
 
@@ -116,7 +117,7 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[]): Promi
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, title, categories, lat, lon, state, severity, occurred_at');
+      .select('id, source, title, categories, lat, lon, state, severity, occurred_at, subtype:data->>subtype');
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     inserted.push(...((data ?? []) as StoredSignal[]));
   }
@@ -193,7 +194,12 @@ export async function pruneOldSignals(db: Db, now = new Date()): Promise<boolean
   if (data && data.length > 0) return false;
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 86400_000).toISOString();
   const started = new Date().toISOString();
-  const { error: delErr, count } = await db.from('holler_signals').delete({ count: 'exact' }).lt('occurred_at', cutoff);
+  const { error: oldErr, count: oldCount } = await db.from('holler_signals').delete({ count: 'exact' }).lt('occurred_at', cutoff);
+  // Garbage future dates (a typo year, a portal placeholder) are never reached by the age cutoff above, so they are removed here.
+  const futureCutoff = new Date(now.getTime() + MAX_FUTURE_DAYS * 86400_000).toISOString();
+  const { error: futErr, count: futCount } = await db.from('holler_signals').delete({ count: 'exact' }).gt('occurred_at', futureCutoff);
+  const delErr = oldErr ?? futErr;
+  const count = (oldCount ?? 0) + (futCount ?? 0);
   await db
     .from('holler_scan_runs')
     .delete()

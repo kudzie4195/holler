@@ -28,9 +28,10 @@ export interface SpcInput {
 
 const BASE = 'https://www.spc.noaa.gov/climo/reports/';
 
-const TORNADO_CATS: CategoryId[] = ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'auto-body', 'auto-glass', 'electrical', 'junk-removal', 'painting'];
-const HAIL_CATS: CategoryId[] = ['roofing', 'auto-glass', 'auto-body', 'restoration', 'insurance'];
-const WIND_CATS: CategoryId[] = ['tree-service', 'roofing', 'restoration'];
+export const TORNADO_CATS: CategoryId[] = ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'public-adjuster', 'auto-body', 'auto-glass', 'electrical', 'junk-removal', 'painting'];
+export const HAIL_CATS: CategoryId[] = ['roofing', 'auto-glass', 'auto-body', 'restoration', 'insurance', 'public-adjuster'];
+// Wind and hail damage is what insurance claims and public adjusters are filed for.
+export const WIND_CATS: CategoryId[] = ['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster'];
 
 function parseCsvLine(line: string): string[] {
   const cells: string[] = [];

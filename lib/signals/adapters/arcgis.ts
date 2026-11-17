@@ -1,5 +1,5 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { categorize } from './socrata';
+import { categorize, privatePosition } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 
 const LIMIT = 500;
@@ -163,10 +163,11 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
 
       const titleBits = ds.titleFields.map((x) => str(a, x)).filter(Boolean);
       const summaryBits = ds.summaryFields.map((x) => str(a, x)).filter(Boolean);
-      const address = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
+      // Business rows never carry a street address (home addresses of sole proprietors).
+      const address = ds.subtype === 'business' ? '' : (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
       const parts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') parts.push(address);
-      const pos = position({ attributes: a, geometry: feat.geometry }, ds);
+      const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
       const zip = str(a, ds.zipField).slice(0, 5) || null;
       seen.add(externalId);
       report.items.push({

@@ -1,13 +1,14 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { getStripe, isHollerMetadata } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getProfile, getUser } from '@/lib/auth/session';
 import { leaveHollerPatch } from '@/lib/auth/membership';
 import { saveProfile } from '@/lib/auth/profile';
-import { backfillForUser } from '@/lib/signals/backfill';
+import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
@@ -16,11 +17,13 @@ export async function saveSettings(_prev: ProfileFormState, formData: FormData):
   const before = await getProfile(user.id).catch(() => null);
   const result = await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' });
   if (result.ok && targetingChanged(before, formData)) {
-    try {
-      await backfillForUser(createAdminClient(), user.id);
-    } catch (e) {
-      console.error('settings backfill failed:', e instanceof Error ? e.message : e);
-    }
+    // After the response: the save never waits for the 1000-row read, and a failure never reaches the user.
+    // Limited to 6 an hour per user (backfillWithLimit), so repeated saves cannot hammer the database.
+    const userId = user.id;
+    after(async () => {
+      const out = await backfillWithLimit(userId);
+      if (!out.ran) console.warn(`settings backfill skipped: ${out.reason}`);
+    });
   }
   return result;
 }
@@ -49,7 +52,7 @@ const DELETE_ERROR = "We couldn't delete your account. Try again in a moment.";
  * Deletes the user's Holler account on a project shared with other products.
  *  1. Cancels only Holler subscriptions (metadata.app === 'holler'); if that fails nothing else is deleted.
  *  2. Deletes Holler rows (matches, then profile).
- *  3. Strips 'holler' from app_metadata.products and sets holler_left_at. The shared auth user is NEVER deleted
+ *  3. Strips 'holler' from app_metadata.products, sets holler_left_at and stamps holler_trial_started_at (so coming back never grants a second trial). The shared auth user is NEVER deleted
  *     (other products depend on it), so a retry after any partial failure is safe.
  *  4. Signs out this session only (scope 'local').
  */
@@ -100,7 +103,7 @@ export async function deleteAccount(): Promise<DeleteState> {
     const { data: fresh, error: gErr } = await admin.auth.admin.getUserById(user.id);
     if (gErr || !fresh?.user) return { error: DELETE_ERROR };
     const { error } = await admin.auth.admin.updateUserById(user.id, {
-      app_metadata: leaveHollerPatch(fresh.user.app_metadata, new Date()),
+      app_metadata: leaveHollerPatch(fresh.user.app_metadata, new Date(), profile?.created_at),
     });
     if (error) return { error: DELETE_ERROR };
   } catch {

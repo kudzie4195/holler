@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { env } from '@/lib/env';
-import { runScan } from '@/lib/signals/run';
+import { runScan, SCAN_DEADLINE_MS } from '@/lib/signals/run';
 
 // Cache Components is enabled, so route segment `dynamic` is not available; a handler that reads the request is always dynamic.
 export const maxDuration = 60;
@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     db = createAdminClient();
   }
 
-  const report = await runScan({ dry, source }, db);
+  // Fetching is capped at 40 s per adapter; writes stop at SCAN_DEADLINE_MS so matching, run logs and the response finish inside maxDuration.
+  const report = await runScan({ dry, source, deadlineMs: SCAN_DEADLINE_MS }, db);
   const status = report.error && report.sources.length === 0 ? (report.error.startsWith('unknown source') ? 400 : 500) : 200;
   return Response.json(report, { status, headers: { 'Cache-Control': 'no-store' } });
 }

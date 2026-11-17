@@ -1,0 +1,31 @@
+[
+ {
+  "location_account": "0000900001-0001-0",
+  "business_name": "MARIA ELENA GUTIERREZ",
+  "dba_name": "Maria Gutierrez",
+  "street_address": "4412 W 1ST ST",
+  "city": "LOS ANGELES",
+  "zip_code": "90004",
+  "naics": "812199",
+  "primary_naics_description": "Other personal services",
+  "location_start_date": "2026-11-05T00:00:00.000",
+  "location_1": {
+   "latitude": "34.0716",
+   "longitude": "-118.3050"
+  }
+ },
+ {
+  "location_account": "0000900002-0001-0",
+  "business_name": "DEVON R WASHINGTON",
+  "dba_name": "",
+  "street_address": "1920 S HOBART BLVD",
+  "zip_code": "90018",
+  "naics": "561720",
+  "primary_naics_description": "Janitorial services",
+  "location_start_date": "2026-11-07T00:00:00.000",
+  "location_1": {
+   "latitude": "34.0370",
+   "longitude": "-118.3080"
+  }
+ }
+]

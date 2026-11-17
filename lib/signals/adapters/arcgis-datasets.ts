@@ -34,6 +34,8 @@ export interface ArcgisDataset {
   latField?: string;
   lonField?: string;
   fallbackCenter?: { lat: number; lon: number };
+  /** County-level feeds only: a point inside the county (the county seat, assumed from public geography). Says which city pages the rows land on. */
+  countyAnchor?: { lat: number; lon: number };
   titleFields: string[];
   textFields: string[];
   summaryFields: string[];
@@ -63,7 +65,7 @@ const ATL_BIZ = 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/servi
 
 export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
-    id: 'arcgis-dekalb-permits', city: 'DeKalb County', state: 'GA', tz: 'America/New_York', layerUrl: DEKALB,
+    id: 'arcgis-dekalb-permits', city: 'DeKalb County', state: 'GA', tz: 'America/New_York', layerUrl: DEKALB, countyAnchor: { lat: 33.7748, lon: -84.2963 },
     kind: 'permit', subtype: 'permit', idField: 'applicationNumber', dateField: 'issuedDateTime', dateType: 'date',
     titleFields: ['WorkTypeDescription'], textFields: ['WorkTypeDescription', 'OccupancyTypeDescription'],
     summaryFields: ['WorkTypeDescription', 'OccupancyTypeDescription', 'statusDescription'], addressFields: ['location'],
@@ -87,7 +89,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     note: 'DC DCRA feed, layer 4 "Building Permits - Last 30 Days" (a rolling layer, so no yearly layer swap). Layer 4 returned count 3950; the same schema on layer 18 (2026) returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. OWNER_NAME and PERMIT_APPLICANT are never read.',
   },
   {
-    id: 'arcgis-mecklenburg-permits', city: 'Mecklenburg County', state: 'NC', tz: 'America/New_York', layerUrl: MECK,
+    id: 'arcgis-mecklenburg-permits', city: 'Mecklenburg County', state: 'NC', tz: 'America/New_York', layerUrl: MECK, countyAnchor: { lat: 35.2271, lon: -80.8431 },
     kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_date', dateType: 'date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['description_of_work', 'description', 'type_of_work'], textFields: ['description_of_work', 'description', 'type_of_work', 'permit_type'],
     summaryFields: ['permit_type', 'type_of_work', 'total_square_feet'], addressFields: ['project_address'], zipField: 'zip_code',
@@ -105,9 +107,9 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-atlanta-business', city: 'Atlanta', state: 'GA', tz: 'America/New_York', layerUrl: ATL_BIZ,
     kind: 'civic', subtype: 'business', idField: 'license_number', dateField: 'license_issued', dateType: 'date', latField: 'Latitude', lonField: 'Longitude',
-    titleFields: ['business_name'], textFields: ['business_name', 'license_classification', 'naics_description'], summaryFields: ['license_classification', 'naics_description'],
-    addressFields: ['Address'], windowForwardDays: 0, cadenceMinutes: 720, verified: false, verifiedUrl: M(ATL_BIZ), checkedOn: '2026-11-17', fieldSource: 'sourced',
-    note: 'DISABLED. Business_Licenses_2026_Citywide (Dept. of Revenue), 24 fields, license_issued is esriFieldTypeDate. editingInfo.lastEditDate 2026-10-20 but the newest license_issued is 2026-07-01, so a 14 day window returns nothing. Re-enable if the Revenue export is refreshed.',
+    titleFields: [], textFields: ['license_classification', 'naics_description'], summaryFields: ['license_classification', 'naics_description'],
+    windowForwardDays: 0, cadenceMinutes: 720, verified: false, verifiedUrl: M(ATL_BIZ), checkedOn: '2026-11-17', fieldSource: 'sourced',
+    note: 'DISABLED. Business_Licenses_2026_Citywide (Dept. of Revenue), 24 fields, license_issued is esriFieldTypeDate. editingInfo.lastEditDate 2026-10-20 but the newest license_issued is 2026-07-01, so a 14 day window returns nothing. Re-enable if the Revenue export is refreshed. PRIVACY: business_name is never read (can be a person) and the street address is dropped for business rows.',
   },
 ];
 

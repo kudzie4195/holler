@@ -80,7 +80,7 @@ describe('backfillMatches', () => {
     expect(f.upserts[0].rows.map((r) => r.signal_id).sort()).toEqual([2, 3]);
     const since = new Date(NOW.getTime() - BACKFILL_DAYS * 86_400_000).toISOString();
     expect(f.calls).toContain(`gte:occurred_at|${since}`);
-    expect(f.calls).toContain('limit:2000');
+    expect(f.calls).toContain('limit:1000');
     expect(f.calls.some((c) => c.startsWith('overlaps:categories'))).toBe(true);
   });
 
