@@ -8,7 +8,7 @@ import { federal } from './federal';
 import { licenses } from './licenses';
 import { respond } from './respond';
 
-export type { Guide, GuideSection, GuideLink, GuideFaq } from './types';
+export type { Guide, GuideSection, GuideLink, GuideFaq, GuideTable, GuideExample } from './types';
 
 /** Hub order. Every guide is listed here and nowhere else. */
 export const GUIDES: Guide[] = [permits, storms, requests311, dataSources, payPerLead, federal, licenses, respond];

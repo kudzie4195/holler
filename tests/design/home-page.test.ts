@@ -1,19 +1,37 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const h = vi.hoisted(() => ({ live: null as unknown }));
+vi.mock('@/lib/seo/home-live', async (orig) => ({
+  ...(await orig<typeof import('@/lib/seo/home-live')>()),
+  loadHomeLive: async () => h.live,
+}));
+
 import Home from '../../app/page';
 import { Footer } from '../../components/footer';
 import { TopNav } from '../../components/top-nav';
+import { HOME_LIVE_PREVIEW_FIXTURE } from '../../lib/seo/home-live';
 
-const html = renderToStaticMarkup(createElement(Home));
-const text = html
-  .replace(/<script[\s\S]*?<\/script>/g, ' ')
-  .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
-  .replace(/<[^>]+>/g, ' ')
-  .replace(/&#x27;|&apos;/g, "'")
-  .replace(/&amp;/g, '&')
-  .replace(/\s+/g, ' ');
+async function render(live: unknown): Promise<string> {
+  h.live = live;
+  return renderToStaticMarkup(await Home());
+}
+function toText(markup: string): string {
+  return markup
+    .replace(/<script[\s\S]*?<\/script>/g, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x27;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ');
+}
+
+// No live data (the database is unreachable in tests): the band is simply absent.
+const html = await render(null);
+const text = toText(html);
+const withBand = await render(HOME_LIVE_PREVIEW_FIXTURE);
 
 const BANNED = [
   'delve', 'seamless', 'robust', 'comprehensive', 'holistic', 'elevate', 'unlock', 'unleash', 'empower', 'journey', 'landscape',
@@ -41,9 +59,63 @@ describe('home page design pass', () => {
     expect(text).not.toMatch(/one price/i);
   });
 
+  it('says each price at most twice outside the plan cards (the hero line), with no flat-price section', () => {
+    const outsideCards = toText(html.replace(/<ul[^>]*aria-label="Plans"[\s\S]*?<\/ul><p/, '<p'));
+    expect(outsideCards.match(/\$5\b/g)?.length ?? 0).toBeLessThanOrEqual(2);
+    expect(outsideCards.match(/\$9\.99/g)?.length ?? 0).toBeLessThanOrEqual(2);
+    expect(text).not.toMatch(/no bill per lead/i);
+  });
+
+  it('is short: at most 600 words with nav, footer, closed FAQ answers and the live band', () => {
+    // The trade picker's <option> labels are left out: a closed dropdown shows none of them, and the picker is the shared CheckForm.
+    // Same rule as gates/r4/count-words.mjs.
+    const words = (m: string) => toText(m.replace(/<select[\s\S]*?<\/select>/g, ' ')).split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+    expect(words(withBand)).toBeLessThanOrEqual(600);
+    expect(words(html)).toBeLessThanOrEqual(560);
+  });
+
+  it('FAQ: at most four native accordions, closed, matching the FAQPage JSON-LD exactly', () => {
+    const qs = [...html.matchAll(/<summary[^>]*>([^<]+)</g)].map((m) => m[1].trim());
+    expect(qs.length).toBeGreaterThan(0);
+    expect(qs.length).toBeLessThanOrEqual(4);
+    expect(html).not.toMatch(/<details[^>]*\bopen\b/);
+    const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+    expect(ld['@type']).toBe('FAQPage');
+    expect(ld.mainEntity.map((q: { name: string }) => q.name)).toEqual(qs.map((q) => q.replace(/&#x27;/g, "'")));
+    expect(html).toContain('href="/faq"');
+  });
+
+  it('the live band renders only with data, says records not leads, and its icons are decorative', () => {
+    expect(html).not.toContain('This week on Holler');
+    expect(withBand).toContain('This week on Holler');
+    const band = toText(withBand.slice(withBand.indexOf('id="this-week"'), withBand.indexOf('id="how-h"')));
+    expect(band).toContain('Not jobs or leads');
+    expect(band).not.toMatch(/\bjobs (for|near) you|\bleads (for|near) you|customers/i);
+    expect(band).toContain('4,812');
+    const icons = withBand.match(/<svg[^>]*viewBox="0 0 24 24"[^>]*>/g) ?? [];
+    expect(icons.length).toBeGreaterThan(15);
+    for (const svg of icons) expect(svg).toContain('aria-hidden="true"');
+  });
+
+  it('adds no client JavaScript: no new "use client" file and no script besides JSON-LD', () => {
+    expect(readFileSync(new URL('../../app/page.tsx', import.meta.url), 'utf8')).not.toContain("'use client'");
+    for (const f of readdirSync(new URL('../../components/icons', import.meta.url))) {
+      expect(readFileSync(new URL(`../../components/icons/${f}`, import.meta.url), 'utf8')).not.toContain('use client');
+    }
+    expect(readFileSync(new URL('../../lib/seo/home-live.ts', import.meta.url), 'utf8')).not.toContain('use client');
+    expect(html.match(/<script(?![^>]*application\/ld\+json)/g)).toBeNull();
+  });
+
+  it('inline SVG on the page stays small (under 20 KB above the old page, with the band)', () => {
+    const bytes = (withBand.match(/<svg[\s\S]*?<\/svg>/g) ?? []).reduce((a, s) => a + Buffer.byteLength(s), 0);
+    expect(bytes).toBeLessThan(9_400 + 20 * 1024);
+  });
+
   it('has the resident band and the learn row', () => {
     expect(text).toContain('Need something done at home?');
     for (const href of ['/request', '/guides', '/data', '/faq']) expect(html).toContain(`href="${href}"`);
+    // Trade chips link to their /for pages.
+    expect(html).toContain('href="/for/roofing"');
   });
 
   it('follows the copy rules: no em dashes, no banned words, no invented proof', () => {
@@ -87,6 +159,6 @@ describe('home copy rhythm', () => {
     const sd = Math.sqrt(lens.reduce((a, b) => a + (b - mean) ** 2, 0) / lens.length);
     const short = lens.filter((n) => n < 8).length / lens.length;
     console.log(JSON.stringify({ sentences: lens.length, mean: +mean.toFixed(1), cv: +(sd / mean).toFixed(2), shortShare: +short.toFixed(2) }));
-    expect(lens.length).toBeGreaterThan(20);
+    expect(lens.length).toBeGreaterThan(10);
   });
 });

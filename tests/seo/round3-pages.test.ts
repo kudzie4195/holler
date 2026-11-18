@@ -96,7 +96,7 @@ describe('phone navigation row', () => {
   });
   it('the header Main landmark holds the section links and exists only on wide screens; Log in and Start free are not in a landmark named Main', () => {
     const header = html.slice(0, html.indexOf('aria-label="Sections"'));
-    expect(header).toMatch(/<nav aria-label="Main" class="hidden xl:block">/);
+    expect(header).toMatch(/<nav aria-label="Main" class="hidden lg:block">/);
     expect(header.indexOf('/login')).toBeGreaterThan(header.indexOf('</nav>'));
   });
 });

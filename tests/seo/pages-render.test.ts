@@ -6,7 +6,7 @@ import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { NationalStats } from '@/lib/seo/national-data';
 
-const h = vi.hoisted(() => ({ stats: null as unknown }));
+const h = vi.hoisted(() => ({ stats: null as unknown, fact: null as unknown }));
 vi.mock('@/components', () => ({
   TopNav: () => null,
   Footer: () => null,
@@ -16,6 +16,10 @@ vi.mock('@/components', () => ({
 vi.mock('@/lib/seo/national-data', async (orig) => ({
   ...(await orig<typeof import('@/lib/seo/national-data')>()),
   loadNationalStats: async () => h.stats,
+}));
+vi.mock('@/lib/seo/guide-data', async (orig) => ({
+  ...(await orig<typeof import('@/lib/seo/guide-data')>()),
+  loadGuideFact: async () => h.fact,
 }));
 
 import { GUIDES } from '@/lib/seo/guides';
@@ -75,8 +79,11 @@ const GOOD: NationalStats = {
   sourcesSeen: 12,
 };
 
+const FACT = { count: 3803, feeds: 14, feedsExact: false, newestAt: '2026-11-17T13:02:31.000Z', asOf: '2026-11-17T20:00:00.000Z' };
+
 beforeEach(() => {
   h.stats = GOOD;
+  h.fact = null;
 });
 
 async function renderGuide(slug: string) {
@@ -143,6 +150,42 @@ describe.each(GUIDES.map((g) => [g.slug, g] as const))('rendered guide %s', (slu
     expect(meta.title).toEqual({ absolute: m.title });
     expect(meta.description).toBe(m.description);
     expect(String(meta.alternates?.canonical)).toMatch(new RegExp(`${m.path}$`));
+  });
+});
+
+describe('guide page: "From Holler\'s data" line', () => {
+  const permitsSlug = 'how-contractors-find-work-from-building-permits';
+  it('shows the real count, the feeds and both dates under the answer box, before the first section, with a link to /data', async () => {
+    h.fact = FACT;
+    const html = await renderGuide(permitsSlug);
+    const text = toText(html);
+    expect(text).toContain('From Holler\'s data');
+    expect(text).toContain('In the 30 days to November 17, 2026, Holler read and stored 3,803 building permit records from at least 14 city and county permit feeds');
+    expect(text).toContain('The newest is dated November 17, 2026');
+    expect(text).toContain('These are public records, not jobs or requests for work');
+    expect(text).not.toMatch(/\b(demand|leads?)\b[^.]*3,803|3,803[^.]*\b(demand|leads?)\b/i);
+    const box = html.indexOf('From Holler&#x27;s data') > -1 ? html.indexOf('From Holler&#x27;s data') : html.indexOf("From Holler's data");
+    expect(box).toBeGreaterThan(html.indexOf('Last reviewed'));
+    expect(box).toBeLessThan(html.indexOf('<h2'));
+    expect(html).toContain('href="/data"');
+  });
+  it('renders nothing when there is no fact (database down, query failed or zero records)', async () => {
+    h.fact = null;
+    const text = toText(await renderGuide(permitsSlug));
+    expect(text).not.toContain('From Holler');
+    expect(text).not.toContain('read and stored');
+  });
+  it('renders nothing on a guide that has no data spec, even if a fact were returned', async () => {
+    h.fact = FACT;
+    const text = toText(await renderGuide('pay-per-lead-vs-flat-fee-alerts'));
+    expect(text).not.toContain('From Holler');
+  });
+  it('page text still passes the copy measures with the line shown', async () => {
+    h.fact = FACT;
+    const st = pageStats(toText(await renderGuide(permitsSlug)));
+    expect(st.mean).toBeLessThanOrEqual(22);
+    expect(st.short).toBeGreaterThanOrEqual(0.12);
+    expect(st.cv).toBeGreaterThanOrEqual(0.55);
   });
 });
 

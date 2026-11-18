@@ -12,6 +12,24 @@ export interface GuideSection {
   bullets?: string[];
   /** Show the list as a numbered list (steps in order) instead of bullets. */
   ordered?: boolean;
+  /** Optional small table shown after the paragraphs and before the list. Cells may hold links. */
+  table?: GuideTable;
+  /** Optional worked example, shown as a boxed list after everything else in the section. */
+  example?: GuideExample;
+}
+
+export interface GuideTable {
+  /** Read aloud by screen readers and shown above the table. */
+  caption: string;
+  head: string[];
+  /** Every row has as many cells as head. */
+  rows: string[][];
+}
+
+export interface GuideExample {
+  title: string;
+  /** Each line is one sentence or one figure. */
+  lines: string[];
 }
 
 export interface GuideLink {

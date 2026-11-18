@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GUIDES, GUIDE_SLUGS, guideBySlug, guidePath, type Guide } from '@/lib/seo/guides';
 import { isExternal, linksIn, stripLinks } from '@/lib/seo/guides/inline';
+import { linkableTexts, sectionProse, sectionTexts } from '@/lib/seo/guides/text';
 import { GUIDES_HUB_META, FAQ_META, DATA_META, guideJsonLd, guideMeta, hubJsonLd, faqPageJsonLd } from '@/lib/seo/guides/seo';
 import { jsonLdString } from '@/lib/seo/jsonld';
 import { FAQ_GROUPS, FAQ_ITEMS } from '@/lib/seo/faq';
@@ -35,11 +36,29 @@ const OFFICIAL_HOSTS = [
 ];
 
 const allText = (g: Guide) => [
-  g.title, g.directAnswer, ...g.sections.flatMap((s) => [s.heading, ...s.paragraphs, ...(s.bullets ?? [])]), g.howHolerHelps,
+  g.title, g.directAnswer, ...g.sections.flatMap((s) => [s.heading, ...sectionTexts(s)]), g.howHolerHelps,
   ...g.faq.flatMap((f) => [f.q, f.a]), ...g.related.map((r) => r.label),
 ];
-const bodyOf = (g: Guide) => [g.directAnswer, ...g.sections.flatMap((s) => [...s.paragraphs, ...(s.bullets ?? [])]), g.howHolerHelps, ...g.faq.flatMap((f) => [f.q, f.a])].join('\n');
-const sectionWords = (s: Guide['sections'][number]) => wordCount(stripLinks([...s.paragraphs, ...(s.bullets ?? [])].join('\n')));
+/** The prose a reader reads as sentences: answer box, paragraphs, lists, worked examples, the Holler box and the quick answers. Table cells are figures, not sentences. */
+const bodyOf = (g: Guide) => [g.directAnswer, ...g.sections.flatMap(sectionProse), g.howHolerHelps, ...g.faq.flatMap((f) => [f.q, f.a])].join('\n');
+/** Everything outside "How Holler helps": where the product name is rationed. */
+const outsideHelps = (g: Guide) => [g.directAnswer, ...g.sections.flatMap((s) => [s.heading, ...sectionTexts(s)]), ...g.faq.flatMap((f) => [f.q, f.a])].join('\n');
+const sectionWords = (s: Guide['sections'][number]) => wordCount(stripLinks(sectionTexts(s).join('\n')));
+
+/** Editor's list on top of the shared BANNED list: filler a reader skips. Checked on guides and the FAQ only. */
+const EDITOR_BANNED = [
+  'navigate', 'foster', 'boasts', 'crucial', 'vital', 'pivotal', 'key takeaway', "in today's", 'when it comes to', "it's important to",
+  'it is important to', 'it is worth noting', "here's the thing", 'that said', 'at the end of the day', 'look no further', 'rest assured',
+  "whether you're", 'whether you are',
+];
+const editorHits = (t: string) => {
+  const l = t.toLowerCase().replace(/’/g, "'");
+  return EDITOR_BANNED.filter((w) => new RegExp(`\\b${w.replace(/'/g, "'")}\\b`).test(l));
+};
+/** "A, B and C" style lists with short items: a reflex when used everywhere. Counted per 200 words. */
+const TRIPLE = /\b[\w'$-]+(?: [\w'$-]+){0,2}, (?!\d{4}\b)[\w'$-]+(?: [\w'$-]+){0,2},? (?:and|or) (?!not\b)[\w'$-]+/g;
+const triplesPer200 = (t: string) => ((stripLinks(t).match(TRIPLE) ?? []).length / Math.max(1, wordCount(stripLinks(t)))) * 200;
+const firstWords = (t: string, n: number) => stripLinks(t).split(/\s+/).slice(0, n).join(' ').toLowerCase();
 
 describe('guides: the set', () => {
   it('has exactly the eight slugs, in hub order, with no duplicates', () => {
@@ -70,6 +89,21 @@ describe('guides: the set', () => {
     expect(GUIDES.some((g) => g.sections.some((s) => s.bullets))).toBe(true);
     expect(GUIDES.some((g) => g.sections.every((s) => !s.bullets))).toBe(true);
   });
+  it('no two sections anywhere in the set open with the same first five words, and no two guides share a paragraph skeleton', () => {
+    const openers = GUIDES.flatMap((g) => g.sections.map((s) => firstWords(s.paragraphs[0] ?? '', 5)));
+    const dupes = openers.filter((o, i) => openers.indexOf(o) !== i);
+    expect(dupes).toEqual([]);
+    // Skeleton: paragraphs per section, plus T (table), E (worked example), O (numbered list), B (bullets).
+    const skeleton = (g: Guide) => g.sections.map((s) => `${s.paragraphs.length}${s.table ? 'T' : ''}${s.example ? 'E' : ''}${s.bullets ? (s.ordered ? 'O' : 'B') : ''}`).join('-');
+    expect(new Set(GUIDES.map(skeleton)).size).toBe(GUIDES.length);
+    // Not every section is three paragraphs: the old one-shape-fits-all layout.
+    const threeParas = GUIDES.flatMap((g) => g.sections).filter((s) => s.paragraphs.length === 3 && !s.table && !s.example && !s.bullets).length;
+    expect(threeParas / GUIDES.flatMap((g) => g.sections).length).toBeLessThan(0.5);
+  });
+  it('some guides carry a data table and some a worked example with real figures', () => {
+    expect(GUIDES.filter((g) => g.sections.some((s) => s.table)).length).toBeGreaterThanOrEqual(2);
+    expect(GUIDES.filter((g) => g.sections.some((s) => s.example)).length).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe.each(GUIDES.map((g) => [g.slug, g] as const))('guide %s', (_slug, g) => {
@@ -92,7 +126,7 @@ describe.each(GUIDES.map((g) => [g.slug, g] as const))('guide %s', (_slug, g) =>
   });
 
   it('cites at least 3 official sources, all https, all on an official host', () => {
-    const links = [...g.sections.flatMap((s) => [...s.paragraphs, ...(s.bullets ?? [])]), g.howHolerHelps].flatMap(linksIn).filter((l) => isExternal(l.href));
+    const links = linkableTexts(g).flatMap(linksIn).filter((l) => isExternal(l.href));
     const unique = new Set(links.map((l) => l.href));
     expect(unique.size).toBeGreaterThanOrEqual(3);
     for (const u of unique) {
@@ -104,7 +138,7 @@ describe.each(GUIDES.map((g) => [g.slug, g] as const))('guide %s', (_slug, g) =>
   it('links to 2 to 4 Holler pages, all known routes (related list and inline links together)', () => {
     expect(g.related.length).toBeGreaterThanOrEqual(2);
     expect(g.related.length).toBeLessThanOrEqual(4);
-    const inline = [...g.sections.flatMap((s) => [...s.paragraphs, ...(s.bullets ?? [])]), g.howHolerHelps, ...g.faq.map((f) => f.a)]
+    const inline = [...linkableTexts(g), ...g.faq.map((f) => f.a)]
       .flatMap(linksIn)
       .filter((l) => !isExternal(l.href))
       .map((l) => l.href);
@@ -154,11 +188,29 @@ describe.each(GUIDES.map((g) => [g.slug, g] as const))('guide %s', (_slug, g) =>
     for (const s of sentences(t)) if (/SAM/.test(s)) expect(s, s).not.toMatch(/Holler (reads|watches|checks|pulls)[^.]*SAM/i);
   });
 
-  it('measures like plain copy: mean sentence length <= 22, >= 12% short sentences, stdev/mean >= 0.55', () => {
+  it('measures like plain copy: mean sentence length 14 to 22, >= 12% short sentences, stdev/mean >= 0.60', () => {
     const st = copyStats(bodyOf(g));
+    expect(st.mean, 'mean').toBeGreaterThanOrEqual(14);
     expect(st.mean, 'mean').toBeLessThanOrEqual(22);
     expect(st.shortShare, 'short share').toBeGreaterThanOrEqual(0.12);
-    expect(st.cv, 'cv').toBeGreaterThanOrEqual(0.55);
+    expect(st.cv, 'cv').toBeGreaterThanOrEqual(0.6);
+  });
+
+  it('editor rules: no filler phrase, at most one short-item triple per 200 words, and Holler named at most twice outside its own box', () => {
+    for (const t of allText(g)) expect(editorHits(t), t.slice(0, 60)).toEqual([]);
+    const body = bodyOf(g);
+    expect(triplesPer200(body), (stripLinks(body).match(TRIPLE) ?? []).join(' | ')).toBeLessThanOrEqual(1);
+    expect((outsideHelps(g).match(/\bHoller\b/g) ?? []).length).toBeLessThanOrEqual(2);
+  });
+
+  it('tables are well formed and every worked example has at least two lines', () => {
+    for (const s of g.sections) {
+      if (s.table) {
+        expect(s.table.caption.length).toBeGreaterThan(10);
+        for (const row of s.table.rows) expect(row.length, row.join(' | ')).toBe(s.table.head.length);
+      }
+      if (s.example) expect(s.example.lines.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
   it('builds Article, BreadcrumbList and FAQPage JSON-LD that parse and carry the required fields', () => {
@@ -288,11 +340,19 @@ describe('/faq content', () => {
     expect(hasEmDash(text)).toBe(false);
     expect(text).not.toMatch(/Bluesky|SAM\.gov|Ticketmaster|concert|people asking online/i);
   });
-  it('measures like plain copy', () => {
+  it('measures like plain copy: mean 14 to 22, >= 12% short, stdev/mean >= 0.60, at most one short-item triple per 200 words', () => {
     const st = copyStats(text);
+    expect(st.mean).toBeGreaterThanOrEqual(14);
     expect(st.mean).toBeLessThanOrEqual(22);
     expect(st.shortShare).toBeGreaterThanOrEqual(0.12);
-    expect(st.cv).toBeGreaterThanOrEqual(0.55);
+    expect(st.cv).toBeGreaterThanOrEqual(0.6);
+    expect(triplesPer200(text)).toBeLessThanOrEqual(1);
+    expect(editorHits(text)).toEqual([]);
+  });
+  it('answers open differently: no two answers share their first two words, and none opens with a stall', () => {
+    const openers = FAQ_ITEMS.map((i) => firstWords(i.a, 2));
+    expect(openers.filter((o, i) => openers.indexOf(o) !== i)).toEqual([]);
+    for (const i of FAQ_ITEMS) expect(i.a, i.q).not.toMatch(/^(It depends|Great question|Good question|Well,|So,)/);
   });
 });
 
@@ -331,14 +391,16 @@ describe('round 3 fixes in the guides', () => {
   it('the storms guide links the SPC storm reports page, never the /wcm/ page, and does not say Storm Data compiles preliminary reports', () => {
     const hrefs = GUIDES.flatMap((g) => [...g.sections.flatMap((s) => [...s.paragraphs, ...(s.bullets ?? [])]), g.howHolerHelps].flatMap(linksIn)).map((l) => l.href);
     expect(hrefs).not.toContain('https://www.spc.noaa.gov/wcm/');
-    expect(hrefs).toContain('https://www.spc.noaa.gov/climo/reports/');
+    expect(hrefs).toContain('https://www.spc.noaa.gov/climo/reports/today.html');
     for (const g of [storms, sources]) expect(allText(g).join('\n')).not.toMatch(/Storm Data|web charts/i);
     expect(stormText).toMatch(/labels every report preliminary/);
   });
   it('the storms guide warns about state solicitation limits, cites Florida statute 489.147 on the official site, and says it is not legal advice', () => {
     expect(stormText).toMatch(/Some states restrict how contractors may solicit roof work after a storm/);
-    expect(stormText).toContain('https://www.flsenate.gov/Laws/Statutes/2025/489.147');
-    expect(stormText).toMatch(/Do Not Call and texting rules apply/);
+    expect(stormText).toContain('https://www.flsenate.gov/Laws/Statutes/2026/489.147');
+    expect(stormText).toMatch(/Do Not Call Q&A/);
+    // Texting rules were not verified on an official page this round, so the guide says it does not cover them instead of naming them.
+    expect(stormText).toMatch(/Text messages fall under separate rules that this guide does not cover/);
     expect(stormText).toMatch(/general information, not legal advice/);
   });
   it('every guide that gives contact advice carries a general information, not legal advice line', () => {
@@ -370,7 +432,9 @@ describe('round 3 fixes in the guides', () => {
   it('the direct answers do not use absolutes the cited pages do not', () => {
     expect(guideBySlug('federal-contracts-for-small-local-businesses')!.directAnswer).toContain('you usually need an active SAM registration');
     expect(guideBySlug('new-business-licenses-as-a-lead-source')!.directAnswer).toContain('often needs');
-    expect(storms.sections[1].paragraphs.join(' ')).toContain('Hail that size is often where roof and windshield damage starts');
+    // The old line about where damage starts had no official source; the guide now states the verified date of the 1 inch standard.
+    expect(storms.sections[1].paragraphs.join(' ')).toContain('national standard since January 5, 2010');
+    expect(stormText).not.toMatch(/often where roof/);
   });
   it('uses US spelling: the licenses guide slug, and no licence or other British spelling in any guide, FAQ or link', () => {
     expect(GUIDE_SLUGS).toContain('new-business-licenses-as-a-lead-source');

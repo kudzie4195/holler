@@ -1,6 +1,7 @@
 /**
  * The /faq page. Plain text only, so the visible answer and the FAQPage JSON-LD answer are the same string.
- * Pricing and request facts follow the fixed contracts in the round 3 brief: change them there first, then here.
+ * Pricing and request facts follow the fixed contracts in the round 3 brief and the wording on /pricing (lib/plan/pricing-page.ts)
+ * and /request (app/request/page.tsx): change them there first, then here.
  */
 export interface FaqGroup {
   id: string;
@@ -15,19 +16,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'What is Holler?',
-        a: 'Holler is an alert service for local businesses. It reads public data, such as weather alerts, storm reports, building permits and 311 requests. When something nearby fits what you do, it sends a short email with a link to the source, so you can check the record yourself and decide whether to reach out. You pick your trades and a service area. Holler does the watching.',
+        a: 'An alert service that reads public records, such as weather warnings and building permits, and emails a local business when one near it fits its trade. Each alert links to the record it came from, so you can check the original yourself and decide whether it is worth reaching out about at all. You pick the trades and the area. Holler does the daily reading.',
       },
       {
         q: 'Who is Holler for?',
-        a: 'People who drive to the job. Roofers, plumbers, cleaners, movers, tree crews and sign makers each have a page that lists the records that matter to their trade, and you can open it before you sign up. You pick the trades and a service area. Holler watches. Solo owners and small crews are who it is built for.',
+        a: 'Owners and small crews who drive to the job: roofers and plumbers through to cleaners and sign makers. Each trade has its own public page that lists the kinds of records that matter to it, and you can read that page before you sign up or give anyone an email address. It suits the one-truck shop.',
       },
       {
         q: 'Does Holler post or message people for me?',
-        a: 'No. Holler never posts for you. It never touches your social accounts, so there is nothing for a platform to ban. It sends a message only when you write a reply to a resident request and press send, and that message goes to the resident who asked. Nothing else goes out under your name.',
+        a: 'Only when you write a reply to a resident request and press send, and then the message goes to that one resident and nobody else. Holler never posts anywhere for you and never touches your social accounts, so there is nothing for a platform to flag or ban. Nothing else goes out.',
       },
       {
         q: 'Is Holler an established company?',
-        a: 'No. Holler is new. It has no customer numbers or reviews to show yet, and this site does not make any up. What it does have is a source link on every record, so you can check the work yourself before you pay anything. The trial needs no card. Judge it on the records.',
+        a: 'Not yet. Holler is new, it has no customer numbers or reviews to show, and this site does not invent any to look bigger than it is. What it can show is the source behind every record, so you can judge the work before you pay anything, during a trial that needs no card. Judge it on the records.',
       },
     ],
   },
@@ -37,19 +38,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'Where does the data come from?',
-        a: 'From official public sources. Those are National Weather Service alerts, NOAA Storm Prediction Center storm reports, FEMA disaster declarations, USGS earthquakes, FAA airport status, USAspending federal contract awards and the open data portals of cities. Each record links to the page it came from. We do not scrape sites that forbid it.',
+        a: 'From official public sources: National Weather Service alerts, NOAA Storm Prediction Center storm reports, FEMA disaster declarations, USGS earthquakes, FAA airport status, USAspending federal contract awards and the open data portals of cities. Each record links to the page it came from, so you can always open the original and see exactly what the agency published. Nothing is bought.',
       },
       {
         q: 'How often is the data checked?',
-        a: 'It depends on the source. Weather alerts and airport status are checked every 15 minutes. Storm and earthquake reports are checked every 30 minutes. City records and federal contracts are checked a few times a day. Some cities publish permits a day or more after they are issued, so a record can arrive late, and Holler cannot fix a delay at the source.',
+        a: 'Every 15 minutes for weather alerts and airport status, every 30 minutes for storm reports and earthquakes, and a few times a day for city records and federal contracts. Cities publish on their own schedules, though, so a record can reach Holler days after the event it describes, and no checking schedule can fix a delay that starts at the source. Some feeds lag.',
       },
       {
         q: 'Does Holler work in my town?',
-        a: 'Probably in part. Weather, storm, disaster and federal contract records cover the whole country. Permits, 311 requests, inspections and business licenses come only from cities Holler has connected, such as Chicago, New York City, Austin and San Francisco. The free checker shows what Holler would watch around your ZIP code. Try it first.',
+        a: 'In part, wherever you are in the US, because national records such as weather warnings and federal contracts cover the whole country. Permits, 311 requests, inspections and business licenses come only from cities Holler has connected, such as Chicago, New York City, Austin and San Francisco, and the free checker shows what it would watch around your ZIP code before you sign up. Try it first.',
       },
       {
         q: 'How accurate are the alerts?',
-        a: 'As accurate as the source, and no better. Storm reports are preliminary. City tables can lag or hold errors. A record shows that something happened, not that someone wants to hire you, so open the source link and check it before you act. Every alert says where it came from.',
+        a: 'As accurate as the source, and no better. Storm reports are preliminary, city tables can lag behind the counter or hold typing errors, and a record shows only that something happened near a place, not that someone there wants to hire you. Open the source link and check it before you act on any alert. Always.',
       },
     ],
   },
@@ -59,19 +60,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'How much does Holler cost?',
-        a: 'Starter is $5 a month or $48 a year. Pro is $9.99 a month or $96 a year. Both include alerts by email, the feed and replies to resident requests, and both start with a 7-day free trial that needs no card. There are no per-lead fees. Cancel any time.',
+        a: 'Starter is $5 a month or $48 a year, and Pro is $9.99 a month or $96 a year. Both plans include alerts by email, the feed and replies to resident requests, and both start with a 7-day free trial that needs no card, with no per-lead fees and no contract after it. Cancel any time.',
       },
       {
         q: 'What does the free trial include?',
-        a: 'Seven days of alerts with Starter limits: one service area and up to five trades. No card is needed to start. When the trial ends without a subscription, your feed locks and your account stays put until you decide what to do with it, and we never charge you just because a trial ended.',
+        a: 'Seven days of alerts with Starter limits, which means one service area and up to five trades, and no card is needed to start. When the trial ends without a subscription your feed locks and your account stays as it is, and you are never charged just because a trial ended or because you forgot to cancel something. Nothing is billed.',
       },
       {
         q: 'What is the difference between Starter and Pro?',
-        a: 'Pro covers more ground. Starter covers one service area and up to five trades. Pro covers up to three service areas and up to 15 trades, and it adds up to five keyword watches. Pick Pro if you work in more than one area or run several kinds of work. Otherwise Starter is enough.',
+        a: 'Coverage: Starter watches one service area and up to five trades, while Pro watches three service areas and up to 15 trades. Pro also adds up to five keyword watches, which send you any record in your areas whose title or summary has a phrase you pick, even when it falls outside your trades. Pick Pro for several ZIP codes.',
       },
       {
         q: 'Can I cancel any time?',
-        a: 'Yes. Cancel from Settings whenever you like. You can also delete your account there, which removes your profile and your matches. Nothing locks you in. If you only want to stop paying, cancel and keep the account until you are ready to decide what to do with it.',
+        a: 'Yes, in Settings under Manage billing, where cancelling stops the next charge and your plan stays on until the end of the period you already paid for. Settings also lets you delete your account, which removes your Holler profile along with your alerts and billing in one step if you decide the service is not for you. Nothing locks you in.',
       },
     ],
   },
@@ -81,19 +82,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'What is a resident request?',
-        a: 'A short post from a person who needs a job done. They describe what they need at the request page and confirm by email. After that, a public page shows only the service and the city. Matching businesses get the description in their feed and email, with the phone numbers, emails, links and names we find taken out. It is a small feature on a new site. Do not expect a flood.',
+        a: 'A short post from someone who needs a job done, which they describe on the request page and confirm by email. After that, a public page shows only the service and the city. Matching businesses get the description in their feed and email, after a filter removes phone numbers, emails, links, street addresses and names that it finds. It is a small, new feature.',
       },
       {
         q: 'Does it cost anything to post a request?',
-        a: 'No. Posting a request is free for residents, and you never pay to ask for help. Businesses on a trial or a paid plan get your request in their feed and email, and they can reply through Holler. Replying is part of both plans.',
+        a: 'Nothing at all, because posting is free for residents and businesses pay for Holler. Businesses on a trial or a paid plan get matching requests in their feed and email, and up to five of them can reply through Holler to one request, so you will not be flooded with messages from strangers. Some areas have no replies yet.',
       },
       {
         q: 'Will businesses see my email address?',
-        a: 'Not unless you reply to that business. Businesses answer through Holler, so your address stays hidden from them and from every page. If you reply to a business by email, that business sees your address. You decide whether to answer. You can close the request whenever you like.',
+        a: 'Not unless you reply to that business. Businesses answer through Holler, so your address stays hidden from them and from every page on the site. If you reply to a business by email, that business sees your address and what you wrote back, and nothing else about you or your request history. You decide whether to answer.',
       },
       {
         q: 'How long does a request stay open?',
-        a: 'For 14 days. You can close it sooner, for example when you have already found someone. A public page shows the service and the city. The description goes only to matching businesses. After 14 days the request closes on its own, so an old request never keeps collecting replies.',
+        a: 'For 14 days, unless you close it sooner with the link in your email, for example once you have already found someone for the job. Then it closes on its own. A closed request leaves Holler\'s pages within about 15 minutes. While it is open, a public page shows the service and the city, and the description goes only to matching businesses that work in your area.',
       },
     ],
   },

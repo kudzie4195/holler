@@ -40,16 +40,8 @@ export function Footer() {
       <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 pb-8 pt-12 md:grid-cols-[1.3fr_2fr] md:gap-12 md:pt-14">
         <div className="max-w-sm">
           <Logo />
-          <p className="mt-3 text-sm text-muted">
-            Local alerts for people with a truck, a van or a ladder. Built on public data. We never post for you.
-          </p>
-          <p className="mt-3 text-sm text-muted">
-            Need work done at home?{' '}
-            <Link href="/request" className="font-medium text-ink underline underline-offset-2 hover:text-accent-text">
-              Ask local businesses for free
-            </Link>
-            .
-          </p>
+          {/* Kept short: residents reach /request from "Request a service" in the Product links. */}
+          <p className="mt-3 text-sm text-muted">Local alerts built on public data. We never post for you.</p>
         </div>
         <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3">
           {groups.map((g) => (

@@ -5,79 +5,83 @@ export const respond: Guide = {
   title: 'How to respond to a local lead fast',
   metaTitle: 'How to Respond to a Local Lead Fast | Holler',
   description:
-    'Reply in minutes for urgent jobs and the same day for planned ones. See what to say, which channel to use and which contact rules apply to calls and email.',
+    'Reply in minutes for urgent jobs and the same day for planned ones. A first message that works, when to follow up and the FTC rules for calls and email.',
   directAnswer:
-    'Reply in minutes for urgent work and the same day for planned jobs. Name the exact problem, give one next step and ask one question. Use the channel the person used. Follow up once or twice, then stop. If you email, include your address and an opt-out. If you call, check the Do Not Call rules.',
+    'Reply within minutes for urgent jobs such as a burst pipe, and the same business day for planned work. Name the exact problem, offer one next step and ask one question, in the same channel the person used, and follow up twice at most. If you call, check the Do Not Call rules first. If you email, include an opt-out.',
   sections: [
     {
-      heading: 'Why does speed matter?',
+      heading: 'Why does reply speed matter so much?',
       paragraphs: [
-        'Because the person is writing to more than one business. Someone with a leak, a dead furnace or a roof that just lost shingles wants the problem handled today. They will say yes to the first reply that makes the next step clear.',
-        'Speed alone is not enough. A fast message that says "Hi, are you interested?" loses to a slower one that names the problem and offers a time. Be quick and specific.',
-        'This guide gives no numbers on how much speed wins, because we have none worth quoting. The logic is simple and you can test it on your own jobs. Note the time each lead arrived and the time you replied, then see which ones turned into paid work.',
+        'Because the person with a leak or a dead furnace may be writing to more than one business and wants the problem handled today, so the first reply that makes the next step clear has the edge. Speed alone does not win. A fast "Hi, are you interested?" loses to a slower note that names the problem and offers a time.',
+        'This guide quotes no figures on how much speed matters, because we found none we could check. Test it on your own work instead: write down when each lead arrived and when you answered, then see which ones turned into paid jobs after a month.',
       ],
     },
     {
       heading: 'What should the first message say?',
       paragraphs: [
-        'Here is a first message that works: "Hi, this is Dana from Dana\'s Roofing in Marietta. I saw that hail was reported near your street today. I can check your roof for free tomorrow morning or Thursday. Which works better?"',
-        'It is short. It names the cause. It offers two choices, which makes it easy to answer. It does not claim damage you have not seen, and it does not push. Skip long company histories, price lists and attachments. One question is enough. Every good first message follows the same four steps.',
+        'Here is one that works: "Hi, this is Dana from Dana\'s Roofing in Marietta. I saw that hail was reported near your street today. I can check your roof for free tomorrow morning or Thursday. Which works better?" It names the cause and offers two choices. It claims no damage that nobody has seen, and it asks for nothing but a time. Every good first message has four parts, in this order.',
       ],
       ordered: true,
       bullets: [
-        'Say who you are. Dana, from Dana\'s Roofing in Marietta.',
-        'Say what you saw. Hail near their street today.',
-        'Say what you can do. Check the roof for free.',
-        'Say what happens next. Tomorrow morning or Thursday, their pick.',
+        'Who you are: Dana, from Dana\'s Roofing in Marietta.',
+        'What you saw: hail reported near their street today.',
+        'What you can do: check the roof for free.',
+        'What happens next: tomorrow morning or Thursday, their pick.',
       ],
     },
     {
-      heading: 'Should you call, text or email?',
+      heading: 'When is it legal to call a lead?',
       paragraphs: [
-        'Use the channel the person used. If they wrote a request on a page, answer there. If they gave a phone number and asked for a call, call.',
-        'Cold calls come with rules. The FTC says in its [Do Not Call Q&A](https://www.ftc.gov/business-guidance/resources/qa-telemarketers-sellers-about-dnc-provisions-tsr-0) that it is against the law to call numbers on the National Do Not Call Registry unless an established business relationship or written agreement exists. An inquiry creates that relationship for three months. When you do call, the FTC [Telemarketing Sales Rule guide](https://www.ftc.gov/business-guidance/resources/complying-telemarketing-sales-rule) says the caller must promptly disclose, before any sales pitch, who the seller is and that the purpose of the call is to sell.',
-        'Email has its own rules. The FTC [CAN-SPAM guide](https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business) says a marketing message must include your valid physical postal address and a clear way to opt out, and that you must honor an opt-out within 10 business days. Texts can carry their own consent rules, so if you are unsure, ask the person to reply first. This is general information, not legal advice.',
+        'When the person gave you a number and asked for a call, or when you have a relationship the law recognizes. The FTC\'s [Do Not Call Q&A](https://www.ftc.gov/business-guidance/resources/qa-telemarketers-sellers-about-dnc-provisions-tsr-0) says it is against the law to call a number on the national registry unless you have an established business relationship or written agreement. A person who asked you about a job creates that relationship for three months from the day they asked.',
+        'Once you are on the phone, the FTC\'s [Telemarketing Sales Rule guide](https://www.ftc.gov/business-guidance/resources/complying-telemarketing-sales-rule) says a seller must promptly disclose, before any pitch, who the seller is and that the call is to sell. The same guide lists calling before 8 a.m. or after 9 p.m. as an abusive practice. Texting has its own rules, which this guide does not cover.',
       ],
     },
     {
-      heading: 'When should you reply?',
+      heading: 'What does every marketing email need?',
       paragraphs: [
-        'As soon as you can do it well. For urgent work such as a burst pipe, a tree on a house or a lockout, aim for minutes. For planned work such as a kitchen remodel or a new fence, the same business day is a fair goal.',
-        'Do not reply at midnight from habit. A message at 2 a.m. can read as pushy. If a lead arrives overnight, write early the next morning, or set up an auto-reply that says when you will answer.',
-        'Pick a standing time to check new leads, such as first thing, noon and end of day. A routine beats good intentions.',
+        'At least four things, according to the FTC\'s [CAN-SPAM guide](https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business). An honest subject line. Your valid physical postal address. A clear explanation of how to opt out. And action on any opt-out within 10 business days.',
+        'Each email in violation can bring a penalty of up to $53,088, and hiring someone else to send it does not move the responsibility off you.',
+        'The safe habit is simple. Put your address and an unsubscribe line in the footer of every email you send to a lead, even a short one. This is general information, not legal advice.',
       ],
     },
     {
-      heading: 'How do you follow up without being a pest?',
+      heading: 'What time of day should you reply?',
       paragraphs: [
-        'Follow up once the next day and once more after three or four days. Then stop.',
-        'Each follow-up should add something. Offer a new time, answer a question they might have or share a short note about the job. "Just checking in" adds nothing.',
-        'If someone says no, thank them and close the lead. If they do not answer after two tries, leave the door open with one line: "If this is still on your list, reply any time." Keep a simple log of the date, the channel and the result. After a month you will know which replies work best for your trade, and you can drop the ones that never get an answer.',
+        'As soon as you can do it well. For a burst pipe, a tree on a house or a lockout, aim for minutes, while for a kitchen remodel or a new fence the same business day is a fair goal.',
+        'Do not answer at 2 a.m. out of habit, because a message then can read as pushy and a sales call then crosses the FTC\'s 9 p.m. line. If a lead arrives overnight, write early the next morning, or set an auto-reply that says when you will answer.',
+        'Pick standing times to check for new leads, such as first thing, noon and the end of the day, and keep them even on days when you are on a roof or under a sink, because the lead that arrives while you are busy is the one most likely to go to someone else. A fixed routine beats good intentions.',
       ],
     },
     {
-      heading: 'How do you reply to a request posted on Holler?',
+      heading: 'How often should you follow up?',
       paragraphs: [
-        'Through Holler. A resident who posts a request confirms it by email. After that, a public page shows only the service and the city. You see the full description, with contact details removed, in your feed and email.',
-        'You reply through Holler. The resident\'s email address stays hidden from you until the resident answers you by email. So you cannot call or text first, and you should not look for another way to reach them.',
-        'The same advice holds. Name the problem, offer a time and ask one question. Requests stay open for 14 days, and the resident can close one at any time, so there is no point in waiting.',
+        'Twice. Once the next day. Once more three or four days later. Then stop. Each follow-up should add something: a new time, an answer to a likely question or a photo of a similar job. "Just checking in" adds nothing. Thank anyone who says no, and close the lead. If they never answer, leave one line: "If this is still on your list, reply any time."',
+        'Keep a simple log of the date, the channel and the result, and after a month it will show which kinds of reply get answers in your trade, and you can stop sending the ones that never do.',
+      ],
+    },
+    {
+      heading: 'How do you answer a resident request posted on Holler?',
+      paragraphs: [
+        'A resident who posts a request confirms it by email, and after that a public page shows only the service and the city. You get the full description in your feed and alert email, after a filter has taken out contact details.',
+        'You answer with the reply form, and you can put your own phone number or website in it. The resident\'s email address stays hidden from you until the resident answers you by email. So you cannot call or text first, and you should not hunt for another way to reach them.',
+        'Up to five businesses can answer one request, and it stays open for 14 days unless the resident closes it sooner. Answer early. Name the job and offer a time.',
       ],
     },
   ],
   howHolerHelps:
-    'Holler cannot reply for you. It never posts or messages anyone unless you write the reply and press send. It gets the record to you quickly, with the source link, so the first move is yours. Alerts go out by email, and each one is a place to start, not a promise of work. See the [pricing page](/pricing) for the 7-day free trial.',
+    'Holler cannot reply for you, and nothing goes out under your name unless you write it and press send. It gets public records and resident requests to you quickly, each with its source, so the first move is yours. The [pricing page](/pricing) explains the 7-day free trial.',
   faq: [
     {
       q: 'How fast should I reply to a lead?',
-      a: 'In minutes for urgent work such as a leak or a lockout, and the same business day for planned jobs. Speed helps, but a specific message matters more than a fast vague one.',
+      a: 'In minutes for urgent work such as a leak or a lockout, and the same business day for planned jobs. Speed helps, but a specific message beats a fast vague one.',
     },
     {
-      q: 'Can I text a lead?',
-      a: 'Texts can carry their own consent rules. If you are not sure, ask the person to reply first, or use the channel they used to reach you.',
+      q: 'Can I call a lead late in the evening?',
+      a: 'Not for a sales call after 9 p.m. The FTC\'s Telemarketing Sales Rule guide lists calling before 8 a.m. or after 9 p.m. as an abusive practice. Write instead and call the next morning.',
     },
     {
       q: 'How many times should I follow up?',
-      a: 'Once the next day and once after three or four days. Each follow-up should add something new, such as a time slot. Then stop.',
+      a: 'Twice: once the next day and once three or four days later. Each follow-up should add something new, such as a time slot or a photo of similar work. Then stop.',
     },
   ],
   related: [

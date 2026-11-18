@@ -5,81 +5,84 @@ export const permits: Guide = {
   title: 'How contractors find work from building permits',
   metaTitle: 'Find Contractor Work From Building Permits | Holler',
   description:
-    'A building permit is a public record that someone plans to spend money on a property. Learn where to read new permits for free and how to act on them quickly.',
+    'Many cities publish building permits as free open data. See which columns to filter, what 30 days of Chicago permits held and what to do the morning one posts.',
   directAnswer:
-    'A building permit is a public record that someone is about to spend money on a property. Many cities publish new permits as open data. Read them by address, type and date, and you can reach owners and builders before the work starts. A permit shows intent, not a signed job, so move fast.',
+    'Many cities publish the building permits they issue as free open data, so you can see planned work near you as the city approves it. Chicago listed 2,525 permits issued from October 18 to November 17, 2026, and 152 of them were for reroofing. A permit shows planned work. It is not a signed job.',
   sections: [
     {
-      heading: 'What does a building permit tell a contractor?',
+      heading: 'Which permit columns should a contractor filter on?',
       paragraphs: [
-        'It tells you that someone asked the city for permission to build, change or repair something. That is a strong sign of money about to move.',
-        'A typical record carries an address, a permit type, a filing or issue date and a short description of the work. Some also list the applicant or the contractor on file. Others hide names on purpose. The details differ from city to city, so read a few records before you build a routine around them.',
-        'The scale is real. The Census Bureau runs a [Building Permits Survey](https://www.census.gov/econ/overview/co0200.html) that reports the number and valuation of new privately owned housing units authorized by building permits. Its data are available monthly and annually since 1959. That is national housing only, and it comes from individual permit offices, most of them municipalities. Your own town is a much smaller and more useful slice.',
+        'Filter on the issue date first and the kind of work second. In Chicago\'s [Building Permits](https://data.cityofchicago.org/Buildings/Building-Permits/ydr8-5enu) dataset those columns are called issue_date, permit_type, work_type and work_description, and the city says the set covers permits from 2006 to the present, leaving out any that were voided or revoked after issuance.',
+        'Read work_description on every row you keep, because permit types are broad labels and the real job can be smaller or bigger than the label suggests. Skip this and you will write to the wrong people.',
+        'Each row also carries a reported_cost column and slots for up to 15 contacts, from contact_1_type to contact_15_zipcode. Look at contact_1_type before you write to anyone: in the 30 days we counted, 1,703 rows listed Owner as the first contact, and others already named a general or electrical contractor. Other cities use other column names for the same ideas, and Austin publishes its own [Issued Construction Permits](https://data.austintexas.gov/Building-and-Development/Issued-Construction-Permits/3syk-w9eu/about_data) table, so open a few rows in your city before you build a routine on it.',
       ],
     },
     {
-      heading: 'Where can you read permits for free?',
+      heading: 'What did 30 days of Chicago permits look like?',
       paragraphs: [
-        'Start with your city or county website and search for the words open data and permits together. Many places post a table you can sort and download.',
-        'Chicago lists a dataset called [Building Permits](https://data.cityofchicago.org/Buildings/Building-Permits/ydr8-5enu) on its data portal. Austin lists [Issued Construction Permits](https://data.austintexas.gov/Building-and-Development/Issued-Construction-Permits/3syk-w9eu/about_data) on its own. Both are free to open. Check how fresh the newest row is before you rely on either one.',
-        'Some towns only offer a lookup box where you type an address. That still works for a short list of streets you already serve. It does not work for finding new work across a whole county. If your city has no open table, call the permit counter and ask whether weekly lists exist.',
+        'We counted permits issued from October 18 to November 17, 2026, through the city\'s open data API on November 17. The totals can move a little as late rows arrive.',
+        'Of the 2,525 permits, 1,599 came through the Express Permit Program, and only those rows had work_type filled in. The table shows the largest groups. Renovation or alteration was the biggest of the other permit types, with 465 permits. Sign permits came next at 140, then new construction at 128.',
+        'Small, quick jobs dominate. That suits a one-truck shop that can answer in a day, and it means an electrician had 397 fresh records in one month in this one city alone, and a sign maker 140.',
       ],
+      table: {
+        caption: 'Chicago Express Permit Program permits by work_type, issued October 18 to November 17, 2026',
+        head: ['Work type', 'Permits'],
+        rows: [
+          ['Electrical Work', '397'],
+          ['Masonry Work', '188'],
+          ['Reroofing', '152'],
+          ['Fire Alarm System', '97'],
+          ['Small-Scale Solar PV System', '73'],
+          ['Fence or Trash Enclosure', '67'],
+          ['Plumbing Work', '58'],
+        ],
+      },
     },
     {
-      heading: 'Which permits match which trades?',
+      heading: 'What should you do the morning a new permit posts?',
       paragraphs: [
-        'Match the permit type to what your crew does. These pairings are common, but always read the description on each record before you write to anyone, because a permit type is a broad label and the real job may be smaller, larger or a different trade than you expect.',
-        'Here is a short guide to start from.',
+        'Work the list in the same order every day, and keep it to about 20 minutes so it survives a busy week.',
       ],
+      ordered: true,
       bullets: [
-        'A reroof or roof repair permit points to roofers and gutter crews.',
-        'An electrical or panel permit points to electricians.',
-        'A new pool permit points to pool builders and fence companies.',
-        'A demolition permit points to junk haulers and concrete crews.',
-        'A commercial build-out permit points to commercial cleaners, sign makers and security installers.',
-        'A new house permit points to nearly everyone, over many months. Flooring, painting and landscaping crews come last, so there is time to introduce yourself to the builder.',
+        'Filter your city\'s table to issue dates from the last three days.',
+        'Drop rows that already list a contractor in your trade as a contact.',
+        'Set aside administrative changes and maintenance permits unless you know what they cover in your city.',
+        'Read the description on what is left and pick the best three.',
+        'Send each owner a short note that names the work and the street, the same day.',
+        'Log what you sent. After a month, compare which work types turned into paid jobs and drop the ones that never do.',
       ],
     },
     {
-      heading: 'How fast should you act on a new permit?',
+      heading: 'What should a first note to a permit holder say?',
       paragraphs: [
-        'Quickly, but not blindly. A permit often means the owner has already picked a contractor. That is common for big jobs. It is less common for small repairs, where the permit may be a formality that the owner never thought about.',
-        'Cities post on their own schedules, so a record can show up a day or more after the permit was issued. The older the record, the likelier the job is already spoken for. Aim to read new records every morning and answer the best three the same day.',
-        'Skip permits where the filer is a large builder with its own crews. Spend your hour on records with a plain description, a street address and no contractor listed. Those owners are still deciding. A short, specific note about the exact work on their permit gets read more often than a generic flyer.',
+        'Name the work and the street, then offer one next step. "I saw the reroofing permit for your building on Maple Street. I replace roofs in this part of town and can look at it Thursday. Call the number below if that helps." Three sentences is enough.',
+        'A letter or a visit is the safer first touch. The FTC\'s [Do Not Call Q&A](https://www.ftc.gov/business-guidance/resources/qa-telemarketers-sellers-about-dnc-provisions-tsr-0) says it is against the law to call a number on the national registry unless you have an established business relationship with that person or their written agreement to be called. A permit record gives you neither. Check your city\'s rules on door-to-door selling before you knock. This is general information, not legal advice.',
       ],
     },
     {
-      heading: 'What should you say to someone who just filed a permit?',
+      heading: 'What will permit data never show you?',
       paragraphs: [
-        'Name the work and the address. Offer one next step. Keep it under three sentences.',
-        'For example: "I saw the permit for the roof on Maple Street. I replace roofs in this part of town and can look at it Thursday. Reply here and I will send times." That is honest and easy to answer.',
-        'Be careful with calls. The FTC says in its [Do Not Call Q&A](https://www.ftc.gov/business-guidance/resources/qa-telemarketers-sellers-about-dnc-provisions-tsr-0) that it is against the law to call numbers on the National Do Not Call Registry unless an established business relationship or written agreement exists. An inquiry creates a relationship for three months, and a purchase for 18. A permit is neither. A letter or a visit is usually the safer first touch. Check your local rules for door-to-door work. This is general information, not legal advice.',
-      ],
-    },
-    {
-      heading: 'What are the limits of permit data?',
-      paragraphs: [
-        'Permits miss a lot. Plenty of small jobs never need one, and some owners skip the process. You will only see work that was filed.',
-        'Coverage depends on where you work. A big city may publish daily while the next county over publishes nothing. Descriptions are short and sometimes use codes. A permit can also be withdrawn or never picked up.',
-        'Treat each record as a lead to check, not a fact about demand. Read the source row before you write to anyone.',
-        'Keep your own note of what you sent and when. After a month that list tells you which kinds of permits turned into paid work for your shop and which ones only filled your inbox, and that is worth more than any rule of thumb in a guide.',
+        'Work done without a permit. Plenty of small repairs never need one, and some owners skip the process, so a quiet permit table does not mean a quiet street.',
+        'Coverage is uneven. A big city may publish every weekday while the county next door publishes nothing, and descriptions can be short or full of codes. A permit can also be withdrawn after it posts.',
+        'National numbers will not fill the gap. The Census Bureau\'s [Building Permits Survey](https://www.census.gov/econ/overview/co0200.html) reports the number and value of new privately owned housing units authorized by permits. Its monthly and annual figures go back to 1959 and come from individual permit offices. It counts new homes only, so it says nothing about a reroof or a fence in your ZIP code.',
       ],
     },
   ],
   howHolerHelps:
-    'Holler reads new permits from the cities that publish them, matches each one to the trades it fits and sends a short alert that links to the source record. Chicago, New York City, Austin and San Francisco are connected, along with some other places. Most towns are not yet. [Check your area](/check) first to see what it would watch near your ZIP code.',
+    'Holler reads new permits from the cities that publish them, including Chicago, New York City, Austin and San Francisco, and sends a short alert that links to the source record. Most towns are not connected yet, so [check your area](/check) to see what it would watch near your ZIP code before you pay for anything.',
   faq: [
     {
       q: 'Are building permits public records?',
-      a: 'In most places, yes. Cities and counties keep permit files open to the public, and many post them online as open data. What each record shows varies, and some cities hide personal names.',
-    },
-    {
-      q: 'Can I get building permit leads for free?',
-      a: 'Yes, if your city publishes an open permit table. You can sort it by date and type yourself. It takes time every day, which is the main cost.',
+      a: 'Many are, and many cities post issued permits online as open data. Chicago and Austin both do. What a record shows, such as whether owner names appear, depends on local rules, so check your own portal or permit office.',
     },
     {
       q: 'How old is too old for a permit lead?',
-      a: 'There is no fixed rule. Records from the last few days are worth a message. After a few weeks the owner has usually chosen someone, except on large projects that need many trades.',
+      a: 'There is no fixed rule. A record from the last few days is worth a note. Projects that need many trades run for months, so a new construction permit can still be worth a letter to the builder long after it posts.',
+    },
+    {
+      q: 'Can I get building permit leads for free?',
+      a: 'Yes, if your city publishes an open permit table. You can filter it by issue date and type of work yourself. The cost is your time each morning, plus the work of learning each city\'s column names.',
     },
   ],
   related: [

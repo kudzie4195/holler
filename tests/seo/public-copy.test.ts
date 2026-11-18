@@ -42,7 +42,9 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
   it('all keys: every one of them appears (the copy is gated, not deleted)', () => {
     const p = pages(ALL);
     const all = Object.values(p).join('\n').toLowerCase();
-    for (const w of KEY_GATED) expect(all, w).toContain(w.toLowerCase());
+    // The home page dropped its events and people-asking cards, so "concert" and "festival" are no longer said anywhere; the event
+    // key still shows as Ticketmaster.
+    for (const w of KEY_GATED.filter((x) => x !== 'concert' && x !== 'festival')) expect(all, w).toContain(w.toLowerCase());
     expect(p.home.toLowerCase()).toContain('bluesky');
     expect(p.about).toContain('SAM.gov');
     expect(p.llms).toContain('Ticketmaster');
@@ -56,7 +58,8 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(allText(aboutCopy(setOf('BLUESKY_HANDLE')))).not.toContain('Bluesky');
     expect(allText(homeCopy(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).toContain('Bluesky');
     expect(allText(homeCopy(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).not.toContain('licensed search');
-    expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY')))).toContain('festivals');
+    // The home page no longer has an events tile; the event key still shows in the data-source answer.
+    expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY')))).toContain('Ticketmaster');
     expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY'))).toLowerCase()).not.toContain('asking');
     expect(sourceActive('sam', NONE)).toBe(false);
     expect(sourceActive('sam', setOf('SAM_API_KEY'))).toBe(true);
@@ -68,14 +71,22 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(homeCopy(NONE).examples[0].source).toBe('NOAA Storm Prediction Center');
   });
 
-  it('keeps the page structure: same headings, steps, comparison rows and FAQ questions in both states, fewer list items without keys', () => {
+  it('keeps the page structure: same steps, tiles and FAQ questions in both states; the tiles name keyless sources only', () => {
     const n = homeCopy(NONE);
     const a = homeCopy(ALL);
     expect(n.steps.map((s) => s.title)).toEqual(a.steps.map((s) => s.title));
-    expect(n.flatPrice.rows.map((r) => r.label)).toEqual(a.flatPrice.rows.map((r) => r.label));
     expect(n.faqs.map((f) => f.q)).toEqual(a.faqs.map((f) => f.q));
-    expect(n.who.map((w) => w.title)).toEqual(a.who.map((w) => w.title));
-    expect(n.sources.length).toBe(a.sources.length - 2);
+    expect(n.faqs.length).toBeLessThanOrEqual(4);
+    // "What Holler watches" is the same with or without keys: nothing in it needs an optional key.
+    expect(n.watches).toEqual(a.watches);
+    expect(n.watches).toHaveLength(8);
+    for (const w of n.watches) expect(w.label, w.label).not.toMatch(/event|concert|festival|asking|bluesky|sam\.gov|ticket/i);
+    // Each step: three to five word title, at most twelve words of body.
+    for (const s of n.steps) {
+      expect(s.title.split(/\s+/).length).toBeGreaterThanOrEqual(3);
+      expect(s.title.split(/\s+/).length).toBeLessThanOrEqual(5);
+      expect(s.body.split(/\s+/).length).toBeLessThanOrEqual(12);
+    }
     expect(aboutCopy(NONE).sources.length).toBe(aboutCopy(ALL).sources.length - 4);
   });
 
@@ -89,15 +100,17 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
   });
 
   it('the cadence sentence names the six-hour posts only when people-asking is on', () => {
-    expect(allText(homeCopy(NONE).faqs)).not.toContain('six hours');
-    expect(allText(homeCopy(ALL).faqs)).toContain('every six hours');
+    // The cadence moved off the home page (it is on /about); the gating rule is unchanged.
+    expect(allText(homeCopy(NONE))).not.toContain('six hours');
+    expect(aboutCopy(NONE).cadence).not.toContain('six hours');
+    expect(aboutCopy(ALL).cadence).toContain('every six hours');
     expect(aboutCopy(NONE).cadence).toContain('every 30 minutes');
   });
 
   it('no draft reply promise on the home page or /about without a people-asking key; with a key it is still there', () => {
     for (const text of [allText(homeCopy(NONE)), allText(aboutCopy(NONE)), llmsText(llmsInput, NONE)]) expect(text.toLowerCase()).not.toContain('draft');
-    expect(allText(homeCopy(NONE).steps)).toContain('reply to a resident request through Holler');
-    expect(allText(homeCopy(ALL).steps)).toContain('draft reply');
+    // The steps promise no draft in either state; with a people-asking key the FAQ still explains it.
+    expect(allText(homeCopy(ALL).steps).toLowerCase()).not.toContain('draft');
     expect(allText(homeCopy(ALL).faqs)).toContain('draft reply');
     expect(allText(aboutCopy(ALL))).toContain('draft reply');
   });
@@ -106,10 +119,11 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     for (const has of [NONE, ALL]) {
       const t = allText(homeCopy(has));
       expect(t).not.toMatch(/\$199|upvote|Reddit|SaaS|bought accounts|Other tools|typical/i);
-      expect(homeCopy(has).flatPrice.heading).toBe('One flat price, no bill per lead');
-      expect(t).toContain('No per-lead fees');
-      expect(t).toContain('Starter is $5 a month and Pro is $9.99 a month');
-      expect(t).toContain('Any time, from Settings');
+      // Prices are said once in the hero line and once in the plan cards (both built from lib/stripe/plans.ts), not in the copy.
+      expect('flatPrice' in homeCopy(has)).toBe(false);
+      const visible = allText({ ...homeCopy(has), metaDescription: '' });
+      expect(visible).not.toMatch(/\$\d/);
+      expect(homeCopy(has).metaDescription).toContain('$5 a month');
     }
   });
 

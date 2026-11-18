@@ -1,5 +1,4 @@
 import { hasEnv, type EnvKey } from '@/lib/env';
-import { CADENCE_SHORT } from './cadence';
 import { signalTypeActive, sourceActive } from './signal-types';
 
 /**
@@ -41,10 +40,6 @@ export function joinList(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 /** The ways people-asking posts reach us, for the keys that are set. Empty when none are. */
 function askChannels(f: Flags): string[] {
   return [...(f.search ? ['licensed search APIs'] : []), ...(f.bluesky ? ['Bluesky search'] : [])];
@@ -76,17 +71,31 @@ export interface ExampleAlert {
   actions: string[];
 }
 
+/** Icon names the home page maps to components/icons. Kept as strings so this file stays free of React. */
+export type HomeIcon =
+  | 'pin'
+  | 'bell'
+  | 'envelope'
+  | 'storm'
+  | 'hail'
+  | 'flood'
+  | 'plane'
+  | 'hardhat'
+  | 'megaphone'
+  | 'clipboard'
+  | 'contract';
+
 export interface HomeCopy {
   metaDescription: string;
+  /** One sentence under the h1. */
   heroLead: string;
-  steps: { title: string; body: string }[];
-  sourcesHeading: string;
-  sourcesIntro: string;
-  sources: { name: string; note: string }[];
-  sourcesNote: string;
-  who: { title: string; body: string }[];
-  /** Holler's own pricing model, stated plainly. No other product is named or implied. */
-  flatPrice: { heading: string; intro: string; rows: { label: string; body: string }[] };
+  /** Three steps: a three-to-five word title and at most twelve words of body each. */
+  steps: { icon: HomeIcon; title: string; body: string }[];
+  /** "What Holler watches": eight tiles, keyless sources only, two or three words each. */
+  watches: { icon: HomeIcon; label: string }[];
+  /** The one honest caveat under the tiles. */
+  watchNote: string;
+  /** At most four. The page renders exactly these and its FAQPage JSON-LD uses the same list. */
   faqs: { q: string; a: string }[];
   /** The first example is always a type that needs no key. The 'ask' example is added only when people-asking is on. */
   examples: ExampleAlert[];
@@ -94,39 +103,12 @@ export interface HomeCopy {
 
 export function homeCopy(has: Has = hasEnv): HomeCopy {
   const f = flagsFor(has);
-  const watched = ['storms', 'permits', '311 reports', ...(f.event ? ['events'] : []), ...(f.ask ? ['neighbors asking for help'] : ['federal contracts'])];
-  const stepWatch = ['storm reports', 'permits', '311 requests', ...(f.event ? ['events'] : []), ...(f.ask ? ['people asking for help'] : ['federal contracts'])];
 
-  const sources: HomeCopy['sources'] = [
-    { name: 'Weather alerts', note: 'Warnings and watches from the National Weather Service.' },
-    { name: 'Hail and wind reports', note: 'Local storm reports from NOAA Storm Prediction Center.' },
-    { name: 'Disasters', note: 'FEMA declarations and USGS earthquake reports.' },
-    { name: 'Building permits', note: 'New permits, where your city publishes them.' },
-    { name: '311 requests', note: 'Complaints and service requests from city open data.' },
-    { name: 'Health inspections', note: 'Failed inspections, where the health department publishes them.' },
-    { name: 'Federal contracts', note: `New awards${f.sam ? ' and bids' : ''} on USAspending.gov${f.sam ? ' and SAM.gov' : ''}.` },
-    ...(f.event ? [{ name: 'Events', note: 'Big concerts, games and festivals from public listings.' }] : []),
-    { name: 'Airport delays', note: 'Ground stops and delays at 40 major airports, from the FAA.' },
-    ...(f.ask
-      ? [{ name: 'People asking online', note: `Public posts like "anyone recommend a roofer?" found through ${joinList(askChannels(f))}.` }]
-      : []),
-  ];
-
-  const dataList = [
-    'the National Weather Service',
-    'NOAA',
-    'FEMA',
-    'USGS',
-    'the FAA',
-    'city open data portals',
-    'USAspending.gov',
-    ...(f.sam ? ['SAM.gov'] : []),
-    ...(f.event ? ['the Ticketmaster Discovery API'] : []),
-  ];
+  const extra = [...(f.sam ? ['SAM.gov'] : []), ...(f.event ? ['the Ticketmaster Discovery API'] : [])];
   const dataAnswer =
-    `Official APIs and open data: ${joinList(dataList)}.` +
-    (f.ask ? ` People asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.` : '') +
-    ' We do not scrape sites that forbid it.';
+    'Public agencies and city open-data portals.' +
+    (extra.length ? ` Also ${joinList(extra)}.` : '') +
+    (f.ask ? ` People asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.` : '');
 
   const examples: ExampleAlert[] = [
     {
@@ -135,7 +117,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
       time: '4:12 pm',
       distance: '6 mi away',
       title: 'Quarter-size hail reported near Marietta, GA',
-      body: 'Roofers, auto glass shops and tree crews nearby tend to get calls after a storm like this.',
+      body: 'Roof and glass crews nearby tend to get calls.',
       actions: ['Open source', 'Save', 'Dismiss'],
     },
     ...(f.ask
@@ -155,66 +137,32 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
 
   return {
     metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from $5 a month after a 7-day free trial. No card to start.`,
-    heroLead: `Holler watches ${joinList(watched)}, and when something nearby fits what you do, you get a short alert.`,
+    heroLead: 'A short alert when a storm, permit or 311 request near you fits your work.',
     steps: [
-      {
-        title: 'Tell us what you do and where',
-        body: 'Your business name, up to five trades, a ZIP code and how far you will drive. One screen, about a minute.',
-      },
-      { title: 'We watch the public record', body: `${cap(joinList(stepWatch))}. ${CADENCE_SHORT}` },
-      {
-        title: 'You get a short alert',
-        body: `An email and a feed. Open the source, save it, or reply to a resident request through Holler.${f.ask ? ' For public posts, you can also ask for a draft reply that you edit and post yourself.' : ''}`,
-      },
+      { icon: 'pin', title: 'Tell us your trade', body: 'Trades, ZIP code and how far you drive.' },
+      { icon: 'bell', title: 'We read public records', body: 'Weather, permits and 311, checked through the day.' },
+      { icon: 'envelope', title: 'You get a short alert', body: 'By email, with a link to the source.' },
     ],
-    sourcesHeading: 'Public signals, one feed',
-    sourcesIntro:
-      'Everything comes from public sources, and each alert links to the page or dataset it came from so you can check it yourself.',
-    sources,
-    sourcesNote:
-      'Not every city publishes every dataset, and Holler has connected only some of them, so you only get alerts from what is public where you work and what we have wired up so far.',
-    who: [
-      { title: 'Roofers and glass shops', body: 'Hail and wind reports, the same afternoon they land.' },
-      {
-        title: 'Food trucks and caterers',
-        body: f.event ? 'Big events and festivals coming to your side of town.' : 'City event permits, in the cities that publish them.',
-      },
-      {
-        title: 'Drivers and movers',
-        body: f.event ? 'Airport delays and event crowds, before the rush starts.' : 'Airport delays and new building permits, before the rush starts.',
-      },
+    watches: [
+      { icon: 'storm', label: 'Weather alerts' },
+      { icon: 'hail', label: 'Hail and wind' },
+      { icon: 'flood', label: 'Disasters and quakes' },
+      { icon: 'plane', label: 'Airport delays' },
+      { icon: 'hardhat', label: 'Building permits' },
+      { icon: 'megaphone', label: '311 requests' },
+      { icon: 'clipboard', label: 'Inspections' },
+      { icon: 'contract', label: 'Federal contracts' },
     ],
-    flatPrice: {
-      heading: 'One flat price, no bill per lead',
-      intro: 'Starter is $5 a month and Pro is $9.99 a month. Neither plan charges you for an alert, a record or a reply.',
-      rows: [
-        { label: 'Price', body: 'Starter is $5 a month and Pro is $9.99 a month. Paying yearly costs less.' },
-        { label: 'Per lead', body: 'No per-lead fees. A busy week costs the same as a quiet one.' },
-        { label: 'Trial', body: 'Seven days free, on Starter limits, with no card.' },
-        { label: 'Cancel', body: 'Any time, from Settings.' },
-      ],
-    },
+    watchNote: 'Coverage depends on what each city publishes.',
     faqs: [
       {
         q: 'Do you post for me?',
-        a: `No. Holler never posts or messages anyone unless you write the reply and press send, and it never touches your social accounts.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
+        a: `No. Holler never posts or messages anyone unless you write the reply and press send.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
       },
       { q: 'Where does the data come from?', a: dataAnswer },
       {
-        q: 'Do I need a card to try it?',
-        a: 'No. You get 7 days free with no card. After that, Starter is $5 a month or $48 a year, and Pro is $9.99 a month or $96 a year. If you do not subscribe, your feed locks and your account stays put until you decide.',
-      },
-      {
-        q: 'How fast are the alerts?',
-        a: `${cadenceFor(f)} Some cities publish permits a day or more after they are issued. Emails go out at most once an hour. You get a digest, not a flood.`,
-      },
-      {
         q: 'Does it work in my town?',
-        a: 'Weather alerts, disasters and federal contracts cover the whole US, and airport status covers 40 major airports. Permits, 311 and inspections come from the cities Holler has connected so far, such as Chicago, New York and Austin. Your city page under City pages shows what is flowing there, and the free check at the top of this page shows what Holler would watch around your ZIP code before you sign up for anything.',
-      },
-      {
-        q: 'Can I cancel?',
-        a: 'Any time, from Settings. You can also delete your account there, which removes your profile and your matches.',
+        a: 'Weather covers the whole US. Permits and 311 come from connected cities, like Chicago.',
       },
     ],
     examples,
