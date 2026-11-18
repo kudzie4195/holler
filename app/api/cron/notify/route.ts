@@ -34,6 +34,7 @@ interface SignalRow {
   city: string | null;
   state: string | null;
   occurred_at: string;
+  subtype?: string | null;
 }
 interface MatchRow {
   id: number;
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at)')
+      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, subtype:data->>subtype)')
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -152,6 +153,8 @@ export async function GET(req: Request) {
       });
       const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
+        source: s.source ?? null,
+        subtype: s.subtype ?? null,
         title: s.title,
         place: [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,

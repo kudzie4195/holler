@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { BillingButton } from '@/components/billing-button';
 import { Card } from '@/components/card';
 import { ComingNextForMember } from '@/components/coming-next-member';
+import { RecentActivity } from '@/components/feed/recent-activity';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
@@ -15,6 +17,8 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestTextForMember } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
+import { loadFeedback } from '@/lib/feedback/service';
+import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 
@@ -31,6 +35,8 @@ interface SignalRow {
   zip: string | null;
   occurred_at: string;
   expires_at: string | null;
+  /** data->>subtype of the record, for the intent label. */
+  subtype?: string | null;
 }
 
 interface MatchRow {
@@ -50,7 +56,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at)',
+      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,subtype:data->>subtype)',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -100,6 +106,12 @@ async function loadDashboard() {
       }
     }
   }
+  // The member's own feedback answers (RLS: own rows only). A missing table or any failure just means no answers are shown.
+  let feedbackBySignal = new Map<number, FeedbackState>();
+  if (!access.locked && rows.length > 0) {
+    const ids = rows.map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow).map((s) => s.id);
+    feedbackBySignal = await loadFeedback(supabase, user.id, ids);
+  }
   const items: FeedItem[] = rows.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
@@ -120,6 +132,9 @@ async function loadDashboard() {
       state: s.state,
       county: s.county,
       zip: s.zip,
+      subtype: s.subtype ?? null,
+      signalId: s.id,
+      feedback: feedbackBySignal.get(s.id) ?? null,
     };
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
@@ -166,6 +181,14 @@ export default async function AppHome(props: PageProps<'/app'>) {
         <TrialBanner access={access} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
+
+      {items.length === 0 && !access.locked ? (
+        <div className="mt-6">
+          <Suspense fallback={null}>
+            <RecentActivity userId={profile.user_id} />
+          </Suspense>
+        </div>
+      ) : null}
 
       <div className="mt-6">
         {access.locked ? (

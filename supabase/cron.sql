@@ -1,12 +1,12 @@
 -- Holler scheduling with pg_cron + pg_net. NOT a migration: do not put this in supabase/migrations.
 -- Run it by hand in the Supabase SQL editor AFTER the site is deployed and migrations 0001 to 0003 are applied.
 --
--- Why this exists: it does not depend on the Vercel plan. Supabase calls the three Holler cron routes over HTTPS.
+-- Why this exists: it does not depend on the Vercel plan. Supabase calls the four Holler cron routes over HTTPS.
 -- Replace the two placeholders in STEP 1 only (<SITE> and <CRON_SECRET>). They are the only values in this file;
 -- never commit real ones.
 --
 -- Shared project note: pg_cron and pg_net may already be enabled for another product. Check
--- Dashboard > Database > Extensions and enable them there if they are off. Holler only adds three jobs, all named holler-*,
+-- Dashboard > Database > Extensions and enable them there if they are off. Holler only adds four jobs, all named holler-*,
 -- and never touches other jobs.
 --
 -- Sources (checked against the docs when this was written):
@@ -47,10 +47,10 @@ $$;
 -- ---------------------------------------------------------------------------
 select cron.unschedule(jobname)
 from cron.job
-where jobname in ('holler-scan', 'holler-notify', 'holler-health');
+where jobname in ('holler-scan', 'holler-notify', 'holler-health', 'holler-dataforseo');
 
 -- ---------------------------------------------------------------------------
--- STEP 3. The three jobs. Each one is an HTTP GET with the header  Authorization: Bearer <CRON_SECRET>
+-- STEP 3. The four jobs. Each one is an HTTP GET with the header  Authorization: Bearer <CRON_SECRET>
 -- to https://<SITE>/api/cron/<name>. Each fires and forgets; the response lands in net._http_response (kept for about 6 hours).
 -- ---------------------------------------------------------------------------
 
@@ -101,10 +101,27 @@ select cron.schedule(
   $job$
 );
 
+-- holler-dataforseo: 03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 3rd of each month. Monthly keyword volume and AI mention check.
+-- One run cannot finish all 40 batches inside 60 s, so it fires four times a day for three days; a run with nothing left to do spends nothing.
+-- Needs DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD on Vercel (without them the route answers not_configured and spends nothing).
+select cron.schedule(
+  'holler-dataforseo',
+  '23 3,9,15,21 1-3 * *',
+  $job$
+  select net.http_get(
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'holler_site_url') || '/api/cron/dataforseo',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'holler_cron_secret')
+    ),
+    timeout_milliseconds := 58000
+  );
+  $job$
+);
+
 -- ---------------------------------------------------------------------------
 -- CHECK that it is working (run these separately, a few minutes after STEP 3).
 -- ---------------------------------------------------------------------------
--- The three jobs exist:
+-- The four jobs exist:
 --   select jobid, jobname, schedule, active from cron.job where jobname like 'holler-%' order by jobname;
 -- Did they fire, and did Postgres succeed in handing the request to pg_net:
 --   select jobname, status, return_message, start_time
@@ -119,5 +136,6 @@ select cron.schedule(
 --   select cron.unschedule('holler-scan');
 --   select cron.unschedule('holler-notify');
 --   select cron.unschedule('holler-health');
+--   select cron.unschedule('holler-dataforseo');
 -- Optionally remove the secrets too:
 --   delete from vault.secrets where name in ('holler_site_url', 'holler_cron_secret');

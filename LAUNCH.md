@@ -20,6 +20,12 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 3. Run 0007.
 4. Run the two check queries and expire the page cache.
 
+**Round 6 order**
+
+1. Run 0009, 0010, 0011 and 0012, in that order (any time, before or after the deploy; 0012 needs 0009 first, the others are safe to run first). If 0009 is already applied, run only the ones you have not run.
+2. Deploy the code.
+3. Add the DataForSEO cron job (step 7: run `supabase/cron.sql` again, or add the `holler-dataforseo` job on its own).
+
 - [ ] Run `supabase/migrations/0001_holler.sql`
 - [ ] Run `supabase/migrations/0002_holler_hardening.sql`
 - [ ] Run `supabase/migrations/0003_holler_ops.sql`
@@ -28,13 +34,83 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 - [ ] Run `supabase/migrations/0006_holler_contacts.sql` (who to contact: `holler_signal_contacts`, service role only; safe to run before or after the code deploy). Contacts cannot be backfilled for records already stored: they appear from the first scan after the deploy.
 - [ ] Run `supabase/migrations/0007_holler_public_name_scrub.sql` (data fix: removes establishment names and street addresses from stored failed-inspection signals and the "Awarded to" recipient from stored federal contract summaries; run it right after the code deploy so new scans stop writing that text. It is safe to re-run at any time, also after scans have resumed. A re-run clears the summary of new inspection rows and shortens a new federal award title that has a trade label but no NAICS code to "federal award"; nothing personal is involved either way. Run it once after the deploy)
 - [ ] Run `supabase/migrations/0008_holler_feature_interest.sql` (the "Coming next" list: `holler_feature_interest`, service role only, no visitor identifier stored; safe to run before or after the code deploy, and the buttons show "Could not save that. Try again later." until it is applied)
+- [ ] Run `supabase/migrations/0009_holler_signal_feedback.sql` (member feedback on alerts: `holler_signal_feedback`; members read and write only their own rows for alerts they were sent, no delete, no anon; safe to run before or after the code deploy: until it is applied the feedback buttons show "That didn't save. Try again." and no saved answers appear). Rollback: `drop table if exists public.holler_signal_feedback; drop function if exists public.holler_profiles_delete_feedback() cascade;` (redeploy the previous code first, or the buttons show the soft error).
+- [ ] Run `supabase/migrations/0010_holler_source_health.sql` (one internal table, `holler_source_health`, service role only; safe to run twice and safe to run before or after the code deploy: until it is applied the health write and read fail quietly). Then open `<SITE>/api/admin/sources?key=<CRON_SECRET>` and expect JSON with a `sources` list (empty until the next scan tick).
+- [ ] Run `supabase/migrations/0011_holler_dataforseo.sql` (creates `holler_keyword_volume`, `holler_llm_mentions` and `holler_dataforseo_spend`, all service role only; safe to run twice and before or after the deploy).
+- [ ] Run `supabase/migrations/0012_holler_feedback_grants.sql` AFTER 0009 (follow-up to 0009, which is already applied and not edited: members may now write only `user_id`, `signal_id`, `verdict` and `job_value_usd`, so they cannot set `created_at` or `updated_at`; privileges only, safe to run twice, safe before or after the code deploy because the app writes only those four columns). Check: `select grantee, privilege_type, column_name from information_schema.column_privileges where table_name = 'holler_signal_feedback' and grantee = 'authenticated' and privilege_type in ('INSERT','UPDATE') order by 2, 3;` returns 8 rows (four columns for each) and no `created_at`. Rollback: `grant insert, update on table public.holler_signal_feedback to authenticated;`
 - [ ] Check right after running 0007, both must return 0: `select count(*) from holler_signals where right(source,12)='-inspections' and (summary is not null or title not like '%: food establishment');` and `select count(*) from holler_signals where source='usaspending' and summary like 'Awarded to %';`
 - [ ] After 0007, redeploy or expire the page cache: public pages are cached for up to 48 hours, so old names can stay visible until then.
+- [ ] Owner check after the feedback migration: run this report in the Supabase SQL editor (read only, last 30 days). Keep its intent mapping in step with `lib/signals/intent.ts` (`intentOf`).
+
+```sql
+-- Holler feedback report, last 30 days. Run in the Supabase SQL editor (service role / postgres). Read only.
+-- Intent mapping mirrors lib/signals/intent.ts intentOf (keep the two in step).
+-- alerts_sent counts match rows created in the window (one per member per alert in the feed). marked_notified is the subset with
+-- notified = true; the notify cron also sets it for members it skips, so it is an upper bound on emails, not an exact email count.
+-- Feedback is counted by when the member last answered (updated_at). A member's one answer per alert is counted once.
+with sig as (
+  select s.id, s.source,
+         case
+           when s.kind = 'ask' or s.source in ('holler-request', 'bluesky', 'websearch-brave', 'websearch-serper') then 'asking'
+           when s.data->>'subtype' in ('permit', 'business', 'event-permit') then 'spending'
+           when s.data->>'subtype' in ('311', 'violation', 'inspection') then 'demand'
+           when s.kind in ('permit', 'contract') then 'spending'
+           else 'demand'
+         end as intent
+  from public.holler_signals s
+  where s.id in (
+    select signal_id from public.holler_matches where created_at >= now() - interval '30 days'
+    union
+    select signal_id from public.holler_signal_feedback where updated_at >= now() - interval '30 days'
+  )
+),
+sent as (
+  select sig.source, sig.intent,
+         count(*) as alerts_sent,
+         count(*) filter (where m.notified) as marked_notified
+  from public.holler_matches m
+  join sig on sig.id = m.signal_id
+  where m.created_at >= now() - interval '30 days'
+  group by sig.source, sig.intent
+),
+fb as (
+  select sig.source, sig.intent,
+         count(*) filter (where f.verdict = 'useful') as useful,
+         count(*) filter (where f.verdict = 'not_relevant') as not_relevant,
+         count(*) filter (where f.verdict = 'led_to_work') as led_to_work,
+         count(*) filter (where f.verdict = 'led_to_work' and f.job_value_usd is not null) as led_to_work_with_value,
+         coalesce(sum(f.job_value_usd) filter (where f.verdict = 'led_to_work'), 0) as job_value_usd
+  from public.holler_signal_feedback f
+  join sig on sig.id = f.signal_id
+  where f.updated_at >= now() - interval '30 days'
+  group by sig.source, sig.intent
+)
+select source,
+       intent,
+       coalesce(sent.alerts_sent, 0) as alerts_sent,
+       coalesce(sent.marked_notified, 0) as marked_notified,
+       coalesce(fb.useful, 0) as useful,
+       coalesce(fb.not_relevant, 0) as not_relevant,
+       coalesce(fb.led_to_work, 0) as led_to_work,
+       coalesce(fb.led_to_work_with_value, 0) as led_to_work_with_value,
+       coalesce(fb.job_value_usd, 0) as job_value_usd
+from sent
+full join fb using (source, intent)
+order by intent, alerts_sent desc nulls last, source;
+
+-- Same numbers, one row per intent plus a total row.
+-- (paste the first query's CTEs above this select to run it on its own)
+--   select coalesce(intent, 'ALL') as intent, sum(alerts_sent) as alerts_sent, sum(useful) as useful, sum(not_relevant) as not_relevant,
+--          sum(led_to_work) as led_to_work, sum(job_value_usd) as job_value_usd
+--   from (<first query>) t group by rollup (intent) order by intent nulls last;
+```
+
+- [ ] Owner check for source health (read only): `select source, status, consecutive_failures, last_success_at, last_record_at, last_error from public.holler_source_health where status <> 'healthy' order by status, source;`
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
 - [ ] Check: `select plan, extra_areas, keywords from holler_profiles limit 1;` and `select count(*) from holler_requests;` both return without error.
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. 0001 to 0006 and 0008 are additive and safe to run again; 0007 is a data fix that is safe to re-run at any time (each statement only rewrites rows that still hold the old text). If you ever re-run one of the additive files, run 0001 to 0006 and 0008 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
+Every object is named `holler_*`. Nothing else in the shared project is touched. 0001 to 0006 and 0008 to 0012 are additive and safe to run again; 0007 is a data fix that is safe to re-run at any time (each statement only rewrites rows that still hold the old text). If you ever re-run one of the additive files, run 0001 to 0006 and 0008 to 0012 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 
@@ -68,6 +144,7 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `BRAVE_SEARCH_API_KEY` or `SERPER_API_KEY` (people asking for a recommendation)
 - [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`, both or neither (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day). With only one of the two, or neither, the Bluesky source is skipped. For each matched post Holler keeps the snippet, the link and the author's public handle.
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
+- [ ] `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (monthly search volume and AI mention check; both or neither: with either missing the job answers `not_configured` and spends nothing). Optional: `DATAFORSEO_MONTHLY_CAP_USD` (spend cap, default 30).
 - [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
 - [ ] `INDEXNOW_KEY` (tells Bing and other IndexNow search engines about new pages; set it in step 10, where it is explained)
 - [ ] Before you set any optional source key later (Bluesky, Serper or Brave, Ticketmaster, SAM.gov), update `app/privacy/page.tsx` first. The Privacy page today names only the keyless public sources. Bluesky in particular stores each post's author handle, and web search stores snippets of public posts, so the page must say so before those sources run.
@@ -107,9 +184,45 @@ The smoke test prints one row per source: `status`, `fetched`, `parsed`, `latest
 
 - [ ] Supabase Dashboard > Database > Extensions: `pg_cron` and `pg_net` are on.
 - [ ] Open `supabase/cron.sql`. In STEP 1 replace `<SITE>` and `<CRON_SECRET>` in the SQL editor only. Do not save the edited file into git.
-- [ ] Run the file. It stores both values in Vault and creates `holler-scan` (every 15 minutes), `holler-notify` (every 15 minutes, offset 7), `holler-health` (daily 13:00 UTC).
-- [ ] After 20 minutes run the CHECK queries at the bottom of the file: three jobs, `succeeded` in `cron.job_run_details`, status 200 in `net._http_response`.
+- [ ] Run the file. It stores both values in Vault and creates `holler-scan` (every 15 minutes), `holler-notify` (every 15 minutes, offset 7), `holler-health` (daily 13:00 UTC), `holler-dataforseo` (03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 3rd of each month; one run cannot finish all 40 batches inside 60 s, and a run with nothing left to do spends nothing).
+- [ ] After 20 minutes run the CHECK queries at the bottom of the file: four jobs, `succeeded` in `cron.job_run_details`, status 200 in `net._http_response`.
 - [ ] `select source, started_at, fetched, inserted, error from holler_scan_runs order by started_at desc limit 20;` shows real rows.
+- [ ] DataForSEO dry run, no spend: `curl -H "Authorization: Bearer <CRON_SECRET>" "<SITE>/api/cron/dataforseo?dry=1"` shows the month's spend, the stored keyword count and the expected plan cost (about 40 tasks, $3.00 for volume). Then run it once without `?dry=1`; `volume.status` stays `time_budget` until the month is fully stored (about 5 runs), then `complete`.
+- [ ] Storm pages, after deploy: run this page count query in the Supabase SQL editor (read only). Expect a small number in a quiet month. `/storms` stays noindex until 3 qualifying pages exist, which is correct. It mirrors the code (zone map, 3 report rule, the exact FEMA storm incident types, 60 day window) but skips the plain place name filter, so the app can show slightly fewer pages than the query, never more.
+
+```sql
+with zones(state, tz) as (values ('AL','America/Chicago'),('AK','America/Anchorage'),('AZ','America/Phoenix'),('AR','America/Chicago'),('CA','America/Los_Angeles'),('CO','America/Denver'),('CT','America/New_York'),('DE','America/New_York'),('DC','America/New_York'),('FL','America/New_York'),('GA','America/New_York'),('HI','Pacific/Honolulu'),('ID','America/Denver'),('IL','America/Chicago'),('IN','America/New_York'),('IA','America/Chicago'),('KS','America/Chicago'),('KY','America/New_York'),('LA','America/Chicago'),('ME','America/New_York'),('MD','America/New_York'),('MA','America/New_York'),('MI','America/New_York'),('MN','America/Chicago'),('MS','America/Chicago'),('MO','America/Chicago'),('MT','America/Denver'),('NE','America/Chicago'),('NV','America/Los_Angeles'),('NH','America/New_York'),('NJ','America/New_York'),('NM','America/Denver'),('NY','America/New_York'),('NC','America/New_York'),('ND','America/Chicago'),('OH','America/New_York'),('OK','America/Chicago'),('OR','America/Los_Angeles'),('PA','America/New_York'),('RI','America/New_York'),('SC','America/New_York'),('SD','America/Chicago'),('TN','America/Chicago'),('TX','America/Chicago'),('UT','America/Denver'),('VT','America/New_York'),('VA','America/New_York'),('WA','America/Los_Angeles'),('WV','America/New_York'),('WI','America/Chicago'),('WY','America/Denver')),
+spc as (
+  select s.state,
+         coalesce(nullif(trim(s.county), ''), nullif(trim(s.city), '')) as place,
+         (s.occurred_at at time zone z.tz)::date as local_date,
+         count(*) as n
+  from holler_signals s
+  join zones z on z.state = upper(trim(s.state))
+  where s.source = 'spc'
+    and s.data->>'type' in ('torn', 'hail', 'wind')
+    and s.occurred_at >= now() - interval '63 days'
+    and coalesce(nullif(trim(s.county), ''), nullif(trim(s.city), '')) is not null
+  group by 1, 2, 3
+),
+spc_pages as (
+  select * from spc
+  where n >= 3 and local_date >= (now() at time zone 'utc')::date - 60
+),
+fema_pages as (
+  select distinct upper(trim(state)) as state, (occurred_at at time zone 'utc')::date as d
+  from holler_signals
+  where source = 'fema'
+    and lower(trim(data->>'incidentType')) in ('severe storm','severe storm(s)','tornado','hurricane','flood','snowstorm','snow','severe ice storm','coastal storm','tropical storm','typhoon','winter storm','straight-line winds')
+    and (occurred_at at time zone 'utc')::date >= (now() at time zone 'utc')::date - 60
+)
+select (select count(*) from spc_pages) as county_or_city_pages,
+       (select count(*) from fema_pages) as fema_state_pages,
+       (select count(*) from spc_pages) + (select count(*) from fema_pages) as total_pages,
+       ((select count(*) from spc_pages) + (select count(*) from fema_pages)) >= 3 as storms_index_is_indexable;
+```
+
+- [ ] Open `<SITE>/sitemap.xml`: `/storms/...` URLs appear only when that count is above 0 (and `/storms` itself only at 3 or more), and `<SITE>/llms.txt` ends with the Storm reports line. Storm pages need no new env var, migration or cron: they read `holler_signals` and refresh every 30 minutes.
 - [ ] Trigger the health email once by hand and confirm it arrives at `ADMIN_EMAIL`: `curl -H "Authorization: Bearer <CRON_SECRET>" <SITE>/api/cron/health`. The JSON has `email.status`: `sent` is good. `skipped` means `RESEND_API_KEY` or `EMAIL_FROM` is missing. `no_recipient` means neither `ADMIN_EMAIL` nor `SUPPORT_EMAIL` is set. Right after launch it will list sources that have not run yet; that clears within a day. Sources skipped for a missing optional key are listed under "Not configured" and never make the subject say "need attention"; once every configured source has run cleanly the subject reads "Holler health: all sources OK".
 
 ## 8. Stripe
@@ -163,6 +276,7 @@ Pick the smallest one that fixes the problem.
   select cron.unschedule('holler-scan');
   select cron.unschedule('holler-notify');
   select cron.unschedule('holler-health');
+  select cron.unschedule('holler-dataforseo');
   ```
   Restart later by running `supabase/cron.sql` again.
 - Stop emails only: unschedule `holler-notify`, or remove `EMAIL_FROM` (email is skipped, nothing else changes) and redeploy.

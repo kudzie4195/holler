@@ -14,6 +14,7 @@ import {
   type SignalRowInput,
   type StoredSignal,
 } from './store';
+import { recordSourceHealth, type RunOutcome } from './health';
 import { normalizeState } from './adapters/usaspending';
 import { pingNewSignals, type PingNewSignalsInput, type PingOutcome } from '@/lib/seo/indexnow';
 import type { Adapter, Severity, SignalInput } from './types';
@@ -169,6 +170,8 @@ interface Fetched {
   result: SourceResult;
   signals: SignalInput[];
   startedAt: string;
+  /** Delivery outcome for the health table: the fetch result, flipped to failed when the rows could not be stored. Matching problems do not count against the source. */
+  health?: { ok: boolean; error: string | null };
 }
 
 async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
@@ -207,7 +210,7 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
     if (timer) clearTimeout(timer);
   }
   result.ms = Date.now() - t0;
-  return { adapter, result, signals, startedAt };
+  return { adapter, result, signals, startedAt, health: { ok: result.status !== 'error', error: result.error ?? null } };
 }
 
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
@@ -288,6 +291,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         } catch (e) {
           f.result.status = 'error';
           f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+          f.health = { ok: false, error: f.result.error };
         }
       }
     }
@@ -344,6 +348,25 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           report.error = `${report.error ? report.error + '; ' : ''}${msg}`;
         }
       }
+    }
+
+    // Per-source health. Never throws and never changes the scan result: a failed health write is only noted in the logs.
+    // Sources the deadline skipped are left alone (they are not logged either and are due again next tick).
+    try {
+      const outcomes: RunOutcome[] = fetched
+        .filter((f) => !skippedForTime.has(f) && f.health)
+        .map((f) => ({
+          source: f.adapter.id,
+          ok: f.health!.ok,
+          error: f.health!.error,
+          rowsSeen: f.result.parsed,
+          rowsNew: f.result.inserted,
+          latestRecordAt: f.result.latestOccurredAt ?? null,
+        }));
+      const healthError = await recordSourceHealth(db, outcomes, now);
+      if (healthError) console.warn(healthError);
+    } catch (e) {
+      console.warn('source_health skipped', e instanceof Error ? e.message : 'error');
     }
 
     // One IndexNow ping per run for the city pages and the current weekly page that got new rows. It never throws, gives up after 5 s,

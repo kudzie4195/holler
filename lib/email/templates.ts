@@ -2,9 +2,13 @@ import { relativeTime } from '../time';
 import { CADENCE_SHORT } from '../seo/cadence';
 import { env } from '../env';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
+import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
 
 export interface DigestItem {
   kind: string;
+  /** Source id and data.subtype of the record. Used for the intent label; without them the label comes from the kind alone. */
+  source?: string | null;
+  subtype?: string | null;
   title: string;
   place?: string | null;
   occurredAt: string;
@@ -126,11 +130,14 @@ export function renderDigest(opts: {
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
+      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
+      const intent = intentOf(sig);
+      const intentHtml = `<div style="font-size:13px;margin:2px 0;color:#5C574F"><strong style="color:#191714">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${detail}${contact}${
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="color:#AD4205;font-size:14px">Open source</a>` : ''
       }</li>`;
     })
@@ -153,7 +160,9 @@ export function renderDigest(opts: {
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
-      return `${meta}\n${noDash(it.title)}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
+      const intent = intentOf(sig);
+      return `${meta}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =

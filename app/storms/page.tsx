@@ -1,0 +1,134 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { JsonLd } from '@/app/local/_components/jsonld';
+import { Card, Crumbs, H1, H2, Page, PrimaryLink, PublicRecordsNote, linkClass } from '@/app/local/_components/ui';
+import { absoluteUrl } from '@/lib/seo/canonical';
+import { breadcrumbLd } from '@/lib/seo/jsonld';
+import { countList } from '@/lib/storms/copy';
+import { loadStormIndex, qualifyingReports } from '@/lib/storms/data';
+import { reportPath } from '@/lib/storms/report';
+import { MIN_INDEX_REPORTS } from '@/lib/storms/threshold';
+
+const TITLE = 'Recent storm reports by county | Holler';
+const DESCRIPTION_LIVE =
+  'Counties with at least 3 hail, wind or tornado reports in one day, plus FEMA storm declarations, from the last 60 days. Each page links to its official source records.';
+const DESCRIPTION_EMPTY =
+  'Counties appear here when the NOAA Storm Prediction Center logs at least 3 hail, wind or tornado reports in one day, or when FEMA declares a storm disaster. None qualify right now.';
+const LIST_CAP = 150;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await loadStormIndex();
+  const live = qualifyingReports(data).length >= MIN_INDEX_REPORTS;
+  const description = live ? DESCRIPTION_LIVE : DESCRIPTION_EMPTY;
+  return {
+    title: { absolute: TITLE },
+    description,
+    alternates: { canonical: absoluteUrl('/storms') },
+    robots: live ? { index: true, follow: true } : { index: false, follow: true },
+    openGraph: { title: TITLE, description, url: absoluteUrl('/storms'), siteName: 'Holler', type: 'website' },
+    twitter: { card: 'summary', title: TITLE, description },
+  };
+}
+
+export default async function StormsIndexPage() {
+  const data = await loadStormIndex();
+  const reports = qualifyingReports(data);
+  const live = reports.length >= MIN_INDEX_REPORTS;
+  const shown = reports.slice(0, LIST_CAP);
+  const times = reports.map((r) => (r.modifiedAt ? Date.parse(r.modifiedAt) : NaN)).filter(Number.isFinite);
+  const ld: Record<string, unknown>[] = [
+    breadcrumbLd([
+      { name: 'Home', path: '/' },
+      { name: 'Storm reports', path: '/storms' },
+    ]),
+  ];
+  if (live) {
+    ld.push({
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Recent storm reports by county',
+      url: absoluteUrl('/storms'),
+      ...(times.length ? { dateModified: new Date(Math.max(...times)).toISOString() } : {}),
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: shown.length,
+        itemListElement: shown.map((r, i) => ({ '@type': 'ListItem', position: i + 1, name: `${r.place} on ${r.dateLabel}`, url: absoluteUrl(reportPath(r)) })),
+      },
+    });
+  }
+
+  return (
+    <Page>
+      <JsonLd data={ld} />
+      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Storm reports' }]} />
+      <H1>Recent storm reports by county</H1>
+      <p className="mt-4 max-w-2xl text-lg text-muted">
+        A county is listed when the NOAA Storm Prediction Center logs at least 3 hail, wind or tornado reports there on one day, or when
+        FEMA declares a storm disaster for a state. The list covers the last 60 days, newest first.
+      </p>
+
+      {!data.ok ? (
+        <div className="mt-8">
+          <Card>
+            <H2 id="empty">Storm reports are not loading</H2>
+            <p className="mt-2 text-muted">Holler could not read its records just now. Try again in a few minutes.</p>
+          </Card>
+        </div>
+      ) : !live ? (
+        <div className="mt-8">
+          <Card>
+            <H2 id="empty">No county has enough reports right now</H2>
+            <p className="mt-2 text-muted">
+              {reports.length === 0
+                ? 'No county or FEMA declaration meets the bar in the last 60 days.'
+                : `Only ${reports.length} ${reports.length === 1 ? 'place meets' : 'places meet'} the bar in the last 60 days, so Holler is not listing a page for it in search yet.`}{' '}
+              This list fills in when a storm day produces enough reports.
+            </p>
+            {reports.length > 0 ? (
+              <ul className="mt-4">
+                {shown.map((r) => (
+                  <li key={`${r.state}-${r.slug}`} className="border-t border-line">
+                    <Link href={reportPath(r)} className={`${linkClass} inline-flex min-h-11 items-center`}>
+                      {r.place} on {r.dateLabel}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </Card>
+        </div>
+      ) : (
+        <>
+          <ul className="mt-8 flex flex-col">
+            {shown.map((r) => (
+              <li key={`${r.state}-${r.slug}`} className="border-t border-line py-3">
+                <Link href={reportPath(r)} className={`${linkClass} inline-flex min-h-11 items-center text-lg font-medium`}>
+                  {r.place}
+                </Link>
+                <p className="text-sm text-muted">
+                  {r.dateLabel}
+                  {r.kind === 'state' ? ', FEMA storm declaration' : `, ${r.spcTotal} storm reports (${countList(r)})`}
+                </p>
+              </li>
+            ))}
+          </ul>
+          {reports.length > shown.length ? <p className="mt-3 text-sm text-muted">Showing the newest {shown.length} of {reports.length}.</p> : null}
+        </>
+      )}
+
+      <div className="mt-10 rounded-xl border border-line bg-surface p-6 text-center">
+        <p className="text-2xl font-semibold tracking-[-0.02em]">Know first when a storm hits near you.</p>
+        <p className="mt-2 text-muted">Holler alerts roofers, tree services and other local trades when storm reports come in near them.</p>
+        <div className="mt-4">
+          <PrimaryLink href="/signup">Get alerts from $5/mo, first 7 days free</PrimaryLink>
+        </div>
+      </div>
+      <p className="mt-6 text-sm text-muted">
+        Sources:{' '}
+        <a href="https://www.spc.noaa.gov/climo/reports/" target="_blank" rel="noopener" className={linkClass}>NOAA Storm Prediction Center storm reports</a>,{' '}
+        <a href="https://www.fema.gov/disaster/declarations" target="_blank" rel="noopener" className={linkClass}>FEMA disaster declarations</a>.
+      </p>
+      <PublicRecordsNote />
+    </Page>
+  );
+}

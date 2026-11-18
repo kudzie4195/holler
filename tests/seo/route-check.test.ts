@@ -36,6 +36,33 @@ describe('404 decision for public SEO paths', () => {
   });
 });
 
+describe('storm pages /storms/<state>/<slug>', () => {
+  it('passes the index, a known state with a well-formed slug, and the FEMA and city forms', () => {
+    expect(decidePublicRoute('/storms')).toBe('ok');
+    expect(decidePublicRoute('/storms/georgia/cobb-county-2026-11-14')).toBe('ok');
+    expect(decidePublicRoute('/storms/georgia/georgia-fema-2026-10-27')).toBe('ok');
+    expect(decidePublicRoute('/storms/georgia/city-of-marietta-2026-11-14')).toBe('ok');
+    expect(decidePublicRoute('/storms/georgia/city-of-nowhere-2026-01-01')).toBe('ok'); // right shape, no records: the page decides
+  });
+  it('404s an unknown state, a bad slug shape, an impossible date and extra segments', () => {
+    for (const p of [
+      '/storms/nowhere/cobb-county-2026-11-14',
+      '/storms/ga/cobb-county-2026-11-14',
+      '/storms/georgia',
+      '/storms/georgia/nonsense',
+      '/storms/georgia/cobb-county',
+      '/storms/georgia/cobb-county-2026-13-45',
+      '/storms/georgia/cobb-county-2026-02-30',
+      '/storms/georgia/Cobb-County-2026-11-14',
+      '/storms/georgia/placeholder',
+      '/storms/georgia/-2026-11-14',
+      '/storms/georgia/cobb-county-2026-11-14/extra',
+      `/storms/georgia/${'x'.repeat(130)}-2026-11-14`,
+      '/storms/%E0%A4%A/x-2026-11-14',
+    ]) expect(decidePublicRoute(p), p).toBe('not-found');
+  });
+});
+
 describe('weekly pages /local/<state>/<city>/week/<date>', () => {
   // Tuesday 2026-11-17. Mondays: 2026-11-16 (this week), 2026-08-31 (11 weeks ago), 2026-08-24 (12 weeks ago), 2026-11-23 (next).
   const NOW = Date.parse('2026-11-17T12:00:00Z');
@@ -100,5 +127,28 @@ describe('guide pages /guides/<slug>', () => {
     expect(src).toContain("'/guides/:path+'");
     expect(src).toContain("pathname.startsWith('/guides/')");
     expect(decidePublicRoute('/guidesx')).toBe('skip');
+  });
+});
+
+describe('proxy.ts storm paths (review P1-2)', () => {
+  it('matcher lists /storms paths and bad shapes get a real 404 rewrite while good shapes pass', async () => {
+    const { vi } = await import('vitest');
+    vi.doMock('@/lib/supabase/proxy', () => ({ updateSession: async () => new Response('session') }));
+    const { NextRequest } = await import('next/server');
+    const mod = await import('../../proxy');
+    expect(mod.config.matcher).toEqual(expect.arrayContaining(['/storms', '/storms/:path*']));
+    const run = async (p: string) => mod.proxy(new NextRequest(`https://localholler.com${p}`));
+    for (const p of ['/storms/nowhere/cobb-county-2026-11-14', '/storms/georgia/nonsense', '/storms/georgia/cobb-county-2026-13-45']) {
+      const res = await run(p);
+      expect(res.status, p).toBe(404);
+      expect(res.headers.get('x-middleware-rewrite'), p).toContain('/_holler-not-found');
+      expect(res.headers.get('x-robots-tag')).toBe('noindex');
+    }
+    for (const p of ['/storms', '/storms/georgia/cobb-county-2026-11-14', '/storms/georgia/city-of-nowhere-2026-01-01']) {
+      const res = await run(p);
+      expect(res.status, p).toBe(200);
+      expect(res.headers.get('x-middleware-rewrite'), p).toBeNull();
+    }
+    vi.doUnmock('@/lib/supabase/proxy');
   });
 });

@@ -40,15 +40,16 @@ describe('.env.example', () => {
 describe('supabase/cron.sql', () => {
   const sql = read('supabase/cron.sql');
   const code = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
-  it('schedules the three named jobs with the right cadence', () => {
+  it('schedules the four named jobs with the right cadence', () => {
     expect(code).toMatch(/cron\.schedule\(\s*'holler-scan',\s*'\*\/15 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-notify',\s*'7,22,37,52 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-health',\s*'0 13 \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-dataforseo',\s*'23 3,9,15,21 1-3 \* \*'/);
   });
   it('calls net.http_get on /api/cron/<name> with an Authorization Bearer header', () => {
-    for (const n of ['scan', 'notify', 'health']) expect(code).toContain(`|| '/api/cron/${n}'`);
-    expect(code.match(/net\.http_get\(/g)).toHaveLength(3);
-    expect(code.match(/'Authorization', 'Bearer ' \|\|/g)).toHaveLength(3);
+    for (const n of ['scan', 'notify', 'health', 'dataforseo']) expect(code).toContain(`|| '/api/cron/${n}'`);
+    expect(code.match(/net\.http_get\(/g)).toHaveLength(4);
+    expect(code.match(/'Authorization', 'Bearer ' \|\|/g)).toHaveLength(4);
     expect(code).toContain('timeout_milliseconds := 58000');
   });
   it('reads the secret from Vault, and the only literals are the placeholders', () => {
@@ -59,7 +60,7 @@ describe('supabase/cron.sql', () => {
   });
   it('unschedules before it schedules (rerunnable) and documents the unschedule statements', () => {
     expect(code.indexOf('cron.unschedule(jobname)')).toBeLessThan(code.indexOf('cron.schedule('));
-    for (const n of ['holler-scan', 'holler-notify', 'holler-health']) expect(sql).toContain(`select cron.unschedule('${n}');`);
+    for (const n of ['holler-scan', 'holler-notify', 'holler-health', 'holler-dataforseo']) expect(sql).toContain(`select cron.unschedule('${n}');`);
   });
   it('only touches holler-* jobs and holler_* secrets, and is not in the migrations folder', () => {
     expect(code).not.toMatch(/cron\.schedule\(\s*'(?!holler-)/);

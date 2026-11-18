@@ -26,5 +26,6 @@ export async function completeOnboarding(_prev: ProfileFormState, formData: Form
   await backfillWithLimit(user.id);
   // They may have clicked the confirm-email link before this profile existed.
   await applyPendingVerification(user);
-  redirect('/app');
+  // The saved settings are unchanged; the next screen shows what Holler watches there (a past-records preview), then links on to /app.
+  redirect('/onboarding/preview');
 }

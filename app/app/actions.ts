@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getUser } from '@/lib/auth/session';
 import { replyStates, type ReplyState } from '@/lib/requests/service';
+import { saveFeedback } from '@/lib/feedback/service';
 
 const STATUSES = ['new', 'saved', 'done', 'dismissed'] as const;
 type Status = (typeof STATUSES)[number];
@@ -37,4 +38,29 @@ export async function getRequestReplyStates(matchIds: number[]): Promise<Record<
   } catch {
     return {};
   }
+}
+
+const FEEDBACK_MESSAGES = {
+  signed_out: 'Sign in again to answer.',
+  invalid: 'That answer did not look right. Try again.',
+  no_match: 'That alert is not in your feed.',
+  failed: "That didn't save. Try again.",
+} as const;
+
+/**
+ * Saves the signed-in member's answer on one alert: 'useful', 'not_relevant' or 'led_to_work' (with an optional whole-dollar job
+ * value). One answer per member per signal; a new answer replaces the old one. Refuses a signal the member has no match row for.
+ * Uses the member's own client, so RLS (migration 0009) enforces the same rules in the database.
+ */
+export async function submitFeedback(
+  signalId: number,
+  verdict: string,
+  jobValueUsd?: number | null,
+): Promise<{ ok: boolean; error?: string; verdict?: string; jobValueUsd?: number | null }> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: FEEDBACK_MESSAGES.signed_out };
+  const supabase = await createClient();
+  const res = await saveFeedback(supabase, user.id, { signalId, verdict, jobValueUsd });
+  if (!res.ok) return { ok: false, error: FEEDBACK_MESSAGES[res.error] };
+  return { ok: true, verdict: res.state.verdict, jobValueUsd: res.state.jobValueUsd };
 }

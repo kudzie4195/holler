@@ -12,7 +12,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/local/') ||
     pathname === '/for' ||
     pathname.startsWith('/for/') ||
-    pathname.startsWith('/guides/')
+    pathname.startsWith('/guides/') ||
+    pathname === '/storms' ||
+    pathname.startsWith('/storms/')
   ) {
     if (decidePublicRoute(pathname, Date.now()) === 'not-found') {
       const res = NextResponse.rewrite(new URL('/_holler-not-found', request.url), { status: 404 });
@@ -24,8 +26,8 @@ export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 
-// /app, /onboarding and the guest-only pages need the session. /local, /for and /guides/<slug> only get the slug check;
+// /app, /onboarding and the guest-only pages need the session. /local, /for, /storms and /guides/<slug> only get the slug check;
 // they never read or write cookies, so Set-Cookie headers can't interfere with their caching. The /guides hub itself is not matched.
 export const config = {
-  matcher: ['/app/:path*', '/onboarding/:path*', '/login', '/signup', '/forgot', '/local/:path*', '/for/:path*', '/guides/:path+'],
+  matcher: ['/app/:path*', '/onboarding/:path*', '/login', '/signup', '/forgot', '/local/:path*', '/for/:path*', '/guides/:path+', '/storms', '/storms/:path*'],
 };

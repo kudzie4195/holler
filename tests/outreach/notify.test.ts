@@ -124,4 +124,22 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent[0].html).toContain('Permit 1');
     expect(sent[0].html).not.toContain('Contact:');
   });
+  it('the email intent label comes from the signal subtype: a business licence reads "Spending activity"', async () => {
+    const res = await run(
+      [
+        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
+        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
+      ],
+      async () => new Map(),
+    );
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    const html = sent[0].html;
+    const text = sent[0].text;
+    expect(html).toContain('Spending activity');
+    expect(text).toContain('Spending activity');
+    expect(html).toContain('Demand sign');
+    // the licence is labeled Spending activity, not Demand sign
+    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Spending activity'));
+  });
 });

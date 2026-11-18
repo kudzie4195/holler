@@ -38,6 +38,18 @@ function segments(pathname: string): string[] {
   });
 }
 
+/** A storm report slug: name parts then a real calendar date, as built by lib/storms/report.ts (county, city-of-<city> and <state>-fema forms). */
+const STORM_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*-(\d{4})-(\d{2})-(\d{2})$/;
+
+function validStormSlug(slug: string): boolean {
+  if (slug.length > 120) return false;
+  const m = STORM_SLUG.exec(slug);
+  if (!m) return false;
+  const iso = `${m[1]}-${m[2]}-${m[3]}`;
+  const d = new Date(`${iso}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
+}
+
 /**
  * 'skip' for paths this check does not own, 'ok' for a known page, 'not-found' for an unknown slug.
  * Trade ids are read from CATEGORIES at call time; guide slugs from lib/seo/guides (GUIDE_SLUGS). A weekly page /local/<state>/<city>/week/<YYYY-MM-DD> is 'ok' only for a
@@ -53,6 +65,12 @@ export function decidePublicRoute(pathname: string, nowMs: number = Date.now()):
     if (rest.length === 0) return 'ok';
     if (rest.length === 2 && rest[0] === 'week') return parseWeek(rest[1], nowMs).ok ? 'ok' : 'not-found';
     return 'not-found';
+  }
+  if (root === 'storms') {
+    // /storms and /storms/<state>/<slug> only. A known state with a well-formed slug is 'ok' here; whether records exist is the page's call.
+    if (a === undefined) return 'ok';
+    if (b === undefined || rest.length > 0) return 'not-found';
+    return STATE_SLUGS.has(a) && validStormSlug(b) ? 'ok' : 'not-found';
   }
   if (root === 'for') {
     if (a === undefined) return 'ok';

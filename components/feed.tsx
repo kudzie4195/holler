@@ -12,6 +12,9 @@ import { sourceLabel } from './signal-meta';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
+import { FeedbackButtons } from './feed/feedback-buttons';
+import { IntentNote } from './feed/intent-note';
+import type { FeedbackState } from '@/lib/feedback/types';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -33,6 +36,12 @@ export interface FeedItem {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
+  /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label. */
+  subtype?: string | null;
+  /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
+  signalId?: number;
+  /** This member's saved feedback answer for the signal, if any. */
+  feedback?: FeedbackState | null;
   /**
    * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
    * Absent for records without contacts and always absent for a locked member.
@@ -249,7 +258,8 @@ function MatchCard({
         {item.status === 'dismissed' ? <StatusBadge>Dismissed</StatusBadge> : null}
       </div>
 
-      <h2 className="mt-3 text-lg font-semibold leading-snug text-ink">{item.title}</h2>
+      <IntentNote item={item} />
+      <h2 className="mt-2 text-lg font-semibold leading-snug text-ink">{item.title}</h2>
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
       {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
@@ -295,6 +305,8 @@ function MatchCard({
 
       {/* key: a fresh draft from "Redraft reply" replaces whatever was edited. */}
       {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} /> : null}
+
+      {typeof item.signalId === 'number' ? <FeedbackButtons signalId={item.signalId} initial={item.feedback ?? null} /> : null}
     </Card>
   );
 }

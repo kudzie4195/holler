@@ -4,6 +4,7 @@ import { HEALTH_LOOKBACK_HOURS, planHealth, renderHealthEmail, sendEmail, type H
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
+import { readSourceHealth, summarizeSourceHealth } from '@/lib/signals/health';
 
 export const maxDuration = 60;
 
@@ -78,5 +79,13 @@ export async function GET(req: Request) {
     else email = { status: 'failed', to, detail: 'error' in res ? res.error : 'send failed' };
   }
 
-  return Response.json({ ...report, email }, { headers: { 'Cache-Control': 'no-store' } });
+  // Per-source delivery health (holler_source_health). A read failure leaves this null and never changes the rest of the report.
+  let sourceHealth: ReturnType<typeof summarizeSourceHealth> | null = null;
+  try {
+    sourceHealth = summarizeSourceHealth(await readSourceHealth(admin), now);
+  } catch {
+    sourceHealth = null;
+  }
+
+  return Response.json({ ...report, email, sourceHealth }, { headers: { 'Cache-Control': 'no-store' } });
 }

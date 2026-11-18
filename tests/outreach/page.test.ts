@@ -46,6 +46,9 @@ vi.mock('@/components/feed', () => ({
   Feed: ({ items }: { items: typeof h.seen }) => (h.seen.push(...items), createElement('ul', null, items.map((i) => createElement('li', { key: i.title }, i.title)))),
   LockedFeed: ({ items }: { items: typeof h.seen }) => (h.seen.push(...items), null),
 }));
+vi.mock('@/components/feed/recent-activity', () => ({
+  RecentActivity: ({ userId }: { userId: string }) => createElement('div', { 'data-recent': userId }, 'recent activity'),
+}));
 // Fake of lib/contacts/load.ts contactsForMember: a member only ever gets contacts for signals they have a match for.
 vi.mock('@/lib/outreach/loader', async (orig) => {
   const real = await orig<typeof import('@/lib/outreach/loader')>();
@@ -131,5 +134,22 @@ describe('/app: contacts for the feed', () => {
     await renderPage();
     const item = h.seen[0] as unknown as Record<string, unknown>;
     expect(String(item.title) + String(item.summary ?? '')).not.toContain('Mine Roofing');
+  });
+});
+
+describe('/app: recent activity on an empty feed', () => {
+  it('renders RecentActivity for the member when the feed has no items', async () => {
+    h.rows = [];
+    const html = await renderPage();
+    expect(html).toContain('data-recent="u1"');
+  });
+  it('does not render it when the feed has items', async () => {
+    h.rows = [row(1, {})];
+    expect(await renderPage()).not.toContain('data-recent');
+  });
+  it('does not render it for a locked member', async () => {
+    h.locked = true;
+    h.rows = [];
+    expect(await renderPage()).not.toContain('data-recent');
   });
 });
