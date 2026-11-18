@@ -1,0 +1,24 @@
+[
+  {
+    "id": "200000001", "permit_": "101300001", "permit_status": "ACTIVE", "permit_type": "PERMIT - RENOVATION/ALTERATION",
+    "issue_date": "2026-11-12T00:00:00.000", "street_number": "2150", "street_direction": "N", "street_name": "DAMEN",
+    "work_type": "Interior Remodel", "work_description": "TEAR OFF AND REPLACE ROOF SHINGLES. OWNER JOHN Q HOMEOWNER 773-555-0187 john.homeowner@example.com",
+    "reported_cost": "14500", "latitude": "41.9195", "longitude": "-87.6779",
+    "contact_1_type": "OWNER", "contact_1_name": "JOHN Q HOMEOWNER", "contact_1_city": "CHICAGO", "contact_1_state": "IL", "contact_1_zipcode": "60647",
+    "contact_2_type": "CONTRACTOR-GENERAL CONTRACTOR", "contact_2_name": "LAKEFRONT ROOFING & SIDING INC", "contact_2_city": "SKOKIE", "contact_2_state": "IL", "contact_2_zipcode": "60076",
+    "contact_3_type": "OWNER AS GENERAL CONTRACTOR", "contact_3_name": "MARIA OWNERBUILDER LLC", "contact_3_city": "CHICAGO", "contact_3_state": "IL", "contact_3_zipcode": "60647",
+    "contact_4_type": "ELECTRICAL CONTRACTOR", "contact_4_name": "DESHAWN SPARKS", "contact_4_city": "CHICAGO", "contact_4_state": "IL", "contact_4_zipcode": "60619",
+    "contact_5_type": "EXPEDITOR", "contact_5_name": "PERMIT RUNNERS LLC", "contact_5_city": "CHICAGO", "contact_5_state": "IL", "contact_5_zipcode": "60601",
+    "contact_6_type": "TENANT", "contact_6_name": "TENANT HOLDINGS LLC", "contact_6_city": "CHICAGO", "contact_6_state": "IL", "contact_6_zipcode": "60647",
+    "contact_7_type": "ARCHITECT", "contact_7_name": "NORTH BRANCH ARCHITECTS LTD", "contact_7_city": "CHICAGO", "contact_7_state": "IL", "contact_7_zipcode": "60622",
+    "contact_8_type": "APPLICANT", "contact_8_name": "JOHN Q HOMEOWNER", "contact_8_city": "CHICAGO", "contact_8_state": "IL", "contact_8_zipcode": "60647"
+  },
+  {
+    "id": "200000002", "permit_": "101300002", "permit_status": "ACTIVE", "permit_type": "PERMIT - ELECTRIC WIRING",
+    "issue_date": "2026-11-12T00:00:00.000", "street_number": "4410", "street_direction": "W", "street_name": "ADDISON",
+    "work_type": "Electrical", "work_description": "ELECTRIC SERVICE UPGRADE TO 200 AMP",
+    "reported_cost": "3000", "latitude": "41.9465", "longitude": "-87.7383",
+    "contact_1_type": "OWNER", "contact_1_name": "SMITH, JANE A", "contact_1_city": "CHICAGO", "contact_1_state": "IL", "contact_1_zipcode": "60641",
+    "contact_2_type": "ELECTRICAL CONTRACTOR", "contact_2_name": "TOM ELECTRICIAN", "contact_2_city": "CHICAGO", "contact_2_state": "IL", "contact_2_zipcode": "60641"
+  }
+]

@@ -1,7 +1,8 @@
 import type { CategoryId } from '@/lib/signals/categories';
-import { classifyText } from '@/lib/signals/categories';
+import { categoryById, classifyText } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { CITIES } from '@/lib/geo';
+import { sanitizeContacts } from '@/lib/contacts/sanitize';
 
 /**
  * USAspending.gov API v2, no key. POST /api/v2/search/spending_by_award/
@@ -96,10 +97,6 @@ function str(v: unknown): string {
   return '';
 }
 
-function titleCase(s: string): string {
-  return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
-}
-
 function dateIso(v: unknown): string | null {
   let t = str(v);
   if (!t) return null;
@@ -116,6 +113,39 @@ export function formatUsd(n: number): string {
   return `$${Math.round(n)}`;
 }
 
+/**
+ * Public text of an award (round 5 FIX-E, review3 P0-3): the free-text Description and the Recipient Name are NEVER printed. The title is
+ * "Federal contract (<amount>) in <place>: <label>", where <label> is the human label of the award's first matched trade category plus
+ * " (NAICS <code>)", or "NAICS <code>" with no category, or "federal award" with neither.
+ */
+export function awardLabel(categories: CategoryId[], naicsCode: string): string {
+  const label = categories.length ? categoryById(categories[0])?.label : undefined;
+  if (label) return naicsCode ? `${label} (NAICS ${naicsCode})` : label;
+  return naicsCode ? `NAICS ${naicsCode}` : 'federal award';
+}
+
+/** Words one of which every printed awarding agency name holds (review4 P2-6). */
+const AGENCY_WORDS = /\b(?:department|agency|administration|commission|corps|service|bureau|office|authority|institute|foundation|board|court|congress|library|academy|system|corporation)\b/i;
+
+/**
+ * Awarding agency as it may be printed: 3 to 80 characters of letters, spaces and ". & ' -", no digit, no comma, no parenthesis, and at
+ * least one public-body word (FIX-F, review4 P2-6: "Smith, John A." and "Mary O'Brien (Contracting Officer)" are omitted). Otherwise null,
+ * and the summary has no "by <agency>" part.
+ */
+export function publicAgency(v: string): string | null {
+  const t = v.replace(/\s+/g, ' ').trim();
+  return /^[A-Za-z .&'-]{3,80}$/.test(t) && AGENCY_WORDS.test(t) ? t : null;
+}
+
+/** US state and territory codes a place of performance may carry. */
+const US_STATE_CODES = new Set([...CITIES.map((c) => c.state), 'DC', 'PR', 'GU', 'VI', 'AS', 'MP']);
+
+/** A NAICS code as published: 2 to 6 digits, nothing else. */
+function naicsOf(raw: unknown): string {
+  const v = typeof raw === 'object' && raw ? str((raw as Record<string, unknown>).code) : str(raw).match(/\d{3,6}/)?.[0] ?? '';
+  return /^\d{2,6}$/.test(v) ? v : '';
+}
+
 /** Pure parser for a spending_by_award response. Never throws. */
 export function parseUsaSpending(raw: unknown): SignalInput[] {
   try {
@@ -127,14 +157,12 @@ export function parseUsaSpending(raw: unknown): SignalInput[] {
         if (!item || typeof item !== 'object') continue;
         const r = item as Record<string, unknown>;
         const internal = str(r.generated_internal_id) || str(r['Award ID']);
-        if (!internal) continue;
+        // The internal id becomes externalId and the url: a plain id only, otherwise the row is skipped.
+        if (!internal || !/^[A-Za-z0-9_.:-]{1,120}$/.test(internal)) continue;
 
-        const naicsRaw = r.NAICS as unknown;
-        const naicsCode =
-          typeof naicsRaw === 'object' && naicsRaw
-            ? str((naicsRaw as Record<string, unknown>).code)
-            : str(naicsRaw).match(/\d{3,6}/)?.[0] ?? '';
+        const naicsCode = naicsOf(r.NAICS);
         const desc = str(r.Description);
+        // The Description is read only for the category match (fixed category ids); it is never printed.
         let categories = naicsToCategories(naicsCode);
         if (categories.length === 0) categories = classifyText(desc);
         if (categories.length === 0) continue;
@@ -143,33 +171,33 @@ export function parseUsaSpending(raw: unknown): SignalInput[] {
         const popObj = pop && typeof pop === 'object' ? (pop as Record<string, unknown>) : {};
         const cityName = str(popObj.city_name);
         const stateCode = normalizeState(str(popObj.state_code) || str(r['Place of Performance State Code']));
-        if (!stateCode) continue;
+        if (!stateCode || !US_STATE_CODES.has(stateCode)) continue;
+        // Place city: only a city on the repo's own city list for that state (the same lookup that gives lat/lon); zip: exactly 5 digits.
         const city = findCity(cityName, stateCode);
-        const zip = str(popObj.zip5).slice(0, 5) || str(r['Place of Performance Zip5']).slice(0, 5) || null;
+        const zipRaw = str(popObj.zip5) || str(r['Place of Performance Zip5']);
+        const zip = /^\d{5}$/.test(zipRaw) ? zipRaw : null;
 
         const amount = typeof r['Award Amount'] === 'number' ? (r['Award Amount'] as number) : Number(r['Award Amount']);
         const hasAmount = Number.isFinite(amount) && amount > 0;
         const severity: Severity = hasAmount && amount >= 1_000_000 ? 2 : 1;
         const recipient = str(r['Recipient Name']);
-        const agency = str(r['Awarding Agency']);
-        const place = cityName ? `${titleCase(cityName)}, ${stateCode}` : stateCode;
+        const agency = publicAgency(str(r['Awarding Agency']));
+        const place = city ? `${city.name}, ${stateCode}` : stateCode;
+        // Who to contact (private): the company that won the award, from the 'Recipient Name' field the request already asks for.
+        // The request asks for no recipient address, so only the name is kept. A recipient that is a person fails the classifier.
+        const contacts = sanitizeContacts([{ role: 'awardee', name: recipient }]);
 
         out.push({
           source: 'usaspending',
           externalId: internal,
           kind: 'contract',
-          title: `Federal contract${hasAmount ? ` (${formatUsd(amount)})` : ''} in ${place}: ${
-            desc ? titleCase(desc).slice(0, 100) : `NAICS ${naicsCode}`
-          }`,
-          summary:
-            [recipient && `Awarded to ${titleCase(recipient)}`, agency && `by ${agency}`, naicsCode && `NAICS ${naicsCode}`]
-              .filter(Boolean)
-              .join(', ')
-              .slice(0, 280) || null,
+          title: `Federal contract${hasAmount ? ` (${formatUsd(amount)})` : ''} in ${place}: ${awardLabel(categories, naicsCode)}`,
+          // Never the recipient: "by <agency>, NAICS <code>" (the shape migration 0007 leaves on old rows).
+          summary: [agency && `by ${agency}`, naicsCode && `NAICS ${naicsCode}`].filter(Boolean).join(', ').slice(0, 280) || null,
           url: `https://www.usaspending.gov/award/${encodeURIComponent(internal)}`,
           lat: city?.lat ?? null,
           lon: city?.lon ?? null,
-          city: city?.name ?? (cityName ? titleCase(cityName) : null),
+          city: city?.name ?? null,
           state: stateCode,
           zip,
           categories,
@@ -177,7 +205,9 @@ export function parseUsaSpending(raw: unknown): SignalInput[] {
           // Recent activity, not the contract start: the request filters on last_modified_date, so old contracts with a recent
           // modification must not be stored with a 2019 date (the daily prune would delete them and the next scan would re-insert and re-notify).
           occurredAt: dateIso(r['Last Modified Date']) ?? dateIso(r['Start Date']) ?? new Date().toISOString(),
-          data: { naics: naicsCode || null, amount: hasAmount ? amount : null, awardId: str(r['Award ID']) || null },
+          // The Award ID column is not copied (it is not needed: the url uses the generated id).
+          data: { naics: naicsCode || null, amount: hasAmount ? amount : null },
+          ...(contacts.length ? { contacts } : {}),
         });
       } catch {
         // skip malformed award

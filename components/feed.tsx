@@ -10,6 +10,8 @@ import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
 import { sourceLabel } from './signal-meta';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
+import type { ContactInput } from '@/lib/contacts/types';
+import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -26,6 +28,16 @@ export interface FeedItem {
   ago: string;
   occurredAt: string;
   draft: string | null;
+  /** Place fields of the record, for the area kit in "Who to contact". Public data. */
+  city?: string | null;
+  state?: string | null;
+  county?: string | null;
+  zip?: string | null;
+  /**
+   * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
+   * Absent for records without contacts and always absent for a locked member.
+   */
+  contacts?: ContactInput[];
 }
 
 type Filter = 'all' | 'ask' | 'signals';
@@ -240,6 +252,8 @@ function MatchCard({
       <h2 className="mt-3 text-lg font-semibold leading-snug text-ink">{item.title}</h2>
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
+      {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
+
       <div className="mt-4 flex flex-wrap gap-2">
         {item.url && !isRequest ? (
           <a
@@ -384,6 +398,7 @@ export function LockedFeed({ items, children }: { items: FeedItem[]; children: R
               </div>
               <h2 className="mt-3 text-lg font-semibold leading-snug">{item.title}</h2>
               <p className="mt-1 text-muted">{item.summary}</p>
+              <WhoToContactLocked item={item} />
             </Card>
           </li>
         ))}

@@ -13,16 +13,28 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 
 ## 1. Apply the database migrations (Supabase SQL editor, in this order, each file once)
 
+**Already live? Order for this release**
+
+1. Run 0006 and 0008 (any time).
+2. Deploy the code.
+3. Run 0007.
+4. Run the two check queries and expire the page cache.
+
 - [ ] Run `supabase/migrations/0001_holler.sql`
 - [ ] Run `supabase/migrations/0002_holler_hardening.sql`
 - [ ] Run `supabase/migrations/0003_holler_ops.sql`
 - [ ] Run `supabase/migrations/0004_holler_plans.sql` (Starter and Pro: `plan`, `extra_areas`, `keywords` on `holler_profiles`, and the plan-limits trigger)
 - [ ] Run `supabase/migrations/0005_holler_requests.sql` (resident requests: `holler_requests`, `holler_request_replies`, the reply guard with the 5-per-request and 10-per-business-per-day caps, a check that keeps free text off the public request record, and a trigger that deletes a business's reply records when its profile is deleted)
+- [ ] Run `supabase/migrations/0006_holler_contacts.sql` (who to contact: `holler_signal_contacts`, service role only; safe to run before or after the code deploy). Contacts cannot be backfilled for records already stored: they appear from the first scan after the deploy.
+- [ ] Run `supabase/migrations/0007_holler_public_name_scrub.sql` (data fix: removes establishment names and street addresses from stored failed-inspection signals and the "Awarded to" recipient from stored federal contract summaries; run it right after the code deploy so new scans stop writing that text. It is safe to re-run at any time, also after scans have resumed. A re-run clears the summary of new inspection rows and shortens a new federal award title that has a trade label but no NAICS code to "federal award"; nothing personal is involved either way. Run it once after the deploy)
+- [ ] Run `supabase/migrations/0008_holler_feature_interest.sql` (the "Coming next" list: `holler_feature_interest`, service role only, no visitor identifier stored; safe to run before or after the code deploy, and the buttons show "Could not save that. Try again later." until it is applied)
+- [ ] Check right after running 0007, both must return 0: `select count(*) from holler_signals where right(source,12)='-inspections' and (summary is not null or title not like '%: food establishment');` and `select count(*) from holler_signals where source='usaspending' and summary like 'Awarded to %';`
+- [ ] After 0007, redeploy or expire the page cache: public pages are cached for up to 48 hours, so old names can stay visible until then.
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
 - [ ] Check: `select plan, extra_areas, keywords from holler_profiles limit 1;` and `select count(*) from holler_requests;` both return without error.
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. Each file is safe to run again: all five are additive and idempotent. If you ever re-run one, run 0001 to 0005 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
+Every object is named `holler_*`. Nothing else in the shared project is touched. 0001 to 0006 and 0008 are additive and safe to run again; 0007 is a data fix that is safe to re-run at any time (each statement only rewrites rows that still hold the old text). If you ever re-run one of the additive files, run 0001 to 0006 and 0008 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 

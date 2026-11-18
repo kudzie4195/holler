@@ -1,0 +1,2735 @@
+{
+ "arcgis-dc-permits.json": [
+  {
+   "source": "arcgis-dc-permits",
+   "externalId": "B2700462",
+   "kind": "permit",
+   "title": "Plumbing permit in Washington",
+   "summary": "CONSTRUCTION | ALTERATION AND REPAIR | 1200 EXAMPLE ST SE",
+   "url": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+   "lat": 38.885223677123115,
+   "lon": -77.00851426452682,
+   "city": "Washington",
+   "state": "DC",
+   "zip": "20003",
+   "categories": [
+    "plumbing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T05:00:00.000Z",
+   "data": {
+    "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-dc-permits",
+   "externalId": "B2700489",
+   "kind": "permit",
+   "title": "Building permit in Washington",
+   "summary": "CONSTRUCTION | 600 EXAMPLE AVE SW",
+   "url": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+   "lat": 38.87630037621788,
+   "lon": -77.00860856370309,
+   "city": "Washington",
+   "state": "DC",
+   "zip": null,
+   "categories": [
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T05:00:00.000Z",
+   "data": {
+    "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-dc-permits",
+   "externalId": "B2603377",
+   "kind": "permit",
+   "title": "Fence permit in Washington",
+   "summary": "CONSTRUCTION | 300 SAMPLE PL NE",
+   "url": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+   "lat": 38.90079237297229,
+   "lon": -76.99470190641391,
+   "city": "Washington",
+   "state": "DC",
+   "zip": null,
+   "categories": [
+    "fencing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T05:00:00.000Z",
+   "data": {
+    "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "arcgis-dekalb-permits.json": [
+  {
+   "source": "arcgis-dekalb-permits",
+   "externalId": "MC-2026-2002",
+   "kind": "permit",
+   "title": "HVAC permit in DeKalb County",
+   "summary": "Residential Air Conditioning | Single Family Dwelling | Issued",
+   "url": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
+   "lat": 33.770469628755116,
+   "lon": -84.18155577244342,
+   "city": "DeKalb County",
+   "state": "GA",
+   "zip": null,
+   "categories": [
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T16:40:29.000Z",
+   "data": {
+    "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-dekalb-permits",
+   "externalId": "BC-2026-3003",
+   "kind": "permit",
+   "title": "Building permit in DeKalb County",
+   "summary": "New Construction | Single Family Dwelling | Issued | 12 Example Ln",
+   "url": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
+   "lat": 33.829367376645166,
+   "lon": -84.32080759827731,
+   "city": "DeKalb County",
+   "state": "GA",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "landscaping",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T15:24:39.000Z",
+   "data": {
+    "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "arcgis-mecklenburg-permits.json": [
+  {
+   "source": "arcgis-mecklenburg-permits",
+   "externalId": "COM-UPF-25-000303",
+   "kind": "permit",
+   "title": "HVAC permit in Mecklenburg County",
+   "summary": "Commercial Upfit | Upfit | 100 N Tryon St",
+   "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
+   "lat": 35.199946106195,
+   "lon": -80.82484261355431,
+   "city": "Mecklenburg County",
+   "state": "NC",
+   "zip": "28202",
+   "categories": [
+    "hvac",
+    "electrical"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-05T05:00:00.000Z",
+   "data": {
+    "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-mecklenburg-permits",
+   "externalId": "COM-NEW-25-000090",
+   "kind": "permit",
+   "title": "Building permit in Mecklenburg County",
+   "summary": "Commercial New Construction | New | 9000 Example Pkwy",
+   "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
+   "lat": 35.44060695682921,
+   "lon": -80.8363868899405,
+   "city": "Mecklenburg County",
+   "state": "NC",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "landscaping",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-02T05:00:00.000Z",
+   "data": {
+    "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "arcgis-raleigh-permits.json": [
+  {
+   "source": "arcgis-raleigh-permits",
+   "externalId": "BLDNR-009646-2026",
+   "kind": "permit",
+   "title": "Roof permit in Raleigh",
+   "summary": "Building | Tenant Upfit | $250,000 job value | 7320 Example Rd",
+   "url": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+   "lat": 35.75872458736161,
+   "lon": -78.64747476435598,
+   "city": "Raleigh",
+   "state": "NC",
+   "zip": "27616",
+   "categories": [
+    "roofing",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T20:29:12.237Z",
+   "data": {
+    "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-raleigh-permits",
+   "externalId": "BLDR-020627-2026",
+   "kind": "permit",
+   "title": "New home permit in Raleigh",
+   "summary": "Building | New | $450,000 job value | Lot 2 Sample Ct",
+   "url": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+   "lat": 35.77498270928783,
+   "lon": -78.62694162150798,
+   "city": "Raleigh",
+   "state": "NC",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "landscaping",
+    "cleaning",
+    "real-estate",
+    "moving"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T23:58:16.570Z",
+   "data": {
+    "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "arcgis-raleigh-permits",
+   "externalId": "BLDNR-033823-2025",
+   "kind": "permit",
+   "title": "Pool permit in Raleigh",
+   "summary": "Building | Tenant Upfit",
+   "url": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+   "lat": 35.83036528431777,
+   "lon": -78.62255629197365,
+   "city": "Raleigh",
+   "state": "NC",
+   "zip": null,
+   "categories": [
+    "pool-spa",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T18:31:25.723Z",
+   "data": {
+    "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-austin-inspections.json": [
+  {
+   "source": "socrata-austin-inspections",
+   "externalId": "2026-10-30-10012345:2026-10-30",
+   "kind": "civic",
+   "title": "Failed inspection in Austin: food establishment",
+   "summary": "Routine Inspection | 62 | 2100 block of S Lamar Blvd",
+   "url": "https://data.austintexas.gov/d/ecmv-9xxi",
+   "lat": 30.245,
+   "lon": -97.769,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78704",
+   "categories": [
+    "pest-control",
+    "cleaning",
+    "janitorial-commercial"
+   ],
+   "severity": 2,
+   "occurredAt": "2026-10-30T05:00:00.000Z",
+   "data": {
+    "dataset": "ecmv-9xxi",
+    "domain": "data.austintexas.gov",
+    "subtype": "inspection"
+   }
+  }
+ ],
+ "socrata-austin-violations-people.json": [
+  {
+   "source": "socrata-austin-violations",
+   "externalId": "2026-501001",
+   "kind": "civic",
+   "title": "Code violation in Austin: Property Abatement",
+   "summary": "Property Abatement | Open | 1500 block of E 12TH ST",
+   "url": "https://data.austintexas.gov/d/6wtj-zbtb",
+   "lat": 30.27,
+   "lon": -97.72,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78702",
+   "categories": [
+    "junk-removal",
+    "lawn-care",
+    "landscaping"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T15:15:00.000Z",
+   "data": {
+    "dataset": "6wtj-zbtb",
+    "domain": "data.austintexas.gov",
+    "subtype": "violation"
+   }
+  }
+ ],
+ "socrata-austin-violations.json": [
+  {
+   "source": "socrata-austin-violations",
+   "externalId": "2026-401001",
+   "kind": "civic",
+   "title": "Code violation in Austin: Property Abatement",
+   "summary": "Property Abatement | Open | 1500 block of E 12TH ST",
+   "url": "https://data.austintexas.gov/d/6wtj-zbtb",
+   "lat": 30.275,
+   "lon": -97.723,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78702",
+   "categories": [
+    "junk-removal",
+    "lawn-care",
+    "landscaping"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T15:15:00.000Z",
+   "data": {
+    "dataset": "6wtj-zbtb",
+    "domain": "data.austintexas.gov",
+    "subtype": "violation"
+   }
+  },
+  {
+   "source": "socrata-austin-violations",
+   "externalId": "2026-401002",
+   "kind": "civic",
+   "title": "Code violation in Austin: Structure Condition Violation(s)",
+   "summary": "Structure Condition Violation(s) | Open | 900 block of W 6TH ST",
+   "url": "https://data.austintexas.gov/d/6wtj-zbtb",
+   "lat": 30.27,
+   "lon": -97.755,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78703",
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T16:00:00.000Z",
+   "data": {
+    "dataset": "6wtj-zbtb",
+    "domain": "data.austintexas.gov",
+    "subtype": "violation"
+   }
+  },
+  {
+   "source": "socrata-austin-violations",
+   "externalId": "2026-401004",
+   "kind": "civic",
+   "title": "Code violation in Austin: Work Without Permit",
+   "summary": "Work Without Permit | Open | 300 block of EXAMPLE LN",
+   "url": "https://data.austintexas.gov/d/6wtj-zbtb",
+   "lat": 30.23,
+   "lon": -97.74,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78741",
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T17:00:00.000Z",
+   "data": {
+    "dataset": "6wtj-zbtb",
+    "domain": "data.austintexas.gov",
+    "subtype": "violation"
+   }
+  }
+ ],
+ "socrata-buffalo-permits.json": [
+  {
+   "source": "socrata-buffalo-permits",
+   "externalId": "BF-26-7001",
+   "kind": "permit",
+   "title": "Fence permit in Buffalo",
+   "summary": "FENDRIVE | $6,500 job value | ELMWOOD AVE",
+   "url": "https://data.buffalony.gov/d/9p2d-f3yt",
+   "lat": 42.9,
+   "lon": -78.88,
+   "city": "Buffalo",
+   "state": "NY",
+   "zip": "14222",
+   "categories": [
+    "fencing",
+    "concrete-paving",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T05:00:00.000Z",
+   "data": {
+    "dataset": "9p2d-f3yt",
+    "domain": "data.buffalony.gov",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-buffalo-permits",
+   "externalId": "BF-26-7002",
+   "kind": "permit",
+   "title": "HVAC permit in Buffalo",
+   "summary": "HEATING | MAIN ST",
+   "url": "https://data.buffalony.gov/d/9p2d-f3yt",
+   "lat": 42.89,
+   "lon": -78.87,
+   "city": "Buffalo",
+   "state": "NY",
+   "zip": "14203",
+   "categories": [
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T05:00:00.000Z",
+   "data": {
+    "dataset": "9p2d-f3yt",
+    "domain": "data.buffalony.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-cambridge-311.json": [
+  {
+   "source": "socrata-cambridge-311",
+   "externalId": "7001",
+   "kind": "civic",
+   "title": "311 request in Cambridge: Rodent Sighting",
+   "summary": "Rodent Sighting | Open",
+   "url": "https://data.cambridgema.gov/d/2z9k-mv9g",
+   "lat": 42.3625,
+   "lon": -71.0862,
+   "city": "Cambridge",
+   "state": "MA",
+   "zip": null,
+   "categories": [
+    "pest-control"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T19:00:00.000Z",
+   "data": {
+    "dataset": "2z9k-mv9g",
+    "domain": "data.cambridgema.gov",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-cambridge-311",
+   "externalId": "7002",
+   "kind": "civic",
+   "title": "311 request in Cambridge: Tree Pruning Request",
+   "summary": "Tree Pruning Request | Open",
+   "url": "https://data.cambridgema.gov/d/2z9k-mv9g",
+   "lat": 42.37,
+   "lon": -71.1,
+   "city": "Cambridge",
+   "state": "MA",
+   "zip": null,
+   "categories": [
+    "tree-service"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T20:00:00.000Z",
+   "data": {
+    "dataset": "2z9k-mv9g",
+    "domain": "data.cambridgema.gov",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-cambridge-permits.json": [
+  {
+   "source": "socrata-cambridge-permits",
+   "externalId": "501",
+   "kind": "permit",
+   "title": "Roof permit in Cambridge",
+   "summary": "Roof | Issued | 10 Sample St, Cambridge, MA",
+   "url": "https://data.cambridgema.gov/d/3wsm-e5jx",
+   "lat": 42.3736,
+   "lon": -71.1097,
+   "city": "Cambridge",
+   "state": "MA",
+   "zip": null,
+   "categories": [
+    "roofing"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T05:00:00.000Z",
+   "data": {
+    "dataset": "3wsm-e5jx",
+    "domain": "data.cambridgema.gov",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-cambridge-permits",
+   "externalId": "502",
+   "kind": "permit",
+   "title": "Electrical permit in Cambridge",
+   "summary": "Electrical | Issued | 20 Example Ave",
+   "url": "https://data.cambridgema.gov/d/3wsm-e5jx",
+   "lat": 42.38,
+   "lon": -71.12,
+   "city": "Cambridge",
+   "state": "MA",
+   "zip": null,
+   "categories": [
+    "electrical"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T05:00:00.000Z",
+   "data": {
+    "dataset": "3wsm-e5jx",
+    "domain": "data.cambridgema.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-chicago-311.json": [
+  {
+   "source": "socrata-chicago-311",
+   "externalId": "SR26-00811111",
+   "kind": "civic",
+   "title": "311 request in Chicago: Rodent Baiting/Rat Complaint",
+   "summary": "Rodent Baiting/Rat Complaint | Open | 60642",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "lat": 41.9034,
+   "lon": -87.6643,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60642",
+   "categories": [
+    "pest-control"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T20:03:22.000Z",
+   "data": {
+    "dataset": "v6vf-nfxy",
+    "domain": "data.cityofchicago.org",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-chicago-311",
+   "externalId": "SR26-00811112",
+   "kind": "civic",
+   "title": "311 request in Chicago: Graffiti Removal Request",
+   "summary": "Graffiti Removal Request | Open | 60608",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "lat": 41.85,
+   "lon": -87.67,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60608",
+   "categories": [
+    "painting",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T19:10:00.000Z",
+   "data": {
+    "dataset": "v6vf-nfxy",
+    "domain": "data.cityofchicago.org",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-chicago-311",
+   "externalId": "SR26-00811113",
+   "kind": "civic",
+   "title": "311 request in Chicago: Tree Trim Request",
+   "summary": "Tree Trim Request | Open | 60614",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "lat": 41.92,
+   "lon": -87.65,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60614",
+   "categories": [
+    "tree-service"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T18:00:00.000Z",
+   "data": {
+    "dataset": "v6vf-nfxy",
+    "domain": "data.cityofchicago.org",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-chicago-business-people.json": [
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "4100001-20261112",
+   "kind": "civic",
+   "title": "New business license in Chicago: Limited Business License",
+   "summary": "Limited Business License | Instructional services",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.81,
+   "lon": -87.68,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60609",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "4100002-20261112",
+   "kind": "civic",
+   "title": "New business license in Chicago: Regulated Business License",
+   "summary": "Regulated Business License | Locksmith",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.75,
+   "lon": -87.58,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60649",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "4100003-20261113",
+   "kind": "civic",
+   "title": "New business license in Chicago: Shared Housing Unit Operator",
+   "summary": "Shared Housing Unit Operator | Short term rental of a dwelling unit",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.91,
+   "lon": -87.68,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60622",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-chicago-business.json": [
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "3011111-20261112",
+   "kind": "civic",
+   "title": "New business license in Chicago: Retail Food Establishment",
+   "summary": "Retail Food Establishment | Retail sales of prepared food",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.9,
+   "lon": -87.67,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60622",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith",
+    "pest-control",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "3011112-20261113",
+   "kind": "civic",
+   "title": "New business license in Chicago: Limited Business License",
+   "summary": "Limited Business License | Shipping and printing services",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.94,
+   "lon": -87.68,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60657",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-chicago-business",
+   "externalId": "3011113-20261113",
+   "kind": "civic",
+   "title": "New business license in Chicago: Regulated Business License",
+   "summary": "Regulated Business License | Tattooing",
+   "url": "https://data.cityofchicago.org/d/uupf-x98q",
+   "lat": 41.88,
+   "lon": -87.64,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60661",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "uupf-x98q",
+    "domain": "data.cityofchicago.org",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-chicago-events-people.json": [
+  {
+   "source": "socrata-chicago-events",
+   "externalId": "1050:2026-11-21T00:00:00.000:Permit - Event 1 Cluster 3",
+   "kind": "event",
+   "title": "Permitted event in Chicago: Permit - Event 1 Cluster 3 at Humboldt Park",
+   "summary": "Permit - Event 1 Cluster 3 | Approved | Humboldt Park",
+   "url": "https://data.cityofchicago.org/d/pk66-w54g",
+   "lat": 41.8781,
+   "lon": -87.6298,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-21T06:00:00.000Z",
+   "expiresAt": "2026-11-21T06:00:00.000Z",
+   "data": {
+    "dataset": "pk66-w54g",
+    "domain": "data.cityofchicago.org",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-chicago-events.json": [
+  {
+   "source": "socrata-chicago-events",
+   "externalId": "1042:2026-11-21T00:00:00.000:Permit - Event 1 Cluster 3",
+   "kind": "event",
+   "title": "Permitted event in Chicago: Permit - Event 1 Cluster 3 at Humboldt Park",
+   "summary": "Permit - Event 1 Cluster 3 | Approved | Humboldt Park",
+   "url": "https://data.cityofchicago.org/d/pk66-w54g",
+   "lat": 41.8781,
+   "lon": -87.6298,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-21T06:00:00.000Z",
+   "expiresAt": "2026-11-21T06:00:00.000Z",
+   "data": {
+    "dataset": "pk66-w54g",
+    "domain": "data.cityofchicago.org",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  },
+  {
+   "source": "socrata-chicago-events",
+   "externalId": "1043:2026-11-28T00:00:00.000:Venue Rental - Wedding",
+   "kind": "event",
+   "title": "Permitted event in Chicago: Venue Rental - Wedding at Garfield Park Conservatory",
+   "summary": "Venue Rental - Wedding | Approved | Garfield Park Conservatory",
+   "url": "https://data.cityofchicago.org/d/pk66-w54g",
+   "lat": 41.8781,
+   "lon": -87.6298,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-28T06:00:00.000Z",
+   "expiresAt": "2026-11-28T06:00:00.000Z",
+   "data": {
+    "dataset": "pk66-w54g",
+    "domain": "data.cityofchicago.org",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-chicago-inspections.json": [
+  {
+   "source": "socrata-chicago-inspections",
+   "externalId": "2612345:2026-11-10",
+   "kind": "civic",
+   "title": "Failed inspection in Chicago: food establishment",
+   "summary": "Restaurant | Fail | Canvass | 4000 block of W MADISON ST",
+   "url": "https://data.cityofchicago.org/d/4ijn-s7e5",
+   "lat": 41.881,
+   "lon": -87.725,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": "60624",
+   "categories": [
+    "pest-control",
+    "cleaning",
+    "janitorial-commercial"
+   ],
+   "severity": 2,
+   "occurredAt": "2026-11-10T06:00:00.000Z",
+   "data": {
+    "dataset": "4ijn-s7e5",
+    "domain": "data.cityofchicago.org",
+    "subtype": "inspection"
+   }
+  }
+ ],
+ "socrata-chicago-permits.json": [
+  {
+   "source": "socrata-chicago-permits",
+   "externalId": "101234567",
+   "kind": "permit",
+   "title": "Roof permit in Chicago",
+   "summary": "PERMIT - RENOVATION/ALTERATION | Interior Remodel | $14,500 job value | 2150 N DAMEN",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "lat": 41.9195,
+   "lon": -87.6779,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T06:00:00.000Z",
+   "data": {
+    "dataset": "ydr8-5enu",
+    "domain": "data.cityofchicago.org",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-chicago-permits",
+   "externalId": "101234568",
+   "kind": "permit",
+   "title": "Electrical permit in Chicago",
+   "summary": "PERMIT - ELECTRIC WIRING | $4,200 job value | 55 E MONROE",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "lat": 41.8807,
+   "lon": -87.6247,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "electrical"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T06:00:00.000Z",
+   "data": {
+    "dataset": "ydr8-5enu",
+    "domain": "data.cityofchicago.org",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-chicago-permits",
+   "externalId": "101234569",
+   "kind": "permit",
+   "title": "Building permit in Chicago",
+   "summary": "PERMIT - NEW CONSTRUCTION | $1,250,000 job value | 3300 S WENTWORTH",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "lat": 41.833,
+   "lon": -87.6316,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "landscaping",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-11T06:00:00.000Z",
+   "data": {
+    "dataset": "ydr8-5enu",
+    "domain": "data.cityofchicago.org",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-chicago-permits",
+   "externalId": "101234570",
+   "kind": "permit",
+   "title": "Sign permit in Chicago",
+   "summary": "PERMIT - SIGNS | 10 W RANDOLPH",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "lat": 41.8847,
+   "lon": -87.6322,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "signs-printing"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-11T06:00:00.000Z",
+   "data": {
+    "dataset": "ydr8-5enu",
+    "domain": "data.cityofchicago.org",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-chicago-violations-people.json": [
+  {
+   "source": "socrata-chicago-violations",
+   "externalId": "14001",
+   "kind": "civic",
+   "title": "Code violation in Chicago: EXTERIOR WALLS DEFECTIVE: BRICK",
+   "summary": "EXTERIOR WALLS DEFECTIVE: BRICK | OPEN | 2300 block of W 47TH ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.808,
+   "lon": -87.684,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-12T06:00:00.000Z",
+   "data": {
+    "dataset": "22u3-xenr",
+    "domain": "data.cityofchicago.org",
+    "subtype": "violation"
+   }
+  },
+  {
+   "source": "socrata-chicago-violations",
+   "externalId": "14002",
+   "kind": "civic",
+   "title": "Code violation in Chicago: RODENT INFESTATION IN REAR YARD",
+   "summary": "RODENT INFESTATION IN REAR YARD | OPEN | 7700 block of S CHAPPEL AVE",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.755,
+   "lon": -87.579,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "pest-control"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "22u3-xenr",
+    "domain": "data.cityofchicago.org",
+    "subtype": "violation"
+   }
+  }
+ ],
+ "socrata-chicago-violations.json": [
+  {
+   "source": "socrata-chicago-violations",
+   "externalId": "13001",
+   "kind": "civic",
+   "title": "Code violation in Chicago: REPAIR EXTERIOR WALL",
+   "summary": "REPAIR EXTERIOR WALL | OPEN | 4100 block of W MADISON ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.881,
+   "lon": -87.731,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T06:00:00.000Z",
+   "data": {
+    "dataset": "22u3-xenr",
+    "domain": "data.cityofchicago.org",
+    "subtype": "violation"
+   }
+  },
+  {
+   "source": "socrata-chicago-violations",
+   "externalId": "13003",
+   "kind": "civic",
+   "title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
+   "summary": "REPAIR PORCH SYSTEM | OPEN | 1900 block of S KOSTNER AVE",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.856,
+   "lon": -87.734,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T06:00:00.000Z",
+   "data": {
+    "dataset": "22u3-xenr",
+    "domain": "data.cityofchicago.org",
+    "subtype": "violation"
+   }
+  },
+  {
+   "source": "socrata-chicago-violations",
+   "externalId": "13005",
+   "kind": "civic",
+   "title": "Code violation in Chicago: RODENT HARBORAGE AND ACCUMULATION OF RUBBISH AT REAR YARD",
+   "summary": "RODENT HARBORAGE AND ACCUMULATION OF RUBBISH AT REAR YARD | OPEN | 2200 block of W 47TH ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.809,
+   "lon": -87.682,
+   "city": "Chicago",
+   "state": "IL",
+   "zip": null,
+   "categories": [
+    "junk-removal",
+    "pest-control"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T06:00:00.000Z",
+   "data": {
+    "dataset": "22u3-xenr",
+    "domain": "data.cityofchicago.org",
+    "subtype": "violation"
+   }
+  }
+ ],
+ "socrata-cincinnati-permits.json": [
+  {
+   "source": "socrata-cincinnati-permits",
+   "externalId": "26BLD-04512",
+   "kind": "permit",
+   "title": "Roof permit in Cincinnati",
+   "summary": "Building Permit | Residential Alteration | 2219 Madison Rd",
+   "url": "https://data.cincinnati-oh.gov/d/thvx-5mem",
+   "lat": 39.1031,
+   "lon": -84.512,
+   "city": "Cincinnati",
+   "state": "OH",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T05:00:00.000Z",
+   "data": {
+    "dataset": "thvx-5mem",
+    "domain": "data.cincinnati-oh.gov",
+    "subtype": "permit",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-dallas-311.json": [
+  {
+   "source": "socrata-dallas-311",
+   "externalId": "2026-0011223",
+   "kind": "civic",
+   "title": "311 request in Dallas: Illegal Dumping Reports",
+   "summary": "Illegal Dumping Reports | Code Compliance | New",
+   "url": "https://www.dallasopendata.com/d/d7e7-envw",
+   "lat": 32.771,
+   "lon": -96.797,
+   "city": "Dallas",
+   "state": "TX",
+   "zip": null,
+   "categories": [
+    "junk-removal"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T16:00:00.000Z",
+   "data": {
+    "dataset": "d7e7-envw",
+    "domain": "www.dallasopendata.com",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-kansascity-311.json": [
+  {
+   "source": "socrata-kansascity-311",
+   "externalId": "WO-5001",
+   "kind": "civic",
+   "title": "311 request in Kansas City: Illegal Dumping / Dumping in alley",
+   "summary": "Illegal Dumping | Dumping in alley | Open",
+   "url": "https://data.kcmo.org/d/d4px-6rwg",
+   "lat": 39.0997,
+   "lon": -94.5786,
+   "city": "Kansas City",
+   "state": "MO",
+   "zip": null,
+   "categories": [
+    "junk-removal"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T15:30:00.000Z",
+   "data": {
+    "dataset": "d4px-6rwg",
+    "domain": "data.kcmo.org",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-kansascity-311",
+   "externalId": "WO-5002",
+   "kind": "civic",
+   "title": "311 request in Kansas City: Property Violations / Overgrown weeds",
+   "summary": "Property Violations | Overgrown weeds | Open",
+   "url": "https://data.kcmo.org/d/d4px-6rwg",
+   "lat": 39.05,
+   "lon": -94.57,
+   "city": "Kansas City",
+   "state": "MO",
+   "zip": null,
+   "categories": [
+    "lawn-care",
+    "landscaping",
+    "general-contractor",
+    "handyman"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T16:30:00.000Z",
+   "data": {
+    "dataset": "d4px-6rwg",
+    "domain": "data.kcmo.org",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-la-business-people.json": [
+  {
+   "source": "socrata-la-business",
+   "externalId": "0000900001-0001-0",
+   "kind": "civic",
+   "title": "New business license in Los Angeles: Other personal services",
+   "summary": "Other personal services",
+   "url": "https://data.lacity.org/d/6rrh-rzua",
+   "lat": 34.07,
+   "lon": -118.3,
+   "city": "Los Angeles",
+   "state": "CA",
+   "zip": "90004",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-05T08:00:00.000Z",
+   "data": {
+    "dataset": "6rrh-rzua",
+    "domain": "data.lacity.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-la-business",
+   "externalId": "0000900002-0001-0",
+   "kind": "civic",
+   "title": "New business license in Los Angeles: Janitorial services",
+   "summary": "Janitorial services",
+   "url": "https://data.lacity.org/d/6rrh-rzua",
+   "lat": 34.04,
+   "lon": -118.31,
+   "city": "Los Angeles",
+   "state": "CA",
+   "zip": "90018",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-07T08:00:00.000Z",
+   "data": {
+    "dataset": "6rrh-rzua",
+    "domain": "data.lacity.org",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-la-business.json": [
+  {
+   "source": "socrata-la-business",
+   "externalId": "0000123456-0001-0",
+   "kind": "civic",
+   "title": "New business license in Los Angeles: Full-service restaurants",
+   "summary": "Full-service restaurants",
+   "url": "https://data.lacity.org/d/6rrh-rzua",
+   "lat": 34.1,
+   "lon": -118.32,
+   "city": "Los Angeles",
+   "state": "CA",
+   "zip": "90028",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith",
+    "pest-control",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-05T08:00:00.000Z",
+   "data": {
+    "dataset": "6rrh-rzua",
+    "domain": "data.lacity.org",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-la-business",
+   "externalId": "0000123457-0001-0",
+   "kind": "civic",
+   "title": "New business license in Los Angeles: Administrative management consulting",
+   "summary": "Administrative management consulting",
+   "url": "https://data.lacity.org/d/6rrh-rzua",
+   "lat": 34.05,
+   "lon": -118.24,
+   "city": "Los Angeles",
+   "state": "CA",
+   "zip": "90012",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T08:00:00.000Z",
+   "data": {
+    "dataset": "6rrh-rzua",
+    "domain": "data.lacity.org",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-montgomery-permits.json": [
+  {
+   "source": "socrata-montgomery-permits",
+   "externalId": "1001234",
+   "kind": "permit",
+   "title": "Roof permit in Montgomery County",
+   "summary": "ALTER | $22,000 job value | Issued | 4500 MAIN ST",
+   "url": "https://data.montgomerycountymd.gov/d/m88u-pqki",
+   "lat": 38.9847,
+   "lon": -77.0947,
+   "city": "Montgomery County",
+   "state": "MD",
+   "zip": "20814",
+   "categories": [
+    "windows-doors",
+    "siding-gutters",
+    "roofing"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-28T15:10:54.000Z",
+   "data": {
+    "dataset": "m88u-pqki",
+    "domain": "data.montgomerycountymd.gov",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-montgomery-permits",
+   "externalId": "1001235",
+   "kind": "permit",
+   "title": "Flooring permit in Montgomery County",
+   "summary": "ALTER | Issued | 12 ELM AVE",
+   "url": "https://data.montgomerycountymd.gov/d/m88u-pqki",
+   "lat": 39.01,
+   "lon": -77.1,
+   "city": "Montgomery County",
+   "state": "MD",
+   "zip": null,
+   "categories": [
+    "flooring",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-28T14:10:54.000Z",
+   "data": {
+    "dataset": "m88u-pqki",
+    "domain": "data.montgomerycountymd.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-nola-permits.json": [
+  {
+   "source": "socrata-nola-permits",
+   "externalId": "26-12345-RNVN",
+   "kind": "permit",
+   "title": "Roof permit in New Orleans",
+   "summary": "Residential Renovation | Issued | $22,000 job value | 3500 Prytania St",
+   "url": "https://data.nola.gov/d/rcm3-fn58",
+   "lat": 29.934,
+   "lon": -90.09,
+   "city": "New Orleans",
+   "state": "LA",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "siding-gutters",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "data": {
+    "dataset": "rcm3-fn58",
+    "domain": "data.nola.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-norfolk-permits.json": [
+  {
+   "source": "socrata-norfolk-permits",
+   "externalId": "BLD-26-1001",
+   "kind": "permit",
+   "title": "Roof permit in Norfolk",
+   "summary": "Building | Reroof/Solar Panels | $12,000 job value | 100 Granby St",
+   "url": "https://data.norfolk.gov/d/fahm-yuh4",
+   "lat": 36.85,
+   "lon": -76.29,
+   "city": "Norfolk",
+   "state": "VA",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "solar"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T05:00:00.000Z",
+   "data": {
+    "dataset": "fahm-yuh4",
+    "domain": "data.norfolk.gov",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-norfolk-permits",
+   "externalId": "MEC-26-2002",
+   "kind": "permit",
+   "title": "HVAC permit in Norfolk",
+   "summary": "Mechanical | Replacement | 200 Colley Ave",
+   "url": "https://data.norfolk.gov/d/fahm-yuh4",
+   "lat": 36.86,
+   "lon": -76.295,
+   "city": "Norfolk",
+   "state": "VA",
+   "zip": null,
+   "categories": [
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-10T05:00:00.000Z",
+   "data": {
+    "dataset": "fahm-yuh4",
+    "domain": "data.norfolk.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-nyc-311.json": [
+  {
+   "source": "socrata-nyc-311",
+   "externalId": "65432101",
+   "kind": "civic",
+   "title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+   "summary": "HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN",
+   "url": "https://data.cityofnewyork.us/d/erm2-nwe9",
+   "lat": 40.643,
+   "lon": -74.01,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "11220",
+   "categories": [
+    "hvac",
+    "plumbing"
+   ],
+   "severity": 2,
+   "occurredAt": "2026-11-15T14:12:00.000Z",
+   "data": {
+    "dataset": "erm2-nwe9",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-nyc-311",
+   "externalId": "65432102",
+   "kind": "civic",
+   "title": "311 request in New York City: Rodent / Rat Sighting",
+   "summary": "Rodent | Rat Sighting | MANHATTAN",
+   "url": "https://data.cityofnewyork.us/d/erm2-nwe9",
+   "lat": 40.8115,
+   "lon": -73.9465,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "10027",
+   "categories": [
+    "pest-control"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T13:00:00.000Z",
+   "data": {
+    "dataset": "erm2-nwe9",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-nyc-business-people.json": [
+  {
+   "source": "socrata-nyc-business",
+   "externalId": "2099101-DCA",
+   "kind": "civic",
+   "title": "New business license in New York City: Home Improvement Contractor",
+   "summary": "Home Improvement Contractor",
+   "url": "https://data.cityofnewyork.us/d/w7w3-xahh",
+   "lat": 40.63,
+   "lon": -74.03,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "11209",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-28T04:00:00.000Z",
+   "data": {
+    "dataset": "w7w3-xahh",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-nyc-business",
+   "externalId": "2099102-DCA",
+   "kind": "civic",
+   "title": "New business license in New York City: Locksmith",
+   "summary": "Locksmith",
+   "url": "https://data.cityofnewyork.us/d/w7w3-xahh",
+   "lat": 40.86,
+   "lon": -73.89,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "10458",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-29T04:00:00.000Z",
+   "data": {
+    "dataset": "w7w3-xahh",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-nyc-business.json": [
+  {
+   "source": "socrata-nyc-business",
+   "externalId": "2099001-DCA",
+   "kind": "civic",
+   "title": "New business license in New York City: Locksmith",
+   "summary": "Locksmith",
+   "url": "https://data.cityofnewyork.us/d/w7w3-xahh",
+   "lat": 40.64,
+   "lon": -73.96,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "11226",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-28T04:00:00.000Z",
+   "data": {
+    "dataset": "w7w3-xahh",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-nyc-business",
+   "externalId": "2099002-DCA",
+   "kind": "civic",
+   "title": "New business license in New York City: Home Improvement Contractor",
+   "summary": "Home Improvement Contractor",
+   "url": "https://data.cityofnewyork.us/d/w7w3-xahh",
+   "lat": 40.71,
+   "lon": -74.01,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "11373",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-10-29T04:00:00.000Z",
+   "data": {
+    "dataset": "w7w3-xahh",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "business",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-nyc-events-people.json": [
+  {
+   "source": "socrata-nyc-events",
+   "externalId": "910001",
+   "kind": "event",
+   "title": "Permitted event in New York City: Street Event at 5 AVENUE between 9 STREET and 10 STREET",
+   "summary": "Street Event | Brooklyn | 5 AVENUE between 9 STREET and 10 STREET",
+   "url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+   "lat": 40.7128,
+   "lon": -74.006,
+   "city": "New York City",
+   "state": "NY",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-21T15:00:00.000Z",
+   "expiresAt": "2026-11-21T21:00:00.000Z",
+   "data": {
+    "dataset": "tvpp-9vvx",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-nyc-events.json": [
+  {
+   "source": "socrata-nyc-events",
+   "externalId": "900001",
+   "kind": "event",
+   "title": "Permitted event in New York City: Street Event at 5 AVENUE between 9 STREET and 10 STREET",
+   "summary": "Street Event | Brooklyn | 5 AVENUE between 9 STREET and 10 STREET",
+   "url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+   "lat": 40.7128,
+   "lon": -74.006,
+   "city": "New York City",
+   "state": "NY",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-21T15:00:00.000Z",
+   "expiresAt": "2026-11-21T21:00:00.000Z",
+   "data": {
+    "dataset": "tvpp-9vvx",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  },
+  {
+   "source": "socrata-nyc-events",
+   "externalId": "900002",
+   "kind": "event",
+   "title": "Permitted event in New York City: Farmers Market at UNION SQUARE",
+   "summary": "Farmers Market | Manhattan | UNION SQUARE",
+   "url": "https://data.cityofnewyork.us/d/tvpp-9vvx",
+   "lat": 40.7128,
+   "lon": -74.006,
+   "city": "New York City",
+   "state": "NY",
+   "zip": null,
+   "categories": [
+    "food-truck",
+    "catering",
+    "event-services",
+    "security",
+    "cleaning"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-22T13:00:00.000Z",
+   "expiresAt": "2026-11-22T20:00:00.000Z",
+   "data": {
+    "dataset": "tvpp-9vvx",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "event-permit",
+    "approxLocation": true
+   }
+  }
+ ],
+ "socrata-nyc-inspections.json": [
+  {
+   "source": "socrata-nyc-inspections",
+   "externalId": "50012345:2026-11-09",
+   "kind": "civic",
+   "title": "Failed inspection in New York City: food establishment",
+   "summary": "41 | C | 4000 block of MAIN ST",
+   "url": "https://data.cityofnewyork.us/d/43nn-pn8j",
+   "lat": 40.759,
+   "lon": -73.83,
+   "city": "New York City",
+   "state": "NY",
+   "zip": "11354",
+   "categories": [
+    "pest-control",
+    "cleaning",
+    "janitorial-commercial"
+   ],
+   "severity": 2,
+   "occurredAt": "2026-11-09T05:00:00.000Z",
+   "data": {
+    "dataset": "43nn-pn8j",
+    "domain": "data.cityofnewyork.us",
+    "subtype": "inspection"
+   }
+  }
+ ],
+ "socrata-oakland-311.json": [
+  {
+   "source": "socrata-oakland-311",
+   "externalId": "600001",
+   "kind": "civic",
+   "title": "311 request in Oakland: ILLDUMP / Illegal dumping on sidewalk",
+   "summary": "ILLDUMP | Illegal dumping on sidewalk | Open",
+   "url": "https://data.oaklandca.gov/d/quth-gb8e",
+   "lat": 37.76,
+   "lon": -122.2,
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94621",
+   "categories": [
+    "junk-removal"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T06:30:35.000Z",
+   "data": {
+    "dataset": "quth-gb8e",
+    "domain": "data.oaklandca.gov",
+    "subtype": "311"
+   }
+  },
+  {
+   "source": "socrata-oakland-311",
+   "externalId": "600002",
+   "kind": "civic",
+   "title": "311 request in Oakland: BLDGMAINT / Building maintenance complaint",
+   "summary": "BLDGMAINT | Building maintenance complaint | Open",
+   "url": "https://data.oaklandca.gov/d/quth-gb8e",
+   "lat": 37.8,
+   "lon": -122.28,
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94607",
+   "categories": [
+    "general-contractor",
+    "handyman",
+    "janitorial-commercial"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-15T02:40:48.000Z",
+   "data": {
+    "dataset": "quth-gb8e",
+    "domain": "data.oaklandca.gov",
+    "subtype": "311"
+   }
+  }
+ ],
+ "socrata-orlando-business-people.json": [
+  {
+   "source": "socrata-orlando-business",
+   "externalId": "BTR-2026-9101",
+   "kind": "civic",
+   "title": "New business license in Orlando: NURSE PRACTITIONER",
+   "summary": "NURSE PRACTITIONER | PROFES",
+   "url": "https://data.cityoforlando.net/d/7388-4re5",
+   "lat": 28.56,
+   "lon": -81.37,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-03T05:00:00.000Z",
+   "data": {
+    "dataset": "7388-4re5",
+    "domain": "data.cityoforlando.net",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-orlando-business",
+   "externalId": "BTR-2026-9102",
+   "kind": "civic",
+   "title": "New business license in Orlando: SERVICE",
+   "summary": "SERVICE | SERREP",
+   "url": "https://data.cityoforlando.net/d/7388-4re5",
+   "lat": 28.49,
+   "lon": -81.43,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-04T05:00:00.000Z",
+   "data": {
+    "dataset": "7388-4re5",
+    "domain": "data.cityoforlando.net",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-orlando-business",
+   "externalId": "BTR-2026-9103",
+   "kind": "civic",
+   "title": "New business license in Orlando: CONTRACTOR DBPR",
+   "summary": "CONTRACTOR DBPR | CONTRA",
+   "url": "https://data.cityoforlando.net/d/7388-4re5",
+   "lat": 28.54,
+   "lon": -81.35,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-05T05:00:00.000Z",
+   "data": {
+    "dataset": "7388-4re5",
+    "domain": "data.cityoforlando.net",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-orlando-business.json": [
+  {
+   "source": "socrata-orlando-business",
+   "externalId": "BTR-2026-9001",
+   "kind": "civic",
+   "title": "New business license in Orlando: Business Tax Receipt",
+   "summary": "Business Tax Receipt | RESTAU",
+   "url": "https://data.cityoforlando.net/d/7388-4re5",
+   "lat": 28.55,
+   "lon": -81.38,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith",
+    "pest-control",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-03T05:00:00.000Z",
+   "data": {
+    "dataset": "7388-4re5",
+    "domain": "data.cityoforlando.net",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-orlando-business",
+   "externalId": "BTR-2026-9002",
+   "kind": "civic",
+   "title": "New business license in Orlando: Business Tax Receipt",
+   "summary": "Business Tax Receipt | PROFES",
+   "url": "https://data.cityoforlando.net/d/7388-4re5",
+   "lat": 28.54,
+   "lon": -81.38,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-08T05:00:00.000Z",
+   "data": {
+    "dataset": "7388-4re5",
+    "domain": "data.cityoforlando.net",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-orlando-permits.json": [
+  {
+   "source": "socrata-orlando-permits",
+   "externalId": "BLD2026-10001",
+   "kind": "permit",
+   "title": "Roof permit in Orlando",
+   "summary": "Building Permit | Roof | $15,000 job value | 123 E Jackson St",
+   "url": "https://data.cityoforlando.net/d/ryhf-m453",
+   "lat": 28.54,
+   "lon": -81.37,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T05:00:00.000Z",
+   "data": {
+    "dataset": "ryhf-m453",
+    "domain": "data.cityoforlando.net",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-orlando-permits",
+   "externalId": "BLD2026-10002",
+   "kind": "permit",
+   "title": "Fence permit in Orlando",
+   "summary": "Building Permit | Fence | 55 W Colonial Dr",
+   "url": "https://data.cityoforlando.net/d/ryhf-m453",
+   "lat": 28.55,
+   "lon": -81.38,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
+    "fencing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T05:00:00.000Z",
+   "data": {
+    "dataset": "ryhf-m453",
+    "domain": "data.cityoforlando.net",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "socrata-sf-business-live-2026-11-16.json": [
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437465-11-261-1190780",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.97,
+   "lon": -121.99,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94521",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437470-11-261-1190782",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.74,
+   "lon": -122.41,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94110",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437462-11-261-1145457",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.39,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94107",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437452-11-261-1190738",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.79,
+   "lon": -122.42,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94109",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437479-11-261-1190789",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.41,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94110",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437439-11-261-1190770",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.39,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94107",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437457-11-261-1190777",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.73,
+   "lon": -122.4,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94124",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437496-11-261-1190796",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.79,
+   "lon": -122.39,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94105",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437499-11-261-1190797",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.39,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94107",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437354-11-261-1190731",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.78,
+   "lon": -122.49,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94121",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437367-11-261-1190738",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.79,
+   "lon": -122.42,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94109",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437373-11-261-1190741",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.4,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94107",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-14T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437332-11-261-1190721",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.78,
+   "lon": -122.41,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94102",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437342-11-261-1190725",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.74,
+   "lon": -122.48,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94116",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437320-11-261-1190715",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.8,
+   "lon": -122.44,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94123",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437298-11-261-1190486",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Information and media",
+   "summary": "Information and media",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 34.06,
+   "lon": -118.35,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "90036",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1437415-11-261-1190760",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Other services",
+   "summary": "Other services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.77,
+   "lon": -122.45,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94117",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-sf-business-people.json": [
+  {
+   "source": "socrata-sf-business",
+   "externalId": "9100001-02-001",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Professional Services",
+   "summary": "Professional Services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.47,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94122",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-05T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "9100002-02-001",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Multiple",
+   "summary": "Multiple",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.79,
+   "lon": -122.45,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94118",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-06T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-sf-business.json": [
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1234567-02-001",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Food Service",
+   "summary": "Food Service",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.76,
+   "lon": -122.42,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94110",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith",
+    "pest-control",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-02T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  },
+  {
+   "source": "socrata-sf-business",
+   "externalId": "1234568-02-001",
+   "kind": "civic",
+   "title": "New business license in San Francisco: Professional Services",
+   "summary": "Professional Services",
+   "url": "https://data.sf.gov/d/g8m3-pdis",
+   "lat": 37.73,
+   "lon": -122.39,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94124",
+   "categories": [
+    "signs-printing",
+    "business-services",
+    "insurance",
+    "janitorial-commercial",
+    "security",
+    "cleaning",
+    "locksmith"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-09T08:00:00.000Z",
+   "data": {
+    "dataset": "g8m3-pdis",
+    "domain": "data.sf.gov",
+    "subtype": "business"
+   }
+  }
+ ],
+ "socrata-sf-permits.json": [
+  {
+   "source": "socrata-sf-permits",
+   "externalId": "202611123456",
+   "kind": "permit",
+   "title": "Roof permit in San Francisco",
+   "summary": "otc alterations permit | $18,000 job value | issued | 1450 Lombard St",
+   "url": "https://data.sf.gov/d/i98e-djp9",
+   "lat": 37.8003,
+   "lon": -122.429,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94123",
+   "categories": [
+    "roofing"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "i98e-djp9",
+    "domain": "data.sf.gov",
+    "subtype": "permit"
+   }
+  },
+  {
+   "source": "socrata-sf-permits",
+   "externalId": "202611123457",
+   "kind": "permit",
+   "title": "Electrical permit in San Francisco",
+   "summary": "electrical | issued | 88 Dolores St",
+   "url": "https://data.sf.gov/d/i98e-djp9",
+   "lat": 37.769,
+   "lon": -122.4262,
+   "city": "San Francisco",
+   "state": "CA",
+   "zip": "94110",
+   "categories": [
+    "electrical"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-13T08:00:00.000Z",
+   "data": {
+    "dataset": "i98e-djp9",
+    "domain": "data.sf.gov",
+    "subtype": "permit"
+   }
+  }
+ ],
+ "usaspending-awards.json": [
+  {
+   "source": "usaspending",
+   "externalId": "CONT_AWD_W912EF26P0042_9700_-NONE-_-NONE-",
+   "kind": "contract",
+   "title": "Federal contract ($2.5M) in Atlanta, GA: Commercial cleaning (NAICS 561720)",
+   "summary": "by Department of Defense, NAICS 561720",
+   "url": "https://www.usaspending.gov/award/CONT_AWD_W912EF26P0042_9700_-NONE-_-NONE-",
+   "lat": 33.749,
+   "lon": -84.388,
+   "city": "Atlanta",
+   "state": "GA",
+   "zip": "30303",
+   "categories": [
+    "janitorial-commercial",
+    "cleaning"
+   ],
+   "severity": 2,
+   "occurredAt": "2026-11-05T00:00:00.000Z",
+   "data": {
+    "naics": "561720",
+    "amount": 2450000.5
+   }
+  },
+  {
+   "source": "usaspending",
+   "externalId": "CONT_AWD_47PA0126F0007_4740_-NONE-_-NONE-",
+   "kind": "contract",
+   "title": "Federal contract ($84K) in Austin, TX: Landscaping (NAICS 561730)",
+   "summary": "by General Services Administration, NAICS 561730",
+   "url": "https://www.usaspending.gov/award/CONT_AWD_47PA0126F0007_4740_-NONE-_-NONE-",
+   "lat": 30.2672,
+   "lon": -97.7431,
+   "city": "Austin",
+   "state": "TX",
+   "zip": "78701",
+   "categories": [
+    "landscaping",
+    "lawn-care"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-01T00:00:00.000Z",
+   "data": {
+    "naics": "561730",
+    "amount": 84000
+   }
+  },
+  {
+   "source": "usaspending",
+   "externalId": "CONT_AWD_36C25726P0099_3600_-NONE-_-NONE-",
+   "kind": "contract",
+   "title": "Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)",
+   "summary": "by Department of Veterans Affairs, NAICS 238220",
+   "url": "https://www.usaspending.gov/award/CONT_AWD_36C25726P0099_3600_-NONE-_-NONE-",
+   "lat": 39.1271,
+   "lon": -84.5144,
+   "city": "Cincinnati",
+   "state": "OH",
+   "zip": null,
+   "categories": [
+    "plumbing",
+    "hvac"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-02T00:00:00.000Z",
+   "data": {
+    "naics": "238220",
+    "amount": 310000
+   }
+  }
+ ]
+}

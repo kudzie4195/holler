@@ -1,0 +1,14 @@
+[
+  {"id": "3099001-20261112", "license_id": "3099001", "doing_business_as_name": "SUMMIT CITY CAFE", "legal_name": "SUMMIT CITY CAFE LLC", "address": "1840 W DIVISION ST",
+   "city": "CHICAGO", "state": "IL", "zip_code": "60622", "license_description": "Retail Food Establishment", "business_activity": "Retail sales of prepared food",
+   "application_type": "ISSUE", "date_issued": "2026-11-12T00:00:00.000", "latitude": "41.9033", "longitude": "-87.6741"},
+  {"id": "3099002-20261112", "license_id": "3099002", "doing_business_as_name": "Olga Torres", "legal_name": "TORRES, OLGA", "address": "2318 W 47TH ST",
+   "city": "CHICAGO", "state": "IL", "zip_code": "60609", "license_description": "Limited Business License", "business_activity": "Instructional services",
+   "application_type": "ISSUE", "date_issued": "2026-11-12T00:00:00.000", "latitude": "41.8082", "longitude": "-87.6841"},
+  {"id": "3099003-20261112", "license_id": "3099003", "doing_business_as_name": "REGINALD JACKSON JR", "legal_name": "REGINALD JACKSON HOME IMPROVEMENT LLC", "address": "7710 S CHAPPEL AVE",
+   "city": "CHICAGO", "state": "IL", "zip_code": "60649", "license_description": "Home Repair", "business_activity": "Home repair services",
+   "application_type": "ISSUE", "date_issued": "2026-11-12T00:00:00.000", "latitude": "41.7543", "longitude": "-87.5735"},
+  {"id": "3099004-20261112", "license_id": "3099004", "doing_business_as_name": "DARNELL T SPARKS", "legal_name": "APEX HOME REMODELING LLC", "address": "6420 N CLARK ST",
+   "city": "CHICAGO", "state": "IL", "zip_code": "60626", "license_description": "Home Repair", "business_activity": "Home repair services",
+   "application_type": "ISSUE", "date_issued": "2026-11-12T00:00:00.000", "latitude": "41.9989", "longitude": "-87.6703"}
+]

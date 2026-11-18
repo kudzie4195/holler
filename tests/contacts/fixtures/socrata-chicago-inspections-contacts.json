@@ -1,0 +1,20 @@
+[
+  {
+    "inspection_id": "2700001", "dba_name": "JOES TACO SHACK", "aka_name": "JOES TACOS", "license_": "2345678", "facility_type": "Restaurant",
+    "risk": "Risk 1 (High)", "address": "4000 W MADISON ST", "city": "CHICAGO", "state": "IL", "zip": "60624",
+    "inspection_date": "2026-11-10T00:00:00.000", "inspection_type": "Canvass", "results": "Fail",
+    "violations": "38. INSECT, RODENT, ANIMAL OR ANY OTHER PEST PRESENCE", "latitude": "41.8808", "longitude": "-87.7254"
+  },
+  {
+    "inspection_id": "2700002", "dba_name": "MARIA LOPEZ", "aka_name": "MARIA LOPEZ", "license_": "2345679", "facility_type": "Daycare (2 - 6 Years)",
+    "risk": "Risk 1 (High)", "address": "5521 S KOMENSKY AVE", "city": "CHICAGO", "state": "IL", "zip": "60629",
+    "inspection_date": "2026-11-10T00:00:00.000", "inspection_type": "License", "results": "Fail",
+    "violations": "55. PHYSICAL FACILITIES INSTALLED, MAINTAINED & CLEAN", "latitude": "41.7929", "longitude": "-87.7267"
+  },
+  {
+    "inspection_id": "2700003", "dba_name": "SUMMIT STREET PIZZERIA", "aka_name": "HALSTED PIZZA", "license_": "2345680", "facility_type": "Restaurant",
+    "risk": "Risk 1 (High)", "address": "1550 N HALSTED ST", "city": "CHICAGO", "state": "IL", "zip": "60642",
+    "inspection_date": "2026-11-10T00:00:00.000", "inspection_type": "Canvass", "results": "Fail",
+    "violations": "38. INSECT, RODENT, ANIMAL OR ANY OTHER PEST PRESENCE", "latitude": "41.9101", "longitude": "-87.6486"
+  }
+]

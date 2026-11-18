@@ -1,4 +1,5 @@
-import type { SocrataSubtype } from './socrata-datasets';
+import type { InspectionSummaryField, SocrataSubtype } from './socrata-datasets';
+import type { ContactSpec } from '@/lib/contacts/extract';
 
 /**
  * Config for the generic ArcGIS (FeatureServer / MapServer layer) adapter.
@@ -40,7 +41,10 @@ export interface ArcgisDataset {
   textFields: string[];
   summaryFields: string[];
   addressFields?: string[];
+  /** Read only into the private contacts spec; the public inspection path never reads it. */
   nameField?: string;
+  /** Inspections only: categorical summary columns and their fixed value lists (see socrata-datasets.ts InspectionSummaryField). */
+  inspectionSummary?: InspectionSummaryField[];
   zipField?: string;
   extraWhere?: string;
   lookbackOverride?: number;
@@ -52,6 +56,12 @@ export interface ArcgisDataset {
   checkedOn: string;
   fieldSource: 'sourced' | 'assumed';
   note?: string;
+  /**
+   * Who to contact (private: holler_signal_contacts only). None of the layers below has one: their field lists could not be re-read on
+   * 2026-11-17 (the WebFetch of each `?f=json` URL was refused), and no column is added unread. Add one only after reading the layer's
+   * fields, with the URL in contacts.verifiedUrl.
+   */
+  contacts?: ContactSpec;
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;

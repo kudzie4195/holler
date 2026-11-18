@@ -1,0 +1,8 @@
+{"results": [
+  {"internal_id": 1, "Award ID": "W912EF26P0042", "Recipient Name": "ACME FACILITY SERVICES LLC", "Award Amount": 2450000.5, "Description": "JANITORIAL SERVICES FOR FEDERAL BUILDING",
+   "Start Date": "2026-11-03", "Primary Place of Performance": {"state_code": "GA", "city_name": "ATLANTA"}, "NAICS": {"code": "561720"},
+   "generated_internal_id": "CONT_AWD_A", "Awarding Agency": "Department of Defense", "Last Modified Date": "2026-11-05"},
+  {"internal_id": 2, "Award ID": "W912EF26P0043", "Recipient Name": "SMITH, JOHN A", "Award Amount": 9000, "Description": "GROUNDS MAINTENANCE",
+   "Start Date": "2026-11-03", "Primary Place of Performance": {"state_code": "GA", "city_name": "ATLANTA"}, "NAICS": {"code": "561730"},
+   "generated_internal_id": "CONT_AWD_B", "Awarding Agency": "Department of the Interior", "Last Modified Date": "2026-11-05"}
+]}

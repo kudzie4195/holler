@@ -1,0 +1,4889 @@
+{
+ "source": "/home/claude/gates/r5/review3.md Appendix A, parsed by script (FIX-E), one row per accepted string; the 20 inputs written with a literal \"\\t\" in the review hold a real tab here",
+ "rows": [
+  {
+   "shape": "G trade",
+   "input": "Danny Roofing",
+   "output": "Danny Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Danny Smith LLC",
+   "output": "Danny Smith LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Danny Smith DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Michele Plumbing",
+   "output": "Michele Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Michele Lopez LLC",
+   "output": "Michele Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Michele Lopez",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Julia Daycare",
+   "output": "Julia Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Julia Nguyen LLC",
+   "output": "Julia Nguyen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Suzanne Catering",
+   "output": "Suzanne Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Suzanne Kowalski LLC",
+   "output": "Suzanne Kowalski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Allen Landscaping",
+   "output": "Allen Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Allen Okafor LLC",
+   "output": "Allen Okafor LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Allen Okafor, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Frederick Cleaning",
+   "output": "Frederick Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Frederick Zelenskyy LLC",
+   "output": "Frederick Zelenskyy LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Frederick Zelenskyy OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Casey Construction",
+   "output": "Casey Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Casey Okonjo LLC",
+   "output": "Casey Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Casey Okonjo @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Alex Painting",
+   "output": "Alex Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Alex Papadopoulos LLC",
+   "output": "Alex Papadopoulos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Alex Papadopoulos",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Beth Trucking",
+   "output": "Beth Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Beth Haverford LLC",
+   "output": "Beth Haverford LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Beth Haverford DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Brett Electric",
+   "output": "Brett Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Brett Villanueva LLC",
+   "output": "Brett Villanueva LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Brett Villanueva",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Chelsea Roofing",
+   "output": "Chelsea Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Chelsea Castellanos LLC",
+   "output": "Chelsea Castellanos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Joann Plumbing",
+   "output": "Joann Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Joann Abubakar LLC",
+   "output": "Joann Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kelsey Daycare",
+   "output": "Kelsey Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kelsey Johansson LLC",
+   "output": "Kelsey Johansson LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Kelsey Johansson, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Alfred Catering",
+   "output": "Alfred Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Alfred Oyelaran LLC",
+   "output": "Alfred Oyelaran LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Alfred Oyelaran OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Glenda Landscaping",
+   "output": "Glenda Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Glenda Brzezinski LLC",
+   "output": "Glenda Brzezinski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Glenda Brzezinski @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Constance Cleaning",
+   "output": "Constance Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Constance Tanaka LLC",
+   "output": "Constance Tanaka LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Constance Tanaka",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Bernard Construction",
+   "output": "Bernard Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Bernard Petrovic LLC",
+   "output": "Bernard Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Bernard Petrovic DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Alison Painting",
+   "output": "Alison Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Alison Mwangi LLC",
+   "output": "Alison Mwangi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Alison Mwangi",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kristine Trucking",
+   "output": "Kristine Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kristine Haddad LLC",
+   "output": "Kristine Haddad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Alvin Electric",
+   "output": "Alvin Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Alvin Fitzgerald LLC",
+   "output": "Alvin Fitzgerald LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Meghan Roofing",
+   "output": "Meghan Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Meghan Yamaguchi LLC",
+   "output": "Meghan Yamaguchi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Meghan Yamaguchi, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Brad Plumbing",
+   "output": "Brad Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Brad Echeverria LLC",
+   "output": "Brad Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Brad Echeverria OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Sheryl Daycare",
+   "output": "Sheryl Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Sheryl Achterberg LLC",
+   "output": "Sheryl Achterberg LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Sheryl Achterberg @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Clayton Catering",
+   "output": "Clayton Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Clayton Thibodeaux LLC",
+   "output": "Clayton Thibodeaux LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Clayton Thibodeaux",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jimmie Landscaping",
+   "output": "Jimmie Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jimmie Rasmussen LLC",
+   "output": "Jimmie Rasmussen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Jimmie Rasmussen DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Paige Cleaning",
+   "output": "Paige Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Paige Banerjee LLC",
+   "output": "Paige Banerjee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Paige Banerjee",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Brittney Construction",
+   "output": "Brittney Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Brittney Olawale LLC",
+   "output": "Brittney Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Bobbie Painting",
+   "output": "Bobbie Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Bobbie Dombrowski LLC",
+   "output": "Bobbie Dombrowski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jacquelyn Trucking",
+   "output": "Jacquelyn Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jacquelyn Whitlock LLC",
+   "output": "Jacquelyn Whitlock LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Jacquelyn Whitlock, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Clinton Electric",
+   "output": "Clinton Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Clinton Zamora LLC",
+   "output": "Clinton Zamora LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Clinton Zamora OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Billie Roofing",
+   "output": "Billie Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Billie Smith LLC",
+   "output": "Billie Smith LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Billie Smith @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Desiree Plumbing",
+   "output": "Desiree Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Desiree Lopez LLC",
+   "output": "Desiree Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Desiree Lopez",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Belinda Daycare",
+   "output": "Belinda Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Belinda Nguyen LLC",
+   "output": "Belinda Nguyen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Belinda Nguyen DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Allan Catering",
+   "output": "Allan Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Allan Kowalski LLC",
+   "output": "Allan Kowalski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Allan Kowalski",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Krystal Landscaping",
+   "output": "Krystal Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Krystal Okafor LLC",
+   "output": "Krystal Okafor LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Charlie Cleaning",
+   "output": "Charlie Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Charlie Zelenskyy LLC",
+   "output": "Charlie Zelenskyy LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Angelica Construction",
+   "output": "Angelica Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Angelica Okonjo LLC",
+   "output": "Angelica Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Angelica Okonjo, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Nichole Painting",
+   "output": "Nichole Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Nichole Papadopoulos LLC",
+   "output": "Nichole Papadopoulos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Nichole Papadopoulos OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Edna Trucking",
+   "output": "Edna Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Edna Haverford LLC",
+   "output": "Edna Haverford LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Edna Haverford @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Clara Electric",
+   "output": "Clara Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Clara Villanueva LLC",
+   "output": "Clara Villanueva LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Clara Villanueva",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Gayle Roofing",
+   "output": "Gayle Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Gayle Castellanos LLC",
+   "output": "Gayle Castellanos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Gayle Castellanos DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Yvette Plumbing",
+   "output": "Yvette Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Yvette Abubakar LLC",
+   "output": "Yvette Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Yvette Abubakar",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Adrienne Daycare",
+   "output": "Adrienne Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Adrienne Johansson LLC",
+   "output": "Adrienne Johansson LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Freddie Catering",
+   "output": "Freddie Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Freddie Oyelaran LLC",
+   "output": "Freddie Oyelaran LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Rebekah Landscaping",
+   "output": "Rebekah Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Rebekah Brzezinski LLC",
+   "output": "Rebekah Brzezinski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Rebekah Brzezinski, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Brendan Cleaning",
+   "output": "Brendan Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Brendan Tanaka LLC",
+   "output": "Brendan Tanaka LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Brendan Tanaka OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Rickey Construction",
+   "output": "Rickey Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Rickey Petrovic LLC",
+   "output": "Rickey Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Rickey Petrovic @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Dianna Painting",
+   "output": "Dianna Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Dianna Mwangi LLC",
+   "output": "Dianna Mwangi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Dianna Mwangi",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Traci Trucking",
+   "output": "Traci Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Traci Haddad LLC",
+   "output": "Traci Haddad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Traci Haddad DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Marianne Electric",
+   "output": "Marianne Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Marianne Fitzgerald LLC",
+   "output": "Marianne Fitzgerald LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Marianne Fitzgerald",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Andy Roofing",
+   "output": "Andy Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Andy Yamaguchi LLC",
+   "output": "Andy Yamaguchi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Isaiah Plumbing",
+   "output": "Isaiah Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Isaiah Echeverria LLC",
+   "output": "Isaiah Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jonathon Daycare",
+   "output": "Jonathon Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jonathon Achterberg LLC",
+   "output": "Jonathon Achterberg LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Jonathon Achterberg, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Geoffrey Catering",
+   "output": "Geoffrey Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Geoffrey Thibodeaux LLC",
+   "output": "Geoffrey Thibodeaux LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Geoffrey Thibodeaux OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Gladys Landscaping",
+   "output": "Gladys Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Gladys Rasmussen LLC",
+   "output": "Gladys Rasmussen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Gladys Rasmussen @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Arnold Cleaning",
+   "output": "Arnold Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Arnold Banerjee LLC",
+   "output": "Arnold Banerjee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Arnold Banerjee",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kristopher Construction",
+   "output": "Kristopher Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kristopher Olawale LLC",
+   "output": "Kristopher Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Kristopher Olawale DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Breanna Painting",
+   "output": "Breanna Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Breanna Dombrowski LLC",
+   "output": "Breanna Dombrowski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Breanna Dombrowski",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Vicky Trucking",
+   "output": "Vicky Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Vicky Whitlock LLC",
+   "output": "Vicky Whitlock LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kelley Electric",
+   "output": "Kelley Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kelley Zamora LLC",
+   "output": "Kelley Zamora LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Aimee Roofing",
+   "output": "Aimee Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Aimee Smith LLC",
+   "output": "Aimee Smith LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Aimee Smith, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Pat Plumbing",
+   "output": "Pat Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Pat Lopez LLC",
+   "output": "Pat Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Pat Lopez OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Shelia Daycare",
+   "output": "Shelia Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Shelia Nguyen LLC",
+   "output": "Shelia Nguyen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Shelia Nguyen @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Beatrice Catering",
+   "output": "Beatrice Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Beatrice Kowalski LLC",
+   "output": "Beatrice Kowalski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Beatrice Kowalski",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Frankie Landscaping",
+   "output": "Frankie Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Frankie Okafor LLC",
+   "output": "Frankie Okafor LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Frankie Okafor DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Paulette Cleaning",
+   "output": "Paulette Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Paulette Zelenskyy LLC",
+   "output": "Paulette Zelenskyy LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Paulette Zelenskyy",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Angie Construction",
+   "output": "Angie Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Angie Okonjo LLC",
+   "output": "Angie Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Bianca Painting",
+   "output": "Bianca Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Bianca Papadopoulos LLC",
+   "output": "Bianca Papadopoulos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Ariel Trucking",
+   "output": "Ariel Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Ariel Haverford LLC",
+   "output": "Ariel Haverford LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Ariel Haverford, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Clifton Electric",
+   "output": "Clifton Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Clifton Villanueva LLC",
+   "output": "Clifton Villanueva LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Clifton Villanueva OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Rochelle Roofing",
+   "output": "Rochelle Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Rochelle Castellanos LLC",
+   "output": "Rochelle Castellanos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Rochelle Castellanos @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kaitlin Plumbing",
+   "output": "Kaitlin Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kaitlin Abubakar LLC",
+   "output": "Kaitlin Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Kaitlin Abubakar",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kirsten Daycare",
+   "output": "Kirsten Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kirsten Johansson LLC",
+   "output": "Kirsten Johansson LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Kirsten Johansson DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jaclyn Catering",
+   "output": "Jaclyn Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jaclyn Oyelaran LLC",
+   "output": "Jaclyn Oyelaran LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Jaclyn Oyelaran",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Cara Landscaping",
+   "output": "Cara Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Cara Brzezinski LLC",
+   "output": "Cara Brzezinski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Janis Cleaning",
+   "output": "Janis Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Janis Tanaka LLC",
+   "output": "Janis Tanaka LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Cristina Construction",
+   "output": "Cristina Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Cristina Petrovic LLC",
+   "output": "Cristina Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Cristina Petrovic, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Teri Painting",
+   "output": "Teri Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Teri Mwangi LLC",
+   "output": "Teri Mwangi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Teri Mwangi OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Leigh Trucking",
+   "output": "Leigh Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Leigh Haddad LLC",
+   "output": "Leigh Haddad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Leigh Haddad @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Janelle Electric",
+   "output": "Janelle Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Janelle Fitzgerald LLC",
+   "output": "Janelle Fitzgerald LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Janelle Fitzgerald",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Mindy Roofing",
+   "output": "Mindy Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Mindy Yamaguchi LLC",
+   "output": "Mindy Yamaguchi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Mindy Yamaguchi DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jennie Plumbing",
+   "output": "Jennie Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jennie Echeverria LLC",
+   "output": "Jennie Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Jennie Echeverria",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Lynette Daycare",
+   "output": "Lynette Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Lynette Achterberg LLC",
+   "output": "Lynette Achterberg LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Shari Catering",
+   "output": "Shari Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Shari Thibodeaux LLC",
+   "output": "Shari Thibodeaux LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Carly Landscaping",
+   "output": "Carly Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Carly Rasmussen LLC",
+   "output": "Carly Rasmussen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Carly Rasmussen, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kristie Cleaning",
+   "output": "Kristie Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kristie Banerjee LLC",
+   "output": "Kristie Banerjee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Kristie Banerjee OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Gabriela Construction",
+   "output": "Gabriela Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Gabriela Olawale LLC",
+   "output": "Gabriela Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Gabriela Olawale @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jeannette Painting",
+   "output": "Jeannette Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jeannette Dombrowski LLC",
+   "output": "Jeannette Dombrowski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Jeannette Dombrowski",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Roderick Trucking",
+   "output": "Roderick Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Roderick Whitlock LLC",
+   "output": "Roderick Whitlock LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Roderick Whitlock DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Trisha Electric",
+   "output": "Trisha Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Trisha Zamora LLC",
+   "output": "Trisha Zamora LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Trisha Zamora",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Darla Roofing",
+   "output": "Darla Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Darla Smith LLC",
+   "output": "Darla Smith LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Nikki Plumbing",
+   "output": "Nikki Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Nikki Lopez LLC",
+   "output": "Nikki Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Lora Daycare",
+   "output": "Lora Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Lora Nguyen LLC",
+   "output": "Lora Nguyen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Lora Nguyen, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Erick Catering",
+   "output": "Erick Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Erick Kowalski LLC",
+   "output": "Erick Kowalski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Erick Kowalski OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Loren Landscaping",
+   "output": "Loren Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Loren Okafor LLC",
+   "output": "Loren Okafor LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Loren Okafor @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kimberley Cleaning",
+   "output": "Kimberley Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kimberley Zelenskyy LLC",
+   "output": "Kimberley Zelenskyy LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Kimberley Zelenskyy",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Angelina Construction",
+   "output": "Angelina Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Angelina Okonjo LLC",
+   "output": "Angelina Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Angelina Okonjo DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Hugh Painting",
+   "output": "Hugh Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Hugh Papadopoulos LLC",
+   "output": "Hugh Papadopoulos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Hugh Papadopoulos",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Cheri Trucking",
+   "output": "Cheri Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Cheri Haverford LLC",
+   "output": "Cheri Haverford LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Meagan Electric",
+   "output": "Meagan Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Meagan Villanueva LLC",
+   "output": "Meagan Villanueva LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Thaddeus Roofing",
+   "output": "Thaddeus Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Thaddeus Castellanos LLC",
+   "output": "Thaddeus Castellanos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Thaddeus Castellanos, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Bronislaw Plumbing",
+   "output": "Bronislaw Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Bronislaw Abubakar LLC",
+   "output": "Bronislaw Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Bronislaw Abubakar OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Wladyslaw Daycare",
+   "output": "Wladyslaw Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Wladyslaw Johansson LLC",
+   "output": "Wladyslaw Johansson LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Wladyslaw Johansson @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Casimir Catering",
+   "output": "Casimir Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Casimir Oyelaran LLC",
+   "output": "Casimir Oyelaran LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Casimir Oyelaran",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Ignatius Landscaping",
+   "output": "Ignatius Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Ignatius Brzezinski LLC",
+   "output": "Ignatius Brzezinski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Ignatius Brzezinski DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Aurelia Cleaning",
+   "output": "Aurelia Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Aurelia Tanaka LLC",
+   "output": "Aurelia Tanaka LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Aurelia Tanaka",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Leopold Construction",
+   "output": "Leopold Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Leopold Petrovic LLC",
+   "output": "Leopold Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Jitendra Painting",
+   "output": "Jitendra Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Jitendra Mwangi LLC",
+   "output": "Jitendra Mwangi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Narendra Trucking",
+   "output": "Narendra Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Narendra Haddad LLC",
+   "output": "Narendra Haddad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Narendra Haddad, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Surinder Electric",
+   "output": "Surinder Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Surinder Fitzgerald LLC",
+   "output": "Surinder Fitzgerald LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Surinder Fitzgerald OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Harjit Roofing",
+   "output": "Harjit Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Harjit Yamaguchi LLC",
+   "output": "Harjit Yamaguchi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Harjit Yamaguchi @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Tajinder Plumbing",
+   "output": "Tajinder Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Tajinder Echeverria LLC",
+   "output": "Tajinder Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Tajinder Echeverria",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Nguyet Daycare",
+   "output": "Nguyet Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Nguyet Achterberg LLC",
+   "output": "Nguyet Achterberg LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Nguyet Achterberg DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Thien Catering",
+   "output": "Thien Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Thien Thibodeaux LLC",
+   "output": "Thien Thibodeaux LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Thien Thibodeaux",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Kwadwo Landscaping",
+   "output": "Kwadwo Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Kwadwo Rasmussen LLC",
+   "output": "Kwadwo Rasmussen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Olusegun Cleaning",
+   "output": "Olusegun Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Olusegun Banerjee LLC",
+   "output": "Olusegun Banerjee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Chukwudi Construction",
+   "output": "Chukwudi Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Chukwudi Olawale LLC",
+   "output": "Chukwudi Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Chukwudi Olawale, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Nnamdi Painting",
+   "output": "Nnamdi Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Nnamdi Dombrowski LLC",
+   "output": "Nnamdi Dombrowski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Nnamdi Dombrowski OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Babajide Trucking",
+   "output": "Babajide Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Babajide Whitlock LLC",
+   "output": "Babajide Whitlock LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Babajide Whitlock @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Tendai Electric",
+   "output": "Tendai Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Tendai Zamora LLC",
+   "output": "Tendai Zamora LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Tendai Zamora",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Farai Roofing",
+   "output": "Farai Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Farai Smith LLC",
+   "output": "Farai Smith LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Farai Smith DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Takumi Plumbing",
+   "output": "Takumi Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Takumi Lopez LLC",
+   "output": "Takumi Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Takumi Lopez",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Haruki Daycare",
+   "output": "Haruki Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Haruki Nguyen LLC",
+   "output": "Haruki Nguyen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Shinji Catering",
+   "output": "Shinji Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Shinji Kowalski LLC",
+   "output": "Shinji Kowalski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Masako Landscaping",
+   "output": "Masako Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Masako Okafor LLC",
+   "output": "Masako Okafor LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Masako Okafor, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Fumiko Cleaning",
+   "output": "Fumiko Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Fumiko Zelenskyy LLC",
+   "output": "Fumiko Zelenskyy LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Fumiko Zelenskyy OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Zhiwei Construction",
+   "output": "Zhiwei Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Zhiwei Okonjo LLC",
+   "output": "Zhiwei Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Zhiwei Okonjo @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Guoqiang Papadopoulos",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Yuxuan Trucking",
+   "output": "Yuxuan Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Yuxuan Haverford LLC",
+   "output": "Yuxuan Haverford LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Yuxuan Haverford DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Byung Electric",
+   "output": "Byung Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Byung Villanueva LLC",
+   "output": "Byung Villanueva LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Byung Villanueva",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Khalil Roofing",
+   "output": "Khalil Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Khalil Castellanos LLC",
+   "output": "Khalil Castellanos LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Tarek Plumbing",
+   "output": "Tarek Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Tarek Abubakar LLC",
+   "output": "Tarek Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Hatem Daycare",
+   "output": "Hatem Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Hatem Johansson LLC",
+   "output": "Hatem Johansson LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Hatem Johansson, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Wael Catering",
+   "output": "Wael Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Wael Oyelaran LLC",
+   "output": "Wael Oyelaran LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Wael Oyelaran OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Fadi Landscaping",
+   "output": "Fadi Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Fadi Brzezinski LLC",
+   "output": "Fadi Brzezinski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Fadi Brzezinski @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Zakaria Cleaning",
+   "output": "Zakaria Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Zakaria Tanaka LLC",
+   "output": "Zakaria Tanaka LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Zakaria Tanaka",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Soraya Construction",
+   "output": "Soraya Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Soraya Petrovic LLC",
+   "output": "Soraya Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Soraya Petrovic DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Yasmeen Painting",
+   "output": "Yasmeen Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Yasmeen Mwangi LLC",
+   "output": "Yasmeen Mwangi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Yasmeen Mwangi",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Habib Trucking",
+   "output": "Habib Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Habib Haddad LLC",
+   "output": "Habib Haddad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Reza Electric",
+   "output": "Reza Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Reza Fitzgerald LLC",
+   "output": "Reza Fitzgerald LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Mehdi Roofing",
+   "output": "Mehdi Roofing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Mehdi Yamaguchi LLC",
+   "output": "Mehdi Yamaguchi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Mehdi Yamaguchi, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Shirin Plumbing",
+   "output": "Shirin Plumbing",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Shirin Echeverria LLC",
+   "output": "Shirin Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Shirin Echeverria OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Dariush Daycare",
+   "output": "Dariush Daycare",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Dariush Achterberg LLC",
+   "output": "Dariush Achterberg LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Dariush Achterberg @ Pacific Catering Co",
+   "output": "Pacific Catering Co",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Eusebio Catering",
+   "output": "Eusebio Catering",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Eusebio Thibodeaux LLC",
+   "output": "Eusebio Thibodeaux LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Midtown Dental; Eusebio Thibodeaux",
+   "output": "Midtown Dental",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Evaristo Landscaping",
+   "output": "Evaristo Landscaping",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Evaristo Rasmussen LLC",
+   "output": "Evaristo Rasmussen LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Evaristo Rasmussen DBA Apex Roofing LLC",
+   "output": "Apex Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Macario Cleaning",
+   "output": "Macario Cleaning",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Macario Banerjee LLC",
+   "output": "Macario Banerjee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Summit Mechanical - Macario Banerjee",
+   "output": "Summit Mechanical",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Fermin Construction",
+   "output": "Fermin Construction",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Fermin Olawale LLC",
+   "output": "Fermin Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Altagracia Painting",
+   "output": "Altagracia Painting",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Altagracia Dombrowski LLC",
+   "output": "Altagracia Dombrowski LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G trade",
+   "input": "Bienvenido Trucking",
+   "output": "Bienvenido Trucking",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Bienvenido Whitlock LLC",
+   "output": "Bienvenido Whitlock LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Bienvenido Whitlock, Northside Daycare",
+   "output": "Northside Daycare",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G trade",
+   "input": "Amparo Electric",
+   "output": "Amparo Electric",
+   "class": "given name only (plus trade word)"
+  },
+  {
+   "shape": "G S LLC",
+   "input": "Amparo Zamora LLC",
+   "output": "Amparo Zamora LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "joined",
+   "input": "Amparo Zamora OF Evergreen Landscaping LLC",
+   "output": "Evergreen Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Danny Kowalski Landscaping LLC",
+   "output": "Danny Kowalski Landscaping LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "DANNY KOWALSKI INC",
+   "output": "DANNY KOWALSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Kowalski Danny LLC",
+   "output": "Kowalski Danny LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Danny Kowalski & Sons LLC",
+   "output": "Danny Kowalski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Suzanne Rasmussen Painting LLC",
+   "output": "Suzanne Rasmussen Painting LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "SUZANNE RASMUSSEN INC",
+   "output": "SUZANNE RASMUSSEN INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Rasmussen Suzanne LLC",
+   "output": "Rasmussen Suzanne LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Suzanne Rasmussen & Sons LLC",
+   "output": "Suzanne Rasmussen & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Casey Tanaka Roofing LLC",
+   "output": "Casey Tanaka Roofing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "CASEY TANAKA INC",
+   "output": "CASEY TANAKA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Tanaka Casey LLC",
+   "output": "Tanaka Casey LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Casey Tanaka & Sons LLC",
+   "output": "Casey Tanaka & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Brett Okonjo Catering LLC",
+   "output": "Brett Okonjo Catering LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BRETT OKONJO INC",
+   "output": "BRETT OKONJO INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Okonjo Brett LLC",
+   "output": "Okonjo Brett LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Brett Okonjo & Sons LLC",
+   "output": "Brett Okonjo & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Kelsey Dombrowski Construction LLC",
+   "output": "Kelsey Dombrowski Construction LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "KELSEY DOMBROWSKI INC",
+   "output": "KELSEY DOMBROWSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Dombrowski Kelsey LLC",
+   "output": "Dombrowski Kelsey LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Kelsey Dombrowski & Sons LLC",
+   "output": "Kelsey Dombrowski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Constance Haddad Electric LLC",
+   "output": "Constance Haddad Electric LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "CONSTANCE HADDAD INC",
+   "output": "CONSTANCE HADDAD INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Haddad Constance LLC",
+   "output": "Haddad Constance LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Constance Haddad & Sons LLC",
+   "output": "Constance Haddad & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Kristine Villanueva Daycare LLC",
+   "output": "Kristine Villanueva Daycare LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "KRISTINE VILLANUEVA INC",
+   "output": "KRISTINE VILLANUEVA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Villanueva Kristine LLC",
+   "output": "Villanueva Kristine LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Kristine Villanueva & Sons LLC",
+   "output": "Kristine Villanueva & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Brad Smith Cleaning LLC",
+   "output": "Brad Smith Cleaning LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BRAD SMITH INC",
+   "output": "BRAD SMITH INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Smith Brad LLC",
+   "output": "Smith Brad LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Brad Smith & Sons LLC",
+   "output": "Brad Smith & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Jimmie Echeverria Trucking LLC",
+   "output": "Jimmie Echeverria Trucking LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "JIMMIE ECHEVERRIA INC",
+   "output": "JIMMIE ECHEVERRIA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Echeverria Jimmie LLC",
+   "output": "Echeverria Jimmie LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Jimmie Echeverria & Sons LLC",
+   "output": "Jimmie Echeverria & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Bobbie Johansson Plumbing LLC",
+   "output": "Bobbie Johansson Plumbing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BOBBIE JOHANSSON INC",
+   "output": "BOBBIE JOHANSSON INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Johansson Bobbie LLC",
+   "output": "Johansson Bobbie LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Bobbie Johansson & Sons LLC",
+   "output": "Bobbie Johansson & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Billie Kowalski Landscaping LLC",
+   "output": "Billie Kowalski Landscaping LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BILLIE KOWALSKI INC",
+   "output": "BILLIE KOWALSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Kowalski Billie LLC",
+   "output": "Kowalski Billie LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Billie Kowalski & Sons LLC",
+   "output": "Billie Kowalski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Allan Rasmussen Painting LLC",
+   "output": "Allan Rasmussen Painting LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ALLAN RASMUSSEN INC",
+   "output": "ALLAN RASMUSSEN INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Rasmussen Allan LLC",
+   "output": "Rasmussen Allan LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Allan Rasmussen & Sons LLC",
+   "output": "Allan Rasmussen & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Angelica Tanaka Roofing LLC",
+   "output": "Angelica Tanaka Roofing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ANGELICA TANAKA INC",
+   "output": "ANGELICA TANAKA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Tanaka Angelica LLC",
+   "output": "Tanaka Angelica LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Angelica Tanaka & Sons LLC",
+   "output": "Angelica Tanaka & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Clara Okonjo Catering LLC",
+   "output": "Clara Okonjo Catering LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "CLARA OKONJO INC",
+   "output": "CLARA OKONJO INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Okonjo Clara LLC",
+   "output": "Okonjo Clara LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Clara Okonjo & Sons LLC",
+   "output": "Clara Okonjo & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Adrienne Dombrowski Construction LLC",
+   "output": "Adrienne Dombrowski Construction LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ADRIENNE DOMBROWSKI INC",
+   "output": "ADRIENNE DOMBROWSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Dombrowski Adrienne LLC",
+   "output": "Dombrowski Adrienne LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Adrienne Dombrowski & Sons LLC",
+   "output": "Adrienne Dombrowski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Brendan Haddad Electric LLC",
+   "output": "Brendan Haddad Electric LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BRENDAN HADDAD INC",
+   "output": "BRENDAN HADDAD INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Haddad Brendan LLC",
+   "output": "Haddad Brendan LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Brendan Haddad & Sons LLC",
+   "output": "Brendan Haddad & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Traci Villanueva Daycare LLC",
+   "output": "Traci Villanueva Daycare LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "TRACI VILLANUEVA INC",
+   "output": "TRACI VILLANUEVA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Villanueva Traci LLC",
+   "output": "Villanueva Traci LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Traci Villanueva & Sons LLC",
+   "output": "Traci Villanueva & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Isaiah Smith Cleaning LLC",
+   "output": "Isaiah Smith Cleaning LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ISAIAH SMITH INC",
+   "output": "ISAIAH SMITH INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Smith Isaiah LLC",
+   "output": "Smith Isaiah LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Isaiah Smith & Sons LLC",
+   "output": "Isaiah Smith & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Gladys Echeverria Trucking LLC",
+   "output": "Gladys Echeverria Trucking LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "GLADYS ECHEVERRIA INC",
+   "output": "GLADYS ECHEVERRIA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Echeverria Gladys LLC",
+   "output": "Echeverria Gladys LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Gladys Echeverria & Sons LLC",
+   "output": "Gladys Echeverria & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Breanna Johansson Plumbing LLC",
+   "output": "Breanna Johansson Plumbing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BREANNA JOHANSSON INC",
+   "output": "BREANNA JOHANSSON INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Johansson Breanna LLC",
+   "output": "Johansson Breanna LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Breanna Johansson & Sons LLC",
+   "output": "Breanna Johansson & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Aimee Kowalski Landscaping LLC",
+   "output": "Aimee Kowalski Landscaping LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "AIMEE KOWALSKI INC",
+   "output": "AIMEE KOWALSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Kowalski Aimee LLC",
+   "output": "Kowalski Aimee LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Aimee Kowalski & Sons LLC",
+   "output": "Aimee Kowalski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Beatrice Rasmussen Painting LLC",
+   "output": "Beatrice Rasmussen Painting LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BEATRICE RASMUSSEN INC",
+   "output": "BEATRICE RASMUSSEN INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Rasmussen Beatrice LLC",
+   "output": "Rasmussen Beatrice LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Beatrice Rasmussen & Sons LLC",
+   "output": "Beatrice Rasmussen & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Angie Tanaka Roofing LLC",
+   "output": "Angie Tanaka Roofing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ANGIE TANAKA INC",
+   "output": "ANGIE TANAKA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Tanaka Angie LLC",
+   "output": "Tanaka Angie LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Angie Tanaka & Sons LLC",
+   "output": "Angie Tanaka & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Clifton Okonjo Catering LLC",
+   "output": "Clifton Okonjo Catering LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "CLIFTON OKONJO INC",
+   "output": "CLIFTON OKONJO INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Okonjo Clifton LLC",
+   "output": "Okonjo Clifton LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Clifton Okonjo & Sons LLC",
+   "output": "Clifton Okonjo & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Kirsten Dombrowski Construction LLC",
+   "output": "Kirsten Dombrowski Construction LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "KIRSTEN DOMBROWSKI INC",
+   "output": "KIRSTEN DOMBROWSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Dombrowski Kirsten LLC",
+   "output": "Dombrowski Kirsten LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Kirsten Dombrowski & Sons LLC",
+   "output": "Kirsten Dombrowski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Janis Haddad Electric LLC",
+   "output": "Janis Haddad Electric LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "JANIS HADDAD INC",
+   "output": "JANIS HADDAD INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Haddad Janis LLC",
+   "output": "Haddad Janis LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Janis Haddad & Sons LLC",
+   "output": "Janis Haddad & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Leigh Villanueva Daycare LLC",
+   "output": "Leigh Villanueva Daycare LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "LEIGH VILLANUEVA INC",
+   "output": "LEIGH VILLANUEVA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Villanueva Leigh LLC",
+   "output": "Villanueva Leigh LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Leigh Villanueva & Sons LLC",
+   "output": "Leigh Villanueva & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Jennie Smith Cleaning LLC",
+   "output": "Jennie Smith Cleaning LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "JENNIE SMITH INC",
+   "output": "JENNIE SMITH INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Smith Jennie LLC",
+   "output": "Smith Jennie LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Jennie Smith & Sons LLC",
+   "output": "Jennie Smith & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Carly Echeverria Trucking LLC",
+   "output": "Carly Echeverria Trucking LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "CARLY ECHEVERRIA INC",
+   "output": "CARLY ECHEVERRIA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Echeverria Carly LLC",
+   "output": "Echeverria Carly LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Carly Echeverria & Sons LLC",
+   "output": "Carly Echeverria & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Jeannette Johansson Plumbing LLC",
+   "output": "Jeannette Johansson Plumbing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "JEANNETTE JOHANSSON INC",
+   "output": "JEANNETTE JOHANSSON INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Johansson Jeannette LLC",
+   "output": "Johansson Jeannette LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Jeannette Johansson & Sons LLC",
+   "output": "Jeannette Johansson & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Darla Kowalski Landscaping LLC",
+   "output": "Darla Kowalski Landscaping LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "DARLA KOWALSKI INC",
+   "output": "DARLA KOWALSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Kowalski Darla LLC",
+   "output": "Kowalski Darla LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Darla Kowalski & Sons LLC",
+   "output": "Darla Kowalski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Erick Rasmussen Painting LLC",
+   "output": "Erick Rasmussen Painting LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ERICK RASMUSSEN INC",
+   "output": "ERICK RASMUSSEN INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Rasmussen Erick LLC",
+   "output": "Rasmussen Erick LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Erick Rasmussen & Sons LLC",
+   "output": "Erick Rasmussen & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Angelina Tanaka Roofing LLC",
+   "output": "Angelina Tanaka Roofing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ANGELINA TANAKA INC",
+   "output": "ANGELINA TANAKA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Tanaka Angelina LLC",
+   "output": "Tanaka Angelina LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Angelina Tanaka & Sons LLC",
+   "output": "Angelina Tanaka & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Meagan Okonjo Catering LLC",
+   "output": "Meagan Okonjo Catering LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "MEAGAN OKONJO INC",
+   "output": "MEAGAN OKONJO INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Okonjo Meagan LLC",
+   "output": "Okonjo Meagan LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Meagan Okonjo & Sons LLC",
+   "output": "Meagan Okonjo & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Wladyslaw Dombrowski Construction LLC",
+   "output": "Wladyslaw Dombrowski Construction LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "WLADYSLAW DOMBROWSKI INC",
+   "output": "WLADYSLAW DOMBROWSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Dombrowski Wladyslaw LLC",
+   "output": "Dombrowski Wladyslaw LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Wladyslaw Dombrowski & Sons LLC",
+   "output": "Wladyslaw Dombrowski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Aurelia Haddad Electric LLC",
+   "output": "Aurelia Haddad Electric LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "AURELIA HADDAD INC",
+   "output": "AURELIA HADDAD INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Haddad Aurelia LLC",
+   "output": "Haddad Aurelia LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Aurelia Haddad & Sons LLC",
+   "output": "Aurelia Haddad & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Narendra Villanueva Daycare LLC",
+   "output": "Narendra Villanueva Daycare LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "NARENDRA VILLANUEVA INC",
+   "output": "NARENDRA VILLANUEVA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Villanueva Narendra LLC",
+   "output": "Villanueva Narendra LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Narendra Villanueva & Sons LLC",
+   "output": "Narendra Villanueva & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Tajinder Smith Cleaning LLC",
+   "output": "Tajinder Smith Cleaning LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "TAJINDER SMITH INC",
+   "output": "TAJINDER SMITH INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Smith Tajinder LLC",
+   "output": "Smith Tajinder LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Tajinder Smith & Sons LLC",
+   "output": "Tajinder Smith & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Kwadwo Echeverria Trucking LLC",
+   "output": "Kwadwo Echeverria Trucking LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "KWADWO ECHEVERRIA INC",
+   "output": "KWADWO ECHEVERRIA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Echeverria Kwadwo LLC",
+   "output": "Echeverria Kwadwo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Kwadwo Echeverria & Sons LLC",
+   "output": "Kwadwo Echeverria & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Nnamdi Johansson Plumbing LLC",
+   "output": "Nnamdi Johansson Plumbing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "NNAMDI JOHANSSON INC",
+   "output": "NNAMDI JOHANSSON INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Johansson Nnamdi LLC",
+   "output": "Johansson Nnamdi LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Nnamdi Johansson & Sons LLC",
+   "output": "Nnamdi Johansson & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Farai Kowalski Landscaping LLC",
+   "output": "Farai Kowalski Landscaping LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "FARAI KOWALSKI INC",
+   "output": "FARAI KOWALSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Kowalski Farai LLC",
+   "output": "Kowalski Farai LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Farai Kowalski & Sons LLC",
+   "output": "Farai Kowalski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Shinji Rasmussen Painting LLC",
+   "output": "Shinji Rasmussen Painting LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "SHINJI RASMUSSEN INC",
+   "output": "SHINJI RASMUSSEN INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Rasmussen Shinji LLC",
+   "output": "Rasmussen Shinji LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Shinji Rasmussen & Sons LLC",
+   "output": "Shinji Rasmussen & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Zhiwei Tanaka Roofing LLC",
+   "output": "Zhiwei Tanaka Roofing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ZHIWEI TANAKA INC",
+   "output": "ZHIWEI TANAKA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Tanaka Zhiwei LLC",
+   "output": "Tanaka Zhiwei LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Zhiwei Tanaka & Sons LLC",
+   "output": "Zhiwei Tanaka & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Byung Okonjo Catering LLC",
+   "output": "Byung Okonjo Catering LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "BYUNG OKONJO INC",
+   "output": "BYUNG OKONJO INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Okonjo Byung LLC",
+   "output": "Okonjo Byung LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Byung Okonjo & Sons LLC",
+   "output": "Byung Okonjo & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Hatem Dombrowski Construction LLC",
+   "output": "Hatem Dombrowski Construction LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "HATEM DOMBROWSKI INC",
+   "output": "HATEM DOMBROWSKI INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Dombrowski Hatem LLC",
+   "output": "Dombrowski Hatem LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Hatem Dombrowski & Sons LLC",
+   "output": "Hatem Dombrowski & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Zakaria Haddad Electric LLC",
+   "output": "Zakaria Haddad Electric LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ZAKARIA HADDAD INC",
+   "output": "ZAKARIA HADDAD INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Haddad Zakaria LLC",
+   "output": "Haddad Zakaria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Zakaria Haddad & Sons LLC",
+   "output": "Zakaria Haddad & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Habib Villanueva Daycare LLC",
+   "output": "Habib Villanueva Daycare LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "HABIB VILLANUEVA INC",
+   "output": "HABIB VILLANUEVA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Villanueva Habib LLC",
+   "output": "Villanueva Habib LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Habib Villanueva & Sons LLC",
+   "output": "Habib Villanueva & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Shirin Smith Cleaning LLC",
+   "output": "Shirin Smith Cleaning LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "SHIRIN SMITH INC",
+   "output": "SHIRIN SMITH INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Smith Shirin LLC",
+   "output": "Smith Shirin LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Shirin Smith & Sons LLC",
+   "output": "Shirin Smith & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Evaristo Echeverria Trucking LLC",
+   "output": "Evaristo Echeverria Trucking LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "EVARISTO ECHEVERRIA INC",
+   "output": "EVARISTO ECHEVERRIA INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Echeverria Evaristo LLC",
+   "output": "Echeverria Evaristo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Evaristo Echeverria & Sons LLC",
+   "output": "Evaristo Echeverria & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S trade LLC",
+   "input": "Altagracia Johansson Plumbing LLC",
+   "output": "Altagracia Johansson Plumbing LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S Inc",
+   "input": "ALTAGRACIA JOHANSSON INC",
+   "output": "ALTAGRACIA JOHANSSON INC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "S G LLC",
+   "input": "Johansson Altagracia LLC",
+   "output": "Johansson Altagracia LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "G S & Sons LLC",
+   "input": "Altagracia Johansson & Sons LLC",
+   "output": "Altagracia Johansson & Sons LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Maria\tLopez\tRoofing LLC",
+   "output": "Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "John\tSmith\tPlumbing LLC",
+   "output": "Plumbing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Nguyen\tThanh\tDaycare LLC",
+   "output": "Daycare LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Mohammed\tHussain\tCatering LLC",
+   "output": "Catering LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Oluwaseun\tAdeyemi\tLandscaping LLC",
+   "output": "Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Wei\tZhang\tCleaning LLC",
+   "output": "Cleaning LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Hiroshi\tTanaka\tConstruction LLC",
+   "output": "Construction LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Priya\tSharma\tPainting LLC",
+   "output": "Painting LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Svetlana\tIvanova\tTrucking LLC",
+   "output": "Trucking LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Siobhan\tGallagher\tElectric LLC",
+   "output": "Electric LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Kwame\tMensah\tRoofing LLC",
+   "output": "Roofing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Fatima\tHaddad\tPlumbing LLC",
+   "output": "Plumbing LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Shlomo\tAbramowitz\tDaycare LLC",
+   "output": "Daycare LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: glued",
+   "input": "KeoniKahale Catering",
+   "output": "KeoniKahale Catering",
+   "class": "FULL PERSONAL NAME (given name glued to surname)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Keoni\tKahale\tCatering LLC",
+   "output": "Catering LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Guadalupe\tVillanueva\tLandscaping LLC",
+   "output": "Landscaping LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Deshawn\tWashington\tCleaning LLC",
+   "output": "Cleaning LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Giuseppe\tEsposito\tConstruction LLC",
+   "output": "Construction LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Bjorn\tLindqvist\tPainting LLC",
+   "output": "Painting LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: glued",
+   "input": "JiPark Trucking",
+   "output": "JiPark Trucking",
+   "class": "FULL PERSONAL NAME (given name glued to surname)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Ji\tPark\tTrucking LLC",
+   "output": "Trucking LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "listed: tab",
+   "input": "Abebe\tTesfaye\tElectric LLC",
+   "output": "Electric LLC",
+   "class": "no part of the person (company part only)"
+  },
+  {
+   "shape": "vocab-given: G S",
+   "input": "Candy Lopez",
+   "output": "Candy Lopez",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Candy Lopez Daycare",
+   "output": "Candy Lopez Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Candy Lopez LLC",
+   "output": "Candy Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Carolina Okonjo Catering",
+   "output": "Carolina Okonjo Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Carolina Okonjo LLC",
+   "output": "Carolina Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Christi Abubakar Landscaping",
+   "output": "Christi Abubakar Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Christi Abubakar LLC",
+   "output": "Christi Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Cleveland Petrovic Cleaning",
+   "output": "Cleveland Petrovic Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Cleveland Petrovic LLC",
+   "output": "Cleveland Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Marietta Echeverria Construction",
+   "output": "Marietta Echeverria Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Marietta Echeverria LLC",
+   "output": "Marietta Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Princess Olawale Painting",
+   "output": "Princess Olawale Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Princess Olawale LLC",
+   "output": "Princess Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Queen Lopez Trucking",
+   "output": "Queen Lopez Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Queen Lopez LLC",
+   "output": "Queen Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Ivory Okonjo Electric",
+   "output": "Ivory Okonjo Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Ivory Okonjo LLC",
+   "output": "Ivory Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Van Abubakar Roofing",
+   "output": "Van Abubakar Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Van Abubakar LLC",
+   "output": "Van Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Son Petrovic Plumbing",
+   "output": "Son Petrovic Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Son Petrovic LLC",
+   "output": "Son Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Thai Echeverria Daycare",
+   "output": "Thai Echeverria Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Thai Echeverria LLC",
+   "output": "Thai Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Sky Olawale Catering",
+   "output": "Sky Olawale Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Sky Olawale LLC",
+   "output": "Sky Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Coral Lopez Landscaping",
+   "output": "Coral Lopez Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Coral Lopez LLC",
+   "output": "Coral Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Unique Okonjo Cleaning",
+   "output": "Unique Okonjo Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Unique Okonjo LLC",
+   "output": "Unique Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Divine Abubakar Construction",
+   "output": "Divine Abubakar Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Divine Abubakar LLC",
+   "output": "Divine Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Heavenly Petrovic Painting",
+   "output": "Heavenly Petrovic Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Heavenly Petrovic LLC",
+   "output": "Heavenly Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Honey Echeverria Trucking",
+   "output": "Honey Echeverria Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Honey Echeverria LLC",
+   "output": "Honey Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Peaches Olawale Electric",
+   "output": "Peaches Olawale Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Peaches Olawale LLC",
+   "output": "Peaches Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Blossom Lopez Roofing",
+   "output": "Blossom Lopez Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Blossom Lopez LLC",
+   "output": "Blossom Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "China Okonjo Plumbing",
+   "output": "China Okonjo Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "China Okonjo LLC",
+   "output": "China Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Raleigh Abubakar Daycare",
+   "output": "Raleigh Abubakar Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Raleigh Abubakar LLC",
+   "output": "Raleigh Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Cicero Petrovic Catering",
+   "output": "Cicero Petrovic Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Cicero Petrovic LLC",
+   "output": "Cicero Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Columbus Echeverria Landscaping",
+   "output": "Columbus Echeverria Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Columbus Echeverria LLC",
+   "output": "Columbus Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Arlington Olawale Cleaning",
+   "output": "Arlington Olawale Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Arlington Olawale LLC",
+   "output": "Arlington Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Roswell Lopez Construction",
+   "output": "Roswell Lopez Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Roswell Lopez LLC",
+   "output": "Roswell Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Tex Okonjo Painting",
+   "output": "Tex Okonjo Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Tex Okonjo LLC",
+   "output": "Tex Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "True Abubakar Trucking",
+   "output": "True Abubakar Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "True Abubakar LLC",
+   "output": "True Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Red Petrovic Electric",
+   "output": "Red Petrovic Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Red Petrovic LLC",
+   "output": "Red Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Cotton Echeverria Roofing",
+   "output": "Cotton Echeverria Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Cotton Echeverria LLC",
+   "output": "Cotton Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Indigo Olawale Plumbing",
+   "output": "Indigo Olawale Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Indigo Olawale LLC",
+   "output": "Indigo Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Onyx Lopez Daycare",
+   "output": "Onyx Lopez Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Onyx Lopez LLC",
+   "output": "Onyx Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Ocean Okonjo Catering",
+   "output": "Ocean Okonjo Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Ocean Okonjo LLC",
+   "output": "Ocean Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Bethel Abubakar Landscaping",
+   "output": "Bethel Abubakar Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Bethel Abubakar LLC",
+   "output": "Bethel Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Lot Petrovic Cleaning",
+   "output": "Lot Petrovic Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Lot Petrovic LLC",
+   "output": "Lot Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Link Echeverria Construction",
+   "output": "Link Echeverria Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Link Echeverria LLC",
+   "output": "Link Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S",
+   "input": "Oral Olawale",
+   "output": "Oral Olawale",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Oral Olawale Painting",
+   "output": "Oral Olawale Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Oral Olawale LLC",
+   "output": "Oral Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S",
+   "input": "Marine Lopez",
+   "output": "Marine Lopez",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Marine Lopez Trucking",
+   "output": "Marine Lopez Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Marine Lopez LLC",
+   "output": "Marine Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Diamond Okonjo Electric",
+   "output": "Diamond Okonjo Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Diamond Okonjo LLC",
+   "output": "Diamond Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Emerald Abubakar Roofing",
+   "output": "Emerald Abubakar Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Emerald Abubakar LLC",
+   "output": "Emerald Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Velvet Petrovic Plumbing",
+   "output": "Velvet Petrovic Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Velvet Petrovic LLC",
+   "output": "Velvet Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Windy Echeverria Daycare",
+   "output": "Windy Echeverria Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Windy Echeverria LLC",
+   "output": "Windy Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Les Olawale Catering",
+   "output": "Les Olawale Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Les Olawale LLC",
+   "output": "Les Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Del Lopez Landscaping",
+   "output": "Del Lopez Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Del Lopez LLC",
+   "output": "Del Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Rock Okonjo Cleaning",
+   "output": "Rock Okonjo Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Rock Okonjo LLC",
+   "output": "Rock Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Loyal Abubakar Construction",
+   "output": "Loyal Abubakar Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Loyal Abubakar LLC",
+   "output": "Loyal Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "General Petrovic Painting",
+   "output": "General Petrovic Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "General Petrovic LLC",
+   "output": "General Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Dock Echeverria Trucking",
+   "output": "Dock Echeverria Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Dock Echeverria LLC",
+   "output": "Dock Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Lima Olawale Electric",
+   "output": "Lima Olawale Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Lima Olawale LLC",
+   "output": "Lima Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Havana Lopez Roofing",
+   "output": "Havana Lopez Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Havana Lopez LLC",
+   "output": "Havana Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Azure Okonjo Plumbing",
+   "output": "Azure Okonjo Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Azure Okonjo LLC",
+   "output": "Azure Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Sapphire Abubakar Daycare",
+   "output": "Sapphire Abubakar Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Sapphire Abubakar LLC",
+   "output": "Sapphire Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Crimson Petrovic Catering",
+   "output": "Crimson Petrovic Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Crimson Petrovic LLC",
+   "output": "Crimson Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Falcon Echeverria Landscaping",
+   "output": "Falcon Echeverria Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Falcon Echeverria LLC",
+   "output": "Falcon Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Hawk Olawale Cleaning",
+   "output": "Hawk Olawale Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Hawk Olawale LLC",
+   "output": "Hawk Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Bear Lopez Construction",
+   "output": "Bear Lopez Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Bear Lopez LLC",
+   "output": "Bear Lopez LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Eagle Okonjo Painting",
+   "output": "Eagle Okonjo Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Eagle Okonjo LLC",
+   "output": "Eagle Okonjo LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Victory Abubakar Trucking",
+   "output": "Victory Abubakar Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Victory Abubakar LLC",
+   "output": "Victory Abubakar LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Freedom Petrovic Electric",
+   "output": "Freedom Petrovic Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Freedom Petrovic LLC",
+   "output": "Freedom Petrovic LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Pioneer Echeverria Roofing",
+   "output": "Pioneer Echeverria Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Pioneer Echeverria LLC",
+   "output": "Pioneer Echeverria LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S trade",
+   "input": "Dream Olawale Plumbing",
+   "output": "Dream Olawale Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-given: G S LLC",
+   "input": "Dream Olawale LLC",
+   "output": "Dream Olawale LLC",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Danny Steel",
+   "output": "Danny Steel",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Danny Steel Roofing",
+   "output": "Danny Steel Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Allen Dance",
+   "output": "Allen Dance",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Allen Dance Plumbing",
+   "output": "Allen Dance Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Beth Court",
+   "output": "Beth Court",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Beth Court Daycare",
+   "output": "Beth Court Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Kelsey Guard",
+   "output": "Kelsey Guard",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Kelsey Guard Catering",
+   "output": "Kelsey Guard Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Bernard Board",
+   "output": "Bernard Board",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Bernard Board Landscaping",
+   "output": "Bernard Board Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Meghan Bowling",
+   "output": "Meghan Bowling",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Meghan Bowling Cleaning",
+   "output": "Meghan Bowling Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Jimmie Child Construction",
+   "output": "Jimmie Child Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Jacquelyn Gold Painting",
+   "output": "Jacquelyn Gold Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Belinda Street Trucking",
+   "output": "Belinda Street Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Angelica Holiday Electric",
+   "output": "Angelica Holiday Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Gayle Sweet Roofing",
+   "output": "Gayle Sweet Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Rebekah Flood Plumbing",
+   "output": "Rebekah Flood Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Traci Camp Daycare",
+   "output": "Traci Camp Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Jonathon Fort Catering",
+   "output": "Jonathon Fort Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Kristopher Land Landscaping",
+   "output": "Kristopher Land Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Aimee Hand Cleaning",
+   "output": "Aimee Hand Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Frankie Bull Construction",
+   "output": "Frankie Bull Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Ariel Main Painting",
+   "output": "Ariel Main Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Kirsten Self Trucking",
+   "output": "Kirsten Self Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Cristina Bloom Electric",
+   "output": "Cristina Bloom Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Mindy Lemon Roofing",
+   "output": "Mindy Lemon Roofing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Carly Plant Plumbing",
+   "output": "Carly Plant Plumbing",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Roderick Styles Daycare",
+   "output": "Roderick Styles Daycare",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Lora Boston Catering",
+   "output": "Lora Boston Catering",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Angelina Irish Landscaping",
+   "output": "Angelina Irish Landscaping",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Thaddeus Fine Cleaning",
+   "output": "Thaddeus Fine Cleaning",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Ignatius Grey Construction",
+   "output": "Ignatius Grey Construction",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Narendra Books",
+   "output": "Narendra Books",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Narendra Books Painting",
+   "output": "Narendra Books Painting",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Nguyet Music",
+   "output": "Nguyet Music",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Nguyet Music Trucking",
+   "output": "Nguyet Music Trucking",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S",
+   "input": "Chukwudi Golf",
+   "output": "Chukwudi Golf",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "vocab-surname: G S trade",
+   "input": "Chukwudi Golf Electric",
+   "output": "Chukwudi Golf Electric",
+   "class": "FULL PERSONAL NAME"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "JT Smith LLC",
+   "output": "JT Smith LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "JSmith Roofing",
+   "output": "JSmith Roofing",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "AJ Kowalski LLC",
+   "output": "AJ Kowalski LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "AKowalski Plumbing",
+   "output": "AKowalski Plumbing",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "TJ Okonjo LLC",
+   "output": "TJ Okonjo LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "TOkonjo Daycare",
+   "output": "TOkonjo Daycare",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "BJ Villanueva LLC",
+   "output": "BJ Villanueva LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "BVillanueva Catering",
+   "output": "BVillanueva Catering",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "KC Johansson LLC",
+   "output": "KC Johansson LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "KJohansson Landscaping",
+   "output": "KJohansson Landscaping",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "RJ Tanaka LLC",
+   "output": "RJ Tanaka LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "RTanaka Cleaning",
+   "output": "RTanaka Cleaning",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "CJ Haddad LLC",
+   "output": "CJ Haddad LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "CHaddad Construction",
+   "output": "CHaddad Construction",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "DJ Echeverria LLC",
+   "output": "DJ Echeverria LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "DEcheverria Painting",
+   "output": "DEcheverria Painting",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "MJ Rasmussen LLC",
+   "output": "MJ Rasmussen LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "MRasmussen Trucking",
+   "output": "MRasmussen Trucking",
+   "class": "initial glued to surname (no given name)"
+  },
+  {
+   "shape": "initials: II S LLC",
+   "input": "PJ Dombrowski LLC",
+   "output": "PJ Dombrowski LLC",
+   "class": "INITIALS PLUS SURNAME"
+  },
+  {
+   "shape": "initials: IS glued trade",
+   "input": "PDombrowski Electric",
+   "output": "PDombrowski Electric",
+   "class": "initial glued to surname (no given name)"
+  }
+ ]
+}

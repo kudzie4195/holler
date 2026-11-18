@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <DocPage
       title="Privacy"
       intro="Short version: we keep what we need to run Holler, we do not sell it, and you can delete your account yourself."
-      updated="November 17, 2026"
+      updated="November 18, 2026"
     >
       <DocSection title="The short version">
         <ul>
@@ -163,9 +163,9 @@ export default function PrivacyPage() {
 
       <DocSection title="Abuse limits and server logs">
         <p>
-          To stop abuse, we count sign-ups, log-ins, password resets, area checks, draft requests, service requests and
-          replies. We count by IP address, email or account, and we store only a keyed hash, a scrambled code made from that
-          value with a secret key, never the value itself. These counters are deleted after about two days.
+          To stop abuse, we count sign-ups, log-ins, password resets, area checks, draft requests, service requests,
+          replies and feature picks. We count by IP address, email or account, and we store only a hash, a scrambled code made from that
+          value, never the value itself. With the server secret set, as the launch steps require, it is a keyed hash made with that secret. These counters are deleted after about two days.
         </p>
         <p>
           Our hosts, Vercel and Supabase, keep standard server logs, which include IP address, the page asked for, browser
@@ -176,9 +176,14 @@ export default function PrivacyPage() {
 
       <DocSection title="Cookies">
         <p>
-          Holler sets cookies only to keep you signed in: our sign-in provider sets them when you sign up or log in, and they
+          Holler sets cookies to keep you signed in: our sign-in provider sets them when you sign up or log in, and they
           refresh when you open your account pages. Logging out removes them from that browser. Our city and trade pages
           never read or set cookies.
+        </p>
+        <p>
+          The Coming next list on the pricing page and in your feed lets you press I want this on a feature we may build. We save
+          the pick: with your account if you are signed in, and with no name or ID if you are not. Your browser also gets a cookie,
+          holler_picked, that remembers which features you picked, for 180 days. It holds only feature names.
         </p>
         <p>
           There are no advertising cookies, analytics tools or tracking pixels on Holler, and when you pay you are on
@@ -190,9 +195,21 @@ export default function PrivacyPage() {
         <p>
           Most of what Holler shows is government open data. That includes weather alerts, storm reports, disaster
           declarations, earthquakes, airport delays, federal awards, and city permits, 311 requests, inspections, code
-          violations, new business licenses and permitted events. A record can show a street block and business names.
+          violations, new business licenses and permitted events. Permit and event records show a street address. Inspection
+          and code violation records show only the street block. No public page prints a business name from inspection or federal
+          award records.
           A filter removes phone numbers, email addresses and personal names from free text. We keep records for about
           120 days, then delete them.
+        </p>
+        <p>
+          Signed-in members with an active trial or plan, including a plan whose payment is being retried, see more for an alert
+          matched to them. That is the organization the
+          record names (a business, a company on a permit, or a company that won a public award), the address the record is
+          about, and that organization&apos;s own address and phone number when the record itself publishes them. The organization name and the phone
+          number are never on public pages. A permit&apos;s street address already is. For members, we
+          keep the organization name only when it reads as a business or a public body, and we drop names that look like a private
+          person. This filter is automatic and can miss. One example is a sole owner who trades under a company name. Anyone can
+          ask us to remove a record at <Support support={support} />.
         </p>
         <p>
           <strong>Named in a record?</strong> Write to <Support support={support} /> with the link to the page. We will
@@ -234,6 +251,7 @@ export default function PrivacyPage() {
             The trade, ZIP code, city and dates stay.
           </li>
           <li>Records of which business replied to which request: until the business deletes its account.</li>
+          <li>Feature picks: until you delete your account. A pick made while signed out has no name on it, so we keep it.</li>
           <li>Abuse counters: about two days.</li>
           <li>
             Your sign-in and the trial notes: they stay after you delete Holler, because the sign-in is shared and the notes
@@ -249,7 +267,7 @@ export default function PrivacyPage() {
           <li>Turn off alert emails in Settings, or with the link in any alert email. We still send emails your account needs, such as password resets.</li>
           <li>
             Delete your account in Settings. That cancels your Holler subscription right away, deletes your profile, your
-            matched alerts, your drafts and the record of which requests you replied to, and removes Holler from your sign-in. It keeps the shared sign-in, the trial
+            matched alerts, your drafts and the record of which requests you replied to, plus your feature picks, and removes Holler from your sign-in. It keeps the shared sign-in, the trial
             notes and Stripe&apos;s records.
           </li>
           <li>

@@ -1,0 +1,6 @@
+[
+  {"restaurant_name": "Taqueria Lopez #3", "zip_code": "78702", "inspection_date": "2026-10-30T00:00:00.000", "score": "64", "address": "1107 E 7th St",
+   "facility_id": "10099901", "process_description": "Routine Inspection", "lat": "30.2655", "lng": "-97.7302", "inspectionid": "2026-10-30-10099901"},
+  {"restaurant_name": "Kelly Lewis", "zip_code": "78745", "inspection_date": "2026-10-30T00:00:00.000", "score": "61", "address": "6604 Home Ln",
+   "facility_id": "10099902", "process_description": "Routine Inspection", "lat": "30.2001", "lng": "-97.8002", "inspectionid": "2026-10-30-10099902"}
+]

@@ -1,0 +1,6 @@
+{"features": [
+  {"attributes": {"permitnum": "TEST-1", "issueddate": 1762905600000, "description": "Reroof", "permittype": "Residential Building", "workclass": "Repair",
+    "originaladdress1": "100 TEST ST", "originalzip": "27601", "parcelownername": "OWNER PERSONNAME", "ownerphone": "919-555-0123",
+    "contractorcompanyname": "Summit Roofing Co.", "contractorphone": "919-555-0150"},
+   "geometry": {"x": -78.64, "y": 35.78}}
+]}

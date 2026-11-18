@@ -1,4 +1,5 @@
 import type { CategoryId } from './categories';
+import type { ContactInput } from '@/lib/contacts/types';
 
 export type SignalKind =
   | 'ask'
@@ -31,6 +32,11 @@ export interface SignalInput {
   occurredAt: string;
   expiresAt?: string | null;
   data?: Record<string, unknown>;
+  /**
+   * Who to contact about this record: organisations and the site address the record names (lib/contacts). PRIVATE: the store writes
+   * these to holler_signal_contacts (service role only) for newly inserted signals and never copies them into title, summary or data.
+   */
+  contacts?: ContactInput[];
 }
 
 export interface AdapterContext {

@@ -1,6 +1,8 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
+import { extractContacts } from '@/lib/contacts/extract';
+import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import {
   CIVIC_TYPE_KEYWORDS,
@@ -9,6 +11,7 @@ import {
   SOCRATA_DATASETS,
   datasetPageUrl,
   lookbackDays,
+  type InspectionSummaryField,
   type SocrataDataset,
 } from './socrata-datasets';
 
@@ -126,12 +129,12 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
 
 /**
  * Business rows are rounded to 2 decimals (about 1 km): enough for a 5 mile alert radius and the nearest-city lookup, too coarse to
- * point at a home. Code-violation rows are rounded to 3 decimals (about 100 m, a block): holler_signals is public, and a violation
- * record is often a private home. Everything else keeps its exact point.
+ * point at a home. Code-violation rows and EVERY inspection row are rounded to 3 decimals (about 100 m, a block): holler_signals is
+ * public, and such a record is often a private home (a home daycare). Everything else keeps its exact point.
  */
 export function privatePosition<T extends { lat: number; lon: number }>(pos: T | null, subtype: string): T | null {
   if (!pos) return pos;
-  const f = subtype === 'business' ? 100 : subtype === 'violation' ? 1000 : 0;
+  const f = subtype === 'business' ? 100 : subtype === 'violation' || subtype === 'inspection' ? 1000 : 0;
   if (!f) return pos;
   return { ...pos, lat: Math.round(pos.lat * f) / f, lon: Math.round(pos.lon * f) / f };
 }
@@ -165,6 +168,96 @@ export function publicAddress(subtype: string, raw: string): string {
   return subtype === 'violation' ? blockAddress(raw) : raw;
 }
 
+// ---- inspections: public output by construction (round 5 FIX-E) -----------------------------------------------------------------
+// The public side of an inspection row never reads the establishment name column, a title field or any free-text column: three review
+// rounds kept getting a person's name through a name classifier onto public rows, so the public path depends on no classifier at all.
+
+/** An inspection id column value that may form part of the public external id (review4 P2-4). */
+export const INSPECTION_ID_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/** The generic noun every public inspection title ends with. */
+export const INSPECTION_NOUN = 'food establishment';
+
+/** "Failed inspection in <dataset city>: food establishment", for EVERY inspection row whatever its name column says. */
+export function inspectionTitle(city: string): string {
+  return `Failed inspection in ${city}: ${INSPECTION_NOUN}`;
+}
+
+/**
+ * One summary value of an inspection row, or null. Only a value in the column's FIXED list (the canonical spelling from the list is
+ * printed, never the raw text), a score of 1 to 3 digits, or a grade of one letter. Anything else is dropped.
+ */
+export function inspectionSummaryValue(f: InspectionSummaryField, raw: string): string | null {
+  const v = raw.replace(/\s+/g, ' ').trim();
+  if (!v) return null;
+  if (f.kind === 'score') return /^\d{1,3}$/.test(v) ? v : null;
+  if (f.kind === 'grade') return /^[A-Za-z]$/.test(v) ? v.toUpperCase() : null;
+  const want = v.toLowerCase();
+  return (f.values ?? []).find((x) => x.toLowerCase() === want) ?? null;
+}
+
+const DIRECTION_WORDS = new Set(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw', 'north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest']);
+const STREET_TOKEN_RE = /^[A-Za-z0-9][A-Za-z0-9'.-]*$/;
+
+/**
+ * The block-level address of an inspection row: the house number rounded down to the hundred ("0-99 block of" below 100) and the street
+ * name CUT right after the first street suffix word ("5521 S KOMENSKY AVE 2B MARIA" -> "5500 block of S KOMENSKY AVE"). At most three street-name
+ * words after an optional leading direction, each letters, digits, "'", "-" or a final "." only (no inner period), at least one before
+ * the suffix, and at most one all-digit word (FIX-F, review4 P2-5). No street suffix, no
+ * house number first, a word with three or more digits, or anything else unexpected: '' (no address at all; the title already names the
+ * city). A house number that already ends in 00 prints as "<n> block of" too (no more precise than any other house on the block).
+ */
+export function inspectionBlockAddress(raw: string): string {
+  const t = raw.replace(/\s+/g, ' ').trim();
+  const m = t.match(/^(\d{1,6})(?:\s*-\s*\d{1,6})?[A-Za-z]?(?:\s+\d\/\d)?\s+(.+)$/);
+  if (!m) return '';
+  const words = m[2].split(' ').map((w) => w.replace(/[,;]+$/, ''));
+  const k = (w: string) => foldName(w).replace(/\.+$/, '');
+  // review4 P2-5: at most three street-name words before the suffix (after an optional leading direction).
+  const d = DIRECTION_WORDS.has(k(words[0] ?? '')) ? 1 : 0;
+  let end = -1;
+  for (let i = d; i < words.length && i <= d + 3; i++) {
+    if (!STREET_TOKEN_RE.test(words[i])) return '';
+    if (/\.\S/.test(words[i])) return ''; // review4 P2-5: an inner period ("maria.lopez.gmail.com")
+    if (STREET_SUFFIX_WORDS.has(k(words[i])) && i > d) {
+      end = i;
+      break;
+    }
+  }
+  if (end < 0) return '';
+  const street = words.slice(0, end + 1);
+  if (street.some((w) => /\d{3,}/.test(w.replace(/^\d+(?:st|nd|rd|th)$/i, '')))) return '';
+  if (street.filter((w) => /^\d+$/.test(w)).length > 1) return ''; // review4 P2-5: a phone in 2-digit chunks
+  const hundred = Math.floor(Number(m[1]) / 100) * 100;
+  return `${hundred === 0 ? '0-99' : hundred} block of ${street.join(' ')}`;
+}
+
+/** A zip that is exactly five digits, or null. */
+export function inspectionZip(raw: string): string | null {
+  const z = raw.trim();
+  return /^\d{5}$/.test(z) ? z : null;
+}
+
+/**
+ * Title, summary and zip of a public inspection row, read from a FIXED set of columns only: the configured categorical summary columns
+ * (values checked by inspectionSummaryValue), the address columns (block level, inspectionBlockAddress) and the zip column. Never the
+ * name column, a title field or a free-text column.
+ */
+export function inspectionPublicText(
+  cfg: { city: string; inspectionSummary?: InspectionSummaryField[]; addressFields?: string[]; zipField?: string },
+  read: (field: string) => string,
+): { title: string; summary: string | null; zip: string | null } {
+  const parts = (cfg.inspectionSummary ?? []).map((f) => inspectionSummaryValue(f, read(f.field))).filter((v): v is string => Boolean(v));
+  const address = inspectionBlockAddress((cfg.addressFields ?? []).map(read).filter(Boolean).join(' '));
+  const all = [...new Set(parts)];
+  if (address) all.push(address);
+  return {
+    title: inspectionTitle(cfg.city),
+    summary: all.length ? trunc(all.join(' | '), 280) : null,
+    zip: cfg.zipField ? inspectionZip(read(cfg.zipField)) : null,
+  };
+}
+
 export interface ParseReport {
   items: SignalInput[];
   /** raw rows received */
@@ -186,7 +279,7 @@ function buildTitle(ds: SocrataDataset, row: Row, titleBitsRaw: string[], summar
   if (ds.subtype === 'permit') {
     return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => s(row, f)).filter(Boolean), categories, text);
   }
-  const titleBits = ds.subtype === 'business' || ds.subtype === 'inspection' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
+  const titleBits = ds.subtype === 'business' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
     case '311': {
       const uniq = [...new Set(titleBits.map((b) => b.toLowerCase()))].map(
@@ -205,7 +298,7 @@ function buildTitle(ds: SocrataDataset, row: Row, titleBitsRaw: string[], summar
     case 'event-permit':
       return `Permitted event in ${ds.city}: ${trunc(titleBits[0] ?? 'special event', 80)}${address ? ` at ${trunc(address, 60)}` : ''}`;
     default:
-      return `Failed inspection in ${ds.city}: ${trunc(s(row, ds.nameField) || 'food establishment', 100)}`;
+      return inspectionTitle(ds.city);
   }
 }
 
@@ -232,15 +325,47 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       report.shapeOk += 1;
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
-      const externalId = ds.subtype === 'inspection' ? `${rawId}:${s(row, ds.dateField).slice(0, 10)}` : rawId;
+      // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
+      if (ds.subtype === 'inspection' && !INSPECTION_ID_RE.test(rawId)) continue;
+      const externalId = ds.subtype === 'inspection' ? `${rawId}:${occurredAt.slice(0, 10)}` : rawId;
       if (seen.has(externalId)) continue;
 
       const { categories, severity } = categorize(ds, text);
       if (categories.length === 0) continue;
 
+      seen.add(externalId);
+      // Who to contact: private, from the columns the dataset's contact spec names only. Never part of title, summary or data.
+      const contacts = ds.contacts ? extractContacts((f) => s(row, f), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+
+      if (ds.subtype === 'inspection') {
+        // Public output by construction: no name column, no title field, no free text (inspectionPublicText).
+        const pub = inspectionPublicText(ds, (f) => s(row, f));
+        const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
+        out.push({
+          source: ds.id,
+          externalId,
+          kind: ds.kind,
+          title: pub.title,
+          summary: pub.summary,
+          url: datasetPageUrl(ds),
+          lat: pos?.lat ?? null,
+          lon: pos?.lon ?? null,
+          city: ds.city,
+          state: ds.state,
+          zip: pub.zip,
+          categories,
+          severity,
+          occurredAt,
+          data: { dataset: ds.datasetId, domain: ds.domain, subtype: ds.subtype, ...(pos?.approx ? { approxLocation: true } : {}) },
+          ...(contacts.length ? { contacts } : {}),
+        });
+        continue;
+      }
+
       const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' '));
+      const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
+      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
       const summaryBits = ds.summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
@@ -249,8 +374,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       }
       const title = buildTitle(ds, row, titleBits, summaryBits, address, categories, text);
 
-      // 311 summaries leave the street address out; permits, inspections, businesses, violations and events are
-      // business/property records. Only the configured summary fields are read, never owner or applicant columns.
+      // 311 summaries leave the street address out; permits, businesses, violations and events are business/property records. Only the
+      // configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
       const summary = ds.subtype === 'business'
@@ -260,7 +385,6 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
-      seen.add(externalId);
       out.push({
         source: ds.id,
         externalId,
@@ -283,6 +407,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           subtype: ds.subtype,
           ...(pos?.approx ? { approxLocation: true } : {}),
         },
+        ...(contacts.length ? { contacts } : {}),
       });
     } catch {
       // skip malformed row

@@ -12,6 +12,8 @@ import {
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
+import { loadMemberContacts } from '@/lib/outreach/loader';
+import { emailContact, mayHaveContacts } from '@/lib/outreach/plan';
 
 export const maxDuration = 60;
 
@@ -22,6 +24,7 @@ const PAGE_SIZE = 1000;
 const MAX_PAGES = 15;
 
 interface SignalRow {
+  id?: number;
   source?: string | null;
   external_id?: string | null;
   expires_at?: string | null;
@@ -62,7 +65,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(source, external_id, expires_at, kind, title, url, city, state, occurred_at)')
+      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at)')
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -139,13 +142,22 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const items: DigestItem[] = rows.slice(0, MAX_ITEMS_IN_DIGEST).map(({ s }) => ({
+      const shown = rows.slice(0, MAX_ITEMS_IN_DIGEST);
+      // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
+      // the owner and current access); any failure just leaves the lines out.
+      const contacts = await loadMemberContacts({
+        db: admin,
+        userId: p.user_id,
+        signalIds: shown.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
+      });
+      const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
         title: s.title,
         place: [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
+        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

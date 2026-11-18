@@ -1,7 +1,8 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
+import { contactSpecFields, extractContacts } from '@/lib/contacts/extract';
 import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import type { CategoryId } from '@/lib/signals/categories';
-import { categorize, privatePosition, publicAddress } from './socrata';
+import { INSPECTION_ID_RE, categorize, inspectionPublicText, inspectionTitle, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 
 const LIMIT = 500;
@@ -66,7 +67,7 @@ function dateClause(ds: ArcgisDataset, op: '>=' | '<=', d: Date): string {
 function outFields(ds: ArcgisDataset): string {
   const set = new Set<string>([
     ds.idField, ds.dateField, ds.latField, ds.lonField, ds.nameField, ds.zipField,
-    ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? []),
+    ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? []), ...contactSpecFields(ds.contacts),
   ].filter((x): x is string => Boolean(x)));
   return [...set].join(',');
 }
@@ -118,7 +119,7 @@ function title(ds: ArcgisDataset, a: Attrs, titleBitsRaw: string[], summaryBits:
   if (ds.subtype === 'permit') {
     return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => str(a, f)).filter(Boolean), categories, text);
   }
-  const titleBits = ds.subtype === 'business' || ds.subtype === 'inspection' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
+  const titleBits = ds.subtype === 'business' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
     case '311':
       return `311 request in ${ds.city}: ${trunc([...new Set(titleBits)].join(' / ') || 'service request', 110)}`;
@@ -131,7 +132,7 @@ function title(ds: ArcgisDataset, a: Attrs, titleBitsRaw: string[], summaryBits:
     case 'event-permit':
       return `Permitted event in ${ds.city}: ${trunc(titleBits[0] ?? 'special event', 80)}${address ? ` at ${trunc(address, 60)}` : ''}`;
     default:
-      return `Failed inspection in ${ds.city}: ${trunc(titleBits[0] || 'food establishment', 100)}`;
+      return inspectionTitle(ds.city);
   }
 }
 
@@ -160,27 +161,45 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       const externalId = str(a, ds.idField);
       const text = ds.textFields.map((x) => str(a, x)).filter(Boolean).join(' | ');
       if (!occurredAt || !externalId || !text) continue;
+      // review4 P2-4: an inspection id is part of the public row only when it is a plain id.
+      if (ds.subtype === 'inspection' && !INSPECTION_ID_RE.test(externalId)) continue;
       report.shapeOk += 1;
       if (seen.has(externalId)) continue;
 
       const { categories, severity } = categorize(ds, text);
       if (categories.length === 0) continue;
 
-      const titleBits = ds.titleFields.map((x) => str(a, x)).filter(Boolean);
-      const summaryBits = ds.summaryFields.map((x) => summaryPart(x, str(a, x))).filter(Boolean);
-      // Business rows never carry a street address (home addresses of sole proprietors).
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' '));
-      const parts = [...new Set(summaryBits)];
-      if (address && ds.subtype !== '311') parts.push(address);
-      const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
-      const zip = str(a, ds.zipField).slice(0, 5) || null;
       seen.add(externalId);
+      // Who to contact: private, from the columns the layer's contact spec names only. No layer has one yet (see arcgis-datasets.ts).
+      const contacts = ds.contacts ? extractContacts((x) => str(a, x), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+      const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
+      let itemTitle: string;
+      let summary: string | null;
+      let zip: string | null;
+      if (ds.subtype === 'inspection') {
+        // Public output by construction: no name column, no title field, no free text (socrata.ts inspectionPublicText).
+        const pub = inspectionPublicText(ds, (x) => str(a, x));
+        itemTitle = pub.title;
+        summary = pub.summary;
+        zip = pub.zip;
+      } else {
+        const titleBits = ds.titleFields.map((x) => str(a, x)).filter(Boolean);
+        const rawAddress = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
+        const summaryBits = ds.summaryFields.map((x) => summaryPart(x, str(a, x))).filter(Boolean);
+        // Business rows never carry a street address (home addresses of sole proprietors).
+        const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
+        const parts = [...new Set(summaryBits)];
+        if (address && ds.subtype !== '311') parts.push(address);
+        itemTitle = title(ds, a, titleBits, summaryBits, address, categories, text);
+        summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
+        zip = str(a, ds.zipField).slice(0, 5) || null;
+      }
       report.items.push({
         source: ds.id,
         externalId,
         kind: ds.kind,
-        title: title(ds, a, titleBits, summaryBits, address, categories, text),
-        summary: ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined }),
+        title: itemTitle,
+        summary,
         url: arcgisPageUrl(ds),
         lat: pos?.lat ?? null,
         lon: pos?.lon ?? null,
@@ -195,6 +214,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           subtype: ds.subtype,
           ...(pos?.approx ? { approxLocation: true } : {}),
         },
+        ...(contacts.length ? { contacts } : {}),
       });
     } catch {
       // skip malformed feature

@@ -54,7 +54,7 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
     const { html, metadata } = await render(page, 'support@localholler.com');
     expect(metadata.title).toBe(page === 'terms' ? 'Terms' : 'Privacy');
     expect(metadata.alternates?.canonical).toBe(`/${page}`);
-    expect(html).toContain('Last updated November 17, 2026');
+    expect(html).toContain(page === 'privacy' ? 'Last updated November 18, 2026' : 'Last updated November 17, 2026');
   });
 
   it('names the operator and postal address from COMPANY', async () => {

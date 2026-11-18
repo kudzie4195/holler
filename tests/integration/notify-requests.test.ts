@@ -2,6 +2,8 @@
 // unmarked (the scan cron deletes the record; the match goes with it by cascade). A live request and other sources are mailed as before.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 const NOW = new Date('2026-11-17T12:00:00.000Z');
 const iso = (ms: number) => new Date(NOW.getTime() + ms).toISOString();
 

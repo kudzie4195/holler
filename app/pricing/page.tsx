@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ComingNext } from '@/components/coming-next';
 import { Footer } from '@/components/footer';
 import { Pricing } from '@/components/pricing';
 import { TopNav } from '@/components/top-nav';
@@ -75,6 +76,10 @@ export default function PricingPage() {
             </div>
           </div>
         </section>
+
+        <div className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
+          <ComingNext page="pricing" />
+        </div>
 
         <section aria-labelledby="faq-h" className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
           <h2 id="faq-h" className="text-2xl text-ink md:text-3xl">

@@ -1,4 +1,5 @@
 import type { CategoryId } from '@/lib/signals/categories';
+import type { ContactSpec } from '@/lib/contacts/extract';
 
 /**
  * Config for the Socrata (SODA) adapters. Every dataset id and field name below was read from the
@@ -15,6 +16,17 @@ export interface CategoryRule {
   re: RegExp;
   add: CategoryId[];
   severity?: 1 | 2 | 3;
+}
+
+/**
+ * One categorical summary column of an inspection dataset (round 5 FIX-E). The public summary of an inspection row holds only values
+ * from these columns: a value in the FIXED `values` list (printed in the list's spelling), a score of 1 to 3 digits, or a one-letter
+ * grade. Anything else in the column is dropped. Value lists are the known vocabulary of each portal (assumed from its documentation).
+ */
+export interface InspectionSummaryField {
+  field: string;
+  kind: 'list' | 'score' | 'grade';
+  values?: readonly string[];
 }
 
 export interface SocrataDataset {
@@ -56,8 +68,10 @@ export interface SocrataDataset {
   windowForwardDays?: number;
   /** Event permits: column holding the end of the event, used as expiresAt. */
   endDateField?: string;
-  /** Business name field (inspections). */
+  /** Business name field (inspections). Read only into the private contacts spec; the public inspection path never reads it. */
   nameField?: string;
+  /** Inspections only: the categorical summary columns and their fixed value lists. Nothing else reaches the public summary. */
+  inspectionSummary?: InspectionSummaryField[];
   zipField?: string;
   /**
    * Business feeds with no license-type text: a NAICS code column. Its first two digits name a sector (NAICS_SECTORS), which becomes the
@@ -75,6 +89,11 @@ export interface SocrataDataset {
   verifiedUrl: string;
   fieldSource: 'sourced' | 'assumed';
   note?: string;
+  /**
+   * Who to contact (private: written to holler_signal_contacts, never to the public row). Only columns read from the portal's own
+   * column list (contacts.verifiedUrl) appear here. Datasets without it carry no contacts.
+   */
+  contacts?: ContactSpec;
 }
 
 // --- Category rules ---------------------------------------------------------------------------
@@ -255,6 +274,98 @@ const austinFail = (r: Record<string, unknown>) => Number(r.score) < 70;
 
 const D = (domain: string, id: string) => `https://${domain}/api/views/${id}.json`;
 
+// --- Inspection summary vocabularies (round 5 FIX-E) ---------------------------------------------------------------------------
+// Known values of each portal's categorical columns, from the portals' public field documentation (assumed, not re-read live). A value
+// not on the list is dropped from the public summary, so a list that is too short loses a word, never leaks one.
+
+export const CHICAGO_FACILITY_TYPES = [
+  'Restaurant', 'Grocery Store', 'School', 'Bakery', "Children's Services Facility", 'Daycare (2 - 6 Years)', 'Daycare (Under 2 Years)',
+  'Daycare Above and Under 2 Years', 'Daycare Combo 1586', 'Long Term Care', 'Hospital', 'Catering', 'Mobile Food Dispenser',
+  'Mobile Food Preparer', 'Liquor', 'Golden Diner', 'Shared Kitchen', 'Shared Kitchen User (Long Term)', 'Shared Kitchen User (Short Term)',
+  'Wholesale', 'Coffee Shop', 'Banquet Hall', 'Tavern', 'Shelter', 'Gas Station', 'Convenience Store', 'Ice Cream Shop', 'Kiosk',
+  'Cafeteria', 'Bar', 'Special Event', 'Commissary',
+] as const;
+export const CHICAGO_RESULTS = ['Fail', 'Pass', 'Pass w/ Conditions', 'Out of Business', 'No Entry', 'Not Ready', 'Business Not Located'] as const;
+export const CHICAGO_INSPECTION_TYPES = [
+  'Canvass', 'Canvass Re-Inspection', 'Complaint', 'Complaint Re-Inspection', 'Complaint-Fire', 'Complaint-Fire Re-inspection', 'License',
+  'License Re-Inspection', 'License-Task Force', 'Short Form Complaint', 'Short Form Fire-Complaint', 'Suspected Food Poisoning',
+  'Suspected Food Poisoning Re-inspection', 'Consultation', 'Tag Removal', 'Recent Inspection', 'Non-Inspection', 'Task Force Liquor 1475',
+  'Special Events (Festivals)', 'Out of Business',
+] as const;
+export const AUSTIN_PROCESS_DESCRIPTIONS = [
+  'Routine Inspection', '1st Follow Up to Routine of 50 - 69', '2nd Follow Up to Routine of 50 - 69', '3rd Follow Up to Routine of 50 - 69',
+  'Follow Up to 0 - 49', 'Complaint Inspection', 'Emergency Response Inspection', 'Pre-Opening Inspection', 'Reinspection',
+] as const;
+
+// --- Contacts (round 5) ------------------------------------------------------------------------
+// Column names below were read on 2026-11-17 with WebFetch from each dataset's metadata (https://<domain>/api/views/<id>.json).
+// Only these five datasets could be fetched in that session; the others carry no contacts until their columns are read the same way.
+
+/**
+ * Chicago Building Permits (ydr8-5enu): 15 pairs of contact_N_type / contact_N_name with contact_N_city, _state, _zipcode (no street,
+ * no phone). Type vocabulary from a live group-by of contact_1_type on 2026-11-17: ELECTRICAL CONTRACTOR, CONTRACTOR-GENERAL CONTRACTOR,
+ * OWNER AS GENERAL CONTRACTOR, SELF CERT ARCHITECT, ARCHITECT, MASONRY CONTRACTOR, STRUCTURAL ENGINEER, EXPEDITOR, OWNER, TENANT,
+ * APPLICANT, BUILDING OWNER, OWNER OCCUPIED ... Only contractor, mason, architect and engineer types are read, never one that says
+ * owner, applicant, tenant or expediter, and the name must still pass cleanOrgName.
+ */
+const CHICAGO_PERMIT_PAIRS = Array.from({ length: 15 }, (_, i) => ({
+  typeField: `contact_${i + 1}_type`,
+  nameField: `contact_${i + 1}_name`,
+  cityField: `contact_${i + 1}_city`,
+  stateField: `contact_${i + 1}_state`,
+  zipField: `contact_${i + 1}_zipcode`,
+}));
+export const CHICAGO_CONTRACTOR_TYPE = /CONTRACT|ARCHITECT|ENGINEER|\bMASON\b|SIGN INSTALLER|DESIGN PROFESSIONAL/i;
+export const CHICAGO_REJECT_TYPE = /OWNER|APPLICANT|TENANT|EXPEDIT|OCCUP|RESIDEN|PRIMARY|CONSCNT/i;
+
+export const CONTACT_SPECS: Record<string, ContactSpec> = {
+  'socrata-chicago-permits': {
+    verifiedUrl: 'https://data.cityofchicago.org/api/views/ydr8-5enu.json',
+    checkedOn: '2026-11-17',
+    site: { addressFields: ['street_number', 'street_direction', 'street_name'] },
+    typedContractors: { pairs: CHICAGO_PERMIT_PAIRS, acceptType: CHICAGO_CONTRACTOR_TYPE, rejectType: CHICAGO_REJECT_TYPE },
+  },
+  // Austin Issued Construction Permits (3syk-w9eu). contractor_company_name ("Company name of the primary contractor"), contractor_phone,
+  // contractor_address1/2, contractor_city, contractor_zip. contractor_full_name, applicant_* and permit_location are never read.
+  'socrata-austin-permits': {
+    verifiedUrl: 'https://data.austintexas.gov/api/views/3syk-w9eu.json',
+    checkedOn: '2026-11-17',
+    site: { addressFields: ['original_address1'], cityField: 'original_city', stateField: 'original_state', zipField: 'original_zip' },
+    orgs: [
+      {
+        role: 'contractor',
+        nameFields: ['contractor_company_name'],
+        addressFields: ['contractor_address1', 'contractor_address2'],
+        cityField: 'contractor_city',
+        zipField: 'contractor_zip',
+        phoneField: 'contractor_phone',
+      },
+    ],
+  },
+  // Chicago Food Inspections (4ijn-s7e5): dba_name ("Doing Business As"), address, city, state, zip. No phone column.
+  'socrata-chicago-inspections': {
+    verifiedUrl: 'https://data.cityofchicago.org/api/views/4ijn-s7e5.json',
+    checkedOn: '2026-11-17',
+    orgs: [{ role: 'business', nameFields: ['dba_name'] }],
+    site: { addressFields: ['address'], cityField: 'city', stateField: 'state', zipField: 'zip', onlyWithOrganisation: true },
+  },
+  // Austin Food Establishment Inspection Scores (ecmv-9xxi): restaurant_name, address, zip_code. No phone column.
+  'socrata-austin-inspections': {
+    verifiedUrl: 'https://data.austintexas.gov/api/views/ecmv-9xxi.json',
+    checkedOn: '2026-11-17',
+    orgs: [{ role: 'business', nameFields: ['restaurant_name'] }],
+    site: { addressFields: ['address'], zipField: 'zip_code', onlyWithOrganisation: true },
+  },
+  // Chicago Business Licenses (uupf-x98q): doing_business_as_name, legal_name, address, city, state, zip_code. No phone column. The
+  // excluded individual licence types stay excluded by the dataset's extraWhere.
+  'socrata-chicago-business': {
+    verifiedUrl: 'https://data.cityofchicago.org/api/views/uupf-x98q.json',
+    checkedOn: '2026-11-17',
+    orgs: [{ role: 'business', nameFields: ['doing_business_as_name', 'legal_name'] }],
+    site: { addressFields: ['address'], cityField: 'city', stateField: 'state', zipField: 'zip_code', onlyWithOrganisation: true },
+  },
+};
+
 // --- Datasets ---------------------------------------------------------------------------------
 
 export const SOCRATA_DATASETS: SocrataDataset[] = [
@@ -279,6 +390,11 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'inspection', idField: 'inspection_id', dateField: 'inspection_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['dba_name'], textFields: ['dba_name', 'facility_type', 'violations'], nameField: 'dba_name',
     summaryFields: ['facility_type', 'results', 'inspection_type'], addressFields: ['address'], zipField: 'zip',
+    inspectionSummary: [
+      { field: 'facility_type', kind: 'list', values: CHICAGO_FACILITY_TYPES },
+      { field: 'results', kind: 'list', values: CHICAGO_RESULTS },
+      { field: 'inspection_type', kind: 'list', values: CHICAGO_INSPECTION_TYPES },
+    ],
     extraWhere: "results = 'Fail'", isFailure: chicagoFail, cadenceMinutes: 720, verified: true,
     verifiedUrl: D('data.cityofchicago.org', '4ijn-s7e5'), fieldSource: 'sourced',
     note: "results = 'Fail' value is assumed from Chicago's public documentation of the field.",
@@ -304,6 +420,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'inspection', idField: 'camis', dateField: 'inspection_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['dba'], textFields: ['dba', 'cuisine_description', 'violation_description'], nameField: 'dba',
     summaryFields: ['violation_description', 'score', 'grade'], addressFields: ['building', 'street', 'boro'], zipField: 'zipcode',
+    inspectionSummary: [{ field: 'score', kind: 'score' }, { field: 'grade', kind: 'grade' }],
     isFailure: nycFail, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityofnewyork.us', '43nn-pn8j'), fieldSource: 'sourced',
     note: 'One row per violation; the parser dedupes to one signal per camis + inspection_date. Score >= 28 and critical_flag = Critical is assumed.',
   },
@@ -328,6 +445,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'inspection', idField: 'inspection_id', dateField: 'inspection_date', latField: 'business_latitude', lonField: 'business_longitude',
     titleFields: ['business_name'], textFields: ['business_name', 'violation_description'], nameField: 'business_name',
     summaryFields: ['violation_description', 'inspection_score'], addressFields: ['business_address'],
+    inspectionSummary: [{ field: 'inspection_score', kind: 'score' }],
     isFailure: (r) => Number(r.inspection_score) < 70, cadenceMinutes: 720, verified: false, verifiedUrl: D('data.sf.gov', 'pyih-qa8i'),
     fieldSource: 'sourced', note: 'DISABLED: dataset is "Health Inspection Scores (2016-2019)", last updated 2021-09-24. No current SF inspection set verified.',
   },
@@ -351,6 +469,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'inspection', idField: 'inspectionid', dateField: 'inspection_date', latField: 'lat', lonField: 'lng',
     titleFields: ['restaurant_name'], textFields: ['restaurant_name', 'process_description'], nameField: 'restaurant_name',
     summaryFields: ['process_description', 'score'], addressFields: ['address'], zipField: 'zip_code',
+    inspectionSummary: [{ field: 'process_description', kind: 'list', values: AUSTIN_PROCESS_DESCRIPTIONS }, { field: 'score', kind: 'score' }],
     extraWhere: 'score < 70', isFailure: austinFail, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.austintexas.gov', 'ecmv-9xxi'),
     fieldSource: 'sourced', note: 'score is a number column (sourced). The < 70 failing threshold is assumed. Dataset last updated 2026-11-01.',
   },
@@ -535,7 +654,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     summaryFields: ['license_description', 'business_activity'], zipField: 'zip_code',
     extraWhere: "application_type = 'ISSUE' AND license_description NOT IN ('Pop-Up Retail User','Peddler License','Pharmaceutical Representative','Shared Housing Unit Operator','Pop-Up Food Est. User - Tier I')", windowForwardDays: 0, cadenceMinutes: 720, verified: true,
     verifiedUrl: D('data.cityofchicago.org', 'uupf-x98q'), fieldSource: 'sourced',
-    note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. PRIVACY: no name column is read (doing_business_as_name, legal_name, account fields): 12 of 60 live DBA values were bare personal names, and Shared Housing Unit Operator rows are home addresses. Title is the license type only, no street address, and individual license types are excluded (live group-by of license_description for ISSUE rows, 2026-11-17).",
+    note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. PRIVACY: the public parser reads no name column: the title is the license type only, the summary holds no street address, and individual license types are excluded (live group-by of license_description for ISSUE rows, 2026-11-17). Only the contact spec (CONTACT_SPECS['socrata-chicago-business']) reads names: doing_business_as_name, then legal_name, and each value goes through the organisation classifier (lib/contacts/org.ts cleanOrgName) and, when it passes, only into the private contacts table (migration 0006, service role only), never into title, summary or data. 12 of 60 live DBA values were bare personal names and fail the classifier; the site address (address, city, state, zip_code) is stored only when a name passed. Account fields are never read. Shared Housing Unit Operator rows (home addresses) are excluded by the query.",
   },
   {
     id: 'socrata-sf-business', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'g8m3-pdis',
@@ -601,6 +720,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     note: 'DISABLED: columns verified, but max(enteredon) is 2026-08-14 and max(startdatetime) 2026-08-17 (rowsUpdatedAt 2026-10-27 is a re-publish of old rows). NYC Permitted Event Information above carries film shoots as "Production Event".',
   },
 ];
+
+for (const d of SOCRATA_DATASETS) if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];
 
 /**
  * Atlanta has no Socrata portal. Its ArcGIS layers are handled in arcgis-datasets.ts (see the Atlanta notes there).

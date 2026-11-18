@@ -282,7 +282,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       if (f.result.status !== 'error' && f.signals.length) {
         try {
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
-          const inserted = await insertNewSignals(db, rows);
+          const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m) });
           f.result.inserted = inserted.length;
           storedAll.push(...inserted);
         } catch (e) {

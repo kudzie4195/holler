@@ -11,6 +11,11 @@ export interface DigestItem {
   sourceUrl?: string | null;
   /** Resident requests only: the filtered description, read with the service role for this member's own match. Plain text. */
   detail?: string | null;
+  /**
+   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role only: the email never
+   * carries an address, phone number or email address. Absent when the record names no organization.
+   */
+  contact?: { name: string; role: string } | null;
 }
 
 export interface Rendered {
@@ -58,6 +63,11 @@ function noDash(s: string): string {
 
 export function timeAgo(iso: string, now: Date = new Date()): string {
   return relativeTime(iso, now.getTime(), 'email');
+}
+
+/** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
+export function contactLine(c: { name: string; role: string }): string {
+  return noDash(`Contact: ${c.name} (${c.role})`);
 }
 
 const WRAP_OPEN =
@@ -117,7 +127,10 @@ export function renderDigest(opts: {
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${detail}${
+      const contact = it.contact?.name
+        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
+        : '';
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="color:#AD4205;font-size:14px">Open source</a>` : ''
       }</li>`;
     })
@@ -140,7 +153,7 @@ export function renderDigest(opts: {
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
-      return `${meta}\n${noDash(it.title)}${it.detail ? `\n${noDash(it.detail)}` : ''}${src ? `\n${src}` : ''}`;
+      return `${meta}\n${noDash(it.title)}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =

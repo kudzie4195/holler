@@ -55,7 +55,8 @@ describe('socrata parsers on fixtures', () => {
     expect(out[0].categories).toEqual(expect.arrayContaining(['pest-control', 'cleaning', 'janitorial-commercial']));
     expect(out[0].severity).toBe(2);
     expect(out[0].externalId).toBe('2612345:2026-11-10');
-    expect(out[0].title).toBe('Failed inspection in Chicago: JOES TACO SHACK');
+    // Round 5 FIX-C: "JOES TACO SHACK" fails the strict organisation rule ("Taco" is a listed given name), so the name is hidden.
+    expect(out[0].title).toBe('Failed inspection in Chicago: food establishment');
   });
 
   it('NYC 311: no heat -> hvac+plumbing (severity 2), rodent -> pest-control, noise dropped', () => {
@@ -90,7 +91,8 @@ describe('socrata parsers on fixtures', () => {
   it('Austin inspections: score < 70 only', () => {
     const out = parseSocrata(fx('socrata-austin-inspections.json'), ds('socrata-austin-inspections'));
     expect(out).toHaveLength(1);
-    expect(out[0].title).toContain('Barton Creek Grill');
+    // Round 5 FIX-C: "Barton Creek Grill" fails the strict organisation rule (two surname-listed words, no non-name business word).
+    expect(out[0].title).toBe('Failed inspection in Austin: food establishment');
     expect(out[0].lat).toBeCloseTo(30.245, 3);
   });
 

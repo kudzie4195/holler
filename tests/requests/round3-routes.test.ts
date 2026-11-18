@@ -160,6 +160,7 @@ describe('P1-1: the feed reads request text with the service role, for the membe
 describe('P1-1: the alert email carries the request text for that member’s live request', () => {
   it('digest shows the text read by public id; the public row summary is never used', async () => {
     vi.resetModules();
+    vi.doMock('server-only', () => ({}));
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     vi.stubEnv('CRON_SECRET', 's3cret');

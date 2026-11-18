@@ -1,0 +1,34 @@
+[
+  {
+    "permittype": "BP", "permit_type_desc": "Building Permit", "permit_number": "2026-123456 BP", "permit_class_mapped": "Residential",
+    "work_class": "Repair", "description": "Re-roof single family residence. Homeowner Jane Applicant cell 512-555-0177",
+    "issue_date": "2026-11-12T00:00:00.000", "total_job_valuation": "18500",
+    "original_address1": "4812 AVENUE H", "original_city": "AUSTIN", "original_state": "TX", "original_zip": "78751",
+    "latitude": "30.3121", "longitude": "-97.7225",
+    "contractor_trade": "General Contractor", "contractor_company_name": "Lone Star Roofing LLC", "contractor_full_name": "Billy Ray Contractorperson",
+    "contractor_phone": "(512) 555-0142", "contractor_address1": "1200 W Ben White Blvd", "contractor_address2": "Ste 200", "contractor_city": "AUSTIN", "contractor_zip": "78704",
+    "applicant_full_name": "Jane Applicant", "applicant_org": "Jane Applicant", "applicant_phone": "512-555-0177", "applicant_address1": "4812 AVENUE H",
+    "applicant_city": "AUSTIN", "applicantzip": "78751"
+  },
+  {
+    "permittype": "MP", "permit_type_desc": "Mechanical Permit", "permit_number": "2026-123457 MP", "permit_class_mapped": "Residential",
+    "work_class": "Repair", "description": "Replace HVAC condenser",
+    "issue_date": "2026-11-12T00:00:00.000", "total_job_valuation": "7000",
+    "original_address1": "907 E 46TH ST", "original_city": "AUSTIN", "original_state": "TX", "original_zip": "78751",
+    "latitude": "30.3050", "longitude": "-97.7201",
+    "contractor_trade": "Mechanical", "contractor_company_name": "Ricky Gomez", "contractor_full_name": "Ricky Gomez",
+    "contractor_phone": "512-555-0110", "contractor_address1": "88 HOME ST", "contractor_city": "AUSTIN", "contractor_zip": "78745",
+    "applicant_full_name": "Ricky Gomez", "applicant_phone": "512-555-0110"
+  },
+  {
+    "permittype": "BP", "permit_type_desc": "Building Permit", "permit_number": "2026-123458 BP", "permit_class_mapped": "Commercial",
+    "work_class": "Repair", "description": "Re-roof commercial building",
+    "issue_date": "2026-11-12T00:00:00.000", "total_job_valuation": "48500",
+    "original_address1": "1500 E RIVERSIDE DR", "original_city": "AUSTIN", "original_state": "TX", "original_zip": "78741",
+    "latitude": "30.2440", "longitude": "-97.7300",
+    "contractor_trade": "General Contractor", "contractor_company_name": "Lone Oak Roofing LLC", "contractor_full_name": "Billy Ray Contractorperson",
+    "contractor_phone": "(512) 555-0142", "contractor_address1": "1200 W Ben White Blvd", "contractor_address2": "ATTN JOHN SMITH 512-555-0199",
+    "contractor_city": "AUSTIN", "contractor_zip": "78704",
+    "applicant_full_name": "Jane Applicant", "applicant_phone": "512-555-0177"
+  }
+]

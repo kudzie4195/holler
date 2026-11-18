@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BillingButton } from '@/components/billing-button';
 import { Card } from '@/components/card';
+import { ComingNextForMember } from '@/components/coming-next-member';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
@@ -13,6 +14,9 @@ import { priceLabel, renewalNote } from '@/lib/stripe/plans';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestTextForMember } from '@/lib/requests/details';
+import { loadMemberContacts } from '@/lib/outreach/loader';
+import { mayHaveContacts } from '@/lib/outreach/plan';
+import type { ContactRecord } from '@/lib/contacts/types';
 
 interface SignalRow {
   id: number;
@@ -23,6 +27,8 @@ interface SignalRow {
   url: string | null;
   city: string | null;
   state: string | null;
+  county: string | null;
+  zip: string | null;
   occurred_at: string;
   expires_at: string | null;
 }
@@ -44,7 +50,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,occurred_at,expires_at)',
+      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at)',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -72,6 +78,28 @@ async function loadDashboard() {
       requestText = {};
     }
   }
+  // "Who to contact": organisations and sites the record names. Read with the service role, only for signal ids taken from THIS
+  // member's own matches (the query above is filtered by user_id), only for records that can carry contacts, and never for a locked
+  // account. The loader checks the match owner again. Any failure means no contacts and the feed renders as before.
+  let contactsBySignal = new Map<number, ContactRecord[]>();
+  if (!access.locked) {
+    const signalIds = rows
+      .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
+      .filter((s) => mayHaveContacts(s.source, s.kind))
+      .map((s) => s.id);
+    if (signalIds.length > 0) {
+      try {
+        contactsBySignal = await loadMemberContacts({
+          db: createAdminClient(),
+          userId: user.id,
+          signalIds,
+          locked: false,
+        });
+      } catch {
+        contactsBySignal = new Map();
+      }
+    }
+  }
   const items: FeedItem[] = rows.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
@@ -88,10 +116,20 @@ async function loadDashboard() {
       ago: timeAgo(s.occurred_at, now),
       occurredAt: s.occurred_at,
       draft: m.draft,
+      city: s.city,
+      state: s.state,
+      county: s.county,
+      zip: s.zip,
     };
+    const found = access.locked ? undefined : contactsBySignal.get(s.id);
+    if (found && found.length > 0) base.contacts = found.map((c) => {
+        const contact: Partial<ContactRecord> = { ...c };
+        delete contact.signalId;
+        return contact as Omit<ContactRecord, 'signalId'>;
+      });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null }
       : base;
   });
 
@@ -161,6 +199,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
           <Feed items={items} cityPage={cityPage} firstRun={firstRun} />
         )}
       </div>
+      <ComingNextForMember />
     </>
   );
 }
