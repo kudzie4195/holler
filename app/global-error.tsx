@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 
-// Replaces the root layout when it fails, so it brings its own html/body and uses the design tokens inline.
+// Replaces the root layout when it fails, so it brings its own html/body and uses the design token values inline
+// (globals.css may not have loaded). Field green band, signal button with ink text (13.2:1), signal focus ring (9.7:1 on brand).
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error('[holler] global error', error.digest ?? error.message);
@@ -13,9 +14,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body
         style={{
           margin: 0,
-          background: '#FAF6EE',
-          color: '#191714',
-          fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+          background: '#1E3A2C',
+          color: '#F5F4EF',
+          fontFamily: "'Inter Variable', ui-sans-serif, system-ui, sans-serif",
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
@@ -23,8 +24,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <main style={{ maxWidth: 448, padding: '64px 20px' }}>
-          <h1 style={{ fontSize: 36, fontFamily: "'Iowan Old Style', 'Palatino Linotype', Georgia, serif", fontWeight: 560, letterSpacing: '-0.018em', margin: 0 }}>Something went wrong on our side.</h1>
-          <p style={{ fontSize: 18, color: '#5C574F', marginTop: 12 }}>
+          <style>{'button:focus-visible{outline:3px solid #D9F046;outline-offset:3px}'}</style>
+          <h1 style={{ fontSize: 48, lineHeight: 0.95, fontFamily: "'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif", fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>Something went wrong on our side.</h1>
+          <p style={{ fontSize: 18, color: '#C9D6CD', marginTop: 16 }}>
             Your account and data are fine. Try again, and if it keeps happening, check back in a few minutes.
           </p>
           <button
@@ -34,10 +36,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               marginTop: 32,
               minHeight: 48,
               padding: '0 28px',
-              borderRadius: 999,
+              borderRadius: 10,
               border: 0,
-              background: '#E8590C',
-              color: '#191714',
+              background: '#D9F046',
+              color: '#14201A',
               fontSize: 16,
               fontWeight: 600,
               cursor: 'pointer',

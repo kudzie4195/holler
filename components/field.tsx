@@ -34,6 +34,9 @@ export function Field({
   );
 }
 
-/** Used by Input, Select, PasswordInput and the request textareas. border-line-strong is 3:1 or better on surface, background and sand (WCAG 1.4.11). */
+/**
+ * Used by Input, Select, PasswordInput and the request textareas. border-line-strong is 3:1 or better on surface, background and
+ * sand (WCAG 1.4.11); the focus ring (ink, from globals.css) sits outside the edge. Placeholder: muted, 6.2:1 on surface.
+ */
 export const controlClasses =
-  'w-full min-h-11 rounded-control border border-line-strong bg-surface px-4 text-base text-ink shadow-[inset_0_1px_2px_rgb(74_52_24/0.05)] placeholder:text-muted transition-colors hover:border-ink focus-visible:border-accent aria-[invalid=true]:border-danger disabled:opacity-60';
+  'w-full min-h-11 rounded-control border border-line-strong bg-surface px-4 text-base text-ink placeholder:text-muted transition-colors hover:border-ink focus-visible:border-ink aria-[invalid=true]:border-danger disabled:opacity-60';
