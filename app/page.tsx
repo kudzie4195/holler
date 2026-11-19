@@ -49,7 +49,7 @@ export default async function Home() {
   return (
     <>
       <TopNav />
-      <main id="main">
+      <main id="main" className="text-[17px] leading-[1.55]">
         <Hero lead={copy.heroLead} map={map} />
         <LatestBand map={map} />
         {live.proof ? <ProofStrip proof={live.proof} /> : null}

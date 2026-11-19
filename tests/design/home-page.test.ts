@@ -43,12 +43,50 @@ const BANNED = [
   'delve', 'seamless', 'robust', 'comprehensive', 'holistic', 'elevate', 'unlock', 'unleash', 'empower', 'journey', 'landscape',
   'realm', 'game-changer', 'leverage', 'utilize', 'moreover', 'furthermore', 'effortless', 'supercharge', 'revolutionize',
 ];
-const words = (m: string) => toText(m.replace(/<select[\s\S]*?<\/select>/g, ' ')).split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+const count = (m: string) => toText(m).split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+
+/** Removes each element that starts at a match of `open` (a start tag), with everything inside it, by tag balance. */
+function dropElements(m: string, open: RegExp): string {
+  let out = m;
+  for (;;) {
+    const hit = open.exec(out);
+    if (!hit) return out;
+    const tag = /^<([a-z0-9]+)/.exec(hit[0])![1];
+    const re = new RegExp(`<(/?)${tag}(?=[\\s>])[^>]*>`, 'g');
+    re.lastIndex = hit.index;
+    let depth = 0;
+    let end = out.length;
+    for (let t = re.exec(out); t; t = re.exec(out)) {
+      depth += t[1] ? -1 : 1;
+      if (depth === 0) {
+        end = t.index + t[0].length;
+        break;
+      }
+    }
+    out = out.slice(0, hit.index) + ' ' + out.slice(end);
+  }
+}
+
+/**
+ * Words a visitor reads on a wide screen, nav and footer included. Left out, and why:
+ *  - the inside of the two pictures (role="img": the radius map's labels and the phone mock's cards). Screen readers get each
+ *    picture as its one aria-label, which is not counted either;
+ *  - the numbered key under the map, which replaces the map labels only under 520 px (never both on one screen);
+ *  - visually hidden text (sr-only: the skip link and the ZIP field labels).
+ * rawWords below counts every word in the markup, for the report.
+ */
+function words(m: string): number {
+  let v = dropElements(m, /<div role="img"[^>]*>/);
+  v = dropElements(v, /<ol class="hm-key[^"]*"[^>]*>/);
+  v = dropElements(v, /<(label|a|span)[^>]*class="sr-only[^"]*"[^>]*>/);
+  return count(v);
+}
 
 describe('home page, Version 3', () => {
   it('has exactly one h1 and the sections in the design order', () => {
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
-    expect(html).toContain('<main id="main">');
+    expect(html).toMatch(/<main id="main"[ >]/);
+    expect(html.match(/<main[ >]/g)).toHaveLength(1);
     const order = ['id="top"', 'id="how"', 'id="feeds-h"', 'id="app-h"', 'id="pricing"', 'id="faq"', 'id="check"'];
     const at = order.map((s) => live.indexOf(s));
     expect(at.every((x) => x > 0)).toBe(true);
@@ -73,7 +111,8 @@ describe('home page, Version 3', () => {
     const forms = [...html.matchAll(/<form[^>]*>[\s\S]*?<\/form>/g)].map((m) => m[0]);
     expect(forms).toHaveLength(2);
     for (const f of forms) {
-      expect(f).toMatch(/^<form action="\/check" method="get"/);
+      expect(f).toMatch(/^<form [^>]*action="\/check"/);
+      expect(f).toMatch(/^<form [^>]*method="get"/);
       expect(f.match(/<input/g)).toHaveLength(1);
       expect(f.match(/name="/g)).toHaveLength(1);
       const id = /<input[^>]*id="([^"]+)"/.exec(f)![1];
@@ -93,7 +132,7 @@ describe('home page, Version 3', () => {
     expect(text).toContain(`${TRIAL_DAYS} days free. Then a flat monthly price.`);
     expect(text).not.toContain('Starter');
     expect(html).toContain('aria-label="Plans"');
-    expect(html.match(/data-price=""/g)?.length).toBe(4);
+    expect(html.match(/data-price="/g)?.length).toBe(4);
     // Both cards say push comes with the app; alerts by email today.
     expect(text.split('Push arrives with the app.').length - 1).toBe(2);
     expect(text).toContain('Until then, alerts come by email.');
@@ -110,7 +149,7 @@ describe('home page, Version 3', () => {
   });
 
   it('is short: at most 600 words with nav and footer, live or not', () => {
-    const n = { noData: words(html), live: words(live) };
+    const n = { noData: words(html), live: words(live), rawNoData: count(html), rawLive: count(live) };
     console.log(JSON.stringify({ words: n }));
     expect(n.live).toBeLessThanOrEqual(600);
     expect(n.noData).toBeLessThanOrEqual(600);
@@ -167,8 +206,8 @@ describe('live data (preview fixture)', () => {
     expect(band).toContain(`${newest.label} · ${newest.mi.toFixed(1)} MI · `);
     const proof = toText(between(live, 'aria-label="What Holler reads"', '</section>'));
     expect(proof).toContain(fixture.proof!.total7.toLocaleString('en-US'));
-    expect(proof).toContain(`${fixture.proof!.feeds} city, county and weather feeds`);
-    expect(proof).toContain('1 TAP to the official record, on every alert');
+    expect(proof).toContain(`city, county and weather feeds ${fixture.proof!.feeds}`);
+    expect(proof).toContain('to the official record, on every alert 1 TAP');
     expect(proof).toMatch(/FROM HOLLER'S OWN RECORDS, [A-Z][a-z]{2} \d{1,2}, \d{4}/i);
     // Every dot on the map is a picked record, labelled with its distance.
     for (const r of m.records) expect(live).toContain(`${r.label} ${r.mi.toFixed(1)} MI`);

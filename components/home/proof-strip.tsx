@@ -1,4 +1,4 @@
-import type { HomeProof } from '@/lib/seo/home-live';
+import { PROOF_WINDOW_DAYS, type HomeProof } from '@/lib/seo/home-live';
 import { shortDate } from '@/lib/seo/home-map';
 import { COL } from './styles';
 
@@ -10,7 +10,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
  */
 export function ProofStrip({ proof }: { proof: HomeProof }) {
   const stats = [
-    { n: fmt(proof.total7), label: 'public records read in the last 7 days' },
+    { n: fmt(proof.total7), label: `public records read in the last ${PROOF_WINDOW_DAYS} days` },
     { n: fmt(proof.feeds), label: 'city, county and weather feeds' },
     { n: '1 TAP', label: 'to the official record, on every alert' },
   ];

@@ -147,16 +147,16 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
     faqs: [
       {
         q: 'Is this a lead list?',
-        a: `No. Holler shows public records that point to work. It does not promise a job or a customer, and it never posts or messages anyone unless you write the reply and press send.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
+        a: `No. Holler shows public records that point to work. It does not promise a job or a customer.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
       },
       { q: 'Where does it come from?', a: dataAnswer },
       {
         q: 'How do alerts reach me?',
-        a: 'By email today, at most one an hour. iPhone and Android apps are coming, and push will be capped at one an hour too.',
+        a: 'By email today. iPhone and Android apps are coming, and push will be capped at one an hour.',
       },
       {
         q: 'Does it cover my area?',
-        a: 'Weather covers the whole US. Permits and 311 come only from cities that publish them and that Holler has connected. Check your ZIP below to see what is there.',
+        a: 'Weather covers the whole US. Permits and 311 come from the cities Holler has connected. Check your ZIP below.',
       },
     ],
   };

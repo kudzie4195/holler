@@ -24,6 +24,9 @@ const QUERY_TIMEOUT_MS = 8_000;
 export const WEATHER_EXAMPLE_SCAN = 40;
 const TITLE_MAX = 64;
 
+/** The window of the records figure: national-data.ts total7 counts records dated in the last 7 days. */
+export const PROOF_WINDOW_DAYS = 7;
+
 export interface HomeProof {
   /** Records read and dated in the last 7 days. Above zero. */
   total7: number;
