@@ -4,7 +4,7 @@ import { haversineMi, lookupZip } from '@/lib/geo';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { publicClient } from './client';
 import { labelPhrase, mapLabel } from './home-label';
-import { MAP_RADIUS_MI, placeMarkers, type Placement } from './home-place';
+import { EXAMPLE_DEGREES, MAP_RADIUS_MI, placeMarkers, placeNear, type Placement } from './home-place';
 
 /**
  * The radius map on the home page: real records from the last 7 days within MAP_RADIUS_MI of MAP_ZIP.
@@ -56,7 +56,7 @@ export interface MapRecord {
   mi: number;
   /** When it happened. Null for the example set, which has no dates. */
   occurredAt: string | null;
-  /** The official source record. Null for the example set. */
+  /** The public source page the record came from (for city data, the dataset page). Null for the example set. */
   url: string | null;
   /** "Chicago, IL". */
   place: string;
@@ -139,9 +139,16 @@ function withPlacement(records: MapRecord[], zip: string): { records: MapRecord[
   return { records: sorted.filter((r) => keep.has(r.id)), placed: res.placed };
 }
 
+/** The example set at (or within a few degrees of) the design's own angles (lib/seo/home-place.ts placeNear), nearest first. */
 export function exampleMap(): HomeMap {
   const records = EXAMPLE_RECORDS.map((e, i) => toRecord(`example-${i + 1}`, e.title, e.family, e.mi, null, null, 'Chicago, IL'));
-  return { live: false, zip: MAP_ZIP, city: 'Chicago', ...withPlacement(records, MAP_ZIP) };
+  const res = placeNear(
+    records.map((r) => ({ id: r.id, mi: r.mi, text: dotText(r) })),
+    EXAMPLE_DEGREES,
+    MAP_ZIP,
+  );
+  const keep = new Set(res.placed.map((p) => p.id));
+  return { live: false, zip: MAP_ZIP, city: 'Chicago', records: records.filter((r) => keep.has(r.id)), placed: res.placed };
 }
 
 // ---- Picking real records ----------------------------------------------------------------------------------------------------
@@ -293,12 +300,19 @@ export function mapBox(lat: number, lon: number, mi = MAP_RADIUS_MI) {
   return { latLo: lat - dLat, latHi: lat + dLat, lonLo: lon - dLon, lonHi: lon + dLon };
 }
 
-/** The three reads. Never throws: no client, an error or a timeout gives null. Exported for tests. */
-export async function buildHomeMap(sb: SupabaseClient | null, now: Date, zip = MAP_ZIP): Promise<HomeMap | null> {
-  if (!sb) return null;
+/** A client, or a function that makes one. The function is called inside the loader's try block, so a bad setting cannot throw out. */
+export type ClientSource = SupabaseClient | null | (() => SupabaseClient | null);
+
+/**
+ * The three reads. Never throws: no client, a client that fails to build (a malformed URL), an error or a timeout gives null.
+ * Exported for tests.
+ */
+export async function buildHomeMap(client: ClientSource, now: Date, zip = MAP_ZIP): Promise<HomeMap | null> {
   const centre = lookupZip(zip);
   if (!centre) return null;
   try {
+    const sb = typeof client === 'function' ? client() : client;
+    if (!sb) return null;
     const nowIso = now.toISOString();
     const since = new Date(now.getTime() - 7 * DAY).toISOString();
     const box = mapBox(centre.lat, centre.lon);
@@ -337,7 +351,7 @@ export async function buildHomeMap(sb: SupabaseClient | null, now: Date, zip = M
 /** Cached about 15 minutes; a failure is remembered for a minute only. */
 export async function loadHomeMap(): Promise<HomeMap | null> {
   'use cache';
-  const map = await buildHomeMap(publicClient(), new Date());
+  const map = await buildHomeMap(publicClient, new Date());
   cacheLife(map ? { stale: 300, revalidate: 900, expire: 3600 } : { stale: 60, revalidate: 60, expire: 300 });
   return map;
 }

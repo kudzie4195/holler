@@ -13,6 +13,9 @@ import { NO_LIVE, homeLivePreviewFixture } from '../../lib/seo/home-live';
 import { homeCopy } from '../../lib/seo/public-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { PUSH_INTERVAL_MS } from '@/lib/push/notify';
+import { PUSH_CAP, capPhrase } from '@/lib/seo/home-cadence';
+import { tidyInches } from '@/components/home/select';
 
 async function render(live: unknown): Promise<string> {
   h.live = live;
@@ -68,16 +71,14 @@ function dropElements(m: string, open: RegExp): string {
 }
 
 /**
- * Words a visitor reads on a wide screen, nav and footer included. Left out, and why:
- *  - the inside of the two pictures (role="img": the radius map's labels and the phone mock's cards). Screen readers get each
- *    picture as its one aria-label, which is not counted either;
+ * Every word a sighted visitor sees on a wide screen, nav and footer included, the map labels and the phone's cards included
+ * (commander decision 6, round 9 fix wave). Left out, and only these:
  *  - the numbered key under the map, which replaces the map labels only under 520 px (never both on one screen);
  *  - visually hidden text (sr-only: the skip link and the ZIP field labels).
- * rawWords below counts every word in the markup, for the report.
+ * Attribute text (aria-label, alt) is never counted. rawWords below counts every word in the markup, for the report.
  */
 function words(m: string): number {
-  let v = dropElements(m, /<div role="img"[^>]*>/);
-  v = dropElements(v, /<ol class="hm-key[^"]*"[^>]*>/);
+  let v = dropElements(m, /<ol class="hm-key[^"]*"[^>]*>/);
   v = dropElements(v, /<(label|a|span)[^>]*class="sr-only[^"]*"[^>]*>/);
   return count(v);
 }
@@ -91,8 +92,8 @@ describe('home page, Version 3', () => {
     const at = order.map((s) => live.indexOf(s));
     expect(at.every((x) => x > 0)).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
-    // Live only: the latest band and the proof strip sit between the hero and the alert card.
-    const latest = live.indexOf('LATEST NEAR');
+    // Live only: the newest-on-the-map band and the proof strip sit between the hero and the alert card.
+    const latest = live.indexOf('NEWEST ON THE MAP');
     const proof = live.indexOf('aria-label="What Holler reads"');
     expect(latest).toBeGreaterThan(live.indexOf('id="top"'));
     expect(proof).toBeGreaterThan(latest);
@@ -128,7 +129,7 @@ describe('home page, Version 3', () => {
     for (const p of [priceLabel('starter', 'monthly'), priceLabel('pro', 'monthly'), priceLabel('starter', 'annual'), priceLabel('pro', 'annual')]) {
       expect(text).toContain(p);
     }
-    expect(text).toContain(`From ${priceLabel('starter', 'monthly')} a month after ${TRIAL_DAYS} days free. No card.`);
+    expect(text).toContain(`From ${priceLabel('starter', 'monthly')}/mo after ${TRIAL_DAYS} days free. No card.`);
     expect(text).toContain(`${TRIAL_DAYS} days free. Then a flat monthly price.`);
     expect(text).not.toContain('Starter');
     expect(html).toContain('aria-label="Plans"');
@@ -148,11 +149,38 @@ describe('home page, Version 3', () => {
     expect(html + live).not.toContain('—');
   });
 
-  it('is short: at most 600 words with nav and footer, live or not', () => {
+  it('is short: every visible word, nav and footer included: at most 700 with live data and 620 without', () => {
     const n = { noData: words(html), live: words(live), rawNoData: count(html), rawLive: count(live) };
     console.log(JSON.stringify({ words: n }));
-    expect(n.live).toBeLessThanOrEqual(600);
-    expect(n.noData).toBeLessThanOrEqual(600);
+    expect(n.live).toBeLessThanOrEqual(700);
+    expect(n.noData).toBeLessThanOrEqual(620);
+  });
+
+  it('the word count sees the map labels and the phone cards (they are not dropped as pictures)', () => {
+    const map = homeLivePreviewFixture(NOW).map!;
+    const withPictures = words(live);
+    const v = dropElements(dropElements(live, /<div role="img"[^>]*>/), /<ol class="hm-key[^"]*"[^>]*>/);
+    expect(withPictures).toBeGreaterThan(count(dropElements(v, /<(label|a|span)[^>]*class="sr-only[^"]*"[^>]*>/)) + map.records.length * 3);
+  });
+
+  it('honest about the link: never "official record", "its record" or "source record"; the link goes to the public source', () => {
+    for (const t of [text, liveText]) {
+      expect(t).not.toMatch(/official record|its record|source record/i);
+      expect(t).not.toMatch(/Real alerts|LATEST NEAR/);
+    }
+    expect(text).toContain('Each one links to its public source.');
+    expect(text).toContain('Each alert links to its source.');
+    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('Open the source');
+    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('The source One tap to the city or weather service page it came from.');
+  });
+
+  it('the push cap is built from the constant the push sender uses', () => {
+    expect(PUSH_CAP).toBe(capPhrase(PUSH_INTERVAL_MS));
+    expect(capPhrase(3_600_000)).toBe('one an hour');
+    expect(capPhrase(7_200_000)).toBe('one every 2 hours');
+    expect(capPhrase(1_800_000)).toBe('one every 30 minutes');
+    expect(text).toContain(`At most ${PUSH_CAP}, only for your trades and your radius.`);
+    expect(text).toContain(`push will be capped at ${PUSH_CAP}.`);
   });
 
   it('FAQ: the four questions, open, and the visible text equals the FAQPage JSON-LD exactly', () => {
@@ -166,10 +194,17 @@ describe('home page, Version 3', () => {
     expect(ld.mainEntity.map((q: { acceptedAnswer: { text: string } }) => q.acceptedAnswer.text)).toEqual(as);
     expect(homeCopy().faqs.map((f) => f.q)).toEqual(qs);
     for (const href of ['/faq', '/guides', '/data']) expect(faq).toContain(`href="${href}"`);
+    // "below" means nothing in the JSON-LD.
+    expect(as.join(' ')).not.toMatch(/\bbelow\b/);
+    expect(as[3]).toContain('Check your ZIP to see.');
   });
 
-  it('internal links: /check, /pricing, /signup, /faq, /guides, /data and at least six /for/<id> pages', () => {
-    for (const href of ['/check', '/pricing', '/signup', '/faq', '/guides', '/data']) expect(html, href).toMatch(new RegExp(`(href|action)="${href}"`));
+  it('internal links: /check, /pricing, /signup, /faq, /guides, /data, /for and at least six /for/<id> pages', () => {
+    for (const href of ['/check', '/pricing', '/signup', '/faq', '/guides', '/data', '/for']) expect(html, href).toMatch(new RegExp(`(href|action)="${href}"`));
+    // The ledger names trades as plain text (no 20 px tall inline links) and ends with one "See all trades" link to /for.
+    const ledger = between(html, 'id="feeds-h"', 'id="app-h"');
+    expect([...ledger.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1])).toEqual(['/for']);
+    expect(toText(ledger)).toContain('See all trades');
     const forLinks = new Set([...html.matchAll(/href="(\/for\/[a-z-]+)"/g)].map((m) => m[1]));
     expect(forLinks.size).toBeGreaterThanOrEqual(6);
     for (const id of ['roofing', 'plumbing', 'hvac', 'tree-service']) expect(forLinks).toContain(`/for/${id}`);
@@ -178,37 +213,41 @@ describe('home page, Version 3', () => {
 
 describe('no live data', () => {
   it('draws the example map, labelled, with no dates and no source link; no proof strip, no latest band, no ledger example lines', () => {
-    expect(text).toContain('Example alerts around a Chicago ZIP code. Not live data. Distances to scale, directions not.');
-    expect(html).toContain('aria-label="Map of example alerts around ZIP 60614, Chicago, not live data:');
-    expect(text).not.toContain('Real alerts');
-    expect(html).not.toContain('LATEST NEAR');
+    expect(text).toContain('Example records around a Chicago ZIP code. Not live data. Distances to scale, directions not.');
+    expect(html).toContain('aria-label="Map of example records around ZIP 60614, Chicago, not live data:');
+    expect(text).not.toContain('Real records');
+    expect(html).not.toContain('NEWEST ON THE MAP');
     expect(html).not.toContain('What Holler reads');
-    expect(text).not.toMatch(/FROM HOLLER'S OWN RECORDS/i);
+    expect(text).not.toMatch(/HOLLER'S OWN (RECORDS|DATA)/i);
     expect(html).not.toContain('<time');
-    // The example alert card says so, and its source button is a label, not a link.
+    // The example alert card says so, and has no source link and no fake button: a plain line says what the link would be.
     const card = between(html, 'id="how"', 'id="feeds-h"');
     expect(toText(card)).toContain('EXAMPLE');
     expect(card).not.toMatch(/<a [^>]*href="http/);
-    expect(toText(card)).toContain('Open the source record');
+    expect(toText(card)).toContain('Each alert links to its source');
+    expect(card).not.toContain('border-dashed');
     // Ledger: no example lines without data.
     expect(toText(between(html, 'id="feeds-h"', 'id="app-h"'))).not.toContain('EXAMPLE');
     expect(html).toContain('aria-label="Preview of the Holler app, with example records:');
+    // A sighted visitor sees it too: an EXAMPLE tag in the app band, outside the picture.
+    const band = between(html, 'id="app-h"', 'id="pricing"');
+    expect(dropElements(band, /<div role="img"[^>]*>/)).toMatch(/>EXAMPLE</);
   });
 });
 
 describe('live data (preview fixture)', () => {
   it('real map with computed Chicago dates, latest band from the newest picked record, proof strip from the stats', () => {
     const m = fixture.map!;
-    expect(liveText).toMatch(/Real alerts around ZIP 60614, Chicago, [A-Z][a-z]{2} \d{1,2}( to ([A-Z][a-z]{2} )?\d{1,2})?\. Distances to scale, directions not\./);
-    expect(live).toContain('aria-label="Map of real alerts from ');
+    expect(liveText).toMatch(/Real records around ZIP 60614, Chicago, [A-Z][a-z]{2} \d{1,2}( to ([A-Z][a-z]{2} )?\d{1,2})?\. Distances to scale, directions not\./);
+    expect(live).toContain('aria-label="Map of real records from ');
     const newest = [...m.records].sort((a, b) => Date.parse(b.occurredAt!) - Date.parse(a.occurredAt!))[0];
-    const band = toText(between(live, 'LATEST NEAR', '</p>'));
+    const band = toText(between(live, 'NEWEST ON THE MAP', '</p>'));
     expect(band).toContain(`${newest.label} · ${newest.mi.toFixed(1)} MI · `);
     const proof = toText(between(live, 'aria-label="What Holler reads"', '</section>'));
-    expect(proof).toContain(fixture.proof!.total7.toLocaleString('en-US'));
-    expect(proof).toContain(`city, county and weather feeds ${fixture.proof!.feeds}`);
-    expect(proof).toContain('to the official record, on every alert 1 TAP');
-    expect(proof).toMatch(/FROM HOLLER'S OWN RECORDS, [A-Z][a-z]{2} \d{1,2}, \d{4}/i);
+    expect(proof).toContain(`records dated in the last 7 days ${fixture.proof!.total7.toLocaleString('en-US')}`);
+    expect(proof).toContain(`city, county and weather feeds checked ${fixture.proof!.feeds}`);
+    expect(proof).toContain('to the public source, on every record alert 1 TAP');
+    expect(proof).toMatch(/RECORD COUNT FROM HOLLER'S OWN DATA, [A-Z][a-z]{2} \d{1,2}, \d{4}/i);
     // Every dot on the map is a picked record, labelled with its distance.
     for (const r of m.records) expect(live).toContain(`${r.label} ${r.mi.toFixed(1)} MI`);
   });
@@ -219,8 +258,17 @@ describe('live data (preview fixture)', () => {
     expect(toText(card)).not.toMatch(/\bEXAMPLE\b/);
     const ledger = toText(between(live, 'id="feeds-h"', 'id="app-h"'));
     expect(ledger.match(/EXAMPLE · [A-Z]{3} \d{1,2}/g)?.length).toBe(3);
-    expect(ledger).toContain(fixture.weather!.title);
+    // "1.00 inch hail" is shown as "1 inch hail".
+    expect(fixture.weather!.title).toContain('1.00 inch');
+    expect(ledger).toContain(tidyInches(fixture.weather!.title));
+    expect(ledger).not.toContain('1.00 inch');
     expect(live).toContain('aria-label="Preview of the Holler app: a push saying New alert near Chicago,');
+    // The picture's label names the three cards a sighted visitor sees, and no EXAMPLE tag is shown with live data.
+    const aria = /aria-label="(Preview of the Holler app[^"]*)"/.exec(live)![1];
+    const cardTitles = [...between(live, 'id="app-h"', 'id="pricing"').matchAll(/<span class="line-clamp-2 text-base[^"]*">([^<]+)<\/span>/g)].map((x) => x[1]);
+    expect(cardTitles).toHaveLength(3);
+    for (const t of cardTitles) expect(aria).toContain(t);
+    expect(dropElements(between(live, 'id="app-h"', 'id="pricing"'), /<div role="img"[^>]*>/)).not.toMatch(/>EXAMPLE</);
   });
 });
 
@@ -241,6 +289,25 @@ describe('source rules', () => {
       expect(code, f).not.toMatch(/\b20\d\d\b/);
       expect(code, f).not.toMatch(/\b(13,000|12,840|49|60614)\b/);
       expect(code, f).not.toMatch(/\byesterday\b|\bdays? ago\b/i);
+    }
+  });
+
+  it('the round 9 gate grep finds nothing, comments included', () => {
+    const gate = /\$[0-9]+(\.[0-9]{2})?|14[ -]day|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* [0-9]{1,2}\b|yesterday|days ago/;
+    const pricing = ['components/pricing.tsx', readFileSync(new URL('../../components/pricing.tsx', import.meta.url), 'utf8')] as const;
+    for (const [f, s] of [...src, pricing]) {
+      s.split('\n').forEach((line, i) => expect(line, `${f}:${i + 1}`).not.toMatch(gate));
+    }
+  });
+
+  it('no text under 13 px: no 12 px or smaller size anywhere in the home page files', () => {
+    const pricing = ['components/pricing.tsx', readFileSync(new URL('../../components/pricing.tsx', import.meta.url), 'utf8')] as const;
+    for (const [f, s] of [...src, pricing]) {
+      for (const m of s.matchAll(/text-\[(\d+(?:\.\d+)?)(px|rem)\]|font-size:\s*(\d+(?:\.\d+)?)px/g)) {
+        const px = m[3] ? Number(m[3]) : m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1]);
+        expect(px, `${f}: ${m[0]}`).toBeGreaterThanOrEqual(13);
+      }
+      expect(s, f).not.toMatch(/\btext-(xs|\[1[0-2]px\])\b/);
     }
   });
 });

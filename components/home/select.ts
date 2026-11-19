@@ -33,12 +33,22 @@ export function ledgerExamples(map: HomeMap, weather: LedgerExample | null): Rec
     const r = [...map.records].filter((x) => x.family === f).sort((a, b) => time(b) - time(a))[0];
     return r && r.occurredAt ? { title: r.title, occurredAt: r.occurredAt, mi: r.mi } : null;
   };
-  return { permit: fromMap('permit'), civic: fromMap('civic'), weather: fromMap('weather') ?? weather };
+  const tidy = (e: LedgerExample | null): LedgerExample | null => (e ? { ...e, title: tidyInches(e.title) } : null);
+  return { permit: tidy(fromMap('permit')), civic: tidy(fromMap('civic')), weather: tidy(fromMap('weather') ?? weather) };
 }
 
-/** Tag and short note for a record on light surfaces. */
+/** "1.00 inch hail" reads as raw data: drop trailing zeros from a size in inches ("1 inch", "1.5 inch", "1.75 inch"). */
+export function tidyInches(title: string): string {
+  return title.replace(/\b(\d+\.\d+)(?= inch)/g, (n) => String(Number(n)));
+}
+
+/**
+ * Tag and short note for a record on light surfaces. A code violation is a code case; it is called a repair order only when its
+ * own title says repair (not every violation orders one).
+ */
 export function recordTag(r: Pick<MapRecord, 'family' | 'title'>): { tag: string; note: string } {
   if (r.family === 'permit') return { tag: 'PERMIT', note: 'Money being spent' };
   if (r.family === 'weather') return { tag: 'WEATHER', note: 'Storm nearby' };
-  return /^311\b/.test(r.title) ? { tag: '311', note: 'A city request' } : { tag: 'CODE CASE', note: 'A repair ordered' };
+  if (/^311\b/.test(r.title)) return { tag: '311', note: 'A city request' };
+  return { tag: 'CODE CASE', note: /\brepair/i.test(r.title) ? 'A repair ordered' : 'A city code case' };
 }

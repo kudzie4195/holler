@@ -4,6 +4,7 @@ import { TIER_NAMES } from '@/lib/plan/limits';
 import { FROM_MONTHLY, namedPlanPrices } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { PUSH_CAP } from './home-cadence';
 
 /**
  * Every sentence on the home page, /about and /llms.txt that depends on an optional key lives here, built from the keys that are set.
@@ -65,7 +66,7 @@ export function cadenceFor(f: Flags): string {
 
 // ---- Home page ---------------------------------------------------------------------------------------------------------
 
-/** One row of the "three kinds of record" ledger. Trade names link to their /for/<id> page when it exists. */
+/** One row of the "three kinds of record" ledger. Trade names are plain text; one "See all trades" link under the ledger goes to /for. */
 export interface HomeFamily {
   id: 'weather' | 'permit' | 'civic';
   /** Mono tag, upper case. */
@@ -73,7 +74,7 @@ export interface HomeFamily {
   title: string;
   /** Where the records come from, one sentence. */
   from: string;
-  /** "Good for ..." trades: label as shown, category id for the /for/<id> page. */
+  /** "Good for ..." trades: label as shown, and the trade category id. */
   goodFor: { label: string; id: string }[];
 }
 
@@ -94,17 +95,17 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
 
   const extra = [...(f.sam ? ['SAM.gov'] : []), ...(f.event ? ['the Ticketmaster Discovery API'] : [])];
   const dataAnswer =
-    'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its record.' +
+    'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its source.' +
     (extra.length ? ` Also ${joinList(extra)}.` : '') +
     (f.ask ? ` People asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.` : '');
 
   return {
     metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
-    heroLead: 'Alerts when hail, a permit or a 311 request near you fits your trade. Each one links to the official record.',
+    heroLead: 'Alerts when hail, a permit or a 311 request near you fits your trade. Each one links to its public source.',
     steps: [
       { title: 'What happened', body: 'In plain words, matched to the trades you picked.' },
       { title: 'How far from you', body: 'Only records inside the radius you drive.' },
-      { title: 'The official record', body: 'One tap to the city or weather service page it came from.' },
+      { title: 'The source', body: 'One tap to the city or weather service page it came from.' },
     ],
     families: [
       {
@@ -152,11 +153,11 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
       { q: 'Where does it come from?', a: dataAnswer },
       {
         q: 'How do alerts reach me?',
-        a: 'By email today. iPhone and Android apps are coming, and push will be capped at one an hour.',
+        a: `By email today. iPhone and Android apps are coming, and push will be capped at ${PUSH_CAP}.`,
       },
       {
         q: 'Does it cover my area?',
-        a: 'Weather covers the whole US. Permits and 311 come from the cities Holler has connected. Check your ZIP below.',
+        a: 'Weather covers the whole US. Permits and 311 come from the cities Holler has connected. Check your ZIP to see.',
       },
     ],
   };

@@ -37,8 +37,9 @@ function faqLd(faqs: { q: string; a: string }[]) {
 
 /**
  * The home page, Version 3 (gates/r9/design/project/V3.dc.html). Server components only, no client JavaScript.
- * Live parts (lib/seo/home-live.ts) are real data or absent: with no data the map shows the labelled example set, and the latest
- * band, the proof strip and the ledger's example lines are not rendered.
+ * Live parts (lib/seo/home-live.ts) are real data or absent: with no data the map, the alert card and the phone show the labelled
+ * example set, and the newest-on-the-map band, the proof strip and the ledger's example lines are not rendered.
+ * Body text sizes are in rem so browser text zoom scales them; only the fixed-size pictures (the map, the phone) keep px.
  */
 export default async function Home() {
   const copy = homeCopy();
@@ -49,7 +50,7 @@ export default async function Home() {
   return (
     <>
       <TopNav />
-      <main id="main" className="text-[17px] leading-[1.55]">
+      <main id="main" className="text-[1.0625rem] leading-[1.55]">
         <Hero lead={copy.heroLead} map={map} />
         <LatestBand map={map} />
         {live.proof ? <ProofStrip proof={live.proof} /> : null}
