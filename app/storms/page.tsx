@@ -13,7 +13,7 @@ import { stormCtaLabel } from '@/lib/plan/price-copy';
 
 const TITLE = 'Recent storm reports by county | Holler';
 const DESCRIPTION_LIVE =
-  'Counties with at least 3 hail, wind or tornado reports in one day, plus FEMA storm declarations, from the last 60 days. Each page links to the public sources.';
+  'Counties with at least 3 hail, wind or tornado reports in one day, plus FEMA storm declarations, from the last 60 days. Each page links to its official source records.';
 const DESCRIPTION_EMPTY =
   'Counties appear here when the NOAA Storm Prediction Center logs at least 3 hail, wind or tornado reports in one day, or when FEMA declares a storm disaster. None qualify right now.';
 const LIST_CAP = 150;

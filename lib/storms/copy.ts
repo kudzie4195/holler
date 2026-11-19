@@ -35,7 +35,7 @@ export function metaDescription(r: StormReport): string {
   if (r.kind === 'state') {
     return `FEMA declared a storm disaster for ${r.name} on ${r.dateLabel}. See the declaration and its link to the official FEMA page.`;
   }
-  return `${plural(r.spcTotal, 'storm report')} (${countList(r)}) ${near(r)} ${r.place} on ${r.dateLabel}, from the NOAA Storm Prediction Center, with a link to each source.`;
+  return `${plural(r.spcTotal, 'storm report')} (${countList(r)}) ${near(r)} ${r.place} on ${r.dateLabel}, from the NOAA Storm Prediction Center, with a link to each source record.`;
 }
 
 /** Short factual summary built only from the counts and record values on the report. */
