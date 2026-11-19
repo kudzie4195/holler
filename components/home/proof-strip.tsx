@@ -5,7 +5,7 @@ import { COL } from './styles';
 const fmt = (n: number) => n.toLocaleString('en-US');
 
 /**
- * Three figures, read at render time: records in the last 7 days (the /data loader), city, county and weather feeds switched on
+ * Three figures, read at render time: records in the last PROOF_WINDOW_DAYS days (the /data loader), city, county and weather feeds switched on
  * (lib/seo/home-live.ts feedCount), and one tap to the record. Not rendered without live data.
  */
 export function ProofStrip({ proof }: { proof: HomeProof }) {
