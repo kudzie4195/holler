@@ -14,6 +14,7 @@
   - Text on green and ink: on-brand, on-brand-muted (8.2:1 on brand), on-brand-faint (5.4:1 on brand-raised, the lowest).
   - line-strong #7C847E is the edge of a form control on light: 3.85:1 on surface, 3.49:1 on background, 3.19:1 on sand.
   - brand-line #6E8C79 is the edge of a control on green: 3.35:1 on brand, 4.17:1 on brand-deep.
+  - brand-ring #7A9A85 is a ring drawn on the map panel: 3.46:1 on brand-raised, 4.0:1 on brand.
   - Family marks on green (permit-on-brand and friends): 4.3:1 or better on brand-raised.
 
   Type scale (rem at 16 px): xs 13, sm 14, base 16, lg 18, xl 20, 2xl 24, 3xl 30, 4xl 40, 5xl 52, 6xl 64, 7xl 80, 8xl 96.
@@ -100,6 +101,8 @@
   --color-brand-deep: #14291e;
   --color-brand-raised: #24443a;
   --color-brand-line: #6e8c79;
+  /* Map rings and other non-text edges drawn on brand-raised (3.46:1 there, 4.0:1 on brand). */
+  --color-brand-ring: #7a9a85;
   --color-brand-text: #2e5a41;
   --color-on-brand: #f5f4ef;
   --color-on-brand-muted: #c9d6cd;
