@@ -43,5 +43,27 @@ export function kindFamily(kind: string): 'weather' | 'spending' | 'civic' {
 /** Left stripe for a record card in its family color. Always next to a text badge, so color never carries meaning alone. */
 export function kindStripe(kind: string): string {
   const f = kindFamily(kind);
-  return f === 'weather' ? 'border-l-4 border-l-storm' : f === 'spending' ? 'border-l-4 border-l-sage-mark' : 'border-l-4 border-l-accent';
+  return f === 'weather' ? 'border-l-4 border-l-storm' : f === 'spending' ? 'border-l-4 border-l-sage-mark' : 'border-l-4 border-l-civic-mark';
+}
+
+/**
+ * Family dot, with shape as well as color so color never carries the meaning alone: square for weather and permits
+ * (spending), round for 311 and the civic family. `onBrand` picks the lighter marks drawn on green (4.3:1 or better on
+ * brand-raised). Size and border are left to the caller.
+ */
+export function kindDot(kind: string, { onBrand = false }: { onBrand?: boolean } = {}): string {
+  const f = kindFamily(kind);
+  const shape = f === 'civic' ? 'rounded-full' : 'rounded-[3px]';
+  const fill = onBrand
+    ? f === 'weather'
+      ? 'bg-weather-on-brand'
+      : f === 'spending'
+        ? 'bg-permit-on-brand'
+        : 'bg-civic-on-brand'
+    : f === 'weather'
+      ? 'bg-storm'
+      : f === 'spending'
+        ? 'bg-sage-mark'
+        : 'bg-civic-mark';
+  return `${shape} ${fill}`;
 }

@@ -1,6 +1,9 @@
 import Link from 'next/link';
 
-/** Original mark: a dot with signal arcs on both sides. Decorative; the wordmark carries the name. */
+/**
+ * The mark: a signal-lime tile with ink signal arcs on both sides of a dot. Ink on signal is 13.2:1, so the arcs read on any
+ * surface. Decorative; the wordmark (or the link's aria-label) carries the name. public/icon.svg is the same drawing.
+ */
 export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
     <svg
@@ -12,18 +15,23 @@ export function LogoMark({ size = 24, className }: { size?: number; className?: 
       focusable="false"
       className={className}
     >
-      <rect width="32" height="32" rx="9" fill="#E8590C" />
-      <circle cx="16" cy="16" r="3.2" fill="#FFFFFF" />
-      <path d="M21.36 11.5A7 7 0 0 1 21.36 20.5M10.64 11.5A7 7 0 0 0 10.64 20.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M24.81 8.61A11.5 11.5 0 0 1 24.81 23.39M7.19 8.61A11.5 11.5 0 0 0 7.19 23.39" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" opacity="0.7" />
+      <rect width="32" height="32" rx="6" fill="var(--color-signal)" />
+      <g transform="translate(6.5 6.5) scale(0.7917)" stroke="var(--color-ink)" strokeWidth="2.4" strokeLinecap="round">
+        <circle cx="12" cy="12" r="2" />
+        <path d="M8 8a5.7 5.7 0 0 0 0 8M16 8a5.7 5.7 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" />
+      </g>
     </svg>
   );
 }
 
+/**
+ * Mark plus the HOLLER wordmark in the display face. The wordmark takes the text color of where it sits: ink on light,
+ * on-brand inside an .on-brand (green or ink) section.
+ */
 export function Logo({
   href = '/',
   className = '',
-  size = 28,
+  size = 32,
 }: {
   href?: string | null;
   className?: string;
@@ -32,10 +40,12 @@ export function Logo({
   const inner = (
     <>
       <LogoMark size={size} />
-      <span className="font-display text-xl font-semibold tracking-[-0.025em] text-ink">holler</span>
+      <span className="font-display leading-none tracking-[0.01em]" style={{ fontSize: Math.round(size * 0.875) }}>
+        Holler
+      </span>
     </>
   );
-  const cls = `inline-flex items-center gap-2 ${className}`;
+  const cls = `inline-flex shrink-0 items-center gap-2.5 ${className}`;
   if (href === null) return <span className={cls}>{inner}</span>;
   return (
     <Link href={href} className={`${cls} min-h-11`} aria-label="Holler home">

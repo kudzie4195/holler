@@ -3,60 +3,84 @@ import { COMPANY } from '@/lib/legal/company';
 import { contactAddress } from '@/lib/email/templates';
 import { Logo } from './logo';
 
-const groups = [
-  {
-    title: 'Product',
-    links: [
-      { href: '/check', label: 'Check your area' },
-      { href: '/for', label: 'By trade' },
-      { href: '/local', label: 'By city' },
-      { href: '/pricing', label: 'Pricing' },
-      { href: '/request', label: 'Request a service' },
-    ],
-  },
-  {
-    title: 'Learn',
-    links: [
-      { href: '/guides', label: 'Guides' },
-      { href: '/faq', label: 'FAQ' },
-      { href: '/data', label: 'Local public records in numbers' },
-      { href: '/about', label: 'About' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { href: '/terms', label: 'Terms' },
-      { href: '/privacy', label: 'Privacy' },
-      { href: '/delete-account', label: 'Delete account' },
-    ],
-  },
+type FooterLink = { href: string; label: string };
+
+/** Trade pages linked from the footer, by category id in lib/signals/categories.ts. */
+export const FOOTER_TRADES: FooterLink[] = [
+  { href: '/for/roofing', label: 'Roofing' },
+  { href: '/for/plumbing', label: 'Plumbing' },
+  { href: '/for/hvac', label: 'HVAC' },
+  { href: '/for/electrical', label: 'Electrical' },
+  { href: '/for/tree-service', label: 'Tree service' },
+  { href: '/for/restoration', label: 'Restoration' },
+  { href: '/for', label: 'All trades' },
 ];
 
+function groups(contact: string | null): { title: string; links: FooterLink[] }[] {
+  return [
+    {
+      title: 'Product',
+      links: [
+        { href: '/check', label: 'Check your area' },
+        { href: '/pricing', label: 'Pricing' },
+        { href: '/#how', label: 'How it works' },
+        { href: '/storms', label: 'Storm reports' },
+        { href: '/request', label: 'Request a service' },
+      ],
+    },
+    { title: 'Trades', links: FOOTER_TRADES },
+    {
+      title: 'Learn',
+      links: [
+        { href: '/local', label: 'By city' },
+        { href: '/guides', label: 'Guides' },
+        { href: '/faq', label: 'FAQ' },
+        { href: '/data', label: 'Local public records in numbers' },
+        { href: '/about', label: 'About' },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        // Same address the emails use: SUPPORT_EMAIL, else the address in EMAIL_FROM. Left out when neither is set.
+        ...(contact ? [{ href: `mailto:${contact}`, label: 'Email support' }] : []),
+        { href: '/privacy', label: 'Privacy' },
+        { href: '/terms', label: 'Terms' },
+        { href: '/delete-account', label: 'Delete account' },
+      ],
+    },
+  ];
+}
+
+/**
+ * Site footer on ink. Brand lockup first, then four link groups: two columns on a phone, four from md up.
+ * Text on ink: on-brand 15.2:1, on-brand-faint 8.5:1; group titles in signal 13.2:1. Focus rings are signal (.on-brand).
+ */
 export function Footer() {
-  // Same address the emails use: SUPPORT_EMAIL, else the address in EMAIL_FROM. Hidden when neither is set.
   const contact = contactAddress();
   return (
-    <footer className="mt-auto border-t border-line bg-sand">
-      <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 pb-8 pt-12 md:grid-cols-[1.3fr_2fr] md:gap-12 md:pt-14">
-        <div className="max-w-sm">
-          <Logo />
-          {/* Kept short: residents reach /request from "Request a service" in the Product links. */}
-          <p className="mt-3 text-sm text-muted">Local alerts built on public data. We never post for you.</p>
+    <footer className="on-brand mt-auto bg-ink">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-8 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:gap-12">
+        <div className="flex max-w-xs flex-col gap-3">
+          <Logo size={34} className="self-start" />
+          <p className="text-[15px] text-on-brand-faint">Public records near you, sorted for your trade.</p>
         </div>
-        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3">
-          {groups.map((g) => (
-            <div key={g.title}>
-              <h2 className="font-sans text-xs font-semibold uppercase tracking-wide text-ink">{g.title}</h2>
-              <ul className="mt-2 flex flex-col">
+        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4">
+          {groups(contact).map((g) => (
+            <div key={g.title} className="min-w-0">
+              <h2 className="eyebrow">{g.title}</h2>
+              <ul className="mt-1 flex flex-col">
                 {g.links.map((l) => (
                   <li key={l.href}>
-                    <Link
-                      href={l.href}
-                      className="inline-flex min-h-11 items-center text-sm text-muted underline-offset-2 hover:text-ink hover:underline"
-                    >
-                      {l.label}
-                    </Link>
+                    {l.href.startsWith('mailto:') ? (
+                      <a href={l.href} className="h-link text-[15px] text-on-brand">
+                        {l.label}
+                      </a>
+                    ) : (
+                      <Link href={l.href} className="h-link text-[15px] leading-snug text-on-brand">
+                        {l.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -64,23 +88,17 @@ export function Footer() {
           ))}
         </nav>
       </div>
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 border-t border-line px-5 py-6 text-sm text-muted">
-        <p>
-          Data comes from public government records and can be late or wrong, and Holler is not affiliated with or endorsed by any
-          government agency. Check the source before you act.
-        </p>
-        {contact ? (
+      <div className="mx-auto w-full max-w-6xl px-5 pb-10 sm:px-6">
+        <div className="flex flex-col gap-2 border-t border-brand-raised pt-6 text-sm text-on-brand-faint">
           <p>
-            Questions?{' '}
-            <a href={`mailto:${contact}`} className="font-medium text-ink underline underline-offset-2 hover:text-accent-text">
-              {contact}
-            </a>
+            Data comes from public government records and can be late or wrong, and Holler is not affiliated with or endorsed by any
+            government agency. Check the source before you act.
           </p>
-        ) : null}
-        {/* Mailing address: the one place it is set is lib/legal/company.ts. */}
-        <address className="not-italic">
-          {COMPANY.brand} is run by {COMPANY.legalName}, {COMPANY.addressLine}.
-        </address>
+          {/* Mailing address: the one place it is set is lib/legal/company.ts. */}
+          <address className="not-italic">
+            {COMPANY.brand} is run by {COMPANY.legalName}, {COMPANY.addressLine}.
+          </address>
+        </div>
       </div>
     </footer>
   );

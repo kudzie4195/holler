@@ -14,30 +14,42 @@ const KIND_CLASS: Record<SignalKind, string> = {
   travel: 'bg-kind-travel-bg text-kind-travel-fg',
 };
 
-const NEUTRAL = 'bg-line/60 text-muted';
+// Neutral tag: muted on sand is 5.15:1.
+const NEUTRAL = 'bg-sand text-muted';
 
-const pill = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5';
+/** Small mono tag (the "PERMIT" tag in the design): 13 px JetBrains Mono 500, uppercase, 6 px corners. */
+const tag = 'inline-flex items-center rounded-chip px-2 py-0.5 font-mono text-xs font-medium uppercase leading-5 tracking-[0.02em]';
 
-/** Badge for a signal kind. Unknown kinds render neutral rather than crash. */
+/**
+ * Badge for a signal kind, in its family tint: weather sky (storm-ink 7.6:1), permits and spending sage (sage-ink 7.7:1),
+ * 311 and civic purple (civic-ink 7.1:1). Unknown kinds render neutral rather than crash.
+ */
 export function Badge({ kind, label }: { kind: string; label?: string }) {
   const cls = (KIND_CLASS as Record<string, string>)[kind] ?? NEUTRAL;
-  return <span className={`${pill} ${cls}`}>{label ?? kindLabel(kind)}</span>;
+  return <span className={`${tag} ${cls}`}>{label ?? kindLabel(kind)}</span>;
 }
 
-/** Generic status badge (Saved, Done, Trial). */
+const TONES = {
+  neutral: NEUTRAL,
+  // brand-text on sage: 6.0:1. "Saved" and other positive-but-not-done states.
+  brand: 'bg-sage text-brand-text',
+  success: 'bg-success-soft text-success-ink',
+  warn: 'bg-warn-soft text-warn-ink',
+  danger: 'bg-danger-soft text-danger',
+} as const;
+export type StatusTone = keyof typeof TONES;
+
+/**
+ * Generic status badge (Saved, Done, Trial). A tone name this file does not know (a caller still on a round 8 name) renders
+ * neutral instead of failing, so pages owned by other units keep building until they move to a tone listed here.
+ */
 export function StatusBadge({
   tone = 'neutral',
   children,
 }: {
-  tone?: 'neutral' | 'success' | 'warn' | 'danger' | 'accent';
+  tone?: StatusTone | (string & {});
   children: React.ReactNode;
 }) {
-  const tones = {
-    neutral: NEUTRAL,
-    success: 'bg-success-soft text-success-ink',
-    warn: 'bg-warn-soft text-warn-ink',
-    danger: 'bg-danger-soft text-danger',
-    accent: 'bg-accent-soft text-accent-text',
-  } as const;
-  return <span className={`${pill} ${tones[tone]}`}>{children}</span>;
+  const cls = (TONES as Record<string, string>)[tone] ?? NEUTRAL;
+  return <span className={`${tag} ${cls}`}>{children}</span>;
 }

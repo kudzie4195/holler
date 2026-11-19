@@ -14,7 +14,7 @@ export function AuthCard({
 }) {
   return (
     <>
-      <h1 className="text-4xl text-ink">{title}</h1>
+      <h1 className="text-5xl text-ink">{title}</h1>
       {subtitle ? <p className="mt-3 text-lg text-muted">{subtitle}</p> : null}
       <Card className="mt-8 md:p-7">{children}</Card>
       {footer ? <p className="mt-6 text-center text-sm text-muted">{footer}</p> : null}
@@ -27,7 +27,7 @@ export function AuthCardSkeleton() {
     <div aria-hidden="true">
       <div className="skeleton h-10 w-3/4" />
       <div className="skeleton mt-4 h-6 w-full" />
-      <div className="mt-8 rounded-card border border-line bg-surface p-6 shadow-soft">
+      <div className="mt-8 rounded-card border border-line bg-surface p-6">
         <div className="skeleton h-11 w-full" />
         <div className="skeleton mt-5 h-11 w-full" />
         <div className="skeleton mt-5 h-12 w-full" />
