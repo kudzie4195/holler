@@ -28,7 +28,7 @@ export function PasswordInput({
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          className="absolute right-1 top-0 flex h-full min-w-16 items-center justify-center rounded-full px-3 text-sm font-semibold text-muted hover:text-ink"
+          className="absolute right-1 top-0 flex h-full min-w-16 items-center justify-center rounded-control px-3 text-sm font-semibold text-muted hover:text-ink"
         >
           {shown ? 'Hide' : 'Show'}
         </button>

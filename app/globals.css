@@ -5,10 +5,10 @@
   The names and values are the contract in gates/r9/CONTEXT.md. tests/design/tokens.test.ts parses this file and checks every
   value and every allowed text/background pair, so change a value here only together with that test.
 
-  Colours are Tailwind utilities: bg-brand, text-on-brand, border-line-strong, bg-signal, text-brand-text and so on.
+  Colors are Tailwind utilities: bg-brand, text-on-brand, border-line-strong, bg-signal, text-brand-text and so on.
 
   Rules that keep the contrast honest (ratios are WCAG relative luminance, computed in the test):
-  - signal #D9F046 is the one loud colour. It is a fill (buttons on green, the logo tile), an eyebrow on green and the focus ring
+  - signal #D9F046 is the one loud color. It is a fill (buttons on green, the logo tile), an eyebrow on green and the focus ring
     on green. It is never text or an edge on a light surface (1.2:1 there). Ink on signal is 13.2:1.
   - Text on light: ink, muted (5.15:1 or better on every light surface), brand-text for green links (6.57:1 or better).
   - Text on green and ink: on-brand, on-brand-muted (8.2:1 on brand), on-brand-faint (5.4:1 on brand-raised, the lowest).
@@ -42,7 +42,7 @@
     U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Accented names (street and city names in records). Only fetched when such a character is on the page. */
+/* Names with diacritics (street and city names in records). Only fetched when such a character is on the page. */
 @font-face {
   font-family: 'Inter Variable';
   font-style: normal;

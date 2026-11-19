@@ -19,8 +19,8 @@ export function AppNavLinks() {
             key={l.href}
             href={l.href}
             aria-current={active ? 'page' : undefined}
-            className={`inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium ${
-              active ? 'bg-ink/5 text-ink' : 'text-muted hover:text-ink'
+            className={`inline-flex min-h-11 items-center rounded-control px-3 text-sm font-medium ${
+              active ? 'bg-sand text-ink underline decoration-2 underline-offset-[6px]' : 'text-muted hover:bg-sand hover:text-ink'
             }`}
           >
             {l.label}

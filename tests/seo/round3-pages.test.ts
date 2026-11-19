@@ -75,31 +75,25 @@ describe('heading font', () => {
 });
 
 describe('phone navigation row', () => {
+  // Round 9 replaced the second scrolling row with one green bar; every link the row had is in the footer
+  // (tests/design/nav-footer.test.ts checks that). The intent kept here: the bar is one row, script-free, 44 px targets.
   const html = renderToStaticMarkup(createElement(TopNav));
-  const row = html.slice(html.indexOf('aria-label="Sections"'));
-  const hrefs = [...row.matchAll(/href="(\/[a-z]*)"/g)].map((m) => m[1]);
-  it('lists the links in the order a phone visitor needs them, with Check, Request and Pricing first', () => {
-    expect(hrefs.slice(0, 9)).toEqual(['/check', '/request', '/pricing', '/for', '/local', '/guides', '/faq', '/data', '/about']);
-    const labels = [...row.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((m) => m[1]);
-    expect(labels).toEqual(['Check your area', 'Request a service', 'Pricing', 'By trade', 'By city', 'Guides', 'FAQ', 'Data', 'About']);
+  it('there is no second scrolling row and no scroll cue any more', () => {
+    expect(html).not.toContain('aria-label="Sections"');
+    expect(html).not.toContain('nav-scroll');
+    expect(read('app/globals.css')).not.toContain('.nav-scroll');
   });
-  it('has vertical padding for the focus ring, a visible scroll cue, 44px targets, a visible hover fill and no script', () => {
-    expect(row).toMatch(/nav-scroll[^"]*py-1\.5/);
-    expect(row).not.toMatch(/nav-scroll[^"]*\bh-12\b/);
-    expect(row).toContain('bg-gradient-to-l');
-    expect(row).toContain('aria-hidden="true"');
-    expect(row).toContain('min-h-11');
-    expect(row).toContain('hover:bg-surface');
-    expect(row).not.toContain('hover:bg-sand');
+  it('the bar is one 64px row with 44px targets and no script', () => {
+    expect(html).toMatch(/<header class="[^"]*\bh-16\b|<div class="[^"]*\bh-16\b/);
+    expect(html).toContain('h-link');
+    expect(html).toContain('min-h-11');
     expect(html).not.toContain('<script');
   });
-  it('the css no longer masks the row, which faded the focus ring of the last link', () => {
-    expect(read('app/globals.css')).not.toMatch(/\.nav-scroll\s*{[^}]*mask-image/);
-  });
   it('the header Main landmark holds the section links and exists only on wide screens; Log in and Start free are not in a landmark named Main', () => {
-    const header = html.slice(0, html.indexOf('aria-label="Sections"'));
-    expect(header).toMatch(/<nav aria-label="Main" class="hidden lg:block">/);
+    const header = html.slice(html.indexOf('<header'));
+    expect(header).toMatch(/<nav aria-label="Main" class="hidden md:block">/);
     expect(header.indexOf('/login')).toBeGreaterThan(header.indexOf('</nav>'));
+    expect(header.indexOf('/signup')).toBeGreaterThan(header.indexOf('</nav>'));
   });
 });
 
@@ -147,7 +141,7 @@ describe('share metadata (Open Graph and Twitter)', () => {
 });
 
 describe('/data is titled as records, not demand', () => {
-  it('title, description, JSON-LD names, footer and home links say "Local public records in numbers"', () => {
+  it('title, description, JSON-LD names, footer and home links say "public records in numbers"', () => {
     expect(DATA_META.title).toMatch(/^Local Public Records in Numbers/);
     expect(DATA_META.description).toContain('dated in the last 7 and 30 days');
     expect(DATA_META.description).not.toMatch(/demand|arrived/i);
@@ -156,7 +150,8 @@ describe('/data is titled as records, not demand', () => {
     expect(ld).toContain('Local public records in numbers');
     expect(ld).not.toMatch(/demand in numbers/i);
     expect(JSON.stringify(dataJsonLd({ ok: false } as never))).toContain('Local public records in numbers');
-    expect(renderToStaticMarkup(createElement(Footer))).toContain('Local public records in numbers');
+    // Round 9 footer: the shorter label from the brief, still records, not demand.
+    expect(renderToStaticMarkup(createElement(Footer))).toMatch(/href="\/data"[^>]*>Public records in numbers</);
     for (const f of ['app/page.tsx', 'app/data/page.tsx', 'lib/seo/national-seo.ts', 'lib/seo/llms-extra.ts', 'lib/seo/guides/seo.ts', 'components/footer.tsx']) {
       expect(read(f), f).not.toMatch(/demand in numbers/i);
     }
