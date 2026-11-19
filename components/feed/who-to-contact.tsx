@@ -25,7 +25,7 @@ export interface ContactSignal {
 }
 
 const actionClass =
-  'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink hover:border-ink/40 md:min-h-9';
+  'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-sand md:min-h-9';
 
 function ExternalIcon() {
   return (
@@ -114,7 +114,7 @@ function Body({ plan }: { plan: OutreachPlan }) {
         <CopyNoteButton label={plan.noteLabel} text={plan.note} />
       </div>
       <p className="mt-3 text-sm text-muted">
-        {plan.rules} <a href={plan.guide.href} className="font-medium text-accent-text underline">{plan.guide.label}</a>.
+        {plan.rules} <a href={plan.guide.href} className="font-medium text-brand-text underline">{plan.guide.label}</a>.
       </p>
     </div>
   );

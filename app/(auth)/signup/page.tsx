@@ -35,7 +35,7 @@ async function Signup({ searchParams }: { searchParams: PageProps<'/signup'>['se
       footer={
         <>
           Already have an account?{' '}
-          <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-accent-text underline">
+          <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">
             Log in
           </Link>
         </>

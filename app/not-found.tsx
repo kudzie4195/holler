@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ButtonLink } from '@/components/button';
-import { MainStreet } from '@/components/illustrations/main-street';
+import { Footer } from '@/components/footer';
+import { TopNav } from '@/components/top-nav';
 
 export const metadata: Metadata = {
   title: 'Page not found',
@@ -9,20 +10,24 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <main id="main" className="hero-paper flex w-full flex-1 flex-col justify-center">
-      <div className="mx-auto w-full max-w-md px-5 py-16">
-        <MainStreet className="h-auto w-full max-w-xs" />
-        <h1 className="mt-8 text-4xl text-ink">We can&apos;t find that page.</h1>
-        <p className="mt-3 text-lg text-muted">The link may be old or mistyped. Here are two places to start.</p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <ButtonLink href="/" size="lg">
-            Go home
-          </ButtonLink>
-          <ButtonLink href="/local" variant="secondary" size="lg">
-            Browse local activity
-          </ButtonLink>
+    <>
+      <TopNav />
+      <main id="main" className="on-brand flex w-full flex-1 flex-col justify-center bg-brand">
+        <div className="mx-auto w-full max-w-3xl px-5 py-16 md:py-24">
+          <p className="eyebrow">Error 404 · Page not found</p>
+          <h1 className="mt-4 max-w-[16ch] text-5xl sm:text-6xl md:text-7xl">We can&apos;t find that page.</h1>
+          <p className="mt-4 max-w-xl text-lg text-on-brand-muted">The link may be old or mistyped. Here are two places to start.</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <ButtonLink href="/" variant="signal" size="lg">
+              Go home
+            </ButtonLink>
+            <ButtonLink href="/local" variant="outline-signal" size="lg">
+              Browse local activity
+            </ButtonLink>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <Footer />
+    </>
   );
 }

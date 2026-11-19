@@ -95,11 +95,11 @@ export function SignupForm({ city }: { city?: string | null }) {
       </Button>
       <p className="text-center text-sm text-muted">
         By creating an account you agree to the{' '}
-        <Link href="/terms" className="font-medium text-accent-text underline">
+        <Link href="/terms" className="font-medium text-brand-text underline">
           Terms
         </Link>{' '}
         and{' '}
-        <Link href="/privacy" className="font-medium text-accent-text underline">
+        <Link href="/privacy" className="font-medium text-brand-text underline">
           Privacy Policy
         </Link>
         .
@@ -154,7 +154,7 @@ export function LoginForm({ next, linkExpired }: { next: string; linkExpired?: b
         {pending ? 'Logging in...' : 'Log in'}
       </Button>
       <p className="text-center text-sm">
-        <Link href="/forgot" className="inline-flex min-h-11 items-center font-medium text-accent-text underline">
+        <Link href="/forgot" className="inline-flex min-h-11 items-center font-medium text-brand-text underline">
           Forgot your password?
         </Link>
       </p>
@@ -186,7 +186,7 @@ export function ForgotForm({ linkExpired }: { linkExpired?: boolean }) {
         <Notice tone="success">
           If there is an account for <strong>{email}</strong>, a reset link is on its way. It can take a minute. Check spam too.
         </Notice>
-        <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-medium text-accent-text underline">
+        <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline">
           Back to log in
         </Link>
       </div>

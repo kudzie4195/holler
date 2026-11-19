@@ -18,7 +18,7 @@ const BLURB: Record<Tier, string> = {
 export function Pricing() {
   return (
     <div className="flex flex-col gap-4">
-      <p className="font-semibold text-accent-text">
+      <p className="font-semibold text-brand-text">
         Every plan starts with a {TRIAL_DAYS}-day free trial. No card needed.
       </p>
       <ul className="grid gap-5 md:grid-cols-2" aria-label="Plans">

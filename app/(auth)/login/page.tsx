@@ -27,7 +27,7 @@ async function Login({ searchParams }: { searchParams: PageProps<'/login'>['sear
       footer={
         <>
           New here?{' '}
-          <Link href="/signup" className="inline-flex min-h-11 items-center font-semibold text-accent-text underline">
+          <Link href="/signup" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">
             Start your free trial
           </Link>
         </>

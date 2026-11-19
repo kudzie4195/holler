@@ -12,7 +12,7 @@ import { isWeekIndexable, isoDay, mondayOf, weekPath } from '@/lib/seo/week';
 import { fmtDate } from '@/lib/seo/view';
 import { JsonLd } from '../../../../_components/jsonld';
 import { SectionCard } from '../../../../_components/records';
-import { Crumbs, H1, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../../../_components/ui';
+import { Page, PageHeader, PrimaryLink, linkClass, PublicRecordsNote } from '../../../../_components/ui';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
 
@@ -110,40 +110,51 @@ export default async function WeekPage({ params }: Props) {
   ];
 
   return (
-    <Page>
+    <Page
+      header={
+        <PageHeader
+          size="md"
+          crumbs={[
+            { name: 'Home', href: '/' },
+            { name: 'Local', href: '/local' },
+            { name: st.name, href: `/local/${st.slug}` },
+            { name: place, href: cityHref },
+            { name: `Week of ${fmtDate(data.weekIso)}` },
+          ]}
+          title={h1}
+          lead={summary ? <p className="text-xl font-medium leading-snug text-on-brand">{summary}</p> : null}
+          meta={
+            data.ok ? (
+              <>
+                Counts computed <time dateTime={data.asOf}>{fmtDate(data.asOf)}</time>
+              </>
+            ) : null
+          }
+        >
+          <PrimaryLink href={ctaHref} onBrand>
+            {ctaLabel}
+          </PrimaryLink>
+          <p className="mt-2 text-sm text-on-brand-muted">No card to start. Holler never posts anything for you.</p>
+        </PageHeader>
+      }
+    >
       <JsonLd data={ld} />
-      <Crumbs
-        items={[
-          { name: 'Home', href: '/' },
-          { name: 'Local', href: '/local' },
-          { name: st.name, href: `/local/${st.slug}` },
-          { name: place, href: cityHref },
-          { name: `Week of ${fmtDate(data.weekIso)}` },
-        ]}
-      />
-      <H1>{h1}</H1>
-      {summary ? <p className="mt-4 max-w-2xl text-xl font-medium leading-snug">{summary}</p> : null}
       {data.ok ? (
         data.total > 0 ? (
-          <p className="mt-3 max-w-2xl text-lg leading-relaxed">
+          <p className="max-w-2xl text-lg leading-relaxed">
             Weeks run Monday to Sunday, UTC. Every record below comes from a public source, and each one names that source and links to it.
             {data.current ? ' This week is still open, so the list grows as new records arrive.' : ''}
             {data.truncated ? ` The page reads at most ${WEEK_ROW_CAP.toLocaleString('en-US')} records, so counts are lower bounds.` : ''}
           </p>
         ) : (
-          <p className="mt-3 max-w-2xl text-lg leading-relaxed">
+          <p className="max-w-2xl text-lg leading-relaxed">
             Holler has no public records tagged to {place} for this week. Weather alerts are checked every 15 minutes and city records a few times a day,
             so a record that is dated in this week can still show up late. Nothing here yet.
           </p>
         )
       ) : (
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed">Records for this week could not be loaded just now. Please try again in a few minutes.</p>
+        <p className="max-w-2xl text-lg leading-relaxed">Records for this week could not be loaded just now. Please try again in a few minutes.</p>
       )}
-      {data.ok ? (
-        <p className="mt-2 text-sm text-muted">
-          Counts computed <time dateTime={data.asOf} className="font-mono">{fmtDate(data.asOf)}</time>.
-        </p>
-      ) : null}
 
       <nav aria-label="Weeks" className="mt-4 flex flex-wrap items-center gap-x-6 text-sm">
         {data.prev ? (
@@ -161,12 +172,7 @@ export default async function WeekPage({ params }: Props) {
         </Link>
       </nav>
 
-      <div className="mt-6">
-        <PrimaryLink href={ctaHref}>{ctaLabel}</PrimaryLink>
-        <p className="mt-2 text-sm text-muted">No card to start. Holler never posts anything for you.</p>
-      </div>
-
-      <div className="mt-10 flex flex-col gap-6">
+      <div className="mt-12 flex flex-col gap-14">
         {visible.map((s) => {
           const items = data.sections[s.id] ?? [];
           return (

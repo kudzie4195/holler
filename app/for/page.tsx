@@ -4,7 +4,7 @@ import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd, itemListLd } from '@/lib/seo/jsonld';
 import { groupTrades, tradeEntries, tradeHeadline, tradePath } from '@/lib/seo/trade-view';
 import { JsonLd } from '../local/_components/jsonld';
-import { Crumbs, H1, H2, Page, linkClass } from '../local/_components/ui';
+import { H2, Ledger, Page, PageHeader, linkClass, rowLinkClass } from '../local/_components/ui';
 import { FROM_MONTHLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
 
 const TITLE = 'Local alerts by trade';
@@ -23,7 +23,22 @@ export default function ForIndexPage() {
   const entries = tradeEntries();
   const groups = groupTrades(entries);
   return (
-    <Page>
+    <Page
+      width="wide"
+      header={
+        <PageHeader
+          width="wide"
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'By trade' }]}
+          title="Alerts for your trade"
+          lead={
+            <p>
+              A roofer needs hail reports. A food truck needs event permits. A restoration crew needs flood warnings. Pick what you do
+              and see what Holler watches for it, with live examples from the last two months.
+            </p>
+          }
+        />
+      }
+    >
       <JsonLd
         data={[
           breadcrumbLd([
@@ -36,31 +51,25 @@ export default function ForIndexPage() {
           ),
         ]}
       />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'By trade' }]} />
-      <H1>Alerts for your trade</H1>
-      <p className="mt-4 max-w-2xl text-lg text-muted">
-        A roofer needs hail reports. A food truck needs event permits. A restoration crew needs flood warnings. Pick what you do
-        and see what Holler watches for it, with live examples from the last two months.
-      </p>
-      <div className="mt-8 flex flex-col gap-10">
+      <div className="flex flex-col gap-14">
         {groups.map((g) => (
-          <section key={g.id} aria-labelledby={`g-${g.id}`}>
+          <section key={g.id} aria-labelledby={g.title ? `g-${g.id}` : undefined}>
             {g.title ? <H2 id={`g-${g.id}`}>{g.title}</H2> : null}
-            <ul className="mt-3 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+            <Ledger className="mt-4 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
               {g.trades.map((t) => (
-                <li key={t.id} className="border-t border-line">
-                  <Link href={tradePath(t.id)} className={`${linkClass} flex min-h-11 flex-col justify-center py-2`}>
-                    <span className="text-lg font-medium">{t.label}</span>
+                <li key={t.id}>
+                  <Link href={tradePath(t.id)} className={`${rowLinkClass} flex min-h-11 flex-col justify-center py-3`}>
+                    <span className="text-lg font-semibold">{t.label}</span>
                     <span className="text-sm text-muted">{tradeHeadline(t)}</span>
                   </Link>
                 </li>
               ))}
-            </ul>
+            </Ledger>
           </section>
         ))}
       </div>
-      <p className="mt-10 text-sm text-muted">
-        Looking for a city instead? <Link href="/local" className={`${linkClass} inline-flex min-h-11 items-center`}>Browse by city</Link>.
+      <p className="mt-12 text-sm text-muted">
+        Looking for a city instead? <Link href="/local" className={`${linkClass} inline-flex min-h-11 items-center text-ink`}>Browse by city</Link>.
       </p>
     </Page>
   );

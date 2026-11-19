@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { ButtonLink } from '@/components/button';
+import { ClosingBand } from '@/components/page-header';
 import { aboutCopy } from '@/lib/seo/public-copy';
 import { TRIAL_DAYS } from '@/lib/plan/price-copy';
 
@@ -61,18 +62,14 @@ export default function AboutPage() {
         </p>
       </DocSection>
 
-      <div className="rounded-card border border-line bg-sand p-6 shadow-soft md:p-8">
-        <p className="font-display text-2xl text-ink">Try it on your own town.</p>
-        <p className="mt-2 text-muted">{TRIAL_DAYS} days free. No card to start.</p>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <ButtonLink href="/signup" size="lg">
-            Start free for {TRIAL_DAYS} days
-          </ButtonLink>
-          <ButtonLink href="/check" variant="secondary" size="lg">
-            Check your area
-          </ButtonLink>
-        </div>
-      </div>
+      <ClosingBand line="Try it on your own town." note={`${TRIAL_DAYS} days free. No card to start.`}>
+        <ButtonLink href="/signup" variant="signal" size="lg">
+          Start free for {TRIAL_DAYS} days
+        </ButtonLink>
+        <ButtonLink href="/check" variant="outline-signal" size="lg">
+          Check your area
+        </ButtonLink>
+      </ClosingBand>
     </DocPage>
   );
 }

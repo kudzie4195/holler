@@ -72,7 +72,7 @@ export function Footer() {
         {contact ? (
           <p>
             Questions?{' '}
-            <a href={`mailto:${contact}`} className="font-medium text-ink underline underline-offset-2 hover:text-accent-text">
+            <a href={`mailto:${contact}`} className="font-medium text-ink underline underline-offset-2 hover:text-brand-text">
               {contact}
             </a>
           </p>

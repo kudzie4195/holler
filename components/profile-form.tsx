@@ -169,7 +169,7 @@ export function ProfileForm({
 
       <fieldset className="min-w-0 rounded-card border border-line p-4 sm:p-5" aria-describedby="pro-hint">
         <legend className="px-1 text-sm font-semibold text-ink">
-          More areas and keyword watches <span className="ml-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent-text">Pro</span>
+          More areas and keyword watches <span className="ml-1 rounded-chip bg-sage px-2 py-0.5 font-mono text-xs font-medium uppercase text-brand-text">Pro</span>
         </legend>
         {isPro ? (
           <p id="pro-hint" className="text-sm text-muted">
@@ -179,7 +179,7 @@ export function ProfileForm({
           <div id="pro-hint" className="flex flex-col gap-2 text-sm text-muted">
             <p>
               Pro adds {PRO.extraAreas} more ZIP codes, up to {PRO.trades} trades and {PRO.keywords} keyword watches.{' '}
-              <Link href={upgradeHref} className="font-medium text-accent-text underline">
+              <Link href={upgradeHref} className="font-medium text-brand-text underline">
                 See Pro
               </Link>
             </p>
@@ -245,7 +245,7 @@ export function ProfileForm({
             name="alert_email"
             checked={alertEmail}
             onChange={(e) => setAlertEmail(e.target.checked)}
-            className="h-5 w-5 accent-[var(--color-accent)]"
+            className="h-5 w-5 accent-brand"
           />
           <span>Email me when something nearby matches</span>
         </label>

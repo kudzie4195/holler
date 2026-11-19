@@ -46,13 +46,13 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <h1 className="text-4xl text-ink">Settings</h1>
+      <h1 className="text-5xl text-ink">Settings</h1>
       <p className="mt-2 text-muted">
         Signed in as <span className="font-medium text-ink">{user.email}</span>
       </p>
 
       <section aria-labelledby="profile-h" className="mt-10">
-        <h2 id="profile-h" className="text-2xl text-ink">What you do and where</h2>
+        <h2 id="profile-h" className="h-plain text-2xl text-ink">What you do and where</h2>
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
@@ -75,7 +75,7 @@ export default async function SettingsPage() {
       </section>
 
       <section aria-labelledby="billing-h" className="mt-12">
-        <h2 id="billing-h" className="scroll-mt-24 text-2xl text-ink">Billing</h2>
+        <h2 id="billing-h" className="h-plain scroll-mt-24 text-2xl text-ink">Billing</h2>
         <Card className="mt-4">
           {store ? (
             <div className="flex flex-col gap-3">
@@ -83,7 +83,7 @@ export default async function SettingsPage() {
                 Your plan: <strong className="font-semibold">{TIER_NAMES[tier]}</strong>. {planLimitsLine(tier)}.
               </p>
               <p className="text-muted">{store.line}</p>
-              <a href={store.manageUrl} className="font-medium text-accent-text underline" rel="noopener" target="_blank">
+              <a href={store.manageUrl} className="font-medium text-brand-text underline" rel="noopener" target="_blank">
                 Manage it in {store.storeName}
               </a>
             </div>
@@ -101,7 +101,7 @@ export default async function SettingsPage() {
       </section>
 
       <section aria-labelledby="account-h" className="mt-12">
-        <h2 id="account-h" className="text-2xl text-ink">Account</h2>
+        <h2 id="account-h" className="h-plain text-2xl text-ink">Account</h2>
         <Card className="mt-4 flex flex-col gap-6">
           <form action="/api/auth/signout" method="post">
             <Button type="submit" variant="secondary">

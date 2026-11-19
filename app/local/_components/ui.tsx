@@ -2,104 +2,78 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { buttonClasses } from '@/components/button';
 import { Footer } from '@/components/footer';
+import { WIDTH, type Width } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { env } from '@/lib/env';
 
-/* Plain Tailwind using the tokens from app/globals.css. Buttons come from components/button (ink text on accent, 5.00:1). */
+/*
+  Shared parts of the /local, /for and /storms pages. Tokens from app/globals.css, page header from components/page-header.
+  Light content: ink text, muted secondary (5.15:1 or better), brand-text links (6.57:1 or better). Green parts use .on-brand.
+*/
 
-/** Shared shell for /local pages: same TopNav (skip link targets #main) and Footer as the rest of the site. */
-export function Page({ children }: { children: ReactNode }) {
+export { Crumbs, FamilyMark, FamilyDot, Ledger, ClosingBand, PageHeader, type Family } from '@/components/page-header';
+
+/**
+ * Shared shell: TopNav (skip link targets #main), one main landmark, Footer. `header` is the green band (a PageHeader) and spans
+ * the full width; the content column below it uses the same width so the left edges line up.
+ */
+export function Page({ header, children, width = 'base' }: { header?: ReactNode; children: ReactNode; width?: Width }) {
   return (
     <>
       <TopNav />
-      <main id="main" className="mx-auto w-full max-w-3xl flex-1 bg-background px-4 py-8 text-base text-ink sm:py-12">
-        {children}
+      <main id="main" className="w-full flex-1 text-base text-ink">
+        {header}
+        <div className={`mx-auto w-full ${WIDTH[width]} px-5 pb-20 pt-10 md:pt-14`}>{children}</div>
       </main>
       <Footer />
     </>
   );
 }
 
-export function Crumbs({ items }: { items: { name: string; href?: string }[] }) {
+/** Section head on a marketing page: display uppercase. */
+export function H2({ children, id, className = '' }: { children: ReactNode; id?: string; className?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className="-mt-2 mb-2 text-sm text-muted">
-      <ol className="flex flex-wrap items-center gap-x-2">
-        {items.map((c, i) => (
-          <li key={c.name} className="flex items-center gap-2">
-            {c.href ? (
-              <Link href={c.href} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-ink">
-                {c.name}
-              </Link>
-            ) : (
-              <span aria-current="page" className="inline-flex min-h-11 items-center">
-                {c.name}
-              </span>
-            )}
-            {i < items.length - 1 ? <span aria-hidden="true">/</span> : null}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-export function H1({ children }: { children: ReactNode }) {
-  return <h1 className="text-[36px] font-semibold leading-tight tracking-[-0.02em] sm:text-[44px]">{children}</h1>;
-}
-
-export function H2({ children, id }: { children: ReactNode; id?: string }) {
-  return (
-    <h2 id={id} className="text-2xl font-semibold tracking-[-0.02em]">
+    <h2 id={id} className={`text-3xl text-ink md:text-4xl ${className}`.trim()}>
       {children}
     </h2>
   );
 }
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+/** A plain block with a heading and a ruled body, no box. Replaces the round 8 white cards. */
+export function Block({ children, className = '', id }: { children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`rounded-card border border-line bg-surface p-5 shadow-soft ${className}`.trim()}>
+    <section id={id} className={className}>
       {children}
     </section>
   );
 }
 
-/**
- * Same filled accent button as the rest of the site (ink on accent, 5.00:1). Labels such as the city CTA can be long, so the
- * button may wrap on a phone instead of overflowing; py-2.5 keeps a one-line button at the 48 px min height.
- */
+/** Labels such as the city CTA can be long, so the button may wrap on a phone instead of overflowing. */
 const ctaWrap = (cls: string) => `${cls.replace('whitespace-nowrap', 'whitespace-normal')} py-2.5 text-center`;
 
-/**
- * Tinted card for a page's first content block, one record family each, matching the home "What Holler watches" band:
- * weather sky with the storm stripe, spending sage with the sage-mark stripe, everything else orange tint with the accent stripe.
- * On all three: ink 14.3 to 15.0, muted 5.74 to 6.02, accent-text links 4.73 to 4.96 to 1.
- */
-export type CardFamily = 'weather' | 'spending' | 'civic';
-export function tintCardClass(family: CardFamily): string {
-  if (family === 'weather') return '!bg-sky border-l-4 border-l-storm';
-  if (family === 'spending') return '!bg-sage border-l-4 border-l-sage-mark';
-  return '!bg-accent-soft border-l-4 border-l-accent';
-}
-
-export function PrimaryLink({ href, children }: { href: string; children: ReactNode }) {
+/** Filled call to action. On light: brand fill (11.2:1). Inside a green band (`onBrand`): signal fill, ink text (13.2:1). */
+export function PrimaryLink({ href, children, onBrand = false }: { href: string; children: ReactNode; onBrand?: boolean }) {
   return (
-    <Link href={href} className={ctaWrap(buttonClasses({ size: 'lg' }))}>
+    <Link href={href} className={ctaWrap(buttonClasses({ size: 'lg', variant: onBrand ? 'signal' : 'primary' }))}>
       {children}
     </Link>
   );
 }
 
-/** The quieter partner of PrimaryLink, so a CTA pair has one filled button. */
-export function SecondaryLink({ href, children }: { href: string; children: ReactNode }) {
+/** The quieter partner of PrimaryLink. On light: surface with a line-strong edge. On green: a signal outline. */
+export function SecondaryLink({ href, children, onBrand = false }: { href: string; children: ReactNode; onBrand?: boolean }) {
   return (
-    <Link href={href} className={ctaWrap(buttonClasses({ variant: 'secondary', size: 'lg' }))}>
+    <Link href={href} className={ctaWrap(buttonClasses({ variant: onBrand ? 'outline-signal' : 'secondary', size: 'lg' }))}>
       {children}
     </Link>
   );
 }
 
-export const linkClass =
-  'underline underline-offset-2 hover:text-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+/** Text link on a light surface: ink text, underlined, brand-text on hover. Focus ring comes from globals.css. */
+export const linkClass = 'underline decoration-1 underline-offset-4 hover:text-brand-text';
+
+/** A whole ledger row that is a link: no underline at rest (the row rule marks it), underline on hover. */
+export const rowLinkClass = 'decoration-1 underline-offset-4 hover:underline hover:text-brand-text';
 
 /**
  * One-line public-records note for city, weekly and trade pages (legal.md (d), kept to one sentence): where the records come from,
@@ -108,7 +82,7 @@ export const linkClass =
 export function PublicRecordsNote() {
   const support = env.SUPPORT_EMAIL?.trim() || null;
   return (
-    <p className="mt-8 text-xs text-muted">
+    <p className="mt-10 border-t border-line pt-4 text-xs text-muted">
       Most records here come from public government records, which can be late or wrong; Holler is not affiliated with any agency, and to
       fix or remove a record,{' '}
       {support ? (

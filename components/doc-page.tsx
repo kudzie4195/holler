@@ -36,7 +36,7 @@ export function DocSection({ title, children }: { title: string; children: React
   return (
     <section>
       <h2 className="text-2xl text-ink">{title}</h2>
-      <div className="mt-3 flex flex-col gap-3 text-base text-ink/90 [&_a]:font-medium [&_a]:text-accent-text [&_a]:underline [&_li]:pl-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-2">
+      <div className="mt-3 flex flex-col gap-3 text-base text-ink/90 [&_a]:font-medium [&_a]:text-brand-text [&_a]:underline [&_li]:pl-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-2">
         {children}
       </div>
     </section>

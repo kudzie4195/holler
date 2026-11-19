@@ -37,7 +37,7 @@ export function StatusBadge({
     success: 'bg-success-soft text-success-ink',
     warn: 'bg-warn-soft text-warn-ink',
     danger: 'bg-danger-soft text-danger',
-    accent: 'bg-accent-soft text-accent-text',
+    accent: 'bg-accent-soft text-brand-text',
   } as const;
   return <span className={`${pill} ${tones[tone]}`}>{children}</span>;
 }

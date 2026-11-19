@@ -38,14 +38,19 @@ export default function RequestPage() {
   return (
     <>
       <TopNav />
-      <main id="main" className="mx-auto w-full max-w-3xl px-5 pb-20 pt-12 md:pt-16">
-        <h1 className="text-4xl text-ink md:text-5xl">Ask local businesses for a quote.</h1>
-        <p className="mt-4 max-w-xl text-lg text-muted">
-          Tell us what you need and your ZIP code. We send it to businesses on Holler that do that work near you. It is free.
-        </p>
-
-        <section aria-labelledby="request-form-title" className="mt-8 rounded-card border border-line bg-surface p-5 shadow-soft md:p-6">
-          <h2 id="request-form-title" className="text-2xl text-ink">
+      <main id="main" className="w-full flex-1">
+        <div className="on-brand bg-brand">
+          <div className="mx-auto w-full max-w-3xl px-5 pb-24 pt-6 md:pb-28 md:pt-10">
+            <p className="eyebrow mb-3">For residents · Free</p>
+            <h1 className="max-w-[22ch] text-5xl sm:text-6xl md:text-7xl">Ask local businesses for a quote.</h1>
+            <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
+              Tell us what you need and your ZIP code. We send it to businesses on Holler that do that work near you. It is free.
+            </p>
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-3xl px-5 pb-20">
+        <section aria-labelledby="request-form-title" className="on-light relative -mt-16 rounded-card border border-line bg-surface p-5 shadow-lift md:-mt-20 md:p-7">
+          <h2 id="request-form-title" className="h-plain text-2xl text-ink">
             Your request
           </h2>
           <div className="mt-5">
@@ -60,10 +65,10 @@ export default function RequestPage() {
         </section>
 
         <section aria-labelledby="request-next" className="mt-12">
-          <h2 id="request-next" className="text-2xl text-ink">
+          <h2 id="request-next" className="text-3xl text-ink md:text-4xl">
             What happens after you send it
           </h2>
-          <ol className="mt-4 flex list-decimal flex-col gap-3 pl-5 text-ink/90">
+          <ol className="mt-6 flex list-none flex-col gap-5 text-ink [counter-reset:step] [&>li]:relative [&>li]:pl-12 [&>li]:[counter-increment:step] [&>li]:before:absolute [&>li]:before:left-0 [&>li]:before:top-0 [&>li]:before:inline-flex [&>li]:before:size-8 [&>li]:before:items-center [&>li]:before:justify-center [&>li]:before:rounded-full [&>li]:before:bg-brand [&>li]:before:font-mono [&>li]:before:text-sm [&>li]:before:text-signal [&>li]:before:content-[counter(step)]">
             <li>
               We email you a link. Open it, then press the button on the page. Nothing is posted until you press it. A request you never
               confirm is deleted after {CONFIRM_DAYS} days.
@@ -88,10 +93,10 @@ export default function RequestPage() {
         </section>
 
         <section aria-labelledby="request-know" className="mt-12">
-          <h2 id="request-know" className="text-2xl text-ink">
+          <h2 id="request-know" className="text-3xl text-ink md:text-4xl">
             Good to know
           </h2>
-          <div className="mt-4 flex flex-col gap-3 text-ink/90">
+          <div className="mt-6 flex flex-col border-t-2 border-ink text-ink [&>p]:border-b [&>p]:border-line [&>p]:py-4">
             <p>
               Holler is new. Some areas have no businesses on it yet, so you may get no replies at all. Up to {MAX_REPLIES_PER_REQUEST}{' '}
               businesses can answer one request.
@@ -106,11 +111,12 @@ export default function RequestPage() {
             <p>
               Close the request and we delete your email address and your description right away. If it just runs out, we delete them{' '}
               {PURGE_AFTER_DAYS} days later. We keep only the service, ZIP code, city and dates. Read the{' '}
-              <Link href="/privacy" className="font-medium text-accent-text underline">privacy policy</Link> for the details.
+              <Link href="/privacy" className="font-medium text-brand-text underline decoration-1 underline-offset-4">privacy policy</Link> for the details.
             </p>
             <p>It costs you nothing. Businesses pay for Holler.</p>
           </div>
         </section>
+        </div>
       </main>
       <Footer />
     </>

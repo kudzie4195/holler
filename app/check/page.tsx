@@ -34,13 +34,19 @@ export default function CheckPage(props: PageProps<'/check'>) {
   return (
     <>
       <TopNav />
-      <main id="main" className="mx-auto w-full max-w-3xl px-5 pb-20 pt-12 md:pt-16">
-        <h1 className="text-4xl text-ink md:text-5xl">See what happened near you.</h1>
-        <p className="mt-4 max-w-xl text-lg text-muted">
-          Pick your trade and ZIP code. Holler shows what it recorded nearby in the last 30 days, with a link to every source. No
-          login.
-        </p>
-        <div className="mt-8">
+      <main id="main" className="w-full flex-1">
+        {/* Green header band. The form card below is pulled up over its lower edge, so the form reads as part of the header. */}
+        <div className="on-brand bg-brand">
+          <div className="mx-auto w-full max-w-4xl px-5 pb-24 pt-6 md:pb-28 md:pt-10">
+            <p className="eyebrow mb-3">Free area check</p>
+            <h1 className="max-w-[22ch] text-5xl sm:text-6xl md:text-7xl">See what happened near you.</h1>
+            <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
+              Pick your trade and ZIP code. Holler shows what it recorded nearby in the last 30 days, with a link to every source. No
+              login.
+            </p>
+          </div>
+        </div>
+        <div className="mx-auto -mt-16 w-full max-w-4xl px-5 pb-20 md:-mt-20">
           <Suspense fallback={<FormBand><CheckForm /></FormBand>}>
             <Check searchParams={props.searchParams} />
           </Suspense>
@@ -58,6 +64,20 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const params = parseCheckParams({ zip: sp.zip, trade: sp.trade });
 
   if (params.status === 'empty') return <FormBand><CheckForm /></FormBand>;
+  // The home page ZIP form sends only ?zip=. A ZIP we know is a step, not an error: the ZIP stays filled in and the page asks for
+  // the trade. A ZIP we cannot find gets the same message as with a trade.
+  if (params.status === 'zip') {
+    const known = lookupZip(params.zip);
+    return (
+      <FormBand>
+        <CheckForm
+          zip={params.zip}
+          prompt={known ? `Now pick your trade.` : undefined}
+          zipError={known ? undefined : 'We could not find that ZIP code. Check it and try again.'}
+        />
+      </FormBand>
+    );
+  }
   if (params.status === 'invalid') {
     return (
       <FormBand>
@@ -136,15 +156,11 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
 }
 
 /**
- * Sky band around the form, with the form on a surface card as on the home page: on bare sky the input borders (2.92 to 1) and
- * error text (4.38 to 1) would fail, on surface they pass.
+ * The form on a white card (.on-light) over the green band's lower edge: labels, input edges (line-strong 3.85:1 on surface) and
+ * the error text keep the light-surface rules, which they would not on green.
  */
 function FormBand({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-card bg-sky p-3 sm:p-5">
-      <div className="rounded-card border border-line bg-surface p-4 shadow-soft sm:p-5">{children}</div>
-    </div>
-  );
+  return <div className="on-light rounded-card border border-line bg-surface p-5 shadow-lift sm:p-6">{children}</div>;
 }
 
 function nowMs(): number {

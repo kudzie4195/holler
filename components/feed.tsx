@@ -173,8 +173,8 @@ export function Feed({
               type="button"
               aria-pressed={filter === t.id}
               onClick={() => setFilter(t.id)}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors ${
-                filter === t.id ? 'border-ink bg-ink text-white' : 'border-line bg-surface text-ink hover:border-ink/40'
+              className={`inline-flex min-h-11 items-center gap-2 rounded-control border px-4 text-sm font-medium transition-colors ${
+                filter === t.id ? 'border-brand bg-brand text-on-brand hover:bg-brand-raised' : 'border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand'
               }`}
             >
               {t.label}
@@ -188,7 +188,7 @@ export function Feed({
               type="checkbox"
               checked={showClosed}
               onChange={(e) => setShowClosed(e.target.checked)}
-              className="h-4 w-4 accent-[var(--color-accent)]"
+              className="h-4 w-4 accent-brand"
             />
             Show done and dismissed ({closedCount})
           </label>
@@ -260,7 +260,7 @@ function MatchCard({
             <span>{item.place}</span>
           </>
         ) : null}
-        {item.status === 'saved' ? <StatusBadge tone="accent">Saved</StatusBadge> : null}
+        {item.status === 'saved' ? <StatusBadge tone="brand">Saved</StatusBadge> : null}
         {item.status === 'done' ? <StatusBadge tone="success">Done</StatusBadge> : null}
         {item.status === 'dismissed' ? <StatusBadge>Dismissed</StatusBadge> : null}
       </div>
@@ -273,7 +273,7 @@ function MatchCard({
           {item.aiNote}
         </p>
       ) : null}
-      <h2 className="mt-2 text-lg font-semibold leading-snug text-ink">{item.title}</h2>
+      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
       {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
@@ -284,7 +284,7 @@ function MatchCard({
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink hover:border-ink/40 md:min-h-9"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-sand md:min-h-9"
           >
             Open source
             <span className="sr-only"> (opens in a new tab)</span>
@@ -422,7 +422,7 @@ export function LockedFeed({ items, children }: { items: FeedItem[]; children: R
                 <span className="font-mono text-xs">{item.ago}</span>
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
-              <h2 className="mt-3 text-lg font-semibold leading-snug">{item.title}</h2>
+              <h2 className="h-plain mt-3 text-lg leading-snug">{item.title}</h2>
               <p className="mt-1 text-muted">{item.summary}</p>
               <WhoToContactLocked item={item} />
             </Card>

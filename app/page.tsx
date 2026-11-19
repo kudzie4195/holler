@@ -109,13 +109,13 @@ function HeroLead({ text }: { text: string }) {
 }
 
 /** How it works: one family tint per step (orange, storm blue, sage). Icon on tint: 4.96, 4.44 and 4.01 to 1 (3:1 needed). */
-const STEP_TINT = ['bg-accent-soft text-accent-text', 'bg-sky text-storm', 'bg-sage text-sage-mark'];
+const STEP_TINT = ['bg-accent-soft text-brand-text', 'bg-sky text-storm', 'bg-sage text-sage-mark'];
 
 /** Icon and quiet kind tint for each copy icon name. Tints are the badge colors, so a tile matches the chips on real alerts. */
 const ICON: Record<HomeIcon, { el: (c: string) => ReactNode; tint: string }> = {
-  pin: { el: (c) => <MapPinIcon className={c} />, tint: 'bg-accent-soft text-accent-text' },
-  bell: { el: (c) => <BellIcon className={c} />, tint: 'bg-accent-soft text-accent-text' },
-  envelope: { el: (c) => <EnvelopeIcon className={c} />, tint: 'bg-accent-soft text-accent-text' },
+  pin: { el: (c) => <MapPinIcon className={c} />, tint: 'bg-accent-soft text-brand-text' },
+  bell: { el: (c) => <BellIcon className={c} />, tint: 'bg-accent-soft text-brand-text' },
+  envelope: { el: (c) => <EnvelopeIcon className={c} />, tint: 'bg-accent-soft text-brand-text' },
   storm: { el: (c) => <StormCloudIcon className={c} />, tint: 'bg-kind-alert-bg text-kind-alert-fg' },
   hail: { el: (c) => <HailIcon className={c} />, tint: 'bg-kind-report-bg text-kind-report-fg' },
   flood: { el: (c) => <FloodIcon className={c} />, tint: 'bg-kind-disaster-bg text-kind-disaster-fg' },
@@ -273,7 +273,7 @@ export default async function Home() {
             <li>
               <Link
                 href="/for"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-4 text-sm font-semibold text-accent-text transition-colors duration-150 hover:border-accent"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-4 text-sm font-semibold text-brand-text transition-colors duration-150 hover:border-accent"
               >
                 All trades
                 <ArrowRightIcon className="h-4 w-4" />
@@ -339,9 +339,9 @@ export default async function Home() {
                       href={l.href}
                       className="group flex min-h-14 items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-soft transition-[box-shadow,border-color] duration-150 hover:border-ink/25 hover:shadow-lift"
                     >
-                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text">{l.icon}</span>
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-brand-text">{l.icon}</span>
                       <span className="font-semibold text-ink group-hover:underline group-hover:underline-offset-4">{l.title}</span>
-                      <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-accent-text" />
+                      <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-brand-text" />
                     </Link>
                   </li>
                 ))}

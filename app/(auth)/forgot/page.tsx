@@ -23,7 +23,7 @@ async function Forgot({ searchParams }: { searchParams: PageProps<'/forgot'>['se
       title="Reset your password"
       subtitle="Enter your email and we'll send you a link."
       footer={
-        <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-accent-text underline">
+        <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">
           Back to log in
         </Link>
       }

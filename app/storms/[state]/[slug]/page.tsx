@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/app/local/_components/jsonld';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, PublicRecordsNote, linkClass } from '@/app/local/_components/ui';
+import { ClosingBand, H2, Page, PageHeader, PrimaryLink, PublicRecordsNote, linkClass } from '@/app/local/_components/ui';
 import { stateBySlug } from '@/lib/geo';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd } from '@/lib/seo/jsonld';
@@ -73,32 +73,38 @@ export default async function StormReportPage({ params }: Props) {
   ];
 
   return (
-    <Page>
+    <Page
+      width="wide"
+      header={
+        <PageHeader
+          width="wide"
+          size="md"
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'Storm reports', href: '/storms' }, { name: r.place }]}
+          title={heading}
+          lead={lines.map((l) => (
+            <p key={l} className="leading-relaxed">
+              {l}
+            </p>
+          ))}
+        />
+      }
+    >
       <JsonLd data={ld} />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Storm reports', href: '/storms' }, { name: r.place }]} />
-      <H1>{heading}</H1>
-      <div className="mt-4 max-w-2xl text-lg leading-relaxed">
-        {lines.map((l) => (
-          <p key={l} className="mt-2 first:mt-0">{l}</p>
-        ))}
-      </div>
-      <p className="mt-3 max-w-2xl text-sm text-muted">{r.spcTotal > 0 ? HOW_TO_READ : FEMA_ONLY_NOTE}</p>
+      <p className="max-w-2xl text-muted">{r.spcTotal > 0 ? HOW_TO_READ : FEMA_ONLY_NOTE}</p>
 
-      <div className="mt-8 flex flex-col gap-6">
-        <Card>
+      <div className="mt-10 flex flex-col gap-12">
+        <section aria-labelledby="records">
           <H2 id="records">Source records</H2>
           <div className="mt-4">
             <RecordsTable records={r.records} dateLabel={r.dateLabel} />
           </div>
-        </Card>
+        </section>
 
-        <div className="rounded-xl border border-line bg-surface p-6 text-center">
-          <p className="text-2xl font-semibold tracking-[-0.02em]">{SIGNUP_LINE}</p>
-          <div className="mt-4">
-            <PrimaryLink href="/signup">{stormCtaLabel(TRIAL_DAYS)}</PrimaryLink>
-          </div>
-          <p className="mt-2 text-sm text-muted">No card to start. Holler never posts anything for you.</p>
-        </div>
+        <ClosingBand line={SIGNUP_LINE} note="No card to start. Holler never posts anything for you.">
+          <PrimaryLink href="/signup" onBrand>
+            {stormCtaLabel(TRIAL_DAYS)}
+          </PrimaryLink>
+        </ClosingBand>
 
         <p className="text-sm text-muted">
           Sources:{' '}

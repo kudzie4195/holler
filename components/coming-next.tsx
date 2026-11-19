@@ -51,18 +51,18 @@ export function ComingNext({ page, initialPicked = [], className = '' }: { page:
 
   return (
     <section aria-labelledby={headingId} className={className}>
-      <h2 id={headingId} className="text-2xl text-ink md:text-3xl">
+      <h2 id={headingId} className="text-3xl text-ink md:text-4xl">
         {COMING_NEXT.heading}
       </h2>
       <p className="mt-2 text-muted">{COMING_NEXT.intro}</p>
-      <ul className="mt-6 flex flex-col gap-3">
+      <ul className="mt-6 border-t-2 border-ink">
         {FEATURES.map((f) => {
           const isPicked = picked.has(f.id);
           return (
-            <li key={f.id} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+            <li key={f.id} className="flex flex-col gap-3 border-b border-line py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
               <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-ink">{f.label}</h3>
-                <p className="mt-1 text-ink/90">{f.description}</p>
+                <p className="mt-1 text-muted">{f.description}</p>
               </div>
               <Button
                 variant={isPicked ? 'ghost' : 'secondary'}

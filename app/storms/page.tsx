@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JsonLd } from '@/app/local/_components/jsonld';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, PublicRecordsNote, linkClass } from '@/app/local/_components/ui';
+import { ClosingBand, FamilyMark, H2, Ledger, Page, PageHeader, PrimaryLink, PublicRecordsNote, linkClass, rowLinkClass } from '@/app/local/_components/ui';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd } from '@/lib/seo/jsonld';
 import { countList } from '@/lib/storms/copy';
@@ -60,70 +60,78 @@ export default async function StormsIndexPage() {
   }
 
   return (
-    <Page>
+    <Page
+      header={
+        <PageHeader
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'Storm reports' }]}
+          title="Recent storm reports by county"
+          size="md"
+          lead={
+            <p>
+              A county is listed when the NOAA Storm Prediction Center logs at least 3 hail, wind or tornado reports there on one day, or when
+              FEMA declares a storm disaster for a state. The list covers the last 60 days, newest first.
+            </p>
+          }
+        />
+      }
+    >
       <JsonLd data={ld} />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Storm reports' }]} />
-      <H1>Recent storm reports by county</H1>
-      <p className="mt-4 max-w-2xl text-lg text-muted">
-        A county is listed when the NOAA Storm Prediction Center logs at least 3 hail, wind or tornado reports there on one day, or when
-        FEMA declares a storm disaster for a state. The list covers the last 60 days, newest first.
-      </p>
 
       {!data.ok ? (
-        <div className="mt-8">
-          <Card>
-            <H2 id="empty">Storm reports are not loading</H2>
-            <p className="mt-2 text-muted">Holler could not read its records just now. Try again in a few minutes.</p>
-          </Card>
-        </div>
+        <section aria-labelledby="empty">
+          <H2 id="empty">Storm reports are not loading</H2>
+          <p className="mt-2 text-muted">Holler could not read its records just now. Try again in a few minutes.</p>
+        </section>
       ) : !live ? (
-        <div className="mt-8">
-          <Card>
-            <H2 id="empty">No county has enough reports right now</H2>
-            <p className="mt-2 text-muted">
-              {reports.length === 0
-                ? 'No county or FEMA declaration meets the bar in the last 60 days.'
-                : `Only ${reports.length} ${reports.length === 1 ? 'place meets' : 'places meet'} the bar in the last 60 days, so Holler is not listing a page for it in search yet.`}{' '}
-              This list fills in when a storm day produces enough reports.
-            </p>
-            {reports.length > 0 ? (
-              <ul className="mt-4">
-                {shown.map((r) => (
-                  <li key={`${r.state}-${r.slug}`} className="border-t border-line">
-                    <Link href={reportPath(r)} className={`${linkClass} inline-flex min-h-11 items-center`}>
-                      {r.place} on {r.dateLabel}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </Card>
-        </div>
+        <section aria-labelledby="empty">
+          <H2 id="empty">No county has enough reports right now</H2>
+          <p className="mt-2 max-w-2xl text-muted">
+            {reports.length === 0
+              ? 'No county or FEMA declaration meets the bar in the last 60 days.'
+              : `Only ${reports.length} ${reports.length === 1 ? 'place meets' : 'places meet'} the bar in the last 60 days, so Holler is not listing a page for it in search yet.`}{' '}
+            This list fills in when a storm day produces enough reports.
+          </p>
+          {reports.length > 0 ? (
+            <Ledger className="mt-4">
+              {shown.map((r) => (
+                <li key={`${r.state}-${r.slug}`}>
+                  <Link href={reportPath(r)} className={`${rowLinkClass} flex min-h-12 items-center`}>
+                    {r.place} on {r.dateLabel}
+                  </Link>
+                </li>
+              ))}
+            </Ledger>
+          ) : null}
+        </section>
       ) : (
         <>
-          <ul className="mt-8 flex flex-col">
+          <FamilyMark family="weather">Weather</FamilyMark>
+          <Ledger className="mt-3">
             {shown.map((r) => (
-              <li key={`${r.state}-${r.slug}`} className="border-t border-line py-3">
-                <Link href={reportPath(r)} className={`${linkClass} inline-flex min-h-11 items-center text-lg font-medium`}>
+              <li key={`${r.state}-${r.slug}`} className="flex flex-wrap items-baseline justify-between gap-x-6 py-2">
+                <Link href={reportPath(r)} className={`${rowLinkClass} inline-flex min-h-11 items-center text-lg font-semibold`}>
                   {r.place}
                 </Link>
-                <p className="text-sm text-muted">
+                <p className="pb-2 font-mono text-xs uppercase tracking-[0.04em] text-storm-ink">
                   {r.dateLabel}
                   {r.kind === 'state' ? ', FEMA storm declaration' : `, ${r.spcTotal} storm reports (${countList(r)})`}
                 </p>
               </li>
             ))}
-          </ul>
+          </Ledger>
           {reports.length > shown.length ? <p className="mt-3 text-sm text-muted">Showing the newest {shown.length} of {reports.length}.</p> : null}
         </>
       )}
 
-      <div className="mt-10 rounded-xl border border-line bg-surface p-6 text-center">
-        <p className="text-2xl font-semibold tracking-[-0.02em]">Know first when a storm hits near you.</p>
-        <p className="mt-2 text-muted">Holler alerts roofers, tree services and other local trades when storm reports come in near them.</p>
-        <div className="mt-4">
-          <PrimaryLink href="/signup">{stormCtaLabel(TRIAL_DAYS)}</PrimaryLink>
-        </div>
+      <div className="mt-14">
+        <ClosingBand
+          line="Know first when a storm hits near you."
+          note="Holler alerts roofers, tree services and other local trades when storm reports come in near them."
+        >
+          <PrimaryLink href="/signup" onBrand>
+            {stormCtaLabel(TRIAL_DAYS)}
+          </PrimaryLink>
+        </ClosingBand>
       </div>
       <p className="mt-6 text-sm text-muted">
         Sources:{' '}

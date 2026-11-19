@@ -31,7 +31,7 @@ export function DeleteAccount() {
         <Button
           type="submit"
           disabled={pending}
-          className="!bg-danger !text-white hover:!bg-danger/90"
+          className="!bg-danger !text-surface hover:!bg-danger/90"
         >
           {pending ? 'Deleting...' : 'Yes, delete everything'}
         </Button>

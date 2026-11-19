@@ -6,7 +6,7 @@ import { loadMemberPicks } from '@/lib/interest/deps';
 async function MemberList() {
   const user = await getUser();
   const picks = user ? await loadMemberPicks(user.id) : [];
-  return <ComingNext page="app" initialPicked={picks} className="mt-12 border-t border-line pt-10" />;
+  return <ComingNext page="app" initialPicked={picks} className="mt-12 pt-2" />;
 }
 
 /**

@@ -15,7 +15,7 @@ import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/seo/view';
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote, tintCardClass } from '../../_components/ui';
+import { ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
 
@@ -100,113 +100,119 @@ export default async function CityPage({ params }: Props) {
   if (listItems.length) ld.push(itemListLd(`Recent public records for ${place}`, listItems));
 
   return (
-    <Page>
+    <Page
+      header={
+        <PageHeader
+          size="md"
+          crumbs={[
+            { name: 'Home', href: '/' },
+            { name: 'Local', href: '/local' },
+            { name: st.name, href: `/local/${st.slug}` },
+            { name: place },
+          ]}
+          title={buildH1(city, data)}
+          lead={summary ? <p className="text-xl font-medium leading-snug text-on-brand">{summary}</p> : null}
+          meta={
+            summary ? (
+              <>
+                Counts computed <time dateTime={data.asOf}>{fmtDate(data.asOf)}</time>
+              </>
+            ) : null
+          }
+        >
+          <PrimaryLink href={ctaHref} onBrand>
+            {ctaLabel}
+          </PrimaryLink>
+          <p className="mt-2 text-sm text-on-brand-muted">No card to start. Holler never posts anything for you.</p>
+        </PageHeader>
+      }
+    >
       <JsonLd data={ld} />
-      <Crumbs
-        items={[
-          { name: 'Home', href: '/' },
-          { name: 'Local', href: '/local' },
-          { name: st.name, href: `/local/${st.slug}` },
-          { name: place },
-        ]}
-      />
-      <H1>{buildH1(city, data)}</H1>
-      {summary ? (
-        <>
-          <p className="mt-4 max-w-2xl text-xl font-medium leading-snug">{summary}</p>
-          <p className="mt-1 text-sm text-muted">
-            Counts computed <time dateTime={data.asOf} className="font-mono">{fmtDate(data.asOf)}</time>.
-          </p>
-        </>
+      <p className="max-w-2xl text-lg leading-relaxed">{intro}</p>
+      {data.ok || weeks ? (
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-muted">
+          {data.ok ? (
+            <p>
+              Last refreshed{' '}
+              <time dateTime={data.asOf} className="font-mono text-ink">
+                {fmtDateTime(data.asOf)}
+              </time>
+            </p>
+          ) : null}
+          {weeks ? (
+            <p className="flex flex-wrap items-center gap-x-5">
+              <span className="eyebrow">Records by week:</span>
+              <Link href={weekPath(path, weeks.thisWeek)} className={`${linkClass} inline-flex min-h-11 items-center text-ink`}>
+                This week
+              </Link>
+              <Link href={weekPath(path, weeks.lastWeek)} className={`${linkClass} inline-flex min-h-11 items-center text-ink`}>
+                Last week
+              </Link>
+            </p>
+          ) : null}
+        </div>
       ) : null}
-      <p className="mt-4 max-w-2xl text-lg leading-relaxed">{intro}</p>
-      {data.ok ? (
-        <p className="mt-2 text-sm text-muted">
-          Last refreshed <time dateTime={data.asOf} className="font-mono">{fmtDateTime(data.asOf)}</time>
-        </p>
-      ) : null}
-      {weeks ? (
-        <p className="mt-3 flex flex-wrap items-center gap-x-5 text-sm text-muted">
-          <span>Records by week:</span>
-          <Link href={weekPath(path, weeks.thisWeek)} className={`${linkClass} inline-flex min-h-11 items-center`}>
-            This week
-          </Link>
-          <Link href={weekPath(path, weeks.lastWeek)} className={`${linkClass} inline-flex min-h-11 items-center`}>
-            Last week
-          </Link>
-        </p>
-      ) : null}
-      <div className="mt-6">
-        <PrimaryLink href={ctaHref}>{ctaLabel}</PrimaryLink>
-        <p className="mt-2 text-sm text-muted">No card to start. Holler never posts anything for you.</p>
-      </div>
 
-      <div className="mt-10 flex flex-col gap-6">
-        {visible.map((s, i) => {
+      <div className="mt-12 flex flex-col gap-14">
+        {visible.map((s) => {
           const items = data.sections[s.id] ?? [];
-          return (
-            <SectionCard key={s.id} def={s} items={items} total={data.counts[s.id] ?? items.length} asOf={data.asOf} tinted={i === 0} />
-          );
+          return <SectionCard key={s.id} def={s} items={items} total={data.counts[s.id] ?? items.length} asOf={data.asOf} />;
         })}
 
         {helps ? (
-          <Card className={visible.length === 0 ? tintCardClass('weather') : ''}>
+          <section aria-labelledby="who-this-helps">
             <H2 id="who-this-helps">{helps.heading}</H2>
-            <p className="mt-1 text-sm text-muted">
-              Number of records tagged to each trade. A record can help more than one trade.
-            </p>
-            <ul className="mt-4 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+            <p className="mt-2 text-muted">Number of records tagged to each trade. A record can help more than one trade.</p>
+            <Ledger className="mt-4 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
               {helps.rows.map((row) => (
-                <li key={row.id} className="flex items-baseline justify-between gap-4 border-t border-line py-2">
+                <li key={row.id} className="flex min-h-12 items-baseline justify-between gap-4 py-1">
                   <span>
                     {tradeEntry(row.id) ? (
                       <Link href={tradePath(row.id)} className={`${linkClass} inline-flex min-h-11 items-center font-medium`}>
                         {row.label}
                       </Link>
                     ) : (
-                      <span className="font-medium">{row.label}</span>
+                      <span className="inline-flex min-h-11 items-center font-medium">{row.label}</span>
                     )}
-                    {row.from ? <span className="block text-sm text-muted">from {row.from}</span> : null}
+                    {row.from ? <span className="block pb-2 text-sm text-muted">from {row.from}</span> : null}
                   </span>
                   <span className="font-mono text-sm">{row.count.toLocaleString('en-US')}</span>
                 </li>
               ))}
-            </ul>
-          </Card>
+            </Ledger>
+          </section>
         ) : null}
 
-        {/* With no records and no trade counts, the FAQ is the first block: weather tint, since weather alerts cover every city. */}
-        <Card className={visible.length === 0 && !helps ? tintCardClass('weather') : ''}>
+        <section aria-labelledby="faq">
           <H2 id="faq">Questions about {place}</H2>
-          <dl className="mt-4 flex flex-col gap-4">
+          <Ledger as="dl" className="mt-4">
             {faq.map((f) => (
-              <div key={f.q}>
-                <dt className="font-medium">{f.q}</dt>
+              <div key={f.q} className="py-5">
+                <dt className="text-lg font-semibold">{f.q}</dt>
                 <dd className="mt-1 text-muted">{f.a}</dd>
               </div>
             ))}
-          </dl>
-        </Card>
+          </Ledger>
+        </section>
 
-        <div className="rounded-xl border border-line bg-surface p-6 text-center">
-          <p className="text-2xl font-semibold tracking-[-0.02em]">Know first when {city.name} needs you.</p>
-          <div className="mt-4">
-            <PrimaryLink href={ctaHref}>{ctaLabel}</PrimaryLink>
-          </div>
-        </div>
+        <ClosingBand line={<>Know first when {city.name} needs you.</>}>
+          <PrimaryLink href={ctaHref} onBrand>
+            {ctaLabel}
+          </PrimaryLink>
+        </ClosingBand>
 
         {nearby.length ? (
           <section aria-labelledby="nearby">
             <H2 id="nearby">Nearby cities</H2>
-            <ul className="mt-3 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
+            <Ledger className="mt-4 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
               {nearby.map((c) => (
-                <li key={c.slug} className="border-t border-line">
-                  <Link href={cityPath(c)} className={`${linkClass} inline-flex min-h-11 items-center`}>
+                <li key={c.slug}>
+                  <Link href={cityPath(c)} className={`${rowLinkClass} flex min-h-12 items-center`}>
                     {c.name}, {c.state}
                   </Link>
                 </li>
               ))}
-            </ul>
+            </Ledger>
           </section>
         ) : null}
 

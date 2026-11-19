@@ -191,12 +191,12 @@ export default async function AppHome(props: PageProps<'/app'>) {
 
   return (
     <>
-      <h1 className="text-4xl text-ink">Your matches</h1>
+      <h1 className="text-5xl text-ink">Your matches</h1>
       <p className="mt-2 text-muted">
         {profile.business_name}, within <span className="font-mono tabular-nums">{profile.radius_mi}</span> mi of{' '}
         {profile.city && profile.state ? `${profile.city}, ${profile.state}` : profile.zip}.{' '}
         {cityPage ? (
-          <Link href={cityPage.href} className="font-medium text-accent-text underline">
+          <Link href={cityPage.href} className="font-medium text-brand-text underline">
             See what&apos;s happening in {cityPage.label}
           </Link>
         ) : null}
@@ -222,7 +222,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
         ) : access.locked ? (
           <LockedFeed items={items}>
             <Card className="text-center">
-              <h2 className="text-2xl text-ink">Your free trial is over</h2>
+              <h2 className="h-plain text-2xl text-ink">Your free trial is over</h2>
               <p className="mt-2 text-muted">
                 {items.length > 0
                   ? `${items.length} ${items.length === 1 ? 'match is' : 'matches are'} waiting. `
@@ -240,7 +240,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
                 >
                   Keep alerts for {priceLabel('starter', 'monthly')}/mo
                 </BillingButton>
-                <Link href="/app/settings#billing-h" className="text-sm font-medium text-accent-text underline">
+                <Link href="/app/settings#billing-h" className="text-sm font-medium text-brand-text underline">
                   See both plans and yearly prices
                 </Link>
               </div>
@@ -278,7 +278,7 @@ function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
             </strong>{' '}
             in your free trial. Plans start at {priceLabel('starter', 'monthly')} a month.
           </span>
-          <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline md:min-h-9">
+          <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
             Pick a plan
           </Link>
         </div>

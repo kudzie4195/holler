@@ -2,21 +2,36 @@ import { sourceInfo } from '@/lib/seo/sources';
 import type { SectionDef } from '@/lib/seo/sections';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { fmtItemTime } from '@/lib/seo/view';
-import { Card, H2, linkClass, tintCardClass, type CardFamily } from './ui';
+import { FamilyMark, H2, Ledger, linkClass, type Family } from './ui';
 
 /** Record family of a city-page section, same mapping as the --color-kind-* tokens. */
-export function sectionFamily(id: string): CardFamily {
+export function sectionFamily(id: string): Family {
   if (id === 'alerts' || id === 'storm' || id === 'disasters') return 'weather';
   if (id === 'permits' || id === 'contracts') return 'spending';
   return 'civic';
 }
 
+const FAMILY_LABEL: Record<Family, string> = { weather: 'Weather', spending: 'Permits and spending', civic: '311 and city' };
+
 /** One cited record: source (linked to its home page), time, title linked to the record, two line summary. Shared by city and weekly pages. */
 export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; asOf: string }) {
   const src = sourceInfo(item.source);
   return (
-    <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+    <li className="py-4">
+      <p className="font-medium leading-snug">
+        {item.url ? (
+          <a href={item.url} target="_blank" rel={ask ? 'nofollow ugc noopener' : 'noopener'} className={linkClass}>
+            {item.title}
+          </a>
+        ) : (
+          item.title
+        )}
+      </p>
+      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[15px] text-muted">{item.summary}</p> : null}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+        <time dateTime={item.occurredAt} className="font-mono text-xs uppercase tracking-[0.04em] text-ink">
+          {fmtItemTime(item.occurredAt, asOf)}
+        </time>
         <span>
           Source:{' '}
           {src.homeUrl ? (
@@ -27,67 +42,53 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
             src.label
           )}
         </span>
-        <time dateTime={item.occurredAt} className="font-mono">
-          {fmtItemTime(item.occurredAt, asOf)}
-        </time>
-      </div>
-      <p className="mt-1 font-medium leading-snug">
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel={ask ? 'nofollow ugc noopener' : 'noopener'}
-            className={linkClass}
-          >
-            {item.title}
-          </a>
-        ) : (
-          item.title
-        )}
       </p>
-      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[15px] text-muted">{item.summary}</p> : null}
     </li>
   );
 }
 
-/** A section card with its heading, count, blurb and rows. `lowerBound` writes "at least" before the count. */
+/**
+ * A record section as a ruled ledger: family mark and count, heading, blurb, then the rows. `lowerBound` writes "at least" before
+ * the count. The family mark (shape plus colour plus a word) replaces the round 8 tinted first card.
+ */
 export function SectionCard({
   def,
   items,
   total,
   asOf,
   lowerBound = false,
-  tinted = false,
 }: {
   def: Pick<SectionDef, 'id' | 'title' | 'blurb'>;
   items: SectionItem[];
   total: number;
   asOf: string;
   lowerBound?: boolean;
-  /** First content block on a city page: tinted in its family color. */
+  /** Kept for callers from round 8; every section now carries its family mark. */
   tinted?: boolean;
 }) {
+  const family = sectionFamily(def.id);
   return (
-    <Card className={tinted ? tintCardClass(sectionFamily(def.id)) : ''}>
-      <H2 id={def.id}>
+    <section aria-labelledby={def.id}>
+      <FamilyMark family={family}>{FAMILY_LABEL[family]}</FamilyMark>
+      <H2 id={def.id} className="mt-2">
         {def.title}{' '}
-        <span className="font-mono text-base font-normal text-muted">
+        <span className="font-mono text-base font-medium normal-case tracking-normal text-muted">
           ({lowerBound ? 'at least ' : ''}
           {total.toLocaleString('en-US')})
         </span>
       </H2>
-      <p className="mt-1 text-sm text-muted">{def.blurb}</p>
-      <ul className="mt-4">
+      <p className="mt-2 text-muted">{def.blurb}</p>
+      <Ledger className="mt-4">
         {items.map((it) => (
           <ItemRow key={it.id} item={it} ask={def.id === 'asks'} asOf={asOf} />
         ))}
-      </ul>
+      </Ledger>
       {total > items.length ? (
         <p className="mt-3 text-sm text-muted">
           Showing the {items.length} most recent of {lowerBound ? 'at least ' : ''}
           {total.toLocaleString('en-US')}.
         </p>
       ) : null}
-    </Card>
+    </section>
   );
 }

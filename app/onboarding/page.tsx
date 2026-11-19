@@ -70,7 +70,7 @@ function FormSkeleton() {
       <div className="skeleton h-11 w-full" />
       <div className="mt-7 flex flex-wrap gap-2">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="skeleton h-11 w-24 !rounded-full" />
+          <div key={i} className="skeleton h-11 w-24 !rounded-control" />
         ))}
       </div>
       <div className="skeleton mt-7 h-11 w-full" />

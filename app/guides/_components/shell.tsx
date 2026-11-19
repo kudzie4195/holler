@@ -3,14 +3,19 @@ import type { ReactNode } from 'react';
 import { Footer, TopNav } from '@/components';
 import { parseInline, isExternal } from '@/lib/seo/guides/inline';
 import { jsonLdString } from '@/lib/seo/serialize';
+import { WIDTH } from '@/components/page-header';
 
-/** Shared frame for /guides, /faq and /data: nav, one main landmark, footer. */
-export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+/**
+ * Shared frame for /guides, /faq and /data: nav, one main landmark, footer. `header` is the green title band (a PageHeader) at full
+ * width; the text column below uses the same width. Reading pages keep a 60 to 75 character measure (max-w-2xl at 16 px).
+ */
+export function Shell({ children, header, wide = false }: { children: ReactNode; header?: ReactNode; wide?: boolean }) {
   return (
     <>
       <TopNav />
-      <main id="main" className={`mx-auto w-full ${wide ? 'max-w-3xl' : 'max-w-2xl'} px-5 pb-20 pt-10 md:pt-14`}>
-        {children}
+      <main id="main" className="w-full flex-1">
+        {header}
+        <div className={`mx-auto w-full ${wide ? WIDTH.base : WIDTH.narrow} px-5 pb-20 pt-10 md:pt-12`}>{children}</div>
       </main>
       <Footer />
     </>
@@ -21,47 +26,31 @@ export function JsonLd({ data }: { data: Record<string, unknown> | Record<string
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(data) }} />;
 }
 
-export function Crumbs({ items }: { items: { name: string; href?: string }[] }) {
-  return (
-    <nav aria-label="Breadcrumb" className="mb-3 text-sm text-muted">
-      <ol className="flex flex-wrap items-center gap-x-2">
-        {items.map((c, i) => (
-          <li key={c.name} className="flex items-center gap-2">
-            {c.href ? (
-              <Link href={c.href} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-ink">
-                {c.name}
-              </Link>
-            ) : (
-              <span aria-current="page" className="inline-flex min-h-11 items-center">
-                {c.name}
-              </span>
-            )}
-            {i < items.length - 1 ? <span aria-hidden="true">/</span> : null}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
+export { Crumbs, PageHeader } from '@/components/page-header';
 
-export const proseLink = 'font-medium text-accent-text underline underline-offset-2 hover:text-ink';
+/** Link inside running text on light: brand-text, 6.57:1 or better on every light surface. */
+export const proseLink = 'font-medium text-brand-text underline decoration-1 underline-offset-4 hover:text-ink';
+
+/** The same link inside a green (.on-brand) block: on-brand text, 11.3:1 on brand. */
+export const proseLinkOnBrand = 'font-medium text-on-brand underline decoration-1 underline-offset-4 hover:text-signal';
 
 /** Text with [label](href) links. "/" links stay on the site, "https://" links open the official source. */
-export function Inline({ text }: { text: string }) {
+export function Inline({ text, onBrand = false }: { text: string; onBrand?: boolean }) {
+  const cls = onBrand ? proseLinkOnBrand : proseLink;
   return (
     <>
       {parseInline(text).map((p, i) => {
         if (!p.href) return <span key={i}>{p.text}</span>;
         if (isExternal(p.href)) {
           return (
-            <a key={i} href={p.href} target="_blank" rel="noopener" className={proseLink}>
+            <a key={i} href={p.href} target="_blank" rel="noopener" className={cls}>
               {p.text}
               <span className="sr-only"> (opens in a new tab)</span>
             </a>
           );
         }
         return (
-          <Link key={i} href={p.href} className={proseLink}>
+          <Link key={i} href={p.href} className={cls}>
             {p.text}
           </Link>
         );

@@ -1,4 +1,4 @@
-import { linkClass } from '@/app/local/_components/ui';
+import { FamilyDot, linkClass } from '@/app/local/_components/ui';
 import type { RecordType, StormRecord } from '@/lib/storms/report';
 
 export const TABLE_CAP = 100;
@@ -13,24 +13,29 @@ export function RecordsTable({ records, dateLabel }: { records: StormRecord[]; d
         <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
           <caption className="sr-only">Source records for {dateLabel}</caption>
           <thead>
-            <tr className="border-b border-line text-muted">
-              <th scope="col" className="py-2 pr-4 font-medium">Type</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Time</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Place</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Detail</th>
-              <th scope="col" className="py-2 font-medium">Official source</th>
+            <tr className="border-t-2 border-b border-t-ink border-b-line font-mono text-xs uppercase tracking-[0.06em] text-muted">
+              <th scope="col" className="py-2.5 pr-4 font-medium">Type</th>
+              <th scope="col" className="py-2.5 pr-4 font-medium">Time</th>
+              <th scope="col" className="py-2.5 pr-4 font-medium">Place</th>
+              <th scope="col" className="py-2.5 pr-4 font-medium">Detail</th>
+              <th scope="col" className="py-2.5 font-medium">Official source</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((r, i) => (
               <tr key={`${r.at}-${r.type}-${i}`} className="border-b border-line align-top">
-                <td className="py-2 pr-4 font-medium">{TYPE_LABEL[r.type]}</td>
-                <td className="py-2 pr-4 font-mono">
+                <td className="py-2.5 pr-4 font-medium">
+                  <span className="inline-flex items-center gap-2">
+                    <FamilyDot family="weather" />
+                    {TYPE_LABEL[r.type]}
+                  </span>
+                </td>
+                <td className="py-2.5 pr-4 font-mono">
                   <time dateTime={r.at}>{r.timeLabel || 'Date only'}</time>
                 </td>
-                <td className="py-2 pr-4">{r.place}</td>
-                <td className="py-2 pr-4">{r.detail ?? 'Not stated'}</td>
-                <td className="py-2">
+                <td className="py-2.5 pr-4">{r.place}</td>
+                <td className="py-2.5 pr-4">{r.detail ?? 'Not stated'}</td>
+                <td className="py-2.5">
                   {r.url ? (
                     <a href={r.url} target="_blank" rel="noopener" className={linkClass}>
                       {r.source === 'fema' ? 'FEMA' : 'NOAA SPC'}

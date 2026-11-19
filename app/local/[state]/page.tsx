@@ -7,7 +7,7 @@ import { loadPlaceCounts } from '@/lib/seo/data';
 import { breadcrumbLd, itemListLd } from '@/lib/seo/jsonld';
 import { WINDOW_DAYS } from '@/lib/seo/threshold';
 import { JsonLd } from '../_components/jsonld';
-import { Crumbs, H1, Page, linkClass } from '../_components/ui';
+import { Ledger, Page, PageHeader, rowLinkClass } from '../_components/ui';
 
 type Props = { params: Promise<{ state: string }> };
 
@@ -41,7 +41,20 @@ export default async function StatePage({ params }: Props) {
   const showCounts = pc.ok;
 
   return (
-    <Page>
+    <Page
+      header={
+        <PageHeader
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'Local', href: '/local' }, { name: st.name }]}
+          title={<>What&apos;s happening in {st.name}</>}
+          lead={
+            <p>
+              {cities.length} {cities.length === 1 ? 'city' : 'cities'} with 50,000 or more people, biggest first.
+              {showCounts ? ` Counts show public records tagged to each city in the last ${WINDOW_DAYS} days.` : ''}
+            </p>
+          }
+        />
+      }
+    >
       <JsonLd
         data={[
           breadcrumbLd([
@@ -55,18 +68,12 @@ export default async function StatePage({ params }: Props) {
           ),
         ]}
       />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Local', href: '/local' }, { name: st.name }]} />
-      <H1>What&apos;s happening in {st.name}</H1>
-      <p className="mt-4 max-w-2xl text-lg text-muted">
-        {cities.length} {cities.length === 1 ? 'city' : 'cities'} with 50,000 or more people, biggest first.
-        {showCounts ? ` Counts show public records tagged to each city in the last ${WINDOW_DAYS} days.` : ''}
-      </p>
-      <ul className="mt-8 grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+      <Ledger className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
         {cities.map((c) => {
           const n = pc.counts[c.slug] ?? 0;
           return (
-            <li key={c.slug} className="border-t border-line py-1">
-              <Link href={cityPath(c)} className={`${linkClass} inline-flex min-h-11 w-full items-center justify-between gap-4`}>
+            <li key={c.slug}>
+              <Link href={cityPath(c)} className={`${rowLinkClass} flex min-h-12 w-full items-center justify-between gap-4 py-1`}>
                 <span className="text-lg font-medium">{c.name}</span>
                 {showCounts && n > 0 ? (
                   <span className="font-mono text-sm text-muted">
@@ -78,7 +85,7 @@ export default async function StatePage({ params }: Props) {
             </li>
           );
         })}
-      </ul>
+      </Ledger>
     </Page>
   );
 }

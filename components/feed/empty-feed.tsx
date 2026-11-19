@@ -46,7 +46,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
   return (
     <div className="flex flex-col gap-6" data-testid="empty-feed">
       <section aria-labelledby="empty-feed-h" className="rounded-card border border-line bg-surface p-5 shadow-soft md:p-6">
-        <h2 id="empty-feed-h" className="text-2xl text-ink">
+        <h2 id="empty-feed-h" className="h-plain text-2xl text-ink">
           Nothing has matched yet
         </h2>
         <p className="mt-2 text-muted">
@@ -57,7 +57,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
 
       {check ? (
         <section aria-labelledby="empty-check-h">
-          <h2 id="empty-check-h" className="text-xl font-semibold text-ink">
+          <h2 id="empty-check-h" className="h-plain text-xl text-ink">
             The free area check for {place}
           </h2>
           {check.uncovered ? (
@@ -91,7 +91,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
                         </p>
                         <p className="mt-1 text-sm text-muted">
                           {href ? (
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-accent-text underline md:min-h-9">
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline md:min-h-9">
                               Source: {sourceLabel(it.source)}
                               <span className="sr-only"> (opens in a new tab)</span>
                             </a>
@@ -107,7 +107,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
             </>
           )}
           {checkHref && !check.uncovered ? (
-            <Link href={checkHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline md:min-h-9">
+            <Link href={checkHref} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
               Open the full area check
             </Link>
           ) : null}
@@ -115,7 +115,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
       ) : null}
 
       <section aria-labelledby="empty-watch-h" className="rounded-card border border-line bg-surface p-5 shadow-soft md:p-6">
-        <h2 id="empty-watch-h" className="text-xl font-semibold text-ink">
+        <h2 id="empty-watch-h" className="h-plain text-xl text-ink">
           What Holler is watching near you
         </h2>
         {data.local.length > 0 ? (
@@ -140,7 +140,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
           <p className="mt-5 text-muted" data-testid="plan-limited">
             Your plan sends alerts for {data.planTrades} of your saved trades. Not included now:{' '}
             {listWords(data.planLimited.map((t) => tradeLabel(t)))}.{' '}
-            <Link href="/app/settings#billing-h" className="font-semibold text-accent-text underline">
+            <Link href="/app/settings#billing-h" className="font-semibold text-brand-text underline">
               See plans
             </Link>
           </p>
@@ -169,7 +169,7 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
                 </li>
               ))}
             </ul>
-            <Link href="/app/settings" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline md:min-h-9">
+            <Link href="/app/settings" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
               Add a trade in Settings
             </Link>
           </>

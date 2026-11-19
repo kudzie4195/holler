@@ -16,13 +16,13 @@ export function RecentActivityView({ preview }: { preview: RecentPreview }) {
   const empty = preview.total <= 0 || lines.length === 0;
   return (
     <section aria-labelledby="recent-activity-h" className="rounded-card border border-line bg-surface p-5 shadow-soft md:p-6">
-      <h2 id="recent-activity-h" className="text-xl font-semibold text-ink">
+      <h2 id="recent-activity-h" className="h-plain text-xl text-ink">
         Near you in the last 90 days
       </h2>
       {empty ? (
         <>
           <p className="mt-3 text-muted">{RECENT_EMPTY}</p>
-          <Link href="/app/settings" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-accent-text underline md:min-h-9">
+          <Link href="/app/settings" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
             Open Settings
           </Link>
         </>

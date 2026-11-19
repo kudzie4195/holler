@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ComingNext } from '@/components/coming-next';
 import { Footer } from '@/components/footer';
+import { PageHeader } from '@/components/page-header';
 import { Pricing } from '@/components/pricing';
 import { TopNav } from '@/components/top-nav';
 import { faqLd } from '@/lib/seo/jsonld';
@@ -22,19 +23,16 @@ export default function PricingPage() {
     <>
       <TopNav />
       <main id="main" className="w-full flex-1">
-        <div className="hero-paper border-b border-line">
-          <div className="mx-auto w-full max-w-5xl px-5 pb-10 pt-12 md:pb-14 md:pt-16">
-            <h1 className="text-4xl text-ink md:text-[2.75rem]">Holler pricing</h1>
-            <div className="mt-4 flex max-w-2xl flex-col gap-2 text-lg text-muted">
-              {PRICING_INTRO.map((t) => (
-                <p key={t}>{t}</p>
-              ))}
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          width="wide"
+          eyebrow={`${TIER_NAMES.starter} and ${TIER_NAMES.pro}`}
+          title="Holler pricing"
+          lead={PRICING_INTRO.map((t) => (
+            <p key={t}>{t}</p>
+          ))}
+        />
 
-        {/* Sage band behind the plans. Text on sage: ink 15.0, muted 6.0, accent-text 4.95 to 1; Solo's accent top edge 3.0 to 1. */}
-        <section aria-labelledby="plans-h" className="border-b border-line bg-sage">
+        <section aria-labelledby="plans-h" className="bg-background">
           <div className="mx-auto w-full max-w-5xl px-5 py-12 md:py-16">
             <h2 id="plans-h" className="sr-only">
               Plans
@@ -44,34 +42,34 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section aria-labelledby="compare-h" className="border-y border-line bg-surface">
+        <section aria-labelledby="compare-h" className="bg-sand">
           <div className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
-            <h2 id="compare-h" className="text-2xl text-ink md:text-3xl">
+            <h2 id="compare-h" className="text-3xl text-ink md:text-4xl">
               {TIER_NAMES.starter} and {TIER_NAMES.pro} side by side
             </h2>
-            <div className="mt-6 overflow-x-auto rounded-card border border-line">
-              <table className="w-full text-left text-base">
-                <thead className="bg-background text-sm">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 font-semibold text-muted">
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full border-collapse border-t-2 border-ink text-left text-base">
+                <thead>
+                  <tr className="border-b border-line font-mono text-xs uppercase tracking-[0.06em]">
+                    <th scope="col" className="py-3 pr-4 font-medium text-muted">
                       <span className="sr-only">Feature</span>
                     </th>
-                    <th scope="col" className="px-4 py-3 font-semibold text-ink">
+                    <th scope="col" className="px-4 py-3 font-medium text-ink">
                       {TIER_NAMES.starter}
                     </th>
-                    <th scope="col" className="px-4 py-3 font-semibold text-accent-text">
+                    <th scope="col" className="px-4 py-3 font-medium text-brand-text">
                       {TIER_NAMES.pro}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {COMPARISON.map(([label, s, p]) => (
-                    <tr key={label} className="border-t border-line">
-                      <th scope="row" className="px-4 py-3 font-medium text-ink">
+                    <tr key={label} className="border-b border-line">
+                      <th scope="row" className="py-3 pr-4 font-medium text-ink">
                         {label}
                       </th>
-                      <td className="px-4 py-3 font-mono tabular-nums text-ink">{s}</td>
-                      <td className="px-4 py-3 font-mono tabular-nums text-ink">{p}</td>
+                      <td className="px-4 py-3 tabular-nums text-ink">{s}</td>
+                      <td className="px-4 py-3 tabular-nums text-ink">{p}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -84,21 +82,21 @@ export default function PricingPage() {
           <ComingNext page="pricing" />
         </div>
 
-        <section aria-labelledby="faq-h" className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
-          <h2 id="faq-h" className="text-2xl text-ink md:text-3xl">
+        <section aria-labelledby="faq-h" className="mx-auto w-full max-w-3xl px-5 pb-16 md:pb-20">
+          <h2 id="faq-h" className="text-3xl text-ink md:text-4xl">
             Billing questions
           </h2>
-          <dl className="mt-6 flex flex-col gap-6">
+          <dl className="mt-6 border-t-2 border-ink">
             {PRICING_FAQ.map((f) => (
-              <div key={f.q}>
+              <div key={f.q} className="border-b border-line py-5">
                 <dt className="text-lg font-semibold text-ink">{f.q}</dt>
-                <dd className="mt-1 text-ink/90">{f.a}</dd>
+                <dd className="mt-1 text-muted">{f.a}</dd>
               </div>
             ))}
           </dl>
           <p className="mt-8 text-sm text-muted">
             The full rules are in the{' '}
-            <Link href="/terms" className="font-medium text-accent-text underline">
+            <Link href="/terms" className="font-medium text-brand-text underline decoration-1 underline-offset-4">
               terms
             </Link>
             .

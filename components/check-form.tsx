@@ -12,6 +12,7 @@ export function CheckForm({
   tradeError,
   submitLabel = 'See what happened near you',
   idPrefix = 'check',
+  prompt,
 }: {
   zip?: string;
   trade?: string;
@@ -19,6 +20,8 @@ export function CheckForm({
   tradeError?: string;
   submitLabel?: string;
   idPrefix?: string;
+  /** A neutral next-step line above the fields (not an error), such as "Now pick your trade" after the home page ZIP form. */
+  prompt?: string;
 }) {
   // A trade that no record type can reach on this deployment (childcare and beauty without a people-asking key) is left out, as onboarding
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
@@ -30,7 +33,15 @@ export function CheckForm({
     // 520px on a desktop, /check is wider, phones are narrow. Narrow: one column. From 24rem: ZIP and trade side by side, button on its
     // own row, so the trade select never shrinks to a sliver beside the long button. From 48rem: all three in one row.
     <div className="@container">
-      <form action="/check" method="get" noValidate className="grid grid-cols-1 gap-4 @sm:grid-cols-[8rem_minmax(0,1fr)] @3xl:grid-cols-[8rem_minmax(0,1fr)_auto] @3xl:items-start">
+      {prompt ? (
+        <p id={`${idPrefix}-prompt`} className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {zip ? <span className="font-mono text-sm uppercase tracking-[0.06em] text-brand-text">ZIP {zip}</span> : null}
+          <span className="text-lg font-semibold text-ink">{prompt}</span>
+        </p>
+      ) : null}
+      <form
+        aria-describedby={prompt ? `${idPrefix}-prompt` : undefined}
+        action="/check" method="get" noValidate className="grid grid-cols-1 gap-4 @sm:grid-cols-[8rem_minmax(0,1fr)] @3xl:grid-cols-[8rem_minmax(0,1fr)_auto] @3xl:items-start">
         <div className="min-w-0">
           <Input
             id={`${idPrefix}-zip`}

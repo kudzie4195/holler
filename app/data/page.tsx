@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Card, Notice } from '@/components';
+import { Notice } from '@/components';
+import { kindFamily } from '@/components/signal-meta';
+import { FamilyDot } from '@/components/page-header';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { DATA_META } from '@/lib/seo/guides/seo';
 import { loadNationalStats } from '@/lib/seo/national-data';
 import { dataJsonLd } from '@/lib/seo/national-seo';
 import { socialMeta } from '@/lib/seo/social';
 import { fmtDateTime } from '@/lib/seo/view';
-import { Crumbs, JsonLd, Shell, proseLink } from '../guides/_components/shell';
+import { JsonLd, PageHeader, Shell, proseLink } from '../guides/_components/shell';
 
 export function generateMetadata(): Metadata {
   const m = DATA_META;
@@ -23,7 +25,7 @@ const nf = (n: number) => n.toLocaleString('en-US');
 
 function Th({ children, right = false }: { children: React.ReactNode; right?: boolean }) {
   return (
-    <th scope="col" className={`border-b border-line py-2 text-sm font-semibold text-muted ${right ? 'text-right' : 'text-left'}`}>
+    <th scope="col" className={`border-b border-line py-2.5 font-mono text-xs font-medium uppercase tracking-[0.06em] text-muted ${right ? 'text-right' : 'text-left'}`}>
       {children}
     </th>
   );
@@ -33,14 +35,22 @@ export default async function DataPage() {
   const s = await loadNationalStats();
 
   return (
-    <Shell wide>
+    <Shell
+      wide
+      header={
+        <PageHeader
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'Local public records in numbers' }]}
+          title="Local public records in numbers"
+          size="md"
+          lead={
+            <p>
+              These are counts of the public records Holler has read. They are exact counts, and they show what Holler read, not how much demand there is.
+            </p>
+          }
+        />
+      }
+    >
       <JsonLd data={dataJsonLd(s)} />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Local public records in numbers' }]} />
-      <h1 className="text-4xl text-ink">Local public records in numbers</h1>
-      <p className="mt-4 text-lg text-ink/90">
-        These are counts of the public records Holler has read. They are exact counts, and they show what Holler read, not how much demand there is.
-      </p>
-
       {!s.ok ? (
         <div className="mt-8">
           <Notice tone="warn" role="status">
@@ -49,7 +59,7 @@ export default async function DataPage() {
         </div>
       ) : (
         <>
-          <p className="mt-3 text-sm text-muted">
+          <p className="text-sm text-muted">
             {s.newestAt ? (
               <>
                 Updated <time dateTime={s.newestAt} className="font-mono">{fmtDateTime(s.newestAt)}</time>, the time of the newest record.{' '}
@@ -63,22 +73,22 @@ export default async function DataPage() {
               <Notice tone="info">No records dated in the last 30 days were found, so there is nothing to count yet.</Notice>
             </div>
           ) : (
-            <div className="mt-10 flex flex-col gap-8">
-              <Card as="section">
-                <h2 className="text-2xl text-ink">How many records did Holler read?</h2>
-                <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-                  <div>
+            <div className="mt-10 flex flex-col gap-14">
+              <section>
+                <h2 className="text-3xl text-ink md:text-4xl">How many records did Holler read?</h2>
+                <dl className="mt-5 grid grid-cols-1 border-t-2 border-ink min-[420px]:grid-cols-2 sm:grid-cols-3">
+                  <div className="flex flex-col-reverse gap-1 border-b border-line py-5 pr-6">
                     <dt className="text-sm text-muted">Last 7 days</dt>
-                    <dd className="text-3xl font-semibold text-ink">{nf(s.total7)}</dd>
+                    <dd className="font-display text-6xl text-ink">{nf(s.total7)}</dd>
                   </div>
-                  <div>
+                  <div className="flex flex-col-reverse gap-1 border-b border-line py-5 pr-6">
                     <dt className="text-sm text-muted">Last 30 days</dt>
-                    <dd className="text-3xl font-semibold text-ink">{nf(s.total30)}</dd>
+                    <dd className="font-display text-6xl text-ink">{nf(s.total30)}</dd>
                   </div>
                   {s.citiesActive30 !== null ? (
-                    <div>
+                    <div className="flex flex-col-reverse gap-1 border-b border-line py-5 pr-6">
                       <dt className="text-sm text-muted">Places with a record in 30 days</dt>
-                      <dd className="text-3xl font-semibold text-ink">{nf(s.citiesActive30)}</dd>
+                      <dd className="font-display text-6xl text-ink">{nf(s.citiesActive30)}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -86,12 +96,12 @@ export default async function DataPage() {
                   A record is one public item, such as a weather alert or a permit, dated inside the window. The counts show what Holler read, not all
                   local activity.
                 </p>
-              </Card>
+              </section>
 
               {s.kinds.some((k) => k.last7 > 0 || k.last30 > 0) ? (
-                <Card as="section">
-                  <h2 className="text-2xl text-ink">Records by type</h2>
-                  <table className="mt-4 w-full border-collapse text-base">
+                <section>
+                  <h2 className="text-3xl text-ink md:text-4xl">Records by type</h2>
+                  <table className="mt-5 w-full border-collapse border-t-2 border-ink text-base">
                     <thead>
                       <tr>
                         <Th>Type</Th>
@@ -102,11 +112,14 @@ export default async function DataPage() {
                     <tbody>
                       {s.kinds.filter((k) => k.last7 > 0 || k.last30 > 0).map((k) => (
                         <tr key={k.id} className="border-b border-line last:border-b-0">
-                          <th scope="row" className="py-2 text-left font-normal text-ink">
-                            {k.label}
+                          <th scope="row" className="py-2.5 text-left font-normal text-ink">
+                            <span className="inline-flex items-center gap-2.5">
+                              {k.id === 'other' ? <span aria-hidden="true" className="inline-block size-3 shrink-0 rounded-[3px] border border-muted" /> : <FamilyDot family={kindFamily(k.id)} />}
+                              {k.label}
+                            </span>
                           </th>
-                          <td className="py-2 text-right font-mono text-ink">{nf(k.last7)}</td>
-                          <td className="py-2 text-right font-mono text-ink">{nf(k.last30)}</td>
+                          <td className="py-2.5 text-right font-mono text-ink">{nf(k.last7)}</td>
+                          <td className="py-2.5 text-right font-mono text-ink">{nf(k.last30)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -115,13 +128,13 @@ export default async function DataPage() {
                     City service records cover 311 requests, inspections, code violations and business licenses. Other records add up federal contracts,
                     disasters, earthquakes, airport status, events and resident requests. Types depend on which sources publish data.
                   </p>
-                </Card>
+                </section>
               ) : null}
 
               {s.topCities.length > 0 ? (
-                <Card as="section">
-                  <h2 className="text-2xl text-ink">Top cities by records in 30 days</h2>
-                  <table className="mt-4 w-full border-collapse text-base">
+                <section>
+                  <h2 className="text-3xl text-ink md:text-4xl">Top cities by records in 30 days</h2>
+                  <table className="mt-5 w-full border-collapse border-t-2 border-ink text-base">
                     <thead>
                       <tr>
                         <Th>City</Th>
@@ -131,7 +144,7 @@ export default async function DataPage() {
                     <tbody>
                       {s.topCities.map((c) => (
                         <tr key={c.slug} className="border-b border-line last:border-b-0">
-                          <th scope="row" className="py-2 text-left font-normal text-ink">
+                          <th scope="row" className="py-2.5 text-left font-normal text-ink">
                             {c.path ? (
                               <Link href={c.path} className={proseLink}>
                                 {c.name}
@@ -144,7 +157,7 @@ export default async function DataPage() {
                               </>
                             )}
                           </th>
-                          <td className="py-2 text-right font-mono text-ink">{nf(c.last30)}</td>
+                          <td className="py-2.5 text-right font-mono text-ink">{nf(c.last30)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -153,13 +166,13 @@ export default async function DataPage() {
                     Cities rank higher when their government publishes open data that Holler has connected, so this is a list of where records exist, not
                     where demand is highest. We take the ten cities with the most records in 60 days and sort them by their last 30 days.
                   </p>
-                </Card>
+                </section>
               ) : null}
 
               {s.topTrades.length > 0 ? (
-                <Card as="section">
-                  <h2 className="text-2xl text-ink">Trades with the most matched records</h2>
-                  <table className="mt-4 w-full border-collapse text-base">
+                <section>
+                  <h2 className="text-3xl text-ink md:text-4xl">Trades with the most matched records</h2>
+                  <table className="mt-5 w-full border-collapse border-t-2 border-ink text-base">
                     <thead>
                       <tr>
                         <Th>Trade</Th>
@@ -169,12 +182,12 @@ export default async function DataPage() {
                     <tbody>
                       {s.topTrades.map((t) => (
                         <tr key={t.id} className="border-b border-line last:border-b-0">
-                          <th scope="row" className="py-2 text-left font-normal text-ink">
+                          <th scope="row" className="py-2.5 text-left font-normal text-ink">
                             <Link href={`/for/${t.id}`} className={proseLink}>
                               {t.label}
                             </Link>
                           </th>
-                          <td className="py-2 text-right font-mono text-ink">{nf(t.count)}</td>
+                          <td className="py-2.5 text-right font-mono text-ink">{nf(t.count)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -182,25 +195,25 @@ export default async function DataPage() {
                   <p className="mt-4 text-sm text-muted">
                     Counted in the newest {nf(s.sampleSize)} records. One record can match several trades, so the rows do not add up to the total.
                   </p>
-                </Card>
+                </section>
               ) : null}
 
               {s.sourcesSeen > 0 ? (
-                <Card as="section">
-                  <h2 className="text-2xl text-ink">How many sources delivered data?</h2>
-                  <p className="mt-3 text-3xl font-semibold text-ink">{nf(s.sourcesSeen)}</p>
+                <section>
+                  <h2 className="text-3xl text-ink md:text-4xl">How many sources delivered data?</h2>
+                  <p className="mt-4 border-t-2 border-ink pt-4 font-display text-6xl text-ink">{nf(s.sourcesSeen)}</p>
                   <p className="mt-2 text-sm text-muted">
                     Sources seen in the newest {nf(s.sampleSize)} records. The true number can be higher, because a quiet source may not appear in a
                     sample. A source is one feed, such as a weather service or one city dataset.
                   </p>
-                </Card>
+                </section>
               ) : null}
             </div>
           )}
         </>
       )}
 
-      <p className="mt-12 text-base text-ink/90">
+      <p className="mt-12 text-base text-ink">
         Where the data comes from is listed in <Link href="/guides/free-public-data-sources-for-local-leads" className={proseLink}>free public data sources</Link>.
         Curious what Holler would watch near you? <Link href="/check" className={proseLink}>Check your area</Link>.
       </p>

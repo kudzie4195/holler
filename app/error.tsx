@@ -9,17 +9,17 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <main id="main" className="hero-paper flex w-full flex-1 flex-col justify-center">
-      <div className="mx-auto w-full max-w-md px-5 py-16">
-        <h1 className="text-4xl text-ink">Something went wrong on our side.</h1>
-        <p className="mt-3 text-lg text-muted">
+    <main id="main" className="on-brand flex w-full flex-1 flex-col justify-center bg-brand">
+      <div className="mx-auto w-full max-w-3xl px-5 py-16 md:py-24">
+        <h1 className="max-w-[18ch] text-5xl sm:text-6xl">Something went wrong on our side.</h1>
+        <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
           Your account and data are fine. Try again, and if it keeps happening, check back in a few minutes.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Button onClick={() => reset()} size="lg">
+          <Button onClick={() => reset()} variant="signal" size="lg">
             Try again
           </Button>
-          <ButtonLink href="/" variant="secondary" size="lg">
+          <ButtonLink href="/" variant="outline-signal" size="lg">
             Go home
           </ButtonLink>
         </div>

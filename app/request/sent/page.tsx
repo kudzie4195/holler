@@ -25,7 +25,7 @@ export default function RequestSentPage() {
             the request.
           </p>
         </div>
-        <div className="mt-6 flex flex-col gap-3 text-ink/90">
+        <div className="mt-6 flex flex-col gap-3 text-ink">
           <p>No email? Look in your spam folder first. We send at most 3 links a day to one address, so a repeat may not get a new one.</p>
           <p>Wrong address? Send the form again with the right one.</p>
         </div>

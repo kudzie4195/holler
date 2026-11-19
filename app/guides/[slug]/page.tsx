@@ -8,7 +8,7 @@ import { linkableTexts } from '@/lib/seo/guides/text';
 import { guideFactText, loadGuideFact } from '@/lib/seo/guide-data';
 import { guideJsonLd, guideMeta } from '@/lib/seo/guides/seo';
 import { socialMeta } from '@/lib/seo/social';
-import { Crumbs, Inline, JsonLd, Shell, fmtReviewed, proseLink } from '../_components/shell';
+import { Inline, JsonLd, PageHeader, Shell, fmtReviewed, proseLink } from '../_components/shell';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -50,16 +50,23 @@ export default async function GuidePage({ params }: Props) {
     .map((l) => ({ ...l, host: new URL(l.href).hostname.replace(/^www\./, '') }));
 
   return (
-    <Shell>
+    <Shell
+      header={
+        <PageHeader
+          width="narrow"
+          size="sm"
+          crumbs={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: g.title }]}
+          title={g.title}
+        />
+      }
+    >
       <JsonLd data={guideJsonLd(g)} />
-      <Crumbs items={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: g.title }]} />
-      <h1 className="text-4xl text-ink">{g.title}</h1>
-      <p className="mt-5 rounded-control border border-line bg-surface p-4 text-lg leading-relaxed text-ink">{g.directAnswer}</p>
-      <p className="mt-3 text-sm text-muted">
+      <p className="border-l-4 border-brand pl-4 text-lg leading-relaxed text-ink">{g.directAnswer}</p>
+      <p className="mt-4 font-mono text-xs uppercase tracking-[0.06em] text-muted">
         Last reviewed <time dateTime={g.lastReviewed}>{fmtReviewed(g.lastReviewed)}</time>
       </p>
       {factText ? (
-        <aside aria-label="From Holler's data" className="mt-5 border-l-4 border-accent pl-4 text-base text-ink/90">
+        <aside aria-label="From Holler's data" className="mt-6 rounded-card bg-sand p-5 text-base text-ink">
           <p>
             <strong className="text-ink">From Holler&apos;s data.</strong> {factText}{' '}
             <Link href="/data" className={proseLink}>
@@ -72,10 +79,10 @@ export default async function GuidePage({ params }: Props) {
       <div className="mt-10 flex flex-col gap-10">
         {g.sections.map((s) => (
           <section key={s.heading} aria-labelledby={sectionId(s.heading)}>
-            <h2 id={sectionId(s.heading)} className="text-2xl text-ink">
+            <h2 id={sectionId(s.heading)} className="h-plain text-2xl text-ink">
               {s.heading}
             </h2>
-            <div className="mt-3 flex flex-col gap-3 text-base leading-relaxed text-ink/90">
+            <div className="mt-3 flex flex-col gap-3 text-base leading-relaxed text-ink">
               {s.paragraphs.map((p) => (
                 <p key={p}>
                   <Inline text={p} />
@@ -88,7 +95,7 @@ export default async function GuidePage({ params }: Props) {
                     <thead>
                       <tr>
                         {s.table.head.map((h, i) => (
-                          <th key={i} scope="col" className="border-b border-line py-2 pr-3 font-semibold text-ink">
+                          <th key={i} scope="col" className="border-b border-t-2 border-b-line border-t-ink py-2 pr-3 font-semibold text-ink">
                             {h}
                           </th>
                         ))}
@@ -134,7 +141,7 @@ export default async function GuidePage({ params }: Props) {
                 )
               ) : null}
               {s.example ? (
-                <aside aria-label={s.example.title} className="rounded-card border border-line bg-surface p-4">
+                <aside aria-label={s.example.title} className="rounded-card border border-line bg-surface p-5">
                   <p className="font-semibold text-ink">{s.example.title}</p>
                   <ul className="mt-2 flex list-disc flex-col gap-1 pl-5">
                     {s.example.lines.map((l) => (
@@ -149,31 +156,31 @@ export default async function GuidePage({ params }: Props) {
           </section>
         ))}
 
-        <section aria-labelledby="how-holler-helps" className="rounded-card border border-line bg-surface p-5 md:p-6">
-          <h2 id="how-holler-helps" className="text-2xl text-ink">
+        <section aria-labelledby="how-holler-helps" className="on-brand rounded-card bg-brand p-6 md:p-8">
+          <h2 id="how-holler-helps" className="h-plain text-2xl">
             How Holler helps
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-ink/90">
-            <Inline text={g.howHolerHelps} />
+          <p className="mt-3 text-base leading-relaxed text-on-brand-muted">
+            <Inline text={g.howHolerHelps} onBrand />
           </p>
         </section>
 
         <section aria-labelledby="quick-answers">
-          <h2 id="quick-answers" className="text-2xl text-ink">
+          <h2 id="quick-answers" className="h-plain text-2xl text-ink">
             Quick answers
           </h2>
           <dl className="mt-3 flex flex-col gap-4">
             {g.faq.map((f) => (
               <div key={f.q}>
                 <dt className="font-semibold text-ink">{f.q}</dt>
-                <dd className="mt-1 text-base text-ink/90">{f.a}</dd>
+                <dd className="mt-1 text-base text-ink">{f.a}</dd>
               </div>
             ))}
           </dl>
         </section>
 
         <section aria-labelledby="related">
-          <h2 id="related" className="text-2xl text-ink">
+          <h2 id="related" className="h-plain text-2xl text-ink">
             Related pages
           </h2>
           <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-base">
@@ -189,7 +196,7 @@ export default async function GuidePage({ params }: Props) {
 
         {sources.length > 0 ? (
           <section aria-labelledby="sources">
-            <h2 id="sources" className="text-2xl text-ink">
+            <h2 id="sources" className="h-plain text-2xl text-ink">
               Official sources used
             </h2>
             <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-base">
