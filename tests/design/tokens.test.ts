@@ -40,6 +40,7 @@ export const CONTRACT: Record<string, string> = {
   'brand-deep': '#14291e',
   'brand-raised': '#24443a',
   'brand-line': '#6e8c79',
+  'brand-ring': '#7a9a85',
   'brand-text': '#2e5a41',
   'on-brand': '#f5f4ef',
   'on-brand-muted': '#c9d6cd',
@@ -195,6 +196,8 @@ export const PAIRS: Pair[] = [
   ...LIGHT.map((bg) => edge('form control edge (line-strong)', 'line-strong', bg)),
   edge('control edge on green (brand-line)', 'brand-line', 'brand'),
   edge('control edge on green (brand-line)', 'brand-line', 'brand-deep'),
+  edge('map ring on green (brand-ring)', 'brand-ring', 'brand-raised'),
+  edge('map ring on green (brand-ring)', 'brand-ring', 'brand'),
   // Family marks: on light (dots and stripes) and on green (the map).
   ...LIGHT.flatMap((bg) => [edge('weather mark', 'storm', bg), edge('permit mark', 'sage-mark', bg), edge('civic mark', 'civic-mark', bg)]),
   ...['brand', 'brand-raised'].flatMap((bg) => [
