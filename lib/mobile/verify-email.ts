@@ -3,19 +3,20 @@ import { siteUrl } from '@/lib/env';
 import { contactAddress, escapeHtml, sendEmail, type Rendered } from '@/lib/email';
 import { verifyUrlFor } from '@/lib/auth/verification';
 import { postalFooterHtml, postalFooterText } from '@/lib/legal/email-footer';
+import { EMAIL_STYLE, PRIMARY_BUTTON_STYLE, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from '@/lib/email/theme';
 
 /**
  * The plain "confirm your email" message (verify-v3 P1, commander decision 9). Sent to a returning member (had a Holler trial before:
  * deleted the account and came back) who onboards again in the app, instead of the signup welcome (lib/email/templates.ts
  * renderVerifyEmail), which promises a free trial. One trial per person: a returning member's trial keeps its original end and may
  * already be over, so this message says nothing about a trial. Neutral on purpose, so it is also right for any member who asks for the
- * link again once the profile exists. Same look as lib/email/templates.ts (its wrapper and button helpers are not exported).
+ * link again once the profile exists. Same look as lib/email/templates.ts (every color and font from lib/email/theme.ts).
  */
 export const CONFIRM_ONLY_SUBJECT = 'Confirm your email for Holler';
 
-const WRAP_OPEN =
-  '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#191714;background:#FAF6EE;line-height:1.5">';
-const WRAP_CLOSE = '</div>';
+const WRAP_OPEN = wrapOpen();
+const WRAP_CLOSE = THEME_WRAP_CLOSE;
+const S = EMAIL_STYLE;
 
 /** Pure. */
 export function renderConfirmEmailOnly(o: { verifyUrl: string; appUrl: string }): Rendered {
@@ -24,12 +25,13 @@ export function renderConfirmEmailOnly(o: { verifyUrl: string; appUrl: string })
   const ignore = 'If you did not ask for this, ignore this email and nothing happens.';
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 12px 0">${escapeHtml(CONFIRM_ONLY_SUBJECT)}</h1>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(CONFIRM_ONLY_SUBJECT)}</h1>` +
     `<p style="margin:0 0 12px 0">${escapeHtml(lead)}</p>` +
-    `<p style="margin:20px 0"><a href="${escapeHtml(o.verifyUrl)}" style="background:#E8590C;color:#191714;text-decoration:none;padding:12px 20px;border-radius:999px;display:inline-block;font-weight:600">Confirm my email</a></p>` +
-    `<p style="font-size:14px;color:#5C574F">Your alerts: <a href="${escapeHtml(o.appUrl)}" style="color:#5C574F">${escapeHtml(o.appUrl)}</a>. ${escapeHtml(ignore)}` +
-    (a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="color:#5C574F">Contact us</a>.` : '') +
+    `<p style="margin:20px 0"><a href="${escapeHtml(o.verifyUrl)}" style="${PRIMARY_BUTTON_STYLE}">Confirm my email</a></p>` +
+    `<p style="${S.muted}">Your alerts: <a href="${escapeHtml(o.appUrl)}" style="${S.mutedLink}">${escapeHtml(o.appUrl)}</a>. ${escapeHtml(ignore)}` +
+    (a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">Contact us</a>.` : '') +
     `</p>` +
+    cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
   const text =
