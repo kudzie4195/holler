@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { EMAIL_COLORS, EMAIL_FONTS, PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE } from '@/lib/email/theme';
+import { EMAIL_COLORS, EMAIL_FONTS, EMAIL_STYLE, PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE } from '@/lib/email/theme';
 import { renderDigest, renderPasswordReset, renderVerifyEmail, renderWelcome } from '@/lib/email/templates';
 import { renderRequestAdmin, renderRequestConfirm, renderRequestPublished, renderRequestReply } from '@/lib/email/request-emails';
 import { renderTrialEnded } from '@/lib/lifecycle/templates';
@@ -15,6 +15,7 @@ import { postalFooterHtml } from '@/lib/legal/email-footer';
 vi.mock('server-only', () => ({}));
 
 const OWNED = [
+  'lib/legal/email-footer.ts',
   'lib/email/templates.ts',
   'lib/email/request-emails.ts',
   'lib/email/html-page.ts',
@@ -25,9 +26,8 @@ const OWNED = [
   'lib/monitor/email.ts',
   'lib/mobile/verify-email.ts',
 ];
-const OLD = /#E8590C|#AD4205|#FBE8D8|#FAF6EE|#191714|#5C574F|#FFFDF9|#D9D2C3|999px|Fraunces|Georgia|Helvetica|(?<!sans-)serif\b/i;
-// The postal footer comes from lib/legal/email-footer.ts (not owned by the email unit); it is checked apart from the rest.
-const withoutFooter = (h: string) => h.replace(postalFooterHtml(), '');
+// Helvetica is banned except the condensed bold face that heads the display stack (commander decision, review 2 P2-19).
+const OLD = /#E8590C|#AD4205|#FBE8D8|#FAF6EE|#191714|#5C574F|#FFFDF9|#D9D2C3|999px|Fraunces|Georgia|Helvetica(?!Neue-CondensedBold')|(?<!sans-)serif\b|font-size:1[0-2]px/i;
 const NOW = new Date('2026-11-19T14:11:00Z');
 const U = 'https://localholler.com';
 
@@ -64,8 +64,32 @@ describe('email theme', () => {
       expect(m.html, name).toContain(`background:${EMAIL_COLORS.paper}`);
       expect(m.html, name).toContain(`font-family:${EMAIL_FONTS.display}`);
       expect(m.html, name).toMatch(/text-transform:uppercase[^"]*">HOLLER<\/span>/);
-      expect(withoutFooter(m.html), name).not.toMatch(OLD);
+      // The whole email, postal footer included.
+      expect(m.html, name).not.toMatch(OLD);
+      // The header is the wordmark alone: no empty logo tile, no image.
+      expect(m.html, name).not.toContain(`background:${EMAIL_COLORS.signal}`);
+      expect(m.html, name).not.toMatch(/<img\b/i);
     }
+  });
+
+  it('the postal footer takes its size and color from the theme (13 px, muted)', () => {
+    expect(postalFooterHtml()).toContain(`style="${EMAIL_STYLE.small};`);
+    expect(EMAIL_STYLE.small).toBe(`font-size:13px;color:${EMAIL_COLORS.muted}`);
+    expect(fs.readFileSync(path.join(process.cwd(), 'lib/legal/email-footer.ts'), 'utf8').match(/#[0-9A-Fa-f]{6}\b/g) ?? []).toEqual([]);
+  });
+
+  it('the display stack starts with the condensed faces and the secondary edge is the site line-strong', () => {
+    expect(EMAIL_FONTS.display).toBe(
+      "'HelveticaNeue-CondensedBold','Avenir Next Condensed','Arial Narrow','Roboto Condensed',sans-serif-condensed,Arial,sans-serif",
+    );
+    expect(EMAIL_COLORS.lineStrong).toBe('#7C847E');
+    expect(SECONDARY_BUTTON_STYLE).toContain(`border:1px solid ${EMAIL_COLORS.lineStrong}`);
+  });
+
+  it('the digest link to a record says "Open the source", never "Open source" or "official record"', () => {
+    const { digest } = all();
+    expect(digest.html).toContain('>Open the source</a>');
+    expect(digest.html + digest.text).not.toMatch(/Open source|official record|source record|its record/);
   });
 
   it('member and owner emails keep the postal footer as the last thing in the wrapper', () => {
