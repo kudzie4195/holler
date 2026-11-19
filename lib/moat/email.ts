@@ -1,5 +1,8 @@
 import { escapeHtml, kindLabel, contactAddress, timeAgo } from '@/lib/email/templates';
 import { postalFooterHtml, postalFooterText } from '@/lib/legal/email-footer';
+import { EMAIL_STYLE, PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from '@/lib/email/theme';
+
+const S = EMAIL_STYLE;
 
 export interface FollowUpItem {
   title: string;
@@ -30,8 +33,8 @@ export const FOLLOWUP_OUTRO = ['That is all.'];
 
 function link(href: string, label: string, primary: boolean): string {
   const style = primary
-    ? 'background:#E8590C;color:#191714;text-decoration:none;padding:10px 20px;border-radius:999px;display:inline-block;font-weight:600;margin-right:8px'
-    : 'background:#FFFFFF;color:#191714;text-decoration:none;padding:10px 20px;border-radius:999px;display:inline-block;font-weight:600;border:1px solid #D9D2C3';
+    ? `${PRIMARY_BUTTON_STYLE};margin-right:8px`
+    : SECONDARY_BUTTON_STYLE;
   return `<a href="${escapeHtml(href)}" style="${style}">${escapeHtml(label)}</a>`;
 }
 
@@ -40,24 +43,25 @@ export function renderFollowUp(opts: { businessName: string; items: FollowUpItem
   const items = opts.items.slice(0, 5);
   const contact = contactAddress();
   const html =
-    '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#191714;background:#FAF6EE;line-height:1.5">' +
-    `<p style="margin:0 0 4px 0;font-size:14px;color:#5C574F">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
-    `<h1 style="font-size:22px;margin:0 0 16px 0">${escapeHtml(FOLLOWUP_SUBJECT)}</h1>` +
+    wrapOpen() +
+    `<p style="margin:0 0 6px 0;${S.eyebrow}">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 16px 0">${escapeHtml(FOLLOWUP_SUBJECT)}</h1>` +
     `<p>${FOLLOWUP_INTRO.map(escapeHtml).join(' ')}</p>` +
     `<ul style="margin:16px 0;padding:0">${items
       .map(
         (it) =>
-          `<li style="margin:0 0 20px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${escapeHtml(
+          `<li style="margin:0 0 20px 0;padding:0;list-style:none"><div style="${S.small}">${escapeHtml(
             [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)].filter(Boolean).join(' | '),
           )}</div><div style="font-size:16px;font-weight:600;margin:2px 0 10px 0">${escapeHtml(noDash(it.title))}</div>${link(it.yesUrl, 'Yes', true)}${link(it.noUrl, 'No', false)}</li>`,
       )
       .join('')}</ul>` +
     `<p>${FOLLOWUP_OUTRO.map(escapeHtml).join(' ')}</p>` +
-    `<p style="font-size:12px;color:#5C574F;margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="color:#5C574F">Turn off email alerts</a>.${
-      contact ? ` Questions? <a href="mailto:${escapeHtml(contact)}" style="color:#5C574F">Contact us</a>.` : ''
+    `<p style="${S.small};margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">Turn off email alerts</a>.${
+      contact ? ` Questions? <a href="mailto:${escapeHtml(contact)}" style="${S.mutedLink}">Contact us</a>.` : ''
     }</p>` +
+    cardClose() +
     postalFooterHtml() +
-    '</div>';
+    WRAP_CLOSE;
   const text =
     `Holler for ${noDash(opts.businessName)}\n\n${FOLLOWUP_SUBJECT}\n\n${FOLLOWUP_INTRO.join(' ')}\n\n` +
     items

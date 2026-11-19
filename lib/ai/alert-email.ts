@@ -1,6 +1,7 @@
 import { escapeHtml } from '@/lib/email/templates';
 import { postalFooterHtml, postalFooterText } from '@/lib/legal/email-footer';
 import type { AlertKind } from './budget';
+import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from '@/lib/email/theme';
 
 /**
  * Owner email for the AI spend cap (sent to ADMIN_EMAIL, else SUPPORT_EMAIL). Internal operations mail to the operator, like the
@@ -61,10 +62,11 @@ export function renderAiSpendAlert(o: { kind: AlertKind; month: string; spentUsd
   }
   const text = `${subject}\n\n${paras.join('\n\n')}\n\n${postalFooterText()}\n`;
   const html =
-    '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#191714;background:#FAF6EE;line-height:1.5">' +
-    `<h1 style="font-size:20px;margin:0 0 16px 0">${escapeHtml(subject)}</h1>` +
+    wrapOpen() +
+    `<h1 style="${EMAIL_STYLE.h1};font-size:22px;margin:0 0 16px 0">${escapeHtml(subject)}</h1>` +
     paras.map((p) => `<p style="margin:0 0 12px 0">${escapeHtml(p)}</p>`).join('') +
+    cardClose() +
     postalFooterHtml() +
-    '</div>';
+    WRAP_CLOSE;
   return { subject, text, html };
 }

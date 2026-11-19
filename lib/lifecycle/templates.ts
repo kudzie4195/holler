@@ -5,6 +5,7 @@ import { PLAN_LIMITS, TIER_NAMES, type Tier } from '../plan/limits';
 // Prices come from the one public price module (lib/plan/public-prices.ts, built from the price table), never from this file.
 import { ENTITLEMENT_FOR_TIER, PUBLIC_PRICES } from '../plan/public-prices';
 import { WINDOWS } from './select';
+import { EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from '../email/theme';
 
 /**
  * The three trial emails. Pure: every number and name in them is passed in or read from the plan tables.
@@ -71,14 +72,14 @@ function metaOf(i: AlertItem): string {
 
 const count = (n: number, one: string, many: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
-// ---- layout (same look as lib/email/templates.ts; its wrapper and button helpers are not exported) ----------------------------
-const WRAP_OPEN =
-  '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#191714;background:#FAF6EE;line-height:1.5">';
-const WRAP_CLOSE = '</div>';
+// ---- layout (same look as lib/email/templates.ts: every color and font comes from lib/email/theme.ts) ---------------------------
+const WRAP_OPEN = wrapOpen();
+const WRAP_CLOSE = THEME_WRAP_CLOSE;
+const S = EMAIL_STYLE;
 const P = 'margin:0 0 12px 0';
 
 function button(href: string, label: string): string {
-  return `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="background:#E8590C;color:#191714;text-decoration:none;padding:12px 20px;border-radius:999px;display:inline-block;font-weight:600">${escapeHtml(label)}</a></p>`;
+  return buttonHtml(escapeHtml(href), escapeHtml(label));
 }
 
 function para(s: string): string {
@@ -89,7 +90,7 @@ function itemsHtml(items: AlertItem[]): string {
   const li = items
     .map(
       (i) =>
-        `<li style="margin:0 0 12px 0;padding:0;list-style:none"><strong style="font-size:16px">${escapeHtml(clip(i.title, MAX_TITLE_CHARS))}</strong> <small style="font-size:13px;color:#5C574F">(${escapeHtml(metaOf(i))})</small></li>`,
+        `<li style="margin:0 0 12px 0;padding:0;list-style:none"><strong style="font-size:16px">${escapeHtml(clip(i.title, MAX_TITLE_CHARS))}</strong> <small style="${S.small}">(${escapeHtml(metaOf(i))})</small></li>`,
     )
     .join('');
   return `<ul style="margin:0 0 8px 0;padding:0">${li}</ul>`;
@@ -104,10 +105,11 @@ const FOOTER_REASON =
 
 function footerHtml(c: Common): string {
   const a = contactAddress();
-  const contact = a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="color:#5C574F">Contact us</a>.` : '';
+  const contact = a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">Contact us</a>.` : '';
   return (
-    `<p style="font-size:12px;color:#5C574F;margin-top:32px">${escapeHtml(FOOTER_REASON)} ` +
-    `<a href="${escapeHtml(c.unsubscribeUrl)}" style="color:#5C574F">Stop these emails</a>.${contact}</p>` +
+    `<p style="${S.small};margin-top:32px">${escapeHtml(FOOTER_REASON)} ` +
+    `<a href="${escapeHtml(c.unsubscribeUrl)}" style="${S.mutedLink}">Stop these emails</a>.${contact}</p>` +
+    cardClose() +
     postalFooterHtml()
   );
 }
@@ -125,7 +127,7 @@ function footerText(c: Common): string {
 function shell(c: Common, subject: string, body: string, bodyText: string): Rendered {
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 16px 0"><small style="display:block;font-size:14px;font-weight:400;color:#5C574F">Holler for ${escapeHtml(plain(c.businessName))}</small>${escapeHtml(subject)}</h1>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 16px 0"><small style="display:block;margin:0 0 6px 0;${S.eyebrow};font-weight:400;line-height:1.5">Holler for ${escapeHtml(plain(c.businessName))}</small>${escapeHtml(subject)}</h1>` +
     body +
     footerHtml(c) +
     WRAP_CLOSE;

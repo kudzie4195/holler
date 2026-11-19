@@ -4,6 +4,7 @@ import { env } from '../env';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
 import { TRIAL_DAYS } from '../auth/membership';
+import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
 export interface DigestItem {
   kind: string;
@@ -77,9 +78,10 @@ export function contactLine(c: { name: string; role: string }): string {
   return noDash(`Contact: ${c.name} (${c.role})`);
 }
 
-const WRAP_OPEN =
-  '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#191714;background:#FAF6EE;line-height:1.5">';
-const WRAP_CLOSE = '</div>';
+// Look comes from lib/email/theme.ts (one place for every color and font).
+const WRAP_OPEN = wrapOpen();
+const WRAP_CLOSE = THEME_WRAP_CLOSE;
+const S = EMAIL_STYLE;
 
 /**
  * Where a reader can reach a person. SUPPORT_EMAIL when set, otherwise the address inside EMAIL_FROM
@@ -97,7 +99,7 @@ export function contactAddress(): string | null {
 
 function contactHtml(): string {
   const a = contactAddress();
-  return a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="color:#5C574F">Contact us</a>.` : '';
+  return a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">Contact us</a>.` : '';
 }
 
 function contactText(): string {
@@ -106,7 +108,7 @@ function contactText(): string {
 }
 
 function button(href: string, label: string): string {
-  return `<p style="margin:20px 0"><a href="${escapeHtml(href)}" style="background:#E8590C;color:#191714;text-decoration:none;padding:12px 20px;border-radius:999px;display:inline-block;font-weight:600">${escapeHtml(label)}</a></p>`;
+  return buttonHtml(escapeHtml(href), escapeHtml(label));
 }
 
 export function renderDigest(opts: {
@@ -135,26 +137,27 @@ export function renderDigest(opts: {
         .join(' &middot; ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const intent = intentOf(sig);
-      const intentHtml = `<div style="font-size:13px;margin:2px 0;color:#5C574F"><strong style="color:#191714">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
+      const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
       const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
-        src ? `<a href="${escapeHtml(src)}" style="color:#AD4205;font-size:14px">Open source</a>` : ''
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
+        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">Open source</a>` : ''
       }</li>`;
     })
     .join('');
 
   const html =
     WRAP_OPEN +
-    `<p style="margin:0 0 4px 0;font-size:14px;color:#5C574F">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
-    `<h1 style="font-size:22px;margin:0 0 20px 0">${escapeHtml(subject)}</h1>` +
+    `<p style="margin:0 0 6px 0;${S.eyebrow}">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 20px 0">${escapeHtml(subject)}</h1>` +
     `<ul style="margin:0;padding:0">${htmlItems}</ul>` +
-    (more > 0 ? `<p style="color:#5C574F">Plus ${more} more in your feed.</p>` : '') +
+    (more > 0 ? `<p style="${S.mutedLink}">Plus ${more} more in your feed.</p>` : '') +
     button(opts.appUrl, 'Open your feed') +
-    `<p style="font-size:12px;color:#5C574F;margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="color:#5C574F">Turn off email alerts</a>.${contactHtml()}</p>` +
+    `<p style="${S.small};margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">Turn off email alerts</a>.${contactHtml()}</p>` +
+    cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
 
@@ -181,10 +184,11 @@ export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
   const subject = 'Reset your Holler password';
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 12px 0">Reset your password</h1>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">Reset your password</h1>` +
     `<p>Someone asked to reset the password for this Holler account. If that was you, use the button below. The link works once and expires soon.</p>` +
     button(opts.resetUrl, 'Choose a new password') +
-    `<p style="font-size:14px;color:#5C574F">If you did not ask for this, ignore this email. Your password stays the same.${contactHtml()}</p>` +
+    `<p style="${S.muted}">If you did not ask for this, ignore this email. Your password stays the same.${contactHtml()}</p>` +
+    cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
   const text = `Reset your Holler password\n\nSomeone asked to reset the password for this account. If that was you, open this link. It works once and expires soon.\n\n${opts.resetUrl}\n\nIf you did not ask for this, ignore this email. Your password stays the same.\n${contactText()}\n${postalFooterText()}\n`;
@@ -196,11 +200,12 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
   const subject = 'Welcome to Holler';
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 12px 0">Welcome, ${escapeHtml(noDash(opts.businessName))}</h1>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">Welcome, ${escapeHtml(noDash(opts.businessName))}</h1>` +
     `<p>Holler watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, service requests people post on Holler. ${CADENCE_SHORT}</p>` +
     `<p>Your ${days}-day free trial has started. No card needed. Holler never posts anything for you.</p>` +
     button(opts.appUrl, 'Open your feed') +
-    (contactAddress() ? `<p style="font-size:14px;color:#5C574F">${contactHtml().trim()}</p>` : '') +
+    (contactAddress() ? `<p style="${S.muted}">${contactHtml().trim()}</p>` : '') +
+    cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
   const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, service requests people post on Holler. ${CADENCE_SHORT}\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOpen your feed: ${opts.appUrl}\n${contactText()}\n${postalFooterText()}\n`;
@@ -213,11 +218,12 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
   const subject = 'Welcome to Holler: confirm your email';
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 12px 0">Welcome to Holler</h1>` +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">Welcome to Holler</h1>` +
     `<p>Your ${days}-day free trial starts when you finish setting up your alerts. No card needed. Holler never posts anything for you.</p>` +
     `<p>One step left: confirm this email address so we can send you alerts. The link works for 7 days.</p>` +
     button(opts.verifyUrl, 'Confirm my email') +
-    `<p style="font-size:14px;color:#5C574F">You can set up what you do and where you work any time at <a href="${escapeHtml(opts.appUrl)}" style="color:#5C574F">${escapeHtml(opts.appUrl)}</a>. If you did not sign up, ignore this email and nothing happens.${contactHtml()}</p>` +
+    `<p style="${S.muted}">You can set up what you do and where you work any time at <a href="${escapeHtml(opts.appUrl)}" style="${S.mutedLink}">${escapeHtml(opts.appUrl)}</a>. If you did not sign up, ignore this email and nothing happens.${contactHtml()}</p>` +
+    cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
   const text = `Welcome to Holler\n\nYour ${days}-day free trial starts when you finish setting up your alerts. No card needed. Holler never posts anything for you.\n\nOne step left: confirm this email address so we can send you alerts. The link works for 7 days.\n\n${opts.verifyUrl}\n\nYou can set up what you do and where you work any time: ${opts.appUrl}\n\nIf you did not sign up, ignore this email and nothing happens.\n${contactText()}\n${postalFooterText()}\n`;

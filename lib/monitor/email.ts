@@ -3,6 +3,9 @@ import { formatAge } from '../email/health';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { sanitizeHealthError } from '../signals/health';
 import { recoveredLine, sortConditions, type Condition } from './rules';
+import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from '../email/theme';
+
+const S = EMAIL_STYLE;
 
 /**
  * The ingest alert email. It is a note to the owner, not to a member, so it has no unsubscribe link: ADMIN_EMAIL is set by the owner.
@@ -106,23 +109,24 @@ export function renderMonitorEmail(input: { items: Condition[]; recovered: strin
 
   const htmlBlocks = shown.map(
     (c) =>
-      `<h2 style="font-size:15px;margin:18px 0 4px 0">${escapeHtml(heading(c))}</h2>` +
+      `<h2 style="${S.h2};font-size:16px;margin:18px 0 4px 0">${escapeHtml(heading(c))}</h2>` +
       `<p style="margin:0 0 6px 0">${escapeHtml(c.reason)}</p>` +
       `<p style="margin:0 0 4px 0">${escapeHtml(successSentence(c, now))}</p><p style="margin:0">${escapeHtml(errorSentence(c.lastError))}</p>`,
   );
   if (items.length > shown.length) htmlBlocks.push(`<p>And ${items.length - shown.length} more. The source table has the rest.</p>`);
   const html =
-    '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;color:#191714;line-height:1.5">' +
-    `<h1 style="font-size:18px;margin:0 0 12px 0">${escapeHtml(subject)}</h1>` +
+    wrapOpen(600) +
+    `<h1 style="${S.h1};font-size:22px;margin:0 0 12px 0">${escapeHtml(subject)}</h1>` +
     `<p style="margin:0 0 8px 0">${escapeHtml(intro)}</p>` +
     htmlBlocks.join('') +
     (recoveredLines.length
-      ? `<h2 style="font-size:15px;margin:18px 0 4px 0">Recovered</h2><ul style="margin:0;padding-left:20px">${recoveredLines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
+      ? `<h2 style="${S.h2};font-size:16px;margin:18px 0 4px 0">Recovered</h2><ul style="margin:0;padding-left:20px">${recoveredLines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
       : '') +
     (openLine ? `<p style="margin:18px 0 0 0">${escapeHtml(openLine)}</p>` : '') +
-    `<p style="margin:18px 0 0 0">Open the <a href="${escapeHtml(input.sourcesUrl)}" style="color:#AD4205">source table</a> with your cron secret added, and it lists every source with its current status and the last time each one worked.</p>` +
+    `<p style="margin:18px 0 0 0">Open the <a href="${escapeHtml(input.sourcesUrl)}" style="${S.link}">source table</a> with your cron secret added, and it lists every source with its current status and the last time each one worked.</p>` +
+    cardClose() +
     postalFooterHtml() +
-    '</div>';
+    WRAP_CLOSE;
 
   return { subject, text, html };
 }
