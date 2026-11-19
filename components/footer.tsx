@@ -35,7 +35,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/local', label: 'By city' },
         { href: '/guides', label: 'Guides' },
         { href: '/faq', label: 'FAQ' },
-        { href: '/data', label: 'Local public records in numbers' },
+        { href: '/data', label: 'Public records in numbers' },
         { href: '/about', label: 'About' },
       ],
     },
