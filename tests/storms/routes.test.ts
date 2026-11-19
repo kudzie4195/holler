@@ -184,7 +184,7 @@ describe('route meta', () => {
     expect(new Set(titles).size).toBe(4);
     expect(new Set(descs).size).toBe(4);
     expect(titles[0]).toBe('Storm reports in Cobb County, GA on November 14, 2026 | Holler');
-    expect(descs[0]).toBe('3 storm reports (3 hail) in Cobb County, GA on November 14, 2026, from the NOAA Storm Prediction Center, with a link to each source record.');
+    expect(descs[0]).toBe('3 storm reports (3 hail) in Cobb County, GA on November 14, 2026, from the NOAA Storm Prediction Center, with a link to each source.');
     for (const m of metas) {
       expect(m.robots).toEqual({ index: true, follow: true });
       expect(m.alternates?.canonical).toMatch(/^https?:\/\/[^/]+\/storms\/georgia\//);

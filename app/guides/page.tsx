@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { ChartIcon, ContractIcon, EnvelopeIcon, HailIcon, HardHatIcon, MegaphoneIcon, StorefrontIcon, WrenchIcon } from '@/components/icons';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { GUIDES, guidePath } from '@/lib/seo/guides';
 import { GUIDES_HUB_META, hubJsonLd } from '@/lib/seo/guides/seo';
@@ -17,18 +15,6 @@ export function generateMetadata(): Metadata {
     ...socialMeta({ title: m.title, description: m.description, path: m.path }),
   };
 }
-
-/** One small decorative icon per guide (the title carries the meaning). Unknown slugs get the wrench. */
-const GUIDE_ICON: Record<string, ReactNode> = {
-  'how-contractors-find-work-from-building-permits': <HardHatIcon />,
-  'storm-damage-leads-from-weather-alerts-and-storm-reports': <HailIcon />,
-  'what-311-requests-tell-local-service-businesses': <MegaphoneIcon />,
-  'free-public-data-sources-for-local-leads': <ChartIcon />,
-  'pay-per-lead-vs-flat-fee-alerts': <WrenchIcon />,
-  'federal-contracts-for-small-local-businesses': <ContractIcon />,
-  'new-business-licenses-as-a-lead-source': <StorefrontIcon />,
-  'how-to-respond-to-a-local-lead-fast': <EnvelopeIcon />,
-};
 
 export default function GuidesHubPage() {
   return (
@@ -50,10 +36,8 @@ export default function GuidesHubPage() {
       <ul className="mt-10 border-t-2 border-ink">
         {GUIDES.map((g) => (
           <li key={g.slug} className="border-b border-line py-6">
-            <article className="flex items-start gap-4">
-              <span className="hidden size-11 shrink-0 items-center justify-center rounded-control bg-brand text-signal sm:inline-flex">
-                {GUIDE_ICON[g.slug] ?? <WrenchIcon />}
-              </span>
+            {/* A plain ruled list, the house style (no decorative icon tiles). */}
+            <article>
               <div className="min-w-0">
                 <h2 className="h-plain text-xl text-ink">
                   <Link href={guidePath(g.slug)} className="decoration-1 underline-offset-4 hover:underline">

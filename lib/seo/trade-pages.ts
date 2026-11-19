@@ -40,7 +40,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     lead: 'Hail and wind do the selling for a roofer. Holler tells you which towns just took a hit, while the homeowners are still looking at the ceiling stain.',
     signals: [
       { signal: 'Hail reports', type: 'storm-report', why: 'A report of quarter-size hail in a town usually means a whole neighborhood of roofs to inspect within days.' },
-      { signal: 'Wind and tornado reports', type: 'storm-report', why: 'Shingles lift and flashing tears long before anyone sees a leak, so a damaging-wind report is a lead list in waiting.' },
+      { signal: 'Wind and tornado reports', type: 'storm-report', why: 'Shingles lift and flashing tears long before anyone sees a leak, so a damaging-wind report is an early sign that roofs nearby may need a look.' },
       { signal: 'Severe thunderstorm and tornado warnings', type: 'weather-alert', why: 'A warning tells you which zip codes to canvass first once the storm clears.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Insured storm claims flow after a declaration, and homeowners start calling roofers the same week.' },
       { signal: 'People asking for a roofer', type: 'ask', why: 'Someone posted publicly that they need a recommendation. Reply fast and you may be the only quote they get.' },

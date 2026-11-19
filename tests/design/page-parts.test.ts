@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { PAGE_BOX } from '@/components/grid';
 import { ClosingBand, Crumbs, FamilyMark, Ledger, PageHeader } from '@/components/page-header';
 
 const read = (p: string) => readFileSync(p, 'utf8');
@@ -31,6 +32,16 @@ describe('PageHeader', () => {
   });
   it('the main action sits inside the band, after the lead', () => {
     expect(html.indexOf('A one line lead.')).toBeLessThan(html.indexOf('href="/signup"'));
+  });
+  it('drops the current-page crumb when it repeats the h1 word for word (review 2 P2-17), keeps it otherwise', () => {
+    const same = renderToStaticMarkup(
+      createElement(PageHeader, { title: 'How to read a permit', crumbs: [{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: 'How to read a permit' }] }),
+    );
+    expect(same.match(/How to read a permit/g)).toHaveLength(1);
+    expect(same).toContain('href="/guides"');
+    expect(same).not.toContain('aria-current="page"');
+    // Roofing is not the h1 text, so it stays as the marked current page (the first test above).
+    expect(html).toContain('>Roofing</span>');
   });
   it('off the band the trail uses the light colors', () => {
     const light = renderToStaticMarkup(createElement(Crumbs, { items: [{ name: 'Home', href: '/' }, { name: 'FAQ' }], onBrand: false }));
@@ -154,5 +165,77 @@ describe("unit C's files keep nothing of the old look", () => {
       expect(h2s.length, f).toBeGreaterThan(0);
       for (const h of h2s) if (!h.includes('sr-only')) expect(h, f).toContain('h-plain');
     }
+  });
+});
+
+// ---- One page grid (commander decision 3, review 2 P1-1 and P1-2) ----
+describe('one page grid: one 1200 px box, a 24 px gutter at every width, one left edge', () => {
+  it('the box is max-w-[1200px] with px-6 and no width-dependent gutter', () => {
+    expect(PAGE_BOX).toBe('mx-auto w-full max-w-[1200px] px-6');
+  });
+  const SHELLS = [
+    'components/top-nav.tsx', 'components/footer.tsx', 'components/page-header.tsx', 'components/doc-page.tsx',
+    'app/local/_components/ui.tsx', 'app/guides/_components/shell.tsx', 'app/check/page.tsx', 'app/request/page.tsx',
+    'app/request/sent/page.tsx', 'app/pricing/page.tsx', 'app/(auth)/layout.tsx', 'app/onboarding/page.tsx',
+    'app/onboarding/preview/page.tsx', 'app/app/layout.tsx', 'app/not-found.tsx', 'app/error.tsx',
+  ];
+  it.each(SHELLS)('%s builds its bands and columns on PAGE_BOX', (f) => {
+    expect(read(f)).toContain('${PAGE_BOX}');
+  });
+  it('no page centres a narrower box of its own (a narrow measure nests inside PAGE_BOX, so its column starts at the logo edge)', () => {
+    const files = [...walk('app'), ...walk('components')].filter((f) => !/^components\/home\//.test(f) && f !== 'components/grid.ts' && f !== 'app/page.tsx' && f !== 'components/pricing.tsx');
+    const hits = files.flatMap((f) =>
+      read(f)
+        .split('\n')
+        .flatMap((line, i) => (/mx-auto[^"'`]*\bmax-w-|max-w-[^"'`]*\bmx-auto/.test(line) && !/absolute|empty-state/.test(line + f) ? [`${f}:${i + 1}`] : [])),
+    );
+    expect(hits).toEqual([]);
+  });
+});
+
+describe('display font preload (review 2 P2-14)', () => {
+  it('the root layout preloads the same Barlow file that globals.css uses, as a font with CORS', () => {
+    const layout = read('app/layout.tsx');
+    const file = '@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2';
+    expect(read('app/globals.css')).toContain(file);
+    expect(layout).toContain(`new URL('../node_modules/${file}', import.meta.url)`);
+    expect(layout).toContain('<link rel="preload" href={BARLOW_700} as="font" type="font/woff2" crossOrigin="anonymous" />');
+  });
+});
+
+describe('small shell rules from the round 9 reviews', () => {
+  it('.h-link is a 44 by 44 px target, so a short word such as "FAQ" is not a narrow strip (review 1 P2-7)', () => {
+    const css = read('app/globals.css');
+    const rule = css.slice(css.indexOf('.h-link {'), css.indexOf('}', css.indexOf('.h-link {')));
+    expect(rule).toContain('min-height: 44px;');
+    expect(rule).toContain('min-width: 44px;');
+  });
+  it('the dead .hero-paper backdrop is gone from globals.css (review 1 P1-3)', () => {
+    expect(read('app/globals.css')).not.toContain('hero-paper');
+  });
+  it('the signal button darkens on hover with the signal-hover token, not a brightness filter (review 2 P2-12)', () => {
+    const btn = read('components/button.tsx');
+    expect(btn).toContain("signal: 'bg-signal text-ink hover:bg-signal-hover'");
+    expect(btn).not.toMatch(/hover:brightness/);
+    expect(C['signal-hover']).toBe('#c6dd32');
+    expect(ratio(C.ink, C['signal-hover'])).toBeGreaterThanOrEqual(4.5);
+  });
+  it('/check shows what the check lists before a search, on the ZIP step and on a form error (review 2 P2-15)', () => {
+    const page = read('app/check/page.tsx');
+    expect((page.match(/<CheckPreview \/>/g) ?? []).length).toBe(3);
+    expect(page).not.toMatch(/last 30 days/);
+  });
+  it('/pricing keeps one sentence in the green band; the rest of the intro sits under the plan cards (review 2 P1-6)', () => {
+    const page = read('app/pricing/page.tsx');
+    expect(page).toContain('lead={<p>{PRICING_INTRO[0]}</p>}');
+    expect(page).toContain('PRICING_INTRO.slice(1).map');
+  });
+  it('the footer calls /data "Data" and its tagline is balanced, not a one-word orphan line (review 2 P2-10, P2-11)', () => {
+    const footer = read('components/footer.tsx');
+    expect(footer).toContain("{ href: '/data', label: 'Data' }");
+    expect(footer).toMatch(/text-balance[^"]*">Public records near you, sorted for your trade\.<\/p>/);
+  });
+  it('the guides list has no decorative icon tiles (review 2 P2-16)', () => {
+    expect(read('app/guides/page.tsx')).not.toMatch(/Icon\b|GUIDE_ICON/);
   });
 });

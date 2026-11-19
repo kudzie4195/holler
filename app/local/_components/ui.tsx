@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { buttonClasses } from '@/components/button';
 import { Footer } from '@/components/footer';
+import { PAGE_BOX } from '@/components/grid';
 import { WIDTH, type Width } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { env } from '@/lib/env';
@@ -15,7 +16,7 @@ export { Crumbs, FamilyMark, FamilyDot, Ledger, ClosingBand, PageHeader, type Fa
 
 /**
  * Shared shell: TopNav (skip link targets #main), one main landmark, Footer. `header` is the green band (a PageHeader) and spans
- * the full width; the content column below it uses the same width so the left edges line up.
+ * the full width; the content column below it sits in the same page grid, so the left edges line up.
  */
 export function Page({ header, children, width = 'base' }: { header?: ReactNode; children: ReactNode; width?: Width }) {
   return (
@@ -23,7 +24,9 @@ export function Page({ header, children, width = 'base' }: { header?: ReactNode;
       <TopNav />
       <main id="main" className="w-full flex-1 text-base text-ink">
         {header}
-        <div className={`mx-auto w-full ${WIDTH[width]} px-5 pb-20 pt-10 md:pt-14`}>{children}</div>
+        <div className={`${PAGE_BOX} pb-20 pt-10 md:pt-14`}>
+          <div className={WIDTH[width]}>{children}</div>
+        </div>
       </main>
       <Footer />
     </>

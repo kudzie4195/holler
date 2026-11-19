@@ -4,7 +4,7 @@ import { timeAgo } from './format';
 import { FamilyDot } from './page-header';
 import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
-import { CHECK_RADIUS_LABEL } from '@/lib/check/scope';
+import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
 
 function Cta({ citySlug, children }: { citySlug: string | null; children?: React.ReactNode }) {
@@ -52,7 +52,7 @@ export function CheckResults({
   if (shown === 0) {
     const trade = tradeLabel.toLowerCase();
     const intro: Record<CheckMode, string> = {
-      results: `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last 30 days. Holler checked ${timeAgo(checkedAt, now)}.`,
+      results: `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,

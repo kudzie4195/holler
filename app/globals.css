@@ -107,6 +107,8 @@
 
   /* Hi-vis lime. A fill and a ring, never text or an edge on light. */
   --color-signal: #d9f046;
+  /* Hover fill of a signal button: a step darker, which reads better on lime than a brighter one (ink on it 11.0:1). */
+  --color-signal-hover: #c6dd32;
 
   /* Record families: tint (band and badge background), mark (dots, stripes, icons; not text), ink (text on the tint). */
   --color-sky: #dde8ec;
@@ -330,11 +332,12 @@
     color: var(--color-muted);
   }
 
-  /* A text link that is a full touch target: 44 px tall, underline on hover. */
+  /* A text link that is a full touch target: at least 44 px tall and 44 px wide (short words such as "FAQ"), underline on hover. */
   .h-link {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
+    min-width: 44px;
     text-decoration: none;
   }
   .h-link:hover {
@@ -392,12 +395,6 @@
     .skeleton {
       animation: shimmer 1.4s ease-in-out infinite;
     }
-  }
-
-  /* Older light hero backdrop still used by a few inner pages: plain paper with a faint green wash, CSS only. */
-  .hero-paper {
-    background-color: var(--color-background);
-    background-image: radial-gradient(60rem 28rem at 85% -10%, rgb(30 58 44 / 0.06), transparent 70%);
   }
 }
 

@@ -1,8 +1,8 @@
 // Round 9 design tokens: the contract in gates/r9/CONTEXT.md, the removed old look, and a WCAG contrast table for every
 // text/background pair the system allows. Contrast is computed here with the WCAG 2.x relative-luminance formula.
 //
-// The removed-token scan covers unit A's files by default. Set TOKENS_SCAN=all to scan every source file under app/,
-// components/ and lib/ (the commander's check after the merge), or import scanRemoved() and pass your own list.
+// The removed-token scan covers the whole web tree by default: every source file under app/, components/ and lib/ (lib/legal/
+// and the email templates included), plus the icon and package.json. No switch to remember. Import scanRemoved() to scan your own list.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -98,6 +98,8 @@ export const REMOVED: { name: string; re: RegExp }[] = [
   { name: 'Fraunces', re: /fraunces/i },
   { name: 'Geist', re: /\bgeist\b/i },
   { name: 'Google Fonts', re: /fonts\.(?:googleapis|gstatic)\.com/ },
+  // The dead warm-paper hero backdrop (review 1 P1-3). Deleted from globals.css; must not come back.
+  { name: 'hero-paper', re: /hero-paper/ },
 ];
 
 /** Unit A's files (gates/r9/CONTEXT.md "Units and ownership"). */
@@ -128,7 +130,9 @@ export function scanRemoved(files: string[]): string[] {
   );
 }
 
-const scanFiles = process.env.TOKENS_SCAN === 'all' ? ['app', 'components', 'lib'].flatMap(walk) : UNIT_A_FILES;
+/** The whole web tree, always. UNIT_A_FILES adds the two files outside app/, components/ and lib/. */
+export const SCAN_ROOTS = ['app', 'components', 'lib'];
+const scanFiles = [...new Set([...SCAN_ROOTS.flatMap(walk), ...UNIT_A_FILES])];
 
 const C = themeColors();
 const t = (name: string) => {
@@ -159,6 +163,8 @@ export const PAIRS: Pair[] = [
   text('button primary hover', 'on-brand', 'brand-raised'),
   text('button primary pressed', 'on-brand', 'brand-deep'),
   text('button signal', 'ink', 'signal'),
+  text('button signal hover', 'ink', 'signal-hover'),
+  edge('button signal hover fill on green', 'signal-hover', 'brand'),
   text('button secondary', 'ink', 'surface'),
   text('button secondary hover', 'ink', 'sand'),
   text('button ghost on light', 'ink', 'background'),
@@ -246,12 +252,19 @@ describe('design tokens: the contract', () => {
 });
 
 describe('design tokens: nothing of the old look remains', () => {
-  it(`no removed token, old hex, Fraunces or Geist in ${process.env.TOKENS_SCAN === 'all' ? 'app/, components/ and lib/' : "unit A's files"}`, () => {
+  it('no removed token, old hex, hero-paper, Fraunces or Geist anywhere in app/, components/ and lib/', () => {
     expect(scanRemoved(scanFiles)).toEqual([]);
   });
 
+  it('the scan covers the whole tree, emails and legal text included', () => {
+    for (const f of ['app/globals.css', 'components/footer.tsx', 'lib/legal/email-footer.ts', 'lib/email/templates.ts', 'lib/lifecycle/templates.ts']) {
+      expect(scanFiles, f).toContain(f);
+    }
+    expect(scanFiles.length).toBeGreaterThan(300);
+  });
+
   it('the scan itself catches each old pattern', () => {
-    const samples = ['bg-accent', 'hover:text-accent-text', 'var(--color-accent-soft)', 'tone="accent"', 'border-brick', '#E8590C', '#faf6ee', 'rgb(74 52 24 / 0.05)', "'Fraunces Variable'", "from 'geist/font/sans'", 'https://fonts.googleapis.com/css2'];
+    const samples = ['hero-paper', 'bg-accent', 'hover:text-accent-text', 'var(--color-accent-soft)', 'tone="accent"', 'border-brick', '#E8590C', '#faf6ee', 'rgb(74 52 24 / 0.05)', "'Fraunces Variable'", "from 'geist/font/sans'", 'https://fonts.googleapis.com/css2'];
     for (const s of samples) expect(REMOVED.some((r) => r.re.test(s)), s).toBe(true);
     for (const ok of ['accented', 'text-brand-text', 'bg-signal', 'kind-civic-bg']) expect(REMOVED.some((r) => r.re.test(ok)), ok).toBe(false);
   });

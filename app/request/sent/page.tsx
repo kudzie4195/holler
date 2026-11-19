@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ButtonLink } from '@/components/button';
 import { Footer } from '@/components/footer';
+import { PAGE_BOX } from '@/components/grid';
 import { PageHeader } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { CONFIRM_DAYS } from '@/lib/requests/constants';
@@ -33,7 +34,8 @@ export default function RequestSentPage() {
             </div>
           }
         />
-        <div className="mx-auto w-full max-w-2xl px-5 pb-20 pt-10">
+        <div className={`${PAGE_BOX} pb-20 pt-10`}>
+        <div className="max-w-2xl">
         <div className="flex flex-col gap-3 text-ink">
           <p>No email? Look in your spam folder first. We send at most 3 links a day to one address, so a repeat may not get a new one.</p>
           <p>Wrong address? Send the form again with the right one.</p>
@@ -42,6 +44,7 @@ export default function RequestSentPage() {
           <ButtonLink href="/request" variant="secondary">
             Back to the form
           </ButtonLink>
+        </div>
         </div>
         </div>
       </main>

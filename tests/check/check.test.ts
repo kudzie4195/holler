@@ -39,7 +39,12 @@ describe('parseCheckParams', () => {
       const r = parseCheckParams({ zip });
       expect(r.status).toBe('invalid');
       if (r.status === 'invalid') expect(r.zipError).toBe('Enter a 5-digit ZIP code, like 30030.');
+      // Review 1 P2-8: only the ZIP message. The trade was never asked for, so it gets no error yet.
+      if (r.status === 'invalid') expect(r.tradeError).toBeUndefined();
     }
+    // With a bad ZIP and a bad trade, both fields still get their message.
+    const both = parseCheckParams({ zip: 'abc', trade: 'nope' });
+    expect(both).toMatchObject({ status: 'invalid', zipError: 'Enter a 5-digit ZIP code, like 30030.', tradeError: 'Pick a trade from the list.' });
   });
 });
 

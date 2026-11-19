@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { Button, ButtonLink } from '@/components/button';
+import { PAGE_BOX } from '@/components/grid';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -10,7 +11,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
   return (
     <main id="main" className="on-brand flex w-full flex-1 flex-col justify-center bg-brand">
-      <div className="mx-auto w-full max-w-3xl px-5 py-16 md:py-24">
+      <div className={`${PAGE_BOX} py-16 md:py-24`}>
         <h1 className="max-w-[18ch] text-5xl sm:text-6xl">Something went wrong on our side.</h1>
         <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
           Your account and data are fine. Try again, and if it keeps happening, check back in a few minutes.

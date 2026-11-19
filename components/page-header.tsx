@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { PAGE_BOX } from './grid';
 
 /*
   Round 9 page parts shared by every inner page (unit C). Server components, no client JavaScript.
@@ -11,7 +12,10 @@ import type { ReactNode } from 'react';
 
 export type Crumb = { name: string; href?: string };
 
-/** Content width shared by the header band and the page body, so their left edges line up. */
+/**
+ * Measure of the text column inside the page grid (components/grid.ts). It is nested inside PAGE_BOX, so every column starts at
+ * the same left edge as the logo; only the right edge moves.
+ */
 export const WIDTH = {
   narrow: 'max-w-2xl',
   base: 'max-w-3xl',
@@ -85,15 +89,21 @@ export function PageHeader({
         ? 'text-4xl sm:text-5xl md:text-6xl'
         : 'text-4xl sm:text-5xl';
   const pad = size === 'sm' ? 'pb-8 pt-6 md:pb-10 md:pt-8' : 'pb-10 pt-6 md:pb-14 md:pt-10';
+  // The current-page crumb adds nothing when it repeats the h1 word for word (a guide's long title twice on a phone): drop it.
+  // The BreadcrumbList JSON-LD is built separately and keeps every level.
+  const last = crumbs?.at(-1);
+  const trail = last && !last.href && typeof title === 'string' && last.name.trim() === title.trim() ? crumbs!.slice(0, -1) : crumbs;
   return (
     <div className="on-brand bg-brand">
-      <div className={`mx-auto w-full ${WIDTH[width]} px-5 ${pad}`}>
-        {crumbs ? <Crumbs items={crumbs} /> : null}
+      <div className={`${PAGE_BOX} ${pad}`}>
+        <div className={WIDTH[width]}>
+        {trail && trail.length > 0 ? <Crumbs items={trail} /> : null}
         {eyebrow ? <p className="eyebrow mb-3">{eyebrow}</p> : null}
         <h1 className={`${h1} max-w-[22ch] break-words text-on-brand`}>{title}</h1>
         {lead ? <div className="mt-4 flex max-w-2xl flex-col gap-2 text-lg text-on-brand-muted">{lead}</div> : null}
         {meta ? <p className="mt-3 font-mono text-xs uppercase tracking-[0.06em] text-on-brand-faint">{meta}</p> : null}
         {children ? <div className="mt-6">{children}</div> : null}
+        </div>
       </div>
     </div>
   );

@@ -25,8 +25,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       >
         <main style={{ maxWidth: 448, padding: '64px 20px' }}>
           <style>{'button:focus-visible{outline:3px solid #D9F046;outline-offset:3px}'}</style>
-          <h1 style={{ fontSize: 48, lineHeight: 0.95, fontFamily: "'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif", fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>Something went wrong on our side.</h1>
-          <p style={{ fontSize: 18, color: '#C9D6CD', marginTop: 16 }}>
+          <h1 style={{ fontSize: '3rem', lineHeight: 0.95, fontFamily: "'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif", fontWeight: 700, textTransform: 'uppercase', margin: 0 }}>Something went wrong on our side.</h1>
+          <p style={{ fontSize: '1.125rem', color: '#C9D6CD', marginTop: 16 }}>
             Your account and data are fine. Try again, and if it keeps happening, check back in a few minutes.
           </p>
           <button
@@ -40,7 +40,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               border: 0,
               background: '#D9F046',
               color: '#14201A',
-              fontSize: 16,
+              fontSize: '1rem',
               fontWeight: 600,
               cursor: 'pointer',
             }}

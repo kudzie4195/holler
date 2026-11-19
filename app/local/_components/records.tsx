@@ -27,7 +27,7 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
           item.title
         )}
       </p>
-      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[15px] text-muted">{item.summary}</p> : null}
+      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[0.9375rem] text-muted">{item.summary}</p> : null}
       <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         <time dateTime={item.occurredAt} className="font-mono text-xs uppercase tracking-[0.04em] text-ink">
           {fmtItemTime(item.occurredAt, asOf)}

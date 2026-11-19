@@ -3,11 +3,12 @@ import type { ReactNode } from 'react';
 import { Footer, TopNav } from '@/components';
 import { parseInline, isExternal } from '@/lib/seo/guides/inline';
 import { jsonLdString } from '@/lib/seo/serialize';
+import { PAGE_BOX } from '@/components/grid';
 import { WIDTH } from '@/components/page-header';
 
 /**
  * Shared frame for /guides, /faq and /data: nav, one main landmark, footer. `header` is the green title band (a PageHeader) at full
- * width; the text column below uses the same width. Reading pages keep a 60 to 75 character measure (max-w-2xl at 16 px).
+ * width; the text column below starts at the same left edge (components/grid.ts). Reading pages keep a 60 to 75 character measure (max-w-2xl at 16 px).
  */
 export function Shell({ children, header, wide = false }: { children: ReactNode; header?: ReactNode; wide?: boolean }) {
   return (
@@ -15,7 +16,9 @@ export function Shell({ children, header, wide = false }: { children: ReactNode;
       <TopNav />
       <main id="main" className="w-full flex-1">
         {header}
-        <div className={`mx-auto w-full ${wide ? WIDTH.base : WIDTH.narrow} px-5 pb-20 pt-10 md:pt-12`}>{children}</div>
+        <div className={`${PAGE_BOX} pb-20 pt-10 md:pt-12`}>
+          <div className={wide ? WIDTH.base : WIDTH.narrow}>{children}</div>
+        </div>
       </main>
       <Footer />
     </>

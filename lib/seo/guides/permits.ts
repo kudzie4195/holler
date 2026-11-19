@@ -70,7 +70,7 @@ export const permits: Guide = {
     },
   ],
   howHolerHelps:
-    'Holler reads new permits from the cities that publish them, including Chicago, New York City, Austin and San Francisco, and sends a short alert that links to the source record. Most towns are not connected yet, so [check your area](/check) to see what it would watch near your ZIP code before you pay for anything.',
+    'Holler reads new permits from the cities that publish them, including Chicago, New York City, Austin and San Francisco, and sends a short alert that links to its public source. Most towns are not connected yet, so [check your area](/check) to see what it would watch near your ZIP code before you pay for anything.',
   faq: [
     {
       q: 'Are building permits public records?',

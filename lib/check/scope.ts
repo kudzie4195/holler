@@ -1,5 +1,8 @@
 import { stateByCode } from '@/lib/geo';
 
+/** How far back the free check reads, in days (lib/check/load.ts). The page says this number, so it is set once here. */
+export const CHECK_WINDOW_DAYS = 30;
+
 /** What a new subscriber gets by default (radius_mi default in holler_profiles). Used for the nearest-city lookup and the watch list, not for the records read. */
 export const CHECK_RADIUS_MI = 25;
 

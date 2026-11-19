@@ -40,7 +40,7 @@ export function Logo({
   const inner = (
     <>
       <LogoMark size={size} />
-      <span className="font-display leading-none tracking-[0.01em]" style={{ fontSize: Math.round(size * 0.875) }}>
+      <span className="font-display leading-none tracking-[0.01em]" style={{ fontSize: `${Math.round(size * 0.875) / 16}rem` }}>
         Holler
       </span>
     </>

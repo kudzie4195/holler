@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Logo } from './logo';
 import { ButtonLink } from './button';
+import { PAGE_BOX } from './grid';
 
 /** Section links in the bar on wide screens. Everything else (trades, cities, guides, FAQ, data, about, requests) is in the footer. */
 export const NAV_LINKS = [
@@ -9,7 +10,7 @@ export const NAV_LINKS = [
   { href: '/pricing', label: 'Pricing' },
 ] as const;
 
-const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[15px] font-medium text-on-brand';
+const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[0.9375rem] font-medium text-on-brand';
 
 /**
  * Marketing and public-page header: one green bar, 64 px tall at every width, so it stays sticky without eating a phone screen.
@@ -30,7 +31,7 @@ export function TopNav({ ctaHref = '/signup' }: { ctaHref?: string }) {
         Skip to content
       </a>
       <header className="on-brand sticky top-0 z-40 bg-brand">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className={`${PAGE_BOX} flex h-16 items-center justify-between gap-3`}>
           <Logo size={32} />
           <div className="flex items-center gap-4 lg:gap-6">
             <nav aria-label="Main" className="hidden md:block">

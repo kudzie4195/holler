@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
+import { PAGE_BOX } from '@/components/grid';
 import { RequestForm } from '@/components/request-form';
 import { TopNav } from '@/components/top-nav';
 import { CONFIRM_DAYS, MAX_REPLIES_PER_REQUEST, OPEN_DAYS, PURGE_AFTER_DAYS } from '@/lib/requests/constants';
@@ -40,7 +41,7 @@ export default function RequestPage() {
       <TopNav />
       <main id="main" className="w-full flex-1">
         <div className="on-brand bg-brand">
-          <div className="mx-auto w-full max-w-3xl px-5 pb-24 pt-6 md:pb-28 md:pt-10">
+          <div className={`${PAGE_BOX} pb-24 pt-6 md:pb-28 md:pt-10`}>
             <p className="eyebrow mb-3">For residents · Free</p>
             <h1 className="max-w-[22ch] text-5xl sm:text-6xl md:text-7xl">Ask local businesses for a quote.</h1>
             <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
@@ -48,7 +49,8 @@ export default function RequestPage() {
             </p>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-3xl px-5 pb-20">
+        <div className={`${PAGE_BOX} pb-20`}>
+        <div className="max-w-3xl">
         <section aria-labelledby="request-form-title" className="on-light relative -mt-16 rounded-card border border-line bg-surface p-5 shadow-lift md:-mt-20 md:p-7">
           <h2 id="request-form-title" className="h-plain text-2xl text-ink">
             Your request
@@ -116,6 +118,7 @@ export default function RequestPage() {
             <p>It costs you nothing. Businesses pay for Holler.</p>
           </div>
         </section>
+        </div>
         </div>
       </main>
       <Footer />

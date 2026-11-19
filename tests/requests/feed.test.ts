@@ -24,10 +24,10 @@ const base: FeedItem = {
 };
 
 describe('feed: resident requests', () => {
-  it('shows Reply, not "Open source" or "Draft reply", and labels the source', () => {
+  it('shows Reply, not "Open the source" or "Draft reply", and labels the source', () => {
     const html = renderToStaticMarkup(createElement(Feed, { items: [base], cityPage: null }));
     expect(html).toContain('>Reply<');
-    expect(html).not.toContain('Open source');
+    expect(html).not.toContain('Open the source');
     expect(html).not.toContain('Draft reply');
     expect(html).toContain('Request made on Holler');
   });
@@ -36,7 +36,7 @@ describe('feed: resident requests', () => {
     const html = renderToStaticMarkup(
       createElement(Feed, { items: [{ ...base, id: 2, source: 'websearch', url: 'https://example.com/post' }], cityPage: null }),
     );
-    expect(html).toContain('Open source');
+    expect(html).toContain('Open the source');
     expect(html).toContain('Draft reply');
     expect(html).not.toContain('>Reply<');
   });

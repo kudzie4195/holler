@@ -151,7 +151,7 @@ describe('/data is titled as records, not demand', () => {
     expect(ld).not.toMatch(/demand in numbers/i);
     expect(JSON.stringify(dataJsonLd({ ok: false } as never))).toContain('Local public records in numbers');
     // Round 9 footer: the shorter label from the brief, still records, not demand.
-    expect(renderToStaticMarkup(createElement(Footer))).toMatch(/href="\/data"[^>]*>Public records in numbers</);
+    expect(renderToStaticMarkup(createElement(Footer))).toMatch(/href="\/data"[^>]*>Data</);
     for (const f of ['app/page.tsx', 'app/data/page.tsx', 'lib/seo/national-seo.ts', 'lib/seo/llms-extra.ts', 'lib/seo/guides/seo.ts', 'components/footer.tsx']) {
       expect(read(f), f).not.toMatch(/demand in numbers/i);
     }

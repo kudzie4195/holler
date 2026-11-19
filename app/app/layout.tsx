@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { Logo } from '@/components/logo';
+import { PAGE_BOX } from '@/components/grid';
 import { Button } from '@/components/button';
 import { AppNavLinks } from '@/components/app-nav';
 
@@ -19,21 +20,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-3xl items-center justify-between gap-2 px-4 sm:px-5">
-          <Logo href="/app" />
+        <div className={`${PAGE_BOX} flex h-16 items-center justify-between gap-2`}>
+          {/* Under 480 px the wordmark hides (the link keeps its "Holler home" name) so the logo, two links and Sign out fit in one row at 320 px. */}
+          <Logo href="/app" className="max-[479px]:[&>span]:hidden" />
           <nav aria-label="App" className="flex items-center gap-0.5 sm:gap-1">
             <AppNavLinks />
             <form action="/api/auth/signout" method="post">
-              <Button type="submit" variant="ghost" size="sm" className="text-muted">
+              <Button type="submit" variant="ghost" size="sm" className="text-muted max-[399px]:px-2.5">
                 Sign out
               </Button>
             </form>
           </nav>
         </div>
       </header>
-      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 pb-20 pt-8 sm:px-5">
-        {/* Everything below reads the session, so it streams in behind this boundary. */}
-        <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+      <main id="main" className={`${PAGE_BOX} flex-1 pb-20 pt-8`}>
+        {/* Everything below reads the session, so it streams in behind this boundary. The column starts under the logo. */}
+        <div className="max-w-3xl">
+          <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+        </div>
       </main>
     </>
   );

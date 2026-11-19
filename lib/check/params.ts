@@ -28,7 +28,9 @@ export function parseCheckParams(sp: { zip?: Raw; trade?: Raw }): CheckParams {
   if (zip && !trade) return { status: 'zip', zip };
 
   const zipError = zip ? undefined : zipRaw ? 'Enter a 5-digit ZIP code, like 30030.' : 'Enter your ZIP code.';
-  const tradeError = trade && isCategoryId(trade) ? undefined : trade ? 'Pick a trade from the list.' : MISSING_TRADE;
+  // An empty trade only gets here with a bad ZIP (a typo in the home page ZIP form, which sends no trade). It shows only the ZIP
+  // message: the trade was never asked for yet. With a good ZIP it is the 'zip' step above.
+  const tradeError = !trade || isCategoryId(trade) ? undefined : 'Pick a trade from the list.';
 
   if (zipError || tradeError) return { status: 'invalid', zip: zipRaw, trade, zipError, tradeError };
   return { status: 'ok', zip, trade: trade as CategoryId };

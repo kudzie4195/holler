@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { PAGE_BOX } from '@/components/grid';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -11,18 +12,19 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <>
       {/* Green top bar, as the site nav: the HOLLER wordmark takes on-brand from .on-brand (11.3:1), focus ring signal. */}
       <header className="on-brand bg-brand">
-        <div className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
+        <div className={`${PAGE_BOX} flex h-16 items-center`}>
           <Logo />
         </div>
       </header>
-      <main id="main" className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-16 pt-6 sm:pt-12">
-        {children}
+      {/* One left edge with the logo (components/grid.ts): the form column is narrow but starts under the logo, not centred. */}
+      <main id="main" className={`${PAGE_BOX} flex flex-1 flex-col pb-16 pt-6 sm:pt-12`}>
+        <div className="flex w-full max-w-md flex-1 flex-col">{children}</div>
       </main>
-      <footer className="mx-auto w-full max-w-md px-5 pb-8 text-center text-sm text-muted">
-        <Link href="/privacy" className="inline-flex min-h-11 items-center px-2 underline decoration-1 underline-offset-4 hover:text-ink">
+      <footer className={`${PAGE_BOX} flex gap-4 pb-8 text-sm text-muted`}>
+        <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center underline decoration-1 underline-offset-4 hover:text-ink">
           Privacy
         </Link>
-        <Link href="/terms" className="inline-flex min-h-11 items-center px-2 underline decoration-1 underline-offset-4 hover:text-ink">
+        <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center underline decoration-1 underline-offset-4 hover:text-ink">
           Terms
         </Link>
       </footer>

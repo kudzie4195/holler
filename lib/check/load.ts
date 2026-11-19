@@ -1,12 +1,12 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { publicClient } from '@/lib/seo/client';
 import { UPCOMING_DAYS } from '@/lib/time';
-import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI } from './scope';
+import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI, CHECK_WINDOW_DAYS } from './scope';
 import type { CheckItem } from './group';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
-const WINDOW_DAYS = 30;
+const WINDOW_DAYS = CHECK_WINDOW_DAYS;
 const ROW_LIMIT = 100;
 /** The close-to-home read (within 25 miles of every ZIP in the cell): the records a 25 mile subscription would actually send. */
 const CORE_LIMIT = 30;

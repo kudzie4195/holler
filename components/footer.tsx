@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { COMPANY } from '@/lib/legal/company';
 import { contactAddress } from '@/lib/email/templates';
+import { PAGE_BOX } from './grid';
 import { Logo } from './logo';
 
 type FooterLink = { href: string; label: string };
@@ -35,7 +36,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/local', label: 'By city' },
         { href: '/guides', label: 'Guides' },
         { href: '/faq', label: 'FAQ' },
-        { href: '/data', label: 'Public records in numbers' },
+        { href: '/data', label: 'Data' },
         { href: '/about', label: 'About' },
       ],
     },
@@ -60,10 +61,10 @@ export function Footer() {
   const contact = contactAddress();
   return (
     <footer className="on-brand mt-auto bg-ink">
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 pb-8 pt-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:gap-12">
-        <div className="flex max-w-xs flex-col gap-3">
+      <div className={`${PAGE_BOX} grid gap-10 pb-8 pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:gap-12`}>
+        <div className="flex max-w-sm flex-col gap-3">
           <Logo size={34} className="self-start" />
-          <p className="text-[15px] text-on-brand-faint">Public records near you, sorted for your trade.</p>
+          <p className="text-balance text-[0.9375rem] text-on-brand-faint">Public records near you, sorted for your trade.</p>
         </div>
         <nav aria-label="Footer" className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4">
           {groups(contact).map((g) => (
@@ -73,11 +74,11 @@ export function Footer() {
                 {g.links.map((l) => (
                   <li key={l.href}>
                     {l.href.startsWith('mailto:') ? (
-                      <a href={l.href} className="h-link text-[15px] text-on-brand">
+                      <a href={l.href} className="h-link text-[0.9375rem] text-on-brand">
                         {l.label}
                       </a>
                     ) : (
-                      <Link href={l.href} className="h-link text-[15px] leading-snug text-on-brand">
+                      <Link href={l.href} className="h-link text-[0.9375rem] leading-snug text-on-brand">
                         {l.label}
                       </Link>
                     )}
@@ -88,7 +89,7 @@ export function Footer() {
           ))}
         </nav>
       </div>
-      <div className="mx-auto w-full max-w-6xl px-5 pb-10 sm:px-6">
+      <div className={`${PAGE_BOX} pb-10`}>
         <div className="flex flex-col gap-2 border-t border-brand-raised pt-6 text-sm text-on-brand-faint">
           <p>
             Data comes from public government records and can be late or wrong, and Holler is not affiliated with or endorsed by any

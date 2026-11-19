@@ -3,7 +3,8 @@ import type { ComponentProps, ReactNode } from 'react';
 
 /**
  * primary: brand fill, on-brand text (11.2:1). For light surfaces.
- * signal: signal fill, ink text (13.2:1). Only on green or ink surfaces (inside .on-brand), never on light.
+ * signal: signal fill, ink text (13.2:1). Only on green or ink surfaces (inside .on-brand), never on light. Hover: the darker
+ *   signal-hover fill (ink 11.0:1), easier to see on lime than a brightness change.
  * secondary: surface fill, line-strong edge (3:1 or better on every light surface), ink text.
  * ghost: no fill, takes the text color of where it sits, so it works on light and inside .on-brand.
  * outline-signal: transparent, 1.5 px signal edge (9.7:1 on brand), on-brand text. The nav "Start free" on green.
@@ -16,7 +17,7 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-on-brand hover:bg-brand-raised active:bg-brand-deep',
-  signal: 'bg-signal text-ink hover:brightness-105',
+  signal: 'bg-signal text-ink hover:bg-signal-hover',
   secondary: 'border border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand',
   ghost: 'bg-transparent text-current hover:bg-current/10',
   'outline-signal': 'border-[1.5px] border-signal bg-transparent text-on-brand hover:bg-signal hover:text-ink',

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ComingNext } from '@/components/coming-next';
 import { Footer } from '@/components/footer';
+import { PAGE_BOX } from '@/components/grid';
 import { PageHeader } from '@/components/page-header';
 import { Pricing } from '@/components/pricing';
 import { TopNav } from '@/components/top-nav';
@@ -27,23 +28,28 @@ export default function PricingPage() {
           width="wide"
           eyebrow={`${TIER_NAMES.starter} and ${TIER_NAMES.pro}`}
           title="Holler pricing"
-          lead={PRICING_INTRO.map((t) => (
-            <p key={t}>{t}</p>
-          ))}
+          lead={<p>{PRICING_INTRO[0]}</p>}
         />
 
         <section aria-labelledby="plans-h" className="bg-background">
-          <div className="mx-auto w-full max-w-5xl px-5 py-12 md:py-16">
+          <div className={`${PAGE_BOX} py-12 md:py-16`}>
             <h2 id="plans-h" className="sr-only">
               Plans
             </h2>
             <Pricing />
             <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p>
+            {/* The rest of the intro, under the cards: on a phone the band holds one sentence so the first price is on screen. */}
+            <div className="mt-6 flex max-w-2xl flex-col gap-2 text-muted">
+              {PRICING_INTRO.slice(1).map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+            </div>
           </div>
         </section>
 
         <section aria-labelledby="compare-h" className="bg-sand">
-          <div className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
+          <div className={`${PAGE_BOX} py-12 md:py-16`}>
+            <div className="max-w-3xl">
             <h2 id="compare-h" className="text-3xl text-ink md:text-4xl">
               {TIER_NAMES.starter} and {TIER_NAMES.pro} side by side
             </h2>
@@ -75,14 +81,18 @@ export default function PricingPage() {
                 </tbody>
               </table>
             </div>
+            </div>
           </div>
         </section>
 
-        <div className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
-          <ComingNext page="pricing" />
+        <div className={`${PAGE_BOX} py-12 md:py-16`}>
+          <div className="max-w-3xl">
+            <ComingNext page="pricing" />
+          </div>
         </div>
 
-        <section aria-labelledby="faq-h" className="mx-auto w-full max-w-3xl px-5 pb-16 md:pb-20">
+        <section aria-labelledby="faq-h" className={`${PAGE_BOX} pb-16 md:pb-20`}>
+          <div className="max-w-3xl">
           <h2 id="faq-h" className="text-3xl text-ink md:text-4xl">
             Billing questions
           </h2>
@@ -101,6 +111,7 @@ export default function PricingPage() {
             </Link>
             .
           </p>
+          </div>
         </section>
       </main>
       <Footer />
