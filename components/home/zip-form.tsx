@@ -1,7 +1,8 @@
 /**
  * The ZIP check on green (hero and closing band). A plain GET form to /check with one field, `zip`; no client JavaScript.
  * /check with a ZIP and no trade shows its form with the ZIP filled in and asks for a trade (unit C).
- * Field: brand-deep fill, brand-line edge (4.17:1), on-brand text; the placeholder is on-brand-faint (7.8:1). Button: signal with ink.
+ * Field: brand-deep fill, brand-line edge (4.17:1), on-brand text; the placeholder is on-brand-faint (7.8:1). Button: signal with ink;
+ * on hover a darker lime (#C6DD32), which reads as a change where a brighter lime did not.
  */
 export function ZipForm({ id }: { id: string }) {
   return (
@@ -19,11 +20,11 @@ export function ZipForm({ id }: { id: string }) {
         title="Five digits"
         required
         placeholder="ZIP code"
-        className="h-[58px] min-w-0 flex-[999_1_110px] rounded-control border-2 border-brand-line bg-brand-deep px-4 text-[19px] text-on-brand placeholder:text-on-brand-faint"
+        className="h-[58px] min-w-0 flex-[999_1_110px] rounded-control border-2 border-brand-line bg-brand-deep px-4 text-[1.1875rem] text-on-brand placeholder:text-on-brand-faint"
       />
       <button
         type="submit"
-        className="h-[58px] flex-[1_1_auto] cursor-pointer whitespace-nowrap rounded-control bg-signal px-6 text-lg font-semibold text-ink transition-[filter,transform] duration-150 hover:brightness-105 active:translate-y-px"
+        className="h-[58px] flex-[1_1_auto] cursor-pointer whitespace-nowrap rounded-control bg-signal px-6 text-lg font-semibold text-ink transition-[background-color,transform] duration-150 hover:bg-[#C6DD32] active:translate-y-px"
       >
         Check my area
       </button>

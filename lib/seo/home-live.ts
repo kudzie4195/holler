@@ -1,12 +1,11 @@
 import { cacheLife } from 'next/cache';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { lookupZip } from '@/lib/geo';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import type { Adapter } from '@/lib/signals/types';
 import { publicClient } from './client';
 import { loadNationalStats, type NationalStats } from './national-data';
-import { MAP_ZIP, homeMapFrom, loadHomeMap, pickMapRecords, type HomeMap, type MapRow } from './home-map';
+import { MAP_ZIP, homeMapFrom, loadHomeMap, pickMapRecords, type ClientSource, type HomeMap, type MapRow } from './home-map';
 
 /**
  * Everything live on the home page. Real data only; each part is null when it cannot be stated, and the page then leaves that
@@ -111,10 +110,11 @@ export function pickWeather(rows: WeatherRow[], nowMs: number): LedgerExample | 
   return r ? { title: shortTitle(r.title!), occurredAt: r.occurred_at, mi: null } : null;
 }
 
-/** One bounded query. Never throws: a failure returns null. Exported for tests. */
-export async function buildWeatherExample(sb: SupabaseClient | null, now: Date): Promise<LedgerExample | null> {
-  if (!sb) return null;
+/** One bounded query. Never throws: no client, a client that fails to build or a failed read returns null. Exported for tests. */
+export async function buildWeatherExample(client: ClientSource, now: Date): Promise<LedgerExample | null> {
   try {
+    const sb = typeof client === 'function' ? client() : client;
+    if (!sb) return null;
     const nowIso = now.toISOString();
     const r = await sb
       .from('holler_signals')
@@ -138,7 +138,7 @@ export async function buildWeatherExample(sb: SupabaseClient | null, now: Date):
 /** Cached about 15 minutes; a failure is remembered for a minute only. */
 export async function loadWeatherExample(): Promise<LedgerExample | null> {
   'use cache';
-  const w = await buildWeatherExample(publicClient(), new Date());
+  const w = await buildWeatherExample(publicClient, new Date());
   cacheLife(w ? { stale: 300, revalidate: 900, expire: 3600 } : { stale: 60, revalidate: 60, expire: 300 });
   return w;
 }

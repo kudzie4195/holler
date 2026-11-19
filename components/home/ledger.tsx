@@ -2,40 +2,16 @@ import Link from 'next/link';
 import type { Family } from '@/lib/seo/home-map';
 import { shortDay } from '@/lib/seo/home-map';
 import type { LedgerExample } from '@/lib/seo/home-live';
-import type { HomeFamily } from '@/lib/seo/public-copy';
-import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
+import { joinList, type HomeFamily } from '@/lib/seo/public-copy';
 import { COL, H2, MARK_LIGHT, SHAPE } from './styles';
 
-/** Family text on sand: 7.86, 7.54 and 6.97 to 1. Marks 3.5:1 or better. */
+/** Family text on sand: about 7 to 7.9 contrast. Family marks at least 3.5 contrast. */
 const INK: Record<Family, string> = { weather: 'text-storm-ink', permit: 'text-sage-ink', civic: 'text-civic-ink' };
-
-/** "plumbing, HVAC, electrical and windows and doors", each linked to its /for page when it exists. */
-function Trades({ list }: { list: HomeFamily['goodFor'] }) {
-  return (
-    <>
-      {list.map((t, i) => {
-        const sep = i === 0 ? '' : i === list.length - 1 ? ' and ' : ', ';
-        const name = tradeEntry(t.id) ? (
-          <Link href={tradePath(t.id)} className="text-brand-text underline underline-offset-[3px] hover:decoration-2">
-            {t.label}
-          </Link>
-        ) : (
-          t.label
-        );
-        return (
-          <span key={t.id}>
-            {sep}
-            {name}
-          </span>
-        );
-      })}
-    </>
-  );
-}
 
 /**
  * "Three kinds of record. One feed.": one row per family. The example line is a real recent record of that family, with its date,
- * when the loaders have one; otherwise the row has none.
+ * when the loaders have one; otherwise the row has none. Trade names are plain text, as designed; one "See all trades" link under
+ * the rows goes to /for (the footer links the main trades too).
  */
 export function Ledger({ families, examples }: { families: HomeFamily[]; examples: Record<Family, LedgerExample | null> }) {
   return (
@@ -56,11 +32,11 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
                 <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-1">
                   <h3 className="m-0 text-xl font-semibold leading-snug">{f.title}</h3>
                   <p className="m-0 text-muted">
-                    {f.from} Good for <Trades list={f.goodFor} />.
+                    {f.from} Good for {joinList(f.goodFor.map((t) => t.label))}.
                   </p>
                 </div>
                 {ex ? (
-                  <p className={`m-0 min-w-0 flex-[1_1_280px] self-center font-mono text-[13px] leading-normal ${INK[f.id]}`}>
+                  <p className={`m-0 min-w-0 flex-[1_1_280px] self-center font-mono text-[0.8125rem] leading-normal ${INK[f.id]}`}>
                     EXAMPLE · <time dateTime={ex.occurredAt}>{shortDay(ex.occurredAt).toUpperCase()}</time>
                     <br />
                     {ex.title}
@@ -70,6 +46,9 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
               </div>
             );
           })}
+          <Link href="/for" className="h-link mt-2 font-semibold text-brand-text underline underline-offset-4 hover:decoration-2">
+            See all trades
+          </Link>
         </div>
       </div>
     </section>

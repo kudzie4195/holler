@@ -20,7 +20,8 @@ describe('Pricing price display', () => {
     }
   });
   it('mobile width: the big price row wraps, nothing forces a width, and the longest big price fits a 320px card', () => {
-    const rows = [...html.matchAll(/<p class="([^"]*)"><span data-price="[^"]*" class="font-display text-\[72px\]/g)].map((m) => m[1]);
+    // Round 9 fix wave: the size is clamp(56px, 6vw, 72px) so both cards wrap alike at 1024 px; 72 px is the largest it gets.
+    const rows = [...html.matchAll(/<p class="([^"]*)"><span data-price="[^"]*" class="font-display text-\[clamp\(56px,6vw,72px\)\]/g)].map((m) => m[1]);
     expect(rows).toHaveLength(2);
     for (const cls of rows) {
       expect(cls).toContain('flex-wrap'); // "a month" drops under the price instead of pushing the card wider

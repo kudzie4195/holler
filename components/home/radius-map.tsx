@@ -6,17 +6,30 @@ import { RADIUS_MAP_CSS } from './radius-map-css';
 const s = { fig: 'hm-fig', dot: 'hm-dot', label: 'hm-label', right: 'hm-right', left: 'hm-left', caption: 'hm-caption', chip: 'hm-chip', pulse: 'hm-pulse', num: 'hm-num', key: 'hm-key' };
 
 const FAMILY_NAME: Record<Family, string> = { permit: 'Permit', civic: '311 and code', weather: 'Weather' };
-/** Dot shapes at 22 px (the legend uses SHAPE at 12 px). */
-const DOT_SHAPE: Record<Family, string> = { permit: 'rounded-[5px]', civic: 'rounded-full', weather: 'rounded-[50%_50%_50%_0]' };
+/** Dot shapes at 22 px, as designed (the legend uses SHAPE at 12 px). */
+const DOT_SHAPE: Record<Family, string> = { permit: 'rounded-[5px]', civic: 'rounded-full', weather: 'rounded-[5px]' };
 
-/** "Tree Emergency · 4.9 mi" for the key under the map on narrow screens. */
+/**
+ * Sentence case for the key: a Title Case word after the first becomes lower case ("Tree Emergency" to "Tree emergency"); words in
+ * capitals ("HVAC") and the first word keep their case.
+ */
+export function sentenceCase(phrase: string): string {
+  return phrase
+    .split(' ')
+    .map((w, i) => (i > 0 && /^[A-Z][a-z]/.test(w) ? w.toLowerCase() : w))
+    .join(' ');
+}
+
+/** "Tree emergency · 4.9 mi" for the key under the map on narrow screens. */
 function keyText(r: { phrase: string; mi: number }): string {
-  return `${r.phrase} · ${r.mi.toFixed(1)} mi`;
+  return `${sentenceCase(r.phrase)} · ${r.mi.toFixed(1)} mi`;
 }
 
 /**
  * The hero map. Distances to scale (6 miles is 46% of the box), angles from lib/seo/home-place.ts so nothing overlaps.
- * Live: real records with their dates. Example (no live data): the design's six, labelled as an example, no dates.
+ * Live: real records with their dates. Example (no live data): the design's six at the design's angles, labelled as an example, no
+ * dates. Rings are #7A9A85 as designed (3.46:1 on brand-raised). Text inside the map stays in px: the placement math
+ * (lib/seo/home-place.ts) depends on it.
  * Under 520 px of figure width the labels hide, the dots show numbers and a numbered key appears (radius-map-css.ts).
  */
 export function RadiusMap({ map }: { map: HomeMap }) {
@@ -27,8 +40,8 @@ export function RadiusMap({ map }: { map: HomeMap }) {
   );
   const list = map.records.map((r) => `${r.phrase} ${r.mi.toFixed(1)} miles`).join(', ');
   const aria = map.live
-    ? `Map of real alerts${longRange ? ` from ${longRange}` : ''} around ZIP ${map.zip}, ${map.city}: ${list}.`
-    : `Map of example alerts around ZIP ${map.zip}, ${map.city}, not live data: ${list}.`;
+    ? `Map of real records${longRange ? ` from ${longRange}` : ''} around ZIP ${map.zip}, ${map.city}: ${list}.`
+    : `Map of example records around ZIP ${map.zip}, ${map.city}, not live data: ${list}.`;
   const families = (['permit', 'civic', 'weather'] as Family[]).filter((f) => map.records.some((r) => r.family === f));
   const ringPct = (mi: number) => `${((mi / RING_MILES[RING_MILES.length - 1]) * RING_FRACTION * 200).toFixed(2)}%`;
 
@@ -41,7 +54,7 @@ export function RadiusMap({ map }: { map: HomeMap }) {
         {RING_MILES.map((mi) => (
           <div
             key={mi}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-on-brand-faint/60"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-[#7A9A85]"
             style={{ width: ringPct(mi), height: ringPct(mi) }}
           />
         ))}
@@ -60,7 +73,7 @@ export function RadiusMap({ map }: { map: HomeMap }) {
                 className={`${s.dot} flex items-center justify-center border-[2.5px] border-on-brand ${DOT_SHAPE[r.family]} ${MARK_ON_BRAND[r.family]}`}
                 style={{ ...pos, animationDelay: `${(0.4 + i * 0.45).toFixed(2)}s` }}
               >
-                <span className={`${s.num} font-mono text-[12px] leading-none text-ink`}>{i + 1}</span>
+                <span className={`${s.num} font-mono text-[13px] leading-none text-ink`}>{i + 1}</span>
               </span>
               <span
                 className={`${s.label} ${p.side === 'right' ? s.right : s.left} rounded-chip bg-brand-deep font-mono text-on-brand`}
@@ -91,8 +104,8 @@ export function RadiusMap({ map }: { map: HomeMap }) {
         </span>
         <span>
           {map.live
-            ? `Real alerts around ZIP ${map.zip}, ${map.city}${range ? `, ${range}` : ''}. Distances to scale, directions not.`
-            : `Example alerts around a ${map.city} ZIP code. Not live data. Distances to scale, directions not.`}
+            ? `Real records around ZIP ${map.zip}, ${map.city}${range ? `, ${range}` : ''}. Distances to scale, directions not.`
+            : `Example records around a ${map.city} ZIP code. Not live data. Distances to scale, directions not.`}
         </span>
       </figcaption>
     </figure>

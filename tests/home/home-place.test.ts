@@ -1,7 +1,11 @@
-// The radius map placement (lib/seo/home-place.ts): zero overlaps and at least 3 px clearance, checked here with an independent
-// geometry check written from the design numbers, for the design's six, the preview fixture and 200 random sets.
+// The radius map placement (lib/seo/home-place.ts): zero overlaps, at least 6 px between any two boxes and at least 16 px from a
+// label to the map's edge, checked here with an independent geometry check written from the design numbers, for the design's six
+// (at the design's own angles), the preview fixture and 200 random sets.
 import { describe, expect, it } from 'vitest';
 import { placeMarkers, type Placement } from '@/lib/seo/home-place';
+
+const CLEAR = 6;
+const LABEL_EDGE = 16;
 import { exampleMap, dotText, pickMapRecords } from '@/lib/seo/home-map';
 import { fixtureMapRows } from '@/lib/seo/home-live';
 import { lookupZip } from '@/lib/geo';
@@ -33,6 +37,17 @@ function fixed(s: number, zip: string): B[] {
   return out;
 }
 
+/** The smallest gap from a label to the inside edge of the 520 px map. */
+function labelEdge(placed: Placement[]): number {
+  return Math.min(...placed.map((p) => inside(boxes(p, 520).lab, 520)));
+}
+
+/** Distance of a dot's angle to the nearest other dot's angle, in degrees: low for every dot means they bunch together. */
+function widestEmptyArc(placed: Placement[]): number {
+  const a = placed.map((p) => ((p.deg % 360) + 360) % 360).sort((x, y) => x - y);
+  return Math.max(...a.map((x, i) => (i + 1 < a.length ? a[i + 1] - x : 360 - x + a[0])));
+}
+
 /** The smallest gap anywhere on the map, at 520 px (labels and dots) and 272 px (dots only). */
 function worstGap(placed: Placement[], zip = '60614'): number {
   let m = Infinity;
@@ -59,10 +74,16 @@ let seed = 20261119;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 describe('radius map placement', () => {
-  it('the design six: all placed, no overlap, at least 3 px clear, distances to scale', () => {
+  it('the design six: all placed, at the design angles where clear, no overlap, 6 px clear, labels 16 px from the edge, distances to scale', () => {
     const m = exampleMap();
     expect(m.placed).toHaveLength(6);
-    expect(worstGap(m.placed)).toBeGreaterThanOrEqual(3);
+    // The design's angles where they clear the rule; two design dots sit 3 to 4 px from a ring caption on the 272 px phone map, so
+    // those two move to a clear angle that keeps the set spread round the centre.
+    const design = [250, 20, 60, 310, 110, 185];
+    expect(m.placed.filter((p, i) => p.deg === design[i]).length).toBeGreaterThanOrEqual(4);
+    expect(widestEmptyArc(m.placed)).toBeLessThan(180);
+    expect(worstGap(m.placed)).toBeGreaterThanOrEqual(CLEAR);
+    expect(labelEdge(m.placed)).toBeGreaterThanOrEqual(LABEL_EDGE);
     for (const p of m.placed) expect(Math.abs(toScale(p))).toBeLessThan(1e-9);
     expect(m.placed.map((p) => p.text)).toEqual([
       'HVAC PERMIT 1.7 MI',
@@ -83,10 +104,13 @@ describe('radius map placement', () => {
       '60614',
     );
     expect(r.dropped).toEqual([]);
-    expect(worstGap(r.placed)).toBeGreaterThanOrEqual(3);
+    expect(worstGap(r.placed)).toBeGreaterThanOrEqual(CLEAR);
+    expect(labelEdge(r.placed)).toBeGreaterThanOrEqual(LABEL_EDGE);
+    // Markers go round the centre: no half of the map is left empty.
+    expect(widestEmptyArc(r.placed)).toBeLessThan(180);
   });
 
-  it('200 random sets (0.3 to 6.0 miles, labels of 6 to 16 characters): zero overlaps and 3 px clearance among what is placed', () => {
+  it('200 random sets (0.3 to 6.0 miles, labels of 6 to 16 characters): zero overlaps, 6 px clearance, 16 px label edge among what is placed', () => {
     let placedTotal = 0;
     let droppedFar = 0;
     for (let k = 0; k < 200; k++) {
@@ -98,15 +122,18 @@ describe('radius map placement', () => {
       const r = placeMarkers(items, '60614');
       expect(r.placed.length + r.dropped.length).toBe(6);
       expect(new Set([...r.placed.map((p) => p.id), ...r.dropped]).size).toBe(6);
-      if (r.placed.length) expect(worstGap(r.placed)).toBeGreaterThanOrEqual(3);
+      if (r.placed.length) {
+        expect(worstGap(r.placed)).toBeGreaterThanOrEqual(CLEAR);
+        expect(labelEdge(r.placed)).toBeGreaterThanOrEqual(LABEL_EDGE);
+      }
       for (const p of r.placed) expect(Math.abs(toScale(p))).toBeLessThan(1e-9);
       placedTotal += r.placed.length;
       droppedFar += r.dropped.filter((id) => items.find((x) => x.id === id)!.mi >= 1.5).length;
     }
     // Records under about 1.4 miles cannot clear the centre chip with a 22 px dot on a 272 px map and are dropped. Further out
-    // almost everything fits.
+    // almost everything fits: with the 6 px and 16 px rule, 69 of the 943 records at 1.5 miles or more in these sets are dropped.
     expect(placedTotal).toBeGreaterThanOrEqual(850);
-    expect(droppedFar).toBeLessThan(60);
+    expect(droppedFar).toBeLessThan(80);
     console.log(JSON.stringify({ placedTotal, of: 1200, droppedAt1_5MiOrMore: droppedFar }));
   });
 

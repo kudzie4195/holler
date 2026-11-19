@@ -6,11 +6,11 @@ export const COL = 'mx-auto w-full max-w-[1200px] px-6';
 /** Section headline: Barlow Condensed 700, upper case (the global h2 rule), 44 to 76 px. */
 export const H2 = 'm-0 font-display text-[clamp(44px,5.6vw,76px)] leading-[0.95] text-balance';
 
-/** The round mark with a number: green disc, signal numeral (9.7:1). */
+/** The round mark with a number: green disc, signal numeral (9.7:1). A fixed 30 px disc, so its numeral stays in px. */
 export const MARK =
   'inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-brand font-mono text-[13px] leading-none text-signal';
 
-/** Family tag on light: mono 13 px on the family tint. */
+/** Family tag on light: mono 13 px (0.8125rem) on the family tint. */
 export const TAG: Record<'weather' | 'permit' | 'civic', string> = {
   weather: 'bg-sky text-storm-ink',
   permit: 'bg-sage text-sage-ink',
@@ -29,9 +29,12 @@ export const MARK_ON_BRAND: Record<'weather' | 'permit' | 'civic', string> = {
   civic: 'bg-civic-on-brand',
 };
 
-/** Shape per family, so the families never differ by color alone: permits square, 311 and code round, weather a drop. */
+/**
+ * Shape per family, as designed (and as the trade pages and the share image draw them): permits and weather a rounded square, 311
+ * and code round. Weather and permits differ by hue (storm blue, sage green) and are never shown without their written name.
+ */
 export const SHAPE: Record<'weather' | 'permit' | 'civic', string> = {
   permit: 'rounded-[3px]',
   civic: 'rounded-full',
-  weather: 'rounded-[50%_50%_50%_0]',
+  weather: 'rounded-[3px]',
 };

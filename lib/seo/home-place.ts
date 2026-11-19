@@ -5,9 +5,10 @@
  * free, and this module chooses it so that nothing collides at the two sizes the page draws:
  *   - LABEL_MAP_PX (520 px, the map's largest size): dots AND their text labels. No label box may overlap another label, any dot,
  *     the centre chip or a ring caption, and every label stays inside the map.
- *   - DOT_MAP_PX (272 px, the map inside a 320 px phone): labels are hidden (container query in radius-map.module.css) and the dots
+ *   - DOT_MAP_PX (272 px, the map inside a 320 px phone): labels are hidden (container query in components/home/radius-map-css.ts) and the dots
  *     carry numbers. No two 22 px dots may overlap, and no dot may touch the centre chip, a ring caption or the map edge.
- * Every gap is at least CLEARANCE_PX. Between 272 and 519 px only dots show; dots, chip and captions keep their pixel size while
+ * Every gap is at least CLEARANCE_PX (6 px), and every label keeps LABEL_EDGE_PX (16 px) from the map's edge, so no label crowds the
+ * card's 20 px corner. Between 272 and 519 px only dots show; dots, chip and captions keep their pixel size while
  * the distances between them grow with the map, so a placement that is clear at 272 px is clear at every larger dots-only size.
  *
  * Text metrics: labels are JetBrains Mono at 13 px. Every glyph of a monospace face has the same advance, 600 of 1000 units for
@@ -25,7 +26,11 @@ export const RING_MILES = [2, 4, 6] as const;
 
 export const LABEL_MAP_PX = 520;
 export const DOT_MAP_PX = 272;
-export const CLEARANCE_PX = 3;
+export const CLEARANCE_PX = 6;
+/** A label keeps at least this much room to the inside edge of the 520 px map. */
+export const LABEL_EDGE_PX = 16;
+/** Clearance above this counts the same; among such candidates the one furthest in angle from the placed dots wins. */
+export const SPREAD_AFTER_PX = 12;
 
 export const DOT_PX = 22;
 export const FONT_PX = 13;
@@ -161,14 +166,16 @@ function drawn(p: { xPct: number; yPct: number; side: 'left' | 'right'; text: st
 function minClearance(c: Drawn, others: Drawn[], zip: string): number {
   const chip520 = chipBox(zip, LABEL_MAP_PX);
   const chip272 = chipBox(zip, DOT_MAP_PX);
+  // A label too near the map's edge is never a candidate, however clear it is of everything else.
+  if (edgeGap(c.label520, LABEL_MAP_PX) < LABEL_EDGE_PX) return -1;
   let m = Infinity;
   // Fixed things: the chip, the ring captions and the edge.
   m = Math.min(m, gap(c.label520, chip520), gap(c.dot520, chip520), gap(c.dot272, chip272));
   for (const b of captionBoxes(LABEL_MAP_PX)) m = Math.min(m, gap(c.label520, b), gap(c.dot520, b));
   for (const b of captionBoxes(DOT_MAP_PX)) m = Math.min(m, gap(c.dot272, b));
   m = Math.min(m, edgeGap(c.label520, LABEL_MAP_PX), edgeGap(c.dot520, LABEL_MAP_PX), edgeGap(c.dot272, DOT_MAP_PX));
-  // Its own dot sits LABEL_OFFSET_PX - DOT_PX / 2 = 5 px from its label by construction.
-  m = Math.min(m, gap(c.label520, c.dot520));
+  // Its own dot sits LABEL_OFFSET_PX - DOT_PX / 2 = 5 px from its label by construction (the design's offset). That pair belongs
+  // together and is not a clearance between two things, so it is not counted here.
   for (const o of others) {
     m = Math.min(
       m,
@@ -189,8 +196,8 @@ function angleApart(a: number, b: number): number {
 
 /**
  * Place the records. Inner records first (they have the least room), then outward; for each one every angle in STEP_DEG steps and
- * both label sides are tried, and the candidate kept is the one with the most clearance (counted up to a cap), then the one
- * furthest in angle from the dots already placed, so the dots spread round the map. A record with no candidate that clears
+ * both label sides are tried, and the candidate kept is the one with the most clearance counted up to SPREAD_AFTER_PX, then the
+ * one furthest in angle from the dots already placed, so once a candidate is comfortably clear the dots spread round the map. A record with no candidate that clears
  * everything by CLEARANCE_PX is dropped. Deterministic: the same input gives the same output.
  */
 export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
@@ -199,7 +206,7 @@ export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
     .sort((a, b) => a.it.mi - b.it.mi || a.i - b.i);
   const placed: (Placement & { d: Drawn })[] = [];
   const dropped: string[] = [];
-  const CAP = 24;
+  const CAP = SPREAD_AFTER_PX;
   for (const { it } of order) {
     if (!(it.mi >= 0 && it.mi <= MAP_RADIUS_MI)) {
       dropped.push(it.id);
@@ -235,6 +242,55 @@ export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
       void _d;
       return p;
     }),
+    dropped,
+  };
+}
+
+/**
+ * The example map's layout: the approved design's angles (V3.dc.html: 250, 20, 60, 310, 110, 185 degrees, in the order of the
+ * example records) and its side rule (a dot right of 55% of the box has its label on the left). A design angle that misses a
+ * clearance (on the 272 px phone map two design dots sit 3 to 4 px from a ring caption) is replaced by the clear angle that keeps
+ * the most room to the other dots (the placed ones and the design angles still to come), so the set stays spread round the centre;
+ * ties go to the angle nearest the design's. A record with no clear angle at all is dropped, as in placeMarkers.
+ */
+export const EXAMPLE_DEGREES = [250, 20, 60, 310, 110, 185] as const;
+
+export function placeNear(items: PlaceInput[], degrees: readonly number[], zip: string): PlaceResult {
+  const placed: (Placement & { d: Drawn })[] = [];
+  const dropped: string[] = [];
+  const at = (it: PlaceInput, deg: number) => {
+    const pos = dotPct(it.mi, deg);
+    const side: 'left' | 'right' = pos.xPct > 55 ? 'left' : 'right';
+    const d = drawn({ ...pos, side, text: it.text, deg });
+    const clear =
+      minClearance(
+        d,
+        placed.map((p) => p.d),
+        zip,
+      ) >= CLEARANCE_PX;
+    return { p: { id: it.id, mi: it.mi, text: it.text, deg, ...pos, side }, d, clear };
+  };
+  items.forEach((it, i) => {
+    const want = degrees[i] ?? 0;
+    const first = at(it, want);
+    if (first.clear) {
+      placed.push({ ...first.p, d: first.d });
+      return;
+    }
+    const others = [...placed.map((p) => p.deg), ...degrees.slice(i + 1, items.length)];
+    let best: { c: ReturnType<typeof at>; spread: number; near: number } | null = null;
+    for (let deg = 0; deg < 360; deg += STEP_DEG) {
+      const c = at(it, deg);
+      if (!c.clear) continue;
+      const spread = others.length ? Math.min(...others.map((o) => angleApart(o, deg))) : 180;
+      const near = angleApart(want, deg);
+      if (!best || spread > best.spread || (spread === best.spread && near < best.near)) best = { c, spread, near };
+    }
+    if (best) placed.push({ ...best.c.p, d: best.c.d });
+    else dropped.push(it.id);
+  });
+  return {
+    placed: placed.map(({ d: _d, ...p }) => (void _d, p)),
     dropped,
   };
 }

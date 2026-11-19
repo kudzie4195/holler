@@ -13,10 +13,11 @@ export function Hero({ lead, map }: { lead: string; map: HomeMap }) {
             Records <span className="whitespace-nowrap">near you,</span> <span className="whitespace-nowrap">sorted for</span>{' '}
             <span className="whitespace-nowrap">your trade.</span>
           </h1>
-          <p className="m-0 max-w-[540px] text-[clamp(17px,1.6vw,20px)] leading-[1.55] text-on-brand-muted">{lead}</p>
+          <p className="m-0 max-w-[540px] text-[clamp(1.0625rem,1.6vw,1.25rem)] leading-[1.55] text-on-brand-muted">{lead}</p>
           <ZipForm id="hero-zip" />
-          <p className="m-0 text-[15px] text-on-brand-muted">
-            From {FROM_MONTHLY} a month after {TRIAL_DAYS_FREE}. No card.
+          {/* "/mo" keeps the line to one line on 360 to 375 px phones (design item 9): about 303 px at 15 px in a 312 px column. */}
+          <p className="m-0 text-[0.9375rem] text-on-brand-muted">
+            From {FROM_MONTHLY}/mo after {TRIAL_DAYS_FREE}. No card.
           </p>
         </div>
         <RadiusMap map={map} />
