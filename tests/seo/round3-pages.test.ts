@@ -45,7 +45,7 @@ describe('form control borders (WCAG 1.4.11)', () => {
     expect(contrast(strong, token(css, 'surface'))).toBeGreaterThanOrEqual(3);
     expect(contrast(strong, token(css, 'background'))).toBeGreaterThanOrEqual(3);
     expect(contrast(strong, token(css, 'sand'))).toBeGreaterThanOrEqual(3);
-    expect(token(css, 'line')).toBe('#e5dccb');
+    expect(token(css, 'line')).toBe('#dedcd2');
     expect(contrast(token(css, 'line'), token(css, 'surface'))).toBeLessThan(3);
   });
   it('inputs, selects and the shared control classes use it, and hover darkens rather than lightens the border', () => {
@@ -61,14 +61,16 @@ describe('form control borders (WCAG 1.4.11)', () => {
 
 describe('heading font', () => {
   const css = read('app/globals.css');
-  it('Fraunces loads with font-display swap and has a metric-matched local fallback listed right after it', () => {
-    expect(css).toMatch(/font-family: 'Fraunces Variable';[\s\S]*?font-display: swap;/);
-    const fb = css.match(/@font-face\s*{\s*font-family: 'Fraunces Fallback';([\s\S]*?)}/)![1];
-    expect(fb).toContain("src: local('Georgia')");
-    expect(fb).toMatch(/size-adjust: 10\d(\.\d+)?%/);
+  it('Barlow Condensed loads from the site with font-display swap and has a metric-matched local fallback listed right after it', () => {
+    expect(css).toMatch(/font-family: 'Barlow Condensed';[\s\S]*?font-display: swap;/);
+    expect(css).toContain("url('../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2')");
+    const fb = css.match(/@font-face\s*{\s*font-family: 'Barlow Condensed Fallback';([\s\S]*?)}/)![1];
+    expect(fb).toContain("local('Arial Bold')");
+    expect(fb).toMatch(/size-adjust: 6\d(\.\d+)?%/);
     expect(fb).toMatch(/ascent-override: \d+(\.\d+)?%/);
     expect(fb).toMatch(/descent-override: \d+(\.\d+)?%/);
-    expect(css).toMatch(/--font-display: 'Fraunces Variable', 'Fraunces Fallback'/);
+    expect(css).toMatch(/--font-display: 'Barlow Condensed', 'Barlow Condensed Fallback'/);
+    expect(css).not.toMatch(/fraunces|geist|fonts\.googleapis/i);
   });
 });
 

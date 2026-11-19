@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { GeistSans } from 'geist/font/sans';
-import { GeistMono } from 'geist/font/mono';
 import { Analytics } from '@/components/analytics';
 import { siteUrl } from '@/lib/env';
 import { FROM_MONTHLY } from '@/lib/plan/price-copy';
@@ -37,14 +35,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#FAF6EE',
+  themeColor: '#1E3A2C',
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en">
+      {/* Fonts are self-hosted @font-face rules in globals.css (Barlow Condensed, Inter, JetBrains Mono). */}
       <body className="bg-background text-ink antialiased">
         {/* Organization + WebSite, once for the whole site (lib/seo/jsonld.ts siteLd). Static: no request data. */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(siteLd()) }} />

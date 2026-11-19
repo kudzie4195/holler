@@ -1,79 +1,131 @@
 @import "tailwindcss";
 
 /*
-  Holler design tokens (SPEC "Design system").
-  Colors are exposed as Tailwind utilities: bg-background, bg-surface, text-ink,
-  text-muted, border-line, bg-accent, text-accent-text, bg-sand, bg-sage, etc.
+  Holler design tokens, round 9 ("Version 3": field green and hi-vis lime).
+  The names and values are the contract in gates/r9/CONTEXT.md. tests/design/tokens.test.ts parses this file and checks every
+  value and every allowed text/background pair, so change a value here only together with that test.
 
-  Look: a well-kept local hardware store. Warm paper, a friendly serif for
-  h1/h2 and the wordmark (Fraunces, self-hosted, latin only), soft cards.
+  Colours are Tailwind utilities: bg-brand, text-on-brand, border-line-strong, bg-signal, text-brand-text and so on.
 
-  Contrast notes (computed, WCAG relative luminance; full table in gates/r3/design.md):
-  - accent #E8590C is 3.3:1 on background, so it is used for marks, rings and
-    large display only. White text on it fails AA. Primary buttons use ink text
-    on accent (5.0:1). Orange text on light surfaces uses accent-text #AD4205
-    (5.5:1 on background, 5.0:1 on sand, sage and accent-soft).
-  - muted #5C574F is at least 6.0:1 on every light surface token.
-  - sage-ink #3B5A40 is 6.5:1 on sage.
-  - success and warn have separate "ink" variants for small text.
-  - line-strong #8f8572 is the border of form controls (WCAG 1.4.11 needs 3:1 for the edge of a control):
-    3.58:1 on surface, 3.38:1 on background, 3.08:1 on sand. The decorative line token stays light.
+  Rules that keep the contrast honest (ratios are WCAG relative luminance, computed in the test):
+  - signal #D9F046 is the one loud colour. It is a fill (buttons on green, the logo tile), an eyebrow on green and the focus ring
+    on green. It is never text or an edge on a light surface (1.2:1 there). Ink on signal is 13.2:1.
+  - Text on light: ink, muted (5.15:1 or better on every light surface), brand-text for green links (6.57:1 or better).
+  - Text on green and ink: on-brand, on-brand-muted (8.2:1 on brand), on-brand-faint (5.4:1 on brand-raised, the lowest).
+  - line-strong #7C847E is the edge of a form control on light: 3.85:1 on surface, 3.49:1 on background, 3.19:1 on sand.
+  - brand-line #6E8C79 is the edge of a control on green: 3.35:1 on brand, 4.17:1 on brand-deep.
+  - Family marks on green (permit-on-brand and friends): 4.3:1 or better on brand-raised.
+
+  Type scale (rem at 16 px): xs 13, sm 14, base 16, lg 18, xl 20, 2xl 24, 3xl 30, 4xl 40, 5xl 52, 6xl 64, 7xl 80, 8xl 96.
+  13 px is the floor: text-xs is 13 px here, not Tailwind's 12. Sizes from 4xl up are for font-display headlines and numerals,
+  so their line height is tight (0.9 to 0.98); Inter text stays at 2xl or below.
 */
 
-/* Fraunces (OFL), latin subset, variable weight axis. One file, about 36 KB, fetched only when a heading needs it. */
+/* Self-hosted fonts, read from the installed @fontsource packages and emitted by the build. No request to Google. */
 @font-face {
-  font-family: 'Fraunces Variable';
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('../node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter Variable';
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url('../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2') format('woff2-variations');
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Accented names (street and city names in records). Only fetched when such a character is on the page. */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
     U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /*
-  Metric-matched fallback for Fraunces, so headings do not move when the web font swaps in (font-display: swap above).
-  It draws Georgia, scaled to Fraunces' average glyph width. Same method as next/font: size-adjust is the ratio of the average
-  character widths (Fraunces 938/2000 over Georgia 913/2048 = 105.2%), and the overrides are the Fraunces ascent (1956),
-  descent (510) and line gap (0) per 2000 units, divided by that scale. Numbers come from next's capsize metrics table (regular weight).
-  Devices without Georgia use the next font in --font-display and shift as before.
+  Metric-matched fallback for Barlow Condensed 700, so a headline keeps its line breaks when the web font swaps in.
+  It draws Arial Bold (or Liberation Sans Bold, which has the same widths) scaled to Barlow's width. Computed by
+  scripts/font-fallback-metrics.py from the real font files: size-adjust is Barlow's average uppercase advance (weighted by
+  English letter frequency, space included: 0.4140 em) over Arial Bold's (0.6076 em) = 68.14%. The overrides are Barlow's
+  typo metrics (ascent 1000, descent 200, line gap 0 per 1000; the font sets USE_TYPO_METRICS) divided by that scale.
 */
 @font-face {
-  font-family: 'Fraunces Fallback';
-  src: local('Georgia');
-  size-adjust: 105.2%;
-  ascent-override: 93%;
-  descent-override: 24.2%;
+  font-family: 'Barlow Condensed Fallback';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold'), local('LiberationSans-Bold'),
+    local('Helvetica Bold'), local('Helvetica-Bold');
+  size-adjust: 68.14%;
+  ascent-override: 146.76%;
+  descent-override: 29.35%;
   line-gap-override: 0%;
 }
 
 @theme {
-  --color-background: #faf6ee;
-  --color-surface: #fffdf9;
-  --color-ink: #191714;
-  --color-muted: #5c574f;
-  --color-line: #e5dccb;
-  /* Borders of inputs, selects and text areas: 3:1 or better against surface, background and sand. */
-  --color-line-strong: #8f8572;
-  /* Alternating bands and soft tints. Text on them: ink, muted or sage-ink. */
-  --color-sand: #f3ebdd;
-  --color-sage: #e7ede3;
-  --color-sage-ink: #3b5a40;
-  /* Bands and tags; text on it: ink (14+:1), muted 5.74:1, storm-ink 7.59:1. */
+  /* Light surfaces: a neutral paper with a faint green-grey tint. */
+  --color-background: #f5f4ef;
+  --color-surface: #ffffff;
+  --color-sand: #eceae2;
+  --color-ink: #14201a;
+  --color-muted: #5b635d;
+  /* Decorative hairlines and card borders. Not a control edge. */
+  --color-line: #dedcd2;
+  /* Edges of inputs, selects, text areas and secondary buttons on light: 3:1 or better on surface, background and sand. */
+  --color-line-strong: #7c847e;
+
+  /* Field green. */
+  --color-brand: #1e3a2c;
+  --color-brand-deep: #14291e;
+  --color-brand-raised: #24443a;
+  --color-brand-line: #6e8c79;
+  --color-brand-text: #2e5a41;
+  --color-on-brand: #f5f4ef;
+  --color-on-brand-muted: #c9d6cd;
+  --color-on-brand-faint: #a9bdb0;
+
+  /* Hi-vis lime. A fill and a ring, never text or an edge on light. */
+  --color-signal: #d9f046;
+
+  /* Record families: tint (band and badge background), mark (dots, stripes, icons; not text), ink (text on the tint). */
   --color-sky: #dde8ec;
-  /* Record families (gates/r8/design-direction.md). sky-deep and sage-deep are tint panels; storm and sage-mark are
-     stripes and icons only (non-text, 5.54:1 and 4.78:1 on white); storm-ink is text on sky (7.59:1). */
   --color-sky-deep: #c9dce5;
-  --color-storm: #2f6f8f;
+  --color-storm: #4c7fa6;
   --color-storm-ink: #1f4a63;
-  --color-sage-deep: #d4e3cd;
-  --color-sage-mark: #4f7d55;
-  --color-brick: #c98a6b;
-  --color-accent: #e8590c;
-  --color-accent-hover: #c94a08;
-  --color-accent-bright: #e15509;
-  --color-accent-text: #ad4205;
-  --color-accent-soft: #fbe8d8;
+  --color-sage: #e3efe6;
+  --color-sage-deep: #cfe3d5;
+  --color-sage-mark: #3f8a5c;
+  --color-sage-ink: #24513a;
+  --color-civic: #efeaf7;
+  --color-civic-mark: #8a68bf;
+  --color-civic-ink: #5b3f86;
+  /* The same three families drawn on green (the map, the app band). */
+  --color-permit-on-brand: #6fb38a;
+  --color-civic-on-brand: #c9a8f0;
+  --color-weather-on-brand: #8fbbd9;
+
+  /* Status. Values kept from round 8; they pass on the new light surfaces (see the test). */
   --color-success: #2f8f5b;
   --color-success-ink: #1f6b41;
   --color-success-soft: #e2f1e8;
@@ -83,8 +135,8 @@
   --color-danger: #c53030;
   --color-danger-soft: #fbe5e5;
 
-  /* Quiet tint per signal kind, three families only. Weather and hazards: blue (storm-ink on sky 7.59:1).
-     Spending (permits, contracts): sage (sage-ink on sage 6.47:1). Civic, asks, events, travel: orange tint (6.49:1). */
+  /* Badge tint per signal kind, three families. Weather and hazards: sky. Permits and spending: sage. 311, code, asks,
+     events and travel: civic. */
   --color-kind-alert-bg: #dde8ec;
   --color-kind-alert-fg: #1f4a63;
   --color-kind-report-bg: #dde8ec;
@@ -93,43 +145,56 @@
   --color-kind-disaster-fg: #1f4a63;
   --color-kind-quake-bg: #dde8ec;
   --color-kind-quake-fg: #1f4a63;
-  --color-kind-permit-bg: #e7ede3;
-  --color-kind-permit-fg: #3b5a40;
-  --color-kind-contract-bg: #e7ede3;
-  --color-kind-contract-fg: #3b5a40;
-  --color-kind-civic-bg: #fbe8d8;
-  --color-kind-civic-fg: #8f3705;
-  --color-kind-ask-bg: #fbe8d8;
-  --color-kind-ask-fg: #8f3705;
-  --color-kind-event-bg: #fbe8d8;
-  --color-kind-event-fg: #8f3705;
-  --color-kind-travel-bg: #fbe8d8;
-  --color-kind-travel-fg: #8f3705;
+  --color-kind-permit-bg: #e3efe6;
+  --color-kind-permit-fg: #24513a;
+  --color-kind-contract-bg: #e3efe6;
+  --color-kind-contract-fg: #24513a;
+  --color-kind-civic-bg: #efeaf7;
+  --color-kind-civic-fg: #5b3f86;
+  --color-kind-ask-bg: #efeaf7;
+  --color-kind-ask-fg: #5b3f86;
+  --color-kind-event-bg: #efeaf7;
+  --color-kind-event-fg: #5b3f86;
+  --color-kind-travel-bg: #efeaf7;
+  --color-kind-travel-fg: #5b3f86;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
-  /* h1, h2 and the wordmark only. */
-  --font-display: 'Fraunces Variable', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Always 700 and uppercase (the .font-display rule below). Page titles, marketing section heads, the wordmark, numerals. */
+  --font-display: 'Barlow Condensed', 'Barlow Condensed Fallback', 'Arial Narrow', 'Roboto Condensed', sans-serif;
 
-  /* Type scale: 14 / 16 / 18 / 24 / 36 / 56 */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.45;
   --text-sm: 0.875rem;
   --text-sm--line-height: 1.5;
   --text-base: 1rem;
   --text-base--line-height: 1.6;
   --text-lg: 1.125rem;
   --text-lg--line-height: 1.55;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.4;
   --text-2xl: 1.5rem;
   --text-2xl--line-height: 1.25;
-  --text-4xl: 2.25rem;
-  --text-4xl--line-height: 1.1;
-  --text-6xl: 3.5rem;
-  --text-6xl--line-height: 1.02;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.05;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 0.98;
+  --text-5xl: 3.25rem;
+  --text-5xl--line-height: 0.95;
+  --text-6xl: 4rem;
+  --text-6xl--line-height: 0.92;
+  --text-7xl: 5rem;
+  --text-7xl--line-height: 0.9;
+  --text-8xl: 6rem;
+  --text-8xl--line-height: 0.9;
 
-  --radius-card: 16px;
-  --radius-control: 12px;
-  /* Warm-tinted shadows: resting cards use soft, hover/featured use lift. */
-  --shadow-soft: 0 1px 2px rgb(74 52 24 / 0.05), 0 6px 20px rgb(74 52 24 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(74 52 24 / 0.06), 0 14px 32px rgb(74 52 24 / 0.1);
+  --radius-chip: 6px;
+  --radius-control: 10px;
+  --radius-card: 20px;
+
+  /* Neutral green-grey shadows (ink at low alpha), not warm brown. */
+  --shadow-soft: 0 1px 2px rgb(20 32 26 / 0.05), 0 8px 24px -12px rgb(20 32 26 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(20 32 26 / 0.06), 0 18px 40px -24px rgb(20 32 26 / 0.35);
 }
 
 @layer base {
@@ -138,6 +203,9 @@
     color: var(--color-ink);
     -webkit-text-size-adjust: 100%;
     scroll-padding-top: 5rem;
+    /* Inherited by every descendant; .on-brand and .on-light switch them for their subtree. */
+    --focus-ring: var(--color-ink);
+    --eyebrow-color: var(--color-brand-text);
   }
 
   body {
@@ -153,19 +221,23 @@
   h1,
   h2,
   h3 {
-    letter-spacing: -0.02em;
     text-wrap: balance;
-    font-weight: 650;
     line-height: 1.12;
   }
 
-  /* Fraunces runs wide and heavy: lighter weight, slightly tighter tracking. */
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Display: Barlow Condensed 700, uppercase, tight. Reading pages put .h-plain on their sub-heads instead. */
   h1,
   h2 {
     font-family: var(--font-display);
-    font-weight: 560;
-    letter-spacing: -0.018em;
-    font-optical-sizing: auto;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.005em;
+    line-height: 0.95;
   }
 
   p {
@@ -176,15 +248,21 @@
     text-underline-offset: 3px;
   }
 
-  /* accent-text, not accent: at least 4.9:1 against every light surface, so the ring stays visible on sand and sage too. */
+  /* Ink on light (14:1 or better on every light surface), signal inside .on-brand (9.7:1 on brand, 13.2:1 on ink). */
   :focus-visible {
-    outline: 2px solid var(--color-accent-text);
+    outline: 3px solid var(--focus-ring);
     outline-offset: 2px;
     border-radius: 4px;
   }
 
+  ::placeholder {
+    color: var(--color-muted);
+    opacity: 1;
+  }
+
   ::selection {
-    background: var(--color-accent-soft);
+    background: var(--color-signal);
+    color: var(--color-ink);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -205,6 +283,65 @@
 }
 
 @layer components {
+  /* font-display is always uppercase 700. A utility such as normal-case still wins (utilities come after components). */
+  .font-display {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.005em;
+  }
+
+  /* Sub-heads inside reading pages (guides, legal, FAQ answers, long city pages): Inter 600, sentence case. */
+  .h-plain {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+
+  /* Mono data label above a heading. brand-text on light (6.6:1 or better), signal on green and ink. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--eyebrow-color);
+  }
+
+  /* Any green or ink section. Text and links default to on-brand, focus ring and eyebrows to signal. */
+  .on-brand {
+    color: var(--color-on-brand);
+    --focus-ring: var(--color-signal);
+    --eyebrow-color: var(--color-signal);
+  }
+  .on-brand ::placeholder {
+    color: var(--color-on-brand-faint);
+  }
+
+  /* A light panel inside a green section (a white card on the closing band): back to the light rules. */
+  .on-light {
+    color: var(--color-ink);
+    --focus-ring: var(--color-ink);
+    --eyebrow-color: var(--color-brand-text);
+  }
+  .on-light ::placeholder {
+    color: var(--color-muted);
+  }
+
+  /* A text link that is a full touch target: 44 px tall, underline on hover. */
+  .h-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    text-decoration: none;
+  }
+  .h-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
   .range-holler {
     -webkit-appearance: none;
     appearance: none;
@@ -230,17 +367,20 @@
     width: 28px;
     margin-top: -11px;
     border-radius: 999px;
-    background: var(--color-accent);
+    background: var(--color-brand);
     border: 3px solid var(--color-surface);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+    box-shadow: 0 1px 4px rgb(20 32 26 / 0.3);
   }
   .range-holler::-moz-range-thumb {
     height: 22px;
     width: 22px;
     border-radius: 999px;
-    background: var(--color-accent);
+    background: var(--color-brand);
     border: 3px solid var(--color-surface);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+    box-shadow: 0 1px 4px rgb(20 32 26 / 0.3);
+  }
+  .range-holler:focus-visible {
+    outline-offset: 4px;
   }
 
   .skeleton {
@@ -253,25 +393,11 @@
       animation: shimmer 1.4s ease-in-out infinite;
     }
   }
-}
 
-@layer components {
-  /* Hero backdrop: a soft warm glow plus faint paper grain, CSS only (no image request). */
+  /* Older light hero backdrop still used by a few inner pages: plain paper with a faint green wash, CSS only. */
   .hero-paper {
     background-color: var(--color-background);
-    background-image:
-      radial-gradient(60rem 28rem at 85% -10%, rgb(232 89 12 / 0.07), transparent 70%),
-      radial-gradient(40rem 24rem at -10% 110%, rgb(59 90 64 / 0.06), transparent 70%),
-      repeating-linear-gradient(0deg, rgb(74 52 24 / 0.018) 0 1px, transparent 1px 3px);
-  }
-
-  /* Horizontal link row on narrow screens: scrolls with no visible scrollbar. The cue that it scrolls (fade and arrow) is a
-     separate element in top-nav.tsx, so nothing here masks a link or its focus ring. */
-  .nav-scroll {
-    scrollbar-width: none;
-  }
-  .nav-scroll::-webkit-scrollbar {
-    display: none;
+    background-image: radial-gradient(60rem 28rem at 85% -10%, rgb(30 58 44 / 0.06), transparent 70%);
   }
 }
 
