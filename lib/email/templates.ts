@@ -144,7 +144,7 @@ export function renderDigest(opts: {
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
       return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
-        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">Open source</a>` : ''
+        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">Open the source</a>` : ''
       }</li>`;
     })
     .join('');

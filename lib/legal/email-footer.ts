@@ -1,3 +1,4 @@
+import { EMAIL_STYLE } from '@/lib/email/theme';
 import { COMPANY } from './company';
 
 /**
@@ -20,9 +21,9 @@ export function postalFooterText(): string {
   return `${COMPANY.brand} is run by ${COMPANY.legalName}, ${COMPANY.addressLine}.`;
 }
 
-/** The same line as a small grey paragraph, every value HTML-escaped. */
+/** The same line as a small grey paragraph (size and color from the email theme), every value HTML-escaped. */
 export function postalFooterHtml(): string {
-  return `<p style="font-size:12px;color:#5C574F;margin:16px 0 0 0">${escape(COMPANY.brand)} is run by ${escape(
+  return `<p style="${EMAIL_STYLE.small};margin:16px 0 0 0">${escape(COMPANY.brand)} is run by ${escape(
     COMPANY.legalName,
   )}, ${escape(COMPANY.addressLine)}.</p>`;
 }

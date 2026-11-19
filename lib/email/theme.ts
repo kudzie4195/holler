@@ -17,22 +17,22 @@ export const EMAIL_COLORS = {
   muted: '#5B635D',
   /** Decorative hairline around the card. */
   line: '#DEDCD2',
-  /** Edge of a secondary button on white: at least 3:1 against surface and paper. */
-  lineStrong: '#858A80',
+  /** Edge of a secondary button on white: the site's line-strong, 3.85:1 on surface and 3.49:1 on paper. */
+  lineStrong: '#7C847E',
   /** Field green: the header band and the primary button. */
   brand: '#1E3A2C',
   /** Green text and links on light surfaces. */
   brandText: '#2E5A41',
   /** Text on green. */
   onBrand: '#F5F4EF',
-  /** Hi-vis lime. Only as a fill on green (the logo tile). */
+  /** Hi-vis lime. Only ever a fill on green with ink on it; no email uses it today (the header is the wordmark alone). */
   signal: '#D9F046',
 } as const;
 
 export const EMAIL_FONTS = {
   body: "Inter, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif",
   /** Wordmark and headings. Always bold and uppercase. Web fonts rarely load in mail, so the fallbacks carry the look. */
-  display: "'Arial Narrow', 'Roboto Condensed', Arial, sans-serif",
+  display: "'HelveticaNeue-CondensedBold','Avenir Next Condensed','Arial Narrow','Roboto Condensed',sans-serif-condensed,Arial,sans-serif",
   mono: "'JetBrains Mono', Menlo, Consolas, monospace",
 } as const;
 
@@ -59,12 +59,14 @@ export const EMAIL_STYLE = {
   quote: `border-left:3px solid ${C.brand};background:${C.paper};color:${C.ink}`,
 } as const;
 
-/** Header band with the lime logo tile and the HOLLER wordmark. */
+/**
+ * Header band: the HOLLER wordmark alone on field green. No image and no empty logo tile, because many mail clients block
+ * images and an empty lime square reads as a broken picture.
+ */
 export function emailHeader(): string {
   return (
     `<div style="background:${C.brand};border-radius:10px 10px 0 0;padding:14px 24px">` +
-    `<span style="display:inline-block;width:22px;height:22px;border-radius:6px;background:${C.signal};vertical-align:middle;margin-right:10px"></span>` +
-    `<span style="font-family:${F.display};font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;line-height:22px;color:${C.onBrand};vertical-align:middle">HOLLER</span>` +
+    `<span style="font-family:${F.display};font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;line-height:30px;color:${C.onBrand}">HOLLER</span>` +
     `</div>`
   );
 }
