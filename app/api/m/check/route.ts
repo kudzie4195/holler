@@ -2,7 +2,7 @@ import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { distanceFrom, groupItems, safeUrl } from '@/lib/check/group';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
-import { parseCheckParams } from '@/lib/check/params';
+import { MISSING_TRADE, parseCheckParams } from '@/lib/check/params';
 import { deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
 import { lookupZip } from '@/lib/geo';
@@ -25,6 +25,8 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const params = parseCheckParams({ zip: sp.get('zip'), trade: sp.get('trade') });
   if (params.status === 'empty') return fail(req, METHODS, 'invalid', 'Enter your ZIP code.');
+  // The web page treats a ZIP with no trade as a step; the API needs both, so it answers as it always has.
+  if (params.status === 'zip') return fail(req, METHODS, 'invalid', MISSING_TRADE);
   if (params.status === 'invalid') return fail(req, METHODS, 'invalid', params.zipError ?? params.tradeError ?? 'Check the ZIP code and trade.');
 
   const place = lookupZip(params.zip);

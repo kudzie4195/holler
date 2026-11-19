@@ -18,12 +18,27 @@ describe('parseCheckParams', () => {
     expect(r).toMatchObject({ status: 'invalid' });
     if (r.status === 'invalid') expect(r.zipError).toMatch(/5-digit/);
   });
-  it('flags a missing or unknown trade', () => {
-    const a = parseCheckParams({ zip: '30030' });
+  it('flags an unknown trade, and a trade with no ZIP', () => {
     const b = parseCheckParams({ zip: '30030', trade: 'nope; drop table' });
-    for (const r of [a, b]) {
+    const c = parseCheckParams({ zip: '30030', trade: '' + 'x' });
+    for (const r of [b, c]) {
       expect(r.status).toBe('invalid');
       if (r.status === 'invalid') expect(r.tradeError).toBeTruthy();
+    }
+    const d = parseCheckParams({ trade: 'roofing' });
+    expect(d).toMatchObject({ status: 'invalid', zipError: 'Enter your ZIP code.' });
+  });
+  // Round 9 C4: the home page ZIP form sends only ?zip=. A valid ZIP with no trade is a step, not an error: no message at all.
+  it('treats a valid ZIP with no trade as the "pick your trade" step, with no error', () => {
+    expect(parseCheckParams({ zip: '60614' })).toEqual({ status: 'zip', zip: '60614' });
+    expect(parseCheckParams({ zip: ' 60614-1234 ', trade: '' })).toEqual({ status: 'zip', zip: '60614' });
+    expect(parseCheckParams({ zip: ['30030'], trade: ['  '] })).toEqual({ status: 'zip', zip: '30030' });
+  });
+  it('a bad ZIP with no trade is still an error, with the ZIP message', () => {
+    for (const zip of ['abc', '3003', '300301', '30030-12']) {
+      const r = parseCheckParams({ zip });
+      expect(r.status).toBe('invalid');
+      if (r.status === 'invalid') expect(r.zipError).toBe('Enter a 5-digit ZIP code, like 30030.');
     }
   });
 });

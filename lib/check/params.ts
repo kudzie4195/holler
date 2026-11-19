@@ -2,6 +2,8 @@ import { isCategoryId, type CategoryId } from '@/lib/signals/categories';
 
 export type CheckParams =
   | { status: 'empty' }
+  // A valid ZIP and no trade at all: the home page ZIP form sends this. Not an error: the page asks for the trade next.
+  | { status: 'zip'; zip: string }
   | { status: 'invalid'; zip: string; trade: string; zipError?: string; tradeError?: string }
   | { status: 'ok'; zip: string; trade: CategoryId };
 
@@ -12,6 +14,9 @@ function first(v: Raw): string {
   return typeof s === 'string' ? s.trim().slice(0, 40) : '';
 }
 
+/** The message a caller that needs both fields (the mobile API) shows for the 'zip' step. Same words as before the step existed. */
+export const MISSING_TRADE = 'Pick what you do.';
+
 /** Validates ?zip= and ?trade=. Pure: no ZIP database lookup here (the page does that). */
 export function parseCheckParams(sp: { zip?: Raw; trade?: Raw }): CheckParams {
   const zipRaw = first(sp.zip);
@@ -20,8 +25,10 @@ export function parseCheckParams(sp: { zip?: Raw; trade?: Raw }): CheckParams {
 
   const m = /^(\d{5})(?:-\d{4})?$/.exec(zipRaw);
   const zip = m ? m[1] : '';
+  if (zip && !trade) return { status: 'zip', zip };
+
   const zipError = zip ? undefined : zipRaw ? 'Enter a 5-digit ZIP code, like 30030.' : 'Enter your ZIP code.';
-  const tradeError = trade && isCategoryId(trade) ? undefined : trade ? 'Pick a trade from the list.' : 'Pick what you do.';
+  const tradeError = trade && isCategoryId(trade) ? undefined : trade ? 'Pick a trade from the list.' : MISSING_TRADE;
 
   if (zipError || tradeError) return { status: 'invalid', zip: zipRaw, trade, zipError, tradeError };
   return { status: 'ok', zip, trade: trade as CategoryId };

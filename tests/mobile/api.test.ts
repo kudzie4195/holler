@@ -506,6 +506,11 @@ describe('GET /api/m/check (public)', () => {
     expect((await get('')).status).toBe(400);
     expect((await get('?zip=00000&trade=roofing')).status).toBe(400);
   });
+  it('a ZIP with no trade is still 400 with the old message (the web page shows it as a step; the API needs both)', async () => {
+    const res = await get('?zip=30080');
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(await res.json())).toContain('Pick what you do.');
+  });
 });
 
 describe('GET /api/m/config (public)', () => {
