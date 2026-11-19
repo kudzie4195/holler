@@ -20,11 +20,14 @@ export const PRICING_TITLE = `Holler Pricing: ${SOLO} ${m('starter')} and ${PRO}
 /** 120 to 160 characters (tests/plan/pricing.test.ts). */
 export const PRICING_DESCRIPTION = `${SOLO} is ${m('starter')} a month or ${y('starter')} a year. ${PRO} is ${m('pro')} a month or ${y('pro')} a year. Both start with a ${TRIAL_DAYS}-day free trial, no card needed.`;
 
+/**
+ * [0] is the one line in the green band; the rest sits under the plan cards (app/pricing/page.tsx). Sentence lengths vary on
+ * purpose (the gate's prose check): two short ones, then one long one that carries what both plans share.
+ */
 export const PRICING_INTRO = [
-  'Holler has two plans, and you can pay for either one monthly or yearly.',
-  `${SOLO} is ${m('starter')} a month and covers one ZIP code and up to ${S.trades} trades.`,
-  `${PRO} is ${m('pro')} a month for up to ${P.areas} ZIP codes and ${P.trades} trades, and it adds ${P.keywords} keyword watches.`,
-  'Both plans include email alerts, your feed of matches and replies to resident requests.',
+  'Holler has two plans. Pay monthly or yearly.',
+  `${SOLO} is ${m('starter')} a month for one ZIP code and up to ${S.trades} trades.`,
+  `${PRO} is ${m('pro')} a month for up to ${P.areas} ZIP codes and ${P.trades} trades, it adds ${P.keywords} keyword watches, and like ${SOLO} it includes email alerts, your feed of matches and replies to resident requests.`,
 ];
 
 /** Rows for the comparison table: [label, Solo, Pro]. */

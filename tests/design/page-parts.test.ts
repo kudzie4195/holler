@@ -182,8 +182,15 @@ describe('one page grid: one 1200 px box, a 24 px gutter at every width, one lef
   it.each(SHELLS)('%s builds its bands and columns on PAGE_BOX', (f) => {
     expect(read(f)).toContain('${PAGE_BOX}');
   });
-  it('no page centres a narrower box of its own (a narrow measure nests inside PAGE_BOX, so its column starts at the logo edge)', () => {
-    const files = [...walk('app'), ...walk('components')].filter((f) => !/^components\/home\//.test(f) && f !== 'components/grid.ts' && f !== 'app/page.tsx' && f !== 'components/pricing.tsx');
+  // The one exception (commander decision after the round 9 reviews): sign-in and onboarding centre their form column.
+  const CENTRED = ['app/(auth)/layout.tsx', 'app/onboarding/page.tsx', 'app/onboarding/preview/page.tsx'];
+  it.each(CENTRED)('%s centres its column inside PAGE_BOX; the logo bar stays on the grid edge', (f) => {
+    const src = read(f);
+    expect(src).toMatch(/className="mx-auto (?:flex w-full )?max-w-(?:md|2xl)/);
+    expect(src).toMatch(/<div className=\{`\$\{PAGE_BOX\} flex h-16 items-center`\}>/);
+  });
+  it('no other page centres a narrower box of its own (a narrow measure nests inside PAGE_BOX, so its column starts at the logo edge)', () => {
+    const files = [...walk('app'), ...walk('components')].filter((f) => !/^components\/home\//.test(f) && !CENTRED.includes(f) && f !== 'components/grid.ts' && f !== 'app/page.tsx' && f !== 'components/pricing.tsx');
     const hits = files.flatMap((f) =>
       read(f)
         .split('\n')

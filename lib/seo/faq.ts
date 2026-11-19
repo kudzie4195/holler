@@ -26,7 +26,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'What is Holler?',
-        a: 'An alert service that reads public records, such as weather warnings and building permits, and emails a local business when one near it fits its trade. Each alert links to the record it came from, so you can check the original yourself and decide whether it is worth reaching out about at all. You pick the trades and the area. Holler does the daily reading.',
+        a: 'An alert service that reads public records, such as weather warnings and building permits, and emails a local business when one near it fits its trade. Each alert links to the public source it came from, so you can check it yourself and decide whether it is worth reaching out about at all. You pick the trades and the area. Holler does the daily reading.',
       },
       {
         q: 'Who is Holler for?',

@@ -16,11 +16,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <Logo />
         </div>
       </header>
-      {/* One left edge with the logo (components/grid.ts): the form column is narrow but starts under the logo, not centred. */}
+      {/*
+        The one centred exception to the page grid (commander decision after round 9 review): title, lead, form card and the line
+        under it sit in one centred column the width of the card, text left-aligned inside it. The logo above stays on the grid edge.
+      */}
       <main id="main" className={`${PAGE_BOX} flex flex-1 flex-col pb-16 pt-6 sm:pt-12`}>
-        <div className="flex w-full max-w-md flex-1 flex-col">{children}</div>
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col">{children}</div>
       </main>
-      <footer className={`${PAGE_BOX} flex gap-4 pb-8 text-sm text-muted`}>
+      <footer className={`${PAGE_BOX} flex justify-center gap-4 pb-8 text-sm text-muted`}>
         <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center underline decoration-1 underline-offset-4 hover:text-ink">
           Privacy
         </Link>

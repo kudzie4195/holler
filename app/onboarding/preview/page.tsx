@@ -21,7 +21,8 @@ export default function OnboardingPreviewPage() {
         </div>
       </header>
       <main id="main" className={`${PAGE_BOX} flex-1 pb-16 pt-6 sm:pt-10`}>
-        <div className="max-w-2xl">
+        {/* Centred column, like the auth pages (the one exception to the page grid); the logo stays on the grid edge. */}
+        <div className="mx-auto max-w-2xl">
         <h1 className="text-4xl text-ink">You are set up.</h1>
         <p className="mt-3 text-lg text-muted">Here is what Holler watches in your area and trades.</p>
         <Suspense fallback={<div aria-hidden="true" className="skeleton mt-8 h-40 w-full" />}>

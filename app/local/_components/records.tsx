@@ -13,7 +13,7 @@ export function sectionFamily(id: string): Family {
 
 const FAMILY_LABEL: Record<Family, string> = { weather: 'Weather', spending: 'Permits and spending', civic: '311 and city' };
 
-/** One cited record: source (linked to its home page), time, title linked to the record, two line summary. Shared by city and weekly pages. */
+/** One cited record: source (linked to its home page), time, title linked to its public source (often the dataset page, not the single record), two line summary. Shared by city and weekly pages. */
 export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; asOf: string }) {
   const src = sourceInfo(item.source);
   return (
