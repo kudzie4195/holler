@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* Quiet sage top band (ink 15.0 to 1; the orange mark 3.0 to 1 on sage). */}
-      <header className="border-b border-line bg-sage">
+      {/* Green top bar, as the site nav: the HOLLER wordmark takes on-brand from .on-brand (11.3:1), focus ring signal. */}
+      <header className="on-brand bg-brand">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
           <Logo />
         </div>
@@ -19,10 +19,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
       <footer className="mx-auto w-full max-w-md px-5 pb-8 text-center text-sm text-muted">
-        <Link href="/privacy" className="inline-flex min-h-11 items-center px-2 underline">
+        <Link href="/privacy" className="inline-flex min-h-11 items-center px-2 underline decoration-1 underline-offset-4 hover:text-ink">
           Privacy
         </Link>
-        <Link href="/terms" className="inline-flex min-h-11 items-center px-2 underline">
+        <Link href="/terms" className="inline-flex min-h-11 items-center px-2 underline decoration-1 underline-offset-4 hover:text-ink">
           Terms
         </Link>
       </footer>

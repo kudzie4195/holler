@@ -157,7 +157,8 @@ describe('/data is titled as records, not demand', () => {
   });
   it('the page h1, breadcrumb and the lines under it say records, and the places label is not "cities"', () => {
     const src = read('app/data/page.tsx');
-    expect(src).toMatch(/<h1[^>]*>Local public records in numbers<\/h1>/);
+    // Round 9: the h1 is drawn by the green PageHeader band; its text is the title prop.
+    expect(src).toContain('title="Local public records in numbers"');
     expect(src).toContain("{ name: 'Local public records in numbers' }");
     expect(src).toContain('not how much demand there is');
     expect(src).toContain('Places with a record in 30 days');

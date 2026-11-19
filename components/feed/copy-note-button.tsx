@@ -43,7 +43,7 @@ export function CopyNoteButton({ label, text }: { label: string; text: string })
           aria-label={`${label}: note text`}
           value={text}
           rows={5}
-          className="w-full resize-y rounded-xl border border-line-strong bg-surface p-3 text-base text-ink"
+          className="w-full resize-y rounded-control border border-line-strong bg-surface p-3 text-base text-ink"
         />
       ) : null}
     </>

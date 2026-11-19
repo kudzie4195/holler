@@ -386,7 +386,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-line bg-background p-4">
+    <div className="mt-4 rounded-card border border-line bg-background p-4">
       <label htmlFor={`draft-${item.id}`} className="text-sm font-semibold text-ink">
         Your draft. Edit it, then post it yourself.
       </label>
@@ -395,7 +395,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={4}
-        className="mt-2 w-full resize-y rounded-xl border border-line-strong bg-surface p-3 text-base text-ink hover:border-ink"
+        className="mt-2 w-full resize-y rounded-control border border-line-strong bg-surface p-3 text-base text-ink hover:border-ink"
       />
       <div className="mt-2 flex items-center gap-3">
         <Button size="sm" variant="secondary" onClick={copy}>

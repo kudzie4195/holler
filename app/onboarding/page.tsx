@@ -19,8 +19,10 @@ export const metadata: Metadata = {
 export default function OnboardingPage(props: PageProps<'/onboarding'>) {
   return (
     <>
-      <header className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
-        <Logo />
+      <header className="on-brand bg-brand">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
+          <Logo />
+        </div>
       </header>
       <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-5 pb-16 pt-6 sm:pt-10">
         <h1 className="text-4xl text-ink">Tell us what you do and where.</h1>

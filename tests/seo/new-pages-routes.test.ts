@@ -104,8 +104,11 @@ describe('llms.txt', () => {
 
 describe('page sources', () => {
   it('each new page file renders exactly one h1 and the guide page 404s an unknown slug', () => {
+    // Round 9: each page draws its one h1 through the green PageHeader band (components/page-header.tsx renders exactly one h1;
+    // tests/design/page-parts.test.ts checks that), so a page file has one <PageHeader and no h1 of its own.
     for (const f of ['app/guides/page.tsx', 'app/guides/[slug]/page.tsx', 'app/faq/page.tsx', 'app/data/page.tsx']) {
-      expect((src(f).match(/<h1[\s>]/g) ?? []).length, f).toBe(1);
+      expect((src(f).match(/<PageHeader[\s>]/g) ?? []).length, f).toBe(1);
+      expect((src(f).match(/<h1[\s>]/g) ?? []).length, f).toBe(0);
       expect(src(f), f).toContain('canonical');
     }
     expect(src('app/guides/[slug]/page.tsx')).toContain('notFound()');

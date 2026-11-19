@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 /*
   Round 9 page parts shared by every inner page (unit C). Server components, no client JavaScript.
 
-  Contrast on brand #1E3A2C (WCAG relative luminance, see tests/design/page-parts.test.ts):
+  Contrast on brand green (WCAG relative luminance, see tests/design/page-parts.test.ts):
   on-brand 11.3:1, on-brand-muted 8.2:1, on-brand-faint 6.3:1; signal focus ring 9.7:1 (from .on-brand).
   Family text on light (storm-ink, sage-ink, civic-ink): 7.0:1 or better on background, sand and surface.
 */
@@ -102,15 +102,15 @@ export function PageHeader({
 export type Family = 'weather' | 'spending' | 'civic';
 
 const FAMILY_MARK: Record<Family, string> = {
-  // Square for weather and permits, round for 311 and civic, so colour is never the only signal.
+  // Square for weather and permits, round for 311 and civic, so color is never the only signal.
   weather: 'rounded-[3px] bg-storm',
   spending: 'rounded-[3px] bg-sage-mark',
   civic: 'rounded-full bg-civic-mark',
 };
 const FAMILY_INK: Record<Family, string> = { weather: 'text-storm-ink', spending: 'text-sage-ink', civic: 'text-civic-ink' };
 
-/** Family label for a record group: shaped colour mark plus a mono label in the family ink (as in the home page ledger). */
-export function FamilyMark({ family, children }: { family: Family; children: ReactNode }) {
+/** Family label for a record group: shaped color mark plus a mono label in the family ink (as in the home page ledger). */
+export function FamilyMark({ family, children }: { family: Family; children?: ReactNode }) {
   return (
     <span className={`inline-flex items-center gap-2.5 font-mono text-sm uppercase tracking-[0.04em] ${FAMILY_INK[family]}`}>
       <span aria-hidden="true" className={`size-3.5 shrink-0 ${FAMILY_MARK[family]}`} />
@@ -138,7 +138,7 @@ export function Ledger({ children, className = '', as = 'ul', label }: { childre
  * Closing call to action on green, like the home page's closing band but inside the page column. The line is a paragraph,
  * not a heading, so the page outline does not change.
  */
-export function ClosingBand({ line, children, note }: { line: ReactNode; children: ReactNode; note?: ReactNode }) {
+export function ClosingBand({ line, children, note }: { line: ReactNode; children?: ReactNode; note?: ReactNode }) {
   return (
     <div className="on-brand rounded-card bg-brand px-6 py-8 md:px-8">
       <p className="font-display text-3xl text-on-brand md:text-4xl">{line}</p>

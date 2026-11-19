@@ -54,7 +54,7 @@ function ActionLink({ link }: { link: PlanLink }) {
 
 function Entry({ e }: { e: OrgEntry }) {
   return (
-    <li className="min-w-0 rounded-xl border border-line bg-surface p-3">
+    <li className="min-w-0 rounded-control border border-line bg-surface p-3">
       <p className="break-words text-base font-semibold text-ink">{e.name}</p>
       <p className="text-sm text-muted">{e.role}</p>
       {e.attn ? <p className="mt-1 break-words text-sm text-ink">Attention: {e.attn}</p> : null}
@@ -90,7 +90,7 @@ function Body({ plan }: { plan: OutreachPlan }) {
   }
   if (plan.type === 'site') {
     return (
-      <div className="rounded-xl border border-line bg-surface p-3">
+      <div className="rounded-control border border-line bg-surface p-3">
         <p className="text-base font-semibold text-ink">{plan.heading}</p>
         <p className="mt-1 break-words text-sm text-ink">Address: {plan.address}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -101,7 +101,7 @@ function Body({ plan }: { plan: OutreachPlan }) {
     );
   }
   return (
-    <div className="rounded-xl border border-line bg-surface p-3">
+    <div className="rounded-control border border-line bg-surface p-3">
       <p className="text-base font-semibold text-ink">Reach this area</p>
       {plan.place ? <p className="mt-1 break-words text-sm text-ink">City: {plan.place}</p> : null}
       {plan.zips.length > 0 ? (
@@ -137,7 +137,7 @@ export function WhoToContact({ item, contacts }: { item: ContactSignal; contacts
   return (
     <section aria-labelledby={headingId} className="mt-4 border-t border-line pt-1">
       <details open={open} onToggle={(e) => { if (e.currentTarget.open !== open) setManual(e.currentTarget.open); }} className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-control text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
           <span id={headingId}>
             Who to contact
             {summaryCount ? <span className="ml-2 font-mono text-xs tabular-nums text-muted">{summaryCount}</span> : null}

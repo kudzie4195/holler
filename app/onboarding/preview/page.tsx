@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import Link from 'next/link';
+import { ButtonLink } from '@/components/button';
 import { Logo } from '@/components/logo';
 import { RecentActivity } from '@/components/feed/recent-activity';
 import { getProfile, requireUser } from '@/lib/auth/session';
@@ -14,8 +14,10 @@ export const metadata: Metadata = {
 export default function OnboardingPreviewPage() {
   return (
     <>
-      <header className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
-        <Logo />
+      <header className="on-brand bg-brand">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
+          <Logo />
+        </div>
       </header>
       <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-5 pb-16 pt-6 sm:pt-10">
         <h1 className="text-4xl text-ink">You are set up.</h1>
@@ -23,12 +25,9 @@ export default function OnboardingPreviewPage() {
         <Suspense fallback={<div aria-hidden="true" className="skeleton mt-8 h-40 w-full" />}>
           <Preview />
         </Suspense>
-        <Link
-          href="/app"
-          className="mt-8 inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-6 text-base font-semibold text-white"
-        >
+        <ButtonLink href="/app" size="lg" className="mt-8">
           Continue to my feed
-        </Link>
+        </ButtonLink>
       </main>
     </>
   );

@@ -49,7 +49,7 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
 
 /**
  * A record section as a ruled ledger: family mark and count, heading, blurb, then the rows. `lowerBound` writes "at least" before
- * the count. The family mark (shape plus colour plus a word) replaces the round 8 tinted first card.
+ * the count. The family mark (shape plus color plus a word) replaces the round 8 tinted first card.
  */
 export function SectionCard({
   def,

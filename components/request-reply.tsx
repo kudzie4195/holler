@@ -93,7 +93,7 @@ export function RequestReply({
   }
 
   return (
-    <div id={`${id}-panel`} className="mt-2 w-full rounded-xl border border-line bg-background p-4">
+    <div id={`${id}-panel`} className="mt-2 w-full rounded-card border border-line bg-background p-4">
       <label htmlFor={`${id}-text`} className="text-sm font-semibold text-ink">
         Your reply
       </label>
