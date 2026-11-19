@@ -235,7 +235,7 @@ describe('home page, Version 3', () => {
     for (const tier of ['starter', 'pro'] as const) {
       const parts = planShortParts(tier);
       expect(parts).toHaveLength(3);
-      expect(plans).toContain(`<p class="flex flex-wrap gap-x-4 text-[1.0625rem]">${parts.map((p) => `<span class="whitespace-nowrap">${p}</span>`).join('')}</p>`);
+      expect(plans).toContain(`<p class="flex flex-wrap gap-x-4 text-[1.0625rem]">${parts.map((p) => `<span class="max-w-full">${p}</span>`).join('')}</p>`);
     }
     expect(toText(plans)).not.toContain('·');
   });

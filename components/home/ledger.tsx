@@ -70,7 +70,7 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
           <p id="trades-h" className="eyebrow m-0">
             FIND YOUR TRADE
           </p>
-          <ul className="m-0 grid list-none grid-cols-2 gap-x-6 p-0 min-[600px]:flex min-[600px]:flex-wrap min-[600px]:gap-x-8">
+          <ul className="m-0 grid list-none grid-cols-2 gap-x-6 p-0 max-[20rem]:grid-cols-1 min-[600px]:flex min-[600px]:flex-wrap min-[600px]:gap-x-8">
             {[...ledgerTrades(families), { href: '/for', label: 'All trades' }].map((t) => (
               <li key={t.href}>
                 <Link href={t.href} className={TRADE_LINK}>

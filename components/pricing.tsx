@@ -9,13 +9,15 @@ const NB = '\u00a0';
 
 /**
  * The limits on a short card, as separate pieces: ["1 area", "5 trades", "email alerts"], ["3 areas", "15 trades", "5 keyword watches"].
- * The card draws them as a wrapping row with a gap and no separator dot, so a line never ends on a hanging "·".
+ * The card draws them as a wrapping row with a gap and no separator dot, so a line never ends on a hanging "·". Each piece moves to
+ * the next line whole; only a piece wider than the card (a very large browser text size) breaks inside, and never between the number
+ * and its noun.
  */
 export function planShortParts(tier: Tier): string[] {
   const l = PLAN_LIMITS[tier];
   const areas = `${l.areas}${NB}${l.areas === 1 ? 'area' : 'areas'}`;
   const trades = `${l.trades}${NB}trades`;
-  return [areas, trades, l.keywords ? `${l.keywords}${NB}keyword${NB}watches` : `email${NB}alerts`];
+  return [areas, trades, l.keywords ? `${l.keywords}${NB}keyword watches` : 'email alerts'];
 }
 
 /** Who each plan is for: shown under the plan name on /pricing (the full cards). */
@@ -98,7 +100,7 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
               ) : (
                 <p className="flex flex-wrap gap-x-4 text-[1.0625rem]">
                   {planShortParts(tier).map((part) => (
-                    <span key={part} className="whitespace-nowrap">
+                    <span key={part} className="max-w-full">
                       {part}
                     </span>
                   ))}
