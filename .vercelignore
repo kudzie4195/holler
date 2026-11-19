@@ -1,2 +1,3 @@
 # The Capacitor iOS and Android app is built on the owner's Mac, never by Vercel.
-mobile/
+# The leading slash matters: without it this would also hide lib/mobile and tests/mobile.
+/mobile/
