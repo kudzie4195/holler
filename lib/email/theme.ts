@@ -5,6 +5,7 @@
  *
  * Rule from the site: signal (lime) is only ever a fill on green with ink on it. Never text or an edge on a light surface.
  */
+import { siteUrl } from '../env';
 
 export const EMAIL_COLORS = {
   /** Page paper behind the card. */
@@ -25,7 +26,7 @@ export const EMAIL_COLORS = {
   brandText: '#2E5A41',
   /** Text on green. */
   onBrand: '#F5F4EF',
-  /** Hi-vis lime. Only ever a fill on green with ink on it; no email uses it today (the header is the wordmark alone). */
+  /** Hi-vis lime. Only ever a fill on green with ink on it. In email it appears only inside the mark image (public/email-mark.png). */
   signal: '#D9F046',
 } as const;
 
@@ -49,8 +50,8 @@ export const EMAIL_STYLE = {
   link: `color:${C.brandText}`,
   /** Link inside muted text. */
   mutedLink: `color:${C.muted}`,
-  /** Mono eyebrow above a heading ("Holler for ..."). */
-  eyebrow: `font-family:${F.mono};font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:${C.muted}`,
+  /** Mono eyebrow above a heading ("Holler for ..."). Brand green text, so the one green accent of the header repeats in the body. */
+  eyebrow: `font-family:${F.mono};font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:${C.brandText}`,
   /** Page heading in the condensed display stack. */
   h1: `font-family:${F.display};font-weight:700;text-transform:uppercase;letter-spacing:0.01em;line-height:1.15;color:${C.ink}`,
   /** Section heading inside the card (owner emails). Sentence case, body font. */
@@ -59,14 +60,24 @@ export const EMAIL_STYLE = {
   quote: `border-left:3px solid ${C.brand};background:${C.paper};color:${C.ink}`,
 } as const;
 
+/** Path of the mark image under the site root (public/email-mark.png, made by scripts/email-mark.py: 60 px for 2x screens). */
+export const EMAIL_MARK_PATH = '/email-mark.png';
+
+/** Absolute URL of the mark, built from the same site URL every email link uses (lib/env siteUrl). Never a typed host. */
+export function emailMarkUrl(base: string = siteUrl): string {
+  return `${base.replace(/\/$/, '')}${EMAIL_MARK_PATH}`;
+}
+
 /**
- * Header band: the HOLLER wordmark alone on field green. No image and no empty logo tile, because many mail clients block
- * images and an empty lime square reads as a broken picture.
+ * Header band: the mark (30 px image of public/icon.svg) and the HOLLER wordmark on field green. The image has width and height
+ * attributes and alt="", so when a client blocks images it keeps its 30 px box (or shows nothing) and the band keeps its height:
+ * the band's height comes from the 30 px line box of the wordmark, not from the image. No empty lime tile is ever drawn in HTML.
  */
-export function emailHeader(): string {
+export function emailHeader(base: string = siteUrl): string {
   return (
-    `<div style="background:${C.brand};border-radius:10px 10px 0 0;padding:14px 24px">` +
-    `<span style="font-family:${F.display};font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;line-height:30px;color:${C.onBrand}">HOLLER</span>` +
+    `<div style="background:${C.brand};border-radius:10px 10px 0 0;padding:14px 24px;line-height:30px">` +
+    `<img src="${emailMarkUrl(base)}" width="30" height="30" alt="" style="display:inline-block;width:30px;height:30px;border:0;border-radius:6px;vertical-align:middle;margin:0 10px 0 0">` +
+    `<span style="font-family:${F.display};font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;line-height:30px;vertical-align:middle;color:${C.onBrand}">HOLLER</span>` +
     `</div>`
   );
 }

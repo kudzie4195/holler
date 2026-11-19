@@ -1,6 +1,7 @@
 import { relativeTime } from '../time';
 import { CADENCE_SHORT } from '../seo/cadence';
-import { env } from '../env';
+import { env, siteUrl } from '../env';
+import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
 import { TRIAL_DAYS } from '../auth/membership';
@@ -62,6 +63,21 @@ export function escapeHtml(s: string): string {
 function safeUrl(u: string | null | undefined): string | null {
   if (!u) return null;
   return /^https?:\/\//i.test(u) ? u : null;
+}
+
+/**
+ * A resident request links to Holler's own /request page (lib/requests/signal.ts), not to a public source, so its link says
+ * "Open the request". Known by its source id, or by a link to this site's /request page when the source is not passed.
+ */
+export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): boolean {
+  if (it.source === HOLLER_REQUEST_SOURCE) return true;
+  if (!it.sourceUrl) return false;
+  return it.sourceUrl.replace(/[?#].*$/, '').replace(/\/$/, '') === `${base.replace(/\/$/, '')}/request`;
+}
+
+/** Label of the link under a digest item. */
+export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
+  return isResidentRequest(it, base) ? 'Open the request' : 'Open the source';
 }
 
 /** Text we show must never contain an em dash (house copy rule), including text from sources. */
@@ -144,7 +160,7 @@ export function renderDigest(opts: {
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
       return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
-        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">Open the source</a>` : ''
+        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
       }</li>`;
     })
     .join('');
