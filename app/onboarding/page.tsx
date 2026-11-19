@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { Logo } from '@/components/logo';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { Card } from '@/components/card';
 import { ProfileForm } from '@/components/profile-form';
 import { getProfile, requireUser } from '@/lib/auth/session';
@@ -25,10 +25,10 @@ export default function OnboardingPage(props: PageProps<'/onboarding'>) {
           <Logo />
         </div>
       </header>
-      <main id="main" className={`${PAGE_BOX} flex-1 pb-16 pt-6 sm:pt-10`}>
+      <main id="main" className={`${PAGE_BOX} flex-1 pb-16 pt-6 sm:pt-10 ${BODY_TEXT}`}>
         {/* Centred column, like the auth pages (the one exception to the page grid); the logo stays on the grid edge. */}
         <div className="mx-auto max-w-2xl">
-        <h1 className="text-4xl text-ink">Tell us what you do and where.</h1>
+        <h1 className="break-words text-4xl text-ink">Tell us what you do and where.</h1>
         <p className="mt-3 text-lg text-muted">Three quick things. You can change them any time in Settings.</p>
         <Suspense fallback={<FormSkeleton />}>
           <Onboarding searchParams={props.searchParams} />

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ButtonLink } from '@/components/button';
 import { Logo } from '@/components/logo';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { RecentActivity } from '@/components/feed/recent-activity';
 import { getProfile, requireUser } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
@@ -20,10 +20,10 @@ export default function OnboardingPreviewPage() {
           <Logo />
         </div>
       </header>
-      <main id="main" className={`${PAGE_BOX} flex-1 pb-16 pt-6 sm:pt-10`}>
+      <main id="main" className={`${PAGE_BOX} flex-1 pb-16 pt-6 sm:pt-10 ${BODY_TEXT}`}>
         {/* Centred column, like the auth pages (the one exception to the page grid); the logo stays on the grid edge. */}
         <div className="mx-auto max-w-2xl">
-        <h1 className="text-4xl text-ink">You are set up.</h1>
+        <h1 className="break-words text-4xl text-ink">You are set up.</h1>
         <p className="mt-3 text-lg text-muted">Here is what Holler watches in your area and trades.</p>
         <Suspense fallback={<div aria-hidden="true" className="skeleton mt-8 h-40 w-full" />}>
           <Preview />

@@ -217,6 +217,8 @@
     font-family: var(--font-sans);
     font-size: 1rem;
     line-height: 1.6;
+    /* A word longer than its line (a large browser text size on a phone) breaks instead of pushing the page sideways. */
+    overflow-wrap: break-word;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;

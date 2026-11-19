@@ -15,7 +15,7 @@ import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/seo/view';
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
-import { ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
+import { Aside, ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
 
@@ -101,6 +101,7 @@ export default async function CityPage({ params }: Props) {
 
   return (
     <Page
+      withAside
       header={
         <PageHeader
           size="md"
@@ -195,11 +196,13 @@ export default async function CityPage({ params }: Props) {
           </Ledger>
         </section>
 
-        <ClosingBand line={<>Know first when {city.name} needs you.</>}>
-          <PrimaryLink href={ctaHref} onBrand>
-            {ctaLabel}
-          </PrimaryLink>
-        </ClosingBand>
+        <Aside>
+          <ClosingBand line={<>Know first when {city.name} needs you.</>}>
+            <PrimaryLink href={ctaHref} onBrand>
+              {ctaLabel}
+            </PrimaryLink>
+          </ClosingBand>
+        </Aside>
 
         {nearby.length ? (
           <section aria-labelledby="nearby">

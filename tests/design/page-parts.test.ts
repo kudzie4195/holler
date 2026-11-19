@@ -246,3 +246,74 @@ describe('small shell rules from the round 9 reviews', () => {
     expect(read('app/guides/page.tsx')).not.toMatch(/Icon\b|GUIDE_ICON/);
   });
 });
+
+// ---- Fix wave 2 (review 2b P2-8 to P2-11, review 1 P2-7 leftovers and new P2-1) ----
+describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px targets', () => {
+  it('the aside shell: a 768 px text column and a 320 px sticky column from 1024 px (64rem) up, nothing under it (review 2b P2-10)', async () => {
+    const { Aside } = await import('@/app/local/_components/ui');
+    const html = renderToStaticMarkup(createElement(Aside, null, createElement(ClosingBand, { line: 'Know first.' }, 'x')));
+    expect(html).toMatch(/^<div data-aside="" class="lg:absolute lg:inset-y-0 lg:right-0 lg:w-80"><div class="lg:sticky lg:top-24"><div class="on-brand/);
+    // No class without the lg: prefix, so under 1024 px the card is a plain block where the page puts it.
+    const classes = [...html.matchAll(/class="([^"]*)"/g)].slice(0, 2).flatMap((m) => m[1].split(' '));
+    expect(classes.every((c) => c.startsWith('lg:'))).toBe(true);
+    const ui = read('app/local/_components/ui.tsx');
+    expect(ui).toContain('<div className="lg:relative lg:min-h-[26rem] lg:pr-96">');
+  });
+  const ASIDE_PAGES = ['app/for/[trade]/page.tsx', 'app/local/[state]/[city]/page.tsx', 'app/storms/page.tsx'];
+  it.each(ASIDE_PAGES)('%s turns the aside on and moves its one existing closing card into it, adding nothing', (f) => {
+    const src = read(f);
+    expect(src).toMatch(/<Page\s+withAside/);
+    expect(src.match(/<ClosingBand/g)).toHaveLength(1);
+    expect(src.match(/<Aside[\s>]/g)).toHaveLength(1);
+    const inner = src.slice(src.indexOf('<Aside'), src.indexOf('</Aside>'));
+    expect(inner).toContain('<ClosingBand');
+    expect(inner).toContain('</ClosingBand>');
+  });
+  it('the storm day page keeps its wide records table and no aside', () => {
+    expect(read('app/storms/[state]/[slug]/page.tsx')).not.toContain('withAside');
+  });
+
+  it('one body size: every public page shell uses BODY_TEXT, the same 1.0625rem as the homepage <main> (review 2b P2-11)', async () => {
+    const { BODY_TEXT } = await import('@/components/grid');
+    expect(BODY_TEXT).toBe('text-[1.0625rem]');
+    expect(read('app/page.tsx')).toMatch(/<main id="main" className="text-\[1\.0625rem\]/);
+    const shells = [
+      'app/local/_components/ui.tsx', 'components/doc-page.tsx', 'app/guides/_components/shell.tsx', 'app/check/page.tsx', 'app/pricing/page.tsx',
+      'app/request/page.tsx', 'app/request/sent/page.tsx', 'app/not-found.tsx', 'app/error.tsx', 'app/(auth)/layout.tsx', 'app/onboarding/page.tsx',
+      'app/onboarding/preview/page.tsx',
+    ];
+    for (const f of shells) expect(read(f), f).toMatch(/<main id="main" className=\{`[^`]*\$\{BODY_TEXT\}/);
+    // Running text on reading pages inherits it: no text-base left on a paragraph, answer or list there.
+    for (const f of ['components/doc-page.tsx', 'app/faq/page.tsx', 'app/guides/page.tsx', 'app/guides/[slug]/page.tsx']) {
+      expect(read(f), f).not.toMatch(/<(?:p|dd|ul|div|aside)[^>]*\btext-base\b/);
+    }
+  });
+
+  it('one h1 size for reading pages: DocPage uses the same scale as PageHeader size "sm" (40 px, 52 px from sm) (review 2b P2-9)', () => {
+    expect(read('components/doc-page.tsx')).toContain('<h1 className="break-words text-4xl sm:text-5xl">');
+    expect(read('components/page-header.tsx')).toContain(": 'text-4xl sm:text-5xl';");
+    for (const f of ['app/faq/page.tsx', 'app/guides/page.tsx', 'app/guides/[slug]/page.tsx']) expect(read(f), f).toMatch(/size="sm"/);
+  });
+
+  it('the /pricing "I want this" buttons are the default 44 px size, not sm (36 px with a mouse) (review 2b P2-8)', () => {
+    const src = read('components/coming-next.tsx');
+    expect(src).not.toContain('size="sm"');
+    expect(src).toContain('size="md"');
+  });
+
+  it('breadcrumb links and the auth page switch links are 44 by 44 px targets (review 1 P2-7)', () => {
+    const crumbs = renderToStaticMarkup(createElement(Crumbs, { items: [{ name: 'Home', href: '/' }, { name: 'FAQ' }] }));
+    expect(crumbs).toMatch(/<a [^>]*class="[^"]*min-h-11 min-w-11[^"]*" href="\/"|href="\/"[^>]*class="[^"]*min-h-11 min-w-11/);
+    for (const f of ['app/(auth)/login/page.tsx', 'app/(auth)/signup/page.tsx', 'app/(auth)/forgot/page.tsx']) {
+      expect(read(f), f).toContain('className="inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline"');
+    }
+  });
+
+  it('a large browser text size cannot push a page sideways: labels wrap under 22.5rem, long words break (review 2b P2-7)', () => {
+    const btn = read('components/button.tsx');
+    expect(btn).toMatch(/'inline-flex max-w-full [^']*whitespace-normal min-\[22\.5rem\]:whitespace-nowrap/);
+    const css = read('app/globals.css');
+    const body = css.slice(css.indexOf('  body {'), css.indexOf('}', css.indexOf('  body {')));
+    expect(body).toContain('overflow-wrap: break-word;');
+  });
+});

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { ButtonLink } from '@/components/button';
 import { Footer } from '@/components/footer';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { PageHeader } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { CONFIRM_DAYS } from '@/lib/requests/constants';
@@ -18,7 +18,7 @@ export default function RequestSentPage() {
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         <PageHeader
           width="narrow"
           size="sm"

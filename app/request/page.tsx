@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { RequestForm } from '@/components/request-form';
 import { TopNav } from '@/components/top-nav';
 import { CONFIRM_DAYS, MAX_REPLIES_PER_REQUEST, OPEN_DAYS, PURGE_AFTER_DAYS } from '@/lib/requests/constants';
@@ -39,7 +39,7 @@ export default function RequestPage() {
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         <div className="on-brand bg-brand">
           <div className={`${PAGE_BOX} pb-24 pt-6 md:pb-28 md:pt-10`}>
             <p className="eyebrow mb-3">For residents · Free</p>

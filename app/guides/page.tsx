@@ -44,14 +44,14 @@ export default function GuidesHubPage() {
                     {g.title}
                   </Link>
                 </h2>
-                <p className="mt-2 text-base text-muted">{g.description}</p>
+                <p className="mt-2 text-muted">{g.description}</p>
                 <p className="mt-3 font-mono text-xs uppercase tracking-[0.06em] text-muted">Last reviewed {fmtReviewed(g.lastReviewed)}</p>
               </div>
             </article>
           </li>
         ))}
       </ul>
-      <p className="mt-10 text-base text-ink">
+      <p className="mt-10 text-ink">
         Want the answers in short form? Read the <Link href="/faq" className={proseLink}>FAQ</Link>, or see the{' '}
         <Link href="/data" className={proseLink}>live numbers</Link> behind Holler.
       </p>

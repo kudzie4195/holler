@@ -44,10 +44,19 @@ describe('top nav', () => {
     expect(nav).not.toContain('delete-account');
   });
 
-  it('phones: section links hide below md, Log in hides below 360 px, Start free always shows', async () => {
+  it('phones: section links hide below md, Log in hides below 22.5rem (360 px at the default text size), Start free always shows', async () => {
     const { nav } = await render('');
     expect(nav).toContain('<nav aria-label="Main" class="hidden md:block">');
-    expect(nav).toMatch(/class="[^"]*\bhidden min-\[360px\]:inline-flex[^"]*" href="\/login"|href="\/login"[^>]*class="[^"]*\bhidden min-\[360px\]:inline-flex/);
+    // A rem breakpoint, so a larger browser text size (32 px) hides Log in on a 390 px window too (review 2b P2-7).
+    expect(nav).toMatch(/class="[^"]*\bhidden min-\[22\.5rem\]:inline-flex[^"]*" href="\/login"|href="\/login"[^>]*class="[^"]*\bhidden min-\[22\.5rem\]:inline-flex/);
+    expect(nav).not.toMatch(/min-\[\d+px\]/);
+  });
+
+  it('the bar is at least 64 px tall and may wrap, never a fixed height that pushes the page sideways (review 2b P2-7)', async () => {
+    const { nav } = await render('');
+    const bar = nav.match(/<header[^>]*><div class="([^"]*)"/)![1].split(' ');
+    expect(bar).toEqual(expect.arrayContaining(['min-h-16', 'flex-wrap']));
+    expect(bar).not.toContain('h-16');
   });
 
   it('keeps the skip link, the ctaHref prop and 44 px targets, with no script', async () => {
@@ -73,9 +82,9 @@ describe('footer', () => {
     expect(titles).toEqual(['Product', 'Trades', 'Learn', 'Company']);
   });
 
-  it('two link columns on a phone, four from md up', async () => {
+  it('two link columns on a phone (from 18rem, 288 px at the default text size), four from md up; one column only when a large browser text size leaves no room (review 2b P2-7)', async () => {
     const { footer } = await render('');
-    expect(footer).toMatch(/<nav aria-label="Footer" class="grid grid-cols-2 [^"]*md:grid-cols-4/);
+    expect(footer).toMatch(/<nav aria-label="Footer" class="grid grid-cols-1 [^"]*min-\[18rem\]:grid-cols-2 [^"]*md:grid-cols-4/);
   });
 
   it('has the agreed links in each group', async () => {

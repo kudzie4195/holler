@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ComingNext } from '@/components/coming-next';
 import { Footer } from '@/components/footer';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { PageHeader } from '@/components/page-header';
 import { Pricing } from '@/components/pricing';
 import { TopNav } from '@/components/top-nav';
@@ -23,7 +23,7 @@ export default function PricingPage() {
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         <PageHeader
           width="wide"
           eyebrow={`${TIER_NAMES.starter} and ${TIER_NAMES.pro}`}

@@ -6,7 +6,7 @@ import { Suspense, type ReactNode } from 'react';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
@@ -36,7 +36,7 @@ export default function CheckPage(props: PageProps<'/check'>) {
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         {/* Green header band. The form card below is pulled up over its lower edge, so the form reads as part of the header. */}
         <div className="on-brand bg-brand">
           <div className={`${PAGE_BOX} pb-24 pt-6 md:pb-28 md:pt-10`}>

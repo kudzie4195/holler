@@ -8,12 +8,15 @@ import type { ComponentProps, ReactNode } from 'react';
  * secondary: surface fill, line-strong edge (3:1 or better on every light surface), ink text.
  * ghost: no fill, takes the text color of where it sits, so it works on light and inside .on-brand.
  * outline-signal: transparent, 1.5 px signal edge (9.7:1 on brand), on-brand text. The nav "Start free" on green.
+ *
+ * A label stays on one line from 22.5rem (360 px at the default text size) up. Below that, and with a large browser text size,
+ * it may wrap and the button never grows past its column (max-w-full), so it cannot push the page sideways.
  */
 export type ButtonVariant = 'primary' | 'signal' | 'secondary' | 'ghost' | 'outline-signal';
 export type ButtonSize = 'md' | 'sm' | 'lg';
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-control font-semibold whitespace-nowrap select-none transition-[color,background-color,border-color,box-shadow,filter] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
+  'inline-flex max-w-full items-center justify-center gap-2 rounded-control text-center font-semibold whitespace-normal min-[22.5rem]:whitespace-nowrap select-none transition-[color,background-color,border-color,box-shadow,filter] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
 
 const variants: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-on-brand hover:bg-brand-raised active:bg-brand-deep',

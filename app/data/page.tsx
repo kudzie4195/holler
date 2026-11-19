@@ -213,7 +213,7 @@ export default async function DataPage() {
         </>
       )}
 
-      <p className="mt-12 text-base text-ink">
+      <p className="mt-12 text-ink">
         Where the data comes from is listed in <Link href="/guides/free-public-data-sources-for-local-leads" className={proseLink}>free public data sources</Link>.
         Curious what Holler would watch near you? <Link href="/check" className={proseLink}>Check your area</Link>.
       </p>

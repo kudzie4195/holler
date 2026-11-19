@@ -51,14 +51,14 @@ export default function FaqPage() {
               {g.items.map((it) => (
                 <div key={it.q} className="border-b border-line py-5">
                   <dt className="text-lg font-semibold text-ink">{it.q}</dt>
-                  <dd className="mt-1 text-base leading-relaxed text-ink">{it.a}</dd>
+                  <dd className="mt-1 leading-relaxed text-ink">{it.a}</dd>
                 </div>
               ))}
             </dl>
           </section>
         ))}
       </div>
-      <p className="mt-12 text-base text-ink">
+      <p className="mt-12 text-ink">
         More detail: see <Link href="/pricing" className={proseLink}>pricing</Link>, the <Link href="/guides" className={proseLink}>guides</Link>,
         the live <Link href="/data" className={proseLink}>numbers</Link>, or the <Link href="/request" className={proseLink}>resident request page</Link>.
       </p>

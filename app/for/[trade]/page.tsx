@@ -21,7 +21,7 @@ import {
 } from '@/lib/seo/trade-view';
 import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
-import { ClosingBand, FamilyDot, H2, Ledger, Page, PageHeader, PrimaryLink, SecondaryLink, linkClass, PublicRecordsNote, type Family } from '../../local/_components/ui';
+import { Aside, ClosingBand, FamilyDot, H2, Ledger, Page, PageHeader, PrimaryLink, SecondaryLink, linkClass, PublicRecordsNote, type Family } from '../../local/_components/ui';
 import { kindFamily } from '@/components/signal-meta';
 
 type Props = { params: Promise<{ trade: string }> };
@@ -98,6 +98,7 @@ export default async function TradePage({ params }: Props) {
 
   return (
     <Page
+      withAside
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'By trade', href: '/for' }, { name: t.label }]}
@@ -193,14 +194,16 @@ export default async function TradePage({ params }: Props) {
           </Ledger>
         </section>
 
-        <ClosingBand line="See what is happening near you today.">
-          <PrimaryLink href="/signup" onBrand>
-            Start free
-          </PrimaryLink>
-          <SecondaryLink href={checkHref} onBrand>
-            Check your area
-          </SecondaryLink>
-        </ClosingBand>
+        <Aside>
+          <ClosingBand line="See what is happening near you today.">
+            <PrimaryLink href="/signup" onBrand>
+              Start free
+            </PrimaryLink>
+            <SecondaryLink href={checkHref} onBrand>
+              Check your area
+            </SecondaryLink>
+          </ClosingBand>
+        </Aside>
       </div>
       <PublicRecordsNote />
     </Page>

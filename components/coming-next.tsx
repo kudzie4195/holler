@@ -66,8 +66,8 @@ export function ComingNext({ page, initialPicked = [], className = '' }: { page:
               </div>
               <Button
                 variant={isPicked ? 'ghost' : 'secondary'}
-                size="sm"
-                className="w-full shrink-0 sm:w-32"
+                size="md"
+                className="w-full shrink-0 sm:w-36"
                 disabled={isPicked || busy !== null}
                 aria-label={`${isPicked ? COMING_NEXT.picked : COMING_NEXT.button}: ${f.label}`}
                 onClick={() => pick(f.id, f.label)}

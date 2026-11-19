@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         The one centred exception to the page grid (commander decision after round 9 review): title, lead, form card and the line
         under it sit in one centred column the width of the card, text left-aligned inside it. The logo above stays on the grid edge.
       */}
-      <main id="main" className={`${PAGE_BOX} flex flex-1 flex-col pb-16 pt-6 sm:pt-12`}>
+      <main id="main" className={`${PAGE_BOX} flex flex-1 flex-col pb-16 pt-6 sm:pt-12 ${BODY_TEXT}`}>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col">{children}</div>
       </main>
       <footer className={`${PAGE_BOX} flex justify-center gap-4 pb-8 text-sm text-muted`}>

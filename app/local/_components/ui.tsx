@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { buttonClasses } from '@/components/button';
 import { Footer } from '@/components/footer';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { WIDTH, type Width } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { env } from '@/lib/env';
@@ -17,19 +17,55 @@ export { Crumbs, FamilyMark, FamilyDot, Ledger, ClosingBand, PageHeader, type Fa
 /**
  * Shared shell: TopNav (skip link targets #main), one main landmark, Footer. `header` is the green band (a PageHeader) and spans
  * the full width; the content column below it sits in the same page grid, so the left edges line up.
+ *
+ * `withAside` (trade, city and storm index pages, review 2b P2-10): from 1024 px (64rem) up, the text column keeps at most 768 px
+ * and the right 320 px of the 1152 px content box holds the page's closing card (wrap it in <Aside>), sticky under the bar.
+ * The card stays where it is in the page source, so under 1024 px the order and the look do not change.
  */
-export function Page({ header, children, width = 'base' }: { header?: ReactNode; children: ReactNode; width?: Width }) {
+export function Page({
+  header,
+  children,
+  width = 'base',
+  withAside = false,
+}: {
+  header?: ReactNode;
+  children: ReactNode;
+  width?: Width;
+  withAside?: boolean;
+}) {
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1 text-base text-ink">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT} text-ink`}>
         {header}
         <div className={`${PAGE_BOX} pb-20 pt-10 md:pt-14`}>
-          <div className={WIDTH[width]}>{children}</div>
+          {withAside ? (
+            // 384 px = the 320 px aside plus a 64 px gap. The aside is positioned against this box. The minimum height keeps the
+            // tallest closing card (the storm index one, 390 px at 1280) inside the box when the text column is short, such as
+            // the empty storm list, so the card never runs into the footer.
+            <div className="lg:relative lg:min-h-[26rem] lg:pr-96">
+              <div className={WIDTH[width]}>{children}</div>
+            </div>
+          ) : (
+            <div className={WIDTH[width]}>{children}</div>
+          )}
         </div>
       </main>
       <Footer />
     </>
+  );
+}
+
+/**
+ * The right-hand column of a `withAside` page. Under 1024 px it is a plain block in the page flow, exactly where the page puts it.
+ * From 1024 px up it is taken out of the flow into the 320 px column on the right, as tall as the text column, and its content
+ * sticks 96 px from the top (under the 64 px bar). No new content: it wraps the card the page already has.
+ */
+export function Aside({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <div data-aside="" className={`lg:absolute lg:inset-y-0 lg:right-0 lg:w-80 ${className}`.trim()}>
+      <div className="lg:sticky lg:top-24">{children}</div>
+    </div>
   );
 }
 

@@ -66,7 +66,7 @@ export default async function GuidePage({ params }: Props) {
         Last reviewed <time dateTime={g.lastReviewed}>{fmtReviewed(g.lastReviewed)}</time>
       </p>
       {factText ? (
-        <aside aria-label="From Holler's data" className="mt-6 rounded-card bg-sand p-5 text-base text-ink">
+        <aside aria-label="From Holler's data" className="mt-6 rounded-card bg-sand p-5 text-ink">
           <p>
             <strong className="text-ink">From Holler&apos;s data.</strong> {factText}{' '}
             <Link href="/data" className={proseLink}>
@@ -82,7 +82,7 @@ export default async function GuidePage({ params }: Props) {
             <h2 id={sectionId(s.heading)} className="h-plain text-2xl text-ink">
               {s.heading}
             </h2>
-            <div className="mt-3 flex flex-col gap-3 text-base leading-relaxed text-ink">
+            <div className="mt-3 flex flex-col gap-3 leading-relaxed text-ink">
               {s.paragraphs.map((p) => (
                 <p key={p}>
                   <Inline text={p} />
@@ -160,7 +160,7 @@ export default async function GuidePage({ params }: Props) {
           <h2 id="how-holler-helps" className="h-plain text-2xl">
             How Holler helps
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-on-brand-muted">
+          <p className="mt-3 leading-relaxed text-on-brand-muted">
             <Inline text={g.howHolerHelps} onBrand />
           </p>
         </section>
@@ -173,7 +173,7 @@ export default async function GuidePage({ params }: Props) {
             {g.faq.map((f) => (
               <div key={f.q}>
                 <dt className="font-semibold text-ink">{f.q}</dt>
-                <dd className="mt-1 text-base text-ink">{f.a}</dd>
+                <dd className="mt-1 text-ink">{f.a}</dd>
               </div>
             ))}
           </dl>
@@ -183,7 +183,7 @@ export default async function GuidePage({ params }: Props) {
           <h2 id="related" className="h-plain text-2xl text-ink">
             Related pages
           </h2>
-          <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-base">
+          <ul className="mt-3 flex list-disc flex-col gap-2 pl-5">
             {g.related.map((r) => (
               <li key={r.href} className="pl-1">
                 <Link href={r.href} className={proseLink}>
@@ -199,7 +199,7 @@ export default async function GuidePage({ params }: Props) {
             <h2 id="sources" className="h-plain text-2xl text-ink">
               Official sources used
             </h2>
-            <ul className="mt-3 flex list-disc flex-col gap-2 pl-5 text-base">
+            <ul className="mt-3 flex list-disc flex-col gap-2 pl-5">
               {sources.map((s) => (
                 <li key={s.href} className="pl-1">
                   <a href={s.href} target="_blank" rel="noopener" className={proseLink}>

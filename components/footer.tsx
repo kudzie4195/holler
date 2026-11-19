@@ -66,7 +66,7 @@ export function Footer() {
           <Logo size={34} className="self-start" />
           <p className="text-balance text-[0.9375rem] text-on-brand-faint">Public records near you, sorted for your trade.</p>
         </div>
-        <nav aria-label="Footer" className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4">
+        <nav aria-label="Footer" className="grid grid-cols-1 gap-x-5 gap-y-8 min-[18rem]:grid-cols-2 md:grid-cols-4">
           {groups(contact).map((g) => (
             <div key={g.title} className="min-w-0">
               <h2 className="eyebrow">{g.title}</h2>

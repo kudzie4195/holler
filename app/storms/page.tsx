@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { JsonLd } from '@/app/local/_components/jsonld';
-import { ClosingBand, FamilyMark, H2, Ledger, Page, PageHeader, PrimaryLink, PublicRecordsNote, linkClass, rowLinkClass } from '@/app/local/_components/ui';
+import { Aside, ClosingBand, FamilyMark, H2, Ledger, Page, PageHeader, PrimaryLink, PublicRecordsNote, linkClass, rowLinkClass } from '@/app/local/_components/ui';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd } from '@/lib/seo/jsonld';
 import { countList } from '@/lib/storms/copy';
@@ -61,6 +61,7 @@ export default async function StormsIndexPage() {
 
   return (
     <Page
+      withAside
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'Storm reports' }]}
@@ -123,7 +124,7 @@ export default async function StormsIndexPage() {
         </>
       )}
 
-      <div className="mt-14">
+      <Aside className="mt-14 lg:mt-0">
         <ClosingBand
           line="Know first when a storm hits near you."
           note="Holler alerts roofers, tree services and other local trades when storm reports come in near them."
@@ -132,7 +133,7 @@ export default async function StormsIndexPage() {
             {stormCtaLabel(TRIAL_DAYS)}
           </PrimaryLink>
         </ClosingBand>
-      </div>
+      </Aside>
       <p className="mt-6 text-sm text-muted">
         Sources:{' '}
         <a href="https://www.spc.noaa.gov/climo/reports/" target="_blank" rel="noopener" className={linkClass}>NOAA Storm Prediction Center storm reports</a>,{' '}

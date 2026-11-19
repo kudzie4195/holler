@@ -14,7 +14,7 @@ export function AuthCard({
 }) {
   return (
     <>
-      <h1 className="text-5xl text-ink">{title}</h1>
+      <h1 className="break-words text-5xl text-ink">{title}</h1>
       {subtitle ? <p className="mt-3 text-lg text-muted">{subtitle}</p> : null}
       <Card className="mt-8 md:p-7">{children}</Card>
       {footer ? <p className="mt-6 text-sm text-muted">{footer}</p> : null}

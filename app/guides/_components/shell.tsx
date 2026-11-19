@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Footer, TopNav } from '@/components';
 import { parseInline, isExternal } from '@/lib/seo/guides/inline';
 import { jsonLdString } from '@/lib/seo/serialize';
-import { PAGE_BOX } from '@/components/grid';
+import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { WIDTH } from '@/components/page-header';
 
 /**
@@ -14,7 +14,7 @@ export function Shell({ children, header, wide = false }: { children: ReactNode;
   return (
     <>
       <TopNav />
-      <main id="main" className="w-full flex-1">
+      <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         {header}
         <div className={`${PAGE_BOX} pb-20 pt-10 md:pt-12`}>
           <div className={wide ? WIDTH.base : WIDTH.narrow}>{children}</div>
