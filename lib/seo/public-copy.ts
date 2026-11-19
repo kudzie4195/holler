@@ -66,7 +66,7 @@ export function cadenceFor(f: Flags): string {
 
 // ---- Home page ---------------------------------------------------------------------------------------------------------
 
-/** One row of the "three kinds of record" ledger. Trade names are plain text; one "See all trades" link under the ledger goes to /for. */
+/** One row of the "three kinds of record" ledger. Trade names are plain text; the "Find your trade" index under the ledger links each one's page. */
 export interface HomeFamily {
   id: 'weather' | 'permit' | 'civic';
   /** Mono tag, upper case. */

@@ -139,7 +139,7 @@ function withPlacement(records: MapRecord[], zip: string): { records: MapRecord[
   return { records: sorted.filter((r) => keep.has(r.id)), placed: res.placed };
 }
 
-/** The example set at (or within a few degrees of) the design's own angles (lib/seo/home-place.ts placeNear), nearest first. */
+/** The example set at its hand-picked angles (lib/seo/home-place.ts EXAMPLE_DEGREES, checked by placeNear), nearest first. */
 export function exampleMap(): HomeMap {
   const records = EXAMPLE_RECORDS.map((e, i) => toRecord(`example-${i + 1}`, e.title, e.family, e.mi, null, null, 'Chicago, IL'));
   const res = placeNear(

@@ -46,7 +46,7 @@ export function Anatomy({ map, steps }: { map: HomeMap; steps: { title: string; 
                   <a
                     href={r.url!}
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center rounded-control bg-brand px-[18px] py-3 text-base font-semibold text-on-brand transition-[filter] duration-150 hover:brightness-110"
+                    className="inline-flex min-h-11 items-center rounded-control bg-brand px-[18px] py-3 text-base font-semibold text-on-brand transition-[background-color] duration-150 hover:bg-ink"
                   >
                     Open the source
                   </a>

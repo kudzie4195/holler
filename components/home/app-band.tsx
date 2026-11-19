@@ -71,14 +71,14 @@ export function AppBand({ map }: { map: HomeMap }) {
           )}
           <div role="img" aria-label={aria} className="box-border h-[500px] w-[320px] max-w-full rounded-t-[44px] bg-ink px-3 pt-3">
             <div className="on-light flex h-full flex-col overflow-hidden rounded-t-[34px] bg-background text-ink">
-              <div className="flex items-center justify-between px-[18px] pb-2.5 pt-[22px]">
+              <div className="flex items-center justify-between px-[18px] pb-2.5 pt-4">
                 <span className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip bg-signal">
                   <Mark size={16} stroke="currentColor" />
                 </span>
                 <span className="text-base font-semibold">Alerts</span>
                 <span className="text-sm font-medium text-brand-text">Refresh</span>
               </div>
-              <div className="mx-3 mb-2.5 mt-1 flex gap-2.5 rounded-2xl border border-line bg-surface px-3.5 py-3 shadow-lift">
+              <div className="mx-3 mb-2 mt-1 flex gap-2.5 rounded-2xl border border-line bg-surface px-3.5 py-3 shadow-lift">
                 <span className="inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-chip bg-brand text-signal">
                   <Mark size={17} stroke="currentColor" />
                 </span>

@@ -16,6 +16,8 @@ import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { PUSH_INTERVAL_MS } from '@/lib/push/notify';
 import { PUSH_CAP, capPhrase } from '@/lib/seo/home-cadence';
 import { tidyInches } from '@/components/home/select';
+import { planShortParts } from '@/components/pricing';
+import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 
 async function render(live: unknown): Promise<string> {
   h.live = live;
@@ -199,15 +201,43 @@ describe('home page, Version 3', () => {
     expect(as[3]).toContain('Check your ZIP to see.');
   });
 
-  it('internal links: /check, /pricing, /signup, /faq, /guides, /data, /for and at least six /for/<id> pages', () => {
-    for (const href of ['/check', '/pricing', '/signup', '/faq', '/guides', '/data', '/for']) expect(html, href).toMatch(new RegExp(`(href|action)="${href}"`));
-    // The ledger names trades as plain text (no 20 px tall inline links) and ends with one "See all trades" link to /for.
-    const ledger = between(html, 'id="feeds-h"', 'id="app-h"');
-    expect([...ledger.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1])).toEqual(['/for']);
-    expect(toText(ledger)).toContain('See all trades');
-    const forLinks = new Set([...html.matchAll(/href="(\/for\/[a-z-]+)"/g)].map((m) => m[1]));
-    expect(forLinks.size).toBeGreaterThanOrEqual(6);
-    for (const id of ['roofing', 'plumbing', 'hvac', 'tree-service']) expect(forLinks).toContain(`/for/${id}`);
+  it('internal links: /check, /pricing, /signup, /faq, /guides, /data, /for and at least nine /for/<id> pages inside <main>', () => {
+    for (const page of [html, live]) {
+      for (const href of ['/check', '/pricing', '/signup', '/faq', '/guides', '/data', '/for']) expect(page, href).toMatch(new RegExp(`(href|action)="${href}"`));
+      const ledger = between(page, 'id="feeds-h"', 'id="app-h"');
+      // The ledger sentences name trades as plain text: no link anywhere in the rows.
+      const rows = ledger.slice(0, ledger.indexOf('<nav'));
+      expect(rows).toContain('Good for');
+      expect(rows).not.toMatch(/<a[\s>]/);
+      // One quiet index under the rows: "FIND YOUR TRADE", then the page of every trade the sentences name, once each, in the
+      // order named, then "All trades" to /for.
+      const nav = ledger.slice(ledger.indexOf('<nav'), ledger.indexOf('</nav>') + 6);
+      expect(nav).toMatch(/^<nav aria-labelledby="trades-h"/);
+      expect(nav).toContain('<p id="trades-h" class="eyebrow m-0">FIND YOUR TRADE</p>');
+      const named = homeCopy().families.flatMap((f) => f.goodFor).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i && tradeEntry(t.id));
+      const links = [...nav.matchAll(/<a [^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => [m[1], m[2]]);
+      expect(links).toEqual([...named.map((t) => [tradePath(t.id), `${t.label.charAt(0).toUpperCase()}${t.label.slice(1)}`]), ['/for', 'All trades']]);
+      for (const a of nav.match(/<a [^>]*>/g)!) expect(a).toMatch(/class="h-link [^"]*text-brand-text[^"]*hover:underline[^"]*focus-visible:underline/);
+      expect(nav).not.toMatch(/border|rounded|bg-/);
+      expect(toText(ledger)).not.toContain('See all trades');
+      // Inside <main>, not counting the footer: at least nine distinct trade pages.
+      const main = between(page, '<main', '</main>');
+      const forLinks = new Set([...main.matchAll(/href="(\/for\/[a-z-]+)"/g)].map((m) => m[1]));
+      expect(forLinks.size).toBeGreaterThanOrEqual(9);
+      for (const id of ['roofing', 'plumbing', 'hvac', 'tree-service', 'auto-glass', 'handyman', 'junk-removal', 'pest-control', 'windows-doors']) {
+        expect(forLinks).toContain(`/for/${id}`);
+      }
+    }
+  });
+
+  it('the plan limits on the short cards are separate pieces with no separator dot', () => {
+    const plans = between(html, 'aria-label="Plans"', '</ul>');
+    for (const tier of ['starter', 'pro'] as const) {
+      const parts = planShortParts(tier);
+      expect(parts).toHaveLength(3);
+      expect(plans).toContain(`<p class="flex flex-wrap gap-x-4 text-[1.0625rem]">${parts.map((p) => `<span class="whitespace-nowrap">${p}</span>`).join('')}</p>`);
+    }
+    expect(toText(plans)).not.toContain('·');
   });
 });
 
@@ -242,7 +272,9 @@ describe('live data (preview fixture)', () => {
     expect(live).toContain('aria-label="Map of real records from ');
     const newest = [...m.records].sort((a, b) => Date.parse(b.occurredAt!) - Date.parse(a.occurredAt!))[0];
     const band = toText(between(live, 'NEWEST ON THE MAP', '</p>'));
-    expect(band).toContain(`${newest.label} · ${newest.mi.toFixed(1)} MI · `);
+    // Label, distance and date are separate pieces with no separator dot, so no line ends on a hanging "·".
+    expect(band).toMatch(new RegExp(`^ ?NEWEST ON THE MAP ${newest.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ${newest.mi.toFixed(1)} MI [A-Z]{3} \\d{1,2}\\s*$`));
+    expect(band).not.toContain('·');
     const proof = toText(between(live, 'aria-label="What Holler reads"', '</section>'));
     expect(proof).toContain(`records dated in the last 7 days ${fixture.proof!.total7.toLocaleString('en-US')}`);
     expect(proof).toContain(`city, county and weather feeds checked ${fixture.proof!.feeds}`);
