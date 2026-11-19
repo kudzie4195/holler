@@ -7,3 +7,4 @@ for p in ios android; do
   VITE_REVENUECAT_IOS_KEY=appl_capture VITE_REVENUECAT_ANDROID_KEY=goog_capture npx vite build -c store/vite.capture.config.mjs
 done
 python3 store/make-screenshots.py
+python3 store/check-screenshots.py

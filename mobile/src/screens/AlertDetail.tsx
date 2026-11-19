@@ -4,6 +4,7 @@ import type { AlertDto } from '../contract';
 import { api } from '../services';
 import { useApp } from '../state/AppContext';
 import { shortDate } from '../ui/format';
+import { family } from '../ui/kind';
 import { Button, ErrorState, Loading, Notice, Screen, openInApp } from '../ui/kit';
 import { AlertMeta, Contacts, FeedbackButtons } from './AlertParts';
 
@@ -45,7 +46,7 @@ export function AlertDetail({ signalId }: { signalId: number }) {
         <Loading label="Loading the alert" />
       ) : (
         <div className="stack">
-          <article className="card">
+          <article className={`card stripe-${family(item.kind)}`}>
             <AlertMeta item={item} />
             {item.summary ? <p style={{ marginTop: 12, whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{item.summary}</p> : null}
             <dl className="small" style={{ margin: '12px 0 0', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
@@ -66,7 +67,7 @@ export function AlertDetail({ signalId }: { signalId: number }) {
             </dl>
             {item.url ? (
               <div style={{ marginTop: 14 }}>
-                <Button full variant="secondary" onClick={() => void openInApp(item.url as string)}>
+                <Button full onClick={() => void openInApp(item.url as string)}>
                   Open the source record
                 </Button>
               </div>

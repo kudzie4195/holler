@@ -37,7 +37,7 @@ export function PushPrompt() {
       <div className="scroll">
         <div className="center-screen stack-lg">
           <Mark size={48} />
-          <h2 className="title">Hear about new work first</h2>
+          <h2 className="title">Get a push when a record matches</h2>
           <div className="stack">
             <p>When a new permit, storm report or local request matches your trades and area, Holler can send a notification.</p>
             <p className="muted">At most one an hour. Tap it to open the alert. You can turn this off in Settings any time.</p>

@@ -4,6 +4,7 @@ import type { AlertDto } from '../contract';
 import { api } from '../services';
 import { useApp } from '../state/AppContext';
 import { plural } from '../ui/format';
+import { family } from '../ui/kind';
 import { Button, EmptyState, ErrorState, Loading, Notice, Screen, usePullToRefresh } from '../ui/kit';
 import { AlertMeta, FeedbackButtons } from './AlertParts';
 
@@ -79,6 +80,7 @@ export function Feed() {
   return (
     <Screen
       title="Alerts"
+      brand
       tabs
       back={false}
       end={
@@ -128,12 +130,13 @@ export function Feed() {
           ) : null}
 
           {items?.map((item) => (
-            <article key={item.matchId} className="card">
+            <article key={item.matchId} className={`card stripe-${family(item.kind)}`}>
               <button type="button" className="alert-card" style={{ background: 'none', border: 0, padding: 0, color: 'inherit', minHeight: 44 }} onClick={() => app.navigate({ name: 'alert', signalId: item.signalId })}>
                 <AlertMeta item={item} />
               </button>
               {!locked ? (
                 <FeedbackButtons
+                  compact
                   signalId={item.signalId}
                   initial={item.feedback}
                   onSaved={(f) => setItems((prev) => prev?.map((p) => (p.matchId === item.matchId ? { ...p, feedback: f } : p)) ?? prev)}

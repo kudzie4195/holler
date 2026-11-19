@@ -2,7 +2,7 @@ import { Badge } from './badge';
 import { ButtonLink } from './button';
 import { Card } from './card';
 import { timeAgo } from './format';
-import { sourceLabel } from './signal-meta';
+import { kindStripe, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_RADIUS_LABEL } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
@@ -105,7 +105,7 @@ export function CheckResults({
                 const miles = distanceFrom(origin, it);
                 return (
                   <li key={it.id}>
-                    <Card as="article" className="!p-4 md:!p-5">
+                    <Card as="article" className={`!p-4 md:!p-5 ${kindStripe(it.kind)}`}>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                         <Badge kind={it.kind} />
                         {placeLine(it) ? <span>{placeLine(it)}</span> : null}

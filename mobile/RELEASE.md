@@ -220,7 +220,7 @@ Install from TestFlight and from the Play internal track. Use a fresh test accou
 4. Sign in with Apple on iPhone: Apple's sheet, then onboarding (new) or the feed (existing). Cancel on the sheet shows no error.
 5. Continue with Google (if on): an in-app browser opens, comes back to the app on its own, you are signed in.
 6. Onboarding: trade chips stop at the plan limit, a bad ZIP shows an error under the field, the radius slider moves in steps of 5.
-7. After onboarding: the "Hear about new work first" screen. **Turn on alerts** shows the system prompt. Allow. (Without the Firebase files the app says notifications aren't available and goes on.)
+7. After onboarding: the "Get a push when a record matches" screen. **Turn on alerts** shows the system prompt. Allow. (Without the Firebase files the app says notifications aren't available and goes on.)
 8. Feed: cards show the intent label, title, place, day, distance and source. Pull down at the top refreshes. Scroll to the end loads more. **Useful**, **Not relevant**, **Led to work** each save; **Led to work** offers the job amount.
 9. Tap a card: the detail shows the summary, **Open the source record** opens the record in the in-app browser, and "Who to contact" shows when the record has one.
 10. Push: from the server, trigger a notify run for this account (or wait for a real match). The notification arrives with the app closed. Tapping it opens that alert (one alert) or the feed (several). Repeat with the app in the background and with it fully closed.

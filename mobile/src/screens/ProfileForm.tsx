@@ -116,6 +116,11 @@ export function ProfileForm({
                 const on = trades.includes(t.id);
                 return (
                   <button key={t.id} type="button" className="chip" aria-pressed={on} disabled={!on && atLimit} onClick={() => toggle(t.id)}>
+                    {on ? (
+                      <svg className="chip-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    ) : null}
                     {t.label}
                   </button>
                 );

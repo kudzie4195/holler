@@ -2,7 +2,14 @@ import { sourceInfo } from '@/lib/seo/sources';
 import type { SectionDef } from '@/lib/seo/sections';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { fmtItemTime } from '@/lib/seo/view';
-import { Card, H2, linkClass } from './ui';
+import { Card, H2, linkClass, tintCardClass, type CardFamily } from './ui';
+
+/** Record family of a city-page section, same mapping as the --color-kind-* tokens. */
+export function sectionFamily(id: string): CardFamily {
+  if (id === 'alerts' || id === 'storm' || id === 'disasters') return 'weather';
+  if (id === 'permits' || id === 'contracts') return 'spending';
+  return 'civic';
+}
 
 /** One cited record: source (linked to its home page), time, title linked to the record, two line summary. Shared by city and weekly pages. */
 export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; asOf: string }) {
@@ -50,15 +57,18 @@ export function SectionCard({
   total,
   asOf,
   lowerBound = false,
+  tinted = false,
 }: {
   def: Pick<SectionDef, 'id' | 'title' | 'blurb'>;
   items: SectionItem[];
   total: number;
   asOf: string;
   lowerBound?: boolean;
+  /** First content block on a city page: tinted in its family color. */
+  tinted?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={tinted ? tintCardClass(sectionFamily(def.id)) : ''}>
       <H2 id={def.id}>
         {def.title}{' '}
         <span className="font-mono text-base font-normal text-muted">

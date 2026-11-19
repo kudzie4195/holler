@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/button';
 import { CheckForm } from '@/components/check-form';
 import { Card } from '@/components/card';
 import { Badge } from '@/components/badge';
+import { kindStripe } from '@/components/signal-meta';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
 import { Pricing } from '@/components/pricing';
@@ -55,15 +56,60 @@ const trades: [string, string][] = [
   ['Food trucks', 'food-truck'],
 ];
 
-const publicSources = [
-  'National Weather Service',
-  'NOAA Storm Prediction Center',
-  'FEMA',
-  'USGS',
-  'FAA',
-  'USAspending.gov',
-  'City open-data portals',
+/** Each source with its record family dot (same three families as the badges): weather blue, spending and city records sage, the rest orange. */
+const publicSources: { name: string; dot: string }[] = [
+  { name: 'National Weather Service', dot: 'bg-storm' },
+  { name: 'NOAA Storm Prediction Center', dot: 'bg-storm' },
+  { name: 'FEMA', dot: 'bg-storm' },
+  { name: 'USGS', dot: 'bg-storm' },
+  { name: 'FAA', dot: 'bg-accent' },
+  { name: 'USAspending.gov', dot: 'bg-sage-mark' },
+  { name: 'City open-data portals', dot: 'bg-sage-mark' },
 ];
+
+/**
+ * Hero lead: the words that name a record family ("storm", "permit", "311 request") are shown as that family's tag, with its icon.
+ * No words are added or changed (the home page has a word budget); if the copy changes and a word is missing, it simply stays plain.
+ * Text on tint: 7.59, 6.47 and 6.49 to 1.
+ */
+const LEAD_FAMILIES: { word: string; icon: HomeIcon; tint: string }[] = [
+  { word: 'storm', icon: 'storm', tint: 'bg-kind-alert-bg text-kind-alert-fg' },
+  { word: 'permit', icon: 'hardhat', tint: 'bg-kind-permit-bg text-kind-permit-fg' },
+  { word: '311 request', icon: 'megaphone', tint: 'bg-kind-civic-bg text-kind-civic-fg' },
+];
+
+function HeroLead({ text }: { text: string }) {
+  const pattern = new RegExp(`\\b(${LEAD_FAMILIES.map((f) => f.word).join('|')})\\b`);
+  const parts = text.split(pattern);
+  const out: ReactNode[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    const f = i % 2 === 1 ? LEAD_FAMILIES.find((x) => x.word === part) : undefined;
+    if (!f) {
+      out.push(part);
+      continue;
+    }
+    // Punctuation right after a tag ("storm,") sits tight against the pill and never wraps away from it.
+    const next = parts[i + 1] ?? '';
+    const punct = /^[,.;:!?]+/.exec(next)?.[0] ?? '';
+    if (punct) parts[i + 1] = next.slice(punct.length);
+    out.push(
+      <span key={i} className="whitespace-nowrap">
+        <span className={`rounded-full py-0.5 pl-1.5 pr-2 font-semibold box-decoration-clone ${f.tint}`}>
+          <span aria-hidden="true" className="mr-1 inline-block align-[-0.15em]">
+            {ICON[f.icon].el('h-[1em] w-[1em]')}
+          </span>
+          {part}
+        </span>
+        {punct}
+      </span>,
+    );
+  }
+  return <>{out}</>;
+}
+
+/** How it works: one family tint per step (orange, storm blue, sage). Icon on tint: 4.96, 4.44 and 4.01 to 1 (3:1 needed). */
+const STEP_TINT = ['bg-accent-soft text-accent-text', 'bg-sky text-storm', 'bg-sage text-sage-mark'];
 
 /** Icon and quiet kind tint for each copy icon name. Tints are the badge colors, so a tile matches the chips on real alerts. */
 const ICON: Record<HomeIcon, { el: (c: string) => ReactNode; tint: string }> = {
@@ -127,12 +173,14 @@ export default async function Home() {
           <section className="mx-auto grid w-full max-w-5xl gap-10 px-5 pb-12 pt-10 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-14 md:pb-16 md:pt-14">
             <div className="min-w-0">
               <h1 className="text-[2.5rem] leading-[1.05] text-ink sm:text-5xl md:text-6xl">Know when your town needs you.</h1>
-              <p className="mt-5 max-w-xl text-lg text-muted">{copy.heroLead}</p>
+              <p className="mt-5 max-w-xl text-lg leading-[1.75] text-muted">
+                <HeroLead text={copy.heroLead} />
+              </p>
               <div className="mt-7 rounded-card border border-line bg-surface p-4 shadow-soft sm:p-5">
                 <CheckForm idPrefix="hero" />
               </div>
               <p className="mt-4 flex items-center gap-2 text-sm text-muted">
-                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success-soft text-success-ink">
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sage text-sage-ink">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m5 12.5 4.5 4.5L19 7.5" />
                   </svg>
@@ -159,9 +207,9 @@ export default async function Home() {
             </h2>
             <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
               {publicSources.map((s) => (
-                <li key={s} className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  {s}
+                <li key={s.name} className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                  {s.name}
                 </li>
               ))}
             </ul>
@@ -178,9 +226,9 @@ export default async function Home() {
           <div className="relative mt-10">
             <div aria-hidden="true" className="pointer-events-none absolute left-[17%] right-[17%] top-8 hidden border-t-2 border-dashed border-line md:block" />
             <ol className="relative grid gap-6 md:grid-cols-3 md:gap-6">
-              {copy.steps.map((s) => (
+              {copy.steps.map((s, i) => (
                 <li key={s.title} className="relative flex items-center gap-4 md:flex-col md:gap-0 md:text-center">
-                  <span className="relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-background bg-accent-soft text-accent-text">
+                  <span className={`relative inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-background ${STEP_TINT[i % STEP_TINT.length]}`}>
                     {ICON[s.icon].el('h-8 w-8')}
                   </span>
                   <div className="min-w-0">
@@ -194,7 +242,7 @@ export default async function Home() {
         </section>
 
         {/* What Holler watches */}
-        <section id="sources" aria-labelledby="watch-h" className="border-y border-line bg-surface">
+        <section id="sources" aria-labelledby="watch-h" className="border-y border-line bg-sky">
           <div className="mx-auto w-full max-w-5xl px-5 py-12 md:py-16">
             <h2 id="watch-h" className={h2}>
               What Holler watches
@@ -414,7 +462,7 @@ function ExampleAlerts({ examples }: { examples: ExampleAlert[] }) {
     <div role="group" aria-label="Example alerts, not live data" className="relative">
       <div className="flex flex-col gap-4">
         {examples.map((e, i) => (
-          <Card key={e.title} className="!p-4 !shadow-lift sm:!p-5">
+          <Card key={e.title} className={`!p-4 !shadow-lift sm:!p-5 ${kindStripe(e.kind)}`}>
             {i === 0 ? (
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
                 {examples.length > 1 ? 'Example alerts' : 'Example alert'}, not live data

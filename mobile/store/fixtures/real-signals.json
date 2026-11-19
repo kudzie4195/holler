@@ -1,8 +1,86 @@
 {
- "_note": "Real rows copied verbatim from production public.holler_signals (Supabase project ksctghdtklufgxblueqp) by read-only SELECT on 2026-11-19. Nothing edited. 'subtype' is data->>'subtype'. Only the rows the screenshots use are kept (20 rows); the full fetch sets (limit 15 each, last 14 days) are described in /home/claude/gates/r7/shots.md.",
- "point_60614": {
-  "lat": 41.922,
-  "lon": -87.653
+ "_note": "Real rows copied verbatim from production public.holler_signals (Supabase project ksctghdtklufgxblueqp) by read-only SELECT on 2026-11-19. Nothing edited. 'subtype' is data->>'subtype'. Only the rows the screenshots use are kept (20 rows); the full fetch sets (limit 15 each, last 14 days) are described in /home/claude/gates/r7/shots.md. Pass 2 (2026-11-19): rows 4291, 15876 and 24614 added verbatim by the same kind of read-only SELECT on public.holler_signals. 'point_60614' and 'sets' are replaced by 'scenarios': one member profile per screenshot (work ZIP, trades, radius); build-data.mjs places that ZIP with the server's own lookupZip() and keeps a row only if the server's own matchOne() matches it to that profile with a distance. Rows with the same created_at keep the order listed in the scenario: the real feed breaks that tie by match id (lib/mobile/feed.ts orders by created_at, then id), which is not in this fixture.",
+ "scenarios": {
+  "01-know-when": {
+   "zip": "60614",
+   "trades": [
+    "roofing"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    33439,
+    4291
+   ]
+  },
+  "02-storm": {
+   "zip": "33301",
+   "trades": [
+    "roofing",
+    "tree-service"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    24614,
+    15979
+   ]
+  },
+  "03-permits": {
+   "zip": "60614",
+   "trades": [
+    "plumbing",
+    "hvac",
+    "windows-doors"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    33427,
+    33435,
+    33440
+   ]
+  },
+  "04-311": {
+   "zip": "60614",
+   "trades": [
+    "tree-service",
+    "handyman"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    45354,
+    27560
+   ]
+  },
+  "05-source-link": {
+   "zip": "60614",
+   "trades": [
+    "hvac"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    33435
+   ]
+  },
+  "07-push": {
+   "zip": "60614",
+   "trades": [
+    "windows-doors"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    33440,
+    33435
+   ]
+  },
+  "08-price": {
+   "zip": "60614",
+   "trades": [
+    "roofing"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    33439
+   ]
+  }
  },
  "rows": [
   {
@@ -474,38 +552,84 @@
    "expires_at": null,
    "created_at": "2026-11-19 06:30:10.965448+00",
    "subtype": "311"
+  },
+  {
+   "id": 4291,
+   "source": "socrata-chicago-violations",
+   "kind": "civic",
+   "title": "Code violation in Chicago: REPAIR ROOF",
+   "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "lat": 41.856,
+   "lon": -87.684,
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "categories": [
+    "roofing",
+    "general-contractor"
+   ],
+   "severity": 1,
+   "occurred_at": "2026-11-13 06:00:00+00",
+   "expires_at": null,
+   "created_at": "2026-11-17 18:19:24.472988+00",
+   "subtype": "violation"
+  },
+  {
+   "id": 15876,
+   "source": "nws",
+   "kind": "alert",
+   "title": "Severe Thunderstorm Warning: Broward, FL",
+   "summary": "Severe Thunderstorm Warning issued November 17 at 11:15PM EST until November 17 at 11:45PM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Southern Broward County in southeastern Florida... * Until 1145 PM EST. * At 1115 PM EST, a severe thunderstorm…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2eeac525dd945e885072f771bee56b5d1393f857.001.1",
+   "lat": 26.0900362757031,
+   "lon": -80.2037767029646,
+   "city": null,
+   "state": "FL",
+   "county": null,
+   "zip": null,
+   "categories": [
+    "roofing",
+    "tree-service",
+    "restoration",
+    "insurance",
+    "public-adjuster",
+    "auto-body",
+    "auto-glass"
+   ],
+   "severity": 2,
+   "occurred_at": "2026-11-18 04:15:00+00",
+   "expires_at": "2026-11-18 04:45:00+00",
+   "created_at": "2026-11-18 04:30:01.301998+00",
+   "subtype": null
+  },
+  {
+   "id": 24614,
+   "source": "spc",
+   "kind": "report",
+   "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+   "summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+   "url": "https://www.spc.noaa.gov/climo/reports/261118_rpts.html",
+   "lat": 26.03,
+   "lon": -80.19,
+   "city": "Hollywood",
+   "state": "FL",
+   "county": "Broward",
+   "zip": null,
+   "categories": [
+    "roofing",
+    "auto-glass",
+    "auto-body",
+    "restoration",
+    "insurance",
+    "public-adjuster"
+   ],
+   "severity": 2,
+   "occurred_at": "2026-11-19 04:10:00+00",
+   "expires_at": null,
+   "created_at": "2026-11-18 12:00:06.806728+00",
+   "subtype": null
   }
- ],
- "sets": {
-  "01-know-when": [
-   46979,
-   33439,
-   6658,
-   6557
-  ],
-  "02-storm-hail": [
-   31876,
-   15979,
-   6658,
-   6472,
-   6557
-  ],
-  "03-permits": [
-   33439,
-   33435,
-   33438,
-   33440,
-   33427
-  ],
-  "04-311": [
-   53792,
-   45354,
-   45369,
-   30331,
-   46979
-  ],
-  "05-source-link": [
-   33439
-  ]
- }
+ ]
 }

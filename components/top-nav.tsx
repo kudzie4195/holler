@@ -102,7 +102,7 @@ export function TopNav({ ctaHref = '/signup' }: { ctaHref?: string }) {
               </ul>
             </nav>
             <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-line lg:block" />
-            <Link href="/request" className={`${linkCls} hidden lg:inline-flex`}>
+            <Link href="/request" className={linkCls.replace('inline-flex', 'hidden lg:inline-flex')}>
               Request a service
             </Link>
             <Link

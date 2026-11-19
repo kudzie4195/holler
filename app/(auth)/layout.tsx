@@ -9,8 +9,11 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
-        <Logo />
+      {/* Quiet sage top band (ink 15.0 to 1; the orange mark 3.0 to 1 on sage). */}
+      <header className="border-b border-line bg-sage">
+        <div className="mx-auto flex h-16 w-full max-w-5xl items-center px-5">
+          <Logo />
+        </div>
       </header>
       <main id="main" className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-16 pt-6 sm:pt-12">
         {children}

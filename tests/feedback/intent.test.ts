@@ -88,7 +88,7 @@ describe('intentOf: every registered source', () => {
 
 describe('intent copy', () => {
   it('uses the exact labels and lines', () => {
-    expect(INTENT_LABEL).toEqual({ demand: 'Demand sign', spending: 'Spending activity', asking: 'Someone asked' });
+    expect(INTENT_LABEL).toEqual({ demand: 'Might need work', spending: 'Money being spent', asking: 'Someone asked' });
     expect(INTENT_NOTE.demand).toBe('The event is on record. Whether anyone needs work is not confirmed.');
     expect(INTENT_NOTE.spending).toBe('Money is being spent here. The main contractor may already be chosen.');
     expect(INTENT_NOTE.asking).toBe('A resident asked for this service.');
@@ -97,7 +97,7 @@ describe('intent copy', () => {
   it('gives open federal bids, licences and public posts their own line, and keeps the label', () => {
     const bid = { kind: 'contract', source: 'sam-gov', subtype: null };
     expect(intentOf(bid)).toBe('spending');
-    expect(INTENT_LABEL[intentOf(bid)]).toBe('Spending activity');
+    expect(INTENT_LABEL[intentOf(bid)]).toBe('Money being spent');
     expect(intentLine(bid)).toBe('This work is out for bid. No contract has been awarded yet.');
     expect(intentLine({ kind: 'contract', source: 'usaspending' })).toBe(INTENT_NOTE.spending);
     expect(intentLine({ kind: 'civic', source: 'socrata-sf-business', subtype: 'business' })).toBe('A new business registered here. It may need services as it opens.');
@@ -128,10 +128,10 @@ describe('intent copy', () => {
 
   it('renders in the feed card component', () => {
     const html = renderToStaticMarkup(createElement(IntentNote, { item: { kind: 'permit', source: 'socrata-nyc-permits', subtype: 'permit' } }));
-    expect(html).toContain('Spending activity');
+    expect(html).toContain('Money being spent');
     expect(html).toContain('Money is being spent here. The main contractor may already be chosen.');
     const bid = renderToStaticMarkup(createElement(IntentNote, { item: { kind: 'contract', source: 'sam-gov' } }));
-    expect(bid).toContain('Spending activity');
+    expect(bid).toContain('Money being spent');
     expect(bid).toContain('This work is out for bid. No contract has been awarded yet.');
     expect(bid).not.toContain('contractor may already be chosen');
   });
@@ -151,8 +151,8 @@ describe('intent copy', () => {
       ],
     });
     for (const out of [mail.html, mail.text]) {
-      expect(out).toContain('Demand sign');
-      expect(out).toContain('Spending activity');
+      expect(out).toContain('Might need work');
+      expect(out).toContain('Money being spent');
       expect(out).toContain('Someone asked');
       expect(out).toContain('A resident asked for this service.');
       expect(out).toContain('A new business registered here. It may need services as it opens.');

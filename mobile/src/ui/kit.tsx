@@ -71,7 +71,22 @@ function Icon({ name }: { name: TabName | 'back' }) {
   return <svg {...common}><path d="m15 18-6-6 6-6" /></svg>;
 }
 
-export function Screen({ title, children, tabs, end, back }: { title: string; children: ReactNode; tabs?: boolean; end?: ReactNode; back?: boolean }) {
+export function Screen({
+  title,
+  children,
+  tabs,
+  end,
+  back,
+  brand,
+}: {
+  title: string;
+  children: ReactNode;
+  tabs?: boolean;
+  end?: ReactNode;
+  back?: boolean;
+  /** Show the Holler mark in the start slot when there is no back button. */
+  brand?: boolean;
+}) {
   const app = useApp();
   const showBack = back ?? app.canGoBack;
   const scroller = useRef<HTMLDivElement>(null);
@@ -87,6 +102,10 @@ export function Screen({ title, children, tabs, end, back }: { title: string; ch
               <Icon name="back" />
               <span>Back</span>
             </button>
+          ) : brand ? (
+            <span className="topbar-mark">
+              <Mark size={26} />
+            </span>
           ) : null}
         </div>
         <h1>{title}</h1>

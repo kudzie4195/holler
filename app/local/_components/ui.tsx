@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { buttonClasses } from '@/components/button';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
 import { env } from '@/lib/env';
 
-/* Plain Tailwind using W1's tokens from app/globals.css. Primary button uses accent-hover (#C94A08) with white text for AA contrast. */
+/* Plain Tailwind using the tokens from app/globals.css. Buttons come from components/button (ink text on accent, 5.00:1). */
 
 /** Shared shell for /local pages: same TopNav (skip link targets #main) and Footer as the rest of the site. */
 export function Page({ children }: { children: ReactNode }) {
@@ -54,20 +55,44 @@ export function H2({ children, id }: { children: ReactNode; id?: string }) {
   );
 }
 
-export function Card({ children }: { children: ReactNode }) {
+export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <section className="rounded-card border border-line bg-surface p-5 shadow-soft">
+    <section className={`rounded-card border border-line bg-surface p-5 shadow-soft ${className}`.trim()}>
       {children}
     </section>
   );
 }
 
+/**
+ * Same filled accent button as the rest of the site (ink on accent, 5.00:1). Labels such as the city CTA can be long, so the
+ * button may wrap on a phone instead of overflowing; py-2.5 keeps a one-line button at the 48 px min height.
+ */
+const ctaWrap = (cls: string) => `${cls.replace('whitespace-nowrap', 'whitespace-normal')} py-2.5 text-center`;
+
+/**
+ * Tinted card for a page's first content block, one record family each, matching the home "What Holler watches" band:
+ * weather sky with the storm stripe, spending sage with the sage-mark stripe, everything else orange tint with the accent stripe.
+ * On all three: ink 14.3 to 15.0, muted 5.74 to 6.02, accent-text links 4.73 to 4.96 to 1.
+ */
+export type CardFamily = 'weather' | 'spending' | 'civic';
+export function tintCardClass(family: CardFamily): string {
+  if (family === 'weather') return '!bg-sky border-l-4 border-l-storm';
+  if (family === 'spending') return '!bg-sage border-l-4 border-l-sage-mark';
+  return '!bg-accent-soft border-l-4 border-l-accent';
+}
+
 export function PrimaryLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link
-      href={href}
-      className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent-hover px-6 py-3 text-lg font-bold text-white hover:bg-accent-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-    >
+    <Link href={href} className={ctaWrap(buttonClasses({ size: 'lg' }))}>
+      {children}
+    </Link>
+  );
+}
+
+/** The quieter partner of PrimaryLink, so a CTA pair has one filled button. */
+export function SecondaryLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className={ctaWrap(buttonClasses({ variant: 'secondary', size: 'lg' }))}>
       {children}
     </Link>
   );

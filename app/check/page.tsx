@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
@@ -41,7 +41,7 @@ export default function CheckPage(props: PageProps<'/check'>) {
           login.
         </p>
         <div className="mt-8">
-          <Suspense fallback={<CheckForm />}>
+          <Suspense fallback={<FormBand><CheckForm /></FormBand>}>
             <Check searchParams={props.searchParams} />
           </Suspense>
         </div>
@@ -57,19 +57,25 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const sp = await searchParams;
   const params = parseCheckParams({ zip: sp.zip, trade: sp.trade });
 
-  if (params.status === 'empty') return <CheckForm />;
+  if (params.status === 'empty') return <FormBand><CheckForm /></FormBand>;
   if (params.status === 'invalid') {
-    return <CheckForm zip={params.zip} trade={params.trade} zipError={params.zipError} tradeError={params.tradeError} />;
+    return (
+      <FormBand>
+        <CheckForm zip={params.zip} trade={params.trade} zipError={params.zipError} tradeError={params.tradeError} />
+      </FormBand>
+    );
   }
 
   const place = lookupZip(params.zip);
   if (!place) {
     return (
-      <CheckForm
-        zip={params.zip}
-        trade={params.trade}
-        zipError="We could not find that ZIP code. Check it and try again."
-      />
+      <FormBand>
+        <CheckForm
+          zip={params.zip}
+          trade={params.trade}
+          zipError="We could not find that ZIP code. Check it and try again."
+        />
+      </FormBand>
     );
   }
 
@@ -91,7 +97,9 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   if (!scope.covered) {
     return (
       <>
-        <CheckForm zip={params.zip} trade={params.trade} />
+        <FormBand>
+          <CheckForm zip={params.zip} trade={params.trade} />
+        </FormBand>
         <CheckResults {...common} mode="uncovered" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
@@ -102,7 +110,9 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   if (gate === 'limited') {
     return (
       <>
-        <CheckForm zip={params.zip} trade={params.trade} />
+        <FormBand>
+          <CheckForm zip={params.zip} trade={params.trade} />
+        </FormBand>
         <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
@@ -117,9 +127,23 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
 
   return (
     <>
-      <CheckForm zip={params.zip} trade={params.trade} />
+      <FormBand>
+        <CheckForm zip={params.zip} trade={params.trade} />
+      </FormBand>
       <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
     </>
+  );
+}
+
+/**
+ * Sky band around the form, with the form on a surface card as on the home page: on bare sky the input borders (2.92 to 1) and
+ * error text (4.38 to 1) would fail, on surface they pass.
+ */
+function FormBand({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-card bg-sky p-3 sm:p-5">
+      <div className="rounded-card border border-line bg-surface p-4 shadow-soft sm:p-5">{children}</div>
+    </div>
   );
 }
 

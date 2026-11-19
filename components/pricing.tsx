@@ -24,7 +24,7 @@ export function Pricing() {
       <ul className="grid gap-5 md:grid-cols-2" aria-label="Plans">
         {(['starter', 'pro'] as const).map((tier) => (
           <li key={tier} className="flex">
-            <Card className="flex w-full flex-col !p-6 md:!p-7">
+            <Card className={`flex w-full flex-col !p-6 md:!p-7 ${tier === 'starter' ? 'border-t-4 border-t-accent' : ''}`}>
               <h3 className="text-2xl text-ink">{TIER_NAMES[tier]}</h3>
               <p className="mt-1 text-muted">{BLURB[tier]}</p>
               <p className="mt-5 flex flex-wrap items-baseline gap-x-2">

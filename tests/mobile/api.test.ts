@@ -290,14 +290,14 @@ describe('GET /api/m/feed', () => {
       sourceLabel: 'National Weather Service alerts',
       sourceUrl: 'https://www.weather.gov/alerts',
       url: 'https://api.weather.gov/alerts/x',
-      intent: { key: 'demand', label: 'Demand sign' },
+      intent: { key: 'demand', label: 'Might need work' },
       distanceMi: 3.2,
       distanceLabel: '3.2 mi away',
       draft: 'Hi there',
       ai: { note: null },
       place: 'Smyrna, GA',
     });
-    expect(b.items[0].intent).toMatchObject({ key: 'spending', label: 'Spending activity' });
+    expect(b.items[0].intent).toMatchObject({ key: 'spending', label: 'Money being spent' });
     // Contacts: loaded once, for the caller, with only the caller's own contact-capable signal ids.
     expect(contactCalls).toEqual([{ userId: UA, signalIds: [102], locked: false }]);
     expect(b.items[0].contacts).toEqual([{ role: 'contractor', name: 'Acme Builders LLC', phone: '555-0100' }]);

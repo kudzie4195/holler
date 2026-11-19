@@ -59,8 +59,15 @@
   --color-sand: #f3ebdd;
   --color-sage: #e7ede3;
   --color-sage-ink: #3b5a40;
-  /* Decorative only (illustrations), never behind text. */
+  /* Bands and tags; text on it: ink (14+:1), muted 5.74:1, storm-ink 7.59:1. */
   --color-sky: #dde8ec;
+  /* Record families (gates/r8/design-direction.md). sky-deep and sage-deep are tint panels; storm and sage-mark are
+     stripes and icons only (non-text, 5.54:1 and 4.78:1 on white); storm-ink is text on sky (7.59:1). */
+  --color-sky-deep: #c9dce5;
+  --color-storm: #2f6f8f;
+  --color-storm-ink: #1f4a63;
+  --color-sage-deep: #d4e3cd;
+  --color-sage-mark: #4f7d55;
   --color-brick: #c98a6b;
   --color-accent: #e8590c;
   --color-accent-hover: #c94a08;
@@ -76,27 +83,28 @@
   --color-danger: #c53030;
   --color-danger-soft: #fbe5e5;
 
-  /* Quiet tint per signal kind: background + readable foreground. */
-  --color-kind-ask-bg: #fdebdd;
+  /* Quiet tint per signal kind, three families only. Weather and hazards: blue (storm-ink on sky 7.59:1).
+     Spending (permits, contracts): sage (sage-ink on sage 6.47:1). Civic, asks, events, travel: orange tint (6.49:1). */
+  --color-kind-alert-bg: #dde8ec;
+  --color-kind-alert-fg: #1f4a63;
+  --color-kind-report-bg: #dde8ec;
+  --color-kind-report-fg: #1f4a63;
+  --color-kind-disaster-bg: #dde8ec;
+  --color-kind-disaster-fg: #1f4a63;
+  --color-kind-quake-bg: #dde8ec;
+  --color-kind-quake-fg: #1f4a63;
+  --color-kind-permit-bg: #e7ede3;
+  --color-kind-permit-fg: #3b5a40;
+  --color-kind-contract-bg: #e7ede3;
+  --color-kind-contract-fg: #3b5a40;
+  --color-kind-civic-bg: #fbe8d8;
+  --color-kind-civic-fg: #8f3705;
+  --color-kind-ask-bg: #fbe8d8;
   --color-kind-ask-fg: #8f3705;
-  --color-kind-alert-bg: #fbe5e5;
-  --color-kind-alert-fg: #9b2323;
-  --color-kind-report-bg: #fbf0d5;
-  --color-kind-report-fg: #7a5410;
-  --color-kind-permit-bg: #e3eefb;
-  --color-kind-permit-fg: #1f4e8c;
-  --color-kind-civic-bg: #eee8f8;
-  --color-kind-civic-fg: #53388a;
-  --color-kind-contract-bg: #e2f1e8;
-  --color-kind-contract-fg: #1f6b41;
-  --color-kind-event-bg: #fbe6ef;
-  --color-kind-event-fg: #8e2a58;
-  --color-kind-disaster-bg: #f6dada;
-  --color-kind-disaster-fg: #7f1d1d;
-  --color-kind-quake-bg: #efe6dc;
-  --color-kind-quake-fg: #6b4a2a;
-  --color-kind-travel-bg: #ddf0f0;
-  --color-kind-travel-fg: #1b6666;
+  --color-kind-event-bg: #fbe8d8;
+  --color-kind-event-fg: #8f3705;
+  --color-kind-travel-bg: #fbe8d8;
+  --color-kind-travel-fg: #8f3705;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;

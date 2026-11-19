@@ -33,12 +33,15 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <section aria-labelledby="plans-h" className="mx-auto w-full max-w-5xl px-5 py-12 md:py-16">
-          <h2 id="plans-h" className="sr-only">
-            Plans
-          </h2>
-          <Pricing />
-          <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p>
+        {/* Sage band behind the plans. Text on sage: ink 15.0, muted 6.0, accent-text 4.95 to 1; Solo's accent top edge 3.0 to 1. */}
+        <section aria-labelledby="plans-h" className="border-b border-line bg-sage">
+          <div className="mx-auto w-full max-w-5xl px-5 py-12 md:py-16">
+            <h2 id="plans-h" className="sr-only">
+              Plans
+            </h2>
+            <Pricing />
+            <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p>
+          </div>
         </section>
 
         <section aria-labelledby="compare-h" className="border-y border-line bg-surface">

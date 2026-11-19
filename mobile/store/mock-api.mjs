@@ -18,7 +18,9 @@ const SOLO_LIMITS = data.config.plans.solo.limits;
 const iso = (ms) => new Date(Date.now() + ms).toISOString();
 function me() {
   if (scenario.me === 'onboarding') return { ok: true, user: USER, needsOnboarding: true, profile: null, access: null, limits: SOLO_LIMITS };
-  const profile = { businessName: 'Sample Roofing', trades: ['roofing', 'tree-service', 'general-contractor'], zip: '60614', city: 'Chicago', state: 'IL', radiusMi: 25, extraZips: [], keywords: [], alertEmail: true, pushAlerts: false, emailVerified: true, createdAt: iso(-3 * 864e5) };
+  // The member of the current scenario (fixtures/real-signals.json scenarios; ZIP placed by the server's lookupZip in build-data.mjs).
+  const m = data.profiles[scenario.feed] ?? data.profiles['01-know-when'];
+  const profile = { businessName: 'Sample Roofing', trades: m.trades, zip: m.zip, city: m.city, state: m.state, radiusMi: m.radiusMi, extraZips: [], keywords: [], alertEmail: true, pushAlerts: false, emailVerified: true, createdAt: iso(-3 * 864e5) };
   const trial = scenario.me === 'trial';
   const access = trial
     ? { state: 'trial', tier: 'starter', tierName: 'Solo', subscriptionStatus: 'trialing', trialEndsAt: iso(14 * 864e5), trialDaysLeft: 14, billingSource: 'none', storeProductId: null, storeExpiresAt: null, mayBuyInStore: true, manageUrl: null }
@@ -42,7 +44,7 @@ http.createServer(async (req, res) => {
   if (p === '/api/m/me') return send(res, 200, me());
   if (p === '/api/m/feed') return send(res, 200, { ok: true, locked: false, items: data.feeds[scenario.feed] ?? [], nextCursor: null });
   if (p.startsWith('/api/m/alert/')) {
-    const it = data.alerts[p.split('/').pop()];
+    const it = data.alerts[`${scenario.feed}:${p.split('/').pop()}`];
     return it ? send(res, 200, { ok: true, locked: false, item: it }) : send(res, 404, { ok: false, error: 'not_found', message: 'We could not find that alert.' });
   }
   if (p === '/api/m/check') return send(res, 200, { ok: false, error: 'invalid', message: 'not used in captures' });

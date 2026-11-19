@@ -60,8 +60,8 @@ export function intentLineKey(signal: IntentInput): IntentLineKey {
 }
 
 export const INTENT_LABEL: Record<Intent, string> = {
-  demand: 'Demand sign',
-  spending: 'Spending activity',
+  demand: 'Might need work',
+  spending: 'Money being spent',
   asking: 'Someone asked',
 };
 

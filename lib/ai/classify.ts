@@ -335,6 +335,9 @@ export async function callModel(
       return { ok: false, reason: 'bad_output', inputTokens: tok(e.usage?.inputTokens), outputTokens: tok(e.usage?.outputTokens), gatewayCostUsd: null };
     }
     const msg = e instanceof Error ? `${e.name} ${e.message}` : String(e);
+    // The operator needs the provider's own words to tell a missing key from a billing or model problem. The message never holds
+    // record text or a secret (it is the gateway's error line), and it is cut short.
+    console.error('[ai] model call failed:', msg.slice(0, 300));
     if (/auth|api key|oidc|unauthori[sz]ed|401|403/i.test(msg)) return { ok: false, reason: 'no_gateway_auth' };
     // An error status or a connection error: no response, nothing billed. Anything else may come after the provider answered.
     return { ok: false, reason: 'model_error', noResponse: failedBeforeResponse(e) };

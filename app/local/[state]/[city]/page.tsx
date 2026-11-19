@@ -15,7 +15,7 @@ import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/seo/view';
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../_components/ui';
+import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote, tintCardClass } from '../../_components/ui';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
 
@@ -142,13 +142,15 @@ export default async function CityPage({ params }: Props) {
       </div>
 
       <div className="mt-10 flex flex-col gap-6">
-        {visible.map((s) => {
+        {visible.map((s, i) => {
           const items = data.sections[s.id] ?? [];
-          return <SectionCard key={s.id} def={s} items={items} total={data.counts[s.id] ?? items.length} asOf={data.asOf} />;
+          return (
+            <SectionCard key={s.id} def={s} items={items} total={data.counts[s.id] ?? items.length} asOf={data.asOf} tinted={i === 0} />
+          );
         })}
 
         {helps ? (
-          <Card>
+          <Card className={visible.length === 0 ? tintCardClass('weather') : ''}>
             <H2 id="who-this-helps">{helps.heading}</H2>
             <p className="mt-1 text-sm text-muted">
               Number of records tagged to each trade. A record can help more than one trade.
@@ -173,7 +175,8 @@ export default async function CityPage({ params }: Props) {
           </Card>
         ) : null}
 
-        <Card>
+        {/* With no records and no trade counts, the FAQ is the first block: weather tint, since weather alerts cover every city. */}
+        <Card className={visible.length === 0 && !helps ? tintCardClass('weather') : ''}>
           <H2 id="faq">Questions about {place}</H2>
           <dl className="mt-4 flex flex-col gap-4">
             {faq.map((f) => (

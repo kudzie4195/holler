@@ -1,5 +1,9 @@
 // Capture build only: stands in for @revenuecat/purchases-capacitor and answers with the four store packages at the owner's list prices
-// (Solo $7.99 / $79.99, Pro $13.99 / $139.99, 14-day free trial). These are SIMULATED store prices; no store is contacted.
+// (Solo $7.99 / $79.99, Pro $13.99 / $139.99). These are SIMULATED store prices; no store is contacted.
+// LAUNCH STATE: the store products carry NO introductory free trial (STORE-SETUP.md, App Store step 2.5 option (a)), so no package has
+// an intro price or a Play free phase, and the eligibility check reports "not eligible". The paywall therefore shows the price and
+// "Subscribe to <plan>", never a store "free trial" button. The 14 days free in the store images is the server's account trial
+// (no card), which the app states in its own words on Welcome ("Free for 14 days, no card.").
 import { platform } from '../../src/lib/platform';
 
 const PRODUCTS = [
@@ -17,8 +21,8 @@ function pkg(p: (typeof PRODUCTS)[number]) {
     currencyCode: 'USD',
     subscriptionPeriod: p.period,
   };
-  if (platform() === 'android') base.defaultOption = { freePhase: { billingPeriod: { unit: 'DAY', value: 14 } } };
-  else base.introPrice = { price: 0, periodUnit: 'DAY', periodNumberOfUnits: 14, cycles: 1 };
+  if (platform() === 'android') base.defaultOption = { freePhase: null }; // no free phase on the base plan
+  else base.introPrice = null; // no introductory offer on the product
   return { identifier: p.id, packageType: p.type, product: base };
 }
 
@@ -33,7 +37,7 @@ export const Purchases = {
   logOut: async () => ({}),
   getOfferings: async () => ({ all: { default: offering }, current: offering }),
   getCustomerInfo: async () => ({ customerInfo: { entitlements: { active: {} }, managementURL: null } }),
-  checkTrialOrIntroductoryPriceEligibility: async (o: { productIdentifiers: string[] }) => Object.fromEntries(o.productIdentifiers.map((id) => [id, { status: 2 }])),
+  checkTrialOrIntroductoryPriceEligibility: async (o: { productIdentifiers: string[] }) => Object.fromEntries(o.productIdentifiers.map((id) => [id, { status: 1 /* INELIGIBLE */ }])),
   getStorefront: async () => ({ countryCode: 'USA' }),
   addCustomerInfoUpdateListener: async () => 'listener-1',
   removeCustomerInfoUpdateListener: async () => undefined,

@@ -31,3 +31,19 @@ export function plural(n: number, one: string, many: string): string {
 export function cleanZip(raw: string): string {
   return raw.replace(/\D/g, '').slice(0, 5);
 }
+
+/**
+ * The short label beside the record tag. The server sends `intent.label` from lib/signals/intent.ts ("Demand sign", "Spending activity");
+ * the app shows plainer words, chosen by the intent key, so trade users read what the record means for them. Unknown keys keep the
+ * server's label.
+ */
+const INTENT_LABEL_BY_KEY: Record<string, string> = {
+  demand: 'Might need work',
+  spending: 'Money being spent',
+  'open-bid': 'Money being spent',
+  'new-business': 'Money being spent',
+};
+
+export function intentLabel(intent: { key: string; label: string }): string {
+  return INTENT_LABEL_BY_KEY[intent.key] ?? intent.label;
+}

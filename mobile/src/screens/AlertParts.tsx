@@ -2,30 +2,59 @@ import { useState } from 'react';
 import { ApiCallError } from '../api/client';
 import type { AlertDto, ContactDto, FeedbackDto, Verdict } from '../contract';
 import { api } from '../services';
-import { relativeDay } from '../ui/format';
+import { intentLabel, relativeDay } from '../ui/format';
+import { KindTag } from '../ui/kind';
 import { Button } from '../ui/kit';
 
 const VERDICT_LABEL: Record<Verdict, string> = { useful: 'Useful', not_relevant: 'Not relevant', led_to_work: 'Led to work' };
 const VERDICTS: Verdict[] = ['useful', 'not_relevant', 'led_to_work'];
+const COMPACT_VERDICTS: Verdict[] = ['useful', 'not_relevant'];
 
 export function AlertMeta({ item }: { item: AlertDto }) {
-  const bits = [item.place, relativeDay(item.occurredAt), item.distanceLabel].filter(Boolean) as string[];
+  const bits = [item.place, relativeDay(item.occurredAt)].filter(Boolean) as string[];
   return (
     <>
-      <span className="intent">{item.intent.label}</span>
+      <div className="tag-row">
+        <KindTag item={item} />
+        <span className="intent">{intentLabel(item.intent)}</span>
+      </div>
       <p className="alert-title">{item.title}</p>
       <div className="meta">
         {bits.map((b) => (
           <span key={b}>{b}</span>
         ))}
+        {item.distanceLabel ? <span className="meta-strong">{item.distanceLabel}</span> : null}
       </div>
       {item.intent.line ? <p className="intent-line">{item.intent.line}</p> : null}
-      {item.sourceLabel ? <p className="tiny muted" style={{ marginTop: 6 }}>Source: {item.sourceLabel}</p> : null}
+      {item.sourceLabel ? <p className="tiny muted source-line" style={{ marginTop: 6 }}>Source: {item.sourceLabel}</p> : null}
     </>
   );
 }
 
-export function FeedbackButtons({ signalId, initial, onSaved }: { signalId: number; initial: FeedbackDto | null; onSaved?: (f: FeedbackDto) => void }) {
+function Thumb({ down, filled }: { down?: boolean; filled?: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={down ? { transform: 'rotate(180deg)' } : undefined}>
+      <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" />
+      <path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7" />
+    </svg>
+  );
+}
+
+/**
+ * Feedback on one alert. The full form (detail screen) offers all three verdicts and the job amount. `compact` (feed list) is one small
+ * row: the question and two icon buttons, Useful and Not relevant; "Led to work" lives on the detail screen. Same API calls either way.
+ */
+export function FeedbackButtons({
+  signalId,
+  initial,
+  onSaved,
+  compact,
+}: {
+  signalId: number;
+  initial: FeedbackDto | null;
+  onSaved?: (f: FeedbackDto) => void;
+  compact?: boolean;
+}) {
   const [verdict, setVerdict] = useState<Verdict | null>(initial?.verdict ?? null);
   const [amount, setAmount] = useState(initial?.jobValueUsd != null ? String(initial.jobValueUsd) : '');
   const [busy, setBusy] = useState(false);
@@ -57,6 +86,34 @@ export function FeedbackButtons({ signalId, initial, onSaved }: { signalId: numb
       return;
     }
     void send('led_to_work', n);
+  }
+
+  if (compact) {
+    return (
+      <div className="feedback compact" onClick={(e) => e.stopPropagation()}>
+        <div className="feedback-row">
+          <p className="tiny muted">{verdict === 'led_to_work' ? 'You said this led to work.' : 'Was this alert helpful?'}</p>
+          <div className="feedback-icons" role="group" aria-label="Feedback on this alert">
+            {COMPACT_VERDICTS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className="icon-btn"
+                aria-label={VERDICT_LABEL[v]}
+                title={VERDICT_LABEL[v]}
+                aria-pressed={verdict === v}
+                disabled={busy}
+                onClick={() => void send(v, null)}
+              >
+                <Thumb down={v === 'not_relevant'} filled={verdict === v} />
+              </button>
+            ))}
+          </div>
+        </div>
+        <p role="status" className={message ? 'tiny muted' : 'sr-only'}>{message}</p>
+        {error ? <p role="alert" className="tiny" style={{ color: 'var(--danger-ink)', fontWeight: 600 }}>{error}</p> : null}
+      </div>
+    );
   }
 
   return (

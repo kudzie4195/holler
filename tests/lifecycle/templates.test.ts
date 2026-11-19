@@ -129,10 +129,10 @@ describe('day 1', () => {
   it('matches variant: the count, up to 5 items with place, date and intent label, a feed link', () => {
     const m = samples()['welcome matches (5 shown of 12)'];
     expect(m.text).toContain('12 records already match');
-    const lines = m.text.split('\n').filter((l) => /\((.*), (Demand sign|Spending activity|Someone asked)\)$/.test(l));
+    const lines = m.text.split('\n').filter((l) => /\((.*), (Might need work|Money being spent|Someone asked)\)$/.test(l));
     expect(lines).toHaveLength(5);
-    expect(m.text).toContain('Hail report: 1.25 inch hail near Marietta (Marietta, GA, Nov 17, Demand sign)');
-    expect(m.text).toContain('Residential re-roof permit, 2300 sq ft, Roswell Rd (Atlanta, GA, Nov 18, Spending activity)');
+    expect(m.text).toContain('Hail report: 1.25 inch hail near Marietta (Marietta, GA, Nov 17, Might need work)');
+    expect(m.text).toContain('Residential re-roof permit, 2300 sq ft, Roswell Rd (Atlanta, GA, Nov 18, Money being spent)');
     expect(m.text).toContain('Open your feed: https://localholler.com/app');
     expect(m.text).toContain('The rest are in your feed.');
   });

@@ -124,7 +124,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent[0].html).toContain('Permit 1');
     expect(sent[0].html).not.toContain('Contact:');
   });
-  it('the email intent label comes from the signal subtype: a business licence reads "Spending activity"', async () => {
+  it('the email intent label comes from the signal subtype: a business licence reads "Money being spent"', async () => {
     const res = await run(
       [
         sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
@@ -136,10 +136,10 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent).toHaveLength(1);
     const html = sent[0].html;
     const text = sent[0].text;
-    expect(html).toContain('Spending activity');
-    expect(text).toContain('Spending activity');
-    expect(html).toContain('Demand sign');
-    // the licence is labeled Spending activity, not Demand sign
-    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Spending activity'));
+    expect(html).toContain('Money being spent');
+    expect(text).toContain('Money being spent');
+    expect(html).toContain('Might need work');
+    // the licence is labeled Money being spent, not Might need work
+    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Money being spent'));
   });
 });

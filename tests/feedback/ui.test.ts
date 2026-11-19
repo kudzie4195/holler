@@ -33,7 +33,7 @@ const render = (items: FeedItem[]) => renderToStaticMarkup(createElement(Feed, {
 describe('feed card: intent and feedback', () => {
   it('shows the intent label, its line, and the three buttons', () => {
     const html = render([base]);
-    expect(html).toContain('Spending activity');
+    expect(html).toContain('Money being spent');
     expect(html).toContain('A new business registered here. It may need services as it opens.');
     for (const label of ['Useful', 'Not relevant', 'Led to work']) expect(html).toContain(`>${label}</button>`);
     expect(html).not.toContain('About how much was the job?');
@@ -64,7 +64,7 @@ describe('feed card: intent and feedback', () => {
     ]);
     expect(html.match(/Feedback on this alert/g)).toHaveLength(2);
     expect(html).toContain('A resident asked for this service.');
-    expect(html).toContain('Demand sign');
+    expect(html).toContain('Might need work');
   });
 
   it('hides the buttons when the item has no signal id, and never shows them on the locked feed', () => {

@@ -21,7 +21,7 @@ import {
 } from '@/lib/seo/trade-view';
 import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
-import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../local/_components/ui';
+import { Card, Crumbs, H1, H2, Page, PrimaryLink, SecondaryLink, linkClass, PublicRecordsNote, tintCardClass } from '../../local/_components/ui';
 
 type Props = { params: Promise<{ trade: string }> };
 
@@ -109,13 +109,13 @@ export default async function TradePage({ params }: Props) {
       <H1>{tradeHeadline(t)}</H1>
       <p className="mt-4 max-w-2xl text-lg leading-relaxed">{tradeLead(t)}</p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <PrimaryLink href={checkHref}>Check your area</PrimaryLink>
+        <SecondaryLink href={checkHref}>Check your area</SecondaryLink>
         <PrimaryLink href="/signup">Start free</PrimaryLink>
       </div>
       <p className="mt-2 text-sm text-muted">{TRADE_PRICE_LINE}</p>
 
       <div className="mt-10 flex flex-col gap-6">
-        <Card>
+        <Card className={sendsCardClass(signals)}>
           <H2 id="what-you-get">What Holler sends {t.facts.noun}</H2>
           {signals.length === 0 ? (
             <p className="mt-4 text-muted">Nothing yet. The sources behind this trade are not switched on for this launch.</p>
@@ -173,7 +173,7 @@ export default async function TradePage({ params }: Props) {
         <div className="rounded-xl border border-line bg-surface p-6 text-center">
           <p className="text-2xl font-semibold tracking-[-0.02em]">See what is happening near you today.</p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <PrimaryLink href={checkHref}>Check your area</PrimaryLink>
+            <SecondaryLink href={checkHref}>Check your area</SecondaryLink>
             <PrimaryLink href="/signup">Start free</PrimaryLink>
           </div>
         </div>
@@ -181,4 +181,12 @@ export default async function TradePage({ params }: Props) {
       <PublicRecordsNote />
     </Page>
   );
+}
+
+/** "What Holler sends" card tint, by the family of the trade's first (lead) signal. */
+function sendsCardClass(signals: { type: string }[]): string {
+  const lead = signals[0]?.type ?? '';
+  if (lead === 'weather-alert' || lead === 'storm-report' || lead === 'disaster' || lead === 'quake') return tintCardClass('weather');
+  if (lead === 'permit' || lead === 'contract') return tintCardClass('spending');
+  return tintCardClass('civic');
 }
