@@ -7,8 +7,8 @@ import { ZipForm } from './zip-form';
 export function Hero({ lead, map }: { lead: string; map: HomeMap }) {
   return (
     <section id="top" className="on-brand bg-brand">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-14 px-6 pb-[72px] pt-12 max-[599px]:gap-10 max-[599px]:pb-14 max-[599px]:pt-7">
-        <div className="flex min-w-0 flex-[1_1_460px] flex-col gap-6 max-[599px]:gap-5">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-14 px-6 pb-[72px] pt-12 max-[600px]:gap-10 max-[600px]:pb-14 max-[600px]:pt-7">
+        <div className="flex min-w-0 flex-[1_1_460px] flex-col gap-6 max-[600px]:gap-5">
           <h1 className="m-0 font-display text-[clamp(52px,7.2vw,96px)] leading-[0.9] text-balance">
             Records <span className="whitespace-nowrap">near you,</span> <span className="whitespace-nowrap">sorted for</span>{' '}
             <span className="whitespace-nowrap">your trade.</span>

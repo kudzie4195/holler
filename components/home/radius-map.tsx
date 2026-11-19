@@ -27,9 +27,9 @@ function keyText(r: { phrase: string; mi: number }): string {
 
 /**
  * The hero map. Distances to scale (6 miles is 46% of the box), angles from lib/seo/home-place.ts so nothing overlaps.
- * Live: real records with their dates. Example (no live data): the design's six at the design's angles, labelled as an example, no
- * dates. Rings are #7A9A85 as designed (3.46:1 on brand-raised). Text inside the map stays in px: the placement math
- * (lib/seo/home-place.ts) depends on it.
+ * Live: real records with their dates. Example (no live data): the design's six at hand-picked angles with a dot in each quarter
+ * (EXAMPLE_DEGREES), labelled as an example, no dates. Rings use the token brand-ring as designed (3.46:1 on brand-raised).
+ * Text inside the map stays in px: the placement math (lib/seo/home-place.ts) depends on it.
  * Under 520 px of figure width the labels hide, the dots show numbers and a numbered key appears (radius-map-css.ts).
  */
 export function RadiusMap({ map }: { map: HomeMap }) {
@@ -54,7 +54,7 @@ export function RadiusMap({ map }: { map: HomeMap }) {
         {RING_MILES.map((mi) => (
           <div
             key={mi}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-[#7A9A85]"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-dashed border-brand-ring"
             style={{ width: ringPct(mi), height: ringPct(mi) }}
           />
         ))}

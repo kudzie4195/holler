@@ -1,8 +1,8 @@
 // The radius map placement (lib/seo/home-place.ts): zero overlaps, at least 6 px between any two boxes and at least 16 px from a
 // label to the map's edge, checked here with an independent geometry check written from the design numbers, for the design's six
-// (at the design's own angles), the preview fixture and 200 random sets.
+// (at the example map's hand-picked angles), the preview fixture and 200 random sets.
 import { describe, expect, it } from 'vitest';
-import { placeMarkers, type Placement } from '@/lib/seo/home-place';
+import { DESIGN_DEGREES, EXAMPLE_DEGREES, placeMarkers, placeNear, type Placement } from '@/lib/seo/home-place';
 
 const CLEAR = 6;
 const LABEL_EDGE = 16;
@@ -74,13 +74,16 @@ let seed = 20261119;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
 describe('radius map placement', () => {
-  it('the design six: all placed, at the design angles where clear, no overlap, 6 px clear, labels 16 px from the edge, distances to scale', () => {
+  it('the design six: all placed at the hand-picked angles, a dot in every quarter, no overlap, 6 px clear, labels 16 px from the edge, distances to scale', () => {
     const m = exampleMap();
     expect(m.placed).toHaveLength(6);
-    // The design's angles where they clear the rule; two design dots sit 3 to 4 px from a ring caption on the 272 px phone map, so
-    // those two move to a clear angle that keeps the set spread round the centre.
-    const design = [250, 20, 60, 310, 110, 185];
-    expect(m.placed.filter((p, i) => p.deg === design[i]).length).toBeGreaterThanOrEqual(4);
+    // Every hand-picked angle clears the rules as it is (placeNear moves none of them), and four of the six are within 5 degrees of
+    // the design's own angles; the design's 60 and 110 miss a ring caption on the 272 px phone map by 3 to 4 px.
+    expect(m.placed.map((p) => p.deg)).toEqual([...EXAMPLE_DEGREES]);
+    expect(m.placed.filter((p, i) => Math.abs(p.deg - DESIGN_DEGREES[i]) <= 5).length).toBeGreaterThanOrEqual(4);
+    // At least one dot strictly inside each quarter of the map (not on an axis), so no quarter of the example is empty.
+    const quarter = (p: Placement) => (p.xPct === 50 || p.yPct === 50 ? -1 : (p.xPct > 50 ? 0 : 1) + (p.yPct > 50 ? 2 : 0));
+    expect(new Set(m.placed.map(quarter))).toEqual(new Set([0, 1, 2, 3]));
     expect(widestEmptyArc(m.placed)).toBeLessThan(180);
     expect(worstGap(m.placed)).toBeGreaterThanOrEqual(CLEAR);
     expect(labelEdge(m.placed)).toBeGreaterThanOrEqual(LABEL_EDGE);
@@ -147,5 +150,19 @@ describe('radius map placement', () => {
     expect(one.dropped).toEqual(['a']);
     expect(one.placed.map((p) => p.id)).toEqual(['b']);
     expect(placeMarkers([{ id: 'x', mi: 7, text: 'FAR 7.0 MI' }], '60614').dropped).toEqual(['x']);
+  });
+
+  it('placeNear drops a record beyond the outer ring (or with no usable distance) instead of drawing it outside the map', () => {
+    const items = [
+      { id: 'far', mi: 7, text: 'FAR 7.0 MI' },
+      { id: 'edge', mi: 6.01, text: 'EDGE 6.0 MI' },
+      { id: 'nan', mi: Number.NaN, text: 'NAN MI' },
+      { id: 'neg', mi: -1, text: 'NEG MI' },
+      { id: 'ok', mi: 3, text: 'HVAC PERMIT 3.0 MI' },
+    ];
+    const r = placeNear(items, [20, 20, 20, 20, 20], '60614');
+    expect(r.dropped).toEqual(['far', 'edge', 'nan', 'neg']);
+    expect(r.placed.map((p) => p.id)).toEqual(['ok']);
+    for (const p of r.placed) expect(Math.hypot(p.xPct - 50, p.yPct - 50)).toBeLessThanOrEqual(46);
   });
 });

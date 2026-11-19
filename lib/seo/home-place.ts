@@ -247,13 +247,19 @@ export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
 }
 
 /**
- * The example map's layout: the approved design's angles (V3.dc.html: 250, 20, 60, 310, 110, 185 degrees, in the order of the
- * example records) and its side rule (a dot right of 55% of the box has its label on the left). A design angle that misses a
- * clearance (on the 272 px phone map two design dots sit 3 to 4 px from a ring caption) is replaced by the clear angle that keeps
- * the most room to the other dots (the placed ones and the design angles still to come), so the set stays spread round the centre;
- * ties go to the angle nearest the design's. A record with no clear angle at all is dropped, as in placeMarkers.
+ * The example map's angles, hand-picked (round 9 fix wave 2) from an exhaustive search over 5 degree steps with the design's side
+ * rule (a dot right of 55% of the box has its label on the left): all six clear the 6 px and 16 px rules at 520 and 272 px, and
+ * there is one dot or more in each quarter of the map, so the example does not sit heavy at the bottom left. Of the 1,070,316
+ * clear sets with a dot in every quarter this one has its centre of mass nearest the map's centre while staying within 180 degrees
+ * (summed) of the approved design's angles (V3.dc.html: 250, 20, 60, 310, 110, 185, in the order of the example records): HVAC
+ * and roof permit at the design angle, plumbing and tree emergency 5 degrees off, roof repair and porch repair moved to fill the
+ * lower left and the upper left. placeNear still checks each angle, so a later change to a label or a rule cannot draw an overlap:
+ * an angle that misses a clearance is replaced by the clear angle that keeps the most room to the other dots (ties go to the
+ * angle nearest the one asked), and a record with no clear angle, or beyond the outer ring, is dropped, as in placeMarkers.
  */
-export const EXAMPLE_DEGREES = [250, 20, 60, 310, 110, 185] as const;
+export const EXAMPLE_DEGREES = [250, 20, 55, 305, 215, 120] as const;
+/** The approved design's own angles for the same six records, kept for the record and for the tests. */
+export const DESIGN_DEGREES = [250, 20, 60, 310, 110, 185] as const;
 
 export function placeNear(items: PlaceInput[], degrees: readonly number[], zip: string): PlaceResult {
   const placed: (Placement & { d: Drawn })[] = [];
@@ -271,6 +277,11 @@ export function placeNear(items: PlaceInput[], degrees: readonly number[], zip: 
     return { p: { id: it.id, mi: it.mi, text: it.text, deg, ...pos, side }, d, clear };
   };
   items.forEach((it, i) => {
+    // Same range rule as placeMarkers: a record beyond the outer ring (or with no usable distance) is dropped, never drawn outside it.
+    if (!(it.mi >= 0 && it.mi <= MAP_RADIUS_MI)) {
+      dropped.push(it.id);
+      return;
+    }
     const want = degrees[i] ?? 0;
     const first = at(it, want);
     if (first.clear) {

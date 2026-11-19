@@ -3,15 +3,34 @@ import type { Family } from '@/lib/seo/home-map';
 import { shortDay } from '@/lib/seo/home-map';
 import type { LedgerExample } from '@/lib/seo/home-live';
 import { joinList, type HomeFamily } from '@/lib/seo/public-copy';
+import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 import { COL, H2, MARK_LIGHT, SHAPE } from './styles';
 
 /** Family text on sand: about 7 to 7.9 contrast. Family marks at least 3.5 contrast. */
 const INK: Record<Family, string> = { weather: 'text-storm-ink', permit: 'text-sage-ink', civic: 'text-civic-ink' };
 
+/** The trades the ledger sentences name, once each, in the order named, only those with a page; link text as named. */
+export function ledgerTrades(families: HomeFamily[]): { href: string; label: string }[] {
+  const seen = new Set<string>();
+  const out: { href: string; label: string }[] = [];
+  for (const f of families) {
+    for (const t of f.goodFor) {
+      if (seen.has(t.id) || !tradeEntry(t.id)) continue;
+      seen.add(t.id);
+      out.push({ href: tradePath(t.id), label: `${t.label.charAt(0).toUpperCase()}${t.label.slice(1)}` });
+    }
+  }
+  return out;
+}
+
+const TRADE_LINK = 'h-link font-medium text-brand-text underline-offset-4 hover:underline focus-visible:underline';
+
 /**
  * "Three kinds of record. One feed.": one row per family. The example line is a real recent record of that family, with its date,
- * when the loaders have one; otherwise the row has none. Trade names are plain text, as designed; one "See all trades" link under
- * the rows goes to /for (the footer links the main trades too).
+ * when the loaders have one; otherwise the row has none. Trade names in the sentences are plain text, as designed. Under the rows
+ * one quiet index, "Find your trade", links the trade page of every trade the sentences name (once each, in the order named, only
+ * trades that have a page), then "All trades" to /for: text links 44 px tall, no chips and no borders, a wrapped row on wide
+ * screens and two columns on phones.
  */
 export function Ledger({ families, examples }: { families: HomeFamily[]; examples: Record<Family, LedgerExample | null> }) {
   return (
@@ -46,10 +65,21 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
               </div>
             );
           })}
-          <Link href="/for" className="h-link mt-2 font-semibold text-brand-text underline underline-offset-4 hover:decoration-2">
-            See all trades
-          </Link>
         </div>
+        <nav aria-labelledby="trades-h" className="flex flex-col gap-1">
+          <p id="trades-h" className="eyebrow m-0">
+            FIND YOUR TRADE
+          </p>
+          <ul className="m-0 grid list-none grid-cols-2 gap-x-6 p-0 min-[600px]:flex min-[600px]:flex-wrap min-[600px]:gap-x-8">
+            {[...ledgerTrades(families), { href: '/for', label: 'All trades' }].map((t) => (
+              <li key={t.href}>
+                <Link href={t.href} className={TRADE_LINK}>
+                  {t.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </section>
   );

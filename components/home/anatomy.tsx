@@ -18,7 +18,7 @@ export function Anatomy({ map, steps }: { map: HomeMap; steps: { title: string; 
           Short enough to read in the truck.
         </h2>
         <div className="flex flex-wrap items-center gap-10">
-          <article className="flex min-w-0 flex-[1_1_460px] flex-col gap-4 rounded-card border border-line bg-surface p-8 shadow-lift max-[599px]:p-6">
+          <article className="flex min-w-0 flex-[1_1_460px] flex-col gap-4 rounded-card border border-line bg-surface p-8 shadow-lift max-[600px]:p-6">
             <div className="flex flex-wrap items-center gap-3">
               <span className={`rounded-chip px-2.5 py-[5px] font-mono text-[0.8125rem] font-medium leading-5 ${TAG[r.family]}`}>{tag}</span>
               {live ? null : <span className="rounded-chip border border-line-strong px-2 py-1 font-mono text-[0.8125rem] leading-5 text-ink">EXAMPLE</span>}
@@ -46,7 +46,7 @@ export function Anatomy({ map, steps }: { map: HomeMap; steps: { title: string; 
                   <a
                     href={r.url!}
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-11 items-center rounded-control bg-brand px-[18px] py-3 text-base font-semibold text-on-brand transition-[filter] duration-150 hover:brightness-110"
+                    className="inline-flex min-h-11 items-center rounded-control bg-brand px-[18px] py-3 text-base font-semibold text-on-brand transition-[background-color] duration-150 hover:bg-ink"
                   >
                     Open the source
                   </a>

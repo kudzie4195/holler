@@ -18,23 +18,31 @@ function cardMeta(r: MapRecord, live: boolean): string {
   return [r.place, live && r.occurredAt ? shortDay(r.occurredAt) : null, `${r.mi.toFixed(1)} mi`].filter(Boolean).join(' · ');
 }
 
+/** No-break space: the separators in the phone's one-line meta row must not be trimmed at the edge of a flex item. */
+const NB = '\u00a0';
+
 /**
  * One card in the phone's feed. The phone is a fixed 500 px picture, so its text stays in px (13 px at the smallest). The title is
- * clamped at two lines. With the spacing below, even three two-line titles end 24 px above the screen's bottom edge, so the crop
- * never cuts through a title, only through the third card's place line or below it. (One line, tried first, cut the useful end
- * off 311 titles: "311 request in Chicago: Tr...".)
+ * clamped at two lines; the place line and the push banner are one line each (the place name shortens with an ellipsis, the day
+ * and the distance never do), so every card has a fixed height whatever the city or the phone's width. Measured in the built page
+ * from 320 to 1280 px with three two-line titles: the third title ends 8.6 px above the screen's bottom edge, so the crop never
+ * cuts through a title. (One-line titles, tried first, cut the useful end off 311 titles: "311 request in Chicago: Tr...".)
  */
 function FeedCard({ r, live }: { r: MapRecord; live: boolean }) {
   const { tag } = recordTag(r);
-  const meta = cardMeta(r, live);
-  const dist = `${r.mi.toFixed(1)} mi`;
+  const day = live && r.occurredAt ? shortDay(r.occurredAt) : null;
+  const sep = `${NB}·${NB}`;
+  const rest = `${r.place ? sep : ''}${day ? `${day}${sep}` : ''}`;
   return (
     <div className="flex flex-col gap-1.5 rounded-[14px] border border-line bg-surface p-3.5">
       <span className={`self-start rounded-chip px-2 py-[3px] font-mono text-[13px] leading-4 ${TAG[r.family]}`}>{tag}</span>
       <span className="line-clamp-2 text-base font-semibold leading-5">{r.title}</span>
-      <span className="text-[13px] text-muted">
-        {meta.slice(0, meta.length - dist.length)}
-        <b className="text-ink">{dist}</b>
+      <span className="flex whitespace-nowrap text-[13px] text-muted">
+        {r.place ? <span className="min-w-0 truncate">{r.place}</span> : null}
+        <span className="flex-none">
+          {rest}
+          <b className="text-ink">{`${r.mi.toFixed(1)} mi`}</b>
+        </span>
       </span>
     </div>
   );
@@ -71,19 +79,19 @@ export function AppBand({ map }: { map: HomeMap }) {
           )}
           <div role="img" aria-label={aria} className="box-border h-[500px] w-[320px] max-w-full rounded-t-[44px] bg-ink px-3 pt-3">
             <div className="on-light flex h-full flex-col overflow-hidden rounded-t-[34px] bg-background text-ink">
-              <div className="flex items-center justify-between px-[18px] pb-2.5 pt-[22px]">
+              <div className="flex items-center justify-between px-[18px] pb-2.5 pt-4">
                 <span className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-chip bg-signal">
                   <Mark size={16} stroke="currentColor" />
                 </span>
                 <span className="text-base font-semibold">Alerts</span>
                 <span className="text-sm font-medium text-brand-text">Refresh</span>
               </div>
-              <div className="mx-3 mb-2.5 mt-1 flex gap-2.5 rounded-2xl border border-line bg-surface px-3.5 py-3 shadow-lift">
+              <div className="mx-3 mb-2 mt-1 flex gap-2.5 rounded-2xl border border-line bg-surface px-3.5 py-3 shadow-lift">
                 <span className="inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-chip bg-brand text-signal">
                   <Mark size={17} stroke="currentColor" />
                 </span>
                 <span className="flex min-w-0 flex-col gap-px">
-                  <span className="text-sm font-semibold">New alert near {where}</span>
+                  <span className="truncate text-sm font-semibold">New alert near {where}</span>
                   <span className="truncate text-[13px] text-muted">{banner.title}</span>
                 </span>
               </div>

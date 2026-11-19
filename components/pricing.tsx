@@ -7,12 +7,15 @@ import { TRIAL_DAYS } from '@/lib/auth/membership';
 /** No-break space: a number never sits on a different line from its noun ("5" and "keyword watches"). */
 const NB = '\u00a0';
 
-/** One line of limits for the short cards: "1 area · 5 trades · email alerts", "3 areas · 15 trades · 5 keyword watches". */
-export function planShortLine(tier: Tier): string {
+/**
+ * The limits on a short card, as separate pieces: ["1 area", "5 trades", "email alerts"], ["3 areas", "15 trades", "5 keyword watches"].
+ * The card draws them as a wrapping row with a gap and no separator dot, so a line never ends on a hanging "·".
+ */
+export function planShortParts(tier: Tier): string[] {
   const l = PLAN_LIMITS[tier];
   const areas = `${l.areas}${NB}${l.areas === 1 ? 'area' : 'areas'}`;
   const trades = `${l.trades}${NB}trades`;
-  return l.keywords ? `${areas} · ${trades} · ${l.keywords}${NB}keyword${NB}watches` : `${areas} · ${trades} · email alerts`;
+  return [areas, trades, l.keywords ? `${l.keywords}${NB}keyword${NB}watches` : `email${NB}alerts`];
 }
 
 /** Who each plan is for: shown under the plan name on /pricing (the full cards). */
@@ -32,7 +35,7 @@ const CARD: Record<Tier, { card: string; tag: string; muted: string; button: str
     card: 'on-brand bg-brand text-on-brand',
     tag: 'text-signal',
     muted: 'text-on-brand-muted',
-    button: 'bg-signal text-ink hover:bg-[#C6DD32]',
+    button: 'bg-signal text-ink hover:bg-signal-hover',
     check: 'text-signal',
   },
   // Pro on white: brand-text tag 7.4:1, muted 6.2:1. Ink button with on-brand text.
@@ -47,7 +50,7 @@ const CARD: Record<Tier, { card: string; tag: string; muted: string; button: str
 
 /**
  * The two plan cards: Solo on green, Pro on white. Server component.
- *   - variant "short" (the home page): price, yearly price, one line of limits, the push note and a "Start free" button.
+ *   - variant "short" (the home page): price, yearly price, the limits (planShortParts), the push note and a "Start free" button.
  *   - variant "full" (the default, the /pricing page): the trial line, who the plan is for (PLAN_BLURB), the yearly saving, every
  *     feature in PLAN_FEATURES, buttons that name the trial, and one note under both cards on trial limits and on push.
  * Every price and the yearly saving phrase come from lib/stripe/plans.ts (PRICES_CENTS), every name and limit from
@@ -93,7 +96,13 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
                   ))}
                 </ul>
               ) : (
-                <p className="text-[1.0625rem]">{planShortLine(tier)}</p>
+                <p className="flex flex-wrap gap-x-4 text-[1.0625rem]">
+                  {planShortParts(tier).map((part) => (
+                    <span key={part} className="whitespace-nowrap">
+                      {part}
+                    </span>
+                  ))}
+                </p>
               )}
               {full ? null : <p className={`text-[0.9375rem] ${c.muted}`}>{PUSH_NOTE}</p>}
               <Link
