@@ -1,0 +1,44 @@
+import type { Family, HomeMap, MapRecord } from '@/lib/seo/home-map';
+import type { LedgerExample } from '@/lib/seo/home-live';
+
+/** Pure choices of which picked record each section shows. All read from the one picked set, so the sections agree. */
+
+const time = (r: MapRecord) => (r.occurredAt ? Date.parse(r.occurredAt) : 0);
+
+/** Newest record on a live map (the "latest" band). Null for the example. */
+export function newestRecord(map: HomeMap): MapRecord | null {
+  if (!map.live || !map.records.length) return null;
+  return [...map.records].sort((a, b) => time(b) - time(a))[0];
+}
+
+/** The record on the alert card and the phone's push banner: the newest permit, else the newest record. */
+export function featuredRecord(map: HomeMap): MapRecord {
+  const permits = map.records.filter((r) => r.family === 'permit');
+  const pool = permits.length ? permits : map.records;
+  if (!map.live) return pool.find((r) => /^Roof permit/.test(r.title)) ?? pool[0];
+  return [...pool].sort((a, b) => time(b) - time(a))[0];
+}
+
+/** The three cards in the phone feed: the newest other records (the example keeps the design's order). */
+export function phoneRecords(map: HomeMap, featured: MapRecord): MapRecord[] {
+  const rest = map.records.filter((r) => r.id !== featured.id);
+  if (!map.live) return [rest.find((r) => /^Plumbing/.test(r.title)), rest.find((r) => /^HVAC/.test(r.title)), rest.find((r) => r.family === 'civic')].filter((r): r is MapRecord => !!r);
+  return [...rest].sort((a, b) => time(b) - time(a)).slice(0, 3);
+}
+
+/** The ledger's example line per family: a real recent record, or nothing. */
+export function ledgerExamples(map: HomeMap, weather: LedgerExample | null): Record<Family, LedgerExample | null> {
+  const fromMap = (f: Family): LedgerExample | null => {
+    if (!map.live) return null;
+    const r = [...map.records].filter((x) => x.family === f).sort((a, b) => time(b) - time(a))[0];
+    return r && r.occurredAt ? { title: r.title, occurredAt: r.occurredAt, mi: r.mi } : null;
+  };
+  return { permit: fromMap('permit'), civic: fromMap('civic'), weather: fromMap('weather') ?? weather };
+}
+
+/** Tag and short note for a record on light surfaces. */
+export function recordTag(r: Pick<MapRecord, 'family' | 'title'>): { tag: string; note: string } {
+  if (r.family === 'permit') return { tag: 'PERMIT', note: 'Money being spent' };
+  if (r.family === 'weather') return { tag: 'WEATHER', note: 'Storm nearby' };
+  return /^311\b/.test(r.title) ? { tag: '311', note: 'A city request' } : { tag: 'CODE CASE', note: 'A repair ordered' };
+}

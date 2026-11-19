@@ -65,44 +65,28 @@ export function cadenceFor(f: Flags): string {
 
 // ---- Home page ---------------------------------------------------------------------------------------------------------
 
-export interface ExampleAlert {
-  kind: 'report' | 'ask';
-  source: string;
-  time: string;
-  distance: string;
+/** One row of the "three kinds of record" ledger. Trade names link to their /for/<id> page when it exists. */
+export interface HomeFamily {
+  id: 'weather' | 'permit' | 'civic';
+  /** Mono tag, upper case. */
+  tag: string;
   title: string;
-  body: string;
-  actions: string[];
+  /** Where the records come from, one sentence. */
+  from: string;
+  /** "Good for ..." trades: label as shown, category id for the /for/<id> page. */
+  goodFor: { label: string; id: string }[];
 }
-
-/** Icon names the home page maps to components/icons. Kept as strings so this file stays free of React. */
-export type HomeIcon =
-  | 'pin'
-  | 'bell'
-  | 'envelope'
-  | 'storm'
-  | 'hail'
-  | 'flood'
-  | 'plane'
-  | 'hardhat'
-  | 'megaphone'
-  | 'clipboard'
-  | 'contract';
 
 export interface HomeCopy {
   metaDescription: string;
-  /** One sentence under the h1. */
+  /** The subhead under the h1: what Holler does, in two sentences. */
   heroLead: string;
-  /** Three steps: a three-to-five word title and at most twelve words of body each. */
-  steps: { icon: HomeIcon; title: string; body: string }[];
-  /** "What Holler watches": eight tiles, keyless sources only, two or three words each. */
-  watches: { icon: HomeIcon; label: string }[];
-  /** The one honest caveat under the tiles. */
-  watchNote: string;
+  /** The three parts of an alert, matching the numbered marks on the example card. */
+  steps: { title: string; body: string }[];
+  /** The ledger rows, in order: weather, permits, 311 and code. Only record types that need no key. */
+  families: HomeFamily[];
   /** At most four. The page renders exactly these and its FAQPage JSON-LD uses the same list. */
   faqs: { q: string; a: string }[];
-  /** The first example is always a type that needs no key. The 'ask' example is added only when people-asking is on. */
-  examples: ExampleAlert[];
 }
 
 export function homeCopy(has: Has = hasEnv): HomeCopy {
@@ -110,66 +94,71 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
 
   const extra = [...(f.sam ? ['SAM.gov'] : []), ...(f.event ? ['the Ticketmaster Discovery API'] : [])];
   const dataAnswer =
-    'Public agencies and city open-data portals.' +
+    'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its record.' +
     (extra.length ? ` Also ${joinList(extra)}.` : '') +
     (f.ask ? ` People asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.` : '');
 
-  const examples: ExampleAlert[] = [
-    {
-      kind: 'report',
-      source: 'NOAA Storm Prediction Center',
-      time: '4:12 pm',
-      distance: '6 mi away',
-      title: 'Quarter-size hail reported near Marietta, GA',
-      body: 'Roof and glass crews nearby tend to get calls.',
-      actions: ['Open source', 'Save', 'Dismiss'],
-    },
-    ...(f.ask
-      ? [
-          {
-            kind: 'ask' as const,
-            source: 'Public post',
-            time: '18 min ago',
-            distance: '9 mi away',
-            title: 'Anyone recommend a plumber near Decatur?',
-            body: 'Water heater quit this morning. Need someone who can come today.',
-            actions: ['Draft reply', 'Open source', 'Done'],
-          },
-        ]
-      : []),
-  ];
-
   return {
     metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
-    heroLead: 'A short alert when a storm, permit or 311 request near you fits your work.',
+    heroLead: 'Alerts when hail, a permit or a 311 request near you fits your trade. Each one links to the official record.',
     steps: [
-      { icon: 'pin', title: 'Tell us your trade', body: 'Trades, ZIP code and how far you drive.' },
-      { icon: 'bell', title: 'We read public records', body: 'Weather, permits and 311, checked through the day.' },
-      { icon: 'envelope', title: 'You get a short alert', body: 'By email, with a link to the source.' },
+      { title: 'What happened', body: 'In plain words, matched to the trades you picked.' },
+      { title: 'How far from you', body: 'Only records inside the radius you drive.' },
+      { title: 'The official record', body: 'One tap to the city or weather service page it came from.' },
     ],
-    watches: [
-      { icon: 'storm', label: 'Weather alerts' },
-      { icon: 'hail', label: 'Hail and wind' },
-      { icon: 'flood', label: 'Disasters and quakes' },
-      { icon: 'plane', label: 'Airport delays' },
-      { icon: 'hardhat', label: 'Building permits' },
-      { icon: 'megaphone', label: '311 requests' },
-      { icon: 'clipboard', label: 'Inspections' },
-      { icon: 'contract', label: 'Federal contracts' },
+    families: [
+      {
+        id: 'weather',
+        tag: 'WEATHER',
+        title: 'Hail reports and storm warnings',
+        from: 'From the National Weather Service and NOAA.',
+        goodFor: [
+          { label: 'roofing', id: 'roofing' },
+          { label: 'tree service', id: 'tree-service' },
+          { label: 'restoration', id: 'restoration' },
+          { label: 'auto glass', id: 'auto-glass' },
+        ],
+      },
+      {
+        id: 'permit',
+        tag: 'PERMITS',
+        title: 'New building permits',
+        from: 'From cities and counties that publish them.',
+        goodFor: [
+          { label: 'plumbing', id: 'plumbing' },
+          { label: 'HVAC', id: 'hvac' },
+          { label: 'electrical', id: 'electrical' },
+          { label: 'windows and doors', id: 'windows-doors' },
+        ],
+      },
+      {
+        id: 'civic',
+        tag: '311 AND CODE',
+        title: 'City requests and code cases',
+        from: 'Fallen trees, dumping, rats and repair orders.',
+        goodFor: [
+          { label: 'tree service', id: 'tree-service' },
+          { label: 'handyman', id: 'handyman' },
+          { label: 'junk removal', id: 'junk-removal' },
+          { label: 'pest control', id: 'pest-control' },
+        ],
+      },
     ],
-    watchNote: 'Coverage depends on what each city publishes.',
     faqs: [
       {
-        q: 'Do you post for me?',
-        a: `No. Holler never posts or messages anyone unless you write the reply and press send.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
+        q: 'Is this a lead list?',
+        a: `No. Holler shows public records that point to work. It does not promise a job or a customer.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
       },
-      { q: 'Where does the data come from?', a: dataAnswer },
+      { q: 'Where does it come from?', a: dataAnswer },
       {
-        q: 'Does it work in my town?',
-        a: 'Weather covers the whole US. Permits and 311 come from connected cities, like Chicago.',
+        q: 'How do alerts reach me?',
+        a: 'By email today. iPhone and Android apps are coming, and push will be capped at one an hour.',
+      },
+      {
+        q: 'Does it cover my area?',
+        a: 'Weather covers the whole US. Permits and 311 come from the cities Holler has connected. Check your ZIP below.',
       },
     ],
-    examples,
   };
 }
 

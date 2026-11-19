@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { postalFooterHtml, postalFooterText } from '@/lib/legal/email-footer';
 import { renderRequestAdmin, renderRequestConfirm, renderRequestReply } from '@/lib/email/request-emails';
+import { EMAIL_COLORS } from '@/lib/email/theme';
 
 vi.mock('server-only', () => ({}));
 
@@ -89,11 +90,12 @@ describe('every request email ends with the postal footer', () => {
       expect(r.text.trimEnd().endsWith(postalFooterText())).toBe(true);
     });
   }
-  it('uses the new token colours (globals.css), not the old ones', () => {
+  it('uses the round 9 email colors (lib/email/theme.ts), not the old ones', () => {
     for (const r of Object.values(all)) {
-      expect(r.html).not.toMatch(/#FBFAF7|#16181D|#5D6470/i);
-      expect(r.html).toContain('#FAF6EE');
-      expect(r.html).toContain('#191714');
+      expect(r.html).not.toMatch(/#FBFAF7|#16181D|#5D6470|#FAF6EE|#191714|#E8590C|#AD4205|#FFFDF9/i);
+      expect(r.html).toContain(EMAIL_COLORS.paper);
+      expect(r.html).toContain(EMAIL_COLORS.ink);
+      expect(r.html).toContain(EMAIL_COLORS.brand);
     }
   });
 });

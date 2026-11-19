@@ -96,7 +96,7 @@ describe('every email', () => {
       }
       expect(m.text).toContain('Stop these emails: https://localholler.com/api/cron/lifecycle/unsubscribe?t=');
       expect(m.html).toContain('href="https://localholler.com/api/cron/lifecycle/unsubscribe?t=');
-      expect(m.html).toMatch(/<a href="[^"]+" style="[^"]*background:#E8590C/);
+      expect(m.html).toMatch(/<a href="[^"]+" style="[^"]*background:#1E3A2C;color:#F5F4EF[^"]*border-radius:10px/);
     });
   }
 

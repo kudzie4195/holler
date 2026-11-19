@@ -3,6 +3,8 @@
  * The route at app/api/cron/health reads holler_scan_runs and the counts, calls planHealth, then sends renderHealthEmail.
  */
 
+import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
+
 export interface HealthAdapter {
   id: string;
   label: string;
@@ -271,11 +273,12 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
 
   const text = [report.subject, ...blocks.map((b) => `\n${b.title}\n${b.lines.map((l) => `- ${l}`).join('\n')}`)].join('\n') + '\n';
   const html =
-    '<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:600px;color:#191714;line-height:1.5">' +
-    `<h1 style="font-size:18px;margin:0 0 12px 0">${esc(report.subject)}</h1>` +
+    wrapOpen(600) +
+    `<h1 style="${EMAIL_STYLE.h1};font-size:22px;margin:0 0 12px 0">${esc(report.subject)}</h1>` +
     blocks
-      .map((b) => `<h2 style="font-size:14px;margin:16px 0 4px 0">${esc(b.title)}</h2><ul style="margin:0;padding-left:20px">${b.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`)
+      .map((b) => `<h2 style="${EMAIL_STYLE.h2};font-size:15px;margin:16px 0 4px 0">${esc(b.title)}</h2><ul style="margin:0;padding-left:20px">${b.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`)
       .join('') +
-    '</div>';
+    cardClose() +
+    WRAP_CLOSE;
   return { subject: report.subject, text, html };
 }

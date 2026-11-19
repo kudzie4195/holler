@@ -10,6 +10,8 @@ import { groupCategories } from '../../components/profile-form-groups';
 import { CATEGORIES } from '../../lib/signals/categories';
 import { activeTradeSignals } from '../../lib/seo/signal-types';
 import { priceLabel } from '@/lib/stripe/plans';
+import { EXAMPLE_RECORDS } from '@/lib/seo/home-map';
+import { FAQ_GROUPS } from '@/lib/seo/faq';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 const setOf = (...keys: string[]) => (...k: EnvKey[]) => k.every((x) => keys.includes(x));
@@ -67,26 +69,27 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(sourceActive('sam', setOf('SAM_API_KEY'))).toBe(true);
   });
 
-  it('the example alert on the home page is always a storm report; the people-asking example needs a key', () => {
-    expect(homeCopy(NONE).examples.map((e) => e.kind)).toEqual(['report']);
-    expect(homeCopy(ALL).examples.map((e) => e.kind)).toEqual(['report', 'ask']);
-    expect(homeCopy(NONE).examples[0].source).toBe('NOAA Storm Prediction Center');
+  it('the home page examples need no key: the example map holds permits and 311 or code records only, the same in both states', () => {
+    // Round 9: the example alerts moved from homeCopy to the radius map's labelled example set (lib/seo/home-map.ts).
+    expect('examples' in homeCopy(NONE)).toBe(false);
+    expect(EXAMPLE_RECORDS.map((e) => e.family).every((f) => f === 'permit' || f === 'civic')).toBe(true);
+    expect(EXAMPLE_RECORDS.map((e) => e.title).join(' ')).not.toMatch(/asking|recommend|post|bluesky|ticket|event|sam\.gov/i);
   });
 
-  it('keeps the page structure: same steps, tiles and FAQ questions in both states; the tiles name keyless sources only', () => {
+  it('keeps the page structure: same steps, ledger rows and FAQ questions in both states; the ledger names keyless record types only', () => {
     const n = homeCopy(NONE);
     const a = homeCopy(ALL);
-    expect(n.steps.map((s) => s.title)).toEqual(a.steps.map((s) => s.title));
+    expect(n.steps).toEqual(a.steps);
     expect(n.faqs.map((f) => f.q)).toEqual(a.faqs.map((f) => f.q));
     expect(n.faqs.length).toBeLessThanOrEqual(4);
-    // "What Holler watches" is the same with or without keys: nothing in it needs an optional key.
-    expect(n.watches).toEqual(a.watches);
-    expect(n.watches).toHaveLength(8);
-    for (const w of n.watches) expect(w.label, w.label).not.toMatch(/event|concert|festival|asking|bluesky|sam\.gov|ticket/i);
-    // Each step: three to five word title, at most twelve words of body.
+    // The three-family ledger is the same with or without keys: nothing in it needs an optional key.
+    expect(n.families).toEqual(a.families);
+    expect(n.families.map((f) => f.id)).toEqual(['weather', 'permit', 'civic']);
+    for (const f of n.families) expect(allText(f), f.id).not.toMatch(/event|concert|festival|asking|bluesky|sam\.gov|ticket/i);
+    // Each step: a short title, at most twelve words of body.
+    expect(n.steps).toHaveLength(3);
     for (const s of n.steps) {
-      expect(s.title.split(/\s+/).length).toBeGreaterThanOrEqual(3);
-      expect(s.title.split(/\s+/).length).toBeLessThanOrEqual(5);
+      expect(s.title.split(/\s+/).length).toBeLessThanOrEqual(4);
       expect(s.body.split(/\s+/).length).toBeLessThanOrEqual(12);
     }
     expect(aboutCopy(NONE).sources.length).toBe(aboutCopy(ALL).sources.length - 4);
@@ -129,9 +132,11 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     }
   });
 
-  it('home FAQ and /about say Holler sends a message only when the business writes the reply and presses send', () => {
-    expect(allText(homeCopy(NONE).faqs)).toContain('never posts or messages anyone unless you write the reply and press send');
-    expect(allText(homeCopy(NONE).faqs)).not.toContain('messages anyone on your behalf');
+  it('no page says Holler messages anyone for the business: home FAQ, /about and /faq', () => {
+    // Round 9: the home FAQ is the design's four questions; the "who sends what" answer lives on /faq (lib/seo/faq.ts).
+    for (const has of [NONE, ALL]) expect(allText(homeCopy(has).faqs)).not.toMatch(/on your behalf|we post|posts for you|messages anyone for you/i);
+    expect(allText(homeCopy(NONE).faqs)).toContain('It does not promise a job or a customer.');
+    expect(allText(FAQ_GROUPS)).toContain('Only when you write a reply to a resident request and press send');
     expect(allText(aboutCopy(NONE).whatItIs)).toContain('plus a free page where residents can ask local businesses for help');
     expect(allText(aboutCopy(NONE).whatItIs)).toContain('Holler is new');
   });
