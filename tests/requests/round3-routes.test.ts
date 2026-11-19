@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanBusinessName, plainReply, renderRequestReply } from '@/lib/email/request-emails';
+import { emailHeader } from '@/lib/email/theme';
 import { requestsEnabled } from '@/lib/requests/enabled';
 import { confirmRequest, createRequest } from '@/lib/requests/service';
 import { linkToken } from '@/lib/requests/tokens';
@@ -290,7 +291,9 @@ describe('P2-7: business names and replies in emails', () => {
     });
     expect(m.subject).not.toMatch(/[\r\n<>]|evil|https?:/);
     expect(m.subject.length).toBeLessThanOrEqual(80 + ' replied to your request on Holler'.length);
-    expect(m.html).not.toContain('<img');
+    // The only image allowed is the trusted header mark; nothing from the hostile input becomes a tag.
+    expect(m.html).toContain(emailHeader());
+    expect(m.html.replace(emailHeader(), '')).not.toContain('<img');
     expect(m.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(plainReply(`a${String.fromCharCode(0x202e)}b\r\nc`)).toBe('ab\nc');
   });

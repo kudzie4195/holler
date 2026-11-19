@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { FOLLOWUP_INTRO, FOLLOWUP_OUTRO, FOLLOWUP_SUBJECT, renderFollowUp } from '@/lib/moat/email';
+import { emailHeader } from '@/lib/email/theme';
 
 const BANNED = ['delve', 'robust', 'seamless', 'elevate', 'unlock', 'empower', 'journey', 'landscape', 'leverage', 'not only', 'more than just', "it's worth noting", "whether you're"];
 const now = new Date('2026-11-19T12:00:00Z');
@@ -46,7 +47,9 @@ describe('follow-up email copy', () => {
   it('escapes a hostile title and business name', () => {
     const m = renderFollowUp({ businessName: '<script>x</script>', items: [{ ...items[0], title: '<img src=x onerror=alert(1)>' }], unsubscribeUrl: 'https://x.test/u', now });
     expect(m.html).not.toContain('<script>');
-    expect(m.html).not.toContain('<img');
+    // The only image allowed is the trusted header mark; nothing from the hostile input becomes a tag.
+    expect(m.html).toContain(emailHeader());
+    expect(m.html.replace(emailHeader(), '')).not.toContain('<img');
   });
 });
 

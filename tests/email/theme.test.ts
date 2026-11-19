@@ -2,8 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { EMAIL_COLORS, EMAIL_FONTS, EMAIL_STYLE, PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE } from '@/lib/email/theme';
-import { renderDigest, renderPasswordReset, renderVerifyEmail, renderWelcome } from '@/lib/email/templates';
+import { EMAIL_COLORS, EMAIL_FONTS, EMAIL_STYLE, PRIMARY_BUTTON_STYLE, SECONDARY_BUTTON_STYLE, emailHeader, emailMarkUrl } from '@/lib/email/theme';
+import { siteUrl } from '@/lib/env';
+import { digestLinkLabel, renderDigest, renderPasswordReset, renderVerifyEmail, renderWelcome } from '@/lib/email/templates';
 import { renderRequestAdmin, renderRequestConfirm, renderRequestPublished, renderRequestReply } from '@/lib/email/request-emails';
 import { renderTrialEnded } from '@/lib/lifecycle/templates';
 import { renderAiSpendAlert } from '@/lib/ai/alert-email';
@@ -66,10 +67,68 @@ describe('email theme', () => {
       expect(m.html, name).toMatch(/text-transform:uppercase[^"]*">HOLLER<\/span>/);
       // The whole email, postal footer included.
       expect(m.html, name).not.toMatch(OLD);
-      // The header is the wordmark alone: no empty logo tile, no image.
+      // No empty logo tile drawn in HTML. The only image is the mark in the header, before the wordmark (review 2b P2-12).
       expect(m.html, name).not.toContain(`background:${EMAIL_COLORS.signal}`);
-      expect(m.html, name).not.toMatch(/<img\b/i);
+      const imgs = m.html.match(/<img\b[^>]*>/gi) ?? [];
+      expect(imgs, name).toHaveLength(1);
+      expect(m.html.indexOf('<img'), name).toBeLessThan(m.html.indexOf('>HOLLER</span>'));
     }
+  });
+
+  it('the header mark is a 30 px image with an absolute URL from the site URL, empty alt, 6 px corners and fixed size', () => {
+    const header = emailHeader();
+    const img = header.match(/<img\b[^>]*>/i)?.[0] ?? '';
+    expect(img).toContain(`src="${siteUrl}/email-mark.png"`);
+    expect(img).toMatch(/src="https?:\/\//);
+    expect(img).toContain('width="30"');
+    expect(img).toContain('height="30"');
+    expect(img).toContain('alt=""');
+    expect(img).toContain('border-radius:6px');
+    expect(img).toContain('width:30px;height:30px');
+    // The host is never typed: it follows the base URL it is given.
+    expect(emailMarkUrl('https://preview.example.test/')).toBe('https://preview.example.test/email-mark.png');
+    expect(emailHeader('https://preview.example.test')).toContain('src="https://preview.example.test/email-mark.png"');
+    expect(fs.readFileSync(path.join(process.cwd(), 'lib/email/theme.ts'), 'utf8')).not.toMatch(/localholler\.com/);
+    // The band keeps its height when the image is blocked: the 30 px line box comes from the band and the wordmark.
+    expect(header).toMatch(/^<div style="[^"]*line-height:30px">/);
+    expect(header).toMatch(/line-height:30px;[^"]*">HOLLER<\/span>/);
+    // The file the URL points at exists and is 60 x 60 (sharp at 2x).
+    const png = fs.readFileSync(path.join(process.cwd(), 'public/email-mark.png'));
+    expect(png.subarray(1, 4).toString('latin1')).toBe('PNG');
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([60, 60]);
+  });
+
+  it('eyebrow lines use the brand green text color', () => {
+    expect(EMAIL_STYLE.eyebrow).toContain(`color:${EMAIL_COLORS.brandText}`);
+    expect(EMAIL_COLORS.brandText).toBe('#2E5A41');
+    const { digest, followUp, trialEnded } = all();
+    for (const m of [digest, followUp, trialEnded]) expect(m.html).toContain(`${EMAIL_STYLE.eyebrow}`);
+  });
+
+  it('a resident request in the digest says "Open the request"; every other item says "Open the source"', () => {
+    const d = renderDigest({
+      businessName: 'Acme',
+      items: [
+        { kind: 'ask', source: 'holler-request', title: 'Service request in Atlanta: Roofing', occurredAt: NOW.toISOString(), sourceUrl: `${siteUrl}/request` },
+        { kind: 'permit', source: 'atl-permits', title: 'Permit', occurredAt: NOW.toISOString(), sourceUrl: 'https://data.example.gov/p/1' },
+        { kind: 'report', source: 'spc', title: 'Hail', occurredAt: NOW.toISOString(), sourceUrl: 'https://www.spc.noaa.gov/x' },
+      ],
+      appUrl: `${U}/app`,
+      unsubscribeUrl: `${U}/u`,
+      now: NOW,
+    });
+    const labels = [...d.html.matchAll(/<a href="([^"]+)" style="[^"]*font-size:14px">([^<]+)<\/a>/g)].map((x) => [x[1], x[2]]);
+    expect(labels).toEqual([
+      [`${siteUrl}/request`, 'Open the request'],
+      ['https://data.example.gov/p/1', 'Open the source'],
+      ['https://www.spc.noaa.gov/x', 'Open the source'],
+    ]);
+    // Without a source id, a link to this site's /request page still counts; a /request page on another host does not.
+    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request' }, 'https://localholler.com')).toBe('Open the request');
+    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request/' }, 'https://localholler.com')).toBe('Open the request');
+    expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the source');
+    expect(digestLinkLabel({ source: 'holler-request', sourceUrl: null })).toBe('Open the request');
+    expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the source');
   });
 
   it('the postal footer takes its size and color from the theme (13 px, muted)', () => {
