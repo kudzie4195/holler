@@ -4,27 +4,30 @@
  */
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { absoluteUrl } from '@/lib/seo/canonical';
-import { annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
+import { annualMonthsFree, annualSavingLabel, annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
 import { PLAN_FEATURES } from './copy';
-import { PLAN_LIMITS, TIER_NAMES, TIERS } from './limits';
+import { PLAN_LIMITS, TIER_NAMES, TIERS, type Tier } from './limits';
 
 const S = PLAN_LIMITS.starter;
 const P = PLAN_LIMITS.pro;
-const m = (t: 'starter' | 'pro') => priceLabel(t, 'monthly');
-const y = (t: 'starter' | 'pro') => priceLabel(t, 'annual');
+const SOLO = TIER_NAMES.starter;
+const PRO = TIER_NAMES.pro;
+const m = (t: Tier) => priceLabel(t, 'monthly');
+const y = (t: Tier) => priceLabel(t, 'annual');
 
-/** The full page title (about 48 characters): used as an absolute title, so the site template does not add a second "Holler". */
-export const PRICING_TITLE = `Holler Pricing: Starter ${m('starter')} and Pro ${m('pro')} a Month`;
+/** The full page title (under 60 characters): used as an absolute title, so the site template does not add a second "Holler". */
+export const PRICING_TITLE = `Holler Pricing: ${SOLO} ${m('starter')} and ${PRO} ${m('pro')} a Month`;
 /** 120 to 160 characters (tests/plan/pricing.test.ts). */
-export const PRICING_DESCRIPTION = `Starter is ${m('starter')} a month or ${y('starter')} a year. Pro is ${m('pro')} a month or ${y('pro')} a year. Both start with a ${TRIAL_DAYS}-day free trial, and no card is needed to start.`;
+export const PRICING_DESCRIPTION = `${SOLO} is ${m('starter')} a month or ${y('starter')} a year. ${PRO} is ${m('pro')} a month or ${y('pro')} a year. Both start with a ${TRIAL_DAYS}-day free trial, no card needed.`;
 
 export const PRICING_INTRO = [
-  `Holler has two plans. Starter is ${m('starter')} a month and covers one ZIP code and up to ${S.trades} trades.`,
-  `Pro is ${m('pro')} a month. It covers up to ${P.areas} ZIP codes and ${P.trades} trades, and adds ${P.keywords} keyword watches.`,
-  `Both start with the same ${TRIAL_DAYS}-day free trial. No card is needed.`,
+  'Holler has two plans, and you can pay for either one monthly or yearly.',
+  `${SOLO} is ${m('starter')} a month and covers one ZIP code and up to ${S.trades} trades.`,
+  `${PRO} is ${m('pro')} a month for up to ${P.areas} ZIP codes and ${P.trades} trades, and it adds ${P.keywords} keyword watches.`,
+  'Both plans include email alerts, your feed of matches and replies to resident requests.',
 ];
 
-/** Rows for the comparison table: [label, Starter, Pro]. */
+/** Rows for the comparison table: [label, Solo, Pro]. */
 export const COMPARISON: [string, string, string][] = [
   ['Monthly price', m('starter'), m('pro')],
   ['Yearly price', y('starter'), y('pro')],
@@ -39,31 +42,39 @@ export const COMPARISON: [string, string, string][] = [
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
     q: 'Do I need a card to try it?',
-    a: `No. The free trial lasts ${TRIAL_DAYS} days and needs no card. It uses Starter limits, so you get one ZIP code and up to ${S.trades} trades while you try it.`,
+    a: `No. The free trial lasts ${TRIAL_DAYS} days with no card, and it runs on ${SOLO} limits: one ZIP code and up to ${S.trades} trades while you try it.`,
   },
   {
     q: 'What happens when the trial ends?',
-    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended. If you subscribe during the trial, the first charge comes when the trial ends.',
+    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends. A plan you buy in the app is charged by Apple or Google when you buy it.',
   },
   {
     q: 'Can I cancel any time?',
-    a: 'Yes. In Settings, choose Manage billing and cancel there. Cancelling stops the next charge. Your plan stays on until the end of the period you already paid for.',
+    a: 'Yes. Choose Manage billing in Settings and cancel there, which stops the next charge, and your plan stays on until the end of the period you already paid for.',
   },
   {
-    q: 'Can I switch between Starter and Pro?',
-    a: `Yes, from Settings. Moving up to Pro charges your card right away for the days left in your billing period. If that charge fails, nothing changes. Moving down to Starter turns the unused part of Pro into a credit on your next bill. Your extra areas, trades beyond ${S.trades} and keyword watches then stop being used. They stay saved for later.`,
+    q: `Can I switch between ${SOLO} and ${PRO}?`,
+    a: `Yes, in Settings. Moving up to ${PRO} charges your card right away for the days left in your billing period, and if that charge fails, nothing changes. Moving down to ${SOLO} turns the unused part of ${PRO} into a credit on your next bill. Your extra areas, trades beyond ${S.trades} and keyword watches then stop being used, but they stay saved for later. Either way, you move to the current price of the plan you pick.`,
   },
   {
     q: 'Do you give refunds?',
-    a: 'Payments are final. We do not refund part of a month or year, except where the law requires it or a plan change is prorated. Think you were charged by mistake? Write to us and we will look into it.',
+    a: 'Payments are final. We do not refund part of a month or year, except where the law requires it or a plan change is prorated. If you think we charged you by mistake, write to us and we will look into it.',
   },
   {
     q: 'What is a keyword watch?',
-    a: `A phrase you pick, such as "tree removal". Holler sends you any record in your areas whose title or summary has that phrase, even when it falls outside your trades. Pro gets up to ${P.keywords}.`,
+    a: `A keyword watch is a phrase you pick, such as "tree removal", and ${PRO} gets up to ${P.keywords} of them. Holler sends you any record in your areas whose title or summary has that phrase, even when it falls outside your trades.`,
   },
 ];
 
-export const YEARLY_NOTE = `Paying yearly saves ${annualSavingsPercent('starter')}% on either plan.`;
+/** The yearly saving line under the cards. Every number comes from lib/stripe/plans.ts (computed from the cents), never typed. */
+export function yearlyNote(): string {
+  const solo = annualMonthsFree('starter');
+  const pro = annualMonthsFree('pro');
+  if (solo !== null && solo === pro) return `Pay yearly on either plan and you get ${annualSavingLabel('starter')}.`;
+  return `Paying yearly saves ${annualSavingsPercent('starter')}% on ${SOLO} and ${annualSavingsPercent('pro')}% on ${PRO}.`;
+}
+
+export const YEARLY_NOTE = yearlyNote();
 
 /** SoftwareApplication with one Offer per plan. Offer.price is the monthly price; the yearly price is a second UnitPriceSpecification. */
 export function pricingLd(): Record<string, unknown> {

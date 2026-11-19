@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/env';
+import { isPaidNow } from '@/lib/auth/access';
 import {
-  alreadySubscribed,
   billingNotConfigured,
+  ensureProduct,
   getStripe,
   hollerMetadata,
   isHollerMetadata,
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   // Content-Type: application/json is required (an empty body is fine), so a cross-site HTML form cannot start a checkout.
   if (!isJsonRequest(req)) return unsupportedMediaType();
 
-  // Body is optional: no body means Starter monthly. A plan that is not monthly or annual, or a tier that is not starter or pro,
+  // Body is optional: no body means Solo (id 'starter') monthly. A plan that is not monthly or annual, or a tier that is not starter or pro,
   // is a 400, never a guess.
   let body: unknown;
   const rawBody = await req.text();
@@ -52,14 +53,17 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile, error } = await admin
     .from('holler_profiles')
-    .select('stripe_customer_id, stripe_subscription_id, business_name, subscription_status, trial_ends_at')
+    // '*' so the store columns (migration 0020) come along when they exist; a database without them still answers.
+    .select('*')
     .eq('user_id', user.id)
     .maybeSingle();
   if (error) return Response.json({ error: 'profile_lookup_failed' }, { status: 500 });
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
   // Already paying (or in Stripe's retry window): a second checkout would create a second subscription.
-  // Moving between Starter and Pro goes through POST /api/stripe/change-plan instead.
-  if (alreadySubscribed(profile.subscription_status as string | null)) {
+  // Moving between Solo and Pro goes through POST /api/stripe/change-plan instead.
+  // Same paid test as the feed lock (isPaidNow): a store plan whose period ran out with no EXPIRATION webhook, or with no readable
+  // expiry, is not paid, so that member may subscribe here (review r2 F7).
+  if (isPaidNow(profile as Parameters<typeof isPaidNow>[0])) {
     return Response.json({ error: 'already_subscribed' }, { status: 409 });
   }
 
@@ -94,6 +98,8 @@ export async function POST(req: Request) {
       }
     }
 
+    // One fixed product per tier (lib/stripe/products.ts), so a checkout never makes a new Stripe product (product_data would).
+    const product = await ensureProduct(stripe, tier);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -102,7 +108,7 @@ export async function POST(req: Request) {
       line_items: [
         {
           quantity: 1,
-          price_data: priceDataFor(plan, tier),
+          price_data: priceDataFor(plan, tier, product),
         },
       ],
       // No charge during the free trial that started in the app. Same trial rule for every plan and interval.

@@ -1,3 +1,4 @@
+import { FROM_MONTHLY } from '@/lib/plan/price-copy';
 import { cadenceLong } from './cadence';
 import { flagsFor, type Flags } from './public-copy';
 import { sourceInfo } from './sources';
@@ -6,6 +7,7 @@ import { KIND_NOUN, SECTIONS, SECTION_BY_ID } from './sections';
 import { WINDOW_DAYS } from './threshold';
 import type { PlaceData } from './summarize';
 import { isUpcoming } from '../time';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -172,9 +174,9 @@ export function buildFaq(city: CityRef, data: PlaceData, flags: Flags = flagsFor
     `Sources are checked on their own schedules. ${cadence} This page refreshes about every 6 hours, and the time of the last refresh is shown near the top.`,
   ][v('often')];
   const alerts = [
-    `Pick what your business does and how far you travel, and Holler emails you when something nearby matches. Plans start at $5 a month after a 7-day free trial, and no card is needed to start. Holler never posts anything for you.`,
-    `Pick what your business does and how far you travel. Holler emails you when something nearby matches. Plans start at $5 a month after a 7-day free trial, with no card needed to start, and Holler never posts anything for you.`,
-    `Holler emails you when something nearby matches what your business does and how far you travel, and you pick both. Plans start at $5 a month after a 7-day free trial. No card is needed to start, and Holler never posts anything for you.`,
+    `Pick what your business does and how far you travel, and Holler emails you when something nearby matches. Plans start at ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}, and no card is needed to start. Holler never posts anything for you.`,
+    `Pick what your business does and how far you travel. Holler emails you when something nearby matches. Plans start at ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}, with no card needed to start, and Holler never posts anything for you.`,
+    `Holler emails you when something nearby matches what your business does and how far you travel, and you pick both. Plans start at ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card is needed to start, and Holler never posts anything for you.`,
   ][v('alerts')];
   return [
     { q: `Where does the ${city.name} information come from?`, a: where },

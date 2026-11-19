@@ -88,7 +88,7 @@ describe('matchSignals (fast path) agrees with matchOne', () => {
     const profiles: MatchProfile[] = [
       { ...base, user_id: 'a', keywords: ['tree removal', 'cafe remodel'] },
       { ...base, user_id: 'b', keywords: ['tree removal', 'hail damage'], extra_areas: [{ zip: '30060', city: 'Marietta', state: 'GA', lat: 33.95, lon: -84.55 }], lat: 32.84, lon: -83.63 },
-      { ...base, user_id: 'c', plan: 'starter', keywords: ['tree removal'] }, // Starter: keywords not used
+      { ...base, user_id: 'c', plan: 'starter', keywords: ['tree removal'] }, // Solo (starter): keywords not used
       { ...base, user_id: 'd', subscription_status: 'canceled', keywords: ['tree removal'] },
     ];
     const now = new Date('2026-11-17T00:00:00Z');

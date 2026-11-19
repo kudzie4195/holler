@@ -1,5 +1,9 @@
 import { hasEnv, type EnvKey } from '@/lib/env';
 import { signalTypeActive, sourceActive } from './signal-types';
+import { TIER_NAMES } from '@/lib/plan/limits';
+import { FROM_MONTHLY, namedPlanPrices } from '@/lib/plan/price-copy';
+import { priceLabel } from '@/lib/stripe/plans';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /**
  * Every sentence on the home page, /about and /llms.txt that depends on an optional key lives here, built from the keys that are set.
@@ -136,7 +140,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
   ];
 
   return {
-    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from $5 a month after a 7-day free trial. No card to start.`,
+    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
     heroLead: 'A short alert when a storm, permit or 311 request near you fits your work.',
     steps: [
       { icon: 'pin', title: 'Tell us your trade', body: 'Trades, ZIP code and how far you drive.' },
@@ -227,7 +231,7 @@ export function aboutCopy(has: Has = hasEnv): AboutCopy {
     whatItIs: [
       `${opener}${third}`,
       'Holler watches for moments like these in public data. You tell us what you do and where you work, and when something nearby matches, you get a short alert with a link to the source. That, plus a free page where residents can ask local businesses for help, is the whole product.',
-      'There are two plans. Starter is $5 a month, or $48 a year, for one service area and up to five trades. Pro is $9.99 a month, or $96 a year, for up to three areas and 15 trades. Both start with a 7-day free trial that needs no card. Cancel from Settings whenever you like.',
+      `There are two plans. ${TIER_NAMES.starter} is ${priceLabel('starter', 'monthly')} a month, or ${priceLabel('starter', 'annual')} a year, for one service area and up to five trades. ${TIER_NAMES.pro} is ${priceLabel('pro', 'monthly')} a month, or ${priceLabel('pro', 'annual')} a year, for up to three areas and 15 trades. Both start with a ${TRIAL_PHRASE} that needs no card. Cancel from Settings whenever you like.`,
       'Holler is new, so judge it on the records and the source links, not on a customer count.',
     ],
     dataIntro: `Everything comes from official APIs and open data${f.search ? ' and licensed search APIs' : ''}, and each alert links to the page or dataset it came from.`,
@@ -292,7 +296,7 @@ export function llmsText(input: LlmsInput, has: Has = hasEnv): string {
     '',
     '## Pricing',
     '',
-    'Starter: $5 per month or $48 per year. Pro: $9.99 per month or $96 per year. Both start with a 7-day free trial; no card is needed to start.',
+    `${namedPlanPrices('starter', 'per')}. ${namedPlanPrices('pro', 'per')}. Both start with a ${TRIAL_PHRASE}; no card is needed to start.`,
     '',
     '## Pages',
     '',

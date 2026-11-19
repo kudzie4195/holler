@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { env, siteUrl } from '@/lib/env';
+import { track } from '@/lib/analytics/server';
 import {
   chunk,
   planNotify,
@@ -14,6 +15,12 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
 import { emailContact, mayHaveContacts } from '@/lib/outreach/plan';
+import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
+import { matchScope } from '@/lib/plan/scope';
+import { markAlertsEmailed } from '@/lib/moat/log';
+import { pushNewMatches } from '@/lib/push/notify';
+import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 
 export const maxDuration = 60;
 
@@ -35,6 +42,7 @@ interface SignalRow {
   state: string | null;
   occurred_at: string;
   subtype?: string | null;
+  severity?: number | null;
 }
 interface MatchRow {
   id: number;
@@ -44,7 +52,13 @@ interface MatchRow {
 }
 interface ProfileRow extends PlanProfile {
   business_name: string;
+  categories?: string[] | null;
+  plan?: string | null;
 }
+
+const PROFILE_COLUMNS: string = 'user_id, business_name, categories, plan, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at, created_at';
+// Migration 0020 adds the store columns (a lapsed store plan is not emailed). Before it, the read retries without them.
+const PROFILE_COLUMNS_0020: string = `${PROFILE_COLUMNS}, ${STORE_PROFILE_COLUMNS}`;
 
 export async function GET(req: Request) {
   if (!isCronAuthorized(req, env.CRON_SECRET)) {
@@ -66,7 +80,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, subtype:data->>subtype)')
+      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, subtype:data->>subtype)')
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -86,16 +100,19 @@ export async function GET(req: Request) {
   }
   const userIds = [...byUser.keys()];
   counts.users_considered = userIds.length;
-  if (userIds.length === 0) return Response.json({ ok: true, ...counts, ms: Date.now() - started });
+  if (userIds.length === 0) {
+    // Nothing to email, but push keeps its own record (holler_matches.pushed_at), so it still runs.
+    const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
+    return Response.json({ ok: true, ...counts, push, ms: Date.now() - started });
+  }
 
   const profiles: ProfileRow[] = [];
   for (const ids of chunk(userIds)) {
-    const { data, error: pErr } = await admin
-      .from('holler_profiles')
-      .select('user_id, business_name, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at, created_at')
-      .in('user_id', ids);
-    if (pErr) return Response.json({ error: 'profiles_failed', detail: pErr.message }, { status: 500 });
-    profiles.push(...((data ?? []) as ProfileRow[]));
+    const read = (columns: string) => admin.from('holler_profiles').select(columns).in('user_id', ids);
+    let r = await read(PROFILE_COLUMNS_0020);
+    if (r.error && missingStoreColumn(r.error.message)) r = await read(PROFILE_COLUMNS);
+    if (r.error) return Response.json({ error: 'profiles_failed', detail: r.error.message }, { status: 500 });
+    profiles.push(...((r.data ?? []) as unknown as ProfileRow[]));
   }
 
   const plan = planNotify(userIds, profiles, now);
@@ -143,7 +160,27 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const shown = rows.slice(0, MAX_ITEMS_IN_DIGEST);
+      // AI ranking and notes (lib/ai): stored results only, no model call. Any failure gives empty maps: newest first, no notes.
+      const sigIds = rows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
+      // The plan-limited trades (the ones matching uses), not every saved trade: a member who moved from Pro to Solo gets no note
+      // for a trade the plan no longer uses.
+      const trades = matchScope({
+        categories: p.categories ?? null,
+        lat: null,
+        lon: null,
+        state: null,
+        plan: p.plan ?? null,
+        subscription_status: p.subscription_status,
+        plan_source: p.plan_source ?? null,
+        store_expires_at: p.store_expires_at ?? null,
+      }).categories;
+      const [aiNotes, aiScores] = await Promise.all([notesFor(admin, sigIds, trades), scoresFor(admin, sigIds, trades)]);
+      // No stored AI result for any of these (or migration 0014 not applied): keep newest first, exactly as before.
+      const ranked = aiScores.size === 0 ? rows : rankSignals(
+        rows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
+        aiScores,
+      ).map((x) => x.r);
+      const shown = ranked.slice(0, MAX_ITEMS_IN_DIGEST);
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
       // the owner and current access); any failure just leaves the lines out.
       const contacts = await loadMemberContacts({
@@ -156,11 +193,13 @@ export async function GET(req: Request) {
         source: s.source ?? null,
         subtype: s.subtype ?? null,
         title: s.title,
-        place: [s.city, s.state].filter(Boolean).join(', ') || null,
+        // A Cobb County row's point is a stand-in for the county, so the line says so instead of naming a town.
+        place: hasApproxLocation(s) ? approxLocationNote(s) : [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
+        note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),
@@ -200,7 +239,12 @@ export async function GET(req: Request) {
         .update({ last_notified_at: now.toISOString() })
         .eq('user_id', p.user_id);
       if (mErr || lErr) counts.failed++;
+      // Outcome log (migration 0015): stamp emailed_at on this member's alert log rows. Best effort, never throws.
+      await markAlertsEmailed(admin, p.user_id, rows.map((r) => r.s.id).filter((n): n is number => typeof n === 'number'), now);
       counts.emailed++;
+      // Funnel (migration 0017): the member's first digest. `p` was read before this send, so last_notified_at is null only for
+      // the first one; the unique index drops any repeat. Never throws, waits at most 1.5 s.
+      if (!p.last_notified_at) await track('first_alert', { userId: p.user_id });
       counts.matches_marked += ids.length;
     } catch (e) {
       console.error('[notify] user failed', p.user_id, e instanceof Error ? e.message : e);
@@ -208,5 +252,10 @@ export async function GET(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, ...counts, ms: Date.now() - started });
+  // Push (migration 0020): independent of the email above. It reads its own never-pushed matches (holler_matches.pushed_at), so a
+  // member with email alerts off or an unconfirmed address still gets one, at most one per member per hour, counting only matches
+  // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
+  const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
+
+  return Response.json({ ok: true, ...counts, push, ms: Date.now() - started });
 }

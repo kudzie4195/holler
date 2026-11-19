@@ -9,6 +9,8 @@ export const ENV_KEYS = [
   'RESEND_API_KEY',
   'EMAIL_FROM',
   'AI_GATEWAY_API_KEY',
+  'AI_CLASSIFY_MODEL',
+  'AI_MONTHLY_CAP_USD',
   'BRAVE_SEARCH_API_KEY',
   'SERPER_API_KEY',
   'SAM_API_KEY',
@@ -20,6 +22,9 @@ export const ENV_KEYS = [
   'BLUESKY_APP_PASSWORD',
   'INDEXNOW_KEY',
   'REQUESTS_ENABLED',
+  'REVENUECAT_WEBHOOK_SECRET',
+  'REVENUECAT_ALLOW_SANDBOX',
+  'FIREBASE_SERVICE_ACCOUNT_JSON',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -37,6 +42,9 @@ export const env: Record<EnvKey, string | undefined> = {
   RESEND_API_KEY: process.env.RESEND_API_KEY ?? process.env.resend_api_key_holler,
   EMAIL_FROM: process.env.EMAIL_FROM,
   AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+  // Read again from process.env inside lib/ai (classifyModelId, monthlyCapUsd); listed here so .env.example and LAUNCH.md name them.
+  AI_CLASSIFY_MODEL: process.env.AI_CLASSIFY_MODEL,
+  AI_MONTHLY_CAP_USD: process.env.AI_MONTHLY_CAP_USD,
   BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
   SERPER_API_KEY: process.env.SERPER_API_KEY,
   SAM_API_KEY: process.env.SAM_API_KEY,
@@ -48,6 +56,9 @@ export const env: Record<EnvKey, string | undefined> = {
   BLUESKY_APP_PASSWORD: process.env.BLUESKY_APP_PASSWORD,
   INDEXNOW_KEY: process.env.INDEXNOW_KEY,
   REQUESTS_ENABLED: process.env.REQUESTS_ENABLED,
+  REVENUECAT_WEBHOOK_SECRET: process.env.REVENUECAT_WEBHOOK_SECRET,
+  REVENUECAT_ALLOW_SANDBOX: process.env.REVENUECAT_ALLOW_SANDBOX,
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

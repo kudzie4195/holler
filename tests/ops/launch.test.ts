@@ -40,27 +40,61 @@ describe('.env.example', () => {
 describe('supabase/cron.sql', () => {
   const sql = read('supabase/cron.sql');
   const code = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
-  it('schedules the four named jobs with the right cadence', () => {
+  const JOBS = ['holler-scan', 'holler-notify', 'holler-health', 'holler-dataforseo', 'holler-ai', 'holler-monitor', 'holler-lifecycle', 'holler-moat', 'holler-events-prune'];
+  it('schedules the nine named jobs with the right cadence', () => {
     expect(code).toMatch(/cron\.schedule\(\s*'holler-scan',\s*'\*\/15 \* \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-notify',\s*'7,22,37,52 \* \* \* \*'/);
-    expect(code).toMatch(/cron\.schedule\(\s*'holler-health',\s*'0 13 \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-health',\s*'3 13 \* \* \*'/);
     expect(code).toMatch(/cron\.schedule\(\s*'holler-dataforseo',\s*'23 3,9,15,21 1-3 \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-ai',\s*'4 \* \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-monitor',\s*'11 \* \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-lifecycle',\s*'17 \* \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-moat',\s*'41 18 \* \* \*'/);
+    expect(code).toMatch(/cron\.schedule\(\s*'holler-events-prune',\s*'29 4 \* \* 0',\s*\$job\$ select public\.holler_events_prune\(400\); \$job\$\)/);
+    const names = [...code.matchAll(/cron\.schedule\(\s*'([^']+)'/g)].map((m) => m[1]);
+    expect(names.sort()).toEqual([...JOBS].sort());
+  });
+  it('no two jobs share a start minute, with no exception (health moved to 13:03, off the scan minute)', () => {
+    // Expand each 5-field schedule to the set of (day-of-week, hour, minute) it can fire at, for one week; day-of-month is ignored
+    // (dataforseo runs on days 1 to 3 only, which can only remove clashes).
+    const field = (f: string, max: number) => {
+      if (f === '*') return Array.from({ length: max }, (_, i) => i);
+      if (f.startsWith('*/')) return Array.from({ length: max }, (_, i) => i).filter((i) => i % Number(f.slice(2)) === 0);
+      return f.split(',').map(Number);
+    };
+    const slots = new Map<string, string[]>();
+    for (const m of code.matchAll(/cron\.schedule\(\s*'([^']+)',\s*'([^']+)'/g)) {
+      const [min, hour, , , dow] = m[2].split(' ');
+      for (const d of field(dow, 7)) for (const h of field(hour, 24)) for (const mi of field(min, 60)) {
+        const k = `${d}:${h}:${mi}`;
+        slots.set(k, [...(slots.get(k) ?? []), m[1]]);
+      }
+    }
+    const clashes = [...new Set([...slots.values()].filter((v) => v.length > 1).map((v) => v.sort().join('+')))];
+    expect(clashes).toEqual([]);
   });
   it('calls net.http_get on /api/cron/<name> with an Authorization Bearer header', () => {
-    for (const n of ['scan', 'notify', 'health', 'dataforseo']) expect(code).toContain(`|| '/api/cron/${n}'`);
-    expect(code.match(/net\.http_get\(/g)).toHaveLength(4);
-    expect(code.match(/'Authorization', 'Bearer ' \|\|/g)).toHaveLength(4);
-    expect(code).toContain('timeout_milliseconds := 58000');
+    for (const n of ['scan', 'notify', 'health', 'dataforseo', 'ai', 'lifecycle', 'moat']) expect(code).toContain(`|| '/api/cron/${n}'`);
+    // LAUNCH.md names the same health time and no longer admits a shared minute.
+    expect(read('LAUNCH.md')).toContain('`holler-health` (daily 13:03 UTC)');
+    expect(read('LAUNCH.md')).not.toMatch(/same minute except/);
+    expect(code).toContain(`|| '/api/cron/health?monitor=1'`);
+    expect(code.match(/net\.http_get\(/g)).toHaveLength(8);
+    expect(code.match(/'Authorization', 'Bearer ' \|\|/g)).toHaveLength(8);
+    expect(code.match(/timeout_milliseconds := 58000/g)).toHaveLength(8);
   });
   it('reads the secret from Vault, and the only literals are the placeholders', () => {
     expect(code).toContain("vault.create_secret('<CRON_SECRET>'");
     expect(code).toContain("vault.create_secret('https://<SITE>'");
-    expect(code.match(/decrypted_secret from vault\.decrypted_secrets/g)!.length).toBeGreaterThanOrEqual(6);
+    expect(code.match(/decrypted_secret from vault\.decrypted_secrets/g)!.length).toBeGreaterThanOrEqual(16);
     expect(code).not.toMatch(/Bearer [A-Za-z0-9]{16,}/);
   });
   it('unschedules before it schedules (rerunnable) and documents the unschedule statements', () => {
     expect(code.indexOf('cron.unschedule(jobname)')).toBeLessThan(code.indexOf('cron.schedule('));
-    for (const n of ['holler-scan', 'holler-notify', 'holler-health', 'holler-dataforseo']) expect(sql).toContain(`select cron.unschedule('${n}');`);
+    for (const n of JOBS) expect(sql).toContain(`select cron.unschedule('${n}');`);
+    // STEP 2 removes every job it is about to create, so a re-run never fails on an existing name.
+    const step2 = code.slice(code.indexOf('cron.unschedule(jobname)'), code.indexOf('cron.schedule('));
+    for (const n of JOBS) expect(step2).toContain(`'${n}'`);
   });
   it('only touches holler-* jobs and holler_* secrets, and is not in the migrations folder', () => {
     expect(code).not.toMatch(/cron\.schedule\(\s*'(?!holler-)/);
@@ -79,15 +113,35 @@ describe('LAUNCH.md', () => {
       at = i;
     }
   });
-  it('names every migration in the folder, the four webhook events and the smoke command', () => {
-    const migrations = readdirSync(path.join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
-    expect(migrations).toEqual(expect.arrayContaining(['0001_holler.sql', '0002_holler_hardening.sql', '0003_holler_ops.sql', '0004_holler_plans.sql', '0005_holler_requests.sql']));
+  const allMigrations = readdirSync(path.join(root, 'supabase/migrations')).filter((f) => f.endsWith('.sql')).sort();
+  const listedInOrder = (migrations: string[]) => {
     for (const m of migrations) expect(md, m).toContain(`supabase/migrations/${m}`);
     // Listed in apply order.
     const at = migrations.map((m) => md.indexOf(`Run \`supabase/migrations/${m}\``));
-    expect(at.every((i) => i >= 0)).toBe(true);
+    expect(at.every((i) => i >= 0), JSON.stringify(migrations.filter((_, i) => at[i] < 0))).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    for (const s of ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'exactly these four', 'node scripts/smoke.mjs']) expect(md).toContain(s);
+  };
+  it('names migrations 0001 to 0020 in apply order, the five webhook events and the smoke command', () => {
+    const upTo20 = allMigrations.filter((f) => Number(f.slice(0, 4)) <= 20);
+    expect(upTo20).toEqual(expect.arrayContaining(['0001_holler.sql', '0005_holler_requests.sql', '0013_holler_signal_dedupe.sql', '0019_holler_trial_14.sql', '0020_holler_mobile.sql']));
+    expect(upTo20).toHaveLength(20);
+    listedInOrder(upTo20);
+    for (const s of ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.paid', 'exactly these five', 'node scripts/smoke.mjs']) expect(md).toContain(s);
+    expect(md).not.toContain('exactly these four');
+  });
+  it('names every migration in the folder in apply order (later migrations land with their own unit)', () => {
+    listedInOrder(allMigrations);
+  });
+  it('round 7: the order block says which migrations go before the deploy, and the new env keys and dry runs are listed', () => {
+    const block = md.slice(md.indexOf('**Round 7 order**'), md.indexOf('- [ ] Run `supabase/migrations/0001_holler.sql`'));
+    expect(block).toMatch(/BEFORE the deploy: run 0015 and 0019/);
+    expect(block).toMatch(/Any time, before or after the deploy, in number order: 0013, 0014, 0016, 0017, 0018/);
+    for (const k of ['AI_MONTHLY_CAP_USD', 'AI_CLASSIFY_MODEL']) expect(md).toContain(`\`${k}\``);
+    for (const u of ['/api/cron/ai?dry=1', '/api/cron/lifecycle?dry=1', '/api/cron/moat?dry=1', '/api/cron/health?monitor=1&dry=1']) expect(md).toContain(u);
+    for (const q of ['from public.holler_conversion_by_source', 'from public.holler_ai_spend', 'public.holler_attribution']) expect(md).toContain(q);
+    // The conversion query reads the columns 0015 now defines (emailed, answered, kind).
+    expect(md).toContain('select window_days, source, kind, intent, trade, alerts, emailed, answered, useful, not_relevant, led_to_work, total_job_value_usd');
+    for (const j of ['holler-ai', 'holler-monitor', 'holler-lifecycle', 'holler-moat', 'holler-events-prune']) expect(md).toContain(`select cron.unschedule('${j}');`);
   });
   it('round 3: portal cancels at period end with plan switching off, new routes are smoke-checked, optional keys need a Privacy update', () => {
     expect(md).toMatch(/cancel \*\*at the end of the billing period\*\*/);
@@ -97,7 +151,8 @@ describe('LAUNCH.md', () => {
       expect(read('scripts/smoke.mjs')).toContain(`'${r}'`);
     }
     expect(md).toMatch(/optional source key[\s\S]*Bluesky, Serper or Brave, Ticketmaster, SAM\.gov[\s\S]*app\/privacy\/page\.tsx/);
-    expect(md).toContain('Pro `$9.99` a month or `$96` a year');
+    expect(md).toContain('Pro `$13.99` a month or `$139.99` a year');
+    expect(md).toContain('Solo `$7.99` a month or `$79.99` a year');
   });
   it('mentions every ENV_KEYS key that a founder must act on, and no em dash', () => {
     for (const k of ENV_KEYS) expect(md, k).toContain(k);

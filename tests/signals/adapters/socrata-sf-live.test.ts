@@ -70,7 +70,7 @@ describe('N2: the SF business feed parses live rows that have no license-code de
     for (const s of items) {
       expect(s.summary).toMatch(/^(Information and media|Other services)$/); // a sector name, never a name or an address
       expect(Math.abs((s.lat as number) * 100 - Math.round((s.lat as number) * 100))).toBeLessThan(1e-6); // 2 decimals
-      expect(Object.keys(s.data ?? {}).sort()).toEqual(['dataset', 'domain', 'subtype']);
+      expect(Object.keys(s.data ?? {}).sort()).toEqual(['cat_v', 'dataset', 'domain', 'subtype']);
     }
     expect(items.map((s) => s.externalId)).toContain('1437462-11-261-1145457');
   });

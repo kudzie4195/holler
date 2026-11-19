@@ -3,9 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isConfigError, jsonError } from '@/lib/auth/api';
 import { hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit';
-import { sendVerifyEmail } from '@/lib/auth/verification';
+import { sendConfirmOnlyEmail } from '@/lib/mobile/verify-email';
 
-/** Signed-in users only. 3 per hour per user. Does nothing if the profile is already verified. */
+/**
+ * Signed-in users only. 3 per hour per user. Does nothing if the profile is already verified. The profile exists here, so the trial has
+ * started (or a returning member's trial kept its first end): send the plain confirm message, not the signup welcome's trial promise.
+ */
 export async function POST(request: Request) {
   // application/json requirement doubles as a CSRF guard (a cross-site form cannot send it).
   if (!(request.headers.get('content-type') ?? '').includes('application/json')) {
@@ -30,7 +33,7 @@ export async function POST(request: Request) {
     if (limited === 'limited') return jsonError(RATE_LIMIT_MESSAGE, 429);
     if (limited === 'error') return jsonError('Something went wrong on our side. Try again in a moment.', 503);
 
-    const sent = await sendVerifyEmail(user.id, user.email);
+    const sent = await sendConfirmOnlyEmail(user.id, user.email);
     if (!sent) return jsonError('We could not send that email right now. Try again in a moment.', 502);
     return NextResponse.json({ ok: true });
   } catch (e) {

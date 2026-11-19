@@ -21,7 +21,7 @@ function row(over: Row): Row {
 }
 
 /** Records every call so tests can assert what was selected and filtered. Query A has a `not lat is null` filter, B has `is lat null`. */
-function fakeDb(a: Row[], b: Row[] = [], err?: string) {
+function fakeDb(a: Row[], b: Row[] = [], err?: string, c: Row[] = []) {
   const calls: { cols: string; filters: string[] }[] = [];
   const db = {
     from: (t: string) => {
@@ -33,7 +33,9 @@ function fakeDb(a: Row[], b: Row[] = [], err?: string) {
       chain.select = (c: string) => ((q.cols = c), chain);
       chain.then = (res: (v: unknown) => unknown) => {
         const isB = q.filters.some((f) => f.startsWith('is:lat'));
-        return Promise.resolve(res(err ? { data: null, error: { message: err } } : { data: isB ? b : a, error: null }));
+        // Query C (round 7, Cobb County): the approximate-location sources, filtered with in('source', ...).
+        const isC = q.filters.some((f) => f.startsWith('in:source,'));
+        return Promise.resolve(res(err ? { data: null, error: { message: err } } : { data: isC ? c : isB ? b : a, error: null }));
       };
       return chain;
     },
@@ -50,6 +52,38 @@ beforeEach(() => {
 });
 
 describe('recentPreviewFor', () => {
+  // Round 7 (review r1 P1-6 follow-up): Cobb County rows sit at a stand-in point (the county seat). The scanner matches them within
+  // radius + 15 miles of it, so the preview must too, or it counts fewer than the feed holds.
+  describe('Cobb County (approximate location)', () => {
+    const COBB = { lat: 33.95, lon: -84.55 };
+    const cobb = (over: Row = {}) => row({ source: 'arcgis-cobb-residential-permits', kind: 'permit', subtype: 'permit', title: 'Residential permit', city: 'Cobb County', ...COBB, ...over });
+    // A member 20 miles due south of the stand-in with a 10-mile radius: outside the plain box, inside radius + 15.
+    const south20 = { ...profile, lat: COBB.lat - 20 / 69.09, lon: COBB.lon, radius_mi: 10 };
+    it('counts a Cobb row 20 miles from the stand-in for a 10-mile member, as the scanner does', async () => {
+      const { db, calls } = fakeDb([], [], undefined, [cobb()]);
+      const p = await recentPreviewFor(south20, { db, now: NOW });
+      expect(p?.total).toBe(1);
+      expect(p?.examples[0]).toMatchObject({ city: 'Cobb County', state: 'GA' });
+      const c = calls.find((x) => x.filters.some((f) => f.startsWith('in:source,')));
+      expect(c?.filters).toContain('in:source,arcgis-cobb-residential-permits,arcgis-cobb-commercial-permits,arcgis-cobb-multiunit-permits');
+      // The box is 25 miles (10 + 15) tall in each direction: about 0.365 degrees of latitude.
+      const or = c?.filters.find((f) => f.startsWith('or:')) ?? '';
+      const lo = Number(/lat\.gte\.([-\d.]+)/.exec(or)?.[1]);
+      expect(south20.lat - lo).toBeCloseTo(25 / 68.5, 3);
+    });
+    it('a Cobb row 30 miles out is not counted for a 10-mile member; a non-Cobb row 20 miles out is not either', async () => {
+      const far = { ...south20, lat: COBB.lat - 30 / 69.09 };
+      expect((await recentPreviewFor(far, { db: fakeDb([], [], undefined, [cobb()]).db, now: NOW }))?.total).toBe(0);
+      const plain = row({ source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', ...COBB });
+      expect((await recentPreviewFor(south20, { db: fakeDb([plain]).db, now: NOW }))?.total).toBe(0);
+    });
+    it('a Cobb row returned by both the plain box and the Cobb query counts once', async () => {
+      const r = cobb({ id: 999 });
+      const near = { ...profile, ...COBB, radius_mi: 10 };
+      expect((await recentPreviewFor(near, { db: fakeDb([r], [], undefined, [r]).db, now: NOW }))?.total).toBe(1);
+    });
+  });
+
   it('counts come from the query result exactly, by type and intent', async () => {
     const rows = [
       ...Array.from({ length: 4 }, () => row({ kind: 'report' })),
@@ -108,10 +142,11 @@ describe('recentPreviewFor', () => {
     expect(p?.examples[0].date).toBe(day(1).slice(0, 10));
   });
 
-  it('uses two queries, the last 90 days, and no free-text, name, contact or link column', async () => {
+  // Was "two queries" before round 7 integrate3: the third reads the approximate-location (Cobb County) sources at radius + 15 miles.
+  it('uses three queries, the last 90 days, and no free-text, name, contact or link column', async () => {
     const { db, calls } = fakeDb([row({})]);
     await recentPreviewFor(profile, { db, now: NOW });
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3);
     for (const c of calls) {
       expect(c.cols).toBe(PREVIEW_COLUMNS);
       const cols = c.cols.split(',').map((x) => x.split(':')[0]);

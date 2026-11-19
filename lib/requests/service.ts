@@ -6,6 +6,7 @@ import { renderRequestAdmin, renderRequestConfirm, renderRequestPublished, rende
 import { lookupZip, nearestCity } from '@/lib/geo';
 import { matchSignals } from '@/lib/signals/match';
 import { canSeeAlerts, insertMatches, insertNewSignals, loadProfiles, type StoredSignal } from '@/lib/signals/store';
+import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import {
   CONFIRM_DAYS,
   DAY_MS,
@@ -268,7 +269,11 @@ async function publish(deps: RequestDeps, row: RequestRow, expiresAt: Date, now:
   try {
     const profiles = await loadProfiles(deps.db, now);
     const matches = matchSignals([stored], profiles, undefined, now);
-    if (matches.length > 0) await insertMatches(deps.db, matches);
+    if (matches.length > 0) {
+      await insertMatches(deps.db, matches);
+      // Outcome log (migration 0015). Never throws.
+      await logAlerts(deps.db, alertLogRowsFor(matches, [stored], profiles));
+    }
   } catch (e) {
     // The record is public and stays so; the next confirm click (or a re-run) matches again.
     console.error('[requests] matching failed', e instanceof Error ? e.message.slice(0, 120) : 'unknown');
@@ -433,6 +438,9 @@ export interface ReplierProfile {
   email_verified_at: string | null;
   subscription_status: string;
   trial_ends_at: string | null;
+  /** Migration 0020 (absent before it): a lapsed store plan cannot reply (canSeeAlerts uses isPaidNow). */
+  plan_source?: string | null;
+  store_expires_at?: string | null;
 }
 
 export type ReplyCode =

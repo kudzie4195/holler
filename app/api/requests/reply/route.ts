@@ -3,6 +3,7 @@ import { originAllowed } from '@/lib/auth/origin';
 import { getUser } from '@/lib/auth/session';
 import { requestDeps } from '@/lib/requests/deps';
 import { REPLY_RESULTS, replyToRequest, type ReplierProfile, type ReplyCode } from '@/lib/requests/service';
+import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 
 /**
  * POST /api/requests/reply {matchId, message}: a business answers a resident's request.
@@ -31,11 +32,11 @@ export async function POST(req: Request) {
 
   try {
     const deps = requestDeps();
-    const { data: profile, error } = await deps.db
-      .from('holler_profiles')
-      .select('business_name, city, state, email_verified_at, subscription_status, trial_ends_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const columns = 'business_name, city, state, email_verified_at, subscription_status, trial_ends_at';
+    const read = (cols: string) => deps.db.from('holler_profiles').select(cols).eq('user_id', user.id).maybeSingle();
+    // The 0020 store columns let a lapsed store plan be refused; before 0020 the read retries without them.
+    let { data: profile, error } = await read(`${columns}, ${STORE_PROFILE_COLUMNS}`);
+    if (error && missingStoreColumn(error.message)) ({ data: profile, error } = await read(columns));
     if (error) return answer('unavailable');
     const result = await replyToRequest(deps, {
       user: { id: user.id, email: user.email ?? null },

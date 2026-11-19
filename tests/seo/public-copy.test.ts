@@ -9,6 +9,8 @@ import { emptyPlaceData } from '../../lib/seo/summarize';
 import { groupCategories } from '../../components/profile-form-groups';
 import { CATEGORIES } from '../../lib/signals/categories';
 import { activeTradeSignals } from '../../lib/seo/signal-types';
+import { priceLabel } from '@/lib/stripe/plans';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 const setOf = (...keys: string[]) => (...k: EnvKey[]) => k.every((x) => keys.includes(x));
 const NONE = setOf();
@@ -123,7 +125,7 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
       expect('flatPrice' in homeCopy(has)).toBe(false);
       const visible = allText({ ...homeCopy(has), metaDescription: '' });
       expect(visible).not.toMatch(/\$\d/);
-      expect(homeCopy(has).metaDescription).toContain('$5 a month');
+      expect(homeCopy(has).metaDescription).toContain(`${priceLabel('starter', 'monthly')} a month after a ${TRIAL_DAYS}-day free trial`);
     }
   });
 

@@ -13,6 +13,7 @@ import Home from '../../app/page';
 import { Footer } from '../../components/footer';
 import { TopNav } from '../../components/top-nav';
 import { HOME_LIVE_PREVIEW_FIXTURE } from '../../lib/seo/home-live';
+import { priceLabel } from '@/lib/stripe/plans';
 
 async function render(live: unknown): Promise<string> {
   h.live = live;
@@ -54,15 +55,17 @@ describe('home page design pass', () => {
   });
 
   it('mentions both plans and no longer says there is one price', () => {
-    expect(text).toContain('$5 a month');
-    expect(text).toContain('$9.99');
+    expect(text).toContain(`Solo ${priceLabel('starter', 'monthly')} a month`);
+    expect(text).toContain(priceLabel('pro', 'monthly'));
+    expect(text).not.toContain('Starter');
     expect(text).not.toMatch(/one price/i);
   });
 
   it('says each price at most twice outside the plan cards (the hero line), with no flat-price section', () => {
     const outsideCards = toText(html.replace(/<ul[^>]*aria-label="Plans"[\s\S]*?<\/ul><p/, '<p'));
-    expect(outsideCards.match(/\$5\b/g)?.length ?? 0).toBeLessThanOrEqual(2);
-    expect(outsideCards.match(/\$9\.99/g)?.length ?? 0).toBeLessThanOrEqual(2);
+    const count = (p: string) => outsideCards.split(p).length - 1;
+    expect(count(priceLabel('starter', 'monthly'))).toBeLessThanOrEqual(2);
+    expect(count(priceLabel('pro', 'monthly'))).toBeLessThanOrEqual(2);
     expect(text).not.toMatch(/no bill per lead/i);
   });
 

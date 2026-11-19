@@ -126,10 +126,12 @@ describe('P2-4: the block address is cut at the street suffix (FIX-E: no suffix,
     expect(inspectionBlockAddress('LOT 5 MAIN ST')).toBe('');
     expect(inspectionBlockAddress('')).toBe('');
   });
-  it('through the adapter; violation rows keep their own rule (not part of this finding)', () => {
+  // Round 7 review r1 P2-10 (fix-a) cuts violation addresses after the street suffix too, so a bare unit like "2B" is dropped
+  // for violations as it is for inspections. This line used to pin the uncut violation address.
+  it('through the adapter; violation addresses are now cut the same way (round 7 review r1 P2-10)', () => {
     expect(chi({ dba_name: 'MARIA LOPEZ', address: '5521 S KOMENSKY AVE 2B' }).summary).toBe('Restaurant | Fail | Canvass | 5500 block of S KOMENSKY AVE');
     expect(chi({ dba_name: 'ACME TACOS', address: '5521 S KOMENSKY AVE 1ST FLR REAR' }).summary).toBe('Restaurant | Fail | Canvass | 5500 block of S KOMENSKY AVE');
-    expect(publicAddress('violation', '5521 S KOMENSKY AVE 2B')).toBe('5500 block of S KOMENSKY AVE 2B');
+    expect(publicAddress('violation', '5521 S KOMENSKY AVE 2B')).toBe('5500 block of S KOMENSKY AVE');
   });
 });
 

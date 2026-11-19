@@ -32,7 +32,8 @@ afterEach(() => {
 describe('P1-3: POST /api/draft refuses resident requests', () => {
   async function draftRoute(signal: Record<string, unknown>) {
     vi.resetModules();
-    const generateDraft = vi.fn(async () => ({ draft: 'AI text' }));
+    // Review r3: generateDraft now answers { ok, draft, source } or a refusal (lib/ai/draft.ts DraftOutcome).
+    const generateDraft = vi.fn(async () => ({ ok: true, draft: 'AI text', source: 'ai' }));
     const adminUpdate = vi.fn();
     vi.doMock('@/lib/ai/draft', () => ({ generateDraft }));
     vi.doMock('@/lib/auth/ratelimit', () => ({ hit: async () => 'allowed', LIMITS: { draftUser: () => ({ key: 'd', max: 20, windowSeconds: 3600 }) } }));
@@ -48,7 +49,8 @@ describe('P1-3: POST /api/draft refuses resident requests', () => {
           q.maybeSingle = async () =>
             table === 'holler_matches'
               ? { data: { id: 7, user_id: 'u1', signal }, error: null }
-              : { data: { business_name: 'Acme', categories: ['roofing'], city: 'Atlanta' }, error: null };
+              : // Review r3: the route checks computeAccess, so the profile carries an access state (a paying member here).
+                { data: { business_name: 'Acme', categories: ['roofing'], city: 'Atlanta', subscription_status: 'active', trial_ends_at: '2020-01-01T00:00:00.000Z' }, error: null };
           return q;
         },
       }),

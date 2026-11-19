@@ -1,4 +1,5 @@
 import type { Guide } from './types';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const respond: Guide = {
   slug: 'how-to-respond-to-a-local-lead-fast',
@@ -69,7 +70,7 @@ export const respond: Guide = {
     },
   ],
   howHolerHelps:
-    'Holler cannot reply for you, and nothing goes out under your name unless you write it and press send. It gets public records and resident requests to you quickly, each with its source, so the first move is yours. The [pricing page](/pricing) explains the 7-day free trial.',
+    `Holler cannot reply for you, and nothing goes out under your name unless you write it and press send. It gets public records and resident requests to you quickly, each with its source, so the first move is yours. The [pricing page](/pricing) explains the ${TRIAL_PHRASE}.`,
   faq: [
     {
       q: 'How fast should I reply to a lead?',

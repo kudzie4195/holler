@@ -34,7 +34,9 @@ describe('socrata parsers on fixtures', () => {
     expect(roof.title).toBe('Roof permit in Chicago');
     expect(out.find((s) => s.externalId === '101234568')!.categories).toContain('electrical');
     const nc = out.find((s) => s.externalId === '101234569')!;
-    expect(nc.categories).toEqual(expect.arrayContaining(['general-contractor', 'landscaping', 'cleaning']));
+    // Round 7: a generic new construction permit is general-contractor only (no fan-out to landscaping or cleaning).
+    expect(nc.categories).toEqual(['general-contractor']);
+    expect(nc.title).toBe('New construction permit in Chicago');
     expect(out.find((s) => s.externalId === '101234570')!.categories).toEqual(['signs-printing']);
   });
 

@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { COMPANY } from '@/lib/legal/company';
+import { priceLabel } from '@/lib/stripe/plans';
+import { TRIAL_DAYS } from '@/lib/plan/public-prices';
+import { TIER_NAMES } from '@/lib/plan/limits';
 
 vi.mock('@/components/doc-page', () => ({
   DocPage: ({ title, intro, updated, children }: { title: string; intro?: string; updated?: string; children: ReactNode }) =>
@@ -54,7 +57,8 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
     const { html, metadata } = await render(page, 'support@localholler.com');
     expect(metadata.title).toBe(page === 'terms' ? 'Terms' : 'Privacy');
     expect(metadata.alternates?.canonical).toBe(`/${page}`);
-    expect(html).toContain(page === 'privacy' ? 'Last updated November 18, 2026' : 'Last updated November 17, 2026');
+    // Round 7: both pages moved to November 19, 2026 (app, store billing, AI, analytics, outcomes, archive).
+    expect(html).toContain('Last updated November 19, 2026');
   });
 
   it('names the operator and postal address from COMPANY', async () => {
@@ -89,9 +93,11 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
 describe('terms content', () => {
   it('states both plan prices and automatic renewal conspicuously', async () => {
     const { html, text } = await render('terms', 'support@localholler.com');
-    expect(text).toContain('Starter: $5 a month, or $48 a year');
-    expect(text).toContain('Pro: $9.99 a month, or $96 a year');
-    expect(text).toContain('7-day free trial');
+    // Figures and names from the price table (lib/stripe/plans.ts, lib/plan/limits.ts), trial length from TRIAL_DAYS.
+    expect(text).toContain(`${TIER_NAMES.starter}: ${priceLabel('starter', 'monthly')} a month, or ${priceLabel('starter', 'annual')} a year`);
+    expect(text).toContain(`${TIER_NAMES.pro}: ${priceLabel('pro', 'monthly')} a month, or ${priceLabel('pro', 'annual')} a year`);
+    expect(text).toContain(`A new account gets a ${TRIAL_DAYS}-day free trial`);
+    expect(text).not.toMatch(/\bStarter\b/);
     expect(html).toContain('<strong>Your plan renews automatically until you cancel.</strong>');
     expect(text).toMatch(/renews automatically/);
     expect(text).toContain('Settings and choose Manage billing');
@@ -134,10 +140,15 @@ describe('terms content', () => {
 describe('privacy content', () => {
   it('names every processor verified in code and says no sale and no trackers', async () => {
     const { text } = await render('privacy', 'support@localholler.com');
-    for (const p of ['Supabase', 'Vercel', 'Stripe', 'Resend', 'Anthropic']) expect(text).toContain(p);
+    for (const p of ['Supabase', 'Vercel', 'Stripe', 'Resend', 'Anthropic', 'RevenueCat', 'Firebase Cloud Messaging', 'Apple', 'Google', 'DataForSEO']) {
+      expect(text).toContain(p);
+    }
     expect(text).toContain('We do not sell personal information');
     expect(text).toContain('cross-context behavioral advertising');
-    expect(text).toContain('There are no advertising or analytics trackers on Holler');
+    // Round 7: first-party counting replaced "no analytics trackers" (ANALYTICS unit, migration 0017).
+    expect(text).toContain('There are no advertising trackers and no outside analytics scripts on Holler. We count visits ourselves, with two cookies.');
+    expect(text).not.toContain('There are no advertising or analytics trackers on Holler');
+    expect(text).not.toMatch(/never read or set cookies|analytics tools or tracking pixels on Holler, and when/);
     expect(text).toContain('We never see or store card numbers');
   });
 
@@ -150,13 +161,18 @@ describe('privacy content', () => {
 
   it('describes deletion as the code does it: shared sign-in kept, trial notes kept', async () => {
     const { text } = await render('privacy', 'x@y.z');
-    expect(text).toContain('deletes your profile, your matched alerts, your drafts and the record of which requests you replied to');
-    expect(text).toContain('It keeps the shared sign-in');
+    expect(text).toContain('It deletes your profile, your matched alerts, your drafts and the record of which requests you replied to.');
+    expect(text).toContain('It keeps the shared sign-in, the trial notes and Stripe\'s records.');
     expect(text).toContain('These counters are deleted after about two days');
   });
 
   it('does not claim sources that are not live without keys', async () => {
     const { text } = await render('privacy', 'x@y.z');
-    expect(text).not.toMatch(/bluesky|ticketmaster|sam\.gov|web search|licensed search/i);
+    // Review r3 P2 (a): the outside sources the code calls when their keys are set are named in one conditional sentence, which
+    // also says no member data goes to them. Nowhere else does the page claim them as live sources.
+    const KEYED =
+      'When their keys are set, we also use Brave Search, Serper, Bluesky and Ticketmaster to find public posts and events, and IndexNow to tell search engines about new pages, and we send none of them any member data.';
+    expect(text).toContain(KEYED);
+    expect(text.replace(KEYED, '')).not.toMatch(/bluesky|ticketmaster|sam\.gov|web search|licensed search/i);
   });
 });

@@ -28,6 +28,7 @@ const groups = [
     links: [
       { href: '/terms', label: 'Terms' },
       { href: '/privacy', label: 'Privacy' },
+      { href: '/delete-account', label: 'Delete account' },
     ],
   },
 ];

@@ -1,11 +1,18 @@
-// Billing plans (U4). Pure parts only. The Stripe field names priceDataFor produces (currency, unit_amount, recurring.interval,
-// product_data.name) are the Checkout Session line_items[].price_data fields in node_modules/stripe/esm/resources/Checkout/Sessions.d.ts
+// Billing plans (U4). Pure parts only. The Stripe field names priceDataFor produces (currency, product, unit_amount, recurring.interval)
+// are the Checkout Session line_items[].price_data fields in node_modules/stripe/esm/resources/Checkout/Sessions.d.ts
 // (sourced). The 'year' interval is part of Stripe's recurring.interval enum (sourced: Stripe Prices API); not exercised against the live API here.
 import { describe, expect, it } from 'vitest';
+import type Stripe from 'stripe';
 import {
   ANNUAL_PRICE_CENTS,
   ANNUAL_SAVINGS_PERCENT,
   MONTHLY_PRICE_CENTS,
+  PRICES_CENTS,
+  PRODUCT_IDS,
+  annualMonthsFree,
+  annualMonthsSaved,
+  annualSavingLabel,
+  annualSavingsCents,
   parsePlan,
   priceDataFor,
   statusForSubscriptionEvent,
@@ -30,21 +37,51 @@ describe('parsePlan', () => {
 });
 
 describe('priceDataFor', () => {
-  it('monthly is $5 a month', () => {
-    expect(priceDataFor('monthly')).toMatchObject({ currency: 'usd', unit_amount: 500, recurring: { interval: 'month' } });
+  it('Solo (id starter) monthly is 799 cents a month on the fixed product, never product_data', () => {
+    const d = priceDataFor('monthly', 'starter', PRODUCT_IDS.starter);
+    expect(d).toEqual({ currency: 'usd', product: 'holler_starter', unit_amount: 799, recurring: { interval: 'month' } });
+    expect(d).not.toHaveProperty('product_data');
   });
-  it('annual is $48 a year', () => {
-    expect(priceDataFor('annual')).toMatchObject({ currency: 'usd', unit_amount: 4800, recurring: { interval: 'year' } });
+  it('Solo annual 7999, Pro monthly 1399, Pro annual 13999', () => {
+    expect(priceDataFor('annual', 'starter', 'holler_starter')).toMatchObject({ unit_amount: 7999, recurring: { interval: 'year' } });
+    expect(priceDataFor('monthly', 'pro', 'holler_pro')).toMatchObject({ unit_amount: 1399, recurring: { interval: 'month' }, product: 'holler_pro' });
+    expect(priceDataFor('annual', 'pro', 'holler_pro')).toMatchObject({ unit_amount: 13999, recurring: { interval: 'year' } });
+  });
+  it('the shape type-checks as stripe@23 Checkout line_items[].price_data', () => {
+    const li: Stripe.Checkout.SessionCreateParams.LineItem = { quantity: 1, price_data: priceDataFor('annual', 'pro', 'holler_pro') };
+    expect(li.price_data?.product).toBe('holler_pro');
   });
 });
 
-describe('annual savings copy', () => {
-  it('$60 against $48 is exactly 20 percent, so "save 20%" is true and "2 months free" is not claimed', () => {
-    expect(MONTHLY_PRICE_CENTS * 12).toBe(6000);
-    expect(ANNUAL_PRICE_CENTS).toBe(4800);
-    expect(ANNUAL_SAVINGS_PERCENT).toBe(20);
-    expect((6000 - 4800) / 6000).toBe(0.2); // exact
-    expect(4800 / MONTHLY_PRICE_CENTS).toBe(9.6); // 9.6 months, not 10: so never say "2 months free"
+describe('annual savings copy: computed, never typed', () => {
+  it('Solo: 12 x $7.99 = $95.88 against $79.99 saves $15.89, which is 1.99 monthly payments: "about 2 months free"', () => {
+    expect(MONTHLY_PRICE_CENTS * 12).toBe(9588);
+    expect(ANNUAL_PRICE_CENTS).toBe(7999);
+    expect(annualSavingsCents('starter')).toBe(1589);
+    expect(annualMonthsSaved('starter')).toBeCloseTo(1.9887, 3);
+    expect(annualMonthsFree('starter')).toBe(2);
+    expect(annualSavingLabel('starter')).toBe('about 2 months free');
+    expect(ANNUAL_SAVINGS_PERCENT).toBe(17); // (9588 - 7999) / 9588 = 16.57%
+  });
+  it('Pro: 12 x $13.99 = $167.88 against $139.99 saves $27.89, which is 1.99 monthly payments: "about 2 months free"', () => {
+    expect(PRICES_CENTS.pro.monthly * 12).toBe(16788);
+    expect(annualSavingsCents('pro')).toBe(2789);
+    expect(annualMonthsSaved('pro')).toBeCloseTo(1.9936, 3);
+    expect(annualSavingLabel('pro')).toBe('about 2 months free');
+  });
+  it('the old prices would NOT earn "months free" (9.6 months paid for 12): the helper falls back to a computed percent', async () => {
+    const { vi } = await import('vitest');
+    vi.resetModules();
+    const plans = await import('../../lib/stripe/plans');
+    const saved = { ...plans.PRICES_CENTS.starter };
+    try {
+      plans.PRICES_CENTS.starter.monthly = 500;
+      plans.PRICES_CENTS.starter.annual = 4800;
+      expect(plans.annualMonthsFree('starter')).toBeNull(); // 1200 / 500 = 2.4 months: not within 0.05 of a whole number
+      expect(plans.annualSavingLabel('starter')).toBe('save 20%');
+    } finally {
+      Object.assign(plans.PRICES_CENTS.starter, saved); // a fresh module instance (resetModules), restored anyway
+    }
   });
 });
 

@@ -12,13 +12,16 @@ import {
   PRICES_CENTS,
   annualSavingsPercent,
   formatUsd,
+  annualSavingLabel,
   priceDecimal,
   priceLabel,
 } from '@/lib/stripe/plans';
+import { TIER_NAMES, TIERS } from '@/lib/plan/limits';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { PRICE_CENTS } from '@/lib/stripe';
 import { Pricing } from '@/components/pricing';
 import PricingPage, { metadata } from '@/app/pricing/page';
-import { COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_TITLE, pricingLd } from '@/lib/plan/pricing-page';
+import { COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_TITLE, YEARLY_NOTE, pricingLd } from '@/lib/plan/pricing-page';
 import { PLAN_FEATURES } from '@/lib/plan/copy';
 
 const textOf = (html: string) =>
@@ -38,28 +41,36 @@ const BANNED = [
 ];
 
 describe('prices: one source of truth in cents', () => {
-  it('Starter 500 / 4800, Pro 999 / 9600', () => {
-    expect(PRICES_CENTS).toEqual({ starter: { monthly: 500, annual: 4800 }, pro: { monthly: 999, annual: 9600 } });
-    expect(MONTHLY_PRICE_CENTS).toBe(500);
-    expect(ANNUAL_PRICE_CENTS).toBe(4800);
-    expect(PRICE_CENTS).toBe(500);
+  it('Solo (id starter) 799 / 7999, Pro 1399 / 13999', () => {
+    expect(PRICES_CENTS).toEqual({ starter: { monthly: 799, annual: 7999 }, pro: { monthly: 1399, annual: 13999 } });
+    expect(MONTHLY_PRICE_CENTS).toBe(799);
+    expect(ANNUAL_PRICE_CENTS).toBe(7999);
+    expect(PRICE_CENTS).toBe(799);
+  });
+  it('display names: the internal id stays starter, the name shown is Solo', () => {
+    expect(TIER_NAMES).toEqual({ starter: 'Solo', pro: 'Pro' });
+    expect(TIERS).toEqual(['starter', 'pro']);
   });
   it('display strings derive from the cents', () => {
-    expect(formatUsd(500)).toBe('$5');
-    expect(formatUsd(999)).toBe('$9.99');
-    expect(formatUsd(4800)).toBe('$48');
-    expect(formatUsd(9600)).toBe('$96');
+    expect(formatUsd(799)).toBe('$7.99');
+    expect(formatUsd(1399)).toBe('$13.99');
+    expect(formatUsd(7999)).toBe('$79.99');
+    expect(formatUsd(13999)).toBe('$139.99');
+    expect(formatUsd(1000)).toBe('$10');
     expect(formatUsd(1005)).toBe('$10.05');
-    expect([priceLabel('starter', 'monthly'), priceLabel('starter', 'annual'), priceLabel('pro', 'monthly'), priceLabel('pro', 'annual')]).toEqual(['$5', '$48', '$9.99', '$96']);
-    expect(PLAN_COPY.monthly.price).toBe('$5');
-    expect(PLAN_COPY.annual.price).toBe('$48');
-    expect(priceDecimal('pro', 'monthly')).toBe('9.99');
-    expect(priceDecimal('pro', 'annual')).toBe('96.00');
+    expect([priceLabel('starter', 'monthly'), priceLabel('starter', 'annual'), priceLabel('pro', 'monthly'), priceLabel('pro', 'annual')]).toEqual(['$7.99', '$79.99', '$13.99', '$139.99']);
+    expect(PLAN_COPY.monthly.price).toBe('$7.99');
+    expect(PLAN_COPY.annual.price).toBe('$79.99');
+    expect(priceDecimal('pro', 'monthly')).toBe('13.99');
+    expect(priceDecimal('pro', 'annual')).toBe('139.99');
   });
-  it('yearly saving is 20% on both plans (never "2 months free")', () => {
-    expect(annualSavingsPercent('starter')).toBe(20);
-    expect(annualSavingsPercent('pro')).toBe(20); // (119.88 - 96) / 119.88 = 19.9
-    expect(ANNUAL_SAVINGS_PERCENT).toBe(20);
+  it('yearly saving: "about 2 months free" on both plans, computed (1.99 monthly payments each); percent is 17', () => {
+    expect(annualSavingLabel('starter')).toBe('about 2 months free');
+    expect(annualSavingLabel('pro')).toBe('about 2 months free');
+    expect(annualSavingsPercent('starter')).toBe(17); // (95.88 - 79.99) / 95.88 = 16.6
+    expect(annualSavingsPercent('pro')).toBe(17); // (167.88 - 139.99) / 167.88 = 16.6
+    expect(ANNUAL_SAVINGS_PERCENT).toBe(17);
+    expect(YEARLY_NOTE).toBe('Pay yearly on either plan and you get about 2 months free.');
   });
 });
 
@@ -67,12 +78,15 @@ describe('Pricing component', () => {
   const html = renderToStaticMarkup(createElement(Pricing));
   const text = textOf(html);
   it('renders both plans with monthly and yearly prices', () => {
-    for (const s of ['Starter', 'Pro', '$5', '$48', '$9.99', '$96', 'a month', 'a year']) expect(text).toContain(s);
+    for (const s of ['Solo', 'Pro', '$7.99', '$79.99', '$13.99', '$139.99', 'a month', 'a year', 'about 2 months free']) expect(text).toContain(s);
+    expect(text).not.toContain('Starter');
+    expect(text).not.toMatch(/saves? \d+%/);
   });
   it('lists what each plan includes and the free trial line', () => {
     for (const f of [...PLAN_FEATURES.starter, ...PLAN_FEATURES.pro]) expect(text).toContain(f);
-    expect(text).toContain('7-day free trial. No card to start.');
-    expect(text).toContain('The trial uses Starter limits.');
+    expect(text).toContain(`Every plan starts with a ${TRIAL_DAYS}-day free trial. No card needed.`);
+    expect(TRIAL_DAYS).toBe(14);
+    expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
   });
   it('links to /signup', () => {
     expect(html.match(/href="\/signup"/g)?.length).toBe(2);
@@ -106,6 +120,19 @@ describe('/pricing page', () => {
     expect(qs).toMatch(/refund/i);
   });
 
+  it('review r2: the trial-end answer limits the delayed first charge to the website and says app purchases are charged at once', () => {
+    const a = PRICING_FAQ.find((f) => /trial ends/i.test(f.q))!.a;
+    expect(a).toContain('if you subscribe on the website during the trial, the first charge comes when it ends.');
+    expect(a).toContain('A plan you buy in the app is charged by Apple or Google when you buy it.');
+    expect(a).not.toMatch(/[\u2013\u2014]/);
+    expect(text).toContain(a);
+  });
+
+  it('review r2: the store trial comment names the real period', () => {
+    const src = readFileSync(path.resolve(__dirname, '../../lib/plan/public-prices.ts'), 'utf8');
+    expect(src).not.toContain('"P7D"');
+  });
+
   it('comparison table prices come from the constants', () => {
     expect(COMPARISON[0]).toEqual(['Monthly price', priceLabel('starter', 'monthly'), priceLabel('pro', 'monthly')]);
     expect(COMPARISON[1]).toEqual(['Yearly price', priceLabel('starter', 'annual'), priceLabel('pro', 'annual')]);
@@ -126,10 +153,11 @@ describe('/pricing page', () => {
 
   it('metadata: title, description with prices, canonical /pricing', () => {
     expect(metadata.title).toEqual({ absolute: PRICING_TITLE });
-    expect(String(metadata.description)).toContain('$9.99');
+    expect(String(metadata.description)).toContain('$13.99');
+    expect(String(metadata.description)).toContain('$7.99');
     expect(metadata.alternates?.canonical).toBe('/pricing');
     // Specific title, description 120 to 160 characters, and share data that point at /pricing (not the home page).
-    expect(PRICING_TITLE).toMatch(/Starter.*Pro/);
+    expect(PRICING_TITLE).toBe('Holler Pricing: Solo $7.99 and Pro $13.99 a Month');
     expect(PRICING_TITLE.length).toBeLessThan(60);
     expect(PRICING_DESCRIPTION.length).toBeGreaterThanOrEqual(120);
     expect(PRICING_DESCRIPTION.length).toBeLessThanOrEqual(160);
@@ -155,7 +183,8 @@ describe('/pricing page', () => {
       ['Offer', (PRICES_CENTS.pro.monthly / 100).toFixed(2), 'USD'],
     ]);
     const specs = app.offers.map((o) => (o.priceSpecification as { price: string; billingDuration: string }[]).map((s) => `${s.price}/${s.billingDuration}`));
-    expect(specs).toEqual([['5.00/P1M', '48.00/P1Y'], ['9.99/P1M', '96.00/P1Y']]);
+    expect(specs).toEqual([['7.99/P1M', '79.99/P1Y'], ['13.99/P1M', '139.99/P1Y']]);
+    expect(app.offers.map((o) => o.name)).toEqual(['Holler Solo', 'Holler Pro']);
     const faq = data.find((d) => d['@type'] === 'FAQPage') as { mainEntity: unknown[] };
     expect(faq.mainEntity).toHaveLength(PRICING_FAQ.length);
     expect(pricingLd()['@context']).toBe('https://schema.org');

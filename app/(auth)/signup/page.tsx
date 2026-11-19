@@ -5,10 +5,11 @@ import { AuthCard, AuthCardSkeleton } from '@/components/auth-card';
 import { SignupForm } from '@/components/auth-forms';
 import { cleanCitySlug } from '@/lib/auth/redirect';
 import { cityBySlug } from '@/lib/geo';
+import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const metadata: Metadata = {
-  title: 'Start your free week',
-  description: 'Create a Holler account. 7-day free trial, no card.',
+  title: 'Start your free trial',
+  description: `Create a Holler account. ${TRIAL_PHRASE}, no card.`,
 };
 
 export default function SignupPage(props: PageProps<'/signup'>) {
@@ -25,11 +26,11 @@ async function Signup({ searchParams }: { searchParams: PageProps<'/signup'>['se
   const city = citySlug ? cityBySlug(citySlug) : null;
   return (
     <AuthCard
-      title="Start your free week"
+      title="Start your free trial"
       subtitle={
         city
           ? `Alerts for ${city.name}, ${city.state} and the towns around it. No card needed.`
-          : 'Seven days, no card. Takes about a minute.'
+          : `${TRIAL_DAYS} days, no card. Takes about a minute.`
       }
       footer={
         <>

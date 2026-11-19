@@ -39,6 +39,8 @@ function violations(sql: string): string[] {
   for (const re of PATTERNS) {
     for (const m of clean.matchAll(re)) {
       const name = bare(m[1]);
+      // `insert ... on conflict (cols)` is an upsert clause, not an object named "conflict" (round 7: 0014 and 0015 use it).
+      if (name.toLowerCase() === 'conflict' && /^on\s+conflict\s*\($/i.test(m[0].trim())) continue;
       if (!name.startsWith('holler_')) bad.push(m[0].trim());
     }
   }
@@ -59,7 +61,11 @@ describe('migrations are holler-only and additive', () => {
 
     it(`${f}: never drops a table, column, schema or function`, () => {
       // The one allowed drop: a superseded holler_ function signature (`drop function if exists public.holler_...`), so an upgrade never leaves two overloads.
-      const clean = stripComments(sql).replace(/\bdrop\s+function\s+if\s+exists\s+(?:public\.)?holler_[a-z_]+\s*\([^)]*\)\s*;/gi, '');
+      // Also allowed: `drop view if exists public.holler_...;` immediately re-created. A view holds no rows, so nothing is lost; round 7
+      // 0015 re-creates holler_conversion_by_source this way because its column list changed (review r4).
+      const clean = stripComments(sql)
+        .replace(/\bdrop\s+function\s+if\s+exists\s+(?:public\.)?holler_[a-z_]+\s*\([^)]*\)\s*;/gi, '')
+        .replace(/\bdrop\s+view\s+if\s+exists\s+(?:public\.)?(holler_[a-z_]+)\s*;(?=\s*create\s+view\s+(?:public\.)?\1\b)/gi, '');
       expect(clean).not.toMatch(/\bdrop\s+(table|column|schema|function|type|extension|view|index)\b/i);
       expect(clean).not.toMatch(/\btruncate\b/i);
     });

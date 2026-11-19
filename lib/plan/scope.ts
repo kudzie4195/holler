@@ -14,7 +14,7 @@ export interface MatchScope {
   areas: ScopeArea[];
   /** The first N saved trades, N from the plan. */
   categories: string[];
-  /** Keyword watches the plan allows (none on Starter). */
+  /** Keyword watches the plan allows (none on Solo). */
   keywords: string[];
   /** The same keywords in searchable form (lib/plan/keywords.ts foldText), prepared once per profile for the matcher. */
   phrases: string[];
@@ -27,13 +27,16 @@ export interface ScopeInput {
   state: string | null;
   plan?: string | null;
   subscription_status?: string | null;
+  /** Migration 0020: with these, a lapsed store plan gets Solo limits (effectiveTier, isPaidNow). */
+  plan_source?: string | null;
+  store_expires_at?: string | null;
   extra_areas?: unknown;
   keywords?: unknown;
 }
 
 /**
  * What matching may use for one member right now. Saved settings beyond the plan are kept in the row but left out here:
- * a Starter (or trial, or canceled) profile with saved extras uses its main area, its first 5 trades and no keywords.
+ * a Solo (or trial, or canceled) profile with saved extras uses its main area, its first 5 trades and no keywords.
  */
 export function matchScope(p: ScopeInput): MatchScope {
   const tier = effectiveTier(p);

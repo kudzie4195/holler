@@ -44,7 +44,7 @@ export default function PricingPage() {
         <section aria-labelledby="compare-h" className="border-y border-line bg-surface">
           <div className="mx-auto w-full max-w-3xl px-5 py-12 md:py-16">
             <h2 id="compare-h" className="text-2xl text-ink md:text-3xl">
-              Starter and Pro side by side
+              {TIER_NAMES.starter} and {TIER_NAMES.pro} side by side
             </h2>
             <div className="mt-6 overflow-x-auto rounded-card border border-line">
               <table className="w-full text-left text-base">

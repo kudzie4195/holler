@@ -57,6 +57,20 @@ describe('saveProfile plan limits', () => {
     expect((await saveProfile('u1', form({ cats: live.slice(0, 5) }))).ok).toBe(true);
   });
 
+  // Review r2 F7 (applied at integrate3): saveProfile passes the 0020 store columns to effectiveTier, so a Pro row billed by the App
+  // Store whose period ran out (EXPIRATION lost, status still active) gets Solo limits here, as it does in the database (0020 3b).
+  it('a lapsed App Store Pro row gets Solo limits; a live one keeps Pro', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.saved = { ...PRO, plan_source: 'apple', store_expires_at: '2020-01-01T00:00:00Z', categories: [live[0]] };
+    expect((await saveProfile('u1', form({ keywords: ['tree removal'] }))).fieldErrors?.keywords).toBe('Keyword watches are part of Pro.');
+    h.saved = { ...PRO, plan_source: 'apple', store_expires_at: null, categories: [live[0]] };
+    expect((await saveProfile('u1', form({ cats: live.slice(0, 6) }))).fieldErrors?.categories).toMatch(/up to 5 trades.*Pro/);
+    expect(h.upserts).toHaveLength(0);
+    h.saved = { ...PRO, plan_source: 'apple', store_expires_at: new Date(Date.now() + 20 * 86_400_000).toISOString(), categories: [live[0]] };
+    expect((await saveProfile('u1', form({ keywords: ['tree removal'] }))).ok).toBe(true);
+    err.mockRestore();
+  });
+
   it('starter: extra ZIPs and keywords are Pro-only field errors', async () => {
     h.saved = { plan: 'starter', subscription_status: 'active', categories: [live[0]] };
     expect((await saveProfile('u1', form({ zips: ['30601'] }))).fieldErrors?.extra_zips).toBe('More ZIP codes are part of Pro.');

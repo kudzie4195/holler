@@ -32,6 +32,7 @@ const FIXED: Record<string, Intent> = {
   'websearch-brave': 'asking',
   'websearch-serper': 'asking',
   'holler-request': 'asking',
+  'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
 };
 
 const datasets = new Map<string, { subtype: string; kind: string }>([

@@ -2,9 +2,13 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDraft } from '@/lib/ai/draft';
+import { computeAccess } from '@/lib/auth/access';
 import { hit, LIMITS } from '@/lib/auth/ratelimit';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 
+// Reply drafts: the model is called only when a signed-in member with access (trial or plan, computeAccess) asks for a draft of an
+// "ask" record matched to them, under the same monthly AI cap as the cron classification step (lib/ai/draft.ts). Classification
+// itself runs only from cron.
 export const maxDuration = 30;
 
 const Body = z.object({ matchId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]) });
@@ -44,12 +48,16 @@ export async function POST(req: Request) {
   if (signal.source === HOLLER_REQUEST_SOURCE) return Response.json({ error: 'resident_request' }, { status: 400 });
   if (signal.kind !== 'ask') return Response.json({ error: 'not_an_ask' }, { status: 400 });
 
-  const { data: profile } = await supabase
-    .from('holler_profiles')
-    .select('business_name, categories, city')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // '*': the access columns from 0020 (plan_source, store_expires_at) may not exist yet, and computeAccess treats them as optional.
+  const { data: profile } = await supabase.from('holler_profiles').select('*').eq('user_id', user.id).maybeSingle();
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
+  // A locked account (trial over, no plan) gets no AI drafts. Checked before the limiter, so nothing is counted.
+  if (computeAccess(profile).locked) {
+    return Response.json(
+      { error: 'locked', message: 'Your trial or plan has ended. Pick a plan to get reply drafts again.' },
+      { status: 403 },
+    );
+  }
 
   // AI cost path: 20 drafts per hour per user. Fails closed if the limiter is down.
   const limited = await hit([LIMITS.draftUser(user.id)]);
@@ -63,17 +71,30 @@ export async function POST(req: Request) {
     return Response.json({ error: 'unavailable', message: 'Drafts are unavailable right now. Try again in a moment.' }, { status: 503 });
   }
 
-  const { draft } = await generateDraft({
-    businessName: profile.business_name,
-    categories: profile.categories ?? [],
-    title: signal.title,
-    summary: signal.summary,
-    city: profile.city ?? signal.city,
-  });
+  // Service role: the draft is booked in holler_ai_spend, and `draft` is not in the authenticated role's column grants.
+  const admin = createAdminClient();
+  const out = await generateDraft(
+    {
+      businessName: profile.business_name,
+      categories: profile.categories ?? [],
+      title: signal.title,
+      summary: signal.summary,
+      city: profile.city ?? signal.city,
+    },
+    { db: admin },
+  );
+  if (!out.ok) {
+    return out.reason === 'cap_reached'
+      ? Response.json(
+          { error: 'ai_paused', message: 'Reply drafts are paused until next month. You can still write your own reply.' },
+          { status: 503 },
+        )
+      : Response.json({ error: 'unavailable', message: 'Drafts are unavailable right now. Try again in a moment.' }, { status: 503 });
+  }
+  const { draft } = out;
 
-  // Ownership was verified above (match selected with user_id = user.id). `draft` is not in the
-  // authenticated role's column grants, so the write goes through the admin client.
-  const { error: upErr } = await createAdminClient()
+  // Ownership was verified above (match selected with user_id = user.id).
+  const { error: upErr } = await admin
     .from('holler_matches')
     .update({ draft })
     .eq('id', matchId)

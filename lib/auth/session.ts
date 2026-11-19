@@ -25,6 +25,10 @@ export interface Profile {
   keywords?: string[] | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  /** 'none' | 'stripe' | 'apple' | 'google' (migration 0020). Missing before 0020. */
+  plan_source?: string | null;
+  /** End of the current App Store or Google Play period (migration 0020). Missing before 0020. */
+  store_expires_at?: string | null;
   email_verified_at: string | null;
   created_at: string;
 }

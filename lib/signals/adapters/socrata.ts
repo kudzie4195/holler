@@ -3,7 +3,9 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signa
 import { env } from '@/lib/env';
 import { extractContacts } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
+import { CAT_V } from '@/lib/signals/mapping/version';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -114,10 +116,12 @@ export function toIso(v: unknown, tz?: string): string | null {
 }
 
 export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): { categories: CategoryId[]; severity: Severity } {
+  // Permits: one classification for trades and title (lib/signals/mapping/permit.ts). Plain text is read as description values.
+  if (ds.subtype === 'permit') return { categories: classifyPermit({ structured: [], free: text.split(' | ') }).categories, severity: 1 };
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
   for (const rule of RULES_BY_SUBTYPE[ds.subtype]) {
-    if (rule.re.test(text)) {
+    if (rule.re.test(text) && !rule.unless?.test(text)) {
       rule.add.forEach((c) => set.add(c));
       if (rule.severity && rule.severity > severity) severity = rule.severity;
     }
@@ -125,6 +129,24 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
   // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone.
   if (ds.subtype !== 'business' && ds.subtype !== 'event-permit') classifyText(text).forEach((c) => set.add(c));
   return { categories: [...set], severity };
+}
+
+/**
+ * Permit classification from a row's own columns: the dataset's type, class, category and use columns are structured values, the rest
+ * of its text and title columns are descriptions (read, never printed). Returns the trades and the fixed title label together.
+ */
+export function classifyPermitRow(
+  ds: { city: string; textFields: string[]; titleFields: string[]; mixedTextFields?: string[] },
+  get: (field: string) => string,
+): { categories: CategoryId[]; label: string | null } {
+  const fields = [...new Set([...ds.textFields, ...ds.titleFields])];
+  const mixedSet = new Set(ds.mixedTextFields ?? []);
+  const structured = fields.filter(isStructuredField).map(get).filter(Boolean);
+  const free = fields.filter((f) => !isStructuredField(f) && !mixedSet.has(f)).map(get).filter(Boolean);
+  // Columns that mix a street address, a description and a name: only unambiguous work phrases count (lib/signals/mapping/permit.ts).
+  const mixed = fields.filter((f) => mixedSet.has(f)).map(get).filter(Boolean);
+  const c = classifyPermit({ structured, free, mixed }, ds.city);
+  return { categories: c.categories, label: c.label };
 }
 
 /**
@@ -165,7 +187,39 @@ export function blockAddress(raw: string): string {
 
 /** Violation rows store a block-level address; every other subtype keeps what the config asks for. */
 export function publicAddress(subtype: string, raw: string): string {
-  return subtype === 'violation' ? blockAddress(raw) : raw;
+  // Anything after the street suffix of a permit or violation address (" - SMITH RESIDENCE", a name typed into the street column) is
+  // cut (review r1 P2). Event locations ("5 AVENUE between 9 STREET and 10 STREET") are not street addresses and are left as given.
+  if (subtype === 'violation') return cutAfterStreetSuffix(blockAddress(raw));
+  return subtype === 'permit' ? cutAfterStreetSuffix(raw) : raw;
+}
+
+/**
+ * Values of a 311 or violation row that may be printed in its title or summary: never a column listed in the dataset's freeTextFields,
+ * never a value that reads like prose (permit-privacy.ts looksLikeProse), and never a value with what looks like a person's name
+ * (categoryValueHasName; also applied to permit rows). Other subtypes: every value except freeTextFields.
+ */
+export function printableValues(
+  ds: { subtype: string; freeTextFields?: string[] },
+  fields: string[],
+  get: (field: string) => string,
+): { values: string[]; withheld: boolean } {
+  const free = new Set(ds.freeTextFields ?? []);
+  const civic = ds.subtype === '311' || ds.subtype === 'violation';
+  // Category and type values of 311, violation and permit rows are printed only when no token looks like a person's name
+  // (categoryValueHasName, commander decision 7: "Roof leak - John Doe" never reaches a title or summary).
+  const nameChecked = civic || ds.subtype === 'permit';
+  let withheld = false;
+  const values: string[] = [];
+  for (const f of fields) {
+    const v = get(f);
+    if (!v) continue;
+    if (free.has(f) || (civic && looksLikeProse(v)) || (nameChecked && categoryValueHasName(v))) {
+      withheld = true;
+      continue;
+    }
+    values.push(v);
+  }
+  return { values, withheld };
 }
 
 // ---- inspections: public output by construction (round 5 FIX-E) -----------------------------------------------------------------
@@ -274,18 +328,17 @@ function externalIdFor(row: Row, ds: SocrataDataset): string {
   return s(row, ds.idField);
 }
 
-function buildTitle(ds: SocrataDataset, row: Row, titleBitsRaw: string[], summaryBits: string[], address: string, categories: CategoryId[], text: string): string {
+function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: string[], address: string, categories: readonly string[] = [], withheld = false): string {
   // Free-text columns (permit descriptions, 311 details, violation text) can hold names and phone numbers: titles never copy them raw.
-  if (ds.subtype === 'permit') {
-    return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => s(row, f)).filter(Boolean), categories, text);
-  }
+  // Permit titles come from lib/signals/mapping/permit.ts (fixed labels), never from here. A 311 or violation title whose own text was
+  // withheld (printableValues) uses fixed words for its trades instead (civicLabel).
   const titleBits = ds.subtype === 'business' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
     case '311': {
       const uniq = [...new Set(titleBits.map((b) => b.toLowerCase()))].map(
         (l) => titleBits.find((b) => b.toLowerCase() === l) as string,
       );
-      return `311 request in ${ds.city}: ${trunc(uniq.join(' / ') || 'service request', 110)}`;
+      return `311 request in ${ds.city}: ${trunc(uniq.join(' / ') || (withheld ? civicLabel(categories, 'service request') : 'service request'), 110)}`;
     }
     case 'business':
       return titleBits[0]
@@ -294,7 +347,7 @@ function buildTitle(ds: SocrataDataset, row: Row, titleBitsRaw: string[], summar
           ? `New business license in ${ds.city}: ${trunc(summaryBits[0], 100)}`
           : `New business license in ${ds.city}`;
     case 'violation':
-      return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? 'property violation', 110)}`;
+      return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? (withheld ? civicLabel(categories, 'property violation') : 'property violation'), 110)}`;
     case 'event-permit':
       return `Permitted event in ${ds.city}: ${trunc(titleBits[0] ?? 'special event', 80)}${address ? ` at ${trunc(address, 60)}` : ''}`;
     default:
@@ -330,7 +383,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const externalId = ds.subtype === 'inspection' ? `${rawId}:${occurredAt.slice(0, 10)}` : rawId;
       if (seen.has(externalId)) continue;
 
-      const { categories, severity } = categorize(ds, text);
+      const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (f) => s(row, f)) : null;
+      const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text);
       if (categories.length === 0) continue;
 
       seen.add(externalId);
@@ -356,23 +410,25 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           categories,
           severity,
           occurredAt,
-          data: { dataset: ds.datasetId, domain: ds.domain, subtype: ds.subtype, ...(pos?.approx ? { approxLocation: true } : {}) },
+          data: { dataset: ds.datasetId, domain: ds.domain, subtype: ds.subtype, cat_v: CAT_V, ...(pos?.approx ? { approxLocation: true } : {}) },
           ...(contacts.length ? { contacts } : {}),
         });
         continue;
       }
 
-      const titleBits = ds.titleFields.map((f) => s(row, f)).filter(Boolean);
+      const titlePrint = printableValues(ds, ds.titleFields, (f) => s(row, f));
+      const titleBits = titlePrint.values;
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
-      const summaryBits = ds.summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
+      const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
+      const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
         if (sector) summaryBits.push(sector);
       }
-      const title = buildTitle(ds, row, titleBits, summaryBits, address, categories, text);
+      const title = permitClass ? permitTitleFor(ds.city, permitClass.label) : buildTitle(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
 
       // 311 summaries leave the street address out; permits, businesses, violations and events are business/property records. Only the
       // configured summary fields are read, never owner or applicant columns.
@@ -405,6 +461,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           dataset: ds.datasetId,
           domain: ds.domain,
           subtype: ds.subtype,
+          cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
         },
         ...(contacts.length ? { contacts } : {}),

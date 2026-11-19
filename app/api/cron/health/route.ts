@@ -1,10 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { env } from '@/lib/env';
+import { env, siteUrl } from '@/lib/env';
 import { HEALTH_LOOKBACK_HOURS, planHealth, renderHealthEmail, sendEmail, type HealthCounts, type HealthRun } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
 import { readSourceHealth, summarizeSourceHealth } from '@/lib/signals/health';
+import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
 
 export const maxDuration = 60;
 
@@ -28,13 +29,49 @@ async function loadCounts(admin: Admin, now: Date): Promise<HealthCounts> {
 }
 
 /**
+ * Ingest monitor: scan error or stall, whole-feed silence, silent or failing sources, with one deduped email. It never throws:
+ * a failure comes back as { status: 'error' } and the health report is unaffected.
+ */
+/** Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. */
+async function enabledSources(): Promise<Set<string>> {
+  const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
+  return new Set(ALL_ADAPTERS.filter((a) => missingEnvFor(a).length === 0).map((a) => a.id));
+}
+
+async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null): Promise<MonitorResult> {
+  try {
+    return await runMonitor({
+      db: admin,
+      now,
+      dry,
+      to,
+      enabledSources: await enabledSources(),
+      sourcesUrl: `${siteUrl}/api/admin/sources`,
+      send: async (mail) => {
+        const res = await sendEmail(mail);
+        if ('skipped' in res && res.skipped) return { ok: false, skipped: true, error: res.reason };
+        if ('ok' in res && res.ok) return { ok: true };
+        return { ok: false, error: 'error' in res ? res.error : 'send failed' };
+      },
+    });
+  } catch {
+    return { status: 'error', note: 'monitor failed', checkedAt: now.toISOString(), conditions: [], recovered: [], email: { status: 'not_checked' }, unread: [] };
+  }
+}
+
+/**
  * GET /api/cron/health (Authorization: Bearer CRON_SECRET, or ?key=). Builds the daily health report from
  * holler_scan_runs, returns it as JSON, and emails it to ADMIN_EMAIL (falling back to SUPPORT_EMAIL).
- * ?dry=1 builds and returns the report without sending anything.
+ * The ingest monitor's conditions are also reported here (under `monitor`, read only), so the daily report stays ONE email and the
+ * daily run never stores alert state. The deduped alert email is sent only by the hourly job.
+ * ?monitor=1 runs ONLY the monitor, and sends (the hourly job, see supabase/cron.sql patch): no daily report, no daily email.
+ * ?dry=1 builds and returns the report and the monitor conditions without sending or storing anything.
  */
 export async function GET(req: Request) {
   if (!isCronAuthorized(req, env.CRON_SECRET)) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const dry = ['1', 'true'].includes(new URL(req.url).searchParams.get('dry') ?? '');
+  const params = new URL(req.url).searchParams;
+  const dry = ['1', 'true'].includes(params.get('dry') ?? '');
+  const monitorOnly = ['1', 'true'].includes(params.get('monitor') ?? '');
   const now = new Date();
 
   let admin: Admin;
@@ -42,6 +79,11 @@ export async function GET(req: Request) {
     admin = createAdminClient();
   } catch {
     return Response.json({ error: 'not_configured' }, { status: 503 });
+  }
+
+  const to = env.ADMIN_EMAIL?.trim() || env.SUPPORT_EMAIL?.trim() || null;
+  if (monitorOnly) {
+    return Response.json({ monitor: await monitor(admin, now, dry, to) }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
   let runs: HealthRun[];
@@ -67,7 +109,6 @@ export async function GET(req: Request) {
   const counts = await loadCounts(admin, now);
   const report = planHealth({ adapters, runs, counts, now });
 
-  const to = env.ADMIN_EMAIL?.trim() || env.SUPPORT_EMAIL?.trim() || null;
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
   else if (!to) email = { status: 'no_recipient', detail: 'Set ADMIN_EMAIL or SUPPORT_EMAIL to receive the health email.' };
@@ -87,5 +128,8 @@ export async function GET(req: Request) {
     sourceHealth = null;
   }
 
-  return Response.json({ ...report, email, sourceHealth }, { headers: { 'Cache-Control': 'no-store' } });
+  // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
+  const monitorResult = await monitor(admin, now, true, to);
+
+  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult }, { headers: { 'Cache-Control': 'no-store' } });
 }

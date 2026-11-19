@@ -87,8 +87,11 @@ describe('Privacy: resident requests match lib/requests', () => {
     expect(p).toContain('public pages show only the service and your city');
     expect(p).toContain('It never holds your description or your email.');
     expect(p).toContain('Your description is shown only to businesses whose alerts match your request');
-    // Round 3 P1-3: no resident text to the AI model (app/api/draft/route.ts refuses source holler-request).
-    expect(p).toContain('We never send your request to an AI model.');
+    // Round 3 P1-3: no resident text to the AI model (app/api/draft/route.ts refuses source holler-request). Round 7: the AI sorting
+    // step (lib/ai/classify.ts toRecord) can see a request's public row, which has no summary (0005 check), so the line now names
+    // exactly what never goes: the description and the email.
+    expect(p).toContain('We never send your description or your email to an AI model.');
+    expect(p).not.toContain('We never send your request to an AI model.');
     expect(src('app/api/draft/route.ts')).toContain('signal.source === HOLLER_REQUEST_SOURCE');
     // What the resident sees of a business, and what a business sees of the resident.
     expect(p).toContain('You see the business name, its city and its reply.');

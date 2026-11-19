@@ -1,0 +1,64 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 34840,
+    "PermitNo": "2026-008899",
+    "PermitType": "New Home",
+    "DateIssued": 1794441600000,
+    "StreetNo": 3000,
+    "StreetName": "CHEATHAM",
+    "StreetType": "RD",
+    "PermitStatus": "Issued",
+    "ConstructionType": "101",
+    "CommDist": "1",
+    "JobValueCalc": 1137646
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34880,
+    "PermitNo": "2026-008707",
+    "PermitType": "New Home",
+    "DateIssued": 1794268800000,
+    "StreetNo": 3100,
+    "StreetName": "SPARROW",
+    "StreetType": "WAY",
+    "PermitStatus": "Issued",
+    "ConstructionType": "101",
+    "CommDist": "1",
+    "JobValueCalc": 561009.37
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34881,
+    "PermitNo": "2026-008711",
+    "PermitType": "New Home",
+    "DateIssued": 1794268800000,
+    "StreetNo": 3200,
+    "StreetName": "SPARROW",
+    "StreetType": "WAY",
+    "PermitStatus": "Issued",
+    "ConstructionType": "434",
+    "CommDist": "1",
+    "JobValueCalc": 564033.37
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34841,
+    "PermitNo": "2026-008971",
+    "PermitType": "New Home",
+    "DateIssued": 1793750400000,
+    "StreetNo": 3300,
+    "StreetName": "CECELIA",
+    "StreetType": "DR",
+    "PermitStatus": "Issued",
+    "ConstructionType": "101",
+    "CommDist": "4",
+    "JobValueCalc": 531271.74
+   }
+  }
+ ]
+}

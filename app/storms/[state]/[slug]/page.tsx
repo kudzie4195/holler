@@ -10,6 +10,8 @@ import { FEMA_ONLY_NOTE, HOW_TO_READ, SIGNUP_LINE, h1 as headingOf, metaDescript
 import { loadStormReport } from '@/lib/storms/data';
 import { reportPath } from '@/lib/storms/report';
 import { RecordsTable } from '../../_components/records-table';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { stormCtaLabel } from '@/lib/plan/price-copy';
 
 type Props = { params: Promise<{ state: string; slug: string }> };
 
@@ -93,7 +95,7 @@ export default async function StormReportPage({ params }: Props) {
         <div className="rounded-xl border border-line bg-surface p-6 text-center">
           <p className="text-2xl font-semibold tracking-[-0.02em]">{SIGNUP_LINE}</p>
           <div className="mt-4">
-            <PrimaryLink href="/signup">Get alerts from $5/mo, first 7 days free</PrimaryLink>
+            <PrimaryLink href="/signup">{stormCtaLabel(TRIAL_DAYS)}</PrimaryLink>
           </div>
           <p className="mt-2 text-sm text-muted">No card to start. Holler never posts anything for you.</p>
         </div>

@@ -1,4 +1,5 @@
 import 'server-only';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
@@ -38,6 +39,9 @@ const schema = z.object({
 interface Saved {
   plan?: string | null;
   subscription_status?: string | null;
+  /** Migration 0020 (absent before it): a lapsed store plan keeps Solo limits. */
+  plan_source?: string | null;
+  store_expires_at?: string | null;
   categories?: string[] | null;
 }
 
@@ -80,19 +84,24 @@ function readKeywords(formData: FormData): { keywords: string[]; error?: string 
   return { keywords: out };
 }
 
+/** The mobile API (lib/mobile/profile.ts) checks this before passing `db`. */
+export const SAVE_PROFILE_ACCEPTS_DB = true;
+
 /**
  * Validates the shared onboarding/settings fields, geocodes the ZIPs and writes holler_profiles
  * through the user's own RLS-scoped client.
  * Plan limits (lib/plan/limits.ts) are enforced here with field errors, and again by the database (migration 0004):
- *  - Starter and the free trial: 1 area, up to 5 trades, no keyword watches. Pro: 2 extra ZIPs, up to 15 trades, 5 keywords.
+ *  - Solo (`starter`) and the free trial: 1 area, up to 5 trades, no keyword watches. Pro: 2 extra ZIPs, up to 15 trades, 5 keywords.
  *  - Saved settings beyond the plan (after a downgrade) are kept: extra areas and keywords are only written on Pro, and an
  *    unchanged set of trades is written back exactly as saved, even when it is longer than the plan allows.
  * Pass `alertEmail` to also set the email toggle (settings only).
+ * Pass `db` to read and write with that client instead of the cookie client: the mobile API passes the member's own RLS client built
+ * from their bearer token, so RLS and the column grants apply exactly as on the web.
  */
 export async function saveProfile(
   userId: string,
   formData: FormData,
-  opts: { alertEmail?: boolean } = {},
+  opts: { alertEmail?: boolean; db?: Pick<SupabaseClient, 'from'> } = {},
 ): Promise<ProfileFormState> {
   const parsed = schema.safeParse({
     business_name: formData.get('business_name') ?? '',
@@ -113,12 +122,21 @@ export async function saveProfile(
     };
   }
 
-  const supabase = await createClient();
-  // The current row decides which plan's limits apply. '*' so a database without migration 0004 still saves (Starter limits).
+  const supabase = opts.db ?? (await createClient());
+  // The current row decides which plan's limits apply. '*' so a database without migration 0004 still saves (Solo limits).
   const { data: savedRow, error: readErr } = await supabase.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
   if (readErr) return { error: 'We could not save that. Try again in a moment.' };
   const saved = (savedRow ?? null) as Saved | null;
-  const tier = effectiveTier(saved ? { plan: saved.plan ?? null, subscription_status: saved.subscription_status ?? null } : null);
+  const tier = effectiveTier(
+    saved
+      ? {
+          plan: saved.plan ?? null,
+          subscription_status: saved.subscription_status ?? null,
+          plan_source: saved.plan_source ?? null,
+          store_expires_at: saved.store_expires_at ?? null,
+        }
+      : null,
+  );
   const limits = PLAN_LIMITS[tier];
 
   const valid = new Set<string>(CATEGORIES.map((c) => c.id));
@@ -173,7 +191,7 @@ export async function saveProfile(
     radius_mi: parsed.data.radius,
   };
   if (tier === 'pro') {
-    // Pro owns these fields on the form, so an empty list clears them. On Starter they are left out: saved extras stay saved.
+    // Pro owns these fields on the form, so an empty list clears them. On Solo they are left out: saved extras stay saved.
     row.extra_areas = extra.areas;
     row.keywords = kw.keywords;
   }

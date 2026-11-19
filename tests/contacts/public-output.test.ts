@@ -1,7 +1,9 @@
 /**
- * Public output unchanged. fixtures/public-before.json was generated from the git HEAD adapters (before any contact code existed) by
- * running parseAllFixtures() over every fixture in tests/fixtures. Now: the same projection (every SignalInput field except `contacts`)
- * must be byte-for-byte equal, and contacts must never leak into title, summary or data.
+ * Public output unchanged. fixtures/public-before.json is a committed snapshot: parseAllFixtures() over every fixture in tests/fixtures,
+ * first taken from the adapters before any contact code existed, and regenerated only for intended public changes (round 7: the permit
+ * mapping and data.cat_v, listed in the MATCH hand-back). The test reads that file only; it never runs git, so it works in any checkout,
+ * a copy without .git, or a worktree. Now: the same projection (every SignalInput field except `contacts`) must be byte-for-byte equal,
+ * and contacts must never leak into title, summary or data.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -14,11 +16,11 @@ import type { SignalInput } from '@/lib/signals/types';
 
 const before = JSON.parse(readFileSync(join(__dirname, 'fixtures/public-before.json'), 'utf8')) as Record<string, unknown[]>;
 
-describe('public fields equal the git HEAD output for every existing fixture', () => {
+describe('public fields equal the committed snapshot (fixtures/public-before.json) for every existing fixture', () => {
   const now = parseAllFixtures();
-  it('same fixtures, same item counts (101 items)', () => {
+  it('same fixtures, same item counts (102 items)', () => {
     expect(Object.keys(now).sort()).toEqual(Object.keys(before).sort());
-    expect(Object.values(now).reduce((n, v) => n + v.length, 0)).toBe(101);
+    expect(Object.values(now).reduce((n, v) => n + v.length, 0)).toBe(102);
   });
   for (const f of Object.keys(before)) {
     it(`${f}: title, summary, city, zip, lat/lon, data and every other public field unchanged`, () => expect(now[f]).toEqual(before[f]));

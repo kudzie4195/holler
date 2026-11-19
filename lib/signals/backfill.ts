@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
 import { matchScope, type ScopeArea } from '@/lib/plan';
+import { APPROX_LOCATION_SOURCES } from './approx-location';
+import { historyRow, upsertMatchRows } from './quiet-matches';
 
 export const BACKFILL_DAYS = 14;
 export const BACKFILL_CAP = 25;
@@ -27,7 +29,7 @@ interface SignalRow extends MatchSignal {
 
 const COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
 /** Keyword reads also need the text the phrase is matched against. */
-const KEYWORD_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+const KEYWORD_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
 /** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
 const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
@@ -173,6 +175,76 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
   return (data ?? []) as SignalRow[];
 }
 
+/** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
+export const BACKFILL_APPROX_LIMIT = 200;
+const APPROX_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+
+/**
+ * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a
+ * member within radius + 15 miles of their stand-in point (matchOne), which the radius read in SQL cannot see. Fail soft: [] on error.
+ */
+async function readApprox(db: Db, categories: string[], since: string, until: string, nowIso: string): Promise<SignalRow[]> {
+  if (!categories.length || APPROX_LOCATION_SOURCES.size === 0) return [];
+  try {
+    const { data, error } = await db
+      .from('holler_signals')
+      .select(APPROX_COLUMNS)
+      .in('source', [...APPROX_LOCATION_SOURCES])
+      .overlaps('categories', categories)
+      .gte('occurred_at', since)
+      .lte('occurred_at', until)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .order('occurred_at', { ascending: false })
+      .limit(BACKFILL_APPROX_LIMIT);
+    if (error) return [];
+    return (data ?? []) as SignalRow[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Keyword watches (Pro) on the approximate-location sources: the same radius + 15 miles rule as the scan (commander decision 4,
+ * verify-v1 finding 10). The plain lat/lon box of readKeywordsNear cannot see a Cobb row whose stand-in point is past the radius, so these
+ * rows get their own read; matchOne then applies the reach and stores no distance. Fail soft: [] on error.
+ */
+async function readApproxKeywords(db: Db, keywords: string[], since: string, until: string, nowIso: string): Promise<SignalRow[]> {
+  const filter = keywordOrFilter(keywords);
+  if (!filter || APPROX_LOCATION_SOURCES.size === 0) return [];
+  try {
+    const { data, error } = await db
+      .from('holler_signals')
+      .select(KEYWORD_COLUMNS)
+      .in('source', [...APPROX_LOCATION_SOURCES])
+      .gte('occurred_at', since)
+      .lte('occurred_at', until)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .or(filter)
+      .order('occurred_at', { ascending: false })
+      .limit(BACKFILL_APPROX_LIMIT);
+    if (error) return [];
+    return (data ?? []) as SignalRow[];
+  } catch {
+    return [];
+  }
+}
+
+/** Signal ids (out of `ids`) this user already has a match for. Empty set on any failure (fail soft: the upsert still ignores repeats). */
+async function existingMatchIds(db: Db, userId: string, ids: number[]): Promise<Set<number>> {
+  const out = new Set<number>();
+  if (!userId || ids.length === 0) return out;
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await db.from('holler_matches').select('signal_id').eq('user_id', userId).in('signal_id', ids.slice(i, i + 200));
+      if (error) return new Set();
+      for (const r of (data ?? []) as { signal_id: number }[]) out.add(r.signal_id);
+    }
+  } catch {
+    return new Set();
+  }
+  return out;
+}
+
 export interface BackfillResult {
   /** Rows sent to the upsert (existing matches are ignored by the database, so this is an upper bound). */
   matched: number;
@@ -182,7 +254,8 @@ export interface BackfillResult {
 
 /**
  * Gives a new or re-targeted profile a filled feed: the most severe, then newest, unexpired signals of the last
- * 14 days that match, capped at 25. Rows are inserted notified = true so the first email never dumps old items.
+ * 14 days that match, capped at 25. Rows are inserted notified = true and pushed_at = now so the first email and the first push never
+ * dump old items (retried without pushed_at before migration 0020).
  * Idempotent (upsert, ignore duplicates). Never throws: failures are logged and reported in the result.
  */
 export async function backfillMatches(db: Db, profile: MatchProfile, now: Date = new Date()): Promise<BackfillResult> {
@@ -203,10 +276,12 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
         reads.push(readNear(db, at, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }));
       }
       for (const st of states) reads.push(readStateLevel(db, { state: st, categories: scope.categories }, since, until, nowIso));
+      reads.push(readApprox(db, scope.categories, since, until, nowIso));
     }
     if (scope.keywords.length) {
       for (const a of scope.areas) reads.push(readKeywordsNear(db, a, profile.radius_mi, scope.keywords, since, until, nowIso));
       for (const st of states) reads.push(readKeywordsState(db, st, scope.keywords, since, until, nowIso));
+      reads.push(readApproxKeywords(db, scope.keywords, since, until, nowIso));
     }
     const byId = new Map<number, SignalRow>();
     for (const r of (await Promise.all(reads)).flat()) if (!byId.has(r.id)) byId.set(r.id, r);
@@ -216,20 +291,19 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
       const m = matchOne(s, profile);
       if (m) hits.push({ s, distance_mi: m.distance_mi });
     }
+    // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
+    // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.
+    const have = await existingMatchIds(db, profile.user_id, hits.map((h) => h.s.id));
+    const fresh = have.size ? hits.filter((h) => !have.has(h.s.id)) : hits;
     // Most severe first, then newest (a future start ranks as now); new-business rows capped at 5, nearest first.
-    const picked = pickHits(hits, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
+    const picked = pickHits(fresh, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
     if (picked.length === 0) return { matched: 0, considered: rows.length };
 
-    const { error: upErr } = await db.from('holler_matches').upsert(
-      picked.map((h) => ({
-        user_id: profile.user_id,
-        signal_id: h.s.id,
-        distance_mi: h.distance_mi,
-        notified: true,
-      })),
-      { onConflict: 'user_id,signal_id', ignoreDuplicates: true },
+    // History, not news: notified and pushed_at set at insert, so neither the email digest nor a push counts these rows.
+    await upsertMatchRows(
+      db,
+      picked.map((h) => historyRow({ user_id: profile.user_id, signal_id: h.s.id, distance_mi: h.distance_mi }, now)),
     );
-    if (upErr) throw new Error(upErr.message);
     return { matched: picked.length, considered: rows.length };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

@@ -8,10 +8,13 @@ import { ProfileForm } from '@/components/profile-form';
 import { computeAccess } from '@/lib/auth/access';
 import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
-import { annualSavingsPercent, planChangeNote, priceLabel, renewalNote } from '@/lib/stripe/plans';
+import { annualSavingSentence, planChangeNote, priceLabel, renewalNote } from '@/lib/stripe/plans';
 import { DOWNGRADE_NOTE, effectiveTier, parseExtraAreas, parseKeywords, planLimitsLine, PLAN_LIMITS, TIER_NAMES, type Tier } from '@/lib/plan';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { readShadowStore } from '@/lib/storebilling/shadow';
+import { storeManaged } from '@/lib/storebilling/web';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { saveSettings } from './actions';
 
 export const metadata: Metadata = {
@@ -22,7 +25,24 @@ export default async function SettingsPage() {
   const { user, profile } = await requireProfile();
   const access = computeAccess(profile);
   const stripeReady = hasEnv('STRIPE_SECRET_KEY');
-  const tier = effectiveTier({ plan: profile.plan ?? null, subscription_status: profile.subscription_status });
+  const tier = effectiveTier({
+    plan: profile.plan ?? null,
+    subscription_status: profile.subscription_status,
+    plan_source: profile.plan_source ?? null,
+    store_expires_at: profile.store_expires_at ?? null,
+  });
+  // Paid through the App Store or Google Play (migration 0020): no Stripe checkout, plan switch or portal here.
+  const store = storeManaged(profile);
+  // A double payer (live plan billed by Stripe) may also have an App Store or Google Play plan running: deleting does not cancel it.
+  let shadowStore: 'apple' | 'google' | null = null;
+  if (!store) {
+    try {
+      shadowStore = await readShadowStore(createAdminClient(), user.id);
+    } catch {
+      shadowStore = null;
+    }
+  }
+  const deleteStoreName = store?.storeName ?? (shadowStore === 'apple' ? 'the App Store' : shadowStore === 'google' ? 'Google Play' : null);
 
   return (
     <>
@@ -57,6 +77,17 @@ export default async function SettingsPage() {
       <section aria-labelledby="billing-h" className="mt-12">
         <h2 id="billing-h" className="scroll-mt-24 text-2xl text-ink">Billing</h2>
         <Card className="mt-4">
+          {store ? (
+            <div className="flex flex-col gap-3">
+              <p>
+                Your plan: <strong className="font-semibold">{TIER_NAMES[tier]}</strong>. {planLimitsLine(tier)}.
+              </p>
+              <p className="text-muted">{store.line}</p>
+              <a href={store.manageUrl} className="font-medium text-accent-text underline" rel="noopener" target="_blank">
+                Manage it in {store.storeName}
+              </a>
+            </div>
+          ) : (
           <BillingBlock
             status={access.status}
             daysLeft={access.daysLeft}
@@ -65,6 +96,7 @@ export default async function SettingsPage() {
             tier={tier}
             savedPro={profile.plan === 'pro'}
           />
+          )}
         </Card>
       </section>
 
@@ -79,6 +111,9 @@ export default async function SettingsPage() {
           <div className="border-t border-line pt-6">
             <h3 className="text-lg font-semibold text-ink">Delete account</h3>
             <p className="mb-4 mt-1 text-muted">Deletes your Holler profile, alerts and billing. Your sign-in is shared with other apps we run, so it stays.</p>
+            {deleteStoreName ? (
+              <p className="mb-4 text-muted">Deleting your account does not cancel your plan in {deleteStoreName}. Cancel it there first.</p>
+            ) : null}
             <DeleteAccount />
           </div>
         </Card>
@@ -127,23 +162,23 @@ function BillingBlock({
         {tier === 'starter' ? (
           <div className="flex flex-col gap-3 border-t border-line pt-5">
             <p>
-              <strong className="font-semibold">Pro</strong> is <PlanLine tier="pro" />. It adds {PLAN_LIMITS.pro.extraAreas} more ZIP codes, up
+              <strong className="font-semibold">{TIER_NAMES.pro}</strong> is <PlanLine tier="pro" />. It adds {PLAN_LIMITS.pro.extraAreas} more ZIP codes, up
               to {PLAN_LIMITS.pro.trades} trades and {PLAN_LIMITS.pro.keywords} keyword watches. You keep paying monthly or yearly as you do
               now. Moving up charges your card today for the price difference over the days left in your billing period. If that charge
               fails, nothing changes.
             </p>
             <PlanChangeButton tier="pro" note={planChangeNote('pro')}>
-              Move to Pro
+              Move to {TIER_NAMES.pro}
             </PlanChangeButton>
           </div>
         ) : (
           <div className="flex flex-col gap-3 border-t border-line pt-5">
             <p>
-              <strong className="font-semibold">Starter</strong> is <PlanLine tier="starter" />. {DOWNGRADE_NOTE} The unused part of Pro
+              <strong className="font-semibold">{TIER_NAMES.starter}</strong> is <PlanLine tier="starter" />. {DOWNGRADE_NOTE} The unused part of {TIER_NAMES.pro}
               becomes a credit on your next bill.
             </p>
             <PlanChangeButton tier="starter" variant="secondary" note={planChangeNote('starter')}>
-              Move to Starter
+              Move to {TIER_NAMES.starter}
             </PlanChangeButton>
           </div>
         )}
@@ -178,7 +213,7 @@ function BillingBlock({
     <div className="flex flex-col gap-5">
       <p>
         <strong className="font-semibold">{headline}</strong>{' '}
-        {status === 'canceled' ? 'Pick a plan to turn alerts back on.' : 'The trial uses Starter limits. Pick a plan to keep alerts.'} Cancel
+        {status === 'canceled' ? 'Pick a plan to turn alerts back on.' : `The trial uses ${TIER_NAMES.starter} limits. Pick a plan to keep alerts.`} Cancel
         any time.
       </p>
       {savedPro ? <p className="text-sm text-muted">Your saved Pro settings are still here. Pick Pro to use them again.</p> : null}
@@ -188,7 +223,7 @@ function BillingBlock({
           <div key={t} className="flex flex-col gap-3 rounded-card border border-line p-4">
             <h3 className="text-lg font-semibold text-ink">{TIER_NAMES[t]}</h3>
             <p className="text-sm text-muted">
-              <PlanLine tier={t} />. {planLimitsLine(t)}.
+              <PlanLine tier={t} />. {annualSavingSentence(t)} {planLimitsLine(t)}.
             </p>
             {stripeReady ? (
               <div className="flex flex-col gap-2">
@@ -202,7 +237,7 @@ function BillingBlock({
                   variant="secondary"
                   note={renewalNote(t, 'annual', { inTrial: !trialEnded })}
                 >
-                  {priceLabel(t, 'annual')} a year, save {annualSavingsPercent(t)}%
+                  {priceLabel(t, 'annual')} a year
                 </BillingButton>
               </div>
             ) : null}

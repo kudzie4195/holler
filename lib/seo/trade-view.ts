@@ -2,11 +2,15 @@ import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { TRADE_SIGNALS } from '@/lib/signals/capabilities';
 import type { CategoryId } from '@/lib/signals/categories';
 import { hasEnv, type EnvKey } from '@/lib/env';
+import { FROM_MONTHLY, FROM_YEARLY } from '@/lib/plan/price-copy';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
 import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive, tradeComingSoon } from './signal-types';
+import { TRIAL_DAYS, TRIAL_DAYS_FREE, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { TIER_NAMES } from '@/lib/plan/limits';
+import { priceDecimal } from '@/lib/stripe/plans';
 
-export const TRADE_PRICE_LINE = 'From $5 a month or $48 a year, with 7 days free and no card to start.';
+export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with ${TRIAL_DAYS_FREE} and no card to start.`;
 
 export const HOW_IT_WORKS: string[] = [
   'Pick what you do. Add your ZIP and how far you will drive, from 5 to 100 miles.',
@@ -141,8 +145,8 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
       a: comingSoon
-        ? 'Plans start at $5 a month or $48 a year, with a 7-day free trial and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.'
-        : 'Plans start at $5 a month or $48 a year, and the first 7 days are free with no card needed to start, so you can see real alerts for your area before you pay anything.',
+        ? `Plans start at ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.`
+        : `Plans start at ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, and the first ${TRIAL_DAYS} days are free with no card needed to start, so you can see real alerts for your area before you pay anything.`,
     },
     {
       q: 'Does Holler post or contact anyone for me?',
@@ -163,8 +167,9 @@ export function serviceLd(t: TradeEntry): Record<string, unknown> {
     provider: { '@type': 'Organization', name: 'Holler', url: absoluteUrl('/') },
     areaServed: { '@type': 'Country', name: 'United States' },
     offers: [
-      { '@type': 'Offer', price: '5', priceCurrency: 'USD', description: 'Monthly plan, 7 days free' },
-      { '@type': 'Offer', price: '48', priceCurrency: 'USD', description: 'Annual plan, 7 days free' },
+      // Offer prices and names from lib/stripe/plans.ts (cheapest plan), never typed.
+      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} monthly`, price: priceDecimal('starter', 'monthly'), priceCurrency: 'USD', description: `Monthly plan, ${TRIAL_DAYS_FREE}` },
+      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} yearly`, price: priceDecimal('starter', 'annual'), priceCurrency: 'USD', description: `Annual plan, ${TRIAL_DAYS_FREE}` },
     ],
   };
 }

@@ -3,17 +3,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sent: Record<string, unknown>[] = [];
+const sentOptions: unknown[] = [];
+type StubReply = { data: { id: string } | null; error: { message: string; statusCode: number | null; name: string } | null };
+let nextReply: (() => StubReply | Promise<StubReply>) | null = null;
 
 async function load(env: Record<string, string>) {
   vi.resetModules();
   sent.length = 0;
+  sentOptions.length = 0;
+  nextReply = null;
   for (const k of ['RESEND_API_KEY', 'EMAIL_FROM', 'SUPPORT_EMAIL', 'ADMIN_EMAIL']) vi.stubEnv(k, env[k] ?? '');
   vi.doMock('resend', () => ({
     Resend: class {
       emails = {
-        send: async (p: Record<string, unknown>) => {
+        send: async (p: Record<string, unknown>, options?: unknown) => {
           sent.push(p);
-          return { data: { id: 'em_1' }, error: null };
+          sentOptions.push(options);
+          return nextReply ? nextReply() : { data: { id: 'em_1' }, error: null };
         },
       };
     },
@@ -52,6 +58,35 @@ describe('sendEmail', () => {
     const { sendEmail } = await load({ RESEND_API_KEY: 're_x', EMAIL_FROM: 'Holler <alerts@mail.x.com>' });
     await sendEmail(msg);
     expect(sent[0]).not.toHaveProperty('replyTo');
+  });
+
+  // Round 7 review r4 (lifecycle at most once): the idempotency key reaches Resend, and only a clean 4xx refusal says notSent.
+  it('passes idempotencyKey to Resend as its request option, and sends none when the caller gives none', async () => {
+    const { sendEmail } = await load({ RESEND_API_KEY: 're_x', EMAIL_FROM: 'Holler <alerts@mail.x.com>' });
+    await sendEmail({ ...msg, idempotencyKey: 'lifecycle:u1:welcome' });
+    await sendEmail(msg);
+    expect(sentOptions[0]).toEqual({ idempotencyKey: 'lifecycle:u1:welcome' });
+    expect(sentOptions[1]).toBeUndefined();
+    expect(sent[0]).not.toHaveProperty('idempotencyKey');
+  });
+
+  it('a clean 4xx refusal is notSent; 409, 5xx, no status and a thrown call are ambiguous', async () => {
+    const { sendEmail } = await load({ RESEND_API_KEY: 're_x', EMAIL_FROM: 'Holler <alerts@mail.x.com>' });
+    const fail = (statusCode: number | null) => () => ({ data: null, error: { message: `e${statusCode}`, statusCode, name: 'x' } });
+    for (const code of [400, 403, 422, 429]) {
+      nextReply = fail(code);
+      expect(await sendEmail(msg)).toEqual({ ok: false, error: `e${code}`, notSent: true });
+    }
+    for (const code of [409, 500, 503, null]) {
+      nextReply = fail(code);
+      expect(await sendEmail(msg)).toEqual({ ok: false, error: `e${code}`, notSent: false });
+    }
+    nextReply = () => {
+      throw new Error('socket hang up');
+    };
+    const thrown = await sendEmail(msg);
+    expect(thrown).toEqual({ ok: false, error: 'socket hang up' });
+    expect(thrown).not.toHaveProperty('notSent');
   });
 
   it('has no DEFAULT_FROM left to leak', async () => {

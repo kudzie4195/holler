@@ -1,8 +1,9 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts } from '@/lib/contacts/extract';
-import { permitTitle, permitTypeFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
-import type { CategoryId } from '@/lib/signals/categories';
-import { INSPECTION_ID_RE, categorize, inspectionPublicText, inspectionTitle, privatePosition, publicAddress } from './socrata';
+import { civicLabel, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { permitTitleFor } from '@/lib/signals/mapping/permit';
+import { CAT_V } from '@/lib/signals/mapping/version';
+import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 
 const LIMIT = 500;
@@ -114,21 +115,19 @@ function position(f: { attributes: Attrs; geometry?: unknown }, ds: ArcgisDatase
   return null;
 }
 
-function title(ds: ArcgisDataset, a: Attrs, titleBitsRaw: string[], summaryBits: string[], address: string, categories: CategoryId[], text: string): string {
-  // Free-text columns can hold names and phone numbers: titles never copy them raw.
-  if (ds.subtype === 'permit') {
-    return permitTitle(ds.city, permitTypeFields(ds.titleFields).map((f) => str(a, f)).filter(Boolean), categories, text);
-  }
+function title(ds: ArcgisDataset, titleBitsRaw: string[], summaryBits: string[], address: string, categories: readonly string[] = [], withheld = false): string {
+  // Free-text columns can hold names and phone numbers: titles never copy them raw. Permit titles come from lib/signals/mapping/permit.ts.
+  // A 311 or violation title whose own text was withheld (socrata.ts printableValues) uses fixed words for its trades.
   const titleBits = ds.subtype === 'business' ? titleBitsRaw : titleBitsRaw.map(scrubText).filter(Boolean);
   switch (ds.subtype) {
     case '311':
-      return `311 request in ${ds.city}: ${trunc([...new Set(titleBits)].join(' / ') || 'service request', 110)}`;
+      return `311 request in ${ds.city}: ${trunc([...new Set(titleBits)].join(' / ') || (withheld ? civicLabel(categories, 'service request') : 'service request'), 110)}`;
     case 'business':
       return titleBits[0]
         ? `New business in ${ds.city}: ${trunc(titleBits[0], 100)}`
         : `New business license in ${ds.city}: ${trunc(summaryBits[0] ?? 'business', 100)}`;
     case 'violation':
-      return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? 'property violation', 110)}`;
+      return `Code violation in ${ds.city}: ${trunc(titleBits[0] ?? (withheld ? civicLabel(categories, 'property violation') : 'property violation'), 110)}`;
     case 'event-permit':
       return `Permitted event in ${ds.city}: ${trunc(titleBits[0] ?? 'special event', 80)}${address ? ` at ${trunc(address, 60)}` : ''}`;
     default:
@@ -166,7 +165,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       report.shapeOk += 1;
       if (seen.has(externalId)) continue;
 
-      const { categories, severity } = categorize(ds, text);
+      const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (x) => str(a, x)) : null;
+      const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
       if (categories.length === 0) continue;
 
       seen.add(externalId);
@@ -183,14 +183,18 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         summary = pub.summary;
         zip = pub.zip;
       } else {
-        const titleBits = ds.titleFields.map((x) => str(a, x)).filter(Boolean);
+        const titlePrint = printableValues(ds, ds.titleFields, (x) => str(a, x));
+        const titleBits = titlePrint.values;
         const rawAddress = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
-        const summaryBits = ds.summaryFields.map((x) => summaryPart(x, str(a, x))).filter(Boolean);
+        const summaryBits = ds.summaryFields
+          .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
+          .map((x) => summaryPart(x, str(a, x)))
+          .filter(Boolean);
         // Business rows never carry a street address (home addresses of sole proprietors).
         const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
         const parts = [...new Set(summaryBits)];
         if (address && ds.subtype !== '311') parts.push(address);
-        itemTitle = title(ds, a, titleBits, summaryBits, address, categories, text);
+        itemTitle = permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
         summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
@@ -212,6 +216,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         data: {
           layer: ds.layerUrl,
           subtype: ds.subtype,
+          cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
         },
         ...(contacts.length ? { contacts } : {}),

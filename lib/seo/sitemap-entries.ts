@@ -72,6 +72,7 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; 
     entry('/data', 'daily', 0.6),
     entry('/pricing', 'monthly', 0.7),
     entry('/request', 'monthly', 0.5),
+    entry('/delete-account', 'monthly', 0.1),
   ];
   // A guide's lastmod is its own reviewed date, a constant in the guide data. The other new pages have no stored change time, so none is given.
   for (const g of GUIDES) entries.push(entry(guidePath(g.slug), 'monthly', 0.7, toDate(g.lastReviewed)));

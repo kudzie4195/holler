@@ -1,5 +1,6 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
+import { approxReachMi, hasApproxLocation } from './approx-location';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -37,7 +38,9 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown } | null;
+  /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
+  source?: string | null;
   /** Needed for keyword watches only: a record without them can still match by trade. */
   title?: string | null;
   summary?: string | null;
@@ -59,6 +62,8 @@ const MI_PER_DEG_LAT_FLOOR = 69;
 /**
  * Decide whether one signal matches one profile, inside the limits of the profile's current plan (see lib/plan matchScope).
  * - records with coordinates need an allowed area with coordinates within radius_mi; the distance is to the nearest such area
+ * - records whose coordinates are a stand-in (approximate location, Cobb County) need an area within radius_mi + 15 miles of the
+ *   stand-in, and carry no distance (null)
  * - records without coordinates match only an allowed area in the same state, and only at severity >= 2
  * - then the record must share a trade with the profile's allowed trades, OR (Pro) its title or summary contains one of the
  *   keyword watches as a whole phrase, any case, accents ignored; a keyword match does not need a shared trade
@@ -71,7 +76,10 @@ export function matchOne(signal: MatchSignal, profile: MatchProfile): { distance
 
 function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
   if (hasCoords(signal.lat, signal.lon)) {
-    const radius = profile.radius_mi;
+    // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
+    // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.
+    const approx = hasApproxLocation(signal);
+    const radius = approx ? approxReachMi(profile.radius_mi) : profile.radius_mi;
     let best = Infinity;
     for (const a of scope.areas) {
       if (!hasCoords(a.lat, a.lon)) continue;
@@ -80,7 +88,7 @@ function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope
       if (d < best) best = d;
     }
     if (!(best <= radius)) return null;
-    return { distance_mi: Math.round(best * 10) / 10 };
+    return { distance_mi: approx ? null : Math.round(best * 10) / 10 };
   }
 
   if (signal.severity < STATE_LEVEL_MIN_SEVERITY) return null;

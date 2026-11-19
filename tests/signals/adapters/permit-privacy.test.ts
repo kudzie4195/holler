@@ -46,7 +46,7 @@ const CASES: Case[] = [
   {
     id: 'socrata-sf-permits',
     row: { permit_number: 'SF1', issued_date: D, description: 'replace three windows front facade house size for size with jeld-wen premium wood clad, 0.28 u-factor. same as existing', permit_type_definition: 'otc alterations permit' },
-    titleRe: /^Window and door permit in San Francisco$/,
+    titleRe: /^Window permit in San Francisco$/,
   },
   {
     id: 'socrata-chicago-permits',
@@ -70,7 +70,7 @@ describe('real live-run examples never leak names or phones', () => {
       expect(s.title.length).toBeLessThanOrEqual(60);
       for (const w of FORBIDDEN) expect(stored(s)).not.toContain(w);
       expect(s.title).not.toMatch(/New permit in/);
-      expect(Object.keys(s.data ?? {}).sort()).toEqual(['dataset', 'domain', 'subtype']);
+      expect(Object.keys(s.data ?? {}).sort()).toEqual(['cat_v', 'dataset', 'domain', 'subtype']);
       if (s.summary) expect(s.summary.length).toBeLessThanOrEqual(140);
     });
   });

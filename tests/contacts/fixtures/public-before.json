@@ -13,14 +13,14 @@
    "state": "DC",
    "zip": "20003",
    "categories": [
-    "plumbing",
-    "general-contractor"
+    "plumbing"
    ],
    "severity": 1,
    "occurredAt": "2026-11-10T05:00:00.000Z",
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -42,14 +42,15 @@
    "occurredAt": "2026-11-12T05:00:00.000Z",
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
    "source": "arcgis-dc-permits",
    "externalId": "B2603377",
    "kind": "permit",
-   "title": "Fence permit in Washington",
+   "title": "Fence and porch permit in Washington",
    "summary": "CONSTRUCTION | 300 SAMPLE PL NE",
    "url": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
    "lat": 38.90079237297229,
@@ -65,7 +66,8 @@
    "occurredAt": "2026-11-10T05:00:00.000Z",
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -89,14 +91,15 @@
    "occurredAt": "2026-11-13T16:40:29.000Z",
    "data": {
     "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
    "source": "arcgis-dekalb-permits",
    "externalId": "BC-2026-3003",
    "kind": "permit",
-   "title": "Building permit in DeKalb County",
+   "title": "New construction permit in DeKalb County",
    "summary": "New Construction | Single Family Dwelling | Issued | 12 Example Ln",
    "url": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
    "lat": 33.829367376645166,
@@ -105,15 +108,14 @@
    "state": "GA",
    "zip": null,
    "categories": [
-    "general-contractor",
-    "landscaping",
-    "cleaning"
+    "general-contractor"
    ],
    "severity": 1,
    "occurredAt": "2026-11-13T15:24:39.000Z",
    "data": {
     "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -122,7 +124,7 @@
    "source": "arcgis-mecklenburg-permits",
    "externalId": "COM-UPF-25-000303",
    "kind": "permit",
-   "title": "HVAC permit in Mecklenburg County",
+   "title": "HVAC and electrical permit in Mecklenburg County",
    "summary": "Commercial Upfit | Upfit | 100 N Tryon St",
    "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
    "lat": 35.199946106195,
@@ -138,14 +140,15 @@
    "occurredAt": "2026-11-05T05:00:00.000Z",
    "data": {
     "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
    "source": "arcgis-mecklenburg-permits",
    "externalId": "COM-NEW-25-000090",
    "kind": "permit",
-   "title": "Building permit in Mecklenburg County",
+   "title": "New construction permit in Mecklenburg County",
    "summary": "Commercial New Construction | New | 9000 Example Pkwy",
    "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
    "lat": 35.44060695682921,
@@ -154,15 +157,14 @@
    "state": "NC",
    "zip": null,
    "categories": [
-    "general-contractor",
-    "landscaping",
-    "cleaning"
+    "general-contractor"
    ],
    "severity": 1,
    "occurredAt": "2026-11-02T05:00:00.000Z",
    "data": {
     "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -171,7 +173,7 @@
    "source": "arcgis-raleigh-permits",
    "externalId": "BLDNR-009646-2026",
    "kind": "permit",
-   "title": "Roof permit in Raleigh",
+   "title": "HVAC and tenant fit-out permit in Raleigh",
    "summary": "Building | Tenant Upfit | $250,000 job value | 7320 Example Rd",
    "url": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
    "lat": 35.75872458736161,
@@ -180,14 +182,15 @@
    "state": "NC",
    "zip": "27616",
    "categories": [
-    "roofing",
-    "hvac"
+    "hvac",
+    "general-contractor"
    ],
    "severity": 1,
    "occurredAt": "2026-11-12T20:29:12.237Z",
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -204,8 +207,6 @@
    "zip": null,
    "categories": [
     "general-contractor",
-    "landscaping",
-    "cleaning",
     "real-estate",
     "moving"
    ],
@@ -213,14 +214,15 @@
    "occurredAt": "2026-11-10T23:58:16.570Z",
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
    "source": "arcgis-raleigh-permits",
    "externalId": "BLDNR-033823-2025",
    "kind": "permit",
-   "title": "Pool permit in Raleigh",
+   "title": "Pool and tenant fit-out permit in Raleigh",
    "summary": "Building | Tenant Upfit",
    "url": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
    "lat": 35.83036528431777,
@@ -236,7 +238,8 @@
    "occurredAt": "2026-11-10T18:31:25.723Z",
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -263,7 +266,8 @@
    "data": {
     "dataset": "ecmv-9xxi",
     "domain": "data.austintexas.gov",
-    "subtype": "inspection"
+    "subtype": "inspection",
+    "cat_v": 2
    }
   }
  ],
@@ -272,8 +276,8 @@
    "source": "socrata-austin-violations",
    "externalId": "2026-501001",
    "kind": "civic",
-   "title": "Code violation in Austin: Property Abatement",
-   "summary": "Property Abatement | Open | 1500 block of E 12TH ST",
+   "title": "Code violation in Austin: trash or debris and overgrown yard",
+   "summary": "Open | 1500 block of E 12TH ST",
    "url": "https://data.austintexas.gov/d/6wtj-zbtb",
    "lat": 30.27,
    "lon": -97.72,
@@ -290,7 +294,8 @@
    "data": {
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   }
  ],
@@ -299,8 +304,8 @@
    "source": "socrata-austin-violations",
    "externalId": "2026-401001",
    "kind": "civic",
-   "title": "Code violation in Austin: Property Abatement",
-   "summary": "Property Abatement | Open | 1500 block of E 12TH ST",
+   "title": "Code violation in Austin: trash or debris and overgrown yard",
+   "summary": "Open | 1500 block of E 12TH ST",
    "url": "https://data.austintexas.gov/d/6wtj-zbtb",
    "lat": 30.275,
    "lon": -97.723,
@@ -317,15 +322,16 @@
    "data": {
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   },
   {
    "source": "socrata-austin-violations",
    "externalId": "2026-401002",
    "kind": "civic",
-   "title": "Code violation in Austin: Structure Condition Violation(s)",
-   "summary": "Structure Condition Violation(s) | Open | 900 block of W 6TH ST",
+   "title": "Code violation in Austin: building condition",
+   "summary": "Open | 900 block of W 6TH ST",
    "url": "https://data.austintexas.gov/d/6wtj-zbtb",
    "lat": 30.27,
    "lon": -97.755,
@@ -341,15 +347,16 @@
    "data": {
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   },
   {
    "source": "socrata-austin-violations",
    "externalId": "2026-401004",
    "kind": "civic",
-   "title": "Code violation in Austin: Work Without Permit",
-   "summary": "Work Without Permit | Open | 300 block of EXAMPLE LN",
+   "title": "Code violation in Austin: building condition",
+   "summary": "Open | 300 block of EXAMPLE LN",
    "url": "https://data.austintexas.gov/d/6wtj-zbtb",
    "lat": 30.23,
    "lon": -97.74,
@@ -365,7 +372,8 @@
    "data": {
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   }
  ],
@@ -374,7 +382,7 @@
    "source": "socrata-buffalo-permits",
    "externalId": "BF-26-7001",
    "kind": "permit",
-   "title": "Fence permit in Buffalo",
+   "title": "Fence and concrete permit in Buffalo",
    "summary": "FENDRIVE | $6,500 job value | ELMWOOD AVE",
    "url": "https://data.buffalony.gov/d/9p2d-f3yt",
    "lat": 42.9,
@@ -384,15 +392,15 @@
    "zip": "14222",
    "categories": [
     "fencing",
-    "concrete-paving",
-    "general-contractor"
+    "concrete-paving"
    ],
    "severity": 1,
    "occurredAt": "2026-11-13T05:00:00.000Z",
    "data": {
     "dataset": "9p2d-f3yt",
     "domain": "data.buffalony.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -415,7 +423,8 @@
    "data": {
     "dataset": "9p2d-f3yt",
     "domain": "data.buffalony.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -440,7 +449,8 @@
    "data": {
     "dataset": "2z9k-mv9g",
     "domain": "data.cambridgema.gov",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
@@ -463,7 +473,8 @@
    "data": {
     "dataset": "2z9k-mv9g",
     "domain": "data.cambridgema.gov",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -488,7 +499,8 @@
    "data": {
     "dataset": "3wsm-e5jx",
     "domain": "data.cambridgema.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -511,7 +523,8 @@
    "data": {
     "dataset": "3wsm-e5jx",
     "domain": "data.cambridgema.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -536,7 +549,8 @@
    "data": {
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
@@ -560,7 +574,8 @@
    "data": {
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
@@ -583,7 +598,8 @@
    "data": {
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -614,7 +630,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -643,7 +660,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -672,7 +690,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -705,7 +724,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -734,7 +754,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -763,7 +784,8 @@
    "data": {
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -794,6 +816,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -825,6 +848,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   },
@@ -854,6 +878,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -881,7 +906,8 @@
    "data": {
     "dataset": "4ijn-s7e5",
     "domain": "data.cityofchicago.org",
-    "subtype": "inspection"
+    "subtype": "inspection",
+    "cat_v": 2
    }
   }
  ],
@@ -899,15 +925,15 @@
    "state": "IL",
    "zip": null,
    "categories": [
-    "roofing",
-    "general-contractor"
+    "roofing"
    ],
    "severity": 1,
    "occurredAt": "2026-11-12T06:00:00.000Z",
    "data": {
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -930,14 +956,15 @@
    "data": {
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
    "source": "socrata-chicago-permits",
    "externalId": "101234569",
    "kind": "permit",
-   "title": "Building permit in Chicago",
+   "title": "New construction permit in Chicago",
    "summary": "PERMIT - NEW CONSTRUCTION | $1,250,000 job value | 3300 S WENTWORTH",
    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
    "lat": 41.833,
@@ -946,16 +973,15 @@
    "state": "IL",
    "zip": null,
    "categories": [
-    "general-contractor",
-    "landscaping",
-    "cleaning"
+    "general-contractor"
    ],
    "severity": 1,
    "occurredAt": "2026-11-11T06:00:00.000Z",
    "data": {
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -978,7 +1004,8 @@
    "data": {
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -1004,7 +1031,8 @@
    "data": {
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   },
   {
@@ -1027,7 +1055,8 @@
    "data": {
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   }
  ],
@@ -1053,7 +1082,8 @@
    "data": {
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   },
   {
@@ -1077,7 +1107,8 @@
    "data": {
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   },
   {
@@ -1101,7 +1132,8 @@
    "data": {
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
-    "subtype": "violation"
+    "subtype": "violation",
+    "cat_v": 2
    }
   }
  ],
@@ -1119,8 +1151,7 @@
    "state": "OH",
    "zip": null,
    "categories": [
-    "roofing",
-    "general-contractor"
+    "roofing"
    ],
    "severity": 1,
    "occurredAt": "2026-11-14T05:00:00.000Z",
@@ -1128,6 +1159,7 @@
     "dataset": "thvx-5mem",
     "domain": "data.cincinnati-oh.gov",
     "subtype": "permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -1153,7 +1185,8 @@
    "data": {
     "dataset": "d7e7-envw",
     "domain": "www.dallasopendata.com",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -1178,7 +1211,8 @@
    "data": {
     "dataset": "d4px-6rwg",
     "domain": "data.kcmo.org",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
@@ -1204,7 +1238,8 @@
    "data": {
     "dataset": "d4px-6rwg",
     "domain": "data.kcmo.org",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -1235,7 +1270,8 @@
    "data": {
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1264,7 +1300,8 @@
    "data": {
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -1297,7 +1334,8 @@
    "data": {
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1326,7 +1364,8 @@
    "data": {
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -1335,7 +1374,7 @@
    "source": "socrata-montgomery-permits",
    "externalId": "1001234",
    "kind": "permit",
-   "title": "Roof permit in Montgomery County",
+   "title": "Window and siding permit in Montgomery County",
    "summary": "ALTER | $22,000 job value | Issued | 4500 MAIN ST",
    "url": "https://data.montgomerycountymd.gov/d/m88u-pqki",
    "lat": 38.9847,
@@ -1345,15 +1384,15 @@
    "zip": "20814",
    "categories": [
     "windows-doors",
-    "siding-gutters",
-    "roofing"
+    "siding-gutters"
    ],
    "severity": 1,
    "occurredAt": "2026-10-28T15:10:54.000Z",
    "data": {
     "dataset": "m88u-pqki",
     "domain": "data.montgomerycountymd.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -1369,15 +1408,15 @@
    "state": "MD",
    "zip": null,
    "categories": [
-    "flooring",
-    "general-contractor"
+    "flooring"
    ],
    "severity": 1,
    "occurredAt": "2026-10-28T14:10:54.000Z",
    "data": {
     "dataset": "m88u-pqki",
     "domain": "data.montgomerycountymd.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -1386,7 +1425,7 @@
    "source": "socrata-nola-permits",
    "externalId": "26-12345-RNVN",
    "kind": "permit",
-   "title": "Roof permit in New Orleans",
+   "title": "Roof and siding permit in New Orleans",
    "summary": "Residential Renovation | Issued | $22,000 job value | 3500 Prytania St",
    "url": "https://data.nola.gov/d/rcm3-fn58",
    "lat": 29.934,
@@ -1396,15 +1435,15 @@
    "zip": null,
    "categories": [
     "roofing",
-    "siding-gutters",
-    "general-contractor"
+    "siding-gutters"
    ],
    "severity": 1,
    "occurredAt": "2026-11-13T06:00:00.000Z",
    "data": {
     "dataset": "rcm3-fn58",
     "domain": "data.nola.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -1413,7 +1452,7 @@
    "source": "socrata-norfolk-permits",
    "externalId": "BLD-26-1001",
    "kind": "permit",
-   "title": "Roof permit in Norfolk",
+   "title": "Roof and solar permit in Norfolk",
    "summary": "Building | Reroof/Solar Panels | $12,000 job value | 100 Granby St",
    "url": "https://data.norfolk.gov/d/fahm-yuh4",
    "lat": 36.85,
@@ -1430,7 +1469,8 @@
    "data": {
     "dataset": "fahm-yuh4",
     "domain": "data.norfolk.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -1453,7 +1493,8 @@
    "data": {
     "dataset": "fahm-yuh4",
     "domain": "data.norfolk.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -1479,7 +1520,8 @@
    "data": {
     "dataset": "erm2-nwe9",
     "domain": "data.cityofnewyork.us",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
@@ -1502,7 +1544,8 @@
    "data": {
     "dataset": "erm2-nwe9",
     "domain": "data.cityofnewyork.us",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -1533,7 +1576,8 @@
    "data": {
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1562,7 +1606,8 @@
    "data": {
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -1593,7 +1638,8 @@
    "data": {
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1623,6 +1669,7 @@
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
     "subtype": "business",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -1654,6 +1701,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -1685,6 +1733,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   },
@@ -1714,6 +1763,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
+    "cat_v": 2,
     "approxLocation": true
    }
   }
@@ -1741,7 +1791,8 @@
    "data": {
     "dataset": "43nn-pn8j",
     "domain": "data.cityofnewyork.us",
-    "subtype": "inspection"
+    "subtype": "inspection",
+    "cat_v": 2
    }
   }
  ],
@@ -1750,8 +1801,8 @@
    "source": "socrata-oakland-311",
    "externalId": "600001",
    "kind": "civic",
-   "title": "311 request in Oakland: ILLDUMP / Illegal dumping on sidewalk",
-   "summary": "ILLDUMP | Illegal dumping on sidewalk | Open",
+   "title": "311 request in Oakland: ILLDUMP",
+   "summary": "ILLDUMP | Open",
    "url": "https://data.oaklandca.gov/d/quth-gb8e",
    "lat": 37.76,
    "lon": -122.2,
@@ -1766,15 +1817,16 @@
    "data": {
     "dataset": "quth-gb8e",
     "domain": "data.oaklandca.gov",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   },
   {
    "source": "socrata-oakland-311",
    "externalId": "600002",
    "kind": "civic",
-   "title": "311 request in Oakland: BLDGMAINT / Building maintenance complaint",
-   "summary": "BLDGMAINT | Building maintenance complaint | Open",
+   "title": "311 request in Oakland: BLDGMAINT",
+   "summary": "BLDGMAINT | Open",
    "url": "https://data.oaklandca.gov/d/quth-gb8e",
    "lat": 37.8,
    "lon": -122.28,
@@ -1791,7 +1843,8 @@
    "data": {
     "dataset": "quth-gb8e",
     "domain": "data.oaklandca.gov",
-    "subtype": "311"
+    "subtype": "311",
+    "cat_v": 2
    }
   }
  ],
@@ -1822,7 +1875,8 @@
    "data": {
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1851,7 +1905,8 @@
    "data": {
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1880,7 +1935,8 @@
    "data": {
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -1913,7 +1969,8 @@
    "data": {
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -1942,7 +1999,8 @@
    "data": {
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -1960,15 +2018,15 @@
    "state": "FL",
    "zip": null,
    "categories": [
-    "roofing",
-    "general-contractor"
+    "roofing"
    ],
    "severity": 1,
    "occurredAt": "2026-11-16T05:00:00.000Z",
    "data": {
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -1984,7 +2042,30 @@
    "state": "FL",
    "zip": null,
    "categories": [
-    "fencing",
+    "fencing"
+   ],
+   "severity": 1,
+   "occurredAt": "2026-11-16T05:00:00.000Z",
+   "data": {
+    "dataset": "ryhf-m453",
+    "domain": "data.cityoforlando.net",
+    "subtype": "permit",
+    "cat_v": 2
+   }
+  },
+  {
+   "source": "socrata-orlando-permits",
+   "externalId": "ENG2026-10003",
+   "kind": "permit",
+   "title": "Site work permit in Orlando",
+   "summary": "Engineering | SFR | 9 Pine St",
+   "url": "https://data.cityoforlando.net/d/ryhf-m453",
+   "lat": 28.56,
+   "lon": -81.39,
+   "city": "Orlando",
+   "state": "FL",
+   "zip": null,
+   "categories": [
     "general-contractor"
    ],
    "severity": 1,
@@ -1992,7 +2073,8 @@
    "data": {
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],
@@ -2023,7 +2105,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2052,7 +2135,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2081,7 +2165,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2110,7 +2195,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2139,7 +2225,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2168,7 +2255,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2197,7 +2285,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2226,7 +2315,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2255,7 +2345,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2284,7 +2375,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2313,7 +2405,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2342,7 +2435,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2371,7 +2465,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2400,7 +2495,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2429,7 +2525,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2458,7 +2555,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2487,7 +2585,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -2518,7 +2617,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2547,7 +2647,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -2580,7 +2681,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   },
   {
@@ -2609,7 +2711,8 @@
    "data": {
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
-    "subtype": "business"
+    "subtype": "business",
+    "cat_v": 2
    }
   }
  ],
@@ -2634,7 +2737,8 @@
    "data": {
     "dataset": "i98e-djp9",
     "domain": "data.sf.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   },
   {
@@ -2657,7 +2761,8 @@
    "data": {
     "dataset": "i98e-djp9",
     "domain": "data.sf.gov",
-    "subtype": "permit"
+    "subtype": "permit",
+    "cat_v": 2
    }
   }
  ],

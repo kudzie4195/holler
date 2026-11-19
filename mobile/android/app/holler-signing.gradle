@@ -1,0 +1,58 @@
+// Release signing for Holler (applied from app/build.gradle).
+//
+// The upload key never lives in this repo. Its location and passwords come from four Gradle
+// properties in ~/.gradle/gradle.properties on the machine that builds the release:
+//
+//   HOLLER_UPLOAD_STORE_FILE=/Users/<you>/keys/holler-upload.jks   (a leading ~/ is expanded)
+//   HOLLER_UPLOAD_STORE_PASSWORD=...
+//   HOLLER_UPLOAD_KEY_ALIAS=holler-upload
+//   HOLLER_UPLOAD_KEY_PASSWORD=...
+//
+// Debug builds never need them. Any RELEASE task (bundleRelease, assembleRelease, ...) fails
+// before it starts when one is missing or the keystore file is not there, so an unsigned AAB
+// can never be produced by accident. Values are never printed, only property names.
+
+ext.hollerUploadPropertyNames = [
+    'HOLLER_UPLOAD_STORE_FILE',
+    'HOLLER_UPLOAD_STORE_PASSWORD',
+    'HOLLER_UPLOAD_KEY_ALIAS',
+    'HOLLER_UPLOAD_KEY_PASSWORD',
+]
+
+ext.hollerUploadValue = { String name ->
+    if (!project.hasProperty(name)) return null
+    def value = project.property(name)?.toString()?.trim()
+    return value ? value : null
+}
+
+ext.hollerUploadStoreFile = { ->
+    def raw = hollerUploadValue('HOLLER_UPLOAD_STORE_FILE')
+    if (raw == null) return null
+    if (raw.startsWith('~/')) raw = System.getProperty('user.home') + raw.substring(1)
+    return new File(raw)
+}
+
+ext.hollerSigningProblems = { ->
+    def problems = hollerUploadPropertyNames.findAll { hollerUploadValue(it) == null }.collect { "${it} is not set" }
+    def store = hollerUploadStoreFile()
+    if (store != null && !store.isFile()) problems << 'HOLLER_UPLOAD_STORE_FILE does not point to an existing file'
+    return problems
+}
+
+ext.hollerIsReleaseTask = { String taskName ->
+    def n = taskName.toLowerCase()
+    return n.contains('release') && (n.startsWith('bundle') || n.startsWith('assemble') || n.startsWith('package') || n.startsWith('sign') || n.startsWith('publish'))
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { it.project == project && hollerIsReleaseTask(it.name) }
+    if (!wantsRelease) return
+    def problems = hollerSigningProblems()
+    if (!problems.isEmpty()) {
+        throw new GradleException(
+            "Holler release signing is not set up, so this release build stops here.\n" +
+            problems.collect { "  - ${it}" }.join('\n') +
+            "\nAdd the four HOLLER_UPLOAD_* lines to ~/.gradle/gradle.properties (mobile/RELEASE.md, step A3)."
+        )
+    }
+}

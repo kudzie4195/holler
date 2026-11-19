@@ -13,6 +13,8 @@ import { fmtDate } from '@/lib/seo/view';
 import { JsonLd } from '../../../../_components/jsonld';
 import { SectionCard } from '../../../../_components/records';
 import { Crumbs, H1, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../../../_components/ui';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { cityCtaLabel } from '@/lib/plan/price-copy';
 
 // Any Monday in the current week and the 11 before it, for any city, renders on its first visit and is then cached (lib/seo/week-data.ts).
 // Cache Components needs at least one known param set to prerender the route shell, so the build prerenders one: the largest city, this
@@ -84,7 +86,7 @@ export default async function WeekPage({ params }: Props) {
   const h1 = `${place}: public records for the week of ${fmtDate(data.weekIso)}`;
   const summary = summaryOf(city, data);
   const ctaHref = `/signup?city=${encodeURIComponent(city.slug)}`;
-  const ctaLabel = `Get alerts for ${city.name} from $5/mo, first 7 days free`;
+  const ctaLabel = cityCtaLabel(city.name, TRIAL_DAYS);
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible

@@ -1,20 +1,26 @@
-import { isTier, TIER_NAMES, type Tier } from '@/lib/plan/limits';
+// Relative imports only: lib/plan/public-prices.ts (read by the mobile app and the store listings) imports this file, and that
+// build may not have the '@/' alias.
+import { isTier, TIER_NAMES, type Tier } from '../plan/limits';
 
-export type { Tier } from '@/lib/plan/limits';
+export type { Tier } from '../plan/limits';
 
 /** Billing interval. Named Plan for the existing checkout contract ({plan: 'monthly' | 'annual'}). */
 export type Plan = 'monthly' | 'annual';
 
 /**
- * THE price list, in cents. Every price shown anywhere (pricing cards, settings, the /pricing page, JSON-LD) is derived from this
- * table through formatUsd or is tested against it (tests/plan/pricing.test.ts).
+ * THE price list, in cents. Every price shown anywhere (pricing cards, settings, the /pricing page, JSON-LD, SEO copy, llms.txt,
+ * lib/plan/public-prices.ts for the apps) is derived from this table through formatUsd or is tested against it
+ * (tests/plan/pricing.test.ts, tests/plan/no-old-prices.test.ts).
+ * The key `starter` is the internal plan id (database, Stripe metadata, product id); its display name is TIER_NAMES.starter ("Solo").
+ * A change here reaches new checkouts and member-initiated plan switches only. Existing subscription items keep the amount they were
+ * created with: nothing in this repo re-prices them (tests/money/grandfathering.test.ts).
  */
 export const PRICES_CENTS: Record<Tier, Record<Plan, number>> = {
-  starter: { monthly: 500, annual: 4800 },
-  pro: { monthly: 999, annual: 9600 },
+  starter: { monthly: 799, annual: 7999 },
+  pro: { monthly: 1399, annual: 13999 },
 };
 
-/** Starter prices, kept under their old names for existing imports. */
+/** Solo (id `starter`) prices, kept under their old names for existing imports. */
 export const MONTHLY_PRICE_CENTS = PRICES_CENTS.starter.monthly;
 export const ANNUAL_PRICE_CENTS = PRICES_CENTS.starter.annual;
 
@@ -22,16 +28,51 @@ export function priceCents(tier: Tier, plan: Plan): number {
   return PRICES_CENTS[tier][plan];
 }
 
-/** Whole-percent saving of the yearly price against twelve monthly payments. Starter: (60 - 48) / 60 = 20. Pro: (119.88 - 96) / 119.88 = 20. */
+/** Whole-percent saving of the yearly price against twelve monthly payments, computed from PRICES_CENTS. */
 export function annualSavingsPercent(tier: Tier): number {
   const m = PRICES_CENTS[tier].monthly * 12;
   return Math.round(((m - PRICES_CENTS[tier].annual) / m) * 100);
 }
 
-/** Starter's saving, kept for existing imports. */
+/** Solo's saving, kept for existing imports. */
 export const ANNUAL_SAVINGS_PERCENT = annualSavingsPercent('starter');
 
-/** "$5", "$9.99", "$48", "$96": whole dollars drop the cents. */
+/** Cents saved by paying yearly instead of twelve monthly payments. */
+export function annualSavingsCents(tier: Tier): number {
+  return PRICES_CENTS[tier].monthly * 12 - PRICES_CENTS[tier].annual;
+}
+
+/** The yearly saving counted in monthly payments (Solo: 1589 / 799 = 1.99; Pro: 2789 / 1399 = 1.99). */
+export function annualMonthsSaved(tier: Tier): number {
+  return annualSavingsCents(tier) / PRICES_CENTS[tier].monthly;
+}
+
+/** How close the saving must be to a whole number of monthly payments before the copy may say "about N months free". */
+export const MONTHS_FREE_TOLERANCE = 0.05;
+
+/**
+ * THE annual saving phrase. "about 2 months free" only when the yearly saving is within MONTHS_FREE_TOLERANCE of a whole number
+ * (at least 1) of monthly payments. Otherwise "save N%", with N computed from the cents. Never a hand-typed number.
+ */
+export function annualSavingLabel(tier: Tier): string {
+  const whole = annualMonthsFree(tier);
+  if (whole !== null) return `about ${whole} ${whole === 1 ? 'month' : 'months'} free`;
+  return `save ${annualSavingsPercent(tier)}%`;
+}
+
+/** One sentence for next to a plan: "Paying yearly gets you about 2 months free." or "Paying yearly saves 17%." (both computed). */
+export function annualSavingSentence(tier: Tier): string {
+  return annualMonthsFree(tier) !== null ? `Paying yearly gets you ${annualSavingLabel(tier)}.` : `Paying yearly saves ${annualSavingsPercent(tier)}%.`;
+}
+
+/** The whole number of free months the yearly price is worth, or null when the math does not support "about N months free". */
+export function annualMonthsFree(tier: Tier): number | null {
+  const months = annualMonthsSaved(tier);
+  const whole = Math.round(months);
+  return whole >= 1 && Math.abs(months - whole) <= MONTHS_FREE_TOLERANCE ? whole : null;
+}
+
+/** "$7.99", "$79.99", "$13.99", "$139.99": whole dollars drop the cents ("$10"). */
 export function formatUsd(cents: number): string {
   const dollars = Math.floor(cents / 100);
   const rest = cents % 100;
@@ -62,7 +103,7 @@ export function planChangeNote(tier: Tier): string {
   return `${TIER_NAMES[tier]} is ${priceLabel(tier, 'monthly')} per month or ${priceLabel(tier, 'annual')} per year on your current billing period, and it renews automatically until you cancel in Settings.`;
 }
 
-/** Plain decimal string for schema.org Offer.price ("9.99", "96.00"). */
+/** Plain decimal string for schema.org Offer.price ("13.99", "139.99"). */
 export function priceDecimal(tier: Tier, plan: Plan): string {
   return (priceCents(tier, plan) / 100).toFixed(2);
 }
@@ -112,34 +153,43 @@ export function parseChangeBody(body: unknown): { tier: Tier; plan: Plan | null 
   return { tier, plan };
 }
 
-/** Tier carried in Stripe metadata. Absent or unknown means starter, so subscriptions made before Pro existed keep working. */
+/** Tier carried in Stripe metadata (internal id). Absent or unknown means starter, so subscriptions made before Pro existed keep working. */
 export function tierFromMetadata(metadata: Record<string, string> | null | undefined): Tier {
   return metadata?.tier === 'pro' ? 'pro' : 'starter';
 }
 
-/** Stripe product ids Holler creates for plan switches. Prefixed so they cannot collide with another product on the shared account. */
+/**
+ * Stripe product ids Holler uses for checkout and plan switches. Prefixed so they cannot collide with another product on the shared
+ * account. These ids are the lookup key (lib/stripe/products.ts ensureProduct), so they never change when a display name does:
+ * the Solo plan keeps the product id `holler_starter`.
+ */
 export const PRODUCT_IDS: Record<Tier, string> = { starter: 'holler_starter', pro: 'holler_pro' };
 
-function productName(tier: Tier, plan: Plan): string {
-  const base = tier === 'pro' ? 'Holler Pro' : 'Holler';
-  return plan === 'annual' ? `${base} (yearly)` : base;
+/** Product name shown on Stripe Checkout, invoices and the billing portal: "Holler Solo", "Holler Pro". */
+export function productName(tier: Tier): string {
+  return `Holler ${TIER_NAMES[tier]}`;
 }
 
-/** Inline Stripe Checkout price_data for a plan (no pre-made Price object needed). Tier defaults to starter. */
+/**
+ * Inline Stripe Checkout price_data for a plan. No pre-made Price object is needed: Stripe makes a one-off price from these fields.
+ * The product is Holler's fixed product for the tier (ensureProduct), never product_data, because product_data makes a new Stripe
+ * product on every checkout (stripe@23 Checkout.SessionCreateParams.LineItem.PriceData: "One of product or product_data").
+ */
 export function priceDataFor(
   plan: Plan,
-  tier: Tier = 'starter',
+  tier: Tier,
+  productId: string,
 ): {
   currency: 'usd';
+  product: string;
   unit_amount: number;
   recurring: { interval: 'month' | 'year' };
-  product_data: { name: string };
 } {
   return {
     currency: 'usd',
+    product: productId,
     unit_amount: priceCents(tier, plan),
     recurring: { interval: plan === 'annual' ? 'year' : 'month' },
-    product_data: { name: productName(tier, plan) },
   };
 }
 
@@ -169,11 +219,14 @@ export function planFromInterval(interval: string | null | undefined): Plan {
 const TIER_RANK: Record<Tier, number> = { starter: 0, pro: 1 };
 
 /**
- * A plan switch is an upgrade when the tier goes up or the price goes up (Starter to Pro, monthly to yearly, Pro monthly to
- * Starter yearly). An upgrade is charged at once; anything else is a downgrade, which leaves a credit for the next bill.
+ * A plan switch is an upgrade when the tier goes up or the price goes up (Solo to Pro, monthly to yearly, Pro monthly to
+ * Solo yearly). An upgrade is charged at once; anything else is a downgrade, which leaves a credit for the next bill.
+ * `from.cents` is what the member pays now (the subscription item's unit_amount). A member who signed up at an older price is
+ * compared on that amount, not on today's table; without it the table price is used.
  */
-export function isUpgrade(from: { tier: Tier; plan: Plan }, to: { tier: Tier; plan: Plan }): boolean {
-  return TIER_RANK[to.tier] > TIER_RANK[from.tier] || priceCents(to.tier, to.plan) > priceCents(from.tier, from.plan);
+export function isUpgrade(from: { tier: Tier; plan: Plan; cents?: number | null }, to: { tier: Tier; plan: Plan }): boolean {
+  const fromCents = typeof from.cents === 'number' && Number.isFinite(from.cents) ? from.cents : priceCents(from.tier, from.plan);
+  return TIER_RANK[to.tier] > TIER_RANK[from.tier] || priceCents(to.tier, to.plan) > fromCents;
 }
 
 /**

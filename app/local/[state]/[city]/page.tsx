@@ -16,6 +16,8 @@ import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/se
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
 import { Card, Crumbs, H1, H2, Page, PrimaryLink, linkClass, PublicRecordsNote } from '../../_components/ui';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { cityCtaLabel } from '@/lib/plan/price-copy';
 
 // SPEC asks for `export const revalidate = 21600`. That segment option is removed when
 // cacheComponents is on (see next.config.ts), so the same 6 h lifetime is set with cacheLife in
@@ -72,7 +74,7 @@ export default async function CityPage({ params }: Props) {
   const faq = buildFaq(city, data);
   const nearby = nearbyCities(city.slug, 6);
   const ctaHref = `/signup?city=${encodeURIComponent(city.slug)}`;
-  const ctaLabel = `Get alerts for ${city.name} from $5/mo, first 7 days free`;
+  const ctaLabel = cityCtaLabel(city.name, TRIAL_DAYS);
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible

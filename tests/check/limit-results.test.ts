@@ -7,6 +7,7 @@ import { watchList, watchTypes } from '@/lib/check/watch';
 import { CITY_FEEDS, TRADE_SIGNALS } from '@/lib/signals/capabilities';
 import { CITY_TYPES } from '@/lib/seo/signal-types';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 describe('per-IP rate limit on the results view', () => {
   it('hashes the IP into the key and uses the shared limiter shape', () => {
@@ -52,7 +53,7 @@ describe('checker states', () => {
     const html = render('limited');
     expect(html).toContain('Try again in a minute');
     expect(html).toContain('What Holler watches');
-    expect(html).toContain('7 days free');
+    expect(html).toContain(`${TRIAL_DAYS} days free`);
     expect(html.toLowerCase()).not.toContain('error');
   });
   it('uncovered territory: says plainly that Holler does not cover it yet, no watch list', () => {

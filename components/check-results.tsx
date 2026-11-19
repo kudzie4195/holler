@@ -3,8 +3,9 @@ import { ButtonLink } from './button';
 import { Card } from './card';
 import { timeAgo } from './format';
 import { sourceLabel } from './signal-meta';
-import { distanceFrom, groupItems, safeUrl, type CheckItem } from '@/lib/check/group';
+import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_RADIUS_LABEL } from '@/lib/check/scope';
+import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
 
 function Cta({ citySlug, children }: { citySlug: string | null; children?: React.ReactNode }) {
   const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
@@ -12,9 +13,9 @@ function Cta({ citySlug, children }: { citySlug: string | null; children?: React
     <div className="mt-8 rounded-card bg-ink px-6 py-8 text-center">
       {children}
       <ButtonLink href={href} size="lg" className="max-w-full whitespace-normal! py-3 text-center">
-        Get these by email. 7 days free, no card
+        Get these by email. {TRIAL_DAYS_FREE}, no card
       </ButtonLink>
-      <p className="mt-3 text-sm text-white/75">Then from $5 a month or $48 a year. Holler never posts for you.</p>
+      <p className="mt-3 text-sm text-white/75">Then from {FROM_MONTHLY} a month or {FROM_YEARLY} a year. Holler never posts for you.</p>
     </div>
   );
 }
@@ -107,7 +108,7 @@ export function CheckResults({
                     <Card as="article" className="!p-4 md:!p-5">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                         <Badge kind={it.kind} />
-                        {it.place ? <span>{it.place}</span> : null}
+                        {placeLine(it) ? <span>{placeLine(it)}</span> : null}
                         {miles !== null ? <span>{miles < 1 ? 'under 1 mi away' : `${Math.round(miles)} mi away`}</span> : null}
                         <span aria-hidden="true">·</span>
                         <time dateTime={it.occurredAt} className="font-mono text-xs tabular-nums">

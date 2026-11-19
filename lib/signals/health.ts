@@ -109,6 +109,12 @@ export interface SourceHealthRow {
   consecutive_failures: number;
   status: SourceHealthStatus;
   updated_at: string;
+  /** Added by migration 0018. Last run that stored at least one new signal. Absent or null until a run does after 0018. */
+  last_new_at?: string | null;
+  /** Added by migration 0018. Last successful run that parsed at least one row (new or not). Tells a quiet feed from an empty one. */
+  last_rows_seen_at?: string | null;
+  /** Added by migration 0018. When the row was first created (database default), so a brand-new source is not judged silent on day one. */
+  tracked_since?: string | null;
 }
 
 export const HEALTH_ERROR_MAX = 300;
@@ -168,16 +174,25 @@ export function nextHealthRow(prev: SourceHealthRow | undefined, o: RunOutcome, 
     consecutive_failures: failures,
     status,
     updated_at: nowIso,
+    // Both carry forward unchanged unless this run did the thing. A failed run must not look like "rows seen" or "new rows".
+    last_new_at: o.ok && o.rowsNew > 0 ? nowIso : prev?.last_new_at ?? null,
+    last_rows_seen_at: o.ok && o.rowsSeen > 0 ? nowIso : prev?.last_rows_seen_at ?? null,
   };
 }
 
 const COLUMNS =
   'source, last_run_at, last_success_at, last_error, last_record_at, rows_seen_last_run, rows_new_last_run, consecutive_failures, status, updated_at';
+/** Columns migration 0018 adds. Reads and writes fall back to COLUMNS-only when they are not there yet. */
+export const EXTRA_HEALTH_COLUMNS = ['last_new_at', 'last_rows_seen_at', 'tracked_since'] as const;
+const EXTRA_COLUMN_ERROR = /last_new_at|last_rows_seen_at|tracked_since|schema cache|column/i;
 
 export async function readSourceHealth(db: Db): Promise<SourceHealthRow[]> {
-  const { data, error } = await db.from('holler_source_health').select(COLUMNS).order('source', { ascending: true }).limit(1000);
-  if (error) throw new Error(`source_health read failed: ${error.message}`);
-  return (data ?? []) as SourceHealthRow[];
+  const q = (cols: string) => db.from('holler_source_health').select(cols).order('source', { ascending: true }).limit(1000);
+  let res = await q(`${COLUMNS}, ${EXTRA_HEALTH_COLUMNS.join(', ')}`);
+  // Before 0018 is applied the extra columns do not exist: read without them. Any other failure is a real failure.
+  if (res.error && EXTRA_COLUMN_ERROR.test(res.error.message)) res = await q(COLUMNS);
+  if (res.error) throw new Error(`source_health read failed: ${res.error.message}`);
+  return (res.data ?? []) as unknown as SourceHealthRow[];
 }
 
 export const HEALTH_WRITE_TIMEOUT_MS = 3000;
@@ -195,7 +210,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 async function write(db: Db, outcomes: RunOutcome[], now: Date): Promise<string | null> {
   const prev = new Map((await readSourceHealth(db)).map((r) => [r.source, r]));
   const rows = outcomes.map((o) => nextHealthRow(prev.get(o.source), o, now));
-  const { error } = await db.from('holler_source_health').upsert(rows, { onConflict: 'source' });
+  let { error } = await db.from('holler_source_health').upsert(rows, { onConflict: 'source' });
+  if (error && EXTRA_COLUMN_ERROR.test(error.message)) {
+    // 0018 is not applied yet: write the original columns so health recording keeps working.
+    const base = rows.map((r) => {
+      const { last_new_at: _a, last_rows_seen_at: _b, tracked_since: _c, ...rest } = r;
+      void _a; void _b; void _c;
+      return rest;
+    });
+    ({ error } = await db.from('holler_source_health').upsert(base, { onConflict: 'source' }));
+  }
   return error ? `source_health write failed: ${sanitizeHealthError(error.message)}` : null;
 }
 

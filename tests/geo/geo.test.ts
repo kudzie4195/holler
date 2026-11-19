@@ -6,6 +6,8 @@ import { summarize, type SignalRowDb } from '../../lib/seo/summarize';
 import { buildIntro, buildHelps, buildFaq } from '../../lib/seo/view';
 import { sectionFor } from '../../lib/seo/sections';
 import { jsonLdString } from '../../lib/seo/serialize';
+import { priceLabel } from '@/lib/stripe/plans';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 describe('cities data', () => {
   it('has roughly 950 US cities sorted by population with unique slugs', () => {
@@ -181,7 +183,7 @@ describe('summarize and copy', () => {
       expect(faq).toContain('every 15 minutes');
       expect(faq).toContain('a few times a day');
       expect(faq).not.toContain('15 to 60');
-      expect(faq).toContain('$5 a month');
+      expect(faq).toContain(`${priceLabel('starter', 'monthly')} a month after a ${TRIAL_DAYS}-day free trial`);
       expect(faq).toContain('7 public records');
     }
   });

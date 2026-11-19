@@ -121,14 +121,14 @@ describe('arcgis config', () => {
     for (const a of adapters) expect(ALL_ADAPTERS.some((x) => x.id === a.id)).toBe(true);
     const atl = ARCGIS_DATASETS.filter((x) => x.city === 'Atlanta');
     expect(atl.length).toBeGreaterThan(0);
-    for (const x of atl) { expect(x.verified).toBe(false); expect(x.note).toMatch(/DISABLED/); }
+    for (const x of atl.filter((y) => !y.verified)) expect(x.note).toMatch(/DISABLED/);
     expect(ARCGIS_DATASETS.some((x) => x.state === 'GA' && x.verified)).toBe(true);
   });
   it('valid tz, verifiedUrl and checkedOn on every layer', () => {
     for (const x of ARCGIS_DATASETS) {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: x.tz })).not.toThrow();
       expect(x.verifiedUrl).toBe(`${x.layerUrl}?f=json`);
-      expect(x.checkedOn).toBe('2026-11-17');
+      expect(x.checkedOn).toMatch(/^2026-11-(17|19)$/);
     }
     expect(new Set(ARCGIS_DATASETS.map((x) => x.id)).size).toBe(ARCGIS_DATASETS.length);
   });

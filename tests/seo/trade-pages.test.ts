@@ -76,10 +76,15 @@ describe('trade page builders', () => {
     expect(faq.length).toBeGreaterThanOrEqual(2);
     expect(faq.length).toBeLessThanOrEqual(3);
     expect(faq[0].a.toLowerCase()).toContain('hail reports');
-    expect(faq[1].a).toContain('$5 a month or $48 a year');
+    expect(faq[1].a).toContain('$7.99 a month or $79.99 a year');
     expect(faqLd(faq)['@type']).toBe('FAQPage');
     const svc = serviceLd(t);
     expect(svc['@type']).toBe('Service');
+    // Offers priced from lib/stripe/plans.ts, not typed (they said '5' and '48' before round 7).
+    expect((svc.offers as { price: string; description: string }[]).map((o) => [o.price, o.description])).toEqual([
+      ['7.99', 'Monthly plan, 14 days free'],
+      ['79.99', 'Annual plan, 14 days free'],
+    ]);
     expect(JSON.stringify(svc)).not.toMatch(/[—–]/);
   });
   it('keeps titles and descriptions short, with no em dashes', () => {

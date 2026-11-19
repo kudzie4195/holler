@@ -31,7 +31,7 @@ import {
 import { homeCopy, type ExampleAlert, type HomeIcon } from '@/lib/seo/public-copy';
 import { loadHomeLive, type HomeLive } from '@/lib/seo/home-live';
 import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
-import { priceLabel } from '@/lib/stripe/plans';
+import { priceLabel, TIER_LABEL } from '@/lib/stripe/plans';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 export function generateMetadata(): Metadata {
@@ -138,7 +138,7 @@ export default async function Home() {
                   </svg>
                 </span>
                 <span>
-                  Starter {priceLabel('starter', 'monthly')} a month, Pro {priceLabel('pro', 'monthly')}. {TRIAL_DAYS} days free, no card.
+                  {TIER_LABEL.starter} {priceLabel('starter', 'monthly')} a month, {TIER_LABEL.pro} {priceLabel('pro', 'monthly')}. {TRIAL_DAYS} days free, no card.
                 </span>
               </p>
             </div>

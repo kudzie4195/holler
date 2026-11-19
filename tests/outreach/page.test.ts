@@ -49,6 +49,11 @@ vi.mock('@/components/feed', () => ({
 vi.mock('@/components/feed/recent-activity', () => ({
   RecentActivity: ({ userId }: { userId: string }) => createElement('div', { 'data-recent': userId }, 'recent activity'),
 }));
+vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock('@/components/feed/empty-feed', async (orig) => ({
+  ...(await orig<typeof import('@/components/feed/empty-feed')>()),
+  EmptyFeed: ({ userId }: { userId: string }) => createElement('div', { 'data-recent': userId }, 'empty feed with recent activity'),
+}));
 // Fake of lib/contacts/load.ts contactsForMember: a member only ever gets contacts for signals they have a match for.
 vi.mock('@/lib/outreach/loader', async (orig) => {
   const real = await orig<typeof import('@/lib/outreach/loader')>();

@@ -16,6 +16,8 @@ export interface CategoryRule {
   re: RegExp;
   add: CategoryId[];
   severity?: 1 | 2 | 3;
+  /** The rule does not apply when this also matches the text. */
+  unless?: RegExp;
 }
 
 /**
@@ -60,6 +62,13 @@ export interface SocrataDataset {
   titleFields: string[];
   /** Fields concatenated and fed to the category rules and classifyText. */
   textFields: string[];
+  /** Permits only: text fields documented as a mix of street address, description and name (see arcgis-datasets.ts). */
+  mixedTextFields?: string[];
+  /**
+   * Title or summary columns that hold free text people typed (311 details, complaint descriptions). They may be classified but are
+   * never printed; a 311 or violation title then uses fixed words for its trades (permit-privacy.ts civicLabel).
+   */
+  freeTextFields?: string[];
   summaryFields: string[];
   addressFields?: string[];
   /** Overrides the default lookback (days) of the $where window. */
@@ -155,6 +164,12 @@ export const NAICS_SECTORS: Record<string, string> = {
   '92': 'Public administration',
 };
 
+/**
+ * What permits can be tagged with, for lib/signals/capabilities.ts (claims) only. Since round 7 the permit parsers do NOT apply these
+ * rules: trades and the title label come from one classification in lib/signals/mapping/permit.ts (PERMIT_KINDS). This table mirrors
+ * that one; tests/match/permit-mapping.test.ts fails when the two name different trades.
+ * A generic building, remodel or new construction permit is general-contractor only (it no longer fans out to landscaping or cleaning).
+ */
 export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bre-?roof|\broof|\bshingle/i, add: ['roofing'] },
   { re: /\bpools?\b|\bspa\b|swimming/i, add: ['pool-spa'] },
@@ -163,10 +178,7 @@ export const PERMIT_RULES: CategoryRule[] = [
   { re: /\bplumb|water heater|\bsewer|backflow|gas line/i, add: ['plumbing'] },
   { re: /\belectric|\bwiring|\bpanel upgrade|service upgrade|ev charger|generator/i, add: ['electrical'] },
   { re: /\bdemolition|\bdemo\b|wrecking|\braze\b/i, add: ['junk-removal'] },
-  {
-    re: /new (construction|single|residential|building|home|dwelling|house|multi|commercial)/i,
-    add: ['general-contractor', 'landscaping', 'cleaning'],
-  },
+  { re: /new (construction|single|residential|building|home|dwelling|house|multi|commercial)|\bremodel|\brenovat|\baddition/i, add: ['general-contractor'] },
   // A new home gets sold and then moved into: new RESIDENTIAL construction is a lead for agents and movers.
   // The words "new" and a residential noun must sit close together inside one field (no "|" between them), so a furnace "for home" or a
   // class label ("New | Residential") never counts. Agricultural and accessory structures never count, wherever the word appears
@@ -180,6 +192,11 @@ export const PERMIT_RULES: CategoryRule[] = [
   // "floor" alone is in most commercial descriptions ("6th floor office"), so only flooring work phrases count.
   { re: /\bflooring\b|\bhardwood\b|\bfloor (replacement|installation|covering|refinish)|\b(replace|install|new) floors?\b/i, add: ['flooring'] },
   { re: /\bsigns?\b|\bsignage\b/i, add: ['signs-printing'] },
+  // Round 7: named in the permit classification table.
+  { re: /\btrees?\b|\barborist\b|\bstumps?\b/i, add: ['tree-service'] },
+  { re: /\bretaining\s+walls?\b|\blandscap|\birrigation\b|\bhardscap/i, add: ['landscaping'] },
+  { re: /\bpainting\b|\brepaint/i, add: ['painting'] },
+  { re: /\bfire\s*(damage|repair|restoration)\b|\b(water|flood|storm|smoke)\s*damage\b|\bmold\b|\brestoration\b/i, add: ['restoration'] },
 ];
 
 export const CIVIC_RULES: CategoryRule[] = [
@@ -214,7 +231,14 @@ export const VIOLATION_RULES: CategoryRule[] = [
   { re: /\bfenc(e|es|ing)\b/i, add: ['fencing'] },
   { re: /\bwindows?\b|\bdoors?\b/i, add: ['windows-doors', 'handyman'] },
   { re: /\bpaint|\bpeeling|\bgraffiti/i, add: ['painting'] },
-  { re: /\bplumb|\bsewer|\bwater (leak|heater)|\bleak/i, add: ['plumbing'] },
+  { re: /\bplumb|\bsewer|\bwater\s+heater/i, add: ['plumbing'] },
+  // A roof leak is roof work, however it is worded ("leaking roof", "leak in roof", "roof/ceiling leak"): a leak counts for plumbing
+  // only when the text names no roof, or names a pipe or fixture too (round 7).
+  {
+    re: /\bleak/i,
+    add: ['plumbing'],
+    unless: /^(?![\s\S]*(?:\bpipes?\b|\bpiping\b|\bplumb|\bsewer|\btoilet|\bfaucet|\bsink\b|\bwater\s+(?:heater|lines?|mains?|supply|service)\b|\bdrain\s?(?:pipe|line)))[\s\S]*\broof/i,
+  },
   { re: /\belectric|\bwiring|\bsmoke detector/i, add: ['electrical'] },
   { re: /\bheat\b|\bheating|\bfurnace|\bboiler|\bhvac|\bair.?condition/i, add: ['hvac'] },
   { re: /\bmold\b|\bwater damage|\bfire damage|\bflood/i, add: ['restoration'] },
@@ -437,7 +461,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-sf-311', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'vw6y-z8j6',
     kind: 'civic', subtype: '311', idField: 'service_request_id', dateField: 'requested_datetime', latField: 'lat', lonField: 'long',
     titleFields: ['service_name', 'service_subtype'], textFields: ['service_name', 'service_subtype', 'service_details'],
-    summaryFields: ['service_name', 'service_subtype', 'service_details'], typeFilterField: 'service_name', cadenceMinutes: 180,
+    summaryFields: ['service_name', 'service_subtype', 'service_details'], freeTextFields: ['service_details'], typeFilterField: 'service_name', cadenceMinutes: 180,
     verified: true, verifiedUrl: D('data.sf.gov', 'vw6y-z8j6'), fieldSource: 'sourced',
   },
   {
@@ -627,7 +651,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-oakland-311', city: 'Oakland', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.oaklandca.gov', datasetId: 'quth-gb8e',
     kind: 'civic', subtype: '311', idField: 'requestid', dateField: 'datetimeinit', locationField: 'reqaddress',
-    titleFields: ['reqcategory', 'description'], textFields: ['reqcategory', 'description'], summaryFields: ['reqcategory', 'description', 'status'], zipField: 'zipcode',
+    titleFields: ['reqcategory', 'description'], textFields: ['reqcategory', 'description'], summaryFields: ['reqcategory', 'description', 'status'], freeTextFields: ['description'], zipField: 'zipcode',
     typeFilterField: 'reqcategory', cadenceMinutes: 180, verified: true, verifiedUrl: D('data.oaklandca.gov', 'quth-gb8e'), fieldSource: 'sourced',
     note: 'Updated 2026-11-16, max datetimeinit 2026-11-15. reqcategory values seen: ILLDUMP, BLDGMAINT, TREES, GRAFFITI, ABANDONED AUTO. reqaddress is a location column; its JSON shape is assumed (GeoJSON or {latitude,longitude}).',
   },
@@ -642,7 +666,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-austin-violations', city: 'Austin', state: 'TX', tz: 'America/Chicago', domain: 'data.austintexas.gov', datasetId: '6wtj-zbtb',
     kind: 'civic', subtype: 'violation', idField: 'case_id', dateField: 'opened_date', latField: 'latitude', lonField: 'longitude',
-    titleFields: ['description'], textFields: ['description', 'case_type'], summaryFields: ['description', 'status'], addressFields: ['address'], zipField: 'zip_code',
+    titleFields: ['description'], textFields: ['description', 'case_type'], summaryFields: ['description', 'status'], freeTextFields: ['description'], addressFields: ['address'], zipField: 'zip_code',
     cadenceMinutes: 360, verified: true, verifiedUrl: D('data.austintexas.gov', '6wtj-zbtb'), fieldSource: 'sourced',
     note: 'Austin Code Complaint Cases, updated 2026-11-17. description values seen: Property Abatement, Land Use Violation(s), Structure Condition Violation(s), Work Without Permit. The inspector column is never read.',
   },

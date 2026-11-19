@@ -6,7 +6,7 @@ import { Button, type ButtonSize, type ButtonVariant } from './button';
 
 /**
  * POSTs to a billing endpoint (/api/stripe/checkout or /api/stripe/portal) and follows the returned url.
- * Checkout takes an optional {plan: 'monthly' | 'annual', tier: 'starter' | 'pro'} body (missing means Starter monthly).
+ * Checkout takes an optional {plan: 'monthly' | 'annual', tier: 'starter' | 'pro'} body (missing means Solo, id 'starter', monthly).
  * Response contract: 200 {"url": "https://..."}; 503 when Stripe is not configured; 401 when signed out; 409 already subscribed.
  */
 export function BillingButton({
@@ -28,7 +28,7 @@ export function BillingButton({
   unavailableMessage?: string;
   /** Checkout only: which interval to start. Omitted means monthly (the server default). */
   plan?: 'monthly' | 'annual';
-  /** Checkout only: which plan to start. Omitted means Starter (the server default). */
+  /** Checkout only: which plan to start. Omitted means Solo, id 'starter' (the server default). */
   tier?: 'starter' | 'pro';
   /** Shown under the button, always visible: the auto-renewal sentence (lib/stripe/plans.ts renewalNote) for a subscribe button. */
   note?: string;

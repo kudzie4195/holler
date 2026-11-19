@@ -142,7 +142,9 @@ describe('new 311 and permit cities', () => {
     expect(m[0].categories).toEqual(expect.arrayContaining(['windows-doors', 'siding-gutters']));
     expect(m[1].categories).toContain('flooring');
     const o = run('socrata-orlando-permits');
-    expect(o).toHaveLength(2);
+    // Round 7: the engineering lot grading permit is site work for a general contractor (it used to be dropped).
+    expect(o).toHaveLength(3);
+    expect(o.find((s) => s.externalId === 'ENG2026-10003')!.categories).toEqual(['general-contractor']);
     expect(o.find((s) => s.externalId === 'BLD2026-10002')!.categories).toContain('fencing');
     expect(JSON.stringify(o)).not.toMatch(/PRIVATE OWNER/);
   });

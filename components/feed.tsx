@@ -42,6 +42,13 @@ export interface FeedItem {
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
   feedback?: FeedbackState | null;
+  /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Checked when written. Never for a locked account. */
+  aiNote?: string | null;
+  /**
+   * Set when the record's position is a stand-in (lib/signals/approx-location.ts): "In Cobb County. The county's feed has a street
+   * address but no map point, so no distance is shown." Shown on the card in place of a distance.
+   */
+  approxNote?: string | null;
   /**
    * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
    * Absent for records without contacts and always absent for a locked member.
@@ -242,7 +249,7 @@ function MatchCard({
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
           {item.ago}
         </time>
-        {item.distance ? (
+        {item.approxNote ? null : item.distance ? (
           <>
             <span aria-hidden="true">·</span>
             <span className="font-mono text-xs tabular-nums">{item.distance}</span>
@@ -258,7 +265,14 @@ function MatchCard({
         {item.status === 'dismissed' ? <StatusBadge>Dismissed</StatusBadge> : null}
       </div>
 
+      {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       <IntentNote item={item} />
+      {item.aiNote ? (
+        <p className="mt-1 break-words text-sm text-ink">
+          <span className="font-semibold">Why it may matter: </span>
+          {item.aiNote}
+        </p>
+      ) : null}
       <h2 className="mt-2 text-lg font-semibold leading-snug text-ink">{item.title}</h2>
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
@@ -334,7 +348,7 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
         onDraft(item.id, body.draft);
       } else if (res.status === 400 || res.status === 404) {
         setError('Drafts only work for people asking for help.');
-      } else if ((res.status === 429 || res.status === 503) && typeof body.message === 'string') {
+      } else if ((res.status === 403 || res.status === 429 || res.status === 503) && typeof body.message === 'string') {
         setError(body.message);
       } else {
         setError("We couldn't write a draft just now. Try again.");

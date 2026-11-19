@@ -36,9 +36,9 @@ export const payPerLead: Guide = {
         title: 'Worked example: one month, two sources',
         lines: [
           'Pay-per-lead: 20 leads at $30 each is $600, and 3 jobs won makes $200 per job.',
-          'Flat fee: a $5 plan plus 15 minutes a day of reading is about 7.5 hours a month.',
-          'At $40 an hour, that time is worth $300, so the month really cost $305.',
-          'One job won from it makes $305 per job. Two make $152.50.',
+          'Flat fee: a $10 plan plus 15 minutes a day of reading is about 7.5 hours a month.',
+          'At $40 an hour, that time is worth $300, so the month really cost $310.',
+          'One job won from it makes $310 per job. Two make $155.',
           'Now compare each figure with the profit on a typical job of yours.',
         ],
       },

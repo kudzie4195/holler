@@ -2,6 +2,7 @@ import { absoluteUrl } from '../canonical';
 import { articleLd, breadcrumbLd, faqLd, itemListLd } from '../jsonld';
 import { FAQ_ITEMS } from '../faq';
 import { GUIDES, guidePath, type Guide } from './index';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /** Date the first guides went live. A constant, like lastReviewed. */
 export const GUIDES_PUBLISHED = '2026-11-17';
@@ -22,7 +23,7 @@ export const GUIDES_HUB_META: PageMeta = {
 export const FAQ_META: PageMeta = {
   title: 'Holler FAQ: Pricing, Data and Requests',
   description:
-    'Answers about what Holler is, where its data comes from, what it costs after the 7-day free trial and how resident requests and privacy work.',
+    `Answers about what Holler is, where its data comes from, what it costs after the ${TRIAL_PHRASE} and how resident requests and privacy work.`,
   path: '/faq',
 };
 

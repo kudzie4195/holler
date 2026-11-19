@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyTrialRules } from '../../lib/auth/trial';
 import { leaveHollerPatch, trialEndFromStart, trialStartedAt } from '../../lib/auth/membership';
 import { BACKFILL_RATE, backfillLimit, backfillWithLimit } from '../../lib/signals/backfill-run';
+import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 const h = vi.hoisted(() => ({ afterCbs: [] as (() => Promise<void> | void)[], backfill: vi.fn(async () => ({ ran: true as const, result: { matched: 0, considered: 0 } })) }));
 const NOW = new Date('2026-11-17T12:00:00Z');
@@ -62,9 +63,11 @@ describe('one free trial per person (review L3)', () => {
   });
 
   it('returns during the original trial: only the remaining days', async () => {
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: { user_id: 'u1', created_at: iso(0), trial_ends_at: iso(7) } });
+    // A fresh row gets the column default (TRIAL_DAYS = 14 since migration 0019); the person started 2 days ago, so 12 days are left.
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: { user_id: 'u1', created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS) } });
     await applyTrialRules(f.admin, 'u1', NOW);
-    expect(f.state.profile!.trial_ends_at).toBe(iso(5));
+    expect(TRIAL_DAYS).toBe(14);
+    expect(f.state.profile!.trial_ends_at).toBe(iso(TRIAL_DAYS - 2));
   });
 
   it('is idempotent and never extends: a profile already at or before the original end is untouched', async () => {

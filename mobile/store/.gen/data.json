@@ -1,0 +1,1570 @@
+{
+ "feeds": {
+  "01-know-when": [
+   {
+    "matchId": 55979,
+    "signalId": 46979,
+    "matchedAt": "2026-11-19T03:30:03.463Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+    "summary": "Tree Debris Clean-Up Request | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-19T02:10:27.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 3.7,
+    "distanceLabel": "3.7 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 42439,
+    "signalId": 33439,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 2.4,
+    "distanceLabel": "2.4 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 15658,
+    "signalId": 6658,
+    "matchedAt": "2026-11-17T19:45:00.989Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "High Wind Warning: Bowman",
+    "summary": "High Wind Warning issued November 17 at 1:34PM CST until November 19 at 12:00AM CST by NWS Bismarck ND. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Bowman County. * WHEN...From 11 AM to 11 PM MST Wednesday. * IMPACTS...The high winds may damage roofs, small outbuildings and signs. Trav…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.077d1876f30e326e49016a791d176d0332fc38da.001.1",
+    "city": null,
+    "state": "ND",
+    "county": null,
+    "zip": null,
+    "place": "ND",
+    "occurredAt": "2026-11-18T18:00:00.000Z",
+    "expiresAt": "2026-11-19T06:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 15557,
+    "signalId": 6557,
+    "matchedAt": "2026-11-17T19:15:00.833Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "High Wind Warning: Fallon; Carter",
+    "summary": "High Wind Warning issued November 17 at 12:08PM MST until November 18 at 9:00PM MST by NWS Billings MT. * WHAT...West winds 25 to 35 mph with gusts up to 60 mph expected. * WHERE...Carter and Fallon. * WHEN...From 9 AM to 9 PM MST Wednesday. * IMPACTS...Winds may blow down trees and power lines. Travel will be difficu…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fec1a9adbcf18aa7be3d9a9962bdafdb39f47a01.001.1",
+    "city": null,
+    "state": "MT",
+    "county": null,
+    "zip": null,
+    "place": "MT",
+    "occurredAt": "2026-11-18T16:00:00.000Z",
+    "expiresAt": "2026-11-19T04:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ],
+  "02-storm-hail": [
+   {
+    "matchId": 40876,
+    "signalId": 31876,
+    "matchedAt": "2026-11-18T18:15:01.435Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "Severe Thunderstorm Warning: San Mateo, CA",
+    "summary": "Severe Thunderstorm Warning issued November 18 at 10:12AM PST until November 18 at 11:00AM PST by NWS San Francisco CA. SVRMTR The National Weather Service in San Francisco has issued a * Severe Thunderstorm Warning for... Northwestern San Mateo County in northern California... * Until 1100 AM PST. * At 1012 AM PST, s…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8482135696d624259210a0e59c52232e21bb7e27.001.1",
+    "city": null,
+    "state": "CA",
+    "county": null,
+    "zip": null,
+    "place": "CA",
+    "occurredAt": "2026-11-18T18:12:00.000Z",
+    "expiresAt": "2026-11-18T19:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 24979,
+    "signalId": 15979,
+    "matchedAt": "2026-11-18T05:00:03.067Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
+    "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.18c4362eaa658311eff9c3e04dc3f320a75de5e4.001.1",
+    "city": null,
+    "state": "FL",
+    "county": null,
+    "zip": null,
+    "place": "FL",
+    "occurredAt": "2026-11-18T04:46:00.000Z",
+    "expiresAt": "2026-11-18T05:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 15658,
+    "signalId": 6658,
+    "matchedAt": "2026-11-17T19:45:00.989Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "High Wind Warning: Bowman",
+    "summary": "High Wind Warning issued November 17 at 1:34PM CST until November 19 at 12:00AM CST by NWS Bismarck ND. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Bowman County. * WHEN...From 11 AM to 11 PM MST Wednesday. * IMPACTS...The high winds may damage roofs, small outbuildings and signs. Trav…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.077d1876f30e326e49016a791d176d0332fc38da.001.1",
+    "city": null,
+    "state": "ND",
+    "county": null,
+    "zip": null,
+    "place": "ND",
+    "occurredAt": "2026-11-18T18:00:00.000Z",
+    "expiresAt": "2026-11-19T06:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 15557,
+    "signalId": 6557,
+    "matchedAt": "2026-11-17T19:15:00.833Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "High Wind Warning: Fallon; Carter",
+    "summary": "High Wind Warning issued November 17 at 12:08PM MST until November 18 at 9:00PM MST by NWS Billings MT. * WHAT...West winds 25 to 35 mph with gusts up to 60 mph expected. * WHERE...Carter and Fallon. * WHEN...From 9 AM to 9 PM MST Wednesday. * IMPACTS...Winds may blow down trees and power lines. Travel will be difficu…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fec1a9adbcf18aa7be3d9a9962bdafdb39f47a01.001.1",
+    "city": null,
+    "state": "MT",
+    "county": null,
+    "zip": null,
+    "place": "MT",
+    "occurredAt": "2026-11-18T16:00:00.000Z",
+    "expiresAt": "2026-11-19T04:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 15472,
+    "signalId": 6472,
+    "matchedAt": "2026-11-17T18:45:00.881Z",
+    "status": "new",
+    "kind": "alert",
+    "source": "nws",
+    "sourceLabel": "National Weather Service alerts",
+    "sourceUrl": "https://www.weather.gov/alerts",
+    "title": "High Wind Warning: Central Laramie County",
+    "summary": "High Wind Warning issued November 17 at 11:38AM MST until November 18 at 5:00PM MST by NWS Cheyenne WY. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Central Laramie County. * WHEN...From 2 AM to 5 PM MST Wednesday. * IMPACTS...Mainly to transportation. Strong cross winds will be hazardo…",
+    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6e11be54cf7d36e6d9ec65f5f4683e52e080468a.003.2",
+    "city": null,
+    "state": "WY",
+    "county": null,
+    "zip": null,
+    "place": "WY",
+    "occurredAt": "2026-11-18T09:00:00.000Z",
+    "expiresAt": "2026-11-19T00:00:00.000Z",
+    "severity": 2,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": null,
+    "distanceLabel": null,
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ],
+  "03-permits": [
+   {
+    "matchId": 42440,
+    "signalId": 33440,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Window and door permit in Chicago",
+    "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 4.7,
+    "distanceLabel": "4.7 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 42439,
+    "signalId": 33439,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 2.4,
+    "distanceLabel": "2.4 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 42438,
+    "signalId": 33438,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Demolition permit in Chicago",
+    "summary": "PERMIT - WRECKING/DEMOLITION | $20,000 job value | 2342 N JANSSEN AVE",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 0.6,
+    "distanceLabel": "under 1 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 42435,
+    "signalId": 33435,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "HVAC permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 1.8,
+    "distanceLabel": "1.8 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 42427,
+    "signalId": 33427,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Plumbing permit in Chicago",
+    "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 3.2,
+    "distanceLabel": "3.2 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ],
+  "04-311": [
+   {
+    "matchId": 62792,
+    "signalId": 53792,
+    "matchedAt": "2026-11-19T06:30:10.965Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Graffiti Removal Request",
+    "summary": "Graffiti Removal Request | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-19T04:56:34.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 2.4,
+    "distanceLabel": "2.4 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 55979,
+    "signalId": 46979,
+    "matchedAt": "2026-11-19T03:30:03.463Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+    "summary": "Tree Debris Clean-Up Request | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-19T02:10:27.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 3.7,
+    "distanceLabel": "3.7 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 54369,
+    "signalId": 45369,
+    "matchedAt": "2026-11-19T00:30:08.609Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Clean Vacant Lot Request",
+    "summary": "Clean Vacant Lot Request | Open | 60612",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": "60612",
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-18T21:51:33.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 3.5,
+    "distanceLabel": "3.5 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 54354,
+    "signalId": 45354,
+    "matchedAt": "2026-11-19T00:30:08.609Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Emergency",
+    "summary": "Tree Emergency | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-18T22:23:23.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 4.7,
+    "distanceLabel": "4.7 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 39331,
+    "signalId": 30331,
+    "matchedAt": "2026-11-18T15:30:08.178Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Alley Sewer Inspection Request",
+    "summary": "Alley Sewer Inspection Request | Open | 60640",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": "60640",
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-18T13:36:49.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Demand sign",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 4.4,
+    "distanceLabel": "4.4 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ],
+  "05-source-link": [
+   {
+    "matchId": 42439,
+    "signalId": 33439,
+    "matchedAt": "2026-11-18T18:30:11.457Z",
+    "status": "new",
+    "kind": "permit",
+    "source": "socrata-chicago-permits",
+    "sourceLabel": "Chicago open data: building permits",
+    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-17T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "spending",
+     "label": "Spending activity",
+     "line": "Money is being spent here. The main contractor may already be chosen."
+    },
+    "distanceMi": 2.4,
+    "distanceLabel": "2.4 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ]
+ },
+ "alerts": {
+  "6472": {
+   "matchId": 15472,
+   "signalId": 6472,
+   "matchedAt": "2026-11-17T18:45:00.881Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "High Wind Warning: Central Laramie County",
+   "summary": "High Wind Warning issued November 17 at 11:38AM MST until November 18 at 5:00PM MST by NWS Cheyenne WY. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Central Laramie County. * WHEN...From 2 AM to 5 PM MST Wednesday. * IMPACTS...Mainly to transportation. Strong cross winds will be hazardo…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6e11be54cf7d36e6d9ec65f5f4683e52e080468a.003.2",
+   "city": null,
+   "state": "WY",
+   "county": null,
+   "zip": null,
+   "place": "WY",
+   "occurredAt": "2026-11-18T09:00:00.000Z",
+   "expiresAt": "2026-11-19T00:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": null,
+   "distanceLabel": null,
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "6557": {
+   "matchId": 15557,
+   "signalId": 6557,
+   "matchedAt": "2026-11-17T19:15:00.833Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "High Wind Warning: Fallon; Carter",
+   "summary": "High Wind Warning issued November 17 at 12:08PM MST until November 18 at 9:00PM MST by NWS Billings MT. * WHAT...West winds 25 to 35 mph with gusts up to 60 mph expected. * WHERE...Carter and Fallon. * WHEN...From 9 AM to 9 PM MST Wednesday. * IMPACTS...Winds may blow down trees and power lines. Travel will be difficu…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fec1a9adbcf18aa7be3d9a9962bdafdb39f47a01.001.1",
+   "city": null,
+   "state": "MT",
+   "county": null,
+   "zip": null,
+   "place": "MT",
+   "occurredAt": "2026-11-18T16:00:00.000Z",
+   "expiresAt": "2026-11-19T04:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": null,
+   "distanceLabel": null,
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "6658": {
+   "matchId": 15658,
+   "signalId": 6658,
+   "matchedAt": "2026-11-17T19:45:00.989Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "High Wind Warning: Bowman",
+   "summary": "High Wind Warning issued November 17 at 1:34PM CST until November 19 at 12:00AM CST by NWS Bismarck ND. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Bowman County. * WHEN...From 11 AM to 11 PM MST Wednesday. * IMPACTS...The high winds may damage roofs, small outbuildings and signs. Trav…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.077d1876f30e326e49016a791d176d0332fc38da.001.1",
+   "city": null,
+   "state": "ND",
+   "county": null,
+   "zip": null,
+   "place": "ND",
+   "occurredAt": "2026-11-18T18:00:00.000Z",
+   "expiresAt": "2026-11-19T06:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": null,
+   "distanceLabel": null,
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "15979": {
+   "matchId": 24979,
+   "signalId": 15979,
+   "matchedAt": "2026-11-18T05:00:03.067Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
+   "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.18c4362eaa658311eff9c3e04dc3f320a75de5e4.001.1",
+   "city": null,
+   "state": "FL",
+   "county": null,
+   "zip": null,
+   "place": "FL",
+   "occurredAt": "2026-11-18T04:46:00.000Z",
+   "expiresAt": "2026-11-18T05:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": null,
+   "distanceLabel": null,
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "30331": {
+   "matchId": 39331,
+   "signalId": 30331,
+   "matchedAt": "2026-11-18T15:30:08.178Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Alley Sewer Inspection Request",
+   "summary": "Alley Sewer Inspection Request | Open | 60640",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": "60640",
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-18T13:36:49.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 4.4,
+   "distanceLabel": "4.4 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "31876": {
+   "matchId": 40876,
+   "signalId": 31876,
+   "matchedAt": "2026-11-18T18:15:01.435Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "Severe Thunderstorm Warning: San Mateo, CA",
+   "summary": "Severe Thunderstorm Warning issued November 18 at 10:12AM PST until November 18 at 11:00AM PST by NWS San Francisco CA. SVRMTR The National Weather Service in San Francisco has issued a * Severe Thunderstorm Warning for... Northwestern San Mateo County in northern California... * Until 1100 AM PST. * At 1012 AM PST, s…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8482135696d624259210a0e59c52232e21bb7e27.001.1",
+   "city": null,
+   "state": "CA",
+   "county": null,
+   "zip": null,
+   "place": "CA",
+   "occurredAt": "2026-11-18T18:12:00.000Z",
+   "expiresAt": "2026-11-18T19:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": null,
+   "distanceLabel": null,
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "33427": {
+   "matchId": 42427,
+   "signalId": 33427,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
+   "status": "new",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "Plumbing permit in Chicago",
+   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Spending activity",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 3.2,
+   "distanceLabel": "3.2 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "33435": {
+   "matchId": 42435,
+   "signalId": 33435,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
+   "status": "new",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "HVAC permit in Chicago",
+   "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Spending activity",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 1.8,
+   "distanceLabel": "1.8 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "33438": {
+   "matchId": 42438,
+   "signalId": 33438,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
+   "status": "new",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "Demolition permit in Chicago",
+   "summary": "PERMIT - WRECKING/DEMOLITION | $20,000 job value | 2342 N JANSSEN AVE",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Spending activity",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 0.6,
+   "distanceLabel": "under 1 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "33439": {
+   "matchId": 42439,
+   "signalId": 33439,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
+   "status": "new",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "Roof permit in Chicago",
+   "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Spending activity",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 2.4,
+   "distanceLabel": "2.4 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "33440": {
+   "matchId": 42440,
+   "signalId": 33440,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
+   "status": "new",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "Window and door permit in Chicago",
+   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Spending activity",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 4.7,
+   "distanceLabel": "4.7 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "45354": {
+   "matchId": 54354,
+   "signalId": 45354,
+   "matchedAt": "2026-11-19T00:30:08.609Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Tree Emergency",
+   "summary": "Tree Emergency | Open",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-18T22:23:23.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 4.7,
+   "distanceLabel": "4.7 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "45369": {
+   "matchId": 54369,
+   "signalId": 45369,
+   "matchedAt": "2026-11-19T00:30:08.609Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Clean Vacant Lot Request",
+   "summary": "Clean Vacant Lot Request | Open | 60612",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": "60612",
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-18T21:51:33.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 3.5,
+   "distanceLabel": "3.5 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "46979": {
+   "matchId": 55979,
+   "signalId": 46979,
+   "matchedAt": "2026-11-19T03:30:03.463Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+   "summary": "Tree Debris Clean-Up Request | Open",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-19T02:10:27.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 3.7,
+   "distanceLabel": "3.7 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "53792": {
+   "matchId": 62792,
+   "signalId": 53792,
+   "matchedAt": "2026-11-19T06:30:10.965Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Graffiti Removal Request",
+   "summary": "Graffiti Removal Request | Open",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-19T04:56:34.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Demand sign",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 2.4,
+   "distanceLabel": "2.4 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  }
+ },
+ "distances": {
+  "6472": null,
+  "6557": null,
+  "6658": null,
+  "15979": null,
+  "30331": "4.4 mi away",
+  "31876": null,
+  "33427": "3.2 mi away",
+  "33435": "1.8 mi away",
+  "33438": "under 1 mi away",
+  "33439": "2.4 mi away",
+  "33440": "4.7 mi away",
+  "45354": "4.7 mi away",
+  "45369": "3.5 mi away",
+  "46979": "3.7 mi away",
+  "53792": "2.4 mi away"
+ },
+ "config": {
+  "ok": true,
+  "apiVersion": 1,
+  "currency": "USD",
+  "trialDays": 14,
+  "plans": {
+   "solo": {
+    "entitlement": "solo",
+    "tier": "starter",
+    "name": "Solo",
+    "monthly": {
+     "productId": "com.localholler.app.solo.monthly",
+     "cents": 799,
+     "display": "$7.99",
+     "displayLong": "$7.99 a month",
+     "period": "P1M"
+    },
+    "yearly": {
+     "productId": "com.localholler.app.solo.yearly",
+     "cents": 7999,
+     "display": "$79.99",
+     "displayLong": "$79.99 a year",
+     "period": "P1Y"
+    },
+    "yearlySaving": "about 2 months free",
+    "limits": {
+     "serviceAreas": 1,
+     "trades": 5,
+     "keywordWatches": 0
+    }
+   },
+   "pro": {
+    "entitlement": "pro",
+    "tier": "pro",
+    "name": "Pro",
+    "monthly": {
+     "productId": "com.localholler.app.pro.monthly",
+     "cents": 1399,
+     "display": "$13.99",
+     "displayLong": "$13.99 a month",
+     "period": "P1M"
+    },
+    "yearly": {
+     "productId": "com.localholler.app.pro.yearly",
+     "cents": 13999,
+     "display": "$139.99",
+     "displayLong": "$139.99 a year",
+     "period": "P1Y"
+    },
+    "yearlySaving": "about 2 months free",
+    "limits": {
+     "serviceAreas": 3,
+     "trades": 15,
+     "keywordWatches": 5
+    }
+   }
+  },
+  "entitlements": [
+   "solo",
+   "pro"
+  ],
+  "offeringId": "default",
+  "trades": [
+   {
+    "id": "roofing",
+    "label": "Roofing",
+    "group": "Home and property"
+   },
+   {
+    "id": "hvac",
+    "label": "Heating and air (HVAC)",
+    "group": "Home and property"
+   },
+   {
+    "id": "plumbing",
+    "label": "Plumbing",
+    "group": "Home and property"
+   },
+   {
+    "id": "electrical",
+    "label": "Electrical",
+    "group": "Home and property"
+   },
+   {
+    "id": "tree-service",
+    "label": "Tree service",
+    "group": "Storm and disaster"
+   },
+   {
+    "id": "landscaping",
+    "label": "Landscaping",
+    "group": "Home and property"
+   },
+   {
+    "id": "lawn-care",
+    "label": "Lawn care",
+    "group": "Home and property"
+   },
+   {
+    "id": "snow-removal",
+    "label": "Snow removal",
+    "group": "Storm and disaster"
+   },
+   {
+    "id": "pest-control",
+    "label": "Pest control",
+    "group": "Home and property"
+   },
+   {
+    "id": "cleaning",
+    "label": "House cleaning",
+    "group": "Home and property"
+   },
+   {
+    "id": "restoration",
+    "label": "Water, fire and storm restoration",
+    "group": "Storm and disaster"
+   },
+   {
+    "id": "general-contractor",
+    "label": "General contractor",
+    "group": "Home and property"
+   },
+   {
+    "id": "painting",
+    "label": "Painting",
+    "group": "Home and property"
+   },
+   {
+    "id": "pool-spa",
+    "label": "Pool and spa",
+    "group": "Home and property"
+   },
+   {
+    "id": "solar",
+    "label": "Solar",
+    "group": "Home and property"
+   },
+   {
+    "id": "auto-glass",
+    "label": "Auto glass",
+    "group": "Auto"
+   },
+   {
+    "id": "auto-body",
+    "label": "Auto body and dent repair",
+    "group": "Auto"
+   },
+   {
+    "id": "towing",
+    "label": "Towing and roadside",
+    "group": "Auto"
+   },
+   {
+    "id": "auto-repair",
+    "label": "Auto repair",
+    "group": "Auto"
+   },
+   {
+    "id": "moving",
+    "label": "Moving",
+    "group": "Other services"
+   },
+   {
+    "id": "junk-removal",
+    "label": "Junk removal and hauling",
+    "group": "Home and property"
+   },
+   {
+    "id": "locksmith",
+    "label": "Locksmith",
+    "group": "Home and property"
+   },
+   {
+    "id": "real-estate",
+    "label": "Real estate",
+    "group": "Other services"
+   },
+   {
+    "id": "insurance",
+    "label": "Insurance",
+    "group": "Business services"
+   },
+   {
+    "id": "food-truck",
+    "label": "Food truck",
+    "group": "Food and events"
+   },
+   {
+    "id": "catering",
+    "label": "Catering",
+    "group": "Food and events"
+   },
+   {
+    "id": "event-services",
+    "label": "Event services",
+    "group": "Food and events"
+   },
+   {
+    "id": "rideshare-delivery",
+    "label": "Rideshare and delivery driving",
+    "group": "Other services"
+   },
+   {
+    "id": "childcare",
+    "label": "Childcare",
+    "group": "Other services"
+   },
+   {
+    "id": "beauty",
+    "label": "Hair and beauty",
+    "group": "Other services"
+   },
+   {
+    "id": "janitorial-commercial",
+    "label": "Commercial cleaning",
+    "group": "Business services"
+   },
+   {
+    "id": "security",
+    "label": "Security",
+    "group": "Business services"
+   },
+   {
+    "id": "fencing",
+    "label": "Fencing",
+    "group": "Home and property"
+   },
+   {
+    "id": "concrete-paving",
+    "label": "Concrete and paving",
+    "group": "Home and property"
+   },
+   {
+    "id": "windows-doors",
+    "label": "Windows and doors",
+    "group": "Home and property"
+   },
+   {
+    "id": "siding-gutters",
+    "label": "Siding and gutters",
+    "group": "Home and property"
+   },
+   {
+    "id": "flooring",
+    "label": "Flooring",
+    "group": "Home and property"
+   },
+   {
+    "id": "handyman",
+    "label": "Handyman",
+    "group": "Home and property"
+   },
+   {
+    "id": "signs-printing",
+    "label": "Signs and printing",
+    "group": "Business services"
+   },
+   {
+    "id": "business-services",
+    "label": "Bookkeeping, payroll and IT setup",
+    "group": "Business services"
+   },
+   {
+    "id": "public-adjuster",
+    "label": "Public adjuster",
+    "group": "Storm and disaster"
+   }
+  ],
+  "radius": {
+   "min": 5,
+   "max": 100,
+   "default": 25
+  },
+  "links": {
+   "terms": "https://localholler.com/terms",
+   "privacy": "https://localholler.com/privacy",
+   "support": "https://localholler.com/faq",
+   "manageApple": "https://apps.apple.com/account/subscriptions",
+   "manageGoogle": "https://play.google.com/store/account/subscriptions"
+  },
+  "minAppVersion": "1.0.0"
+ },
+ "prices": {
+  "solo": {
+   "entitlement": "solo",
+   "tier": "starter",
+   "name": "Solo",
+   "monthly": {
+    "storeProductId": "com.localholler.app.solo.monthly",
+    "cents": 799,
+    "decimal": "7.99",
+    "display": "$7.99",
+    "displayLong": "$7.99 a month",
+    "displayShort": "$7.99/mo",
+    "period": "P1M"
+   },
+   "annual": {
+    "storeProductId": "com.localholler.app.solo.yearly",
+    "cents": 7999,
+    "decimal": "79.99",
+    "display": "$79.99",
+    "displayLong": "$79.99 a year",
+    "displayShort": "$79.99/yr",
+    "period": "P1Y"
+   },
+   "annualSaving": "about 2 months free",
+   "annualMonthsFree": 2,
+   "annualSavingsPercent": 17,
+   "limits": {
+    "serviceAreas": 1,
+    "trades": 5,
+    "keywordWatches": 0
+   }
+  },
+  "pro": {
+   "entitlement": "pro",
+   "tier": "pro",
+   "name": "Pro",
+   "monthly": {
+    "storeProductId": "com.localholler.app.pro.monthly",
+    "cents": 1399,
+    "decimal": "13.99",
+    "display": "$13.99",
+    "displayLong": "$13.99 a month",
+    "displayShort": "$13.99/mo",
+    "period": "P1M"
+   },
+   "annual": {
+    "storeProductId": "com.localholler.app.pro.yearly",
+    "cents": 13999,
+    "decimal": "139.99",
+    "display": "$139.99",
+    "displayLong": "$139.99 a year",
+    "displayShort": "$139.99/yr",
+    "period": "P1Y"
+   },
+   "annualSaving": "about 2 months free",
+   "annualMonthsFree": 2,
+   "annualSavingsPercent": 17,
+   "limits": {
+    "serviceAreas": 3,
+    "trades": 15,
+    "keywordWatches": 5
+   }
+  }
+ }
+}

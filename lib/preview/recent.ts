@@ -6,14 +6,17 @@ import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
 import { matchScope, type ScopeInput } from '@/lib/plan';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
+import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
 
 /**
  * "Near you in the last 90 days": how many real records in holler_signals would have matched this member's saved area and trades.
  * Retention is 120 days (RETENTION_DAYS), so 90 days is always inside the data.
  *
- * Two queries, run together, no per-row database calls:
+ * Three queries, run together, no per-row database calls:
  *   A. records with coordinates inside a box around each allowed area, sharing a trade with the member
  *   B. records without coordinates (state level), severity 2 or more, in a state the member covers, sharing a trade
+ *   C. records from the approximate-location sources (Cobb County: the point is a stand-in) inside a box of radius + 15 miles, the
+ *      scanner's reach for them (lib/signals/approx-location.ts approxReachMi)
  * Each row then goes through the same matchOne the scanner uses (exact distance, exact state rule, plan limits), so the count is what the
  * member's feed would have held. Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
  * Keyword watches are not counted (the preview is about the saved area and trades).
@@ -161,17 +164,25 @@ export async function recentPreviewFor(
         .order('occurred_at', { ascending: false })
         .limit(PREVIEW_ROW_CAP);
 
-    const [a, b] = await Promise.all([
+    const approxSources = [...APPROX_LOCATION_SOURCES];
+    const [a, b, c] = await Promise.all([
       base().not('lat', 'is', null).or(located.map((x) => box(x.lat as number, x.lon as number, radius)).join(',')),
       states.length > 0
         ? base().is('lat', null).gte('severity', 2).in('state', states)
         : Promise.resolve({ data: [] as unknown[], error: null }),
+      approxSources.length > 0
+        ? base()
+            .in('source', approxSources)
+            .not('lat', 'is', null)
+            .or(located.map((x) => box(x.lat as number, x.lon as number, approxReachMi(radius))).join(','))
+        : Promise.resolve({ data: [] as unknown[], error: null }),
     ]);
-    if (a.error || b.error) throw new Error((a.error ?? b.error)?.message ?? 'query failed');
+    if (a.error || b.error || c.error) throw new Error((a.error ?? b.error ?? c.error)?.message ?? 'query failed');
 
     const rowsA = (a.data ?? []) as unknown as Row[];
     const rowsB = (b.data ?? []) as unknown as Row[];
-    const capped = rowsA.length >= PREVIEW_ROW_CAP || rowsB.length >= PREVIEW_ROW_CAP;
+    const rowsC = (c.data ?? []) as unknown as Row[];
+    const capped = rowsA.length >= PREVIEW_ROW_CAP || rowsB.length >= PREVIEW_ROW_CAP || rowsC.length >= PREVIEW_ROW_CAP;
 
     const mp = {
       user_id: 'preview',
@@ -189,7 +200,7 @@ export async function recentPreviewFor(
     const types = new Map<string, number>();
     const hits: Row[] = [];
     const seen = new Set<string>();
-    for (const r of [...rowsA, ...rowsB]) {
+    for (const r of [...rowsA, ...rowsB, ...rowsC]) {
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -203,6 +214,8 @@ export async function recentPreviewFor(
         severity: r.severity ?? 1,
         occurred_at: r.occurred_at,
         subtype: r.subtype,
+        // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
+        source: r.source,
       };
       if (!matchOne(sig, mp)) continue;
       const sub = subtypeOf(sig);

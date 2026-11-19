@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { ButtonLink } from '@/components/button';
 import { aboutCopy } from '@/lib/seo/public-copy';
+import { TRIAL_DAYS } from '@/lib/plan/price-copy';
 
 export function generateMetadata(): Metadata {
   return {
@@ -62,10 +63,10 @@ export default function AboutPage() {
 
       <div className="rounded-card border border-line bg-sand p-6 shadow-soft md:p-8">
         <p className="font-display text-2xl text-ink">Try it on your own town.</p>
-        <p className="mt-2 text-muted">Seven days free. No card to start.</p>
+        <p className="mt-2 text-muted">{TRIAL_DAYS} days free. No card to start.</p>
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <ButtonLink href="/signup" size="lg">
-            Start free for 7 days
+            Start free for {TRIAL_DAYS} days
           </ButtonLink>
           <ButtonLink href="/check" variant="secondary" size="lg">
             Check your area

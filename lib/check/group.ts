@@ -20,6 +20,7 @@ export interface CheckGroup {
 
 import { haversineMi } from '@/lib/geo';
 import { isUpcoming, toMs } from '@/lib/time';
+import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 
 export const MAX_ITEMS = 20;
 export const MAX_PER_GROUP = 8;
@@ -43,8 +44,18 @@ function groupIdFor(kind: string): string {
 /** Distance in miles from the ZIP to a record, or null when the record has no coordinates (state-level alerts) or no origin was given. */
 export function distanceFrom(origin: { lat: number; lon: number } | undefined, it: CheckItem): number | null {
   if (!origin || typeof it.lat !== 'number' || typeof it.lon !== 'number') return null;
+  if (hasApproxLocation(it)) return null;
   const d = haversineMi(origin.lat, origin.lon, it.lat, it.lon);
   return Number.isFinite(d) ? d : null;
+}
+
+/**
+ * The place line of a record: its "City, ST", or for a record whose position is a stand-in (Cobb County) the plain note
+ * "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." (approx-location.ts).
+ */
+export function placeLine(it: Pick<CheckItem, 'source' | 'place'>): string | null {
+  if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null });
+  return it.place;
 }
 
 /**

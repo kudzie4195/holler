@@ -13,8 +13,8 @@ const places = { ok: true, counts: {}, latest: {}, partial: false };
 describe('sitemap: guides, FAQ, numbers, pricing and requests', () => {
   const es = buildEntries({ places, trades: [] });
   const paths = es.map((e) => path(e.url));
-  it('lists /guides, each of the 8 guides, /faq, /data, /pricing and /request', () => {
-    for (const p of ['/guides', '/faq', '/data', '/pricing', '/request']) expect(paths, p).toContain(p);
+  it('lists /guides, each of the 8 guides, /faq, /data, /pricing, /request and /delete-account', () => {
+    for (const p of ['/guides', '/faq', '/data', '/pricing', '/request', '/delete-account']) expect(paths, p).toContain(p);
     for (const g of GUIDES) expect(paths).toContain(`/guides/${g.slug}`);
     expect(GUIDES).toHaveLength(8);
   });
@@ -59,12 +59,14 @@ describe('llms.txt', () => {
   });
   it('gives /pricing with both plans and the trial, and replaces the old one-plan line', () => {
     expect(text).toContain('https://example.test/pricing');
-    expect(text).toContain('Starter: $5 per month or $48 per year. 1 service area and up to 5 trades.');
-    expect(text).toContain('Pro: $9.99 per month or $96 per year. Up to 3 service areas, up to 15 trades and up to 5 keyword watches.');
-    expect(text).toContain('7-day free trial');
+    expect(text).toContain('Solo: $7.99 per month or $79.99 per year. 1 service area and up to 5 trades.');
+    expect(text).toContain('Pro: $13.99 per month or $139.99 per year. Up to 3 service areas, up to 15 trades and up to 5 keyword watches.');
+    expect(text).toContain('14-day free trial');
+    expect(text).toContain('The trial has Solo limits.');
+    expect(text).not.toMatch(/Starter|7-day/);
     expect(text).toMatch(/No card is needed to start/);
     expect(text.match(/## Pricing/g)).toHaveLength(1);
-    expect(text).not.toContain('$5 per month or $48 per year, after a 7-day free trial.');
+    expect(text).not.toContain('per month or $79.99 per year, after a 14-day free trial.');
   });
   it('describes the resident request feature accurately', () => {
     expect(text).toContain('## Resident requests');

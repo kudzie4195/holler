@@ -1,3 +1,4 @@
+import { hasApproxLocation } from './approx-location';
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
@@ -15,6 +16,8 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
+import { remapStoredSignals, type RemapReport } from './mapping/remap';
+import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { normalizeState } from './adapters/usaspending';
 import { pingNewSignals, type PingNewSignalsInput, type PingOutcome } from '@/lib/seo/indexnow';
 import type { Adapter, Severity, SignalInput } from './types';
@@ -49,6 +52,8 @@ export interface ScanReport {
   pruned?: boolean;
   /** IndexNow ping for this run. Absent when it was skipped (no key, localhost, dry run, nothing new). */
   indexNow?: PingOutcome;
+  /** Re-map of stored rows written under an older category mapping (lib/signals/mapping). Absent when skipped for time. */
+  remap?: RemapReport;
   error?: string;
 }
 
@@ -77,6 +82,11 @@ export interface RunOptions {
 export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
 /** The scan route has maxDuration = 60 s. Fetching takes up to 40 s, so new writes stop at 48 s and leave 12 s for matching, logging and the response. */
 export const SCAN_DEADLINE_MS = 48_000;
+/**
+ * The stored-row re-map (one batch is a 100-row read, up to 100 small updates and one rematch) only starts a batch while at least this
+ * much of the write budget is left, so it can never push the scan past the route limit.
+ */
+export const REMAP_RESERVE_MS = 10_000;
 /** Run-log inserts per round trip batch (about 45 adapters). */
 const LOG_CONCURRENCY = 10;
 const FIRST_RUN_LOOKBACK_MS = 48 * 3600_000;
@@ -141,8 +151,13 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-/** Nearest city slug within 40 mi, or an exact city+state slug when there are no coordinates. */
+/**
+ * Nearest city slug within 40 mi, or an exact city+state slug when there are no coordinates. Null for a record whose position is a
+ * stand-in (lib/signals/approx-location.ts, Cobb County rows at the county seat): it is not "in" the nearest city, so it is never listed
+ * on a city page.
+ */
 export function placeSlugFor(s: SignalInput): string | null {
+  if (hasApproxLocation({ source: s.source, data: s.data as { loc?: unknown } | null | undefined })) return null;
   try {
     if (typeof s.lat === 'number' && typeof s.lon === 'number') return nearestCity(s.lat, s.lon, 40)?.slug ?? null;
     if (s.city && s.state) return cityBySlug(`${slugify(s.city)}-${s.state.toLowerCase()}`)?.slug ?? null;
@@ -285,7 +300,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       if (f.result.status !== 'error' && f.signals.length) {
         try {
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
-          const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m) });
+          const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m), dedupe: true });
           f.result.inserted = inserted.length;
           storedAll.push(...inserted);
         } catch (e) {
@@ -304,6 +319,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         const profiles = await loadProfiles(db, now);
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         await insertMatches(db, rows);
+        // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
+        await logAlerts(db, alertLogRowsFor(rows, storedAll, profiles));
         const sourceById = new Map(storedAll.map((s) => [s.id, s.source]));
         const bySource = new Map<string, number>();
         for (const r of rows) {
@@ -367,6 +384,16 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       if (healthError) console.warn(healthError);
     } catch (e) {
       console.warn('source_health skipped', e instanceof Error ? e.message : 'error');
+    }
+
+    // Category mapping upgrades reach rows already stored (data.cat_v older than the code's CAT_V): small batches, only while the time
+    // budget allows, then a rematch of the rows that changed. Never throws and never fails the scan.
+    if (clock() - t0 <= deadlineMs - REMAP_RESERVE_MS) {
+      try {
+        report.remap = await remapStoredSignals(db, { now, shouldContinue: () => clock() - t0 <= deadlineMs - REMAP_RESERVE_MS });
+      } catch (e) {
+        report.remap = { scanned: 0, updated: 0, changed: 0, rematched: 0, pruned: 0, batches: 0, done: false, error: e instanceof Error ? e.message : String(e) };
+      }
     }
 
     // One IndexNow ping per run for the city pages and the current weekly page that got new rows. It never throws, gives up after 5 s,

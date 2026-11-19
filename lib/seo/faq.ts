@@ -1,8 +1,18 @@
+import { TIER_NAMES, type Tier } from '@/lib/plan/limits';
+import { priceLabel } from '@/lib/stripe/plans';
+import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+
 /**
  * The /faq page. Plain text only, so the visible answer and the FAQPage JSON-LD answer are the same string.
  * Pricing and request facts follow the fixed contracts in the round 3 brief and the wording on /pricing (lib/plan/pricing-page.ts)
  * and /request (app/request/page.tsx): change them there first, then here.
  */
+// Prices and plan names come from lib/stripe/plans.ts and lib/plan/limits.ts (pure modules), never typed here.
+const SOLO = TIER_NAMES.starter;
+const PRO = TIER_NAMES.pro;
+const m = (t: Tier) => priceLabel(t, 'monthly');
+const y = (t: Tier) => priceLabel(t, 'annual');
+
 export interface FaqGroup {
   id: string;
   title: string;
@@ -60,15 +70,15 @@ export const FAQ_GROUPS: FaqGroup[] = [
     items: [
       {
         q: 'How much does Holler cost?',
-        a: 'Starter is $5 a month or $48 a year, and Pro is $9.99 a month or $96 a year. Both plans include alerts by email, the feed and replies to resident requests, and both start with a 7-day free trial that needs no card, with no per-lead fees and no contract after it. Cancel any time.',
+        a: `${SOLO} is ${m('starter')} a month or ${y('starter')} a year, and ${PRO} is ${m('pro')} a month or ${y('pro')} a year. Both plans include alerts by email, the feed and replies to resident requests. Both start with a ${TRIAL_PHRASE} that needs no card, and there are no per-lead fees and no contract after it. Cancel any time.`,
       },
       {
         q: 'What does the free trial include?',
-        a: 'Seven days of alerts with Starter limits, which means one service area and up to five trades, and no card is needed to start. When the trial ends without a subscription your feed locks and your account stays as it is, and you are never charged just because a trial ended or because you forgot to cancel something. Nothing is billed.',
+        a: `${TRIAL_DAYS} days of alerts on ${SOLO} limits, which means one service area and up to five trades. No card is needed to start. When the trial ends without a subscription, your feed locks and your account stays as it is. You are never charged just because a trial ended or because you forgot to cancel something. Nothing is billed.`,
       },
       {
-        q: 'What is the difference between Starter and Pro?',
-        a: 'Coverage: Starter watches one service area and up to five trades, while Pro watches three service areas and up to 15 trades. Pro also adds up to five keyword watches, which send you any record in your areas whose title or summary has a phrase you pick, even when it falls outside your trades. Pick Pro for several ZIP codes.',
+        q: `What is the difference between ${SOLO} and ${PRO}?`,
+        a: `Coverage. ${SOLO} watches one service area and up to five trades, while ${PRO} watches three service areas and up to 15 trades. ${PRO} also adds up to five keyword watches. Each one sends you any record in your areas whose title or summary has a phrase you pick, even when it falls outside your trades. Pick ${PRO} if you work in several ZIP codes.`,
       },
       {
         q: 'Can I cancel any time?',

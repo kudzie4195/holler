@@ -1,3 +1,4 @@
+import { APPROX_LOCATION_SOURCES } from './approx-location';
 import { CATEGORY_IDS, type CategoryId } from './categories';
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { NWS_HAIL_EXTRA, NWS_RULES } from './adapters/nws';
@@ -138,6 +139,8 @@ function buildCityFeeds(): { all: Record<string, SignalTypeId[]>; county: Record
     m.set(slug, s);
   };
   for (const ds of enabledDatasets()) {
+    // Rows of an approximate-location feed (Cobb County) are never listed on a city page (run.ts placeSlugFor), so no city claims it.
+    if (APPROX_LOCATION_SOURCES.has(ds.id)) continue;
     const slug = placeSlugOfDataset(ds);
     if (!slug) continue;
     add(all, slug, ds.subtype);

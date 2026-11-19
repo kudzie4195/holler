@@ -29,6 +29,14 @@ interface World {
   sessionCreate: ReturnType<typeof vi.fn>;
   construct: ReturnType<typeof vi.fn>;
   getUser: ReturnType<typeof vi.fn>;
+  /** rpc calls other than the rate limiter, with a copy of the row as it stood when each was made. */
+  rpcs: { name: string; args: Record<string, unknown>; rowThen: Row }[];
+  /** Paid invoices per subscription, each with its InvoicePayments (Stripe API 2026: payments name a PaymentIntent). */
+  invoices: Map<string, { id: string; amount_paid: number; payments: { id: string; amount_paid: number; payment: { type: string; payment_intent?: string; charge?: string } }[] }[]>;
+  refundCalls: { params: Record<string, unknown>; opts?: { idempotencyKey?: string } }[];
+  refundFails: boolean;
+  /** Answer of holler_stripe_state (migration 0020); may change w.row like the real function's fallback would. */
+  stateRpc: (args: Record<string, unknown>) => { data: unknown; error: { code: string; message?: string } | null };
 }
 let w: World;
 
@@ -46,7 +54,11 @@ function sub(id: string, status: string, tier: Tier, plan: Plan): FakeSub {
 /** holler_profiles fake: update(patch).eq(...).or(...) applies to the one row only when every filter matches. */
 function adminFake() {
   return {
-    rpc: async () => ({ data: w.limiter === 'allowed', error: w.limiter === 'error' ? { code: 'x' } : null }),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === 'holler_rate_hit') return { data: w.limiter === 'allowed', error: w.limiter === 'error' ? { code: 'x' } : null };
+      w.rpcs.push({ name, args, rowThen: { ...w.row } });
+      return w.stateRpc(args);
+    },
     from: () => ({
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { ...w.row }, error: null }) }) }),
       update: (patch: Row) => {
@@ -80,6 +92,27 @@ function stripeFake() {
     checkout: { sessions: { create: w.sessionCreate } },
     products: { retrieve: async (id: string) => ({ id, active: true }), create: vi.fn(), update: vi.fn() },
     webhooks: { constructEventAsync: w.construct },
+    invoices: {
+      list: async (params: { subscription: string; status: string }) => ({
+        data: (w.invoices.get(params.subscription) ?? []).map((i) => ({ id: i.id, amount_paid: i.amount_paid, status: 'paid' })),
+      }),
+    },
+    invoicePayments: {
+      list: async (params: { invoice: string }) => ({
+        data: [...w.invoices.values()].flat().find((i) => i.id === params.invoice)?.payments ?? [],
+      }),
+    },
+    refunds: {
+      create: async (params: Record<string, unknown>, opts?: { idempotencyKey?: string }) => {
+        if (w.refundFails) throw Object.assign(new Error('api_connection_error'), { type: 'StripeConnectionError' });
+        // Stripe replays the first answer for a repeated idempotency key and refunds nothing more.
+        if (opts?.idempotencyKey && w.keys.has(opts.idempotencyKey)) return w.keys.get(opts.idempotencyKey);
+        w.refundCalls.push({ params, opts });
+        const r = { id: `re_${w.refundCalls.length}` };
+        if (opts?.idempotencyKey) w.keys.set(opts.idempotencyKey, r);
+        return r;
+      },
+    },
     subscriptions: {
       retrieve: async (id: string) => {
         if (w.retrieveFails) throw new Error('stripe api error');
@@ -159,6 +192,11 @@ beforeEach(() => {
     sessionCreate: vi.fn(async () => ({ url: 'https://checkout.stripe.test/s' })),
     construct: vi.fn(),
     getUser: vi.fn(async () => ({ data: { user: { id: 'user-1', email: 'a@x.com' } } })),
+    rpcs: [],
+    invoices: new Map(),
+    refundCalls: [],
+    refundFails: false,
+    stateRpc: () => ({ data: 'kept', error: null }),
   };
 });
 afterEach(() => {
@@ -167,7 +205,7 @@ afterEach(() => {
 });
 
 describe('P1-1: an upgrade is charged at once, or does not happen', () => {
-  it('reviewer reproduction: Starter yearly to Pro charges now (always_invoice + error_if_incomplete); the profile moves to Pro', async () => {
+  it('reviewer reproduction: Solo (starter) yearly to Pro charges now (always_invoice + error_if_incomplete); the profile moves to Pro', async () => {
     const { change } = await load();
     const res = await change(req(CHANGE, { tier: 'pro' }));
     expect(res.status).toBe(200);
@@ -177,14 +215,14 @@ describe('P1-1: an upgrade is charged at once, or does not happen', () => {
     expect(w.row.plan).toBe('pro');
   });
 
-  it('card declined: 402, Stripe and the profile both stay on Starter', async () => {
+  it('card declined: 402, Stripe and the profile both stay on Solo (starter)', async () => {
     w.cardFails = true;
     const { change } = await load();
     const res = await change(req(CHANGE, { tier: 'pro' }));
     expect(res.status).toBe(402);
     expect(await res.json()).toEqual({ error: 'payment_failed' });
     expect(stripeTier('sub_1')).toBe('starter');
-    expect(w.subs.get('sub_1')!.items.data[0].price.unit_amount).toBe(4800);
+    expect(w.subs.get('sub_1')!.items.data[0].price.unit_amount).toBe(PRICES_CENTS.starter.annual);
     expect(w.row.plan).toBe('starter');
     expect(effectiveTier(w.row as { plan: string; subscription_status: string })).toBe('starter');
   });
@@ -241,7 +279,7 @@ describe('P1-1: an upgrade is charged at once, or does not happen', () => {
     }
     // Delete account cancels with Stripe's defaults (invoice_now false, prorate false), which drop pending prorations. Because no
     // upgrade leaves an amount pending any more, the only thing that can be dropped is a downgrade credit, never money owed to Holler.
-    expect(isUpgrade({ tier: 'pro', plan: 'monthly' }, { tier: 'starter', plan: 'annual' })).toBe(true); // $9.99 -> $48
+    expect(isUpgrade({ tier: 'pro', plan: 'monthly' }, { tier: 'starter', plan: 'annual' })).toBe(true); // Pro monthly 1399 -> Solo yearly 7999: price up
     expect(isUpgrade({ tier: 'starter', plan: 'annual' }, { tier: 'pro', plan: 'monthly' })).toBe(true); // tier up
   });
 });
@@ -383,7 +421,7 @@ describe('P2-4: state-changing billing routes need Content-Type: application/jso
 });
 
 describe('Owner decision: unpaid and paused are not paid', () => {
-  it('maps unpaid and paused to canceled: no paid access, Starter limits, nothing deleted; past_due keeps access', async () => {
+  it('maps unpaid and paused to canceled: no paid access, Solo (starter) limits, nothing deleted; past_due keeps access', async () => {
     for (const s of ['unpaid', 'paused']) {
       w.row = { ...w.row, plan: 'pro', subscription_status: 'active', extra_areas: [{ zip: '30601' }], keywords: ['tree removal'] };
       w.subs.set('sub_1', sub('sub_1', s, 'pro', 'monthly'));
@@ -414,5 +452,251 @@ describe('Owner decision: unpaid and paused are not paid', () => {
   it('a trial member who subscribes to Pro with a card gets Pro at once (kept)', () => {
     expect(mapStripeStatus('trialing')).toBe('active');
     expect(effectiveTier({ plan: 'pro', subscription_status: mapStripeStatus('trialing') })).toBe('pro');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Review r2: store billing meets the Stripe routes. SQL side (shadow state, fallback) is in /home/claude/gates/pg/migtest_0020.mjs.
+// ---------------------------------------------------------------------------------------------------------------------------------
+const inDays = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString();
+const liveStore = (plan: Tier, over: Row = {}): Row => ({
+  ...w.row,
+  plan,
+  subscription_status: 'active',
+  plan_source: 'apple',
+  store_product_id: `com.localholler.app.${plan === 'pro' ? 'pro' : 'solo'}.yearly`,
+  store_expires_at: inDays(200),
+  store_env: 'production',
+  stripe_subscription_id: null,
+  ...over,
+});
+const completedFor = (subId: string, tier: Tier) => ({
+  type: 'checkout.session.completed',
+  data: { object: { mode: 'subscription', client_reference_id: 'user-1', subscription: subId, customer: 'cus_1', metadata: { ...HOLLER, tier } } },
+});
+
+describe('review r2 F6: change-plan never writes over a live store plan', () => {
+  it('reviewer reproduction: live App Store Pro, Stripe Solo active, POST {tier: starter} -> 409 store_plan, nothing written', async () => {
+    w.row = liveStore('pro', { stripe_subscription_id: 'sub_1' });
+    const before = { ...w.row };
+    const { change } = await load();
+    const res = await change(req(CHANGE, { tier: 'starter' }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'store_plan' });
+    expect(w.row).toEqual(before);
+    expect(w.updateCalls).toEqual([]);
+  });
+  it('a lapsed store row does not block a Stripe plan switch', async () => {
+    w.row = { ...liveStore('starter', { store_expires_at: '2026-01-01T00:00:00Z', subscription_status: 'active', stripe_subscription_id: 'sub_1' }), plan_source: 'stripe' };
+    const { change } = await load();
+    expect((await change(req(CHANGE, { tier: 'pro' }))).status).toBe(200);
+  });
+});
+
+describe('review r2 F7: checkout uses the shared paid test', () => {
+  it('reviewer reproduction: active apple row that expired 2026-06-01 may subscribe on the web (not 409)', async () => {
+    w.row = liveStore('pro', { store_expires_at: '2026-06-01T00:00:00Z', stripe_subscription_id: null });
+    const { checkout } = await load();
+    const res = await checkout(req('http://x.test/api/stripe/checkout', { tier: 'pro' }));
+    expect(res.status).toBe(200);
+    expect(w.sessionCreate).toHaveBeenCalledTimes(1);
+  });
+  it('a live store plan still answers 409 already_subscribed; a store row with no readable expiry does not', async () => {
+    w.row = liveStore('starter');
+    let { checkout } = await load();
+    expect((await checkout(req('http://x.test/api/stripe/checkout', { tier: 'pro' }))).status).toBe(409);
+    w.row = liveStore('pro', { store_expires_at: null });
+    ({ checkout } = await load());
+    expect((await checkout(req('http://x.test/api/stripe/checkout', { tier: 'pro' }))).status).toBe(200);
+  });
+});
+
+describe('review r2 F10: a second completed checkout never orphans the live subscription', () => {
+  it('reviewer scenario: sub_1 live in the row, checkout for sub_2 completes -> sub_2 canceled in Stripe, sub_1 kept, logged', async () => {
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { webhook } = await load();
+    const res = await webhook(hook());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true, ignored: 'duplicate_subscription' });
+    expect(w.cancelCalls.map((c) => c.id)).toEqual(['sub_2']);
+    expect(w.subs.get('sub_2')!.status).toBe('canceled');
+    expect(w.subs.get('sub_1')!.status).toBe('active');
+    expect(w.row).toMatchObject({ stripe_subscription_id: 'sub_1', plan: 'starter', subscription_status: 'active' });
+    expect(err.mock.calls.some((c) => /second Holler subscription/.test(String(c[0])))).toBe(true);
+  });
+  it('a redelivery of that event cancels nothing more (sub_2 is canceled now)', async () => {
+    w.subs.set('sub_2', sub('sub_2', 'canceled', 'pro', 'monthly'));
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const { webhook } = await load();
+    expect((await webhook(hook())).status).toBe(200);
+    expect(w.cancelCalls).toEqual([]);
+    expect(w.row.stripe_subscription_id).toBe('sub_1');
+  });
+  it('when the first subscription has ended, the new checkout lands as before', async () => {
+    w.row = { ...w.row, subscription_status: 'canceled' };
+    w.subs.get('sub_1')!.status = 'canceled';
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const { webhook } = await load();
+    await webhook(hook());
+    expect(w.cancelCalls).toEqual([]);
+    expect(w.row).toMatchObject({ stripe_subscription_id: 'sub_2', plan: 'pro', subscription_status: 'active' });
+  });
+});
+
+describe('verify-v2 P2 (decision 6): a canceled duplicate checkout is refunded; the kept subscription is the live one on the row', () => {
+  const paidInvoice = (subId: string, cents = 1399) => w.invoices.set(subId, [{ id: `in_${subId}`, amount_paid: cents, payments: [{ id: `inpay_${subId}`, amount_paid: cents, payment: { type: 'payment_intent', payment_intent: `pi_${subId}` } }] }]);
+
+  it('reviewer (a): the canceled duplicate had a paid invoice -> refunded in full through the Stripe API, then canceled, and logged', async () => {
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    paidInvoice('sub_2');
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { webhook } = await load();
+    const res = await webhook(hook());
+    expect(await res.json()).toEqual({ received: true, ignored: 'duplicate_subscription' });
+    expect(w.refundCalls).toEqual([
+      { params: { payment_intent: 'pi_sub_2', reason: 'duplicate', metadata: { app: 'holler', reason: 'duplicate_subscription', subscription: 'sub_2', invoice: 'in_sub_2' } }, opts: { idempotencyKey: 'holler-dup-refund-inpay_sub_2' } },
+    ]);
+    expect(w.cancelCalls.map((c) => c.id)).toEqual(['sub_2']);
+    expect(w.row).toMatchObject({ stripe_subscription_id: 'sub_1', subscription_status: 'active' });
+    expect(err.mock.calls.some((c) => /second Holler subscription sub_2 canceled; sub_1 kept; refunds \[re_1\]/.test(String(c[0])))).toBe(true);
+  });
+  it('a duplicate charged nothing (trial, $0 invoice): no refund call, still canceled', async () => {
+    w.subs.set('sub_2', sub('sub_2', 'trialing', 'pro', 'monthly'));
+    w.subs.get('sub_2')!.status = 'active';
+    w.invoices.set('sub_2', [{ id: 'in_0', amount_paid: 0, payments: [] }]);
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const { webhook } = await load();
+    await webhook(hook());
+    expect(w.refundCalls).toEqual([]);
+    expect(w.cancelCalls.map((c) => c.id)).toEqual(['sub_2']);
+  });
+  it('a failed refund answers 500 and cancels nothing; the redelivery refunds once and cancels', async () => {
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    paidInvoice('sub_2');
+    w.refundFails = true;
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    let { webhook } = await load();
+    expect((await webhook(hook())).status).toBe(500);
+    expect(w.cancelCalls).toEqual([]);
+    w.refundFails = false;
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    ({ webhook } = await load());
+    expect((await webhook(hook())).status).toBe(200);
+    expect(w.refundCalls).toHaveLength(1);
+    expect(w.cancelCalls.map((c) => c.id)).toEqual(['sub_2']);
+  });
+  it('the same subscription id delivered twice is a no-op (no cancel, no refund)', async () => {
+    paidInvoice('sub_1');
+    for (let i = 0; i < 2; i++) {
+      w.construct.mockResolvedValueOnce(completedFor('sub_1', 'starter'));
+      const { webhook } = await load();
+      expect((await webhook(hook())).status).toBe(200);
+    }
+    expect(w.cancelCalls).toEqual([]);
+    expect(w.refundCalls).toEqual([]);
+    expect(w.row).toMatchObject({ stripe_subscription_id: 'sub_1', subscription_status: 'active' });
+  });
+  it('a plan switch through change-plan is never treated as a duplicate (same subscription, then its events)', async () => {
+    paidInvoice('sub_1');
+    const { change } = await load();
+    expect((await change(req(CHANGE, { tier: 'pro' }))).status).toBe(200);
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.updated', 'sub_1', 'active', 'pro'));
+    let { webhook } = await load();
+    await webhook(hook());
+    w.construct.mockResolvedValueOnce(completedFor('sub_1', 'starter')); // the original checkout, replayed late
+    ({ webhook } = await load());
+    await webhook(hook());
+    expect(w.cancelCalls).toEqual([]);
+    expect(w.refundCalls).toEqual([]);
+    expect(w.subs.get('sub_1')!.status).toBe('active');
+  });
+  it('reviewer (c): row says canceled but its subscription is live in Stripe -> the row one is kept, the new one refunded and canceled, and the row is put back in step', async () => {
+    w.row = { ...w.row, subscription_status: 'canceled', plan: 'starter' };
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    paidInvoice('sub_2');
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const { webhook } = await load();
+    expect(await (await webhook(hook())).json()).toEqual({ received: true, ignored: 'duplicate_subscription' });
+    expect(w.cancelCalls.map((c) => c.id)).toEqual(['sub_2']);
+    expect(w.refundCalls).toHaveLength(1);
+    expect(w.row).toMatchObject({ stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'starter' });
+  });
+});
+
+describe('review r2 F2: double payer, Stripe side of the shadow state (holler_stripe_state)', () => {
+  it('Repro B: a checkout blocked by a live store plan still records the Stripe subscription (id, status, plan)', async () => {
+    w.row = liveStore('starter');
+    w.subs.set('sub_2', sub('sub_2', 'active', 'starter', 'monthly'));
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'starter'));
+    const { webhook } = await load();
+    const res = await webhook(hook());
+    expect(await res.json()).toEqual({ received: true, ignored: 'store_plan' });
+    expect(w.rpcs.map((r) => [r.name, r.args])).toEqual([
+      ['holler_stripe_state', { p_user_id: 'user-1', p_subscription_id: 'sub_2', p_status: 'active', p_plan: 'starter' }],
+    ]);
+    expect(w.row).toMatchObject({ plan_source: 'apple', stripe_subscription_id: null });
+  });
+  it('a Stripe cancel blocked by a live store plan is recorded too (so a stale "active" never comes back)', async () => {
+    w.row = liveStore('pro');
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.deleted', 'sub_2', 'canceled', 'starter'));
+    const { webhook } = await load();
+    await webhook(hook());
+    expect(w.rpcs.map((r) => r.args)).toEqual([{ p_user_id: 'user-1', p_subscription_id: 'sub_2', p_status: 'canceled', p_plan: null }]);
+    expect(w.row.subscription_status).toBe('active');
+  });
+  it('Repro A: Stripe Solo ends while a store plan waits in the shadow -> the cancel is written, then the fallback runs in the same event', async () => {
+    w.row = { ...w.row, plan_source: 'stripe' };
+    // The real function switches the row to the surviving store plan; the fake does the same so the test sees the end state.
+    w.stateRpc = () => {
+      Object.assign(w.row, { plan: 'pro', subscription_status: 'active', plan_source: 'apple', store_expires_at: inDays(300) });
+      return { data: 'apple', error: null };
+    };
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.deleted', 'sub_1', 'canceled', 'starter'));
+    const { webhook } = await load();
+    expect((await webhook(hook())).status).toBe(200);
+    expect(w.rpcs).toHaveLength(1);
+    expect(w.rpcs[0].args).toEqual({ p_user_id: 'user-1', p_subscription_id: 'sub_1', p_status: 'canceled', p_plan: null });
+    expect(w.rpcs[0].rowThen).toMatchObject({ subscription_status: 'canceled', plan_source: 'stripe' }); // after the cancel write
+    expect(w.row).toMatchObject({ plan: 'pro', subscription_status: 'active', plan_source: 'apple' });
+  });
+  it('a higher Stripe plan taking over a live store plan records the state BEFORE the write (the store plan is kept in the shadow)', async () => {
+    w.row = liveStore('starter');
+    w.subs.set('sub_2', sub('sub_2', 'active', 'pro', 'monthly'));
+    w.construct.mockResolvedValueOnce(completedFor('sub_2', 'pro'));
+    const { webhook } = await load();
+    await webhook(hook());
+    expect(w.rpcs).toHaveLength(1);
+    expect(w.rpcs[0].args).toEqual({ p_user_id: 'user-1', p_subscription_id: 'sub_2', p_status: 'active', p_plan: 'pro' });
+    expect(w.rpcs[0].rowThen).toMatchObject({ plan_source: 'apple', plan: 'starter' });
+    expect(w.row).toMatchObject({ plan_source: 'stripe', plan: 'pro', stripe_subscription_id: 'sub_2' });
+  });
+  it('an ordinary paid Stripe update makes no extra call; a row read before migration 0020 never calls the function', async () => {
+    w.row = { ...w.row, plan_source: 'stripe' };
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.updated', 'sub_1', 'active', 'starter'));
+    let { webhook } = await load();
+    await webhook(hook());
+    expect(w.rpcs).toEqual([]);
+    delete w.row.plan_source;
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.deleted', 'sub_1', 'canceled', 'starter'));
+    ({ webhook } = await load());
+    expect((await webhook(hook())).status).toBe(200);
+    expect(w.rpcs).toEqual([]);
+    expect(w.row.subscription_status).toBe('canceled');
+  });
+  it('function missing (migration not applied) is logged and answered 200; any other database error is a 500 so Stripe retries', async () => {
+    w.row = { ...w.row, plan_source: 'stripe' };
+    w.stateRpc = () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.deleted', 'sub_1', 'canceled', 'starter'));
+    let { webhook } = await load();
+    expect((await webhook(hook())).status).toBe(200);
+    w.row = { ...w.row, subscription_status: 'active' };
+    w.stateRpc = () => ({ data: null, error: { code: '57014', message: 'canceling statement' } });
+    w.construct.mockResolvedValueOnce(subEvent('customer.subscription.deleted', 'sub_1', 'canceled', 'starter'));
+    ({ webhook } = await load());
+    expect((await webhook(hook())).status).toBe(500);
   });
 });

@@ -28,7 +28,8 @@ export function hasLeftHoller(appMetadata: unknown): boolean {
   return typeof at === 'string' && at.length > 0;
 }
 
-export const TRIAL_DAYS = 7;
+/** Free trial length in days. THE single source: code, copy, emails, JSON-LD and lib/plan/public-prices.ts read it; migration 0019 sets the database to the same 14. */
+export const TRIAL_DAYS = 14;
 
 /** When this person's one free trial started (ISO), recorded in app_metadata so deleting the account cannot reset it. */
 export function trialStartedAt(appMetadata: unknown): string | null {
@@ -36,7 +37,7 @@ export function trialStartedAt(appMetadata: unknown): string | null {
   return typeof at === 'string' && Number.isFinite(Date.parse(at)) ? at : null;
 }
 
-/** The only trial end this person can ever have: start + 7 days. */
+/** The only trial end this person can ever have: start + TRIAL_DAYS. */
 export function trialEndFromStart(startedAt: string): string {
   return new Date(Date.parse(startedAt) + TRIAL_DAYS * 86_400_000).toISOString();
 }

@@ -1,5 +1,7 @@
+import { TIER_NAMES } from '@/lib/plan/limits';
 import { priceLabel } from '@/lib/stripe/plans';
 import type { Guide } from './types';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const dataSources: Guide = {
   slug: 'free-public-data-sources-for-local-leads',
@@ -61,7 +63,7 @@ export const dataSources: Guide = {
     },
   ],
   howHolerHelps:
-    `You can open every source above yourself for free. Holler does the daily reading and emails an alert that links back to the source, for ${priceLabel('starter', 'monthly')} a month on Starter or ${priceLabel('pro', 'monthly')} a month on Pro, after a 7-day free trial with no card. The [free checker](/check) shows what it would watch near your ZIP code.`,
+    `You can open every source above yourself for free. Holler does the daily reading and emails an alert that links back to the source, for ${priceLabel('starter', 'monthly')} a month on ${TIER_NAMES.starter} or ${priceLabel('pro', 'monthly')} a month on ${TIER_NAMES.pro}, after a ${TRIAL_PHRASE} with no card. The [free checker](/check) shows what it would watch near your ZIP code.`,
   faq: [
     {
       q: 'Are these data sources free?',

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Holler brand accent, the color-accent token in app/globals.css. -->
+    <color name="holler_accent">#E8590C</color>
+    <color name="holler_paper">#FAF8F3</color>
+</resources>

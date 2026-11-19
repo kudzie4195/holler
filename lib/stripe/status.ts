@@ -40,3 +40,17 @@ export function statusForSubscriptionEvent(
   if (eventType === 'customer.subscription.deleted') return 'canceled';
   return mapStripeStatus(freshStatus ?? eventStatus);
 }
+
+/**
+ * Source guard (migration 0020): a Stripe event must not overwrite a live App Store or Google Play plan of the same or higher rank.
+ * Pass the stored row (any of its billing fields; a row read before 0020 has no plan_source and is never guarded) and the status and
+ * tier the event would write. True: write as usual. False: leave the row alone (the webhook answers 200 with ignored 'store_plan').
+ * Rule and tests: lib/storebilling/source.ts stripeMayOverwrite, tests/mobile/source-guard.test.ts.
+ */
+export { stripeMayOverwrite } from '../storebilling/source';
+
+/** plan_source to write with a Stripe update: 'stripe' when Stripe is now the paid source; otherwise leave the column alone. */
+export function stripePlanSource(row: { plan_source?: unknown } | null | undefined, status: HollerStatus | null): 'stripe' | undefined {
+  if (!row || !('plan_source' in row)) return undefined; // migration 0020 not applied: the column does not exist yet
+  return status === 'active' || status === 'past_due' ? 'stripe' : undefined;
+}

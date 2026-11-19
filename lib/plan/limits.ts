@@ -2,6 +2,9 @@
  * What each paid plan allows. Pure (no server imports), so the form, the save, the matcher and the tests share one copy.
  * The database enforces the same numbers (migration 0004, trigger holler_profiles_plan_limits).
  */
+// Relative path: the mobile app build loads this file (tests/plan/public-prices.test.ts).
+import { isPaidNow } from '../storebilling/source';
+
 export type Tier = 'starter' | 'pro';
 export const TIERS: readonly Tier[] = ['starter', 'pro'] as const;
 
@@ -27,7 +30,11 @@ export const MAX_KEYWORDS = Math.max(...TIERS.map((t) => PLAN_LIMITS[t].keywords
 export const KEYWORD_MIN_LENGTH = 3;
 export const KEYWORD_MAX_LENGTH = 40;
 
-export const TIER_NAMES: Record<Tier, string> = { starter: 'Starter', pro: 'Pro' };
+/**
+ * Display names. The internal id `starter` stays everywhere (code, database, Stripe metadata and product id); only the name shown to
+ * people is "Solo". Read names from here, never type them.
+ */
+export const TIER_NAMES: Record<Tier, string> = { starter: 'Solo', pro: 'Pro' };
 
 export function isTier(x: unknown): x is Tier {
   return x === 'starter' || x === 'pro';
@@ -40,13 +47,18 @@ export function isPaidStatus(status: string | null | undefined): boolean {
 
 /**
  * The plan whose limits apply right now.
- * - Pro only while the stored plan is 'pro' AND the subscription is paid (active or past_due).
- * - The free trial, a canceled subscription and an expired trial all get Starter limits. Saved extras stay saved; they are just not used.
+ * - Pro only while the stored plan is 'pro' AND the plan is paid now (lib/storebilling/source.ts isPaidNow: active or past_due, and
+ *   not a store plan that has lapsed or has no readable expiry). Pass the whole profile row so the store columns (migration 0020) count.
+ * - The free trial, a canceled subscription and an expired trial all get Solo (`starter`) limits. Saved extras stay saved; they are just not used.
  * - When the caller passes no status at all (undefined), the stored plan alone decides. null or any other status means not paid.
- * The database trigger in migration 0004 applies the same rule.
+ * The database trigger in migration 0004 applies the same rule on the status, and 0020 (holler_profiles_plan_limits_store) adds the
+ * lapsed store plan test, with the same 3-day grace.
  */
-export function effectiveTier(p: { plan?: string | null; subscription_status?: string | null } | null | undefined): Tier {
+export function effectiveTier(
+  p: { plan?: string | null; subscription_status?: string | null; plan_source?: string | null; store_expires_at?: string | null } | null | undefined,
+  now: number = Date.now(),
+): Tier {
   if (!p || p.plan !== 'pro') return 'starter';
   if (p.subscription_status === undefined) return 'pro';
-  return isPaidStatus(p.subscription_status) ? 'pro' : 'starter';
+  return isPaidNow(p, now) ? 'pro' : 'starter';
 }

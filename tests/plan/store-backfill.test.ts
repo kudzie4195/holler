@@ -9,21 +9,23 @@ import type { MatchProfile } from '@/lib/signals/match';
 
 const NOW = new Date('2026-11-17T12:00:00Z');
 
-function profilesDb(rows: any[], failColumns?: RegExp) {
+function profilesDb(rows: any[], failColumns?: RegExp, message = 'column holler_profiles.plan does not exist') {
   const selects: string[] = [];
   const db = {
     from: () => {
       let cols = '';
       const q: any = {
-        select: (c: string) => ((cols = c), selects.push(c), q),
+        // one entry per read (its first page): readAllPages also asks for a final empty page (verify-v1 decision 6)
+        select: (c: string) => ((cols = c), q),
         neq: () => q,
         order: () => q,
-        range: () =>
-          Promise.resolve(
+        // readAllPages reads until an empty page (verify-v1 decision 6): rows on the first page only
+        range: (a: number) =>
+          (a === 0 && selects.push(cols), Promise.resolve(
             failColumns && failColumns.test(cols)
-              ? { data: null, error: { message: 'column holler_profiles.plan does not exist' } }
-              : { data: rows, error: null },
-          ),
+              ? { data: null, error: { message } }
+              : { data: a > 0 ? [] : rows, error: null },
+          )),
       };
       return q;
     },
@@ -36,11 +38,36 @@ describe('loadProfiles', () => {
   it('selects plan, extra_areas and keywords so matching can apply the plan', async () => {
     const f = profilesDb([row]);
     const got = await loadProfiles(f.db, NOW);
-    expect(f.selects[0]).toBe(PROFILE_MATCH_COLUMNS);
+    // Round 7 integrate3 (review r2 F7): the first read also asks for the 0020 store columns, so a lapsed store plan is judged.
+    expect(f.selects[0]).toBe(`${PROFILE_MATCH_COLUMNS}, plan_source, store_expires_at`);
+    expect(f.selects).toHaveLength(1);
     for (const c of ['plan', 'extra_areas', 'keywords', 'subscription_status']) expect(PROFILE_MATCH_COLUMNS).toContain(c);
     expect(got[0]).toMatchObject({ plan: 'pro', keywords: ['tree removal'] });
   });
-  it('falls back to the old columns (Starter limits) when migration 0004 is not applied yet', async () => {
+  it('a database without 0020 retries without the store columns and keeps the plan columns (not the legacy read)', async () => {
+    const f = profilesDb([row], /plan_source/, 'column holler_profiles.plan_source does not exist');
+    const got = await loadProfiles(f.db, NOW);
+    expect(f.selects).toEqual([`${PROFILE_MATCH_COLUMNS}, plan_source, store_expires_at`, PROFILE_MATCH_COLUMNS]);
+    expect(got[0]).toMatchObject({ plan: 'pro', keywords: ['tree removal'] });
+    // PostgREST's wording for a missing column is handled the same way.
+    const g = profilesDb([row], /store_expires_at/, "Could not find the 'store_expires_at' column of 'holler_profiles' in the schema cache");
+    await loadProfiles(g.db, NOW);
+    expect(g.selects[1]).toBe(PROFILE_MATCH_COLUMNS);
+  });
+  it('a store plan that lapsed (or has no expiry) is not matched once the trial is over; a live one is', async () => {
+    const past = new Date(NOW.getTime() - 30 * 86_400_000).toISOString();
+    const store = { ...row, trial_ends_at: past, plan_source: 'apple' };
+    const f = profilesDb([
+      { ...store, user_id: 'live', store_expires_at: new Date(NOW.getTime() + 20 * 86_400_000).toISOString() },
+      { ...store, user_id: 'lapsed', store_expires_at: new Date(NOW.getTime() - 10 * 86_400_000).toISOString() },
+      { ...store, user_id: 'no-expiry', store_expires_at: null },
+      { ...row, user_id: 'stripe', trial_ends_at: past, plan_source: 'stripe', store_expires_at: null },
+    ]);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await loadProfiles(f.db, NOW)).map((p) => p.user_id)).toEqual(['live', 'stripe']);
+    vi.restoreAllMocks();
+  });
+  it('falls back to the old columns (Solo limits) when migration 0004 is not applied yet', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const f = profilesDb([{ ...row, plan: undefined, keywords: undefined }], /plan/);
     const got = await loadProfiles(f.db, NOW);

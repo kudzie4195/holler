@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Capacitor app is its own package with its own build and tests (mobile/package.json).
+    "mobile/**",
   ]),
 ]);
 

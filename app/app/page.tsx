@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { BillingButton } from '@/components/billing-button';
 import { Card } from '@/components/card';
 import { ComingNextForMember } from '@/components/coming-next-member';
-import { RecentActivity } from '@/components/feed/recent-activity';
+import { EmptyFeed, emptyFeedApplies } from '@/components/feed/empty-feed';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
@@ -12,7 +12,9 @@ import { computeAccess } from '@/lib/auth/access';
 import { cityPageFor } from '@/lib/auth/city-link';
 import { requireProfile } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { priceLabel, renewalNote } from '@/lib/stripe/plans';
+import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
+import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { matchScope } from '@/lib/plan/scope';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestTextForMember } from '@/lib/requests/details';
@@ -21,6 +23,7 @@ import { loadFeedback } from '@/lib/feedback/service';
 import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
+import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 
 interface SignalRow {
   id: number;
@@ -37,6 +40,8 @@ interface SignalRow {
   expires_at: string | null;
   /** data->>subtype of the record, for the intent label. */
   subtype?: string | null;
+  /** 1..3, for the AI ranking (lib/ai rankSignals). */
+  severity?: number | null;
 }
 
 interface MatchRow {
@@ -56,7 +61,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,subtype:data->>subtype)',
+      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,subtype:data->>subtype)',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -112,7 +117,30 @@ async function loadDashboard() {
     const ids = rows.map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow).map((s) => s.id);
     feedbackBySignal = await loadFeedback(supabase, user.id, ids);
   }
-  const items: FeedItem[] = rows.map((m) => {
+  // AI notes and ranking (lib/ai): read from holler_signal_ai with the service role, for this member's own matches only, never for
+  // a locked account. No model call here. Any failure gives empty maps: chronological order and no notes, exactly as before.
+  let aiNotes = new Map<number, string>();
+  let ranked = rows;
+  if (!access.locked && rows.length > 0) {
+    const sigOf = (m: MatchRow) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+    const ids = rows.map((m) => sigOf(m).id);
+    // Only the trades the current plan covers (a Solo member with 6 saved trades is matched on the first 5).
+    const trades = matchScope(profile).categories;
+    try {
+      const admin = createAdminClient();
+      const [notes, scores] = await Promise.all([notesFor(admin, ids, trades), scoresFor(admin, ids, trades)]);
+      aiNotes = notes;
+      // No stored AI result for any of these (or the table is missing before migration 0014): keep the newest-first order.
+      ranked = scores.size === 0 ? rows : rankSignals(
+        rows.map((m) => ({ id: sigOf(m).id, severity: sigOf(m).severity ?? null, occurred_at: sigOf(m).occurred_at, m })),
+        scores,
+      ).map((x) => x.m);
+    } catch {
+      aiNotes = new Map();
+      ranked = rows;
+    }
+  }
+  const items: FeedItem[] = ranked.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const base: FeedItem = {
@@ -123,8 +151,10 @@ async function loadDashboard() {
       title: s.title,
       summary: isRequest ? (requestText[m.id] ?? null) : s.summary,
       url: s.url,
-      distance: formatDistance(m.distance_mi),
+      distance: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       place: [s.city, s.state].filter(Boolean).join(', ') || null,
+      // A stand-in position (Cobb County): say so in plain words, never a distance.
+      approxNote: hasApproxLocation(s) ? approxLocationNote(s) : null,
       ago: timeAgo(s.occurred_at, now),
       occurredAt: s.occurred_at,
       draft: m.draft,
@@ -135,6 +165,7 @@ async function loadDashboard() {
       subtype: s.subtype ?? null,
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
+      aiNote: aiNotes.get(s.id) ?? null,
     };
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
@@ -144,7 +175,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null }
       : base;
   });
 
@@ -182,24 +213,21 @@ export default async function AppHome(props: PageProps<'/app'>) {
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
 
-      {items.length === 0 && !access.locked ? (
-        <div className="mt-6">
-          <Suspense fallback={null}>
-            <RecentActivity userId={profile.user_id} />
-          </Suspense>
-        </div>
-      ) : null}
-
       <div className="mt-6">
-        {access.locked ? (
+        {emptyFeedApplies({ items: items.length, locked: access.locked, failed }) ? (
+          // Zero matches: what the area check, the nearby feeds and the last 90 days show, from real rows (components/feed/empty-feed.tsx).
+          <Suspense fallback={<Feed items={[]} cityPage={cityPage} firstRun={firstRun} />}>
+            <EmptyFeed userId={profile.user_id} />
+          </Suspense>
+        ) : access.locked ? (
           <LockedFeed items={items}>
             <Card className="text-center">
-              <h2 className="text-2xl text-ink">Your free week is over</h2>
+              <h2 className="text-2xl text-ink">Your free trial is over</h2>
               <p className="mt-2 text-muted">
                 {items.length > 0
                   ? `${items.length} ${items.length === 1 ? 'match is' : 'matches are'} waiting. `
                   : ''}
-                Starter is {priceLabel('starter', 'monthly')} a month. Pro is {priceLabel('pro', 'monthly')} a month and covers more areas
+                {TIER_LABEL.starter} is {priceLabel('starter', 'monthly')} a month. {TIER_LABEL.pro} is {priceLabel('pro', 'monthly')} a month and covers more areas
                 and trades. Cancel any time.
               </p>
               <div className="mt-5 flex flex-col items-center gap-3">
@@ -210,7 +238,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
                   unavailableMessage="Billing opens soon. Check back shortly."
                   note={renewalNote('starter', 'monthly', { inTrial: !access.trialEnded })}
                 >
-                  Keep my alerts for {priceLabel('starter', 'monthly')}/mo
+                  Keep alerts for {priceLabel('starter', 'monthly')}/mo
                 </BillingButton>
                 <Link href="/app/settings#billing-h" className="text-sm font-medium text-accent-text underline">
                   See both plans and yearly prices

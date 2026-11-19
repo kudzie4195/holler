@@ -6,6 +6,8 @@ import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
 import { adapters as arcgis } from './adapters/arcgis';
+import { adapters as arcgisJohnsCreek } from './adapters/arcgis-johnscreek';
+import { adapters as arcgisCobb, COBB_SOURCE_IDS } from './adapters/arcgis-cobb';
 import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
@@ -19,7 +21,10 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...usgs,
   ...faa,
   ...socrata,
-  ...arcgis,
+  // The Cobb permit layers are built by arcgis-cobb.ts (approximate location marker), so the shared list skips them.
+  ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
+  ...arcgisCobb,
+  ...arcgisJohnsCreek,
   ...usaspending,
   ...sam,
   ...ticketmaster,

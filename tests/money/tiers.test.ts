@@ -1,7 +1,9 @@
-// Starter / Pro billing: checkout tier, webhook plan, POST /api/stripe/change-plan, ensureProduct. Stripe, Supabase and the session are
+// Solo (id starter) / Pro billing: checkout tier, webhook plan, POST /api/stripe/change-plan, ensureProduct. Stripe, Supabase and the session are
 // mocked with the shapes our own code reads (assumed, not recorded from Stripe). The subscriptions.update parameter shape is checked by
 // tsc against node_modules/stripe (stripe@23 SubscriptionUpdateParams.Item.PriceData: currency, product, recurring, unit_amount).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// The webhook route imports lib/analytics/stripe (invoice.paid -> paid), which is 'server-only'.
+vi.mock('server-only', () => ({}));
 import { ensureProduct, parseChangeBody, parseTier, PRODUCT_IDS, subscriptionPriceData, tierFromMetadata, type ProductsApi } from '@/lib/stripe';
 
 interface Ctx {
@@ -118,32 +120,33 @@ describe('parsers', () => {
     for (const bad of [null, {}, { tier: 'gold' }, { tier: 'pro', plan: 'yearly' }, [], 'pro']) expect(parseChangeBody(bad)).toBeNull();
   });
   it('subscriptionPriceData uses a product id and the cents table', () => {
-    expect(subscriptionPriceData('pro', 'monthly', 'holler_pro')).toEqual({ currency: 'usd', product: 'holler_pro', unit_amount: 999, recurring: { interval: 'month' } });
-    expect(subscriptionPriceData('pro', 'annual', 'holler_pro')).toEqual({ currency: 'usd', product: 'holler_pro', unit_amount: 9600, recurring: { interval: 'year' } });
-    expect(subscriptionPriceData('starter', 'annual', 'holler_starter').unit_amount).toBe(4800);
+    expect(subscriptionPriceData('pro', 'monthly', 'holler_pro')).toEqual({ currency: 'usd', product: 'holler_pro', unit_amount: 1399, recurring: { interval: 'month' } });
+    expect(subscriptionPriceData('pro', 'annual', 'holler_pro')).toEqual({ currency: 'usd', product: 'holler_pro', unit_amount: 13999, recurring: { interval: 'year' } });
+    expect(subscriptionPriceData('starter', 'annual', 'holler_starter').unit_amount).toBe(7999);
   });
 });
 
 describe('POST /api/stripe/checkout with tier', () => {
   const url = 'http://x.test/api/stripe/checkout';
-  it('pro monthly: 999 cents, tier in session and subscription metadata', async () => {
+  it('pro monthly: 1399 cents on the holler_pro product, tier in session and subscription metadata', async () => {
     const { checkout } = await load();
     expect((await checkout(json(url, { plan: 'monthly', tier: 'pro' }))).status).toBe(200);
     const arg = ctx.sessionCreate.mock.calls[0][0];
-    expect(arg.line_items[0].price_data).toMatchObject({ unit_amount: 999, recurring: { interval: 'month' } });
+    expect(arg.line_items[0].price_data).toEqual({ currency: 'usd', product: 'holler_pro', unit_amount: 1399, recurring: { interval: 'month' } });
     expect(arg.metadata).toEqual({ ...HOLLER, plan: 'monthly', tier: 'pro' });
     expect(arg.subscription_data.metadata).toEqual({ ...HOLLER, plan: 'monthly', tier: 'pro' });
   });
-  it('pro annual: 9600 cents', async () => {
+  it('pro annual: 13999 cents', async () => {
     const { checkout } = await load();
     await checkout(json(url, { plan: 'annual', tier: 'pro' }));
-    expect(ctx.sessionCreate.mock.calls[0][0].line_items[0].price_data).toMatchObject({ unit_amount: 9600, recurring: { interval: 'year' } });
+    expect(ctx.sessionCreate.mock.calls[0][0].line_items[0].price_data).toMatchObject({ unit_amount: 13999, recurring: { interval: 'year' } });
   });
-  it('missing tier means starter (500), with tier starter in metadata', async () => {
+  it('missing tier means starter (799), with tier starter in metadata', async () => {
     const { checkout } = await load();
     await checkout(json(url, { plan: 'monthly' }));
     const arg = ctx.sessionCreate.mock.calls[0][0];
-    expect(arg.line_items[0].price_data.unit_amount).toBe(500);
+    expect(arg.line_items[0].price_data.unit_amount).toBe(799);
+    expect(arg.line_items[0].price_data.product).toBe('holler_starter');
     expect(arg.subscription_data.metadata.tier).toBe('starter');
   });
   it('an unknown tier is a 400 before Stripe is called', async () => {
@@ -274,7 +277,7 @@ describe('POST /api/stripe/change-plan', () => {
     const [id, params, opts] = ctx.update.mock.calls[0];
     expect(id).toBe('sub_1');
     expect(params).toEqual({
-      items: [{ id: 'si_1', price_data: { currency: 'usd', product: PRODUCT_IDS.pro, unit_amount: 999, recurring: { interval: 'month' } } }],
+      items: [{ id: 'si_1', price_data: { currency: 'usd', product: PRODUCT_IDS.pro, unit_amount: 1399, recurring: { interval: 'month' } } }],
       proration_behavior: 'always_invoice',
       payment_behavior: 'error_if_incomplete',
       metadata: { ...HOLLER, plan: 'monthly', tier: 'pro' },
@@ -283,14 +286,14 @@ describe('POST /api/stripe/change-plan', () => {
     expect(ctx.updates[0]).toMatchObject({ table: 'holler_profiles', patch: { plan: 'pro', subscription_status: 'active' }, col: 'user_id', val: 'user-1' });
   });
 
-  it('pro yearly to starter keeps yearly (4800); an explicit plan switches the interval', async () => {
+  it('pro yearly to starter keeps yearly (7999); an explicit plan switches the interval', async () => {
     subscribed();
     ctx.retrieve.mockResolvedValue(liveSub({ metadata: { ...HOLLER, tier: 'pro', plan: 'annual' }, items: { data: [{ id: 'si_9', price: { recurring: { interval: 'year' } } }] } }));
     const { change } = await load();
     expect(await (await change(json(url, { tier: 'starter' }))).json()).toMatchObject({ tier: 'starter', plan: 'annual' });
-    expect(ctx.update.mock.calls[0][1].items[0]).toEqual({ id: 'si_9', price_data: { currency: 'usd', product: PRODUCT_IDS.starter, unit_amount: 4800, recurring: { interval: 'year' } } });
+    expect(ctx.update.mock.calls[0][1].items[0]).toEqual({ id: 'si_9', price_data: { currency: 'usd', product: PRODUCT_IDS.starter, unit_amount: 7999, recurring: { interval: 'year' } } });
     await change(json(url, { tier: 'pro', plan: 'monthly' }));
-    expect(ctx.update.mock.calls[1][1].items[0].price_data).toMatchObject({ unit_amount: 999, recurring: { interval: 'month' } });
+    expect(ctx.update.mock.calls[1][1].items[0].price_data).toMatchObject({ unit_amount: 1399, recurring: { interval: 'month' } });
   });
 
   it('same tier and interval: no Stripe update, changed false', async () => {
@@ -325,6 +328,37 @@ describe('ensureProduct', () => {
     const a = api({ retrieve: vi.fn(async () => { throw err('resource_missing'); }) });
     expect(await ensureProduct(a, 'pro')).toBe('holler_pro');
     expect(a.products.create).toHaveBeenCalledWith({ id: 'holler_pro', name: 'Holler Pro', metadata: { app: 'holler', tier: 'pro' } });
+  });
+  it('creates the Solo product under the old fixed id holler_starter, named "Holler Solo"', async () => {
+    const a = api({ retrieve: vi.fn(async () => { throw err('resource_missing'); }) });
+    expect(await ensureProduct(a, 'starter')).toBe('holler_starter');
+    expect(a.products.create).toHaveBeenCalledWith({ id: 'holler_starter', name: 'Holler Solo', metadata: { app: 'holler', tier: 'starter' } });
+  });
+  it('renames an existing "Holler Starter" product in place: same id, one update, no new product; the next call does nothing', async () => {
+    const stored = { id: 'holler_starter', active: true, name: 'Holler Starter', metadata: { app: 'holler', tier: 'starter' } };
+    const a = api({
+      retrieve: vi.fn(async () => ({ ...stored })),
+      update: vi.fn(async (_id: string, p: { name?: string }) => (p.name && (stored.name = p.name), { id: 'holler_starter' })),
+    });
+    expect(await ensureProduct(a, 'starter')).toBe('holler_starter');
+    expect(a.products.update).toHaveBeenCalledTimes(1);
+    expect(a.products.update).toHaveBeenCalledWith('holler_starter', { name: 'Holler Solo' });
+    expect(await ensureProduct(a, 'starter')).toBe('holler_starter'); // idempotent: name now matches
+    expect(await ensureProduct(a, 'starter')).toBe('holler_starter');
+    expect(a.products.update).toHaveBeenCalledTimes(1);
+    expect(a.products.create).not.toHaveBeenCalled();
+    expect(a.products.retrieve).toHaveBeenCalledWith('holler_starter'); // lookup is by id only, never by name
+  });
+  it('an archived, old-named product is turned on and renamed in one update', async () => {
+    const a = api({ retrieve: vi.fn(async () => ({ id: 'holler_starter', active: false, name: 'Holler Starter', metadata: { app: 'holler' } })) });
+    await ensureProduct(a, 'starter');
+    expect(a.products.update).toHaveBeenCalledTimes(1);
+    expect(a.products.update).toHaveBeenCalledWith('holler_starter', { active: true, name: 'Holler Solo' });
+  });
+  it('shared account: a product with that id but without the Holler tag is used as is, never renamed', async () => {
+    const a = api({ retrieve: vi.fn(async () => ({ id: 'holler_starter', active: true, name: 'Something else', metadata: { app: 'clovermap' } })) });
+    expect(await ensureProduct(a, 'starter')).toBe('holler_starter');
+    expect(a.products.update).not.toHaveBeenCalled();
   });
   it('a lost creation race uses the same id; an archived product is turned back on; other errors throw', async () => {
     const race = api({ retrieve: vi.fn(async () => { throw err('resource_missing'); }), create: vi.fn(async () => { throw err('resource_already_exists'); }) });

@@ -26,10 +26,23 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 2. Deploy the code.
 3. Add the DataForSEO cron job (step 7: run `supabase/cron.sql` again, or add the `holler-dataforseo` job on its own).
 
+**Round 7 order**
+
+1. BEFORE the deploy: run 0015 and 0019 (each is safe with the old code too).
+   - 0015 first. The new prune archives a coarse copy, then deletes. Without 0015 it falls back to a plain delete, so the next daily prune after the deploy would delete 120-day-old rows with no archive copy.
+   - 0019. Without it, new signups get the database default of 7 days while every page and email says 14.
+2. Any time, before or after the deploy, in number order: 0013, 0014, 0016, 0017, 0018. With none of them applied the site works as before: the AI notes, lifecycle emails, funnel counts, outcome follow-up and ingest monitor each answer "not migrated" (or stay quiet) and do nothing, and the feed shows no AI line.
+   - 0013 deletes nothing and changes no schema. It prints that 0 rows were removed and how many same-place, same-day rows under different ids are kept as separate records. It is safe to run again.
+3. Deploy the code.
+4. Set `AI_MONTHLY_CAP_USD` if you want a cap other than 10 (step 3), then redeploy.
+5. Run `supabase/cron.sql` again (step 7). It adds `holler-ai`, `holler-monitor`, `holler-lifecycle`, `holler-moat` and `holler-events-prune`, and keeps the four existing jobs.
+6. Run the round 7 dry-run checks (step 7) and the owner report queries below once there is data.
+7. Run 0020 (mobile: push tokens and store billing) after 0019, any time before or after the deploy. It is safe before the code ships. Until it is applied, push sends nothing and the RevenueCat webhook answers 500, so RevenueCat tries again later. The rest of the mobile setup (Firebase, RevenueCat, two env keys) waits for the app release: see "Mobile app" below.
+
 - [ ] Run `supabase/migrations/0001_holler.sql`
 - [ ] Run `supabase/migrations/0002_holler_hardening.sql`
 - [ ] Run `supabase/migrations/0003_holler_ops.sql`
-- [ ] Run `supabase/migrations/0004_holler_plans.sql` (Starter and Pro: `plan`, `extra_areas`, `keywords` on `holler_profiles`, and the plan-limits trigger)
+- [ ] Run `supabase/migrations/0004_holler_plans.sql` (Solo, internal id `starter`, and Pro: `plan`, `extra_areas`, `keywords` on `holler_profiles`, and the plan-limits trigger)
 - [ ] Run `supabase/migrations/0005_holler_requests.sql` (resident requests: `holler_requests`, `holler_request_replies`, the reply guard with the 5-per-request and 10-per-business-per-day caps, a check that keeps free text off the public request record, and a trigger that deletes a business's reply records when its profile is deleted)
 - [ ] Run `supabase/migrations/0006_holler_contacts.sql` (who to contact: `holler_signal_contacts`, service role only; safe to run before or after the code deploy). Contacts cannot be backfilled for records already stored: they appear from the first scan after the deploy.
 - [ ] Run `supabase/migrations/0007_holler_public_name_scrub.sql` (data fix: removes establishment names and street addresses from stored failed-inspection signals and the "Awarded to" recipient from stored federal contract summaries; run it right after the code deploy so new scans stop writing that text. It is safe to re-run at any time, also after scans have resumed. A re-run clears the summary of new inspection rows and shortens a new federal award title that has a trade label but no NAICS code to "federal award"; nothing personal is involved either way. Run it once after the deploy)
@@ -38,6 +51,14 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 - [ ] Run `supabase/migrations/0010_holler_source_health.sql` (one internal table, `holler_source_health`, service role only; safe to run twice and safe to run before or after the code deploy: until it is applied the health write and read fail quietly). Then open `<SITE>/api/admin/sources?key=<CRON_SECRET>` and expect JSON with a `sources` list (empty until the next scan tick).
 - [ ] Run `supabase/migrations/0011_holler_dataforseo.sql` (creates `holler_keyword_volume`, `holler_llm_mentions` and `holler_dataforseo_spend`, all service role only; safe to run twice and before or after the deploy).
 - [ ] Run `supabase/migrations/0012_holler_feedback_grants.sql` AFTER 0009 (follow-up to 0009, which is already applied and not edited: members may now write only `user_id`, `signal_id`, `verdict` and `job_value_usd`, so they cannot set `created_at` or `updated_at`; privileges only, safe to run twice, safe before or after the code deploy because the app writes only those four columns). Check: `select grantee, privilege_type, column_name from information_schema.column_privileges where table_name = 'holler_signal_feedback' and grantee = 'authenticated' and privilege_type in ('INSERT','UPDATE') order by 2, 3;` returns 8 rows (four columns for each) and no `created_at`. Rollback: `grant insert, update on table public.holler_signal_feedback to authenticated;`
+- [ ] Run `supabase/migrations/0013_holler_signal_dedupe.sql`: no-delete; prints that 0 rows were removed and how many same-place same-day rows under different ids are kept as separate records; safe to re-run. It changes no row, table or index. Any time, before or after the deploy.
+- [ ] Run `supabase/migrations/0014_holler_ai.sql` (AI step: `holler_signal_ai`, `holler_ai_cache`, `holler_ai_spend` with its `day` column (the "model has no price" alert goes out at most once a day) and the `draft` kind for reply drafts, the function `holler_ai_apply`, and the month-spend function `holler_ai_month_spend` that sums the month in SQL, all service role only; safe to run twice and before or after the deploy: until it is applied `/api/cron/ai` answers `not_migrated` and spends nothing, and the feed and digest show no AI line). Check: `select count(*) from holler_ai_spend;` returns 0 or more with no error.
+- [ ] Run `supabase/migrations/0015_holler_moat.sql` BEFORE the code deploy (coarse archive `holler_signal_archive` with no title, summary, link, street address, coordinates or free text; `holler_prune_signals` archives then deletes in one transaction; `holler_outcome_asks`, `holler_alert_log`, the view `holler_conversion_by_source` with the columns window_days, source, kind, intent, trade, alerts, emailed, answered, useful, not_relevant, led_to_work and total_job_value_usd and no member identity (dropped and re-created on each run, so a re-run picks up the column list); a delete-account trigger; and a one-time archive of every current row). Safe to run twice; re-running archives nothing new. If the code ships first, the daily prune deletes 120-day-old rows without an archive copy until 0015 runs. Check after the first scan past 120 days: `select count(*) from holler_signal_archive;` is above 0 and no `_prune` row in `holler_scan_runs` has an error.
+- [ ] Run `supabase/migrations/0016_holler_lifecycle.sql` (`holler_lifecycle_sends`: one row per member and email kind, plus `optout` rows for the lifecycle unsubscribe; service role only; a delete-account trigger; safe to run twice and before or after the deploy: until it is applied `/api/cron/lifecycle` answers `skipped: not_migrated` and sends nothing).
+- [ ] Run `supabase/migrations/0017_holler_analytics.sql` (creates holler_events and holler_attribution, service role only, plus holler_events_prune and a delete-account trigger; safe to run twice and before or after the deploy; the app ignores a missing table). Check: select count(*) from holler_events; returns 0 rows or more with no error, and as the anon key the same query is denied.
+- [ ] Run `supabase/migrations/0018_holler_ops_alerts.sql` (internal table holler_ops_alerts, service role only, plus three columns on holler_source_health; safe to run twice and safe before or after the code deploy: until it is applied the monitor answers "monitor table missing" and emails nothing).
+- [ ] Run `supabase/migrations/0019_holler_trial_14.sql` (free trial 14 days: column default, the 0003 stamp trigger and the 0004 billing guard set to 14 days, and running trials of members with no subscription extended to their trial start + 14 days. It extends running trials only: a trial that already ended stays ended. One trial per person is kept, and the billing guard also stops a member from changing `created_at`. Run it BEFORE or together with the code deploy, or new signups get 7 days while the site says 14. Safe to run twice. If 0004 is ever re-run, re-run 0019 right after it, or member sign-ups are refused by the 7-day guard. Check: `select pg_get_expr(adbin, adrelid) from pg_attrdef a join pg_attribute t on t.attrelid=a.adrelid and t.attnum=a.adnum where t.attrelid='public.holler_profiles'::regclass and t.attname='trial_ends_at';` shows `(now() + '14 days'::interval)`.)
+- [ ] Run `supabase/migrations/0020_holler_mobile.sql` after 0019 (mobile app: `holler_push_tokens` and `holler_billing_events`, both service role only; on `holler_profiles` the columns `plan_source`, `store_product_id`, `store_expires_at`, `store_env`, `last_pushed_at`, which only the server can write, and `push_alerts`, which members can switch; the function `holler_apply_store_event` for the service role only; `holler_billing_shadow` (what the billing source that is not live last said, so a member who pays in two places moves to the other source when one ends instead of being locked; service role only) with the internal function `holler_billing_fallback`; `holler_stripe_state`, which the Stripe webhook calls (service role only); a trigger that applies the Solo limits to a Pro row whose App Store or Google Play plan has lapsed; a delete-account trigger that removes push tokens, and `holler_matches.pushed_at` (which matches were counted in a delivered push; server only; when the column is first added, every match already there is marked as pushed, so no old match is ever pushed). Safe to run twice. Safe before the code ships. Check: `select count(*) from holler_push_tokens;` returns 0 or more with no error, and as the anon key the same query is denied.)
 - [ ] Check right after running 0007, both must return 0: `select count(*) from holler_signals where right(source,12)='-inspections' and (summary is not null or title not like '%: food establishment');` and `select count(*) from holler_signals where source='usaspending' and summary like 'Awarded to %';`
 - [ ] After 0007, redeploy or expire the page cache: public pages are cached for up to 48 hours, so old names can stay visible until then.
 - [ ] Owner check after the feedback migration: run this report in the Supabase SQL editor (read only, last 30 days). Keep its intent mapping in step with `lib/signals/intent.ts` (`intentOf`).
@@ -106,11 +127,162 @@ order by intent, alerts_sent desc nulls last, source;
 ```
 
 - [ ] Owner check for source health (read only): `select source, status, consecutive_failures, last_success_at, last_record_at, last_error from public.holler_source_health where status <> 'healthy' order by status, source;`
+**Round 7 owner reports** (Supabase SQL editor, service role, all read only; each needs its migration first)
+
+- [ ] Funnel by source (0017): visits, area checks, signups, first alerts, trials and paid, last 7 and 30 days, plus paid members and campaigns by first-touch source. People are counted once per step; `direct` means no source tag was recorded.
+
+```sql
+-- Holler funnel report. Run in the Supabase SQL editor (service role). Read only.
+
+-- 1. Funnel counts and step conversion by source, last 7 and last 30 days.
+--    People are counted once per step: a visitor by session id, a member by user id. A step is counted in the window where it happened,
+--    so a signup this week from a visit last week counts under signups. Source is the first-touch source ('direct' = none recorded).
+with windows(days) as (values (7), (30)),
+ev as (
+  select e.name,
+         e.created_at,
+         coalesce(e.user_id::text, e.session_id) as who,
+         coalesce(e.source, a.source, 'direct') as source
+  from public.holler_events e
+  left join public.holler_attribution a on a.user_id = e.user_id
+  where e.created_at >= now() - interval '30 days'
+    and coalesce(e.user_id::text, e.session_id) is not null
+),
+counts as (
+  select w.days, ev.source,
+         count(distinct who) filter (where name in ('visit', 'app_open')) as visits,
+         count(distinct who) filter (where name = 'area_check')           as area_checks,
+         count(distinct who) filter (where name = 'signup')               as signups,
+         count(distinct who) filter (where name = 'first_alert')          as first_alerts,
+         count(distinct who) filter (where name = 'trial_start')          as trials,
+         count(distinct who) filter (where name = 'paid')                 as paid
+  from windows w
+  join ev on ev.created_at >= now() - make_interval(days => w.days)
+  group by w.days, ev.source
+)
+select days, source, visits, area_checks, signups, first_alerts, trials, paid,
+       round(100.0 * area_checks / nullif(visits, 0), 1)       as pct_visit_to_check,
+       round(100.0 * signups / nullif(visits, 0), 1)           as pct_visit_to_signup,
+       round(100.0 * first_alerts / nullif(signups, 0), 1)     as pct_signup_to_first_alert,
+       round(100.0 * trials / nullif(signups, 0), 1)           as pct_signup_to_trial,
+       round(100.0 * paid / nullif(trials, 0), 1)              as pct_trial_to_paid
+from counts
+order by days, visits desc, source;
+
+-- 2. Paid members by signup source (first touch). Two views: members paying now, and members whose first payment landed in the last 30 days.
+select coalesce(a.source, 'direct') as signup_source,
+       coalesce(a.medium, '')       as signup_medium,
+       count(*) filter (where p.subscription_status in ('active', 'past_due')) as paying_now,
+       count(*) filter (where pe.created_at >= now() - interval '30 days')     as first_paid_last_30d
+from public.holler_profiles p
+left join public.holler_attribution a on a.user_id = p.user_id
+left join public.holler_events pe on pe.user_id = p.user_id and pe.name = 'paid'
+where p.subscription_status in ('active', 'past_due') or pe.user_id is not null
+group by 1, 2
+order by paying_now desc, signup_source;
+
+-- 3. Campaigns behind the sources (last 30 days, members who signed up).
+select coalesce(source, 'direct') as source, coalesce(campaign, '') as campaign, count(*) as signups
+from public.holler_events
+where name = 'signup' and created_at >= now() - interval '30 days'
+group by 1, 2
+order by signups desc;
+```
+
+- [ ] Alerts that led to work, by source, kind, intent and trade (0015). One answer per member per alert. `emailed` counts alerts that went out in an alert email, `answered` counts any verdict, `useful` counts useful or led to work (so it never shrinks when a follow-up answer turns useful into led to work), and `led_to_work` is the subset that led to work. Export it before 120 days if you want a longer history; trend counts by area live on in `holler_signal_archive`, for example `select state, county, date_trunc('week', occurred_on) w, count(*) from holler_signal_archive group by 1,2,3;`.
+
+```sql
+select window_days, source, kind, intent, trade, alerts, emailed, answered, useful, not_relevant, led_to_work, total_job_value_usd,
+       round(100.0 * answered / nullif(alerts, 0), 1) as answered_pct,
+       round(100.0 * led_to_work / nullif(alerts, 0), 1) as led_to_work_pct
+from public.holler_conversion_by_source
+order by window_days, led_to_work desc, alerts desc;
+```
+
+- [ ] AI spend (0014). Before launch, estimate the month from production data: Q3 gives the skipped share S, Q2 a lower bound on the cache-hit share H, and the expected month is `rows_24h * 30.4 * (1 - skipped_share) * (1 - hit_share_one_day) * 0.000068` dollars. If that is above the cap (`AI_MONTHLY_CAP_USD`, default 10), the step pauses near the end of the month and one email goes to `ADMIN_EMAIL`; alerts keep going out. After launch, Q4 shows the real split and cost per 1,000 signals.
+
+```sql
+-- Q3. Share of signals from the skipped sources, last 24 hours.
+select count(*) as rows_24h,
+       count(*) filter (where source in ('nws', 'spc', 'fema', 'usgs', 'faa')) as skipped_rows,
+       round(avg((source in ('nws', 'spc', 'fema', 'usgs', 'faa'))::int), 3) as skipped_share
+from public.holler_signals
+where created_at >= now() - interval '24 hours';
+
+-- Q2. Closer to the real cache key: source, kind, subtype, and title and summary with ZIP codes, street addresses and digits removed,
+-- case and spaces normalized (a SQL approximation of lib/ai/classify.ts normalizeForKey).
+with s as (
+  select source, kind, coalesce(data->>'subtype', '') as subtype, lower(title) as t0, lower(coalesce(summary, '')) as m0
+  from public.holler_signals
+  where created_at >= now() - interval '24 hours'
+    and source not in ('nws', 'spc', 'fema', 'usgs', 'faa')
+), n as (
+  select source, kind, subtype,
+    btrim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(t0,
+      '\m\d{5}(-\d{4})?\M', ' ', 'g'),
+      '\m\d+[a-z]{0,2}\s+((n|s|e|w|ne|nw|se|sw|north|south|east|west)\.?\s+)?([a-z0-9''.-]+\s+){0,4}(st|street|ave|av|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|way|pkwy|parkway|hwy|highway|cir|circle|ter|terrace|trl|trail)\M', ' ', 'g'),
+      '[^a-z]+', ' ', 'g'), '\s+', ' ', 'g')) as t,
+    btrim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(m0,
+      '\m\d{5}(-\d{4})?\M', ' ', 'g'),
+      '\m\d+[a-z]{0,2}\s+((n|s|e|w|ne|nw|se|sw|north|south|east|west)\.?\s+)?([a-z0-9''.-]+\s+){0,4}(st|street|ave|av|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|pl|place|way|pkwy|parkway|hwy|highway|cir|circle|ter|terrace|trl|trail)\M', ' ', 'g'),
+      '[^a-z]+', ' ', 'g'), '\s+', ' ', 'g')) as m
+  from s
+)
+select count(*) as rows_24h,
+       count(distinct (source, kind, subtype, t, m)) as distinct_keys,
+       round(1 - count(distinct (source, kind, subtype, t, m))::numeric / nullif(count(*), 0), 3) as hit_share_one_day
+from n;
+
+-- Q4. After launch: the real volume split and effective cost per 1,000 signals, per month.
+select month,
+       sum(signals) filter (where kind = 'run') as signals_written,
+       sum(skipped) filter (where kind = 'run') as skipped,
+       sum(cache_hits) filter (where kind = 'run') as cache_hits,
+       sum(cache_misses) filter (where kind = 'run') as model_classified,
+       round(sum(cost_usd), 4) as cost_usd,
+       round(sum(cost_usd) * 1000 / nullif(sum(signals) filter (where kind = 'run'), 0), 5) as usd_per_1k_effective
+from public.holler_ai_spend
+group by month
+order by month desc;
+```
+
+- [ ] Matching check for the owner account (round 7 re-map): run it after the deploy and after the next scan has run the re-map. Row 1 `a` is the account's roofing-tagged matches and `b` all its matches. Category rows: `a` is the 14-day count and `b` the all-stored count inside the radius. After the re-map the `cleaning` row is absent and roofing is absent or 0 unless a re-roof permit or a hail, wind or tornado report landed inside 25 miles. The re-map covers the last 14 days only, so `b` of the old-mapping row can stay above 0 until those rows age out.
+
+```sql
+with p as (
+  select user_id, lat, lon, coalesce(radius_mi, 25)::float8 as r
+  from public.holler_profiles
+  where zip = '30080' and 'roofing' = any(categories)
+  order by created_at
+  limit 1
+),
+near as (
+  select s.id, s.categories, s.occurred_at, s.data
+  from public.holler_signals s, p
+  where s.lat is not null
+    and 3958.76 * 2 * asin(sqrt(power(sin(radians(s.lat - p.lat) / 2), 2)
+        + cos(radians(p.lat)) * cos(radians(s.lat)) * power(sin(radians(s.lon - p.lon) / 2), 2))) <= p.r
+)
+select 'MATCHES smyrna roofing account: a = roofing-tagged, b = all' as metric,
+       (select count(*) from public.holler_matches m join p on m.user_id = p.user_id
+          join public.holler_signals s on s.id = m.signal_id where 'roofing' = any(s.categories)) as a,
+       (select count(*) from public.holler_matches m join p on m.user_id = p.user_id) as b
+union all
+select 'category ' || c || ' inside radius: a = last 14 days, b = all stored', count(*) filter (where occurred_at >= now() - interval '14 days'), count(*)
+from near, unnest(categories) as c
+group by c
+union all
+select 'old mapping (permit/violation, no cat_v) inside radius: a = 14 days, b = all',
+       count(*) filter (where occurred_at >= now() - interval '14 days'), count(*)
+from near where data->>'cat_v' is null and data->>'subtype' in ('permit', 'violation')
+order by 1;
+```
+
 - [ ] Check: `select * from holler_place_counts limit 1;` returns without error and the columns are `place_slug, signals_60d, latest_at`.
 - [ ] Check: `select count(*) from holler_scan_runs;` returns 0 (no error).
 - [ ] Check: `select plan, extra_areas, keywords from holler_profiles limit 1;` and `select count(*) from holler_requests;` both return without error.
 
-Every object is named `holler_*`. Nothing else in the shared project is touched. 0001 to 0006 and 0008 to 0012 are additive and safe to run again; 0007 is a data fix that is safe to re-run at any time (each statement only rewrites rows that still hold the old text). If you ever re-run one of the additive files, run 0001 to 0006 and 0008 to 0012 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
+Every object is named `holler_*`. Nothing else in the shared project is touched. 0001 to 0006 and 0008 to 0020 are additive and safe to run again (0013 only prints counts and changes nothing); 0007 is a data fix that is safe to re-run at any time (each statement only rewrites rows that still hold the old text). If you ever re-run one of the additive files, run 0001 to 0006 and 0008 to 0020 in order: re-running 0001 on its own revokes the column grants that 0002 and 0004 add. The tested one-file bundle `holler-round3.sql` (0004 then 0005) is the same SQL as those two files. The `holler_place_counts` view is defined identically in 0001 and 0003, so re-running either one never changes it. Run 0003 before the code that calls `holler_signals_near` is deployed: it adds `p_min_severity` and `p_before_id` and drops the earlier 8-argument version of that function, so the checker and the backfill never meet two overloads.
 
 ## 2. Resend: verify your sending domain (start now, DNS can take hours)
 
@@ -145,7 +317,10 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`, both or neither (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day). With only one of the two, or neither, the Bluesky source is skipped. For each matched post Holler keeps the snippet, the link and the author's public handle.
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (monthly search volume and AI mention check; both or neither: with either missing the job answers `not_configured` and spends nothing). Optional: `DATAFORSEO_MONTHLY_CAP_USD` (spend cap, default 30).
-- [ ] `AI_GATEWAY_API_KEY` (draft replies; on Vercel the platform token also works)
+- [ ] `AI_GATEWAY_API_KEY` (draft replies and the hourly AI sorting step; on Vercel the platform token also works)
+- [ ] `AI_MONTHLY_CAP_USD` (hard monthly cap in dollars for the AI sorting step; empty means 10). Run the AI spend queries under step 1 first: if the expected month is above 10, raise it or accept that the step pauses near the month's end (alerts keep going out with the keyword-rule trades, and one email goes to `ADMIN_EMAIL` at 80% and one at the cap).
+- [ ] `AI_CLASSIFY_MODEL` (leave empty for the default `anthropic/claude-haiku-5.5` on the AI Gateway)
+- [ ] `REVENUECAT_WEBHOOK_SECRET` and `FIREBASE_SERVICE_ACCOUNT_JSON` (mobile app store billing and push; set them with the app release, see "Mobile app" below). Without the first, `/api/revenuecat/webhook` answers 503. Without the second, no push is sent. `REVENUECAT_ALLOW_SANDBOX`: set to `1` only while TestFlight, license testing or App Review needs sandbox purchases to give a plan (see "Mobile app" below); empty otherwise. Redeploy after each change.
 - [ ] `INDEXNOW_KEY` (tells Bing and other IndexNow search engines about new pages; set it in step 10, where it is explained)
 - [ ] Before you set any optional source key later (Bluesky, Serper or Brave, Ticketmaster, SAM.gov), update `app/privacy/page.tsx` first. The Privacy page today names only the keyless public sources. Bluesky in particular stores each post's author handle, and web search stores snippets of public posts, so the page must say so before those sources run.
 
@@ -184,8 +359,17 @@ The smoke test prints one row per source: `status`, `fetched`, `parsed`, `latest
 
 - [ ] Supabase Dashboard > Database > Extensions: `pg_cron` and `pg_net` are on.
 - [ ] Open `supabase/cron.sql`. In STEP 1 replace `<SITE>` and `<CRON_SECRET>` in the SQL editor only. Do not save the edited file into git.
-- [ ] Run the file. It stores both values in Vault and creates `holler-scan` (every 15 minutes), `holler-notify` (every 15 minutes, offset 7), `holler-health` (daily 13:00 UTC), `holler-dataforseo` (03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 3rd of each month; one run cannot finish all 40 batches inside 60 s, and a run with nothing left to do spends nothing).
-- [ ] After 20 minutes run the CHECK queries at the bottom of the file: four jobs, `succeeded` in `cron.job_run_details`, status 200 in `net._http_response`.
+- [ ] Run the file. It stores both values in Vault and creates `holler-scan` (every 15 minutes), `holler-notify` (every 15 minutes, offset 7), `holler-health` (daily 13:03 UTC), `holler-dataforseo` (03:23, 09:23, 15:23 and 21:23 UTC on the 1st to 3rd of each month; one run cannot finish all 40 batches inside 60 s, and a run with nothing left to do spends nothing), and the round 7 jobs: `holler-ai` (hourly at minute 4), `holler-monitor` (hourly at minute 11, the health route with `?monitor=1`), `holler-lifecycle` (hourly at minute 17), `holler-moat` (daily 18:41 UTC) and `holler-events-prune` (Sundays 04:29 UTC, plain SQL that deletes funnel events older than 400 days). No two jobs start in the same minute.
+- [ ] After 20 minutes run the CHECK queries at the bottom of the file: nine jobs, `succeeded` in `cron.job_run_details`, status 200 in `net._http_response`.
+- [ ] Round 7 dry runs (each reads only: no model call, no email, no write). Use `curl -H "Authorization: Bearer <CRON_SECRET>" "<URL>"` for each:
+  - `<SITE>/api/cron/ai?dry=1`: expect `reason: null` and `candidates` above 0, with the planned batches, the worst-case cost, this month's spend and the cap. `reason: not_migrated` means 0014 is missing; `no_gateway_auth` means no gateway key or platform token.
+  - `<SITE>/api/cron/lifecycle?dry=1`: lists `{user_id, kind, variant}` for each member who would get a welcome, trial-ending or trial-ended email now. `skipped: not_migrated` means 0016 is missing. Only members with a verified email are listed, and a returning member (deleted the profile, then came back) gets no second welcome. In a real run, `send_unknown` counts emails whose send result was lost (the provider may have sent them); they are kept as sent and never retried, so nobody gets one twice.
+  - `<SITE>/api/cron/moat?dry=1`: `ok: true` with counts and nothing sent. Before 0015 it returns `skipped: migration_0015_not_applied`.
+  - `<SITE>/api/cron/health?monitor=1&dry=1`: expect `monitor.status` `ok` and, on a healthy site, `conditions: []`. Right after launch it may list sources that have not run yet; that clears within a day.
+- [ ] After the first hour of `holler-ai`: `select kind, count(*), sum(cost_usd), avg(usd_per_1k) from holler_ai_spend group by kind;` shows `run` rows and, once records go to the model, `classify` rows.
+- [ ] `holler-monitor` exists in `cron.job` (hourly at minute 11). Ingest alert emails go to `ADMIN_EMAIL` (else `SUPPORT_EMAIL`), subject starts "Holler ingest:". A healthy site sends none.
+- [ ] Lifecycle unsubscribe: open a received lifecycle email's "Stop these emails" link, press the button, and confirm a row with kind `optout` in `holler_lifecycle_sends` for that member.
+- [ ] Funnel counting: open the site once in a normal window, then `select name, source, path from holler_events order by id desc limit 3;` shows one visit with no IP, user agent or referrer column. Open it again with Global Privacy Control on (Firefox or Brave): no new row and no holler_ cookies.
 - [ ] `select source, started_at, fetched, inserted, error from holler_scan_runs order by started_at desc limit 20;` shows real rows.
 - [ ] DataForSEO dry run, no spend: `curl -H "Authorization: Bearer <CRON_SECRET>" "<SITE>/api/cron/dataforseo?dry=1"` shows the month's spend, the stored keyword count and the expected plan cost (about 40 tasks, $3.00 for volume). Then run it once without `?dry=1`; `volume.status` stays `time_budget` until the month is fully stored (about 5 runs), then `complete`.
 - [ ] Storm pages, after deploy: run this page count query in the Supabase SQL editor (read only). Expect a small number in a quiet month. `/storms` stays noindex until 3 qualifying pages exist, which is correct. It mirrors the code (zone map, 3 report rule, the exact FEMA storm incident types, 60 day window) but skips the plain place name filter, so the app can show slightly fewer pages than the query, never more.
@@ -233,14 +417,14 @@ Do this once in test mode (use `sk_test_...` and a test webhook) to prove it wor
   - Cancel subscription: on, and set to cancel **at the end of the billing period**. The Terms promise the plan stays on until the end of the period already paid for.
   - Switching plans (customers can switch plans or prices): **off**. Plan switches must go through Settings in Holler (`/api/stripe/change-plan`), which sets `metadata.tier` and prorates. A switch made in the portal would leave Holler on the wrong plan.
 - [ ] Developers > Webhooks > Add endpoint: `<SITE>/api/stripe/webhook`
-- [ ] Events to send, exactly these four: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+- [ ] Events to send, exactly these five: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`
 - [ ] Copy the signing secret (`whsec_...`) into `STRIPE_WEBHOOK_SECRET`. Set `STRIPE_SECRET_KEY`. Redeploy.
-- [ ] Prices are created inline at checkout: Starter `$5` a month or `$48` a year, Pro `$9.99` a month or `$96` a year. There is nothing to create in the Stripe product catalog. The first plan switch creates two products, `holler_starter` and `holler_pro`, by itself.
+- [ ] Prices are created inline at checkout: Solo `$7.99` a month or `$79.99` a year, Pro `$13.99` a month or `$139.99` a year (the plan stored as `starter` is shown as Solo). There is nothing to create in the Stripe product catalog. The first checkout or plan switch creates two products, `holler_starter` (named "Holler Solo") and `holler_pro`, by itself; an existing `holler_starter` product named "Holler Starter" is renamed in place on first use, same id. Existing subscriptions keep the price they signed up at: nothing re-prices them; a member who switches plan or interval moves to today's price.
 - [ ] The Stripe account may be shared with the other product. Holler tags everything `metadata.app = holler` and ignores events without it. If the other product uses the same webhook URL style, give Holler its own endpoint, as above.
 - [ ] Test pass: complete a checkout with card `4242 4242 4242 4242` for monthly, then again on a second test account for yearly. After each, `select subscription_status, stripe_subscription_id from holler_profiles where user_id = '<USER_ID>';` shows `active`.
 - [ ] Cancel from Manage billing. The status becomes `canceled` within a minute.
 - [ ] Test a plan switch: on the monthly test account, Settings > Move to Pro. `select plan from holler_profiles where user_id = '<USER_ID>';` shows `pro`, and the next Stripe invoice preview shows a prorated line.
-- [ ] Webhook delivery log in Stripe shows 200 for all four events.
+- [ ] Webhook delivery log in Stripe shows 200 for all five events.
 - [ ] Live: repeat the endpoint creation in live mode, swap in the live `STRIPE_SECRET_KEY` and live `STRIPE_WEBHOOK_SECRET`, redeploy.
 
 ## 9. First real signup test (use a real inbox you can read)
@@ -250,7 +434,7 @@ Do this once in test mode (use `sk_test_...` and a test webhook) to prove it wor
 - [ ] Click the confirm link. It works once.
 - [ ] Onboarding: pick two trades (they are grouped), a ZIP, a radius. Finish. You land on `/app`.
 - [ ] The feed already has items, or the empty state names what Holler watches near you.
-- [ ] Settings shows monthly and yearly options and the "save 20%" line when Stripe is configured.
+- [ ] Settings shows monthly and yearly options and the "about 2 months free" line when Stripe is configured. The trial banner and the welcome email both say 14 days.
 - [ ] Wait for the next scan and notify cycle (up to 30 minutes). With a matching item you get a digest email with an unsubscribe link that works.
 - [ ] Settings > Delete account removes your Holler profile and matches.
 - [ ] `<SITE>/privacy` and `<SITE>/terms` show your `SUPPORT_EMAIL`.
@@ -277,9 +461,15 @@ Pick the smallest one that fixes the problem.
   select cron.unschedule('holler-notify');
   select cron.unschedule('holler-health');
   select cron.unschedule('holler-dataforseo');
+  select cron.unschedule('holler-ai');
+  select cron.unschedule('holler-monitor');
+  select cron.unschedule('holler-lifecycle');
+  select cron.unschedule('holler-moat');
+  select cron.unschedule('holler-events-prune');
   ```
   Restart later by running `supabase/cron.sql` again.
-- Stop emails only: unschedule `holler-notify`, or remove `EMAIL_FROM` (email is skipped, nothing else changes) and redeploy.
+- Stop emails only: unschedule `holler-notify` (alerts), `holler-lifecycle` (trial emails) and `holler-moat` (follow-ups), or remove `EMAIL_FROM` (email is skipped, nothing else changes) and redeploy.
+- Stop the AI step only: unschedule `holler-ai`. Notes already stored stay on the cards, and new records keep the keyword-rule trades.
 - Stop billing: remove `STRIPE_SECRET_KEY` and redeploy (Settings shows "Billing opens soon"), or disable the webhook endpoint in Stripe.
 - Bad data: `delete from holler_signals where source = '<SOURCE_ID>';` removes one source's signals (matches go with them).
 - Undo migration 0003 (only if you must): the code reads `latest_at`, so redeploy the previous code first, then
@@ -292,9 +482,27 @@ Pick the smallest one that fixes the problem.
   drop index if exists public.holler_scan_runs_started_idx;
   ```
 
+## Mobile app (with the app release)
+
+Do this when the iOS and Android app ships. The website does not need any of it.
+
+- [ ] Migration 0020 is applied (step 1, after 0019).
+- [ ] Vercel env: set `REVENUECAT_WEBHOOK_SECRET` (for example the output of `openssl rand -hex 32`) and `FIREBASE_SERVICE_ACCOUNT_JSON`. Redeploy.
+- [ ] Firebase: create a project. Add the iOS app `com.localholler.app` and the Android app `com.localholler.app`. Upload the APNs auth key (.p8) under Cloud Messaging. Create a service account key with the Firebase Cloud Messaging API on, and paste it (the JSON, or its base64) into `FIREBASE_SERVICE_ACCOUNT_JSON`.
+- [ ] RevenueCat webhook: URL `<SITE>/api/revenuecat/webhook`. Authorization header value: the exact value of `REVENUECAT_WEBHOOK_SECRET`, with no "Bearer" in front. Send events for both production and sandbox. Leave Restore behavior on its default (transfer): Restore purchases on a second account moves a paid plan that is still running to that account, and the first account loses it.
+- [ ] Sandbox purchases: set `REVENUECAT_ALLOW_SANDBOX=1` in Vercel for TestFlight, Play license testing and App Review, then redeploy. When review is done, set it back to empty (and redeploy), or accept that anyone who can buy in sandbox (TestFlight testers, license testers) gets a real Holler plan for the sandbox period. While it is off, a sandbox purchase is recorded in `holler_billing_events` with result `sandbox` and gives no plan. Either way a sandbox event never ends or changes a plan bought for real.
+- [ ] RevenueCat app user id: the Supabase user id (the app calls `Purchases.logIn(user.id)` after sign-in). Never anonymous purchases.
+- [ ] RevenueCat products: `com.localholler.app.solo.monthly`, `com.localholler.app.solo.yearly`, `com.localholler.app.pro.monthly`, `com.localholler.app.pro.yearly`. On Play these are the same subscription ids with base plans `monthly` and `yearly`.
+- [ ] RevenueCat entitlements: `solo` (both Solo products) and `pro` (both Pro products).
+- [ ] RevenueCat offering: `default`, marked Current, with the packages `solo_monthly`, `solo_annual`, `pro_monthly`, `pro_annual` (custom ids, because two plans share one offering). These match `PACKAGE_IDS` in `lib/mobile/types.ts`.
+- [ ] App Store Connect and Play Console: create the four subscriptions with those product ids, with no introductory offer (every member already gets the 14-day trial at sign-up, and the /pricing FAQ says a plan bought in the app is charged when you buy it). If you add a store free trial, change that FAQ answer first. `mobile/STORE-SETUP.md` has the full steps (step 5 is this choice).
+- [ ] Check: send a TEST event from RevenueCat. The response must be 200 `{"ok":true,"ignored":"test"}`. Then, with `REVENUECAT_ALLOW_SANDBOX=1`, buy in sandbox: `holler_billing_events` gets one `applied` row, and `/api/m/me` shows `paid`.
+- [ ] Push needs no new cron job. It rides the existing `holler-notify` job (every 15 minutes), at most one push an hour per member. It does not depend on the email digest: a member with email alerts off or an unconfirmed address still gets pushes.
+- [ ] Before App Review, if the app offers Sign in with Apple: Apple requires the server to revoke the member's Apple tokens when they delete their account (POST https://appleid.apple.com/auth/revoke). The server cannot do this yet. It needs `APPLE_TEAM_ID`, `APPLE_SIGN_IN_KEY_ID`, `APPLE_SIGN_IN_PRIVATE_KEY` and `APPLE_CLIENT_ID` in Vercel, plus a step where the app sends Apple's authorization code at sign-in so the server can keep a refresh token to revoke (see the comment in lib/mobile/account.ts). Until then, delete account removes all Holler data but not the Apple link. Decide before submitting.
+
 ## Know before you launch
 
 - Past-due payments: someone whose card fails keeps app access during Stripe's retry window, and their email digests wait (they are held, not dropped) until the payment recovers. If Stripe gives up, the subscription is canceled and alerts stop.
 - Holler shares sign-in with the other product. A Holler password reset changes the password for both. Holler server calls to sign in all come from Vercel's network, so the sign-in provider's per-IP limit is shared by all Holler users; Holler has its own per-IP limit in front of it.
 - Email is never sent from a default address. If `EMAIL_FROM` is missing, digests, verify emails, password resets and the health email are all skipped and the routes say so.
-- The health email is the alarm. If it stops arriving, check that `holler-health` still exists in `cron.job`.
+- The health email is the alarm. If it stops arriving, check that `holler-health` still exists in `cron.job`. The hourly ingest monitor (`holler-monitor`) emails only when ingest breaks; if migration 0018 is missing it sends nothing, and the daily health email remains the safety net.

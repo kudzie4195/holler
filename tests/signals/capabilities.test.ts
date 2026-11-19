@@ -4,6 +4,7 @@
  * Fixtures: the repo fixtures in tests/fixtures (see each test file header for sourced/assumed); inline probes are hand-written examples of
  * each rule's vocabulary (assumed values, real code under test).
  */
+import { APPROX_LOCATION_SOURCES } from '@/lib/signals/approx-location';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -91,7 +92,7 @@ const PRODUCED: Record<SignalTypeId, () => CategoryId[][]> = {
       'Re-roof single family house', 'Install swimming pool', 'Solar photovoltaic system', 'HVAC furnace replacement', 'Water heater plumbing',
       'Electrical panel upgrade', 'Demolition of garage', 'New construction commercial office building', 'New single family residence',
       'New construction | Single Family Residential', 'Install fence', 'Concrete driveway', 'Window and door replacement', 'Vinyl siding and gutters',
-      'Flooring replacement hardwood', 'Install sign',
+      'Flooring replacement hardwood', 'Install sign', 'Tree removal', 'Retaining wall', 'Exterior painting', 'Fire damage repair',
     ];
     return texts.map((t) => categorize(ds, t).categories);
   },
@@ -204,6 +205,9 @@ describe('TRADE_SIGNALS: every claimed pair is produced by the real code', () =>
 describe('CITY_FEEDS', () => {
   it('every enabled dataset resolves to a city page slug', () => {
     for (const ds of enabledDatasets()) {
+      // Round 7 fix-a (review r1 P1): an approximate-location feed (Cobb County, rows at the county seat) is never listed on a city page,
+      // so no city claims it. Its rows get no place slug (tests/match/review-r1-fix.test.ts).
+      if (APPROX_LOCATION_SOURCES.has(ds.id)) continue;
       const slug = placeSlugOfDataset(ds);
       expect(slug, ds.id).not.toBeNull();
       expect(cityBySlug(slug!), ds.id).toBeDefined();

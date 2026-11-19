@@ -5,6 +5,9 @@ import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { NO_CONTACT_SUBTYPES } from '@/lib/contacts/extract';
 import type { ContactInput } from '@/lib/contacts/types';
+import { archiveAndPrune } from '@/lib/moat/prune';
+import { isPaidNow } from '@/lib/auth/access';
+import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 
 export type Db = SupabaseClient;
 
@@ -18,6 +21,8 @@ export interface StoredSignal extends MatchSignal {
   place_slug?: string | null;
   /** read back so contacts can be filed under the rows that were actually inserted */
   external_id?: string;
+  /** read back for the alert log (lib/moat/log alertLogRowsFor) */
+  kind?: string;
 }
 
 export interface ScanRunRecord {
@@ -40,20 +45,24 @@ function chunks<T>(arr: T[], n = CHUNK): T[][] {
 export const PAGE_SIZE = 1000;
 
 /**
- * Read every row a query returns, one 1000-row page at a time.
- * `build(from, to)` must return the same ordered query for the given inclusive range. Stops after `maxPages`.
+ * Read every row a query returns, up to 1000 rows a request, until a request returns no rows.
+ * `build(from, to)` must return the same ordered query for the given inclusive range. Stops after `maxPages` requests.
  */
 export async function readAllPages<T>(
   build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
   maxPages = 50,
 ): Promise<T[]> {
   const out: T[] = [];
+  let offset = 0;
   for (let page = 0; page < maxPages; page++) {
-    const { data, error } = await build(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    const { data, error } = await build(offset, offset + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const rows = (data ?? []) as T[];
+    // Only an EMPTY page ends the read: the shared project's max-rows may be below PAGE_SIZE, so a short page is not the last one
+    // (verify-v1 finding 12, the rule lib/ai/budget.ts monthSpendUsd uses). The next page starts after the rows actually returned.
+    if (rows.length === 0) break;
     out.push(...rows);
-    if (rows.length < PAGE_SIZE) break;
+    offset += rows.length;
   }
   return out;
 }
@@ -122,6 +131,11 @@ export interface InsertOptions {
   log?: (m: string) => void;
   /** Dry run: nothing is written, nothing is returned. */
   dry?: boolean;
+  /**
+   * Drop the same record arriving under a second external id (dropDuplicateRecords: only sources in REISSUED_ID_SOURCES, only when
+   * every public field is identical). The scan (run.ts) turns this on; other callers that insert hand-made rows keep the plain upsert.
+   */
+  dedupe?: boolean;
 }
 
 /**
@@ -134,13 +148,15 @@ export interface InsertOptions {
  */
 export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: InsertOptions = {}): Promise<StoredSignal[]> {
   if (opts.dry) return [];
+  // The same record under a second external id (every public field identical, from a source known to re-issue ids) is not stored twice.
+  if (opts.dedupe) signals = await dropDuplicateRecords(db, signals, opts.log);
   const inserted: StoredSignal[] = [];
   let contactBudget = MAX_CONTACT_ROWS;
   for (const part of chunks(signals)) {
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
+      .select('id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);
@@ -158,6 +174,141 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     if (pending.length) contactBudget -= await writeSignalContacts(db, pending, opts.log, contactBudget);
   }
   return inserted;
+}
+
+// ---- Same record, second external id ------------------------------------------------------------------------------------------
+
+/**
+ * Sources whose adapter is KNOWN to re-issue a new external id for the same real-world record. Only these are ever de-duplicated
+ * across ids. It is empty: no adapter has been shown to do this, and different permit or case numbers at one address on one day are
+ * different records (review r1 P1: three DeKalb HVAC permits, one point, one day, were merged into one). Add a source only with
+ * evidence that the portal re-issues ids, and say where that evidence is.
+ */
+export const REISSUED_ID_SOURCES: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Key of "the same record" for insert-time de-duplication. Two rows under different external ids share a key only when EVERY public
+ * field is identical: source, data.subtype, the exact occurred_at instant, location (data.address when present, else lat/lon to 5
+ * places), title, summary and url. And only for a source in `reissuing` (REISSUED_ID_SOURCES): for every other source the answer is
+ * null and nothing is ever merged.
+ * Also null for rows without a subtype, without any location, with an approximate location (data.approxLocation) or with a position
+ * rounded for privacy (business, violation, inspection).
+ */
+export function recordKey(
+  s: {
+    source: string;
+    title: string | null;
+    summary?: string | null;
+    url?: string | null;
+    occurredAt: string | null;
+    lat?: number | null;
+    lon?: number | null;
+    data?: Record<string, unknown> | null;
+  },
+  reissuing: ReadonlySet<string> = REISSUED_ID_SOURCES,
+): string | null {
+  if (!s.source || !reissuing.has(s.source)) return null;
+  const subtype = typeof s.data?.subtype === 'string' ? s.data.subtype.trim() : '';
+  if (!subtype || !s.title || !s.occurredAt) return null;
+  // A position that is not the record's own (a city centre fallback, or one rounded for privacy) is shared by many records.
+  if (s.data?.approxLocation === true || COARSE_POSITION_SUBTYPES.has(subtype)) return null;
+  const t = Date.parse(s.occurredAt);
+  if (!Number.isFinite(t)) return null;
+  const at = new Date(t).toISOString();
+  const address = typeof s.data?.address === 'string' ? s.data.address.trim().toLowerCase().replace(/\s+/g, ' ') : '';
+  let loc: string;
+  if (address) loc = `a:${address}`;
+  else if (typeof s.lat === 'number' && typeof s.lon === 'number' && Number.isFinite(s.lat) && Number.isFinite(s.lon)) {
+    loc = `p:${s.lat.toFixed(5)},${s.lon.toFixed(5)}`;
+  } else return null;
+  return [s.source, subtype, at, loc, s.title, s.summary ?? '', s.url ?? ''].join('\u0000');
+}
+
+/** Subtypes whose stored position is rounded on purpose (socrata.ts privatePosition): never de-duplicated by position. */
+export const COARSE_POSITION_SUBTYPES = new Set(['business', 'violation', 'inspection']);
+const DEDUPE_TITLES_PER_READ = 30;
+
+/**
+ * Drops incoming rows that are the same record (recordKey: every public field identical, from a source known to re-issue ids) as
+ * another incoming row or a stored row under a DIFFERENT external id. Same external id is left to the upsert (on conflict do nothing).
+ * The stored-row check reads (in pages) only rows of such a source with the same titles in the same days; when that read fails the
+ * batch goes through unchanged (fail soft: the unique (source, external_id) index still holds). Never throws.
+ */
+export async function dropDuplicateRecords(
+  db: Db,
+  signals: SignalRowInput[],
+  log: (m: string) => void = (m) => console.error(m),
+  reissuing: ReadonlySet<string> = REISSUED_ID_SOURCES,
+): Promise<SignalRowInput[]> {
+  const keyOf = (s: { source: string; title: string | null; summary?: string | null; url?: string | null; occurredAt: string | null; lat?: number | null; lon?: number | null; data?: Record<string, unknown> | null }) =>
+    recordKey(s, reissuing);
+  const keyed = signals.map((s) => ({ s, key: keyOf(s) }));
+  if (!keyed.some((k) => k.key)) return signals;
+  // 1. inside this batch: the first row with a key wins
+  const firstId = new Map<string, string>();
+  const kept: typeof keyed = [];
+  let droppedHere = 0;
+  for (const k of keyed) {
+    if (k.key) {
+      const seen = firstId.get(k.key);
+      if (seen !== undefined && seen !== k.s.externalId) {
+        droppedHere++;
+        continue;
+      }
+      if (seen === undefined) firstId.set(k.key, k.s.externalId);
+    }
+    kept.push(k);
+  }
+  // 2. against stored rows
+  const storedIdByKey = new Map<string, string>();
+  const bySource = new Map<string, typeof keyed>();
+  for (const k of kept) if (k.key) bySource.set(k.s.source, [...(bySource.get(k.s.source) ?? []), k]);
+  try {
+    for (const [source, list] of bySource) {
+      const titles = [...new Set(list.map((k) => k.s.title))];
+      const days = list.map((k) => Date.parse(k.s.occurredAt)).filter(Number.isFinite);
+      if (!titles.length || !days.length) continue;
+      const from = new Date(Math.min(...days));
+      from.setUTCHours(0, 0, 0, 0);
+      const to = new Date(Math.max(...days));
+      to.setUTCHours(24, 0, 0, 0);
+      for (let i = 0; i < titles.length; i += DEDUPE_TITLES_PER_READ) {
+        const part = titles.slice(i, i + DEDUPE_TITLES_PER_READ);
+        const rows = await readAllPages<{ external_id: string; title: string; summary: string | null; url: string | null; lat: number | null; lon: number | null; occurred_at: string; data: Record<string, unknown> | null }>(
+          (a, b) =>
+            db
+              .from('holler_signals')
+              .select('external_id,title,summary,url,lat,lon,occurred_at,data')
+              .eq('source', source)
+              .in('title', part)
+              .gte('occurred_at', from.toISOString())
+              .lt('occurred_at', to.toISOString())
+              .order('id', { ascending: true })
+              .range(a, b),
+          20,
+        );
+        for (const r of rows) {
+          const key = keyOf({ source, title: r.title, summary: r.summary, url: r.url, occurredAt: r.occurred_at, lat: r.lat, lon: r.lon, data: r.data });
+          if (key && !storedIdByKey.has(key)) storedIdByKey.set(key, r.external_id);
+        }
+      }
+    }
+  } catch (e) {
+    log(`dedupe: stored-row check skipped: ${e instanceof Error ? e.message : String(e)}`);
+    storedIdByKey.clear();
+  }
+  let droppedStored = 0;
+  const out: SignalRowInput[] = [];
+  for (const k of kept) {
+    const stored = k.key ? storedIdByKey.get(k.key) : undefined;
+    if (stored !== undefined && stored !== k.s.externalId) {
+      droppedStored++;
+      continue;
+    }
+    out.push(k.s);
+  }
+  if (droppedHere + droppedStored > 0) log(`dedupe: ${droppedHere + droppedStored} rows were the same record under another id and were not stored`);
+  return out;
 }
 
 /** data.subtype of a code violation or a 311 request (lib/contacts/extract.ts NO_CONTACT_SUBTYPES). */
@@ -235,6 +386,9 @@ export async function writeSignalContacts(
 export interface LoadedProfile extends MatchProfile {
   subscription_status: string;
   trial_ends_at: string | null;
+  /** Migration 0020. Absent before it. */
+  plan_source?: string | null;
+  store_expires_at?: string | null;
 }
 
 /** Columns a matcher needs from holler_profiles, plan limits included (plan, extra_areas, keywords come from migration 0004). */
@@ -242,10 +396,16 @@ export const PROFILE_MATCH_COLUMNS =
   'user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at, plan, extra_areas, keywords';
 /** The same without the 0004 columns: read only when the database does not have them yet, which gives every profile Starter limits. */
 const PROFILE_MATCH_COLUMNS_LEGACY = 'user_id, categories, lat, lon, state, radius_mi, subscription_status, trial_ends_at';
+/** The same plus the 0020 store columns, so a lapsed store plan neither sees alerts nor keeps Pro limits (isPaidNow). */
+const PROFILE_MATCH_COLUMNS_0020 = `${PROFILE_MATCH_COLUMNS}, ${STORE_PROFILE_COLUMNS}`;
 
 function missingPlanColumn(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String(e);
   return /(plan|extra_areas|keywords)/.test(m) && /does not exist|could not find/i.test(m);
+}
+
+function missingStoreColumnError(e: unknown): boolean {
+  return missingStoreColumn(e instanceof Error ? e.message : String(e));
 }
 
 /**
@@ -254,9 +414,14 @@ function missingPlanColumn(e: unknown): boolean {
  * active and past_due keep access (past_due is Stripe's retry window); trialing keeps it until trial_ends_at;
  * an unknown status is treated as trialing, like computeAccess does.
  */
-export function canSeeAlerts(p: { subscription_status: string; trial_ends_at: string | null }, nowMs: number = Date.now()): boolean {
+export function canSeeAlerts(
+  p: { subscription_status: string; trial_ends_at: string | null; plan_source?: string | null; store_expires_at?: string | null },
+  nowMs: number = Date.now(),
+): boolean {
   if (p.subscription_status === 'canceled') return false;
-  if (p.subscription_status === 'active' || p.subscription_status === 'past_due') return true;
+  // Paid, and not a store plan that has lapsed or has no readable expiry. A lapsed store row falls through to the trial check,
+  // exactly like computeAccess.
+  if (isPaidNow(p, nowMs)) return true;
   const end = p.trial_ends_at ? Date.parse(p.trial_ends_at) : NaN;
   return Number.isFinite(end) && end > nowMs;
 }
@@ -281,10 +446,17 @@ export async function loadProfiles(db: Db, now: Date = new Date()): Promise<Matc
   let rows: LoadedProfile[];
   try {
     try {
-      rows = await read(PROFILE_MATCH_COLUMNS);
+      try {
+        rows = await read(PROFILE_MATCH_COLUMNS_0020);
+      } catch (e) {
+        // Before migration 0020 there is no store plan to judge: read the 0004 columns. This check runs first because
+        // missingPlanColumn's pattern also matches "plan_source does not exist".
+        if (!missingStoreColumnError(e)) throw e;
+        rows = await read(PROFILE_MATCH_COLUMNS);
+      }
     } catch (e) {
       // Code deployed before migration 0004 ran: keep matching on Starter limits instead of matching nobody.
-      if (!missingPlanColumn(e)) throw e;
+      if (!missingPlanColumn(e) || missingStoreColumnError(e)) throw e;
       console.error('loadProfiles: plan columns missing (apply migration 0004); matching with Starter limits');
       rows = await read(PROFILE_MATCH_COLUMNS_LEGACY);
     }
@@ -323,12 +495,24 @@ export async function pruneOldSignals(db: Db, now = new Date()): Promise<boolean
   if (data && data.length > 0) return false;
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 86400_000).toISOString();
   const started = new Date().toISOString();
-  const { error: oldErr, count: oldCount } = await db.from('holler_signals').delete({ count: 'exact' }).lt('occurred_at', cutoff);
-  // Garbage future dates (a typo year, a portal placeholder) are never reached by the age cutoff above, so they are removed here.
+  // Garbage future dates (a typo year, a portal placeholder) are never reached by the age cutoff, so they are removed here.
   const futureCutoff = new Date(now.getTime() + MAX_FUTURE_DAYS * 86400_000).toISOString();
-  const { error: futErr, count: futCount } = await db.from('holler_signals').delete({ count: 'exact' }).gt('occurred_at', futureCutoff);
-  const delErr = oldErr ?? futErr;
-  const count = (oldCount ?? 0) + (futCount ?? 0);
+  let count = 0;
+  let delErr: { message: string } | null = null;
+  try {
+    // Migration 0015: coarse archive copy, then delete, in one transaction. null = function not installed yet, keep the old deletes.
+    const pruned = await archiveAndPrune(db, new Date(cutoff), new Date(futureCutoff));
+    if (pruned) {
+      count = pruned.deletedOld + pruned.deletedFuture;
+    } else {
+      const { error: oldErr, count: oldCount } = await db.from('holler_signals').delete({ count: 'exact' }).lt('occurred_at', cutoff);
+      const { error: futErr, count: futCount } = await db.from('holler_signals').delete({ count: 'exact' }).gt('occurred_at', futureCutoff);
+      delErr = oldErr ?? futErr;
+      count = (oldCount ?? 0) + (futCount ?? 0);
+    }
+  } catch (e) {
+    delErr = { message: e instanceof Error ? e.message : String(e) };
+  }
   await db
     .from('holler_scan_runs')
     .delete()

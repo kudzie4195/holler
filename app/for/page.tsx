@@ -5,10 +5,11 @@ import { breadcrumbLd, itemListLd } from '@/lib/seo/jsonld';
 import { groupTrades, tradeEntries, tradeHeadline, tradePath } from '@/lib/seo/trade-view';
 import { JsonLd } from '../local/_components/jsonld';
 import { Crumbs, H1, H2, Page, linkClass } from '../local/_components/ui';
+import { FROM_MONTHLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
 
 const TITLE = 'Local alerts by trade';
 const DESCRIPTION =
-  'Pick your trade and see what Holler sends: storm and hail reports, permits, city records and the public alerts that fit your trade. Plans from $5 a month, 7 days free.';
+  `Pick your trade and see what Holler sends: storm and hail reports, permits, city records and the public alerts that fit your trade. Plans from ${FROM_MONTHLY} a month, ${TRIAL_DAYS_FREE}.`;
 
 export const metadata: Metadata = {
   title: { absolute: `${TITLE} | Holler` },

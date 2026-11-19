@@ -1,4 +1,4 @@
-import { PLAN_LIMITS, type Tier } from './limits';
+import { PLAN_LIMITS, TIER_NAMES, type Tier } from './limits';
 
 const P = PLAN_LIMITS;
 
@@ -28,5 +28,5 @@ export function planLimitsLine(tier: Tier): string {
   return l.keywords ? `${areas}, up to ${l.trades} trades, ${l.keywords} keyword watches` : `${areas}, up to ${l.trades} trades`;
 }
 
-/** Plain statement of what a downgrade to Starter does. Settings shows it next to the switch. */
-export const DOWNGRADE_NOTE = `On Starter, your extra areas, trades beyond ${P.starter.trades} and keyword watches stop being used. They stay saved, so they work again if you move back to Pro.`;
+/** Plain statement of what a downgrade to Solo does. Settings shows it next to the switch. */
+export const DOWNGRADE_NOTE = `On ${TIER_NAMES.starter}, your extra areas, trades beyond ${P.starter.trades} and keyword watches stop being used. They stay saved, so they work again if you move back to ${TIER_NAMES.pro}.`;

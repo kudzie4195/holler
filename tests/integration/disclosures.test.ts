@@ -28,16 +28,17 @@ describe('(a) auto-renewal sentence next to every subscribe and change-plan butt
     expect(renewalNote('starter', 'monthly', { inTrial: true })).toBe(
       `${priceLabel('starter', 'monthly')} per month after your free trial ends, and it renews automatically until you cancel in Settings.`,
     );
-    expect(renewalNote('starter', 'annual', { inTrial: true })).toContain('$48 per year after your free trial ends');
-    expect(renewalNote('pro', 'monthly', { inTrial: true })).toContain('$9.99 per month after your free trial ends');
-    expect(renewalNote('pro', 'annual', { inTrial: false })).toBe('$96 per year starting today, and it renews automatically until you cancel in Settings.');
-    expect(planChangeNote('pro')).toBe('Pro is $9.99 per month or $96 per year on your current billing period, and it renews automatically until you cancel in Settings.');
+    expect(renewalNote('starter', 'annual', { inTrial: true })).toContain('$79.99 per year after your free trial ends');
+    expect(renewalNote('pro', 'monthly', { inTrial: true })).toContain('$13.99 per month after your free trial ends');
+    expect(renewalNote('pro', 'annual', { inTrial: false })).toBe('$139.99 per year starting today, and it renews automatically until you cancel in Settings.');
+    expect(planChangeNote('starter')).toBe('Solo is $7.99 per month or $79.99 per year on your current billing period, and it renews automatically until you cancel in Settings.');
+    expect(planChangeNote('pro')).toBe('Pro is $13.99 per month or $139.99 per year on your current billing period, and it renews automatically until you cancel in Settings.');
     for (const s of [renewalNote('pro', 'annual', { inTrial: true }), planChangeNote('starter')]) expect(oneSentence(s)).toBe(true);
   });
 
   it('the buttons render the note under them', () => {
     const b = renderToStaticMarkup(createElement(BillingButton, { endpoint: '/api/stripe/checkout', tier: 'pro', plan: 'annual', note: renewalNote('pro', 'annual', { inTrial: true }), children: 'Go' })); // eslint-disable-line react/no-children-prop
-    expect(plainText(b)).toContain('$96 per year after your free trial ends, and it renews automatically until you cancel in Settings.');
+    expect(plainText(b)).toContain('$139.99 per year after your free trial ends, and it renews automatically until you cancel in Settings.');
     const c = renderToStaticMarkup(createElement(PlanChangeButton, { tier: 'pro', note: planChangeNote('pro'), children: 'Move to Pro' })); // eslint-disable-line react/no-children-prop
     expect(plainText(c)).toContain(planChangeNote('pro'));
   });

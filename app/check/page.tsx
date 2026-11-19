@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import { Suspense } from 'react';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
+import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
@@ -105,6 +107,10 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
       </>
     );
   }
+
+  // Funnel step: one area check. Path only, never the ZIP or the trade. Runs after the response; skipped for privacy signals and bots.
+  const ctx = await eventContext().catch(() => null);
+  if (ctx) after(() => trackVisitorStep('area_check', ctx, '/check'));
 
   const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).

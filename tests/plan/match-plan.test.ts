@@ -91,7 +91,7 @@ describe('matchOne with plan limits', () => {
     const m = matchOne(sig(), p);
     expect(m).not.toBeNull();
     expect(m!.distance_mi).toBeLessThan(2); // next to Athens, ~58 mi from Atlanta
-    expect(matchOne(sig(), base({ extra_areas: [ATHENS] }))).toBeNull(); // same saved extra on Starter: not used
+    expect(matchOne(sig(), base({ extra_areas: [ATHENS] }))).toBeNull(); // same saved extra on Solo (starter): not used
   });
 
   it('pro uses only the first 2 extra areas', () => {

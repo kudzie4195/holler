@@ -1,6 +1,6 @@
 // Engine robustness (U4). Uses an in-memory fake of the Supabase query builder (tests/ops/fakedb.ts) that caps selects at 1000
 // rows like PostgREST. All rows are hand-written (assumed); column names come from supabase/migrations/0001_holler.sql.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FakeDb } from './fakedb';
 import { canSeeAlerts, getLastRunTimes, loadProfiles, readAllPages, type Db } from '../../lib/signals/store';
 import { runScan } from '../../lib/signals/run';
@@ -40,6 +40,20 @@ describe('canSeeAlerts (F-11)', () => {
     expect(canSeeAlerts({ subscription_status: 'weird', trial_ends_at: future }, now)).toBe(true);
     expect(canSeeAlerts({ subscription_status: 'weird', trial_ends_at: past }, now)).toBe(false);
   });
+  // Round 7 review r2 F7 (applied at integrate3): the scanner uses isPaidNow, the same paid test as computeAccess.
+  it('an active store plan counts only while its expiry (plus 3 days) is ahead; a lapsed one falls back to the trial', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const days = (n: number) => new Date(now + n * 86_400_000).toISOString();
+    const store = (expires: string | null, trial: string | null) => ({ subscription_status: 'active', trial_ends_at: trial, plan_source: 'apple', store_expires_at: expires });
+    expect(canSeeAlerts(store(days(10), past), now)).toBe(true);
+    expect(canSeeAlerts(store(days(-1), past), now)).toBe(true); // inside the 3-day grace
+    expect(canSeeAlerts(store(days(-4), past), now)).toBe(false);
+    expect(canSeeAlerts(store(null, past), now)).toBe(false);
+    expect(canSeeAlerts(store('garbage', past), now)).toBe(false);
+    expect(canSeeAlerts(store(null, future), now)).toBe(true); // still inside the trial
+    expect(canSeeAlerts({ subscription_status: 'active', trial_ends_at: past, plan_source: 'stripe', store_expires_at: null }, now)).toBe(true);
+    err.mockRestore();
+  });
 });
 
 describe('readAllPages', () => {
@@ -61,7 +75,8 @@ describe('loadProfiles', () => {
     const got = await loadProfiles(asDb(f), NOW);
     expect(got).toHaveLength(2500);
     expect(new Set(got.map((p) => p.user_id)).size).toBe(2500);
-    expect(f.calls.filter((c) => c === 'holler_profiles.select')).toHaveLength(3);
+    // readAllPages reads until an empty page (verify-v1 decision 6): 1000 + 1000 + 500 + one empty page
+    expect(f.calls.filter((c) => c === 'holler_profiles.select')).toHaveLength(4);
   });
 
   it('skips canceled, expired trials and profiles with no categories; keeps active, past_due and live trials', async () => {

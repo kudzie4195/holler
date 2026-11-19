@@ -1,0 +1,64 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 34471,
+    "PermitNo": "2026-006533",
+    "PermitType": "Multi-Unit",
+    "PermitSubType": "Townhome",
+    "DateIssued": 1794355200000,
+    "StreetNo": 2000,
+    "StreetName": "MARISOL",
+    "StreetType": "CIRCLE",
+    "STATUS": "Issued",
+    "CommDist": "2",
+    "VALUE": 0
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34472,
+    "PermitNo": "2026-006593",
+    "PermitType": "Multi-Unit",
+    "PermitSubType": "Townhome",
+    "DateIssued": 1794355200000,
+    "StreetNo": 2100,
+    "StreetName": "MARISOL",
+    "StreetType": "CIRCLE",
+    "STATUS": "Issued",
+    "CommDist": "2",
+    "VALUE": 0
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34477,
+    "PermitNo": "2026-006661",
+    "PermitType": "Multi-Unit",
+    "PermitSubType": "Townhome",
+    "DateIssued": 1793664000000,
+    "StreetNo": 2200,
+    "StreetName": "MARISOL",
+    "StreetType": "CIRCLE",
+    "STATUS": "Issued",
+    "CommDist": "2",
+    "VALUE": 0
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 34480,
+    "PermitNo": "2026-006663",
+    "PermitType": "Multi-Unit",
+    "PermitSubType": "Townhome",
+    "DateIssued": 1793664000000,
+    "StreetNo": 2300,
+    "StreetName": "MARISOL",
+    "StreetType": "CIRCLE",
+    "STATUS": "Issued",
+    "CommDist": "2",
+    "VALUE": 0
+   }
+  }
+ ]
+}

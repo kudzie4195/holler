@@ -1,0 +1,84 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 24654,
+    "PermitNo": "2026-008683",
+    "PermitType": "Commercial",
+    "PermitSubType": "New Tenant",
+    "DateIssued": 1794528000000,
+    "StreetNo": 1100,
+    "StreetName": "ROSWELL",
+    "StreetType": "RD",
+    "STATUS": "Issued",
+    "CommDist": "3",
+    "VALUE": 1318716,
+    "SQFT": 45620
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 24655,
+    "PermitNo": "2026-008813",
+    "PermitType": "Commercial",
+    "PermitSubType": "New Tenant",
+    "DateIssued": 1794528000000,
+    "StreetNo": 1200,
+    "StreetName": "CIRCLE 75",
+    "StreetType": "PKWY",
+    "STATUS": "Issued",
+    "CommDist": "2",
+    "VALUE": 815727,
+    "SQFT": 4073
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 24595,
+    "PermitNo": "2026-007381",
+    "PermitType": "Commercial",
+    "PermitSubType": "Remodel",
+    "DateIssued": 1794441600000,
+    "StreetNo": 1300,
+    "StreetName": "LOWER ROSWELL",
+    "StreetType": "RD",
+    "STATUS": "Issued",
+    "CommDist": "3",
+    "VALUE": 200000,
+    "SQFT": 2387
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 24618,
+    "PermitNo": "2026-007849",
+    "PermitType": "Commercial",
+    "PermitSubType": "New Tenant",
+    "DateIssued": 1794441600000,
+    "StreetNo": 1400,
+    "StreetName": "LOWER ROSWELL",
+    "StreetType": "RD",
+    "STATUS": "Issued",
+    "CommDist": "3",
+    "VALUE": 700000,
+    "SQFT": 2893
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 24647,
+    "PermitNo": "2026-008411",
+    "PermitType": "Commercial",
+    "PermitSubType": "New Tenant",
+    "DateIssued": 1794441600000,
+    "StreetNo": 1500,
+    "StreetName": "COBB",
+    "StreetType": "PKWY",
+    "STATUS": "Issued",
+    "CommDist": "1",
+    "VALUE": 5700,
+    "SQFT": 1380
+   }
+  }
+ ]
+}

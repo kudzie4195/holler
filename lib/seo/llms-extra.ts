@@ -1,4 +1,7 @@
+import { TIER_NAMES } from '@/lib/plan/limits';
+import { namedPlanPrices } from '@/lib/plan/price-copy';
 import { GUIDES, guidePath } from './guides';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /**
  * Parts of /llms.txt added by the guides, FAQ, numbers and pricing work. llmsText (public-copy.ts) holds the rest and is not changed:
@@ -14,10 +17,10 @@ export function pricingSection(url: (p: string) => string): string[] {
   return [
     '## Pricing',
     '',
-    `- Starter: $5 per month or $48 per year. 1 service area and up to 5 trades.`,
-    `- Pro: $9.99 per month or $96 per year. Up to 3 service areas, up to 15 trades and up to 5 keyword watches.`,
+    `- ${namedPlanPrices('starter', 'per')}. 1 service area and up to 5 trades.`,
+    `- ${namedPlanPrices('pro', 'per')}. Up to 3 service areas, up to 15 trades and up to 5 keyword watches.`,
     '- Both plans: alerts by email, the feed, and replies to resident requests.',
-    '- Every account starts with a 7-day free trial. No card is needed to start. The trial has Starter limits.',
+    `- Every account starts with a ${TRIAL_PHRASE}. No card is needed to start. The trial has ${TIER_NAMES.starter} limits.`,
     `- Details: ${url('/pricing')}`,
     '',
   ];

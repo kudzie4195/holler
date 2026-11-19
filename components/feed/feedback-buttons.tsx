@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { submitFeedback } from '@/app/app/actions';
 import { Button } from '../button';
 import { controlClasses } from '../field';
+import { FeedbackFollowUp } from './feedback-followup';
 import {
   JOB_VALUE_MAX,
   JOB_VALUE_MIN,
@@ -105,6 +106,7 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
           </Button>
         </div>
       ) : null}
+      {verdict === 'useful' ? <FeedbackFollowUp signalId={signalId} onYes={() => setVerdict('led_to_work')} /> : null}
       <p role="status" className="mt-2 text-sm text-muted empty:hidden">
         {message}
       </p>

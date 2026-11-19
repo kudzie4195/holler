@@ -3,6 +3,7 @@ import { CADENCE_SHORT } from '../seo/cadence';
 import { env } from '../env';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
+import { TRIAL_DAYS } from '../auth/membership';
 
 export interface DigestItem {
   kind: string;
@@ -20,6 +21,8 @@ export interface DigestItem {
    * carries an address, phone number or email address. Absent when the record names no organization.
    */
   contact?: { name: string; role: string } | null;
+  /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
+  note?: string | null;
 }
 
 export interface Rendered {
@@ -134,10 +137,11 @@ export function renderDigest(opts: {
       const intent = intentOf(sig);
       const intentHtml = `<div style="font-size:13px;margin:2px 0;color:#5C574F"><strong style="color:#191714">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
+      const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${detail}${contact}${
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="font-size:12px;color:#5C574F">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="color:#AD4205;font-size:14px">Open source</a>` : ''
       }</li>`;
     })
@@ -162,7 +166,7 @@ export function renderDigest(opts: {
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const intent = intentOf(sig);
-      return `${meta}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      return `${meta}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =
@@ -188,7 +192,7 @@ export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
 }
 
 export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number }): Rendered {
-  const days = opts.trialDays ?? 7;
+  const days = opts.trialDays ?? TRIAL_DAYS;
   const subject = 'Welcome to Holler';
   const html =
     WRAP_OPEN +
@@ -205,7 +209,7 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
 
 /** Welcome plus the email-confirmation link sent right after signup (and on resend). */
 export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number }): Rendered {
-  const days = opts.trialDays ?? 7;
+  const days = opts.trialDays ?? TRIAL_DAYS;
   const subject = 'Welcome to Holler: confirm your email';
   const html =
     WRAP_OPEN +

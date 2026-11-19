@@ -20,5 +20,5 @@ export function billingNotConfigured(): Response {
   return Response.json({ error: 'billing_not_configured' }, { status: 503 });
 }
 
-/** Starter monthly price in cents. Kept for existing imports; prices live in ./plans (PRICES_CENTS). */
+/** Solo (id `starter`) monthly price in cents. Kept for existing imports; prices live in ./plans (PRICES_CENTS). */
 export const PRICE_CENTS = MONTHLY_PRICE_CENTS;

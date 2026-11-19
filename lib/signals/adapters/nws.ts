@@ -33,7 +33,7 @@ export const NWS_RULES: Rule[] = [
   { re: /flash flood|flood/i, categories: ['restoration', 'plumbing', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /ice storm/i, categories: ['tree-service', 'electrical', 'snow-removal', 'towing', 'hvac'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /blizzard|winter storm|lake effect snow|heavy snow|snow squall|winter weather/i, categories: ['snow-removal', 'towing', 'hvac', 'tree-service', 'plumbing'], sev: { warning: 2, watch: 1, advisory: 1 } },
-  { re: /extreme cold|wind chill|arctic/i, categories: ['hvac', 'plumbing', 'towing', 'snow-removal'], sev: { warning: 2, watch: 1, advisory: 1 } },
+  { re: /extreme cold|wind chill|cold weather|arctic/i, categories: ['hvac', 'plumbing', 'towing', 'snow-removal'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /freeze|frost/i, categories: ['plumbing', 'hvac', 'landscaping', 'pool-spa', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /heat/i, categories: ['hvac', 'pool-spa', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /high wind|extreme wind|wind advisory|^wind/i, categories: ['tree-service', 'roofing', 'restoration', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
@@ -49,7 +49,14 @@ function levelOf(event: string): Level {
   return 'advisory';
 }
 
+/**
+ * Boating products that NWS issues for LAND zones (so the marine-zone test cannot catch them): a "Lake Wind Advisory" warns small
+ * boats on inland lakes, not homes (review r1 P2).
+ */
+export const BOATING_EVENT_RE = /^\s*lake\s+wind\b/i;
+
 export function ruleFor(event: string): Rule | undefined {
+  if (BOATING_EVENT_RE.test(event)) return undefined;
   return NWS_RULES.find((r) => r.re.test(event));
 }
 
@@ -107,15 +114,32 @@ export function geometryCentroid(geometry: unknown): { lat: number; lon: number 
   return out;
 }
 
-/** States from UGC codes such as "GAZ045" (zone) or "GAC121" (county). */
+/**
+ * USPS codes of the 50 states, DC and the territories NWS issues land zones for. NWS also writes UGC codes for MARINE zones whose two
+ * letters are not a state (AM, AN, GM, LC, LE, LH, LM, LO, LS, PH, PK, PM, PS, PZ, SL, and so on). Those must never become a signal's state.
+ */
+export const LAND_STATE_CODES: ReadonlySet<string> = new Set(
+  ('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY ' +
+    'PR VI GU AS MP').split(' '),
+);
+
+/** States from UGC codes such as "GAZ045" (zone) or "GAC121" (county). Marine zone prefixes (PKZ, GMZ, LMZ ...) are not states and are skipped. */
 export function statesFromUgc(ugc: unknown): string[] {
   if (!Array.isArray(ugc)) return [];
   const out: string[] = [];
   for (const u of ugc) {
     const m = typeof u === 'string' ? /^([A-Z]{2})[ZC]\d{3}$/.exec(u) : null;
-    if (m && !out.includes(m[1])) out.push(m[1]);
+    if (m && LAND_STATE_CODES.has(m[1]) && !out.includes(m[1])) out.push(m[1]);
   }
   return out;
+}
+
+/** True when the alert names UGC zones and every one of them is a marine zone (no land state at all): boating products such as "Brisk Wind Advisory". */
+export function isMarineOnly(ugc: unknown): boolean {
+  if (!Array.isArray(ugc)) return false;
+  let zones = 0;
+  for (const u of ugc) if (typeof u === 'string' && /^[A-Z]{2}[ZC]\d{3}$/.test(u)) zones++;
+  return zones > 0 && statesFromUgc(ugc).length === 0;
 }
 
 /** Fallback: trailing ", ST" tokens in areaDesc, e.g. "Fulton; DeKalb, GA". */
@@ -167,6 +191,7 @@ export function parseNws(raw: unknown): SignalInput[] {
 
     const areaDesc = typeof p.areaDesc === 'string' ? p.areaDesc : '';
     const geoCode = (p.geocode as { UGC?: unknown } | undefined)?.UGC;
+    if (isMarineOnly(geoCode)) continue; // a boating product (Brisk Wind Advisory, Flood on a coastal marine zone only) is not a land lead
     let states = statesFromUgc(geoCode);
     if (!states.length) states = statesFromAreaDesc(areaDesc);
     const centroid = geometryCentroid(feat.geometry);

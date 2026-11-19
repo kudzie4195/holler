@@ -45,7 +45,7 @@ export function ProfileForm({
   submitLabel: string;
   showAlertToggle?: boolean;
   zipHint?: string;
-  /** The plan whose limits apply now (lib/plan effectiveTier). Trial members are Starter. */
+  /** The plan whose limits apply now (lib/plan effectiveTier). Trial members get Solo (`starter`) limits. */
   tier?: Tier;
   /** Where the "see Pro" link goes: the billing section in settings, /pricing elsewhere. */
   upgradeHref?: string;
