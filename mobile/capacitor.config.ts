@@ -22,7 +22,8 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 800,
       launchAutoHide: true,
-      backgroundColor: '#FAF8F3',
+      // Field green, the same fill as assets/splash.png (scripts/make-assets.mjs), so no colour flash around the splash art.
+      backgroundColor: '#1E3A2C',
       showSpinner: false,
     },
     SystemBars: {

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Holler brand accent, the color-accent token in app/globals.css. -->
-    <color name="holler_accent">#E8590C</color>
-    <color name="holler_paper">#FAF8F3</color>
+    <!-- Holler field green, the color-brand token in app/globals.css (brand in mobile/src/styles.css). Tints the notification icon. -->
+    <color name="holler_accent">#1E3A2C</color>
+    <!-- Holler paper, the color-background token in app/globals.css (background in mobile/src/styles.css). -->
+    <color name="holler_paper">#F5F4EF</color>
 </resources>
