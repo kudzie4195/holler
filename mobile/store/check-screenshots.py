@@ -1,43 +1,48 @@
 #!/usr/bin/env python3
-"""Script-checkable items of the r8 design direction (section 6) plus the pass-2 rules. Run after make-screenshots.py:
+"""The judgment-free gate for the store screenshots (round 10). Run after make-screenshots.py, from mobile/:
     python3 store/check-screenshots.py
-Reads store/screenshots/**, store/.gen/metrics.json and store/.gen/noring/* (written by make-screenshots.py). Prints a report and
-exits 1 on a hard failure."""
-import colorsys, json, sys
+Every number below is measured in the PNG files themselves where the PNG can tell it (sizes, mode, text position, cap height, margins,
+background colours, lime and orange pixels, the frame and its share of the canvas). Text strings, the records on each hero and the
+compose-time layout come from store/.gen/metrics.json (written by make-screenshots.py in Chrome) and are checked against the fixture,
+the served data and the web lib files. Prints a report; exits 1 on any failure."""
+import colorsys, json, re, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
 from scipy import ndimage
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parent.parent
 OUT = HERE / "screenshots"
-M = json.loads((HERE / ".gen/metrics.json").read_text())["shots"]
+MET = json.loads((HERE / ".gen/metrics.json").read_text())
+M = MET["shots"]
+GRID = MET["grid"]
 DATA = json.loads((HERE / ".gen/data.json").read_text())
-FIX = {r["id"]: r for r in json.loads((HERE / "fixtures/real-signals.json").read_text())["rows"]}
-NAMES = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price"]
-HEADS = {
-    "01-know-when": "Storms, permits, 311 near you", "02-storm-hail": "Storm & hail alerts", "03-permits": "New permits near you",
-    "04-311": "311 & city requests", "05-source-link": "See the official source", "06-trade-radius": "Your trades, your radius",
-    "07-push": "Alerts that fit. No spam.", "08-price": "14 days free. Then $7.99/mo.", "android/08-price": "Flat monthly plans",
-}
-SUBS = {
-    "01-know-when": "Alerts for roofers, plumbers, HVAC and more", "02-storm-hail": "Hail reports and storm warnings near you",
-    "03-permits": "Plumbing, HVAC, windows and more", "04-311": "Tree emergencies and code requests",
-    "05-source-link": "Every alert links to where it came from", "06-trade-radius": "Set trades and how far you drive",
-    "07-push": "At most one push an hour", "08-price": "Free account first. No card. Subscribe later.",
-    "android/08-price": "No per-lead fees. 14-day trial, no card.",
-}
-FEED_SHOTS = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "07-push"]
+FX = json.loads((HERE / "fixtures/real-signals.json").read_text())
+ROWS = {r["id"]: r for r in FX["rows"]}
+PLATS = ("ios", "android")
 SIZE = {"ios": (1320, 2868), "android": (1080, 1920)}
-CONTENT_TOP = {"ios": 660, "android": 500}
-HERO_MIN = {"ios": 64, "android": 52}
-PUSH_MIN = {"ios": (56, 48), "android": (46, 40)}
-RING_CLEAR = 12
+EDGE = {"ios": 64, "android": 52}
+MAX_BYTES = 8 * 1024 * 1024
+TOKENS = {"green": "#1E3A2C", "paper": "#F5F4EF"}
+LIME = (0xD9, 0xF0, 0x46)
+BANNED = ["seamless", "robust", "unlock", "elevate", "effortless", "game-changer", "game changer", "revolutionary", "supercharge",
+          "leverage", "best-in-class", "world-class", "cutting-edge", "next-level", "guaranteed", "guarantee", "#1", "new!", "leads"]
 fail = []
 
 
-def lum(h):
-    h = h.lstrip("#"); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+def check(ok, label):
+    if not ok:
+        fail.append(label)
+    return "OK" if ok else "FAIL"
+
+
+def hexrgb(h):
+    h = h.lstrip("#"); return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def lum(rgb):
+    c = [x / 255 for x in rgb]
     c = [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 
@@ -47,316 +52,304 @@ def ratio(a, b):
     return (la + 0.05) / (lb + 0.05)
 
 
-def key(plat, n):
-    return f"{plat}/{n}"
+def load(plat, n):
+    return np.asarray(Image.open(OUT / plat / f"{n}.png").convert("RGB"), dtype=np.int16)
 
 
-def want(table, plat, n):
-    return table.get(f"{plat}/{n}", table[n])
+def runs(mask_rows):
+    """[(start, end_exclusive)] of consecutive True rows."""
+    out = []; start = None
+    for i, v in enumerate(mask_rows):
+        if v and start is None: start = i
+        if not v and start is not None: out.append((start, i)); start = None
+    if start is not None: out.append((start, len(mask_rows)))
+    return out
 
 
-def check(ok, label):
-    if not ok:
-        fail.append(label)
-    return "OK" if ok else "FAIL"
-
-
-print("== 1. Files: size and mode")
-for plat in ("ios", "android"):
-    for n in NAMES:
+# ---------------------------------------------------------------- 1. files ------------------------------------------------------------
+print("== 1. Files: exact names, count per platform 5 to 7, size, RGB without alpha, under 8 MB; old names gone")
+names = {plat: sorted(k.split("/", 1)[1] for k in M if k.startswith(plat + "/")) for plat in PLATS}
+for plat in PLATS:
+    on_disk = sorted(p.stem for p in (OUT / plat).glob("*"))
+    print(f"  {plat}: made {names[plat]}; on disk {on_disk} "
+          f"{check(on_disk == names[plat] and 5 <= len(on_disk) <= 7, f'file set {plat}')}")
+    for n in names[plat]:
         p = OUT / plat / f"{n}.png"
         im = Image.open(p)
-        print(f"  {plat}/{n}.png {im.size[0]}x{im.size[1]} {im.mode} {check(im.size == SIZE[plat] and im.mode == 'RGB', f'size/mode {plat}/{n}')}")
+        b = p.stat().st_size
+        ok = im.format == "PNG" and im.size == SIZE[plat] and im.mode == "RGB" and "transparency" not in im.info and b < MAX_BYTES
+        print(f"    {plat}/{n}.png {im.format} {im.size[0]}x{im.size[1]} {im.mode} {b / 1e6:.2f} MB {check(ok, f'file {plat}/{n}')}")
+print(f"  same shots on both platforms: {check(names['ios'] == names['android'], 'same names')}")
+legacy = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price"]
+left = [f"{plat}/{n}" for plat in PLATS for n in legacy if (OUT / plat / f"{n}.png").exists() and n not in names[plat]]
+print(f"  old file names still present: {left or 'none'} {check(not left, 'old files')}")
 for extra in ("contact-sheet.png", "thumb-strip.png"):
-    im = Image.open(OUT / extra); print(f"  {extra} {im.size[0]}x{im.size[1]} {im.mode}")
+    ok = (OUT / extra).exists()
+    print(f"  {extra}: {Image.open(OUT / extra).size if ok else 'missing'} {check(ok, extra)}")
 
-print("\n== 2./3. Headlines and supporting lines (measured in Chrome at compose time); words per headline 2 to 5")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        m = M[key(plat, n)]["head"]
-        h, s = want(HEADS, plat, n), want(SUBS, plat, n)
-        words = len(m["text"].split())
-        need = 150 if plat == "ios" else 120
-        ok = (m["text"] == h and m["sub"] == s and m["headLines"] == 2 and m["headPx"] >= need and 2 <= words <= 5 and m["headFamily"].strip('"') == "Fraunces"
-              and m["headWeight"] == "600" and m["subLines"] == 1 and len(s) <= 45 and abs(m["lineHeight"] / m["headPx"] - 1.06) < 0.01)
-        print(f"  {plat}/{n}: '{m['text']}' words={words} lines={m['headLines']} {m['headPx']}px line-height {m['lineHeight'] / m['headPx']:.2f} | "
-              f"'{m['sub']}' ({len(s)} chars) {m['subPx']}px lines={m['subLines']} {check(ok, f'headline {plat}/{n}')}")
+# ---------------------------------------------------------------- 2. the drawn text, measured ----------------------------------------
+print("\n== 2. Drawn text measured in the PNG (text pixel = differs from the background by more than 60 in RGB sum, above the hero)")
+meas = {}
+for plat in PLATS:
+    g = GRID[plat]; W, H = SIZE[plat]
+    for n in names[plat]:
+        a = load(plat, n); m = M[f"{plat}/{n}"]
+        bg = np.array(hexrgb(m["bg_hex"]))
+        hero_top = int(m["hero"]["box"][1])
+        head = a[:hero_top - 4]
+        txt = np.abs(head - bg).sum(axis=2) > 60
+        rr = runs(txt.any(axis=1))
+        ys, xs = np.nonzero(txt)
+        bands = rr
+        info = dict(runs=bands, x0=int(xs.min()), x1=int(xs.max()), y0=int(ys.min()))
+        # line bands: eyebrow, headline line 1, headline line 2, supporting line
+        if len(bands) == 4:
+            e, h1, h2, s = bands
+            lab, k = ndimage.label(txt[h1[0]:h1[1]])
+            sl = ndimage.find_objects(lab)
+            hs = sorted(q[0].stop - q[0].start for q in sl)
+            cap = int(np.median([x for x in hs if x >= 0.6 * max(hs)]))
+            tops = [q[0].start + h1[0] for q in sl if abs((q[0].stop - q[0].start) - cap) <= 2]
+            def baseline(band):  # median bottom row of the glyphs in a band: the text baseline (descenders and "$" do not move it)
+                lb, kk = ndimage.label(txt[band[0]:band[1]])
+                return int(np.median([q[0].stop for q in ndimage.find_objects(lb)])) + band[0]
+            info.update(eyebrow=e, h1=h1, h2=h2, sub=s, cap=cap, cap_top=int(np.median(tops)),
+                        base=dict(eyebrow=baseline(e), h1=baseline(h1), h2=baseline(h2), sub=baseline(s)),
+                        eyebrow_x0=int(np.nonzero(txt[e[0]:e[1]].any(axis=0))[0].min()),
+                        head_x0=int(np.nonzero(txt[h1[0]:h2[1]].any(axis=0))[0].min()),
+                        sub_x0=int(np.nonzero(txt[s[0]:s[1]].any(axis=0))[0].min()))
+        meas[(plat, n)] = info
+        ok = len(bands) == 4
+        print(f"  {plat}/{n}: {len(bands)} text bands (eyebrow, two headline lines, one supporting line) {bands} {check(ok, f'text bands {plat}/{n}')}")
 
+print("\n   Headline cap height and cap top (median connected component of line 1) and the baseline of every text line (median glyph")
+print("   bottom), each the same within 2 px across the set")
+for plat in PLATS:
+    caps = {n: meas[(plat, n)].get("cap") for n in names[plat]}
+    tops = {n: meas[(plat, n)].get("cap_top") for n in names[plat]}
+    ok = None not in caps.values() and max(caps.values()) - min(caps.values()) <= 2 and max(tops.values()) - min(tops.values()) <= 2
+    print(f"   {plat}: cap heights {caps}; cap tops {tops} {check(ok, f'headline cap {plat}')}")
+    for part, label in (("eyebrow", "eyebrow baseline"), ("h1", "headline line 1 baseline"), ("h2", "headline line 2 baseline"), ("sub", "supporting line baseline")):
+        d = {n: meas[(plat, n)]["base"][part] for n in names[plat] if "base" in meas[(plat, n)]}
+        ok = len(d) == len(names[plat]) and max(d.values()) - min(d.values()) <= 2
+        print(f"   {plat}: {label} {d} {check(ok, f'{label} {plat}')}")
 
-def ink_rows(im, x0, x1, y0, y1, thr=90):
-    a = np.asarray(im.convert("L").crop((x0, y0, x1, y1)), dtype=np.int16)
-    return (a < thr).any(axis=1)
+print("\n   Left margin: eyebrow ink (every eyebrow starts with the digit 0) identical; headline and supporting line ink within the first")
+print("   letter's side bearing of the margin; text box left in Chrome exactly the margin")
+for plat in PLATS:
+    g = GRID[plat]
+    ex = {n: meas[(plat, n)].get("eyebrow_x0") for n in names[plat]}
+    hx = {n: meas[(plat, n)].get("head_x0") for n in names[plat]}
+    sx = {n: meas[(plat, n)].get("sub_x0") for n in names[plat]}
+    box = {n: (M[f"{plat}/{n}"]["layout"]["head"]["x0"], M[f"{plat}/{n}"]["layout"]["sub"]["x0"], M[f"{plat}/{n}"]["layout"]["eyebrow"]["x0"]) for n in names[plat]}
+    ok = (len(set(ex.values())) == 1 and all(g["M"] <= v <= g["M"] + 16 for v in hx.values()) and all(g["M"] <= v <= g["M"] + 10 for v in sx.values())
+          and all(b == (g["M"], g["M"], g["M"]) for b in box.values()))
+    print(f"   {plat}: margin {g['M']}; eyebrow ink x {ex}; headline ink x {hx}; supporting ink x {sx} {check(ok, f'left margin {plat}')}")
 
+print(f"\n   Drawn text distance from every edge (iOS >= {EDGE['ios']} px, Android >= {EDGE['android']} px)")
+for plat in PLATS:
+    W, H = SIZE[plat]
+    for n in names[plat]:
+        i = meas[(plat, n)]
+        d = dict(left=i["x0"], right=W - 1 - i["x1"], top=i["y0"])
+        print(f"   {plat}/{n}: {d} {check(min(d.values()) >= EDGE[plat], f'text edge {plat}/{n}')}")
 
-print("\n   Gap between the two headline lines, measured in the PNG: glyphs are connected components, each assigned to line 1 or 2 by its")
-print("   centre; the number is the smallest vertical gap between a line-1 glyph and a line-2 glyph in the same pixel column")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        im = Image.open(OUT / plat / f"{n}.png")
-        m = M[key(plat, n)]["head"]
-        lh = m["lineHeight"]; top = m["headTop"]
-        y0, y1 = int(top), int(top + 2 * lh)
-        a = np.asarray(im.convert("L").crop((0, y0, SIZE[plat][0], y1)), dtype=np.int16) < 100
-        lab, k = ndimage.label(a)
-        centres = ndimage.center_of_mass(a, lab, range(1, k + 1))
-        line_of = np.zeros(k + 1, dtype=np.int8)
-        for i, (cy, cx) in enumerate(centres, start=1):
-            line_of[i] = 1 if cy < lh else 2
-        L = line_of[lab]; L[lab == 0] = 0
-        gaps = []
-        for x in range(a.shape[1]):
-            r1 = np.nonzero(L[:, x] == 1)[0]; r2 = np.nonzero(L[:, x] == 2)[0]
-            if len(r1) and len(r2):
-                gaps.append(int(r2.min() - r1.max() - 1))
-        g = min(gaps) if gaps else 999
-        need = 8 if plat == "ios" else 6
-        print(f"   {plat}/{n}: closest glyphs {g}px apart ({g * 115 / SIZE[plat][0]:.1f}px at 115 px wide) {check(g >= need, f'headline line gap {plat}/{n}')}")
+# ---------------------------------------------------------------- 3. colour ----------------------------------------------------------
+print("\n== 3. Colour")
+print("   Contrast of drawn text (WCAG 2.x) against the background measured in the PNG; the text colour is the most common text pixel")
+print("   colour of each band, which must equal the token (within 12)")
+for plat in PLATS:
+    for n in names[plat]:
+        a = load(plat, n); m = M[f"{plat}/{n}"]; i = meas[(plat, n)]
+        bg = tuple(int(v) for v in a[8, 8])
+        out = []
+        ok_all = True
+        for part, band, need in (("eyebrow", i.get("eyebrow"), 4.5), ("head", i.get("h1"), 3.0), ("sub", i.get("sub"), 4.5)):
+            if not band:
+                ok_all = False; continue
+            reg = a[band[0]:band[1]].reshape(-1, 3)
+            reg = reg[np.abs(reg - np.array(bg)).sum(axis=1) > 60]
+            vals, cnt = np.unique(reg, axis=0, return_counts=True)
+            col = tuple(int(v) for v in vals[cnt.argmax()])
+            tok = hexrgb(m["colors"][part])
+            r = ratio(col, bg)
+            ok = sum(abs(p - q) for p, q in zip(col, tok)) <= 12 and r >= need
+            ok_all &= ok
+            out.append(f"{part} #{''.join(f'{c:02X}' for c in col)} {r:.2f}:1 (need {need})")
+        print(f"   {plat}/{n} on #{''.join(f'{c:02X}' for c in bg)}: {'; '.join(out)} {check(ok_all, f'contrast {plat}/{n}')}")
 
+print("\n   Background colours across the set (four corners of each image and the gap between text and hero), at most two, each a token")
+seen = set()
+for plat in PLATS:
+    W, H = SIZE[plat]
+    for n in names[plat]:
+        a = load(plat, n); m = M[f"{plat}/{n}"]
+        ht = int(m["hero"]["box"][1])
+        pts = [(4, 4), (W - 5, 4), (4, H - 5), (W - 5, H - 5), (W // 2, ht - 20), (4, ht + 300)]
+        cols = {"#" + "".join(f"{int(c):02X}" for c in a[y, x]) for x, y in pts}
+        seen |= cols
+        ok = len(cols) == 1 and cols <= set(TOKENS.values())
+        print(f"   {plat}/{n}: {sorted(cols)} {check(ok, f'flat background {plat}/{n}')}")
+print(f"   set: {sorted(seen)} {check(len(seen) <= 2 and seen <= set(TOKENS.values()), 'two backgrounds at most')}")
 
-def ink_bbox(im, x0, y0, x1, y1, ink=(0x19, 0x17, 0x14), tol=60):
-    px = im.load(); ys = []; xs = []
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            r, g, b = px[x, y]
-            if abs(r - ink[0]) + abs(g - ink[1]) + abs(b - ink[2]) < tol:
-                ys.append(y); xs.append(x)
-    return (min(xs), min(ys), max(xs), max(ys)) if ys else None
+print("\n   Lime #D9F046 (pixels within 60 of it): never drawn text on paper, never a large fill; largest cluster at most 0.5% of the canvas")
+for plat in PLATS:
+    W, H = SIZE[plat]
+    for n in names[plat]:
+        a = load(plat, n); m = M[f"{plat}/{n}"]
+        lime = np.abs(a - np.array(LIME)).sum(axis=2) < 60
+        lab, k = ndimage.label(lime)
+        big = int(np.bincount(lab.ravel())[1:].max()) if k else 0
+        ht = int(m["hero"]["box"][1])
+        head_lime = int(lime[:ht].sum())
+        paper = m["bg"] == "paper"
+        ok = big <= 0.005 * W * H and lime.sum() <= 0.01 * W * H and not (paper and head_lime)
+        # on paper canvases, lime may not touch the canvas background at all
+        if paper:
+            bgm = np.abs(a - np.array(hexrgb(TOKENS["paper"]))).sum(axis=2) == 0
+            ok &= not (ndimage.binary_dilation(lime, iterations=2) & bgm).any()
+        print(f"   {plat}/{n} ({m['bg']}): lime px {int(lime.sum())} ({100 * lime.sum() / (W * H):.3f}%), largest cluster {big} px, in the drawn text {head_lime} px "
+              f"{check(ok, f'lime {plat}/{n}')}")
 
+print("\n   Orange (hue 10 to 32 deg, saturation and value >= 0.6, the old #E8590C family): no cluster larger than 4 px")
+for plat in PLATS:
+    for n in names[plat]:
+        a = load(plat, n).astype(np.float32) / 255
+        mx = a.max(axis=2); mn = a.min(axis=2); d = mx - mn
+        sat = np.where(mx > 0, d / np.maximum(mx, 1e-6), 0)
+        r, g_, b = a[..., 0], a[..., 1], a[..., 2]
+        hue = np.zeros_like(mx)
+        mr = (mx == r) & (d > 0)
+        hue[mr] = (60 * ((g_[mr] - b[mr]) / d[mr])) % 360
+        orange = mr & (hue >= 10) & (hue <= 32) & (sat >= 0.6) & (mx >= 0.6)
+        lab, k = ndimage.label(orange)
+        big = int(np.bincount(lab.ravel())[1:].max()) if k else 0
+        print(f"   {plat}/{n}: orange px {int(orange.sum())}, largest cluster {big} {check(big <= 4, f'orange {plat}/{n}')}")
 
-print("\n   Cap height measured in the PNG (first capital of the headline, flat-topped letters only):")
-for plat, M0 in (("ios", 90), ("android", 72)):
-    for n, letter in (("03-permits", "N"), ("06-trade-radius", "Y"), ("07-push", "A")):
-        im = Image.open(OUT / plat / f"{n}.png").convert("RGB")
-        top = M[key(plat, n)]["head"]["headTop"]; px = M[key(plat, n)]["head"]["headPx"]
-        x = M0 - 4; seen = False; pxl = im.load(); line_h = int(px * 1.06)
-        while x < M0 + px:
-            col = any(sum(abs(a - b) for a, b in zip(pxl[x, y], (0x19, 0x17, 0x14))) < 60 for y in range(int(top), int(top + line_h)))
-            if col: seen = True
-            elif seen: break
-            x += 1
-        bb = ink_bbox(im, M0 - 4, int(top), x, int(top + line_h))
-        cap = bb[3] - bb[1] + 1
-        need = 105 if plat == "ios" else 84
-        print(f"   {plat}/{n} '{letter}': cap height {cap}px (direction: cap >= {need}) {check(cap >= need - 1, f'cap {plat}/{n}')}")
+# ---------------------------------------------------------------- 4. the hero and the grid --------------------------------------------
+print("\n== 4. Hero: the phone frame found in the PNG (ink #14201A bezel); same box on every shot; share of the canvas >= 45%")
+INK = np.array(hexrgb("#14201A"))
+for plat in PLATS:
+    W, H = SIZE[plat]; g = GRID[plat]
+    boxes = {}
+    for n in names[plat]:
+        a = load(plat, n)
+        ink = np.abs(a - INK).sum(axis=2) <= 6
+        y = H - 200
+        xs = np.nonzero(ink[y])[0]
+        left, right = int(xs.min()), int(xs.max())
+        col = np.nonzero(ink[:, W // 2])[0]
+        top = int(col[col > meas[(plat, n)]["sub"][1]].min()) if "sub" in meas[(plat, n)] else -1
+        bez_l = int(np.argmax(~ink[y, left:])) ; bez_r = int(np.argmax(~ink[y, :right + 1][::-1]))
+        bez_t = int(np.argmax(~ink[top:, W // 2]))
+        share = (right - left + 1) * (H - top) / (W * H)
+        boxes[n] = (left, right, top, bez_l, bez_r, bez_t)
+        ok = left == g["M"] and right == W - g["M"] - 1 and top == g["hero_top"] and bez_l == bez_r == bez_t == g["bezel"] and share >= 0.45
+        print(f"   {plat}/{n}: frame x {left}..{right}, top {top}, bezels left/right/top {bez_l}/{bez_r}/{bez_t}, share {100 * share:.1f}% "
+              f"{check(ok, f'frame {plat}/{n}')}")
+    print(f"   {plat}: one box for the whole set {check(len(set(boxes.values())) == 1, f'grid {plat}')}")
+    print(f"   {plat}: no status bar drawn: the screen starts with the app's own top bar (checked by the record test below: app text only)")
 
-print("\n== 4. 115 px test: see thumb-strip.png (iOS 1-3 at 115 and 230 px). Headline size at 115 px:")
-for n in NAMES:
-    px = M[f"ios/{n}"]["head"]["headPx"]
-    print(f"   ios/{n}: headline {px * 115 / 1320:.1f}px type, cap {px * 0.703 * 115 / 1320:.1f}px at 115 px wide")
+print("\n   App text size on the canvas (smallest visible text, CSS size x scale): iOS >= 34 px, Android >= 28 px")
+for plat in PLATS:
+    for n in names[plat]:
+        h = M[f"{plat}/{n}"]["hero"]
+        need = 34 if plat == "ios" else 28
+        print(f"   {plat}/{n}: {h['min_font_px']} px at scale {h['scale']:.3f} (viewport {h['vw']} CSS px, scrolled {h['scrolled']} px, "
+              f"edge {h['edge_clear_css']} CSS px from the nearest line) {check(h['min_font_px'] >= need and h['edge_clear_css'] >= 2, f'app text {plat}/{n}')}")
 
-print(f"\n== P2-1. Content top: the first content block starts at {CONTENT_TOP['ios']} (iOS) / {CONTENT_TOP['android']} (Android) on every shot")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        m = M[key(plat, n)]
-        im = np.asarray(Image.open(OUT / plat / f"{n}.png").convert("RGB"), dtype=np.int16)
-        bg = im[5, 5]
-        y = int(m["head"]["subBottom"]) + 4
-        while y < im.shape[0] and (np.abs(im[y] - bg).sum(axis=1) <= 24).all():
-            y += 1
-        # a lifted card's 4 px outline (or a ring's stroke) is drawn just outside the content box
-        ok = m["content_top"] == CONTENT_TOP[plat] and CONTENT_TOP[plat] - 6 <= y <= CONTENT_TOP[plat] + 1
-        print(f"   {plat}/{n}: content_top={m['content_top']} first non-background row in the PNG y={y} {check(ok, f'content top {plat}/{n}')}")
-
-print(f"\n== P2-2. Feed shots: hero card title >= {HERO_MIN['ios']} px (iOS) / {HERO_MIN['android']} px (Android); explainer sentence at most once, never on the hero")
-for plat in ("ios", "android"):
-    for n in FEED_SHOTS:
-        m = M[key(plat, n)]
-        ok = m["hero_title_px"] >= HERO_MIN[plat] and m["explainers"] <= 1 and not m.get("explainer_on_hero")
-        lay = [(x["role"], x["title"][:34], x["title_px"], "explainer" if x["explainer_visible"] else "-") for x in m.get("layout", [])]
-        print(f"   {plat}/{n}: hero title {m['hero_title_px']}px, explainers visible {m['explainers']}, layout {lay} {check(ok, f'hero/explainer {plat}/{n}')}")
-
-print("\n== P2-3. Cards end at least 60 px above the bottom edge, or run off it with the edge between two lines")
-for plat in ("ios", "android"):
-    H = SIZE[plat][1]
-    for n in ("01-know-when", "02-storm-hail", "03-permits", "04-311"):
-        for x in M[key(plat, n)]["layout"]:
-            ok = x["bottom"] <= H - 60 or (x.get("runs_off") and x["top"] < H)
-            print(f"   {plat}/{n} {x['role']:7s} '{x['title'][:40]}': top {x['top']:.0f} bottom {x['bottom']:.0f} "
-                  f"({'runs off' if x.get('runs_off') else f'{H - x['bottom']:.0f}px above the edge'}) {check(ok, f'card end {plat}/{n}')}")
-print("   (pass 3: a card that runs off must be cut through a text-free part of its body: see P3-1)")
-
-
-def ring_clearance(final, noring, box, stroke):
-    """Exact smallest distance (px) from any ring pixel to any text pixel. Ring pixels: where the shipped PNG differs from the ring-less
-    render. Text pixels: luminance below 100 on the ring-less render (ink 23, muted 88, tag inks 66 to 91; the accent orange is 122)."""
-    X0, Y0, X1, Y1 = [int(round(v)) for v in box]
-    a = np.asarray(Image.open(noring).convert("RGB"), dtype=np.int16); b = np.asarray(Image.open(final).convert("RGB"), dtype=np.int16)
-    pad = 50
-    y0, y1, x0, x1 = max(0, Y0 - pad), min(a.shape[0], Y1 + pad), max(0, X0 - pad), min(a.shape[1], X1 + pad)
-    A, B = a[y0:y1, x0:x1], b[y0:y1, x0:x1]
-    band = np.zeros(A.shape[:2], dtype=bool)
-    band[Y0 - y0:Y1 - y0, X0 - x0:X1 - x0] = True
-    band[Y0 - y0 + stroke + 2:Y1 - y0 - stroke - 2, X0 - x0 + stroke + 2:X1 - x0 - stroke - 2] = False
-    ring = (np.abs(A - B).sum(axis=2) > 40) & band  # only differences inside the ring's own stroke band count as ring
-    ink = (0.299 * A[..., 0] + 0.587 * A[..., 1] + 0.114 * A[..., 2]) < 100
-    if not ring.any():
-        return -1.0
-    return float(ndimage.distance_transform_edt(~ring)[ink].min()) if ink.any() else 99.0
-
-
-print(f"\n== P2-4. Ring clearance: every ring stroke is at least {RING_CLEAR} px from any text pixel, the ringed text included (exact: distance")
-print("   transform between the ring's pixels and the text pixels of the ring-less render)")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        m = M[key(plat, n)]
-        for r in m.get("rings", []):
-            c = ring_clearance(OUT / plat / f"{n}.png", m["noring"], r["box"], r["stroke"])
-            note = "" if r.get("first_choice", True) else " (fallback target)"
-            print(f"   {plat}/{n}: {r['color']} ring ({r['stroke']}px) around {r['target']}{note} on {r['on']}: {c:.1f}px clear {check(c >= RING_CLEAR, f'ring clearance {plat}/{n}')}")
-
-
-print("\n== P3-1. Bottom band: no text in the last 60 px of any file (text pixel = luminance < 100; columns inked over the whole band are")
-print("   frame bezels and card outlines; pixels of the two stripe colours are not text either). Also: nearest text above the edge.")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        a = np.asarray(Image.open(OUT / plat / f"{n}.png").convert("RGB"), dtype=np.int16)
-        L = 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
-        # card stripes (storm #2F6F8F, sage-mark #4F7D55) are not text; tag inks (storm-ink, sage-ink) are 45+ away from them
-        stripe = np.zeros(L.shape, dtype=bool)
-        for c in ((0x2F, 0x6F, 0x8F), (0x4F, 0x7D, 0x55)):
-            stripe |= np.sqrt(((a - np.array(c)) ** 2).sum(axis=2)) < 30
-        L = np.where(stripe, 255, L)
-        band = L[-60:] < 100
-        full = band.all(axis=0)
-        text = band[:, ~full]
-        rows = np.nonzero(text.any(axis=1))[0]
-        # nearest text above the band, for the report
-        up = L[:-60] < 100
-        up = up[:, ~full]
-        last = np.nonzero(up.any(axis=1))[0]
-        gap = a.shape[0] - 1 - last[-1] if len(last) else None
-        band_px = M[key(plat, n)].get("bottom_band") or 60
-        if plat == "android" or band_px >= 60:
-            ok = not len(rows)
-            print(f"   {plat}/{n}: text pixels in the bottom 60 px: {int(text.sum())}; nearest text above the edge: {gap}px {check(ok, f'bottom band {plat}/{n}')}")
-        else:
-            # documented iOS fallback (shot 7): the edge falls between two lines; the last line's ink must still stay 8 px or more clear
-            inkrows = np.nonzero((L[-band_px - 8:] < 100)[:, ~full].any(axis=1))[0]
-            ok = not len(inkrows)
-            print(f"   {plat}/{n}: iOS fallback band {band_px}px (60 px needs the frame far below the push card): ink in the last {band_px + 8} px: {len(inkrows)} rows {check(ok, f'bottom band {plat}/{n}')}")
-
-
-print("\n== P2-5. Shot 7: push card text size and the bottom rows")
-for plat in ("ios", "android"):
-    p = M[key(plat, "07-push")]["push"]
-    tmin, bmin = PUSH_MIN[plat]
-    print(f"   {plat}: title '{p['text']['title']}' {p['title_px']}px (>= {tmin}), body '{p['text']['body']}' {p['body_px']}px (>= {bmin}) "
-          f"{check(p['title_px'] >= tmin and p['body_px'] >= bmin, f'push size {plat}')}")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        a = np.asarray(Image.open(OUT / plat / f"{n}.png").convert("RGB"), dtype=np.int16)
-        d = np.abs(a[-1] - a[-6]).sum(axis=1)
-        white = ((a[-2:] == 255).all(axis=2)).all(axis=0).sum()
-        ok = d.mean() < 12
-        print(f"   {plat}/{n}: last row vs 5 rows up mean diff {d.mean():.1f}, pure-white columns in the last 2 rows {white} {check(ok, f'bottom rows {plat}/{n}')}")
-
-print("\n== 5. UI text inside the images (CSS font size x scale on the canvas; title >= 54/44, others >= 40/33)")
-for plat in ("ios", "android"):
-    tmin, omin = (54, 40) if plat == "ios" else (44, 33)
-    for n in NAMES:
-        u = M[key(plat, n)].get("ui_px", {})
-        title = u.get("title")
-        low = {k: v for k, v in u.items() if k != "title" and v < omin}
-        ok = (title is None or title >= tmin) and not low
-        print(f"   {plat}/{n}: {u} {check(ok, f'ui size {plat}/{n}')}")
-
-print("\n== 6./7. Bands of flat colour (rows with at most 3 distinct colours, longest run) and bottom-edge cuts")
-for plat in ("ios", "android"):
-    lim = 240 if plat == "ios" else 160
-    for n in NAMES:
-        im = Image.open(OUT / plat / f"{n}.png").convert("RGB")
-        small = im.reduce(2); W, H = small.size; px = small.load()
-        run = best = 0; best_at = 0
-        for y in range(H):
-            cols = {tuple(c // 6 for c in px[x, y]) for x in range(0, W, 2)}
-            if len(cols) <= 3:
-                run += 1
-                if run > best: best, best_at = run, y
-            else:
-                run = 0
-        band = best * 2
-        cut = M[key(plat, n)].get("cut")
-        print(f"   {plat}/{n}: longest flat band {band}px ending y={best_at * 2} (limit {lim}) {check(band <= lim, f'flat band {plat}/{n}')}; "
-              f"bottom margin {M[key(plat, n)].get('bottom_margin')}; cut lines at bottom edge: {cut if cut else 'none'}")
-
-print("\n== 8. Colour families per image (pixels with chroma >= 40/255, by hue): orange 0-45 deg, green 70-160, blue 170-250")
-for plat in ("ios", "android"):
-    for i, n in enumerate(NAMES):
-        im = Image.open(OUT / plat / f"{n}.png").convert("RGB").reduce(3)
-        fam = {"orange": 0, "green": 0, "blue": 0, "other": 0}; tot = 0
-        for r, g, b in (im.get_flattened_data() if hasattr(im, 'get_flattened_data') else im.getdata()):
-            tot += 1
-            if max(r, g, b) - min(r, g, b) < 40: continue
-            h = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)[0] * 360
-            k = "orange" if h <= 45 or h >= 345 else "green" if 70 <= h <= 160 else "blue" if 170 <= h <= 250 else "other"
-            fam[k] += 1
-        bg = im.getpixel((5, 5))
-        present = [k for k, v in fam.items() if v / tot > 0.0005 and k != "other"]
-        hb = colorsys.rgb_to_hsv(*(c / 255 for c in bg))[0] * 360
-        bgfam = "blue" if 170 <= hb <= 250 else "green" if 70 <= hb <= 160 else "orange"
-        if bgfam not in present: present.append(bgfam)
-        allowed = 3 if i == 0 else 2
-        ok = len(present) <= allowed and fam["other"] / tot < 0.0005
-        print(f"   {plat}/{n}: bg #{''.join(f'{c:02X}' for c in bg)} families={sorted(present)} pct={ {k: round(100 * v / tot, 2) for k, v in fam.items()} } {check(ok, f'colour {plat}/{n}')}")
-
-print("\n== 9. Contrast pairs used (WCAG 2.x formula)")
-PAIRS = [
-    ("ink #191714", "#191714", "accent #E8590C", "#E8590C", 4.5, "shots 1, 8 headline + supporting line"),
-    ("ink", "#191714", "sky-deep #C9DCE5", "#C9DCE5", 4.5, "shots 2, 6 headline"),
-    ("muted #5C574F", "#5C574F", "sky-deep", "#C9DCE5", 4.5, "shots 2, 6 supporting line"),
-    ("ink", "#191714", "sage-deep #D4E3CD", "#D4E3CD", 4.5, "shot 3 headline"),
-    ("muted", "#5C574F", "sage-deep", "#D4E3CD", 4.5, "shot 3 supporting line"),
-    ("ink", "#191714", "peach #F7D6BE", "#F7D6BE", 4.5, "shot 4 headline"),
-    ("muted", "#5C574F", "peach", "#F7D6BE", 4.5, "shot 4 supporting line"),
-    ("ink", "#191714", "paper #FAF6EE", "#FAF6EE", 4.5, "shot 5 headline; app text on --bg"),
-    ("muted", "#5C574F", "paper", "#FAF6EE", 4.5, "shot 5 supporting line; app muted on --bg"),
-    ("ink", "#191714", "sand #F3EBDD", "#F3EBDD", 4.5, "shot 7 headline; shot 8 trial banner text (app)"),
-    ("muted", "#5C574F", "sand", "#F3EBDD", 4.5, "shot 7 supporting line"),
-    ("accent-text #AD4205", "#AD4205", "sand", "#F3EBDD", 4.5, "shot 8 trial banner 'See plans' link (app)"),
-    ("ink", "#191714", "white", "#FFFFFF", 4.5, "push card (shot 7), app card text"),
-    ("storm-ink #1F4A63", "#1F4A63", "sky #DDE8EC", "#DDE8EC", 4.5, "app weather tag"),
-    ("sage-ink #3B5A40", "#3B5A40", "sage #E7EDE3", "#E7EDE3", 4.5, "app permit tag"),
-    ("accent-text #AD4205", "#AD4205", "accent-soft #FBE8D8", "#FBE8D8", 4.5, "app 311/code tag"),
-    ("ink", "#191714", "accent", "#E8590C", 4.5, "app primary buttons, selected chips"),
-    ("muted", "#5C574F", "white", "#FFFFFF", 4.5, "app intent label and explainer, feedback question"),
-    ("accent-text", "#AD4205", "white", "#FFFFFF", 4.5, "app Refresh / Back / links"),
-    ("storm #2F6F8F (non-text)", "#2F6F8F", "white", "#FFFFFF", 3.0, "weather stripe"),
-    ("sage-mark #4F7D55 (non-text)", "#4F7D55", "white", "#FFFFFF", 3.0, "permit stripe"),
-    ("accent (non-text)", "#E8590C", "white", "#FFFFFF", 3.0, "civic stripe; accent rings on white cards (2, 3, 4, android 8)"),
-    ("accent (non-text)", "#E8590C", "paper", "#FAF6EE", 3.0, "accent ring on app paper (6); focus ring"),
-    ("ink (non-text)", "#191714", "white", "#FFFFFF", 3.0, "ink ring (5), card outlines"),
-    ("ink (non-text)", "#191714", "accent", "#E8590C", 3.0, "ink ring (iOS 8), outlines and phone bezel on orange (1, 8)"),
-]
-for a, ah, b, bh, need, use in PAIRS:
-    r = ratio(ah, bh)
-    print(f"   {a:30s} on {b:22s} {r:5.2f}:1 (need {need}) {check(r >= need, f'contrast {a}/{b}')}  [{use}]")
-for a, ah, b, bh in (("muted", "#5C574F", "accent", "#E8590C"), ("white", "#FFFFFF", "accent", "#E8590C"), ("accent-text", "#AD4205", "peach", "#F7D6BE")):
-    print(f"   forbidden pair {a} on {b}: {ratio(ah, bh):.2f}:1 (not used)")
-
-print("\n== 10. Facts: one member per shot, every record real, inside the radius, with a distance")
-print(f"   push (buildNotification for {DATA['push']['signalId']}, city Chicago): title={DATA['push']['title']!r} body={DATA['push']['body']!r}")
-for plat in ("ios", "android"):
-    for n in NAMES:
-        m = M[key(plat, n)]
-        recs = m.get("records") or []
-        prof = m.get("profile")
+# ---------------------------------------------------------------- 5. truth ----------------------------------------------------------
+print("\n== 5. Every hero record is a real fixture row served to that shot's member, with the distance the server's matchOne gave")
+for plat in PLATS:
+    for n in names[plat]:
+        h = M[f"{plat}/{n}"]["hero"]; feed = h.get("feed")
         bad = []
-        for sid, title, dist in recs:
-            row = FIX.get(sid)
-            if not row or (title != "push text" and row["title"] != title):
-                bad.append(sid)
-            if title != "push text" and (dist is None or not dist.endswith("mi away")):
-                bad.append(sid)
-            if prof and row and row["state"] != prof["state"]:
-                bad.append(sid)
-        where = f"{prof['zip']} {prof['city']}, {prof['state']} r{prof['radiusMi']} {'+'.join(prof['trades'])}" if prof else "no records"
-        print(f"   {plat}/{n}: [{where}] {[(s, t[:44], d) for s, t, d in recs]} {check(not bad, f'records {plat}/{n} {bad}')}")
-for plat in ("ios", "android"):
-    m = M[key(plat, "08-price")]
-    ok = "$7.99 a month" in m["plan_text"] and "Subscribe to Solo" in m["plan_text"] and "free trial" not in m["plan_text"].lower() and m["pro_shown"] in ("labelled", "cropped out")
-    print(f"   {plat}/08 Solo card: {m['plan_text']!r}; Pro card {m['pro_shown']}; banner: {m.get('banner_text')!r} {check(ok, f'plans {plat}')}")
-ok = M["ios/08-price"]["banner_text"].startswith("14 days left in your free trial.")
-print(f"   ios/08 ringed trial surface is the Feed banner for a new account: {check(ok, 'trial banner')}")
+        for r in h["records"]:
+            row = ROWS.get(r["signalId"])
+            sc = FX["scenarios"].get(feed, {})
+            served = {i["signalId"]: i for i in DATA["feeds"].get(feed, [])}
+            if not row or row["title"] != r["title"] or r["signalId"] not in sc.get("ids", []) or r["signalId"] not in served:
+                bad.append((r["signalId"], "not the fixture row of this member"))
+            elif r["distance"] != served[r["signalId"]]["distanceLabel"] or r["distance"] != DATA["distances"][feed][str(r["signalId"])]:
+                bad.append((r["signalId"], "distance differs from the served one"))
+            if r["title"] not in h["screen_text"]:
+                bad.append((r["signalId"], "title not on the screen"))
+        alert_titles = {r["title"] for r in FX["rows"]}
+        # any record title on screen must be one of the listed records (nothing unlisted)
+        stray = [t for t in h["screen_text"] if t in alert_titles and t not in {r["title"] for r in h["records"]}]
+        prof = DATA["profiles"].get(feed) if feed else None
+        where = f"{prof['zip']} {prof['city']}, {prof['state']} r{prof['radiusMi']} {'+'.join(prof['trades'])}" if prof else "no records on this screen"
+        ok = not bad and not stray
+        print(f"   {plat}/{n}: [{where}] {[(r['signalId'], r['title'][:46], r['distance']) for r in h['records']]} {check(ok, f'records {plat}/{n} {bad} {stray}')}")
+
+# shot-specific facts
+FACT = {}
+plans = (REPO / "lib/stripe/plans.ts").read_text()
+solo_cents = int(re.search(r"PRICES_CENTS[^=]*=\s*\{\s*starter:\s*\{\s*monthly:\s*(\d+)", plans).group(1))
+trial = int(re.search(r"export const TRIAL_DAYS = (\d+);", (REPO / "lib/auth/membership.ts").read_text()).group(1))
+d, c = divmod(solo_cents, 100)
+solo_price = f"${d}" if c == 0 else f"${d}.{c:02d}"
+print(f"\n   lib facts read now: Solo monthly {solo_price} (lib/stripe/plans.ts PRICES_CENTS), trial {trial} days (lib/auth/membership.ts TRIAL_DAYS)")
+for plat in PLATS:
+    for n in names[plat]:
+        h = M[f"{plat}/{n}"]["hero"]; t = M[f"{plat}/{n}"]["text"]
+        if n.startswith("03"):
+            f = h["form"]; prof = DATA["profiles"]["03-radius"]
+            labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
+            ok = f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["zipVisible"] and f["radiusVisible"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
+            print(f"   {plat}/{n}: settings form shows ZIP {f['zip']}, radius {f['radius']} mi, picked {f['pickedVisible']} (member {prof['zip']} r{prof['radiusMi']} {prof['trades']}) {check(ok, f'form {plat}/{n}')}")
+        if n.startswith("04"):
+            ok = any(s.startswith("Open the source") for s in h["screen_text"]) and not any("source record" in s.lower() or "official" in s.lower() for s in h["screen_text"])
+            print(f"   {plat}/{n}: the button reads {[s for s in h['screen_text'] if s.startswith('Open the')]} {check(ok, f'source button {plat}/{n}')}")
+        if n.startswith("05"):
+            ok = any("At most one an hour" in s for s in h["screen_text"])
+            print(f"   {plat}/{n}: the screen says 'At most one an hour': {check(ok, f'push claim {plat}/{n}')}")
+        if n.startswith("06"):
+            body = " ".join(h["screen_text"])
+            drawn = " ".join(t["head"]) + " " + t["sub"]
+            if plat == "ios":
+                ok = f"{trial} days free" in drawn.lower() and solo_price in t["sub"] and solo_price in body
+                print(f"   ios/{n}: drawn '{drawn}' states trial {trial} and Solo {solo_price}, both from lib; the Plans screen shows {solo_price}: {check(ok, 'ios price facts')}")
+            else:
+                print(f"   android/{n}: Plans screen shows {solo_price}: {check(solo_price in body, 'android plans screen')}")
+
+# ---------------------------------------------------------------- 6. words ----------------------------------------------------------
+print("\n== 6. Drawn text: wording rules")
+for plat in PLATS:
+    for n in names[plat]:
+        t = M[f"{plat}/{n}"]["text"]
+        drawn = [t["eyebrow"], *t["head"], t["sub"]]
+        s = " ".join(drawn)
+        words_head = len(" ".join(t["head"]).split()); words_sub = len(t["sub"].split())
+        probs = []
+        if "—" in s: probs.append("em dash")
+        probs += [w for w in BANNED if re.search(r"(?<![a-z])" + re.escape(w) + r"(?![a-z])", s.lower())]
+        if plat == "android" and (re.search(r"[$€£]|\d+\.\d\d", s) or re.search(r"\bfree\b", s.lower())):
+            probs.append("price or 'free' on Android")
+        # digits: only the eyebrow index, or the lib facts on the iOS price shot
+        digits = re.findall(r"\d+(?:\.\d+)?", " ".join(drawn[1:]))
+        allowed = {str(trial), solo_price.lstrip("$"), "311"}
+        if any(x not in allowed for x in digits):
+            probs.append(f"number not from lib: {digits}")
+        if not (2 <= words_head <= 6 and words_sub <= 8): probs.append(f"length head {words_head} words, sub {words_sub} words")
+        if not re.fullmatch(r"0\d / [A-Za-z ]+", t["eyebrow"]): probs.append("eyebrow form")
+        fam = M[f"{plat}/{n}"]["layout"]
+        if "Barlow Condensed" not in fam["head"]["family"] or fam["head"]["weight"] != "700" or "Inter" not in fam["sub"]["family"] or "JetBrains Mono" not in fam["eyebrow"]["family"]:
+            probs.append("fonts")
+        print(f"   {plat}/{n}: '{t['eyebrow']}' | '{' / '.join(t['head'])}' ({words_head} words) | '{t['sub']}' ({words_sub} words) {check(not probs, f'words {plat}/{n} {probs}')}")
+
+print("\n   make-screenshots.py holds no literal price, trial length or plan limit")
+src = (HERE / "make-screenshots.py").read_text()
+lits = set()
+for p in DATA["config"]["plans"].values():
+    for per in ("monthly", "yearly"):
+        lits |= {p[per]["display"], p[per]["display"].lstrip("$"), str(p[per]["cents"])}
+    lits |= {f"{v} {k}" for k, v in (p.get("limits") or {}).items()}
+found = sorted(x for x in lits if re.search(r"(?<![\w.$])" + re.escape(x) + r"(?![\w.])", src) or (x.startswith("$") and x in src))
+found += [m.group(0) for m in re.finditer(rf"(?<![\w.]){trial}(?![\w.])", src)]
+found += [m.group(0) for m in re.finditer(r"\$\d", src)]
+limits_words = re.findall(r"(?i)\b\d+\s+(?:service areas?|areas?|trades|keyword)", src)
+print(f"   literals found: {found + limits_words or 'none'} {check(not found and not limits_words, 'no literals in make-screenshots.py')}")
 
 print("\nHARD FAILURES:", fail if fail else "none")
 sys.exit(1 if fail else 0)

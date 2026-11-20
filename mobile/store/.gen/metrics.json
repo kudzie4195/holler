@@ -1,1816 +1,1639 @@
 {
  "shots": {
-  "ios/01-know-when": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 1165.484375
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 854.5
-     }
+  "ios/01-records": {
+   "text": {
+    "eyebrow": "01 / Public records",
+    "head": [
+     "Public records",
+     "near your work"
     ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 1066.015625,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "Storms, permits, 311 near you",
-    "sub": "Alerts for roofers, plumbers, HVAC and more",
-    "fontsOk": true
+    "sub": "Permits, storms and 311 for your trade"
    },
-   "content_top": 660,
-   "hero_title_px": 84.3,
-   "hero_sizes": {
-    "title": 84.3,
-    "meta": 70.2,
-    "tag": 60.9,
-    "label": 60.9,
-    "source": 60.9,
-    "explainer": 65.6
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
    },
-   "layout": [
-    {
-     "title": "Roof permit in Chicago",
-     "role": "hero",
-     "top": 660,
-     "bottom": 1327,
-     "width": 1180,
-     "explainer_visible": false,
-     "title_px": 84.3,
-     "sizes": {
-      "title": 84.3,
-      "meta": 70.2,
-      "tag": 60.9,
-      "label": 60.9,
-      "source": 60.9,
-      "explainer": 65.6
-     }
-    },
-    {
-     "title": "Code violation in Chicago: REPAIR ROOF",
-     "role": "context",
-     "top": 1384,
-     "bottom": 2696,
-     "width": 1100,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 78.6,
-     "sizes": {
-      "title": 78.6,
-      "meta": 65.5,
-      "tag": 56.7,
-      "label": 56.7,
-      "source": 56.7,
-      "explainer": 61.1
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 172,
-   "feed": "01-know-when",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "roofing"
-    ]
-   },
-   "vw": 284,
-   "records": [
-    [
-     33439,
-     "Roof permit in Chicago",
-     "2.6 mi away"
-    ],
-    [
-     4291,
-     "Code violation in Chicago: REPAIR ROOF",
-     "5 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 84.3,
-    "meta": 70.2,
-    "tag": 60.9,
-    "label": 60.9,
-    "source": 60.9,
-    "explainer": 65.6
-   },
-   "rings": [],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-01-know-when.png"
-  },
-  "ios/02-storm-hail": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 874.390625
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 397.359375
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 997.84375,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "Storm & hail alerts",
-    "sub": "Hail reports and storm warnings near you",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "hero_title_px": 79.3,
-   "hero_sizes": {
-    "title": 79.3,
-    "meta": 66.0,
-    "tag": 57.2,
-    "label": 57.2,
-    "source": 57.2,
-    "explainer": 61.6
-   },
-   "layout": [
-    {
-     "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-     "role": "hero",
-     "top": 660,
-     "bottom": 1494,
-     "width": 1180,
-     "explainer_visible": false,
-     "title_px": 79.3,
-     "sizes": {
-      "title": 79.3,
-      "meta": 66.0,
-      "tag": 57.2,
-      "label": 57.2,
-      "source": 57.2,
-      "explainer": 61.6
-     }
-    },
-    {
-     "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-     "role": "context",
-     "top": 1550,
-     "bottom": 2770,
-     "width": 1100,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 73.9,
-     "sizes": {
-      "title": 73.9,
-      "meta": 61.6,
-      "tag": 53.4,
-      "label": 53.4,
-      "source": 53.4,
-      "explainer": 57.5
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 98,
-   "feed": "02-storm",
-   "profile": {
-    "zip": "33301",
-    "city": "Fort Lauderdale",
-    "state": "FL",
-    "lat": 26.1216,
-    "lon": -80.1288,
-    "radiusMi": 15,
-    "trades": [
-     "roofing",
-     "tree-service"
-    ]
-   },
-   "vw": 300,
-   "records": [
-    [
-     24614,
-     "1.00 inch hail reported near 2 W Hollywood, FL",
-     "7.4 mi away"
-    ],
-    [
-     15979,
-     "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-     "3.1 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 79.3,
-    "meta": 66.0,
-    "tag": 57.2,
-    "label": 57.2,
-    "source": 57.2,
-    "explainer": 61.6
-   },
-   "rings": [
-    {
-     "box": [
-      150.9,
-      975.4,
-      1087.9,
-      1195.4
-     ],
-     "stroke": 8,
-     "target": "title",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 12.6,
-     "first_choice": false,
-     "tries": [
-      [
-       "distance",
-       8,
-       11.0
-      ],
-      [
-       "distance",
-       6,
-       11.0
-      ],
-      [
-       "title",
-       8,
-       12.6
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-02-storm-hail.png"
-  },
-  "ios/03-permits": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 889.4375
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 608.578125
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 872,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "New permits near you",
-    "sub": "Plumbing, HVAC, windows and more",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "hero_title_px": 76.4,
-   "hero_sizes": {
-    "title": 76.4,
-    "meta": 63.7,
-    "tag": 55.2,
-    "label": 55.2,
-    "source": 55.2,
-    "explainer": 59.4
-   },
-   "layout": [
-    {
-     "title": "Plumbing permit in Chicago",
-     "role": "hero",
-     "top": 660,
-     "bottom": 1365,
-     "width": 1180,
-     "explainer_visible": false,
-     "title_px": 76.4,
-     "sizes": {
-      "title": 76.4,
-      "meta": 63.7,
-      "tag": 55.2,
-      "label": 55.2,
-      "source": 55.2,
-      "explainer": 59.4
-     }
-    },
-    {
-     "title": "HVAC permit in Chicago",
-     "role": "context",
-     "top": 1420,
-     "bottom": 1984,
-     "width": 1100,
-     "upto": "head",
-     "runs_off": false,
-     "explainer_visible": false,
-     "title_px": 71.2,
-     "sizes": {
-      "title": 71.2,
-      "meta": 59.4,
-      "tag": 51.4,
-      "label": 51.4,
-      "source": 51.4,
-      "explainer": 55.4
-     }
-    },
-    {
-     "title": "Window and door permit in Chicago",
-     "role": "context",
-     "top": 2041,
-     "bottom": 2698,
-     "width": 1100,
-     "upto": "head",
-     "runs_off": false,
-     "explainer_visible": false,
-     "title_px": 71.2,
-     "sizes": {
-      "title": 71.2,
-      "meta": 59.4,
-      "tag": 51.4,
-      "label": 51.4,
-      "source": 51.4,
-      "explainer": 55.4
-     }
-    }
-   ],
-   "explainers": 0,
-   "explainer_on_hero": false,
-   "bottom_margin": 170,
-   "feed": "03-permits",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "plumbing",
-     "hvac",
-     "windows-doors"
-    ]
-   },
-   "vw": 310,
-   "records": [
-    [
-     33427,
-     "Plumbing permit in Chicago",
-     "3.5 mi away"
-    ],
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ],
-    [
-     33440,
-     "Window and door permit in Chicago",
-     "4.9 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 76.4,
-    "meta": 63.7,
-    "tag": 55.2,
-    "label": 55.2,
-    "source": 55.2,
-    "explainer": 59.4
-   },
-   "rings": [
-    {
-     "box": [
-      146.4,
-      1202.5,
-      555.4,
-      1306.5
-     ],
-     "stroke": 8,
-     "target": "distance",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "distance",
-       8,
-       13.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-03-permits.png"
-  },
-  "ios/04-311": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 645.015625
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 598.28125
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 892.0625,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "311 & city requests",
-    "sub": "Tree emergencies and code requests",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "hero_title_px": 79.3,
-   "hero_sizes": {
-    "title": 79.3,
-    "meta": 66.0,
-    "tag": 57.2,
-    "label": 57.2,
-    "source": 57.2,
-    "explainer": 61.6
-   },
-   "layout": [
-    {
-     "title": "311 request in Chicago: Tree Emergency",
-     "role": "hero",
-     "top": 660,
-     "bottom": 1391,
-     "width": 1180,
-     "explainer_visible": false,
-     "title_px": 79.3,
-     "sizes": {
-      "title": 79.3,
-      "meta": 66.0,
-      "tag": 57.2,
-      "label": 57.2,
-      "source": 57.2,
-      "explainer": 61.6
-     }
-    },
-    {
-     "title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
-     "role": "context",
-     "top": 1447,
-     "bottom": 2680,
-     "width": 1100,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 73.9,
-     "sizes": {
-      "title": 73.9,
-      "meta": 61.6,
-      "tag": 53.4,
-      "label": 53.4,
-      "source": 53.4,
-      "explainer": 57.5
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 188,
-   "feed": "04-311",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "tree-service",
-     "handyman"
-    ]
-   },
-   "vw": 300,
-   "records": [
-    [
-     45354,
-     "311 request in Chicago: Tree Emergency",
-     "4.9 mi away"
-    ],
-    [
-     27560,
-     "Code violation in Chicago: REPAIR PORCH SYSTEM",
-     "5.5 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 79.3,
-    "meta": 66.0,
-    "tag": 57.2,
-    "label": 57.2,
-    "source": 57.2,
-    "explainer": 61.6
-   },
-   "rings": [
-    {
-     "box": [
-      149.9,
-      870.0,
-      1064.9,
-      1095.0
-     ],
-     "stroke": 8,
-     "target": "title",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "title",
-       8,
-       13.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-04-311.png"
-  },
-  "ios/05-source-link": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 1016.703125
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 469.140625
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 933.875,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "See the official source",
-    "sub": "Every alert links to where it came from",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "lift_scale": 4.402985074626866,
-   "vw": 300,
-   "ui_px": {
-    "title": 79.3,
-    "meta": 66.0,
-    "explainer": 61.6,
-    "source": 57.2,
-    "button": 70.4
-   },
-   "bottom_margin": 224,
-   "records": [
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ]
-   ],
-   "card_text": "Permit\nMoney being spent\n\nHVAC permit in Chicago\n\nChicago, IL\n2 days ago\n1.7 mi away\n\nMoney is being spent here. The main contractor may already be chosen.\n\nSource: Chicago open data: building permits\n\nPERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST\n\nDate\nNov 17\nOpen the source record\n\nWas this alert helpful?\n\nUseful\nNot relevant\nLed to work",
-   "explainers": 1,
-   "feed": "05-source-link",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "hvac"
-    ]
-   },
-   "rings": [
-    {
-     "box": [
-      145.9,
-      2376.3,
-      1196.1,
-      2620.9
-     ],
-     "stroke": 8,
-     "target": "Open the source record button",
-     "color": "ink",
-     "on": "white card",
-     "clearance": 24.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "Open the source record button",
-       8,
-       24.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-05-source-link.png"
-  },
-  "ios/06-trade-radius": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 157,
-      "bottom": 342,
-      "w": 849.65625
-     },
-     {
-      "top": 316,
-      "bottom": 501,
-      "w": 803.421875
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 790.046875,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "Your trades, your radius",
-    "sub": "Set trades and how far you drive",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "crop_scale": 3.3666666666666667,
-   "vw": 300,
-   "unpicked_shown": [
-    "Landscaping",
-    "Lawn care"
-   ],
-   "ui_px": {
-    "chip": 50.5,
-    "label": 50.5,
-    "hint": 47.1,
-    "button": 53.9
-   },
-   "picked": [
-    "Roofing",
-    "Heating and air (HVAC)",
-    "Plumbing",
-    "Electrical"
-   ],
-   "width": 1010,
    "layout": {
-    "a": [
-     660,
-     1736
-    ],
-    "b": [
-     1788,
-     2785
-    ]
-   },
-   "bottom_margin": 79,
-   "records": [],
-   "rings": [
-    {
-     "box": [
-      187.9,
-      2144.4,
-      1138.9,
-      2433.8
-     ],
-     "stroke": 8,
-     "target": "radius label and slider",
-     "color": "accent",
-     "on": "paper",
-     "clearance": 16.8,
-     "first_choice": true,
-     "tries": [
-      [
-       "radius label and slider",
-       8,
-       16.8
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-06-trade-radius.png"
-  },
-  "ios/07-push": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
+    "eyebrow": {
+     "x0": 110,
+     "x1": 549.28125,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "01 / PUBLIC RECORDS",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "PUBLIC RECORDS / NEAR YOUR WORK",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 940.625,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Permits, storms and 311 for your trade",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
      {
-      "top": 157,
-      "bottom": 342,
-      "w": 738.453125
+      "x0": 110,
+      "x1": 1040.546875,
+      "w": 930.546875
      },
      {
-      "top": 316,
-      "bottom": 501,
-      "w": 872.9375
+      "x0": 110,
+      "x1": 1093.125,
+      "w": 983.125
      }
     ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 620.578125,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "Alerts that fit. No spam.",
-    "sub": "At most one push an hour",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "frame_top": 925,
-   "scale": 3.663157894736842,
-   "vw": 285,
-   "hero_title_px": 65.9,
-   "ui_px": {
-    "title": 65.9,
-    "meta": 54.9,
-    "tag": 47.6,
-    "label": 47.6,
-    "source": 47.6,
-    "explainer": 51.3
-   },
-   "push": {
-    "text": {
-     "signalId": 33440,
-     "title": "New alert near Chicago",
-     "body": "Window and door permit in Chicago"
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
     },
-    "title_px": 58,
-    "body_px": 50,
-    "top": 660,
-    "bottom": 937,
-    "placement": "on the frame's top edge",
-    "overlap_frame": 12
+    "fontsOk": true,
+    "sw": 1320
    },
-   "bottom_band": 12,
-   "explainers": 1,
-   "cut": [],
-   "rings": [],
-   "bottom_margin": 0,
-   "records": [
-    [
-     33440,
-     "Window and door permit in Chicago",
-     "4.9 mi away"
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-01-records-screen.png",
+    "size": [
+     1048,
+     2048
     ],
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ],
-    [
-     33440,
-     "push text",
-     null
-    ]
-   ],
-   "feed": "07-push",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "windows-doors"
-    ]
-   },
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-07-push.png"
-  },
-  "ios/08-price": {
-   "head": {
-    "headTop": 170,
-    "headBottom": 488,
-    "headLines": 2,
-    "lineBoxes": [
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 827,
+    "visible_css": 768.0,
+    "scrolled": 0,
+    "shown": [
      {
-      "top": 157,
-      "bottom": 342,
-      "w": 856.96875
+      "title": "311 request in Chicago: Tree Emergency",
+      "distance": "4.9 mi away",
+      "top": 117
      },
      {
-      "top": 316,
-      "bottom": 501,
-      "w": 1112.9375
-     }
-    ],
-    "subBottom": 585,
-    "subLines": 1,
-    "subWidth": 1044.0625,
-    "headPx": 150,
-    "lineHeight": 159,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 52,
-    "text": "14 days free. Then $7.99/mo.",
-    "sub": "Free account first. No card. Subscribe later.",
-    "fontsOk": true
-   },
-   "content_top": 660,
-   "frame_top": null,
-   "frame_shift": null,
-   "ui_px": {
-    "banner": 55.5,
-    "price": 105.7,
-    "list": 49.3
-   },
-   "plan_text": "Solo\n\n$7.99 a month\n\n1 service area\nUp to 5 trades\nSubscribe to Solo",
-   "pro_text": "Pro\n\n$13.99 a month\n\n3 service areas\nUp to 15 trades\n5 keyword watches\nSubscribe to Pro",
-   "pro_shown": "labelled",
-   "vw": 340,
-   "records": [],
-   "banner_text": "14 days left in your free trial. See plans",
-   "banner_box": [
-    90.0,
-    681,
-    1230.0,
-    1016
-   ],
-   "bottom_margin": 101,
-   "plan_width": 1085,
-   "rings": [
-    {
-     "box": [
-      69.0,
-      660,
-      1251.0,
-      1037
-     ],
-     "stroke": 8,
-     "target": "trial banner",
-     "color": "ink",
-     "on": "accent background",
-     "clearance": 69.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "trial banner",
-       8,
-       69.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/ios-08-price.png"
-  },
-  "android/01-know-when": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 932.390625
+      "title": "Roof permit in Chicago",
+      "distance": "2.6 mi away",
+      "top": 377.78125
      },
      {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 683.59375
+      "title": "Code violation in Chicago: REPAIR ROOF",
+      "distance": "5 mi away",
+      "top": 615.171875
      }
     ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 861.015625,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "Storms, permits, 311 near you",
-    "sub": "Alerts for roofers, plumbers, HVAC and more",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "hero_title_px": 60.0,
-   "hero_sizes": {
-    "title": 60.0,
-    "meta": 50.0,
-    "tag": 43.3,
-    "label": 43.3,
-    "source": 43.3,
-    "explainer": 46.7
-   },
-   "layout": [
-    {
-     "title": "Roof permit in Chicago",
-     "role": "hero",
-     "top": 500,
-     "bottom": 975,
-     "width": 960,
-     "explainer_visible": false,
-     "title_px": 60.0,
-     "sizes": {
-      "title": 60.0,
-      "meta": 50.0,
-      "tag": 43.3,
-      "label": 43.3,
-      "source": 43.3,
-      "explainer": 46.7
-     }
-    },
-    {
-     "title": "Code violation in Chicago: REPAIR ROOF",
-     "role": "context",
-     "top": 1019,
-     "bottom": 1819,
-     "width": 900,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 56.2,
-     "sizes": {
-      "title": 56.2,
-      "meta": 46.9,
-      "tag": 40.6,
-      "label": 40.6,
-      "source": 40.6,
-      "explainer": 43.8
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 101,
-   "feed": "01-know-when",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "roofing"
-    ]
-   },
-   "vw": 320,
-   "records": [
-    [
-     33439,
-     "Roof permit in Chicago",
-     "2.6 mi away"
-    ],
-    [
-     4291,
-     "Code violation in Chicago: REPAIR ROOF",
-     "5 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 60.0,
-    "meta": 50.0,
-    "tag": 43.3,
-    "label": 43.3,
-    "source": 43.3,
-    "explainer": 46.7
-   },
-   "rings": [],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-01-know-when.png"
-  },
-  "android/02-storm-hail": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 699.515625
-     },
-     {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 317.890625
-     }
-    ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 805.953125,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "Storm & hail alerts",
-    "sub": "Hail reports and storm warnings near you",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "hero_title_px": 60.0,
-   "hero_sizes": {
-    "title": 60.0,
-    "meta": 50.0,
-    "tag": 43.3,
-    "label": 43.3,
-    "source": 43.3,
-    "explainer": 46.7
-   },
-   "layout": [
-    {
-     "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-     "role": "hero",
-     "top": 500,
-     "bottom": 1053,
-     "width": 960,
-     "explainer_visible": false,
-     "title_px": 60.0,
-     "sizes": {
-      "title": 60.0,
-      "meta": 50.0,
-      "tag": 43.3,
-      "label": 43.3,
-      "source": 43.3,
-      "explainer": 46.7
-     }
-    },
-    {
-     "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-     "role": "context",
-     "top": 1097,
-     "bottom": 1826,
-     "width": 900,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 56.2,
-     "sizes": {
-      "title": 56.2,
-      "meta": 46.9,
-      "tag": 40.6,
-      "label": 40.6,
-      "source": 40.6,
-      "explainer": 43.8
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 94,
-   "feed": "02-storm",
-   "profile": {
-    "zip": "33301",
-    "city": "Fort Lauderdale",
-    "state": "FL",
-    "lat": 26.1216,
-    "lon": -80.1288,
-    "radiusMi": 15,
-    "trades": [
-     "roofing",
-     "tree-service"
-    ]
-   },
-   "vw": 320,
-   "records": [
-    [
-     24614,
-     "1.00 inch hail reported near 2 W Hollywood, FL",
-     "7.4 mi away"
-    ],
-    [
-     15979,
-     "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-     "3.1 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 60.0,
-    "meta": 50.0,
-    "tag": 43.3,
-    "label": 43.3,
-    "source": 43.3,
-    "explainer": 46.7
-   },
-   "rings": [
-    {
-     "box": [
-      116.3,
-      923.6,
-      437.3,
-      1009.6
-     ],
-     "stroke": 6,
-     "target": "distance",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 12.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "distance",
-       6,
-       12.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-02-storm-hail.png"
-  },
-  "android/03-permits": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 711.546875
-     },
-     {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 486.859375
-     }
-    ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 704.3125,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "New permits near you",
-    "sub": "Plumbing, HVAC, windows and more",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "hero_title_px": 52.7,
-   "hero_sizes": {
-    "title": 52.7,
-    "meta": 43.9,
-    "tag": 38.0,
-    "label": 38.0,
-    "source": 38.0,
-    "explainer": 41.0
-   },
-   "layout": [
-    {
-     "title": "Plumbing permit in Chicago",
-     "role": "hero",
-     "top": 500,
-     "bottom": 840,
-     "width": 960,
-     "explainer_visible": false,
-     "title_px": 52.7,
-     "sizes": {
-      "title": 52.7,
-      "meta": 43.9,
-      "tag": 38.0,
-      "label": 38.0,
-      "source": 38.0,
-      "explainer": 41.0
-     }
-    },
-    {
-     "title": "HVAC permit in Chicago",
-     "role": "context",
-     "top": 884,
-     "bottom": 1203,
-     "width": 900,
-     "upto": "head",
-     "runs_off": false,
-     "explainer_visible": false,
-     "title_px": 49.4,
-     "sizes": {
-      "title": 49.4,
-      "meta": 41.2,
-      "tag": 35.7,
-      "label": 35.7,
-      "source": 35.7,
-      "explainer": 38.4
-     }
-    },
-    {
-     "title": "Window and door permit in Chicago",
-     "role": "context",
-     "top": 1246,
-     "bottom": 1822,
-     "width": 900,
-     "upto": "body",
-     "runs_off": false,
-     "explainer_visible": true,
-     "title_px": 49.4,
-     "sizes": {
-      "title": 49.4,
-      "meta": 41.2,
-      "tag": 35.7,
-      "label": 35.7,
-      "source": 35.7,
-      "explainer": 38.4
-     }
-    }
-   ],
-   "explainers": 1,
-   "explainer_on_hero": false,
-   "bottom_margin": 98,
-   "feed": "03-permits",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "plumbing",
-     "hvac",
-     "windows-doors"
-    ]
-   },
-   "vw": 360,
-   "records": [
-    [
-     33427,
-     "Plumbing permit in Chicago",
-     "3.5 mi away"
-    ],
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ],
-    [
-     33440,
-     "Window and door permit in Chicago",
-     "4.9 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 52.7,
-    "meta": 43.9,
-    "tag": 38.0,
-    "label": 38.0,
-    "source": 38.0,
-    "explainer": 41.0
-   },
-   "rings": [
-    {
-     "box": [
-      640.4,
-      726.9,
-      931.4,
-      806.9
-     ],
-     "stroke": 6,
-     "target": "distance",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "distance",
-       6,
-       13.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-03-permits.png"
-  },
-  "android/04-311": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 516
-     },
-     {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 478.625
-     }
-    ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 720.515625,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "311 & city requests",
-    "sub": "Tree emergencies and code requests",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "hero_title_px": 64.5,
-   "hero_sizes": {
-    "title": 64.5,
-    "meta": 53.7,
-    "tag": 46.6,
-    "label": 46.6,
-    "source": 46.6,
-    "explainer": 50.1
-   },
-   "layout": [
-    {
-     "title": "311 request in Chicago: Tree Emergency",
-     "role": "hero",
-     "top": 500,
-     "bottom": 1095,
-     "width": 960,
-     "explainer_visible": false,
-     "title_px": 64.5,
-     "sizes": {
-      "title": 64.5,
-      "meta": 53.7,
-      "tag": 46.6,
-      "label": 46.6,
-      "source": 46.6,
-      "explainer": 50.1
-     }
-    },
-    {
-     "title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
-     "role": "context",
-     "top": 1139,
-     "bottom": 1775,
-     "width": 900,
-     "upto": "head",
-     "runs_off": false,
-     "explainer_visible": false,
-     "title_px": 60.4,
-     "sizes": {
-      "title": 60.4,
-      "meta": 50.4,
-      "tag": 43.7,
-      "label": 43.7,
-      "source": 43.7,
-      "explainer": 47.0
-     }
-    }
-   ],
-   "explainers": 0,
-   "explainer_on_hero": false,
-   "bottom_margin": 145,
-   "feed": "04-311",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "tree-service",
-     "handyman"
-    ]
-   },
-   "vw": 300,
-   "records": [
-    [
-     45354,
+    "screen_text": [
+     "Alerts",
+     "Refresh",
+     "Release to refresh",
+     "311 request",
+     "Might need work",
      "311 request in Chicago: Tree Emergency",
-     "4.9 mi away"
+     "Chicago, IL",
+     "Yesterday",
+     "4.9 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "Chicago open data: 311 requests",
+     "Was this alert helpful?",
+     "Permit",
+     "Money being spent",
+     "Roof permit in Chicago",
+     "Chicago, IL",
+     "2 days ago",
+     "2.6 mi away",
+     "Money is being spent here. The main contractor may already be chosen.",
+     "Source:",
+     "Chicago open data: building permits",
+     "Was this alert helpful?",
+     "Code violation",
+     "Might need work",
+     "Code violation in Chicago: REPAIR ROOF",
+     "Chicago, IL",
+     "6 days ago",
+     "5 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "Chicago open data: code violations"
     ],
-    [
-     27560,
-     "Code violation in Chicago: REPAIR PORCH SYSTEM",
-     "5.5 mi away"
-    ]
-   ],
-   "ui_px": {
-    "title": 64.5,
-    "meta": 53.7,
-    "tag": 46.6,
-    "label": 46.6,
-    "source": 46.6,
-    "explainer": 50.1
-   },
-   "rings": [
-    {
-     "box": [
-      122.8,
-      668.8,
-      871.8,
-      855.8
-     ],
-     "stroke": 6,
-     "target": "title",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "title",
-       6,
-       13.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-04-311.png"
-  },
-  "android/05-source-link": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
+    "min_font_px": 34.7,
+    "edge_clear_css": 8.0,
+    "form": null,
+    "feed": "01-records",
+    "records": [
      {
-      "top": 99,
-      "bottom": 247,
-      "w": 813.359375
+      "signalId": 45354,
+      "title": "311 request in Chicago: Tree Emergency",
+      "distance": "4.9 mi away",
+      "served": "4.9 mi away"
      },
      {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 375.3125
-     }
-    ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 754.28125,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "See the official source",
-    "sub": "Every alert links to where it came from",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "lift_scale": 3.155115511551155,
-   "vw": 335,
-   "ui_px": {
-    "title": 56.8,
-    "meta": 47.3,
-    "explainer": 44.2,
-    "source": 41.0,
-    "button": 50.5
-   },
-   "bottom_margin": 65,
-   "records": [
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ]
-   ],
-   "card_text": "Permit\nMoney being spent\n\nHVAC permit in Chicago\n\nChicago, IL\n2 days ago\n1.7 mi away\n\nMoney is being spent here. The main contractor may already be chosen.\n\nSource: Chicago open data: building permits\n\nPERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST\n\nDate\nNov 17\nOpen the source record\n\nWas this alert helpful?\n\nUseful\nNot relevant\nLed to work",
-   "explainers": 1,
-   "feed": "05-source-link",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "hvac"
-    ]
-   },
-   "rings": [
-    {
-     "box": [
-      112.4,
-      1659.7,
-      983.4,
-      1842.8
-     ],
-     "stroke": 6,
-     "target": "Open the source record button",
-     "color": "ink",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "Open the source record button",
-       6,
-       13.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-05-source-link.png"
-  },
-  "android/06-trade-radius": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 679.71875
+      "signalId": 33439,
+      "title": "Roof permit in Chicago",
+      "distance": "2.6 mi away",
+      "served": "2.6 mi away"
      },
      {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 642.734375
+      "signalId": 4291,
+      "title": "Code violation in Chicago: REPAIR ROOF",
+      "distance": "5 mi away",
+      "served": "5 mi away"
      }
     ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 638.109375,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "Your trades, your radius",
-    "sub": "Set trades and how far you drive",
-    "fontsOk": true
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "ios/02-storms": {
+   "text": {
+    "eyebrow": "02 / Storms",
+    "head": [
+     "Storm and hail",
+     "reports nearby"
+    ],
+    "sub": "Hail size, place and distance from you"
    },
-   "content_top": 500,
-   "crop_scale": 2.357894736842105,
-   "vw": 380,
-   "unpicked_shown": [
-    "Landscaping",
-    "Lawn care"
-   ],
-   "ui_px": {
-    "chip": 35.4,
-    "label": 35.4,
-    "hint": 33.0,
-    "button": 37.7
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
    },
-   "picked": [
-    "Roofing",
-    "Heating and air (HVAC)",
-    "Plumbing",
-    "Electrical"
-   ],
-   "width": 896,
    "layout": {
-    "a": [
-     500,
-     1131
-    ],
-    "b": [
-     1155,
-     1853
-    ]
-   },
-   "bottom_margin": 63,
-   "records": [],
-   "rings": [
-    {
-     "box": [
-      110.7,
-      1400.9,
-      974.0,
-      1612.2
-     ],
-     "stroke": 6,
-     "target": "radius label and slider",
-     "color": "accent",
-     "on": "paper",
-     "clearance": 12.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "radius label and slider",
-       6,
-       12.0
-      ]
-     ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-06-trade-radius.png"
-  },
-  "android/07-push": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
-     {
-      "top": 99,
-      "bottom": 247,
-      "w": 590.765625
-     },
-     {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 698.34375
-     }
-    ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 501.234375,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "Alerts that fit. No spam.",
-    "sub": "At most one push an hour",
-    "fontsOk": true
-   },
-   "content_top": 500,
-   "frame_top": 692,
-   "scale": 2.9178082191780823,
-   "vw": 292,
-   "hero_title_px": 52.5,
-   "ui_px": {
-    "title": 52.5,
-    "meta": 43.8,
-    "tag": 37.9,
-    "label": 37.9,
-    "source": 37.9,
-    "explainer": 40.8
-   },
-   "push": {
-    "text": {
-     "signalId": 33440,
-     "title": "New alert near Chicago",
-     "body": "Window and door permit in Chicago"
+    "eyebrow": {
+     "x0": 110,
+     "x1": 364.328125,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "02 / STORMS",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
     },
-    "title_px": 48,
-    "body_px": 42,
-    "top": 500,
-    "bottom": 704,
-    "placement": "on the frame's top edge",
-    "overlap_frame": 12
-   },
-   "bottom_band": 60,
-   "explainers": 1,
-   "cut": [
-    [
-     416.96875,
-     432.96875,
-     "Permit"
-    ],
-    [
-     416.3125,
-     432.3125,
-     "Money being spent"
-    ],
-    [
-     418.0625,
-     432.0625,
-     "<svg>"
-    ]
-   ],
-   "rings": [],
-   "bottom_margin": 0,
-   "records": [
-    [
-     33440,
-     "Window and door permit in Chicago",
-     "4.9 mi away"
-    ],
-    [
-     33435,
-     "HVAC permit in Chicago",
-     "1.7 mi away"
-    ],
-    [
-     33440,
-     "push text",
-     null
-    ]
-   ],
-   "feed": "07-push",
-   "profile": {
-    "zip": "60614",
-    "city": "Chicago",
-    "state": "IL",
-    "lat": 41.9229,
-    "lon": -87.6483,
-    "radiusMi": 15,
-    "trades": [
-     "windows-doors"
-    ]
-   },
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-07-push.png"
-  },
-  "android/08-price": {
-   "head": {
-    "headTop": 110,
-    "headBottom": 364.375,
-    "headLines": 2,
-    "lineBoxes": [
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "STORM AND HAIL / REPORTS NEARBY",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 943,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Hail size, place and distance from you",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
      {
-      "top": 99,
-      "bottom": 247,
-      "w": 717.484375
+      "x0": 110,
+      "x1": 1025.578125,
+      "w": 915.578125
      },
      {
-      "top": 226.1875,
-      "bottom": 374.1875,
-      "w": 304.265625
+      "x0": 110,
+      "x1": 1086.71875,
+      "w": 976.71875
      }
     ],
-    "subBottom": 440.875,
-    "subLines": 1,
-    "subWidth": 742.0625,
-    "headPx": 120,
-    "lineHeight": 127.2,
-    "headFamily": "Fraunces",
-    "headWeight": "600",
-    "subPx": 42,
-    "text": "Flat monthly plans",
-    "sub": "No per-lead fees. 14-day trial, no card.",
-    "fontsOk": true
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
+    },
+    "fontsOk": true,
+    "sw": 1320
    },
-   "content_top": 500,
-   "frame_top": null,
-   "frame_shift": null,
-   "ui_px": {
-    "price": 83.2,
-    "list": 38.8
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-02-storms-screen.png",
+    "size": [
+     1048,
+     2048
+    ],
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 827,
+    "visible_css": 768.0,
+    "scrolled": 0,
+    "shown": [
+     {
+      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+      "distance": "7.4 mi away",
+      "top": 117
+     }
+    ],
+    "screen_text": [
+     "Back",
+     "Alert",
+     "Storm report",
+     "Might need work",
+     "1.00 inch hail reported near 2 W Hollywood, FL",
+     "Hollywood, FL",
+     "Yesterday",
+     "7.4 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "NOAA Storm Prediction Center storm reports",
+     "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+     "Date",
+     "Nov 18",
+     "County",
+     "Broward",
+     "Open the source",
+     "Was this alert helpful?",
+     "Useful",
+     "Not relevant",
+     "Led to work",
+     "Data from",
+     "NOAA Storm Prediction Center storm reports"
+    ],
+    "min_font_px": 34.7,
+    "edge_clear_css": 8.2,
+    "form": null,
+    "feed": "02-storms",
+    "records": [
+     {
+      "signalId": 24614,
+      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+      "distance": "7.4 mi away",
+      "served": "7.4 mi away"
+     }
+    ],
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "ios/03-radius": {
+   "text": {
+    "eyebrow": "03 / Your area",
+    "head": [
+     "Only records",
+     "inside your miles"
+    ],
+    "sub": "Your trade, your ZIP, your miles"
    },
-   "plan_text": "Solo\n\n$7.99 a month\n\n1 service area\nUp to 5 trades\nSubscribe to Solo",
-   "pro_text": "Pro\n\n$13.99 a month\n\n3 service areas\nUp to 15 trades\n5 keyword watches\nSubscribe to Pro",
-   "pro_shown": "labelled",
-   "vw": 340,
-   "records": [],
-   "bottom_margin": 101,
-   "plan_width": 854,
-   "rings": [
-    {
-     "box": [
-      145.1,
-      643.1,
-      750.1,
-      757.1
-     ],
-     "stroke": 6,
-     "target": "Solo price",
-     "color": "accent",
-     "on": "white card",
-     "clearance": 13.0,
-     "first_choice": true,
-     "tries": [
-      [
-       "Solo price",
-       6,
-       13.0
-      ]
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 433.6875,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "03 / YOUR AREA",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "ONLY RECORDS / INSIDE YOUR MILES",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 797.53125,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Your trade, your ZIP, your miles",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 935.25,
+      "w": 825.25
+     },
+     {
+      "x0": 110,
+      "x1": 1153.484375,
+      "w": 1043.484375
+     }
+    ],
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
+    },
+    "fontsOk": true,
+    "sw": 1320
+   },
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-03-radius-screen.png",
+    "size": [
+     1048,
+     2048
+    ],
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 827,
+    "visible_css": 768.0,
+    "scrolled": 1006,
+    "shown": [],
+    "screen_text": [
+     "Back",
+     "Your alerts",
+     "Towing and roadside",
+     "Auto repair",
+     "Other services",
+     "Moving",
+     "Real estate",
+     "Rideshare and delivery driving",
+     "Childcare",
+     "Hair and beauty",
+     "Business services",
+     "Insurance",
+     "Commercial cleaning",
+     "Security",
+     "Signs and printing",
+     "Bookkeeping, payroll and IT setup",
+     "Food and events",
+     "Food truck",
+     "Catering",
+     "Event services",
+     "ZIP code you work from",
+     "How far you travel:",
+     "15",
+     "miles",
+     "From",
+     "5",
+     "to",
+     "100",
+     "miles."
+    ],
+    "min_font_px": 37.3,
+    "edge_clear_css": 2.0,
+    "form": {
+     "zip": "60614",
+     "radius": "15",
+     "zipVisible": true,
+     "radiusVisible": true,
+     "pickedVisible": [
+      "Security"
      ]
-    }
-   ],
-   "noring": "/home/claude/holler/mobile/store/.gen/noring/android-08-price.png"
+    },
+    "feed": null,
+    "records": [],
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "ios/04-source": {
+   "text": {
+    "eyebrow": "04 / The source",
+    "head": [
+     "Every alert",
+     "shows its source"
+    ],
+    "sub": "Open the city data it came from"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 456.8125,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "04 / THE SOURCE",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "EVERY ALERT / SHOWS ITS SOURCE",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 801.359375,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Open the city data it came from",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 853.5,
+      "w": 743.5
+     },
+     {
+      "x0": 110,
+      "x1": 1174.703125,
+      "w": 1064.703125
+     }
+    ],
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
+    },
+    "fontsOk": true,
+    "sw": 1320
+   },
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-04-source-screen.png",
+    "size": [
+     1048,
+     2048
+    ],
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 827,
+    "visible_css": 768.0,
+    "scrolled": 0,
+    "shown": [
+     {
+      "title": "HVAC permit in Chicago",
+      "distance": "1.7 mi away",
+      "top": 117
+     }
+    ],
+    "screen_text": [
+     "Back",
+     "Alert",
+     "Permit",
+     "Money being spent",
+     "HVAC permit in Chicago",
+     "Chicago, IL",
+     "2 days ago",
+     "1.7 mi away",
+     "Money is being spent here. The main contractor may already be chosen.",
+     "Source:",
+     "Chicago open data: building permits",
+     "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
+     "Date",
+     "Nov 17",
+     "Open the source",
+     "Was this alert helpful?",
+     "Useful",
+     "Not relevant",
+     "Led to work",
+     "Data from",
+     "Chicago open data: building permits"
+    ],
+    "min_font_px": 34.7,
+    "edge_clear_css": 8.2,
+    "form": null,
+    "feed": "04-source",
+    "records": [
+     {
+      "signalId": 33435,
+      "title": "HVAC permit in Chicago",
+      "distance": "1.7 mi away",
+      "served": "1.7 mi away"
+     }
+    ],
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "ios/05-push": {
+   "text": {
+    "eyebrow": "05 / Alerts",
+    "head": [
+     "At most one",
+     "push an hour"
+    ],
+    "sub": "Email alerts too, if you want them"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 364.328125,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "05 / ALERTS",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "AT MOST ONE / PUSH AN HOUR",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 837.921875,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Email alerts too, if you want them",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 834.3125,
+      "w": 724.3125
+     },
+     {
+      "x0": 110,
+      "x1": 916.0625,
+      "w": 806.0625
+     }
+    ],
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
+    },
+    "fontsOk": true,
+    "sw": 1320
+   },
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-05-push-screen.png",
+    "size": [
+     1048,
+     2048
+    ],
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 770,
+    "visible_css": 768.0,
+    "scrolled": 0,
+    "shown": [],
+    "screen_text": [
+     "Get a push when a record matches",
+     "When a new permit, storm report or local request matches your trades and area, Holler can send a notification.",
+     "At most one an hour. Tap it to open the alert. You can turn this off in Settings any time.",
+     "Turn on alerts",
+     "Not now"
+    ],
+    "min_font_px": 42.7,
+    "edge_clear_css": 183.8,
+    "form": null,
+    "feed": null,
+    "records": [],
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "ios/06-plans": {
+   "text": {
+    "eyebrow": "06 / Price",
+    "head": [
+     "14 days free,",
+     "no card needed"
+    ],
+    "sub": "Then Solo is $7.99 a month"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 341.203125,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "06 / PRICE",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "14 DAYS FREE, / NO CARD NEEDED",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 704.5,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Then Solo is $7.99 a month",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 877.53125,
+      "w": 767.53125
+     },
+     {
+      "x0": 110,
+      "x1": 1053.34375,
+      "w": 943.34375
+     }
+    ],
+    "hero": {
+     "x0": 110,
+     "y0": 794,
+     "x1": 1210,
+     "y1": 2868
+    },
+    "fontsOk": true,
+    "sw": 1320
+   },
+   "head_top": 247,
+   "sub_top": 562,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-06-plans-screen.png",
+    "size": [
+     1048,
+     2048
+    ],
+    "scale": 2.6666666666666665,
+    "vw": 393,
+    "vh": 827,
+    "visible_css": 768.0,
+    "scrolled": 62,
+    "shown": [],
+    "screen_text": [
+     "Back",
+     "Plans",
+     "Pick the plan that fits your work. You can change it later.",
+     "Monthly",
+     "Yearly",
+     "Solo",
+     "$7.99 a month",
+     "1 service area",
+     "Up to",
+     "5",
+     "trades",
+     "Subscribe to Solo",
+     "Pro",
+     "$13.99 a month",
+     "3 service areas",
+     "Up to",
+     "15",
+     "trades",
+     "5",
+     "keyword watches",
+     "Subscribe to Pro",
+     "Restore purchases",
+     "Subscriptions renew automatically at the price shown until you cancel. Payment is charged to your",
+     "Apple ID",
+     "when you confirm. Cancel at least 24 hours before the end of a period to avoid the next charge. Manage or cancel in your"
+    ],
+    "min_font_px": 37.3,
+    "edge_clear_css": 2.0,
+    "form": null,
+    "feed": null,
+    "records": [],
+    "box": [
+     110,
+     794,
+     1210,
+     2868
+    ]
+   }
+  },
+  "android/01-records": {
+   "text": {
+    "eyebrow": "01 / Public records",
+    "head": [
+     "Public records",
+     "near your work"
+    ],
+    "sub": "Permits, storms and 311 for your trade"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 428.84375,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "01 / PUBLIC RECORDS",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "PUBLIC RECORDS / NEAR YOUR WORK",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 730.046875,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Permits, storms and 311 for your trade",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 843.53125,
+      "w": 763.53125
+     },
+     {
+      "x0": 80,
+      "x1": 886.65625,
+      "w": 806.65625
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-01-records-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 669,
+    "visible_css": 610.0,
+    "scrolled": 0,
+    "shown": [
+     {
+      "title": "311 request in Chicago: Tree Emergency",
+      "distance": "4.9 mi away",
+      "top": 117
+     },
+     {
+      "title": "Roof permit in Chicago",
+      "distance": "2.6 mi away",
+      "top": 377.78125
+     }
+    ],
+    "screen_text": [
+     "Alerts",
+     "Refresh",
+     "Release to refresh",
+     "311 request",
+     "Might need work",
+     "311 request in Chicago: Tree Emergency",
+     "Chicago, IL",
+     "Yesterday",
+     "4.9 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "Chicago open data: 311 requests",
+     "Was this alert helpful?",
+     "Permit",
+     "Money being spent",
+     "Roof permit in Chicago",
+     "Chicago, IL",
+     "2 days ago",
+     "2.6 mi away",
+     "Money is being spent here. The main contractor may already be chosen.",
+     "Source:",
+     "Chicago open data: building permits",
+     "Was this alert helpful?",
+     "Code violation",
+     "Might need work"
+    ],
+    "min_font_px": 29.2,
+    "edge_clear_css": 6.2,
+    "form": null,
+    "feed": "01-records",
+    "records": [
+     {
+      "signalId": 45354,
+      "title": "311 request in Chicago: Tree Emergency",
+      "distance": "4.9 mi away",
+      "served": "4.9 mi away"
+     },
+     {
+      "signalId": 33439,
+      "title": "Roof permit in Chicago",
+      "distance": "2.6 mi away",
+      "served": "2.6 mi away"
+     }
+    ],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
+  },
+  "android/02-storms": {
+   "text": {
+    "eyebrow": "02 / Storms",
+    "head": [
+     "Storm and hail",
+     "reports nearby"
+    ],
+    "sub": "Hail size, place and distance from you"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 281.96875,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "02 / STORMS",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "STORM AND HAIL / REPORTS NEARBY",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 731.90625,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Hail size, place and distance from you",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 831.234375,
+      "w": 751.234375
+     },
+     {
+      "x0": 80,
+      "x1": 881.421875,
+      "w": 801.421875
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-02-storms-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 669,
+    "visible_css": 610.0,
+    "scrolled": 0,
+    "shown": [
+     {
+      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+      "distance": "7.4 mi away",
+      "top": 117
+     }
+    ],
+    "screen_text": [
+     "Back",
+     "Alert",
+     "Storm report",
+     "Might need work",
+     "1.00 inch hail reported near 2 W Hollywood, FL",
+     "Hollywood, FL",
+     "Yesterday",
+     "7.4 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "NOAA Storm Prediction Center storm reports",
+     "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+     "Date",
+     "Nov 18",
+     "County",
+     "Broward",
+     "Open the source",
+     "Was this alert helpful?",
+     "Useful",
+     "Not relevant",
+     "Led to work"
+    ],
+    "min_font_px": 29.2,
+    "edge_clear_css": 8.3,
+    "form": null,
+    "feed": "02-storms",
+    "records": [
+     {
+      "signalId": 24614,
+      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+      "distance": "7.4 mi away",
+      "served": "7.4 mi away"
+     }
+    ],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
+  },
+  "android/03-radius": {
+   "text": {
+    "eyebrow": "03 / Your area",
+    "head": [
+     "Only records",
+     "inside your miles"
+    ],
+    "sub": "Your trade, your ZIP, your miles"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 337.046875,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "03 / YOUR AREA",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "ONLY RECORDS / INSIDE YOUR MILES",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 618.0625,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Your trade, your ZIP, your miles",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 757.125,
+      "w": 677.125
+     },
+     {
+      "x0": 80,
+      "x1": 936.203125,
+      "w": 856.203125
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-03-radius-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 669,
+    "visible_css": 610.0,
+    "scrolled": 1234,
+    "shown": [],
+    "screen_text": [
+     "Back",
+     "Your alerts",
+     "Hair and beauty",
+     "Business services",
+     "Insurance",
+     "Commercial cleaning",
+     "Security",
+     "Signs and printing",
+     "Bookkeeping, payroll and IT setup",
+     "Food and events",
+     "Food truck",
+     "Catering",
+     "Event services",
+     "ZIP code you work from",
+     "How far you travel:",
+     "15",
+     "miles",
+     "From",
+     "5",
+     "to",
+     "100",
+     "miles.",
+     "Save changes"
+    ],
+    "min_font_px": 31.5,
+    "edge_clear_css": 8.3,
+    "form": {
+     "zip": "60614",
+     "radius": "15",
+     "zipVisible": true,
+     "radiusVisible": true,
+     "pickedVisible": [
+      "Security"
+     ]
+    },
+    "feed": null,
+    "records": [],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
+  },
+  "android/04-source": {
+   "text": {
+    "eyebrow": "04 / The source",
+    "head": [
+     "Every alert",
+     "shows its source"
+    ],
+    "sub": "Open the city data it came from"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 355.40625,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "04 / THE SOURCE",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "EVERY ALERT / SHOWS ITS SOURCE",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 621.0625,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Open the city data it came from",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 690.0625,
+      "w": 610.0625
+     },
+     {
+      "x0": 80,
+      "x1": 953.609375,
+      "w": 873.609375
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-04-source-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 669,
+    "visible_css": 610.0,
+    "scrolled": 0,
+    "shown": [
+     {
+      "title": "HVAC permit in Chicago",
+      "distance": "1.7 mi away",
+      "top": 117
+     }
+    ],
+    "screen_text": [
+     "Back",
+     "Alert",
+     "Permit",
+     "Money being spent",
+     "HVAC permit in Chicago",
+     "Chicago, IL",
+     "2 days ago",
+     "1.7 mi away",
+     "Money is being spent here. The main contractor may already be chosen.",
+     "Source:",
+     "Chicago open data: building permits",
+     "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
+     "Date",
+     "Nov 17",
+     "Open the source",
+     "Was this alert helpful?",
+     "Useful",
+     "Not relevant",
+     "Led to work",
+     "Data from",
+     "Chicago open data: building permits"
+    ],
+    "min_font_px": 29.2,
+    "edge_clear_css": 8.3,
+    "form": null,
+    "feed": "04-source",
+    "records": [
+     {
+      "signalId": 33435,
+      "title": "HVAC permit in Chicago",
+      "distance": "1.7 mi away",
+      "served": "1.7 mi away"
+     }
+    ],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
+  },
+  "android/05-push": {
+   "text": {
+    "eyebrow": "05 / Alerts",
+    "head": [
+     "At most one",
+     "push an hour"
+    ],
+    "sub": "Email alerts too, if you want them"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 281.96875,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "05 / ALERTS",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "AT MOST ONE / PUSH AN HOUR",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 649.6875,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Email alerts too, if you want them",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 674.3125,
+      "w": 594.3125
+     },
+     {
+      "x0": 80,
+      "x1": 741.390625,
+      "w": 661.390625
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-05-push-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 612,
+    "visible_css": 610.0,
+    "scrolled": 0,
+    "shown": [],
+    "screen_text": [
+     "Get a push when a record matches",
+     "When a new permit, storm report or local request matches your trades and area, Holler can send a notification.",
+     "At most one an hour. Tap it to open the alert. You can turn this off in Settings any time.",
+     "Turn on alerts",
+     "Not now"
+    ],
+    "min_font_px": 36.0,
+    "edge_clear_css": 104.7,
+    "form": null,
+    "feed": null,
+    "records": [],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
+  },
+  "android/06-plans": {
+   "text": {
+    "eyebrow": "06 / Plans",
+    "head": [
+     "Solo or Pro,",
+     "month or year"
+    ],
+    "sub": "Pro adds areas, trades and keyword watches"
+   },
+   "bg": "green",
+   "bg_hex": "#1E3A2C",
+   "colors": {
+    "eyebrow": "#D9F046",
+    "head": "#F5F4EF",
+    "sub": "#C9D6CD"
+   },
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 263.609375,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "06 / PLANS",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "SOLO OR PRO, / MONTH OR YEAR",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 851.25,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Pro adds areas, trades and keyword watches",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 690.953125,
+      "w": 610.953125
+     },
+     {
+      "x0": 80,
+      "x1": 809.609375,
+      "w": 729.609375
+     }
+    ],
+    "hero": {
+     "x0": 80,
+     "y0": 530,
+     "x1": 1000,
+     "y1": 1920
+    },
+    "fontsOk": true,
+    "sw": 1080
+   },
+   "head_top": 158,
+   "sub_top": 412,
+   "hero": {
+    "kind": "phone",
+    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-06-plans-screen.png",
+    "size": [
+     884,
+     1372
+    ],
+    "scale": 2.2493638676844783,
+    "vw": 393,
+    "vh": 669,
+    "visible_css": 610.0,
+    "scrolled": 62,
+    "shown": [],
+    "screen_text": [
+     "Back",
+     "Plans",
+     "Pick the plan that fits your work. You can change it later.",
+     "Monthly",
+     "Yearly",
+     "Solo",
+     "$7.99 a month",
+     "1 service area",
+     "Up to",
+     "5",
+     "trades",
+     "Subscribe to Solo",
+     "Pro",
+     "$13.99 a month",
+     "3 service areas",
+     "Up to",
+     "15",
+     "trades",
+     "5",
+     "keyword watches",
+     "Subscribe to Pro"
+    ],
+    "min_font_px": 31.5,
+    "edge_clear_css": 8.0,
+    "form": null,
+    "feed": null,
+    "records": [],
+    "box": [
+     80,
+     530,
+     1000,
+     1920
+    ]
+   }
   }
+ },
+ "grid": {
+  "ios": {
+   "W": 1320,
+   "H": 2868,
+   "M": 110,
+   "eyebrow_top": 176,
+   "eyebrow_px": 34,
+   "head_gap": 30,
+   "head_px": 156,
+   "head_lh": 0.9,
+   "sub_gap": 34,
+   "sub_px": 46,
+   "hero_top": 794,
+   "bezel": 26,
+   "frame_r": 120,
+   "phone_vw": 393,
+   "box_w": 1100,
+   "screen_w": 1048,
+   "phone_scale": 2.6666666666666665
+  },
+  "android": {
+   "W": 1080,
+   "H": 1920,
+   "M": 80,
+   "eyebrow_top": 104,
+   "eyebrow_px": 27,
+   "head_gap": 22,
+   "head_px": 128,
+   "head_lh": 0.9,
+   "sub_gap": 24,
+   "sub_px": 36,
+   "hero_top": 530,
+   "bezel": 18,
+   "frame_r": 88,
+   "phone_vw": 393,
+   "box_w": 920,
+   "screen_w": 884,
+   "phone_scale": 2.2493638676844783
+  }
+ },
+ "facts": {
+  "trial_days": 14,
+  "solo_monthly": "$7.99",
+  "solo_name": "Solo"
  }
 }

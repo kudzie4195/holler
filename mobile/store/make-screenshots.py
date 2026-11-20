@@ -8,10 +8,10 @@
 What is real and what is drawn:
   * Every hero is the REAL built app (mobile/src, untouched) rendered by /usr/bin/google-chrome at deviceScaleFactor 4 against
     store/mock-api.mjs, which serves real rows from fixtures/real-signals.json to one member profile per scenario, then downscaled with
-    Lanczos to its exact size on the canvas. A hero is either one phone screen (the top of the real viewport, in a flat frame that runs
-    off the bottom edge) or one real card cropped from a real screen.
-  * This script draws only: the flat background, the eyebrow, the headline, the supporting line, the phone frame, and for a card the
-    card's own border repeated along the crop's bottom edge (a frame). No rings, no outlines around text, no badges, no shadow.
+    Lanczos to its exact size on the canvas. Every hero is one phone screen: the top of one real viewport, in a flat ink frame with
+    even bezels that runs off the bottom edge, at the same place and the same scale on every shot.
+  * This script draws only: the flat background, the eyebrow, the headline, the supporting line and the phone frame. No rings, no
+    outlines around text, no badges, no shadow, no status bar.
   * Prices and the trial length are read at run time from the web lib files (lib/stripe/plans.ts, lib/auth/membership.ts through
     lib/plan/public-prices.ts into .gen/data.json); the script stops if the two disagree. No price, trial length or plan limit is typed here.
 Fonts: Barlow Condensed 700, Inter (variable), JetBrains Mono (variable) from the web project's node_modules.
@@ -83,28 +83,28 @@ FACTS = lib_facts()
 # name, eyebrow, headline (exactly two lines), supporting line, background, hero. "android" overrides text for the Android file.
 SHOTS = [
     dict(name="01-records", eyebrow="01 / Public records", head=("Public records", "near your work"), sub="Permits, storms and 311 for your trade",
-         bg="green", hero="phone"),
-    dict(name="02-storms", eyebrow="02 / Storms", head=("Hail and storm", "reports near you"), sub="Hail size, place and distance from you",
-         bg="green", hero="card"),
-    dict(name="03-radius", eyebrow="03 / Your area", head=("Only records", "inside your miles"), sub="You set the ZIP and how far",
-         bg="green", hero="card"),
+         bg="green"),
+    dict(name="02-storms", eyebrow="02 / Storms", head=("Storm and hail", "reports nearby"), sub="Hail size, place and distance from you",
+         bg="green"),
+    dict(name="03-radius", eyebrow="03 / Your area", head=("Only records", "inside your miles"), sub="Your trade, your ZIP, your miles",
+         bg="green"),
     dict(name="04-source", eyebrow="04 / The source", head=("Every alert", "shows its source"), sub="Open the city data it came from",
-         bg="green", hero="card"),
+         bg="green"),
     dict(name="05-push", eyebrow="05 / Alerts", head=("At most one", "push an hour"), sub="Email alerts too, if you want them",
-         bg="green", hero="phone"),
+         bg="green"),
     dict(name="06-plans", eyebrow="06 / Price", head=(f"{FACTS['trial_days']} days free,", "no card needed"),
-         sub=f"Then {FACTS['solo_name']} is {FACTS['solo_monthly']} a month", bg="green", hero="phone",
+         sub=f"Then {FACTS['solo_name']} is {FACTS['solo_monthly']} a month", bg="green",
          # Google Play: no price and no "free" in the image text; the plans themselves are the app's own screen
-         android=dict(eyebrow="06 / Plans", head=("Solo or Pro,", "by month or year"), sub="Pro adds areas, trades and keyword watches")),
+         android=dict(eyebrow="06 / Plans", head=("Solo or Pro,", "month or year"), sub="Pro adds areas, trades and keyword watches")),
 ]
 NAMES = [s["name"] for s in SHOTS]
 
 # One grid. Everything is derived from these numbers; the checker reads them back from metrics.json and measures the PNGs.
 G = {
-    "ios": dict(W=1320, H=2868, M=110, eyebrow_top=176, eyebrow_px=34, head_gap=30, head_px=176, head_lh=0.9, sub_gap=34, sub_px=46,
-                hero_top=760, bezel=26, frame_r=120, phone_vw=393, card_vw=344),
+    "ios": dict(W=1320, H=2868, M=110, eyebrow_top=176, eyebrow_px=34, head_gap=30, head_px=156, head_lh=0.9, sub_gap=34, sub_px=46,
+                hero_top=794, bezel=26, frame_r=120, phone_vw=393),
     "android": dict(W=1080, H=1920, M=80, eyebrow_top=104, eyebrow_px=27, head_gap=22, head_px=128, head_lh=0.9, sub_gap=24, sub_px=36,
-                    hero_top=540, bezel=18, frame_r=88, phone_vw=400, card_vw=344),
+                    hero_top=530, bezel=18, frame_r=88, phone_vw=393),
 }
 for g in G.values():
     g["box_w"] = g["W"] - 2 * g["M"]                     # hero box = the text column
@@ -134,12 +134,16 @@ NAVIGATE = """(route) => {
 }"""
 
 # Every visible text line (text nodes) plus buttons, chips, inputs and icons: [top, bottom, label, inScroll] in CSS px.
-SCREEN_LINES = """() => { const out = []; const sc = document.querySelector('.scroll');
+SCREEN_LINES = """() => { const out = []; const sc = document.querySelector('.scroll'); let k = 0;
   const walk = document.createTreeWalker(document.querySelector('.app') || document.body, NodeFilter.SHOW_TEXT);
   while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim()) continue; const r = document.createRange(); r.selectNodeContents(n);
-    for (const b of r.getClientRects()) out.push([b.top, b.bottom, n.textContent.trim().slice(0, 50), !!(sc && sc.contains(n))]); }
+    const block = n.parentElement.closest('p, li, h1, h2, h3, dd, dt, label, button, a') || n.parentElement; k++;
+    for (const b of r.getClientRects()) out.push([b.top, b.bottom, n.textContent.trim().slice(0, 50), !!(sc && sc.contains(n)), block.dataset.k || (block.dataset.k = 'b' + k)]); }
   for (const e of document.querySelectorAll('.app svg, .app .btn, .app .chip, .app input, .app select')) { const b = e.getBoundingClientRect();
-    if (b.height) out.push([b.top, b.bottom, '<' + e.tagName + '>', !!(sc && sc.contains(e))]); }
+    if (b.height) out.push([b.top, b.bottom, '<' + e.tagName + '>', !!(sc && sc.contains(e)), 'e' + (k++)]); }
+  // containers: never cut at the top of the scroller (they may run off the canvas edge, like the last feed card)
+  for (const e of document.querySelectorAll('.app .card, .app .plan, .app .segmented, .app .notice, .app .settings-list, .app button:not(.btn):not(.chip)')) { const b = e.getBoundingClientRect();
+    if (b.height) out.push([b.top, b.bottom, '<BOX>', !!(sc && sc.contains(e)), 'x' + (k++)]); }
   return out; }"""
 
 # Smallest computed font size of any visible text node above `limit` (CSS px).
@@ -187,7 +191,8 @@ def open_app(browser, plat, vw, vh, me, feed, route=None, ready=None):
     page.wait_for_function(NAVIGATE, arg=None)
     page.wait_for_selector(".app")
     if route:
-        page.wait_for_selector(".alert-card")  # the member is loaded and on the feed; then go where the shot needs
+        # the member is loaded and on the feed; then go where the shot needs
+        page.wait_for_function("() => document.querySelector('.alert-card') || document.body.innerText.includes('No alerts yet')")
         page.wait_for_timeout(300)
         page.evaluate(NAVIGATE, route)
     if ready:
@@ -226,7 +231,7 @@ def records_for(feed, shown):
 
 # ---------------------------------------------------------------- heroes ------------------------------------------------------------
 
-def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=None):
+def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=None, from_end=False):
     """The top of one real viewport, exactly as tall as the frame shows. The viewport is taller than what shows (the tab bar stays
     below the canvas); if a line of text would be cut by the canvas edge, the screen's own scroller is moved down by the fewest CSS px
     (at most 48) that put the edge between two lines."""
@@ -237,17 +242,42 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
     ctx, page = open_app(browser, plat, g["phone_vw"], vh, me, feed, route, ready)
     if prep:
         prep(page)
-    scrolled = 0
-    for off in range(0, 49):
-        if off:
-            page.evaluate("(y) => { const s = document.querySelector('.scroll'); if (s) s.scrollTop = y; }", off)
-            page.wait_for_timeout(40)
-        lines = page.evaluate(SCREEN_LINES)
-        if not any(l0 - 4 < vis < l1 + 4 for l0, l1, *_ in lines):
-            scrolled = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.scrollTop : 0; }")
-            break
-    else:
-        raise RuntimeError(f"{plat}/{name}: no scroll offset keeps the canvas edge between two lines")
+    # the tab bar sits just below the canvas edge, so the screen's scroller is as tall as the visible part allows
+    tab_h = page.evaluate("() => { const t = document.querySelector('.tabbar'); return t ? t.getBoundingClientRect().height : 0; }")
+    vh = math.ceil(vis + tab_h) + 2
+    page.set_viewport_size({"width": g["phone_vw"], "height": vh})
+    page.wait_for_timeout(300)
+    # The canvas edge must fall between two lines of text (6 CSS px clear, 2 at worst), and no line may be cut at the top of the
+    # scroller. When the screen as opened does not allow that, the screen's own scroller is moved down by the fewest CSS px that does
+    # (a member who scrolled a little); nothing in the screen is changed.
+    st = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.getBoundingClientRect().top : 0; }")
+    max_off = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.scrollHeight - s.clientHeight : 0; }")
+    lines0 = page.evaluate(SCREEN_LINES)
+
+    def ok(off, need):
+        hidden, shown = set(), set()
+        for l0, l1, label, ins, blk in lines0:
+            if ins:
+                l0, l1 = l0 - off, l1 - off
+                if l0 < st - 0.5 and l1 > st + 0.5:
+                    return False
+                (hidden if l1 <= st + 0.5 else shown).add(blk)
+            if label != '<BOX>' and l0 - need < vis < l1 + need:
+                return False
+        return not (hidden & shown)  # a paragraph is either all under the top bar or all in view, never cut in two
+
+    # fewest px from where the screen opens (or, from_end, from its end); a 6 px clearance is worth up to 60 px more scrolling
+    order = list(range(int(max_off), -1, -1)) if from_end else list(range(0, int(max_off) + 1))
+    cands = [(i + (0 if ok(o, 6) else 60), o) for i, o in enumerate(order) if ok(o, 2)]
+    off = min(cands)[1] if cands else None
+    if off is None:
+        raise RuntimeError(f"{plat}/{name}: no scroll position keeps the canvas edge between two lines")
+    if off:
+        page.evaluate("(y) => { document.querySelector('.scroll').scrollTop = y; }", off)
+        page.wait_for_timeout(200)
+    scrolled = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.scrollTop : 0; }")
+    assert abs(scrolled - off) < 0.5, (scrolled, off)
+    edge_clear = min(min(abs(vis - l0), abs(vis - l1)) for l0, l1, label, *_ in page.evaluate(SCREEN_LINES) if l1 > 0 and label != '<BOX>')
     page.wait_for_timeout(200)
     shown = page.evaluate(VISIBLE_ALERTS, vis)
     text = page.evaluate("(limit) => { const out = []; const walk = document.createTreeWalker(document.querySelector('.app'), NodeFilter.SHOW_TEXT);"
@@ -255,53 +285,17 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
                          " r.selectNodeContents(n); const b = r.getBoundingClientRect(); if (b.height && b.top < limit && b.bottom > 0) out.push(n.textContent.trim()); }"
                          " return out; }", vis)
     min_font = page.evaluate(MIN_FONT, vis)
+    form = page.evaluate("""(limit) => { const z = document.getElementById('zip'), r = document.getElementById('radius'); if (!z || !r) return null;
+      const vis = (e) => { const b = e.getBoundingClientRect(); return b.top >= 0 && b.bottom <= limit; };
+      const picked = [...document.querySelectorAll('.chip[aria-pressed=true]')].filter(vis).map(c => c.textContent.trim());
+      return {zip: z.value, radius: r.value, zipVisible: vis(z), radiusVisible: vis(r), pickedVisible: picked}; }""", vis)
     im = to_png(page, {"x": 0, "y": 0, "width": g["phone_vw"], "height": math.ceil(vis) + 1})
     ctx.close()
     sh = g["H"] - g["hero_top"] - g["bezel"]
     im = im.crop((0, 0, g["phone_vw"] * DSF, round(vis * DSF))).resize((g["screen_w"], sh), Image.LANCZOS)
     p = save(im, f"{plat}-{name}-screen.png")
     return dict(kind="phone", path=p, size=(g["screen_w"], sh), scale=s, vw=g["phone_vw"], vh=vh, visible_css=round(vis, 1), scrolled=scrolled,
-                shown=shown, screen_text=text, min_font_px=round(min_font * s, 1))
-
-
-CARD_GEOM = """(sel) => { const c = document.querySelector(sel); if (!c) return null; const b = c.getBoundingClientRect(); const st = getComputedStyle(c);
-  const bw = (k) => parseFloat(st['border' + k + 'Width']) || 0;
-  return {x: b.left, y: b.top, w: b.width, h: b.height, radius: parseFloat(st.borderTopLeftRadius) || 0, padBottom: parseFloat(st.paddingBottom) || 0,
-    border: {top: bw('Top'), right: bw('Right'), bottom: bw('Bottom'), left: bw('Left'), color: st.borderBottomColor, leftColor: st.borderLeftColor},
-    bg: st.backgroundColor}; }"""
-
-
-def card_hero(browser, plat, name, me, feed, route, ready, card_sel, cut_js, prep=None, pad_css=None):
-    """One real card (or one block of a real screen) cut below the element cut_js returns. The bottom edge gets the card's own
-    border; nothing inside is changed."""
-    g = G[plat]
-    ctx, page = open_app(browser, plat, g["card_vw"], 2400, me, feed, route, ready)
-    if prep:
-        prep(page)
-        page.wait_for_timeout(300)
-    c = page.evaluate(CARD_GEOM, card_sel)
-    assert c, (plat, name, card_sel)
-    cut = page.evaluate(cut_js)  # {bottom, next}: bottom of the last element kept, top of the first element left out (CSS px, viewport)
-    pad = pad_css if pad_css is not None else c["padBottom"]
-    gap = (cut["next"] - cut["bottom"] - 1) if cut.get("next") else pad
-    bottom = cut["bottom"] + max(0, min(pad, gap))
-    h = min(bottom - c["y"], c["h"] - c["border"]["bottom"])
-    lines = page.evaluate(SCREEN_LINES)
-    inside = [l for l in lines if l[0] >= c["y"] - 1 and l[1] <= c["y"] + h + 1]
-    text = page.evaluate("([sel, limit]) => { const out = []; const walk = document.createTreeWalker(document.querySelector(sel), NodeFilter.SHOW_TEXT);"
-                         " while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim()) continue; const r = document.createRange();"
-                         " r.selectNodeContents(n); const b = r.getBoundingClientRect(); if (b.height && b.bottom <= limit + 1) out.push(n.textContent.trim()); }"
-                         " return out; }", [card_sel, c["y"] + h])
-    min_font = page.evaluate(MIN_FONT, c["y"] + h)
-    shown = page.evaluate(VISIBLE_ALERTS, c["y"] + h)
-    im = to_png(page, {"x": c["x"], "y": c["y"], "width": c["w"], "height": h})
-    ctx.close()
-    s = g["box_w"] / c["w"]
-    out_h = round(h * s)
-    im = im.resize((g["box_w"], out_h), Image.LANCZOS)
-    p = save(im, f"{plat}-{name}-card.png")
-    return dict(kind="card", path=p, size=(g["box_w"], out_h), scale=s, vw=g["card_vw"], card=c, cut_css=round(h, 1), lines_in=len(inside),
-                shown=shown, screen_text=text, min_font_px=round(min_font * s, 1))
+                shown=shown, screen_text=text, min_font_px=round(min_font * s, 1), edge_clear_css=round(edge_clear, 1), form=form)
 
 
 def pick_monthly(page):
@@ -309,86 +303,41 @@ def pick_monthly(page):
     page.wait_for_timeout(400)
 
 
-DETAIL_CUT_BUTTON = """() => { const a = document.querySelector('article.card');
-  const btn = [...a.querySelectorAll('button, a')].find(x => x.textContent.trim().startsWith('Open the source'));
-  const b = btn.getBoundingClientRect(); const fb = a.querySelector('.feedback');
-  return {bottom: b.bottom, next: fb ? fb.getBoundingClientRect().top : null, label: btn.textContent.trim()}; }"""
-
-DETAIL_CUT_DL = """() => { const a = document.querySelector('article.card'); const dl = a.querySelector('dl'); const b = dl.getBoundingClientRect();
-  let n = dl.nextElementSibling; while (n && !n.getBoundingClientRect().height) n = n.nextElementSibling;
-  return {bottom: b.bottom, next: n ? n.getBoundingClientRect().top : null}; }"""
-
-# The settings form: from the "ZIP code you work from" field to the Save button.
-FORM_SEL = "form"
-FORM_CUT = """() => { const f = document.querySelector('form'); const btn = f.querySelector('button[type=submit]'); const b = btn.getBoundingClientRect();
-  return {bottom: b.bottom, next: null}; }"""
-
-
 def hero_for(browser, plat, shot):
     n = shot["name"]
     if n == "01-records":
         h = phone_hero(browser, plat, n, "paid", "01-records", None, ".alert-card")
-        h["records"] = records_for("01-records", h["shown"])
         h["feed"] = "01-records"
     elif n == "02-storms":
-        sid = 24614
-        h = card_hero(browser, plat, n, "paid", "02-storms", {"name": "alert", "signalId": sid}, "article.card .alert-title", "article.card", DETAIL_CUT_DL)
-        h["records"] = records_for("02-storms", h["shown"]); h["feed"] = "02-storms"
-        assert [r["signalId"] for r in h["records"]] == [sid], h["records"]
+        h = phone_hero(browser, plat, n, "paid", "02-storms", {"name": "alert", "signalId": 24614}, "article.card .alert-title")
+        h["feed"] = "02-storms"
     elif n == "03-radius":
-        h = form_hero(browser, plat, n)
-        h["records"] = []; h["feed"] = "01-records"
+        h = phone_hero(browser, plat, n, "paid", "03-radius", {"name": "profile"}, "#radius", from_end=True)
+        h["feed"] = None
+        prof = DATA["profiles"]["03-radius"]
+        assert h["form"]["zip"] == prof["zip"] and int(h["form"]["radius"]) == prof["radiusMi"], (h["form"], prof)
+        assert h["form"]["zipVisible"] and h["form"]["radiusVisible"] and h["form"]["pickedVisible"], h["form"]
+        labels = {t["id"]: t["label"] for t in DATA["config"]["trades"]}
+        assert h["form"]["pickedVisible"] == [labels[x] for x in prof["trades"]], (h["form"], prof)
     elif n == "04-source":
-        sid = 33435
-        h = card_hero(browser, plat, n, "paid", "04-source", {"name": "alert", "signalId": sid}, "article.card .alert-title", "article.card", DETAIL_CUT_BUTTON)
-        h["records"] = records_for("04-source", h["shown"]); h["feed"] = "04-source"
-        assert [r["signalId"] for r in h["records"]] == [sid], h["records"]
+        h = phone_hero(browser, plat, n, "paid", "04-source", {"name": "alert", "signalId": 33435}, "article.card .alert-title")
+        h["feed"] = "04-source"
         assert any(t.startswith("Open the source") for t in h["screen_text"]), h["screen_text"]
     elif n == "05-push":
         h = phone_hero(browser, plat, n, "paid", "01-records", {"name": "push-prompt"}, "text=Get a push")
         assert any("At most one an hour" in t for t in h["screen_text"]), h["screen_text"]
-        h["records"] = []; h["feed"] = None
+        h["feed"] = None
     elif n == "06-plans":
         h = phone_hero(browser, plat, n, "trial", "06-plans", {"name": "paywall"}, ".plan", prep=pick_monthly)
         body = " ".join(h["screen_text"])
         assert FACTS["solo_monthly"] in body, body
-        h["records"] = []; h["feed"] = "06-plans"
+        h["feed"] = None
     else:
         raise KeyError(n)
+    h["records"] = records_for(h["feed"], h["shown"]) if h["feed"] else []
+    if n in ("02-storms", "04-source"):
+        assert len(h["records"]) == 1, h["records"]
     return h
-
-
-def form_hero(browser, plat, name):
-    """The member's own settings form ("Your alerts"), from the ZIP field to Save: the two numbers the match uses (ZIP, miles)."""
-    g = G[plat]
-    ctx, page = open_app(browser, plat, g["card_vw"], 2400, "paid", "01-records", {"name": "profile"}, "#radius")
-    r = page.evaluate("""() => { const z = document.querySelector('label[for=zip]').closest('.field') || document.querySelector('label[for=zip]').parentElement;
-      const zb = z.getBoundingClientRect(); const btn = document.querySelector('form button[type=submit]'); const bb = btn.getBoundingClientRect();
-      const app = document.querySelector('.scroll').getBoundingClientRect();
-      return {x: app.left, w: app.width, top: zb.top - 16, bottom: bb.bottom + 16, zip: document.getElementById('zip').value,
-        radius: document.getElementById('radius').value, label: document.querySelector('label[for=radius]').textContent}; }""")
-    prof = DATA["profiles"]["01-records"]
-    assert r["zip"] == prof["zip"] and int(r["radius"]) == prof["radiusMi"], (r, prof)
-    h = r["bottom"] - r["top"]
-    text = page.evaluate("([t, b]) => { const out = []; const walk = document.createTreeWalker(document.querySelector('form'), NodeFilter.SHOW_TEXT);"
-                         " while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim()) continue; const r = document.createRange();"
-                         " r.selectNodeContents(n); const q = r.getBoundingClientRect(); if (q.height && q.top >= t && q.bottom <= b) out.push(n.textContent.trim()); }"
-                         " return out; }", [r["top"], r["bottom"]])
-    min_font = page.evaluate("""([t, b]) => { let m = 99; for (const e of document.querySelectorAll('form *')) { const q = e.getBoundingClientRect();
-      if (!q.height || q.top < t || q.bottom > b || ![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
-      m = Math.min(m, parseFloat(getComputedStyle(e).fontSize)); } return m; }""", [r["top"], r["bottom"]])
-    bg = page.evaluate("() => getComputedStyle(document.querySelector('.scroll')).backgroundColor || getComputedStyle(document.body).backgroundColor")
-    body_bg = page.evaluate("() => getComputedStyle(document.body).backgroundColor")
-    radius = page.evaluate("() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 16")
-    im = to_png(page, {"x": r["x"], "y": r["top"], "width": r["w"], "height": h})
-    ctx.close()
-    s = g["box_w"] / r["w"]
-    out_h = round(h * s)
-    im = im.resize((g["box_w"], out_h), Image.LANCZOS)
-    p = save(im, f"{plat}-{name}-form.png")
-    card = dict(radius=radius, border=dict(top=0, right=0, bottom=0, left=0, color="transparent", leftColor="transparent"), bg=bg if bg != "rgba(0, 0, 0, 0)" else body_bg)
-    return dict(kind="card", path=p, size=(g["box_w"], out_h), scale=s, vw=g["card_vw"], card=card, form=r, shown=[], screen_text=text,
-                min_font_px=round(min_font * s, 1), block="settings form, ZIP field to Save")
 
 
 # ---------------------------------------------------------------- composition -------------------------------------------------------
@@ -417,22 +366,10 @@ def compose(browser, plat, shot, hero):
     head_top = g["eyebrow_top"] + round(g["eyebrow_px"] * 1.2) + g["head_gap"]
     line_h = g["head_px"] * g["head_lh"]
     sub_top = round(head_top + 2 * line_h + g["sub_gap"])
-    if hero["kind"] == "phone":
-        hx = g["M"]; hy = g["hero_top"]
-        hero_html = (f'<div id="hero" class="frame" style="left:{hx}px;top:{hy}px;width:{g["box_w"]}px;height:{g["H"] - hy + 40}px;'
-                     f'border:{g["bezel"]}px solid {TOK["ink"]};border-bottom:0;border-radius:{g["frame_r"]}px {g["frame_r"]}px 0 0;">'
-                     f'<img src="file://{hero["path"]}" width="{hero["size"][0]}" height="{hero["size"][1]}"></div>')
-    else:
-        c = hero["card"]; s = hero["scale"]; b = c["border"]
-        r = round(c["radius"] * s)
-        hx = g["M"]; hy = g["hero_top"]
-        # the card's own borders are in the crop on top, left and right; the frame repeats its bottom border along the cut edge
-        bb = max(b["bottom"], 0) * s
-        frame = (f'<div class="edge" style="left:0;right:0;bottom:0;height:{r}px;border:{bb:.2f}px solid {c["border"]["color"]};border-top:0;'
-                 f'border-left:{b["left"] * s:.2f}px solid {b["leftColor"]};border-right:{b["right"] * s:.2f}px solid {c["border"]["color"]};'
-                 f'border-radius:0 0 {r}px {r}px;"></div>') if bb else ""
-        hero_html = (f'<div id="hero" class="card" style="left:{hx}px;top:{hy}px;width:{hero["size"][0]}px;height:{hero["size"][1]}px;'
-                     f'border-radius:{r}px;background:{c["bg"]};"><img src="file://{hero["path"]}" width="{hero["size"][0]}" height="{hero["size"][1]}">{frame}</div>')
+    hx = g["M"]; hy = g["hero_top"]
+    hero_html = (f'<div id="hero" class="frame" style="left:{hx}px;top:{hy}px;width:{g["box_w"]}px;height:{g["H"] - hy + 40}px;'
+                 f'border:{g["bezel"]}px solid {TOK["ink"]};border-bottom:0;border-radius:{g["frame_r"]}px {g["frame_r"]}px 0 0;">'
+                 f'<img src="file://{hero["path"]}" width="{hero["size"][0]}" height="{hero["size"][1]}"></div>')
     html = f"""<!doctype html><html><head><meta charset="utf-8"><style>{font_faces()}
     html,body{{margin:0;padding:0;}}
     body{{width:{g['W']}px;height:{g['H']}px;overflow:hidden;position:relative;background:{TOK[bg]};-webkit-font-smoothing:antialiased;}}
@@ -443,8 +380,7 @@ def compose(browser, plat, shot, hero):
       letter-spacing:0;color:{col['head']};}}
     #head span{{display:block;}}
     #sub{{top:{sub_top}px;font-family:'Inter';font-weight:500;font-size:{g['sub_px']}px;line-height:1.25;color:{col['sub']};}}
-    .frame,.card{{position:absolute;box-sizing:border-box;overflow:hidden;}}
-    .edge{{position:absolute;box-sizing:border-box;}}
+    .frame{{position:absolute;box-sizing:border-box;overflow:hidden;}}
     img{{display:block;}}
     </style></head><body>
     <p class="t" id="eyebrow">{esc(t['eyebrow'])}</p>
@@ -480,7 +416,7 @@ def compose(browser, plat, shot, hero):
     im.save(dest, "PNG", optimize=True)
     info = dict(text=dict(eyebrow=t["eyebrow"], head=list(t["head"]), sub=t["sub"]), bg=bg, bg_hex=TOK[bg], colors=col, layout=m,
                 head_top=head_top, sub_top=sub_top,
-                hero={k: (str(v) if isinstance(v, Path) else v) for k, v in hero.items() if k not in ("card",)} | {"box": [m["hero"]["x0"], m["hero"]["y0"], m["hero"]["x1"], m["hero"]["y1"]]})
+                hero={k: (str(v) if isinstance(v, Path) else v) for k, v in hero.items()} | {"box": [m["hero"]["x0"], m["hero"]["y0"], m["hero"]["x1"], m["hero"]["y1"]]})
     METRICS["shots"][f"{plat}/{shot['name']}"] = info
     print(f"{plat}/{shot['name']}: hero {hero['kind']} scale {hero['scale']:.2f} size {hero['size']} min app text {hero['min_font_px']}px "
           f"records {[(r['signalId'], r['distance']) for r in hero.get('records', [])]}")

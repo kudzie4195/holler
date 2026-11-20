@@ -174,6 +174,7 @@
     }
    }
   ],
+  "03-radius": [],
   "04-source": [
    {
     "matchId": 42435,
@@ -512,6 +513,17 @@
     "tree-service"
    ]
   },
+  "03-radius": {
+   "zip": "60614",
+   "city": "Chicago",
+   "state": "IL",
+   "lat": 41.9229,
+   "lon": -87.6483,
+   "radiusMi": 15,
+   "trades": [
+    "security"
+   ]
+  },
   "04-source": {
    "zip": "60614",
    "city": "Chicago",
@@ -545,6 +557,7 @@
    "15979": "3.1 mi away",
    "24614": "7.4 mi away"
   },
+  "03-radius": {},
   "04-source": {
    "33435": "1.7 mi away"
   },
