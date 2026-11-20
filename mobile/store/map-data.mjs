@@ -53,7 +53,9 @@ for (const zip of ['60614']) {
     zip, city: c.city, state: c.state, centre: { lat: c.lat, lon: c.lon },
     records: map.records.map((r, i) => {
       const row = byId.get(r.id);
-      return { ...r, text: h.dotText(r), placed: map.placed[i], bearing: bearing(c, row), haversine: h.haversineMi(c.lat, c.lon, row.lat, row.lon) };
+      // appText: the label with the distance written the app's way (components/format.ts formatDistance: one decimal, '.0' dropped)
+      const appText = `${r.label} ${h.formatDistance(r.mi).replace(/ away$/, '').toUpperCase()}`;
+      return { ...r, text: h.dotText(r), appText, placed: map.placed[i], bearing: bearing(c, row), haversine: h.haversineMi(c.lat, c.lon, row.lat, row.lon) };
     }),
   };
 }

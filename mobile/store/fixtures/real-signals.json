@@ -1,5 +1,5 @@
 {
- "_note": "Real rows copied verbatim from production public.holler_signals (Supabase project ksctghdtklufgxblueqp) by read-only SELECT on 2026-11-19. Nothing edited. 'subtype' is data->>'subtype'. Only the rows the screenshots use are kept (20 rows); the full fetch sets (limit 15 each, last 14 days) are described in /home/claude/gates/r7/shots.md. Pass 2 (2026-11-19): rows 4291, 15876 and 24614 added verbatim by the same kind of read-only SELECT on public.holler_signals. 'point_60614' and 'sets' are replaced by 'scenarios': one member profile per screenshot (work ZIP, trades, radius); build-data.mjs places that ZIP with the server's own lookupZip() and keeps a row only if the server's own matchOne() matches it to that profile with a distance. Rows with the same created_at keep the order listed in the scenario: the real feed breaks that tie by match id (lib/mobile/feed.ts orders by created_at, then id), which is not in this fixture.",
+ "_note": "Real rows copied verbatim from production public.holler_signals (Supabase project ksctghdtklufgxblueqp) by read-only SELECT on 2026-11-19. Nothing edited. 'subtype' is data->>'subtype'. Only the rows the screenshots use are kept (20 rows); the full fetch sets (limit 15 each, last 14 days) are described in /home/claude/gates/r7/shots.md. Pass 2 (2026-11-19): rows 4291, 15876 and 24614 added verbatim by the same kind of read-only SELECT on public.holler_signals. 'point_60614' and 'sets' are replaced by 'scenarios': one member profile per screenshot (work ZIP, trades, radius); build-data.mjs places that ZIP with the server's own lookupZip() and keeps a row only if the server's own matchOne() matches it to that profile with a distance. Rows with the same created_at keep the order listed in the scenario: the real feed breaks that tie by match id (lib/mobile/feed.ts orders by created_at, then id), which is not in this fixture. Round 11: scenario '03-civic' is the same 60614 roofer + tree service member as '01-records', with that member's three city records (two 311 requests and a code violation) as its feed; no row added.",
  "scenarios": {
   "01-records": {
    "zip": "60614",
@@ -24,6 +24,19 @@
    "ids": [
     24614,
     15979
+   ]
+  },
+  "03-civic": {
+   "zip": "60614",
+   "trades": [
+    "roofing",
+    "tree-service"
+   ],
+   "radiusMi": 15,
+   "ids": [
+    46979,
+    45354,
+    4291
    ]
   },
   "03-radius": {
@@ -71,7 +84,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "High Wind Warning: Central Laramie County",
-   "summary": "High Wind Warning issued November 17 at 11:38AM MST until November 18 at 5:00PM MST by NWS Cheyenne WY. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Central Laramie County. * WHEN...From 2 AM to 5 PM MST Wednesday. * IMPACTS...Mainly to transportation. Strong cross winds will be hazardo\u2026",
+   "summary": "High Wind Warning issued November 17 at 11:38AM MST until November 18 at 5:00PM MST by NWS Cheyenne WY. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Central Laramie County. * WHEN...From 2 AM to 5 PM MST Wednesday. * IMPACTS...Mainly to transportation. Strong cross winds will be hazardo…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.6e11be54cf7d36e6d9ec65f5f4683e52e080468a.003.2",
    "lat": null,
    "lon": null,
@@ -96,7 +109,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "High Wind Warning: Fallon; Carter",
-   "summary": "High Wind Warning issued November 17 at 12:08PM MST until November 18 at 9:00PM MST by NWS Billings MT. * WHAT...West winds 25 to 35 mph with gusts up to 60 mph expected. * WHERE...Carter and Fallon. * WHEN...From 9 AM to 9 PM MST Wednesday. * IMPACTS...Winds may blow down trees and power lines. Travel will be difficu\u2026",
+   "summary": "High Wind Warning issued November 17 at 12:08PM MST until November 18 at 9:00PM MST by NWS Billings MT. * WHAT...West winds 25 to 35 mph with gusts up to 60 mph expected. * WHERE...Carter and Fallon. * WHEN...From 9 AM to 9 PM MST Wednesday. * IMPACTS...Winds may blow down trees and power lines. Travel will be difficu…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fec1a9adbcf18aa7be3d9a9962bdafdb39f47a01.001.1",
    "lat": null,
    "lon": null,
@@ -121,7 +134,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "High Wind Warning: Bowman",
-   "summary": "High Wind Warning issued November 17 at 1:34PM CST until November 19 at 12:00AM CST by NWS Bismarck ND. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Bowman County. * WHEN...From 11 AM to 11 PM MST Wednesday. * IMPACTS...The high winds may damage roofs, small outbuildings and signs. Trav\u2026",
+   "summary": "High Wind Warning issued November 17 at 1:34PM CST until November 19 at 12:00AM CST by NWS Bismarck ND. * WHAT...West winds 30 to 40 mph with gusts up to 60 mph expected. * WHERE...Bowman County. * WHEN...From 11 AM to 11 PM MST Wednesday. * IMPACTS...The high winds may damage roofs, small outbuildings and signs. Trav…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.077d1876f30e326e49016a791d176d0332fc38da.001.1",
    "lat": null,
    "lon": null,
@@ -146,7 +159,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-   "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until\u2026",
+   "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.18c4362eaa658311eff9c3e04dc3f320a75de5e4.001.1",
    "lat": 26.077179487125,
    "lon": -80.1350829560942,
@@ -174,7 +187,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "Severe Thunderstorm Warning: San Mateo, CA",
-   "summary": "Severe Thunderstorm Warning issued November 18 at 10:12AM PST until November 18 at 11:00AM PST by NWS San Francisco CA. SVRMTR The National Weather Service in San Francisco has issued a * Severe Thunderstorm Warning for... Northwestern San Mateo County in northern California... * Until 1100 AM PST. * At 1012 AM PST, s\u2026",
+   "summary": "Severe Thunderstorm Warning issued November 18 at 10:12AM PST until November 18 at 11:00AM PST by NWS San Francisco CA. SVRMTR The National Weather Service in San Francisco has issued a * Severe Thunderstorm Warning for... Northwestern San Mateo County in northern California... * Until 1100 AM PST. * At 1012 AM PST, s…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.8482135696d624259210a0e59c52232e21bb7e27.001.1",
    "lat": 37.5356972112346,
    "lon": -122.385617530149,
@@ -223,7 +236,7 @@
    "source": "socrata-chicago-permits",
    "kind": "permit",
    "title": "Plumbing permit in Chicago",
-   "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
+   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
    "lat": 41.9053320699414,
    "lon": -87.7119041063068,
@@ -318,7 +331,7 @@
    "source": "socrata-chicago-permits",
    "kind": "permit",
    "title": "Window and door permit in Chicago",
-   "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
+   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
    "lat": 41.8847550070774,
    "lon": -87.7286647928308,
@@ -564,7 +577,7 @@
    "source": "nws",
    "kind": "alert",
    "title": "Severe Thunderstorm Warning: Broward, FL",
-   "summary": "Severe Thunderstorm Warning issued November 17 at 11:15PM EST until November 17 at 11:45PM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Southern Broward County in southeastern Florida... * Until 1145 PM EST. * At 1115 PM EST, a severe thunderstorm\u2026",
+   "summary": "Severe Thunderstorm Warning issued November 17 at 11:15PM EST until November 17 at 11:45PM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Southern Broward County in southeastern Florida... * Until 1145 PM EST. * At 1115 PM EST, a severe thunderstorm…",
    "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2eeac525dd945e885072f771bee56b5d1393f857.001.1",
    "lat": 26.0900362757031,
    "lon": -80.2037767029646,

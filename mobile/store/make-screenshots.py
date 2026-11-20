@@ -102,25 +102,34 @@ MAP_ZIP = MAP["maps"] and next(iter(MAP["maps"])) if MAP else None
 # The composition changes from shot to shot; the type and margins (G) never do. No two neighbours share background and composition.
 SHOTS = [
     dict(name="01-map", eyebrow=f"{MAP_ZIP} · Chicago" if MAP_ZIP else "", head=("Public records", "around your ZIP"),
-         sub="Permits and 311 calls, drawn to scale", bg="green", comp="map and phone"),
+         sub="An alert when one fits your trade", bg="green", comp="map and phone"),
     dict(name="02-storms", eyebrow="Weather", head=("Storm and hail", "reports nearby"), sub="Hail size, place and miles from you",
          bg="sky_deep", comp="phone, card lifted"),
     dict(name="03-civic", eyebrow="311 and code", head=("City requests", "and code cases"), sub="From the city's open data, with distance",
-         bg="civic", comp="two phones"),
+         bg="civic", comp="two phones, feed in front"),
     dict(name="04-value", eyebrow="Permits", head=("The job value", "on the permit"), sub="Read from the city's own permit data",
          bg="sage_deep", comp="card and figure"),
     dict(name="05-source", eyebrow="Public data", head=("Each alert links", "to its source"), sub="Open the public data it came from",
-         bg="green", comp="phone, card lifted"),
+         bg="green", comp="record words and button"),
     dict(name="06-trades", eyebrow="Your work", head=("Pick the trades", "you work in"), sub="Then your ZIP and how far you drive",
          bg="paper", comp="phone, part of it lifted"),
     dict(name="07-alerts", eyebrow="Alerts", head=("At most one", "push an hour"), sub="Email digest too, switch either off",
          bg="sky_deep", comp="one large phone"),
     dict(name="08-plans", eyebrow="Plans", head=(f"{FACTS['trial_days']} days free,", "no card needed"),
          sub=f"Then {FACTS['solo_name']}, {FACTS['solo_monthly']} a month in the app", bg="green", comp="phone, card lifted",
-         # Google Play: no price and no "free" in the image text; the plans themselves are the app's own screen
-         android=dict(head=("Solo or Pro,", "month or year"), sub="Pro adds areas, trades and keyword watches")),
+         # Google Play: no price and no "free" anywhere in the art (Play's preview asset guidance), so the Android set closes on an
+         # editorial shot instead: a real distance, large, over the card it came from
+         android=dict(name="08-distance", eyebrow="Distance", head=("Miles from", "your work ZIP"), sub="Counted from the ZIP you set",
+                      comp="figure and card")),
 ]
 NAMES = [s["name"] for s in SHOTS]
+
+
+def name_of(plat, shot):
+    return shot.get(plat, {}).get("name", shot["name"]) if plat == "android" else shot["name"]
+
+
+PLAT_NAMES = {p: [name_of(p, s_) for s_ in SHOTS] for p in ("ios", "android")}
 
 # One type and margin system. The checker reads these back from metrics.json and measures the PNGs.
 G = {
@@ -396,6 +405,7 @@ def _phone_capture(browser, plat, key, sw, y, feed, route, ready, me, prep, anch
       const rects = [...document.querySelectorAll('.chip[aria-pressed=true]')].filter(vis).map(c => { const b = c.getBoundingClientRect(); return [b.top, b.bottom, b.left, b.right]; });
       return {zip: z.value, radius: r.value, zipVisible: vis(z), radiusVisible: vis(r), pickedVisible: picked, pickedRects: rects}; }""", vis)
     switches = page.evaluate("(limit) => [...document.querySelectorAll('input[role=switch]')].filter(e => e.getBoundingClientRect().bottom <= limit).map(e => ({label: e.getAttribute('aria-label'), on: e.checked}))", vis)
+    rects_css = page.evaluate(RECTS, [shown_h if whole else vis, st, sb if whole else vis])
     chips_css = page.evaluate("() => [...document.querySelectorAll('.scroll .chip')].map(e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })")
     cards_css = page.evaluate("() => [...document.querySelectorAll('.scroll article.card')].map(e => { const b = e.getBoundingClientRect(); const f = e.querySelector('.feedback'); return [b.top, b.bottom, f ? f.getBoundingClientRect().top : b.bottom]; })")
     bottom_text = page.evaluate("() => { const s = document.querySelector('.scroll'); if (!s) return 0; return Math.max(0, ...[...s.querySelectorAll('p, a, button, dd, h3, li, label')].map(e => e.getBoundingClientRect().bottom)); }")
@@ -409,7 +419,8 @@ def _phone_capture(browser, plat, key, sw, y, feed, route, ready, me, prep, anch
     return dict(kind="phone", key=key, path=p, sw=sw, s=s, bez=bez, whole=whole, shown_css=round(shown_h, 1), visible_css=round(vis, 1),
                 vw=VW, vh=vh, scrolled=scrolled, shown=shown, screen_text=text, min_font_px=round(min_font * s, 1), edge_clear_css=round(edge_clear, 1),
                 form=form, switches=switches, split_at_edge=split_at_edge, first_in_scroll=first_row(after, 0, st), top_gap_css=round(top_gap(off), 1),
-                last_line=last_line[1], last_line_is_heading=last_line[2], text_bottom_css=round(bottom_text, 1), cards_css=cards_css, chips_css=chips_css, scroll_top_css=st,
+                last_line=last_line[1], last_line_is_heading=last_line[2], text_bottom_css=round(bottom_text, 1), cards_css=cards_css, chips_css=chips_css, scroll_top_css=st, rects_css=rects_css,
+                content_bottom_css=round(max((l1 for l0, l1, lab, ins, b_, hd in after if ins and lab != '<BOX>' and l1 <= vis), default=0), 1),
                 lines_css=sorted({(round(l0, 1), round(l1, 1)) for l0, l1, lab, ins, b, hd in after if ins and not lab.startswith('<')}), feed=feed if records else None,
                 route=route, member=me, records=recs)
 
@@ -440,12 +451,39 @@ def element_capture(browser, plat, key, feed, selector, route=None, ready=".app"
     im = to_png(page, clip)
     ctx.close()
     p = WORK / f"{plat}-{key}.png"; im.save(p)
+    clean = crop_is_clean(im, pad)
+    assert clean, (plat, key, "the cut takes in part of a neighbouring element")
     recs = []
     if records and feed and info["title"]:
         recs = records_for(feed, [{"title": info["title"], "distance": info["distance"]}])
-    return dict(kind="card", key=key, path=p, css=(clip["width"], clip["height"]), radius=info["radius"] if not pad else 12, pad=pad,
+    return dict(kind="card", key=key, path=p, css=(clip["width"], clip["height"]), radius=info["radius"] if not pad else 12, pad=pad, clean_crop=clean,
                 box_css=dict(x=info["x"], y=info["y"], w=info["w"], h=info["h"]), text=info["text"], min_font_css=info["minFont"],
                 feed=feed if records else None, route=route, member=me, records=recs, selector=selector)
+
+
+# Every visible text line (one box per line of a text node) and every control (button, chip, input, icon) of the screen as shown:
+# [x0, y0, x1, y1, label] in CSS px. Lines under the top bar or below the cut are not seen and are left out.
+RECTS = """([limit, st, sb]) => { const out = []; const sc = document.querySelector('.scroll'); const seen = (b, inScroll) => b.height > 0 &&
+      b.bottom <= (inScroll ? sb : limit) + 0.5 && (!inScroll || b.top >= st - 0.5);
+  const walk = document.createTreeWalker(document.querySelector('.app'), NodeFilter.SHOW_TEXT);
+  while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim() || n.parentElement.closest('.ptr:not(.show)')) continue;
+    const st_ = getComputedStyle(n.parentElement); if (st_.visibility === 'hidden') continue;
+    const r = document.createRange(); r.selectNodeContents(n); const ins = !!(sc && sc.contains(n));
+    for (const b of r.getClientRects()) if (seen(b, ins)) out.push([b.left, b.top, b.right, b.bottom, n.textContent.trim().slice(0, 40)]); }
+  for (const e of document.querySelectorAll('.app .btn, .app .chip, .app input, .app svg, .app .switch')) { const b = e.getBoundingClientRect();
+    if (seen(b, !!(sc && sc.contains(e)))) out.push([b.left, b.top, b.right, b.bottom, '<' + (e.className.baseVal !== undefined ? 'svg' : e.className || e.tagName) + '>']); }
+  return out; }"""
+
+
+def crop_is_clean(im, pad):
+    """A cut with padding must show only the screen's own flat paper in that padding (every pixel of the outer ring within 3 of one
+    colour): nothing of the element above or below is taken in. A cut with no padding is one element's own box."""
+    if not pad:
+        return True
+    import numpy as np
+    a = np.asarray(im.convert("RGB"), dtype=np.int16); k = max(1, (pad - 2) * DSF)   # the outer ring, 2 CSS px short of the element
+    ring = np.concatenate([a[:k].reshape(-1, 3), a[-k:].reshape(-1, 3), a[:, :k].reshape(-1, 3), a[:, -k:].reshape(-1, 3)])
+    return bool((np.abs(ring - ring[0]).max(axis=1) <= 3).all())
 
 
 def pick_monthly(page):
@@ -468,8 +506,12 @@ def esc(s):
 def text_of(plat, shot):
     t = dict(eyebrow=shot["eyebrow"], head=shot["head"], sub=shot["sub"])
     if plat == "android" and "android" in shot:
-        t.update(shot["android"])
+        t.update({k: v for k, v in shot["android"].items() if k in ("eyebrow", "head", "sub")})
     return t
+
+
+def comp_of(plat, shot):
+    return shot.get("android", {}).get("comp", shot["comp"]) if plat == "android" else shot["comp"]
 
 
 class Canvas:
@@ -477,7 +519,7 @@ class Canvas:
 
     def __init__(self, plat, shot):
         self.plat, self.shot, self.g = plat, shot, G[plat]
-        self.html, self.objects = [], []
+        self.html, self.objects, self.flow = [], [], []
 
     def phone(self, c, x, y, z=1, shadow=False):
         sw, s, bez = c["sw"], c["s"], c["bez"]
@@ -495,27 +537,53 @@ class Canvas:
         self.html.append(f'<div class="phone" style="left:{x}px;top:{y}px;width:{sw}px;{frame}z-index:{z};{"box-shadow:" + SHADOW + ";" if shadow else ""}">'
                          f'<div style="width:{sw}px;height:{h}px;{inner}overflow:hidden;background:{TOK["paper"]}"><img src="file://{c["path"]}" style="width:{sw}px;height:{img_h}px"></div></div>')
         box = [x, y, x + sw + 2 * bez, y + h + (2 * bez if c["whole"] else bez)]
-        self.objects.append(dict(c, path=str(c["path"]), box=box, x=x, y=y))
+        self.objects.append(dict(c, path=str(c["path"]), box=box, x=x, y=y, z=z))
         return dict(x=x, y=y, sx=x + bez, sy=y + bez, s=s, bez=bez, w=sw + 2 * bez, h=box[3] - y)
 
-    def card(self, c, x, y, w, z=4, shadow=True):
+    def card(self, c, x, y, w, z=4, shadow=True, flow=False):
         cw, ch = c["css"]
         s = w / cw
         h = round(ch * s)
         r = round(c["radius"] * s)
         bg = TOK["surface"] if not c["pad"] else TOK["paper"]
-        self.html.append(f'<div class="card" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px;border-radius:{r}px;z-index:{z};background:{bg};'
-                         f'{"box-shadow:" + SHADOW + ";" if shadow else ""}"><img src="file://{c["path"]}" style="width:{w}px;height:{h}px"></div>')
-        self.objects.append(dict(c, path=str(c["path"]), box=[x, y, x + w, y + h], scale=s, min_font_px=round(c["min_font_css"] * s, 1), x=x, y=y))
+        # a cut of the screen's own paper gets the app's 1 px line edge, so it stays a card on a light canvas
+        edge = f'outline:1px solid {TOK["line"]};outline-offset:-1px;' if c["pad"] else ''
+        pos = "position:relative;flex:none;" if flow else f"left:{x}px;top:{y}px;"
+        html = (f'<div class="card" data-key="{c["key"]}" style="{pos}width:{w}px;height:{h}px;border-radius:{r}px;z-index:{z};background:{bg};{edge}'
+                f'{"box-shadow:" + SHADOW + ";" if shadow else ""}"><img src="file://{c["path"]}" style="width:{w}px;height:{h}px"></div>')
+        if flow:
+            self.flow.append(html)
+        else:
+            self.html.append(html)
+        self.objects.append(dict(c, path=str(c["path"]), box=[x, y, x + w, y + h] if not flow else [None, None, None, None], scale=s, min_font_px=round(c["min_font_css"] * s, 1), x=x, y=y, z=z,
+                                 edge=bool(c["pad"])))
         return dict(x=x, y=y, w=w, h=h, s=s)
 
     def size_of(self, c, w):
         cw, ch = c["css"]
         return round(ch * w / cw)
 
-    def figure(self, text, x, y, px, color, source):
-        self.html.append(f'<p class="fig" style="left:{x}px;top:{y}px;font-size:{px}px;color:{TOK[color]}">{esc(text)}</p>')
-        self.objects.append(dict(kind="figure", text=text, px=px, color=TOK[color], source=source, box=[x, y, None, None]))
+    def figure(self, text, x, y, px, color, source, unit=None, unit_color=None):
+        u = (f'<span style="font-size:{round(px * 0.34)}px;letter-spacing:0.02em;margin-left:{round(px * 0.07)}px;color:{TOK[unit_color]}">{esc(unit)}</span>'
+             if unit else '')
+        self.html.append(f'<p class="fig" style="left:{x}px;top:{y}px;font-size:{px}px;color:{TOK[color]}">{esc(text)}{u}</p>')
+        self.objects.append(dict(kind="figure", text=text + (" " + unit if unit else ""), number=text, px=px, color=TOK[color], source=source,
+                                 box=[x, y, None, None], z=5))
+
+    def flow_group(self, x, top, bottom, gap):
+        """Lays the flow items (a quote and the card under it) out as one column, centred between top and bottom."""
+        self.html.append(f'<div style="position:absolute;left:{x}px;top:{top}px;height:{bottom - top}px;display:flex;flex-direction:column;'
+                         f'justify-content:center;gap:{gap}px">{"".join(self.flow)}</div>')
+        self.flow = []
+
+    def quote(self, lines, x, y, w, px, color, source, attribution=None, attr_px=None, attr_color=None, gap=None):
+        """Real words of a record, set large: each part on its own line, exactly as the record has them (laid out by flow_group)."""
+        body = "".join(f'<span style="display:block;margin-bottom:{round(px * 0.28)}px">{esc(t)}</span>' for t in lines)
+        att = (f'<span style="display:block;margin-top:{gap or round(px * 0.5)}px;font-family:\'JetBrains Mono\';font-weight:500;font-size:{attr_px}px;'
+               f'letter-spacing:0.04em;text-transform:uppercase;color:{TOK[attr_color]}">{esc(attribution)}</span>') if attribution else ""
+        self.flow.append(f'<p class="quote" data-key="quote" style="width:{w}px;margin:0;font-family:Inter;font-weight:600;text-wrap:balance;'
+                         f'font-size:{px}px;line-height:1.08;letter-spacing:-0.02em;color:{TOK[color]}">{body}{att}</p>')
+        self.objects.append(dict(kind="quote", lines=list(lines), attribution=attribution, px=px, source=source, box=[x, y, x + w, None], z=5))
 
 
 def radius_map(cv, cx, cy, ppm, rings, recs, zip_, u, sides=None):
@@ -535,79 +603,144 @@ def radius_map(cv, cx, cy, ppm, rings, recs, zip_, u, sides=None):
         y = cy - r["mi"] * ppm * math.cos(b)
         side = (sides or {}).get(r["id"], "right" if x < cx else "left")
         rad = "50%" if r["family"] == "civic" else f"{5 * u:.1f}px"
-        out.append(f'<span class="dot" style="left:{x:.1f}px;top:{y:.1f}px;width:{22 * u:.1f}px;height:{22 * u:.1f}px;border-radius:{rad};'
+        out.append(f'<span class="dot" data-id="{r["id"]}" style="left:{x:.1f}px;top:{y:.1f}px;width:{22 * u:.1f}px;height:{22 * u:.1f}px;border-radius:{rad};'
                    f'background:{fam_col[r["family"]]};border:{2.5 * u:.1f}px solid {TOK["on_brand"]}"></span>')
         lx = x + 16 * u if side == "right" else x - 16 * u
         tr = "translateY(-50%)" if side == "right" else "translate(-100%,-50%)"
-        out.append(f'<span class="lab" style="left:{lx:.1f}px;top:{y:.1f}px;transform:{tr};font-size:{13 * u:.1f}px;line-height:{20 * u:.1f}px;'
+        out.append(f'<span class="lab" data-id="{r["id"]}" style="left:{lx:.1f}px;top:{y:.1f}px;transform:{tr};font-size:{13 * u:.1f}px;line-height:{20 * u:.1f}px;'
                    f'padding:{3 * u:.1f}px {7 * u:.1f}px;border-radius:{6 * u:.1f}px;background:{TOK["deep"]};color:{TOK["on_brand"]}">{esc(r["text"])}</span>')
         placed.append(dict(r, x=round(x, 1), y=round(y, 1), side=side))
     out.append(f'<span class="chip" style="left:{cx}px;top:{cy}px;font-size:{13 * u:.1f}px;line-height:{20 * u:.1f}px;padding:{6 * u:.1f}px {10 * u:.1f}px;'
                f'border-radius:{6 * u:.1f}px;background:{TOK["signal"]};color:{TOK["ink"]}">{esc(zip_)}</span>')
     cv.html.append("".join(out))
     R = max(rings) * ppm + 10 * u   # the outer ring with its caption
-    cv.objects.append(dict(kind="map", box=[round(max(cx - R, 0)), round(cy - R), round(min(cx + R, cv.g["W"])), round(min(cy + R, cv.g["H"]))], zip=zip_, centre=[cx, cy], px_per_mi=ppm, rings=list(rings), unit=u, label_px=round(13 * u, 1), records=placed))
+    cv.objects.append(dict(kind="map", z=0, box=[round(max(cx - R, 0)), round(cy - R), round(min(cx + R, cv.g["W"])), round(min(cy + R, cv.g["H"]))], zip=zip_, centre=[cx, cy], px_per_mi=ppm, rings=list(rings), unit=u, label_px=round(13 * u, 1), records=placed))
 
 
 def map_records():
     m = MAP["maps"][MAP_ZIP]
-    return [dict(id=r["id"], family=r["family"], text=r["text"], mi=r["mi"], bearing=r["bearing"], title=r["title"]) for r in m["records"]]
+    return [dict(id=r["id"], family=r["family"], text=r["appText"], siteText=r["text"], mi=r["mi"], bearing=r["bearing"], title=r["title"])
+            for r in m["records"]]
 
 
-# ---------------------------------------------------------------- the seven compositions ---------------------------------------------
-# Numbers per platform. iOS 1320 x 2868, Android 1080 x 1920: the same idea in each, placed for that canvas.
+# ---------------------------------------------------------------- overlap rules ---------------------------------------------------
+# Anything drawn over a phone (a lifted card, a second phone) or over the map must cover each text line, chip, button or icon under
+# it whole or not at all, and a lifted card's edge keeps at least NEAR px from any line it leaves in view. The checker applies the
+# same rules to metrics.json.
+NEAR = 8
 
-# labels clear of the canvas edge, the chip, the ring captions and each other (checked by eye at full size on both platforms)
-MAP_SIDES = {"ios": {"47080": "left", "33439": "left", "46979": "left", "45354": "left"},
+
+def canvas_rects(o):
+    if o["kind"] == "phone":
+        sx, sy, s = o["x"] + o["bez"], o["y"] + o["bez"], o["s"]
+        return [(sx + r[0] * s, sy + r[1] * s, sx + r[2] * s, sy + r[3] * s, r[4]) for r in o["rects_css"]]
+    if o["kind"] == "map":
+        return [tuple(b[2:6]) + (f'{b[0]} {b[1]}',) for b in o.get("boxes", []) if b[0] in ("lab", "cap", "chip")]
+    return []
+
+
+def overlap_problems(objects):
+    probs = []
+    for i, a in enumerate(objects):
+        if a["kind"] not in ("phone", "card"):
+            continue
+        ax0, ay0, ax1, ay1 = a["box"]
+        for j, b in enumerate(objects):
+            if b is a or b["kind"] not in ("phone", "map") or not (a["z"] > b["z"] or (a["z"] == b["z"] and i > j)):
+                continue
+            for x0, y0, x1, y1, lab in canvas_rects(b):
+                ix = max(0.0, min(x1, ax1) - max(x0, ax0)); iy = max(0.0, min(y1, ay1) - max(y0, ay0))
+                inter, area = ix * iy, (x1 - x0) * (y1 - y0)
+                if inter > 1 and inter < area - 1:
+                    probs.append(f"{a.get('key', a['kind'])} cuts '{lab}' of {b.get('key', b['kind'])}")
+                elif inter <= 1 and a["kind"] == "card" and min(x1, ax1) - max(x0, ax0) > 0 and (0 <= y0 - ay1 < NEAR or 0 <= ay0 - y1 < NEAR):
+                    probs.append(f"{a.get('key')} edge within {NEAR} px of '{lab}' of {b.get('key', b['kind'])}")
+    return probs
+
+
+def label_clearance(boxes, need=6):
+    """Every map label at least `need` px from every other label, dot, caption and the ZIP chip (its own dot excepted)."""
+    probs = []
+    for k, (kind, id_, x0, y0, x1, y1) in enumerate(boxes):
+        if kind != "lab":
+            continue
+        for kind2, id2, a0, b0, a1, b1 in boxes[:k] + boxes[k + 1:]:
+            if kind2 == "dot" and id2 == id_:
+                continue
+            gap = max(a0 - x1, x0 - a1, b0 - y1, y0 - b1)
+            if gap < need:
+                probs.append(f"label {id_} {gap:.1f} px from {kind2} {id2}")
+    return probs
+
+
+def first_fit(cands, test):
+    for c in cands:
+        if test(c):
+            return c
+    raise RuntimeError("no position passes the overlap rules")
+
+
+# ---------------------------------------------------------------- the eight compositions --------------------------------------------
+# Numbers per platform. iOS 1320 x 2868, Android 1080 x 1920: the same idea in each, placed for that canvas. A phone anchored to a
+# side sits INSET px from it on every shot.
+INSET = {"ios": 70, "android": 50}
+# labels clear of the canvas edge, the chip, the ring captions and each other (label_clearance checks 6 px)
+MAP_SIDES = {"ios": {"47080": "left", "33439": "left", "46979": "left", "45354": "left", "33427": "left"},
              "android": {"47080": "left", "33439": "left", "46979": "left", "45354": "left", "33427": "left"}}
 
 
 def build_01(b, cv, plat):
-    g = cv.g; M = g["M"]
-    L = dict(ios=dict(u=2.62, ppm=118, cx=1130, cy=1430, sw=640, px=M - 20, py=2040),
-             android=dict(u=2.1, ppm=95, cx=900, cy=1092, sw=490, px=M - 16, py=1440))[plat]
+    g = cv.g
+    L = dict(ios=dict(u=2.62, ppm=118, cx=1130, cy=1430, sw=640, py=2040),
+             android=dict(u=2.1, ppm=95, cx=900, cy=1092, sw=490, py=1464))[plat]
     radius_map(cv, L["cx"], L["cy"], L["ppm"], MAP["rings"], map_records(), MAP_ZIP, L["u"], MAP_SIDES[plat])
     # the member's own feed in that ZIP, beside the map: 311 tree emergency, roof permit, code violation
     c = phone_capture(b, plat, "01-feed", L["sw"], L["py"], "01-records", ready=".alert-card", first_text=("311 request",))
-    cv.phone(c, L["px"], c["y"], z=3, shadow=True)
+    cv.phone(c, INSET[plat], c["y"], z=3, shadow=True)
 
 
 def build_02(b, cv, plat):
     g = cv.g; M = g["M"]; W, H = g["W"], g["H"]
-    # iOS: the lifted card sits on the phone's empty paper under the hail report. Android has less height: the card covers the report's
-    # feedback row instead (the card spans the whole screen width there, so nothing of that row shows around it).
-    L = dict(ios=dict(sw=770, right=60, y=840, cw=960, cx=W - M - 40 - 960, under="card"),
-             android=dict(sw=520, right=50, y=560, cw=780, cx=W - M + 30 - 780, under="feedback"))[plat]
+    # The lifted card covers the screen's lower part whole, across the full screen width, so nothing under it shows cut.
+    L = dict(ios=dict(sw=770, y=840, cw=960, cx=W - M - 40 - 960, under="card"),
+             android=dict(sw=520, y=560, cw=780, cx=W - M + 30 - 780, under="feedback"))[plat]
     bez = bezel(L["sw"])
-    px = W - L["sw"] - 2 * bez - L["right"]
+    px = W - INSET[plat] - L["sw"] - 2 * bez
     c = phone_capture(b, plat, "02-hail", L["sw"], L["y"], "02-storms", {"name": "alert", "signalId": 24614}, "article.card .alert-title")
     ph = cv.phone(c, px, L["y"])
     # the other storm record of the same member, from that member's feed
     k = element_capture(b, plat, "02-warning", "02-storms", "article.card", ready=".alert-card", nth=1)
-    top_css = c["cards_css"][0][1] + 16 if L["under"] == "card" else c["cards_css"][0][2] - 10
+    # iOS: the card covers the "Data from" lines under the report whole (its top 12 CSS px above them); Android: from the feedback divider
+    after_card = min(r[1] for r in c["rects_css"] if r[1] > c["cards_css"][0][1])
+    top_css = after_card - 12 if L["under"] == "card" else c["cards_css"][0][2] - 1
     y = round(ph["sy"] + top_css * ph["s"])
     h = cv.size_of(k, L["cw"])
     assert y + h <= H - 60, (plat, "lifted card runs off the canvas", y, h)
-    if L["under"] == "feedback":
-        assert L["cx"] <= px and L["cx"] + L["cw"] >= px + 2 * bez + L["sw"], "the card must cover the feedback row across the screen"
     cv.card(k, L["cx"], y, L["cw"])
 
 
 def build_03(b, cv, plat):
-    g = cv.g; M = g["M"]; W = g["W"]
-    L = dict(ios=dict(sw=690, dx=40, y=840), android=dict(sw=500, dx=30, y=560))[plat]
+    g = cv.g; W = g["W"]
+    L = dict(ios=dict(sw=690, y=840), android=dict(sw=500, y=560))[plat]
     bez = bezel(L["sw"])
-    c1 = phone_capture(b, plat, "03-311", L["sw"], L["y"], "01-records", {"name": "alert", "signalId": 45354}, "article.card .alert-title")
-    p1 = cv.phone(c1, M - L["dx"], L["y"], z=1)
-    # the code case starts below the 311 screen's last line, so it covers only that screen's empty paper; it runs off the canvas
-    y2 = round(p1["sy"] + (c1["text_bottom_css"] + 30) * p1["s"]) - bez
-    c2 = phone_capture(b, plat, "03-code", L["sw"], y2, "01-records", {"name": "alert", "signalId": 4291}, "article.card .alert-title")
-    cv.phone(c2, W - L["sw"] - 2 * bez - M + L["dx"], c2["y"], z=2, shadow=True)
+    c1 = phone_capture(b, plat, "03-code", L["sw"], L["y"], "01-records", {"name": "alert", "signalId": 4291}, "article.card .alert-title")
+    p1 = cv.phone(c1, INSET[plat], L["y"], z=1)
+    # in front: the same member's feed of city records (311 requests first). It starts below the code case screen's last
+    # line, so it covers only that screen's empty paper and tab bar, and it runs off the canvas
+    y2 = round(p1["sy"] + (c1["content_bottom_css"] + 30) * p1["s"]) - bez
+    c2 = phone_capture(b, plat, "03-feed", L["sw"], y2, "03-civic", ready=".alert-card")
+    base = W - INSET[plat] - L["sw"] - 2 * bez
+
+    def fits(x2):
+        probe = cv.objects + [dict(c2, box=[x2, c2["y"], x2 + L["sw"] + 2 * bez, g["H"] + 2], x=x2, z=2)]
+        return not overlap_problems(probe)
+    x2 = first_fit([base - d for d in range(0, 241, 2)], fits)
+    cv.phone(c2, x2, c2["y"], z=2, shadow=True)
 
 
 def build_04(b, cv, plat):
     g = cv.g; M = g["M"]; W = g["W"]
-    L = dict(ios=dict(cx=M + 100, cy=820, gap=150, fpx=248), android=dict(cx=M + 134, cy=560, gap=64, fpx=180))[plat]
+    L = dict(ios=dict(cx=M + 100, cy=820, gap=150, fpx=248), android=dict(cx=M + 134, cy=552, gap=44, fpx=205))[plat]
     k = element_capture(b, plat, "04-hvac", "04-source", "article.card", {"name": "alert", "signalId": 33435}, "article.card .alert-title")
     cd = cv.card(k, L["cx"], L["cy"], W - M - L["cx"])
     m = re.search(r"(\$[\d,]+) job value", k["text"])
@@ -616,25 +749,31 @@ def build_04(b, cv, plat):
 
 
 def build_05(b, cv, plat):
-    g = cv.g; M = g["M"]; W = g["W"]
-    L = dict(ios=dict(sw=760, dx=20, y=840, lw=970), android=dict(sw=540, dx=16, y=560, lw=790))[plat]
-    c = phone_capture(b, plat, "05-roof", L["sw"], L["y"], "01-records", {"name": "alert", "signalId": 33439}, "article.card .alert-title")
-    ph = cv.phone(c, M - L["dx"], L["y"])
-    # the "Data from" line of the very screen, with the real screen around it, lifted in place over the phone's right edge
-    k = element_capture(b, plat, "05-datafrom", "01-records", "p.small.muted", {"name": "alert", "signalId": 33439}, "article.card .alert-title",
-                        has_text="Data from", pad=16, records=False)
-    assert "Data from" in k["text"] and "Open the source" in " ".join(c["screen_text"]), (k["text"], c["screen_text"])
-    yc = ph["sy"] + (k["box_css"]["y"] + k["box_css"]["h"] / 2 - c["scrolled"]) * ph["s"]
-    h = cv.size_of(k, L["lw"])
-    # in place: it starts just left of the phone's own line and is larger, so it covers that line and breaks out over the frame
-    x = round(ph["sx"] + (k["box_css"]["x"] - k["pad"]) * ph["s"]) - 24
-    assert x + L["lw"] > ph["x"] + ph["w"] + 60, "the lifted line must break out of the phone"
-    cv.card(k, x, round(yc - h / 2), L["lw"])
+    """Editorial: the record's own words set large (its title, then its job value and address from its summary), its source label, and
+    the real "Open the source" button of its alert as the one supporting element, laid out as one centred column."""
+    g = cv.g; M = g["M"]; W, H = g["W"], g["H"]
+    L = dict(ios=dict(px=104, apx=34, gap=150, low=240), android=dict(px=80, apx=27, gap=96, low=150))[plat]
+    route = {"name": "alert", "signalId": 33439}
+    card = element_capture(b, plat, "05-roof-card", "01-records", "article.card", route, "article.card .alert-title")
+    it = DATA["alerts"]["01-records:33439"]
+    parts = it["summary"].split(" | ")
+    lines = [it["title"]] + parts[1:]
+    assert all(p_ in card["text"] for p_ in lines), (lines, card["text"])        # the words are on that alert's screen
+    assert it["sourceLabel"] in card["text"]
+    cv.quote(lines, M, None, W - 2 * M, L["px"], "on_brand", source=dict(card=card["key"], text=it["summary"], title=it["title"], records=card["records"]),
+             attribution=it["sourceLabel"], attr_px=L["apx"], attr_color="on_brand_muted")
+    # the button with the card's own white around it (a clean cut: 8 CSS px of the card only), so it stands off the green
+    k = element_capture(b, plat, "05-button", "01-records", "article.card .btn", route, "article.card .alert-title", has_text="Open the source",
+                        pad=8, records=False)
+    assert k["text"].strip() == "Open the source", k["text"]
+    cv.card(k, None, None, W - 2 * M, flow=True)
+    cv.objects[-1]["source_card"] = card["key"]
+    cv.flow_group(M, g["sub_top"] + 180, H - L["low"], L["gap"])
 
 
 def build_06(b, cv, plat):
     g = cv.g; M = g["M"]; W, H = g["W"], g["H"]
-    L = dict(ios=dict(sw=700, dx=40, y=840, lw=980, low=160), android=dict(sw=540, dx=30, y=560, lw=800, low=110))[plat]
+    L = dict(ios=dict(sw=700, y=840, lw=980, low=160), android=dict(sw=540, y=560, lw=800, low=110))[plat]
     # the roofer's own trade picker (round 10 members: iOS roofing + tree service, Android roofing + HVAC), "Home and property" first
     key = "03-radius" if plat == "ios" else "03-radius-android"
     anchor = "() => [...document.querySelectorAll('form p.small.muted')].find(e => e.textContent.trim() === 'Home and property').getBoundingClientRect().top - 8"
@@ -642,36 +781,28 @@ def build_06(b, cv, plat):
     c = phone_capture(b, plat, "06-trades", L["sw"], L["y"], key, {"name": "profile"}, "#trades-label", anchor=anchor, first_text=first, records=False,
                       anchor_span=200)
     c["profile_key"] = key
-    ph = cv.phone(c, M - L["dx"], L["y"])
+    ph = cv.phone(c, INSET[plat], L["y"])
     prof = DATA["profiles"][key]
     labels = {t["id"]: t["label"] for t in DATA["config"]["trades"]}
     assert c["form"]["pickedVisible"] == [labels[x] for x in prof["trades"]], (c["form"], prof)
-    # the same screen's ZIP and radius fields (further down the same form), with the real screen around them, lifted over the phone
+    # the same form's ZIP and radius fields (further down the same screen), lifted over the phone: it starts at the phone frame's left
+    # edge so it covers whole chip rows, below the ticked trades, with no chip or line cut and none closer than NEAR px to its edge
     k = element_capture(b, plat, "06-zip-radius", key, ".field:has(#zip)", {"name": "profile"}, "#trades-label", pad=16, records=False,
                         through=".field:has(#radius)")
     assert "ZIP code you work from" in k["text"] and "How far you travel" in k["text"], k["text"]
-    h = cv.size_of(k, L["lw"])
-    x = W - M + 30 - L["lw"]
-    # its top edge falls in a gap between chip rows, so no chip shows as a sliver above it
-    def clear(yy):
-        for c0, t0, c1, b0 in c["chips_css"]:
-            cx0, cx1 = ph["sx"] + c0 * ph["s"], ph["sx"] + c1 * ph["s"]
-            ct, cb = ph["sy"] + t0 * ph["s"], ph["sy"] + b0 * ph["s"]
-            if cx1 > x and ct - 3 < yy < cb + 3:
-                return False
-        return True
-    picked_bottom = max(ph["sy"] + r[1] * ph["s"] for r in c["form"]["pickedRects"])
-    # nearest to the planned bottom margin (at least 70 px), below the ticked trades, top edge between chip rows
-    lows = sorted(range(70, L["low"] + 200, 2), key=lambda lo: abs(lo - L["low"]))
-    y = next(H - lo - h for lo in lows if clear(H - lo - h) and H - lo - h > picked_bottom + 20)
-    # the ticked trades stay in view: the lifted part sits below them
-    assert y > picked_bottom + 20, (plat, "the lifted fields cover a ticked trade", y, picked_bottom)
     k["form"] = dict(zip=prof["zip"], radius=prof["radiusMi"])
+    h = cv.size_of(k, L["lw"])
+    x = ph["x"]
+    picked_bottom = max(ph["sy"] + r[1] * ph["s"] for r in c["form"]["pickedRects"])
+
+    def fits(y):
+        return y > picked_bottom + 20 and not overlap_problems(cv.objects + [dict(k, kind="card", box=[x, y, x + L["lw"], y + h], z=4)])
+    y = first_fit(sorted(range(H - 400 - h, H - 70 - h + 1, 2), key=lambda yy: abs(yy - (H - L["low"] - h))), fits)
     cv.card(k, x, y, L["lw"])
 
 
 def build_07(b, cv, plat):
-    g = cv.g; M = g["M"]; W = g["W"]
+    g = cv.g; W = g["W"]
     L = dict(ios=dict(sw=1000, y=820), android=dict(sw=800, y=560))[plat]
     bez = bezel(L["sw"])
     # Settings with push and the email digest on and a plainly sample address, one large phone running off the canvas
@@ -685,24 +816,49 @@ def build_07(b, cv, plat):
 
 
 def build_08(b, cv, plat):
+    if plat == "android":
+        return build_08_distance(b, cv, plat)
     g = cv.g; W = g["W"]
-    L = dict(ios=dict(sw=820, y=840, cw=1130), android=dict(sw=580, y=560, cw=880))[plat]
+    L = dict(ios=dict(sw=820, y=840, cw=1130))[plat]
     bez = bezel(L["sw"])
     c = phone_capture(b, plat, "08-plans", L["sw"], L["y"], "06-plans", {"name": "paywall"}, ".plan", me="trial", prep=pick_monthly, records=False)
     ph = cv.phone(c, (W - L["sw"] - 2 * bez) // 2, L["y"])
     k = element_capture(b, plat, "08-solo", "06-plans", ".plan", {"name": "paywall"}, ".plan", me="trial", prep=pick_monthly, records=False)
     assert k["text"].strip().startswith(FACTS["solo_name"]) and FACTS["solo_monthly"] in k["text"].replace(" A MONTH", ""), k["text"]
-    # in place over the phone's Solo card, its top just under the app's top bar so nothing of the screen shows between the two, and
-    # its width (so its height) chosen near the plan so its bottom edge falls between two lines of the screen, never through one
+    # in place over the phone's Solo card, its top just under the app's top bar; its width (so its height) chosen near the plan so it
+    # cuts nothing, keeps 40 px clear of the next line, and leaves the Pro plan's name and price whole in view
     y = round(ph["sy"] + c["scroll_top_css"] * ph["s"]) + 6
-    lines = [(ph["sy"] + t * ph["s"], ph["sy"] + b_ * ph["s"]) for t, b_ in c["lines_css"]]
-    ok_w = [w for w in sorted(range(L["cw"] - 120, L["cw"] + 61, 2), key=lambda w: abs(w - L["cw"]))
-            if not any(t - 3 < y + cv.size_of(k, w) < b_ + 3 for t, b_ in lines)]
-    assert ok_w, (plat, y, [(round(t), round(b_)) for t, b_ in lines], [y + cv.size_of(k, w) for w in (L["cw"] - 120, L["cw"] + 60)])
-    cw = ok_w[0]
+    rects = canvas_rects(cv.objects[-1])
+    pro = [r for r in rects if r[4] == "Pro" or (r[4].startswith("$") and FACTS["solo_monthly"] not in r[4])]
+    assert pro, "the Pro plan's name and price must be on the screen"
+
+    def fits(w):
+        hh = cv.size_of(k, w); x = (W - w) // 2; box = [x, y, x + w, y + hh]
+        if overlap_problems(cv.objects + [dict(k, kind="card", box=box, z=4)]):
+            return False
+        below = [r[1] for r in rects if r[1] >= box[3] and min(r[2], box[2]) - max(r[0], box[0]) > 0]
+        if below and min(below) - box[3] < 40:
+            return False
+        return all(r[1] >= box[3] for r in pro)
+    cw = first_fit(sorted(range(L["cw"] - 200, L["cw"] + 61, 2), key=lambda w: abs(w - L["cw"])), fits)
     h = cv.size_of(k, cw)
     assert y + h >= ph["sy"] + (k["box_css"]["y"] + k["box_css"]["h"] - c["scrolled"]) * ph["s"], "the lifted card must cover the phone's own"
     cv.card(k, (W - cw) // 2, y, cw)
+
+
+def build_08_distance(b, cv, plat):
+    """Android closes on an editorial shot: a real distance, large, over the feed card it came from (no price, no "free")."""
+    g = cv.g; M = g["M"]; W, H = g["W"], g["H"]
+    k = element_capture(b, plat, "08-tree-card", "01-records", "article.card.stripe-civic", ready=".alert-card", nth=0)
+    m = re.search(r"([\d.]+) mi away", k["text"])
+    assert m and k["records"], k["text"]
+    fpx = 300
+    fig_h = round(fpx * 1.32)
+    ch = cv.size_of(k, W - 2 * M)
+    top = g["sub_top"] + 60
+    y0 = top + (H - 60 - top - (fig_h + 40 + ch)) // 2
+    cv.figure(m.group(1), M - round(fpx * 0.04), y0, fpx, "on_brand", source=dict(card=k["key"], text=m.group(0)), unit="MI", unit_color="on_brand_muted")
+    cv.card(k, M, y0 + fig_h + 40, W - 2 * M, shadow=False)
 
 
 BUILD = {"01-map": build_01, "02-storms": build_02, "03-civic": build_03, "04-value": build_04, "05-source": build_05,
@@ -734,6 +890,7 @@ def compose(browser, plat, shot):
     bg = shot["bg"]; assert bg in BACKGROUNDS, bg
     col = {k: TOK[v] for k, v in TEXT[bg].items()}
     cv = Canvas(plat, shot)
+    name = name_of(plat, shot)
     BUILD[shot["name"]](browser, cv, plat)
     html = f"""<!doctype html><html><head><meta charset="utf-8"><style>{css(g)} body{{background:{TOK[bg]}}}
     #eyebrow{{color:{col['eyebrow']}}} #head{{color:{col['head']}}} #sub{{color:{col['sub']}}}</style></head><body>
@@ -741,7 +898,7 @@ def compose(browser, plat, shot):
     <h1 class="t" id="head">{''.join(f'<span>{esc(l)}</span>' for l in t['head'])}</h1>
     <p class="t" id="sub">{esc(t['sub'])}</p>
     {''.join(cv.html)}</body></html>"""
-    f = WORK / f"{plat}-{shot['name']}.html"; f.write_text(html)
+    f = WORK / f"{plat}-{name}.html"; f.write_text(html)
     ctx = browser.new_context(viewport={"width": g["W"], "height": g["H"]}, device_scale_factor=1)
     page = ctx.new_page(); page.goto(f"file://{f}")
     page.evaluate("() => Promise.all(['700 40px \"Barlow Condensed\"', '500 40px Inter', '500 40px \"JetBrains Mono\"'].map(f => document.fonts.load(f)))")
@@ -754,13 +911,17 @@ def compose(browser, plat, shot):
           px: parseFloat(getComputedStyle(e).fontSize), family: getComputedStyle(e).fontFamily, weight: getComputedStyle(e).fontWeight}; };
       const spans = [...document.querySelectorAll('#head span')].map(s => { const r = document.createRange(); r.selectNodeContents(s); const b = r.getBoundingClientRect(); return {x0: b.left, x1: b.right, w: b.width}; });
       // every drawn text a viewer can see (map text under a phone or a card is not seen)
-      const drawn = [...document.querySelectorAll('.t, .fig, .lab, .chip, .cap')].filter(e => { const b = e.getBoundingClientRect();
+      const drawn = [...document.querySelectorAll('.t, .fig, .quote, .lab, .chip, .cap')].filter(e => { const b = e.getBoundingClientRect();
           const h = document.elementFromPoint(Math.min(Math.max(b.left + b.width / 2, 0), innerWidth - 1), Math.min(Math.max(b.top + b.height / 2, 0), innerHeight - 1));
           return h && (h === e || e.contains(h)); }).map(e => { const r = document.createRange(); r.selectNodeContents(e); const rs = [...r.getClientRects()];
           return {cls: e.className || e.id, text: e.innerText, x0: Math.min(...rs.map(q => q.left)), x1: Math.max(...rs.map(q => q.right)),
                   y0: Math.min(...rs.map(q => q.top)), y1: Math.max(...rs.map(q => q.bottom))}; });
       const figs = [...document.querySelectorAll('.fig')].map(e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; });
-      return {eyebrow: box('eyebrow'), head: box('head'), sub: box('sub'), headSpans: spans, drawn, figs,
+      const quotes = [...document.querySelectorAll('.quote')].map(e => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; });
+      const keyed = Object.fromEntries([...document.querySelectorAll('.card[data-key]')].map(e => { const b = e.getBoundingClientRect(); return [e.dataset.key, [b.left, b.top, b.right, b.bottom]]; }));
+      const mapBoxes = [...document.querySelectorAll('.lab, .dot, .cap, .chip')].map(e => { const b = e.getBoundingClientRect();
+          return [e.className, e.dataset.id || e.textContent.trim(), b.left, b.top, b.right, b.bottom]; });
+      return {eyebrow: box('eyebrow'), head: box('head'), sub: box('sub'), headSpans: spans, drawn, figs, quotes, mapBoxes, keyed,
         fontsOk: document.fonts.check('700 20px "Barlow Condensed"') && document.fonts.check('500 20px Inter') && document.fonts.check('500 20px "JetBrains Mono"')}; }""")
     assert m["fontsOk"], m
     W, H, M = g["W"], g["H"], g["M"]
@@ -770,19 +931,38 @@ def compose(browser, plat, shot):
         assert d["x0"] >= g["edge"] - 0.5 and d["x1"] <= W - g["edge"] + 0.5 and d["y0"] >= g["edge"] - 0.5 and d["y1"] <= H - g["edge"] + 0.5, ("drawn text at the edge", plat, shot["name"], d)
     for o, fb in zip([o for o in cv.objects if o["kind"] == "figure"], m["figs"]):
         o["box"] = [round(v) for v in fb]
+    for o, fb in zip([o for o in cv.objects if o["kind"] == "quote"], m["quotes"]):
+        o["box"] = [round(v) for v in fb]
+    for o in cv.objects:
+        if o["kind"] == "map":
+            o["boxes"] = m["mapBoxes"]
+        if o["kind"] == "card":   # every card as laid out in Chrome (flow cards get their place here)
+            kb = m["keyed"][o["key"]]
+            if o["box"][0] is not None:
+                assert max(abs(a - b_) for a, b_ in zip(o["box"], kb)) <= 1, (o["key"], o["box"], kb)
+            o["box"] = [round(v) for v in kb]; o["x"], o["y"] = o["box"][0], o["box"][1]
+    # the overlap rules and the map label clearance, on the canvas as drawn
+    cuts = overlap_problems(cv.objects)
+    clear_ = label_clearance([b_ for b_ in m["mapBoxes"] if b_[0] in ("lab", "dot", "cap", "chip")])
+    assert not cuts and not clear_, (plat, shot["name"], cuts, clear_)
+    # editorial blocks keep their distance: nothing drawn over the words, and 60 px or more between the words and the next object
+    for q in [o for o in cv.objects if o["kind"] == "quote"]:
+        below = [o["box"][1] for o in cv.objects if o is not q and o["box"][1] is not None and o["box"][1] >= q["box"][1]]
+        assert not below or min(below) - q["box"][3] >= 60, (plat, shot["name"], "the quote runs into the next object", q["box"], below)
     hero_top = min(o["box"][1] for o in cv.objects)
     assert hero_top >= m["sub"]["y1"] + 40, ("the hero runs into the supporting line", plat, shot["name"], hero_top, m["sub"])
-    raw = WORK / f"{plat}-{shot['name']}-raw.png"
+    raw = WORK / f"{plat}-{name}-raw.png"
     page.screenshot(path=str(raw), type="png", clip={"x": 0, "y": 0, "width": W, "height": H})
     ctx.close()
     im = Image.open(raw).convert("RGB")
     assert im.size == (W, H), im.size
-    dest = OUT / plat / f"{shot['name']}.png"; dest.parent.mkdir(parents=True, exist_ok=True)
+    dest = OUT / plat / f"{name}.png"; dest.parent.mkdir(parents=True, exist_ok=True)
     im.save(dest, "PNG", optimize=True)
-    info = dict(text=dict(eyebrow=t["eyebrow"], head=list(t["head"]), sub=t["sub"]), bg=bg, bg_hex=TOK[bg], colors=col, comp=shot["comp"], layout=m,
+    info = dict(text=dict(eyebrow=t["eyebrow"], head=list(t["head"]), sub=t["sub"]), bg=bg, bg_hex=TOK[bg], colors=col, comp=comp_of(plat, shot), layout=m,
+                slot=shot["name"][:2], near_px=NEAR,
                 hero_top=hero_top, objects=[{k: (str(v) if isinstance(v, Path) else v) for k, v in o.items()} for o in cv.objects])
-    METRICS["shots"][f"{plat}/{shot['name']}"] = info
-    print(f"{plat}/{shot['name']}: {shot['comp']} on {bg}; " + "; ".join(
+    METRICS["shots"][f"{plat}/{name}"] = info
+    print(f"{plat}/{name}: {comp_of(plat, shot)} on {bg}; " + "; ".join(
         f"{o['kind']} {o.get('key', '')} {[(r.get('signalId', r.get('id')), r.get('distance', r.get('text'))) for r in o.get('records', [])]}" for o in cv.objects))
 
 
@@ -806,8 +986,8 @@ def contact_sheet(browser):
     rows = ""
     for plat in ("ios", "android"):
         g = G[plat]; w = round(hgt * g["W"] / g["H"])
-        cells = "".join(f'<figure><figcaption>{i + 1}</figcaption><img src="file://{OUT / plat / (s["name"] + ".png")}" width="{w}" height="{hgt}"></figure>'
-                        for i, s in enumerate(SHOTS))
+        cells = "".join(f'<figure><figcaption>{i + 1}</figcaption><img src="file://{OUT / plat / (n + ".png")}" width="{w}" height="{hgt}"></figure>'
+                        for i, n in enumerate(PLAT_NAMES[plat]))
         rows += f'<h2>{"iOS 1320 x 2868" if plat == "ios" else "Android 1080 x 1920"}</h2><div class="row">{cells}</div>'
     html = f"""<!doctype html><html><head><meta charset="utf-8"><style>{font_faces()}
       body{{margin:0;padding:48px;background:#FFFFFF;font-family:Inter;color:{TOK['ink']};width:max-content;}}
@@ -849,20 +1029,20 @@ def main():
                                          args=["--no-sandbox", "--hide-scrollbars", "--allow-file-access-from-files", "--font-render-hinting=none"])
             for plat in PLATFORMS:
                 for s in SHOTS:
-                    if only and s["name"] not in only:
+                    if only and s["name"] not in only and name_of(plat, s) not in only:
                         continue
                     compose(browser, plat, s)
             if not only:
                 # files from earlier sets that this script no longer makes
                 for plat in ("ios", "android"):
                     for p in (OUT / plat).glob("*.png"):
-                        if p.stem not in NAMES:
+                        if p.stem not in PLAT_NAMES[plat]:
                             p.unlink(); print("removed old file", p.name)
                 contact_sheet(browser); thumb_strip(browser)
             browser.close()
         prev = json.loads((GEN / "metrics.json").read_text()) if only and (GEN / "metrics.json").exists() else {"shots": {}}
         prev.update({k: v for k, v in METRICS.items() if k != "shots"})
-        prev["shots"] = {k: v for k, v in prev.get("shots", {}).items() if k.split("/", 1)[1] in NAMES}
+        prev["shots"] = {k: v for k, v in prev.get("shots", {}).items() if k.split("/", 1)[1] in PLAT_NAMES[k.split("/", 1)[0]]}
         prev["shots"].update(METRICS["shots"])
         (GEN / "metrics.json").write_text(json.dumps(prev, indent=1, default=str))
     finally:

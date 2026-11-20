@@ -174,6 +174,110 @@
     }
    }
   ],
+  "03-civic": [
+   {
+    "matchId": 55979,
+    "signalId": 46979,
+    "matchedAt": "2026-11-19T03:30:03.463Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+    "summary": "Tree Debris Clean-Up Request | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-19T02:10:27.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Might need work",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 3.7,
+    "distanceLabel": "3.7 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 54354,
+    "signalId": 45354,
+    "matchedAt": "2026-11-19T00:30:08.609Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Emergency",
+    "summary": "Tree Emergency | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-18T22:23:23.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Might need work",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 4.9,
+    "distanceLabel": "4.9 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
+   {
+    "matchId": 13291,
+    "signalId": 4291,
+    "matchedAt": "2026-11-17T18:19:24.472Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-violations",
+    "sourceLabel": "Chicago open data: code violations",
+    "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
+    "title": "Code violation in Chicago: REPAIR ROOF",
+    "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+    "url": "https://data.cityofchicago.org/d/22u3-xenr",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-13T06:00:00.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Might need work",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 5,
+    "distanceLabel": "5 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   }
+  ],
   "03-radius": [],
   "03-radius-android": [],
   "04-source": [
@@ -420,6 +524,108 @@
     "note": null
    }
   },
+  "03-civic:46979": {
+   "matchId": 55979,
+   "signalId": 46979,
+   "matchedAt": "2026-11-19T03:30:03.463Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+   "summary": "Tree Debris Clean-Up Request | Open",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-19T02:10:27.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Might need work",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 3.7,
+   "distanceLabel": "3.7 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "03-civic:45354": {
+   "matchId": 54354,
+   "signalId": 45354,
+   "matchedAt": "2026-11-19T00:30:08.609Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-311",
+   "sourceLabel": "Chicago open data: 311 requests",
+   "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "title": "311 request in Chicago: Tree Emergency",
+   "summary": "Tree Emergency | Open",
+   "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-18T22:23:23.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Might need work",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 4.9,
+   "distanceLabel": "4.9 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "03-civic:4291": {
+   "matchId": 13291,
+   "signalId": 4291,
+   "matchedAt": "2026-11-17T18:19:24.472Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-violations",
+   "sourceLabel": "Chicago open data: code violations",
+   "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
+   "title": "Code violation in Chicago: REPAIR ROOF",
+   "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-13T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "demand",
+    "label": "Might need work",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 5,
+   "distanceLabel": "5 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
   "04-source:33435": {
    "matchId": 42435,
    "signalId": 33435,
@@ -514,6 +720,18 @@
     "tree-service"
    ]
   },
+  "03-civic": {
+   "zip": "60614",
+   "city": "Chicago",
+   "state": "IL",
+   "lat": 41.9229,
+   "lon": -87.6483,
+   "radiusMi": 15,
+   "trades": [
+    "roofing",
+    "tree-service"
+   ]
+  },
   "03-radius": {
    "zip": "60614",
    "city": "Chicago",
@@ -570,6 +788,11 @@
   "02-storms": {
    "15979": "3.1 mi away",
    "24614": "7.4 mi away"
+  },
+  "03-civic": {
+   "4291": "5 mi away",
+   "45354": "4.9 mi away",
+   "46979": "3.7 mi away"
   },
   "03-radius": {},
   "03-radius-android": {},

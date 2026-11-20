@@ -5,3 +5,4 @@ export { RING_MILES, RING_FRACTION, MAP_RADIUS_MI, captionText, captionYPct, pla
 export { mapLabel, labelPhrase } from '../../lib/seo/home-label';
 export { lookupZip, haversineMi } from '../../lib/geo';
 export { matchOne } from '../../lib/signals/match';
+export { formatDistance } from '../../components/format';

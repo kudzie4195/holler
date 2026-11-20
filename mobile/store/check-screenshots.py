@@ -96,7 +96,8 @@ def objs(plat, n, kind=None):
 
 
 # ---------------------------------------------------------------- 1. files ------------------------------------------------------------
-print(f"== 1. Files: exact names, exactly {COUNT} per platform, the same names on both, size, RGB without alpha, under 8 MB; old names gone")
+print(f"== 1. Files: exact names, exactly {COUNT} per platform, the same slots on both (a platform may put its own shot in a slot),")
+print("   size, RGB without alpha, under 8 MB; old names gone")
 names = {plat: sorted(k.split("/", 1)[1] for k in M if k.startswith(plat + "/")) for plat in PLATS}
 for plat in PLATS:
     on_disk = sorted(p.stem for p in (OUT / plat).glob("*"))
@@ -110,15 +111,17 @@ for plat in PLATS:
         b = p.stat().st_size
         ok = im.format == "PNG" and im.size == SIZE[plat] and im.mode == "RGB" and "transparency" not in im.info and b < MAX_BYTES
         print(f"    {plat}/{n}.png {im.format} {im.size[0]}x{im.size[1]} {im.mode} {b / 1e6:.2f} MB {check(ok, f'file {plat}/{n}')}")
-print(f"  same shots on both platforms: {check(names['ios'] == names['android'], 'same names')}")
+slots = {p_: [n[:2] for n in names[p_]] for p_ in PLATS}
+print(f"  same slots on both platforms: {slots['ios']} {check(slots['ios'] == slots['android'] == [f'{i + 1:02d}' for i in range(COUNT)], 'same slots')}")
 legacy = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price",   # round 9
           "01-records", "03-radius", "04-source", "05-push", "06-plans"]                                                          # round 10
-left = [f"{plat}/{n}" for plat in PLATS for n in legacy if (OUT / plat / f"{n}.png").exists() and n not in names[plat]]
+legacy_plat = {"android": ["08-plans"]}                                                                                       # round 11 first set
+left = [f"{plat}/{n}" for plat in PLATS for n in legacy + legacy_plat.get(plat, []) if (OUT / plat / f"{n}.png").exists() and n not in names[plat]]
 print(f"  old file names still present: {left or 'none'} {check(not left, 'old files')}")
 for extra in ("contact-sheet.png", "thumb-strip.png"):
     ok = (OUT / extra).exists()
     print(f"  {extra}: {Image.open(OUT / extra).size if ok else 'missing'} {check(ok, extra)}")
-NAMES = names["ios"]
+PN = names            # per platform
 
 # ---------------------------------------------------------------- 2. the drawn text, measured ----------------------------------------
 print("\n== 2. Drawn text measured in the PNG (text pixel = differs from the background by more than 60 in RGB sum, in the header band")
@@ -126,7 +129,7 @@ print("   from the top to 12 px under the supporting line)")
 meas = {}
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         bg = np.array(hexrgb(m["bg_hex"]))
         band_bottom = int(m["layout"]["sub"]["y1"]) + 12
@@ -157,23 +160,23 @@ for plat in PLATS:
 print("\n   Headline cap height and cap top (median connected component of line 1) and the baseline of every text line (median glyph")
 print("   bottom), each the same within 2 px across the set: one type system")
 for plat in PLATS:
-    caps = {n: meas[(plat, n)].get("cap") for n in NAMES}
-    tops = {n: meas[(plat, n)].get("cap_top") for n in NAMES}
+    caps = {n: meas[(plat, n)].get("cap") for n in PN[plat]}
+    tops = {n: meas[(plat, n)].get("cap_top") for n in PN[plat]}
     ok = None not in caps.values() and max(caps.values()) - min(caps.values()) <= 2 and max(tops.values()) - min(tops.values()) <= 2
     print(f"   {plat}: cap heights {caps}; cap tops {tops} {check(ok, f'headline cap {plat}')}")
     for part, label in (("eyebrow", "eyebrow baseline"), ("h1", "headline line 1 baseline"), ("h2", "headline line 2 baseline"), ("sub", "supporting line baseline")):
-        d = {n: meas[(plat, n)]["base"][part] for n in NAMES if "base" in meas[(plat, n)]}
-        ok = len(d) == len(NAMES) and max(d.values()) - min(d.values()) <= 2
+        d = {n: meas[(plat, n)]["base"][part] for n in PN[plat] if "base" in meas[(plat, n)]}
+        ok = len(d) == len(PN[plat]) and max(d.values()) - min(d.values()) <= 2
         print(f"   {plat}: {label} {d} {check(ok, f'{label} {plat}')}")
 
 print("\n   Left margin: eyebrow, headline and supporting-line ink within the first letter's side bearing of the margin; text box left in")
 print("   Chrome exactly the margin: one margin system")
 for plat in PLATS:
     g = GRID[plat]
-    ex = {n: meas[(plat, n)].get("eyebrow_x0") for n in NAMES}
-    hx = {n: meas[(plat, n)].get("head_x0") for n in NAMES}
-    sx = {n: meas[(plat, n)].get("sub_x0") for n in NAMES}
-    box = {n: (M[f"{plat}/{n}"]["layout"]["head"]["x0"], M[f"{plat}/{n}"]["layout"]["sub"]["x0"], M[f"{plat}/{n}"]["layout"]["eyebrow"]["x0"]) for n in NAMES}
+    ex = {n: meas[(plat, n)].get("eyebrow_x0") for n in PN[plat]}
+    hx = {n: meas[(plat, n)].get("head_x0") for n in PN[plat]}
+    sx = {n: meas[(plat, n)].get("sub_x0") for n in PN[plat]}
+    box = {n: (M[f"{plat}/{n}"]["layout"]["head"]["x0"], M[f"{plat}/{n}"]["layout"]["sub"]["x0"], M[f"{plat}/{n}"]["layout"]["eyebrow"]["x0"]) for n in PN[plat]}
     ok = (all(v is not None and g["M"] <= v <= g["M"] + 10 for v in ex.values()) and all(v is not None and g["M"] <= v <= g["M"] + 16 for v in hx.values())
           and all(v is not None and g["M"] <= v <= g["M"] + 10 for v in sx.values()) and all(b == (g["M"], g["M"], g["M"]) for b in box.values()))
     print(f"   {plat}: margin {g['M']}; eyebrow ink x {ex}; headline ink x {hx}; supporting ink x {sx} {check(ok, f'left margin {plat}')}")
@@ -182,7 +185,7 @@ print(f"\n   Drawn text distance from every edge (iOS >= {EDGE['ios']} px, Andro
 print("   PNG, and every drawn text a viewer can see (map labels, ring captions, the ZIP chip, the figure) measured in Chrome")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         i = meas[(plat, n)]
         d = dict(left=i["x0"], right=W - 1 - i["x1"], top=i["y0"])
         drawn = M[f"{plat}/{n}"]["layout"]["drawn"]
@@ -195,7 +198,7 @@ print("\n== 3. Colour")
 print("   Contrast of drawn text (WCAG 2.x) against the background measured in the PNG; the text colour is the most common text pixel")
 print("   colour of each band, which must equal the token (within 12)")
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n); m = M[f"{plat}/{n}"]; i = meas[(plat, n)]
         bg = tuple(int(v) for v in a[8, 8])
         out = []
@@ -218,7 +221,7 @@ print("\n   Background: flat (four corners, the left and right margins beside th
 print("   token, and one of the brand backgrounds (field green, paper, sky, sage, civic tints)")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         sy = int(m["layout"]["sub"]["y1"]) + 20
         pts = [(4, 4), (W - 5, 4), (4, H - 5), (W - 5, H - 5), (8, sy), (W - 9, sy), (W // 2, sy)]
@@ -229,8 +232,8 @@ for plat in PLATS:
         cols = {"#" + "".join(f"{int(c):02X}" for c in a[y, x]) for x, y in pts if not covered(x, y)}
         ok = cols == {TOKENS.get(m["bg"], "?")} and m["bg_hex"] == TOKENS.get(m["bg"])
         print(f"   {plat}/{n} ({m['bg']}): {sorted(cols)} {check(ok, f'flat background {plat}/{n}')}")
-    seq = [(M[f"{plat}/{n}"]["bg"], M[f"{plat}/{n}"]["comp"]) for n in NAMES]
-    same = [(NAMES[i], NAMES[i + 1]) for i in range(len(seq) - 1) if seq[i] == seq[i + 1]]
+    seq = [(M[f"{plat}/{n}"]["bg"], M[f"{plat}/{n}"]["comp"]) for n in PN[plat]]
+    same = [(PN[plat][i], PN[plat][i + 1]) for i in range(len(seq) - 1) if seq[i] == seq[i + 1]]
     print(f"   {plat}: background and composition per shot {seq}")
     print(f"   {plat}: neighbours sharing both background and composition: {same or 'none'} {check(not same, f'neighbours {plat}')}")
 
@@ -238,7 +241,7 @@ print("\n   Lime #D9F046 (pixels within 60 of it): a small accent only, never dr
 print("   canvas; largest cluster at most 0.5% of the canvas, all lime at most 1%")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         lime = np.abs(a - np.array(LIME)).sum(axis=2) < 60
         lab, k = ndimage.label(lime)
@@ -255,7 +258,7 @@ for plat in PLATS:
 
 print("\n   Orange (hue 10 to 32 deg, saturation and value >= 0.6, the old #E8590C family): no cluster larger than 4 px")
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n).astype(np.float32) / 255
         mx = a.max(axis=2); mn = a.min(axis=2); d = mx - mn
         sat = np.where(mx > 0, d / np.maximum(mx, 1e-6), 0)
@@ -273,7 +276,7 @@ print("\n== 4. Heroes: every phone frame found in the PNG as flat ink #14201A wi
 print("   rows no other object covers); every phone and card inside the canvas sideways; nothing runs into the supporting line")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         ink = np.abs(a - np.array(INK)).sum(axis=2) <= 6
         res = []
@@ -309,7 +312,7 @@ print("\n   Whole lines at every cut (the round 10 rules): no text block has lin
 print("   whole phone, the canvas edge on a phone that runs off), the first line in the scroller is whole, the last line in view is never")
 print("   a group or section heading with its items under the cut, and no screen shows the feed's end-of-list line")
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         for o in objs(plat, n, "phone"):
             end = END_OF_FEED in o["screen_text"]
             ok = not o["split_at_edge"] and not o["last_line_is_heading"] and not end and o["edge_clear_css"] >= 2
@@ -321,7 +324,7 @@ print("\n   Text size on the canvas: app text on a phone >= iOS 20 / Android 16 
 print("   labels at least the eyebrow size")
 for plat in PLATS:
     g = GRID[plat]
-    for n in NAMES:
+    for n in PN[plat]:
         parts = []
         ok = True
         for o in M[f"{plat}/{n}"]["objects"]:
@@ -340,7 +343,7 @@ print("\n== 5. Truth: every record on a phone or a lifted card is a real fixture
 print("   the server's matchOne gave, and its title is on that screen; no other record title appears anywhere")
 all_titles = {r["title"] for r in FX["rows"]}
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         for o in M[f"{plat}/{n}"]["objects"]:
             if o["kind"] not in ("phone", "card"):
                 continue
@@ -364,9 +367,9 @@ for plat in PLATS:
                   f"{check(not bad and not stray, 'records ' + plat + '/' + n + ' ' + o['key'] + ' ' + str(bad) + ' ' + str(stray))}")
 
 print("\n   The map: every dot is a fixture row inside the 6 mi circle of the member's ZIP point, drawn at its true distance (lib/geo")
-print("   haversine, one decimal, as its label says) and its true bearing; the ZIP is the member's")
+print("   haversine, labelled the way the app writes distances: one decimal, '.0' dropped) and its true bearing; the ZIP is the member's")
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         for o in objs(plat, n, "map"):
             prof = next(p for p in DATA["profiles"].values() if p["zip"] == o["zip"])
             bad = []
@@ -378,7 +381,8 @@ for plat in PLATS:
                 br = bearing(prof["lat"], prof["lon"], row["lat"], row["lon"])
                 cx, cy = o["centre"]; ppm = o["px_per_mi"]
                 ex, ey = cx + mi * ppm * math.sin(math.radians(br)), cy - mi * ppm * math.cos(math.radians(br))
-                if not (0 < mi <= 6) or abs(mi - r["mi"]) > 0.05 or not r["text"].endswith(f"{mi:.1f} MI"):
+                app = (f"{mi:.1f}".removesuffix(".0") if mi < 10 else str(round(mi))) + " MI"   # components/format.ts formatDistance
+                if not (0 < mi <= 6) or abs(mi - r["mi"]) > 0.05 or not r["text"].endswith(" " + app):
                     bad.append((r["id"], f"distance {mi} vs drawn {r['mi']} '{r['text']}'"))
                 if abs(br - r["bearing"]) > 0.5 or math.hypot(ex - r["x"], ey - r["y"]) > 2:
                     bad.append((r["id"], "not at its bearing and distance"))
@@ -389,10 +393,10 @@ for plat in PLATS:
 
 print("\n   Big figures: copied from the card beside them")
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         for o in objs(plat, n, "figure"):
             card = next(q for q in M[f"{plat}/{n}"]["objects"] if q.get("key") == o["source"]["card"])
-            ok = o["text"] in card["text"] and o["source"]["text"] in card["text"]
+            ok = o.get("number", o["text"]) in o["source"]["text"] and o["source"]["text"] in card["text"]
             print(f"   {plat}/{n}: '{o['text']}' from '{o['source']['text']}' on card {card['key']} {check(ok, f'figure {plat}/{n}')}")
 
 FACT = {}
@@ -404,7 +408,7 @@ solo_price = f"${d}" if c == 0 else f"${d}.{c:02d}"
 print(f"\n   Shot facts. lib facts read now: Solo monthly {solo_price} (lib/stripe/plans.ts PRICES_CENTS), trial {trial} days (lib/auth/membership.ts TRIAL_DAYS)")
 labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         t = M[f"{plat}/{n}"]["text"]
         for o in objs(plat, n, "phone"):
             if o.get("profile_key"):
@@ -443,11 +447,96 @@ for plat in PLATS:
                 ok = o["text"].strip().startswith("Solo") and solo_price in o["text"]
                 print(f"   {plat}/{n}: lifted plan card '{' / '.join(o['text'].splitlines()[:2])}' {check(ok, f'plan card {plat}/{n}')}")
 
+print("\n   Record words set large (quotes): the record's own title, then parts of its own summary, as served to the member; the source line is")
+print("   its source label, and both are on that alert's screen")
+for plat in PLATS:
+    for n in PN[plat]:
+        for o in objs(plat, n, "quote"):
+            src = o["source"]; recs = src["records"]
+            it = DATA["alerts"].get(f"01-records:{recs[0]['signalId']}") if recs else None
+            ok = bool(it) and o["lines"] == [it["title"]] + it["summary"].split(" | ")[1:] and o["attribution"] == it["sourceLabel"] and src["text"] == it["summary"]
+            ok &= ROWS[recs[0]["signalId"]]["title"] == it["title"]
+            ok &= recs[0]["distance"] == it["distanceLabel"] and ROWS[recs[0]["signalId"]]["summary"] == it["summary"]
+            print(f"   {plat}/{n}: {o['lines']} / {o['attribution']} (row {recs[0]['signalId'] if recs else '?'}) {check(ok, f'quote {plat}/{n}')}")
+
+print("\n   Android shows no plan price and no 'free' anywhere: not in the drawn text, not on a lifted card, not on any phone screen")
+prices = {p_[per]["display"] for p_ in DATA["config"]["plans"].values() for per in ("monthly", "yearly")}
+for n in PN["android"]:
+    texts = []
+    for o in M[f"android/{n}"]["objects"]:
+        texts += o.get("screen_text", []) + [o.get("text") or ""] + o.get("lines", []) + [o.get("attribution") or ""]
+    t = M[f"android/{n}"]["text"]; texts += [t["eyebrow"], *t["head"], t["sub"]]
+    hits = sorted({p_ for p_ in prices for x in texts if p_ in x} | {x for x in texts if re.search(r"\bfree\b", x.lower())})
+    print(f"   android/{n}: {hits or 'none'} {check(not hits, f'android price {n}')}")
+
+# ---------------------------------------------------------------- 5b. overlaps ------------------------------------------------------
+NEAR = 8
+
+
+def canvas_rects(o):
+    if o["kind"] == "phone":
+        sx, sy, s_ = o["x"] + o["bez"], o["y"] + o["bez"], o["s"]
+        return [(sx + r[0] * s_, sy + r[1] * s_, sx + r[2] * s_, sy + r[3] * s_, r[4]) for r in o["rects_css"]]
+    if o["kind"] == "map":
+        return [tuple(b[2:6]) + (f"{b[0]} {b[1]}",) for b in o.get("boxes", []) if b[0] in ("lab", "cap", "chip")]
+    return []
+
+
+print("\n== 5b. Overlaps: whatever is drawn over a phone or the map (a lifted card, a second phone) covers each text line, chip, button and")
+print(f"   icon under it whole or not at all, and a lifted card's edge keeps {NEAR} px or more from any line it leaves in view")
+for plat in PLATS:
+    for n in PN[plat]:
+        ob = M[f"{plat}/{n}"]["objects"]; probs = []; pairs = 0
+        for i, a in enumerate(ob):
+            if a["kind"] not in ("phone", "card"):
+                continue
+            ax0, ay0, ax1, ay1 = a["box"]
+            for j, b in enumerate(ob):
+                if b is a or b["kind"] not in ("phone", "map") or not (a["z"] > b["z"] or (a["z"] == b["z"] and i > j)):
+                    continue
+                pairs += 1
+                for x0, y0, x1, y1, lab in canvas_rects(b):
+                    ix = max(0.0, min(x1, ax1) - max(x0, ax0)); iy = max(0.0, min(y1, ay1) - max(y0, ay0))
+                    inter, area = ix * iy, (x1 - x0) * (y1 - y0)
+                    if inter > 1 and inter < area - 1:
+                        probs.append(f"{a.get('key', a['kind'])} cuts '{lab}'")
+                    elif inter <= 1 and a["kind"] == "card" and min(x1, ax1) - max(x0, ax0) > 0 and (0 <= y0 - ay1 < NEAR or 0 <= ay0 - y1 < NEAR):
+                        probs.append(f"{a.get('key')} edge near '{lab}'")
+        print(f"   {plat}/{n}: {pairs} object pairs, {probs or 'no cut or crowded line'} {check(not probs, f'overlap {plat}/{n}')}")
+
+print("\n   Lifted cuts are clean: one element's own box, or (with padding) only that screen's flat paper around it; nothing of a")
+print("   neighbouring element is taken in (the outer ring of the saved cut, 2 CSS px short of the element, is one colour)")
+for plat in PLATS:
+    for n in PN[plat]:
+        for o in objs(plat, n, "card"):
+            ok = True; note = "own box"
+            if o["pad"]:
+                a = np.asarray(Image.open(o["path"]).convert("RGB"), dtype=np.int16); k = max(1, (o["pad"] - 2) * 4)
+                ring = np.concatenate([a[:k].reshape(-1, 3), a[-k:].reshape(-1, 3), a[:, :k].reshape(-1, 3), a[:, -k:].reshape(-1, 3)])
+                ok = bool((np.abs(ring - ring[0]).max(axis=1) <= 3).all()); note = f"pad {o['pad']} CSS px, ring colour #{''.join(f'{int(v):02X}' for v in ring[0])}"
+            print(f"   {plat}/{n} {o['key']}: {note} {check(ok, 'clean cut ' + plat + '/' + n + ' ' + o['key'])}")
+
+print("\n   Map labels at least 6 px from every other label, dot, ring caption and the ZIP chip (their own dot excepted)")
+for plat in PLATS:
+    for n in PN[plat]:
+        for o in objs(plat, n, "map"):
+            bx = [b for b in o["boxes"] if b[0] in ("lab", "dot", "cap", "chip")]
+            gaps = []
+            for k_, (kind, id_, x0, y0, x1, y1) in enumerate(bx):
+                if kind != "lab":
+                    continue
+                for kind2, id2, a0, b0, a1, b1 in bx[:k_] + bx[k_ + 1:]:
+                    if kind2 == "dot" and id2 == id_:
+                        continue
+                    gaps.append((max(a0 - x1, x0 - a1, b0 - y1, y0 - b1), id_, kind2, id2))
+            g_ = min(gaps)
+            print(f"   {plat}/{n}: smallest label gap {g_[0]:.1f} px (label {g_[1]} to {g_[2]} {g_[3]}) {check(g_[0] >= 6, f'map labels {plat}/{n}')}")
+
 # ---------------------------------------------------------------- 6. words ----------------------------------------------------------
 print("\n== 6. Drawn text: wording rules")
 zips = {p["zip"] for p in DATA["profiles"].values()}
 for plat in PLATS:
-    for n in NAMES:
+    for n in PN[plat]:
         t = M[f"{plat}/{n}"]["text"]
         drawn = [t["eyebrow"], *t["head"], t["sub"]]
         s = " ".join(drawn)
