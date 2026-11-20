@@ -205,7 +205,7 @@ export function RequestForm({ groups }: { groups: RequestTradeGroup[] }) {
             aria-describedby={errors.consent ? `${consentId}-error` : undefined}
             className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
           />
-          <span>
+          <span className="min-w-0 break-words">
             I am 18 or older and agree to the{' '}
             <Link href="/terms" className="font-medium text-brand-text underline">
               Terms

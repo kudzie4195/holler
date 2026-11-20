@@ -16,7 +16,18 @@ const serverCookie = () => '';
  * `initialPicked`) turn the matching buttons into a disabled "Picked". Static pages stay static because nothing here reads cookies
  * on the server. No counts are shown anywhere.
  */
-export function ComingNext({ page, initialPicked = [], className = '' }: { page: string; initialPicked?: readonly FeatureId[]; className?: string }) {
+export function ComingNext({
+  page,
+  initialPicked = [],
+  className = '',
+  split = false,
+}: {
+  page: string;
+  initialPicked?: readonly FeatureId[];
+  className?: string;
+  /** From md up: heading in the left third, intro and list in the right two thirds (the /pricing lower sections). */
+  split?: boolean;
+}) {
   const headingId = useId();
   const cookie = useSyncExternalStore(noop, readCookie, serverCookie);
   const [local, setLocal] = useState<FeatureId[]>([]);
@@ -50,38 +61,43 @@ export function ComingNext({ page, initialPicked = [], className = '' }: { page:
   }
 
   return (
-    <section aria-labelledby={headingId} className={className}>
+    <section
+      aria-labelledby={headingId}
+      className={`${split ? 'md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-12' : ''} ${className}`.trim() || undefined}
+    >
       <h2 id={headingId} className="text-3xl text-ink md:text-4xl">
         {COMING_NEXT.heading}
       </h2>
-      <p className="mt-2 text-muted">{COMING_NEXT.intro}</p>
-      <ul className="mt-6 border-t-2 border-ink">
-        {FEATURES.map((f) => {
-          const isPicked = picked.has(f.id);
-          return (
-            <li key={f.id} className="flex flex-col gap-3 border-b border-line py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-              <div className="min-w-0">
-                <h3 className="text-lg font-semibold text-ink">{f.label}</h3>
-                <p className="mt-1 text-muted">{f.description}</p>
-              </div>
-              <Button
-                variant={isPicked ? 'ghost' : 'secondary'}
-                size="md"
-                className="w-full shrink-0 sm:w-36"
-                disabled={isPicked || busy !== null}
-                aria-label={`${isPicked ? COMING_NEXT.picked : COMING_NEXT.button}: ${f.label}`}
-                onClick={() => pick(f.id, f.label)}
-              >
-                {isPicked ? COMING_NEXT.picked : COMING_NEXT.button}
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
-      {/* Always in the layout, so a message never moves the list. role=status announces it. */}
-      <p role="status" className={`mt-3 min-h-6 text-sm ${message?.error ? 'text-danger' : 'text-muted'}`}>
-        {message?.text ?? ''}
-      </p>
+      <div className="min-w-0">
+        <p className={`mt-2 text-muted ${split ? 'md:mt-0' : ''}`}>{COMING_NEXT.intro}</p>
+        <ul className="mt-6 border-t-2 border-ink">
+          {FEATURES.map((f) => {
+            const isPicked = picked.has(f.id);
+            return (
+              <li key={f.id} className="flex flex-col gap-3 border-b border-line py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-ink">{f.label}</h3>
+                  <p className="mt-1 text-muted">{f.description}</p>
+                </div>
+                <Button
+                  variant={isPicked ? 'ghost' : 'secondary'}
+                  size="md"
+                  className="w-full shrink-0 sm:w-36"
+                  disabled={isPicked || busy !== null}
+                  aria-label={`${isPicked ? COMING_NEXT.picked : COMING_NEXT.button}: ${f.label}`}
+                  onClick={() => pick(f.id, f.label)}
+                >
+                  {isPicked ? COMING_NEXT.picked : COMING_NEXT.button}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+        {/* Always in the layout, so a message never moves the list. role=status announces it. */}
+        <p role="status" className={`mt-3 min-h-6 text-sm ${message?.error ? 'text-danger' : 'text-muted'}`}>
+          {message?.text ?? ''}
+        </p>
+      </div>
     </section>
   );
 }

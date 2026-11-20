@@ -38,22 +38,16 @@ export default function PricingPage() {
             </h2>
             <Pricing />
             <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p>
-            {/* The rest of the intro, under the cards: on a phone the band holds one sentence so the first price is on screen. */}
-            <div className="mt-6 flex max-w-2xl flex-col gap-2 text-muted">
-              {PRICING_INTRO.slice(1).map((t) => (
-                <p key={t}>{t}</p>
-              ))}
-            </div>
           </div>
         </section>
 
+        {/* Below the cards: heading left, body right from md up (the home FAQ shape), so the lower sections use the full box. */}
         <section aria-labelledby="compare-h" className="bg-sand">
-          <div className={`${PAGE_BOX} py-12 md:py-16`}>
-            <div className="max-w-3xl">
+          <div className={`${PAGE_BOX} py-12 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-12 md:py-16`}>
             <h2 id="compare-h" className="text-3xl text-ink md:text-4xl">
               {TIER_NAMES.starter} and {TIER_NAMES.pro} side by side
             </h2>
-            <div className="mt-6 overflow-x-auto">
+            <div className="mt-6 min-w-0 overflow-x-auto md:mt-0">
               <table className="w-full border-collapse border-t-2 border-ink text-left text-base">
                 <thead>
                   <tr className="border-b border-line font-mono text-xs uppercase tracking-[0.06em]">
@@ -81,36 +75,33 @@ export default function PricingPage() {
                 </tbody>
               </table>
             </div>
-            </div>
           </div>
         </section>
 
         <div className={`${PAGE_BOX} py-12 md:py-16`}>
-          <div className="max-w-3xl">
-            <ComingNext page="pricing" />
-          </div>
+          <ComingNext page="pricing" split />
         </div>
 
-        <section aria-labelledby="faq-h" className={`${PAGE_BOX} pb-16 md:pb-20`}>
-          <div className="max-w-3xl">
+        <section aria-labelledby="faq-h" className={`${PAGE_BOX} pb-16 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-12 md:pb-20`}>
           <h2 id="faq-h" className="text-3xl text-ink md:text-4xl">
             Billing questions
           </h2>
-          <dl className="mt-6 border-t-2 border-ink">
-            {PRICING_FAQ.map((f) => (
-              <div key={f.q} className="border-b border-line py-5">
-                <dt className="text-lg font-semibold text-ink">{f.q}</dt>
-                <dd className="mt-1 text-muted">{f.a}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="mt-8 text-sm text-muted">
-            The full rules are in the{' '}
-            <Link href="/terms" className="font-medium text-brand-text underline decoration-1 underline-offset-4">
-              terms
-            </Link>
-            .
-          </p>
+          <div className="min-w-0">
+            <dl className="mt-6 border-t-2 border-ink md:mt-0">
+              {PRICING_FAQ.map((f) => (
+                <div key={f.q} className="border-b border-line py-5">
+                  <dt className="text-lg font-semibold text-ink">{f.q}</dt>
+                  <dd className="mt-1 text-muted">{f.a}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-8 text-sm text-muted">
+              The full rules are in the{' '}
+              <Link href="/terms" className="font-medium text-brand-text underline decoration-1 underline-offset-4">
+                terms
+              </Link>
+              .
+            </p>
           </div>
         </section>
       </main>

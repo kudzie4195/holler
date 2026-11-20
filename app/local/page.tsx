@@ -43,7 +43,7 @@ export default function LocalIndexPage() {
       <Ledger className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
         {states.map((s) => (
           <li key={s.slug}>
-            <Link href={`/local/${s.slug}`} className={`${rowLinkClass} flex min-h-12 w-full items-center justify-between gap-4 py-1`}>
+            <Link href={`/local/${s.slug}`} className={`${rowLinkClass} flex min-h-12 w-full flex-wrap items-center justify-between gap-x-4 py-1`}>
               <span className="text-lg font-medium">{s.name}</span>
               <span className="font-mono text-sm text-muted">
                 {s.cities} {s.cities === 1 ? 'city' : 'cities'}

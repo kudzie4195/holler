@@ -196,18 +196,10 @@ export default async function CityPage({ params }: Props) {
           </Ledger>
         </section>
 
-        <Aside>
-          <ClosingBand line={<>Know first when {city.name} needs you.</>}>
-            <PrimaryLink href={ctaHref} onBrand>
-              {ctaLabel}
-            </PrimaryLink>
-          </ClosingBand>
-        </Aside>
-
         {nearby.length ? (
           <section aria-labelledby="nearby">
             <H2 id="nearby">Nearby cities</H2>
-            <Ledger className="mt-4 grid grid-cols-2 gap-x-6 sm:grid-cols-3">
+            <Ledger className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(11rem,100%),1fr))] gap-x-6">
               {nearby.map((c) => (
                 <li key={c.slug}>
                   <Link href={cityPath(c)} className={`${rowLinkClass} flex min-h-12 items-center`}>
@@ -218,6 +210,17 @@ export default async function CityPage({ params }: Props) {
             </Ledger>
           </section>
         ) : null}
+
+        {/* After "Nearby cities" in the source, so focus goes FAQ, nearby links, then this card (final review A P2-6). From
+            1024 px it sits in the right column, so where it is in the source does not move it on screen. The hero CTA above carries
+            the price, so the card's button is short (final review B P2-2). */}
+        <Aside>
+          <ClosingBand line={<>Know first when {city.name} needs you.</>}>
+            <PrimaryLink href={ctaHref} onBrand>
+              Get {city.name} alerts
+            </PrimaryLink>
+          </ClosingBand>
+        </Aside>
 
         {usedSources.length ? (
           <p className="text-sm text-muted">

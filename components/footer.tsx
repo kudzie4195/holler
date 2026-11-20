@@ -36,7 +36,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/local', label: 'By city' },
         { href: '/guides', label: 'Guides' },
         { href: '/faq', label: 'FAQ' },
-        { href: '/data', label: 'Data' },
+        { href: '/data', label: 'Local public records in numbers' },
         { href: '/about', label: 'About' },
       ],
     },
@@ -91,7 +91,7 @@ export function Footer() {
       </div>
       <div className={`${PAGE_BOX} pb-10`}>
         <div className="flex flex-col gap-2 border-t border-brand-raised pt-6 text-sm text-on-brand-faint">
-          <p>
+          <p className="text-pretty">
             Data comes from public government records and can be late or wrong, and Holler is not affiliated with or endorsed by any
             government agency. Check the source before you act.
           </p>

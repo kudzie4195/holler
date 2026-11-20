@@ -24,8 +24,8 @@ export const WIDTH = {
 export type Width = keyof typeof WIDTH;
 
 /**
- * Breadcrumb trail. Mono uppercase, so on a green header it also reads as the page's eyebrow. Every link is a 44 by 44 px target
- * (a short word such as "HOME" is 34 px wide on its own).
+ * Breadcrumb trail. Mono uppercase, so on a green header it also reads as the page's eyebrow. Every link is 44 px tall; its width
+ * is the word, so the gap before each slash is the same 8 px (final review B P2-4). "HOME" is 34 px wide, above the 24 px minimum.
  * `onBrand` (the default, as the trail sits in the header band) uses on-brand-muted links; off the band it uses muted.
  */
 export function Crumbs({ items, onBrand = true }: { items: Crumb[]; onBrand?: boolean }) {
@@ -37,7 +37,7 @@ export function Crumbs({ items, onBrand = true }: { items: Crumb[]; onBrand?: bo
         {items.map((c, i) => (
           <li key={c.name} className="flex min-w-0 items-center gap-2">
             {c.href ? (
-              <Link href={c.href} className={`inline-flex min-h-11 min-w-11 items-center underline decoration-1 underline-offset-4 ${link}`}>
+              <Link href={c.href} className={`inline-flex min-h-11 items-center underline decoration-1 underline-offset-4 ${link}`}>
                 {c.name}
               </Link>
             ) : (

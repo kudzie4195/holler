@@ -59,11 +59,12 @@ export function Page({
 /**
  * The right-hand column of a `withAside` page. Under 1024 px it is a plain block in the page flow, exactly where the page puts it.
  * From 1024 px up it is taken out of the flow into the 320 px column on the right, as tall as the text column, and its content
- * sticks 96 px from the top (under the 64 px bar). No new content: it wraps the card the page already has.
+ * sticks 96 px from the top (under the 64 px bar). No new content: it wraps the card the page already has. From 1024 px up every
+ * button in it takes the full card width, so one card or two stacked buttons share one right edge (final review B P2-2).
  */
 export function Aside({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div data-aside="" className={`lg:absolute lg:inset-y-0 lg:right-0 lg:w-80 ${className}`.trim()}>
+    <div data-aside="" className={`lg:absolute lg:inset-y-0 lg:right-0 lg:w-80 lg:[&_a]:w-full ${className}`.trim()}>
       <div className="lg:sticky lg:top-24">{children}</div>
     </div>
   );
@@ -116,12 +117,13 @@ export const rowLinkClass = 'decoration-1 underline-offset-4 hover:underline hov
 
 /**
  * One-line public-records note for city, weekly and trade pages (legal.md (d), kept to one sentence): where the records come from,
- * no agency affiliation, and how to get one fixed or removed (SUPPORT_EMAIL when set, always the Terms link).
+ * no agency affiliation, and how to get one fixed or removed (SUPPORT_EMAIL when set, always the Terms link). No rule above it: on
+ * trade and city pages the last ledger row already draws one (final review B P2-3).
  */
 export function PublicRecordsNote() {
   const support = env.SUPPORT_EMAIL?.trim() || null;
   return (
-    <p className="mt-10 border-t border-line pt-4 text-xs text-muted">
+    <p className="mt-10 text-xs text-muted">
       Most records here come from public government records, which can be late or wrong; Holler is not affiliated with any agency, and to
       fix or remove a record,{' '}
       {support ? (

@@ -8,7 +8,7 @@ describe('placement', () => {
   const pricing = read('app/pricing/page.tsx');
   it('/pricing shows the list below the plans and above the FAQ', () => {
     const plans = pricing.indexOf('<Pricing />');
-    const list = pricing.indexOf('<ComingNext page="pricing" />');
+    const list = pricing.indexOf('<ComingNext page="pricing" split />');
     const faq = pricing.indexOf('id="faq-h"');
     expect(plans).toBeGreaterThan(-1);
     expect(list).toBeGreaterThan(plans);

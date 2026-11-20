@@ -141,7 +141,7 @@ describe('share metadata (Open Graph and Twitter)', () => {
 });
 
 describe('/data is titled as records, not demand', () => {
-  it('title, description, JSON-LD names, footer and home links say "public records in numbers"', () => {
+  it('title, description, JSON-LD names, footer and home links say "Local public records in numbers"', () => {
     expect(DATA_META.title).toMatch(/^Local Public Records in Numbers/);
     expect(DATA_META.description).toContain('dated in the last 7 and 30 days');
     expect(DATA_META.description).not.toMatch(/demand|arrived/i);
@@ -150,8 +150,7 @@ describe('/data is titled as records, not demand', () => {
     expect(ld).toContain('Local public records in numbers');
     expect(ld).not.toMatch(/demand in numbers/i);
     expect(JSON.stringify(dataJsonLd({ ok: false } as never))).toContain('Local public records in numbers');
-    // Round 9 footer: the shorter label from the brief, still records, not demand.
-    expect(renderToStaticMarkup(createElement(Footer))).toMatch(/href="\/data"[^>]*>Data</);
+    expect(renderToStaticMarkup(createElement(Footer))).toContain('Local public records in numbers');
     for (const f of ['app/page.tsx', 'app/data/page.tsx', 'lib/seo/national-seo.ts', 'lib/seo/llms-extra.ts', 'lib/seo/guides/seo.ts', 'components/footer.tsx']) {
       expect(read(f), f).not.toMatch(/demand in numbers/i);
     }

@@ -41,7 +41,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     signals: [
       { signal: 'Hail reports', type: 'storm-report', why: 'A report of quarter-size hail in a town usually means a whole neighborhood of roofs to inspect within days.' },
       { signal: 'Wind and tornado reports', type: 'storm-report', why: 'Shingles lift and flashing tears long before anyone sees a leak, so a damaging-wind report is an early sign that roofs nearby may need a look.' },
-      { signal: 'Severe thunderstorm and tornado warnings', type: 'weather-alert', why: 'A warning tells you which zip codes to canvass first once the storm clears.' },
+      { signal: 'Severe thunderstorm and tornado warnings', type: 'weather-alert', why: 'A warning tells you which ZIP codes to canvass first once the storm clears.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Insured storm claims flow after a declaration, and homeowners start calling roofers the same week.' },
       { signal: 'People asking for a roofer', type: 'ask', why: 'Someone posted publicly that they need a recommendation. Reply fast and you may be the only quote they get.' },
     ],
@@ -232,7 +232,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     headline: 'Hail damage alerts for auto body and dent repair shops',
     lead: 'Paintless dent repair crews chase hail. Body shops get the claims that follow. Holler tells you where it fell.',
     signals: [
-      { signal: 'Hail reports', type: 'storm-report', why: 'A report of golf-ball hail means hundreds of dented hoods and roofs in one zip code.' },
+      { signal: 'Hail reports', type: 'storm-report', why: 'A report of golf-ball hail means hundreds of dented hoods and roofs in one ZIP code.' },
       { signal: 'Wind, tornado and flood warnings', type: 'weather-alert', why: 'Fallen limbs, flood-damaged cars and debris create collision and cosmetic repairs.' },
       { signal: 'Winter storm warnings', type: 'weather-alert', why: 'Icy roads bring a wave of fender benders in the first 48 hours.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Claim volume jumps after a declared event, and shops with capacity get the overflow.' },

@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PAGE_BOX } from '@/components/grid';
 import { ClosingBand, Crumbs, FamilyMark, Ledger, PageHeader } from '@/components/page-header';
+import { PRICING_INTRO } from '@/lib/plan/pricing-page';
 
 const read = (p: string) => readFileSync(p, 'utf8');
 
@@ -232,14 +233,25 @@ describe('small shell rules from the round 9 reviews', () => {
     expect((page.match(/<CheckPreview \/>/g) ?? []).length).toBe(3);
     expect(page).not.toMatch(/last 30 days/);
   });
-  it('/pricing keeps one sentence in the green band; the rest of the intro sits under the plan cards (review 2 P1-6)', () => {
+  it('/pricing keeps one sentence in the green band and does not restate the prices under the cards (review 2 P1-6; final B P2-1)', () => {
     const page = read('app/pricing/page.tsx');
     expect(page).toContain('lead={<p>{PRICING_INTRO[0]}</p>}');
-    expect(page).toContain('PRICING_INTRO.slice(1).map');
+    // Final review B P2-1: the paragraph that repeated each plan's price and limits under the cards is gone (cards and table say it).
+    expect(page).not.toContain('PRICING_INTRO.slice(1)');
+    expect(PRICING_INTRO).toHaveLength(1);
+    expect(PRICING_INTRO.join(' ')).not.toMatch(/\$\d/);
+    // The lower sections use the home FAQ shape from md up (heading left third, body right two thirds), not a 768 px column.
+    expect(page).not.toContain('max-w-3xl');
+    expect(page.match(/md:grid md:grid-cols-\[minmax\(0,1fr\)_minmax\(0,2fr\)\] md:gap-12/g)).toHaveLength(2);
+    expect(page).toContain('<ComingNext page="pricing" split />');
+    expect(read('components/coming-next.tsx')).toContain("split ? 'md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-12' : ''");
   });
-  it('the footer calls /data "Data" and its tagline is balanced, not a one-word orphan line (review 2 P2-10, P2-11)', () => {
+  it('the footer calls /data by its page name and its tagline is balanced, not a one-word orphan line (review 2 P2-11; final A P2-5)', () => {
     const footer = read('components/footer.tsx');
-    expect(footer).toContain("{ href: '/data', label: 'Data' }");
+    // Final review A P2-5: the label is back to the round 8 wording, the same words as the /data title and h1.
+    expect(footer).toContain("{ href: '/data', label: 'Local public records in numbers' }");
+    // Final review B P2-9: the legal line does not leave "you act." alone on a line.
+    expect(footer).toMatch(/<p className="text-pretty">\s*Data comes from public government records/);
     expect(footer).toMatch(/text-balance[^"]*">Public records near you, sorted for your trade\.<\/p>/);
   });
   it('the guides list has no decorative icon tiles (review 2 P2-16)', () => {
@@ -252,7 +264,8 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
   it('the aside shell: a 768 px text column and a 320 px sticky column from 1024 px (64rem) up, nothing under it (review 2b P2-10)', async () => {
     const { Aside } = await import('@/app/local/_components/ui');
     const html = renderToStaticMarkup(createElement(Aside, null, createElement(ClosingBand, { line: 'Know first.' }, 'x')));
-    expect(html).toMatch(/^<div data-aside="" class="lg:absolute lg:inset-y-0 lg:right-0 lg:w-80"><div class="lg:sticky lg:top-24"><div class="on-brand/);
+    // lg:[&_a]:w-full: the card's buttons take the full card width from 1024 px (final review B P2-2).
+    expect(html).toMatch(/^<div data-aside="" class="lg:absolute lg:inset-y-0 lg:right-0 lg:w-80 lg:\[&amp;_a\]:w-full"><div class="lg:sticky lg:top-24"><div class="on-brand/);
     // No class without the lg: prefix, so under 1024 px the card is a plain block where the page puts it.
     const classes = [...html.matchAll(/class="([^"]*)"/g)].slice(0, 2).flatMap((m) => m[1].split(' '));
     expect(classes.every((c) => c.startsWith('lg:'))).toBe(true);
@@ -301,9 +314,12 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
     expect(src).toContain('size="md"');
   });
 
-  it('breadcrumb links and the auth page switch links are 44 by 44 px targets (review 1 P2-7)', () => {
+  it('breadcrumb links are 44 px tall with even gaps; the auth page switch links are 44 by 44 px targets (review 1 P2-7; final B P2-4)', () => {
     const crumbs = renderToStaticMarkup(createElement(Crumbs, { items: [{ name: 'Home', href: '/' }, { name: 'FAQ' }] }));
-    expect(crumbs).toMatch(/<a [^>]*class="[^"]*min-h-11 min-w-11[^"]*" href="\/"|href="\/"[^>]*class="[^"]*min-h-11 min-w-11/);
+    // Final review B P2-4: no min-w-11, which gave "HOME" an 18 px gap before its slash and every other crumb 8 px. The links
+    // stay 44 px tall and "HOME" is 34 px wide, above the WCAG 2.5.8 24 px minimum.
+    expect(crumbs).toMatch(/<a [^>]*class="[^"]*min-h-11[^"]*" href="\/"|href="\/"[^>]*class="[^"]*min-h-11/);
+    expect(crumbs).not.toContain('min-w-11');
     for (const f of ['app/(auth)/login/page.tsx', 'app/(auth)/signup/page.tsx', 'app/(auth)/forgot/page.tsx']) {
       expect(read(f), f).toContain('className="inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline"');
     }

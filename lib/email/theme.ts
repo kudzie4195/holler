@@ -52,8 +52,11 @@ export const EMAIL_STYLE = {
   mutedLink: `color:${C.muted}`,
   /** Mono eyebrow above a heading ("Holler for ..."). Brand green text, so the one green accent of the header repeats in the body. */
   eyebrow: `font-family:${F.mono};font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:${C.brandText}`,
-  /** Page heading in the condensed display stack. */
-  h1: `font-family:${F.display};font-weight:700;text-transform:uppercase;letter-spacing:0.01em;line-height:1.15;color:${C.ink}`,
+  /**
+   * Page heading in the condensed display stack. text-wrap:balance: clients that support it (Apple Mail, Chrome renders) do not
+   * leave one word alone on the last line (final review B P2-6); others ignore it.
+   */
+  h1: `font-family:${F.display};font-weight:700;text-transform:uppercase;letter-spacing:0.01em;line-height:1.15;text-wrap:balance;color:${C.ink}`,
   /** Section heading inside the card (owner emails). Sentence case, body font. */
   h2: `font-family:${F.body};font-weight:600;color:${C.ink}`,
   /** Quoted block (request text). Edge in brand green, never lime. */
