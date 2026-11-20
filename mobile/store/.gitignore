@@ -1,0 +1,6 @@
+__pycache__/
+.gen/bundle/
+.gen/dist/
+.gen/work/
+.gen/noring/
+.gen/build-data.log

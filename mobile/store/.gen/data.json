@@ -1,6 +1,40 @@
 {
  "feeds": {
-  "01-know-when": [
+  "01-records": [
+   {
+    "matchId": 54354,
+    "signalId": 45354,
+    "matchedAt": "2026-11-19T00:30:08.609Z",
+    "status": "new",
+    "kind": "civic",
+    "source": "socrata-chicago-311",
+    "sourceLabel": "Chicago open data: 311 requests",
+    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "title": "311 request in Chicago: Tree Emergency",
+    "summary": "Tree Emergency | Open",
+    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
+    "city": "Chicago",
+    "state": "IL",
+    "county": null,
+    "zip": null,
+    "place": "Chicago, IL",
+    "occurredAt": "2026-11-18T22:23:23.000Z",
+    "expiresAt": null,
+    "severity": 1,
+    "intent": {
+     "key": "demand",
+     "label": "Might need work",
+     "line": "The event is on record. Whether anyone needs work is not confirmed."
+    },
+    "distanceMi": 4.9,
+    "distanceLabel": "4.9 mi away",
+    "feedback": null,
+    "contacts": [],
+    "draft": null,
+    "ai": {
+     "note": null
+    }
+   },
    {
     "matchId": 42439,
     "signalId": 33439,
@@ -70,7 +104,7 @@
     }
    }
   ],
-  "02-storm": [
+  "02-storms": [
    {
     "matchId": 33614,
     "signalId": 24614,
@@ -140,181 +174,7 @@
     }
    }
   ],
-  "03-permits": [
-   {
-    "matchId": 42427,
-    "signalId": 33427,
-    "matchedAt": "2026-11-18T18:30:11.457Z",
-    "status": "new",
-    "kind": "permit",
-    "source": "socrata-chicago-permits",
-    "sourceLabel": "Chicago open data: building permits",
-    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "title": "Plumbing permit in Chicago",
-    "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
-    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "spending",
-     "label": "Money being spent",
-     "line": "Money is being spent here. The main contractor may already be chosen."
-    },
-    "distanceMi": 3.5,
-    "distanceLabel": "3.5 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   },
-   {
-    "matchId": 42435,
-    "signalId": 33435,
-    "matchedAt": "2026-11-18T18:30:11.457Z",
-    "status": "new",
-    "kind": "permit",
-    "source": "socrata-chicago-permits",
-    "sourceLabel": "Chicago open data: building permits",
-    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "title": "HVAC permit in Chicago",
-    "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "spending",
-     "label": "Money being spent",
-     "line": "Money is being spent here. The main contractor may already be chosen."
-    },
-    "distanceMi": 1.7,
-    "distanceLabel": "1.7 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   },
-   {
-    "matchId": 42440,
-    "signalId": 33440,
-    "matchedAt": "2026-11-18T18:30:11.457Z",
-    "status": "new",
-    "kind": "permit",
-    "source": "socrata-chicago-permits",
-    "sourceLabel": "Chicago open data: building permits",
-    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "title": "Window and door permit in Chicago",
-    "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
-    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "spending",
-     "label": "Money being spent",
-     "line": "Money is being spent here. The main contractor may already be chosen."
-    },
-    "distanceMi": 4.9,
-    "distanceLabel": "4.9 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   }
-  ],
-  "04-311": [
-   {
-    "matchId": 54354,
-    "signalId": 45354,
-    "matchedAt": "2026-11-19T00:30:08.609Z",
-    "status": "new",
-    "kind": "civic",
-    "source": "socrata-chicago-311",
-    "sourceLabel": "Chicago open data: 311 requests",
-    "sourceUrl": "https://data.cityofchicago.org/d/v6vf-nfxy",
-    "title": "311 request in Chicago: Tree Emergency",
-    "summary": "Tree Emergency | Open",
-    "url": "https://data.cityofchicago.org/d/v6vf-nfxy",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-18T22:23:23.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "demand",
-     "label": "Might need work",
-     "line": "The event is on record. Whether anyone needs work is not confirmed."
-    },
-    "distanceMi": 4.9,
-    "distanceLabel": "4.9 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   },
-   {
-    "matchId": 36560,
-    "signalId": 27560,
-    "matchedAt": "2026-11-18T12:30:08.148Z",
-    "status": "new",
-    "kind": "civic",
-    "source": "socrata-chicago-violations",
-    "sourceLabel": "Chicago open data: code violations",
-    "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
-    "title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
-    "summary": "REPAIR PORCH SYSTEM | OPEN | 3500 block of W 15TH ST",
-    "url": "https://data.cityofchicago.org/d/22u3-xenr",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "demand",
-     "label": "Might need work",
-     "line": "The event is on record. Whether anyone needs work is not confirmed."
-    },
-    "distanceMi": 5.5,
-    "distanceLabel": "5.5 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   }
-  ],
-  "05-source-link": [
+  "04-source": [
    {
     "matchId": 42435,
     "signalId": 33435,
@@ -350,77 +210,7 @@
     }
    }
   ],
-  "07-push": [
-   {
-    "matchId": 42440,
-    "signalId": 33440,
-    "matchedAt": "2026-11-18T18:30:11.457Z",
-    "status": "new",
-    "kind": "permit",
-    "source": "socrata-chicago-permits",
-    "sourceLabel": "Chicago open data: building permits",
-    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "title": "Window and door permit in Chicago",
-    "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
-    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "spending",
-     "label": "Money being spent",
-     "line": "Money is being spent here. The main contractor may already be chosen."
-    },
-    "distanceMi": 4.9,
-    "distanceLabel": "4.9 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   },
-   {
-    "matchId": 42435,
-    "signalId": 33435,
-    "matchedAt": "2026-11-18T18:30:11.457Z",
-    "status": "new",
-    "kind": "permit",
-    "source": "socrata-chicago-permits",
-    "sourceLabel": "Chicago open data: building permits",
-    "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "title": "HVAC permit in Chicago",
-    "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-    "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-17T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "spending",
-     "label": "Money being spent",
-     "line": "Money is being spent here. The main contractor may already be chosen."
-    },
-    "distanceMi": 1.7,
-    "distanceLabel": "1.7 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
-   }
-  ],
-  "08-price": [
+  "06-plans": [
    {
     "matchId": 42439,
     "signalId": 33439,
@@ -458,245 +248,7 @@
   ]
  },
  "alerts": {
-  "01-know-when:33439": {
-   "matchId": 42439,
-   "signalId": 33439,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "Roof permit in Chicago",
-   "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 2.6,
-   "distanceLabel": "2.6 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "01-know-when:4291": {
-   "matchId": 13291,
-   "signalId": 4291,
-   "matchedAt": "2026-11-17T18:19:24.472Z",
-   "status": "new",
-   "kind": "civic",
-   "source": "socrata-chicago-violations",
-   "sourceLabel": "Chicago open data: code violations",
-   "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
-   "title": "Code violation in Chicago: REPAIR ROOF",
-   "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
-   "url": "https://data.cityofchicago.org/d/22u3-xenr",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-13T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "demand",
-    "label": "Might need work",
-    "line": "The event is on record. Whether anyone needs work is not confirmed."
-   },
-   "distanceMi": 5,
-   "distanceLabel": "5 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "02-storm:24614": {
-   "matchId": 33614,
-   "signalId": 24614,
-   "matchedAt": "2026-11-18T12:00:06.806Z",
-   "status": "new",
-   "kind": "report",
-   "source": "spc",
-   "sourceLabel": "NOAA Storm Prediction Center storm reports",
-   "sourceUrl": "https://www.spc.noaa.gov/climo/reports/",
-   "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-   "summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
-   "url": "https://www.spc.noaa.gov/climo/reports/261118_rpts.html",
-   "city": "Hollywood",
-   "state": "FL",
-   "county": "Broward",
-   "zip": null,
-   "place": "Hollywood, FL",
-   "occurredAt": "2026-11-19T04:10:00.000Z",
-   "expiresAt": null,
-   "severity": 2,
-   "intent": {
-    "key": "demand",
-    "label": "Might need work",
-    "line": "The event is on record. Whether anyone needs work is not confirmed."
-   },
-   "distanceMi": 7.4,
-   "distanceLabel": "7.4 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "02-storm:15979": {
-   "matchId": 24979,
-   "signalId": 15979,
-   "matchedAt": "2026-11-18T05:00:03.067Z",
-   "status": "new",
-   "kind": "alert",
-   "source": "nws",
-   "sourceLabel": "National Weather Service alerts",
-   "sourceUrl": "https://www.weather.gov/alerts",
-   "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
-   "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until…",
-   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.18c4362eaa658311eff9c3e04dc3f320a75de5e4.001.1",
-   "city": null,
-   "state": "FL",
-   "county": null,
-   "zip": null,
-   "place": "FL",
-   "occurredAt": "2026-11-18T04:46:00.000Z",
-   "expiresAt": "2026-11-18T05:00:00.000Z",
-   "severity": 2,
-   "intent": {
-    "key": "demand",
-    "label": "Might need work",
-    "line": "The event is on record. Whether anyone needs work is not confirmed."
-   },
-   "distanceMi": 3.1,
-   "distanceLabel": "3.1 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "03-permits:33427": {
-   "matchId": 42427,
-   "signalId": 33427,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "Plumbing permit in Chicago",
-   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Administrative Change | 1320 N HOMAN AVE",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 3.5,
-   "distanceLabel": "3.5 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "03-permits:33435": {
-   "matchId": 42435,
-   "signalId": 33435,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "HVAC permit in Chicago",
-   "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 1.7,
-   "distanceLabel": "1.7 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "03-permits:33440": {
-   "matchId": 42440,
-   "signalId": 33440,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "Window and door permit in Chicago",
-   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 4.9,
-   "distanceLabel": "4.9 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "04-311:45354": {
+  "01-records:45354": {
    "matchId": 54354,
    "signalId": 45354,
    "matchedAt": "2026-11-19T00:30:08.609Z",
@@ -730,24 +282,58 @@
     "note": null
    }
   },
-  "04-311:27560": {
-   "matchId": 36560,
-   "signalId": 27560,
-   "matchedAt": "2026-11-18T12:30:08.148Z",
+  "01-records:33439": {
+   "matchId": 42439,
+   "signalId": 33439,
+   "matchedAt": "2026-11-18T18:30:11.457Z",
    "status": "new",
-   "kind": "civic",
-   "source": "socrata-chicago-violations",
-   "sourceLabel": "Chicago open data: code violations",
-   "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
-   "title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
-   "summary": "REPAIR PORCH SYSTEM | OPEN | 3500 block of W 15TH ST",
-   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "kind": "permit",
+   "source": "socrata-chicago-permits",
+   "sourceLabel": "Chicago open data: building permits",
+   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
+   "title": "Roof permit in Chicago",
+   "summary": "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
    "city": "Chicago",
    "state": "IL",
    "county": null,
    "zip": null,
    "place": "Chicago, IL",
    "occurredAt": "2026-11-17T06:00:00.000Z",
+   "expiresAt": null,
+   "severity": 1,
+   "intent": {
+    "key": "spending",
+    "label": "Money being spent",
+    "line": "Money is being spent here. The main contractor may already be chosen."
+   },
+   "distanceMi": 2.6,
+   "distanceLabel": "2.6 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "01-records:4291": {
+   "matchId": 13291,
+   "signalId": 4291,
+   "matchedAt": "2026-11-17T18:19:24.472Z",
+   "status": "new",
+   "kind": "civic",
+   "source": "socrata-chicago-violations",
+   "sourceLabel": "Chicago open data: code violations",
+   "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
+   "title": "Code violation in Chicago: REPAIR ROOF",
+   "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+   "url": "https://data.cityofchicago.org/d/22u3-xenr",
+   "city": "Chicago",
+   "state": "IL",
+   "county": null,
+   "zip": null,
+   "place": "Chicago, IL",
+   "occurredAt": "2026-11-13T06:00:00.000Z",
    "expiresAt": null,
    "severity": 1,
    "intent": {
@@ -755,8 +341,8 @@
     "label": "Might need work",
     "line": "The event is on record. Whether anyone needs work is not confirmed."
    },
-   "distanceMi": 5.5,
-   "distanceLabel": "5.5 mi away",
+   "distanceMi": 5,
+   "distanceLabel": "5 mi away",
    "feedback": null,
    "contacts": [],
    "draft": null,
@@ -764,7 +350,75 @@
     "note": null
    }
   },
-  "05-source-link:33435": {
+  "02-storms:24614": {
+   "matchId": 33614,
+   "signalId": 24614,
+   "matchedAt": "2026-11-18T12:00:06.806Z",
+   "status": "new",
+   "kind": "report",
+   "source": "spc",
+   "sourceLabel": "NOAA Storm Prediction Center storm reports",
+   "sourceUrl": "https://www.spc.noaa.gov/climo/reports/",
+   "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+   "summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+   "url": "https://www.spc.noaa.gov/climo/reports/261118_rpts.html",
+   "city": "Hollywood",
+   "state": "FL",
+   "county": "Broward",
+   "zip": null,
+   "place": "Hollywood, FL",
+   "occurredAt": "2026-11-19T04:10:00.000Z",
+   "expiresAt": null,
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Might need work",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 7.4,
+   "distanceLabel": "7.4 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "02-storms:15979": {
+   "matchId": 24979,
+   "signalId": 15979,
+   "matchedAt": "2026-11-18T05:00:03.067Z",
+   "status": "new",
+   "kind": "alert",
+   "source": "nws",
+   "sourceLabel": "National Weather Service alerts",
+   "sourceUrl": "https://www.weather.gov/alerts",
+   "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
+   "summary": "Severe Thunderstorm Warning issued November 17 at 11:46PM EST until November 18 at 12:00AM EST by NWS Miami FL. SVRMFL The National Weather Service in Miami has issued a * Severe Thunderstorm Warning for... Northern Miami-Dade County in southeastern Florida... Southern Broward County in southeastern Florida... * Until…",
+   "url": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.18c4362eaa658311eff9c3e04dc3f320a75de5e4.001.1",
+   "city": null,
+   "state": "FL",
+   "county": null,
+   "zip": null,
+   "place": "FL",
+   "occurredAt": "2026-11-18T04:46:00.000Z",
+   "expiresAt": "2026-11-18T05:00:00.000Z",
+   "severity": 2,
+   "intent": {
+    "key": "demand",
+    "label": "Might need work",
+    "line": "The event is on record. Whether anyone needs work is not confirmed."
+   },
+   "distanceMi": 3.1,
+   "distanceLabel": "3.1 mi away",
+   "feedback": null,
+   "contacts": [],
+   "draft": null,
+   "ai": {
+    "note": null
+   }
+  },
+  "04-source:33435": {
    "matchId": 42435,
    "signalId": 33435,
    "matchedAt": "2026-11-18T18:30:11.457Z",
@@ -798,75 +452,7 @@
     "note": null
    }
   },
-  "07-push:33440": {
-   "matchId": 42440,
-   "signalId": 33440,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "Window and door permit in Chicago",
-   "summary": "PERMIT – EXPRESS PERMIT PROGRAM | Exterior Windows/Doors Replacement | $5,200 job value | 4108 W MAYPOLE AVE",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 4.9,
-   "distanceLabel": "4.9 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "07-push:33435": {
-   "matchId": 42435,
-   "signalId": 33435,
-   "matchedAt": "2026-11-18T18:30:11.457Z",
-   "status": "new",
-   "kind": "permit",
-   "source": "socrata-chicago-permits",
-   "sourceLabel": "Chicago open data: building permits",
-   "sourceUrl": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "title": "HVAC permit in Chicago",
-   "summary": "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-   "url": "https://data.cityofchicago.org/d/ydr8-5enu",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-17T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "spending",
-    "label": "Money being spent",
-    "line": "Money is being spent here. The main contractor may already be chosen."
-   },
-   "distanceMi": 1.7,
-   "distanceLabel": "1.7 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "08-price:33439": {
+  "06-plans:33439": {
    "matchId": 42439,
    "signalId": 33439,
    "matchedAt": "2026-11-18T18:30:11.457Z",
@@ -902,7 +488,7 @@
   }
  },
  "profiles": {
-  "01-know-when": {
+  "01-records": {
    "zip": "60614",
    "city": "Chicago",
    "state": "IL",
@@ -910,10 +496,11 @@
    "lon": -87.6483,
    "radiusMi": 15,
    "trades": [
-    "roofing"
+    "roofing",
+    "tree-service"
    ]
   },
-  "02-storm": {
+  "02-storms": {
    "zip": "33301",
    "city": "Fort Lauderdale",
    "state": "FL",
@@ -925,32 +512,7 @@
     "tree-service"
    ]
   },
-  "03-permits": {
-   "zip": "60614",
-   "city": "Chicago",
-   "state": "IL",
-   "lat": 41.9229,
-   "lon": -87.6483,
-   "radiusMi": 15,
-   "trades": [
-    "plumbing",
-    "hvac",
-    "windows-doors"
-   ]
-  },
-  "04-311": {
-   "zip": "60614",
-   "city": "Chicago",
-   "state": "IL",
-   "lat": 41.9229,
-   "lon": -87.6483,
-   "radiusMi": 15,
-   "trades": [
-    "tree-service",
-    "handyman"
-   ]
-  },
-  "05-source-link": {
+  "04-source": {
    "zip": "60614",
    "city": "Chicago",
    "state": "IL",
@@ -961,18 +523,7 @@
     "hvac"
    ]
   },
-  "07-push": {
-   "zip": "60614",
-   "city": "Chicago",
-   "state": "IL",
-   "lat": 41.9229,
-   "lon": -87.6483,
-   "radiusMi": 15,
-   "trades": [
-    "windows-doors"
-   ]
-  },
-  "08-price": {
+  "06-plans": {
    "zip": "60614",
    "city": "Chicago",
    "state": "IL",
@@ -985,31 +536,19 @@
   }
  },
  "distances": {
-  "01-know-when": {
+  "01-records": {
    "4291": "5 mi away",
-   "33439": "2.6 mi away"
+   "33439": "2.6 mi away",
+   "45354": "4.9 mi away"
   },
-  "02-storm": {
+  "02-storms": {
    "15979": "3.1 mi away",
    "24614": "7.4 mi away"
   },
-  "03-permits": {
-   "33427": "3.5 mi away",
-   "33435": "1.7 mi away",
-   "33440": "4.9 mi away"
-  },
-  "04-311": {
-   "27560": "5.5 mi away",
-   "45354": "4.9 mi away"
-  },
-  "05-source-link": {
+  "04-source": {
    "33435": "1.7 mi away"
   },
-  "07-push": {
-   "33435": "1.7 mi away",
-   "33440": "4.9 mi away"
-  },
-  "08-price": {
+  "06-plans": {
    "33439": "2.6 mi away"
   }
  },

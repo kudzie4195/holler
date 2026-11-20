@@ -36,5 +36,5 @@ export default defineConfig({
       '@revenuecat/purchases-capacitor': path.join(here, 'shims/purchases-mock.ts'),
     },
   },
-  build: { outDir: `/tmp/holler-shots-dist/${plat}`, emptyOutDir: true, target: ['es2020', 'chrome90'], sourcemap: false, chunkSizeWarningLimit: 2000 },
+  build: { outDir: path.join(here, '.gen/dist', plat), emptyOutDir: true, target: ['es2020', 'chrome90'], sourcemap: false, chunkSizeWarningLimit: 2000 },
 });
