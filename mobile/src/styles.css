@@ -239,9 +239,10 @@ input[type='range']:focus-visible { outline-offset: 4px; }
 .chip:disabled { opacity: 0.45; }
 
 .alert-card { display: block; width: 100%; text-align: left; cursor: pointer; }
-.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 15px; color: var(--muted); margin-top: 6px; }
-/* The distance: a data label, so mono. */
-.meta-strong { color: var(--ink); font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: -0.01em; }
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 15px; color: var(--muted); margin-top: 6px; }
+/* The distance: a data label, so mono. On the Inter line's baseline (align-items above); 14 px JetBrains Mono has about the x-height of
+   15 px Inter (0.55 x 14 = 7.7 px against 0.55 x 15 = 8.2 px), so the line reads as one. */
+.meta-strong { color: var(--ink); font-family: var(--font-mono); font-size: 14px; font-weight: 500; letter-spacing: -0.02em; }
 /* The label sits beside the tag; when the row is too narrow it wraps under the tag at the card's text edge (gap, not margin, so no indent). */
 .tag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 /* Small mono tag in its record family, as the web's Badge: 13 px JetBrains Mono 500, uppercase, 6 px corners. */
