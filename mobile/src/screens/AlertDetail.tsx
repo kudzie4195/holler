@@ -68,7 +68,7 @@ export function AlertDetail({ signalId }: { signalId: number }) {
             {item.url ? (
               <div style={{ marginTop: 14 }}>
                 <Button full onClick={() => void openInApp(item.url as string)}>
-                  Open the source record
+                  Open the source
                 </Button>
               </div>
             ) : null}

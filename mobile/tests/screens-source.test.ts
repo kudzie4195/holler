@@ -57,3 +57,16 @@ describe('session backup wiring in AppContext (review v3 P1)', () => {
     expect(body.indexOf("=== 'kept') return")).toBeLessThan(body.indexOf('resetToSignedOut()'));
   });
 });
+
+describe('where an alert link goes (r10)', () => {
+  it('the alert detail button reads "Open the source", never "the record" or "the official record"', () => {
+    const detail = src('screens/AlertDetail.tsx');
+    expect(detail).toMatch(/>\s*Open the source\s*</);
+    expect(detail).not.toMatch(/source record/i);
+  });
+  it('no screen calls the link "the source record", "the official record" or "its record"', () => {
+    for (const f of ['screens/AlertDetail.tsx', 'screens/AlertParts.tsx', 'screens/Feed.tsx', 'screens/Check.tsx', 'screens/Welcome.tsx', 'screens/PushPrompt.tsx', 'screens/Paywall.tsx', 'ui/kind.tsx']) {
+      expect(src(f)).not.toMatch(/source record|official record|its record/i);
+    }
+  });
+});
