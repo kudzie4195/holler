@@ -257,6 +257,15 @@ for plat in PLATS:
         h = M[f"{plat}/{n}"]["hero"]
         print(f"   {plat}/{n}: blocks split by the bottom edge {h['split_at_edge']}; first line '{h['first_in_scroll']}' {check(not h['split_at_edge'], f'split paragraph {plat}/{n}')}")
 
+print("\n   Endings: the last line in view is never a group or section heading with its items under the edge, and no hero shows the")
+print("   feed's end-of-list line ('That is everything for now.')")
+for plat in PLATS:
+    for n in names[plat]:
+        h = M[f"{plat}/{n}"]["hero"]
+        end = "That is everything for now." in h["screen_text"]
+        ok = not h["last_line_is_heading"] and not end
+        print(f"   {plat}/{n}: last line '{h['last_line']}' (heading: {h['last_line_is_heading']}); end-of-feed line: {end} {check(ok, f'ending {plat}/{n}')}")
+
 print("\n   App text size on the canvas (smallest visible text, CSS size x scale): iOS >= 34 px, Android >= 28 px")
 for plat in PLATS:
     for n in names[plat]:
@@ -304,7 +313,7 @@ for plat in PLATS:
             f = h["form"]; prof = DATA["profiles"][h["profile_key"]]
             labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
             ok = (f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
-                  and h["first_in_scroll"] == "Home and property")
+                  and h["first_in_scroll"].startswith(("Home and property",) if plat == "ios" else ("Home and property", "Pick up to", "Your trades")))
             print(f"   {plat}/{n}: first line in the scroller '{h['first_in_scroll']}'; ticked trades in view {f['pickedVisible']} "
                   f"(member {h['profile_key']}: {prof['zip']} r{prof['radiusMi']} {prof['trades']}; the form holds ZIP {f['zip']}, {f['radius']} mi) "
                   f"{check(ok, f'trade picker {plat}/{n}')}")
@@ -315,6 +324,10 @@ for plat in PLATS:
             sw = {x["label"]: x["on"] for x in h["switches"]}
             ok = sw == {"Push notifications": True, "Email digest": True} and not any(t in ("Sign out", "Delete account") for t in h["screen_text"])
             print(f"   {plat}/{n}: Settings switches in view {sw}; no Sign out / Delete account on screen {check(ok, f'alert settings {plat}/{n}')}")
+            # the digest needs a verified address: with it on, the Email row must show one, and a plainly sample one
+            emails = [t for t in h["screen_text"] if "@" in t]
+            ok = not (sw.get("Email digest") and "Not shared" in h["screen_text"]) and emails and all(e.endswith("@example.com") for e in emails)
+            print(f"   {plat}/{n}: Email row shows {emails or 'no address'}; 'Not shared' on screen: {'Not shared' in h['screen_text']} {check(ok, f'account email {plat}/{n}')}")
         if n.startswith("06"):
             body = " ".join(h["screen_text"])
             drawn = " ".join(t["head"]) + " " + t["sub"]

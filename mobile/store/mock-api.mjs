@@ -10,7 +10,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.argv[2] || 8799);
 const distRoot = process.argv[3] || path.join(here, '.gen/dist');
 const data = JSON.parse(readFileSync(path.join(here, '.gen/data.json'), 'utf8'));
-const USER = { id: '00000000-0000-4000-8000-0000000000a1', email: null };
+// The same plainly sample address as the capture session in make-screenshots.py; the profile has emailVerified true, so Settings
+// shows a consistent account (the email digest needs a verified address).
+const USER = { id: '00000000-0000-4000-8000-0000000000a1', email: 'member@example.com' };
 
 let scenario = { me: 'paid', feed: '01-records' };
 

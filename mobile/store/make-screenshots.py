@@ -101,12 +101,14 @@ G = {
     "ios": dict(W=1320, H=2868, M=110, eyebrow_top=176, eyebrow_px=34, head_gap=30, head_px=156, head_lh=0.9, sub_gap=34, sub_px=46,
                 hero_top=794, bezel=26, frame_r=120, phone_vw=393),
     "android": dict(W=1080, H=1920, M=80, eyebrow_top=104, eyebrow_px=27, head_gap=22, head_px=128, head_lh=0.9, sub_gap=24, sub_px=36,
-                    hero_top=542, bezel=18, frame_r=88, phone_vw=393),
+                    hero_top=590, bezel=18, frame_r=88, phone_vw=393),
 }
 # tuning knobs for probing the grid (the defaults above are the shipped values)
 for _p in G:
     if os.environ.get(f"SHOTS_{_p.upper()}_TOP"):
         G[_p]["hero_top"] = int(os.environ[f"SHOTS_{_p.upper()}_TOP"])
+    if os.environ.get(f"SHOTS_{_p.upper()}_VW"):
+        G[_p]["phone_vw"] = int(os.environ[f"SHOTS_{_p.upper()}_VW"])
 PLATFORMS = tuple(os.environ.get("SHOTS_PLATFORMS", "ios,android").split(","))
 for g in G.values():
     g["box_w"] = g["W"] - 2 * g["M"]                     # hero box = the text column
@@ -141,12 +143,14 @@ SCREEN_LINES = """() => { const out = []; const sc = document.querySelector('.sc
   while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim() || n.parentElement.closest('.ptr:not(.show)')) continue;
     const r = document.createRange(); r.selectNodeContents(n);
     const block = n.parentElement.closest('p, li, h1, h2, h3, dd, dt, label, button, a') || n.parentElement; k++;
-    for (const b of r.getClientRects()) out.push([b.top, b.bottom, n.textContent.trim().slice(0, 50), !!(sc && sc.contains(n)), block.dataset.k || (block.dataset.k = 'b' + k)]); }
+    // a heading whose items follow it: a trade group label in a form, a Settings section label
+    const head = !!n.parentElement.closest('form p.small.muted, .section-label');
+    for (const b of r.getClientRects()) out.push([b.top, b.bottom, n.textContent.trim().slice(0, 50), !!(sc && sc.contains(n)), block.dataset.k || (block.dataset.k = 'b' + k), head]); }
   for (const e of document.querySelectorAll('.app svg, .app .btn, .app .chip, .app input, .app select')) { const b = e.getBoundingClientRect();
-    if (b.height) out.push([b.top, b.bottom, '<' + e.tagName + '>', !!(sc && sc.contains(e)), 'e' + (k++)]); }
+    if (b.height) out.push([b.top, b.bottom, '<' + e.tagName + '>', !!(sc && sc.contains(e)), 'e' + (k++), false]); }
   // containers: never cut at the top of the scroller (they may run off the canvas edge, like the last feed card)
   for (const e of document.querySelectorAll('.app .card, .app .plan, .app .segmented, .app .notice, .app .settings-list, .app button:not(.btn):not(.chip)')) { const b = e.getBoundingClientRect();
-    if (b.height) out.push([b.top, b.bottom, '<BOX>', !!(sc && sc.contains(e)), 'x' + (k++)]); }
+    if (b.height) out.push([b.top, b.bottom, '<BOX>', !!(sc && sc.contains(e)), 'x' + (k++), false]); }
   return out; }"""
 
 # Smallest computed font size of any visible text node above `limit` (CSS px).
@@ -240,6 +244,15 @@ def records_for(feed, shown):
 
 # ---------------------------------------------------------------- heroes ------------------------------------------------------------
 
+def first_row(lines, off, st):
+    """The first whole line of text in the scroller, its text nodes joined in DOM order."""
+    rows = [(l0 - off, lab) for l0, l1, lab, ins, *_ in lines if ins and not lab.startswith('<') and l0 - off >= st - 0.5]
+    if not rows:
+        return ""
+    top = min(r[0] for r in rows)
+    return " ".join(lab for y, lab in rows if y - top < 1).replace(" .", ".")
+
+
 def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=None, from_end=False, anchor=None, first_text=None):
     """The top of one real viewport, exactly as tall as the frame shows. The viewport is taller than what shows (the tab bar stays
     below the canvas); if a line of text would be cut by the canvas edge, the screen's own scroller is moved down by the fewest CSS px
@@ -265,7 +278,7 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
 
     def ok(off, need):
         hidden, shown = set(), set()
-        for l0, l1, label, ins, blk in lines0:
+        for l0, l1, label, ins, blk, *_ in lines0:
             if ins:
                 l0, l1 = l0 - off, l1 - off
                 if l0 < st - 0.5 and l1 > st + 0.5:
@@ -276,25 +289,36 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
         if hidden & shown:  # a paragraph is either all under the top bar or all in view, never cut in two
             return False
         if first_text:  # the named line must be the first thing in the scroller
-            first = min(((l0 - off, lab) for l0, l1, lab, ins, blk in lines0 if ins and lab != '<BOX>' and l0 - off >= st - 0.5), default=(0, None))[1]
-            if first != first_text:
+            if not first_row(lines0, off, st).startswith(tuple(first_text) if isinstance(first_text, (list, tuple)) else first_text):
                 return False
         above, below = set(), set()
-        for l0, l1, label, ins, blk in lines0:
+        for l0, l1, label, ins, blk, *_ in lines0:
             if label == '<BOX>':
                 continue
             if ins:
                 l0, l1 = l0 - off, l1 - off
             (above if l1 <= vis else below).add(blk)
-        return not (above & below)  # nor at the canvas edge: the last paragraph in view is whole
+        if above & below:  # nor at the canvas edge: the last paragraph in view is whole
+            return False
+        # the last text line in view is never a heading whose items fall under the edge
+        last = max(((l1 - (off if ins else 0), hd) for l0, l1, label, ins, blk, hd in lines0 if label not in ('<BOX>',) and not label.startswith('<')
+                    and l1 - (off if ins else 0) <= vis and l0 - (off if ins else 0) >= st - 0.5), default=(0, False))
+        return not last[1]
 
-    # fewest px from where the screen opens (or, from_end, from its end); a 6 px clearance is worth up to 60 px more scrolling
+    # fewest px from where the screen opens (or, from_end, from its end, or from the anchor)
     if anchor:  # a named element at the top of the scroller, then up to 60 px less scroll (never more: no orphaned rows)
         a0 = int(round(page.evaluate(anchor) - st))
         order = [o for o in range(a0 + 6, a0 - 61, -1) if 0 <= o <= max_off]
     else:
         order = list(range(int(max_off), -1, -1)) if from_end else list(range(0, int(max_off) + 1))
-    cands = [(i + (0 if ok(o, 6) else 60), o) for i, o in enumerate(order) if ok(o, 2)]
+    def top_gap(o):  # room between the top bar and the first thing in the scroller: a line, a card or a control (CSS px)
+        ys = [l0 - o for l0, l1, lab, ins, *_ in lines0 if ins and l0 - o >= st - 0.5 and l1 - o > st]
+        return min(ys) - st if ys else 99
+    # 6 px clear at the edge is worth up to 60 px more scrolling; anything jammed under the top bar (< 8 px) costs 100
+    # and each px of room up to 8 is worth 3 px of scrolling
+    cands = [(i + (0 if ok(o, 6) else 60) + (0 if top_gap(o) >= 8 else 100) - 3 * min(max(top_gap(o), 0), 8), o) for i, o in enumerate(order) if ok(o, 2)]
+    if os.environ.get("SHOTS_DEBUG") == name:
+        print("debug", plat, name, "vis", round(vis, 1), "st", st, [(o, round(top_gap(o), 1), first_row(lines0, o, st)[:24], ok(o, 6)) for o in range(0, int(max_off) + 1) if ok(o, 2)][:80])
     off = min(cands)[1] if cands else None
     if off is None:
         raise RuntimeError(f"{plat}/{name}: no scroll position keeps the canvas edge between two lines")
@@ -304,8 +328,10 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
     scrolled = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.scrollTop : 0; }")
     assert abs(scrolled - off) < 0.5, (scrolled, off)
     after = page.evaluate(SCREEN_LINES)
-    split_at_edge = sorted({b for l0, l1, lab, ins, b in after if lab != '<BOX>' and l1 <= vis} & {b for l0, l1, lab, ins, b in after if lab != '<BOX>' and l0 >= vis})
-    first_in_scroll = next((lab for l0, l1, lab, ins, b in sorted(after) if ins and lab != '<BOX>' and l0 >= st - 0.5), None)
+    split_at_edge = sorted({b for l0, l1, lab, ins, b, *_ in after if lab != '<BOX>' and l1 <= vis} & {b for l0, l1, lab, ins, b, *_ in after if lab != '<BOX>' and l0 >= vis})
+    vis_lines = [(l1, lab, hd) for l0, l1, lab, ins, b, hd in after if not lab.startswith('<') and l1 <= vis and l0 >= (st - 0.5 if ins else -1)]
+    last_line = max(vis_lines, default=(0, None, False))
+    first_in_scroll = first_row(after, 0, st)
     edge_clear = min(min(abs(vis - l0), abs(vis - l1)) for l0, l1, label, *_ in page.evaluate(SCREEN_LINES) if l1 > 0 and label != '<BOX>')
     page.wait_for_timeout(200)
     shown = page.evaluate(VISIBLE_ALERTS, vis)
@@ -326,7 +352,7 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
     p = save(im, f"{plat}-{name}-screen.png")
     return dict(kind="phone", path=p, size=(g["screen_w"], sh), scale=s, vw=g["phone_vw"], vh=vh, visible_css=round(vis, 1), scrolled=scrolled,
                 shown=shown, screen_text=text, min_font_px=round(min_font * s, 1), edge_clear_css=round(edge_clear, 1), form=form, split_at_edge=split_at_edge,
-                first_in_scroll=first_in_scroll, switches=switches)
+                first_in_scroll=first_in_scroll, top_gap_css=round(top_gap(off), 1), switches=switches, last_line=last_line[1], last_line_is_heading=last_line[2])
 
 
 def pick_monthly(page):
@@ -337,8 +363,10 @@ def pick_monthly(page):
 def hero_for(browser, plat, shot):
     n = shot["name"]
     if n == "01-records":
-        h = phone_hero(browser, plat, n, "paid", "01-records", None, ".alert-card")
-        h["feed"] = "01-records"
+        # three records, so the feed fills the screen and never ends on the app's "That is everything for now."
+        key = "01-records"
+        h = phone_hero(browser, plat, n, "paid", key, None, ".alert-card", first_text=("311 request",))  # the newest card leads, whole
+        h["feed"] = key
     elif n == "02-storms":
         h = phone_hero(browser, plat, n, "paid", "02-storms", {"name": "alert", "signalId": 24614}, "article.card .alert-title")
         h["feed"] = "02-storms"
@@ -347,13 +375,17 @@ def hero_for(browser, plat, shot):
         # Android shows less of the screen: Tree service (in the next group) would fall under the edge, so the Android member is a
         # roofer who also does HVAC (fixtures scenario 03-radius-android); both ticked chips are in the first group
         key = "03-radius" if plat == "ios" else "03-radius-android"
-        h = phone_hero(browser, plat, n, "paid", key, {"name": "profile"}, "#trades-label",
-                       anchor="() => [...document.querySelectorAll('form p.small.muted')].find(e => e.textContent.trim() === 'Home and property').getBoundingClientRect().top - 8",
-                       first_text="Home and property")
+        if plat == "ios":
+            anchor = "() => [...document.querySelectorAll('form p.small.muted')].find(e => e.textContent.trim() === 'Home and property').getBoundingClientRect().top - 8"
+            first = ("Home and property",)
+        else:  # Android shows less: start at the trades heading, its hint or the first group, whichever lets the edge fall after a whole row
+            anchor = "() => [...document.querySelectorAll('form p.small.muted')].find(e => e.textContent.trim() === 'Home and property').getBoundingClientRect().top - 8"
+            first = ("Home and property", "Pick up to", "Your trades")
+        h = phone_hero(browser, plat, n, "paid", key, {"name": "profile"}, "#trades-label", anchor=anchor, first_text=first)
         h["feed"] = None; h["profile_key"] = key
         prof = DATA["profiles"][key]
         labels = {t["id"]: t["label"] for t in DATA["config"]["trades"]}
-        assert h["first_in_scroll"] == "Home and property", h["first_in_scroll"]
+        assert h["first_in_scroll"].startswith(first), h["first_in_scroll"]
         assert h["form"]["pickedVisible"] == [labels[x] for x in prof["trades"]], (h["form"], prof)
     elif n == "04-source":
         h = phone_hero(browser, plat, n, "paid", "04-source", {"name": "alert", "signalId": 33435}, "article.card .alert-title")
@@ -373,6 +405,7 @@ def hero_for(browser, plat, shot):
         h["feed"] = None
     else:
         raise KeyError(n)
+    assert "That is everything for now." not in h["screen_text"], (plat, n, "the hero ends on the end-of-feed line")
     h["records"] = records_for(h["feed"], h["shown"]) if h["feed"] else []
     if n in ("02-storms", "04-source"):
         assert len(h["records"]) == 1, h["records"]

@@ -95,6 +95,11 @@
       "title": "Roof permit in Chicago",
       "distance": "2.6 mi away",
       "top": 377.78125
+     },
+     {
+      "title": "Code violation in Chicago: REPAIR ROOF",
+      "distance": "5 mi away",
+      "top": 615.171875
      }
     ],
     "screen_text": [
@@ -121,14 +126,25 @@
      "Source:",
      "Chicago open data: building permits",
      "Was this alert helpful?",
-     "That is everything for now."
+     "Code violation",
+     "Might need work",
+     "Code violation in Chicago: REPAIR ROOF",
+     "Chicago, IL",
+     "Nov 13",
+     "5 mi away",
+     "The event is on record. Whether anyone needs work is not confirmed.",
+     "Source:",
+     "Chicago open data: code violations"
     ],
     "min_font_px": 34.7,
-    "edge_clear_css": 8.2,
+    "edge_clear_css": 8.0,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "311 request",
+    "first_in_scroll": "311 request Might need work",
+    "top_gap_css": 16,
     "switches": [],
+    "last_line": "Source:",
+    "last_line_is_heading": false,
     "feed": "01-records",
     "records": [
      {
@@ -142,6 +158,12 @@
       "title": "Roof permit in Chicago",
       "distance": "2.6 mi away",
       "served": "2.6 mi away"
+     },
+     {
+      "signalId": 4291,
+      "title": "Code violation in Chicago: REPAIR ROOF",
+      "distance": "5 mi away",
+      "served": "5 mi away"
      }
     ],
     "box": [
@@ -273,8 +295,11 @@
     "edge_clear_css": 8.2,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "Storm report",
+    "first_in_scroll": "Storm report Might need work",
+    "top_gap_css": 16,
     "switches": [],
+    "last_line": "NOAA Storm Prediction Center storm reports",
+    "last_line_is_heading": false,
     "feed": "02-storms",
     "records": [
      {
@@ -428,7 +453,10 @@
     },
     "split_at_edge": [],
     "first_in_scroll": "Home and property",
+    "top_gap_css": 16,
     "switches": [],
+    "last_line": "Public adjuster",
+    "last_line_is_heading": false,
     "feed": null,
     "profile_key": "03-radius",
     "records": [],
@@ -559,8 +587,11 @@
     "edge_clear_css": 8.2,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "Permit",
+    "first_in_scroll": "Permit Money being spent",
+    "top_gap_css": 16,
     "switches": [],
+    "last_line": "Data from",
+    "last_line_is_heading": false,
     "feed": "04-source",
     "records": [
      {
@@ -668,7 +699,7 @@
      "Settings",
      "Account",
      "Email",
-     "Not shared",
+     "member@example.com",
      "Business, trades and area",
      "\u203a",
      "Alerts",
@@ -691,6 +722,7 @@
     "form": null,
     "split_at_edge": [],
     "first_in_scroll": "Account",
+    "top_gap_css": 33,
     "switches": [
      {
       "label": "Push notifications",
@@ -701,6 +733,8 @@
       "on": true
      }
     ],
+    "last_line": "Privacy Policy",
+    "last_line_is_heading": false,
     "feed": null,
     "records": [],
     "box": [
@@ -795,7 +829,7 @@
     "vw": 393,
     "vh": 827,
     "visible_css": 768.0,
-    "scrolled": 132,
+    "scrolled": 128,
     "shown": [],
     "screen_text": [
      "Back",
@@ -829,11 +863,14 @@
      "Privacy Policy"
     ],
     "min_font_px": 37.3,
-    "edge_clear_css": 6.5,
+    "edge_clear_css": 2.5,
     "form": null,
     "split_at_edge": [],
     "first_in_scroll": "Solo",
+    "top_gap_css": 8,
     "switches": [],
+    "last_line": "and",
+    "last_line_is_heading": false,
     "feed": null,
     "records": [],
     "box": [
@@ -908,7 +945,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -922,12 +959,12 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-01-records-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
+    "vh": 643,
+    "visible_css": 583.3,
     "scrolled": 0,
     "shown": [
      {
@@ -964,15 +1001,17 @@
      "Money is being spent here. The main contractor may already be chosen.",
      "Source:",
      "Chicago open data: building permits",
-     "Was this alert helpful?",
-     "That is everything for now."
+     "Was this alert helpful?"
     ],
     "min_font_px": 29.2,
-    "edge_clear_css": 8.6,
+    "edge_clear_css": 2.9,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "311 request",
+    "first_in_scroll": "311 request Might need work",
+    "top_gap_css": 16,
     "switches": [],
+    "last_line": "Was this alert helpful?",
+    "last_line_is_heading": false,
     "feed": "01-records",
     "records": [
      {
@@ -990,7 +1029,7 @@
     ],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1060,7 +1099,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -1074,18 +1113,18 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-02-storms-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
-    "scrolled": 0,
+    "vh": 643,
+    "visible_css": 583.3,
+    "scrolled": 5,
     "shown": [
      {
       "title": "1.00 inch hail reported near 2 W Hollywood, FL",
       "distance": "7.4 mi away",
-      "top": 117
+      "top": 112
      }
     ],
     "screen_text": [
@@ -1112,11 +1151,14 @@
      "Led to work"
     ],
     "min_font_px": 29.2,
-    "edge_clear_css": 8.6,
+    "edge_clear_css": 7.0,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "Storm report",
+    "first_in_scroll": "Storm report Might need work",
+    "top_gap_css": 11,
     "switches": [],
+    "last_line": "Useful",
+    "last_line_is_heading": false,
     "feed": "02-storms",
     "records": [
      {
@@ -1128,7 +1170,7 @@
     ],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1198,7 +1240,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -1212,13 +1254,13 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-03-radius-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
-    "scrolled": 159,
+    "vh": 643,
+    "visible_css": 583.3,
+    "scrolled": 138,
     "shown": [],
     "screen_text": [
      "Back",
@@ -1249,11 +1291,10 @@
      "Windows and doors",
      "Siding and gutters",
      "Flooring",
-     "Handyman",
-     "Storm and disaster"
+     "Handyman"
     ],
     "min_font_px": 31.5,
-    "edge_clear_css": 2.4,
+    "edge_clear_css": 2.3,
     "form": {
      "zip": "60614",
      "radius": "15",
@@ -1265,14 +1306,17 @@
      ]
     },
     "split_at_edge": [],
-    "first_in_scroll": "Home and property",
+    "first_in_scroll": "Pick up to 5. 2 picked.",
+    "top_gap_css": 3,
     "switches": [],
+    "last_line": "Handyman",
+    "last_line_is_heading": false,
     "feed": null,
     "profile_key": "03-radius-android",
     "records": [],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1342,7 +1386,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -1356,18 +1400,18 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-04-source-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
-    "scrolled": 0,
+    "vh": 643,
+    "visible_css": 583.3,
+    "scrolled": 2,
     "shown": [
      {
       "title": "HVAC permit in Chicago",
       "distance": "1.7 mi away",
-      "top": 117
+      "top": 115
      }
     ],
     "screen_text": [
@@ -1394,11 +1438,14 @@
      "Chicago open data: building permits"
     ],
     "min_font_px": 29.2,
-    "edge_clear_css": 8.6,
+    "edge_clear_css": 6.4,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "Permit",
+    "first_in_scroll": "Permit Money being spent",
+    "top_gap_css": 14,
     "switches": [],
+    "last_line": "Data from",
+    "last_line_is_heading": false,
     "feed": "04-source",
     "records": [
      {
@@ -1410,7 +1457,7 @@
     ],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1480,7 +1527,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -1494,19 +1541,19 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-05-push-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
-    "scrolled": 14,
+    "vh": 643,
+    "visible_css": 583.3,
+    "scrolled": 0,
     "shown": [],
     "screen_text": [
      "Settings",
      "Account",
      "Email",
-     "Not shared",
+     "member@example.com",
      "Business, trades and area",
      "\u203a",
      "Alerts",
@@ -1517,15 +1564,14 @@
      "Solo plan",
      "Plans",
      "\u203a",
-     "Restore purchases",
-     "Manage subscription",
-     "\u203a"
+     "Restore purchases"
     ],
     "min_font_px": 29.2,
-    "edge_clear_css": 6.6,
+    "edge_clear_css": 8.8,
     "form": null,
     "split_at_edge": [],
     "first_in_scroll": "Account",
+    "top_gap_css": 36,
     "switches": [
      {
       "label": "Push notifications",
@@ -1536,11 +1582,13 @@
       "on": true
      }
     ],
+    "last_line": "Restore purchases",
+    "last_line_is_heading": false,
     "feed": null,
     "records": [],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1610,7 +1658,7 @@
     ],
     "hero": {
      "x0": 80,
-     "y0": 542,
+     "y0": 590,
      "x1": 1000,
      "y1": 1920
     },
@@ -1624,13 +1672,13 @@
     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-06-plans-screen.png",
     "size": [
      884,
-     1360
+     1312
     ],
     "scale": 2.2493638676844783,
     "vw": 393,
-    "vh": 664,
-    "visible_css": 604.6,
-    "scrolled": 62,
+    "vh": 643,
+    "visible_css": 583.3,
+    "scrolled": 6,
     "shown": [],
     "screen_text": [
      "Back",
@@ -1652,20 +1700,22 @@
      "15",
      "trades",
      "5",
-     "keyword watches",
-     "Subscribe to Pro"
+     "keyword watches"
     ],
     "min_font_px": 31.5,
-    "edge_clear_css": 8.6,
+    "edge_clear_css": 6.3,
     "form": null,
     "split_at_edge": [],
-    "first_in_scroll": "Monthly",
+    "first_in_scroll": "Pick the plan that fits your work. You can change ",
+    "top_gap_css": 12,
     "switches": [],
+    "last_line": "keyword watches",
+    "last_line_is_heading": false,
     "feed": null,
     "records": [],
     "box": [
      80,
-     542,
+     590,
      1000,
      1920
     ]
@@ -1703,7 +1753,7 @@
    "head_lh": 0.9,
    "sub_gap": 24,
    "sub_px": 36,
-   "hero_top": 542,
+   "hero_top": 590,
    "bezel": 18,
    "frame_r": 88,
    "phone_vw": 393,
