@@ -4,3 +4,4 @@ __pycache__/
 .gen/work/
 .gen/noring/
 .gen/build-data.log
+.gen/directions/
