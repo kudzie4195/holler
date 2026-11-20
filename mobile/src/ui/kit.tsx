@@ -52,13 +52,14 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
 }
 
 export function Mark({ size = 32 }: { size?: number }) {
-  // The Holler mark, from the website's public/icon.svg.
+  // The Holler mark, the same drawing as the website's public/icon.svg: a signal-lime tile with ink signal arcs (ink on signal 13.2:1).
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="9" fill="#E8590C" />
-      <circle cx="16" cy="16" r="3.2" fill="#FFFFFF" />
-      <path d="M21.36 11.5A7 7 0 0 1 21.36 20.5M10.64 11.5A7 7 0 0 0 10.64 20.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      <path d="M24.81 8.61A11.5 11.5 0 0 1 24.81 23.39M7.19 8.61A11.5 11.5 0 0 0 7.19 23.39" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" opacity="0.7" fill="none" />
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true" focusable="false">
+      <rect width="32" height="32" rx="6" fill="var(--signal)" />
+      <g transform="translate(6.588 6.588) scale(0.7843)" stroke="var(--ink)" strokeWidth="2.4" strokeLinecap="round">
+        <circle cx="12" cy="12" r="2" />
+        <path d="M8 8a5.7 5.7 0 0 0 0 8M16 8a5.7 5.7 0 0 1 0 8M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14" />
+      </g>
     </svg>
   );
 }
