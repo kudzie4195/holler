@@ -11,7 +11,7 @@ import { CATEGORIES } from '../../lib/signals/categories';
 import { activeTradeSignals } from '../../lib/seo/signal-types';
 import { priceLabel } from '@/lib/stripe/plans';
 import { EXAMPLE_RECORDS } from '@/lib/seo/home-map';
-import { FAQ_GROUPS } from '@/lib/seo/faq';
+import { FAQ_GROUPS, faqItems } from '@/lib/seo/faq';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 
 const setOf = (...keys: string[]) => (...k: EnvKey[]) => k.every((x) => keys.includes(x));
@@ -30,13 +30,15 @@ const llmsInput = { cityCount: 300, states: [{ name: 'Georgia', slug: 'georgia' 
 const pages = (has: (...k: EnvKey[]) => boolean) => ({
   home: allText(homeCopy(has)),
   about: allText(aboutCopy(has)),
+  faq: allText(faqItems(has)),
   llms: llmsText(llmsInput, has),
 });
+const ASK_KEYS = [setOf('BRAVE_SEARCH_API_KEY'), setOf('SERPER_API_KEY'), setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD'), ALL];
 
 const KEY_GATED = ['asking', 'recommend', 'Bluesky', 'SAM.gov', 'concert', 'festival', 'Ticketmaster'];
 
 describe('N3: public pages tell the truth for the keys that are set', () => {
-  it('no optional keys: none of the key-gated words appear on the home page, /about or /llms.txt', () => {
+  it('no optional keys: none of the key-gated words appear on the home page, /about, /faq or /llms.txt', () => {
     const p = pages(NONE);
     for (const [name, text] of Object.entries(p)) {
       for (const w of KEY_GATED) expect(text.toLowerCase(), `${name} names "${w}" with no keys`).not.toContain(w.toLowerCase());
@@ -49,7 +51,9 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     // The home page dropped its events and people-asking cards, so "concert" and "festival" are no longer said anywhere; the event
     // key still shows as Ticketmaster.
     for (const w of KEY_GATED.filter((x) => x !== 'concert' && x !== 'festival')) expect(all, w).toContain(w.toLowerCase());
-    expect(p.home.toLowerCase()).toContain('bluesky');
+    // Round 9 fix 3: the people-asking sentences moved from the home FAQ to /faq, so the home word budget does not move with the keys.
+    expect(p.faq.toLowerCase()).toContain('bluesky');
+    expect(p.home.toLowerCase()).not.toContain('bluesky');
     expect(p.about).toContain('SAM.gov');
     expect(p.llms).toContain('Ticketmaster');
     expect(p.llms).toContain('SAM.gov');
@@ -60,11 +64,17 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(allText(aboutCopy(setOf('BRAVE_SEARCH_API_KEY')))).not.toContain('Bluesky');
     expect(allText(aboutCopy(setOf('BRAVE_SEARCH_API_KEY')))).toContain('Licensed web search');
     expect(allText(aboutCopy(setOf('BLUESKY_HANDLE')))).not.toContain('Bluesky');
-    expect(allText(homeCopy(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).toContain('Bluesky');
-    expect(allText(homeCopy(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).not.toContain('licensed search');
-    // The home page no longer has an events tile; the event key still shows in the data-source answer.
-    expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY')))).toContain('Ticketmaster');
-    expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY'))).toLowerCase()).not.toContain('asking');
+    expect(allText(faqItems(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).toContain('Bluesky');
+    expect(allText(faqItems(setOf('BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD')))).not.toContain('licensed search');
+    expect(allText(faqItems(setOf('BRAVE_SEARCH_API_KEY')))).toContain('licensed search APIs');
+    expect(allText(faqItems(setOf('BRAVE_SEARCH_API_KEY')))).not.toContain('Bluesky');
+    expect(allText(faqItems(setOf('BLUESKY_HANDLE')))).not.toContain('Bluesky');
+    // Round 9 fix 3: the home FAQ names no optional source (its word budget must not move with the keys); the event key still
+    // shows on /about and /llms.txt, and only with its own key.
+    expect(allText(aboutCopy(setOf('TICKETMASTER_API_KEY')))).toContain('Ticketmaster');
+    expect(allText(aboutCopy(NONE))).not.toContain('Ticketmaster');
+    expect(allText(homeCopy(setOf('TICKETMASTER_API_KEY')).faqs)).not.toContain('Ticketmaster');
+    expect(allText(aboutCopy(setOf('TICKETMASTER_API_KEY'))).toLowerCase()).not.toContain('asking');
     expect(sourceActive('sam', NONE)).toBe(false);
     expect(sourceActive('sam', setOf('SAM_API_KEY'))).toBe(true);
   });
@@ -82,6 +92,9 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(n.steps).toEqual(a.steps);
     expect(n.faqs.map((f) => f.q)).toEqual(a.faqs.map((f) => f.q));
     expect(n.faqs.length).toBeLessThanOrEqual(4);
+    // The home FAQ does not grow with any optional key: every key set leaves it exactly as it is with no key.
+    for (const has of [...ASK_KEYS, setOf('SAM_API_KEY'), setOf('TICKETMASTER_API_KEY')]) expect(homeCopy(has).faqs).toEqual(n.faqs);
+    for (const has of ASK_KEYS) expect(allText(homeCopy(has).faqs)).not.toMatch(/asking|bluesky|licensed search|draft/i);
     // The three-family ledger is the same with or without keys: nothing in it needs an optional key.
     expect(n.families).toEqual(a.families);
     expect(n.families.map((f) => f.id)).toEqual(['weather', 'permit', 'civic']);
@@ -116,7 +129,10 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     for (const text of [allText(homeCopy(NONE)), allText(aboutCopy(NONE)), llmsText(llmsInput, NONE)]) expect(text.toLowerCase()).not.toContain('draft');
     // The steps promise no draft in either state; with a people-asking key the FAQ still explains it.
     expect(allText(homeCopy(ALL).steps).toLowerCase()).not.toContain('draft');
-    expect(allText(homeCopy(ALL).faqs)).toContain('draft reply');
+    // Round 9 fix 3: with a key the draft reply is explained on /faq, not in the home FAQ.
+    expect(allText(homeCopy(ALL).faqs).toLowerCase()).not.toContain('draft');
+    expect(allText(faqItems(NONE)).toLowerCase()).not.toContain('draft');
+    for (const has of ASK_KEYS) expect(allText(faqItems(has))).toContain('If you ask for a draft reply to a public post, you get text to edit and post yourself.');
     expect(allText(aboutCopy(ALL))).toContain('draft reply');
   });
 
@@ -141,8 +157,8 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     expect(allText(aboutCopy(NONE).whatItIs)).toContain('Holler is new');
   });
 
-  it('the three page files hold no key-gated wording of their own (it all comes from lib/seo/public-copy.ts)', () => {
-    for (const file of ['app/page.tsx', 'app/about/page.tsx', 'app/llms.txt/route.ts']) {
+  it('the page files hold no key-gated wording of their own (it all comes from lib/seo/public-copy.ts)', () => {
+    for (const file of ['app/page.tsx', 'app/about/page.tsx', 'app/llms.txt/route.ts', 'app/faq/page.tsx', 'lib/seo/faq.ts']) {
       const src = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
       for (const w of KEY_GATED) expect(src.toLowerCase(), `${file} contains "${w}"`).not.toContain(w.toLowerCase());
     }

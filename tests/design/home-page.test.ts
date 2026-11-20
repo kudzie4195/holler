@@ -18,6 +18,7 @@ import { PUSH_CAP, capPhrase } from '@/lib/seo/home-cadence';
 import { tidyInches } from '@/components/home/select';
 import { planShortParts } from '@/components/pricing';
 import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
+import { env } from '@/lib/env';
 
 async function render(live: unknown): Promise<string> {
   h.live = live;
@@ -156,6 +157,35 @@ describe('home page, Version 3', () => {
     console.log(JSON.stringify({ words: n }));
     expect(n.live).toBeLessThanOrEqual(700);
     expect(n.noData).toBeLessThanOrEqual(620);
+  });
+
+  it('every optional key set (search, Bluesky, SAM.gov, Ticketmaster): still at most 700 and 620 words, and the FAQ text equals its JSON-LD', async () => {
+    const OPTIONAL = ['BRAVE_SEARCH_API_KEY', 'SERPER_API_KEY', 'BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD', 'SAM_API_KEY', 'TICKETMASTER_API_KEY'] as const;
+    const saved = OPTIONAL.map((k) => env[k]);
+    for (const k of OPTIONAL) env[k] = 'set-in-test';
+    try {
+      expect(homeCopy().metaDescription).toContain('and local posts'); // the keys really are on for this render
+      const keyedNoData = await render(NO_LIVE);
+      const keyedLive = await render(fixture);
+      const n = { noData: words(keyedNoData), live: words(keyedLive) };
+      console.log(JSON.stringify({ wordsAllKeys: n }));
+      expect(n.live).toBeLessThanOrEqual(700);
+      expect(n.noData).toBeLessThanOrEqual(620);
+      for (const page of [keyedNoData, keyedLive]) {
+        const faq = between(page, 'id="faq"', 'id="check"');
+        const qs = [...faq.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((m) => toText(m[1]).trim());
+        const as = [...faq.matchAll(/<h3[^>]*>[^<]+<\/h3><p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => toText(m[1]).trim());
+        const ld = JSON.parse(page.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+        expect(ld['@type']).toBe('FAQPage');
+        expect(qs).toHaveLength(4);
+        expect(ld.mainEntity.map((q: { name: string }) => q.name)).toEqual(qs);
+        expect(ld.mainEntity.map((q: { acceptedAnswer: { text: string } }) => q.acceptedAnswer.text)).toEqual(as);
+        // The people-asking sentences are on /faq only.
+        expect(toText(faq)).not.toMatch(/asking online|Bluesky|licensed search|draft reply/i);
+      }
+    } finally {
+      OPTIONAL.forEach((k, i) => (env[k] = saved[i]));
+    }
   });
 
   it('the word count sees the map labels and the phone cards (they are not dropped as pictures)', () => {

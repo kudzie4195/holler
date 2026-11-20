@@ -1,6 +1,7 @@
 import { absoluteUrl } from '../canonical';
 import { articleLd, breadcrumbLd, faqLd, itemListLd } from '../jsonld';
-import { FAQ_ITEMS } from '../faq';
+import { FAQ_ITEMS, faqItems } from '../faq';
+import type { Has } from '../public-copy';
 import { GUIDES, guidePath, type Guide } from './index';
 import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
@@ -65,9 +66,10 @@ export function hubJsonLd(): Record<string, unknown>[] {
   ];
 }
 
-export function faqPageJsonLd(): Record<string, unknown>[] {
+/** `has` is for tests (the answers for a given set of optional keys); the page passes nothing and gets FAQ_ITEMS. */
+export function faqPageJsonLd(has?: Has): Record<string, unknown>[] {
   return [
-    faqLd(FAQ_ITEMS),
+    faqLd(has ? faqItems(has) : FAQ_ITEMS),
     breadcrumbLd([
       { name: 'Home', path: '/' },
       { name: 'FAQ', path: '/faq' },

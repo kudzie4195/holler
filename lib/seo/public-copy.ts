@@ -7,12 +7,14 @@ import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { PUSH_CAP } from './home-cadence';
 
 /**
- * Every sentence on the home page, /about and /llms.txt that depends on an optional key lives here, built from the keys that are set.
- * The three pages hold no key-gated wording of their own (tests/seo/public-copy.test.ts reads their source to prove it).
+ * Every sentence on the home page, /about, /faq and /llms.txt that depends on an optional key lives here, built from the keys that are
+ * set. Those pages hold no key-gated wording of their own (tests/seo/public-copy.test.ts reads their source to prove it).
+ * The home page FAQ is the same with any keys (only its meta description changes): the people-asking sentences live on /faq
+ * (faqAskCopy) and the optional sources on /about and /llms.txt, so the home word budget does not move when a key is set.
  * Rule: a source or signal type that needs a key is named only when its key is set. When it is not set the item is left out or
  * reworded, never kept as a promise. `has` is for tests; production code never passes it.
  */
-type Has = (...k: EnvKey[]) => boolean;
+export type Has = (...k: EnvKey[]) => boolean;
 
 export interface Flags {
   /**
@@ -93,11 +95,9 @@ export interface HomeCopy {
 export function homeCopy(has: Has = hasEnv): HomeCopy {
   const f = flagsFor(has);
 
-  const extra = [...(f.sam ? ['SAM.gov'] : []), ...(f.event ? ['the Ticketmaster Discovery API'] : [])];
-  const dataAnswer =
-    'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its source.' +
-    (extra.length ? ` Also ${joinList(extra)}.` : '') +
-    (f.ask ? ` People asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.` : '');
+  // Key-independent: no optional source is named in the home FAQ, so its word budget is the same whatever keys are set. The
+  // key-gated sources are named on /about, /faq and /llms.txt.
+  const dataAnswer = 'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its source.';
 
   return {
     metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
@@ -148,7 +148,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
     faqs: [
       {
         q: 'Is this a lead list?',
-        a: `No. Holler shows public records that point to work. It does not promise a job or a customer.${f.ask ? ' If you ask for a draft reply to a public post, you get text to edit and post yourself.' : ''}`,
+        a: 'No. Holler shows public records that point to work. It does not promise a job or a customer.',
       },
       { q: 'Where does it come from?', a: dataAnswer },
       {
@@ -231,6 +231,21 @@ export function aboutCopy(has: Has = hasEnv): AboutCopy {
     postsNote: f.ask
       ? `When we find a public post where someone is asking for help, we keep ${askKeeps(f)}. If you ask for a draft reply, you get text to edit and post yourself.`
       : null,
+  };
+}
+
+// ---- /faq ------------------------------------------------------------------------------------------------------------
+
+/**
+ * The /faq sentences that depend on a people-asking key (Brave, Serper or the Bluesky pair). Both null when none is set.
+ * lib/seo/faq.ts adds them to its data and posting answers. They are not on the home page.
+ */
+export function faqAskCopy(has: Has = hasEnv): { sources: string | null; drafts: string | null } {
+  const f = flagsFor(has);
+  if (!f.ask) return { sources: null, drafts: null };
+  return {
+    sources: `Public posts from people asking online come from ${joinList(askChannels(f))}, and we keep ${askKeeps(f)}.`,
+    drafts: 'If you ask for a draft reply to a public post, you get text to edit and post yourself.',
   };
 }
 

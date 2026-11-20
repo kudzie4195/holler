@@ -4,7 +4,8 @@ import { isExternal, linksIn, stripLinks } from '@/lib/seo/guides/inline';
 import { linkableTexts, sectionProse, sectionTexts } from '@/lib/seo/guides/text';
 import { GUIDES_HUB_META, FAQ_META, DATA_META, guideJsonLd, guideMeta, hubJsonLd, faqPageJsonLd } from '@/lib/seo/guides/seo';
 import { jsonLdString } from '@/lib/seo/jsonld';
-import { FAQ_GROUPS, FAQ_ITEMS } from '@/lib/seo/faq';
+import { FAQ_GROUPS, FAQ_ITEMS, faqItems } from '@/lib/seo/faq';
+import type { EnvKey } from '@/lib/env';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { TRADE_FACTS } from '@/lib/seo/trade-pages';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
@@ -277,6 +278,28 @@ describe('the hub and FAQ JSON-LD', () => {
       expect(q.acceptedAnswer.text).toBe(FAQ_ITEMS[i].a);
     });
     expect(parsed.find((x) => x['@type'] === 'BreadcrumbList')).toBeDefined();
+  });
+});
+
+describe('/faq with every optional key set (the people-asking sentences live here, not on the home page)', () => {
+  const ALL = (...k: EnvKey[]) =>
+    k.every((x) => ['BRAVE_SEARCH_API_KEY', 'SERPER_API_KEY', 'BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD', 'TICKETMASTER_API_KEY', 'SAM_API_KEY'].includes(x));
+  const items = faqItems(ALL);
+  it('same questions, every answer still 40 to 90 words, no em dash, no banned word, and the JSON-LD equals the text', () => {
+    expect(items.map((i) => i.q)).toEqual(FAQ_ITEMS.map((i) => i.q));
+    for (const i of items) {
+      const n = wordCount(i.a);
+      expect(n, i.q).toBeGreaterThanOrEqual(40);
+      expect(n, i.q).toBeLessThanOrEqual(90);
+    }
+    const text = items.map((i) => `${i.q}\n${i.a}`).join('\n');
+    expect(bannedHits(text)).toEqual([]);
+    expect(hasEmDash(text)).toBe(false);
+    expect(text).toContain('people asking online come from licensed search APIs and Bluesky search');
+    const ld = (JSON.parse(jsonLdString(faqPageJsonLd(ALL))) as Record<string, unknown>[]).find((x) => x['@type'] === 'FAQPage')!;
+    const qs = ld.mainEntity as { name: string; acceptedAnswer: { text: string } }[];
+    expect(qs.map((q) => q.name)).toEqual(items.map((i) => i.q));
+    expect(qs.map((q) => q.acceptedAnswer.text)).toEqual(items.map((i) => i.a));
   });
 });
 
