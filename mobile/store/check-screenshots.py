@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""The judgment-free gate for the store screenshots (round 10). Run after make-screenshots.py, from mobile/:
+"""The judgment-free gate for the store screenshots (round 11 set: eight shots per platform, the composition changes per shot on one
+type and margin system). Run after make-screenshots.py, from mobile/:
     python3 store/check-screenshots.py
 Every number below is measured in the PNG files themselves where the PNG can tell it (sizes, mode, text position, cap height, margins,
-background colours, lime and orange pixels, the frame and its share of the canvas). Text strings, the records on each hero and the
+background colours, lime and orange pixels, phone bezels). Text strings, the records on each screen and card, the map and the
 compose-time layout come from store/.gen/metrics.json (written by make-screenshots.py in Chrome) and are checked against the fixture,
-the served data and the web lib files. Prints a report; exits 1 on any failure."""
-import colorsys, json, re, sys
+the served data and the web lib files. Prints a report; exits 1 on any failure.
+SHOTS_OUT and SHOTS_METRICS point the checker at another copy (used for the damaged-copy test)."""
+import json, math, os, re, sys
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -13,8 +15,8 @@ from scipy import ndimage
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-OUT = HERE / "screenshots"
-MET = json.loads((HERE / ".gen/metrics.json").read_text())
+OUT = Path(os.environ.get("SHOTS_OUT", HERE / "screenshots"))
+MET = json.loads(Path(os.environ.get("SHOTS_METRICS", HERE / ".gen/metrics.json")).read_text())
 M = MET["shots"]
 GRID = MET["grid"]
 DATA = json.loads((HERE / ".gen/data.json").read_text())
@@ -23,11 +25,17 @@ ROWS = {r["id"]: r for r in FX["rows"]}
 PLATS = ("ios", "android")
 SIZE = {"ios": (1320, 2868), "android": (1080, 1920)}
 EDGE = {"ios": 64, "android": 52}
+COUNT = 8
 MAX_BYTES = 8 * 1024 * 1024
-TOKENS = {"green": "#1E3A2C", "paper": "#F5F4EF"}
+# Backgrounds a shot may use: field green, paper and the family tints (app/globals.css tokens).
+TOKENS = {"green": "#1E3A2C", "paper": "#F5F4EF", "sky": "#DDE8EC", "sky_deep": "#C9DCE5", "sage": "#E3EFE6", "sage_deep": "#CFE3D5",
+          "civic": "#EFEAF7"}
+LIGHT = {k for k in TOKENS if k != "green"}
 LIME = (0xD9, 0xF0, 0x46)
+INK = (0x14, 0x20, 0x1A)
 BANNED = ["seamless", "robust", "unlock", "elevate", "effortless", "game-changer", "game changer", "revolutionary", "supercharge",
           "leverage", "best-in-class", "world-class", "cutting-edge", "next-level", "guaranteed", "guarantee", "#1", "new!", "leads"]
+END_OF_FEED = "That is everything for now."
 fail = []
 
 
@@ -66,43 +74,67 @@ def runs(mask_rows):
     return out
 
 
+EARTH_MI = float(re.search(r"const EARTH_RADIUS_MI = ([\d.]+);", (REPO / "lib/geo/index.ts").read_text()).group(1))
+
+
+def haversine_mi(a_lat, a_lon, b_lat, b_lon):
+    """The same formula and earth radius as lib/geo haversineMi (radius read from lib/geo/index.ts)."""
+    r = math.radians
+    d = math.sin(r(b_lat - a_lat) / 2) ** 2 + math.cos(r(a_lat)) * math.cos(r(b_lat)) * math.sin(r(b_lon - a_lon) / 2) ** 2
+    return 2 * EARTH_MI * math.asin(min(1, math.sqrt(d)))
+
+
+def bearing(a_lat, a_lon, b_lat, b_lon):
+    r = math.radians
+    y = math.sin(r(b_lon - a_lon)) * math.cos(r(b_lat))
+    x = math.cos(r(a_lat)) * math.sin(r(b_lat)) - math.sin(r(a_lat)) * math.cos(r(b_lat)) * math.cos(r(b_lon - a_lon))
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+def objs(plat, n, kind=None):
+    return [o for o in M[f"{plat}/{n}"]["objects"] if kind is None or o["kind"] == kind]
+
+
 # ---------------------------------------------------------------- 1. files ------------------------------------------------------------
-print("== 1. Files: exact names, count per platform 5 to 7, size, RGB without alpha, under 8 MB; old names gone")
+print(f"== 1. Files: exact names, exactly {COUNT} per platform, the same names on both, size, RGB without alpha, under 8 MB; old names gone")
 names = {plat: sorted(k.split("/", 1)[1] for k in M if k.startswith(plat + "/")) for plat in PLATS}
 for plat in PLATS:
     on_disk = sorted(p.stem for p in (OUT / plat).glob("*"))
     print(f"  {plat}: made {names[plat]}; on disk {on_disk} "
-          f"{check(on_disk == names[plat] and 5 <= len(on_disk) <= 7, f'file set {plat}')}")
+          f"{check(on_disk == names[plat] and len(on_disk) == COUNT, f'file set {plat}')}")
     for n in names[plat]:
         p = OUT / plat / f"{n}.png"
+        if not p.exists():
+            continue
         im = Image.open(p)
         b = p.stat().st_size
         ok = im.format == "PNG" and im.size == SIZE[plat] and im.mode == "RGB" and "transparency" not in im.info and b < MAX_BYTES
         print(f"    {plat}/{n}.png {im.format} {im.size[0]}x{im.size[1]} {im.mode} {b / 1e6:.2f} MB {check(ok, f'file {plat}/{n}')}")
 print(f"  same shots on both platforms: {check(names['ios'] == names['android'], 'same names')}")
-legacy = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price"]
+legacy = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price",   # round 9
+          "01-records", "03-radius", "04-source", "05-push", "06-plans"]                                                          # round 10
 left = [f"{plat}/{n}" for plat in PLATS for n in legacy if (OUT / plat / f"{n}.png").exists() and n not in names[plat]]
 print(f"  old file names still present: {left or 'none'} {check(not left, 'old files')}")
 for extra in ("contact-sheet.png", "thumb-strip.png"):
     ok = (OUT / extra).exists()
     print(f"  {extra}: {Image.open(OUT / extra).size if ok else 'missing'} {check(ok, extra)}")
+NAMES = names["ios"]
 
 # ---------------------------------------------------------------- 2. the drawn text, measured ----------------------------------------
-print("\n== 2. Drawn text measured in the PNG (text pixel = differs from the background by more than 60 in RGB sum, above the hero)")
+print("\n== 2. Drawn text measured in the PNG (text pixel = differs from the background by more than 60 in RGB sum, in the header band")
+print("   from the top to 12 px under the supporting line)")
 meas = {}
 for plat in PLATS:
-    g = GRID[plat]; W, H = SIZE[plat]
-    for n in names[plat]:
+    W, H = SIZE[plat]
+    for n in NAMES:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         bg = np.array(hexrgb(m["bg_hex"]))
-        hero_top = int(m["hero"]["box"][1])
-        head = a[:hero_top - 4]
+        band_bottom = int(m["layout"]["sub"]["y1"]) + 12
+        head = a[:band_bottom]
         txt = np.abs(head - bg).sum(axis=2) > 60
-        rr = runs(txt.any(axis=1))
+        bands = runs(txt.any(axis=1))
         ys, xs = np.nonzero(txt)
-        bands = rr
         info = dict(runs=bands, x0=int(xs.min()), x1=int(xs.max()), y0=int(ys.min()))
-        # line bands: eyebrow, headline line 1, headline line 2, supporting line
         if len(bands) == 4:
             e, h1, h2, s = bands
             lab, k = ndimage.label(txt[h1[0]:h1[1]])
@@ -110,7 +142,8 @@ for plat in PLATS:
             hs = sorted(q[0].stop - q[0].start for q in sl)
             cap = int(np.median([x for x in hs if x >= 0.6 * max(hs)]))
             tops = [q[0].start + h1[0] for q in sl if abs((q[0].stop - q[0].start) - cap) <= 2]
-            def baseline(band):  # median bottom row of the glyphs in a band: the text baseline (descenders and "$" do not move it)
+
+            def baseline(band):  # median bottom row of the glyphs in a band: the text baseline
                 lb, kk = ndimage.label(txt[band[0]:band[1]])
                 return int(np.median([q[0].stop for q in ndimage.find_objects(lb)])) + band[0]
             info.update(eyebrow=e, h1=h1, h2=h2, sub=s, cap=cap, cap_top=int(np.median(tops)),
@@ -119,47 +152,50 @@ for plat in PLATS:
                         head_x0=int(np.nonzero(txt[h1[0]:h2[1]].any(axis=0))[0].min()),
                         sub_x0=int(np.nonzero(txt[s[0]:s[1]].any(axis=0))[0].min()))
         meas[(plat, n)] = info
-        ok = len(bands) == 4
-        print(f"  {plat}/{n}: {len(bands)} text bands (eyebrow, two headline lines, one supporting line) {bands} {check(ok, f'text bands {plat}/{n}')}")
+        print(f"  {plat}/{n}: {len(bands)} text bands (eyebrow, two headline lines, one supporting line) {bands} {check(len(bands) == 4, f'text bands {plat}/{n}')}")
 
 print("\n   Headline cap height and cap top (median connected component of line 1) and the baseline of every text line (median glyph")
-print("   bottom), each the same within 2 px across the set")
+print("   bottom), each the same within 2 px across the set: one type system")
 for plat in PLATS:
-    caps = {n: meas[(plat, n)].get("cap") for n in names[plat]}
-    tops = {n: meas[(plat, n)].get("cap_top") for n in names[plat]}
+    caps = {n: meas[(plat, n)].get("cap") for n in NAMES}
+    tops = {n: meas[(plat, n)].get("cap_top") for n in NAMES}
     ok = None not in caps.values() and max(caps.values()) - min(caps.values()) <= 2 and max(tops.values()) - min(tops.values()) <= 2
     print(f"   {plat}: cap heights {caps}; cap tops {tops} {check(ok, f'headline cap {plat}')}")
     for part, label in (("eyebrow", "eyebrow baseline"), ("h1", "headline line 1 baseline"), ("h2", "headline line 2 baseline"), ("sub", "supporting line baseline")):
-        d = {n: meas[(plat, n)]["base"][part] for n in names[plat] if "base" in meas[(plat, n)]}
-        ok = len(d) == len(names[plat]) and max(d.values()) - min(d.values()) <= 2
+        d = {n: meas[(plat, n)]["base"][part] for n in NAMES if "base" in meas[(plat, n)]}
+        ok = len(d) == len(NAMES) and max(d.values()) - min(d.values()) <= 2
         print(f"   {plat}: {label} {d} {check(ok, f'{label} {plat}')}")
 
-print("\n   Left margin: eyebrow ink (every eyebrow starts with the digit 0) identical; headline and supporting line ink within the first")
-print("   letter's side bearing of the margin; text box left in Chrome exactly the margin")
+print("\n   Left margin: eyebrow, headline and supporting-line ink within the first letter's side bearing of the margin; text box left in")
+print("   Chrome exactly the margin: one margin system")
 for plat in PLATS:
     g = GRID[plat]
-    ex = {n: meas[(plat, n)].get("eyebrow_x0") for n in names[plat]}
-    hx = {n: meas[(plat, n)].get("head_x0") for n in names[plat]}
-    sx = {n: meas[(plat, n)].get("sub_x0") for n in names[plat]}
-    box = {n: (M[f"{plat}/{n}"]["layout"]["head"]["x0"], M[f"{plat}/{n}"]["layout"]["sub"]["x0"], M[f"{plat}/{n}"]["layout"]["eyebrow"]["x0"]) for n in names[plat]}
-    ok = (len(set(ex.values())) == 1 and all(g["M"] <= v <= g["M"] + 16 for v in hx.values()) and all(g["M"] <= v <= g["M"] + 10 for v in sx.values())
-          and all(b == (g["M"], g["M"], g["M"]) for b in box.values()))
+    ex = {n: meas[(plat, n)].get("eyebrow_x0") for n in NAMES}
+    hx = {n: meas[(plat, n)].get("head_x0") for n in NAMES}
+    sx = {n: meas[(plat, n)].get("sub_x0") for n in NAMES}
+    box = {n: (M[f"{plat}/{n}"]["layout"]["head"]["x0"], M[f"{plat}/{n}"]["layout"]["sub"]["x0"], M[f"{plat}/{n}"]["layout"]["eyebrow"]["x0"]) for n in NAMES}
+    ok = (all(v is not None and g["M"] <= v <= g["M"] + 10 for v in ex.values()) and all(v is not None and g["M"] <= v <= g["M"] + 16 for v in hx.values())
+          and all(v is not None and g["M"] <= v <= g["M"] + 10 for v in sx.values()) and all(b == (g["M"], g["M"], g["M"]) for b in box.values()))
     print(f"   {plat}: margin {g['M']}; eyebrow ink x {ex}; headline ink x {hx}; supporting ink x {sx} {check(ok, f'left margin {plat}')}")
 
-print(f"\n   Drawn text distance from every edge (iOS >= {EDGE['ios']} px, Android >= {EDGE['android']} px)")
+print(f"\n   Drawn text distance from every edge (iOS >= {EDGE['ios']} px, Android >= {EDGE['android']} px): the header band measured in the")
+print("   PNG, and every drawn text a viewer can see (map labels, ring captions, the ZIP chip, the figure) measured in Chrome")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in names[plat]:
+    for n in NAMES:
         i = meas[(plat, n)]
         d = dict(left=i["x0"], right=W - 1 - i["x1"], top=i["y0"])
-        print(f"   {plat}/{n}: {d} {check(min(d.values()) >= EDGE[plat], f'text edge {plat}/{n}')}")
+        drawn = M[f"{plat}/{n}"]["layout"]["drawn"]
+        dm = min(min(t["x0"], W - t["x1"], t["y0"], H - t["y1"]) for t in drawn)
+        print(f"   {plat}/{n}: header {d}; nearest drawn text {dm:.0f} px from an edge ({len(drawn)} items) "
+              f"{check(min(d.values()) >= EDGE[plat] and dm >= EDGE[plat] - 0.5, f'text edge {plat}/{n}')}")
 
 # ---------------------------------------------------------------- 3. colour ----------------------------------------------------------
 print("\n== 3. Colour")
 print("   Contrast of drawn text (WCAG 2.x) against the background measured in the PNG; the text colour is the most common text pixel")
 print("   colour of each band, which must equal the token (within 12)")
 for plat in PLATS:
-    for n in names[plat]:
+    for n in NAMES:
         a = load(plat, n); m = M[f"{plat}/{n}"]; i = meas[(plat, n)]
         bg = tuple(int(v) for v in a[8, 8])
         out = []
@@ -178,42 +214,48 @@ for plat in PLATS:
             out.append(f"{part} #{''.join(f'{c:02X}' for c in col)} {r:.2f}:1 (need {need})")
         print(f"   {plat}/{n} on #{''.join(f'{c:02X}' for c in bg)}: {'; '.join(out)} {check(ok_all, f'contrast {plat}/{n}')}")
 
-print("\n   Background colours across the set (four corners of each image and the gap between text and hero), at most two, each a token")
-seen = set()
+print("\n   Background: flat (four corners, the left and right margins beside the supporting line, a point under it), the shot's own")
+print("   token, and one of the brand backgrounds (field green, paper, sky, sage, civic tints)")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in names[plat]:
+    for n in NAMES:
         a = load(plat, n); m = M[f"{plat}/{n}"]
-        ht = int(m["hero"]["box"][1])
-        pts = [(4, 4), (W - 5, 4), (4, H - 5), (W - 5, H - 5), (W // 2, ht - 20), (4, ht + 300)]
-        cols = {"#" + "".join(f"{int(c):02X}" for c in a[y, x]) for x, y in pts}
-        seen |= cols
-        ok = len(cols) == 1 and cols <= set(TOKENS.values())
-        print(f"   {plat}/{n}: {sorted(cols)} {check(ok, f'flat background {plat}/{n}')}")
-print(f"   set: {sorted(seen)} {check(len(seen) <= 2 and seen <= set(TOKENS.values()), 'two backgrounds at most')}")
+        sy = int(m["layout"]["sub"]["y1"]) + 20
+        pts = [(4, 4), (W - 5, 4), (4, H - 5), (W - 5, H - 5), (8, sy), (W - 9, sy), (W // 2, sy)]
+        # a corner covered by a phone or a card running off the canvas is not background; skip points inside any object box
+        def covered(x, y, pad=110):  # inside a phone or card, or under its soft shadow (70 px blur, 30 px down)
+            return any(o.get("box") and o["box"][2] is not None and o["box"][0] - pad <= x <= o["box"][2] + pad and o["box"][1] - pad <= y <= o["box"][3] + pad
+                       for o in m["objects"] if o["kind"] in ("phone", "card"))
+        cols = {"#" + "".join(f"{int(c):02X}" for c in a[y, x]) for x, y in pts if not covered(x, y)}
+        ok = cols == {TOKENS.get(m["bg"], "?")} and m["bg_hex"] == TOKENS.get(m["bg"])
+        print(f"   {plat}/{n} ({m['bg']}): {sorted(cols)} {check(ok, f'flat background {plat}/{n}')}")
+    seq = [(M[f"{plat}/{n}"]["bg"], M[f"{plat}/{n}"]["comp"]) for n in NAMES]
+    same = [(NAMES[i], NAMES[i + 1]) for i in range(len(seq) - 1) if seq[i] == seq[i + 1]]
+    print(f"   {plat}: background and composition per shot {seq}")
+    print(f"   {plat}: neighbours sharing both background and composition: {same or 'none'} {check(not same, f'neighbours {plat}')}")
 
-print("\n   Lime #D9F046 (pixels within 60 of it): never drawn text on paper, never a large fill; largest cluster at most 0.5% of the canvas")
+print("\n   Lime #D9F046 (pixels within 60 of it): a small accent only, never drawn text on a light background, never touching a light")
+print("   canvas; largest cluster at most 0.5% of the canvas, all lime at most 1%")
 for plat in PLATS:
     W, H = SIZE[plat]
-    for n in names[plat]:
+    for n in NAMES:
         a = load(plat, n); m = M[f"{plat}/{n}"]
         lime = np.abs(a - np.array(LIME)).sum(axis=2) < 60
         lab, k = ndimage.label(lime)
         big = int(np.bincount(lab.ravel())[1:].max()) if k else 0
-        ht = int(m["hero"]["box"][1])
-        head_lime = int(lime[:ht].sum())
-        paper = m["bg"] == "paper"
-        ok = big <= 0.005 * W * H and lime.sum() <= 0.01 * W * H and not (paper and head_lime)
-        # on paper canvases, lime may not touch the canvas background at all
-        if paper:
-            bgm = np.abs(a - np.array(hexrgb(TOKENS["paper"]))).sum(axis=2) == 0
+        band_bottom = int(m["layout"]["sub"]["y1"]) + 12
+        head_lime = int(lime[:band_bottom].sum())
+        light = m["bg"] in LIGHT
+        ok = big <= 0.005 * W * H and lime.sum() <= 0.01 * W * H and not (light and head_lime)
+        if light:
+            bgm = np.abs(a - np.array(hexrgb(m["bg_hex"]))).sum(axis=2) == 0
             ok &= not (ndimage.binary_dilation(lime, iterations=2) & bgm).any()
         print(f"   {plat}/{n} ({m['bg']}): lime px {int(lime.sum())} ({100 * lime.sum() / (W * H):.3f}%), largest cluster {big} px, in the drawn text {head_lime} px "
               f"{check(ok, f'lime {plat}/{n}')}")
 
 print("\n   Orange (hue 10 to 32 deg, saturation and value >= 0.6, the old #E8590C family): no cluster larger than 4 px")
 for plat in PLATS:
-    for n in names[plat]:
+    for n in NAMES:
         a = load(plat, n).astype(np.float32) / 255
         mx = a.max(axis=2); mn = a.min(axis=2); d = mx - mn
         sat = np.where(mx > 0, d / np.maximum(mx, 1e-6), 0)
@@ -226,137 +268,200 @@ for plat in PLATS:
         big = int(np.bincount(lab.ravel())[1:].max()) if k else 0
         print(f"   {plat}/{n}: orange px {int(orange.sum())}, largest cluster {big} {check(big <= 4, f'orange {plat}/{n}')}")
 
-# ---------------------------------------------------------------- 4. the hero and the grid --------------------------------------------
-print("\n== 4. Hero: the phone frame found in the PNG (ink #14201A bezel); same box on every shot; share of the canvas >= 45%")
-INK = np.array(hexrgb("#14201A"))
+# ---------------------------------------------------------------- 4. the heroes ------------------------------------------------------
+print("\n== 4. Heroes: every phone frame found in the PNG as flat ink #14201A with the bezel it was drawn with (left bezel measured on")
+print("   rows no other object covers); every phone and card inside the canvas sideways; nothing runs into the supporting line")
 for plat in PLATS:
-    W, H = SIZE[plat]; g = GRID[plat]
-    boxes = {}
-    for n in names[plat]:
-        a = load(plat, n)
-        ink = np.abs(a - INK).sum(axis=2) <= 6
-        y = H - 200
-        xs = np.nonzero(ink[y])[0]
-        left, right = int(xs.min()), int(xs.max())
-        col = np.nonzero(ink[:, W // 2])[0]
-        top = int(col[col > meas[(plat, n)]["sub"][1]].min()) if "sub" in meas[(plat, n)] else -1
-        bez_l = int(np.argmax(~ink[y, left:])) ; bez_r = int(np.argmax(~ink[y, :right + 1][::-1]))
-        bez_t = int(np.argmax(~ink[top:, W // 2]))
-        share = (right - left + 1) * (H - top) / (W * H)
-        boxes[n] = (left, right, top, bez_l, bez_r, bez_t)
-        ok = left == g["M"] and right == W - g["M"] - 1 and top == g["hero_top"] and bez_l == bez_r == bez_t == g["bezel"] and share >= 0.45
-        print(f"   {plat}/{n}: frame x {left}..{right}, top {top}, bezels left/right/top {bez_l}/{bez_r}/{bez_t}, share {100 * share:.1f}% "
-              f"{check(ok, f'frame {plat}/{n}')}")
-    print(f"   {plat}: one box for the whole set {check(len(set(boxes.values())) == 1, f'grid {plat}')}")
-    print(f"   {plat}: no status bar drawn: the screen starts with the app's own top bar (checked by the record test below: app text only)")
+    W, H = SIZE[plat]
+    for n in NAMES:
+        a = load(plat, n); m = M[f"{plat}/{n}"]
+        ink = np.abs(a - np.array(INK)).sum(axis=2) <= 6
+        res = []
+        ok_all = True
+        for o in m["objects"]:
+            if o["kind"] in ("phone", "card"):
+                x0, y0, x1, y1 = o["box"]
+                inside = x0 >= 0 and x1 <= W
+                ok_all &= inside
+                if not inside:
+                    res.append(f"{o['key']} outside the canvas sideways")
+            if o["kind"] != "phone":
+                continue
+            x0, y0, x1, y1 = o["box"]; bez = o["bez"]
+            hits = 0
+            for side in ("left", "right"):   # the left bezel, or the right one where another object covers the left
+                xb = int(x0) if side == "left" else int(x1) - bez
+                others = [q["box"] for q in m["objects"] if q is not o and q["kind"] in ("phone", "card") and q["box"][0] - 2 <= xb + bez // 2 <= q["box"][2] + 2]
+                for y in range(int(y0) + 200, int(min(y1, H)) - 150, 25):
+                    if any(b[1] - 2 <= y <= b[3] + 2 for b in others):
+                        continue
+                    row = ink[y, xb - 1:xb + bez + 1]
+                    if row.size == bez + 2 and not row[0] and row[1:bez + 1].all() and not row[bez + 1]:
+                        hits += 1
+            ok = hits >= 3
+            ok_all &= ok
+            res.append(f"{o['key']} at {[int(v) for v in o['box']]} bezel {bez} px found on {hits} rows, {'whole' if o['whole'] else 'runs off the canvas'}")
+        ok_all &= m["hero_top"] >= m["layout"]["sub"]["y1"] + 40
+        print(f"   {plat}/{n}: {'; '.join(res)}; hero top {m['hero_top']} {check(ok_all, f'heroes {plat}/{n}')}")
+print("   No status bar is drawn: every phone screen starts with the app's own top bar (the record test below allows app text only)")
 
-print("\n   Whole paragraphs at the canvas edge and under the top bar: no text block has lines on both sides of the edge (metrics from")
-print("   the DOM at capture), and the first line in the scroller is whole")
+print("\n   Whole lines at every cut (the round 10 rules): no text block has lines on both sides of a phone's bottom cut (the tab bar on a")
+print("   whole phone, the canvas edge on a phone that runs off), the first line in the scroller is whole, the last line in view is never")
+print("   a group or section heading with its items under the cut, and no screen shows the feed's end-of-list line")
 for plat in PLATS:
-    for n in names[plat]:
-        h = M[f"{plat}/{n}"]["hero"]
-        print(f"   {plat}/{n}: blocks split by the bottom edge {h['split_at_edge']}; first line '{h['first_in_scroll']}' {check(not h['split_at_edge'], f'split paragraph {plat}/{n}')}")
+    for n in NAMES:
+        for o in objs(plat, n, "phone"):
+            end = END_OF_FEED in o["screen_text"]
+            ok = not o["split_at_edge"] and not o["last_line_is_heading"] and not end and o["edge_clear_css"] >= 2
+            print(f"   {plat}/{n} {o['key']}: first line '{o['first_in_scroll'][:40]}'; last line '{o['last_line']}' (heading: {o['last_line_is_heading']}); "
+                  f"blocks split {o['split_at_edge']}; {o['edge_clear_css']} CSS px clear; end-of-feed line: {end} "
+                  f"{check(ok, 'ending ' + plat + '/' + n + ' ' + o['key'])}")
 
-print("\n   Endings: the last line in view is never a group or section heading with its items under the edge, and no hero shows the")
-print("   feed's end-of-list line ('That is everything for now.')")
+print("\n   Text size on the canvas: app text on a phone >= iOS 20 / Android 16 px, on a lifted card >= iOS 34 / Android 28 px, map")
+print("   labels at least the eyebrow size")
 for plat in PLATS:
-    for n in names[plat]:
-        h = M[f"{plat}/{n}"]["hero"]
-        end = "That is everything for now." in h["screen_text"]
-        ok = not h["last_line_is_heading"] and not end
-        print(f"   {plat}/{n}: last line '{h['last_line']}' (heading: {h['last_line_is_heading']}); end-of-feed line: {end} {check(ok, f'ending {plat}/{n}')}")
-
-print("\n   App text size on the canvas (smallest visible text, CSS size x scale): iOS >= 34 px, Android >= 28 px")
-for plat in PLATS:
-    for n in names[plat]:
-        h = M[f"{plat}/{n}"]["hero"]
-        need = 34 if plat == "ios" else 28
-        print(f"   {plat}/{n}: {h['min_font_px']} px at scale {h['scale']:.3f} (viewport {h['vw']} CSS px, scrolled {h['scrolled']} px, "
-              f"edge {h['edge_clear_css']} CSS px from the nearest line) {check(h['min_font_px'] >= need and h['edge_clear_css'] >= 2, f'app text {plat}/{n}')}")
+    g = GRID[plat]
+    for n in NAMES:
+        parts = []
+        ok = True
+        for o in M[f"{plat}/{n}"]["objects"]:
+            if o["kind"] == "phone":
+                ok &= o["min_font_px"] >= g["min_phone_px"]; parts.append(f"phone {o['key']} {o['min_font_px']} px")
+            elif o["kind"] == "card":
+                ok &= o["min_font_px"] >= g["min_card_px"]; parts.append(f"card {o['key']} {o['min_font_px']} px")
+            elif o["kind"] == "map":
+                ok &= o["label_px"] >= g["eyebrow_px"]; parts.append(f"map labels {o['label_px']} px")
+            elif o["kind"] == "figure":
+                parts.append(f"figure {o['px']} px")
+        print(f"   {plat}/{n}: {'; '.join(parts)} {check(ok, f'text size {plat}/{n}')}")
 
 # ---------------------------------------------------------------- 5. truth ----------------------------------------------------------
-print("\n== 5. Every hero record is a real fixture row served to that shot's member, with the distance the server's matchOne gave")
+print("\n== 5. Truth: every record on a phone or a lifted card is a real fixture row served to that screen's member, with the distance")
+print("   the server's matchOne gave, and its title is on that screen; no other record title appears anywhere")
+all_titles = {r["title"] for r in FX["rows"]}
 for plat in PLATS:
-    for n in names[plat]:
-        h = M[f"{plat}/{n}"]["hero"]; feed = h.get("feed")
-        bad = []
-        for r in h["records"]:
-            row = ROWS.get(r["signalId"])
-            sc = FX["scenarios"].get(feed, {})
-            served = {i["signalId"]: i for i in DATA["feeds"].get(feed, [])}
-            if not row or row["title"] != r["title"] or r["signalId"] not in sc.get("ids", []) or r["signalId"] not in served:
-                bad.append((r["signalId"], "not the fixture row of this member"))
-            elif r["distance"] != served[r["signalId"]]["distanceLabel"] or r["distance"] != DATA["distances"][feed][str(r["signalId"])]:
-                bad.append((r["signalId"], "distance differs from the served one"))
-            if r["title"] not in h["screen_text"]:
-                bad.append((r["signalId"], "title not on the screen"))
-        alert_titles = {r["title"] for r in FX["rows"]}
-        # any record title on screen must be one of the listed records (nothing unlisted)
-        stray = [t for t in h["screen_text"] if t in alert_titles and t not in {r["title"] for r in h["records"]}]
-        prof = DATA["profiles"].get(feed) if feed else None
-        where = f"{prof['zip']} {prof['city']}, {prof['state']} r{prof['radiusMi']} {'+'.join(prof['trades'])}" if prof else "no records on this screen"
-        ok = not bad and not stray
-        print(f"   {plat}/{n}: [{where}] {[(r['signalId'], r['title'][:46], r['distance']) for r in h['records']]} {check(ok, f'records {plat}/{n} {bad} {stray}')}")
+    for n in NAMES:
+        for o in M[f"{plat}/{n}"]["objects"]:
+            if o["kind"] not in ("phone", "card"):
+                continue
+            feed = o.get("feed"); bad = []
+            text = o["screen_text"] if o["kind"] == "phone" else o["text"].split("\n")
+            for r in o["records"]:
+                row = ROWS.get(r["signalId"])
+                sc = FX["scenarios"].get(feed, {})
+                served = {i["signalId"]: i for i in DATA["feeds"].get(feed, [])}
+                if not row or row["title"] != r["title"] or r["signalId"] not in sc.get("ids", []) or r["signalId"] not in served:
+                    bad.append((r["signalId"], "not the fixture row of this member"))
+                elif r["distance"] != served[r["signalId"]]["distanceLabel"] or r["distance"] != DATA["distances"][feed][str(r["signalId"])]:
+                    bad.append((r["signalId"], "distance differs from the served one"))
+                if r["title"] not in text:
+                    bad.append((r["signalId"], "title not on the screen"))
+            listed = {r["title"] for r in o["records"]}
+            stray = [t for t in text if t in all_titles and t not in listed]
+            prof = DATA["profiles"].get(feed) if feed else None
+            where = f"{prof['zip']} {prof['city']}, {prof['state']} r{prof['radiusMi']} {'+'.join(prof['trades'])}" if prof else "no records on this screen"
+            print(f"   {plat}/{n} {o['kind']} {o['key']}: [{where}] {[(r['signalId'], r['title'][:40], r['distance']) for r in o['records']]} "
+                  f"{check(not bad and not stray, 'records ' + plat + '/' + n + ' ' + o['key'] + ' ' + str(bad) + ' ' + str(stray))}")
 
-# shot-specific facts
+print("\n   The map: every dot is a fixture row inside the 6 mi circle of the member's ZIP point, drawn at its true distance (lib/geo")
+print("   haversine, one decimal, as its label says) and its true bearing; the ZIP is the member's")
+for plat in PLATS:
+    for n in NAMES:
+        for o in objs(plat, n, "map"):
+            prof = next(p for p in DATA["profiles"].values() if p["zip"] == o["zip"])
+            bad = []
+            for r in o["records"]:
+                row = ROWS.get(int(r["id"]))
+                if not row or row["title"] != r["title"]:
+                    bad.append((r["id"], "not a fixture row")); continue
+                mi = round(haversine_mi(prof["lat"], prof["lon"], row["lat"], row["lon"]) * 10) / 10
+                br = bearing(prof["lat"], prof["lon"], row["lat"], row["lon"])
+                cx, cy = o["centre"]; ppm = o["px_per_mi"]
+                ex, ey = cx + mi * ppm * math.sin(math.radians(br)), cy - mi * ppm * math.cos(math.radians(br))
+                if not (0 < mi <= 6) or abs(mi - r["mi"]) > 0.05 or not r["text"].endswith(f"{mi:.1f} MI"):
+                    bad.append((r["id"], f"distance {mi} vs drawn {r['mi']} '{r['text']}'"))
+                if abs(br - r["bearing"]) > 0.5 or math.hypot(ex - r["x"], ey - r["y"]) > 2:
+                    bad.append((r["id"], "not at its bearing and distance"))
+                fam = {"permit": "permit", "civic": "civic", "alert": "weather", "report": "weather"}.get(row["kind"])
+                if fam != r["family"]:
+                    bad.append((r["id"], "wrong family mark"))
+            print(f"   {plat}/{n}: ZIP {o['zip']} ({prof['city']}), {[(r['id'], r['text']) for r in o['records']]} {check(not bad, f'map {plat}/{n} {bad}')}")
+
+print("\n   Big figures: copied from the card beside them")
+for plat in PLATS:
+    for n in NAMES:
+        for o in objs(plat, n, "figure"):
+            card = next(q for q in M[f"{plat}/{n}"]["objects"] if q.get("key") == o["source"]["card"])
+            ok = o["text"] in card["text"] and o["source"]["text"] in card["text"]
+            print(f"   {plat}/{n}: '{o['text']}' from '{o['source']['text']}' on card {card['key']} {check(ok, f'figure {plat}/{n}')}")
+
 FACT = {}
 plans = (REPO / "lib/stripe/plans.ts").read_text()
 solo_cents = int(re.search(r"PRICES_CENTS[^=]*=\s*\{\s*starter:\s*\{\s*monthly:\s*(\d+)", plans).group(1))
 trial = int(re.search(r"export const TRIAL_DAYS = (\d+);", (REPO / "lib/auth/membership.ts").read_text()).group(1))
 d, c = divmod(solo_cents, 100)
 solo_price = f"${d}" if c == 0 else f"${d}.{c:02d}"
-print(f"\n   lib facts read now: Solo monthly {solo_price} (lib/stripe/plans.ts PRICES_CENTS), trial {trial} days (lib/auth/membership.ts TRIAL_DAYS)")
+print(f"\n   Shot facts. lib facts read now: Solo monthly {solo_price} (lib/stripe/plans.ts PRICES_CENTS), trial {trial} days (lib/auth/membership.ts TRIAL_DAYS)")
+labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
 for plat in PLATS:
-    for n in names[plat]:
-        h = M[f"{plat}/{n}"]["hero"]; t = M[f"{plat}/{n}"]["text"]
-        if n.startswith("03"):
-            f = h["form"]; prof = DATA["profiles"][h["profile_key"]]
-            labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
-            ok = (f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
-                  and h["first_in_scroll"].startswith(("Home and property",) if plat == "ios" else ("Home and property", "Pick up to", "Your trades")))
-            print(f"   {plat}/{n}: first line in the scroller '{h['first_in_scroll']}'; ticked trades in view {f['pickedVisible']} "
-                  f"(member {h['profile_key']}: {prof['zip']} r{prof['radiusMi']} {prof['trades']}; the form holds ZIP {f['zip']}, {f['radius']} mi) "
-                  f"{check(ok, f'trade picker {plat}/{n}')}")
-        if n.startswith("04"):
-            ok = any(s.startswith("Open the source") for s in h["screen_text"]) and not any("source record" in s.lower() or "official" in s.lower() for s in h["screen_text"])
-            print(f"   {plat}/{n}: the button reads {[s for s in h['screen_text'] if s.startswith('Open the')]} {check(ok, f'source button {plat}/{n}')}")
-        if n.startswith("05"):
-            sw = {x["label"]: x["on"] for x in h["switches"]}
-            ok = sw == {"Push notifications": True, "Email digest": True} and not any(t in ("Sign out", "Delete account") for t in h["screen_text"])
-            print(f"   {plat}/{n}: Settings switches in view {sw}; no Sign out / Delete account on screen {check(ok, f'alert settings {plat}/{n}')}")
-            # the digest needs a verified address: with it on, the Email row must show one, and a plainly sample one
-            emails = [t for t in h["screen_text"] if "@" in t]
-            ok = not (sw.get("Email digest") and "Not shared" in h["screen_text"]) and emails and all(e.endswith("@example.com") for e in emails)
-            print(f"   {plat}/{n}: Email row shows {emails or 'no address'}; 'Not shared' on screen: {'Not shared' in h['screen_text']} {check(ok, f'account email {plat}/{n}')}")
-        if n.startswith("06"):
-            body = " ".join(h["screen_text"])
-            drawn = " ".join(t["head"]) + " " + t["sub"]
-            if plat == "ios":
-                ok = f"{trial} days free" in drawn.lower() and solo_price in t["sub"] and solo_price in body
-                print(f"   ios/{n}: drawn '{drawn}' states trial {trial} and Solo {solo_price}, both from lib; the Plans screen shows {solo_price}: {check(ok, 'ios price facts')}")
-            else:
-                print(f"   android/{n}: Plans screen shows {solo_price}: {check(solo_price in body, 'android plans screen')}")
+    for n in NAMES:
+        t = M[f"{plat}/{n}"]["text"]
+        for o in objs(plat, n, "phone"):
+            if o.get("profile_key"):
+                f = o["form"]; prof = DATA["profiles"][o["profile_key"]]
+                ok = (f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
+                      and o["first_in_scroll"].startswith(("Home and property", "Pick up to", "Your trades")))
+                print(f"   {plat}/{n}: trade picker, first line '{o['first_in_scroll']}'; ticked trades in view {f['pickedVisible']} (member {o['profile_key']}: "
+                      f"{prof['zip']} r{prof['radiusMi']} {prof['trades']}; the form holds ZIP {f['zip']}, {f['radius']} mi) {check(ok, f'trade picker {plat}/{n}')}")
+            if o["switches"]:
+                sw = {x["label"]: x["on"] for x in o["switches"]}
+                emails = [x for x in o["screen_text"] if "@" in x]
+                ok = (sw == {"Push notifications": True, "Email digest": True} and not any(x in ("Sign out", "Delete account") for x in o["screen_text"])
+                      and "Not shared" not in o["screen_text"] and emails and all(e.endswith("@example.com") for e in emails))
+                print(f"   {plat}/{n}: Settings switches in view {sw}; Email row {emails or 'no address'}; no Sign out / Delete account "
+                      f"{check(ok, f'alert settings {plat}/{n}')}")
+            if any(x.startswith("Open the") for x in o["screen_text"]):
+                ok = any(x.startswith("Open the source") for x in o["screen_text"]) and not any("source record" in x.lower() or "official" in x.lower() for x in o["screen_text"])
+                print(f"   {plat}/{n}: {o['key']} button reads {[x for x in o['screen_text'] if x.startswith('Open the')]} {check(ok, f'source button {plat}/{n}')}")
+            if o["route"] and o["route"].get("name") == "paywall":
+                body = " ".join(o["screen_text"])
+                drawn = " ".join(t["head"]) + " " + t["sub"]
+                if plat == "ios":
+                    ok = f"{trial} days free" in drawn.lower() and solo_price in t["sub"] and solo_price in body
+                    print(f"   ios/{n}: drawn '{drawn}' states trial {trial} and Solo {solo_price}, both from lib; the Plans screen shows {solo_price} "
+                          f"{check(ok, 'ios price facts')}")
+                else:
+                    print(f"   android/{n}: the Plans screen shows {solo_price} {check(solo_price in body, 'android plans screen')}")
+        for o in objs(plat, n, "card"):
+            if o["key"].endswith("datafrom"):
+                ok = o["text"].startswith("Data from") and "open data" in o["text"]
+                print(f"   {plat}/{n}: lifted line '{o['text'].strip()}' {check(ok, f'data from {plat}/{n}')}")
+            if o["key"].endswith("zip-radius"):
+                ok = "ZIP code you work from" in o["text"] and "How far you travel" in o["text"] and o.get("form")
+                print(f"   {plat}/{n}: lifted fields '{' / '.join(o['text'].splitlines()[:3])}' {check(bool(ok), f'zip radius {plat}/{n}')}")
+            if o["key"].endswith("solo"):
+                ok = o["text"].strip().startswith("Solo") and solo_price in o["text"]
+                print(f"   {plat}/{n}: lifted plan card '{' / '.join(o['text'].splitlines()[:2])}' {check(ok, f'plan card {plat}/{n}')}")
 
 # ---------------------------------------------------------------- 6. words ----------------------------------------------------------
 print("\n== 6. Drawn text: wording rules")
+zips = {p["zip"] for p in DATA["profiles"].values()}
 for plat in PLATS:
-    for n in names[plat]:
+    for n in NAMES:
         t = M[f"{plat}/{n}"]["text"]
         drawn = [t["eyebrow"], *t["head"], t["sub"]]
         s = " ".join(drawn)
         words_head = len(" ".join(t["head"]).split()); words_sub = len(t["sub"].split())
         probs = []
-        if "—" in s: probs.append("em dash")
+        if "—" in s or "–" in s: probs.append("em or en dash")
         probs += [w for w in BANNED if re.search(r"(?<![a-z])" + re.escape(w) + r"(?![a-z])", s.lower())]
         if plat == "android" and (re.search(r"[$€£]|\d+\.\d\d", s) or re.search(r"\bfree\b", s.lower())):
             probs.append("price or 'free' on Android")
-        # digits: only the eyebrow index, or the lib facts on the iOS price shot
-        digits = re.findall(r"\d+(?:\.\d+)?", " ".join(drawn[1:]))
-        allowed = {str(trial), solo_price.lstrip("$"), "311"}
+        digits = re.findall(r"\d+(?:\.\d+)?", s)
+        allowed = {str(trial), solo_price.lstrip("$"), "311"} | zips
         if any(x not in allowed for x in digits):
-            probs.append(f"number not from lib: {digits}")
-        if not (2 <= words_head <= 6 and words_sub <= 8): probs.append(f"length head {words_head} words, sub {words_sub} words")
-        if t["eyebrow"] != f"{names[plat].index(n) + 1:02d} / {len(names[plat]):02d}": probs.append("eyebrow is not the counter")
+            probs.append(f"number not from lib or data: {digits}")
+        if not (2 <= words_head <= 6 and words_sub <= 8 and len(t["eyebrow"].split()) <= 4): probs.append(f"length head {words_head} words, sub {words_sub} words")
         fam = M[f"{plat}/{n}"]["layout"]
         if "Barlow Condensed" not in fam["head"]["family"] or fam["head"]["weight"] != "700" or "Inter" not in fam["sub"]["family"] or "JetBrains Mono" not in fam["eyebrow"]["family"]:
             probs.append("fonts")

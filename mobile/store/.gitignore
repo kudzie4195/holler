@@ -5,3 +5,6 @@ __pycache__/
 .gen/noring/
 .gen/build-data.log
 .gen/directions/
+.gen/map-bundle/
+.gen/map.json
+.gen/map-data.log

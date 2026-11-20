@@ -2,7 +2,7 @@
 """Round 11, step 1: three visual directions for the iOS store screenshots, the first three shots of each (brief:
 /home/claude/gates/r11/brief-directions.md; contract: /home/claude/gates/r10/CONTEXT.md). Run from mobile/:
 
-    node store/directions/map-data.mjs          # the web site's radius map functions on the fixture rows -> .gen/directions/map.json
+    node store/map-data.mjs                     # the web site's radius map functions on the fixture rows -> .gen/map.json
     python3 store/directions/make-directions.py # -> /home/claude/gates/r11/directions/{A,B,C}-{1,2,3}.png, sheet.png, thumbs.png
 
 What is real and what is drawn:
@@ -27,7 +27,7 @@ ms = cap.ms
 OUT = Path("/home/claude/gates/r11/directions")
 OUT.mkdir(parents=True, exist_ok=True)
 WORK = cap.CAP
-MAP = json.loads((WORK / "map.json").read_text())
+MAP = json.loads((cap.STORE / ".gen" / "map.json").read_text())   # node store/map-data.mjs
 W, H = 1320, 2868
 EDGE = 64                      # drawn text stays this far from every edge (CONTEXT store specs)
 

@@ -1,16 +1,16 @@
-// Builds store/.gen/directions/map.json for the round 11 direction studies: the web site's radius map (lib/seo/home-map.ts
+// Builds store/.gen/map.json for the store screenshots (shot 1) and the round 11 direction studies: the web site's radius map (lib/seo/home-map.ts
 // pickMapRecords + homeMapFrom, the same rules the home page runs) applied to the real rows in fixtures/real-signals.json around a
 // member's ZIP, plus each picked record's true compass bearing from that ZIP (lib/geo lookupZip). Nothing is typed by hand.
-// Run from mobile/: node store/directions/map-data.mjs
+// Run from mobile/: node store/map-data.mjs (build-captures.sh does)
 import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const store = path.resolve(here, '..');
+const store = here;
 const repo = path.resolve(store, '../..');
-const out = path.join(store, '.gen', 'directions');
+const out = path.join(store, '.gen');
 mkdirSync(out, { recursive: true });
 
 await build({
@@ -19,15 +19,15 @@ await build({
   root: repo,
   resolve: {
     alias: [
-      { find: 'next/cache', replacement: path.join(here, 'stubs/next-cache.ts') },
-      { find: /^\.\/client$/, replacement: path.join(here, 'stubs/seo-client.ts') },
+      { find: 'next/cache', replacement: path.join(here, 'shims/next-cache.ts') },
+      { find: /^\.\/client$/, replacement: path.join(here, 'shims/seo-client.ts') },
       { find: '@', replacement: repo },
     ],
   },
-  build: { ssr: path.join(here, 'map-entry.ts'), outDir: path.join(out, 'bundle'), emptyOutDir: true, minify: false, rollupOptions: { output: { entryFileNames: 'map-entry.mjs', format: 'es' } } },
+  build: { ssr: path.join(here, 'map-entry.ts'), outDir: path.join(out, 'map-bundle'), emptyOutDir: true, minify: false, rollupOptions: { output: { entryFileNames: 'map-entry.mjs', format: 'es' } } },
   ssr: { noExternal: true },
 });
-const h = await import(pathToFileURL(path.join(out, 'bundle', 'map-entry.mjs')).href);
+const h = await import(pathToFileURL(path.join(out, 'map-bundle', 'map-entry.mjs')).href);
 const fx = JSON.parse(readFileSync(path.join(store, 'fixtures/real-signals.json'), 'utf8'));
 const iso = (s) => (s == null ? null : new Date(s.replace(' ', 'T').replace(/\+00$/, '+00:00')).toISOString());
 const rows = fx.rows.map((r) => ({ ...r, occurred_at: iso(r.occurred_at), expires_at: iso(r.expires_at) }));

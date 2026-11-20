@@ -1,13 +1,13 @@
 {
  "shots": {
-  "ios/01-records": {
+  "ios/01-map": {
    "text": {
-    "eyebrow": "01 / 06",
+    "eyebrow": "60614 \u00b7 Chicago",
     "head": [
      "Public records",
-     "near your work"
+     "around your ZIP"
     ],
-    "sub": "Permits, storms and 311 for your trade"
+    "sub": "Permits and 311 calls, drawn to scale"
    },
    "bg": "green",
    "bg_hex": "#1E3A2C",
@@ -16,14 +16,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "map and phone",
    "layout": {
     "eyebrow": {
      "x0": 110,
-     "x1": 271.84375,
+     "x1": 456.8125,
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "01 / 06",
+     "text": "60614 \u00b7 CHICAGO",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -34,18 +35,18 @@
      "y0": 223,
      "y1": 550.390625,
      "lines": 4,
-     "text": "PUBLIC RECORDS / NEAR YOUR WORK",
+     "text": "PUBLIC RECORDS / AROUND YOUR ZIP",
      "px": 156,
      "family": "\"Barlow Condensed\"",
      "weight": "700"
     },
     "sub": {
      "x0": 110,
-     "x1": 940.625,
+     "x1": 911.921875,
      "y0": 562,
      "y1": 618,
      "lines": 1,
-     "text": "Permits, storms and 311 for your trade",
+     "text": "Permits and 311 calls, drawn to scale",
      "px": 46,
      "family": "Inter",
      "weight": "500"
@@ -58,138 +59,439 @@
      },
      {
       "x0": 110,
-      "x1": 1093.125,
-      "w": 983.125
+      "x1": 1088.125,
+      "w": 978.125
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
-    },
-    "fontsOk": true,
-    "sw": 1320
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "60614 \u00b7 CHICAGO",
+      "x0": 110,
+      "x1": 456.8125,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "PUBLIC RECORDS\nAROUND YOUR ZIP",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Permits and 311 calls, drawn to scale",
+      "x0": 110,
+      "x1": 911.921875,
+      "y0": 562,
+      "y1": 618
+     },
+     {
+      "cls": "cap",
+      "text": "6 MI",
+      "x0": 1089.1015625,
+      "x1": 1170.8984375,
+      "y0": 698.796875,
+      "y1": 743.796875
+     },
+     {
+      "cls": "lab",
+      "text": "FLY DUMPING 2.0 MI",
+      "x0": 802.046875,
+      "x1": 1170.09375,
+      "y0": 1620.390625,
+      "y1": 1665.390625
+     },
+     {
+      "cls": "lab",
+      "text": "ROOF PERMIT 2.6 MI",
+      "x0": 401.15625,
+      "x1": 769.203125,
+      "y0": 1468.296875,
+      "y1": 1513.296875
+     },
+     {
+      "cls": "lab",
+      "text": "PLUMBING PERMIT 3.5 MI",
+      "x0": 802.984375,
+      "x1": 1252.828125,
+      "y0": 1550.390625,
+      "y1": 1595.390625
+     },
+     {
+      "cls": "lab",
+      "text": "TREE DEBRIS 3.7 MI",
+      "x0": 471.15625,
+      "x1": 839.203125,
+      "y0": 1035.984375,
+      "y1": 1080.984375
+     },
+     {
+      "cls": "lab",
+      "text": "WINDOW PERMIT 4.9 MI",
+      "x0": 702.59375,
+      "x1": 1111.53125,
+      "y0": 1717.484375,
+      "y1": 1762.484375
+     },
+     {
+      "cls": "lab",
+      "text": "TREE EMERGENCY 4.9 MI",
+      "x0": 136.90625,
+      "x1": 566.296875,
+      "y0": 1122.59375,
+      "y1": 1167.59375
+     },
+     {
+      "cls": "chip",
+      "text": "60614",
+      "x0": 1078.8828125,
+      "x1": 1181.1171875,
+      "y0": 1406.796875,
+      "y1": 1451.796875
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-01-records-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 0,
-    "shown": [
-     {
-      "title": "311 request in Chicago: Tree Emergency",
-      "distance": "4.9 mi away",
-      "top": 117
-     },
-     {
-      "title": "Roof permit in Chicago",
-      "distance": "2.6 mi away",
-      "top": 377.78125
-     },
-     {
-      "title": "Code violation in Chicago: REPAIR ROOF",
-      "distance": "5 mi away",
-      "top": 615.171875
-     }
-    ],
-    "screen_text": [
-     "Alerts",
-     "Refresh",
-     "Release to refresh",
-     "311 request",
-     "Might need work",
-     "311 request in Chicago: Tree Emergency",
-     "Chicago, IL",
-     "2 days ago",
-     "4.9 mi away",
-     "The event is on record. Whether anyone needs work is not confirmed.",
-     "Source:",
-     "Chicago open data: 311 requests",
-     "Was this alert helpful?",
-     "Permit",
-     "Money being spent",
-     "Roof permit in Chicago",
-     "Chicago, IL",
-     "3 days ago",
-     "2.6 mi away",
-     "Money is being spent here. The main contractor may already be chosen.",
-     "Source:",
-     "Chicago open data: building permits",
-     "Was this alert helpful?",
-     "Code violation",
-     "Might need work",
-     "Code violation in Chicago: REPAIR ROOF",
-     "Chicago, IL",
-     "Nov 13",
-     "5 mi away",
-     "The event is on record. Whether anyone needs work is not confirmed.",
-     "Source:",
-     "Chicago open data: code violations"
-    ],
-    "min_font_px": 34.7,
-    "edge_clear_css": 8.0,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "311 request Might need work",
-    "top_gap_css": 16,
-    "switches": [],
-    "last_line": "Source:",
-    "last_line_is_heading": false,
-    "feed": "01-records",
-    "records": [
-     {
-      "signalId": 45354,
-      "title": "311 request in Chicago: Tree Emergency",
-      "distance": "4.9 mi away",
-      "served": "4.9 mi away"
-     },
-     {
-      "signalId": 33439,
-      "title": "Roof permit in Chicago",
-      "distance": "2.6 mi away",
-      "served": "2.6 mi away"
-     },
-     {
-      "signalId": 4291,
-      "title": "Code violation in Chicago: REPAIR ROOF",
-      "distance": "5 mi away",
-      "served": "5 mi away"
-     }
-    ],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+   "hero_top": 696,
+   "objects": [
+    {
+     "kind": "map",
+     "box": [
+      396,
+      696,
+      1320,
+      2164
+     ],
+     "zip": "60614",
+     "centre": [
+      1130,
+      1430
+     ],
+     "px_per_mi": 118,
+     "rings": [
+      2,
+      4,
+      6
+     ],
+     "unit": 2.62,
+     "label_px": 34.1,
+     "records": [
+      {
+       "id": "47080",
+       "family": "civic",
+       "text": "FLY DUMPING 2.0 MI",
+       "mi": 2,
+       "bearing": 154.83926913022162,
+       "title": "311 request in Chicago: Fly Dumping Complaint",
+       "x": 1230.3,
+       "y": 1643.6,
+       "side": "left"
+      },
+      {
+       "id": "33439",
+       "family": "permit",
+       "text": "ROOF PERMIT 2.6 MI",
+       "mi": 2.6,
+       "bearing": 258.43912205305384,
+       "title": "Roof permit in Chicago",
+       "x": 829.4,
+       "y": 1491.5,
+       "side": "left"
+      },
+      {
+       "id": "33427",
+       "family": "permit",
+       "text": "PLUMBING PERMIT 3.5 MI",
+       "mi": 3.5,
+       "bearing": 249.6576657106449,
+       "title": "Plumbing permit in Chicago",
+       "x": 742.8,
+       "y": 1573.6,
+       "side": "right"
+      },
+      {
+       "id": "46979",
+       "family": "civic",
+       "text": "TREE DEBRIS 3.7 MI",
+       "mi": 3.7,
+       "bearing": 328.1262443509412,
+       "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+       "x": 899.5,
+       "y": 1059.2,
+       "side": "left"
+      },
+      {
+       "id": "33440",
+       "family": "permit",
+       "text": "WINDOW PERMIT 4.9 MI",
+       "mi": 4.9,
+       "bearing": 237.49959508053877,
+       "title": "Window and door permit in Chicago",
+       "x": 642.4,
+       "y": 1740.7,
+       "side": "right"
+      },
+      {
+       "id": "45354",
+       "family": "civic",
+       "text": "TREE EMERGENCY 4.9 MI",
+       "mi": 4.9,
+       "bearing": 299.4441163533321,
+       "title": "311 request in Chicago: Tree Emergency",
+       "x": 626.5,
+       "y": 1145.8,
+       "side": "left"
+      }
+     ]
+    },
+    {
+     "kind": "phone",
+     "key": "01-feed",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-01-feed.png",
+     "sw": 640,
+     "s": 1.6284987277353689,
+     "bez": 17,
+     "whole": false,
+     "shown_css": 498.0,
+     "visible_css": 498.0,
+     "vw": 393,
+     "vh": 558,
+     "scrolled": 7,
+     "shown": [
+      {
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "top": 110
+      },
+      {
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "top": 370.78125
+      }
+     ],
+     "screen_text": [
+      "Alerts",
+      "Refresh",
+      "311 request",
+      "Might need work",
+      "311 request in Chicago: Tree Emergency",
+      "Chicago, IL",
+      "2 days ago",
+      "4.9 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: 311 requests",
+      "Was this alert helpful?",
+      "Permit",
+      "Money being spent",
+      "Roof permit in Chicago",
+      "Chicago, IL",
+      "3 days ago",
+      "2.6 mi away",
+      "Money is being spent here. The main contractor may already be chosen.",
+      "Source:",
+      "Chicago open data: building permits"
+     ],
+     "min_font_px": 21.2,
+     "edge_clear_css": 6.3,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "311 request Might need work",
+     "top_gap_css": 9,
+     "last_line": "Source:",
+     "last_line_is_heading": false,
+     "text_bottom_css": 841.0,
+     "cards_css": [
+      [
+       61,
+       309.78125,
+       258.78125
+      ],
+      [
+       321.78125,
+       547.171875,
+       496.171875
+      ],
+      [
+       559.171875,
+       807.953125,
+       756.953125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       81,
+       98
+      ],
+      [
+       81.2,
+       97.2
+      ],
+      [
+       111,
+       132
+      ],
+      [
+       134.4,
+       155.4
+      ],
+      [
+       163.8,
+       182.8
+      ],
+      [
+       164.8,
+       182.8
+      ],
+      [
+       191.3,
+       208.3
+      ],
+      [
+       212.3,
+       229.3
+      ],
+      [
+       238.3,
+       254.3
+      ],
+      [
+       272.0,
+       288.0
+      ],
+      [
+       341.8,
+       358.8
+      ],
+      [
+       342.0,
+       358.0
+      ],
+      [
+       371.8,
+       392.8
+      ],
+      [
+       401.2,
+       420.2
+      ],
+      [
+       402.2,
+       420.2
+      ],
+      [
+       428.7,
+       445.7
+      ],
+      [
+       449.7,
+       466.7
+      ],
+      [
+       475.7,
+       491.7
+      ],
+      [
+       509.4,
+       525.4
+      ],
+      [
+       579.2,
+       596.2
+      ],
+      [
+       579.4,
+       595.4
+      ],
+      [
+       609.2,
+       630.2
+      ],
+      [
+       632.6,
+       653.6
+      ],
+      [
+       662.0,
+       681.0
+      ],
+      [
+       663.0,
+       681.0
+      ],
+      [
+       689.5,
+       706.5
+      ],
+      [
+       710.5,
+       727.5
+      ],
+      [
+       736.5,
+       752.5
+      ],
+      [
+       770.2,
+       786.2
+      ],
+      [
+       822.0,
+       839.0
+      ]
+     ],
+     "feed": "01-records",
+     "route": null,
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 45354,
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "served": "4.9 mi away"
+      },
+      {
+       "signalId": 33439,
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "served": "2.6 mi away"
+      }
+     ],
+     "y": 2040,
+     "box": [
+      90,
+      2040,
+      764,
+      2870
+     ],
+     "x": 90
+    }
+   ]
   },
   "ios/02-storms": {
    "text": {
-    "eyebrow": "02 / 06",
+    "eyebrow": "Weather",
     "head": [
      "Storm and hail",
      "reports nearby"
     ],
-    "sub": "Hail size, place and distance from you"
+    "sub": "Hail size, place and miles from you"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "sky_deep",
+   "bg_hex": "#C9DCE5",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#1F4A63",
+    "head": "#14201A",
+    "sub": "#1F4A63"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 110,
@@ -197,7 +499,7 @@
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "02 / 06",
+     "text": "WEATHER",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -215,11 +517,11 @@
     },
     "sub": {
      "x0": 110,
-     "x1": 943,
+     "x1": 870.78125,
      "y0": 562,
      "y1": 618,
      "lines": 1,
-     "text": "Hail size, place and distance from you",
+     "text": "Hail size, place and miles from you",
      "px": 46,
      "family": "Inter",
      "weight": "500"
@@ -236,111 +538,277 @@
       "w": 976.71875
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "WEATHER",
+      "x0": 110,
+      "x1": 271.84375,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "STORM AND HAIL\nREPORTS NEARBY",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Hail size, place and miles from you",
+      "x0": 110,
+      "x1": 870.78125,
+      "y0": 562,
+      "y1": 618
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 840,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "02-hail",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-02-hail.png",
+     "sw": 770,
+     "s": 1.9592875318066159,
+     "bez": 20,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+       "distance": "7.4 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Storm report",
+      "Might need work",
+      "1.00 inch hail reported near 2 W Hollywood, FL",
+      "Hollywood, FL",
+      "2 days ago",
+      "7.4 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "NOAA Storm Prediction Center storm reports",
+      "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+      "Date",
+      "Nov 18",
+      "County",
+      "Broward",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "NOAA Storm Prediction Center storm reports",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 25.5,
+     "edge_clear_css": 127.2,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Storm report Might need work",
+     "top_gap_css": 16,
+     "last_line": "NOAA Storm Prediction Center storm reports",
+     "last_line_is_heading": false,
+     "text_bottom_css": 681.3,
+     "cards_css": [
+      [
+       68,
+       604.28125,
+       497.28125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       264.8,
+       280.8
+      ],
+      [
+       297.3,
+       317.3
+      ],
+      [
+       321.3,
+       341.3
+      ],
+      [
+       345.3,
+       365.3
+      ],
+      [
+       381.3,
+       398.3
+      ],
+      [
+       406.3,
+       423.3
+      ],
+      [
+       452.3,
+       472.3
+      ],
+      [
+       512.3,
+       529.3
+      ],
+      [
+       549.0,
+       568.0
+      ],
+      [
+       618.3,
+       635.3
+      ],
+      [
+       650.8,
+       667.8
+      ]
+     ],
+     "feed": "02-storms",
+     "route": {
+      "name": "alert",
+      "signalId": 24614
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 24614,
+       "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+       "distance": "7.4 mi away",
+       "served": "7.4 mi away"
+      }
+     ],
+     "y": 840,
+     "box": [
+      450,
+      840,
+      1260,
+      2549
+     ],
+     "x": 450
     },
-    "fontsOk": true,
-    "sw": 1320
-   },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-02-storms-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 0,
-    "shown": [
-     {
-      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-      "distance": "7.4 mi away",
-      "top": 117
-     }
-    ],
-    "screen_text": [
-     "Back",
-     "Alert",
-     "Storm report",
-     "Might need work",
-     "1.00 inch hail reported near 2 W Hollywood, FL",
-     "Hollywood, FL",
-     "2 days ago",
-     "7.4 mi away",
-     "The event is on record. Whether anyone needs work is not confirmed.",
-     "Source:",
-     "NOAA Storm Prediction Center storm reports",
-     "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
-     "Date",
-     "Nov 18",
-     "County",
-     "Broward",
-     "Open the source",
-     "Was this alert helpful?",
-     "Useful",
-     "Not relevant",
-     "Led to work",
-     "Data from",
-     "NOAA Storm Prediction Center storm reports"
-    ],
-    "min_font_px": 34.7,
-    "edge_clear_css": 8.2,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Storm report Might need work",
-    "top_gap_css": 16,
-    "switches": [],
-    "last_line": "NOAA Storm Prediction Center storm reports",
-    "last_line_is_heading": false,
-    "feed": "02-storms",
-    "records": [
-     {
-      "signalId": 24614,
-      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-      "distance": "7.4 mi away",
-      "served": "7.4 mi away"
-     }
-    ],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+    {
+     "kind": "card",
+     "key": "02-warning",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-02-warning.png",
+     "css": [
+      361,
+      248.78125
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 348.28125,
+      "w": 361,
+      "h": 248.78125
+     },
+     "text": "WEATHER ALERT\nMight need work\n\nSevere Thunderstorm Warning: Broward, FL; Miami-Dade, FL\n\nFL\n3 days ago\n3.1 mi away\n\nThe event is on record. Whether anyone needs work is not confirmed.\n\nSource: National Weather Service alerts\n\nWas this alert helpful?",
+     "min_font_css": 13,
+     "feed": "02-storms",
+     "route": null,
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 15979,
+       "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
+       "distance": "3.1 mi away",
+       "served": "3.1 mi away"
+      }
+     ],
+     "selector": "article.card",
+     "box": [
+      210,
+      2075,
+      1170,
+      2737
+     ],
+     "scale": 2.6592797783933517,
+     "min_font_px": 34.6,
+     "x": 210,
+     "y": 2075
+    }
+   ]
   },
-  "ios/03-radius": {
+  "ios/03-civic": {
    "text": {
-    "eyebrow": "03 / 06",
+    "eyebrow": "311 and code",
     "head": [
-     "Pick the trades",
-     "you work in"
+     "City requests",
+     "and code cases"
     ],
-    "sub": "Then your ZIP and how far you drive"
+    "sub": "From the city's open data, with distance"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "civic",
+   "bg_hex": "#EFEAF7",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#5B3F86",
+    "head": "#14201A",
+    "sub": "#5B3F86"
    },
+   "comp": "two phones",
    "layout": {
     "eyebrow": {
      "x0": 110,
-     "x1": 271.84375,
+     "x1": 387.453125,
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "03 / 06",
+     "text": "311 AND CODE",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -351,18 +819,18 @@
      "y0": 223,
      "y1": 550.390625,
      "lines": 4,
-     "text": "PICK THE TRADES / YOU WORK IN",
+     "text": "CITY REQUESTS / AND CODE CASES",
      "px": 156,
      "family": "\"Barlow Condensed\"",
      "weight": "700"
     },
     "sub": {
      "x0": 110,
-     "x1": 906.046875,
+     "x1": 987.765625,
      "y0": 562,
      "y1": 618,
      "lines": 1,
-     "text": "Then your ZIP and how far you drive",
+     "text": "From the city's open data, with distance",
      "px": 46,
      "family": "Inter",
      "weight": "500"
@@ -370,107 +838,521 @@
     "headSpans": [
      {
       "x0": 110,
-      "x1": 1079.390625,
-      "w": 969.390625
+      "x1": 962.859375,
+      "w": 852.859375
      },
      {
       "x0": 110,
-      "x1": 836.03125,
-      "w": 726.03125
+      "x1": 1038.828125,
+      "w": 928.828125
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
-    },
-    "fontsOk": true,
-    "sw": 1320
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "311 AND CODE",
+      "x0": 110,
+      "x1": 387.453125,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "CITY REQUESTS\nAND CODE CASES",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "From the city's open data, with distance",
+      "x0": 110,
+      "x1": 987.765625,
+      "y0": 562,
+      "y1": 618
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-03-radius-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 160,
-    "shown": [],
-    "screen_text": [
-     "Back",
-     "Your alerts",
-     "Your trades",
-     "Pick up to",
-     "5",
-     ".",
-     "2",
-     "picked.",
-     "Home and property",
-     "Roofing",
-     "Heating and air (HVAC)",
-     "Plumbing",
-     "Electrical",
-     "Landscaping",
-     "Lawn care",
-     "Pest control",
-     "House cleaning",
-     "General contractor",
-     "Painting",
-     "Pool and spa",
-     "Solar",
-     "Junk removal and hauling",
-     "Locksmith",
-     "Fencing",
-     "Concrete and paving",
-     "Windows and doors",
-     "Siding and gutters",
-     "Flooring",
-     "Handyman",
-     "Storm and disaster",
-     "Tree service",
-     "Snow removal",
-     "Water, fire and storm restoration",
-     "Public adjuster"
-    ],
-    "min_font_px": 37.3,
-    "edge_clear_css": 2.0,
-    "form": {
-     "zip": "60614",
-     "radius": "15",
-     "zipVisible": false,
-     "radiusVisible": false,
-     "pickedVisible": [
-      "Roofing",
-      "Tree service"
-     ]
+   "hero_top": 840,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "03-311",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-03-311.png",
+     "sw": 690,
+     "s": 1.7557251908396947,
+     "bez": 18,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "311 request",
+      "Might need work",
+      "311 request in Chicago: Tree Emergency",
+      "Chicago, IL",
+      "2 days ago",
+      "4.9 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: 311 requests",
+      "Tree Emergency | Open",
+      "Date",
+      "Nov 18",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "Chicago open data: 311 requests",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 22.8,
+     "edge_clear_css": 240.7,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "311 request Might need work",
+     "top_gap_css": 16,
+     "last_line": "Data from",
+     "last_line_is_heading": false,
+     "text_bottom_css": 567.8,
+     "cards_css": [
+      [
+       68,
+       511.78125,
+       404.78125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       277.8,
+       297.8
+      ],
+      [
+       313.8,
+       330.8
+      ],
+      [
+       359.8,
+       379.8
+      ],
+      [
+       419.8,
+       436.8
+      ],
+      [
+       456.5,
+       475.5
+      ],
+      [
+       537.3,
+       554.3
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 45354
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 45354,
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "served": "4.9 mi away"
+      }
+     ],
+     "y": 840,
+     "box": [
+      70,
+      840,
+      796,
+      2372
+     ],
+     "x": 70
     },
-    "split_at_edge": [],
-    "first_in_scroll": "Home and property",
-    "top_gap_css": 16,
-    "switches": [],
-    "last_line": "Public adjuster",
-    "last_line_is_heading": false,
-    "feed": null,
-    "profile_key": "03-radius",
-    "records": [],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+    {
+     "kind": "phone",
+     "key": "03-code",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-03-code.png",
+     "sw": 690,
+     "s": 1.7557251908396947,
+     "bez": 18,
+     "whole": false,
+     "shown_css": 546.8,
+     "visible_css": 546.8,
+     "vw": 393,
+     "vh": 606,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "Code violation in Chicago: REPAIR ROOF",
+       "distance": "5 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Code violation",
+      "Might need work",
+      "Code violation in Chicago: REPAIR ROOF",
+      "Chicago, IL",
+      "Nov 13",
+      "5 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: code violations",
+      "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+      "Date",
+      "Nov 13",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work"
+     ],
+     "min_font_px": 22.8,
+     "edge_clear_css": 8.5,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Code violation Might need work",
+     "top_gap_css": 16,
+     "last_line": "Useful",
+     "last_line_is_heading": false,
+     "text_bottom_css": 591.8,
+     "cards_css": [
+      [
+       68,
+       535.78125,
+       428.78125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       277.8,
+       297.8
+      ],
+      [
+       301.8,
+       321.8
+      ],
+      [
+       337.8,
+       354.8
+      ],
+      [
+       383.8,
+       403.8
+      ],
+      [
+       443.8,
+       460.8
+      ],
+      [
+       480.5,
+       499.5
+      ],
+      [
+       561.3,
+       578.3
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 4291
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 4291,
+       "title": "Code violation in Chicago: REPAIR ROOF",
+       "distance": "5 mi away",
+       "served": "5 mi away"
+      }
+     ],
+     "y": 1890,
+     "box": [
+      524,
+      1890,
+      1250,
+      2870
+     ],
+     "x": 524
+    }
+   ]
   },
-  "ios/04-source": {
+  "ios/04-value": {
    "text": {
-    "eyebrow": "04 / 06",
+    "eyebrow": "Permits",
+    "head": [
+     "The job value",
+     "on the permit"
+    ],
+    "sub": "Read from the city's own permit data"
+   },
+   "bg": "sage_deep",
+   "bg_hex": "#CFE3D5",
+   "colors": {
+    "eyebrow": "#24513A",
+    "head": "#14201A",
+    "sub": "#24513A"
+   },
+   "comp": "card and figure",
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 271.84375,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "PERMITS",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "THE JOB VALUE / ON THE PERMIT",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 919.75,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Read from the city's own permit data",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 953.5,
+      "w": 843.5
+     },
+     {
+      "x0": 110,
+      "x1": 950.84375,
+      "w": 840.84375
+     }
+    ],
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PERMITS",
+      "x0": 110,
+      "x1": 271.84375,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "THE JOB VALUE\nON THE PERMIT",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Read from the city's own permit data",
+      "x0": 110,
+      "x1": 919.75,
+      "y0": 562,
+      "y1": 618
+     },
+     {
+      "cls": "fig",
+      "text": "$500,000",
+      "x0": 104,
+      "x1": 1215.046875,
+      "y0": 2227,
+      "y1": 2554
+     }
+    ],
+    "figs": [
+     [
+      104,
+      2267,
+      1215.046875,
+      2515
+     ]
+    ],
+    "fontsOk": true
+   },
+   "hero_top": 820,
+   "objects": [
+    {
+     "kind": "card",
+     "key": "04-hvac",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-04-hvac.png",
+     "css": [
+      361,
+      468.390625
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 68,
+      "w": 361,
+      "h": 468.390625
+     },
+     "text": "PERMIT\nMoney being spent\n\nHVAC permit in Chicago\n\nChicago, IL\n3 days ago\n1.7 mi away\n\nMoney is being spent here. The main contractor may already be chosen.\n\nSource: Chicago open data: building permits\n\nPERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST\n\nDate\nNov 17\nOpen the source\n\nWas this alert helpful?\n\nUseful\nNot relevant\nLed to work",
+     "min_font_css": 13,
+     "feed": "04-source",
+     "route": {
+      "name": "alert",
+      "signalId": 33435
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 33435,
+       "title": "HVAC permit in Chicago",
+       "distance": "1.7 mi away",
+       "served": "1.7 mi away"
+      }
+     ],
+     "selector": "article.card",
+     "box": [
+      210,
+      820,
+      1210,
+      2117
+     ],
+     "scale": 2.770083102493075,
+     "min_font_px": 36.0,
+     "x": 210,
+     "y": 820
+    },
+    {
+     "kind": "figure",
+     "text": "$500,000",
+     "px": 248,
+     "color": "#14201A",
+     "source": {
+      "card": "04-hvac",
+      "text": "$500,000 job value"
+     },
+     "box": [
+      104,
+      2267,
+      1215,
+      2515
+     ]
+    }
+   ]
+  },
+  "ios/05-source": {
+   "text": {
+    "eyebrow": "Public data",
     "head": [
      "Each alert links",
      "to its source"
@@ -484,14 +1366,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 110,
-     "x1": 271.84375,
+     "x1": 364.328125,
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "04 / 06",
+     "text": "PUBLIC DATA",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -530,109 +1413,880 @@
       "w": 816.359375
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
-    },
-    "fontsOk": true,
-    "sw": 1320
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PUBLIC DATA",
+      "x0": 110,
+      "x1": 364.328125,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "EACH ALERT LINKS\nTO ITS SOURCE",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Open the public data it came from",
+      "x0": 110,
+      "x1": 854.4375,
+      "y0": 562,
+      "y1": 618
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-04-source-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 0,
-    "shown": [
-     {
-      "title": "HVAC permit in Chicago",
-      "distance": "1.7 mi away",
-      "top": 117
-     }
-    ],
-    "screen_text": [
-     "Back",
-     "Alert",
-     "Permit",
-     "Money being spent",
-     "HVAC permit in Chicago",
-     "Chicago, IL",
-     "3 days ago",
-     "1.7 mi away",
-     "Money is being spent here. The main contractor may already be chosen.",
-     "Source:",
-     "Chicago open data: building permits",
-     "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-     "Date",
-     "Nov 17",
-     "Open the source",
-     "Was this alert helpful?",
-     "Useful",
-     "Not relevant",
-     "Led to work",
-     "Data from",
-     "Chicago open data: building permits"
-    ],
-    "min_font_px": 34.7,
-    "edge_clear_css": 8.2,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Permit Money being spent",
-    "top_gap_css": 16,
-    "switches": [],
-    "last_line": "Data from",
-    "last_line_is_heading": false,
-    "feed": "04-source",
-    "records": [
-     {
-      "signalId": 33435,
-      "title": "HVAC permit in Chicago",
-      "distance": "1.7 mi away",
-      "served": "1.7 mi away"
-     }
-    ],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+   "hero_top": 840,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "05-roof",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-05-roof.png",
+     "sw": 760,
+     "s": 1.9338422391857506,
+     "bez": 20,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Permit",
+      "Money being spent",
+      "Roof permit in Chicago",
+      "Chicago, IL",
+      "3 days ago",
+      "2.6 mi away",
+      "Money is being spent here. The main contractor may already be chosen.",
+      "Source:",
+      "Chicago open data: building permits",
+      "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+      "Date",
+      "Nov 17",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "Chicago open data: building permits",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 25.1,
+     "edge_clear_css": 240.1,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Permit Money being spent",
+     "top_gap_css": 16,
+     "last_line": "Data from",
+     "last_line_is_heading": false,
+     "text_bottom_css": 568.4,
+     "cards_css": [
+      [
+       68,
+       512.390625,
+       405.390625
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       147.4,
+       166.4
+      ],
+      [
+       148.4,
+       166.4
+      ],
+      [
+       174.9,
+       191.9
+      ],
+      [
+       195.9,
+       212.9
+      ],
+      [
+       221.9,
+       237.9
+      ],
+      [
+       254.4,
+       274.4
+      ],
+      [
+       278.4,
+       298.4
+      ],
+      [
+       314.4,
+       331.4
+      ],
+      [
+       360.4,
+       380.4
+      ],
+      [
+       420.4,
+       437.4
+      ],
+      [
+       457.1,
+       476.1
+      ],
+      [
+       537.9,
+       554.9
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 33439
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 33439,
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "served": "2.6 mi away"
+      }
+     ],
+     "y": 840,
+     "box": [
+      90,
+      840,
+      890,
+      2528
+     ],
+     "x": 90
+    },
+    {
+     "kind": "card",
+     "key": "05-datafrom",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-05-datafrom.png",
+     "css": [
+      393,
+      76
+     ],
+     "radius": 12,
+     "pad": 16,
+     "box_css": {
+      "x": 16,
+      "y": 524.390625,
+      "w": 361,
+      "h": 44
+     },
+     "text": "Data from Chicago open data: building permits",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "alert",
+      "signalId": 33439
+     },
+     "member": "paid",
+     "records": [],
+     "selector": "p.small.muted",
+     "box": [
+      86,
+      1823,
+      1056,
+      2011
+     ],
+     "scale": 2.4681933842239188,
+     "min_font_px": 34.6,
+     "x": 86,
+     "y": 1823
+    }
+   ]
   },
-  "ios/05-push": {
+  "ios/06-trades": {
    "text": {
-    "eyebrow": "05 / 06",
+    "eyebrow": "Your work",
+    "head": [
+     "Pick the trades",
+     "you work in"
+    ],
+    "sub": "Then your ZIP and how far you drive"
+   },
+   "bg": "paper",
+   "bg_hex": "#F5F4EF",
+   "colors": {
+    "eyebrow": "#2E5A41",
+    "head": "#14201A",
+    "sub": "#5B635D"
+   },
+   "comp": "phone, part of it lifted",
+   "layout": {
+    "eyebrow": {
+     "x0": 110,
+     "x1": 318.09375,
+     "y0": 173,
+     "y1": 218,
+     "lines": 1,
+     "text": "YOUR WORK",
+     "px": 34,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 110,
+     "x1": 1210,
+     "y0": 223,
+     "y1": 550.390625,
+     "lines": 4,
+     "text": "PICK THE TRADES / YOU WORK IN",
+     "px": 156,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 110,
+     "x1": 906.046875,
+     "y0": 562,
+     "y1": 618,
+     "lines": 1,
+     "text": "Then your ZIP and how far you drive",
+     "px": 46,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 110,
+      "x1": 1079.390625,
+      "w": 969.390625
+     },
+     {
+      "x0": 110,
+      "x1": 836.03125,
+      "w": 726.03125
+     }
+    ],
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "YOUR WORK",
+      "x0": 110,
+      "x1": 318.09375,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "PICK THE TRADES\nYOU WORK IN",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Then your ZIP and how far you drive",
+      "x0": 110,
+      "x1": 906.046875,
+      "y0": 562,
+      "y1": 618
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 840,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "06-trades",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-06-trades.png",
+     "sw": 700,
+     "s": 1.7811704834605597,
+     "bez": 18,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 133,
+     "shown": [],
+     "screen_text": [
+      "Back",
+      "Your alerts",
+      "Your trades",
+      "Pick up to",
+      "5",
+      ".",
+      "2",
+      "picked.",
+      "Home and property",
+      "Roofing",
+      "Heating and air (HVAC)",
+      "Plumbing",
+      "Electrical",
+      "Landscaping",
+      "Lawn care",
+      "Pest control",
+      "House cleaning",
+      "General contractor",
+      "Painting",
+      "Pool and spa",
+      "Solar",
+      "Junk removal and hauling",
+      "Locksmith",
+      "Fencing",
+      "Concrete and paving",
+      "Windows and doors",
+      "Siding and gutters",
+      "Flooring",
+      "Handyman",
+      "Storm and disaster",
+      "Tree service",
+      "Snow removal",
+      "Water, fire and storm restoration",
+      "Public adjuster",
+      "Auto",
+      "Auto glass",
+      "Auto body and dent repair",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 23.2,
+     "edge_clear_css": 2,
+     "form": {
+      "zip": "60614",
+      "radius": "15",
+      "zipVisible": false,
+      "radiusVisible": false,
+      "pickedVisible": [
+       "Roofing",
+       "Tree service"
+      ],
+      "pickedRects": [
+       [
+        126,
+        170,
+        16,
+        122.265625
+       ],
+       [
+        633,
+        677,
+        16,
+        155.84375
+       ]
+      ]
+     },
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Pick up to 5. 2 picked.",
+     "top_gap_css": 8,
+     "last_line": "Public adjuster",
+     "last_line_is_heading": false,
+     "text_bottom_css": 1689,
+     "cards_css": [],
+     "chips_css": [
+      [
+       16,
+       126,
+       122.265625,
+       170
+      ],
+      [
+       130.265625,
+       126,
+       324.375,
+       170
+      ],
+      [
+       16,
+       178,
+       112.109375,
+       222
+      ],
+      [
+       120.109375,
+       178,
+       215.1875,
+       222
+      ],
+      [
+       223.1875,
+       178,
+       344.078125,
+       222
+      ],
+      [
+       16,
+       230,
+       119.546875,
+       274
+      ],
+      [
+       127.546875,
+       230,
+       242.203125,
+       274
+      ],
+      [
+       16,
+       282,
+       155.96875,
+       326
+      ],
+      [
+       163.96875,
+       282,
+       326.8125,
+       326
+      ],
+      [
+       16,
+       334,
+       103.109375,
+       378
+      ],
+      [
+       111.109375,
+       334,
+       232.8125,
+       378
+      ],
+      [
+       240.8125,
+       334,
+       307.140625,
+       378
+      ],
+      [
+       16,
+       386,
+       227.546875,
+       430
+      ],
+      [
+       235.546875,
+       386,
+       338.296875,
+       430
+      ],
+      [
+       16,
+       438,
+       102.140625,
+       482
+      ],
+      [
+       110.140625,
+       438,
+       287.75,
+       482
+      ],
+      [
+       16,
+       490,
+       187.03125,
+       534
+      ],
+      [
+       195.03125,
+       490,
+       354.125,
+       534
+      ],
+      [
+       16,
+       542,
+       103.96875,
+       586
+      ],
+      [
+       111.96875,
+       542,
+       218.515625,
+       586
+      ],
+      [
+       16,
+       633,
+       155.84375,
+       677
+      ],
+      [
+       163.84375,
+       633,
+       293.953125,
+       677
+      ],
+      [
+       16,
+       685,
+       274.640625,
+       729
+      ],
+      [
+       16,
+       737,
+       150.875,
+       781
+      ],
+      [
+       16,
+       828,
+       120.296875,
+       872
+      ],
+      [
+       128.296875,
+       828,
+       343.359375,
+       872
+      ],
+      [
+       16,
+       880,
+       193.75,
+       924
+      ],
+      [
+       201.75,
+       880,
+       310.125,
+       924
+      ],
+      [
+       16,
+       971,
+       98.390625,
+       1015
+      ],
+      [
+       106.390625,
+       971,
+       214.5625,
+       1015
+      ],
+      [
+       16,
+       1023,
+       260.828125,
+       1067
+      ],
+      [
+       268.828125,
+       1023,
+       366.390625,
+       1067
+      ],
+      [
+       16,
+       1075,
+       158.765625,
+       1119
+      ],
+      [
+       16,
+       1166,
+       115.9375,
+       1210
+      ],
+      [
+       123.9375,
+       1166,
+       302.875,
+       1210
+      ],
+      [
+       16,
+       1218,
+       104.875,
+       1262
+      ],
+      [
+       112.875,
+       1218,
+       271.09375,
+       1262
+      ],
+      [
+       16,
+       1270,
+       286.9375,
+       1314
+      ],
+      [
+       16,
+       1361,
+       121.890625,
+       1405
+      ],
+      [
+       129.890625,
+       1361,
+       220.265625,
+       1405
+      ],
+      [
+       228.265625,
+       1361,
+       362,
+       1405
+      ]
+     ],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       -64,
+       -45
+      ],
+      [
+       30.5,
+       49.5
+      ],
+      [
+       60,
+       77
+      ],
+      [
+       95,
+       112
+      ],
+      [
+       137.8,
+       156.8
+      ],
+      [
+       189.8,
+       208.8
+      ],
+      [
+       241.8,
+       260.8
+      ],
+      [
+       293.8,
+       312.8
+      ],
+      [
+       345.8,
+       364.8
+      ],
+      [
+       397.8,
+       416.8
+      ],
+      [
+       449.8,
+       468.8
+      ],
+      [
+       501.8,
+       520.8
+      ],
+      [
+       553.8,
+       572.8
+      ],
+      [
+       602,
+       619
+      ],
+      [
+       644.8,
+       663.8
+      ],
+      [
+       696.8,
+       715.8
+      ],
+      [
+       748.8,
+       767.8
+      ],
+      [
+       797,
+       814
+      ],
+      [
+       839.8,
+       858.8
+      ],
+      [
+       891.8,
+       910.8
+      ],
+      [
+       940,
+       957
+      ],
+      [
+       982.8,
+       1001.8
+      ],
+      [
+       1034.8,
+       1053.8
+      ],
+      [
+       1086.8,
+       1105.8
+      ],
+      [
+       1135,
+       1152
+      ],
+      [
+       1177.8,
+       1196.8
+      ],
+      [
+       1229.8,
+       1248.8
+      ],
+      [
+       1281.8,
+       1300.8
+      ],
+      [
+       1330,
+       1347
+      ],
+      [
+       1372.8,
+       1391.8
+      ],
+      [
+       1426,
+       1445
+      ],
+      [
+       1520.5,
+       1539.5
+      ],
+      [
+       1604,
+       1621
+      ],
+      [
+       1656,
+       1676
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "profile"
+     },
+     "member": "paid",
+     "records": [],
+     "y": 840,
+     "profile_key": "03-radius",
+     "box": [
+      70,
+      840,
+      806,
+      2394
+     ],
+     "x": 70
+    },
+    {
+     "kind": "card",
+     "key": "06-zip-radius",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-06-zip-radius.png",
+     "css": [
+      393,
+      230
+     ],
+     "radius": 12,
+     "pad": 16,
+     "box_css": {
+      "x": 16,
+      "y": 1558,
+      "w": 361,
+      "h": 198
+     },
+     "text": "ZIP code you work from\nHow far you travel: 15 miles\nFrom 5 to 100 miles.",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "profile"
+     },
+     "member": "paid",
+     "records": [],
+     "selector": ".field:has(#zip)",
+     "form": {
+      "zip": "60614",
+      "radius": 15
+     },
+     "box": [
+      260,
+      2160,
+      1240,
+      2734
+     ],
+     "scale": 2.4936386768447836,
+     "min_font_px": 34.9,
+     "x": 260,
+     "y": 2160
+    }
+   ]
+  },
+  "ios/07-alerts": {
+   "text": {
+    "eyebrow": "Alerts",
     "head": [
      "At most one",
      "push an hour"
     ],
     "sub": "Email digest too, switch either off"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "sky_deep",
+   "bg_hex": "#C9DCE5",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#1F4A63",
+    "head": "#14201A",
+    "sub": "#1F4A63"
    },
+   "comp": "one large phone",
    "layout": {
     "eyebrow": {
      "x0": 110,
-     "x1": 271.84375,
+     "x1": 248.734375,
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "05 / 06",
+     "text": "ALERTS",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -671,83 +2325,198 @@
       "w": 806.0625
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
-    },
-    "fontsOk": true,
-    "sw": 1320
-   },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-05-push-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 3,
-    "shown": [],
-    "screen_text": [
-     "Settings",
-     "Account",
-     "Email",
-     "member@example.com",
-     "Business, trades and area",
-     "\u203a",
-     "Alerts",
-     "Push notifications",
-     "Email digest",
-     "Plan",
-     "Current plan",
-     "Solo plan",
-     "Plans",
-     "\u203a",
-     "Restore purchases",
-     "Manage subscription",
-     "\u203a",
-     "Help",
-     "Terms of Use",
-     "Privacy Policy"
-    ],
-    "min_font_px": 34.7,
-    "edge_clear_css": 6.8,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Account",
-    "top_gap_css": 33,
-    "switches": [
+    "drawn": [
      {
-      "label": "Push notifications",
-      "on": true
+      "cls": "t",
+      "text": "ALERTS",
+      "x0": 110,
+      "x1": 248.734375,
+      "y0": 173,
+      "y1": 218
      },
      {
-      "label": "Email digest",
-      "on": true
+      "cls": "t",
+      "text": "AT MOST ONE\nPUSH AN HOUR",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Email digest too, switch either off",
+      "x0": 110,
+      "x1": 841.03125,
+      "y0": 562,
+      "y1": 618
      }
     ],
-    "last_line": "Privacy Policy",
-    "last_line_is_heading": false,
-    "feed": null,
-    "records": [],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 820,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "07-settings",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-07-settings.png",
+     "sw": 1000,
+     "s": 2.544529262086514,
+     "bez": 26,
+     "whole": false,
+     "shown_css": 794.6,
+     "visible_css": 794.6,
+     "vw": 393,
+     "vh": 854,
+     "scrolled": 28,
+     "shown": [],
+     "screen_text": [
+      "Settings",
+      "Account",
+      "Email",
+      "member@example.com",
+      "Business, trades and area",
+      "\u203a",
+      "Alerts",
+      "Push notifications",
+      "Email digest",
+      "Plan",
+      "Current plan",
+      "Solo plan",
+      "Plans",
+      "\u203a",
+      "Restore purchases",
+      "Manage subscription",
+      "\u203a",
+      "Help",
+      "Terms of Use",
+      "Privacy Policy",
+      "Support"
+     ],
+     "min_font_px": 33.1,
+     "edge_clear_css": 6.4,
+     "form": null,
+     "switches": [
+      {
+       "label": "Push notifications",
+       "on": true
+      },
+      {
+       "label": "Email digest",
+       "on": true
+      }
+     ],
+     "split_at_edge": [],
+     "first_in_scroll": "Account",
+     "top_gap_css": 8,
+     "last_line": "Support",
+     "last_line_is_heading": false,
+     "text_bottom_css": 964.2,
+     "cards_css": [],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       60,
+       77
+      ],
+      [
+       103.2,
+       123.2
+      ],
+      [
+       104.7,
+       121.7
+      ],
+      [
+       155.7,
+       175.7
+      ],
+      [
+       212.2,
+       229.2
+      ],
+      [
+       255.4,
+       275.4
+      ],
+      [
+       307.9,
+       327.9
+      ],
+      [
+       364.4,
+       381.4
+      ],
+      [
+       407.6,
+       427.6
+      ],
+      [
+       409.1,
+       426.1
+      ],
+      [
+       460.1,
+       480.1
+      ],
+      [
+       512.1,
+       532.1
+      ],
+      [
+       564.1,
+       584.1
+      ],
+      [
+       620.6,
+       637.6
+      ],
+      [
+       663.8,
+       683.8
+      ],
+      [
+       716.2,
+       736.2
+      ],
+      [
+       768.2,
+       788.2
+      ],
+      [
+       841.8,
+       861.8
+      ],
+      [
+       899.8,
+       919.8
+      ],
+      [
+       945.8,
+       961.8
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "settings"
+     },
+     "member": "paid",
+     "records": [],
+     "y": 820,
+     "box": [
+      134,
+      820,
+      1186,
+      2870
+     ],
+     "x": 134
+    }
+   ]
   },
-  "ios/06-plans": {
+  "ios/08-plans": {
    "text": {
-    "eyebrow": "06 / 06",
+    "eyebrow": "Plans",
     "head": [
      "14 days free,",
      "no card needed"
@@ -761,14 +2530,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 110,
-     "x1": 271.84375,
+     "x1": 225.609375,
      "y0": 173,
      "y1": 218,
      "lines": 1,
-     "text": "06 / 06",
+     "text": "PLANS",
      "px": 34,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -807,88 +2577,246 @@
       "w": 943.34375
      }
     ],
-    "hero": {
-     "x0": 110,
-     "y0": 794,
-     "x1": 1210,
-     "y1": 2868
-    },
-    "fontsOk": true,
-    "sw": 1320
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PLANS",
+      "x0": 110,
+      "x1": 225.609375,
+      "y0": 173,
+      "y1": 218
+     },
+     {
+      "cls": "t",
+      "text": "14 DAYS FREE,\nNO CARD NEEDED",
+      "x0": 110,
+      "x1": 1210,
+      "y0": 223,
+      "y1": 550.390625
+     },
+     {
+      "cls": "t",
+      "text": "Then Solo, $7.99 a month in the app",
+      "x0": 110,
+      "x1": 898.78125,
+      "y0": 562,
+      "y1": 618
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 247,
-   "sub_top": 562,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-06-plans-screen.png",
-    "size": [
-     1048,
-     2048
-    ],
-    "scale": 2.6666666666666665,
-    "vw": 393,
-    "vh": 827,
-    "visible_css": 768.0,
-    "scrolled": 128,
-    "shown": [],
-    "screen_text": [
-     "Back",
-     "Plans",
-     "Monthly",
-     "Yearly",
-     "Solo",
-     "$7.99 a month",
-     "1 service area",
-     "Up to",
-     "5",
-     "trades",
-     "Subscribe to Solo",
-     "Pro",
-     "$13.99 a month",
-     "3 service areas",
-     "Up to",
-     "15",
-     "trades",
-     "5",
-     "keyword watches",
-     "Subscribe to Pro",
-     "Restore purchases",
-     "Subscriptions renew automatically at the price shown until you cancel. Payment is charged to your",
-     "Apple ID",
-     "when you confirm. Cancel at least 24 hours before the end of a period to avoid the next charge. Manage or cancel in your",
-     "Apple ID",
-     "settings.",
-     "Terms of Use",
-     "and",
-     "Privacy Policy"
-    ],
-    "min_font_px": 37.3,
-    "edge_clear_css": 2.5,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Solo",
-    "top_gap_css": 8,
-    "switches": [],
-    "last_line": "and",
-    "last_line_is_heading": false,
-    "feed": null,
-    "records": [],
-    "box": [
-     110,
-     794,
-     1210,
-     2868
-    ]
-   }
+   "hero_top": 840,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "08-plans",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-08-plans.png",
+     "sw": 820,
+     "s": 2.0865139949109417,
+     "bez": 21,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 62,
+     "shown": [],
+     "screen_text": [
+      "Back",
+      "Plans",
+      "Pick the plan that fits your work. You can change it later.",
+      "Monthly",
+      "Yearly",
+      "Solo",
+      "$7.99 a month",
+      "1 service area",
+      "Up to",
+      "5",
+      "trades",
+      "Subscribe to Solo",
+      "Pro",
+      "$13.99 a month",
+      "3 service areas",
+      "Up to",
+      "15",
+      "trades",
+      "5",
+      "keyword watches",
+      "Subscribe to Pro",
+      "Restore purchases",
+      "Subscriptions renew automatically at the price shown until you cancel. Payment is charged to your",
+      "Apple ID",
+      "when you confirm. Cancel at least 24 hours before the end of a period to avoid the next charge. Manage or cancel in your",
+      "Apple ID",
+      "settings.",
+      "Terms of Use",
+      "and",
+      "Privacy Policy",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 27.1,
+     "edge_clear_css": 8,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Monthly Yearly",
+     "top_gap_css": 14,
+     "last_line": "when you confirm. Cancel at least 24 hours before ",
+     "last_line_is_heading": false,
+     "text_bottom_css": 845,
+     "cards_css": [],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       8,
+       28
+      ],
+      [
+       32,
+       52
+      ],
+      [
+       80,
+       100
+      ],
+      [
+       145,
+       165
+      ],
+      [
+       176.5,
+       217.5
+      ],
+      [
+       224.5,
+       241.5
+      ],
+      [
+       249.5,
+       266.5
+      ],
+      [
+       293.5,
+       313.5
+      ],
+      [
+       374.5,
+       394.5
+      ],
+      [
+       406,
+       447
+      ],
+      [
+       454,
+       471
+      ],
+      [
+       479,
+       496
+      ],
+      [
+       504,
+       521
+      ],
+      [
+       548,
+       568
+      ],
+      [
+       631,
+       651
+      ],
+      [
+       686,
+       703
+      ],
+      [
+       707,
+       724
+      ],
+      [
+       728,
+       745
+      ],
+      [
+       749,
+       766
+      ],
+      [
+       770,
+       787
+      ],
+      [
+       814.5,
+       831.5
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "paywall"
+     },
+     "member": "trial",
+     "records": [],
+     "y": 840,
+     "box": [
+      229,
+      840,
+      1091,
+      2660
+     ],
+     "x": 229
+    },
+    {
+     "kind": "card",
+     "key": "08-solo",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/ios-08-solo.png",
+     "css": [
+      361,
+      217.5
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 188,
+      "w": 361,
+      "h": 217.5
+     },
+     "text": "Solo\n\n$7.99 A MONTH\n\n1 service area\nUp to 5 trades\nSubscribe to Solo",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "paywall"
+     },
+     "member": "trial",
+     "records": [],
+     "selector": ".plan",
+     "box": [
+      109,
+      975,
+      1211,
+      1639
+     ],
+     "scale": 3.0526315789473686,
+     "min_font_px": 42.7,
+     "x": 109,
+     "y": 975
+    }
+   ]
   },
-  "android/01-records": {
+  "android/01-map": {
    "text": {
-    "eyebrow": "01 / 06",
+    "eyebrow": "60614 \u00b7 Chicago",
     "head": [
      "Public records",
-     "near your work"
+     "around your ZIP"
     ],
-    "sub": "Permits, storms and 311 for your trade"
+    "sub": "Permits and 311 calls, drawn to scale"
    },
    "bg": "green",
    "bg_hex": "#1E3A2C",
@@ -897,14 +2825,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "map and phone",
    "layout": {
     "eyebrow": {
      "x0": 80,
-     "x1": 208.53125,
+     "x1": 355.40625,
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "01 / 06",
+     "text": "60614 \u00b7 CHICAGO",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -915,18 +2844,18 @@
      "y0": 138,
      "y1": 407.1875,
      "lines": 4,
-     "text": "PUBLIC RECORDS / NEAR YOUR WORK",
+     "text": "PUBLIC RECORDS / AROUND YOUR ZIP",
      "px": 128,
      "family": "\"Barlow Condensed\"",
      "weight": "700"
     },
     "sub": {
      "x0": 80,
-     "x1": 730.046875,
+     "x1": 707.59375,
      "y0": 412,
      "y1": 456,
      "lines": 1,
-     "text": "Permits, storms and 311 for your trade",
+     "text": "Permits and 311 calls, drawn to scale",
      "px": 36,
      "family": "Inter",
      "weight": "500"
@@ -939,118 +2868,419 @@
      },
      {
       "x0": 80,
-      "x1": 886.65625,
-      "w": 806.65625
+      "x1": 882.5625,
+      "w": 802.5625
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
-    },
-    "fontsOk": true,
-    "sw": 1080
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "60614 \u00b7 CHICAGO",
+      "x0": 80,
+      "x1": 355.40625,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "PUBLIC RECORDS\nAROUND YOUR ZIP",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Permits and 311 calls, drawn to scale",
+      "x0": 80,
+      "x1": 707.59375,
+      "y0": 412,
+      "y1": 456
+     },
+     {
+      "cls": "cap",
+      "text": "6 MI",
+      "x0": 867.2421875,
+      "x1": 932.7578125,
+      "y0": 504,
+      "y1": 540
+     },
+     {
+      "cls": "lab",
+      "text": "FLY DUMPING 2.0 MI",
+      "x0": 637.6875,
+      "x1": 932.5,
+      "y0": 1246,
+      "y1": 1282
+     },
+     {
+      "cls": "lab",
+      "text": "ROOF PERMIT 2.6 MI",
+      "x0": 314.890625,
+      "x1": 609.703125,
+      "y0": 1123.5,
+      "y1": 1159.5
+     },
+     {
+      "cls": "lab",
+      "text": "PLUMBING PERMIT 3.5 MI",
+      "x0": 179.578125,
+      "x1": 539.90625,
+      "y0": 1189.59375,
+      "y1": 1225.59375
+     },
+     {
+      "cls": "lab",
+      "text": "TREE DEBRIS 3.7 MI",
+      "x0": 371.296875,
+      "x1": 666.109375,
+      "y0": 775.5,
+      "y1": 811.5
+     },
+     {
+      "cls": "lab",
+      "text": "WINDOW PERMIT 4.9 MI",
+      "x0": 555.6875,
+      "x1": 883.25,
+      "y0": 1324.09375,
+      "y1": 1360.09375
+     },
+     {
+      "cls": "lab",
+      "text": "TREE EMERGENCY 4.9 MI",
+      "x0": 102.359375,
+      "x1": 446.3125,
+      "y0": 845.1875,
+      "y1": 881.1875
+     },
+     {
+      "cls": "chip",
+      "text": "60614",
+      "x0": 859.0546875,
+      "x1": 940.9453125,
+      "y0": 1074,
+      "y1": 1110
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-01-records-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 0,
-    "shown": [
-     {
-      "title": "311 request in Chicago: Tree Emergency",
-      "distance": "4.9 mi away",
-      "top": 117
-     },
-     {
-      "title": "Roof permit in Chicago",
-      "distance": "2.6 mi away",
-      "top": 377.78125
-     }
-    ],
-    "screen_text": [
-     "Alerts",
-     "Refresh",
-     "Release to refresh",
-     "311 request",
-     "Might need work",
-     "311 request in Chicago: Tree Emergency",
-     "Chicago, IL",
-     "2 days ago",
-     "4.9 mi away",
-     "The event is on record. Whether anyone needs work is not confirmed.",
-     "Source:",
-     "Chicago open data: 311 requests",
-     "Was this alert helpful?",
-     "Permit",
-     "Money being spent",
-     "Roof permit in Chicago",
-     "Chicago, IL",
-     "3 days ago",
-     "2.6 mi away",
-     "Money is being spent here. The main contractor may already be chosen.",
-     "Source:",
-     "Chicago open data: building permits",
-     "Was this alert helpful?"
-    ],
-    "min_font_px": 29.2,
-    "edge_clear_css": 2.9,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "311 request Might need work",
-    "top_gap_css": 16,
-    "switches": [],
-    "last_line": "Was this alert helpful?",
-    "last_line_is_heading": false,
-    "feed": "01-records",
-    "records": [
-     {
-      "signalId": 45354,
-      "title": "311 request in Chicago: Tree Emergency",
-      "distance": "4.9 mi away",
-      "served": "4.9 mi away"
-     },
-     {
-      "signalId": 33439,
-      "title": "Roof permit in Chicago",
-      "distance": "2.6 mi away",
-      "served": "2.6 mi away"
-     }
-    ],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+   "hero_top": 501,
+   "objects": [
+    {
+     "kind": "map",
+     "box": [
+      309,
+      501,
+      1080,
+      1683
+     ],
+     "zip": "60614",
+     "centre": [
+      900,
+      1092
+     ],
+     "px_per_mi": 95,
+     "rings": [
+      2,
+      4,
+      6
+     ],
+     "unit": 2.1,
+     "label_px": 27.3,
+     "records": [
+      {
+       "id": "47080",
+       "family": "civic",
+       "text": "FLY DUMPING 2.0 MI",
+       "mi": 2,
+       "bearing": 154.83926913022162,
+       "title": "311 request in Chicago: Fly Dumping Complaint",
+       "x": 980.8,
+       "y": 1264.0,
+       "side": "left"
+      },
+      {
+       "id": "33439",
+       "family": "permit",
+       "text": "ROOF PERMIT 2.6 MI",
+       "mi": 2.6,
+       "bearing": 258.43912205305384,
+       "title": "Roof permit in Chicago",
+       "x": 658.0,
+       "y": 1141.5,
+       "side": "left"
+      },
+      {
+       "id": "33427",
+       "family": "permit",
+       "text": "PLUMBING PERMIT 3.5 MI",
+       "mi": 3.5,
+       "bearing": 249.6576657106449,
+       "title": "Plumbing permit in Chicago",
+       "x": 588.2,
+       "y": 1207.6,
+       "side": "left"
+      },
+      {
+       "id": "46979",
+       "family": "civic",
+       "text": "TREE DEBRIS 3.7 MI",
+       "mi": 3.7,
+       "bearing": 328.1262443509412,
+       "title": "311 request in Chicago: Tree Debris Clean-Up Request",
+       "x": 714.4,
+       "y": 793.5,
+       "side": "left"
+      },
+      {
+       "id": "33440",
+       "family": "permit",
+       "text": "WINDOW PERMIT 4.9 MI",
+       "mi": 4.9,
+       "bearing": 237.49959508053877,
+       "title": "Window and door permit in Chicago",
+       "x": 507.4,
+       "y": 1342.1,
+       "side": "right"
+      },
+      {
+       "id": "45354",
+       "family": "civic",
+       "text": "TREE EMERGENCY 4.9 MI",
+       "mi": 4.9,
+       "bearing": 299.4441163533321,
+       "title": "311 request in Chicago: Tree Emergency",
+       "x": 494.6,
+       "y": 863.2,
+       "side": "left"
+      }
+     ]
+    },
+    {
+     "kind": "phone",
+     "key": "01-feed",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-01-feed.png",
+     "sw": 490,
+     "s": 1.2468193384223918,
+     "bez": 16,
+     "whole": false,
+     "shown_css": 346.5,
+     "visible_css": 346.5,
+     "vw": 393,
+     "vh": 406,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Alerts",
+      "Refresh",
+      "311 request",
+      "Might need work",
+      "311 request in Chicago: Tree Emergency",
+      "Chicago, IL",
+      "2 days ago",
+      "4.9 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: 311 requests",
+      "Was this alert helpful?"
+     ],
+     "min_font_px": 16.2,
+     "edge_clear_css": 2.3,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "311 request Might need work",
+     "top_gap_css": 16,
+     "last_line": "Was this alert helpful?",
+     "last_line_is_heading": false,
+     "text_bottom_css": 848.0,
+     "cards_css": [
+      [
+       68,
+       316.78125,
+       265.78125
+      ],
+      [
+       328.78125,
+       554.171875,
+       503.171875
+      ],
+      [
+       566.171875,
+       814.953125,
+       763.953125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       279.0,
+       295.0
+      ],
+      [
+       348.8,
+       365.8
+      ],
+      [
+       349.0,
+       365.0
+      ],
+      [
+       378.8,
+       399.8
+      ],
+      [
+       408.2,
+       427.2
+      ],
+      [
+       409.2,
+       427.2
+      ],
+      [
+       435.7,
+       452.7
+      ],
+      [
+       456.7,
+       473.7
+      ],
+      [
+       482.7,
+       498.7
+      ],
+      [
+       516.4,
+       532.4
+      ],
+      [
+       586.2,
+       603.2
+      ],
+      [
+       586.4,
+       602.4
+      ],
+      [
+       616.2,
+       637.2
+      ],
+      [
+       639.6,
+       660.6
+      ],
+      [
+       669.0,
+       688.0
+      ],
+      [
+       670.0,
+       688.0
+      ],
+      [
+       696.5,
+       713.5
+      ],
+      [
+       717.5,
+       734.5
+      ],
+      [
+       743.5,
+       759.5
+      ],
+      [
+       777.2,
+       793.2
+      ],
+      [
+       829.0,
+       846.0
+      ]
+     ],
+     "feed": "01-records",
+     "route": null,
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 45354,
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "served": "4.9 mi away"
+      }
+     ],
+     "y": 1472,
+     "box": [
+      64,
+      1472,
+      586,
+      1922
+     ],
+     "x": 64
+    }
+   ]
   },
   "android/02-storms": {
    "text": {
-    "eyebrow": "02 / 06",
+    "eyebrow": "Weather",
     "head": [
      "Storm and hail",
      "reports nearby"
     ],
-    "sub": "Hail size, place and distance from you"
+    "sub": "Hail size, place and miles from you"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "sky_deep",
+   "bg_hex": "#C9DCE5",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#1F4A63",
+    "head": "#14201A",
+    "sub": "#1F4A63"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 80,
@@ -1058,7 +3288,7 @@
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "02 / 06",
+     "text": "WEATHER",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -1076,11 +3306,11 @@
     },
     "sub": {
      "x0": 80,
-     "x1": 731.90625,
+     "x1": 675.40625,
      "y0": 412,
      "y1": 456,
      "lines": 1,
-     "text": "Hail size, place and distance from you",
+     "text": "Hail size, place and miles from you",
      "px": 36,
      "family": "Inter",
      "weight": "500"
@@ -1097,109 +3327,277 @@
       "w": 801.421875
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "WEATHER",
+      "x0": 80,
+      "x1": 208.53125,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "STORM AND HAIL\nREPORTS NEARBY",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Hail size, place and miles from you",
+      "x0": 80,
+      "x1": 675.40625,
+      "y0": 412,
+      "y1": 456
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "02-hail",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-02-hail.png",
+     "sw": 520,
+     "s": 1.3231552162849873,
+     "bez": 16,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+       "distance": "7.4 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Storm report",
+      "Might need work",
+      "1.00 inch hail reported near 2 W Hollywood, FL",
+      "Hollywood, FL",
+      "2 days ago",
+      "7.4 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "NOAA Storm Prediction Center storm reports",
+      "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+      "Date",
+      "Nov 18",
+      "County",
+      "Broward",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "NOAA Storm Prediction Center storm reports",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 17.2,
+     "edge_clear_css": 127.2,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Storm report Might need work",
+     "top_gap_css": 16,
+     "last_line": "NOAA Storm Prediction Center storm reports",
+     "last_line_is_heading": false,
+     "text_bottom_css": 681.3,
+     "cards_css": [
+      [
+       68,
+       604.28125,
+       497.28125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       264.8,
+       280.8
+      ],
+      [
+       297.3,
+       317.3
+      ],
+      [
+       321.3,
+       341.3
+      ],
+      [
+       345.3,
+       365.3
+      ],
+      [
+       381.3,
+       398.3
+      ],
+      [
+       406.3,
+       423.3
+      ],
+      [
+       452.3,
+       472.3
+      ],
+      [
+       512.3,
+       529.3
+      ],
+      [
+       549.0,
+       568.0
+      ],
+      [
+       618.3,
+       635.3
+      ],
+      [
+       650.8,
+       667.8
+      ]
+     ],
+     "feed": "02-storms",
+     "route": {
+      "name": "alert",
+      "signalId": 24614
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 24614,
+       "title": "1.00 inch hail reported near 2 W Hollywood, FL",
+       "distance": "7.4 mi away",
+       "served": "7.4 mi away"
+      }
+     ],
+     "y": 560,
+     "box": [
+      478,
+      560,
+      1030,
+      1719
+     ],
+     "x": 478
     },
-    "fontsOk": true,
-    "sw": 1080
-   },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-02-storms-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 5,
-    "shown": [
-     {
-      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-      "distance": "7.4 mi away",
-      "top": 112
-     }
-    ],
-    "screen_text": [
-     "Back",
-     "Alert",
-     "Storm report",
-     "Might need work",
-     "1.00 inch hail reported near 2 W Hollywood, FL",
-     "Hollywood, FL",
-     "2 days ago",
-     "7.4 mi away",
-     "The event is on record. Whether anyone needs work is not confirmed.",
-     "Source:",
-     "NOAA Storm Prediction Center storm reports",
-     "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
-     "Date",
-     "Nov 18",
-     "County",
-     "Broward",
-     "Open the source",
-     "Was this alert helpful?",
-     "Useful",
-     "Not relevant",
-     "Led to work"
-    ],
-    "min_font_px": 29.2,
-    "edge_clear_css": 7.0,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Storm report Might need work",
-    "top_gap_css": 11,
-    "switches": [],
-    "last_line": "Useful",
-    "last_line_is_heading": false,
-    "feed": "02-storms",
-    "records": [
-     {
-      "signalId": 24614,
-      "title": "1.00 inch hail reported near 2 W Hollywood, FL",
-      "distance": "7.4 mi away",
-      "served": "7.4 mi away"
-     }
-    ],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+    {
+     "kind": "card",
+     "key": "02-warning",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-02-warning.png",
+     "css": [
+      361,
+      248.78125
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 348.28125,
+      "w": 361,
+      "h": 248.78125
+     },
+     "text": "WEATHER ALERT\nMight need work\n\nSevere Thunderstorm Warning: Broward, FL; Miami-Dade, FL\n\nFL\n3 days ago\n3.1 mi away\n\nThe event is on record. Whether anyone needs work is not confirmed.\n\nSource: National Weather Service alerts\n\nWas this alert helpful?",
+     "min_font_css": 13,
+     "feed": "02-storms",
+     "route": null,
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 15979,
+       "title": "Severe Thunderstorm Warning: Broward, FL; Miami-Dade, FL",
+       "distance": "3.1 mi away",
+       "served": "3.1 mi away"
+      }
+     ],
+     "selector": "article.card",
+     "box": [
+      250,
+      1221,
+      1030,
+      1759
+     ],
+     "scale": 2.160664819944598,
+     "min_font_px": 28.1,
+     "x": 250,
+     "y": 1221
+    }
+   ]
   },
-  "android/03-radius": {
+  "android/03-civic": {
    "text": {
-    "eyebrow": "03 / 06",
+    "eyebrow": "311 and code",
     "head": [
-     "Pick the trades",
-     "you work in"
+     "City requests",
+     "and code cases"
     ],
-    "sub": "Then your ZIP and how far you drive"
+    "sub": "From the city's open data, with distance"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "civic",
+   "bg_hex": "#EFEAF7",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#5B3F86",
+    "head": "#14201A",
+    "sub": "#5B3F86"
    },
+   "comp": "two phones",
    "layout": {
     "eyebrow": {
      "x0": 80,
-     "x1": 208.53125,
+     "x1": 300.328125,
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "03 / 06",
+     "text": "311 AND CODE",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -1210,18 +3608,18 @@
      "y0": 138,
      "y1": 407.1875,
      "lines": 4,
-     "text": "PICK THE TRADES / YOU WORK IN",
+     "text": "CITY REQUESTS / AND CODE CASES",
      "px": 128,
      "family": "\"Barlow Condensed\"",
      "weight": "700"
     },
     "sub": {
      "x0": 80,
-     "x1": 703,
+     "x1": 766.953125,
      "y0": 412,
      "y1": 456,
      "lines": 1,
-     "text": "Then your ZIP and how far you drive",
+     "text": "From the city's open data, with distance",
      "px": 36,
      "family": "Inter",
      "weight": "500"
@@ -1229,102 +3627,518 @@
     "headSpans": [
      {
       "x0": 80,
-      "x1": 875.40625,
-      "w": 795.40625
+      "x1": 779.78125,
+      "w": 699.78125
      },
      {
       "x0": 80,
-      "x1": 675.71875,
-      "w": 595.71875
+      "x1": 842.125,
+      "w": 762.125
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
-    },
-    "fontsOk": true,
-    "sw": 1080
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "311 AND CODE",
+      "x0": 80,
+      "x1": 300.328125,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "CITY REQUESTS\nAND CODE CASES",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "From the city's open data, with distance",
+      "x0": 80,
+      "x1": 766.953125,
+      "y0": 412,
+      "y1": 456
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-03-radius-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 138,
-    "shown": [],
-    "screen_text": [
-     "Back",
-     "Your alerts",
-     "Your trades",
-     "Pick up to",
-     "5",
-     ".",
-     "2",
-     "picked.",
-     "Home and property",
-     "Roofing",
-     "Heating and air (HVAC)",
-     "Plumbing",
-     "Electrical",
-     "Landscaping",
-     "Lawn care",
-     "Pest control",
-     "House cleaning",
-     "General contractor",
-     "Painting",
-     "Pool and spa",
-     "Solar",
-     "Junk removal and hauling",
-     "Locksmith",
-     "Fencing",
-     "Concrete and paving",
-     "Windows and doors",
-     "Siding and gutters",
-     "Flooring",
-     "Handyman"
-    ],
-    "min_font_px": 31.5,
-    "edge_clear_css": 2.3,
-    "form": {
-     "zip": "60614",
-     "radius": "15",
-     "zipVisible": false,
-     "radiusVisible": false,
-     "pickedVisible": [
-      "Roofing",
-      "Heating and air (HVAC)"
-     ]
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "03-311",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-03-311.png",
+     "sw": 500,
+     "s": 1.272264631043257,
+     "bez": 16,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "311 request",
+      "Might need work",
+      "311 request in Chicago: Tree Emergency",
+      "Chicago, IL",
+      "2 days ago",
+      "4.9 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: 311 requests",
+      "Tree Emergency | Open",
+      "Date",
+      "Nov 18",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "Chicago open data: 311 requests",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 16.5,
+     "edge_clear_css": 240.7,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "311 request Might need work",
+     "top_gap_css": 16,
+     "last_line": "Data from",
+     "last_line_is_heading": false,
+     "text_bottom_css": 567.8,
+     "cards_css": [
+      [
+       68,
+       511.78125,
+       404.78125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       141.4,
+       162.4
+      ],
+      [
+       170.8,
+       189.8
+      ],
+      [
+       171.8,
+       189.8
+      ],
+      [
+       198.3,
+       215.3
+      ],
+      [
+       219.3,
+       236.3
+      ],
+      [
+       245.3,
+       261.3
+      ],
+      [
+       277.8,
+       297.8
+      ],
+      [
+       313.8,
+       330.8
+      ],
+      [
+       359.8,
+       379.8
+      ],
+      [
+       419.8,
+       436.8
+      ],
+      [
+       456.5,
+       475.5
+      ],
+      [
+       537.3,
+       554.3
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 45354
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 45354,
+       "title": "311 request in Chicago: Tree Emergency",
+       "distance": "4.9 mi away",
+       "served": "4.9 mi away"
+      }
+     ],
+     "y": 560,
+     "box": [
+      50,
+      560,
+      582,
+      1676
+     ],
+     "x": 50
     },
-    "split_at_edge": [],
-    "first_in_scroll": "Pick up to 5. 2 picked.",
-    "top_gap_css": 3,
-    "switches": [],
-    "last_line": "Handyman",
-    "last_line_is_heading": false,
-    "feed": null,
-    "profile_key": "03-radius-android",
-    "records": [],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+    {
+     "kind": "phone",
+     "key": "03-code",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-03-code.png",
+     "sw": 500,
+     "s": 1.272264631043257,
+     "bez": 16,
+     "whole": false,
+     "shown_css": 458.2,
+     "visible_css": 458.2,
+     "vw": 393,
+     "vh": 518,
+     "scrolled": 5,
+     "shown": [
+      {
+       "title": "Code violation in Chicago: REPAIR ROOF",
+       "distance": "5 mi away",
+       "top": 112
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Code violation",
+      "Might need work",
+      "Code violation in Chicago: REPAIR ROOF",
+      "Chicago, IL",
+      "Nov 13",
+      "5 mi away",
+      "The event is on record. Whether anyone needs work is not confirmed.",
+      "Source:",
+      "Chicago open data: code violations",
+      "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
+      "Date",
+      "Nov 13",
+      "Open the source",
+      "Was this alert helpful?"
+     ],
+     "min_font_px": 16.5,
+     "edge_clear_css": 2.5,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Code violation Might need work",
+     "top_gap_css": 11,
+     "last_line": "Was this alert helpful?",
+     "last_line_is_heading": false,
+     "text_bottom_css": 586.8,
+     "cards_css": [
+      [
+       63,
+       530.78125,
+       423.78125
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       83,
+       100
+      ],
+      [
+       83.2,
+       99.2
+      ],
+      [
+       113,
+       134
+      ],
+      [
+       136.4,
+       157.4
+      ],
+      [
+       165.8,
+       184.8
+      ],
+      [
+       166.8,
+       184.8
+      ],
+      [
+       193.3,
+       210.3
+      ],
+      [
+       214.3,
+       231.3
+      ],
+      [
+       240.3,
+       256.3
+      ],
+      [
+       272.8,
+       292.8
+      ],
+      [
+       296.8,
+       316.8
+      ],
+      [
+       332.8,
+       349.8
+      ],
+      [
+       378.8,
+       398.8
+      ],
+      [
+       438.8,
+       455.8
+      ],
+      [
+       475.5,
+       494.5
+      ],
+      [
+       556.3,
+       573.3
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 4291
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 4291,
+       "title": "Code violation in Chicago: REPAIR ROOF",
+       "distance": "5 mi away",
+       "served": "5 mi away"
+      }
+     ],
+     "y": 1321,
+     "box": [
+      498,
+      1321,
+      1030,
+      1922
+     ],
+     "x": 498
+    }
+   ]
   },
-  "android/04-source": {
+  "android/04-value": {
    "text": {
-    "eyebrow": "04 / 06",
+    "eyebrow": "Permits",
+    "head": [
+     "The job value",
+     "on the permit"
+    ],
+    "sub": "Read from the city's own permit data"
+   },
+   "bg": "sage_deep",
+   "bg_hex": "#CFE3D5",
+   "colors": {
+    "eyebrow": "#24513A",
+    "head": "#14201A",
+    "sub": "#24513A"
+   },
+   "comp": "card and figure",
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 208.53125,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "PERMITS",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "THE JOB VALUE / ON THE PERMIT",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 713.71875,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Read from the city's own permit data",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 772.109375,
+      "w": 692.109375
+     },
+     {
+      "x0": 80,
+      "x1": 769.921875,
+      "w": 689.921875
+     }
+    ],
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PERMITS",
+      "x0": 80,
+      "x1": 208.53125,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "THE JOB VALUE\nON THE PERMIT",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Read from the city's own permit data",
+      "x0": 80,
+      "x1": 713.71875,
+      "y0": 412,
+      "y1": 456
+     },
+     {
+      "cls": "fig",
+      "text": "$500,000",
+      "x0": 76,
+      "x1": 882.40625,
+      "y0": 1615,
+      "y1": 1853
+     }
+    ],
+    "figs": [
+     [
+      76,
+      1644,
+      882.40625,
+      1824
+     ]
+    ],
+    "fontsOk": true
+   },
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "card",
+     "key": "04-hvac",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-04-hvac.png",
+     "css": [
+      361,
+      468.390625
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 68,
+      "w": 361,
+      "h": 468.390625
+     },
+     "text": "PERMIT\nMoney being spent\n\nHVAC permit in Chicago\n\nChicago, IL\n3 days ago\n1.7 mi away\n\nMoney is being spent here. The main contractor may already be chosen.\n\nSource: Chicago open data: building permits\n\nPERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST\n\nDate\nNov 17\nOpen the source\n\nWas this alert helpful?\n\nUseful\nNot relevant\nLed to work",
+     "min_font_css": 13,
+     "feed": "04-source",
+     "route": {
+      "name": "alert",
+      "signalId": 33435
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 33435,
+       "title": "HVAC permit in Chicago",
+       "distance": "1.7 mi away",
+       "served": "1.7 mi away"
+      }
+     ],
+     "selector": "article.card",
+     "box": [
+      214,
+      560,
+      1000,
+      1580
+     ],
+     "scale": 2.177285318559557,
+     "min_font_px": 28.3,
+     "x": 214,
+     "y": 560
+    },
+    {
+     "kind": "figure",
+     "text": "$500,000",
+     "px": 180,
+     "color": "#14201A",
+     "source": {
+      "card": "04-hvac",
+      "text": "$500,000 job value"
+     },
+     "box": [
+      76,
+      1644,
+      882,
+      1824
+     ]
+    }
+   ]
+  },
+  "android/05-source": {
+   "text": {
+    "eyebrow": "Public data",
     "head": [
      "Each alert links",
      "to its source"
@@ -1338,14 +4152,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 80,
-     "x1": 208.53125,
+     "x1": 281.96875,
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "04 / 06",
+     "text": "PUBLIC DATA",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -1384,109 +4199,880 @@
       "w": 669.828125
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
-    },
-    "fontsOk": true,
-    "sw": 1080
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PUBLIC DATA",
+      "x0": 80,
+      "x1": 281.96875,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "EACH ALERT LINKS\nTO ITS SOURCE",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Open the public data it came from",
+      "x0": 80,
+      "x1": 662.609375,
+      "y0": 412,
+      "y1": 456
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-04-source-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 2,
-    "shown": [
-     {
-      "title": "HVAC permit in Chicago",
-      "distance": "1.7 mi away",
-      "top": 115
-     }
-    ],
-    "screen_text": [
-     "Back",
-     "Alert",
-     "Permit",
-     "Money being spent",
-     "HVAC permit in Chicago",
-     "Chicago, IL",
-     "3 days ago",
-     "1.7 mi away",
-     "Money is being spent here. The main contractor may already be chosen.",
-     "Source:",
-     "Chicago open data: building permits",
-     "PERMIT - RENOVATION/ALTERATION | $500,000 job value | 1100 N DEARBORN ST",
-     "Date",
-     "Nov 17",
-     "Open the source",
-     "Was this alert helpful?",
-     "Useful",
-     "Not relevant",
-     "Led to work",
-     "Data from",
-     "Chicago open data: building permits"
-    ],
-    "min_font_px": 29.2,
-    "edge_clear_css": 6.4,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Permit Money being spent",
-    "top_gap_css": 14,
-    "switches": [],
-    "last_line": "Data from",
-    "last_line_is_heading": false,
-    "feed": "04-source",
-    "records": [
-     {
-      "signalId": 33435,
-      "title": "HVAC permit in Chicago",
-      "distance": "1.7 mi away",
-      "served": "1.7 mi away"
-     }
-    ],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "05-roof",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-05-roof.png",
+     "sw": 540,
+     "s": 1.3740458015267176,
+     "bez": 16,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 0,
+     "shown": [
+      {
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "top": 117
+      }
+     ],
+     "screen_text": [
+      "Back",
+      "Alert",
+      "Permit",
+      "Money being spent",
+      "Roof permit in Chicago",
+      "Chicago, IL",
+      "3 days ago",
+      "2.6 mi away",
+      "Money is being spent here. The main contractor may already be chosen.",
+      "Source:",
+      "Chicago open data: building permits",
+      "PERMIT - RENOVATION/ALTERATION | $10,000 job value | 1849 N MOZART ST",
+      "Date",
+      "Nov 17",
+      "Open the source",
+      "Was this alert helpful?",
+      "Useful",
+      "Not relevant",
+      "Led to work",
+      "Data from",
+      "Chicago open data: building permits",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 17.9,
+     "edge_clear_css": 240.1,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Permit Money being spent",
+     "top_gap_css": 16,
+     "last_line": "Data from",
+     "last_line_is_heading": false,
+     "text_bottom_css": 568.4,
+     "cards_css": [
+      [
+       68,
+       512.390625,
+       405.390625
+      ]
+     ],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       88.2,
+       104.2
+      ],
+      [
+       118,
+       139
+      ],
+      [
+       147.4,
+       166.4
+      ],
+      [
+       148.4,
+       166.4
+      ],
+      [
+       174.9,
+       191.9
+      ],
+      [
+       195.9,
+       212.9
+      ],
+      [
+       221.9,
+       237.9
+      ],
+      [
+       254.4,
+       274.4
+      ],
+      [
+       278.4,
+       298.4
+      ],
+      [
+       314.4,
+       331.4
+      ],
+      [
+       360.4,
+       380.4
+      ],
+      [
+       420.4,
+       437.4
+      ],
+      [
+       457.1,
+       476.1
+      ],
+      [
+       537.9,
+       554.9
+      ]
+     ],
+     "feed": "01-records",
+     "route": {
+      "name": "alert",
+      "signalId": 33439
+     },
+     "member": "paid",
+     "records": [
+      {
+       "signalId": 33439,
+       "title": "Roof permit in Chicago",
+       "distance": "2.6 mi away",
+       "served": "2.6 mi away"
+      }
+     ],
+     "y": 560,
+     "box": [
+      64,
+      560,
+      636,
+      1763
+     ],
+     "x": 64
+    },
+    {
+     "kind": "card",
+     "key": "05-datafrom",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-05-datafrom.png",
+     "css": [
+      393,
+      76
+     ],
+     "radius": 12,
+     "pad": 16,
+     "box_css": {
+      "x": 16,
+      "y": 524.390625,
+      "w": 361,
+      "h": 44
+     },
+     "text": "Data from Chicago open data: building permits",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "alert",
+      "signalId": 33439
+     },
+     "member": "paid",
+     "records": [],
+     "selector": "p.small.muted",
+     "box": [
+      56,
+      1250,
+      846,
+      1403
+     ],
+     "scale": 2.010178117048346,
+     "min_font_px": 28.1,
+     "x": 56,
+     "y": 1250
+    }
+   ]
   },
-  "android/05-push": {
+  "android/06-trades": {
    "text": {
-    "eyebrow": "05 / 06",
+    "eyebrow": "Your work",
+    "head": [
+     "Pick the trades",
+     "you work in"
+    ],
+    "sub": "Then your ZIP and how far you drive"
+   },
+   "bg": "paper",
+   "bg_hex": "#F5F4EF",
+   "colors": {
+    "eyebrow": "#2E5A41",
+    "head": "#14201A",
+    "sub": "#5B635D"
+   },
+   "comp": "phone, part of it lifted",
+   "layout": {
+    "eyebrow": {
+     "x0": 80,
+     "x1": 245.25,
+     "y0": 102,
+     "y1": 138,
+     "lines": 1,
+     "text": "YOUR WORK",
+     "px": 27,
+     "family": "\"JetBrains Mono\"",
+     "weight": "500"
+    },
+    "head": {
+     "x0": 80,
+     "x1": 1000,
+     "y0": 138,
+     "y1": 407.1875,
+     "lines": 4,
+     "text": "PICK THE TRADES / YOU WORK IN",
+     "px": 128,
+     "family": "\"Barlow Condensed\"",
+     "weight": "700"
+    },
+    "sub": {
+     "x0": 80,
+     "x1": 703,
+     "y0": 412,
+     "y1": 456,
+     "lines": 1,
+     "text": "Then your ZIP and how far you drive",
+     "px": 36,
+     "family": "Inter",
+     "weight": "500"
+    },
+    "headSpans": [
+     {
+      "x0": 80,
+      "x1": 875.40625,
+      "w": 795.40625
+     },
+     {
+      "x0": 80,
+      "x1": 675.71875,
+      "w": 595.71875
+     }
+    ],
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "YOUR WORK",
+      "x0": 80,
+      "x1": 245.25,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "PICK THE TRADES\nYOU WORK IN",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Then your ZIP and how far you drive",
+      "x0": 80,
+      "x1": 703,
+      "y0": 412,
+      "y1": 456
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "06-trades",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-06-trades.png",
+     "sw": 540,
+     "s": 1.3740458015267176,
+     "bez": 16,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 133,
+     "shown": [],
+     "screen_text": [
+      "Back",
+      "Your alerts",
+      "Your trades",
+      "Pick up to",
+      "5",
+      ".",
+      "2",
+      "picked.",
+      "Home and property",
+      "Roofing",
+      "Heating and air (HVAC)",
+      "Plumbing",
+      "Electrical",
+      "Landscaping",
+      "Lawn care",
+      "Pest control",
+      "House cleaning",
+      "General contractor",
+      "Painting",
+      "Pool and spa",
+      "Solar",
+      "Junk removal and hauling",
+      "Locksmith",
+      "Fencing",
+      "Concrete and paving",
+      "Windows and doors",
+      "Siding and gutters",
+      "Flooring",
+      "Handyman",
+      "Storm and disaster",
+      "Tree service",
+      "Snow removal",
+      "Water, fire and storm restoration",
+      "Public adjuster",
+      "Auto",
+      "Auto glass",
+      "Auto body and dent repair",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 17.9,
+     "edge_clear_css": 2,
+     "form": {
+      "zip": "60614",
+      "radius": "15",
+      "zipVisible": false,
+      "radiusVisible": false,
+      "pickedVisible": [
+       "Roofing",
+       "Heating and air (HVAC)"
+      ],
+      "pickedRects": [
+       [
+        126,
+        170,
+        16,
+        122.265625
+       ],
+       [
+        126,
+        170,
+        130.265625,
+        347.375
+       ]
+      ]
+     },
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Pick up to 5. 2 picked.",
+     "top_gap_css": 8,
+     "last_line": "Public adjuster",
+     "last_line_is_heading": false,
+     "text_bottom_css": 1689,
+     "cards_css": [],
+     "chips_css": [
+      [
+       16,
+       126,
+       122.265625,
+       170
+      ],
+      [
+       130.265625,
+       126,
+       347.375,
+       170
+      ],
+      [
+       16,
+       178,
+       112.109375,
+       222
+      ],
+      [
+       120.109375,
+       178,
+       215.1875,
+       222
+      ],
+      [
+       223.1875,
+       178,
+       344.078125,
+       222
+      ],
+      [
+       16,
+       230,
+       119.546875,
+       274
+      ],
+      [
+       127.546875,
+       230,
+       242.203125,
+       274
+      ],
+      [
+       16,
+       282,
+       155.96875,
+       326
+      ],
+      [
+       163.96875,
+       282,
+       326.8125,
+       326
+      ],
+      [
+       16,
+       334,
+       103.109375,
+       378
+      ],
+      [
+       111.109375,
+       334,
+       232.8125,
+       378
+      ],
+      [
+       240.8125,
+       334,
+       307.140625,
+       378
+      ],
+      [
+       16,
+       386,
+       227.546875,
+       430
+      ],
+      [
+       235.546875,
+       386,
+       338.296875,
+       430
+      ],
+      [
+       16,
+       438,
+       102.140625,
+       482
+      ],
+      [
+       110.140625,
+       438,
+       287.75,
+       482
+      ],
+      [
+       16,
+       490,
+       187.03125,
+       534
+      ],
+      [
+       195.03125,
+       490,
+       354.125,
+       534
+      ],
+      [
+       16,
+       542,
+       103.96875,
+       586
+      ],
+      [
+       111.96875,
+       542,
+       218.515625,
+       586
+      ],
+      [
+       16,
+       633,
+       133.875,
+       677
+      ],
+      [
+       141.875,
+       633,
+       271.984375,
+       677
+      ],
+      [
+       16,
+       685,
+       274.640625,
+       729
+      ],
+      [
+       16,
+       737,
+       150.875,
+       781
+      ],
+      [
+       16,
+       828,
+       120.296875,
+       872
+      ],
+      [
+       128.296875,
+       828,
+       343.359375,
+       872
+      ],
+      [
+       16,
+       880,
+       193.75,
+       924
+      ],
+      [
+       201.75,
+       880,
+       310.125,
+       924
+      ],
+      [
+       16,
+       971,
+       98.390625,
+       1015
+      ],
+      [
+       106.390625,
+       971,
+       214.5625,
+       1015
+      ],
+      [
+       16,
+       1023,
+       260.828125,
+       1067
+      ],
+      [
+       268.828125,
+       1023,
+       366.390625,
+       1067
+      ],
+      [
+       16,
+       1075,
+       158.765625,
+       1119
+      ],
+      [
+       16,
+       1166,
+       115.9375,
+       1210
+      ],
+      [
+       123.9375,
+       1166,
+       302.875,
+       1210
+      ],
+      [
+       16,
+       1218,
+       104.875,
+       1262
+      ],
+      [
+       112.875,
+       1218,
+       271.09375,
+       1262
+      ],
+      [
+       16,
+       1270,
+       286.9375,
+       1314
+      ],
+      [
+       16,
+       1361,
+       121.890625,
+       1405
+      ],
+      [
+       129.890625,
+       1361,
+       220.265625,
+       1405
+      ],
+      [
+       228.265625,
+       1361,
+       362,
+       1405
+      ]
+     ],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       -64,
+       -45
+      ],
+      [
+       30.5,
+       49.5
+      ],
+      [
+       60,
+       77
+      ],
+      [
+       95,
+       112
+      ],
+      [
+       137.8,
+       156.8
+      ],
+      [
+       189.8,
+       208.8
+      ],
+      [
+       241.8,
+       260.8
+      ],
+      [
+       293.8,
+       312.8
+      ],
+      [
+       345.8,
+       364.8
+      ],
+      [
+       397.8,
+       416.8
+      ],
+      [
+       449.8,
+       468.8
+      ],
+      [
+       501.8,
+       520.8
+      ],
+      [
+       553.8,
+       572.8
+      ],
+      [
+       602,
+       619
+      ],
+      [
+       644.8,
+       663.8
+      ],
+      [
+       696.8,
+       715.8
+      ],
+      [
+       748.8,
+       767.8
+      ],
+      [
+       797,
+       814
+      ],
+      [
+       839.8,
+       858.8
+      ],
+      [
+       891.8,
+       910.8
+      ],
+      [
+       940,
+       957
+      ],
+      [
+       982.8,
+       1001.8
+      ],
+      [
+       1034.8,
+       1053.8
+      ],
+      [
+       1086.8,
+       1105.8
+      ],
+      [
+       1135,
+       1152
+      ],
+      [
+       1177.8,
+       1196.8
+      ],
+      [
+       1229.8,
+       1248.8
+      ],
+      [
+       1281.8,
+       1300.8
+      ],
+      [
+       1330,
+       1347
+      ],
+      [
+       1372.8,
+       1391.8
+      ],
+      [
+       1426,
+       1445
+      ],
+      [
+       1520.5,
+       1539.5
+      ],
+      [
+       1604,
+       1621
+      ],
+      [
+       1656,
+       1676
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "profile"
+     },
+     "member": "paid",
+     "records": [],
+     "y": 560,
+     "profile_key": "03-radius-android",
+     "box": [
+      50,
+      560,
+      622,
+      1763
+     ],
+     "x": 50
+    },
+    {
+     "kind": "card",
+     "key": "06-zip-radius",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-06-zip-radius.png",
+     "css": [
+      393,
+      230
+     ],
+     "radius": 12,
+     "pad": 16,
+     "box_css": {
+      "x": 16,
+      "y": 1558,
+      "w": 361,
+      "h": 198
+     },
+     "text": "ZIP code you work from\nHow far you travel: 15 miles\nFrom 5 to 100 miles.",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "profile"
+     },
+     "member": "paid",
+     "records": [],
+     "selector": ".field:has(#zip)",
+     "form": {
+      "zip": "60614",
+      "radius": 15
+     },
+     "box": [
+      230,
+      1316,
+      1030,
+      1784
+     ],
+     "scale": 2.035623409669211,
+     "min_font_px": 28.5,
+     "x": 230,
+     "y": 1316
+    }
+   ]
+  },
+  "android/07-alerts": {
+   "text": {
+    "eyebrow": "Alerts",
     "head": [
      "At most one",
      "push an hour"
     ],
     "sub": "Email digest too, switch either off"
    },
-   "bg": "green",
-   "bg_hex": "#1E3A2C",
+   "bg": "sky_deep",
+   "bg_hex": "#C9DCE5",
    "colors": {
-    "eyebrow": "#D9F046",
-    "head": "#F5F4EF",
-    "sub": "#C9D6CD"
+    "eyebrow": "#1F4A63",
+    "head": "#14201A",
+    "sub": "#1F4A63"
    },
+   "comp": "one large phone",
    "layout": {
     "eyebrow": {
      "x0": 80,
-     "x1": 208.53125,
+     "x1": 190.171875,
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "05 / 06",
+     "text": "ALERTS",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -1525,78 +5111,194 @@
       "w": 661.390625
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
-    },
-    "fontsOk": true,
-    "sw": 1080
-   },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-05-push-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 0,
-    "shown": [],
-    "screen_text": [
-     "Settings",
-     "Account",
-     "Email",
-     "member@example.com",
-     "Business, trades and area",
-     "\u203a",
-     "Alerts",
-     "Push notifications",
-     "Email digest",
-     "Plan",
-     "Current plan",
-     "Solo plan",
-     "Plans",
-     "\u203a",
-     "Restore purchases"
-    ],
-    "min_font_px": 29.2,
-    "edge_clear_css": 8.8,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Account",
-    "top_gap_css": 36,
-    "switches": [
+    "drawn": [
      {
-      "label": "Push notifications",
-      "on": true
+      "cls": "t",
+      "text": "ALERTS",
+      "x0": 80,
+      "x1": 190.171875,
+      "y0": 102,
+      "y1": 138
      },
      {
-      "label": "Email digest",
-      "on": true
+      "cls": "t",
+      "text": "AT MOST ONE\nPUSH AN HOUR",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Email digest too, switch either off",
+      "x0": 80,
+      "x1": 652.109375,
+      "y0": 412,
+      "y1": 456
      }
     ],
-    "last_line": "Restore purchases",
-    "last_line_is_heading": false,
-    "feed": null,
-    "records": [],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+    "figs": [],
+    "fontsOk": true
+   },
+   "hero_top": 584,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "07-settings",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-07-settings.png",
+     "sw": 800,
+     "s": 2.035623409669211,
+     "bez": 21,
+     "whole": false,
+     "shown_css": 646.0,
+     "visible_css": 646.0,
+     "vw": 393,
+     "vh": 705,
+     "scrolled": 0,
+     "shown": [],
+     "screen_text": [
+      "Settings",
+      "Account",
+      "Email",
+      "member@example.com",
+      "Business, trades and area",
+      "\u203a",
+      "Alerts",
+      "Push notifications",
+      "Email digest",
+      "Plan",
+      "Current plan",
+      "Solo plan",
+      "Plans",
+      "\u203a",
+      "Restore purchases",
+      "Manage subscription",
+      "\u203a"
+     ],
+     "min_font_px": 26.5,
+     "edge_clear_css": 2.6,
+     "form": null,
+     "switches": [
+      {
+       "label": "Push notifications",
+       "on": true
+      },
+      {
+       "label": "Email digest",
+       "on": true
+      }
+     ],
+     "split_at_edge": [],
+     "first_in_scroll": "Account",
+     "top_gap_css": 36,
+     "last_line": "\u203a",
+     "last_line_is_heading": false,
+     "text_bottom_css": 992.2,
+     "cards_css": [],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       88,
+       105
+      ],
+      [
+       131.2,
+       151.2
+      ],
+      [
+       132.7,
+       149.7
+      ],
+      [
+       183.7,
+       203.7
+      ],
+      [
+       240.2,
+       257.2
+      ],
+      [
+       283.4,
+       303.4
+      ],
+      [
+       335.9,
+       355.9
+      ],
+      [
+       392.4,
+       409.4
+      ],
+      [
+       435.6,
+       455.6
+      ],
+      [
+       437.1,
+       454.1
+      ],
+      [
+       488.1,
+       508.1
+      ],
+      [
+       540.1,
+       560.1
+      ],
+      [
+       592.1,
+       612.1
+      ],
+      [
+       648.6,
+       665.6
+      ],
+      [
+       691.8,
+       711.8
+      ],
+      [
+       744.2,
+       764.2
+      ],
+      [
+       796.2,
+       816.2
+      ],
+      [
+       869.8,
+       889.8
+      ],
+      [
+       927.8,
+       947.8
+      ],
+      [
+       973.8,
+       989.8
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "settings"
+     },
+     "member": "paid",
+     "records": [],
+     "y": 584,
+     "box": [
+      119,
+      584,
+      961,
+      1922
+     ],
+     "x": 119
+    }
+   ]
   },
-  "android/06-plans": {
+  "android/08-plans": {
    "text": {
-    "eyebrow": "06 / 06",
+    "eyebrow": "Plans",
     "head": [
      "Solo or Pro,",
      "month or year"
@@ -1610,14 +5312,15 @@
     "head": "#F5F4EF",
     "sub": "#C9D6CD"
    },
+   "comp": "phone, card lifted",
    "layout": {
     "eyebrow": {
      "x0": 80,
-     "x1": 208.53125,
+     "x1": 171.8125,
      "y0": 102,
      "y1": 138,
      "lines": 1,
-     "text": "06 / 06",
+     "text": "PLANS",
      "px": 27,
      "family": "\"JetBrains Mono\"",
      "weight": "500"
@@ -1656,70 +5359,240 @@
       "w": 729.609375
      }
     ],
-    "hero": {
-     "x0": 80,
-     "y0": 590,
-     "x1": 1000,
-     "y1": 1920
-    },
-    "fontsOk": true,
-    "sw": 1080
+    "drawn": [
+     {
+      "cls": "t",
+      "text": "PLANS",
+      "x0": 80,
+      "x1": 171.8125,
+      "y0": 102,
+      "y1": 138
+     },
+     {
+      "cls": "t",
+      "text": "SOLO OR PRO,\nMONTH OR YEAR",
+      "x0": 80,
+      "x1": 1000,
+      "y0": 138,
+      "y1": 407.1875
+     },
+     {
+      "cls": "t",
+      "text": "Pro adds areas, trades and keyword watches",
+      "x0": 80,
+      "x1": 851.25,
+      "y0": 412,
+      "y1": 456
+     }
+    ],
+    "figs": [],
+    "fontsOk": true
    },
-   "head_top": 158,
-   "sub_top": 412,
-   "hero": {
-    "kind": "phone",
-    "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-06-plans-screen.png",
-    "size": [
-     884,
-     1312
-    ],
-    "scale": 2.2493638676844783,
-    "vw": 393,
-    "vh": 643,
-    "visible_css": 583.3,
-    "scrolled": 6,
-    "shown": [],
-    "screen_text": [
-     "Back",
-     "Plans",
-     "Pick the plan that fits your work. You can change it later.",
-     "Monthly",
-     "Yearly",
-     "Solo",
-     "$7.99 a month",
-     "1 service area",
-     "Up to",
-     "5",
-     "trades",
-     "Subscribe to Solo",
-     "Pro",
-     "$13.99 a month",
-     "3 service areas",
-     "Up to",
-     "15",
-     "trades",
-     "5",
-     "keyword watches"
-    ],
-    "min_font_px": 31.5,
-    "edge_clear_css": 6.3,
-    "form": null,
-    "split_at_edge": [],
-    "first_in_scroll": "Pick the plan that fits your work. You can change ",
-    "top_gap_css": 12,
-    "switches": [],
-    "last_line": "keyword watches",
-    "last_line_is_heading": false,
-    "feed": null,
-    "records": [],
-    "box": [
-     80,
-     590,
-     1000,
-     1920
-    ]
-   }
+   "hero_top": 560,
+   "objects": [
+    {
+     "kind": "phone",
+     "key": "08-plans",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-08-plans.png",
+     "sw": 580,
+     "s": 1.4758269720101782,
+     "bez": 16,
+     "whole": true,
+     "shown_css": 852,
+     "visible_css": 795,
+     "vw": 393,
+     "vh": 852,
+     "scrolled": 126,
+     "shown": [],
+     "screen_text": [
+      "Back",
+      "Plans",
+      "Monthly",
+      "Yearly",
+      "Solo",
+      "$7.99 a month",
+      "1 service area",
+      "Up to",
+      "5",
+      "trades",
+      "Subscribe to Solo",
+      "Pro",
+      "$13.99 a month",
+      "3 service areas",
+      "Up to",
+      "15",
+      "trades",
+      "5",
+      "keyword watches",
+      "Subscribe to Pro",
+      "Restore purchases",
+      "Subscriptions renew automatically at the price shown until you cancel. Payment is charged to your",
+      "Google Play account",
+      "when you confirm. Cancel at least 24 hours before the end of a period to avoid the next charge. Manage or cancel in your",
+      "Google Play account",
+      "settings.",
+      "Terms of Use",
+      "and",
+      "Privacy Policy",
+      "Alerts",
+      "Area check",
+      "Settings"
+     ],
+     "min_font_px": 19.2,
+     "edge_clear_css": 6.5,
+     "form": null,
+     "switches": [],
+     "split_at_edge": [],
+     "first_in_scroll": "Solo",
+     "top_gap_css": 10,
+     "last_line": "and",
+     "last_line_is_heading": false,
+     "text_bottom_css": 802,
+     "cards_css": [],
+     "chips_css": [],
+     "scroll_top_css": 52,
+     "lines_css": [
+      [
+       -56,
+       -36
+      ],
+      [
+       -32,
+       -12
+      ],
+      [
+       16,
+       36
+      ],
+      [
+       81,
+       101
+      ],
+      [
+       112.5,
+       153.5
+      ],
+      [
+       160.5,
+       177.5
+      ],
+      [
+       185.5,
+       202.5
+      ],
+      [
+       229.5,
+       249.5
+      ],
+      [
+       310.5,
+       330.5
+      ],
+      [
+       342,
+       383
+      ],
+      [
+       390,
+       407
+      ],
+      [
+       415,
+       432
+      ],
+      [
+       440,
+       457
+      ],
+      [
+       484,
+       504
+      ],
+      [
+       567,
+       587
+      ],
+      [
+       622,
+       639
+      ],
+      [
+       643,
+       660
+      ],
+      [
+       664,
+       681
+      ],
+      [
+       685,
+       702
+      ],
+      [
+       706,
+       723
+      ],
+      [
+       727,
+       744
+      ],
+      [
+       771.5,
+       788.5
+      ]
+     ],
+     "feed": null,
+     "route": {
+      "name": "paywall"
+     },
+     "member": "trial",
+     "records": [],
+     "y": 560,
+     "box": [
+      234,
+      560,
+      846,
+      1849
+     ],
+     "x": 234
+    },
+    {
+     "kind": "card",
+     "key": "08-solo",
+     "path": "/home/claude/wt/shots/mobile/store/.gen/work/android-08-solo.png",
+     "css": [
+      361,
+      217.5
+     ],
+     "radius": 16,
+     "pad": 0,
+     "box_css": {
+      "x": 16,
+      "y": 188,
+      "w": 361,
+      "h": 217.5
+     },
+     "text": "Solo\n\n$7.99 A MONTH\n\n1 service area\nUp to 5 trades\nSubscribe to Solo",
+     "min_font_css": 14,
+     "feed": null,
+     "route": {
+      "name": "paywall"
+     },
+     "member": "trial",
+     "records": [],
+     "selector": ".plan",
+     "box": [
+      104,
+      659,
+      976,
+      1184
+     ],
+     "scale": 2.4155124653739612,
+     "min_font_px": 33.8,
+     "x": 104,
+     "y": 659
+    }
+   ]
   }
  },
  "grid": {
@@ -1727,6 +5600,7 @@
    "W": 1320,
    "H": 2868,
    "M": 110,
+   "edge": 64,
    "eyebrow_top": 176,
    "eyebrow_px": 34,
    "head_gap": 30,
@@ -1734,18 +5608,16 @@
    "head_lh": 0.9,
    "sub_gap": 34,
    "sub_px": 46,
-   "hero_top": 794,
-   "bezel": 26,
-   "frame_r": 120,
-   "phone_vw": 393,
-   "box_w": 1100,
-   "screen_w": 1048,
-   "phone_scale": 2.6666666666666665
+   "min_card_px": 34,
+   "min_phone_px": 20,
+   "head_top": 247,
+   "sub_top": 562
   },
   "android": {
    "W": 1080,
    "H": 1920,
    "M": 80,
+   "edge": 52,
    "eyebrow_top": 104,
    "eyebrow_px": 27,
    "head_gap": 22,
@@ -1753,13 +5625,10 @@
    "head_lh": 0.9,
    "sub_gap": 24,
    "sub_px": 36,
-   "hero_top": 590,
-   "bezel": 18,
-   "frame_r": 88,
-   "phone_vw": 393,
-   "box_w": 920,
-   "screen_w": 884,
-   "phone_scale": 2.2493638676844783
+   "min_card_px": 28,
+   "min_phone_px": 16,
+   "head_top": 158,
+   "sub_top": 412
   }
  },
  "facts": {
