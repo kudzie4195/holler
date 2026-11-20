@@ -152,6 +152,19 @@ describe('radius map placement', () => {
     expect(placeMarkers([{ id: 'x', mi: 7, text: 'FAR 7.0 MI' }], '60614').dropped).toEqual(['x']);
   });
 
+  it('a repeated id is drawn once, never as two dots at one spot (final review A P2-2)', () => {
+    const r = placeMarkers(
+      [
+        { id: 'a', mi: 3, text: 'HVAC PERMIT 3.0 MI' },
+        { id: 'a', mi: 3, text: 'HVAC PERMIT 3.0 MI' },
+        { id: 'b', mi: 4.5, text: 'ROOF PERMIT 4.5 MI' },
+      ],
+      '60614',
+    );
+    expect(r.placed.map((p) => p.id)).toEqual(['a', 'b']);
+    expect(r.dropped).toEqual(['a']);
+  });
+
   it('placeNear drops a record beyond the outer ring (or with no usable distance) instead of drawing it outside the map', () => {
     const items = [
       { id: 'far', mi: 7, text: 'FAR 7.0 MI' },

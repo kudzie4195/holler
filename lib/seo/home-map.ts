@@ -81,15 +81,15 @@ export function dotText(r: Pick<MapRecord, 'label' | 'mi'>): string {
 
 // ---- Dates -------------------------------------------------------------------------------------------------------------------
 
-function parts(iso: string, month: 'short' | 'long'): { m: string; d: string; y: string } {
-  const f = new Intl.DateTimeFormat('en-US', { timeZone: HOME_TZ, month, day: 'numeric', year: 'numeric' }).formatToParts(new Date(iso));
+function parts(iso: string, month: 'short' | 'long', tz: string = HOME_TZ): { m: string; d: string; y: string } {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, month, day: 'numeric', year: 'numeric' }).formatToParts(new Date(iso));
   const get = (t: string) => f.find((p) => p.type === t)?.value ?? '';
   return { m: get('month'), d: get('day'), y: get('year') };
 }
 
-/** "Nov 18" (Chicago date). */
-export function shortDay(iso: string): string {
-  const p = parts(iso, 'short');
+/** "Nov 18": Chicago date, or the date in the given IANA time zone. */
+export function shortDay(iso: string, tz: string = HOME_TZ): string {
+  const p = parts(iso, 'short', tz);
   return `${p.m} ${p.d}`;
 }
 

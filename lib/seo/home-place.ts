@@ -207,11 +207,14 @@ export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
   const placed: (Placement & { d: Drawn })[] = [];
   const dropped: string[] = [];
   const CAP = SPREAD_AFTER_PX;
+  const seen = new Set<string>();
   for (const { it } of order) {
-    if (!(it.mi >= 0 && it.mi <= MAP_RADIUS_MI)) {
+    // A repeated id is drawn once (final review A P2-2: two dots at one spot otherwise); the copy counts as dropped.
+    if (!(it.mi >= 0 && it.mi <= MAP_RADIUS_MI) || seen.has(it.id)) {
       dropped.push(it.id);
       continue;
     }
+    seen.add(it.id);
     let best: { p: Placement; d: Drawn; score: number; spread: number } | null = null;
     for (let deg = 0; deg < 360; deg += STEP_DEG) {
       const pos = dotPct(it.mi, deg);
@@ -237,7 +240,7 @@ export function placeMarkers(items: PlaceInput[], zip: string): PlaceResult {
   // Back in the input order.
   const byId = new Map(placed.map((p) => [p.id, p]));
   return {
-    placed: items.filter((it) => byId.has(it.id)).map((it) => {
+    placed: items.filter((it, i) => byId.has(it.id) && items.findIndex((x) => x.id === it.id) === i).map((it) => {
       const { d: _d, ...p } = byId.get(it.id)!;
       void _d;
       return p;

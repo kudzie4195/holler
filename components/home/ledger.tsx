@@ -56,7 +56,7 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
                 </div>
                 {ex ? (
                   <p className={`m-0 min-w-0 flex-[1_1_280px] self-center font-mono text-[0.8125rem] leading-normal ${INK[f.id]}`}>
-                    EXAMPLE · <time dateTime={ex.occurredAt}>{shortDay(ex.occurredAt).toUpperCase()}</time>
+                    EXAMPLE · <time dateTime={ex.occurredAt}>{shortDay(ex.occurredAt, ex.tz).toUpperCase()}</time>
                     <br />
                     {ex.title}
                     {ex.mi !== null ? ` · ${ex.mi.toFixed(1)} mi` : ''}
@@ -70,7 +70,7 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
           <p id="trades-h" className="eyebrow m-0">
             FIND YOUR TRADE
           </p>
-          <ul className="m-0 grid list-none grid-cols-2 gap-x-6 p-0 max-[20rem]:grid-cols-1 min-[600px]:flex min-[600px]:flex-wrap min-[600px]:gap-x-8">
+          <ul className="m-0 flex list-none flex-wrap gap-x-6 p-0 sm:gap-x-8">
             {[...ledgerTrades(families), { href: '/for', label: 'All trades' }].map((t) => (
               <li key={t.href}>
                 <Link href={t.href} className={TRADE_LINK}>

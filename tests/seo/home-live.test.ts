@@ -24,6 +24,7 @@ import {
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { unavailableStats, type NationalStats } from '@/lib/seo/national-data';
 import { fakeClient } from '../home/fake-query';
+import { HOME_TZ, shortDay } from '@/lib/seo/home-map';
 
 const NOW = new Date('2026-11-17T12:00:00.000Z');
 const HOUR = 3_600_000;
@@ -72,7 +73,7 @@ describe('weather example for the ledger (one bounded query)', () => {
   it('storm reports first, then severity, then newest; never a request, expired, future or old row', async () => {
     const rows = [
       { source: 'nws', kind: 'alert', title: 'Severe Thunderstorm Warning: Tulsa County', severity: 3, occurred_at: at(1), expires_at: null },
-      { source: 'spc', kind: 'report', title: '1.00 inch hail reported near Hollywood, FL', severity: 2, occurred_at: at(5), expires_at: null },
+      { source: 'spc', kind: 'report', title: '1.00 inch hail reported near Hollywood, FL', state: 'FL', severity: 2, occurred_at: at(5), expires_at: null },
       { source: 'spc', kind: 'report', title: 'Old hail', severity: 3, occurred_at: at(24 * 8), expires_at: null },
       { source: 'spc', kind: 'report', title: 'Future hail', severity: 3, occurred_at: at(-2), expires_at: null },
       { source: 'spc', kind: 'report', title: 'Expired hail', severity: 3, occurred_at: at(2), expires_at: at(1) },
@@ -80,11 +81,25 @@ describe('weather example for the ledger (one bounded query)', () => {
     ];
     const { client, calls } = fakeClient(rows);
     const w = await buildWeatherExample(client, NOW);
-    expect(w).toEqual({ title: '1.00 inch hail reported near Hollywood, FL', occurredAt: at(5), mi: null });
+    // The date is shown in the record's own state zone (FL: America/New_York), not in Chicago time.
+    expect(w).toEqual({ title: '1.00 inch hail reported near Hollywood, FL', occurredAt: at(5), mi: null, tz: 'America/New_York' });
+    expect(calls[0]).toContain('select:source,kind,title,state,severity,occurred_at,expires_at');
     expect(calls[0]).toContain('in:kind=report,alert');
     expect(calls[0]).toContain('neq:source=holler-request');
     expect(calls[0]).toContain(`limit:${WEATHER_EXAMPLE_SCAN}`);
     expect(pickWeather([], NOW.getTime())).toBeNull();
+  });
+
+  it('the weather date uses the record state zone; with no known state it stays in HOME_TZ', () => {
+    const base = { source: 'spc', kind: 'report', title: 'Hail', severity: 2, occurred_at: at(1), expires_at: null };
+    expect(pickWeather([{ ...base, state: 'CA' }], NOW.getTime())!.tz).toBe('America/Los_Angeles');
+    expect(pickWeather([{ ...base, state: 'ny' }], NOW.getTime())!.tz).toBe('America/New_York');
+    expect(pickWeather([{ ...base, state: null }], NOW.getTime())!.tz).toBe(HOME_TZ);
+    expect(pickWeather([{ ...base, state: 'GM' }], NOW.getTime())!.tz).toBe(HOME_TZ);
+    // 05:30 UTC on Nov 19 is 00:30 in New York (Nov 19) and 23:30 in Chicago (Nov 18).
+    expect(shortDay('2026-11-19T05:30:00.000Z', 'America/New_York')).toBe('Nov 19');
+    expect(shortDay('2026-11-19T05:30:00.000Z')).toBe('Nov 18');
+    expect(shortDay('2026-11-19T07:30:00.000Z', 'America/Los_Angeles')).toBe('Nov 18');
   });
 
   it('never throws', async () => {

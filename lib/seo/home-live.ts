@@ -5,7 +5,8 @@ import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import type { Adapter } from '@/lib/signals/types';
 import { publicClient } from './client';
 import { loadNationalStats, type NationalStats } from './national-data';
-import { MAP_ZIP, homeMapFrom, loadHomeMap, pickMapRecords, type ClientSource, type HomeMap, type MapRow } from './home-map';
+import { zoneFor } from '@/lib/storms/zones';
+import { HOME_TZ, MAP_ZIP, homeMapFrom, loadHomeMap, pickMapRecords, type ClientSource, type HomeMap, type MapRow } from './home-map';
 
 /**
  * Everything live on the home page. Real data only; each part is null when it cannot be stated, and the page then leaves that
@@ -40,6 +41,11 @@ export interface LedgerExample {
   occurredAt: string;
   /** Miles from the map's ZIP, when the record is on the map. */
   mi: number | null;
+  /**
+   * IANA time zone the date is shown in: the record's own state zone (lib/storms/zones.ts) when the row names a state, else
+   * HOME_TZ. Map records are all around the Chicago ZIP, so they use HOME_TZ.
+   */
+  tz: string;
 }
 
 export interface HomeLive {
@@ -81,6 +87,7 @@ interface WeatherRow {
   source: string | null;
   kind: string;
   title: string | null;
+  state?: string | null;
   severity: number | null;
   occurred_at: string;
   expires_at: string | null;
@@ -107,7 +114,7 @@ export function pickWeather(rows: WeatherRow[], nowMs: number): LedgerExample | 
       Date.parse(b.occurred_at) - Date.parse(a.occurred_at),
   );
   const r = ok[0];
-  return r ? { title: shortTitle(r.title!), occurredAt: r.occurred_at, mi: null } : null;
+  return r ? { title: shortTitle(r.title!), occurredAt: r.occurred_at, mi: null, tz: zoneFor(r.state ?? '') ?? HOME_TZ } : null;
 }
 
 /** One bounded query. Never throws: no client, a client that fails to build or a failed read returns null. Exported for tests. */
@@ -118,7 +125,7 @@ export async function buildWeatherExample(client: ClientSource, now: Date): Prom
     const nowIso = now.toISOString();
     const r = await sb
       .from('holler_signals')
-      .select('source,kind,title,severity,occurred_at,expires_at')
+      .select('source,kind,title,state,severity,occurred_at,expires_at')
       .in('kind', ['report', 'alert'])
       .neq('source', HOLLER_REQUEST_SOURCE)
       .gte('occurred_at', new Date(now.getTime() - 7 * DAY).toISOString())
@@ -212,6 +219,7 @@ export function homeLivePreviewFixture(now: Date = new Date()): HomeLive {
       title: '1.00 inch hail reported near Hollywood, FL (fixture)',
       occurredAt: new Date(now.getTime() - 10 * 3_600_000).toISOString(),
       mi: null,
+      tz: zoneFor('FL')!,
     },
   };
 }

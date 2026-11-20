@@ -11,7 +11,7 @@ export function PricingBand() {
           <h2 id="pricing-h" className={H2}>
             {TRIAL_DAYS_FREE}. Then a flat monthly price.
           </h2>
-          <p className="m-0 text-[1.0625rem] text-muted">No card to start. No per-lead fees. Cancel any time.</p>
+          <p className="m-0 text-[1.0625rem] text-muted">No card to start. No per-lead fees. Cancel any{'\u00a0'}time.</p>
         </div>
         <div className="min-w-0 flex-[1_1_540px]">
           <Pricing variant="short" />

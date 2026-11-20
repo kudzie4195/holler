@@ -1,4 +1,4 @@
-import type { Family, HomeMap, MapRecord } from '@/lib/seo/home-map';
+import { HOME_TZ, type Family, type HomeMap, type MapRecord } from '@/lib/seo/home-map';
 import type { LedgerExample } from '@/lib/seo/home-live';
 
 /** Pure choices of which picked record each section shows. All read from the one picked set, so the sections agree. */
@@ -31,7 +31,7 @@ export function ledgerExamples(map: HomeMap, weather: LedgerExample | null): Rec
   const fromMap = (f: Family): LedgerExample | null => {
     if (!map.live) return null;
     const r = [...map.records].filter((x) => x.family === f).sort((a, b) => time(b) - time(a))[0];
-    return r && r.occurredAt ? { title: r.title, occurredAt: r.occurredAt, mi: r.mi } : null;
+    return r && r.occurredAt ? { title: r.title, occurredAt: r.occurredAt, mi: r.mi, tz: HOME_TZ } : null;
   };
   const tidy = (e: LedgerExample | null): LedgerExample | null => (e ? { ...e, title: tidyInches(e.title) } : null);
   return { permit: tidy(fromMap('permit')), civic: tidy(fromMap('civic')), weather: tidy(fromMap('weather') ?? weather) };
