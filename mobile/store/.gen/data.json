@@ -68,40 +68,6 @@
     "ai": {
      "note": null
     }
-   },
-   {
-    "matchId": 13291,
-    "signalId": 4291,
-    "matchedAt": "2026-11-17T18:19:24.472Z",
-    "status": "new",
-    "kind": "civic",
-    "source": "socrata-chicago-violations",
-    "sourceLabel": "Chicago open data: code violations",
-    "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
-    "title": "Code violation in Chicago: REPAIR ROOF",
-    "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
-    "url": "https://data.cityofchicago.org/d/22u3-xenr",
-    "city": "Chicago",
-    "state": "IL",
-    "county": null,
-    "zip": null,
-    "place": "Chicago, IL",
-    "occurredAt": "2026-11-13T06:00:00.000Z",
-    "expiresAt": null,
-    "severity": 1,
-    "intent": {
-     "key": "demand",
-     "label": "Might need work",
-     "line": "The event is on record. Whether anyone needs work is not confirmed."
-    },
-    "distanceMi": 5,
-    "distanceLabel": "5 mi away",
-    "feedback": null,
-    "contacts": [],
-    "draft": null,
-    "ai": {
-     "note": null
-    }
    }
   ],
   "02-storms": [
@@ -175,6 +141,7 @@
    }
   ],
   "03-radius": [],
+  "03-radius-android": [],
   "04-source": [
    {
     "matchId": 42435,
@@ -310,40 +277,6 @@
    },
    "distanceMi": 2.6,
    "distanceLabel": "2.6 mi away",
-   "feedback": null,
-   "contacts": [],
-   "draft": null,
-   "ai": {
-    "note": null
-   }
-  },
-  "01-records:4291": {
-   "matchId": 13291,
-   "signalId": 4291,
-   "matchedAt": "2026-11-17T18:19:24.472Z",
-   "status": "new",
-   "kind": "civic",
-   "source": "socrata-chicago-violations",
-   "sourceLabel": "Chicago open data: code violations",
-   "sourceUrl": "https://data.cityofchicago.org/d/22u3-xenr",
-   "title": "Code violation in Chicago: REPAIR ROOF",
-   "summary": "REPAIR ROOF | OPEN | 2300 block of W 19TH ST",
-   "url": "https://data.cityofchicago.org/d/22u3-xenr",
-   "city": "Chicago",
-   "state": "IL",
-   "county": null,
-   "zip": null,
-   "place": "Chicago, IL",
-   "occurredAt": "2026-11-13T06:00:00.000Z",
-   "expiresAt": null,
-   "severity": 1,
-   "intent": {
-    "key": "demand",
-    "label": "Might need work",
-    "line": "The event is on record. Whether anyone needs work is not confirmed."
-   },
-   "distanceMi": 5,
-   "distanceLabel": "5 mi away",
    "feedback": null,
    "contacts": [],
    "draft": null,
@@ -521,7 +454,20 @@
    "lon": -87.6483,
    "radiusMi": 15,
    "trades": [
-    "security"
+    "roofing",
+    "tree-service"
+   ]
+  },
+  "03-radius-android": {
+   "zip": "60614",
+   "city": "Chicago",
+   "state": "IL",
+   "lat": 41.9229,
+   "lon": -87.6483,
+   "radiusMi": 15,
+   "trades": [
+    "roofing",
+    "hvac"
    ]
   },
   "04-source": {
@@ -549,7 +495,6 @@
  },
  "distances": {
   "01-records": {
-   "4291": "5 mi away",
    "33439": "2.6 mi away",
    "45354": "4.9 mi away"
   },
@@ -558,6 +503,7 @@
    "24614": "7.4 mi away"
   },
   "03-radius": {},
+  "03-radius-android": {},
   "04-source": {
    "33435": "1.7 mi away"
   },

@@ -10,8 +10,7 @@
    "radiusMi": 15,
    "ids": [
     45354,
-    33439,
-    4291
+    33439
    ]
   },
   "02-storms": {
@@ -29,7 +28,17 @@
   "03-radius": {
    "zip": "60614",
    "trades": [
-    "security"
+    "roofing",
+    "tree-service"
+   ],
+   "radiusMi": 15,
+   "ids": []
+  },
+  "03-radius-android": {
+   "zip": "60614",
+   "trades": [
+    "roofing",
+    "hvac"
    ],
    "radiusMi": 15,
    "ids": []

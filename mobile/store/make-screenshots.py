@@ -17,7 +17,7 @@ What is real and what is drawn:
 Fonts: Barlow Condensed 700, Inter (variable), JetBrains Mono (variable) from the web project's node_modules.
 Writes store/screenshots/{ios,android}/NN-name.png, contact-sheet.png, thumb-strip.png and store/.gen/metrics.json (read by the checker).
 """
-import json, math, re, shutil, subprocess, sys, time, urllib.request
+import json, math, os, re, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 from PIL import Image
 from playwright.sync_api import sync_playwright
@@ -82,21 +82,18 @@ FACTS = lib_facts()
 # ---------------------------------------------------------------- the set ------------------------------------------------------------
 # name, eyebrow, headline (exactly two lines), supporting line, background, hero. "android" overrides text for the Android file.
 SHOTS = [
-    dict(name="01-records", eyebrow="01 / Public records", head=("Public records", "near your work"), sub="Permits, storms and 311 for your trade",
-         bg="green"),
-    dict(name="02-storms", eyebrow="02 / Storms", head=("Storm and hail", "reports nearby"), sub="Hail size, place and distance from you",
-         bg="green"),
-    dict(name="03-radius", eyebrow="03 / Your area", head=("Only records", "inside your miles"), sub="Your trade, your ZIP, your miles",
-         bg="green"),
-    dict(name="04-source", eyebrow="04 / The source", head=("Every alert", "shows its source"), sub="Open the city data it came from",
-         bg="green"),
-    dict(name="05-push", eyebrow="05 / Alerts", head=("At most one", "push an hour"), sub="Email alerts too, if you want them",
-         bg="green"),
-    dict(name="06-plans", eyebrow="06 / Price", head=(f"{FACTS['trial_days']} days free,", "no card needed"),
-         sub=f"Then {FACTS['solo_name']} is {FACTS['solo_monthly']} a month", bg="green",
+    dict(name="01-records", head=("Public records", "near your work"), sub="Permits, storms and 311 for your trade", bg="green"),
+    dict(name="02-storms", head=("Storm and hail", "reports nearby"), sub="Hail size, place and distance from you", bg="green"),
+    dict(name="03-radius", head=("Pick the trades", "you work in"), sub="Then your ZIP and how far you drive", bg="green"),
+    dict(name="04-source", head=("Each alert links", "to its source"), sub="Open the public data it came from", bg="green"),
+    dict(name="05-push", head=("At most one", "push an hour"), sub="Email digest too, switch either off", bg="green"),
+    dict(name="06-plans", head=(f"{FACTS['trial_days']} days free,", "no card needed"),
+         sub=f"Then {FACTS['solo_name']}, {FACTS['solo_monthly']} a month in the app", bg="green",
          # Google Play: no price and no "free" in the image text; the plans themselves are the app's own screen
-         android=dict(eyebrow="06 / Plans", head=("Solo or Pro,", "month or year"), sub="Pro adds areas, trades and keyword watches")),
+         android=dict(head=("Solo or Pro,", "month or year"), sub="Pro adds areas, trades and keyword watches")),
 ]
+for i, s_ in enumerate(SHOTS):  # the eyebrow is a plain counter, so it never repeats the headline
+    s_["eyebrow"] = f"{i + 1:02d} / {len(SHOTS):02d}"
 NAMES = [s["name"] for s in SHOTS]
 
 # One grid. Everything is derived from these numbers; the checker reads them back from metrics.json and measures the PNGs.
@@ -104,8 +101,13 @@ G = {
     "ios": dict(W=1320, H=2868, M=110, eyebrow_top=176, eyebrow_px=34, head_gap=30, head_px=156, head_lh=0.9, sub_gap=34, sub_px=46,
                 hero_top=794, bezel=26, frame_r=120, phone_vw=393),
     "android": dict(W=1080, H=1920, M=80, eyebrow_top=104, eyebrow_px=27, head_gap=22, head_px=128, head_lh=0.9, sub_gap=24, sub_px=36,
-                    hero_top=530, bezel=18, frame_r=88, phone_vw=393),
+                    hero_top=542, bezel=18, frame_r=88, phone_vw=393),
 }
+# tuning knobs for probing the grid (the defaults above are the shipped values)
+for _p in G:
+    if os.environ.get(f"SHOTS_{_p.upper()}_TOP"):
+        G[_p]["hero_top"] = int(os.environ[f"SHOTS_{_p.upper()}_TOP"])
+PLATFORMS = tuple(os.environ.get("SHOTS_PLATFORMS", "ios,android").split(","))
 for g in G.values():
     g["box_w"] = g["W"] - 2 * g["M"]                     # hero box = the text column
     g["screen_w"] = g["box_w"] - 2 * g["bezel"]
@@ -136,7 +138,8 @@ NAVIGATE = """(route) => {
 # Every visible text line (text nodes) plus buttons, chips, inputs and icons: [top, bottom, label, inScroll] in CSS px.
 SCREEN_LINES = """() => { const out = []; const sc = document.querySelector('.scroll'); let k = 0;
   const walk = document.createTreeWalker(document.querySelector('.app') || document.body, NodeFilter.SHOW_TEXT);
-  while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim()) continue; const r = document.createRange(); r.selectNodeContents(n);
+  while (walk.nextNode()) { const n = walk.currentNode; if (!n.textContent.trim() || n.parentElement.closest('.ptr:not(.show)')) continue;
+    const r = document.createRange(); r.selectNodeContents(n);
     const block = n.parentElement.closest('p, li, h1, h2, h3, dd, dt, label, button, a') || n.parentElement; k++;
     for (const b of r.getClientRects()) out.push([b.top, b.bottom, n.textContent.trim().slice(0, 50), !!(sc && sc.contains(n)), block.dataset.k || (block.dataset.k = 'b' + k)]); }
   for (const e of document.querySelectorAll('.app svg, .app .btn, .app .chip, .app input, .app select')) { const b = e.getBoundingClientRect();
@@ -157,6 +160,12 @@ MIN_FONT = """(limit) => { let m = 99; const walk = document.createTreeWalker(do
 VISIBLE_ALERTS = """(limit) => [...document.querySelectorAll('.alert-title')].filter(e => e.getBoundingClientRect().top < limit).map(e => {
   const card = e.closest('article') || e.parentElement; const d = card.querySelector('.meta-strong');
   return {title: e.textContent, distance: d ? d.textContent : null, top: e.getBoundingClientRect().top}; })"""
+
+# This phone already agreed to push for this account and holds its token (push/push.ts keeps these per account), so the app opens on
+# the feed, not on the push prompt, and Settings shows push on. The native plugin is shims/messaging-mock.ts.
+_uid = SESSION["user"]["id"]
+PUSH_SEED = (f"localStorage.setItem('holler-push-token:{_uid}', 'capture-fcm-token');"
+             f"localStorage.setItem('holler-push-consent:{_uid}', '1');localStorage.setItem('holler-push-prompt-seen:{_uid}', '1');")
 
 METRICS = {"grid": G, "facts": FACTS, "shots": {}}
 
@@ -183,7 +192,7 @@ def open_app(browser, plat, vw, vh, me, feed, route=None, ready=None):
     scenario(me=me, feed=feed)
     ctx = browser.new_context(viewport={"width": vw, "height": vh}, device_scale_factor=DSF, is_mobile=True, has_touch=True,
                               timezone_id="America/Chicago", locale="en-US", reduced_motion="reduce")
-    ctx.add_init_script(f"localStorage.setItem('holler-auth', {json.dumps(json.dumps(SESSION))});")
+    ctx.add_init_script(f"localStorage.setItem('holler-auth', {json.dumps(json.dumps(SESSION))});" + PUSH_SEED)
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -231,7 +240,7 @@ def records_for(feed, shown):
 
 # ---------------------------------------------------------------- heroes ------------------------------------------------------------
 
-def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=None, from_end=False):
+def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=None, from_end=False, anchor=None, first_text=None):
     """The top of one real viewport, exactly as tall as the frame shows. The viewport is taller than what shows (the tab bar stays
     below the canvas); if a line of text would be cut by the canvas edge, the screen's own scroller is moved down by the fewest CSS px
     (at most 48) that put the edge between two lines."""
@@ -264,10 +273,27 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
                 (hidden if l1 <= st + 0.5 else shown).add(blk)
             if label != '<BOX>' and l0 - need < vis < l1 + need:
                 return False
-        return not (hidden & shown)  # a paragraph is either all under the top bar or all in view, never cut in two
+        if hidden & shown:  # a paragraph is either all under the top bar or all in view, never cut in two
+            return False
+        if first_text:  # the named line must be the first thing in the scroller
+            first = min(((l0 - off, lab) for l0, l1, lab, ins, blk in lines0 if ins and lab != '<BOX>' and l0 - off >= st - 0.5), default=(0, None))[1]
+            if first != first_text:
+                return False
+        above, below = set(), set()
+        for l0, l1, label, ins, blk in lines0:
+            if label == '<BOX>':
+                continue
+            if ins:
+                l0, l1 = l0 - off, l1 - off
+            (above if l1 <= vis else below).add(blk)
+        return not (above & below)  # nor at the canvas edge: the last paragraph in view is whole
 
     # fewest px from where the screen opens (or, from_end, from its end); a 6 px clearance is worth up to 60 px more scrolling
-    order = list(range(int(max_off), -1, -1)) if from_end else list(range(0, int(max_off) + 1))
+    if anchor:  # a named element at the top of the scroller, then up to 60 px less scroll (never more: no orphaned rows)
+        a0 = int(round(page.evaluate(anchor) - st))
+        order = [o for o in range(a0 + 6, a0 - 61, -1) if 0 <= o <= max_off]
+    else:
+        order = list(range(int(max_off), -1, -1)) if from_end else list(range(0, int(max_off) + 1))
     cands = [(i + (0 if ok(o, 6) else 60), o) for i, o in enumerate(order) if ok(o, 2)]
     off = min(cands)[1] if cands else None
     if off is None:
@@ -277,6 +303,9 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
         page.wait_for_timeout(200)
     scrolled = page.evaluate("() => { const s = document.querySelector('.scroll'); return s ? s.scrollTop : 0; }")
     assert abs(scrolled - off) < 0.5, (scrolled, off)
+    after = page.evaluate(SCREEN_LINES)
+    split_at_edge = sorted({b for l0, l1, lab, ins, b in after if lab != '<BOX>' and l1 <= vis} & {b for l0, l1, lab, ins, b in after if lab != '<BOX>' and l0 >= vis})
+    first_in_scroll = next((lab for l0, l1, lab, ins, b in sorted(after) if ins and lab != '<BOX>' and l0 >= st - 0.5), None)
     edge_clear = min(min(abs(vis - l0), abs(vis - l1)) for l0, l1, label, *_ in page.evaluate(SCREEN_LINES) if l1 > 0 and label != '<BOX>')
     page.wait_for_timeout(200)
     shown = page.evaluate(VISIBLE_ALERTS, vis)
@@ -289,13 +318,15 @@ def phone_hero(browser, plat, name, me, feed, route=None, ready=".app", prep=Non
       const vis = (e) => { const b = e.getBoundingClientRect(); return b.top >= 0 && b.bottom <= limit; };
       const picked = [...document.querySelectorAll('.chip[aria-pressed=true]')].filter(vis).map(c => c.textContent.trim());
       return {zip: z.value, radius: r.value, zipVisible: vis(z), radiusVisible: vis(r), pickedVisible: picked}; }""", vis)
+    switches = page.evaluate("(limit) => [...document.querySelectorAll('input[role=switch]')].filter(e => e.getBoundingClientRect().bottom <= limit).map(e => ({label: e.getAttribute('aria-label'), on: e.checked}))", vis)
     im = to_png(page, {"x": 0, "y": 0, "width": g["phone_vw"], "height": math.ceil(vis) + 1})
     ctx.close()
     sh = g["H"] - g["hero_top"] - g["bezel"]
     im = im.crop((0, 0, g["phone_vw"] * DSF, round(vis * DSF))).resize((g["screen_w"], sh), Image.LANCZOS)
     p = save(im, f"{plat}-{name}-screen.png")
     return dict(kind="phone", path=p, size=(g["screen_w"], sh), scale=s, vw=g["phone_vw"], vh=vh, visible_css=round(vis, 1), scrolled=scrolled,
-                shown=shown, screen_text=text, min_font_px=round(min_font * s, 1), edge_clear_css=round(edge_clear, 1), form=form)
+                shown=shown, screen_text=text, min_font_px=round(min_font * s, 1), edge_clear_css=round(edge_clear, 1), form=form, split_at_edge=split_at_edge,
+                first_in_scroll=first_in_scroll, switches=switches)
 
 
 def pick_monthly(page):
@@ -312,20 +343,28 @@ def hero_for(browser, plat, shot):
         h = phone_hero(browser, plat, n, "paid", "02-storms", {"name": "alert", "signalId": 24614}, "article.card .alert-title")
         h["feed"] = "02-storms"
     elif n == "03-radius":
-        h = phone_hero(browser, plat, n, "paid", "03-radius", {"name": "profile"}, "#radius", from_end=True)
-        h["feed"] = None
-        prof = DATA["profiles"]["03-radius"]
-        assert h["form"]["zip"] == prof["zip"] and int(h["form"]["radius"]) == prof["radiusMi"], (h["form"], prof)
-        assert h["form"]["zipVisible"] and h["form"]["radiusVisible"] and h["form"]["pickedVisible"], h["form"]
+        # the member's own trade picker, scrolled so the "Home and property" group (with the ticked trades) is the first thing in view
+        # Android shows less of the screen: Tree service (in the next group) would fall under the edge, so the Android member is a
+        # roofer who also does HVAC (fixtures scenario 03-radius-android); both ticked chips are in the first group
+        key = "03-radius" if plat == "ios" else "03-radius-android"
+        h = phone_hero(browser, plat, n, "paid", key, {"name": "profile"}, "#trades-label",
+                       anchor="() => [...document.querySelectorAll('form p.small.muted')].find(e => e.textContent.trim() === 'Home and property').getBoundingClientRect().top - 8",
+                       first_text="Home and property")
+        h["feed"] = None; h["profile_key"] = key
+        prof = DATA["profiles"][key]
         labels = {t["id"]: t["label"] for t in DATA["config"]["trades"]}
+        assert h["first_in_scroll"] == "Home and property", h["first_in_scroll"]
         assert h["form"]["pickedVisible"] == [labels[x] for x in prof["trades"]], (h["form"], prof)
     elif n == "04-source":
         h = phone_hero(browser, plat, n, "paid", "04-source", {"name": "alert", "signalId": 33435}, "article.card .alert-title")
         h["feed"] = "04-source"
         assert any(t.startswith("Open the source") for t in h["screen_text"]), h["screen_text"]
     elif n == "05-push":
-        h = phone_hero(browser, plat, n, "paid", "01-records", {"name": "push-prompt"}, "text=Get a push")
-        assert any("At most one an hour" in t for t in h["screen_text"]), h["screen_text"]
+        # the member's real Settings screen with push and the email digest both on
+        h = phone_hero(browser, plat, n, "paid", "01-records", {"name": "settings"}, "input[role=switch]")
+        sw = {x["label"]: x["on"] for x in h["switches"]}
+        assert sw == {"Push notifications": True, "Email digest": True}, h["switches"]
+        assert not any(t in ("Sign out", "Delete account") for t in h["screen_text"]), h["screen_text"]
         h["feed"] = None
     elif n == "06-plans":
         h = phone_hero(browser, plat, n, "trial", "06-plans", {"name": "paywall"}, ".plan", prep=pick_monthly)
@@ -482,7 +521,7 @@ def main():
         with sync_playwright() as pw:
             browser = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True,
                                          args=["--no-sandbox", "--hide-scrollbars", "--allow-file-access-from-files", "--font-render-hinting=none"])
-            for plat in ("ios", "android"):
+            for plat in PLATFORMS:
                 for s in SHOTS:
                     if only and s["name"] not in only:
                         continue

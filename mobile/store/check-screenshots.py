@@ -250,6 +250,13 @@ for plat in PLATS:
     print(f"   {plat}: one box for the whole set {check(len(set(boxes.values())) == 1, f'grid {plat}')}")
     print(f"   {plat}: no status bar drawn: the screen starts with the app's own top bar (checked by the record test below: app text only)")
 
+print("\n   Whole paragraphs at the canvas edge and under the top bar: no text block has lines on both sides of the edge (metrics from")
+print("   the DOM at capture), and the first line in the scroller is whole")
+for plat in PLATS:
+    for n in names[plat]:
+        h = M[f"{plat}/{n}"]["hero"]
+        print(f"   {plat}/{n}: blocks split by the bottom edge {h['split_at_edge']}; first line '{h['first_in_scroll']}' {check(not h['split_at_edge'], f'split paragraph {plat}/{n}')}")
+
 print("\n   App text size on the canvas (smallest visible text, CSS size x scale): iOS >= 34 px, Android >= 28 px")
 for plat in PLATS:
     for n in names[plat]:
@@ -294,16 +301,20 @@ for plat in PLATS:
     for n in names[plat]:
         h = M[f"{plat}/{n}"]["hero"]; t = M[f"{plat}/{n}"]["text"]
         if n.startswith("03"):
-            f = h["form"]; prof = DATA["profiles"]["03-radius"]
+            f = h["form"]; prof = DATA["profiles"][h["profile_key"]]
             labels = {x["id"]: x["label"] for x in DATA["config"]["trades"]}
-            ok = f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["zipVisible"] and f["radiusVisible"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
-            print(f"   {plat}/{n}: settings form shows ZIP {f['zip']}, radius {f['radius']} mi, picked {f['pickedVisible']} (member {prof['zip']} r{prof['radiusMi']} {prof['trades']}) {check(ok, f'form {plat}/{n}')}")
+            ok = (f and f["zip"] == prof["zip"] and int(f["radius"]) == prof["radiusMi"] and f["pickedVisible"] == [labels[x] for x in prof["trades"]]
+                  and h["first_in_scroll"] == "Home and property")
+            print(f"   {plat}/{n}: first line in the scroller '{h['first_in_scroll']}'; ticked trades in view {f['pickedVisible']} "
+                  f"(member {h['profile_key']}: {prof['zip']} r{prof['radiusMi']} {prof['trades']}; the form holds ZIP {f['zip']}, {f['radius']} mi) "
+                  f"{check(ok, f'trade picker {plat}/{n}')}")
         if n.startswith("04"):
             ok = any(s.startswith("Open the source") for s in h["screen_text"]) and not any("source record" in s.lower() or "official" in s.lower() for s in h["screen_text"])
             print(f"   {plat}/{n}: the button reads {[s for s in h['screen_text'] if s.startswith('Open the')]} {check(ok, f'source button {plat}/{n}')}")
         if n.startswith("05"):
-            ok = any("At most one an hour" in s for s in h["screen_text"])
-            print(f"   {plat}/{n}: the screen says 'At most one an hour': {check(ok, f'push claim {plat}/{n}')}")
+            sw = {x["label"]: x["on"] for x in h["switches"]}
+            ok = sw == {"Push notifications": True, "Email digest": True} and not any(t in ("Sign out", "Delete account") for t in h["screen_text"])
+            print(f"   {plat}/{n}: Settings switches in view {sw}; no Sign out / Delete account on screen {check(ok, f'alert settings {plat}/{n}')}")
         if n.startswith("06"):
             body = " ".join(h["screen_text"])
             drawn = " ".join(t["head"]) + " " + t["sub"]
@@ -332,7 +343,7 @@ for plat in PLATS:
         if any(x not in allowed for x in digits):
             probs.append(f"number not from lib: {digits}")
         if not (2 <= words_head <= 6 and words_sub <= 8): probs.append(f"length head {words_head} words, sub {words_sub} words")
-        if not re.fullmatch(r"0\d / [A-Za-z ]+", t["eyebrow"]): probs.append("eyebrow form")
+        if t["eyebrow"] != f"{names[plat].index(n) + 1:02d} / {len(names[plat]):02d}": probs.append("eyebrow is not the counter")
         fam = M[f"{plat}/{n}"]["layout"]
         if "Barlow Condensed" not in fam["head"]["family"] or fam["head"]["weight"] != "700" or "Inter" not in fam["sub"]["family"] or "JetBrains Mono" not in fam["eyebrow"]["family"]:
             probs.append("fonts")

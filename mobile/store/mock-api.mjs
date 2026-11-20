@@ -20,7 +20,7 @@ function me() {
   if (scenario.me === 'onboarding') return { ok: true, user: USER, needsOnboarding: true, profile: null, access: null, limits: SOLO_LIMITS };
   // The member of the current scenario (fixtures/real-signals.json scenarios; ZIP placed by the server's lookupZip in build-data.mjs).
   const m = data.profiles[scenario.feed] ?? data.profiles['01-records'];
-  const profile = { businessName: 'Sample Roofing', trades: m.trades, zip: m.zip, city: m.city, state: m.state, radiusMi: m.radiusMi, extraZips: [], keywords: [], alertEmail: true, pushAlerts: false, emailVerified: true, createdAt: iso(-3 * 864e5) };
+  const profile = { businessName: 'Sample Roofing', trades: m.trades, zip: m.zip, city: m.city, state: m.state, radiusMi: m.radiusMi, extraZips: [], keywords: [], alertEmail: true, pushAlerts: true, emailVerified: true, createdAt: iso(-3 * 864e5) };
   const trial = scenario.me === 'trial';
   const access = trial
     ? { state: 'trial', tier: 'starter', tierName: 'Solo', subscriptionStatus: 'trialing', trialEndsAt: iso(14 * 864e5), trialDaysLeft: 14, billingSource: 'none', storeProductId: null, storeExpiresAt: null, mayBuyInStore: true, manageUrl: null }
