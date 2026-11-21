@@ -41,6 +41,7 @@ interface SignalRow {
   expires_at?: string | null;
   kind: string;
   title: string;
+  summary?: string | null;
   url: string | null;
   city: string | null;
   state: string | null;
@@ -92,7 +93,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -222,6 +223,7 @@ export async function GET(req: Request) {
         source: s.source ?? null,
         subtype: s.subtype ?? null,
         title: s.title,
+        summary: s.summary ?? null,
         // A Cobb County row's point is a stand-in for the county, so the line says so instead of naming a town.
         place: hasApproxLocation(s) ? approxLocationNote(s) : [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,

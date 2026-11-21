@@ -15,6 +15,8 @@ export interface DigestItem {
   source?: string | null;
   subtype?: string | null;
   title: string;
+  /** The record's own summary (SPC remarks, NWS text). Used by the brief only, to say what the record itself says about damage. */
+  summary?: string | null;
   place?: string | null;
   occurredAt: string;
   sourceUrl?: string | null;
@@ -86,7 +88,7 @@ function safeUrl(u: string | null | undefined): string | null {
 
 /**
  * A resident request links to Holler's own /request page (lib/requests/signal.ts), not to a public source, so its link says
- * "Open the request". Known by its source id, or by a link to this site's /request page when the source is not passed.
+ * "Open the request form" (a request has no page of its own). Known by its source id, or by a link to this site's /request page when the source is not passed.
  */
 export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): boolean {
   if (it.source === HOLLER_REQUEST_SOURCE) return true;
@@ -96,14 +98,14 @@ export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, 
 
 /** Label of the link under a digest item. */
 export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
-  return isResidentRequest(it, base) ? 'Open the request' : bidSourceLinkLabel(it.source);
+  return isResidentRequest(it, base) ? 'Open the request form' : bidSourceLinkLabel(it.source);
 }
 
 /** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
 export function digestBrief(it: DigestItem, base: string = siteUrl): CardBrief & { href: string | null; linkText: string } {
-  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base });
+  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base });
   const own = safeUrl(it.sourceUrl);
-  // The link label keeps the digest's own rule: "Open the request" for a resident request (known by source or by its /request link).
+  // The link label keeps the digest's own rule: "Open the request form" for a resident request (known by source or by its /request link).
   return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base) : b.source.linkText };
 }
 

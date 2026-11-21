@@ -22,7 +22,7 @@ import { buildAlerts } from '@/lib/mobile/feed';
 import { allBriefStrings, briefFor, WHY_OVERRIDES, workFor } from '@/lib/signals/brief';
 import { matchOne } from '@/lib/signals/match';
 import { BANNED } from './banned';
-import { FIXTURES, NOW, digestItem, feedItem, matchSignalOf, mobileRow, profileFor } from './brief-fixtures';
+import { FIXTURES, NOW, digestItem, feedItem, briefInputOf, matchSignalOf, mobileRow, profileFor } from './brief-fixtures';
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -68,6 +68,10 @@ describe('web feed: every card has the five parts and a source link', () => {
       expect(tag).toMatch(/target="_blank"/);
       expect(tag).toMatch(/rel="noopener noreferrer"/);
     }
+  });
+
+  it('the source link keeps a 44 px tap target (py-3 around a 20 px line) without making the row taller (review P2-8)', () => {
+    for (const a of articles) expect(a.match(/<a [^>]*data-testid="brief-link"[^>]*>/)![0]).toMatch(/class="[^"]*\bpy-3\b[^"]*"/);
   });
 
   it('trade-specific: the same hail report reads differently for a roofer and an auto body shop', () => {
@@ -129,17 +133,23 @@ describe('trade wording matches the fixture profile trade, for every fixture car
       expect(f.trade, 'a trade-matched card').not.toBeNull();
       const p = webParts(articles[i]);
       const why = p.why.replace(/^Why it matters: /, '');
-      const want = briefFor({ source: f.signal.source, kind: f.signal.kind, subtype: (f.signal.data?.subtype as string) ?? null, label: f.label, trade: f.trade });
+      const want = briefFor(briefInputOf(f));
       expect(why).toBe(want.why);
       // an override sentence is only ever shown to the member who picked that override's trade
       for (const [key, text] of Object.entries(WHY_OVERRIDES)) {
         if (why === text) expect(key.split('|')[2], `${key} shown to ${f.profile.categories.join(',')}`).toBe(f.trade);
       }
-      // the sentence names the matched trade's work, or is one of the trade-free families (weather, quake, ... still use the trade's work)
+      // the sentence names the matched trade's work, except a market-insight permit or a federal award: those describe the record from the
+      // record's own words (its permit type or contract work) and never from the trade tag (review P1-2)
       if (!Object.values(WHY_OVERRIDES).includes(why)) {
         const w = workFor(f.trade);
-        const fams = f.signal.source;
-        expect(why.includes(w) || why.includes('work like') || why.includes('a resident') || why.includes('Someone posted'), `${fams}: ${why}`).toBe(true);
+        const fromRecord = f.label === 'market_insight' && ['permit', 'federal-award'].includes(want.family);
+        if (fromRecord) {
+          expect(why, f.name).not.toContain(w);
+          expect(why, f.name).toMatch(/\((Roof)\)|awarded for Plumbing/);
+        } else {
+          expect(why.includes(w) || why.includes('work like') || why.includes('a resident') || why.includes('Someone posted'), `${f.signal.source}: ${why}`).toBe(true);
+        }
       }
       // never "your trade", and never another trade's work phrase
       expect(why).not.toMatch(/your trade/i);
@@ -167,7 +177,7 @@ describe('the label rules decide who sees a card (no rules bug: a roofer cannot 
     expect(m(['pest-control'])?.label).toBe('act_now');
     expect(m(['janitorial-commercial'])?.label).toBe('act_now');
   });
-  it('the record is tagged only with trades the rules give it to', () => {
+  it('the FIXTURE record is tagged with trades the rules give it to (live inspections carry more tags, see the review P1-3 tests in brief.test.ts)', () => {
     expect(inspection.signal.categories.every((c) => ['pest-control', 'cleaning', 'janitorial-commercial'].includes(c))).toBe(true);
   });
   it('every fixture record is refused for a trade it is not tagged with (no member sees a card for a trade the record does not carry)', () => {
@@ -197,7 +207,7 @@ describe('email digest: every item has the five parts and a link', () => {
       expect(li).toMatch(/font-weight:600[^>]*>[^<]+<\/div>/); // title
       expect(li).toMatch(/<strong>Why it matters:<\/strong> .{30,}/);
       expect(li).toMatch(/<strong>Next step:<\/strong> .{15,}/);
-      expect(li).toMatch(/<strong>Source:<\/strong> .+ &middot; [A-Z][a-z]{2} \d{1,2}, 2026 &middot; <a href="https?:\/\/[^"]+"[^>]*>Open the (source|source home page|request|bid portal)<\/a>/);
+      expect(li).toMatch(/<strong>Source:<\/strong> .+ &middot; [A-Z][a-z]{2} \d{1,2}, 2026 &middot; <a href="https?:\/\/[^"]+"[^>]*>Open the (source|source home page|request form|bid portal)<\/a>/);
       expect(li).toMatch(/<strong>What is uncertain:<\/strong> (High|Medium|Low) confidence .+;.+\./);
     }
   });
@@ -207,7 +217,7 @@ describe('email digest: every item has the five parts and a link', () => {
       expect(b).toMatch(/Why it matters: .{30,}/);
       expect(b).toMatch(/Next step: .{15,}/);
       expect(b).toMatch(/Source: .+\. Record date: [A-Z][a-z]{2} \d{1,2}, 2026\./);
-      expect(b).toMatch(/\nOpen the (source|source home page|request|bid portal): https?:\/\/\S+/);
+      expect(b).toMatch(/\nOpen the (source|source home page|request form|bid portal): https?:\/\/\S+/);
       expect(b).toMatch(/What is uncertain: (High|Medium|Low) confidence/);
     }
   });
@@ -229,8 +239,8 @@ describe('email digest: every item has the five parts and a link', () => {
     expect(bare.text).toContain('Open the source home page: https://www.spc.noaa.gov/climo/reports/');
   });
 
-  it('a resident request says "Open the request" and a Baton Rouge bid says "Open the bid portal"', () => {
-    expect(lis.find((s) => s.includes('Service request in Atlanta'))).toContain('>Open the request</a>');
+  it('a resident request says "Open the request form" (a request has no page of its own) and a Baton Rouge bid says "Open the bid portal"', () => {
+    expect(lis.find((s) => s.includes('Service request in Atlanta'))).toContain('>Open the request form</a>');
     expect(lis.find((s) => s.includes('Window Washing Library Sites'))).toContain('>Open the bid portal</a>');
   });
 
@@ -274,7 +284,7 @@ describe('mobile API: the alert carries the brief as additive fields', () => {
     for (const f of FIXTURES) {
       const [a] = await buildAlerts([mobileRow(f, 0)], deps({ trades: f.trades }));
       expect(a, f.name).toBeTruthy();
-      expect(a.brief.why, f.name).toBe(briefFor({ source: f.signal.source, kind: f.signal.kind, subtype: (f.signal.data?.subtype as string) ?? null, label: f.label, trade: f.trade }).why);
+      expect(a.brief.why, f.name).toBe(briefFor(briefInputOf(f)).why);
     }
     vi.unstubAllEnvs();
   });
@@ -288,7 +298,7 @@ describe('mobile API: the alert carries the brief as additive fields', () => {
     expect(gust.brief.source).toMatchObject({ url: 'https://www.spc.noaa.gov/climo/reports/', recordLink: false });
     const req = alerts.find((a) => a.source === 'holler-request')!;
     expect(req.brief.source.url).toBe('https://localholler.com/request');
-    expect(req.brief.source.linkText).toBe('Open the request');
+    expect(req.brief.source.linkText).toBe('Open the request form');
   });
 
   it('a locked member gets the brief with the dataset home page only, never the record link', async () => {

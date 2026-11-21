@@ -147,7 +147,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     // the licence's brief names a new business license, the 311's brief names the request
     expect(text).toContain('A new business license was filed nearby');
     expect(text).toContain('the license was filed');
-    expect(text).toContain('the request was filed');
+    expect(text).toContain('it was filed; the record does not show the city confirmed it');
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
   });
 

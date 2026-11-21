@@ -4,6 +4,7 @@ import { cityBySlug, cityPath } from '@/lib/geo';
 import { publicClient } from './client';
 import { tradeLabel } from './trades';
 import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
+import { bidCountsByPlace } from './bid-counts';
 import { liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 /**
@@ -138,7 +139,10 @@ async function readPlaces(sb: SupabaseClient): Promise<{ rows: ViewRow[]; hasLat
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
   }
   if (res.error) throw new Error(res.error.message);
-  return { rows: (res.data ?? []) as unknown as ViewRow[], hasLatest };
+  // The view counts stored city bids; while the bids flag is off they are not shown, so they are not counted (review P2-1).
+  const bids = await bidCountsByPlace(sb);
+  const rows = ((res.data ?? []) as unknown as ViewRow[]).map((r) => (r.place_slug in bids ? { ...r, signals_60d: Math.max(0, r.signals_60d - bids[r.place_slug]) } : r));
+  return { rows, hasLatest };
 }
 
 function prettySlug(slug: string): string {

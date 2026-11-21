@@ -105,7 +105,7 @@ describe('email theme', () => {
     for (const m of [digest, followUp, trialEnded]) expect(m.html).toContain(`${EMAIL_STYLE.eyebrow}`);
   });
 
-  it('a resident request in the digest says "Open the request"; every other item says "Open the source"', () => {
+  it('a resident request in the digest says "Open the request form"; every other item says "Open the source"', () => {
     const d = renderDigest({
       businessName: 'Acme',
       items: [
@@ -119,15 +119,15 @@ describe('email theme', () => {
     });
     const labels = [...d.html.matchAll(/<a href="([^"]+)" style="[^"]*font-size:14px">([^<]+)<\/a>/g)].map((x) => [x[1], x[2]]);
     expect(labels).toEqual([
-      [`${siteUrl}/request`, 'Open the request'],
+      [`${siteUrl}/request`, 'Open the request form'],
       ['https://data.example.gov/p/1', 'Open the source'],
       ['https://www.spc.noaa.gov/x', 'Open the source'],
     ]);
     // Without a source id, a link to this site's /request page still counts; a /request page on another host does not.
-    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request' }, 'https://localholler.com')).toBe('Open the request');
-    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request/' }, 'https://localholler.com')).toBe('Open the request');
+    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request' }, 'https://localholler.com')).toBe('Open the request form');
+    expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request/' }, 'https://localholler.com')).toBe('Open the request form');
     expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the source');
-    expect(digestLinkLabel({ source: 'holler-request', sourceUrl: null })).toBe('Open the request');
+    expect(digestLinkLabel({ source: 'holler-request', sourceUrl: null })).toBe('Open the request form');
     expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the source');
   });
 

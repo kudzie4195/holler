@@ -122,7 +122,7 @@ export interface BuildDeps {
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
   const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
   return {
     why: b.why,
     next: b.next,

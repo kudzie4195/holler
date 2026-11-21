@@ -166,13 +166,18 @@ export const feedItem = (c: FixtureCase, i = 0): FeedItem => ({
 
 /** What the digest cron builds (app/api/cron/notify/route.ts), for one case. */
 export const digestItem = (c: FixtureCase): DigestItem => ({
-  kind: c.signal.kind, source: c.signal.source, subtype: (dataOf(c).subtype as string | undefined) ?? null, title: c.signal.title,
+  kind: c.signal.kind, source: c.signal.source, subtype: (dataOf(c).subtype as string | undefined) ?? null, title: c.signal.title, summary: c.signal.summary ?? null,
   place: [c.signal.city, c.signal.state].filter(Boolean).join(', ') || null, occurredAt: c.signal.occurredAt, sourceUrl: c.signal.url ?? null,
   label: c.label, trade: c.trade, deadline: c.deadline,
   bidLine: isBid(c) ? bidCardLine({ buyer: dataOf(c).buyer as string, dueDate: dataOf(c).dueDate as string, expiresAt: c.signal.expiresAt ?? null }, NOW) : null,
 });
 
 /** What the mobile feed reads (MATCH_SELECT), for one case. */
+/** The brief the real code builds for a fixture card (the record's own title and summary go in, as every surface passes them). */
+export const briefInputOf = (c: FixtureCase) => ({
+  source: c.signal.source, kind: c.signal.kind, subtype: (c.signal.data?.subtype as string | undefined) ?? null, title: c.signal.title, summary: c.signal.summary ?? null, label: c.label, trade: c.trade,
+});
+
 export const mobileRow = (c: FixtureCase, i = 0): MatchRow =>
   ({
     id: i + 1, status: 'new', distance_mi: c.match.distance_mi, draft: null, created_at: iso(-3_600_000),

@@ -77,6 +77,12 @@ export interface BriefInput {
   kind?: string | null;
   /** data.subtype of the record ('permit', '311', 'violation', ...). */
   subtype?: string | null;
+  /**
+   * The record's own title and summary. Used only to say what the record itself says (a permit's type, a contract's NAICS work, damage
+   * words in a storm report). Never used to guess a job. Absent: the brief stays generic and never denies damage.
+   */
+  title?: string | null;
+  summary?: string | null;
 }
 
 const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
@@ -152,7 +158,7 @@ export const TRADE_WORK: Record<CategoryId, string> = {
   'lawn-care': 'lawn care',
   'snow-removal': 'snow and ice removal',
   'pest-control': 'pest control',
-  cleaning: 'house cleaning',
+  cleaning: 'cleaning',
   restoration: 'storm or water repair',
   'general-contractor': 'remodeling or repair',
   painting: 'painting work',
@@ -194,7 +200,53 @@ export function workFor(trade: string | null | undefined): string {
 
 // ---- table --------------------------------------------------------------------------------------------------------------------------
 
-type WhyFn = (work: string) => string;
+/** What the record itself says, read from its title (see permitTypeOf, awardWorkOf). */
+interface WhyCtx {
+  trade: string | null;
+  /** Permit title: the type the title names ("HVAC"), null when it names none ("Permit in X"), undefined when no title was passed. */
+  permitType: string | null | undefined;
+  /** Federal contract title: the work the title names, null when it names none (only a NAICS code), undefined when no title was passed. */
+  awardWork: string | null | undefined;
+}
+type WhyFn = (work: string, c: WhyCtx) => string;
+
+/** "HVAC permit in Montgomery County" gives "HVAC". "Permit in X" gives null. No title gives undefined. A type is the record's words, not a trade tag. */
+export function permitTypeOf(title: string | null | undefined): string | null | undefined {
+  if (typeof title !== 'string' || !title.trim()) return undefined;
+  const m = title.trim().match(/^(.{2,40}?)\s+permit\s+in\s+/i);
+  return m ? m[1].trim() : null;
+}
+
+/** "Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)" gives "Plumbing". A title with only a NAICS code gives null. */
+export function awardWorkOf(title: string | null | undefined): string | null | undefined {
+  if (typeof title !== 'string' || !title.trim()) return undefined;
+  const m = title.trim().match(/^Federal contract\b[^:]*:\s*(.+)$/i);
+  if (!m) return null;
+  const work = m[1].replace(/\s*\(NAICS[^)]*\)\s*$/i, '').trim();
+  if (!work || /^NAICS\b/i.test(work)) return null;
+  return work.length <= 26 ? work : null;
+}
+
+const DAMAGE_PHRASES: [RegExp, string][] = [
+  [/\btrees?\s+(?:and\s+\w+\s+)?down\b|\bdowned\s+trees?\b|\btrees?\s+on\s+\w+/i, 'trees down'],
+  [/\bpower\s+lines?\s+down\b|\bdowned\s+(?:power\s+)?lines?\b|\blines?\s+down\b/i, 'power lines down'],
+  [/\broofs?\s+(?:off|torn|blown|damage\w*)|\bblown\s+(?:off|down)\b/i, 'roof damage'],
+  [/\bdamag(?:e|es|ed|ing)\b/i, 'damage'],
+  [/\bdestr(?:oy|oyed|oys|uction)\b|\bcollaps\w*/i, 'destruction'],
+  [/\bflood\w*/i, 'flooding'],
+  [/\binjur\w*|\bfatal\w*|\bdeaths?\b/i, 'injuries'],
+  [/\bdebris\b/i, 'debris'],
+];
+
+/** The damage words the record's own text uses ("trees down"), or null when it has none. */
+export function damagePhraseOf(text: string): string | null {
+  for (const [re, phrase] of DAMAGE_PHRASES) if (re.test(text)) return phrase;
+  return null;
+}
+
+/** Trades whose work is repair after a failed inspection (the only trades the "repairs" sentences are true for). */
+const INSPECTION_REPAIR_TRADES: ReadonlySet<string> = new Set(['plumbing', 'hvac', 'electrical', 'general-contractor', 'handyman', 'painting', 'flooring', 'windows-doors']);
+const INSPECTION_NEUTRAL = 'A food inspection nearby failed; check if what failed fits what you do.';
 
 /**
  * One short sentence per (family, label) saying what happened and why it may matter to the trade. What the record does NOT show
@@ -203,11 +255,11 @@ type WhyFn = (work: string) => string;
  */
 const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'weather-alert': {
-    coming_soon: (w) => `A weather alert is active near you; ${w} may follow.`,
+    coming_soon: (w) => `A weather alert was issued near you; ${w} may follow.`,
   },
   'storm-report': {
     act_now: (w) => `A storm report was filed nearby; ${w} may follow.`,
-    coming_soon: (w) => `A wind gust was measured nearby; ${w} may follow.`,
+    coming_soon: (w) => `A wind gust was reported nearby; ${w} may follow.`,
   },
   disaster: {
     coming_soon: (w) => `A disaster was declared near you; ${w} may come up.`,
@@ -219,8 +271,15 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
     coming_soon: (w) => `An airport delay is listed nearby; it may affect ${w}.`,
   },
   permit: {
-    coming_soon: (w) => `A permit was filed nearby; ${w} may follow.`,
-    market_insight: (w) => `A permit for ${w} was filed nearby; work is planned.`,
+    coming_soon: (w, c) => {
+      const withType = c.permitType ? `A permit was filed nearby (${c.permitType}); ${w} may follow.` : null;
+      return withType && withType.length <= MAX_WHY ? withType : `A permit was filed nearby; ${w} may follow.`;
+    },
+    market_insight: (_w, c) => {
+      if (c.permitType === null) return 'A permit was filed nearby; the permit does not say what the work is.';
+      const withType = c.permitType ? `A permit was filed nearby (${c.permitType}); work is planned.` : null;
+      return withType && withType.length <= MAX_WHY ? withType : 'A permit was filed nearby; work is planned.';
+    },
   },
   '311': {
     act_now: (w) => `A 311 report names a problem to fix; ${w} may be needed.`,
@@ -230,8 +289,8 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
     act_now: (w) => `A code violation was recorded nearby; ${w} may be needed.`,
   },
   inspection: {
-    act_now: (w) => `A food inspection nearby failed; fixing it may call for ${w}.`,
-    coming_soon: (w) => `A food inspection nearby failed; repairs may involve ${w}.`,
+    act_now: (w, c) => (c.trade && INSPECTION_REPAIR_TRADES.has(c.trade) ? `A food inspection nearby failed; fixing it may call for ${w}.` : INSPECTION_NEUTRAL),
+    coming_soon: (w, c) => (c.trade && INSPECTION_REPAIR_TRADES.has(c.trade) ? `A food inspection nearby failed; repairs may involve ${w}.` : INSPECTION_NEUTRAL),
   },
   business: {
     coming_soon: (w) => `A new business license was filed nearby; it may need ${w}.`,
@@ -246,7 +305,11 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
     act_now: (w) => `A federal bid matching ${w} is open; nothing is awarded.`,
   },
   'federal-award': {
-    market_insight: (w) => `A federal contract for ${w} was awarded; it is closed.`,
+    market_insight: (_w, c) => {
+      if (c.awardWork === null) return 'A federal contract was awarded; the record does not name the work.';
+      const named = c.awardWork ? `A federal contract was awarded for ${c.awardWork}; it is closed.` : null;
+      return named && named.length <= MAX_WHY ? named : 'A federal contract was awarded; it is closed to bids.';
+    },
   },
   'city-bid': {
     act_now: (w) => `A city bid matching ${w} is open; nothing is awarded.`,
@@ -260,7 +323,7 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   other: {},
 };
 
-const FALLBACK_WHY: Record<BriefLabel, WhyFn> = {
+const FALLBACK_WHY: Record<BriefLabel, (w: string) => string> = {
   act_now: (w) => `This record matches ${w} and may need action soon.`,
   coming_soon: (w) => `This record may point to ${w} later.`,
   market_insight: (w) => `This record shows market activity for ${w}.`,
@@ -270,7 +333,7 @@ const FALLBACK_WHY: Record<BriefLabel, WhyFn> = {
 /** The longest "why it matters" sentence, in characters, for any (family, label, trade). A typical card stays short on a phone. */
 export const MAX_WHY = 80;
 export const MAX_NEXT = 72;
-export const MAX_UNCERTAIN = 80;
+export const MAX_UNCERTAIN = 88;
 
 /**
  * Cells of (label, family, trade) where the generic sentence would miss the point. Key: `${label}|${family}|${trade}`. A sentence here
@@ -309,7 +372,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   'weather-alert': { base: { confidence: 'High', known: 'the alert was issued', unknown: 'no damage is reported' } },
   'storm-report': {
     base: { confidence: 'High', known: 'a storm report was filed', unknown: 'damage is not confirmed' },
-    byLabel: { coming_soon: { known: 'a gust was measured', unknown: 'no damage is reported' } },
+    byLabel: { coming_soon: { known: 'a gust was reported', unknown: 'no damage is reported' } },
   },
   disaster: { base: { confidence: 'High', known: 'the declaration exists', unknown: 'local work is not known' } },
   quake: { base: { confidence: 'High', known: 'it was recorded', unknown: 'no damage is reported' } },
@@ -318,7 +381,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
     base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' },
     byLabel: { market_insight: { unknown: 'the work may already be hired out' } },
   },
-  '311': { base: { confidence: 'Medium', known: 'the request was filed', unknown: 'the city has not confirmed it' } },
+  '311': { base: { confidence: 'Medium', known: 'it was filed', unknown: 'the record does not show the city confirmed it' } },
   violation: { base: { confidence: 'High', known: 'the violation was recorded', unknown: 'hiring is not known' } },
   inspection: { base: { confidence: 'High', known: 'the inspection result is on file', unknown: 'hiring is not known' } },
   business: { base: { confidence: 'High', known: 'the license was filed', unknown: 'the need is not known' } },
@@ -337,7 +400,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
  * "Open the source").
  */
 export const NEXT_STEP: Record<BriefFamily, string> = {
-  'weather-alert': 'Read the alert area and times.',
+  'weather-alert': 'Read the alert area and times, and check if it is still in effect.',
   'storm-report': 'Check where it was filed, then look at that area on a map.',
   disaster: 'Check which counties the declaration covers.',
   quake: 'Check the magnitude and how far away it was.',
@@ -370,14 +433,32 @@ export interface Brief {
   uncertain: string;
 }
 
+const DAMAGE_FAMILIES: ReadonlySet<BriefFamily> = new Set<BriefFamily>(['weather-alert', 'storm-report', 'quake']);
+
 /** The brief for one record, one label and one trade. Pure, total: any input gives a complete brief. */
 export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): Brief {
   const family = briefFamilyOf(input);
   const label = input.label;
   const trade = input.trade ?? null;
-  const why = WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ?? FALLBACK_WHY[label])(workFor(trade));
+  const ctx: WhyCtx = {
+    trade,
+    permitType: family === 'permit' ? permitTypeOf(input.title) : undefined,
+    awardWork: family === 'federal-award' ? awardWorkOf(input.title) : undefined,
+  };
+  const why = WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
+  // Damage: a weather, storm or quake record never gets "no damage is reported" unless its own text has no damage words. Text not
+  // passed: say only that damage is not confirmed. Damage words present: say what the record says, as an unconfirmed mention.
+  if (DAMAGE_FAMILIES.has(family)) {
+    const text = [input.title, input.summary].filter((t): t is string => typeof t === 'string' && !!t.trim()).join(' ');
+    if (!text) merged.unknown = 'damage is not confirmed';
+    else {
+      const phrase = damagePhraseOf(text);
+      if (phrase) merged.unknown = `it mentions ${phrase}, not confirmed`;
+    }
+  }
+  if (family === 'permit' && ctx.permitType === null) merged.unknown = 'it does not say what the work is';
   return {
     family,
     label,
@@ -396,7 +477,7 @@ export interface BriefSource {
   label: string;
   /** http(s) link to the record, or to the dataset's own page when the record has no link of its own. Never null for a known source. */
   href: string | null;
-  /** Text of the link: "Open the source", "Open the bid portal" or "Open the request". */
+  /** Text of the link: "Open the source", "Open the bid portal" or "Open the request form" (a resident request has no page of its own, only the /request form). */
   linkText: string;
   /** True when href is the record's own page; false when it is the dataset's home page. */
   recordLink: boolean;
@@ -428,7 +509,7 @@ export function briefSource(input: { source: string; url?: string | null; occurr
   return {
     label: request ? 'Request made on Holler' : (meta?.label ?? String(input.source ?? '').replace(/[_:-]+/g, ' ')),
     href: own ?? home,
-    linkText: request ? 'Open the request' : own ? bidSourceLinkLabel(input.source) : 'Open the source home page',
+    linkText: request ? 'Open the request form' : own ? bidSourceLinkLabel(input.source) : 'Open the source home page',
     recordLink: !!own,
     dateText: formatDeadlineDate(input.occurredAt ?? null),
   };
@@ -472,6 +553,23 @@ export function allBriefStrings(): string[] {
       for (const trade of trades) {
         const b = briefFor({ source: sourceOfFamily(family), label, trade });
         out.push(b.why, b.uncertain);
+      }
+    }
+  }
+  // Record-aware variants: the permit type and contract work a title can name, and the damage words a record's text can use.
+  for (const label of labels) {
+    for (const trade of trades) {
+      for (const title of ['Permit in X', 'Roof permit in X', 'HVAC permit in X', 'Window and door permit in X', 'New home permit in X']) {
+        const b = briefFor({ source: 'socrata-chicago-permits', label, trade, title });
+        out.push(b.why, b.uncertain);
+      }
+      for (const title of ['Federal contract ($1K) in X: NAICS 562991', 'Federal contract ($1K) in X: Plumbing (NAICS 238220)']) {
+        out.push(briefFor({ source: 'usaspending', label, trade, title }).why);
+      }
+      for (const src of ['nws', 'spc', 'usgs']) {
+        for (const summary of [undefined, 'Nothing else.', 'Trees down on homes.', 'Power lines down.', 'Roof damage.', 'Some damage.', 'Destroyed.', 'Flooding.', 'Injuries.', 'Debris.']) {
+          out.push(briefFor({ source: src, label, trade, title: 'T', summary }).uncertain);
+        }
       }
     }
   }

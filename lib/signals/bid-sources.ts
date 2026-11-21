@@ -65,12 +65,25 @@ export function bidClosed(s: BidRowLike | null | undefined, nowMs: number = Date
 }
 
 /**
+ * True for a federal bid (sam-gov) whose response date has passed (review P2-2): like a closed city bid it is dropped, never shown as
+ * "Coming soon". For sam-gov, expires_at is the response date. Not flag-gated (federal bids are not behind HOLLER_BIDS_ENABLED).
+ */
+export function federalBidClosed(s: BidRowLike | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!s || s.source !== 'sam-gov') return false;
+  const exp = s.expires_at ?? s.expiresAt ?? null;
+  if (typeof exp !== 'string' || !exp) return false;
+  const t = Date.parse(exp);
+  return Number.isFinite(t) && t <= nowMs;
+}
+
+/**
  * True when a record must not be shown right now: a city bid while the flag is off (review P1-3), or a bid whose due date has passed
  * (P2-14). Used where stored matches are read for a member (web feed, mobile feed, email digest, push), so turning the flag off removes
- * bids members already have, and a closed bid leaves at once. Pass `on` and `nowMs` in tests; by default both are read at call time.
+ * bids members already have, and a closed bid leaves at once. A federal bid past its response date leaves too (federalBidClosed). Pass
+ * `on` and `nowMs` in tests; by default both are read at call time.
  */
 export function bidHidden(s: BidRowLike | null | undefined, on: boolean = bidsEnabled(), nowMs: number = Date.now()): boolean {
-  if (!isBidSignal(s)) return false;
+  if (!isBidSignal(s)) return federalBidClosed(s, nowMs);
   return !on || bidClosed(s, nowMs);
 }
 

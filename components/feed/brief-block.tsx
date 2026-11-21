@@ -6,6 +6,8 @@ export interface BriefBlockItem {
   source: string;
   kind: string;
   subtype?: string | null;
+  title?: string | null;
+  summary?: string | null;
   label?: OpportunityLabel | null;
   trade?: string | null;
   url?: string | null;
@@ -18,6 +20,8 @@ export function briefOfItem(item: BriefBlockItem): CardBrief {
     source: item.source,
     kind: item.kind,
     subtype: item.subtype,
+    title: item.title,
+    summary: item.summary,
     label: item.label,
     trade: item.trade,
     url: item.url,
@@ -62,7 +66,7 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
               href={b.source.href}
               {...(b.source.href.startsWith('/') ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
               data-testid="brief-link"
-              className="font-medium text-brand-text underline"
+              className="-my-3 inline-block py-3 font-medium text-brand-text underline md:-my-2 md:py-2"
             >
               {b.source.linkText}
               {b.source.href.startsWith('/') ? null : <span className="sr-only"> (opens in a new tab)</span>}

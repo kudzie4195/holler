@@ -17,7 +17,10 @@ import {
   briefFamilyOf,
   briefFor,
   briefSource,
+  awardWorkOf,
   cardBrief,
+  damagePhraseOf,
+  permitTypeOf,
   sourceLine,
   tradeForRecord,
   workFor,
@@ -122,17 +125,38 @@ describe('trade-specific, and honest about what the record does not show', () =>
     for (const t of CATEGORY_IDS) expect(TRADE_WORK[t].length, t).toBeLessThanOrEqual(22);
     expect(Object.keys(TRADE_WORK).sort()).toEqual([...CATEGORY_IDS].sort());
   });
-  it('a weather event never proves damage: the uncertainty line says so, and the why line only says work "may follow"', () => {
+  it('a weather event never proves damage, and never denies it either: "no damage is reported" only when the record text has no damage words', () => {
     for (const t of TRADES) {
-      expect(briefFor({ source: 'nws', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'usgs', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'spc', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'spc', label: 'act_now', trade: t }).uncertain).toMatch(/not confirmed/);
       for (const src of ['nws', 'usgs', 'spc']) {
-        const why = briefFor({ source: src, label: 'coming_soon', trade: t }).why;
-        expect(why, `${src} ${t}`).not.toMatch(/was damaged|caused damage|has damage|is damaged/i);
+        for (const label of ['act_now', 'coming_soon'] as const) {
+          // text not passed: only "not confirmed"
+          const bare = briefFor({ source: src, label, trade: t });
+          expect(bare.uncertain, `${src} ${label} ${t}`).toMatch(/damage is not confirmed/);
+          expect(bare.uncertain).not.toMatch(/no damage/);
+          // text passed and clean: the table's line (may say no damage is reported)
+          const clean = briefFor({ source: src, label, trade: t, title: 'A report', summary: 'Winds from the west.' });
+          expect(clean.uncertain).toMatch(/no damage is reported|damage is not confirmed/);
+          // text with damage words: says what the record says, never "no damage"
+          const dmg = briefFor({ source: src, label, trade: t, title: '60 mph wind gust reported near 3 N Smyrna, GA', summary: 'Several trees down on homes and power lines down. (FFC)' });
+          expect(dmg.uncertain).toMatch(/it mentions trees down, not confirmed/);
+          expect(dmg.uncertain).not.toMatch(/no damage/);
+        }
+        expect(briefFor({ source: src, label: 'coming_soon', trade: t, title: 'x' }).why, `${src} ${t}`).not.toMatch(/was damaged|caused damage|has damage|is damaged|measured/i);
       }
     }
+  });
+  it('a gust is "reported", never "measured" (SPC speeds are often estimated)', () => {
+    for (const t of TRADES) {
+      const b = briefFor({ source: 'spc', label: 'coming_soon', trade: t, title: 'x' });
+      expect(b.why + b.uncertain).not.toMatch(/measured/);
+      expect(b.why).toMatch(/A wind gust was reported nearby/);
+    }
+  });
+  it('the damage phrase is the record\'s own words, one of a fixed list', () => {
+    for (const [text, phrase] of [['Trees down across the road', 'trees down'], ['Power lines down.', 'power lines down'], ['roof damage to a barn', 'roof damage'], ['Damaging winds', 'damage'], ['Flooding on Main St', 'flooding'], ['Injuries reported', 'injuries']] as const) {
+      expect(damagePhraseOf(text), text).toBe(phrase);
+    }
+    expect(damagePhraseOf('Winds from the west at 60 mph')).toBeNull();
   });
   it('a permit never proves a vendor is chosen', () => {
     for (const t of TRADES) {
@@ -207,12 +231,12 @@ describe('source and date (part 4): a card never has no link', () => {
     expect(s.href).toBe('https://www.weather.gov/alerts');
     expect(s.recordLink).toBe(false);
   });
-  it('a resident request links to the Holler request page, made absolute with a base, and says "Open the request"', () => {
+  it('a resident request links to the Holler request page, made absolute with a base, and says "Open the request form"', () => {
     const rel = briefSource({ source: 'holler-request', url: '/request', occurredAt: '2026-11-20T15:00:00Z' });
     expect(rel.href).toBe('/request');
     const abs = briefSource({ source: 'holler-request', url: '/request', occurredAt: '2026-11-20T15:00:00Z', base: 'https://localholler.com/' });
     expect(abs.href).toBe('https://localholler.com/request');
-    expect(abs.linkText).toBe('Open the request');
+    expect(abs.linkText).toBe('Open the request form');
     expect(abs.label).toBe('Request made on Holler');
   });
   it('Baton Rouge bids keep the "bid portal" link text', () => {
@@ -241,5 +265,85 @@ describe('tradeForRecord', () => {
     expect(tradeForRecord(sig, ['plumbing'], ['pest-control'])).toBeNull();
     expect(tradeForRecord(sig, null, ['pest-control'])).toBeNull();
     expect(tradeForRecord(sig, ['plumbing'], [])).toBeNull();
+  });
+});
+
+describe('permit and federal-award briefs describe the record from the record, never from the trade tag (review P1-2)', () => {
+  it('a market-insight permit names the permit type from its own title, whatever trade the member picked', () => {
+    for (const t of TRADES) {
+      const hvac = briefFor({ source: 'arcgis-montgomery-permits', label: 'market_insight', trade: t, title: 'HVAC permit in Montgomery County' }).why;
+      expect(hvac, `${t}`).toBe('A permit was filed nearby (HVAC); work is planned.');
+      expect(hvac).not.toContain(workFor(t) === 'work you do' ? 'XXX' : workFor(t));
+    }
+  });
+  it('a permit title with no type says the permit does not say what the work is', () => {
+    const b = briefFor({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'childcare', title: 'Permit in Montgomery County' });
+    expect(b.why).toBe('A permit was filed nearby; the permit does not say what the work is.');
+    expect(b.why).not.toMatch(/childcare/);
+    expect(briefFor({ source: 'socrata-chicago-permits', label: 'coming_soon', trade: 'moving', title: 'Permit in X' }).uncertain).toMatch(/it does not say what the work is/);
+  });
+  it('the live rows the review found: HVAC to junk removal, window and door to childcare, home occupation to real estate', () => {
+    const w = (title: string, trade: string) => briefFor({ source: 'socrata-montgomery-permits', label: 'market_insight', trade, title }).why;
+    expect(w('HVAC permit in Montgomery County', 'junk-removal')).toBe('A permit was filed nearby (HVAC); work is planned.');
+    expect(w('Window and door permit in Montgomery County', 'childcare')).toBe('A permit was filed nearby (Window and door); work is planned.');
+    expect(w('Home Occupation permit in Washington', 'real-estate')).toBe('A permit was filed nearby (Home Occupation); work is planned.');
+  });
+  it('permitTypeOf and awardWorkOf read the title only', () => {
+    expect(permitTypeOf('Roof permit in Chicago')).toBe('Roof');
+    expect(permitTypeOf('Permit in Chicago')).toBeNull();
+    expect(permitTypeOf(undefined)).toBeUndefined();
+    expect(awardWorkOf('Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)')).toBe('Plumbing');
+    expect(awardWorkOf('Federal contract ($256K) in Duluth, MN: NAICS 562991')).toBeNull();
+    expect(awardWorkOf(undefined)).toBeUndefined();
+  });
+  it('a federal award never names the trade: a NAICS-only contract shown to junk removal does not say "for junk hauling"', () => {
+    for (const t of TRADES) {
+      const why = briefFor({ source: 'usaspending', label: 'market_insight', trade: t, title: 'Federal contract ($256K) in Duluth, MN: NAICS 562991' }).why;
+      expect(why).toBe('A federal contract was awarded; the record does not name the work.');
+    }
+    expect(briefFor({ source: 'usaspending', label: 'market_insight', trade: 'junk-removal', title: 'Federal contract ($1K) in X: Plumbing (NAICS 238220)' }).why).toBe('A federal contract was awarded for Plumbing; it is closed.');
+  });
+  it('a permit sentence with a long type falls back to the short sentence and stays within the cap', () => {
+    const long = 'A very long permit type that goes on and on and on';
+    for (const label of ['coming_soon', 'market_insight'] as const) {
+      expect(briefFor({ source: 'socrata-chicago-permits', label, trade: 'roofing', title: `${long} permit in X` }).why.length).toBeLessThanOrEqual(MAX_WHY);
+    }
+  });
+});
+
+describe('inspection trade wording is true for the trade (review P1-3: live inspections are tagged to many trades)', () => {
+  const REPAIR = ['plumbing', 'hvac', 'electrical', 'general-contractor', 'handyman', 'painting', 'flooring', 'windows-doors'];
+  it('"repairs may involve" / "fixing it may call for" appears only for repair trades', () => {
+    for (const t of CATEGORY_IDS) {
+      for (const label of ['act_now', 'coming_soon'] as const) {
+        const why = briefFor({ source: 'socrata-chicago-inspections', label, trade: t }).why;
+        const repairWording = /repairs may involve|fixing it may call for/.test(why);
+        if (['pest-control', 'cleaning', 'janitorial-commercial'].includes(t) && label === 'act_now') continue; // own sentences
+        expect(repairWording, `${label} ${t}: ${why}`).toBe(REPAIR.includes(t));
+      }
+    }
+  });
+  it('every other trade gets the neutral sentence, never "repairs may involve childcare / catering / food truck"', () => {
+    for (const t of ['childcare', 'food-truck', 'catering', 'business-services', 'signs-printing', 'landscaping', 'junk-removal']) {
+      const why = briefFor({ source: 'socrata-chicago-inspections', label: 'coming_soon', trade: t }).why;
+      expect(why).toBe('A food inspection nearby failed; check if what failed fits what you do.');
+    }
+    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'coming_soon', trade: null }).why).toBe('A food inspection nearby failed; check if what failed fits what you do.');
+  });
+});
+
+describe('hedged wording (review P2)', () => {
+  it('a 311 does not say the city has not confirmed it; it says the record does not show it', () => {
+    const u = briefFor({ source: 'socrata-nyc-311', label: 'act_now', trade: 'hvac' }).uncertain;
+    expect(u).toBe('Medium confidence it was filed; the record does not show the city confirmed it.');
+  });
+  it('a weather alert "was issued"; the next step says to check if it is still in effect', () => {
+    const b = briefFor({ source: 'nws', label: 'coming_soon', trade: 'roofing' });
+    expect(b.why).toBe('A weather alert was issued near you; roof repair or install may follow.');
+    expect(b.why).not.toMatch(/is active/);
+    expect(b.next).toMatch(/check if it is still in effect/);
+  });
+  it('cleaning reads "cleaning", not "house cleaning", on a business-license card', () => {
+    expect(briefFor({ source: 'socrata-sf-business', label: 'coming_soon', trade: 'cleaning' }).why).toBe('A new business license was filed nearby; it may need cleaning.');
   });
 });

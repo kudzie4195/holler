@@ -5,6 +5,7 @@ import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type Sig
 import type { SectionId } from './sections';
 import { UPCOMING_DAYS, newestPast } from '../time';
 import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
+import { bidCountsByPlace, minusBids } from './bid-counts';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -134,7 +135,7 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
     }
     if (res.error) throw new Error(res.error.message);
     const rows = (res.data ?? []) as unknown as { place_slug: string; signals_60d: number; latest_at?: string | null }[];
-    const counts: Record<string, number> = {};
+    let counts: Record<string, number> = {};
     const latest: Record<string, string> = {};
     const loadedAt = Date.now();
     for (const r of rows) {
@@ -143,6 +144,8 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
       const past = newestPast([r.latest_at], loadedAt);
       if (past) latest[r.place_slug] = past;
     }
+    // The view counts stored city bids; while the bids flag is off they are not shown, so they are not counted (review P2-1).
+    counts = minusBids(counts, await bidCountsByPlace(sb, loadedAt));
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     // One row per place, so the cap is only hit if there are more than 1000 distinct places.
     return { ok: true, counts, latest, partial: rows.length >= VIEW_ROW_CAP };
