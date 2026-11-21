@@ -126,6 +126,13 @@ check_prereqs() {
   if (( DO_ANDROID )); then
     [[ -d "$ANDROID_SDK/platforms/android-36" ]] || problems+=("Android SDK Platform 36 is not at $ANDROID_SDK/platforms/android-36. Open Android Studio, Settings, Languages & Frameworks, Android SDK, tick Android 16 (API 36), Apply.")
     [[ -x "$STUDIO_JAVA_HOME/bin/java" ]] || problems+=("Android Studio's Java is not at $STUDIO_JAVA_HOME/bin/java. Install Android Studio in /Applications.")
+    if [[ -x "$STUDIO_JAVA_HOME/bin/java" ]]; then
+      local jv
+      jv="$("$STUDIO_JAVA_HOME/bin/java" -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -1)"
+      if [[ -n "$jv" ]] && (( jv < 21 )); then
+        problems+=("Android Studio's Java is version $jv and the Android build needs 21. Update Android Studio (its bundled JBR is 21 or newer in current releases).")
+      fi
+    fi
     if [[ ! -f "$KEYSTORE" && ! -x "$STUDIO_JAVA_HOME/bin/keytool" ]]; then
       problems+=("keytool is not at $STUDIO_JAVA_HOME/bin/keytool, so the upload keystore cannot be created.")
     fi
