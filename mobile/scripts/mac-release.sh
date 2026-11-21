@@ -19,7 +19,8 @@
 #   Everything lands in $HOME/Projects/holler-release/<date-time>/. iOS and Android are independent:
 #   when iOS fails the script still builds Android, and the summary at the end reports both.
 #
-# --dry-run prints every command and writes nothing. HOLLER_REPO_DIR overrides the repo path.
+# --dry-run prints every command and writes nothing. HOLLER_REPO_DIR and HOLLER_STUDIO_JAVA_HOME override the
+# repo path and Android Studio's Java folder (used for testing the script off a Mac).
 
 setopt ERR_EXIT PIPE_FAIL NO_UNSET
 
@@ -37,7 +38,7 @@ BRANCH="r12-ready"
 TEAM_ID="B3B65JKTQ7"
 KEYSTORE="$HOME/keys/holler-upload.jks"
 KEY_ALIAS="holler-upload"
-STUDIO_JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+STUDIO_JAVA_HOME="${HOLLER_STUDIO_JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
 ANDROID_SDK="$HOME/Library/Android/sdk"
 OUT="$HOME/Projects/holler-release/$(date +%Y%m%d-%H%M%S)"
 
