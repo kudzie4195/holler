@@ -169,6 +169,16 @@ describe('wiring in source', () => {
     expect(settings).toMatch(/\{store \? \(\s*<button[^>]*onClick=\{\(\) => void restore\(\)\}/);
   });
 
+  it('the "unavailable" paywall card says plans are not open yet and points to no outside purchase (guideline 3.1.1)', () => {
+    const paywall = read('screens/Paywall.tsx');
+    const card = paywall.slice(paywall.indexOf("view.kind === 'unavailable'"), paywall.indexOf("view.kind === 'unavailable'") + 600);
+    expect(card).toContain('<h3>Plans are not open in this build</h3>');
+    expect(card).toContain('Your free trial keeps working. Plans will appear here in a later update.');
+    expect(paywall).not.toContain('Plans are in the phone app');
+    expect(paywall).not.toContain('Subscriptions can be bought');
+    expect(card).not.toMatch(/website|localholler|web|http|browser|openInApp/i);
+  });
+
   it('the Paywall does not load packages or call the store when the store is unavailable', () => {
     const paywall = read('screens/Paywall.tsx');
     expect(paywall).toMatch(/useEffect\(\(\) => \{\s*if \(!available\) return;/);

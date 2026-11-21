@@ -179,8 +179,9 @@ export function Paywall() {
 
         {view.kind === 'unavailable' ? (
           <div className="card stack">
-            <h3>Plans are in the phone app</h3>
-            <p className="muted">Subscriptions can be bought in the Holler app on iPhone or Android.</p>
+            {/* No store key in this build: say so plainly and point nowhere else (App Store guideline 3.1.1). */}
+            <h3>Plans are not open in this build</h3>
+            <p className="muted">Your free trial keeps working. Plans will appear here in a later update.</p>
           </div>
         ) : null}
 
