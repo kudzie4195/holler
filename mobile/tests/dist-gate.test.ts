@@ -2,17 +2,22 @@
 // RevenueCat key on. Builds the real app twice with vite into temp folders and runs the gate on each.
 // Shell variables beat the .env files, so these builds do not depend on mobile/.env.production.local.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { checkDist } from '../scripts/check-dist-gating.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const made: string[] = [];
+afterAll(() => {
+  for (const d of made) rmSync(d, { recursive: true, force: true });
+});
 
 function build(env: Record<string, string>): string {
   const out = mkdtempSync(path.join(tmpdir(), 'holler-dist-gate-'));
+  made.push(out);
   const clean: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !k.startsWith('VITE_')) clean[k] = v;
   const base = {

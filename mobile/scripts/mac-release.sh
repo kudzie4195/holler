@@ -9,8 +9,8 @@
 # What it does, in order:
 #   1. Checks the tools it needs (it installs nothing).
 #   2. Clones or fetches the repo into $HOME/Projects/holler and fast-forwards branch r12-ready to origin,
-#      but only when no tracked file has uncommitted changes. Local commits that are not on GitHub are
-#      never thrown away: the script stops and says to push them.
+#      but only when no tracked file has uncommitted changes. Local commits are never thrown away: a local
+#      branch that is ahead of GitHub is built as it is, one that has diverged stops the script with advice.
 #   3. Writes mobile/.env.production.local with the public build values, only when that file is absent.
 #   4. npm ci, npm test, npm run build, npx cap sync, plus the repo's own sync and bundle checks.
 #   5. iOS (needs Xcode 26 or newer): xcodebuild archive, then xcodebuild -exportArchive with destination "upload". That sends the
@@ -199,7 +199,7 @@ sync_repo() {
   run git -C "$REPO_DIR" fetch origin || fail "git fetch failed. Check the network and your GitHub sign-in."
   if git -C "$REPO_DIR" rev-parse -q --verify "refs/heads/$BRANCH" >/dev/null; then
     run git -C "$REPO_DIR" checkout "$BRANCH" || fail "Could not switch to $BRANCH."
-    run git -C "$REPO_DIR" merge --ff-only "origin/$BRANCH" || fail "Your local $BRANCH has commits that are not on GitHub, or it has diverged. Push them first (git -C \"$REPO_DIR\" push origin $BRANCH), then run the script again."
+    run git -C "$REPO_DIR" merge --ff-only "origin/$BRANCH" || fail "Your local $BRANCH and origin/$BRANCH have diverged: each has commits the other lacks. Nothing was changed. Rebase or merge in $REPO_DIR (for example: git -C \"$REPO_DIR\" pull --rebase origin $BRANCH), push, then run the script again."
   else
     run git -C "$REPO_DIR" checkout -b "$BRANCH" "origin/$BRANCH" || fail "Could not check out $BRANCH from origin. Has the branch been pushed?"
   fi
