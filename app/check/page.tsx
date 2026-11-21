@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { AreaWaitlist } from '@/components/area-waitlist';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
@@ -11,6 +12,7 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
+import { isServedZip } from '@/lib/check/coverage';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -132,14 +134,18 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     origin: { lat: place.lat, lon: place.lon },
   };
 
-  // Territories and military mail codes have no source rows yet: say so, read nothing.
+  // A ZIP with no local source within reach (isServedZip: territories, military codes, and places with no connected permit or city feed
+  // nearby) gets the "Coming to your area" card: leave an email, hear when Holler covers it. A served ZIP never gets it.
+  const waitlist = isServedZip(place) ? null : <AreaWaitlist zip={params.zip} trade={params.trade} placeLabel={placeLabel} />;
+
+  // Territories and military mail codes have no source rows yet: say so, read nothing. The waitlist card is the answer here.
   if (!scope.covered) {
     return (
       <>
         <FormBand>
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
-        <CheckResults {...common} mode="uncovered" items={[]} checkedAt={new Date(now).toISOString()} />
+        {waitlist}
       </>
     );
   }
@@ -152,6 +158,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <FormBand>
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
+        {waitlist}
         <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
@@ -169,6 +176,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
       <FormBand>
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
+      {waitlist}
       <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
     </>
   );
