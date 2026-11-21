@@ -8,12 +8,11 @@ import { Card } from './card';
 import { EmptyState } from './empty-state';
 import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
-import { sourceLabel } from './signal-meta';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
-import { IntentNote } from './feed/intent-note';
+import { OpportunityChip } from './feed/opportunity-chip';
 import { BriefBlock } from './feed/brief-block';
 import type { FeedbackState } from '@/lib/feedback/types';
 import type { OpportunityLabel } from '@/lib/signals/lead-rules';
@@ -70,10 +69,6 @@ type Filter = 'all' | 'ask' | 'signals';
 
 /** Source id of resident requests made on Holler (/request). Matches lib/requests/constants.ts REQUEST_SOURCE. */
 export const REQUEST_SOURCE = 'holler-request';
-
-function itemSourceLabel(source: string): string {
-  return source === REQUEST_SOURCE ? 'Request made on Holler' : sourceLabel(source);
-}
 
 export function Feed({
   items: initial,
@@ -254,8 +249,6 @@ function MatchCard({
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <Badge kind={item.kind} label={item.subtype === 'bid' ? 'Open bid' : undefined} />
-        <span>{itemSourceLabel(item.source)}</span>
-        <span aria-hidden="true">·</span>
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
           {item.ago}
         </time>
@@ -276,7 +269,8 @@ function MatchCard({
       </div>
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
-      <IntentNote item={item} />
+      {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
+      <OpportunityChip label={item.label} deadline={item.deadline} />
       {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">

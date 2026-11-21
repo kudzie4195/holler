@@ -22,7 +22,7 @@ import { renderDigest } from '@/lib/email/templates';
 import { FIXTURES, NOW, digestItem, feedItem } from './brief-fixtures';
 
 const digest = () =>
-  renderDigest({ businessName: 'Acme Roofing', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
+  renderDigest({ businessName: 'Fixture members', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
 
 describe('digest HTML snapshot', () => {
   it('matches the checked-in snapshot (the brief in every item)', async () => {
@@ -35,10 +35,15 @@ describe.skipIf(!process.env.HOLLER_SHOTS_DIR)('write the pages for the screensh
     const dir = process.env.HOLLER_SHOTS_DIR!;
     mkdirSync(dir, { recursive: true });
     const css = process.env.HOLLER_SHOTS_CSS ?? '/_next/static/css/app.css';
-    const feed = renderToStaticMarkup(createElement(Feed, { items: FIXTURES.map(feedItem), cityPage: null }));
+    const raw = renderToStaticMarkup(createElement(Feed, { items: FIXTURES.map(feedItem), cityPage: null }));
+    // each card gets a caption naming the fixture member it was built for (a screenshot aid, not product markup)
+    const parts = raw.split('<li><article');
+    const feed = parts
+      .map((part, i) => (i === 0 ? part : `<li><p style="margin:0 0 4px 0;font:12px/1.4 monospace;color:#5B635D" data-testid="fixture-caption">Fixture member: ${FIXTURES[i - 1].member.business_name} (${FIXTURES[i - 1].profile.categories.join(', ')}) · label ${FIXTURES[i - 1].label}</p><article${part}`))
+      .join('');
     writeFileSync(
       join(dir, 'feed.html'),
-      `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Feed with brief cards</title><link rel="stylesheet" href="${css}"></head><body class="bg-background text-ink antialiased"><main class="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6"><div class="max-w-3xl"><h1 class="text-5xl text-ink">Your matches</h1><p class="mt-2 text-muted">Acme Roofing, within 25 mi of Atlanta, GA.</p><div class="mt-6">${feed}</div></div></main></body></html>`,
+      `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Feed with brief cards</title><link rel="stylesheet" href="${css}"></head><body class="bg-background text-ink antialiased"><main class="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6"><div class="max-w-3xl"><h1 class="text-5xl text-ink">Brief card fixtures</h1><p class="mt-2 text-muted">One fixture member per card, placed at the record, matched by the real matcher.</p><div class="mt-6">${feed}</div></div></main></body></html>`,
     );
     writeFileSync(join(dir, 'digest.html'), digest().html);
     expect(feed).toContain('data-testid="brief"');

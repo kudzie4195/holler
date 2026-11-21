@@ -3,7 +3,6 @@ import { CADENCE_SHORT } from '../seo/cadence';
 import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
-import { intentLabel, intentLine } from '../signals/intent';
 import { bidSourceLinkLabel } from '../signals/bid-card';
 import { cardBrief, sourceLine, type CardBrief } from '../signals/brief';
 import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
@@ -12,7 +11,7 @@ import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE 
 
 export interface DigestItem {
   kind: string;
-  /** Source id and data.subtype of the record. Used for the intent label; without them the label comes from the kind alone. */
+  /** Source id and data.subtype of the record. Used for the brief (why it matters, source link). */
   source?: string | null;
   subtype?: string | null;
   title: string;
@@ -181,8 +180,6 @@ export function renderDigest(opts: {
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
-      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(intentLabel(sig))}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const chip = chipText(it);
       const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
       const bidHtml = it.bidLine ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.bidLine))}</div>` : '';
@@ -199,7 +196,7 @@ export function renderDigest(opts: {
           br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
         }</div>` +
         `<div style="font-size:14px;margin:2px 0 4px 0"><strong>What is uncertain:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${intentHtml}${note}${detail}${contact}${briefHtml}</li>`;
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
     })
     .join('');
 
@@ -221,9 +218,8 @@ export function renderDigest(opts: {
       const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
-      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

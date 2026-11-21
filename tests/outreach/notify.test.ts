@@ -126,7 +126,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent[0].html).toContain('Permit 1');
     expect(sent[0].html).not.toContain('Contact:');
   });
-  it('the email intent label comes from the signal subtype: a business licence reads "Money being spent"', async () => {
+  it('the email carries the brief per item and no intent block (changed deliberately, brief card v1 redo); a business licence and a 311 each read their own brief', async () => {
     const res = await run(
       [
         sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
@@ -139,13 +139,16 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent).toHaveLength(1);
     const html = sent[0].html;
     const text = sent[0].text;
-    expect(html).toContain('Money being spent');
-    expect(text).toContain('Money being spent');
-    expect(html).toContain('Might need work');
+    expect(html).not.toContain('Money being spent');
+    expect(text).not.toContain('Money being spent');
+    expect(html).not.toContain('Might need work');
     expect(html).toContain('Mold complaint in a building');
     expect(html).not.toContain('Pothole request');
-    // the licence is labeled Money being spent, not Might need work
-    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Money being spent'));
+    // the licence's brief names a new business license, the 311's brief names the request
+    expect(text).toContain('A new business license was filed nearby');
+    expect(text).toContain('the license was filed');
+    expect(text).toContain('the request was filed');
+    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
   });
 
   it('a market_insight match (a roof permit for a roofer) is stored for the feed but never mailed, and is marked notified', async () => {

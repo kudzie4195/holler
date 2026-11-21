@@ -1,7 +1,8 @@
 /**
  * Brief card v1 (PLAN-2.0 item 0.4), the three places a card is drawn: the web feed (components/feed.tsx), the email digest
  * (lib/email/templates.ts) and the mobile API alert (lib/mobile/feed.ts). Every card has all five parts and a source link.
- * Inputs are hand-written fixtures (assumed), one per record family, dated 2026-11-20.
+ * Inputs are tests/signals/brief-fixtures.ts: real adapter parser output, run through the real matcher for a fixture member, so each
+ * card is shown only to a trade the label rules allow and its label, trade and deadline are the matcher's, not hand-assigned.
  */
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -18,9 +19,12 @@ vi.mock('@/app/app/actions', () => ({
 import { Feed, type FeedItem } from '@/components/feed';
 import { renderDigest } from '@/lib/email/templates';
 import { buildAlerts } from '@/lib/mobile/feed';
-import { allBriefStrings } from '@/lib/signals/brief';
+import { allBriefStrings, briefFor, WHY_OVERRIDES, workFor } from '@/lib/signals/brief';
+import { matchOne } from '@/lib/signals/match';
 import { BANNED } from './banned';
-import { FIXTURES, NOW, digestItem, feedItem, mobileRow } from './brief-fixtures';
+import { FIXTURES, NOW, digestItem, feedItem, matchSignalOf, mobileRow, profileFor } from './brief-fixtures';
+
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** The five parts, each present and non-empty, in the web card html of ONE article. */
 function webParts(article: string) {
@@ -46,14 +50,14 @@ describe('web feed: every card has the five parts and a source link', () => {
   FIXTURES.forEach((f, i) => {
     it(`${f.name}`, () => {
       const p = webParts(articles[i]);
-      expect(p.what, 'what happened').toContain(f.title.replace(/'/g, '&#x27;').replace(/&/g, '&amp;').replace(/&amp;#x27;/g, '&#x27;'));
+      expect(p.what, 'what happened').toContain(esc(f.signal.title));
       expect(p.why).toMatch(/^Why it matters: .{30,}/);
-      expect(p.next).toMatch(/^Next step: .{20,}/);
-      expect(p.source).toMatch(/^Source: .+ · Nov 20, 2026/);
+      expect(p.next).toMatch(/^Next step: .{15,}/);
+      expect(p.source).toMatch(/^Source: .+ · [A-Z][a-z]{2} \d{1,2}, 2026/);
       expect(p.uncertain).toMatch(/^What is uncertain: (High|Medium|Low) confidence .+;.+\.$/);
       expect(p.link, 'source link').toMatch(/^(https?:\/\/|\/)/);
       // the link is the record's own page when it has one, otherwise the dataset's home page
-      if (f.url) expect(p.link).toBe(f.url);
+      if (f.signal.url) expect(p.link).toBe(f.signal.url);
       else expect(p.link).toMatch(/^https:\/\//);
     });
   });
@@ -67,13 +71,14 @@ describe('web feed: every card has the five parts and a source link', () => {
   });
 
   it('trade-specific: the same hail report reads differently for a roofer and an auto body shop', () => {
-    const one = (trade: string) => renderToStaticMarkup(createElement(Feed, { items: [{ ...feedItem(FIXTURES[4], 0), trade }], cityPage: null }));
+    const hail = FIXTURES.find((c) => c.name === 'hail report')!;
+    const one = (trade: string) => renderToStaticMarkup(createElement(Feed, { items: [{ ...feedItem(hail, 0), trade }], cityPage: null }));
     expect(one('roofing')).toContain('roofs are often checked');
-    expect(one('auto-body')).toContain('vehicles are sometimes dented');
+    expect(one('auto-body')).toContain('cars are sometimes dented');
   });
 
   it('a card with no label or trade still has all five parts (older callers)', () => {
-    const bare: FeedItem = { ...feedItem(FIXTURES[6], 0), label: undefined, trade: undefined };
+    const bare: FeedItem = { ...feedItem(FIXTURES.find((c) => c.name === 'weather alert')!, 0), label: undefined, trade: undefined };
     const p = webParts(renderToStaticMarkup(createElement(Feed, { items: [bare], cityPage: null })).split('<article')[1]);
     expect([p.why, p.next, p.source, p.uncertain, p.link].every(Boolean)).toBe(true);
   });
@@ -86,8 +91,99 @@ describe('web feed: every card has the five parts and a source link', () => {
   });
 });
 
+describe('web card: no duplicate of the brief (the old intent block and the header source line are gone)', () => {
+  const html = renderToStaticMarkup(createElement(Feed, { items: FIXTURES.map(feedItem), cityPage: null }));
+  const articles = html.split('<article').slice(1);
+
+  it('has no "Might need work / The event is on record" intent block and no intent line on any card', () => {
+    for (const a of articles) {
+      expect(a).not.toMatch(/Might need work|Money being spent|Someone asked|The event is on record|Money is being spent here|A resident asked for this service|This work is out for bid|A public post asked about this|A new business registered here/);
+    }
+  });
+
+  it('the source is named once per card, in the brief (the header line "Source name ·" is gone)', () => {
+    for (const a of articles) {
+      const text = a.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      const p = webParts(a);
+      const label = p.source.replace(/^Source: /, '').split(' · ')[0];
+      expect(text.split(label).length - 1, label).toBe(1);
+    }
+  });
+
+  it('the opportunity chip and the deadline line are still there for Act now cards', () => {
+    expect(articles.filter((a) => a.includes('Act now')).length).toBeGreaterThan(5);
+    const fed = articles[FIXTURES.findIndex((c) => c.name === 'federal bid')];
+    expect(fed).toMatch(/Act now/);
+    expect(fed).toMatch(/data-testid="bid-line"|Respond by|Due/i);
+  });
+});
+
+describe('trade wording matches the fixture profile trade, for every fixture card', () => {
+  const html = renderToStaticMarkup(createElement(Feed, { items: FIXTURES.map(feedItem), cityPage: null }));
+  const articles = html.split('<article').slice(1);
+
+  FIXTURES.forEach((f, i) => {
+    it(`${f.name}: card trade is one of the member's trades, and the why line is the table's line for that trade`, () => {
+      // the card trade is a trade the profile picked (or null for a keyword-only match, which no fixture is)
+      expect(f.profile.categories).toContain(f.trade);
+      expect(f.trade, 'a trade-matched card').not.toBeNull();
+      const p = webParts(articles[i]);
+      const why = p.why.replace(/^Why it matters: /, '');
+      const want = briefFor({ source: f.signal.source, kind: f.signal.kind, subtype: (f.signal.data?.subtype as string) ?? null, label: f.label, trade: f.trade });
+      expect(why).toBe(want.why);
+      // an override sentence is only ever shown to the member who picked that override's trade
+      for (const [key, text] of Object.entries(WHY_OVERRIDES)) {
+        if (why === text) expect(key.split('|')[2], `${key} shown to ${f.profile.categories.join(',')}`).toBe(f.trade);
+      }
+      // the sentence names the matched trade's work, or is one of the trade-free families (weather, quake, ... still use the trade's work)
+      if (!Object.values(WHY_OVERRIDES).includes(why)) {
+        const w = workFor(f.trade);
+        const fams = f.signal.source;
+        expect(why.includes(w) || why.includes('work like') || why.includes('a resident') || why.includes('Someone posted'), `${fams}: ${why}`).toBe(true);
+      }
+      // never "your trade", and never another trade's work phrase
+      expect(why).not.toMatch(/your trade/i);
+    });
+  });
+
+  it('a card never says another trade\'s override: a roofer\'s hail card is not the auto-body hail card', () => {
+    const hail = FIXTURES.find((c) => c.name === 'hail report')!;
+    const a = webParts(renderToStaticMarkup(createElement(Feed, { items: [feedItem(hail, 0)], cityPage: null })).split('<article')[1]);
+    expect(a.why).toContain('roofs are often checked');
+    expect(a.why).not.toContain('dented');
+  });
+});
+
+describe('the label rules decide who sees a card (no rules bug: a roofer cannot be shown a failed food inspection)', () => {
+  const inspection = FIXTURES.find((c) => c.name === 'failed food inspection')!;
+  const asMember = (categories: string[], extra: Record<string, unknown> = {}) => ({ ...profileFor(inspection.signal, categories, 'Test'), ...extra });
+  const m = (categories: string[], extra: Record<string, unknown> = {}) => matchOne(matchSignalOf(inspection.signal), asMember(categories, extra) as never, true);
+
+  it('a roofing member does not match a failed food inspection at all (inspections are tagged only for the trades the rules allow)', () => {
+    expect(m(['roofing'])).toBeNull();
+    expect(m(['roofing', 'siding-gutters', 'painting'])).toBeNull();
+  });
+  it('a pest-control member gets it as Act now; so do cleaning trades (INSPECTION_TRADES)', () => {
+    expect(m(['pest-control'])?.label).toBe('act_now');
+    expect(m(['janitorial-commercial'])?.label).toBe('act_now');
+  });
+  it('the record is tagged only with trades the rules give it to', () => {
+    expect(inspection.signal.categories.every((c) => ['pest-control', 'cleaning', 'janitorial-commercial'].includes(c))).toBe(true);
+  });
+  it('every fixture record is refused for a trade it is not tagged with (no member sees a card for a trade the record does not carry)', () => {
+    for (const f of FIXTURES) {
+      const outside = ['roofing', 'pest-control', 'hvac', 'plumbing', 'catering', 'moving', 'tree-service', 'restoration', 'cleaning', 'general-contractor']
+        .filter((t) => !(f.signal.categories as string[]).includes(t) && !(f.profile.categories as string[]).includes(t));
+      for (const t of outside.slice(0, 3)) {
+        const r = matchOne(matchSignalOf(f.signal), { ...f.profile, categories: [t] } as never, true);
+        expect(r, `${f.name} for ${t}`).toBeNull();
+      }
+    }
+  });
+});
+
 describe('email digest: every item has the five parts and a link', () => {
-  const mail = renderDigest({ businessName: 'Acme Roofing', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
+  const mail = renderDigest({ businessName: 'Fixture members', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
   const lis = mail.html.split('<li ').slice(1).map((s) => s.split('</li>')[0]);
   const blocks = mail.text.split('\n\n').filter((b) => b.includes('Why it matters:'));
 
@@ -100,8 +196,8 @@ describe('email digest: every item has the five parts and a link', () => {
     for (const li of lis) {
       expect(li).toMatch(/font-weight:600[^>]*>[^<]+<\/div>/); // title
       expect(li).toMatch(/<strong>Why it matters:<\/strong> .{30,}/);
-      expect(li).toMatch(/<strong>Next step:<\/strong> .{20,}/);
-      expect(li).toMatch(/<strong>Source:<\/strong> .+ &middot; Nov 20, 2026 &middot; <a href="https?:\/\/[^"]+"[^>]*>Open the (source|source home page|request|bid portal)<\/a>/);
+      expect(li).toMatch(/<strong>Next step:<\/strong> .{15,}/);
+      expect(li).toMatch(/<strong>Source:<\/strong> .+ &middot; [A-Z][a-z]{2} \d{1,2}, 2026 &middot; <a href="https?:\/\/[^"]+"[^>]*>Open the (source|source home page|request|bid portal)<\/a>/);
       expect(li).toMatch(/<strong>What is uncertain:<\/strong> (High|Medium|Low) confidence .+;.+\./);
     }
   });
@@ -109,22 +205,33 @@ describe('email digest: every item has the five parts and a link', () => {
   it('text: each item has the same parts and a link line', () => {
     for (const b of blocks) {
       expect(b).toMatch(/Why it matters: .{30,}/);
-      expect(b).toMatch(/Next step: .{20,}/);
-      expect(b).toMatch(/Source: .+\. Record date: Nov 20, 2026\./);
+      expect(b).toMatch(/Next step: .{15,}/);
+      expect(b).toMatch(/Source: .+\. Record date: [A-Z][a-z]{2} \d{1,2}, 2026\./);
       expect(b).toMatch(/\nOpen the (source|source home page|request|bid portal): https?:\/\/\S+/);
       expect(b).toMatch(/What is uncertain: (High|Medium|Low) confidence/);
     }
   });
 
+  it('has no intent block ("Might need work ... The event is on record") in html or text, and no header source line', () => {
+    expect(mail.html + mail.text).not.toMatch(/Might need work|Money being spent|Someone asked|The event is on record|Money is being spent here|A resident asked for this service|This work is out for bid|A public post asked about this|A new business registered here/);
+    for (const li of lis) {
+      // the only place the source name appears is the Source row
+      const label = li.match(/<strong>Source:<\/strong> (.+?) &middot;/)![1];
+      expect(li.split(label).length - 1, label).toBe(1);
+    }
+  });
+
   it('a record without a link of its own gets the dataset home page, never no link', () => {
-    const li = lis.find((s) => s.includes('Wind gust near Smyrna'))!;
-    expect(li).toContain('href="https://www.spc.noaa.gov/climo/reports/"');
-    expect(li).toContain('Open the source home page');
+    const gust = FIXTURES.find((c) => c.name === 'wind gust')!;
+    const bare = renderDigest({ businessName: 'Fixture members', items: [{ ...digestItem(gust), sourceUrl: null }], appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
+    expect(bare.html).toContain('href="https://www.spc.noaa.gov/climo/reports/"');
+    expect(bare.html).toContain('Open the source home page');
+    expect(bare.text).toContain('Open the source home page: https://www.spc.noaa.gov/climo/reports/');
   });
 
   it('a resident request says "Open the request" and a Baton Rouge bid says "Open the bid portal"', () => {
     expect(lis.find((s) => s.includes('Service request in Atlanta'))).toContain('>Open the request</a>');
-    expect(lis.find((s) => s.includes('Janitorial services'))).toContain('>Open the bid portal</a>');
+    expect(lis.find((s) => s.includes('Window Washing Library Sites'))).toContain('>Open the bid portal</a>');
   });
 
   it('no banned wording anywhere in the mail, and no em dash', () => {
@@ -133,9 +240,10 @@ describe('email digest: every item has the five parts and a link', () => {
 });
 
 describe('mobile API: the alert carries the brief as additive fields', () => {
-  const deps = (over: Record<string, unknown> = {}) => ({ userId: 'u1', locked: false, db: new FakeDb() as never, admin: null, siteUrl: 'https://localholler.com', now: NOW.getTime(), trades: [...new Set(FIXTURES.map((f) => f.trade))], ...over });
+  const deps = (over: Record<string, unknown> = {}) => ({ userId: 'u1', locked: false, db: new FakeDb() as never, admin: null, siteUrl: 'https://localholler.com', now: NOW.getTime(), trades: [...new Set(FIXTURES.map((f) => f.trade).filter((t): t is string => !!t))], ...over });
+  const OLD_FIELDS = ['matchId', 'signalId', 'sourceLabel', 'sourceUrl', 'title', 'summary', 'url', 'intent', 'label', 'deadline', 'bidLine', 'ai'];
 
-  it('every alert has a brief with all parts and an http(s) source link; the old fields are unchanged', async () => {
+  it('every alert has a brief with all parts and an http(s) source link; the old fields (intent, sourceLabel, ...) are unchanged', async () => {
     vi.stubEnv('HOLLER_BIDS_ENABLED', '1');
     const alerts = await buildAlerts(FIXTURES.map(mobileRow), deps());
     vi.unstubAllEnvs();
@@ -143,25 +251,40 @@ describe('mobile API: the alert carries the brief as additive fields', () => {
     for (const a of alerts) {
       const b = a.brief;
       expect(b.why.length, a.title).toBeGreaterThan(30);
-      expect(b.next.length).toBeGreaterThan(20);
+      expect(b.next.length).toBeGreaterThan(15);
       expect(b.uncertain).toMatch(/^(High|Medium|Low) confidence .+;.+\.$/);
       expect(b.uncertain.startsWith(b.confidence)).toBe(true);
       expect(b.source.url, a.title).toMatch(/^https?:\/\//);
       expect(b.source.label.length).toBeGreaterThan(3);
-      expect(b.source.date).toBe('Nov 20, 2026');
-      // additive: the existing fields are all still there
-      for (const k of ['matchId', 'signalId', 'sourceLabel', 'sourceUrl', 'title', 'summary', 'url', 'intent', 'label', 'deadline', 'bidLine', 'ai']) expect(a, k).toHaveProperty(k);
+      expect(b.source.date).toMatch(/^[A-Z][a-z]{2} \d{1,2}, 2026$/);
+      // additive: the existing fields are all still there, and the contract's intent is still filled in
+      for (const k of OLD_FIELDS) expect(a, k).toHaveProperty(k);
+      expect(a.intent, a.title).toBeTruthy();
+      expect((a.sourceLabel ?? '').length).toBeGreaterThan(3);
     }
-    const hail = alerts.find((a) => a.title.startsWith('Hail'))!;
+    const hail = alerts.find((a) => a.title.startsWith('1.50 inch hail'))!;
     expect(hail.brief.why).toContain('roofs are often checked');
     expect(hail.brief.confidence).toBe('High');
     expect(alerts.find((a) => a.source === 'bluesky')!.brief.confidence).toBe('Low');
     expect(alerts.find((a) => a.source === 'socrata-nyc-311')!.brief.confidence).toBe('Medium');
   });
 
+  it('the brief trade for each alert is the trade its fixture member picked', async () => {
+    vi.stubEnv('HOLLER_BIDS_ENABLED', '1');
+    for (const f of FIXTURES) {
+      const [a] = await buildAlerts([mobileRow(f, 0)], deps({ trades: f.trades }));
+      expect(a, f.name).toBeTruthy();
+      expect(a.brief.why, f.name).toBe(briefFor({ source: f.signal.source, kind: f.signal.kind, subtype: (f.signal.data?.subtype as string) ?? null, label: f.label, trade: f.trade }).why);
+    }
+    vi.unstubAllEnvs();
+  });
+
   it('a record with no link of its own links to the dataset home page; a resident request links to the absolute /request page', async () => {
-    const alerts = await buildAlerts(FIXTURES.map(mobileRow), deps());
-    const gust = alerts.find((a) => a.title.startsWith('Wind gust'))!;
+    const gustCase = FIXTURES.find((c) => c.name === 'wind gust')!;
+    const row = mobileRow(gustCase, 0) as unknown as { signal: { url: string | null } };
+    row.signal.url = null;
+    const alerts = await buildAlerts([row as never, ...FIXTURES.map(mobileRow).filter((r) => (r as never as { id: number }).id !== 1)], deps());
+    const gust = alerts.find((a) => a.title.includes('wind gust'))!;
     expect(gust.brief.source).toMatchObject({ url: 'https://www.spc.noaa.gov/climo/reports/', recordLink: false });
     const req = alerts.find((a) => a.source === 'holler-request')!;
     expect(req.brief.source.url).toBe('https://localholler.com/request');
@@ -174,8 +297,9 @@ describe('mobile API: the alert carries the brief as additive fields', () => {
       expect(a.url).toBeNull();
       expect(a.brief.source.recordLink).toBe(false);
       expect(a.brief.source.url).toMatch(/^https?:\/\//);
-      const f = FIXTURES.find((x) => a.title && x.source === a.source)!;
-      if (f.url && !f.url.includes('localholler')) expect(a.brief.source.url).not.toBe(f.url);
+      // a record page that is a distinct URL (hail, weather alert, a bid) is not exposed: the link is the dataset's home page
+      const f = FIXTURES.find((x) => x.signal.id === a.signalId)!;
+      if (['hail report', 'weather alert', 'federal bid', 'public post'].includes(f.name)) expect(a.brief.source.url, f.name).not.toBe(f.signal.url);
     }
   });
 });

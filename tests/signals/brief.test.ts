@@ -7,6 +7,9 @@ import { CATEGORY_IDS } from '@/lib/signals/categories';
 import { labelFor, OPPORTUNITY_LABELS, SOURCE_DEFAULTS, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import {
   BRIEF_FAMILIES,
+  MAX_NEXT,
+  MAX_UNCERTAIN,
+  MAX_WHY,
   NEXT_STEP,
   TRADE_WORK,
   WHY_OVERRIDES,
@@ -59,10 +62,14 @@ describe('every source x label x trade gives a complete brief', () => {
           const where = `${id} ${label} ${trade}`;
           // one sentence: it ends in a period and has no other sentence break inside
           for (const [name, text] of [['why', b.why], ['next', b.next], ['uncertain', b.uncertain]] as const) {
-            expect(text.length, `${where} ${name}`).toBeGreaterThan(20);
+            expect(text.length, `${where} ${name}`).toBeGreaterThan(15);
             expect(text.endsWith('.'), `${where} ${name} ends with a period`).toBe(true);
             expect(/[.!?]\s+[A-Z]/.test(text.slice(0, -1)), `${where} ${name} is one sentence: ${text}`).toBe(false);
           }
+          // short enough that a typical card stays small on a phone
+          expect(b.why.length, `${where} why length`).toBeLessThanOrEqual(MAX_WHY);
+          expect(b.next.length, `${where} next length`).toBeLessThanOrEqual(MAX_NEXT);
+          expect(b.uncertain.length, `${where} uncertain length`).toBeLessThanOrEqual(MAX_UNCERTAIN);
           expect(['High', 'Medium', 'Low']).toContain(b.confidence);
           expect(b.uncertain.startsWith(`${b.confidence} confidence `), where).toBe(true);
           expect(b.uncertain).toMatch(/;/);
@@ -94,9 +101,9 @@ describe('confidence comes from the source family', () => {
   it('public posts are Low', () => {
     for (const s of ['bluesky', 'websearch-brave', 'websearch-serper']) expect(conf(s, 'act_now'), s).toBe('Low');
   });
-  it('the example in the plan: a failed inspection is High that it failed, and says the owner hiring is not known', () => {
+  it('the example in the plan: a failed inspection is High that it is on file, and says hiring is not known', () => {
     const b = briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' });
-    expect(b.uncertain).toBe('High confidence the inspection result is on file; whether the owner is hiring is not known.');
+    expect(b.uncertain).toBe('High confidence the inspection result is on file; hiring is not known.');
   });
 });
 
@@ -112,22 +119,26 @@ describe('trade-specific, and honest about what the record does not show', () =>
     for (const t of CATEGORY_IDS) expect(TRADE_WORK[t], t).toBeTruthy();
     expect(workFor(null)).toBe('work you do');
     expect(workFor('not-a-trade')).toBe('work you do');
+    for (const t of CATEGORY_IDS) expect(TRADE_WORK[t].length, t).toBeLessThanOrEqual(22);
     expect(Object.keys(TRADE_WORK).sort()).toEqual([...CATEGORY_IDS].sort());
   });
-  it('a weather event never proves damage', () => {
+  it('a weather event never proves damage: the uncertainty line says so, and the why line only says work "may follow"', () => {
     for (const t of TRADES) {
-      expect(briefFor({ source: 'nws', label: 'coming_soon', trade: t }).why).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'usgs', label: 'coming_soon', trade: t }).why).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'spc', label: 'coming_soon', trade: t }).why).toMatch(/no damage is reported/);
-      expect(briefFor({ source: 'spc', label: 'act_now', trade: t }).why).toMatch(/not confirmed/);
+      expect(briefFor({ source: 'nws', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
+      expect(briefFor({ source: 'usgs', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
+      expect(briefFor({ source: 'spc', label: 'coming_soon', trade: t }).uncertain).toMatch(/no damage is reported/);
+      expect(briefFor({ source: 'spc', label: 'act_now', trade: t }).uncertain).toMatch(/not confirmed/);
+      for (const src of ['nws', 'usgs', 'spc']) {
+        const why = briefFor({ source: src, label: 'coming_soon', trade: t }).why;
+        expect(why, `${src} ${t}`).not.toMatch(/was damaged|caused damage|has damage|is damaged/i);
+      }
     }
-    expect(briefFor({ source: 'nws', label: 'coming_soon', trade: 'roofing' }).uncertain).toMatch(/whether anything was damaged is not known/);
   });
   it('a permit never proves a vendor is chosen', () => {
     for (const t of TRADES) {
       for (const label of ['coming_soon', 'market_insight'] as const) {
         const b = briefFor({ source: 'socrata-chicago-permits', label, trade: t });
-        expect(b.why + ' ' + b.uncertain, `${label} ${t}`).toMatch(/not who will do it|does not say|may follow|may already be hired out|is not known/);
+        expect(b.why + ' ' + b.uncertain, `${label} ${t}`).toMatch(/work is planned|may follow|may already be hired out|is not known|filed nearby/);
         expect(b.why).not.toMatch(/is being (chosen|hired)|has been hired/i);
       }
     }
@@ -151,8 +162,14 @@ describe('trade-specific, and honest about what the record does not show', () =>
   it('the next step is one concrete action per family, as in the plan', () => {
     expect(briefFor({ source: 'sam-gov', label: 'act_now', trade: 'roofing' }).next).toBe("Check the due date and the buyer's bid page.");
     expect(briefFor({ source: 'bids-la', label: 'act_now', trade: 'roofing' }).next).toBe("Check the due date and the buyer's bid page.");
-    expect(briefFor({ source: 'socrata-chicago-violations', label: 'act_now', trade: 'plumbing' }).next).toMatch(/look at the address on a map before you go/);
-    expect(briefFor({ source: 'nws', label: 'coming_soon', trade: 'roofing' }).next).toMatch(/^Open the source/);
+    expect(briefFor({ source: 'socrata-chicago-violations', label: 'act_now', trade: 'plumbing' }).next).toMatch(/look at it on a map/);
+    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' }).next).toBe('Check what failed and the address, then decide if it is worth a visit.');
+  });
+  it('a next step is the action AFTER opening the source: none repeats "Open the source" (the Source line holds the link)', () => {
+    for (const f of BRIEF_FAMILIES) expect(NEXT_STEP[f], f).not.toMatch(/\bopen\b/i);
+  });
+  it('no brief string says "your trade": a card is worded for the trade it was matched to, never for the viewer in general', () => {
+    for (const s of allBriefStrings()) expect(s).not.toMatch(/your trade|your line of work|your industry/i);
   });
 });
 

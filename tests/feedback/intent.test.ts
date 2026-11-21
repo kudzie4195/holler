@@ -139,7 +139,7 @@ describe('intent copy', () => {
     expect(bid).not.toContain('contractor may already be chosen');
   });
 
-  it('renders in the alert email, html and text, per item', () => {
+  it('the alert email no longer prints the intent block (changed deliberately, brief card v1 redo); the brief carries what it said', () => {
     const mail = renderDigest({
       businessName: 'Acme',
       appUrl: 'https://holler.test/app',
@@ -148,20 +148,19 @@ describe('intent copy', () => {
       items: [
         { kind: 'alert', source: 'nws', title: 'Hail', occurredAt: '2026-11-17T11:00:00Z' },
         { kind: 'civic', source: 'socrata-sf-business', subtype: 'business', title: 'New cafe', occurredAt: '2026-11-17T11:00:00Z' },
-        { kind: 'ask', source: 'holler-request', title: 'Need a plumber', occurredAt: '2026-11-17T11:00:00Z' },
-        { kind: 'contract', source: 'sam-gov', title: 'Federal bid in Macon', occurredAt: '2026-11-17T11:00:00Z' },
-        { kind: 'ask', source: 'bluesky', title: 'Anyone recommend a roofer', occurredAt: '2026-11-17T11:00:00Z' },
+        { kind: 'ask', source: 'holler-request', title: 'Need a plumber', occurredAt: '2026-11-17T11:00:00Z', label: 'act_now', trade: 'plumbing' },
+        { kind: 'contract', source: 'sam-gov', title: 'Federal bid in Macon', occurredAt: '2026-11-17T11:00:00Z', label: 'act_now', trade: 'roofing' },
+        { kind: 'ask', source: 'bluesky', title: 'Anyone recommend a roofer', occurredAt: '2026-11-17T11:00:00Z', label: 'act_now', trade: 'roofing' },
       ],
     });
     for (const out of [mail.html, mail.text]) {
-      expect(out).toContain('Might need work');
-      expect(out).toContain('Money being spent');
-      expect(out).toContain('Someone asked');
-      expect(out).toContain('A resident asked for this service.');
-      expect(out).toContain('A new business registered here. It may need services as it opens.');
-      expect(out).toContain('This work is out for bid. No contract has been awarded yet.');
-      expect(out).toContain('A public post asked about this. Holler has not checked who wrote it.');
-      expect(out).not.toContain('The main contractor may already be chosen');
+      for (const gone of ['Might need work', 'Money being spent', 'Someone asked', 'A resident asked for this service.', 'A new business registered here. It may need services as it opens.', 'This work is out for bid. No contract has been awarded yet.', 'A public post asked about this. Holler has not checked who wrote it.']) {
+        expect(out).not.toContain(gone);
+      }
+      // what the intent lines said is in the brief: the open-bid, the public-post and the resident-request cases
+      expect(out).toContain('nothing is awarded');
+      expect(out).toContain('Low confidence');
+      expect(out).toContain('A resident asked on Holler');
     }
     expect(mail.html).not.toMatch(/[–—]/);
   });

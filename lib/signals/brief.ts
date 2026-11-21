@@ -143,27 +143,27 @@ export function briefFamilyOf(sig: BriefInput): BriefFamily {
  * category has none). `null` (a keyword-watch match, where no trade matched) uses GENERIC_WORK.
  */
 export const TRADE_WORK: Record<CategoryId, string> = {
-  roofing: 'roof repair or replacement',
-  hvac: 'heating and cooling work',
+  roofing: 'roof repair or install',
+  hvac: 'heating and cooling',
   plumbing: 'plumbing work',
   electrical: 'electrical work',
-  'tree-service': 'tree removal or trimming',
+  'tree-service': 'tree removal or care',
   landscaping: 'landscaping work',
   'lawn-care': 'lawn care',
   'snow-removal': 'snow and ice removal',
   'pest-control': 'pest control',
   cleaning: 'house cleaning',
-  restoration: 'water, fire or storm restoration',
-  'general-contractor': 'remodeling or repair work',
+  restoration: 'storm or water repair',
+  'general-contractor': 'remodeling or repair',
   painting: 'painting work',
   'pool-spa': 'pool and spa service',
   solar: 'solar installation',
-  'auto-glass': 'windshield and auto glass repair',
-  'auto-body': 'dent and collision repair',
-  towing: 'towing and roadside help',
+  'auto-glass': 'auto glass repair',
+  'auto-body': 'dent and body repair',
+  towing: 'towing or roadside',
   'auto-repair': 'auto repair',
   moving: 'moving help',
-  'junk-removal': 'junk removal and hauling',
+  'junk-removal': 'junk hauling',
   locksmith: 'locksmith work',
   'real-estate': 'buying or selling help',
   insurance: 'insurance help',
@@ -172,17 +172,17 @@ export const TRADE_WORK: Record<CategoryId, string> = {
   'event-services': 'event services',
   'rideshare-delivery': 'rides and deliveries',
   childcare: 'childcare',
-  beauty: 'hair and beauty services',
+  beauty: 'hair and beauty work',
   'janitorial-commercial': 'commercial cleaning',
   security: 'security services',
   fencing: 'fence work',
-  'concrete-paving': 'concrete and paving work',
+  'concrete-paving': 'concrete or paving',
   'windows-doors': 'window and door work',
   'siding-gutters': 'siding and gutter work',
   flooring: 'flooring work',
-  handyman: 'repair and odd-job work',
+  handyman: 'repair and odd jobs',
   'signs-printing': 'signs and printing',
-  'business-services': 'bookkeeping, payroll or IT setup',
+  'business-services': 'bookkeeping or IT help',
   'public-adjuster': 'insurance claim help',
 };
 
@@ -196,91 +196,101 @@ export function workFor(trade: string | null | undefined): string {
 
 type WhyFn = (work: string) => string;
 
-/** One sentence per (family, label). A family without a sentence for a label falls back to FALLBACK_WHY[label]. */
+/**
+ * One short sentence per (family, label) saying what happened and why it may matter to the trade. What the record does NOT show
+ * (damage, a hire, a winner) is said once, in UNCERTAIN, not repeated here. A family without a sentence for a label falls back to
+ * FALLBACK_WHY[label]. Every sentence is at most MAX_WHY characters for any trade (tests/signals/brief.test.ts).
+ */
 const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'weather-alert': {
-    coming_soon: (w) => `A weather alert is active near you, which may bring ${w} later; no damage is reported.`,
+    coming_soon: (w) => `A weather alert is active near you; ${w} may follow.`,
   },
   'storm-report': {
-    act_now: (w) => `A hail, wind or tornado damage report was filed near you, which may mean ${w}; damage at a specific property is not confirmed.`,
-    coming_soon: (w) => `A wind gust was measured near you, which may mean ${w} later; no damage is reported.`,
+    act_now: (w) => `A storm report was filed nearby; ${w} may follow.`,
+    coming_soon: (w) => `A wind gust was measured nearby; ${w} may follow.`,
   },
   disaster: {
-    coming_soon: (w) => `A disaster declaration is on file for an area near you, so ${w} may come up in the weeks ahead.`,
+    coming_soon: (w) => `A disaster was declared near you; ${w} may come up.`,
   },
   quake: {
-    coming_soon: (w) => `An earthquake was recorded near you, so ${w} may come up; no damage is reported.`,
+    coming_soon: (w) => `An earthquake was recorded nearby; ${w} may come up.`,
   },
   airport: {
-    coming_soon: (w) => `An airport delay is listed near you, which may change demand for ${w}.`,
+    coming_soon: (w) => `An airport delay is listed nearby; it may affect ${w}.`,
   },
   permit: {
-    coming_soon: (w) => `A permit was filed near you, and ${w} may follow once the permitted job is under way.`,
-    market_insight: (w) => `A permit for ${w} was filed near you; it shows the work is planned, not who will do it.`,
+    coming_soon: (w) => `A permit was filed nearby; ${w} may follow.`,
+    market_insight: (w) => `A permit for ${w} was filed nearby; work is planned.`,
   },
   '311': {
-    act_now: (w) => `A 311 report near you names a problem the owner has to fix, which may call for ${w}; nobody is confirmed as hired.`,
-    coming_soon: (w) => `A 311 request near you may involve ${w}; the city has not said that anyone is hiring.`,
+    act_now: (w) => `A 311 report names a problem to fix; ${w} may be needed.`,
+    coming_soon: (w) => `A 311 request nearby may involve ${w}.`,
   },
   violation: {
-    act_now: (w) => `A code violation near you means the owner has been told to fix something, which may call for ${w}; nobody is confirmed as hired.`,
+    act_now: (w) => `A code violation was recorded nearby; ${w} may be needed.`,
   },
   inspection: {
-    act_now: (w) => `A food inspection near you failed, and fixing what failed is ${w}; whether the owner has hired anyone is not known.`,
-    coming_soon: (w) => `A food inspection near you failed, and the repairs it names may involve ${w}; the inspection does not say whether the owner is hiring.`,
+    act_now: (w) => `A food inspection nearby failed; fixing it may call for ${w}.`,
+    coming_soon: (w) => `A food inspection nearby failed; repairs may involve ${w}.`,
   },
   business: {
-    coming_soon: (w) => `A new business license was filed near you, and a business that is opening may buy ${w}; nothing says it will.`,
+    coming_soon: (w) => `A new business license was filed nearby; it may need ${w}.`,
   },
   'event-permit': {
-    coming_soon: (w) => `An event permit was filed near you, and an organizer may buy ${w}; the permit does not say they will.`,
+    coming_soon: (w) => `An event permit was filed nearby; it may need ${w}.`,
   },
   'big-event': {
-    coming_soon: (w) => `A big event is listed near you, which may change demand for ${w} that week.`,
+    coming_soon: (w) => `A big event is listed nearby; it may affect ${w}.`,
   },
   'federal-bid': {
-    act_now: (w) => `A federal agency has an open solicitation that matches ${w}; responses are due by the date shown, and nothing is awarded.`,
+    act_now: (w) => `A federal bid matching ${w} is open; nothing is awarded.`,
   },
   'federal-award': {
-    market_insight: (w) => `A federal contract for work like ${w} was awarded; it shows who is winning, and it is closed to bids.`,
+    market_insight: (w) => `A federal contract for ${w} was awarded; it is closed.`,
   },
   'city-bid': {
-    act_now: (w) => `A city has an open bid that matches ${w}; responses are due by the date shown, and nothing is awarded.`,
+    act_now: (w) => `A city bid matching ${w} is open; nothing is awarded.`,
   },
   'public-post': {
-    act_now: (w) => `Someone posted publicly asking for ${w} near you; Holler has not checked who wrote it.`,
+    act_now: (w) => `Someone posted publicly asking for ${w} nearby.`,
   },
   'resident-request': {
-    act_now: (w) => `A resident asked on Holler for ${w} near you.`,
+    act_now: (w) => `A resident asked on Holler for ${w} nearby.`,
   },
   other: {},
 };
 
 const FALLBACK_WHY: Record<BriefLabel, WhyFn> = {
-  act_now: (w) => `This record matches ${w} and may need action soon; it is not confirmed that anyone is hiring.`,
-  coming_soon: (w) => `This record may point to ${w} later; nothing is confirmed.`,
-  market_insight: (w) => `This record shows what is happening in your market for ${w}; it is not a request for your trade.`,
+  act_now: (w) => `This record matches ${w} and may need action soon.`,
+  coming_soon: (w) => `This record may point to ${w} later.`,
+  market_insight: (w) => `This record shows market activity for ${w}.`,
   context: () => 'This is a general public record, kept for context.',
 };
 
+/** The longest "why it matters" sentence, in characters, for any (family, label, trade). A typical card stays short on a phone. */
+export const MAX_WHY = 80;
+export const MAX_NEXT = 72;
+export const MAX_UNCERTAIN = 80;
+
 /**
- * Cells of (label, family, trade) where the generic sentence would mislead or miss the point. Key: `${label}|${family}|${trade}`.
- * The reasons are in tests/signals/brief.test.ts and in lead-rules.ts (INSPECTION_TRADES, soon-new-home-downstream, ...).
+ * Cells of (label, family, trade) where the generic sentence would miss the point. Key: `${label}|${family}|${trade}`. A sentence here
+ * names the trade's own work, so it is only ever shown to a member who picked that trade (the card is built for the trade the record
+ * matched, lib/signals/match.ts). It never says "your trade". Reasons: lead-rules.ts (INSPECTION_TRADES, soon-new-home-downstream, ...).
  */
 export const WHY_OVERRIDES: Readonly<Record<string, string>> = {
-  'act_now|storm-report|roofing': 'A hail, wind or tornado damage report was filed near you; roofs are often checked after storms like this, but damage at a specific property is not confirmed.',
-  'act_now|storm-report|siding-gutters': 'A hail, wind or tornado damage report was filed near you; siding and gutters are often checked after storms like this, but damage at a specific property is not confirmed.',
-  'act_now|storm-report|auto-body': 'A hail, wind or tornado damage report was filed near you; vehicles are sometimes dented in storms like this, but damage to any one car is not confirmed.',
-  'act_now|storm-report|tree-service': 'A hail, wind or tornado damage report was filed near you; fallen limbs are common after storms like this, but damage at a specific property is not confirmed.',
-  'act_now|storm-report|restoration': 'A hail, wind or tornado damage report was filed near you; storm restoration can follow, but damage at a specific property is not confirmed.',
-  'act_now|storm-report|insurance': 'A hail, wind or tornado damage report was filed near you; storm claims can follow, but damage at a specific property is not confirmed.',
-  'act_now|storm-report|public-adjuster': 'A hail, wind or tornado damage report was filed near you; storm claims can follow, but damage at a specific property is not confirmed.',
-  'act_now|inspection|pest-control': 'A food inspection near you failed; failed inspections often involve pests, which is your trade, but read the source to see what failed.',
-  'act_now|inspection|cleaning': 'A food inspection near you failed; failed inspections often involve cleanliness, which is your trade, but read the source to see what failed.',
-  'act_now|inspection|janitorial-commercial': 'A food inspection near you failed; failed inspections often involve cleanliness, which is your trade, but read the source to see what failed.',
-  'coming_soon|permit|real-estate': 'A new-home permit was filed near you; a finished home may be sold later, but the permit does not say when or by whom.',
-  'coming_soon|permit|moving': 'A new-home permit was filed near you; a finished home may be moved into later, but the permit does not say when.',
-  'coming_soon|permit|junk-removal': 'A demolition permit was filed near you, and hauling often follows; the permit does not say who will haul.',
+  'act_now|storm-report|roofing': 'A storm report was filed nearby; roofs are often checked after storms.',
+  'act_now|storm-report|siding-gutters': 'A storm report was filed nearby; siding and gutters are often checked.',
+  'act_now|storm-report|auto-body': 'A storm report was filed nearby; cars are sometimes dented in storms.',
+  'act_now|storm-report|tree-service': 'A storm report was filed nearby; fallen limbs are common after storms.',
+  'act_now|storm-report|restoration': 'A storm report was filed nearby, and storm restoration can follow.',
+  'act_now|storm-report|insurance': 'A storm report was filed nearby, and storm claims can follow.',
+  'act_now|storm-report|public-adjuster': 'A storm report was filed nearby, and storm claims can follow.',
+  'act_now|inspection|pest-control': 'A food inspection nearby failed; failures often involve pests.',
+  'act_now|inspection|cleaning': 'A food inspection nearby failed; failures often involve cleanliness.',
+  'act_now|inspection|janitorial-commercial': 'A food inspection nearby failed; failures often involve cleanliness.',
+  'coming_soon|permit|real-estate': 'A new-home permit was filed nearby; a finished home may be sold later.',
+  'coming_soon|permit|moving': 'A new-home permit was filed nearby; people may move in once it is built.',
+  'coming_soon|permit|junk-removal': 'A demolition permit was filed nearby, and hauling often follows.',
 };
 
 interface Uncertainty {
@@ -296,52 +306,55 @@ interface Uncertainty {
  * data are Medium, public posts are Low. It is confidence that the record says what it says, never that work exists.
  */
 const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Record<BriefLabel, Partial<Uncertainty>>> }> = {
-  'weather-alert': { base: { confidence: 'High', known: 'the alert was issued', unknown: 'whether anything was damaged is not known' } },
+  'weather-alert': { base: { confidence: 'High', known: 'the alert was issued', unknown: 'no damage is reported' } },
   'storm-report': {
-    base: { confidence: 'High', known: 'a storm report was filed', unknown: 'damage at any one property is not confirmed' },
-    byLabel: { coming_soon: { known: 'a wind gust was measured', unknown: 'no damage is reported' } },
+    base: { confidence: 'High', known: 'a storm report was filed', unknown: 'damage is not confirmed' },
+    byLabel: { coming_soon: { known: 'a gust was measured', unknown: 'no damage is reported' } },
   },
-  disaster: { base: { confidence: 'High', known: 'the declaration exists', unknown: 'whether it brings work in your area is not known' } },
-  quake: { base: { confidence: 'High', known: 'the earthquake was recorded', unknown: 'whether anything was damaged is not known' } },
-  airport: { base: { confidence: 'High', known: 'the delay is listed', unknown: 'how long it lasts and whether it affects your work is not known' } },
+  disaster: { base: { confidence: 'High', known: 'the declaration exists', unknown: 'local work is not known' } },
+  quake: { base: { confidence: 'High', known: 'it was recorded', unknown: 'no damage is reported' } },
+  airport: { base: { confidence: 'High', known: 'the delay is listed', unknown: 'its length is not known' } },
   permit: {
-    base: { confidence: 'High', known: 'the permit was filed', unknown: 'whether the owner is hiring for your trade is not known' },
-    byLabel: { market_insight: { unknown: 'the permitted work may already be hired out' } },
+    base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' },
+    byLabel: { market_insight: { unknown: 'the work may already be hired out' } },
   },
-  '311': { base: { confidence: 'Medium', known: 'the request was filed', unknown: 'it is a resident report that the city has not confirmed, and whether anyone is hiring is not known' } },
-  violation: { base: { confidence: 'High', known: 'the violation was recorded', unknown: 'whether the owner has hired anyone is not known' } },
-  inspection: { base: { confidence: 'High', known: 'the inspection result is on file', unknown: 'whether the owner is hiring is not known' } },
-  business: { base: { confidence: 'High', known: 'the license was filed', unknown: 'whether the new business needs your service is not known' } },
-  'event-permit': { base: { confidence: 'High', known: 'the event permit was filed', unknown: 'whether the organizer is hiring is not known' } },
-  'big-event': { base: { confidence: 'Medium', known: 'the event is listed', unknown: 'dates can change and whether it brings work is not known' } },
-  'federal-bid': { base: { confidence: 'High', known: 'the solicitation is listed', unknown: 'whether your business is eligible to respond is not known' } },
-  'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids and shows past spending only' } },
-  'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'the portal may not say who is allowed to respond' } },
-  'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'Holler has not checked who wrote it or whether the need is still open' } },
-  'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'their details are not checked' } },
-  other: { base: { confidence: 'Low', known: 'a public record exists', unknown: 'whether it means work for you is not known' } },
+  '311': { base: { confidence: 'Medium', known: 'the request was filed', unknown: 'the city has not confirmed it' } },
+  violation: { base: { confidence: 'High', known: 'the violation was recorded', unknown: 'hiring is not known' } },
+  inspection: { base: { confidence: 'High', known: 'the inspection result is on file', unknown: 'hiring is not known' } },
+  business: { base: { confidence: 'High', known: 'the license was filed', unknown: 'the need is not known' } },
+  'event-permit': { base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' } },
+  'big-event': { base: { confidence: 'Medium', known: 'the event is listed', unknown: 'dates and demand can change' } },
+  'federal-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'your eligibility is not known' } },
+  'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids' } },
+  'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'who may respond is not known' } },
+  'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'the author is unchecked' } },
+  'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'details are unchecked' } },
+  other: { base: { confidence: 'Low', known: 'a public record exists', unknown: 'the need is not known' } },
 };
 
-/** One concrete action per family. */
+/**
+ * One concrete action per family: what to do AFTER opening the source (the Source line already holds the link, so none of these says
+ * "Open the source").
+ */
 export const NEXT_STEP: Record<BriefFamily, string> = {
-  'weather-alert': 'Open the source and read the alert area and times.',
-  'storm-report': 'Open the source and check where the report was filed, then look at that area on a map.',
-  disaster: 'Open the source and check which counties the declaration covers.',
-  quake: 'Open the source and check the magnitude and how far away it was.',
-  airport: 'Open the source and check which airport and how long the delay is.',
-  permit: 'Open the source and check the address and permit type, then look at the address on a map before you go.',
-  '311': 'Open the source and check the address and what was reported, then look at the address on a map before you go.',
-  violation: 'Open the source and check the address and any fix-by date, then look at the address on a map before you go.',
-  inspection: 'Open the source and check what failed and the business address, then look at the address on a map before you go.',
-  business: 'Open the source and check the business name and address.',
-  'event-permit': 'Open the source and check the event date and who holds the permit.',
-  'big-event': 'Open the source and check the date and the venue.',
+  'weather-alert': 'Read the alert area and times.',
+  'storm-report': 'Check where it was filed, then look at that area on a map.',
+  disaster: 'Check which counties the declaration covers.',
+  quake: 'Check the magnitude and how far away it was.',
+  airport: 'Check which airport and how long the delay runs.',
+  permit: 'Check the permit type and address, then look at it on a map.',
+  '311': 'Check what was reported and where, then look at it on a map.',
+  violation: 'Check the address and fix-by date, then look at it on a map.',
+  inspection: 'Check what failed and the address, then decide if it is worth a visit.',
+  business: 'Check the business name and address.',
+  'event-permit': 'Check the event date and who holds the permit.',
+  'big-event': 'Check the date and the venue.',
   'federal-bid': "Check the due date and the buyer's bid page.",
-  'federal-award': 'Open the source and check who won and how large the contract is.',
+  'federal-award': 'Check who won and how large the contract is.',
   'city-bid': "Check the due date and the buyer's bid page.",
-  'public-post': 'Open the source and read the whole post before you reply.',
-  'resident-request': 'Open the request and reply through Holler if it fits what you do.',
-  other: 'Open the source and check the address.',
+  'public-post': 'Read the whole post before you reply.',
+  'resident-request': 'Reply through Holler if it fits what you do.',
+  other: 'Check the address.',
 };
 
 export interface Brief {
