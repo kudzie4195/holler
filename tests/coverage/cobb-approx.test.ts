@@ -167,10 +167,9 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
   });
 
   it('matcher: a Smyrna profile (ZIP 30080, 25 mi) matches a Cobb row; a Lawrenceville profile (30046, 25 mi) does not', () => {
-    // A new-home permit read by a real-estate member is Coming soon (a permit in the member's OWN trade is Market insight and is not matched).
-    const sig: MatchSignal = { id: 1, categories: ['real-estate'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: '2026-11-13T00:00:00.000Z', subtype: 'permit', kind: 'permit', title: 'New home permit in Cobb County' };
-    const smyrna = { user_id: 'u', categories: ['real-estate'], lat: 33.8826, lon: -84.5144, state: 'GA', radius_mi: 25 };
-    const lawrenceville = { user_id: 'u2', categories: ['real-estate'], lat: 33.9562, lon: -83.9879, state: 'GA', radius_mi: 25 };
+    const sig: MatchSignal = { id: 1, categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: '2026-11-13T00:00:00.000Z', subtype: 'permit' };
+    const smyrna = { user_id: 'u', categories: ['general-contractor'], lat: 33.8826, lon: -84.5144, state: 'GA', radius_mi: 25 };
+    const lawrenceville = { user_id: 'u2', categories: ['general-contractor'], lat: 33.9562, lon: -83.9879, state: 'GA', radius_mi: 25 };
     expect(matchOne(sig, smyrna)).not.toBeNull();
     expect(matchOne(sig, lawrenceville)).toBeNull();
   });

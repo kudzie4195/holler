@@ -108,7 +108,7 @@ export function ProfileForm({
                     return (
                       <Chip key={c.id} selected={false} disabled aria-disabled="true">
                         {c.label}
-                        <span className="ml-2 text-xs font-normal">Coming soon</span>
+                        <span className="ml-2 text-xs font-normal">{c.noLiveSource ? 'No live source yet' : 'Coming soon'}</span>
                       </Chip>
                     );
                   }

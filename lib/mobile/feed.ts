@@ -11,7 +11,7 @@ import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { deadlineOf, labelForMember } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
 import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -22,7 +22,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from
  */
 
 export const MATCH_SELECT =
-  'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,deadline:data->>deadline)';
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT})`;
 
 export interface SignalRow {
   id: number;
@@ -42,6 +42,9 @@ export interface SignalRow {
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline. */
   categories?: string[] | null;
   deadline?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
+  dueDate?: string | null;
 }
 
 export interface MatchRow {
@@ -111,7 +114,7 @@ export interface BuildDeps {
 /** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
   const labelOf = (s: SignalRow) =>
-    labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, deps.trades ?? []);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
   const live = rows.filter((m) => {
     const s = signalOf(m);
@@ -167,7 +170,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: INTENT_LABEL[intentOf(intentIn)], line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
-      deadline: deadlineOf({ source: s.source, expires_at: s.expires_at, data: { deadline: s.deadline } }),
+      deadline: deadlineOf(s),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,

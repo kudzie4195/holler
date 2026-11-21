@@ -97,10 +97,8 @@ describe('P1 re-map: a title-only change never creates a match; a gained trade m
 
   it('a row that gains a trade is rematched with notified = true even when the record is new', async () => {
     // Summary names a re-roof, the stored categories said general-contractor only: roofing is gained.
-    // Demolition gains junk removal, which is DOWNSTREAM of a demolition permit (an alert). A roofer who gains a re-roof permit gets no
-    // alert: a permit in the member's own trade is a market insight (lib/signals/lead-rules.ts).
-    const r = row({ id: 2, title: 'Permit in DeKalb County', summary: 'Demolition | Single Family Dwelling | Issued', categories: ['general-contractor'], occurred_at: ago(0.5) });
-    const ROOFER: MatchProfile = { ...WINDOWS, user_id: 'roofer', categories: ['junk-removal'] };
+    const r = row({ id: 2, title: 'Permit in DeKalb County', summary: 'Residential Re-Roof | Single Family Dwelling | Issued', categories: ['general-contractor'], occurred_at: ago(0.5) });
+    const ROOFER: MatchProfile = { ...WINDOWS, user_id: 'roofer', categories: ['roofing'] };
     const db = fakeTables({ holler_signals: [r], holler_matches: [] });
     const rep = await remapStoredSignals(db, { now: NOW, rematch: (ids) => rematchSignals(db, ids, { now: NOW, profiles: [ROOFER], quiet: true }), prune: async () => ({ removed: 0 }) });
     expect(rep.rematched).toBe(1);
@@ -139,8 +137,7 @@ describe('P1 re-map: violations never classify the address; narrowed trades drop
   it('a row re-mapped away from plumbing loses the plumber\'s un-notified match; notified matches stay', async () => {
     const PLUMBER: MatchProfile = { user_id: 'plumber', categories: ['plumbing'], lat: 33.8796, lon: -84.5023, state: 'GA', radius_mi: 25 };
     const HVAC: MatchProfile = { ...PLUMBER, user_id: 'hvac', categories: ['hvac'] };
-    // A code violation: an HVAC permit would be a market insight for the HVAC member and so would be pruned too (lead-rules.ts).
-    const sig = { id: 5, source: 'arcgis-dekalb-violations', kind: 'civic', categories: ['hvac'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(1), expires_at: null, title: 'Code violation in DeKalb County: heat unit', summary: null, data: { subtype: 'violation' } };
+    const sig = { id: 5, source: 'arcgis-dekalb-permits', kind: 'permit', categories: ['hvac'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(1), expires_at: null, title: 'HVAC permit in DeKalb County', summary: null, data: { subtype: 'permit' } };
     const db = fakeTables({
       holler_signals: [sig],
       holler_matches: [
@@ -258,11 +255,10 @@ describe('P1 permit mapping: Atlanta Name (address, description or name) gives a
 // ---- P1 #6: Cobb County rows -----------------------------------------------------------------------------------------------------
 
 describe('P1 Cobb County: matched across the county, labelled as approximate, never on a city page', () => {
-  // A new home: movers are downstream of it, so it is an alert for them. For the general contractor it is a market insight (lead-rules.ts).
-  const cobbRow = { id: 77, source: 'arcgis-cobb-residential-permits', title: 'New home permit in Cobb County', categories: ['moving'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: ago(1), data: { subtype: 'permit', loc: 'approx' } };
+  const cobbRow = { id: 77, source: 'arcgis-cobb-residential-permits', categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: ago(1), data: { subtype: 'permit', loc: 'approx' } };
   const at = (zip: string, radius: number): MatchProfile => {
     const z = lookupZip(zip)!;
-    return { user_id: zip, categories: ['moving'], lat: z.lat, lon: z.lon, state: 'GA', radius_mi: radius };
+    return { user_id: zip, categories: ['general-contractor'], lat: z.lat, lon: z.lon, state: 'GA', radius_mi: radius };
   };
 
   it('Austell 30168 and Acworth 30101 at 10 miles get Cobb permits; no distance is kept', () => {
@@ -275,7 +271,7 @@ describe('P1 Cobb County: matched across the county, labelled as approximate, ne
 
   it('the slack is 15 miles past the radius, measured from the county-seat stand-in', () => {
     expect(APPROX_MATCH_SLACK_MI).toBe(15);
-    const far: MatchProfile = { user_id: 'far', categories: ['moving'], lat: COBB_CENTER.lat + 26 / 69, lon: COBB_CENTER.lon, state: 'GA', radius_mi: 10 };
+    const far: MatchProfile = { user_id: 'far', categories: ['general-contractor'], lat: COBB_CENTER.lat + 26 / 69, lon: COBB_CENTER.lon, state: 'GA', radius_mi: 10 };
     expect(matchOne(cobbRow, far)).toBeNull(); // 26 mi > 10 + 15
     expect(matchOne(cobbRow, { ...far, lat: COBB_CENTER.lat + 24 / 69 })).not.toBeNull();
     // the matcher used by the scan and rematch knows Cobb by source alone
@@ -328,7 +324,7 @@ describe('P2 violations: a roof leak in any wording adds no plumbing', () => {
 describe('P2 rematch: the existing-pairs read is paged past the 1000-row response cap', () => {
   it('pairs past row 1000 still count as existing, so they cannot use up the 25 cap', async () => {
     const P: MatchProfile = { user_id: 'me', categories: ['plumbing'], lat: 33.8796, lon: -84.5023, state: 'GA', radius_mi: 25 };
-    const signals = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, source: 'arcgis-dekalb-violations', kind: 'civic', categories: ['plumbing'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(i < 25 ? 0.5 : 1), expires_at: null, title: 't', summary: null, data: { subtype: 'violation' } }));
+    const signals = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, source: 'arcgis-dekalb-permits', kind: 'permit', categories: ['plumbing'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(i < 25 ? 0.5 : 1), expires_at: null, title: 't', summary: null, data: { subtype: 'permit' } }));
     const matches: any[] = [];
     let id = 1;
     for (let k = 0; k < 1100; k++) matches.push({ id: id++, user_id: `other${k}`, signal_id: 1 + (k % 25) });

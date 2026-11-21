@@ -21,7 +21,7 @@ import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
-import { deadlineOf, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
 
 export const maxDuration = 60;
 
@@ -47,6 +47,9 @@ interface SignalRow {
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
   deadline?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
+  dueDate?: string | null;
 }
 interface MatchRow {
   id: number;
@@ -84,7 +87,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, deadline:data->>deadline)')
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -162,14 +165,15 @@ export async function GET(req: Request) {
         store_expires_at: p.store_expires_at ?? null,
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
-        labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades);
+        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades), deadlineOf(s), now.getTime());
       const live = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
         .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()));
-      // Only Act Now and Coming Soon are mailed (items 0.2 and 0.3). A context or market_insight match stored before the label rules
-      // existed is marked notified without an email, so it neither goes out nor is read again on every run.
+      // Only Act Now and Coming Soon are mailed (items 0.2 and 0.3). A market_insight match is stored for the in-app feed only, and a
+      // context match stored before the label rules existed is hidden: both are marked notified without an email, so neither goes out
+      // nor is read again on every run.
       const rows = live.filter((r) => isAlertLabel(labelOf(r.s)));
       const silent = live.filter((r) => !isAlertLabel(labelOf(r.s)));
       for (const part of chunk(silent.map((r) => r.m.id))) {
@@ -217,7 +221,7 @@ export async function GET(req: Request) {
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
-        deadline: deadlineOf({ source: s.source, expires_at: s.expires_at, data: { deadline: s.deadline } }),
+        deadline: deadlineOf(s),
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

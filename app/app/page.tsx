@@ -24,7 +24,7 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
-import { deadlineOf, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
 
 interface SignalRow {
   id: number;
@@ -45,8 +45,11 @@ interface SignalRow {
   severity?: number | null;
   /** The record's trades, for this member's opportunity label (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
-  /** data->>deadline: a fix-by, due or response date an adapter read from the record. Usually absent. */
+  /** A fix-by, due or response date an adapter read from the record (DEADLINE_SELECT aliases). Usually absent. */
   deadline?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
+  dueDate?: string | null;
 }
 
 interface MatchRow {
@@ -66,7 +69,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,deadline:data->>deadline)',
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -78,12 +81,13 @@ async function loadDashboard() {
 
   // The member's trades under their plan: the opportunity label of a record depends on the trade that matched it.
   const memberTrades = matchScope(profile).categories;
+  // An Act Now whose published deadline has passed is shown as Coming soon (demoteExpired).
   const labelOf = (s: SignalRow) =>
-    labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, memberTrades);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, memberTrades), deadlineOf(s), now);
 
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
-  // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown as
-  // alerts, including matches stored before the label rules existed (items 0.2 and 0.3).
+  // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown,
+  // including matches stored before the label rules existed (items 0.2 and 0.3). Market insight rows are shown, after every alert.
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     return !!s && !isEndedRequest(s, now) && labelOf(s) !== 'context';
@@ -178,7 +182,7 @@ async function loadDashboard() {
       zip: s.zip,
       subtype: s.subtype ?? null,
       label: labelOf(s),
-      deadline: deadlineOf({ source: s.source, expires_at: s.expires_at, data: { deadline: s.deadline } }),
+      deadline: deadlineOf(s),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,

@@ -106,7 +106,7 @@ describe('verify-v1 P2 #4: pruning deletes only an untouched match', () => {
 describe('verify-v1 P2 #12: paged reads continue until an empty page', () => {
   it('rematch with the project max-rows at 300 still sees every existing pair (verifier repro, created 5)', async () => {
     const P: MatchProfile = { user_id: 'me', categories: ['plumbing'], lat: 33.8796, lon: -84.5023, state: 'GA', radius_mi: 25 };
-    const signals = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, source: 'arcgis-dekalb-violations', kind: 'civic', categories: ['plumbing'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(i < 25 ? 0.5 : 1), expires_at: null, title: 't', summary: null, data: { subtype: 'violation' } }));
+    const signals = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, source: 'arcgis-dekalb-permits', kind: 'permit', categories: ['plumbing'], lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(i < 25 ? 0.5 : 1), expires_at: null, title: 't', summary: null, data: { subtype: 'permit' } }));
     const matches: Record<string, unknown>[] = [];
     let id = 1;
     for (let k = 0; k < 1400; k++) matches.push({ id: id++, user_id: `other${k}`, signal_id: 1 + (k % 25) });

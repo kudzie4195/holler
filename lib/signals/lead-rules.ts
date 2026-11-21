@@ -4,12 +4,14 @@ import type { CategoryId } from './categories';
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
  * delivery:
  *   act_now         someone must or has asked to buy: a code violation, a no-heat building, a failed food inspection, a sewage
- *                   back-up, a storm report, a private-property graffiti request, a resident request on Holler, an open federal bid.
- *                   Delivered at once, shown first, with a deadline or "No deadline published".
- *   coming_soon     evidence of likely future demand. Delivered in the digest.
+ *                   back-up, a damage or hail report, a private-property graffiti request, a resident request on Holler, an open
+ *                   federal bid. Delivered at once, shown first, with a deadline or "No deadline published".
+ *   coming_soon     evidence of likely future demand (weather alerts, measured wind gusts, other 311 requests, new-home permits for
+ *                   real estate and movers). Delivered in the digest.
  *   market_insight  a trend or competitor activity: a permit in the member's OWN trade (the job is already won), an awarded contract.
- *                   Not an alert. Reserved for the weekly email (not built yet).
- *   context         city work, public property, generic records. Never alerted. Public pages may still use the rows.
+ *                   FEED ONLY: stored, shown in the app feed after every alert with the "Market insight" chip, never pushed and never
+ *                   emailed. (Round 13 review P0-2: without it a roofer near Smyrna, the only live member, would see nothing.)
+ *   context         city work, public property, generic records. Never alerted and never shown. Public pages may still use the rows.
  *
  * This file extends lib/signals/intent.ts (demand / spending / asking says what the record IS; the label says what to DO with it).
  * It is a typed code table, not the `holler_lead_rules` database table PLAN-2.0 named: no live migration is needed, the table is
@@ -20,10 +22,23 @@ import type { CategoryId } from './categories';
  * Pure and client-safe: no server imports, no clock, no randomness. Same input, same label.
  *
  * How a label is chosen (first hit wins):
- *   1. RULES, in order: source, kind or subtype, a title pattern, and the member's trade.
+ *   1. RULES, in order: source, kind or subtype, a title pattern, and the member's trade. A title pattern is tested against the part
+ *      of the title AFTER the first ": " ("311 request in Oak Park: Graffiti" is tested as "Graffiti"), so a city name never fires it.
  *   2. SOURCE_DEFAULTS: one explicit entry for every registered source (tests/signals/lead-rules.test.ts fails when one is missing).
  *   3. FALLBACK_LABEL for a source nobody listed: coming_soon, which is what such a row was before (it was alerted), so an unknown
  *      never silently disappears. act_now and context are given only by an explicit rule.
+ *
+ * STABLE API (other units build on it; change the signatures only with the callers):
+ *   labelFor(sig, trade | null)                 one record, one trade
+ *   labelForTrades(sig, trades)                 best label across trades (act_now beats coming_soon beats market_insight beats context)
+ *   labelForMember(sig + categories, memberTrades)   what every surface calls: the member's plan trades that the record carries
+ *   isAlertLabel(label)      act_now | coming_soon: pushed and emailed.  isFeedLabel(label): anything but context: shown in the app feed.
+ *   orderByLabel(items, labelOf)                stable, Act Now first
+ *   demoteExpired(label, deadline, nowMs)       an Act Now whose published deadline has passed becomes coming_soon
+ *   deadlineOf(row)  DEADLINE_SELECT  deadlineLine(deadline)   the deadline and its card line (accepted fields: see DEADLINE_KEYS)
+ *   tradeNoLiveSource(trade)                    locksmith and business-services: no source can reach them yet
+ * ADDING A SOURCE (for example r13-bids): add one SOURCE_DEFAULTS entry with the registered adapter id (the registry test fails until
+ * you do). A solicitation that is open for bids is act_now; list any new data key that holds a real response date in DEADLINE_KEYS.
  */
 export type OpportunityLabel = 'act_now' | 'coming_soon' | 'market_insight' | 'context';
 
@@ -51,6 +66,11 @@ export const LABEL_RANK: Record<OpportunityLabel, number> = { act_now: 0, coming
 /** Labels that are alerts (matched, pushed, emailed). Market insight waits for the weekly email; context is never alerted. */
 export function isAlertLabel(label: OpportunityLabel): boolean {
   return label === 'act_now' || label === 'coming_soon';
+}
+
+/** Labels shown in the app feed: everything but context. market_insight is feed-only (never pushed or emailed). */
+export function isFeedLabel(label: OpportunityLabel): boolean {
+  return label !== 'context';
 }
 
 export interface LabelInput {
@@ -82,17 +102,11 @@ export interface LabelRule {
 
 const PUBLIC_POSTS = ['bluesky', 'websearch-brave', 'websearch-serper'] as const;
 
-/** Trades that act on a failed food inspection: pest control, cleaning, and the repair trades a failed item can name. */
-const INSPECTION_TRADES: readonly CategoryId[] = [
-  'pest-control',
-  'cleaning',
-  'janitorial-commercial',
-  'plumbing',
-  'hvac',
-  'electrical',
-  'general-contractor',
-  'restoration',
-];
+/**
+ * Trades that act on a failed food inspection: the ones whose job is the thing that failed (pests, dirt). A repair trade (plumbing,
+ * HVAC, electrical, general contractor) is only possibly needed, so it gets the source default, coming_soon (review: weak evidence).
+ */
+const INSPECTION_TRADES: readonly CategoryId[] = ['pest-control', 'cleaning', 'janitorial-commercial'];
 
 /**
  * Seeded from the 14-day audit (PLAN-2.0 section 1, live data of Nov 19 to 21 2026). ORDER MATTERS: the first rule that fits wins, so
@@ -100,7 +114,14 @@ const INSPECTION_TRADES: readonly CategoryId[] = [
  */
 export const RULES: readonly LabelRule[] = [
   // ---- act_now: required repairs and people asking (item 0.3) -----------------------------------------------------------------
-  { id: 'act-storm-report', label: 'act_now', sources: ['spc'], why: 'A hail or wind report is on record. Damage is not confirmed.' },
+  {
+    id: 'act-storm-report',
+    label: 'act_now',
+    sources: ['spc'],
+    title: /damage|hail|tornado/i,
+    why: 'A storm report that names damage, hail or a tornado is on record. Damage to a specific property is not confirmed.',
+  },
+  { id: 'soon-storm-gust', label: 'coming_soon', sources: ['spc'], why: 'A measured wind gust. No damage is reported (a gust never proves damage).' },
   { id: 'act-resident-request', label: 'act_now', sources: ['holler-request'], why: 'A resident asked for this service on Holler.' },
   { id: 'act-public-post', label: 'act_now', sources: PUBLIC_POSTS, why: 'A public post asked for this service. Who wrote it is not checked.' },
   { id: 'act-open-bid', label: 'act_now', sources: ['sam-gov'], why: 'Out for bid with a response date. Nothing is awarded.' },
@@ -147,6 +168,31 @@ export const RULES: readonly LabelRule[] = [
     subtypes: ['311'],
     title: /\bpriv(?:ate)?\b|\bprv\b/i,
     why: 'A 311 request on PRIVATE property (a dead tree, dumping, tall weeds): the owner pays, not the city. Kept ahead of the city-work patterns below.',
+  },
+
+  {
+    id: 'soon-sewer-boundary',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: /pipe boundary/i,
+    why: 'A question about where the city sewer ends and the private pipe begins: the private side is the owner\'s (Cambridge, 1 row in 14 days).',
+  },
+  {
+    id: 'soon-flooding-restoration',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    sources: ['socrata-sf-311'],
+    title: /^sewer \/ flooding/i,
+    trades: ['restoration'],
+    why: 'A flooding report. For restoration it is the same evidence as a flood advisory (coming_soon); for plumbing it stays public sewer work.',
+  },
+  {
+    id: 'soon-event-organiser',
+    label: 'coming_soon',
+    subtypes: ['event-permit'],
+    title: /^special event/i,
+    trades: ['catering', 'event-services', 'food-truck'],
+    why: 'A named organiser holds a Special Event permit (weddings, picnics, races in a park). Whether they hire is unknown. Security and cleaning stay context.',
   },
 
   // ---- context: city work and public property (item 0.2) ----------------------------------------------------------------------
@@ -203,8 +249,8 @@ export const RULES: readonly LabelRule[] = [
     id: 'ctx-park-events',
     label: 'context',
     subtypes: ['event-permit'],
-    title: /:\s*(?:special event|plaza event|plaza partner event|open street partner event|permit - event \d|venue rental)/i,
-    why: 'A permitted park, plaza or city-venue event. The organiser is the city or a permit holder, not a buyer.',
+    title: /^(?:special event|plaza event|plaza partner event|open street partner event|permit - event \d|venue rental)/i,
+    why: 'A permitted park, plaza or city-venue event (a plaza or partner event, a sports-field permit, a venue rental). For catering, event services and food trucks a Special Event is soon-event-organiser above.',
   },
   {
     id: 'ctx-business-blanket',
@@ -322,12 +368,19 @@ export const HANDLED_SUBTYPES = ['permit', '311', 'violation', 'inspection', 'bu
 
 const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
 
+/** The part of a title a rule pattern is tested against: after the first ": ", so "311 request in Oak Park: ..." never fires on "Park". */
+function titleBody(title: string | null | undefined): string {
+  const t = title ?? '';
+  const at = t.indexOf(': ');
+  return at >= 0 ? t.slice(at + 2) : t;
+}
+
 function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boolean {
   if (rule.sources && !rule.sources.includes(norm(sig.source))) return false;
   const subtype = norm(sig.subtype);
   if (rule.permit && subtype !== 'permit' && norm(sig.kind) !== 'permit') return false;
   if (rule.subtypes && !rule.subtypes.includes(subtype)) return false;
-  if (rule.title && !rule.title.test(sig.title ?? '')) return false;
+  if (rule.title && !rule.title.test(titleBody(sig.title))) return false;
   if (rule.trades && (trade === null || !rule.trades.includes(trade))) return false;
   if (rule.needsTrade && trade === null) return false;
   return true;
@@ -384,6 +437,20 @@ export function orderByLabel<T>(items: readonly T[], labelOf: (item: T) => Oppor
     .map((x) => x.item);
 }
 
+// ---- trades with no live source ---------------------------------------------------------------------------------------------------
+
+/**
+ * Trades no live source can reach today: every locksmith and business-services record is a blanket business license (tobacco dealers,
+ * wholesale, video gaming terminals) and has no evidence of need (14-day audit; the live table holds 0 members for either). The trade
+ * picker, the profile save and the mobile config mark them "No live source yet" until Phase 3 (business-opening playbook), so no one
+ * pays for an empty feed. Resident requests and public posts may still name them; this is about what Holler can find on its own.
+ */
+export const NO_LIVE_SOURCE_TRADES: readonly string[] = ['locksmith', 'business-services'];
+
+export function tradeNoLiveSource(trade: string): boolean {
+  return NO_LIVE_SOURCE_TRADES.includes(trade);
+}
+
 // ---- deadline ------------------------------------------------------------------------------------------------------------------
 
 export interface DeadlineInput {
@@ -392,41 +459,86 @@ export interface DeadlineInput {
   expires_at?: string | null;
   expiresAt?: string | null;
   data?: { [k: string]: unknown } | null;
+  /** The same keys read flat, as DEADLINE_SELECT aliases them in a PostgREST select. */
+  deadline?: string | null;
+  fixBy?: string | null;
+  dueDate?: string | null;
+  responseDeadline?: string | null;
 }
 
-/** data keys that may hold a fix-by, due or response date, written by an adapter that reads one. */
-const DEADLINE_KEYS = ['deadline', 'fixBy', 'dueDate', 'responseDeadline'] as const;
+/**
+ * The fields accepted as a deadline, and why. A deadline is a date by which the buyer or the owner has to act or reply:
+ *   deadline          a fix-by or compliance date an adapter read from the record (a code violation's correct-by date).
+ *   fixBy             the same, named for a violation.
+ *   responseDeadline  the date responses to a solicitation are due.
+ *   dueDate           accepted ONLY for bid sources (source id starting "bids-"): there it is the solicitation's closing date.
+ * NOT accepted, ever:
+ *   NYC 311 `due_date` (dataset erm2-nwe9): its own description is "Date when responding agency is expected to update the SR". It is
+ *   the city's service target for itself, not a landlord's fix-by, so it must never read as "Deadline". Any `-311` source returns no
+ *   deadline whatever its data holds; so does anything not listed here (created, closed, violation_date, issued dates).
+ * expires_at counts only for sam-gov, where it is the response date (EXPIRY_IS_DEADLINE).
+ */
+export const DEADLINE_KEYS = ['deadline', 'fixBy', 'responseDeadline'] as const;
+const BID_ONLY_KEYS = ['dueDate'] as const;
+const isBidSource = (source: string) => source.startsWith('bids-');
+const isThreeOneOne = (source: string) => /-311$/.test(source);
 /** Sources whose expires_at IS the response date (not just the end of a listing). */
 const EXPIRY_IS_DEADLINE = new Set(['sam-gov']);
 
+/** PostgREST select aliases for the four keys above, read from holler_signals.data. Add to any select that feeds a card. */
+export const DEADLINE_SELECT = 'deadline:data->>deadline,fixBy:data->>fixBy,responseDeadline:data->>responseDeadline,dueDate:data->>dueDate';
+
+/** A date-only value ("2026-12-01") is kept at noon UTC so every US time zone shows the same day. */
 function isoDay(v: unknown): string | null {
   if (typeof v !== 'string' || !v.trim()) return null;
-  const t = Date.parse(v);
+  const raw = v.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const t = Date.parse(`${raw}T12:00:00Z`);
+    return Number.isFinite(t) ? new Date(t).toISOString() : null;
+  }
+  const t = Date.parse(raw);
   return Number.isFinite(t) ? new Date(t).toISOString() : null;
 }
 
 /**
- * The date by which something has to happen, when the record publishes one: a fix-by, due or response date in data, or the response
- * date of an open federal bid. Null otherwise. Today's stored violations, NYC heat complaints and failed inspections carry none
- * (checked on live rows, Nov 21 2026: data keys are only cat_v, dataset, domain, subtype), so they show "No deadline published".
+ * The date by which something has to happen, when the record publishes one (accepted fields: DEADLINE_KEYS, dueDate for bids, expires_at
+ * for sam-gov). Null otherwise. Today's stored violations, NYC heat complaints and failed inspections carry none (checked on live rows,
+ * Nov 21 2026: data keys are only cat_v, dataset, domain, subtype), so they show "No deadline published".
  */
 export function deadlineOf(sig: DeadlineInput): string | null {
-  for (const k of DEADLINE_KEYS) {
-    const d = isoDay(sig.data?.[k]);
+  const source = norm(sig.source);
+  if (isThreeOneOne(source)) return null;
+  const keys: string[] = [...DEADLINE_KEYS, ...(isBidSource(source) ? BID_ONLY_KEYS : [])];
+  for (const k of keys) {
+    const flat = (sig as unknown as Record<string, unknown>)[k];
+    const d = isoDay(flat ?? sig.data?.[k]);
     if (d) return d;
   }
-  if (EXPIRY_IS_DEADLINE.has(norm(sig.source))) return isoDay(sig.expires_at ?? sig.expiresAt ?? null);
+  if (EXPIRY_IS_DEADLINE.has(source)) return isoDay(sig.expires_at ?? sig.expiresAt ?? null);
   return null;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * An Act Now whose published deadline has passed is no longer "act now": it drops to coming_soon (the chip then shows no deadline line).
+ * Takes the clock as an argument so this file stays pure; every surface calls it with its own `now`.
+ */
+export function demoteExpired(label: OpportunityLabel, deadline: string | null | undefined, nowMs: number): OpportunityLabel {
+  if (label !== 'act_now' || !deadline) return label;
+  const t = Date.parse(deadline);
+  return Number.isFinite(t) && t < nowMs ? 'coming_soon' : label;
+}
 
-/** "Dec 5, 2026" in UTC, or null for no usable date. Fixed format so server and browser agree. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DEADLINE_TZ = 'America/New_York';
+const DAY_PARTS = new Intl.DateTimeFormat('en-US', { timeZone: DEADLINE_TZ, year: 'numeric', month: 'numeric', day: 'numeric' });
+
+/** "Dec 5, 2026" as the day in US Eastern time, or null for no usable date. A 9 PM Eastern deadline is that evening's date, not the next. */
 export function formatDeadlineDate(iso: string | null | undefined): string | null {
   const t = iso ? Date.parse(iso) : NaN;
   if (!Number.isFinite(t)) return null;
-  const d = new Date(t);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  const parts = DAY_PARTS.formatToParts(new Date(t));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return `${MONTHS[get('month') - 1]} ${get('day')}, ${get('year')}`;
 }
 
 export const NO_DEADLINE_TEXT = 'No deadline published';

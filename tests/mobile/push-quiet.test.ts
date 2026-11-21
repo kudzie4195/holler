@@ -60,11 +60,10 @@ describe('decision 2, guard 2: the push counts only news (verifier probe)', () =
 });
 
 describe('decision 2, guard 1: history rows are inserted with pushed_at set', () => {
-  // A new-home permit for a real-estate member: Coming soon, so it is an alert (a permit in the member's own trade is Market insight).
-  const profile: MatchProfile = { user_id: UA, categories: ['real-estate'], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 10 };
+  const profile: MatchProfile = { user_id: UA, categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 10 };
   const sig = (id: number, occurredMsAgo: number) => ({
-    id, source: 'arcgis-atlanta-permits', kind: 'permit', categories: ['real-estate'], lat: 33.75, lon: -84.39, state: 'GA', severity: 1,
-    occurred_at: ago(occurredMsAgo), expires_at: null, title: 'New home permit in Atlanta', summary: null, data: { subtype: 'permit' },
+    id, source: 'arcgis-atlanta-permits', kind: 'permit', categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', severity: 1,
+    occurred_at: ago(occurredMsAgo), expires_at: null, title: 'Roof permit in Atlanta', summary: null, data: { subtype: 'permit' },
   });
 
   it('rematch: a 12-day-old record is inserted notified and pushed_at = now; a fresh record is news (pushed_at null)', async () => {

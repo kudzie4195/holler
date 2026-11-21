@@ -91,8 +91,7 @@ describe('business rows do not flood a user (review P2-6)', () => {
     expect(matchSignals(many, [profile], MAX_MATCHES_PER_USER, NOW)).toHaveLength(5);
   });
   it('other record types are untouched by the business cap', () => {
-    // 311 rows, not permits: a permit in the member's own trade is a market insight and is never matched (lead-rules.ts)
-    const permits: MatchSignal[] = Array.from({ length: 10 }, (_, i) => ({ ...biz(i + 1, 0.001 * i), subtype: '311' }));
+    const permits: MatchSignal[] = Array.from({ length: 10 }, (_, i) => ({ ...biz(i + 1, 0.001 * i), subtype: 'permit' }));
     expect(matchSignals(permits, [profile], MAX_MATCHES_PER_USER, NOW)).toHaveLength(10);
   });
   it('business rows never crowd out other rows: 5 business + 20 others fit in 25', () => {
@@ -126,9 +125,8 @@ describe('FEMA declarations are not expired on insert (review P1-6)', () => {
 
 describe('scan deadline (review P2-17)', () => {
   const mk = (id: string): Adapter => ({
-    id, label: id, kind: 'report', cadenceMinutes: 60, sourceUrl: 'https://example.com',
-    // a storm report (a permit for a roofer would be a market insight, so it would not be matched: lead-rules.ts)
-    fetch: async () => [input(`${id}-1`, iso(-1), { source: id, kind: 'report' })],
+    id, label: id, kind: 'permit', cadenceMinutes: 60, sourceUrl: 'https://example.com',
+    fetch: async () => [input(`${id}-1`, iso(-1), { source: id })],
   });
 
   it('past the deadline no new source is written, matching and the run log still happen for the ones already written, skipped ones are not logged', async () => {

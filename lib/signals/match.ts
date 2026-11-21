@@ -1,7 +1,7 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation } from './approx-location';
-import { deadlineOf, isAlertLabel, labelForTrades, LABEL_RANK, type OpportunityLabel } from './lead-rules';
+import { deadlineOf, isAlertLabel, isFeedLabel, labelForTrades, LABEL_RANK, type OpportunityLabel } from './lead-rules';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -82,9 +82,10 @@ const MI_PER_DEG_LAT_FLOOR = 69;
  * - then the record must share a trade with the profile's allowed trades, OR (Pro) its title or summary contains one of the
  *   keyword watches as a whole phrase, any case, accents ignored; a keyword match does not need a shared trade
  * The area test runs first because it is cheap and rejects almost every pair; the text test only runs for nearby records.
- * - last, the record's opportunity label for this member's trades (lead-rules.ts). Only act_now and coming_soon are alerts: a
- *   market_insight (a permit in the member's own trade, an awarded contract) or context (public graffiti, city tree trims, sewer and
- *   catch-basin work, park events) record is not matched, so it is never pushed or emailed.
+ * - last, the record's opportunity label for this member's trades (lead-rules.ts). Every label but context is matched and stored for the
+ *   feed: act_now and coming_soon are alerts (pushed, emailed), market_insight (a permit in the member's own trade, an awarded
+ *   contract) is feed-only (the push and the digest drop it), and context (public graffiti, city tree trims, sewer and catch-basin
+ *   work, park events) is not matched at all, so it is never stored, pushed, emailed or shown.
  * Returns the match (distance may be null for state-level) or null.
  */
 export function matchOne(signal: MatchSignal, profile: MatchProfile): MatchResult | null {
@@ -137,7 +138,7 @@ function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchSc
     if (phraseIndex(searchText(signal), scope.phrases) < 0) return null;
   }
   const label = labelInScope(signal, scope);
-  return isAlertLabel(label) ? resultFor(signal, where, label) : null;
+  return isFeedLabel(label) ? resultFor(signal, where, label) : null;
 }
 
 export function subtypeOf(s: Pick<MatchSignal, 'subtype' | 'data'>): string | null {
@@ -162,9 +163,10 @@ function rankTime(iso: string, nowMs: number): number {
 }
 
 /**
- * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest), then everything is ordered Act Now
- * first (item 0.3), then most severe first, newest first (future dates clamped to now) and cut to `cap`. Act Now rows are therefore
- * the last to be cut when a member has more than `cap` rows.
+ * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest). What is CUT at `cap` goes by: a severe
+ * (3+) alert first, then Act Now, Coming soon, Market insight, then most severe, newest (future dates clamped to now). What is KEPT is
+ * returned Act Now first (item 0.3), then Coming soon, Market insight, most severe, newest. So 25 heat complaints never push a
+ * severity-3 warning out of the cap, and market_insight rows are the first to go.
  */
 export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER, maxBusiness = MAX_BUSINESS_PER_USER): Hit[] {
   const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
@@ -176,8 +178,10 @@ export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER,
     )
     .slice(0, maxBusiness);
   const keep = [...hits.filter((h) => !isBiz(h)), ...biz];
-  keep.sort((a, b) => labelRank(a) - labelRank(b) || b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs));
-  return keep.slice(0, cap);
+  const byLabel = (a: Hit, b: Hit) => labelRank(a) - labelRank(b) || b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs);
+  const severeAlert = (h: Hit) => h.s.severity >= 3 && isAlertLabel(h.label ?? 'coming_soon');
+  const cutOrder = (a: Hit, b: Hit) => Number(severeAlert(b)) - Number(severeAlert(a)) || byLabel(a, b);
+  return keep.sort(cutOrder).slice(0, cap).sort(byLabel);
 }
 
 /**
@@ -222,9 +226,9 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
         }
         if (!found) continue;
       }
-      // Context and market_insight records are not alerts: left out here, so they are never pushed or emailed (items 0.2, 1.1).
+      // Context records are left out here (item 0.2). market_insight is kept for the feed; the push and the digest drop it (item 1.1).
       const label = labelInScope(s, scope);
-      if (!isAlertLabel(label)) continue;
+      if (!isFeedLabel(label)) continue;
       hits.push({ s, distance_mi: where.distance_mi, label });
     }
     for (const h of pickHits(hits, now.getTime(), cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi });

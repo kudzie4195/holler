@@ -7,8 +7,12 @@
  *   scripts/fixtures/replay-14d/other.psv     source|subtype|kind|title|cats|n     (3,045 rows, everything else)
  * Output: /home/claude/gates/r13/logs/A-replay.md (or the path given as the first argument).
  *
- * Nothing here touches a database, the network or the clock. Run with:
- *   node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts
+ *   scripts/fixtures/replay-14d/smyrna-roofer.json   the live roofer profile near Smyrna GA and its roofing rows (2 rows)
+ * Nothing here touches a database, the network or the clock. Run from the repo root with (the alias lets jiti resolve "@/"):
+ *   JITI_ALIAS="{\"@/\":\"$PWD/\"}" node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts
+ *
+ * Delivery by label: act_now and coming_soon are ALERTS (pushed, emailed, in the feed); market_insight is FEED ONLY (stored and shown after
+ * the alerts, never pushed or emailed); context is hidden everywhere. "Before" is the stream before round 13, where every pair was an alert.
  *
  * A "pair" is one signal and one trade it is tagged with (holler_signals.categories). Before this unit every pair was an alert.
  * The title of a grouped row is compressed (the city and the street are removed, violations are one title), so the top-10 lists are
@@ -16,7 +20,8 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { OPPORTUNITY_LABELS, isAlertLabel, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
+import { OPPORTUNITY_LABELS, isAlertLabel, isFeedLabel, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
+import { matchOne, type MatchProfile, type MatchSignal } from '../lib/signals/match';
 import type { CategoryId } from '../lib/signals/categories';
 
 const ROOT = join(__dirname, 'fixtures', 'replay-14d');
@@ -104,7 +109,7 @@ const top = (c: Counter, k = 10) => [...c].sort((a, b) => b[1] - a[1] || (a[0] <
 const PUBLIC_WORK: Array<{ name: string; re: RegExp; not?: RegExp }> = [
   { name: 'graffiti other than private', re: /graffiti/i, not: /private/i },
   { name: 'city tree (any tree/stump 311 request not on private property)', re: /\btrees?\b|\bstump/i, not: /\bpriv|\bprv/i },
-  { name: 'sewer, manhole, catch basin, storm drain (not a back-up)', re: /\bsewers?\b|manhole|catch.?basin|storm drain|stormwater/i, not: /back-?\s?up/i },
+  { name: 'sewer, manhole, catch basin, storm drain (not a back-up, not a pipe-boundary question: both are the owner\'s side)', re: /\bsewers?\b|manhole|catch.?basin|storm drain|stormwater/i, not: /back-?\s?up|pipe boundary/i },
   { name: 'right of way, street, alley, sidewalk, bike lane', re: /right.of.way|\brow\b|street|sidewalk|alley|bike lane|pothole|curb|paving/i },
   { name: 'dumping, debris, bulk, litter, missed trash (not on private property)', re: /dump|debris|bulk|litter|missed trash|trash recycling|spillage|vacant lot/i, not: /\bpriv|\bprv|property violation/i },
   { name: 'rodent baiting', re: /rodent baiting|rat complaint/i },
@@ -138,6 +143,15 @@ function publicWorkPresent(trade: string): number {
   return rows;
 }
 
+// ---- the live Smyrna roofer ----------------------------------------------------------------------------------------------------
+interface SmyrnaFixture { profile: MatchProfile; signals: Array<Omit<MatchSignal, 'subtype'> & { source: string; kind: string; title: string }> }
+const smyrna = JSON.parse(readFileSync(join(ROOT, 'smyrna-roofer.json'), 'utf8')) as SmyrnaFixture;
+// "Before": the same record with nothing the label can read (no source, kind or title), so only area, trade and severity decide: the matcher as it was.
+const before = smyrna.signals.filter((r) => matchOne({ ...r, source: undefined, kind: undefined, title: undefined } as MatchSignal, smyrna.profile));
+const afterRows = smyrna.signals.map((r) => ({ r, m: matchOne(r as MatchSignal, smyrna.profile) })).filter((x) => x.m);
+const afterAlerts = afterRows.filter((x) => isAlertLabel(x.m!.label));
+const afterFeed = afterRows.filter((x) => isFeedLabel(x.m!.label));
+
 // ---- report -------------------------------------------------------------------------------------------------------------------
 const out: string[] = [];
 const P = (s = '') => out.push(s);
@@ -159,27 +173,47 @@ P();
 P('## Share of alerts that are act_now + coming_soon, per trade (PLAN-2.0 section 5 target: at least 60%)');
 P();
 P('Before = the old stream: every pair was an alert, so the share is the part of that stream the new labels call act_now or coming_soon.');
-P('After = the stream that is now delivered (alert labels only). It is 100% by construction, so the real change is the volume that stops: the last column.');
+P('After = what is now pushed or emailed (act_now + coming_soon only), which is 100% by construction. The real change is volume, so the table also gives alerts per 14 days, the feed-only market_insight rows that stay in the app feed, and the context rows that are hidden.');
 P();
-P('| Trade | Pairs (old alerts) | act_now | coming_soon | market_insight | context | Before share | After share | Alerts removed |');
-P('|---|---:|---:|---:|---:|---:|---:|---:|---:|');
+P('| Trade | Pairs (old alerts) | act_now | coming_soon | market_insight (feed only) | context (hidden) | Before share | After share | Alerts now (14 d) | In app feed (14 d) |');
+P('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
 const order = [...trades.entries()].sort((a, b) => b[1].pairs - a[1].pairs);
 let totPairs = 0;
 const tot: Record<OpportunityLabel, number> = { act_now: 0, coming_soon: 0, market_insight: 0, context: 0 };
 for (const [trade, t] of order) {
   const good = t.byLabel.act_now + t.byLabel.coming_soon;
-  const kept = good;
-  P(`| ${trade} | ${t.pairs} | ${t.byLabel.act_now} | ${t.byLabel.coming_soon} | ${t.byLabel.market_insight} | ${t.byLabel.context} | ${pct(good, t.pairs)} | ${kept === 0 ? 'n/a (none sent)' : '100.0%'} | ${t.pairs - kept} (${pct(t.pairs - kept, t.pairs)}) |`);
+  const feed = good + t.byLabel.market_insight;
+  P(`| ${trade} | ${t.pairs} | ${t.byLabel.act_now} | ${t.byLabel.coming_soon} | ${t.byLabel.market_insight} | ${t.byLabel.context} | ${pct(good, t.pairs)} | ${good === 0 ? 'n/a (none sent)' : '100.0%'} | ${good} | ${feed} |`);
   totPairs += t.pairs;
   for (const l of OPPORTUNITY_LABELS) tot[l] += t.byLabel[l];
 }
 {
   const good = tot.act_now + tot.coming_soon;
-  P(`| ALL TRADES | ${totPairs} | ${tot.act_now} | ${tot.coming_soon} | ${tot.market_insight} | ${tot.context} | ${pct(good, totPairs)} | 100.0% | ${totPairs - good} (${pct(totPairs - good, totPairs)}) |`);
+  P(`| ALL TRADES | ${totPairs} | ${tot.act_now} | ${tot.coming_soon} | ${tot.market_insight} | ${tot.context} | ${pct(good, totPairs)} | 100.0% | ${good} | ${good + tot.market_insight} |`);
 }
 P();
 P('Trades whose BEFORE share was under 60%: ' + (order.filter(([, t]) => (t.byLabel.act_now + t.byLabel.coming_soon) / t.pairs < 0.6).map(([k]) => k).join(', ') || 'none') + '.');
-P('Caveat: this counts pairs in the 14-day stream, not per member. A member only sees pairs inside their radius and plan trades.');
+const quiet = order.filter(([, t]) => t.byLabel.act_now + t.byLabel.coming_soon < 14).map(([k, t]) => `${k} (${t.byLabel.act_now + t.byLabel.coming_soon})`);
+P(`Trades with fewer than 1 alert a day NATIONWIDE (under 14 alerts in 14 days; a member sees only their radius, so far fewer): ${quiet.join(', ') || 'none'}.`);
+const noFeed = order.filter(([, t]) => t.byLabel.act_now + t.byLabel.coming_soon + t.byLabel.market_insight === 0).map(([k]) => k);
+P(`Trades whose in-app feed is empty nationwide (no alert and no market insight): ${noFeed.join(', ') || 'none'}. Locksmith and business-services are marked "No live source yet" in the picker.`);
+P('Caveat: this counts pairs in the 14-day stream, not per member. A member only sees pairs inside their radius and plan trades; the live-member check is the next section.');
+P();
+
+P('## The live member: roofer near Smyrna GA (the only profile in holler_profiles on Nov 21 2026)');
+P();
+P(`Fixture \`smyrna-roofer.json\`: profile ${JSON.stringify({ categories: smyrna.profile.categories, state: smyrna.profile.state, radius_mi: smyrna.profile.radius_mi })} at ZIP 30080, and the ${smyrna.signals.length} roofing rows of the last 14 days within reach (read-only select).`);
+P();
+P('| Measure | Before round 13 | After |');
+P('|---|---:|---:|');
+P(`| Rows matched (stored, shown in the app feed) | ${before.length} | ${afterFeed.length} |`);
+P(`| Of those, alerts pushed or emailed (act_now + coming_soon) | ${before.length} | ${afterAlerts.length} |`);
+P(`| Of those, feed only (market_insight) | 0 | ${afterFeed.length - afterAlerts.length} |`);
+P();
+for (const { r, m } of afterRows) P(`- ${r.id} "${r.title}" (${r.source}): ${m!.label}`);
+for (const r of smyrna.signals) if (!afterRows.some((x) => x.r.id === r.id)) P(`- ${r.id} "${r.title}" (${r.source}): not matched (state-level row, severity ${r.severity} is under the state-level rule of 2) before and after`);
+P();
+P(afterFeed.length >= before.length ? `RESULT: the member keeps ${afterFeed.length} of ${before.length} feed rows (PASS). The permit is now labelled "Market insight" and is not pushed or emailed, so the pushed or emailed count is ${before.length} before and ${afterAlerts.length} after: with one roof permit in 14 days there is no alert to send, and that is the honest figure.` : `RESULT: FAIL, the member lost feed rows.`);
 P();
 
 P('## Rules and defaults that decided each pair');
@@ -213,6 +247,18 @@ for (const trade of ['painting', 'tree-service', 'plumbing']) {
 P();
 P(`RESULT: public-work alert pairs for painting + tree-service + plumbing = ${publicWorkAlerts} (${publicWorkAlerts === 0 ? 'PASS' : 'FAIL'}).`);
 P();
+P('The patterns above were written from the 311 title list, so a zero on them alone is weak evidence. For a human check, EVERY distinct 311 title that is an alert for these three trades (label: title (rows)):');
+P();
+for (const trade of ['painting', 'tree-service', 'plumbing']) {
+  const m = new Map<string, number>();
+  for (const r of alertRows) {
+    if (r.trade !== trade || r.g.subtype !== '311') continue;
+    const k = `${r.label}: ${r.g.title.replace('311 request in X: ', '')}`;
+    m.set(k, (m.get(k) ?? 0) + r.g.n);
+  }
+  P(`- ${trade}: ${[...m].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} (${n})`).join('; ') || 'none'}`);
+}
+P();
 
 // roofers
 const roofAlerts = alertRows.filter((r) => r.trade === 'roofing' && r.g.subtype === 'permit' && /\broof/i.test(r.g.title));
@@ -224,7 +270,7 @@ for (const r of roofPermitPairs) roofLabels.set(r.label, (roofLabels.get(r.label
 P('## Roofers and roof permits');
 P();
 P(`Roof permits tagged to roofing in the 14 days: ${roofPairN} pairs. Labels: ${[...roofLabels].map(([l, n]) => `${l}=${n}`).join(', ') || 'none'}.`);
-P(`RESULT: roof permits that are alerts for roofers = ${roofAlertN} (${roofAlertN === 0 ? 'PASS' : 'FAIL'}).`);
+P(`RESULT: roof permits that are ALERTS (pushed or emailed) for roofers = ${roofAlertN} (${roofAlertN === 0 ? 'PASS' : 'FAIL'}). They stay in the app feed as "Market insight" (feed only), after every alert.`);
 P();
 
 // per trade top 10
@@ -247,4 +293,4 @@ for (const [trade, t] of order) {
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, out.join('\n') + '\n');
 console.log(`wrote ${OUT} (${out.length} lines); public-work alerts ${publicWorkAlerts}; roof permit alerts ${roofAlertN}`);
-if (publicWorkAlerts !== 0 || roofAlertN !== 0) process.exit(1);
+if (publicWorkAlerts !== 0 || roofAlertN !== 0 || afterFeed.length < before.length) process.exit(1);

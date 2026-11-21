@@ -102,7 +102,11 @@ const CASES: Case[] = [
   { name: 'Chicago vacant lot clean-up', sig: c311('socrata-chicago-311', 'Clean Vacant Lot Request'), trade: 'junk-removal', want: 'context' },
   { name: 'Chicago rodent baiting', sig: c311('socrata-chicago-311', 'Rodent Baiting/Rat Complaint'), trade: 'pest-control', want: 'context' },
   { name: 'Dallas street lighting', sig: c311('socrata-dallas-311', 'Street Lighting- New/Relocation - TPW'), trade: 'electrical', want: 'context' },
-  { name: 'NYC park special event', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in Queens: Special Event' }, trade: 'catering', want: 'context' },
+  { name: 'NYC plaza event for catering', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in Queens: Plaza Event' }, trade: 'catering', want: 'context' },
+  { name: 'NYC special event for security (not a caterer)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in Queens: Special Event at Central Park: Dene Lawn' }, trade: 'security', want: 'context' },
+  { name: 'NYC special event for cleaning (not a caterer)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in Queens: Special Event at Prospect Park' }, trade: 'cleaning', want: 'context' },
+  { name: 'Chicago sewer cleaning inspection (city sewer main, no private-property field)', sig: c311('socrata-chicago-311', 'Sewer Cleaning Inspection Request'), trade: 'plumbing', want: 'context' },
+  { name: 'SF sewer flooding for plumbing (public sewer work)', sig: c311('socrata-sf-311', 'Sewer / flooding'), trade: 'plumbing', want: 'context' },
   { name: 'Chicago park permit event', sig: { source: 'socrata-chicago-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in X: Permit - Event 1 Cluster 3' }, trade: 'security', want: 'context' },
   { name: 'blanket business license for a locksmith', sig: { source: 'socrata-nyc-business', kind: 'civic', subtype: 'business', title: 'New business license' }, trade: 'locksmith', want: 'context' },
   { name: 'blanket business license for insurance', sig: { source: 'socrata-sf-business', kind: 'civic', subtype: 'business', title: 'New business license' }, trade: 'insurance', want: 'context' },
@@ -118,17 +122,36 @@ const CASES: Case[] = [
   { name: 'DeKalb code violation', sig: { source: 'arcgis-dekalb-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'lawn-care', want: 'act_now' },
   { name: 'failed food inspection for pest control', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'pest-control', want: 'act_now' },
   { name: 'failed food inspection for a cleaner', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'cleaning', want: 'act_now' },
+  { name: 'failed food inspection for plumbing (a repair trade: only possibly needed)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'plumbing', want: 'coming_soon' },
+  { name: 'failed food inspection for a general contractor (a repair trade)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'general-contractor', want: 'coming_soon' },
   { name: 'failed food inspection for a food truck (not a fixer)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'food-truck', want: 'coming_soon' },
   { name: 'SF sewage back-up', sig: c311('socrata-sf-311', 'Sewer / sewage_back-up_discharge'), trade: 'plumbing', want: 'act_now' },
   { name: 'NYC sewer back-up', sig: c311('socrata-nyc-311', 'Sewer Maintenance / Backup'), trade: 'plumbing', want: 'act_now' },
   { name: 'Kansas City sewer backup', sig: c311('socrata-kansascity-311', 'Sewer and Stormwater / Sewer Backup'), trade: 'plumbing', want: 'act_now' },
   { name: 'SF graffiti on PRIVATE property', sig: c311('socrata-sf-311', 'Graffiti Private / not_offensive'), trade: 'painting', want: 'act_now' },
   { name: 'Kansas City property violation', sig: c311('socrata-kansascity-311', 'Property Violations / Weeds'), trade: 'lawn-care', want: 'act_now' },
-  { name: 'SPC wind report', sig: { source: 'spc', kind: 'report', title: 'Wind damage reported' }, trade: 'tree-service', want: 'act_now' },
+  { name: 'SPC wind damage report', sig: { source: 'spc', kind: 'report', title: 'Wind damage reported' }, trade: 'tree-service', want: 'act_now' },
+  { name: 'SPC tornado report', sig: { source: 'spc', kind: 'report', title: 'Tornado reported near Marietta' }, trade: 'roofing', want: 'act_now' },
   { name: 'SPC hail report', sig: { source: 'spc', kind: 'report', title: 'hail reported' }, trade: 'roofing', want: 'act_now' },
   { name: 'a resident request on Holler', sig: { source: 'holler-request', kind: 'ask', title: 'Looking for a roofer' }, trade: 'roofing', want: 'act_now' },
   { name: 'an open federal bid', sig: { source: 'sam-gov', kind: 'contract', title: 'Janitorial services' }, trade: 'janitorial-commercial', want: 'act_now' },
   { name: 'a public post asking for a plumber', sig: { source: 'bluesky', kind: 'ask', title: 'anyone know a plumber' }, trade: 'plumbing', want: 'act_now' },
+
+  // a measured gust is not a damage report (review P1-1): coming_soon, never act_now
+  ...['60', '61', '62', '68', '69'].map((mph): Case => ({ name: `SPC ${mph} mph wind gust (no damage reported)`, sig: { source: 'spc', kind: 'report', title: `${mph} mph wind gust reported` }, trade: 'insurance', want: 'coming_soon' })),
+  { name: 'SPC measured gust for roofing', sig: { source: 'spc', kind: 'report', title: '62 mph wind gust reported near Smyrna' }, trade: 'roofing', want: 'coming_soon' },
+
+  // disputed groups decided from sample rows (round 13 review): see A-report.md "Disputed context groups"
+  { name: 'SF sewer flooding for restoration (same evidence as a flood advisory)', sig: c311('socrata-sf-311', 'Sewer / flooding'), trade: 'restoration', want: 'coming_soon' },
+  { name: 'NYC special event for a caterer (a named organiser)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event at Central Park: Dene Lawn' }, trade: 'catering', want: 'coming_soon' },
+  { name: 'NYC special event for event services', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event' }, trade: 'event-services', want: 'coming_soon' },
+  { name: 'NYC special event for a food truck', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event' }, trade: 'food-truck', want: 'coming_soon' },
+  { name: 'Cambridge sewer pipe boundary (private side is the owner\'s)', sig: c311('socrata-cambridge-311', 'Sewer pipe boundary'), trade: 'plumbing', want: 'coming_soon' },
+  { name: 'rodent baiting stays city work (free city service)', sig: c311('socrata-chicago-311', 'Rodent Baiting/Rat Complaint'), trade: 'pest-control', want: 'context' },
+
+  // a city name never fires a title pattern: only the part after ": " is tested (review P2-4)
+  { name: '"Park Ridge" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Park Ridge: Mold complaint in a building' }, trade: 'cleaning', want: 'coming_soon' },
+  { name: '"Oak Park" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Oak Park: Mold complaint in a building' }, trade: 'cleaning', want: 'coming_soon' },
 
   // private property: the owner pays, so not context even when the words look like city work
   { name: 'Cincinnati dead tree on PRIVATE property', sig: c311('socrata-cincinnati-311', 'TREE, DEAD ON PRIV PROP STNDRD'), trade: 'tree-service', want: 'coming_soon' },

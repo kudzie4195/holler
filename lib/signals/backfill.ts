@@ -30,8 +30,13 @@ interface SignalRow extends MatchSignal {
 const COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
 /** Keyword reads also need the text the phrase is matched against. */
 const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
-/** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
-const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,data';
+/**
+ * The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype.
+ * source, kind and title are NEEDED: the opportunity label (lib/signals/lead-rules.ts) reads them. Without them every row would fall
+ * back to the source default (coming_soon), city work (public graffiti, tree trims, sewer work) would pass as an alert and fill the
+ * 25 backfill slots, and a heat complaint would lose its act_now label. holler_signals_near returns all of them (migration 0003).
+ */
+export const RPC_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
 /**
  * Records with coordinates inside the profile's own radius, newest first. The distance test runs in SQL (holler_signals_near,
