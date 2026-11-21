@@ -4,6 +4,14 @@ From a fresh clone to a TestFlight upload and a signed Android App Bundle (AAB).
 
 Before any of this, finish `STORE-SETUP.md` steps 1 to 4 at least once (Apple, Supabase, RevenueCat). You can build and run the app without them, but sign-in and purchases will not work.
 
+## Fast path: one script
+
+`scripts/mac-release.sh` does sections 0 to 3 below plus the iOS archive and upload and the Android AAB in one run. It checks the tools, syncs the repo to branch `r12-ready` (only on a clean tree), writes `.env.production.local` when it is missing, builds, uploads the iOS build to App Store Connect and builds the signed AAB. The only thing you type is the upload key password. `--ios-only`, `--android-only` and `--dry-run` (prints every command, runs nothing) are supported. The manual steps below stay as the reference for what it does.
+
+```zsh
+zsh "$HOME/Projects/holler/mobile/scripts/mac-release.sh" --dry-run
+```
+
 ## What is already done in the repo
 
 - `mobile/` is its own package: Vite, React, TypeScript, Capacitor 8.6.2. The website build never reads it.

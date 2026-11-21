@@ -20,7 +20,9 @@
     "cap:assets": "node scripts/make-assets.mjs && npx capacitor-assets generate --ios --android --assetPath assets",
     "ios": "npx cap open ios",
     "android": "npx cap open android",
-    "check:version": "node scripts/check-version.mjs"
+    "check:version": "node scripts/check-version.mjs",
+    "check:dist": "node scripts/check-dist-gating.mjs",
+    "check:sync": "node scripts/check-sync.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/messaging": "8.6.0",
