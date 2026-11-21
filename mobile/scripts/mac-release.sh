@@ -8,11 +8,12 @@
 #
 # What it does, in order:
 #   1. Checks the tools it needs (it installs nothing).
-#   2. Clones or fetches the repo into $HOME/Projects/holler, and hard-syncs branch r12-ready to origin,
-#      but only when the working tree is clean.
+#   2. Clones or fetches the repo into $HOME/Projects/holler and fast-forwards branch r12-ready to origin,
+#      but only when no tracked file has uncommitted changes. Local commits that are not on GitHub are
+#      never thrown away: the script stops and says to push them.
 #   3. Writes mobile/.env.production.local with the public build values, only when that file is absent.
 #   4. npm ci, npm test, npm run build, npx cap sync, plus the repo's own sync and bundle checks.
-#   5. iOS: xcodebuild archive, then xcodebuild -exportArchive with destination "upload". That sends the
+#   5. iOS (needs Xcode 26 or newer): xcodebuild archive, then xcodebuild -exportArchive with destination "upload". That sends the
 #      build to App Store Connect with the Apple account signed in to Xcode.
 #   6. Android: creates the upload keystore if it is missing, asks for its password (the one prompt that
 #      is yours: nothing is written to disk or printed), runs ./gradlew :app:bundleRelease, copies the AAB.
@@ -24,12 +25,16 @@
 
 setopt ERR_EXIT PIPE_FAIL NO_UNSET
 
-# The step below hard-resets the checkout this file lives in, so run from a private copy: zsh reads a
-# script while it runs, and a file that changes underneath it can derail the run.
+# The repo step below moves the checkout this file lives in to a new commit, so run from a private copy:
+# zsh reads a script while it runs, and a file that changes underneath it can derail the run. The copy
+# deletes itself when the run ends (only when this process was started on exactly that copy).
 if [[ -z "${HOLLER_MAC_RELEASE_COPY:-}" ]]; then
   _copy="$(mktemp "${TMPDIR:-/tmp}/holler-mac-release.XXXXXX")"
   cp "$0" "$_copy"
-  HOLLER_MAC_RELEASE_COPY=1 exec zsh "$_copy" "$@"
+  HOLLER_MAC_RELEASE_COPY="$_copy" exec zsh "$_copy" "$@"
+fi
+if [[ "$HOLLER_MAC_RELEASE_COPY" == "$0" ]]; then
+  trap 'rm -f -- "$HOLLER_MAC_RELEASE_COPY"' EXIT
 fi
 
 REPO_URL="https://github.com/kudzie4195/holler.git"
@@ -39,7 +44,7 @@ TEAM_ID="B3B65JKTQ7"
 KEYSTORE="$HOME/keys/holler-upload.jks"
 KEY_ALIAS="holler-upload"
 STUDIO_JAVA_HOME="${HOLLER_STUDIO_JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
-ANDROID_SDK="$HOME/Library/Android/sdk"
+ANDROID_SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 OUT="$HOME/Projects/holler-release/$(date +%Y%m%d-%H%M%S)"
 
 DRY=0
@@ -119,6 +124,12 @@ check_prereqs() {
       local xv
       if ! xv="$(xcodebuild -version 2>&1)"; then
         problems+=("xcodebuild does not work yet: $(print -r -- "$xv" | head -2 | tr '\n' ' ') Open Xcode once and accept the license, or run: sudo xcodebuild -license accept")
+      else
+        local xmaj
+        xmaj="$(print -r -- "$xv" | sed -n 's/^Xcode \([0-9][0-9]*\).*/\1/p' | head -1)"
+        if [[ -n "$xmaj" ]] && (( xmaj < 26 )); then
+          problems+=("Xcode is version $xmaj. App Store uploads need a build made with Xcode 26 or newer (the iOS 26 SDK), so update Xcode from the App Store, open it once, then run this again.")
+        fi
       fi
     fi
   fi
@@ -150,7 +161,7 @@ check_prereqs() {
       return 0
     fi
     print -ru2 -- ""
-    print -ru2 -- "STOP: fix these first, then run the script again. Nothing was changed."
+    print -ru2 -- "STOP: fix these first, then run the script again. Nothing was built or uploaded."
     local p
     for p in "${problems[@]}"; do print -ru2 -- "  - $p"; done
     exit 1
@@ -169,23 +180,29 @@ sync_repo() {
   fi
   if (( DRY )) && [[ ! -e "$REPO_DIR/.git" ]]; then
     run git -C "$REPO_DIR" fetch origin
-    run git -C "$REPO_DIR" checkout -B "$BRANCH" "origin/$BRANCH"
+    run git -C "$REPO_DIR" checkout -b "$BRANCH" "origin/$BRANCH"
     return 0
   fi
   local dirty
-  dirty="$(git -C "$REPO_DIR" status --porcelain)"
+  # Tracked files only: build tools write untracked files into the repo (Xcode's Package.resolved, Kotlin's
+  # .kotlin/), and `git checkout` refuses to overwrite an untracked file that collides, so none is lost.
+  dirty="$(git -C "$REPO_DIR" status --porcelain --untracked-files=no)"
   if [[ -n "$dirty" ]]; then
     print -ru2 -- ""
-    print -ru2 -- "STOP: $REPO_DIR has changes that are not committed, so this script will not overwrite them:"
+    print -ru2 -- "STOP: $REPO_DIR has changes to tracked files that are not committed, so this script will not overwrite them:"
     print -r -- "$dirty" | head -20 >&2
     print -ru2 -- ""
-    print -ru2 -- "Keep them: commit or stash them, then run the script again."
-    print -ru2 -- "Throw them away: git -C \"$REPO_DIR\" checkout -- . && git -C \"$REPO_DIR\" clean -fd   then run the script again."
+    print -ru2 -- "Keep them: git -C \"$REPO_DIR\" stash -u   (bring them back later with: git -C \"$REPO_DIR\" stash pop), then run the script again."
+    print -ru2 -- "Throw the tracked changes away: git -C \"$REPO_DIR\" checkout -- .   then run the script again."
     exit 1
   fi
   run git -C "$REPO_DIR" fetch origin || fail "git fetch failed. Check the network and your GitHub sign-in."
-  run git -C "$REPO_DIR" checkout -B "$BRANCH" "origin/$BRANCH" || fail "Could not check out $BRANCH from origin. Has the branch been pushed?"
-  run git -C "$REPO_DIR" reset --hard "origin/$BRANCH"
+  if git -C "$REPO_DIR" rev-parse -q --verify "refs/heads/$BRANCH" >/dev/null; then
+    run git -C "$REPO_DIR" checkout "$BRANCH" || fail "Could not switch to $BRANCH."
+    run git -C "$REPO_DIR" merge --ff-only "origin/$BRANCH" || fail "Your local $BRANCH has commits that are not on GitHub, or it has diverged. Push them first (git -C \"$REPO_DIR\" push origin $BRANCH), then run the script again."
+  else
+    run git -C "$REPO_DIR" checkout -b "$BRANCH" "origin/$BRANCH" || fail "Could not check out $BRANCH from origin. Has the branch been pushed?"
+  fi
   say "at: $(git -C "$REPO_DIR" log -1 --format='%h %s')"
 }
 
@@ -198,6 +215,10 @@ write_env() {
   if [[ -e "$env_file" ]]; then
     say "Using the existing $env_file (not overwritten). Feature flags in it:"
     grep -E '^VITE_(APPLE_SIGN_IN|GOOGLE_SIGN_IN|PUSH_ENABLED|IOS_EXTERNAL_PURCHASE_LINK)=' "$env_file" | sed 's/^/  /' || true
+    # The first test build must have every feature off and no RevenueCat key (TESTER-NOTES.md says so).
+    local bad
+    bad="$(grep -E '^VITE_(APPLE_SIGN_IN|GOOGLE_SIGN_IN|PUSH_ENABLED|IOS_EXTERNAL_PURCHASE_LINK)=true|^VITE_REVENUECAT_(IOS|ANDROID)_KEY=.+' "$env_file" || true)"
+    [[ -z "$bad" ]] || fail "$env_file turns on something this test build must not have (names only): ${(j:, :)${(@)${(@f)bad}%%=*}}. Set the flags to false and the RevenueCat keys to empty, or move the file away so a fresh one is written, then run again."
     return 0
   fi
   say "No $env_file yet. Writing the public values for the first test build (ignored by git)."
@@ -285,7 +306,9 @@ EOF
     if command -v plutil >/dev/null 2>&1; then
       plutil -lint "$plist" >/dev/null || { say "ExportOptions.plist is not valid."; return 1; }
     fi
-    if ! xcodebuild -list -project "$project" 2>&1 | grep -qE '^[[:space:]]+App$'; then
+    local list
+    list="$(xcodebuild -list -project "$project" 2>&1)" || { say "xcodebuild -list failed:"; print -r -- "$list" | tail -5; return 1; }
+    if ! print -r -- "${list#*Schemes:}" | grep -cE '^[[:space:]]+App$' >/dev/null; then
       say "xcodebuild does not list a scheme named App for $project."
       return 1
     fi
@@ -297,7 +320,7 @@ EOF
   say "Exporting and uploading to App Store Connect, using the Apple account signed in to Xcode."
   run_quiet "$log" xcodebuild -exportArchive -archivePath "$archive" -exportPath "$export_dir" -exportOptionsPlist "$plist" -allowProvisioningUpdates || { say "iOS export or upload FAILED."; (( DRY )) || ios_errors "$log"; return 1; }
   (( DRY )) && return 0
-  say "iOS upload finished. The build shows under TestFlight in App Store Connect after processing (often 10 to 30 minutes)."
+  say "iOS upload accepted. Processing then runs on Apple's side; the build shows under TestFlight in App Store Connect after processing (often 10 to 30 minutes)."
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -338,9 +361,10 @@ android_phase() {
   run rm -f "$aab" || return 1
   say "Building the release bundle. The first run downloads Gradle and the Android libraries. Full log: $log"
   if (( DRY )); then
-    say "+ cd ${(q)android_dir} && ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_FILE=${(q)KEYSTORE} ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_PASSWORD=<hidden> ORG_GRADLE_PROJECT_HOLLER_UPLOAD_KEY_ALIAS=${(q)KEY_ALIAS} ORG_GRADLE_PROJECT_HOLLER_UPLOAD_KEY_PASSWORD=<hidden> JAVA_HOME=${(q)STUDIO_JAVA_HOME} ANDROID_HOME=${(q)ANDROID_SDK} ./gradlew :app:bundleRelease --no-daemon >> ${(q)log} 2>&1"
+    say "+ cd ${(q)android_dir} && ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_FILE=${(q)KEYSTORE} ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_PASSWORD=<hidden> ORG_GRADLE_PROJECT_HOLLER_UPLOAD_KEY_ALIAS=${(q)KEY_ALIAS} ORG_GRADLE_PROJECT_HOLLER_UPLOAD_KEY_PASSWORD=<hidden> JAVA_HOME=${(q)STUDIO_JAVA_HOME} ANDROID_HOME=${(q)ANDROID_SDK} ./gradlew :app:bundleRelease --no-daemon -Pkotlin.compiler.execution.strategy=in-process >> ${(q)log} 2>&1"
   else
-    # The four values exist only in this one command's environment (--no-daemon: no Gradle process keeps them afterwards).
+    # The four values exist only in this one command's environment. --no-daemon and the in-process Kotlin
+    # compiler (RevenueCat's module is Kotlin) keep any long-lived helper process from inheriting them.
     if ! ( cd "$android_dir" && \
       ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_FILE="$KEYSTORE" \
       ORG_GRADLE_PROJECT_HOLLER_UPLOAD_STORE_PASSWORD="$pw" \
@@ -348,7 +372,7 @@ android_phase() {
       ORG_GRADLE_PROJECT_HOLLER_UPLOAD_KEY_PASSWORD="$pw" \
       JAVA_HOME="$STUDIO_JAVA_HOME" \
       ANDROID_HOME="$ANDROID_SDK" \
-      ./gradlew :app:bundleRelease --no-daemon >> "$log" 2>&1 ); then
+      ./gradlew :app:bundleRelease --no-daemon -Pkotlin.compiler.execution.strategy=in-process >> "$log" 2>&1 ); then
       pw=""
       say "Android build FAILED. First errors in $log:"
       { grep -E -A4 'What went wrong' "$log" | head -20; } || true
@@ -372,7 +396,7 @@ android_phase() {
   if (( DRY )); then
     say "+ cp $aab $dest"
     say "+ shasum -a 256 $dest"
-    say "+ $STUDIO_JAVA_HOME/bin/jarsigner -verify <aab>   (expects: jar verified.)"
+    say "+ $STUDIO_JAVA_HOME/bin/jarsigner -verify <aab>   (expects the line: jar verified.)"
     return 0
   fi
   [[ -f "$aab" ]] || { say "Gradle finished but $aab is not there."; return 1; }
@@ -380,7 +404,15 @@ android_phase() {
   say "AAB: $dest"
   say "sha256: $(shasum -a 256 "$dest" | cut -d' ' -f1)"
   if [[ -x "$STUDIO_JAVA_HOME/bin/jarsigner" ]]; then
-    say "signature check: $("$STUDIO_JAVA_HOME/bin/jarsigner" -verify "$dest" 2>&1 | tail -1)"
+    local verify
+    verify="$("$STUDIO_JAVA_HOME/bin/jarsigner" -verify "$dest" 2>&1 || true)"
+    if [[ "$verify" == *"jar verified."* ]]; then
+      say "signature check: jar verified (warnings about a self-signed certificate are normal for an upload key)"
+    else
+      say "signature check: the AAB is NOT signed. First lines of jarsigner's answer:"
+      print -r -- "$verify" | head -5
+      return 1
+    fi
   fi
   AAB_PATH="$dest"
 }
@@ -401,7 +433,7 @@ main() {
 
   # Each phase runs in an "if", so a failure in one never stops the other.
   if (( DO_IOS )); then
-    if ios_phase; then ios_status="ok"; else ios_status="FAILED"; fi
+    if ios_phase; then ios_status="uploaded (App Store Connect processing is still pending)"; else ios_status="FAILED"; fi
     (( DRY )) && ios_status="dry run (not run)"
   fi
   if (( DO_ANDROID )); then

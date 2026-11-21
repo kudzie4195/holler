@@ -80,6 +80,22 @@ describe('iOS project', () => {
     expect(existsSync(path.join(root, 'ios/App/App/GoogleService-Info.plist'))).toBe(false);
   });
 
+  it('requires arm64 (the binary is arm64 only), not armv7', () => {
+    expect(plist).toMatch(/<key>UIRequiredDeviceCapabilities<\/key>\s*<array>\s*<string>arm64<\/string>\s*<\/array>/);
+  });
+
+  it('a shared App scheme is committed: Archive uses Release and the target id exists in project.pbxproj', () => {
+    const scheme = read('ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme');
+    expect(scheme).toMatch(/<ArchiveAction\s+buildConfiguration = "Release"/);
+    for (const a of ['BuildAction', 'TestAction', 'LaunchAction', 'ProfileAction', 'AnalyzeAction']) expect(scheme).toContain(`<${a}`);
+    expect(scheme).toContain('BuildableName = "App.app"');
+    expect(scheme).toContain('BlueprintName = "App"');
+    expect(scheme).toContain('ReferencedContainer = "container:App.xcodeproj"');
+    const ids = [...scheme.matchAll(/BlueprintIdentifier = "([0-9A-F]{24})"/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(pbx).toMatch(new RegExp(`\\t\\t${id} /\\* App \\*/ = \\{\\n\\t\\t\\tisa = PBXNativeTarget;`));
+  });
+
   it('the AppIcon is one 1024 px PNG with no alpha channel and no transparency chunk', () => {
     const icon = pngInfo('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png');
     expect(icon.width).toBe(1024);
@@ -134,6 +150,11 @@ describe('Android project', () => {
       }
     }
     for (const f of ['ic_launcher.xml', 'ic_launcher_round.xml']) expect(existsSync(path.join(root, `android/app/src/main/res/mipmap-anydpi-v26/${f}`))).toBe(true);
+  });
+
+  it('build-tool files that the release script must not trip over are git-ignored (.kotlin/)', () => {
+    expect(read('android/.gitignore')).toMatch(/^\.kotlin\/$/m);
+    expect(read('ios/.gitignore')).toMatch(/^App\/App\.xcodeproj\/project\.xcworkspace\/xcshareddata\/swiftpm\/$/m);
   });
 
   it('release builds refuse cleartext and keep the app portrait', () => {

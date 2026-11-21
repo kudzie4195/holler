@@ -14,3 +14,6 @@ App/App/config.xml
 
 # Made by `npx cap sync ios` with an absolute path to node_modules; run the sync on each machine.
 App/CapApp-SPM/symlinks
+
+# Xcode writes the resolved Swift packages here on the first archive. Not committed for now (r12 review P1-1).
+App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
