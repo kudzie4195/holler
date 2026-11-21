@@ -24,6 +24,7 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
+import { deadlineOf, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
 
 interface SignalRow {
   id: number;
@@ -42,6 +43,10 @@ interface SignalRow {
   subtype?: string | null;
   /** 1..3, for the AI ranking (lib/ai rankSignals). */
   severity?: number | null;
+  /** The record's trades, for this member's opportunity label (lib/signals/lead-rules.ts). */
+  categories?: string[] | null;
+  /** data->>deadline: a fix-by, due or response date an adapter read from the record. Usually absent. */
+  deadline?: string | null;
 }
 
 interface MatchRow {
@@ -61,7 +66,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,subtype:data->>subtype)',
+      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,deadline:data->>deadline)',
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -71,10 +76,17 @@ async function loadDashboard() {
   const access = computeAccess(profile, now);
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
+  // The member's trades under their plan: the opportunity label of a record depends on the trade that matched it.
+  const memberTrades = matchScope(profile).categories;
+  const labelOf = (s: SignalRow) =>
+    labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, memberTrades);
+
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
+  // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown as
+  // alerts, including matches stored before the label rules existed (items 0.2 and 0.3).
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    return !!s && !isEndedRequest(s, now);
+    return !!s && !isEndedRequest(s, now) && labelOf(s) !== 'context';
   });
   // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
   // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
@@ -140,7 +152,9 @@ async function loadDashboard() {
       ranked = rows;
     }
   }
-  const items: FeedItem[] = ranked.map((m) => {
+  // Act Now first, then the AI ranking or newest-first order the rows already have (a stable sort).
+  const ordered = orderByLabel(ranked, (m) => labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow));
+  const items: FeedItem[] = ordered.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const base: FeedItem = {
@@ -163,6 +177,8 @@ async function loadDashboard() {
       county: s.county,
       zip: s.zip,
       subtype: s.subtype ?? null,
+      label: labelOf(s),
+      deadline: deadlineOf({ source: s.source, expires_at: s.expires_at, data: { deadline: s.deadline } }),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,

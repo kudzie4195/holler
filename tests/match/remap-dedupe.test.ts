@@ -167,7 +167,9 @@ describe('remapStoredSignals: scan-time pass', () => {
 });
 
 describe('rematchSignals', () => {
-  const sig = (id: number, cats: string[], daysAgo: number) => ({ id, source: 'arcgis-dekalb-permits', categories: cats, lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(daysAgo), expires_at: null, title: 't', summary: null, data: { subtype: 'permit' } });
+  // Code violations, not permits: the rematch rules are under test, and a permit in the member's own trade is a market insight that is
+  // never matched (lib/signals/lead-rules.ts).
+  const sig = (id: number, cats: string[], daysAgo: number) => ({ id, source: 'arcgis-dekalb-violations', categories: cats, lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(daysAgo), expires_at: null, title: 't', summary: null, data: { subtype: 'violation' } });
 
   it('creates the missing matches with the scan rules, skips existing pairs, quiet for old records', async () => {
     const db = fakeTables({

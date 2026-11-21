@@ -128,7 +128,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     const res = await run(
       [
         sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
-        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
+        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Mold complaint in a building' }),
+        sig(3, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }), // context: never mailed
       ],
       async () => new Map(),
     );
@@ -139,6 +140,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(html).toContain('Money being spent');
     expect(text).toContain('Money being spent');
     expect(html).toContain('Might need work');
+    expect(html).toContain('Mold complaint in a building');
+    expect(html).not.toContain('Pothole request');
     // the licence is labeled Money being spent, not Might need work
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Money being spent'));
   });

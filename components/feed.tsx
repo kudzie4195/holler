@@ -15,6 +15,7 @@ import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
 import { IntentNote } from './feed/intent-note';
 import type { FeedbackState } from '@/lib/feedback/types';
+import type { OpportunityLabel } from '@/lib/signals/lead-rules';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -38,6 +39,10 @@ export interface FeedItem {
   zip?: string | null;
   /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label. */
   subtype?: string | null;
+  /** Opportunity label for this member's trades (lib/signals/lead-rules.ts). Drives the chip and the order. Absent: no chip. */
+  label?: OpportunityLabel;
+  /** ISO date of a fix-by, due or response date the record publishes. Shown on Act Now cards; null shows "No deadline published". */
+  deadline?: string | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */

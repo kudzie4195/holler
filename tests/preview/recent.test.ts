@@ -43,7 +43,9 @@ function fakeDb(a: Row[], b: Row[] = [], err?: string, c: Row[] = []) {
   return { db: db as never, calls };
 }
 
-const profile: PreviewProfile = { categories: ['roofing'], ...ATL, state: 'GA', radius_mi: 25, plan: null, subscription_status: 'trialing', extra_areas: null, keywords: null };
+// 'moving' is here for the new-home rows: a permit is an alert for a trade that is DOWNSTREAM of it (moving), not for the trade that
+// does the permitted work (a roofer's roof permit is a market insight, lib/signals/lead-rules.ts).
+const profile: PreviewProfile = { categories: ['roofing', 'moving'], ...ATL, state: 'GA', radius_mi: 25, plan: null, subscription_status: 'trialing', extra_areas: null, keywords: null };
 const textOf = (el: unknown) => renderToStaticMarkup(el as never).replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 beforeEach(() => {
@@ -56,7 +58,7 @@ describe('recentPreviewFor', () => {
   // radius + 15 miles of it, so the preview must too, or it counts fewer than the feed holds.
   describe('Cobb County (approximate location)', () => {
     const COBB = { lat: 33.95, lon: -84.55 };
-    const cobb = (over: Row = {}) => row({ source: 'arcgis-cobb-residential-permits', kind: 'permit', subtype: 'permit', title: 'Residential permit', city: 'Cobb County', ...COBB, ...over });
+    const cobb = (over: Row = {}) => row({ source: 'arcgis-cobb-residential-permits', kind: 'permit', subtype: 'permit', title: 'New home permit in Cobb County', categories: ['moving'], city: 'Cobb County', ...COBB, ...over });
     // A member 20 miles due south of the stand-in with a 10-mile radius: outside the plain box, inside radius + 15.
     const south20 = { ...profile, lat: COBB.lat - 20 / 69.09, lon: COBB.lon, radius_mi: 10 };
     it('counts a Cobb row 20 miles from the stand-in for a 10-mile member, as the scanner does', async () => {
@@ -74,7 +76,7 @@ describe('recentPreviewFor', () => {
     it('a Cobb row 30 miles out is not counted for a 10-mile member; a non-Cobb row 20 miles out is not either', async () => {
       const far = { ...south20, lat: COBB.lat - 30 / 69.09 };
       expect((await recentPreviewFor(far, { db: fakeDb([], [], undefined, [cobb()]).db, now: NOW }))?.total).toBe(0);
-      const plain = row({ source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', ...COBB });
+      const plain = row({ source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', title: 'New home permit in Atlanta', categories: ['moving'], ...COBB });
       expect((await recentPreviewFor(south20, { db: fakeDb([plain]).db, now: NOW }))?.total).toBe(0);
     });
     it('a Cobb row returned by both the plain box and the Cobb query counts once', async () => {
@@ -87,7 +89,9 @@ describe('recentPreviewFor', () => {
   it('counts come from the query result exactly, by type and intent', async () => {
     const rows = [
       ...Array.from({ length: 4 }, () => row({ kind: 'report' })),
-      ...Array.from({ length: 12 }, () => row({ kind: 'permit', subtype: 'permit', title: 'Re-roof permit' })),
+      ...Array.from({ length: 12 }, () => row({ kind: 'permit', subtype: 'permit', title: 'New home permit in Atlanta', categories: ['moving'] })),
+      // a roof permit is a market insight for a roofer: not counted
+      row({ kind: 'permit', subtype: 'permit', title: 'Roof permit in Atlanta' }),
       row({ kind: 'alert', title: 'Severe thunderstorm warning' }),
     ];
     const { db } = fakeDb(rows);
@@ -112,9 +116,9 @@ describe('recentPreviewFor', () => {
     ];
     const { db } = fakeDb(rows);
     const p = await recentPreviewFor(profile, { db, now: NOW });
+    // An awarded contract is a market insight (lead-rules.ts), not an alert: it is no longer counted.
     expect(p?.byType).toEqual([
       { key: 'federal-bid', count: 2 },
-      { key: 'contract', count: 1 },
       { key: 'weather-alert', count: 1 },
     ]);
     expect(typeLabel('federal-bid', 2)).toBe('open federal bids');

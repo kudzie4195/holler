@@ -170,8 +170,9 @@ describe('missedSince (day 8 count)', () => {
   // Round 7 (review r1 P1-6 follow-up): Cobb County rows sit at a stand-in point; the scanner matches them within radius + 15 miles.
   it('counts a Cobb County row 20 miles from its stand-in for a 10-mile member, as the scanner does', async () => {
     const COBB = { lat: 33.95, lon: -84.55 };
-    const member = { ...base, lat: COBB.lat - 20 / 69.09, lon: COBB.lon, radius_mi: 10 };
-    const cobb = row(7, { source: 'arcgis-cobb-commercial-permits', kind: 'permit', subtype: 'permit', ...COBB });
+    // A new home is downstream work for movers; a permit in the member's own trade (a roofer's roof permit) is not an alert (lead-rules.ts).
+    const member = { ...base, categories: ['roofing', 'moving'], lat: COBB.lat - 20 / 69.09, lon: COBB.lon, radius_mi: 10 };
+    const cobb = row(7, { source: 'arcgis-cobb-commercial-permits', kind: 'permit', subtype: 'permit', title: 'New home permit in Cobb County', categories: ['moving'], ...COBB });
     const { db, filters } = stub([], [], undefined, [cobb]);
     expect(await missedSince(db, member, since, now)).toEqual({ count: 1, capped: false });
     expect(filters).toContain('in:source,arcgis-cobb-residential-permits,arcgis-cobb-commercial-permits,arcgis-cobb-multiunit-permits');
@@ -179,7 +180,7 @@ describe('missedSince (day 8 count)', () => {
     expect((await missedSince(stub([], [], undefined, [cobb]).db, { ...member, lat: COBB.lat - 30 / 69.09 }, since, now)).count).toBe(0);
     expect((await missedSince(stub([row(8, { ...COBB })]).db, member, since, now)).count).toBe(0);
     // Returned by both queries, counted once.
-    expect((await missedSince(stub([cobb], [], undefined, [cobb]).db, { ...base, ...COBB, radius_mi: 10 }, since, now)).count).toBe(1);
+    expect((await missedSince(stub([cobb], [], undefined, [cobb]).db, { ...base, categories: ['roofing', 'moving'], ...COBB, radius_mi: 10 }, since, now)).count).toBe(1);
   });
 
   it('a row far outside the radius is not counted (same matcher as the scan)', async () => {
@@ -230,7 +231,7 @@ describe('quietPreview (day 1 with no matches)', () => {
     return { from: () => chain } as never;
   }
   it('gives labelled real counts from the 90-day preview', async () => {
-    const q = await createStore(stub([row(1), row(2), row(3, { kind: 'permit', subtype: 'permit', source: 'x' })])).quietPreview(profile, now);
+    const q = await createStore(stub([row(1), row(2), row(3, { kind: 'permit', subtype: 'permit', source: 'x', title: 'New home permit in Atlanta', categories: ['moving'] })])).quietPreview({ ...profile, categories: ['roofing', 'moving'] }, now);
     expect(q).toEqual({ lines: [{ label: 'storm reports', count: 2 }, { label: 'building permit', count: 1 }], total: 3, capped: false, days: 90 });
   });
   it('is null when nothing matched (so day 1 is not sent), and null when the records cannot be read', async () => {

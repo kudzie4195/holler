@@ -4,6 +4,7 @@ import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
+import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
@@ -25,6 +26,19 @@ export interface DigestItem {
   contact?: { name: string; role: string } | null;
   /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
   note?: string | null;
+  /**
+   * The record's opportunity label for this member (lib/signals/lead-rules.ts). Act Now items are listed first and carry the deadline
+   * line. Absent counts as coming_soon (no chip shown for an item without a label, so older callers render as before).
+   */
+  label?: OpportunityLabel | null;
+  /** ISO date by which something has to happen (a fix-by, due or response date), when the record publishes one. Act Now items only. */
+  deadline?: string | null;
+}
+
+/** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
+export function chipText(it: Pick<DigestItem, 'label' | 'deadline'>): string | null {
+  if (!it.label || it.label === 'context') return null;
+  return it.label === 'act_now' ? `${OPPORTUNITY_CHIP.act_now}. ${deadlineLine(it.deadline)}` : OPPORTUNITY_CHIP[it.label];
 }
 
 export interface Rendered {
@@ -144,7 +158,10 @@ export function renderDigest(opts: {
       : `${total} new things near you`,
   );
 
-  const htmlItems = opts.items
+  // Act Now first (item 0.3); inside a label the order the caller gave is kept.
+  const items = orderByLabel(opts.items, (it) => it.label ?? 'coming_soon');
+
+  const htmlItems = items
     .map((it) => {
       const src = safeUrl(it.sourceUrl);
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
@@ -154,12 +171,14 @@ export function renderDigest(opts: {
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const intent = intentOf(sig);
       const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
+      const chip = chipText(it);
+      const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
       const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
       }</li>`;
     })
@@ -177,7 +196,7 @@ export function renderDigest(opts: {
     postalFooterHtml() +
     WRAP_CLOSE;
 
-  const textItems = opts.items
+  const textItems = items
     .map((it) => {
       const src = safeUrl(it.sourceUrl);
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
@@ -185,7 +204,8 @@ export function renderDigest(opts: {
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const intent = intentOf(sig);
-      return `${meta}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      const chip = chipText(it);
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =

@@ -299,6 +299,13 @@ export interface AlertDto {
   expiresAt: string | null;
   severity: number;
   intent: { key: IntentKey; label: string; line: string };
+  /**
+   * Opportunity label for this member's trades (lib/signals/lead-rules.ts). `context` records are never sent. Additive field: older
+   * app builds ignore it. Show "Act now", "Coming soon" or "Market insight" as a chip; Act Now rows carry the deadline line.
+   */
+  label: 'act_now' | 'coming_soon' | 'market_insight';
+  /** ISO date of a fix-by, due or response date the record publishes. Null means "No deadline published". */
+  deadline: string | null;
   distanceMi: number | null;
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;

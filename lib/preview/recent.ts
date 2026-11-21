@@ -216,6 +216,9 @@ export async function recentPreviewFor(
         subtype: r.subtype,
         // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
         source: r.source,
+        // Title and kind feed the opportunity label: context rows are not alerts, so the preview does not count them.
+        kind: r.kind,
+        title: r.title ?? null,
       };
       if (!matchOne(sig, mp)) continue;
       const sub = subtypeOf(sig);

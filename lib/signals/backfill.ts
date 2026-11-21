@@ -27,9 +27,9 @@ interface SignalRow extends MatchSignal {
   expires_at: string | null;
 }
 
-const COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+const COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
 /** Keyword reads also need the text the phrase is matched against. */
-const KEYWORD_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
 /** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
 const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
@@ -177,7 +177,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
 
 /** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
 export const BACKFILL_APPROX_LIMIT = 200;
-const APPROX_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+const APPROX_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
 
 /**
  * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a
@@ -289,7 +289,7 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);
-      if (m) hits.push({ s, distance_mi: m.distance_mi });
+      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label });
     }
     // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
     // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.

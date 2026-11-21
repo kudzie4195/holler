@@ -15,6 +15,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: () =>
 import { parseArcgis } from '@/lib/signals/adapters/arcgis';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
+import { labelForMember } from '@/lib/signals/lead-rules';
 import { remapRow } from '@/lib/signals/mapping/remap';
 import { lookupZip } from '@/lib/geo';
 import { loadEmptyFeedData, type EmptyFeedProfile } from '@/lib/preview/empty-feed';
@@ -93,12 +94,15 @@ describe('Smyrna roofer vs DeKalb permits', () => {
     // owner-change rows carry no trade and are dropped
     expect(items.some((s) => /owner/i.test(s.title))).toBe(false);
     const stored = asStored(items);
+    // A roof permit is a market insight for a roofer (PLAN-2.0 1.1, lib/signals/lead-rules.ts): the job already has a roofer, so no alert.
     const rows = matchSignals(stored, [ROOFER], undefined, NOW);
-    const got = rows.map((r) => stored.find((s) => s.id === r.signal_id)!);
-    expect(got).toHaveLength(3); // the Lithonia re-roof is 25.6 miles out
+    expect(rows).toHaveLength(0);
+    // The mapping is still right: the four re-roof rows are tagged roofing only, with the roof title, and each is labelled market_insight.
+    const got = stored.filter((s) => s.categories.join() === 'roofing');
+    expect(got).toHaveLength(4);
     for (const s of got) {
-      expect(s.categories).toEqual(['roofing']);
       expect(s.title).toBe('Roof permit in DeKalb County');
+      expect(labelForMember({ source: s.source, kind: s.kind, subtype: 'permit', title: s.title, categories: s.categories }, ROOFER.categories)).toBe('market_insight');
     }
     // the mislabelled shape is gone: no row titled "HVAC permit" carries plumbing, water heaters are plumbing only
     for (const s of stored) {
