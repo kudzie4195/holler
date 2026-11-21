@@ -11,6 +11,9 @@ export const BIDS_FLAG = 'HOLLER_BIDS_ENABLED';
 /** Every city-bid source id the code knows. A source can be configured here and still be disabled (see city-bids.ts `verified`). */
 export const BID_SOURCE_IDS: readonly string[] = ['bids-sf', 'bids-la', 'bids-batonrouge', 'bids-nyc'];
 
+/** Prefix of every city-bid source id. */
+export const BID_SOURCE_PREFIX = 'bids-';
+
 const ON = new Set(['1', 'true', 'on', 'yes']);
 
 /** Reads the flag at call time (not at import), so a test or a redeploy with a new value takes effect without a rebuild of this module. */
@@ -23,26 +26,77 @@ export function isBidSignal(s: { source?: string | null; subtype?: unknown; data
   if (!s) return false;
   const sub = typeof s.subtype === 'string' && s.subtype ? s.subtype : s.data?.subtype;
   if (sub === 'bid') return true;
-  return typeof s.source === 'string' && BID_SOURCE_IDS.includes(s.source);
+  return typeof s.source === 'string' && (BID_SOURCE_IDS.includes(s.source) || s.source.startsWith(BID_SOURCE_PREFIX));
+}
+
+/** Anything with a source id, as every reader's row has. */
+interface BidRowLike {
+  source?: string | null;
+  subtype?: unknown;
+  data?: { subtype?: unknown; dueDate?: unknown } | null;
+  /** holler_signals.expires_at: for a bid, the due instant (null when the source publishes no due date). */
+  expires_at?: string | null;
+  expiresAt?: string | null;
+  /** data.dueDate read flat (DEADLINE_SELECT alias): a local calendar day, "2026-12-07". */
+  dueDate?: string | null;
+}
+
+/** A date-only due day is open until the end of that day in every US time zone (UTC-10 is the latest, so 34 hours after 00:00 UTC). */
+const DUE_DAY_GRACE_MS = 34 * 3_600_000;
+
+/**
+ * True when a bid's due date has passed (review P2-14): the solicitation is over, so the record is dropped, never shown as
+ * "Coming soon ... closed". expires_at is the due instant when the source gives one; a bid with only a due day closes at the end of
+ * that day. A bid with no due date at all is not closed (it is kept for 60 days by the adapter's own window). Non-bids are never "closed".
+ */
+export function bidClosed(s: BidRowLike | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!s || !isBidSignal(s)) return false;
+  const exp = s.expires_at ?? s.expiresAt ?? null;
+  if (typeof exp === 'string' && exp) {
+    const t = Date.parse(exp);
+    if (Number.isFinite(t)) return t <= nowMs;
+  }
+  const day = s.dueDate ?? s.data?.dueDate;
+  if (typeof day === 'string' && /^\d{4}-\d{2}-\d{2}/.test(day)) {
+    const t = Date.parse(`${day.slice(0, 10)}T00:00:00Z`);
+    if (Number.isFinite(t)) return t + DUE_DAY_GRACE_MS <= nowMs;
+  }
+  return false;
 }
 
 /**
- * True when a record must be hidden from members right now: a city bid while the flag is off. Used where stored matches are read for a
- * member (web feed, mobile feed, email digest, push), so turning the flag off removes bids members already have, not just new ones.
- * Pass `on` in tests; by default the flag is read at call time.
+ * True when a record must not be shown right now: a city bid while the flag is off (review P1-3), or a bid whose due date has passed
+ * (P2-14). Used where stored matches are read for a member (web feed, mobile feed, email digest, push), so turning the flag off removes
+ * bids members already have, and a closed bid leaves at once. Pass `on` and `nowMs` in tests; by default both are read at call time.
  */
-export function bidHidden(
-  s: { source?: string | null; subtype?: unknown; data?: { subtype?: unknown } | null } | null | undefined,
-  on: boolean = bidsEnabled(),
-): boolean {
-  return !on && isBidSignal(s);
+export function bidHidden(s: BidRowLike | null | undefined, on: boolean = bidsEnabled(), nowMs: number = Date.now()): boolean {
+  if (!isBidSignal(s)) return false;
+  return !on || bidClosed(s, nowMs);
 }
 
 /** The matches whose signal is not a hidden city bid: what a member-facing read keeps. `signal` may be an object, a one-item array or null. */
-export function dropHiddenBids<T extends { signal: unknown }>(matches: T[], on: boolean = bidsEnabled()): T[] {
-  if (on) return matches;
+export function dropHiddenBids<T extends { signal: unknown }>(matches: T[], on: boolean = bidsEnabled(), nowMs: number = Date.now()): T[] {
   return matches.filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    return !bidHidden(s as Parameters<typeof bidHidden>[0], on);
+    return !bidHidden(s as Parameters<typeof bidHidden>[0], on, nowMs);
   });
+}
+
+/**
+ * The rows minus city bids that must not be shown on a PUBLIC page (/check, city, weekly, trade and /data pages, the area preview):
+ * every bid row while the flag is off (review P2-13: rows stored while it was on stay in holler_signals until their due date), and any
+ * bid whose due date has passed. Rows of every other source are untouched. Pure; pass `on` and `nowMs` in tests.
+ */
+export function withoutHiddenBids<T extends BidRowLike>(rows: T[], nowMs: number = Date.now(), on: boolean = bidsEnabled()): T[] {
+  return rows.filter((r) => !bidHidden(r, on, nowMs));
+}
+
+/**
+ * Keeps hidden bids out of a PostgREST count or list query while the flag is off: `source NOT LIKE 'bids-%'`. A query builder from
+ * supabase-js has `.not`; anything else (a test double without it) is returned unchanged, and the row filters above still apply.
+ */
+export function excludeBidsInQuery<Q>(q: Q, on: boolean = bidsEnabled()): Q {
+  if (on) return q;
+  const b = q as unknown as { not?: (col: string, op: string, v: string) => Q };
+  return typeof b.not === 'function' ? b.not('source', 'like', `${BID_SOURCE_PREFIX}%`) : q;
 }

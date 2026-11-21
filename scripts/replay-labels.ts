@@ -8,8 +8,12 @@
  * Output: /home/claude/gates/r13/logs/A-replay.md (or the path given as the first argument).
  *
  *   scripts/fixtures/replay-14d/smyrna-roofer.json   the live roofer profile near Smyrna GA and its roofing rows (2 rows)
- * Nothing here touches a database, the network or the clock. Run from the repo root with (the alias lets jiti resolve "@/"):
- *   JITI_ALIAS="{\"@/\":\"$PWD/\"}" node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts
+ * Nothing here touches a database, the network or the clock. Run from the repo root with:
+ *   npm run replay:labels                     (writes the default path)
+ *   npm run replay:labels -- /tmp/out.md      (writes to the path given)
+ * which is `JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts`. The bare jiti command without that
+ * variable fails with "Cannot find module '@/lib/geo'" because match.ts imports through the "@/" alias (review P2-16); the variable makes
+ * jiti read the alias from tsconfig.json.
  *
  * Delivery by label: act_now and coming_soon are ALERTS (pushed, emailed, in the feed); market_insight is FEED ONLY (stored and shown after
  * the alerts, never pushed or emailed); context is hidden everywhere. "Before" is the stream before round 13, where every pair was an alert.

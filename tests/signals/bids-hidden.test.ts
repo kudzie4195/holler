@@ -215,10 +215,12 @@ describe('open bids through the opportunity label (r13-rules rebase)', () => {
     expect(a.bidLine).toBe('Buyer: Water & Power. Due Dec 10, 2026, 19 days left.');
   });
 
-  it('a bid whose due day has passed is shown as coming_soon, not act_now', async () => {
+  it('a bid whose due date has passed is dropped, not demoted to coming_soon (review P2-14)', async () => {
     vi.stubEnv(BIDS_FLAG, '1');
-    const [a] = await buildAlerts([row(1, stored({ dueDate: '2026-11-20', expires_at: iso(-3_600_000) }))], deps);
-    expect(a.label).toBe('coming_soon');
+    expect(await buildAlerts([row(1, stored({ dueDate: '2026-11-20', expires_at: iso(-3_600_000) }))], deps)).toEqual([]);
+    // an open bid next to it stays
+    const kept = await buildAlerts([row(1, stored({ dueDate: '2026-11-20', expires_at: iso(-3_600_000) })), row(2, stored({ dueDate: '2026-12-10', expires_at: iso(19 * 86_400_000) }))], deps);
+    expect(kept.map((a) => a.matchId)).toEqual([2]);
   });
 
   it('a record that is not a bid carries no bid line', async () => {

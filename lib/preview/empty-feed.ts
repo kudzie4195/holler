@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CATEGORY_IDS, categoryById, isCategoryId, type CategoryId } from '@/lib/signals/categories';
 import { enabledDatasets } from '@/lib/signals/capabilities';
 import { getSourceMeta } from '@/lib/signals/source-meta';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { matchScope, type ScopeInput } from '@/lib/plan';
 import { cityBySlug, haversineMi, lookupZip } from '@/lib/geo';
@@ -121,12 +122,14 @@ async function readArea(db: Db, lat: number, lon: number, radius: number, since:
       })
       .select('id,source,kind,categories,occurred_at,data');
     if (error) throw new Error(error.message);
+    // City bids are left out while HOLLER_BIDS_ENABLED is off (review P2-13). `got.length` still drives paging, so filter after it.
     const got = (data ?? []) as NearRow[];
+    const shown = withoutHiddenBids(got);
     let fresh = 0;
     for (const r of got) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
-      rows.push(r);
+      if (shown.includes(r)) rows.push(r);
       fresh++;
     }
     if (got.length < EMPTY_FEED_PAGE || fresh === 0) return { rows, capped: false };

@@ -3,6 +3,7 @@ import { publicClient } from '@/lib/seo/client';
 import { UPCOMING_DAYS } from '@/lib/time';
 import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI, CHECK_WINDOW_DAYS } from './scope';
 import type { CheckItem } from './group';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -129,8 +130,9 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (stateLevel.error) console.error('[check] state-level read failed:', stateLevel.error.code ?? stateLevel.error.message);
     const rowsOf = (r: { error: unknown; data: unknown }): Row[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as Row[]));
     // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
-    const data: Row[] = withoutEndedRequests(
-      [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)],
+    // City bids: every stored bid is left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
+    const data: Row[] = withoutHiddenBids(
+      withoutEndedRequests([...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)], now.getTime()),
       now.getTime(),
     );
 

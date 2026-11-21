@@ -4,6 +4,7 @@ import { WINDOW_DAYS } from './threshold';
 import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type SignalRowDb } from './summarize';
 import type { SectionId } from './sections';
 import { UPCOMING_DAYS, newestPast } from '../time';
+import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -31,18 +32,21 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
     const until = new Date(now.getTime() + UPCOMING_DAYS * DAY).toISOString();
-    const { data, error, count } = await sb
-      .from('holler_signals')
-      .select(ROW_COLUMNS, { count: 'exact' })
-      .eq('place_slug', slug)
-      .gte('occurred_at', since)
-      .lte('occurred_at', until)
-      .or(liveRequestsFilter(nowIso))
+    const { data, error, count } = await excludeBidsInQuery(
+      sb
+        .from('holler_signals')
+        .select(ROW_COLUMNS, { count: 'exact' })
+        .eq('place_slug', slug)
+        .gte('occurred_at', since)
+        .lte('occurred_at', until)
+        .or(liveRequestsFilter(nowIso)),
+    )
       .order('occurred_at', { ascending: false })
       .limit(ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
     if (error) throw new Error(error.message);
-    const rows = withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], now.getTime());
+    // City bids are left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
+    const rows = withoutHiddenBids(withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], now.getTime()), now.getTime());
 
     const exactSectionCounts: Partial<Record<SectionId, number>> = {};
     if (typeof count === 'number' && count > rows.length) {
@@ -53,14 +57,16 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       ];
       const results = await Promise.all(
         kinds.map(async ([kind, section]) => {
-          const r = await sb
-            .from('holler_signals')
-            .select('id', { count: 'exact', head: true })
-            .eq('place_slug', slug)
-            .eq('kind', kind)
-            .gte('occurred_at', since)
-            .lte('occurred_at', until)
-            .or(liveRequestsFilter(nowIso))
+          const r = await excludeBidsInQuery(
+            sb
+              .from('holler_signals')
+              .select('id', { count: 'exact', head: true })
+              .eq('place_slug', slug)
+              .eq('kind', kind)
+              .gte('occurred_at', since)
+              .lte('occurred_at', until)
+              .or(liveRequestsFilter(nowIso)),
+          )
             .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
           return { section, n: r.error ? 0 : (r.count ?? 0) };
         }),

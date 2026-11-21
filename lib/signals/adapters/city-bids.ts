@@ -426,6 +426,7 @@ export function buildBidAdapter(ds: BidDataset): Adapter {
     cadenceMinutes: ds.cadenceMinutes,
     sourceUrl: bidDatasetPageUrl(ds),
     enabled: () => bidsEnabled(),
+    flag: BIDS_FLAG,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       // Defence in depth: run.ts already skips a disabled adapter, but a direct call (a probe, a test) must not fetch either.
       if (!bidsEnabled(ctx.env[BIDS_FLAG] ?? env.HOLLER_BIDS_ENABLED ?? process.env[BIDS_FLAG])) {

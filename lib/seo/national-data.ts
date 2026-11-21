@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { cityBySlug, cityPath } from '@/lib/geo';
 import { publicClient } from './client';
 import { tradeLabel } from './trades';
+import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 /**
@@ -97,12 +98,14 @@ type Window = { since: string; until: string };
 
 /** Every read here leaves out resident requests that have ended (w.until is "now"), so /data never counts a closed request. */
 async function count(sb: SupabaseClient, w: Window, filter?: { kind?: string; place?: string }): Promise<number> {
-  let q = sb
-    .from('holler_signals')
-    .select('id', { count: 'exact', head: true })
-    .gte('occurred_at', w.since)
-    .lte('occurred_at', w.until)
-    .or(liveRequestsFilter(w.until));
+  let q = excludeBidsInQuery(
+    sb
+      .from('holler_signals')
+      .select('id', { count: 'exact', head: true })
+      .gte('occurred_at', w.since)
+      .lte('occurred_at', w.until)
+      .or(liveRequestsFilter(w.until)),
+  );
   if (filter?.kind) q = q.eq('kind', filter.kind);
   if (filter?.place) q = q.eq('place_slug', filter.place);
   const r = await q.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -182,18 +185,23 @@ export async function buildNationalStats(sb: SupabaseClient | null, now: Date): 
       ),
       readPlaces(sb),
       (async () => {
-        const r = await sb
-          .from('holler_signals')
-          .select('source, categories, occurred_at, expires_at')
-          .gte('occurred_at', w30.since)
-          .lte('occurred_at', w30.until)
-          .or(liveRequestsFilter(w30.until))
+        const r = await excludeBidsInQuery(
+          sb
+            .from('holler_signals')
+            .select('source, categories, occurred_at, expires_at')
+            .gte('occurred_at', w30.since)
+            .lte('occurred_at', w30.until)
+            .or(liveRequestsFilter(w30.until)),
+        )
           .order('occurred_at', { ascending: false })
           .limit(SAMPLE_SIZE)
           .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
         if (r.error) throw new Error(r.error.message);
-        return withoutEndedRequests(
-          (r.data ?? []) as unknown as { source: string | null; categories: string[] | null; occurred_at: string; expires_at?: string | null }[],
+        return withoutHiddenBids(
+          withoutEndedRequests(
+            (r.data ?? []) as unknown as { source: string | null; categories: string[] | null; occurred_at: string; expires_at?: string | null }[],
+            now.getTime(),
+          ),
           now.getTime(),
         );
       })(),

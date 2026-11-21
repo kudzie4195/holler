@@ -22,6 +22,7 @@ import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
+import { tradeForRecord } from '@/lib/signals/brief';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
 
@@ -103,9 +104,9 @@ export async function GET(req: Request) {
     if (rows.length < PAGE_SIZE) break;
   }
 
-  // City bids are never emailed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on. They are left unnotified
-  // (not stamped), so turning the flag back on resumes them.
-  matches = dropHiddenBids(matches);
+  // City bids are never emailed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on, and a bid whose due date has
+  // passed is never emailed at all (review P2-14). They are left unnotified (not stamped), so turning the flag back on resumes the open ones.
+  matches = dropHiddenBids(matches, undefined, now.getTime());
 
   const byUser = new Map<string, MatchRow[]>();
   for (const m of matches) {
@@ -229,6 +230,7 @@ export async function GET(req: Request) {
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
+        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, trades),
         deadline: deadlineOf(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
       }));

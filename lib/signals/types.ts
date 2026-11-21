@@ -61,5 +61,7 @@ export interface Adapter {
    * does not run. Absent means always enabled. City bids use it (lib/signals/bid-sources.ts).
    */
   enabled?: () => boolean;
+  /** Name of the env var behind `enabled`, shown when the adapter is switched off (missingEnvFor). Absent: 'feature flag'. City bids: HOLLER_BIDS_ENABLED. */
+  flag?: string;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

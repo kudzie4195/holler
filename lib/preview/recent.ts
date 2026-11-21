@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { intentOf, type Intent } from '@/lib/signals/intent';
 import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
 import { matchScope, type ScopeInput } from '@/lib/plan';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
@@ -200,7 +201,7 @@ export async function recentPreviewFor(
     const types = new Map<string, number>();
     const hits: Row[] = [];
     const seen = new Set<string>();
-    for (const r of [...rowsA, ...rowsB, ...rowsC]) {
+    for (const r of withoutHiddenBids([...rowsA, ...rowsB, ...rowsC], now.getTime())) {
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);

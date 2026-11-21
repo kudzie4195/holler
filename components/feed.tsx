@@ -9,12 +9,12 @@ import { EmptyState } from './empty-state';
 import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
 import { sourceLabel } from './signal-meta';
-import { bidSourceLinkLabel } from '@/lib/signals/bid-card';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
 import { IntentNote } from './feed/intent-note';
+import { BriefBlock } from './feed/brief-block';
 import type { FeedbackState } from '@/lib/feedback/types';
 import type { OpportunityLabel } from '@/lib/signals/lead-rules';
 
@@ -44,6 +44,8 @@ export interface FeedItem {
   label?: OpportunityLabel;
   /** ISO date of a fix-by, due or response date the record publishes. Shown on Act Now cards; null shows "No deadline published". */
   deadline?: string | null;
+  /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes the "Why it matters" line trade-specific. */
+  trade?: string | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
@@ -285,23 +287,11 @@ function MatchCard({
       <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
       {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
 
+      <BriefBlock item={item} />
+
       {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {item.url && !isRequest ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-sand md:min-h-9"
-          >
-            {bidSourceLinkLabel(item.source)}
-            <span className="sr-only"> (opens in a new tab)</span>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </a>
-        ) : null}
         {isRequest ? (
           <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} />
         ) : item.kind === 'ask' ? (

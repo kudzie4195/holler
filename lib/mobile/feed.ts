@@ -13,8 +13,9 @@ import { bidCardLine } from '@/lib/signals/bid-card';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
-import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from './types';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { cardBrief, tradeForRecord } from '@/lib/signals/brief';
+import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
  * The member's alerts for the app, built the way the web feed (app/app/page.tsx) builds them: the member's own matches read with
@@ -115,6 +116,22 @@ export interface BuildDeps {
   trades?: readonly string[];
 }
 
+/**
+ * Brief card v1 for the app (additive field). Same five parts as the web card: the record's own title and summary are the alert's
+ * title and summary (part 1). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
+ */
+function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
+  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, deps.trades ?? []);
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
+  return {
+    why: b.why,
+    next: b.next,
+    source: { label: b.source.label, url: b.source.href, linkText: b.source.linkText, recordLink: b.source.recordLink, date: b.source.dateText },
+    uncertain: b.uncertain,
+    confidence: b.confidence,
+  };
+}
+
 /** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
   const labelOf = (s: SignalRow) =>
@@ -123,7 +140,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
   const live = rows.filter((m) => {
     const s = signalOf(m);
     // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
-    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s) && labelOf(s) !== 'context';
+    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s) !== 'context';
   });
   if (live.length === 0) return [];
 
@@ -176,6 +193,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
       deadline: deadlineOf(s),
+      brief: briefDto(s, labelOf(s), deps),
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),

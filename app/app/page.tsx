@@ -27,6 +27,7 @@ import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
+import { tradeForRecord } from '@/lib/signals/brief';
 
 interface SignalRow {
   id: number;
@@ -95,7 +96,7 @@ async function loadDashboard() {
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     // A city bid is hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
-    return !!s && !isEndedRequest(s, now) && !bidHidden(s) && labelOf(s) !== 'context';
+    return !!s && !isEndedRequest(s, now) && !bidHidden(s, undefined, now) && labelOf(s) !== 'context';
   });
   // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
   // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
@@ -187,6 +188,8 @@ async function loadDashboard() {
       zip: s.zip,
       subtype: s.subtype ?? null,
       label: labelOf(s),
+      // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
+      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, memberTrades),
       deadline: deadlineOf(s),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,

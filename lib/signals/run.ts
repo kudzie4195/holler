@@ -1,5 +1,4 @@
 import { hasApproxLocation } from './approx-location';
-import { BIDS_FLAG } from './bid-sources';
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
@@ -102,7 +101,8 @@ export function missingEnvFor(adapter: Adapter, e: Record<string, string | undef
   const keys = (adapter.requiresEnv ?? []).filter((k) => !e[k]);
   // A feature-flagged adapter (city bids) that is switched off counts as not configured, naming the flag. The scan, the health
   // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
-  if (adapter.enabled && !adapter.enabled()) keys.push(BIDS_FLAG);
+  // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
+  if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
   return keys;
 }
 

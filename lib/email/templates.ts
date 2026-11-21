@@ -5,6 +5,7 @@ import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { intentLabel, intentLine } from '../signals/intent';
 import { bidSourceLinkLabel } from '../signals/bid-card';
+import { cardBrief, sourceLine, type CardBrief } from '../signals/brief';
 import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
@@ -36,6 +37,8 @@ export interface DigestItem {
   deadline?: string | null;
   /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." (lib/signals/bid-card.ts bidCardLine). */
   bidLine?: string | null;
+  /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes "Why it matters" trade-specific. */
+  trade?: string | null;
 }
 
 /** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
@@ -95,6 +98,14 @@ export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, 
 /** Label of the link under a digest item. */
 export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
   return isResidentRequest(it, base) ? 'Open the request' : bidSourceLinkLabel(it.source);
+}
+
+/** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
+export function digestBrief(it: DigestItem, base: string = siteUrl): CardBrief & { href: string | null; linkText: string } {
+  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base });
+  const own = safeUrl(it.sourceUrl);
+  // The link label keeps the digest's own rule: "Open the request" for a resident request (known by source or by its /request link).
+  return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base) : b.source.linkText };
 }
 
 /** Text we show must never contain an em dash (house copy rule), including text from sources. */
@@ -166,7 +177,6 @@ export function renderDigest(opts: {
 
   const htmlItems = items
     .map((it) => {
-      const src = safeUrl(it.sourceUrl);
       const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
@@ -181,9 +191,15 @@ export function renderDigest(opts: {
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${intentHtml}${note}${detail}${contact}${
-        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
-      }</li>`;
+      const br = digestBrief(it);
+      const briefHtml =
+        `<div style="font-size:14px;margin:6px 0 2px 0"><strong>Why it matters:</strong> ${escapeHtml(noDash(br.why))}</div>` +
+        `<div style="font-size:14px;margin:2px 0"><strong>Next step:</strong> ${escapeHtml(noDash(br.next))}</div>` +
+        `<div style="font-size:14px;margin:2px 0"><strong>Source:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
+          br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
+        }</div>` +
+        `<div style="font-size:14px;margin:2px 0 4px 0"><strong>What is uncertain:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${intentHtml}${note}${detail}${contact}${briefHtml}</li>`;
     })
     .join('');
 
@@ -201,13 +217,13 @@ export function renderDigest(opts: {
 
   const textItems = items
     .map((it) => {
-      const src = safeUrl(it.sourceUrl);
+      const br = digestBrief(it);
       const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

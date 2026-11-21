@@ -272,6 +272,22 @@ export interface ContactDto {
   website?: string | null;
 }
 
+/**
+ * Brief card v1 (PLAN-2.0 item 0.4), the five parts of an alert card. Part 1 is the alert's own title and summary. Additive: older app
+ * builds ignore it. Deterministic text (lib/signals/brief.ts); the AI note stays in `ai`.
+ */
+export interface BriefDto {
+  /** Part 2: one sentence, written for the member's trade. */
+  why: string;
+  /** Part 3: one concrete action. */
+  next: string;
+  /** Part 4: where it came from. `url` is the record's page when `recordLink` is true, otherwise the dataset's home page. Never null for a known source. */
+  source: { label: string; url: string | null; linkText: string; recordLink: boolean; date: string | null };
+  /** Part 5: "High confidence the inspection failed; whether the owner is hiring is not known." */
+  uncertain: string;
+  confidence: 'High' | 'Medium' | 'Low';
+}
+
 export interface AlertDto {
   matchId: number;
   signalId: number;
@@ -308,6 +324,8 @@ export interface AlertDto {
   deadline: string | null;
   /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." Null for every other record. Additive: older app builds ignore it. */
   bidLine: string | null;
+  /** The brief card: why it matters, next step, source and date, what is uncertain. Additive: older app builds ignore it. */
+  brief: BriefDto;
   distanceMi: number | null;
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;

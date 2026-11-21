@@ -154,7 +154,7 @@ export function pushEntriesFromMatches(
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
     // A city bid is never pushed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
-    if (bidHidden(s)) continue;
+    if (bidHidden(s, undefined, now)) continue;
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
     if (!isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
