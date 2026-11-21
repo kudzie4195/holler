@@ -204,6 +204,9 @@ sync_repo() {
     run git -C "$REPO_DIR" checkout -b "$BRANCH" "origin/$BRANCH" || fail "Could not check out $BRANCH from origin. Has the branch been pushed?"
   fi
   say "at: $(git -C "$REPO_DIR" log -1 --format='%h %s')"
+  local ahead
+  ahead="$(git -C "$REPO_DIR" rev-list --count "origin/$BRANCH..HEAD" 2>/dev/null)" || ahead=0
+  (( ahead == 0 )) || say "note: building $ahead local commit(s) that are not on GitHub yet. Push them after the run."
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -308,7 +311,7 @@ EOF
     fi
     local list
     list="$(xcodebuild -list -project "$project" 2>&1)" || { say "xcodebuild -list failed:"; print -r -- "$list" | tail -5; return 1; }
-    if ! print -r -- "${list#*Schemes:}" | grep -cE '^[[:space:]]+App$' >/dev/null; then
+    if [[ "$list" != *Schemes:* ]] || ! print -r -- "${list#*Schemes:}" | grep -cE '^[[:space:]]+App$' >/dev/null; then
       say "xcodebuild does not list a scheme named App for $project."
       return 1
     fi
@@ -458,4 +461,5 @@ main() {
   return 0
 }
 
-main "$@"; exit $?
+# ERR_EXIT would end the shell on a failed phase without running the EXIT trap, so catch the status here.
+rc=0; main "$@" || rc=$?; exit $rc
