@@ -3,7 +3,8 @@ import { CADENCE_SHORT } from '../seo/cadence';
 import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
-import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
+import { intentLabel, intentLine } from '../signals/intent';
+import { bidSourceLinkLabel } from '../signals/bid-card';
 import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
@@ -91,7 +92,7 @@ export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, 
 
 /** Label of the link under a digest item. */
 export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
-  return isResidentRequest(it, base) ? 'Open the request' : 'Open the source';
+  return isResidentRequest(it, base) ? 'Open the request' : bidSourceLinkLabel(it.source);
 }
 
 /** Text we show must never contain an em dash (house copy rule), including text from sources. */
@@ -164,13 +165,12 @@ export function renderDigest(opts: {
   const htmlItems = items
     .map((it) => {
       const src = safeUrl(it.sourceUrl);
-      const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const intent = intentOf(sig);
-      const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
+      const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(intentLabel(sig))}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const chip = chipText(it);
       const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
@@ -199,13 +199,12 @@ export function renderDigest(opts: {
   const textItems = items
     .map((it) => {
       const src = safeUrl(it.sourceUrl);
-      const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const intent = intentOf(sig);
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =

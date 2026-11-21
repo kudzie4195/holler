@@ -352,6 +352,11 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   // Federal contracts and big events
   'usaspending': 'market_insight',
   'sam-gov': 'act_now',
+  // City open bids (lib/signals/adapters/city-bids.ts; bids-nyc is configured but not registered, so it has no entry until it is):
+  // a solicitation is open for bids with a due date, nothing is awarded. Behind HOLLER_BIDS_ENABLED.
+  'bids-sf': 'act_now',
+  'bids-la': 'act_now',
+  'bids-batonrouge': 'act_now',
   'ticketmaster': 'coming_soon',
   // People asking (act_now: someone asked)
   'bluesky': 'act_now',

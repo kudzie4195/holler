@@ -56,5 +56,10 @@ export interface Adapter {
   requiresEnv?: string[];
   /** Human-readable source home page, shown on public pages as citation. */
   sourceUrl: string;
+  /**
+   * Feature switch. When present and it returns false, the scan skips the adapter (reported as skipped(env) with the flag name) and it
+   * does not run. Absent means always enabled. City bids use it (lib/signals/bid-sources.ts).
+   */
+  enabled?: () => boolean;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

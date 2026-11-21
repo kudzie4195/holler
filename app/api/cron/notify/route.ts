@@ -20,6 +20,7 @@ import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
 
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
   const counts = { users_considered: 0, emailed: 0, matches_marked: 0, matches_skipped_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
 
   // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
-  const matches: MatchRow[] = [];
+  let matches: MatchRow[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
@@ -98,6 +99,10 @@ export async function GET(req: Request) {
     matches.push(...rows);
     if (rows.length < PAGE_SIZE) break;
   }
+
+  // City bids are never emailed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on. They are left unnotified
+  // (not stamped), so turning the flag back on resumes them.
+  matches = dropHiddenBids(matches);
 
   const byUser = new Map<string, MatchRow[]>();
   for (const m of matches) {

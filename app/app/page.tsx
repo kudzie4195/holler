@@ -14,6 +14,8 @@ import { requireProfile } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { matchScope } from '@/lib/plan/scope';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +52,8 @@ interface SignalRow {
   fixBy?: string | null;
   responseDeadline?: string | null;
   dueDate?: string | null;
+  /** City open bids only (data.buyer): the buyer. The due day comes from dueDate above. */
+  bidBuyer?: string | null;
 }
 
 interface MatchRow {
@@ -69,7 +73,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT})`,
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -90,7 +94,8 @@ async function loadDashboard() {
   // including matches stored before the label rules existed (items 0.2 and 0.3). Market insight rows are shown, after every alert.
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    return !!s && !isEndedRequest(s, now) && labelOf(s) !== 'context';
+    // A city bid is hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    return !!s && !isEndedRequest(s, now) && !bidHidden(s) && labelOf(s) !== 'context';
   });
   // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
   // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
@@ -186,6 +191,8 @@ async function loadDashboard() {
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,
+      // Open city bids: buyer and due date with days left, worked out on the server at request time.
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now)) : null,
     };
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
@@ -195,7 +202,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null }
       : base;
   });
 

@@ -54,7 +54,7 @@ export function distanceFrom(origin: { lat: number; lon: number } | undefined, i
  * "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." (approx-location.ts).
  */
 export function placeLine(it: Pick<CheckItem, 'source' | 'place'>): string | null {
-  if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null });
+  if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null, source: it.source });
   return it.place;
 }
 

@@ -2,6 +2,7 @@ import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation } from './approx-location';
 import { deadlineOf, isAlertLabel, isFeedLabel, labelForTrades, LABEL_RANK, type OpportunityLabel } from './lead-rules';
+import { bidsEnabled, isBidSignal } from './bid-sources';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -88,8 +89,8 @@ const MI_PER_DEG_LAT_FLOOR = 69;
  *   work, park events) is not matched at all, so it is never stored, pushed, emailed or shown.
  * Returns the match (distance may be null for state-level) or null.
  */
-export function matchOne(signal: MatchSignal, profile: MatchProfile): MatchResult | null {
-  return matchInScope(signal, profile, matchScope(profile));
+export function matchOne(signal: MatchSignal, profile: MatchProfile, bidsOn: boolean = bidsEnabled()): MatchResult | null {
+  return matchInScope(signal, profile, matchScope(profile), bidsOn);
 }
 
 /** The label for a record given the member's allowed trades: the trades they share with the record, or the keyword case (none). */
@@ -102,7 +103,10 @@ function resultFor(signal: MatchSignal, where: { distance_mi: number | null }, l
   return { distance_mi: where.distance_mi, label, deadline: deadlineOf({ source: signal.source, data: signal.data as Record<string, unknown> | null | undefined }) };
 }
 
-function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
+function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
+  // City bids (HOLLER_BIDS_ENABLED, lib/signals/bid-sources.ts): with the flag off no bid row matches anyone, whether it was just fetched
+  // or stored earlier. First test, before any area or text work.
+  if (!bidsOn && isBidSignal(signal)) return null;
   if (hasCoords(signal.lat, signal.lon)) {
     // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
     // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.
@@ -130,8 +134,8 @@ function tradeMatch(signal: MatchSignal, scope: MatchScope): boolean {
   return signal.categories.length > 0 && scope.categories.length > 0 && signal.categories.some((c) => scope.categories.includes(c));
 }
 
-function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): MatchResult | null {
-  const where = areaMatch(signal, profile, scope);
+function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): MatchResult | null {
+  const where = areaMatch(signal, profile, scope, bidsOn);
   if (!where) return null;
   if (!tradeMatch(signal, scope)) {
     if (scope.phrases.length === 0) return null;
@@ -189,7 +193,14 @@ export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER,
  * Cost control (P1-2): the area test runs before any text test; each record's searchable text is built at most once per scan; and
  * the answer to "does record i contain phrase p" is kept for the scan, so profiles that watch the same phrase share the work.
  */
-export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], cap = MAX_MATCHES_PER_USER, now: Date = new Date()): MatchRow[] {
+export function matchSignals(
+  signals: MatchSignal[],
+  profiles: MatchProfile[],
+  cap = MAX_MATCHES_PER_USER,
+  now: Date = new Date(),
+  /** City bids on or off for this call. Defaults to the HOLLER_BIDS_ENABLED flag, read once per call. */
+  bidsOn: boolean = bidsEnabled(),
+): MatchRow[] {
   const out: MatchRow[] = [];
   const n = signals.length;
   const texts: (string | undefined)[] = new Array(n);
@@ -201,7 +212,7 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
     const hits: Hit[] = [];
     for (let i = 0; i < n; i++) {
       const s = signals[i];
-      const where = areaMatch(s, p, scope);
+      const where = areaMatch(s, p, scope, bidsOn);
       if (!where) continue;
       if (!tradeMatch(s, scope)) {
         let found = false;

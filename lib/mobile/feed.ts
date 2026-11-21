@@ -7,8 +7,9 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { loadMemberContacts } from '@/lib/outreach/loader';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { requestTextForMember } from '@/lib/requests/details';
-import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals/intent';
+import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
@@ -118,7 +119,8 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
   const live = rows.filter((m) => {
     const s = signalOf(m);
-    return !!s && !isEndedRequest(s, deps.now) && labelOf(s) !== 'context';
+    // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s) && labelOf(s) !== 'context';
   });
   if (live.length === 0) return [];
 
@@ -168,7 +170,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       occurredAt: s.occurred_at,
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
-      intent: { key: intentLineKey(intentIn), label: INTENT_LABEL[intentOf(intentIn)], line: intentLine(intentIn) },
+      intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
       deadline: deadlineOf(s),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),

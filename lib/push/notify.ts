@@ -18,6 +18,7 @@
  * Never throws; every failure is a count in the result.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { computeAccess } from '@/lib/auth/access';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { isAlertLabel, labelForMember } from '@/lib/signals/lead-rules';
@@ -152,6 +153,8 @@ export function pushEntriesFromMatches(
   for (const m of matches) {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
+    // A city bid is never pushed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    if (bidHidden(s)) continue;
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
     if (!isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
