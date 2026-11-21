@@ -306,6 +306,8 @@ export interface AlertDto {
   label: 'act_now' | 'coming_soon' | 'market_insight';
   /** ISO date of a fix-by, due or response date the record publishes. Null means "No deadline published". */
   deadline: string | null;
+  /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." Null for every other record. Additive: older app builds ignore it. */
+  bidLine: string | null;
   distanceMi: number | null;
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;

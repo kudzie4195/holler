@@ -9,6 +9,7 @@ import { FakeDb } from '../ops/fakedb';
 import { BIDS_FLAG, BID_SOURCE_IDS, bidHidden, dropHiddenBids } from '@/lib/signals/bid-sources';
 import { missingEnvFor } from '@/lib/signals/run';
 import { buildAlerts, type MatchRow } from '@/lib/mobile/feed';
+import { renderDigest } from '@/lib/email/templates';
 import { pushEntriesFromMatches } from '@/lib/push/notify';
 import { buildBidAdapter, BID_DATASETS } from '@/lib/signals/adapters/city-bids';
 
@@ -199,5 +200,46 @@ describe('health email (review P1-2)', () => {
     const body = await health('1');
     expect(body.notConfigured).toEqual([]);
     expect(body.sources.find((s: { id: string }) => s.id === 'bids-la')?.problems).toContain('never_ran');
+  });
+});
+
+describe('open bids through the opportunity label (r13-rules rebase)', () => {
+  const deps = { userId: 'u1', locked: true, db: {} as never, admin: null, siteUrl: 'https://localholler.com', now: NOW.getTime(), trades: ['roofing'] };
+  const stored = (over: Record<string, unknown> = {}) => ({ ...bidSignal(1), categories: ['roofing'], dueDate: '2026-12-10', bidBuyer: 'Water & Power', ...over });
+
+  it('an open bid with the member\'s trade is act_now with the due day as the deadline, and the card line has the days left', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    const [a] = await buildAlerts([row(1, stored())], deps);
+    expect(a.label).toBe('act_now');
+    expect(a.deadline).toBe('2026-12-10T12:00:00.000Z');
+    expect(a.bidLine).toBe('Buyer: Water & Power. Due Dec 10, 2026, 19 days left.');
+  });
+
+  it('a bid whose due day has passed is shown as coming_soon, not act_now', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    const [a] = await buildAlerts([row(1, stored({ dueDate: '2026-11-20', expires_at: iso(-3_600_000) }))], deps);
+    expect(a.label).toBe('coming_soon');
+  });
+
+  it('a record that is not a bid carries no bid line', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    const [a] = await buildAlerts([row(2, permitSignal(2))], deps);
+    expect(a.bidLine).toBeNull();
+  });
+
+  it('the digest prints the Act now chip, the deadline and the bid line, in html and text', () => {
+    const mail = renderDigest({
+      businessName: 'Acme Roofing',
+      items: [{ kind: 'contract', source: 'bids-la', subtype: 'bid', title: 'REPLACE ROOFS AT TWO FIRE STATIONS', occurredAt: iso(-3_600_000), sourceUrl: 'https://www.rampla.org/x', label: 'act_now', deadline: '2026-12-10T12:00:00.000Z', bidLine: 'Buyer: Water & Power. Due Dec 10, 2026, 19 days left.' }],
+      appUrl: 'https://localholler.com/app',
+      unsubscribeUrl: 'https://localholler.com/u',
+      now: NOW,
+    });
+    for (const body of [mail.html, mail.text]) {
+      expect(body).toContain('Act now');
+      expect(body).toContain('Deadline: Dec 10, 2026');
+      expect(body).toContain('19 days left');
+      expect(body).toContain('Open bid');
+    }
   });
 });

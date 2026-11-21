@@ -34,6 +34,8 @@ export interface DigestItem {
   label?: OpportunityLabel | null;
   /** ISO date by which something has to happen (a fix-by, due or response date), when the record publishes one. Act Now items only. */
   deadline?: string | null;
+  /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." (lib/signals/bid-card.ts bidCardLine). */
+  bidLine?: string | null;
 }
 
 /** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
@@ -173,12 +175,13 @@ export function renderDigest(opts: {
       const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(intentLabel(sig))}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
       const chip = chipText(it);
       const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
+      const bidHtml = it.bidLine ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.bidLine))}</div>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
       const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${intentHtml}${note}${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
       }</li>`;
     })
@@ -204,7 +207,7 @@ export function renderDigest(opts: {
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}\n${intentLabel(sig)}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =

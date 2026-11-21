@@ -20,6 +20,7 @@ import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
@@ -48,9 +49,11 @@ interface SignalRow {
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
   deadline?: string | null;
+  /** City open bids only: data.buyer. */
+  bidBuyer?: string | null;
+  dueDate?: string | null;
   fixBy?: string | null;
   responseDeadline?: string | null;
-  dueDate?: string | null;
 }
 interface MatchRow {
   id: number;
@@ -88,7 +91,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT})`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -227,6 +230,7 @@ export async function GET(req: Request) {
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
         deadline: deadlineOf(s),
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

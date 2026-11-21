@@ -9,6 +9,7 @@ import { mayHaveContacts } from '@/lib/outreach/plan';
 import { requestTextForMember } from '@/lib/requests/details';
 import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
@@ -23,7 +24,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT})`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
 
 export interface SignalRow {
   id: number;
@@ -46,6 +47,8 @@ export interface SignalRow {
   fixBy?: string | null;
   responseDeadline?: string | null;
   dueDate?: string | null;
+  /** City open bids only: data.buyer. */
+  bidBuyer?: string | null;
 }
 
 export interface MatchRow {
@@ -173,6 +176,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
       deadline: deadlineOf(s),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
