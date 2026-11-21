@@ -36,15 +36,17 @@ describe('digest: Contact line', () => {
 
 describe('GET /api/cron/notify: the email names an organisation and nothing else', () => {
   const sent: { html: string; text: string }[] = [];
+  const marked: unknown[][] = [];
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.doUnmock('@/lib/outreach/loader');
     vi.doUnmock('@/lib/supabase/admin');
     vi.doUnmock('@/lib/email');
     sent.length = 0;
+    marked.length = 0;
   });
 
-  function adminFake(matches: unknown[]) {
+  function adminFake(matches: unknown[], profileExtra: Record<string, unknown> = {}) {
     return {
       from(table: string) {
         const q: Record<string, unknown> = {};
@@ -52,11 +54,11 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
         for (const m of ['select', 'eq', 'order']) q[m] = () => q;
         q.range = () => Promise.resolve({ data: table === 'holler_matches' ? matches : [], error: null });
         q.update = (p: unknown) => ((patch = p), q);
-        q.in = () =>
+        q.in = (_col: unknown, ids: unknown) =>
           patch
-            ? Promise.resolve({ error: null })
+            ? (marked.push(ids as unknown[]), Promise.resolve({ error: null }))
             : Promise.resolve({
-                data: [{ user_id: 'u1', business_name: 'Acme', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
+                data: [{ user_id: 'u1', business_name: 'Acme', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z', ...profileExtra }],
                 error: null,
               });
         q.then = (res: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(res);
@@ -66,11 +68,11 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     };
   }
 
-  async function run(matches: unknown[], loaderImpl: (db: unknown, userId: string, ids: number[]) => Promise<Map<number, unknown[]>>) {
+  async function run(matches: unknown[], loaderImpl: (db: unknown, userId: string, ids: number[]) => Promise<Map<number, unknown[]>>, profileExtra: Record<string, unknown> = {}) {
     vi.resetModules();
     vi.stubEnv('CRON_SECRET', 's3cret');
     vi.doMock('server-only', () => ({}));
-    vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminFake(matches) }));
+    vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminFake(matches, profileExtra) }));
     // The real loader (lib/contacts/load.ts) is another unit's file: inject a fake through the same wrapper the route uses.
     vi.doMock('@/lib/outreach/loader', async (orig) => {
       const real = await orig<typeof import('@/lib/outreach/loader')>();
@@ -128,7 +130,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     const res = await run(
       [
         sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
-        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
+        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Mold complaint in a building' }),
+        sig(3, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }), // context: never mailed
       ],
       async () => new Map(),
     );
@@ -139,7 +142,30 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(html).toContain('Money being spent');
     expect(text).toContain('Money being spent');
     expect(html).toContain('Might need work');
+    expect(html).toContain('Mold complaint in a building');
+    expect(html).not.toContain('Pothole request');
     // the licence is labeled Money being spent, not Might need work
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Money being spent'));
+  });
+
+  it('a market_insight match (a roof permit for a roofer) is stored for the feed but never mailed, and is marked notified', async () => {
+    const res = await run(
+      [sig(1, { title: 'Roof permit in Atlanta', categories: ['roofing'] }), sig(2, { title: 'Wind damage reported near Smyrna', source: 'spc', kind: 'report', categories: ['roofing'] })],
+      async () => new Map(),
+      { categories: ['roofing'] },
+    );
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    const mail = sent[0].html + sent[0].text;
+    expect(mail).toContain('Wind damage reported near Smyrna');
+    expect(mail).not.toContain('Roof permit in Atlanta');
+    expect(marked.flat()).toContain(10); // the permit's match id (signal 1 * 10): marked notified without a mail
+  });
+
+  it('only market_insight matches: no email at all, the matches are marked notified', async () => {
+    const res = await run([sig(1, { title: 'Roof permit in Atlanta', categories: ['roofing'] })], async () => new Map(), { categories: ['roofing'] });
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(0);
+    expect(marked.flat()).toContain(10);
   });
 });

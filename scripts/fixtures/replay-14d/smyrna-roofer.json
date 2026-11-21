@@ -1,0 +1,8 @@
+{
+  "source": "READ-ONLY select on holler_signals, Nov 21 2026: roofing rows in the last 14 days, state GA, within 40 miles of ZIP 30080 (33.8826, -84.5144), plus GA rows with no coordinates. Two rows. The permit's coordinates are rebuilt from its live distance (13.7 mi) due north of the ZIP centre; the wind advisory has none.",
+  "profile": { "user_id": "live-roofer", "categories": ["roofing"], "lat": 33.8826, "lon": -84.5144, "state": "GA", "radius_mi": 25, "plan": "starter", "subscription_status": "trialing" },
+  "signals": [
+    { "id": 97622, "source": "nws", "kind": "alert", "title": "Wind Advisory: Coastal Nassau; Coastal Camden", "categories": ["tree-service", "roofing", "restoration", "electrical"], "lat": null, "lon": null, "state": "GA", "severity": 1, "occurred_at": "2026-11-20T12:00:00Z", "data": {} },
+    { "id": 55448, "source": "arcgis-atlanta-permits", "kind": "permit", "title": "Roof and remodel permit in Atlanta", "categories": ["roofing", "general-contractor"], "lat": 34.0808, "lon": -84.5144, "state": "GA", "severity": 1, "occurred_at": "2026-11-17T12:00:00Z", "data": { "subtype": "permit" } }
+  ]
+}

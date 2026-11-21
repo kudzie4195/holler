@@ -1,0 +1,167 @@
+socrata-austin-311|TPW - Tree Issue Right of Way|tree-service|54
+socrata-austin-311|TPW - Debris in Street|junk-removal|41
+socrata-austin-311|DSD - Tree and Environmental Complaint|tree-service|24
+socrata-austin-311|APH - Graffiti Abatement - Public Property|painting,cleaning|20
+socrata-austin-311|paint or graffiti|painting,cleaning|8
+socrata-austin-311|trash or debris|junk-removal|1
+socrata-cambridge-311|Rodent Sighting|pest-control|8
+socrata-cambridge-311|Tree Pruning Request|tree-service|5
+socrata-cambridge-311|Graffiti|painting,cleaning|3
+socrata-cambridge-311|Dumpster Complaint (Internal)|junk-removal|2
+socrata-cambridge-311|Collect Rodent Damaged Trash Can|pest-control|1
+socrata-cambridge-311|Sewer pipe boundary|plumbing|1
+socrata-cambridge-311|Tree Planting Request|tree-service|1
+socrata-cambridge-311|Tree Removal Request|tree-service|1
+socrata-cambridge-311|Trees - General Inquiry|tree-service|1
+socrata-chicago-311|Graffiti Removal Request|painting,cleaning|1475
+socrata-chicago-311|Tree Trim Request (NO LONGER BEING ACCEPTED)|tree-service|779
+socrata-chicago-311|Rodent Baiting/Rat Complaint|pest-control|633
+socrata-chicago-311|Fly Dumping Complaint|junk-removal|226
+socrata-chicago-311|Sewer Cleaning Inspection Request|plumbing|222
+socrata-chicago-311|Tree Debris Clean-Up Request|tree-service,junk-removal|217
+socrata-chicago-311|Tree Removal Inspection|tree-service|174
+socrata-chicago-311|Tree Planting Request|tree-service|81
+socrata-chicago-311|Tree Emergency|tree-service|79
+socrata-chicago-311|Sewer Cave-In Inspection Request|plumbing|48
+socrata-chicago-311|Clean Vacant Lot Request|lawn-care,landscaping|45
+socrata-chicago-311|Protected Bike Lane - Debris Removal|junk-removal|9
+socrata-chicago-311|Alley Sewer Inspection Request|plumbing|5
+socrata-cincinnati-311|TRASH, BULK ITEM PICK-UP|junk-removal|49
+socrata-cincinnati-311|RIGHT OF WAY- TRASH & DUMPING|junk-removal|10
+socrata-cincinnati-311|VEHICLE, ROW JUNK/ABAN|junk-removal|9
+socrata-cincinnati-311|GRAFFITI, REMOVAL|painting,cleaning|5
+socrata-cincinnati-311|RIGHT OF WAY, TIRE DUMPING|junk-removal|5
+socrata-cincinnati-311|HEAT, NO HEAT HAZARD|hvac,plumbing|4
+socrata-cincinnati-311|ROW FURNITURE/TRASH DUMPING|junk-removal|4
+socrata-cincinnati-311|TRASH, BULK ITEM(S) MISSED|junk-removal|3
+socrata-cincinnati-311|TREE, INSECT INFESTATION-ROW|pest-control,tree-service|2
+socrata-cincinnati-311|DUMPING, PRV PROP <2500 SQ FT|junk-removal|1
+socrata-cincinnati-311|MANHOLE CVR/SEWER LID, MISSING|plumbing|1
+socrata-cincinnati-311|MOLD, BUILDING OR APARTMENT|restoration|1
+socrata-cincinnati-311|pests|pest-control|1
+socrata-cincinnati-311|PUBLIC TREE REMOVAL REQUEST|tree-service|1
+socrata-cincinnati-311|RESTORATION, REPAIR CWW|restoration|1
+socrata-cincinnati-311|ROACHES - BLDG OR APARTMENT|pest-control|1
+socrata-cincinnati-311|SEWER, CAVE IN|plumbing|1
+socrata-cincinnati-311|TALL GRASS/WEEDS, PRIVATE PROP|lawn-care,landscaping|1
+socrata-cincinnati-311|trash or debris|junk-removal|1
+socrata-cincinnati-311|TREE, DEAD ON PRIV PROP STNDRD|tree-service|1
+socrata-cincinnati-311|TREE, PRUNE REQUIRED PUBLIC|tree-service|1
+socrata-cincinnati-311|TREE, REMOVAL REQUEST-PUB TREE|tree-service|1
+socrata-dallas-311|Street Spillage/Debris in Right of Way - Hazardous - TPW|junk-removal|40
+socrata-dallas-311|Tree Down/Low Limbs - TPW|tree-service|23
+socrata-dallas-311|Storm Sewer Line Locate - DWU|plumbing|22
+socrata-dallas-311|Street Lighting- New/Relocation - TPW|moving|11
+socrata-dallas-311|Graffiti City Streets & Bridges - TPW|painting,cleaning|8
+socrata-dallas-311|Graffiti Traffic Sign - TPW|painting,cleaning|3
+socrata-dallas-311|Illegal Dumping Sign - CCS|junk-removal|3
+socrata-dallas-311|Paving Street Resurface Program - TPW|concrete-paving|2
+socrata-dallas-311|Sewer Problems - DWU|plumbing|2
+socrata-dallas-311|Water/Sanitary Sewer Construction Project - DWU|plumbing,general-contractor|1
+socrata-kansascity-311|Trash Recycling Bulky Services / Missed Trash|junk-removal|38
+socrata-kansascity-311|Property Violations / Litter and Trash|general-contractor,handyman|12
+socrata-kansascity-311|Property Violations / Other Property Maintenance Issues|general-contractor,handyman|10
+socrata-kansascity-311|Illegal Dumping / Dumping in a Right of Way|junk-removal|5
+socrata-kansascity-311|Property Violations / Open to Entry|general-contractor,handyman|5
+socrata-kansascity-311|Property Violations / Weeds|lawn-care,landscaping,general-contractor,handyman|4
+socrata-kansascity-311|Sewer and Stormwater / Sewer Odor|plumbing|4
+socrata-kansascity-311|Sewer and Stormwater / Sinkhole|plumbing|3
+socrata-kansascity-311|Sewer and Stormwater / Storm Drain Cleaning|plumbing|3
+socrata-kansascity-311|Sewer and Stormwater / Storm Investigation|plumbing|3
+socrata-kansascity-311|Trees City Row / Trimming|tree-service|3
+socrata-kansascity-311|Sewer and Stormwater / Sewer Backup|plumbing|2
+socrata-kansascity-311|Trees City Row / Issue with Service or Other Problem|tree-service|2
+socrata-kansascity-311|Sewer and Stormwater / Sewer Manhole Issue|plumbing|1
+socrata-kansascity-311|Trees City Row / New Tree Request|tree-service|1
+socrata-nola-311|Tree Service / Tree Trim|tree-service|21
+socrata-nola-311|Healthy Homes|general-contractor,handyman|9
+socrata-nola-311|Tree Service / Dead or Dying Tree|tree-service|9
+socrata-nola-311|Mosquito, Termite & Rodent Control / Rodent Complaint (Mice & Rats)|pest-control|7
+socrata-nola-311|Tree Service / Street or Sidewalk Blocked|tree-service|7
+socrata-nola-311|Roads and Streets / Debris in Driving Lanes|junk-removal|6
+socrata-nola-311|Street and Traffic Signs / Additional Signage Request|signs-printing|6
+socrata-nola-311|Graffiti Removal|painting,cleaning|2
+socrata-nola-311|Mosquito, Termite & Rodent Control / Mosquito Complaint|pest-control|2
+socrata-nola-311|Tree Service / Blocking Stop Sign or Traffic Signal|tree-service|2
+socrata-nola-311|Tree Service / Park Maintenance/Clean Up|tree-service|2
+socrata-nola-311|Mosquito, Termite & Rodent Control / Non-Rodent Complaint (Possums & Snakes)|pest-control|1
+socrata-nyc-311|HEAT/HOT WATER / ENTIRE BUILDING|hvac,plumbing|966
+socrata-nyc-311|HEAT/HOT WATER / APARTMENT ONLY|hvac,plumbing|395
+socrata-nyc-311|Illegal Dumping / Removal Request|junk-removal|60
+socrata-nyc-311|Rodent / Rat Sighting|pest-control|43
+socrata-nyc-311|Graffiti|painting,cleaning|26
+socrata-nyc-311|Root/Sewer/Sidewalk Condition / Trees and Sidewalks Program|tree-service,plumbing|11
+socrata-nyc-311|Damaged Tree / Branch or Limb Has Fallen Down|tree-service|10
+socrata-nyc-311|Rodent / Condition Attracting Rodents|pest-control|8
+socrata-nyc-311|Rodent / Signs of Rodents|pest-control|8
+socrata-nyc-311|Dead/Dying Tree / Planted More Than 2 Years Ago|tree-service|7
+socrata-nyc-311|Overgrown Tree/Branches / Hitting Building|tree-service,lawn-care,landscaping|7
+socrata-nyc-311|Damaged Tree / Tree Leaning/Uprooted|tree-service|6
+socrata-nyc-311|Non-Residential Heat / Inadequate or No Heat|hvac,plumbing|6
+socrata-nyc-311|Sewer Maintenance / Backup|plumbing|6
+socrata-nyc-311|Sewer Maintenance / Catch Basin Clogged|plumbing|5
+socrata-nyc-311|Damaged Tree / Tree Alive - in Poor Condition|tree-service|4
+socrata-nyc-311|Illegal Dumping / Chronic Dumping|junk-removal|4
+socrata-nyc-311|Illegal Tree Damage / Branches Damaged|tree-service|4
+socrata-nyc-311|Illegal Tree Damage / Trunk Damaged|tree-service|4
+socrata-nyc-311|Sewer Maintenance / Catch Basin Sunken|plumbing|4
+socrata-nyc-311|Sewer Maintenance / Odor|plumbing|4
+socrata-nyc-311|Street Condition / Blocked - Construction|general-contractor|4
+socrata-nyc-311|Illegal Tree Damage / Roots Damaged|tree-service|3
+socrata-nyc-311|Overgrown Tree/Branches / Dead Branches in Tree|tree-service,lawn-care,landscaping|3
+socrata-nyc-311|Overgrown Tree/Branches / Hitting Phone/Cable Lines|tree-service,lawn-care,landscaping|3
+socrata-nyc-311|Sewer Maintenance / Flooding on Street|plumbing,restoration|3
+socrata-nyc-311|Sewer Maintenance / Manhole Overflow|plumbing|3
+socrata-nyc-311|Illegal Tree Damage / Unauthorized Tree Removal|tree-service|2
+socrata-nyc-311|Overgrown Tree/Branches / Hitting Power Lines|tree-service,lawn-care,landscaping|2
+socrata-nyc-311|Overgrown Tree/Branches / Traffic Sign or Signal Blocked|tree-service,lawn-care,landscaping|2
+socrata-nyc-311|Rodent / Mouse Sighting|pest-control|2
+socrata-nyc-311|Sewer Maintenance / Catch Basin Search|plumbing|2
+socrata-nyc-311|Sewer Maintenance / Manhole Cover Missing|plumbing|2
+socrata-nyc-311|Street Light Condition / Flood Light Lamp Out|plumbing|2
+socrata-nyc-311|Damaged Tree|tree-service|1
+socrata-nyc-311|Damaged Tree / Branch Cracked and Will Fall|tree-service|1
+socrata-nyc-311|Damaged Tree / Entire Tree Has Fallen Down|tree-service|1
+socrata-nyc-311|Dumpster Complaint / Blocking Sidewalk or Street|junk-removal|1
+socrata-nyc-311|Dumpster Complaint / Overflowing dumpster|junk-removal|1
+socrata-nyc-311|Mold / Public Complaint - Comm Location|restoration|1
+socrata-nyc-311|Overgrown Tree/Branches / Blocking Street|tree-service,lawn-care,landscaping|1
+socrata-nyc-311|Overgrown Tree/Branches / Clear Street Light|tree-service,lawn-care,landscaping|1
+socrata-nyc-311|Sewer Maintenance / Culvert|plumbing|1
+socrata-oakland-311|ILLDUMP / Illegal Dumping - debris, appliances, etc.|junk-removal|40
+socrata-oakland-311|ILLDUMP / Illegal Dumping – mattress/boxspring|junk-removal|9
+socrata-oakland-311|ILLDUMP / Volunteer - Community Bag Pick Up|junk-removal|5
+socrata-oakland-311|SEWERS / Sewers - Blockage|plumbing|4
+socrata-oakland-311|STREETSW / Streets/Sidewalks - Curb & Gutter Repair|roofing,siding-gutters|4
+socrata-oakland-311|BLDGMAINT / City Bldg - Plumbing|general-contractor,handyman,plumbing|2
+socrata-oakland-311|BLDGMAINT / City Bldg - Structural Issue|general-contractor,handyman|2
+socrata-oakland-311|BLDGMAINT / Park - Sign|general-contractor,handyman|2
+socrata-oakland-311|BLDGMAINT / City Bldg - Appliance Issue|general-contractor,handyman|1
+socrata-oakland-311|BLDGMAINT / City Bldg - Clean / Custodial|general-contractor,handyman,janitorial-commercial|1
+socrata-oakland-311|BLDGMAINT / City Bldg - Electrical Inside/Outside|general-contractor,handyman,electrical|1
+socrata-oakland-311|BLDGMAINT / City Bldg - Elevators|general-contractor,handyman|1
+socrata-oakland-311|BLDGMAINT / City Bldg - Other/Complex|general-contractor,handyman|1
+socrata-oakland-311|BLDGMAINT / City Bldg - Sign|general-contractor,handyman|1
+socrata-oakland-311|BLDGMAINT / Graffiti in a Park|painting,cleaning,general-contractor,handyman|1
+socrata-oakland-311|GRAFFITI / Graffiti - Advertising (posters, signs, etc.)|painting,cleaning|1
+socrata-oakland-311|GRAFFITI / Graffiti on Street, Street Light, Traffic Signal|painting,cleaning|1
+socrata-oakland-311|ILLDUMP / Illegal Dumping – green waste|junk-removal|1
+socrata-oakland-311|TREES / Tree - Other/Complex|tree-service|1
+socrata-sf-311|Graffiti Public / not_offensive|painting,cleaning|157
+socrata-sf-311|Sewer / flooding|plumbing,restoration|78
+socrata-sf-311|Graffiti Private / not_offensive|painting,cleaning|66
+socrata-sf-311|Sewer / sewage_back-up_discharge|plumbing|64
+socrata-sf-311|Tree Maintenance / damaged_tree|tree-service|45
+socrata-sf-311|Sewer / catch_basin|plumbing|36
+socrata-sf-311|Tree Maintenance / overgrown_tree|tree-service,lawn-care,landscaping|21
+socrata-sf-311|Tree Maintenance / landscaping|tree-service,landscaping|16
+socrata-sf-311|Sewer / other|plumbing|14
+socrata-sf-311|Sewer / water_leak|plumbing|14
+socrata-sf-311|Blocked Street and Sidewalk / blocked_sidewalk|general-contractor|12
+socrata-sf-311|Graffiti Public / offensive|painting,cleaning|10
+socrata-sf-311|Tree Maintenance / damaging_property|tree-service|9
+socrata-sf-311|Sewer / sewer_odor|plumbing|5
+socrata-sf-311|Graffiti Private / offensive|painting,cleaning|3
+socrata-sf-311|Street and Sidewalk Cleaning / garbage_and_debris|auto-repair|3
+socrata-sf-311|Blocked Street and Sidewalk / blocked_parking_space_or_strip|junk-removal|2
+socrata-sf-311|Blocked Street and Sidewalk / blocked_parking_space_or_strip|general-contractor|2

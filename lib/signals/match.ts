@@ -1,6 +1,8 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation } from './approx-location';
+import { deadlineOf, isAlertLabel, isFeedLabel, labelForTrades, LABEL_RANK, type OpportunityLabel } from './lead-rules';
+import { bidsEnabled, isBidSignal } from './bid-sources';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -41,15 +43,28 @@ export interface MatchSignal {
   data?: { subtype?: unknown; loc?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
-  /** Needed for keyword watches only: a record without them can still match by trade. */
+  /**
+   * Needed for keyword watches AND for the opportunity label (lib/signals/lead-rules.ts: title patterns such as public graffiti or a
+   * city tree trim). A record read without a title is labelled from its source and subtype only.
+   */
   title?: string | null;
   summary?: string | null;
+  /** Record kind ('permit', 'civic', ...). Read by the label rules only as a fallback for the subtype. */
+  kind?: string | null;
 }
 
 export interface MatchRow {
   user_id: string;
   signal_id: number;
   distance_mi: number | null;
+}
+
+/** What matchOne found: where it is, and the label this member's trades give the record (lib/signals/lead-rules.ts). */
+export interface MatchResult {
+  distance_mi: number | null;
+  label: OpportunityLabel;
+  /** Fix-by, due or response date the record publishes, or null ("No deadline published"). */
+  deadline: string | null;
 }
 
 function hasCoords(lat: number | null | undefined, lon: number | null | undefined): lat is number {
@@ -68,13 +83,30 @@ const MI_PER_DEG_LAT_FLOOR = 69;
  * - then the record must share a trade with the profile's allowed trades, OR (Pro) its title or summary contains one of the
  *   keyword watches as a whole phrase, any case, accents ignored; a keyword match does not need a shared trade
  * The area test runs first because it is cheap and rejects almost every pair; the text test only runs for nearby records.
+ * - last, the record's opportunity label for this member's trades (lead-rules.ts). Every label but context is matched and stored for the
+ *   feed: act_now and coming_soon are alerts (pushed, emailed), market_insight (a permit in the member's own trade, an awarded
+ *   contract) is feed-only (the push and the digest drop it), and context (public graffiti, city tree trims, sewer and catch-basin
+ *   work, park events) is not matched at all, so it is never stored, pushed, emailed or shown.
  * Returns the match (distance may be null for state-level) or null.
  */
-export function matchOne(signal: MatchSignal, profile: MatchProfile): { distance_mi: number | null } | null {
-  return matchInScope(signal, profile, matchScope(profile));
+export function matchOne(signal: MatchSignal, profile: MatchProfile, bidsOn: boolean = bidsEnabled()): MatchResult | null {
+  return matchInScope(signal, profile, matchScope(profile), bidsOn);
 }
 
-function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
+/** The label for a record given the member's allowed trades: the trades they share with the record, or the keyword case (none). */
+function labelInScope(signal: MatchSignal, scope: MatchScope): OpportunityLabel {
+  const shared = signal.categories.filter((c) => scope.categories.includes(c));
+  return labelForTrades({ source: signal.source ?? '', kind: signal.kind ?? null, subtype: subtypeOf(signal), title: signal.title ?? null }, shared);
+}
+
+function resultFor(signal: MatchSignal, where: { distance_mi: number | null }, label: OpportunityLabel): MatchResult {
+  return { distance_mi: where.distance_mi, label, deadline: deadlineOf({ source: signal.source, data: signal.data as Record<string, unknown> | null | undefined }) };
+}
+
+function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
+  // City bids (HOLLER_BIDS_ENABLED, lib/signals/bid-sources.ts): with the flag off no bid row matches anyone, whether it was just fetched
+  // or stored earlier. First test, before any area or text work.
+  if (!bidsOn && isBidSignal(signal)) return null;
   if (hasCoords(signal.lat, signal.lon)) {
     // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
     // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.
@@ -102,12 +134,15 @@ function tradeMatch(signal: MatchSignal, scope: MatchScope): boolean {
   return signal.categories.length > 0 && scope.categories.length > 0 && signal.categories.some((c) => scope.categories.includes(c));
 }
 
-function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
-  const where = areaMatch(signal, profile, scope);
+function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): MatchResult | null {
+  const where = areaMatch(signal, profile, scope, bidsOn);
   if (!where) return null;
-  if (tradeMatch(signal, scope)) return where;
-  if (scope.phrases.length === 0) return null;
-  return phraseIndex(searchText(signal), scope.phrases) >= 0 ? where : null;
+  if (!tradeMatch(signal, scope)) {
+    if (scope.phrases.length === 0) return null;
+    if (phraseIndex(searchText(signal), scope.phrases) < 0) return null;
+  }
+  const label = labelInScope(signal, scope);
+  return isFeedLabel(label) ? resultFor(signal, where, label) : null;
 }
 
 export function subtypeOf(s: Pick<MatchSignal, 'subtype' | 'data'>): string | null {
@@ -119,7 +154,11 @@ export function subtypeOf(s: Pick<MatchSignal, 'subtype' | 'data'>): string | nu
 export interface Hit {
   s: MatchSignal;
   distance_mi: number | null;
+  /** The record's label for this member. Absent (older callers, tests) counts as coming_soon. */
+  label?: OpportunityLabel;
 }
+
+const labelRank = (h: Hit) => LABEL_RANK[h.label ?? 'coming_soon'];
 
 /** A start time in the future ranks as "now": a record dated next year never outranks a fresh one of the same severity. */
 function rankTime(iso: string, nowMs: number): number {
@@ -128,8 +167,10 @@ function rankTime(iso: string, nowMs: number): number {
 }
 
 /**
- * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest), then everything is ordered most
- * severe first, newest first (future dates clamped to now) and cut to `cap`.
+ * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest). What is CUT at `cap` goes by: a severe
+ * (3+) alert first, then Act Now, Coming soon, Market insight, then most severe, newest (future dates clamped to now). What is KEPT is
+ * returned Act Now first (item 0.3), then Coming soon, Market insight, most severe, newest. So 25 heat complaints never push a
+ * severity-3 warning out of the cap, and market_insight rows are the first to go.
  */
 export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER, maxBusiness = MAX_BUSINESS_PER_USER): Hit[] {
   const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
@@ -141,8 +182,10 @@ export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER,
     )
     .slice(0, maxBusiness);
   const keep = [...hits.filter((h) => !isBiz(h)), ...biz];
-  keep.sort((a, b) => b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs));
-  return keep.slice(0, cap);
+  const byLabel = (a: Hit, b: Hit) => labelRank(a) - labelRank(b) || b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs);
+  const severeAlert = (h: Hit) => h.s.severity >= 3 && isAlertLabel(h.label ?? 'coming_soon');
+  const cutOrder = (a: Hit, b: Hit) => Number(severeAlert(b)) - Number(severeAlert(a)) || byLabel(a, b);
+  return keep.sort(cutOrder).slice(0, cap).sort(byLabel);
 }
 
 /**
@@ -150,7 +193,14 @@ export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER,
  * Cost control (P1-2): the area test runs before any text test; each record's searchable text is built at most once per scan; and
  * the answer to "does record i contain phrase p" is kept for the scan, so profiles that watch the same phrase share the work.
  */
-export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], cap = MAX_MATCHES_PER_USER, now: Date = new Date()): MatchRow[] {
+export function matchSignals(
+  signals: MatchSignal[],
+  profiles: MatchProfile[],
+  cap = MAX_MATCHES_PER_USER,
+  now: Date = new Date(),
+  /** City bids on or off for this call. Defaults to the HOLLER_BIDS_ENABLED flag, read once per call. */
+  bidsOn: boolean = bidsEnabled(),
+): MatchRow[] {
   const out: MatchRow[] = [];
   const n = signals.length;
   const texts: (string | undefined)[] = new Array(n);
@@ -162,7 +212,7 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
     const hits: Hit[] = [];
     for (let i = 0; i < n; i++) {
       const s = signals[i];
-      const where = areaMatch(s, p, scope);
+      const where = areaMatch(s, p, scope, bidsOn);
       if (!where) continue;
       if (!tradeMatch(s, scope)) {
         let found = false;
@@ -187,7 +237,10 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
         }
         if (!found) continue;
       }
-      hits.push({ s, distance_mi: where.distance_mi });
+      // Context records are left out here (item 0.2). market_insight is kept for the feed; the push and the digest drop it (item 1.1).
+      const label = labelInScope(s, scope);
+      if (!isFeedLabel(label)) continue;
+      hits.push({ s, distance_mi: where.distance_mi, label });
     }
     for (const h of pickHits(hits, now.getTime(), cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi });
   }

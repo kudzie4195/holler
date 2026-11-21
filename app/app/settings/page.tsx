@@ -12,6 +12,7 @@ import { annualSavingSentence, planChangeNote, priceLabel, renewalNote } from '@
 import { DOWNGRADE_NOTE, effectiveTier, parseExtraAreas, parseKeywords, planLimitsLine, PLAN_LIMITS, TIER_NAMES, type Tier } from '@/lib/plan';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { readShadowStore } from '@/lib/storebilling/shadow';
 import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -56,7 +57,7 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
+            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) }))}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,

@@ -20,7 +20,10 @@ import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
+import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
 
 export const maxDuration = 60;
 
@@ -43,6 +46,14 @@ interface SignalRow {
   occurred_at: string;
   subtype?: string | null;
   severity?: number | null;
+  /** The record's trades and any published fix-by or due date, for the opportunity label and deadline (lib/signals/lead-rules.ts). */
+  categories?: string[] | null;
+  deadline?: string | null;
+  /** City open bids only: data.buyer. */
+  bidBuyer?: string | null;
+  dueDate?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
 }
 interface MatchRow {
   id: number;
@@ -76,11 +87,11 @@ export async function GET(req: Request) {
   const counts = { users_considered: 0, emailed: 0, matches_marked: 0, matches_skipped_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
 
   // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
-  const matches: MatchRow[] = [];
+  let matches: MatchRow[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, subtype:data->>subtype)')
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -91,6 +102,10 @@ export async function GET(req: Request) {
     matches.push(...rows);
     if (rows.length < PAGE_SIZE) break;
   }
+
+  // City bids are never emailed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on. They are left unnotified
+  // (not stamped), so turning the flag back on resumes them.
+  matches = dropHiddenBids(matches);
 
   const byUser = new Map<string, MatchRow[]>();
   for (const m of matches) {
@@ -146,11 +161,34 @@ export async function GET(req: Request) {
     if (Date.now() - started > 50_000) break;
     try {
       const userMatches = byUser.get(p.user_id) ?? [];
-      const rows = userMatches
+      // The plan-limited trades (the ones matching uses): the opportunity label of a record depends on the trade that matched it.
+      const trades = matchScope({
+        categories: p.categories ?? null,
+        lat: null,
+        lon: null,
+        state: null,
+        plan: p.plan ?? null,
+        subscription_status: p.subscription_status,
+        plan_source: p.plan_source ?? null,
+        store_expires_at: p.store_expires_at ?? null,
+      }).categories;
+      const labelOf = (s: SignalRow): OpportunityLabel =>
+        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades), deadlineOf(s), now.getTime());
+      const live = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
         .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()));
+      // Only Act Now and Coming Soon are mailed (items 0.2 and 0.3). A market_insight match is stored for the in-app feed only, and a
+      // context match stored before the label rules existed is hidden: both are marked notified without an email, so neither goes out
+      // nor is read again on every run.
+      const rows = live.filter((r) => isAlertLabel(labelOf(r.s)));
+      const silent = live.filter((r) => !isAlertLabel(labelOf(r.s)));
+      for (const part of chunk(silent.map((r) => r.m.id))) {
+        const { error: qErr } = await admin.from('holler_matches').update({ notified: true }).in('id', part);
+        if (qErr) counts.failed++;
+        else counts.matches_skipped_marked += part.length;
+      }
       if (rows.length === 0) continue;
 
       const { data: userRes, error: uErr } = await admin.auth.admin.getUserById(p.user_id);
@@ -162,25 +200,15 @@ export async function GET(req: Request) {
 
       // AI ranking and notes (lib/ai): stored results only, no model call. Any failure gives empty maps: newest first, no notes.
       const sigIds = rows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
-      // The plan-limited trades (the ones matching uses), not every saved trade: a member who moved from Pro to Solo gets no note
-      // for a trade the plan no longer uses.
-      const trades = matchScope({
-        categories: p.categories ?? null,
-        lat: null,
-        lon: null,
-        state: null,
-        plan: p.plan ?? null,
-        subscription_status: p.subscription_status,
-        plan_source: p.plan_source ?? null,
-        store_expires_at: p.store_expires_at ?? null,
-      }).categories;
+      // `trades` (above) is the plan-limited list: a member who moved from Pro to Solo gets no note for a trade the plan no longer uses.
       const [aiNotes, aiScores] = await Promise.all([notesFor(admin, sigIds, trades), scoresFor(admin, sigIds, trades)]);
       // No stored AI result for any of these (or migration 0014 not applied): keep newest first, exactly as before.
       const ranked = aiScores.size === 0 ? rows : rankSignals(
         rows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
         aiScores,
       ).map((x) => x.r);
-      const shown = ranked.slice(0, MAX_ITEMS_IN_DIGEST);
+      // Act Now first, then the AI ranking or newest-first order (a stable sort), then the digest cap.
+      const shown = orderByLabel(ranked, (r) => labelOf(r.s)).slice(0, MAX_ITEMS_IN_DIGEST);
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
       // the owner and current access); any failure just leaves the lines out.
       const contacts = await loadMemberContacts({
@@ -200,6 +228,9 @@ export async function GET(req: Request) {
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
+        label: labelOf(s),
+        deadline: deadlineOf(s),
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

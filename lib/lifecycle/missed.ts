@@ -15,7 +15,7 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-locati
  */
 export const MISSED_ROW_CAP = 1000;
 const MI_PER_DEG = 68.5;
-const COLUMNS = 'id,source,kind,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+const COLUMNS = 'id,source,kind,title,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
 
 export interface MissedProfile extends ScopeInput {
   radius_mi: number | null;
@@ -25,6 +25,7 @@ interface Row {
   id: number | string;
   source: string;
   kind: string;
+  title?: string | null;
   state: string | null;
   lat: number | null;
   lon: number | null;
@@ -116,6 +117,9 @@ export async function missedSince(
       subtype: r.subtype,
       // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
       source: r.source,
+      // Title and kind feed the opportunity label: a context row is not an alert, so it is not counted as missed.
+      kind: r.kind,
+      title: r.title ?? null,
     };
     if (matchOne(sig, mp)) count++;
   }

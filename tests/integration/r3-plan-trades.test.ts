@@ -19,6 +19,7 @@ interface World {
   matches?: unknown[];
 }
 
+// Titles name damage, hail or a tornado so all three are Act Now (a bare "wind report" is Coming soon): this test is about the AI ranking, not the label order.
 const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
   id,
   source: 'spc',
@@ -35,7 +36,7 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
 });
 // Newest match first, as the route reads them.
 const MATCHES = [
-  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind report near Smyrna', 2) },
+  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind damage reported near Smyrna', 2) },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
   { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
 ];
@@ -113,7 +114,7 @@ async function runNotify(w: World) {
 }
 
 const order = (text: string) =>
-  ['Wind report near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+  ['Wind damage reported near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
 
 afterEach(() => {
   vi.useRealTimers();

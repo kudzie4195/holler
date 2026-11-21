@@ -1,4 +1,5 @@
 import { hasApproxLocation } from './approx-location';
+import { BIDS_FLAG } from './bid-sources';
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
@@ -98,7 +99,11 @@ export function isDue(adapter: Adapter, lastRunMs: number | undefined, nowMs: nu
 }
 
 export function missingEnvFor(adapter: Adapter, e: Record<string, string | undefined> = env): string[] {
-  return (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  const keys = (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  // A feature-flagged adapter (city bids) that is switched off counts as not configured, naming the flag. The scan, the health
+  // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
+  if (adapter.enabled && !adapter.enabled()) keys.push(BIDS_FLAG);
+  return keys;
 }
 
 function safeHttpUrl(u: unknown): string | null {
@@ -264,6 +269,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   const due: Adapter[] = [];
   for (const a of selected) {
     const missing = missingEnvFor(a);
+    // missingEnvFor also names the flag when a feature-flagged adapter (city bids) is switched off.
     if (missing.length) {
       report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
     } else if (!dry && !opts.source && !isDue(a, lastRuns[a.id], now.getTime())) {

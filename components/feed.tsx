@@ -9,12 +9,14 @@ import { EmptyState } from './empty-state';
 import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
 import { sourceLabel } from './signal-meta';
+import { bidSourceLinkLabel } from '@/lib/signals/bid-card';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
 import { IntentNote } from './feed/intent-note';
 import type { FeedbackState } from '@/lib/feedback/types';
+import type { OpportunityLabel } from '@/lib/signals/lead-rules';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -38,6 +40,10 @@ export interface FeedItem {
   zip?: string | null;
   /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label. */
   subtype?: string | null;
+  /** Opportunity label for this member's trades (lib/signals/lead-rules.ts). Drives the chip and the order. Absent: no chip. */
+  label?: OpportunityLabel;
+  /** ISO date of a fix-by, due or response date the record publishes. Shown on Act Now cards; null shows "No deadline published". */
+  deadline?: string | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
@@ -49,6 +55,8 @@ export interface FeedItem {
    * address but no map point, so no distance is shown." Shown on the card in place of a distance.
    */
   approxNote?: string | null;
+  /** Open city bids only: "Buyer: X. Due Dec 10, 2026, 19 days left." Worked out on the server. Never says the member can win or bid. */
+  bidLine?: string | null;
   /**
    * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
    * Absent for records without contacts and always absent for a locked member.
@@ -243,7 +251,7 @@ function MatchCard({
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <Badge kind={item.kind} />
+        <Badge kind={item.kind} label={item.subtype === 'bid' ? 'Open bid' : undefined} />
         <span>{itemSourceLabel(item.source)}</span>
         <span aria-hidden="true">·</span>
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
@@ -267,6 +275,7 @@ function MatchCard({
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       <IntentNote item={item} />
+      {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">
           <span className="font-semibold">Why it may matter: </span>
@@ -286,7 +295,7 @@ function MatchCard({
             rel="noopener noreferrer"
             className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-sand md:min-h-9"
           >
-            Open the source
+            {bidSourceLinkLabel(item.source)}
             <span className="sr-only"> (opens in a new tab)</span>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -418,7 +427,7 @@ export function LockedFeed({ items, children }: { items: FeedItem[]; children: R
           <li key={item.id}>
             <Card as="article">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                <Badge kind={item.kind} />
+                <Badge kind={item.kind} label={item.subtype === 'bid' ? 'Open bid' : undefined} />
                 <span className="font-mono text-xs">{item.ago}</span>
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
