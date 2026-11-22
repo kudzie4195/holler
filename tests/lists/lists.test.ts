@@ -551,6 +551,8 @@ describe('review 2 regressions (redo 2)', () => {
     const entries = buildList([permit()], { center: { ...SMYRNA, radiusMi: 2 } }).entries;
     const html = renderToStaticMarkup(createElement(ListSheet, { lang: 'en', heading: 'H', notes: [], entries, total: 1, capped: false }));
     expect(html).toMatch(/<a [^>]*class="[^"]*max-sm:inline-block max-sm:py-3[^"]*"[^>]*>public source</);
-    expect(html).toMatch(/<p class="[^"]*break-before-avoid[^"]*">From public records/);
+    // the closing line prints near the top, under the notes, and the end-of-list copy is screen only: no last page holds only this line
+    expect(html).toMatch(/<p class="[^"]*hidden[^"]*print:block[^"]*" data-testid="print-footer">From public records/);
+    expect(html).toMatch(/<p class="[^"]*print:hidden[^"]*">From public records/);
   });
 });

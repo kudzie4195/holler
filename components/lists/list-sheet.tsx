@@ -58,6 +58,7 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
           ))}
         </div>
       ) : null}
+      <p className="mt-2 hidden text-xs text-muted print:block" data-testid="print-footer">{t(lang, 'lists.footer')}</p>
       {actions ? <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">{actions}</div> : null}
       {capped ? <p className="mt-3 text-sm text-muted">{t(lang, 'lists.capped', { max: MAX_LIST_ADDRESSES, total })}</p> : null}
       {partial ? <p className="mt-1 text-sm text-muted">{t(lang, 'lists.partial')}</p> : null}
@@ -127,8 +128,9 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
           ))}
         </div>
       )}
-      {/* break-before-avoid: the footer travels with the last row, never alone on a last printed page (review 2, P3-6). */}
-      <p className="mt-6 break-before-avoid text-xs text-muted">{t(lang, 'lists.footer')}</p>
+      {/* Screen only: in print the same line sits under the notes (above), so a printed list never ends on a page holding only this line
+          (review 2, P3-6; Chrome does not honour break-before-avoid after a table that spans pages). */}
+      <p className="mt-6 text-xs text-muted print:hidden">{t(lang, 'lists.footer')}</p>
     </article>
   );
 }
