@@ -984,6 +984,8 @@ export const es: Record<DictKey, string> = {
   'push.body.stage': 'Actualización de etapa, {name}: {title}',
   'app.nav.lists': 'Listas',
   'lists.title': 'Listas de direcciones',
+  'lists.tab.storm': 'Lista de tormenta',
+  'lists.tab.area': 'Lista del vecindario',
   'lists.intro': 'Direcciones de obras con permiso, para visitas puerta a puerta y correo directo. Solo direcciones: Holler nunca muestra nombres de propietarios ni teléfonos.',
   'lists.open_from_app': 'Listas de direcciones para visitas y correo directo',
   'lists.locked': 'Las listas de direcciones son parte de un plan pagado. Elija un plan para verlas.',

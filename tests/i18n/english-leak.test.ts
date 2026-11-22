@@ -313,3 +313,73 @@ describe('round 18: new Spanish pages, the app for a Spanish member, and the Spa
     expect(soloAlone('La prueba usa los límites del Plan Solo.')).toEqual([]);
   });
 });
+
+describe('round 18 integration: the other units\' screens for a Spanish member (lists, door hanger, work profile, lookup lines, holds)', () => {
+  const BIZ = 'Techos Ramírez';
+  const DATA = [BIZ, 'Atlanta, GA', 'Atlanta', 'Smyrna, GA', 'Smyrna', 'Cobb', '1584 ABNER NW', '22 OAK ST', '30318', '30080', '2 N Smyrna, GA', '404-555-0123', 'peachtreeroofing.example', 'Peachtree Roofing LLC'];
+
+  it('lists index, storm list, neighborhood list, door hanger (the print view is the page itself), work profile, lookup lines and hold chips', async () => {
+    const { baseMocks, appMocks } = await import('./r18-harness');
+    const { esMember } = await import('./r18-spanish');
+    const { renderResolved } = await import('./render-tree');
+    const { spanishProblems } = await import('@/lib/i18n/rules');
+    const day = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
+    const report = { id: 9001, kind: 'hail', label: 'act_now', title: '1.75 inch hail reported near 2 N Smyrna, GA', city: 'Smyrna', state: 'GA', county: 'Cobb', occurredAt: day(1), reportDay: day(1).slice(0, 10), url: 'https://www.spc.noaa.gov/climo/reports/', lat: 33.9, lon: -84.51 };
+    const entries = [
+      { address: '1584 ABNER NW', zip: '30318', city: 'Atlanta', state: 'GA', permitType: 'Roof', date: day(3).slice(0, 10), url: 'https://example.org/p/1', distanceMi: 0.8 },
+      { address: '22 OAK ST', zip: '30080', city: 'Smyrna', state: 'GA', permitType: null, date: day(5).slice(0, 10), url: 'https://example.org/p/2', distanceMi: 1.6 },
+    ];
+    const list = { entries, total: 2, capped: false, hasApprox: false, partial: false };
+    const out: Record<string, string> = {};
+    baseMocks({ profile: esMember({ categories: ['roofing', 'landscaping'] }) });
+    appMocks();
+    vi.doMock('@/lib/lists/load', async (orig) => ({
+      ...(await orig<typeof import('@/lib/lists/load')>()),
+      loadStormReports: async () => [report],
+      loadStormReport: async () => report,
+      loadStormList: async () => list,
+      loadAreaCounts: async () => [{ trade: 'landscaping', total: 2, partial: false }],
+      loadAreaList: async () => ({ ...list, entries: entries.map((e) => ({ ...e, distanceMi: null })) }),
+    }));
+    const sp = (q: Record<string, string>) => ({ params: Promise.resolve({}), searchParams: Promise.resolve(q) }) as never;
+    out['lists.index'] = await renderResolved(createElement((await import('@/app/app/lists/page')).default));
+    out['lists.storm'] = await renderResolved((await import('@/app/app/lists/storm/page')).default(sp({ id: '9001' })));
+    out['lists.area'] = await renderResolved((await import('@/app/app/lists/area/page')).default(sp({ trade: 'landscaping' })));
+    out['lists.door-hanger'] = await renderResolved((await import('@/app/app/lists/door-hanger/page')).default(sp({})));
+    out['lists.door-hanger.storm'] = await renderResolved((await import('@/app/app/lists/door-hanger/page')).default(sp({ storm: '1' })));
+    const { DoorHanger } = await import('@/components/lists/door-hanger');
+    out['hanger.storm'] = renderToStaticMarkup(createElement(DoorHanger, { lang: 'es', initialBusiness: BIZ, storm: true }));
+    // Settings "What work do you take?" for a Spanish member (the Settings page itself is in the round 18 ES block above)
+    const { WorkProfileForm } = await import('@/components/work-profile-form');
+    out['settings.work'] = renderToStaticMarkup(createElement(WorkProfileForm, { action: async () => ({}), current: { property: 'both', minValue: 5000, type: 'both' } as never, lang: 'es' }));
+    // the lookup's phone and website lines, on a card
+    const { WhoToContact } = await import('@/components/feed/who-to-contact');
+    out['card.lookup'] = renderToStaticMarkup(
+      createElement(WhoToContact, {
+        item: { source: 'arcgis-atlanta-permits', kind: 'permit', city: 'Atlanta', state: 'GA', summary: 'Roof | 1584 ABNER NW' },
+        contacts: [{ role: 'contractor', name: 'Peachtree Roofing LLC', listing: { phone: '404-555-0123', website: 'https://peachtreeroofing.example/' } } as never],
+        lang: 'es',
+      }),
+    );
+    // the feed notes of the contact gate and the work profile
+    const { OpportunityChip } = await import('@/components/feed/opportunity-chip');
+    out['chip.background'] = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', lang: 'es', hold: 'background' }));
+    out['chip.below_min'] = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', lang: 'es', hold: 'below_min' }));
+
+    // A storm list prints its damage line in English AND Spanish for every member, on purpose (round 18 LISTS criterion 1).
+    const { DAMAGE_LINE } = await import('@/lib/lists/core');
+    for (const [k, html] of Object.entries(out)) {
+      const data = k === 'lists.storm' ? [...DATA, DAMAGE_LINE.en] : DATA;
+      expect(html.length, k).toBeGreaterThan(40);
+      expect(leaks(html, data), k).toEqual([]);
+      expect(spanishProblems(without(text(html).replace(/https?:\/\/\S+/g, ' '), data)), k).toEqual([]);
+    }
+    expect(text(out['lists.storm'])).toContain(DAMAGE_LINE.es);
+    expect(text(out['settings.work'])).toContain(es['settings.work.hint']);
+    expect(text(out['card.lookup'])).toContain(es['listing.note']);
+    expect(text(out['chip.background'])).toContain('Referencia');
+    expect(text(out['chip.below_min'])).toContain('Por debajo de su mínimo');
+    expect(text(out['lists.storm'])).toContain('1584 ABNER NW');
+    expect(text(out['lists.index'])).toContain(es['lists.title']);
+  }, 60_000);
+});

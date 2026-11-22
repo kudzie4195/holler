@@ -259,7 +259,10 @@ describe('which storm reports make a list', () => {
     expect(stormListLabel(storm(), ['roofing'], NOW.getTime())).toBe('act_now');
     expect(stormListLabel(storm({ occurred_at: day(15) }), ['roofing'], NOW.getTime())).toBeNull();
     expect(stormListLabel(storm({ lat: null }), ['roofing'], NOW.getTime())).toBeNull();
-    expect(stormListLabel(storm({ stormType: 'wind', title: '61 mph wind gust reported near X', windMph: '61', comments: 'trees down' }), ['tree-service'], NOW.getTime())).toBe('coming_soon');
+    // Round 18 integration (step 2): the storm rule reads the report's own damage flag, not the title, so a measured gust whose remark names
+    // damage ("trees down") is act_now like an UNK damage report. It was coming_soon from its "wind gust" title.
+    expect(stormListLabel(storm({ stormType: 'wind', title: '61 mph wind gust reported near X', windMph: '61', comments: 'trees down' }), ['tree-service'], NOW.getTime())).toBe('act_now');
+    expect(stormListLabel(storm({ stormType: 'wind', title: '61 mph wind gust reported near X', windMph: '61', comments: 'Measured gust.' }), ['tree-service'], NOW.getTime())).toBeNull();
   });
 });
 

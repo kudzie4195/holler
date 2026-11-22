@@ -6,6 +6,7 @@
 import { scanSpc } from '@/lib/signals/adapters/spc';
 import { stormKindOf, stormListLabel, type StormRow } from '@/lib/lists/core';
 import { labelForMember } from '@/lib/signals/lead-rules';
+import { stormFactsOf } from '@/lib/signals/wind-damage';
 
 export type Want = 'no' | 'yes';
 // [remark, want, where it comes from]
@@ -161,6 +162,6 @@ export function through(remark: string, speed: string): Through {
   };
   const kind = stormKindOf(row);
   const label = stormListLabel(row, ['roofing', 'tree-service'], Date.parse('2026-11-22T15:00:00Z'));
-  const cardLabel = labelForMember({ source: s.source, kind: s.kind, title: s.title, summary: s.summary ?? null, categories: s.categories as string[] }, ['roofing', 'tree-service']);
+  const cardLabel = labelForMember({ source: s.source, kind: s.kind, title: s.title, summary: s.summary ?? null, categories: s.categories as string[], storm: stormFactsOf(s.source, s.data) }, ['roofing', 'tree-service']);
   return { stored: true, title: s.title, kind, label, severity: s.severity, cardLabel };
 }

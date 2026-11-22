@@ -173,6 +173,8 @@ export function scanSpc(raw: unknown): SpcScan {
       categories = WIND_CATS;
       severity = Number.isFinite(mph) && mph >= 75 ? 3 : (Number.isFinite(mph) && mph >= 58) || damage ? 2 : 1;
       if (Number.isFinite(mph)) data.windMph = mph;
+      // The damage flag the storm label rule reads (lib/signals/lead-rules.ts stormReportIsUrgent), so no rule re-reads the title.
+      data.windDamage = damage;
     } else {
       title = `Tornado reported near ${where}`;
       categories = TORNADO_CATS;

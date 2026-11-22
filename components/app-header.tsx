@@ -28,10 +28,22 @@ const ES = 'es' as const;
 export const APP_TITLES_ES: Record<string, string> = {
   '/app': `${t(ES, 'app.title')} | Holler`,
   '/app/settings': `${t(ES, 'set.h1')} | Holler`,
+  // Round 18 integration: the address list pages (unit LISTS), whose static English titles are in APP_TITLES_EN below.
+  '/app/lists': `${t(ES, 'app.nav.lists')} | Holler`,
+  '/app/lists/storm': `${t(ES, 'lists.tab.storm')} | Holler`,
+  '/app/lists/area': `${t(ES, 'lists.tab.area')} | Holler`,
+  '/app/lists/door-hanger': `${t(ES, 'hanger.title')} | Holler`,
 };
 
 /** The static English titles of the same pages (app/app/layout.tsx and app/app/settings/page.tsx metadata), for putting them back. */
-export const APP_TITLES_EN: Record<string, string> = { '/app': 'Your matches | Holler', '/app/settings': 'Settings | Holler' };
+export const APP_TITLES_EN: Record<string, string> = {
+  '/app': 'Your matches | Holler',
+  '/app/settings': 'Settings | Holler',
+  '/app/lists': 'Lists | Holler',
+  '/app/lists/storm': 'Storm list | Holler',
+  '/app/lists/area': 'Neighborhood list | Holler',
+  '/app/lists/door-hanger': 'Door hanger | Holler',
+};
 
 /**
  * Runs once while the static shell is parsed. Reads only the hint cookie; touches only the header placeholders, <html lang> and the tab

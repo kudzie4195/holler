@@ -5,7 +5,7 @@ import { DOWNSTREAM, KIND_DOERS, routeFor, ROUTE_KINDS, type RouteKind } from '@
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildingStreetFromPart, isHundredBlock, isZeroHouseNumber } from '@/lib/signals/site-address';
 import { textShowsPlace } from '@/lib/signals/alert-gate';
-import { remarkNamesWindDamage } from '@/lib/signals/wind-damage';
+import { remarkNamesWindDamage, stormFactsOf } from '@/lib/signals/wind-damage';
 
 /**
  * Address lists (PLAN-2.0 item 3.3, round 18 unit LISTS). Trades that sell to homeowners (roofers, painters, landscapers, fencing, tree
@@ -130,7 +130,10 @@ export function stormListLabel(r: StormRow, memberTrades: readonly string[], now
   if (!stormKindOf(r) || !isNum(r.lat) || !isNum(r.lon) || (r.lat === 0 && r.lon === 0)) return null;
   const at = Date.parse(r.occurred_at);
   if (!Number.isFinite(at) || at < nowMs - STORM_LIST_DAYS * 86_400_000 || at > nowMs + 86_400_000) return null;
-  const label = labelForMember({ source: r.source, kind: r.kind ?? 'report', title: r.title, categories: r.categories ?? [] }, memberTrades);
+  const label = labelForMember(
+    { source: r.source, kind: r.kind ?? 'report', title: r.title, categories: r.categories ?? [], storm: stormFactsOf(r.source, { type: r.stormType, hailInches: r.hailInches, comments: r.comments }) },
+    memberTrades,
+  );
   return isAlertLabel(label) ? label : null;
 }
 

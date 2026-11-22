@@ -2,6 +2,7 @@ import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { stormFactsOf } from './wind-damage';
 import { bidsEnabled, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
@@ -52,7 +53,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -128,7 +129,15 @@ export function matchOne(signal: MatchSignal, profile: MatchProfile, bidsOn: boo
   return matchInScope(signal, profile, matchScope(profile), bidsOn, nowMs);
 }
 
-const labelInputOf = (signal: MatchSignal): LabelInput => ({ source: signal.source ?? '', kind: signal.kind ?? null, subtype: subtypeOf(signal), title: signal.title ?? null, summary: signal.summary ?? null });
+const labelInputOf = (signal: MatchSignal): LabelInput => ({
+  source: signal.source ?? '',
+  kind: signal.kind ?? null,
+  subtype: subtypeOf(signal),
+  title: signal.title ?? null,
+  summary: signal.summary ?? null,
+  // An SPC report's own fields decide its storm label when the row carries its data (round 18 integration).
+  storm: stormFactsOf(signal.source, signal.data),
+});
 
 /**
  * The trades that see a record: its own tags plus, for a building permit, the trades downstream of the permit type read from its TITLE

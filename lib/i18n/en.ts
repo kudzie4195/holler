@@ -1009,6 +1009,9 @@ export const en = {
   /** The signed-in header link to /app/lists (round 18 integration). Hidden below 375 px (components/app-nav.tsx). */
   'app.nav.lists': 'Lists',
   'lists.title': 'Address lists',
+  /** Tab titles of the list pages for a Spanish member's browser (components/app-header.tsx APP_TITLES_ES); English keeps its metadata. */
+  'lists.tab.storm': 'Storm list',
+  'lists.tab.area': 'Neighborhood list',
   'lists.intro': 'Street addresses of permitted work, for door-knocking and mailers. Addresses only: Holler never lists owner names or phone numbers.',
   'lists.open_from_app': 'Address lists for door-knocking and mailers',
   'lists.locked': 'Address lists are part of a paid plan. Pick a plan to see them.',

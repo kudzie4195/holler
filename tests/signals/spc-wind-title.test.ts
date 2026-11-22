@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { scanSpc } from '@/lib/signals/adapters/spc';
 import { R, through } from '../lists/wind-remarks';
+import { labelFor } from '@/lib/signals/lead-rules';
+import { stormFactsOf } from '@/lib/signals/wind-damage';
 
 const MUST_NOT = R.filter(([, want]) => want === 'no').map(([remark]) => remark);
 const DAMAGE = R.filter(([, want]) => want === 'yes').map(([remark]) => remark);
@@ -35,12 +37,13 @@ describe('SPC wind card: the damage rule of the address lists', () => {
     expect(MUST_NOT.length).toBe(71);
   });
 
-  it('a measured gust keeps a neutral title that never says damage, whatever the remark', () => {
-    for (const [remark] of R) {
+  it('a measured gust keeps a neutral title that never says damage, whatever the remark; it is act_now only when its remark names damage', () => {
+    for (const [remark, want] of R) {
       const m = through(remark, '61');
       expect(m.title).toBe('61 mph wind gust reported near 2 N Smyrna, GA');
       expect(m.title).not.toMatch(/damage/i);
-      expect(m.cardLabel).toBe('coming_soon');
+      // Step 2: the storm rule reads the damage flag (remarkNamesWindDamage), not the title.
+      expect(m.cardLabel, remark).toBe(want === 'yes' && !PINNED_MISSES.has(remark) ? 'act_now' : 'coming_soon');
     }
   });
 
@@ -88,6 +91,44 @@ describe('SPC wind card: the damage rule of the address lists', () => {
       if (unk.stored) expect(unk.kind, remark).toBe('wind');
       const m = through(remark, '61');
       expect(m.kind === 'wind', remark).toBe(unk.stored);
+    }
+  });
+});
+
+describe('the act_now storm rule reads the structured fields, and its title fallback ignores place names (round 18 integration, step 2)', () => {
+  const PLACES = ['2 N Hailey, ID', '3 S Haile, LA', '1 E Tornado Rd, TX', '4 W Damascus, GA'];
+  const label = (title: string, storm?: Parameters<typeof labelFor>[0]['storm']) => labelFor({ source: 'spc', kind: 'report', title, storm }, 'roofing');
+
+  it('title fallback (a row read without its data): a gust near a place named like a storm word stays coming_soon', () => {
+    for (const p of PLACES) expect(label(`61 mph wind gust reported near ${p}`), p).toBe('coming_soon');
+    // the real event words still count, whole words only
+    expect(label('1.50 inch hail reported near 4 W Damascus, GA')).toBe('act_now');
+    expect(label('Tornado reported near 2 N Hailey, ID')).toBe('act_now');
+    expect(label('Wind damage reported near 1 E Tornado Rd, TX')).toBe('act_now');
+    // the short titles other tests use keep their label
+    for (const t of ['Hail report', 'Hail', 'hail reported', 'Hail near Marietta', 'Hail report: 1.25 inch hail near Atlanta', 'Hail damage reported near Atlanta']) expect(label(t), t).toBe('act_now');
+    expect(label('Hailstorm-free gust')).toBe('coming_soon');
+  });
+
+  it('structured fields decide when present: type and size, and the wind damage flag', () => {
+    expect(label('61 mph wind gust reported near 2 N Hailey, ID', { type: 'wind', windDamage: false })).toBe('coming_soon');
+    expect(label('Wind damage reported near 2 N Smyrna, GA', { type: 'wind', windDamage: false })).toBe('coming_soon'); // an old row from the loose word test
+    expect(label('61 mph wind gust reported near 2 N Smyrna, GA', { type: 'wind', windDamage: true })).toBe('act_now');
+    expect(label('1.00 inch hail reported near 1 E Tornado Rd, TX', { type: 'hail', hailInches: 1 })).toBe('act_now');
+    expect(label('x', { type: 'hail', hailInches: 0.75 })).toBe('coming_soon');
+    expect(label('Tornado reported near 3 S Haile, LA', { type: 'torn' })).toBe('act_now');
+  });
+
+  it('through the real adapter and stormFactsOf: gusts at those places are coming_soon, a damage report there is act_now', () => {
+    for (const p of PLACES) {
+      const [loc, st] = p.split(', ');
+      const csv = (speed: string, remark: string) => `Time,Speed,Location,County,State,Lat,Lon,Comments\n1906,${speed},${loc},X,${st},33.90,-84.51,${remark}\n`;
+      const gust = scanSpc({ csv: csv('61', 'Measured gust.'), type: 'wind', day: '2026-11-20' }).signals[0];
+      expect(gust.data?.windDamage, p).toBe(false);
+      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title, storm: stormFactsOf('spc', gust.data) }, 'roofing'), p).toBe('coming_soon');
+      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title }, 'roofing'), `${p} (title only)`).toBe('coming_soon');
+      const dmg = scanSpc({ csv: csv('UNK', 'Trees down on a house.'), type: 'wind', day: '2026-11-20' }).signals[0];
+      expect(labelFor({ source: 'spc', kind: dmg.kind, title: dmg.title, storm: stormFactsOf('spc', dmg.data) }, 'roofing'), p).toBe('act_now');
     }
   });
 });

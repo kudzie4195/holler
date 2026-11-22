@@ -1,4 +1,5 @@
 import { damagePhraseOf } from './brief';
+import type { StormFacts } from './lead-rules';
 
 /**
  * Does an SPC wind remark REPORT damage to a thing? (round 18 unit LISTS, review 2). Pure and client-safe.
@@ -49,3 +50,18 @@ export function remarkNamesWindDamage(comments: string | null | undefined): bool
     });
 }
 
+
+/**
+ * The storm-rule facts of a stored SPC report (round 18 integration), from its data: data.type, data.hailInches, and the damage flag
+ * (data.windDamage, written by the adapter since the integration; for an older row, remarkNamesWindDamage on data.comments). Null for a row
+ * that is not an SPC report or has no data: the label rule then falls back to the title (lib/signals/lead-rules.ts stormReportIsUrgent).
+ */
+export function stormFactsOf(source: string | null | undefined, data: unknown): StormFacts | null {
+  if ((source ?? '').toLowerCase() !== 'spc' || !data || typeof data !== 'object') return null;
+  const d = data as { type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown };
+  const type = d.type === 'hail' || d.type === 'wind' || d.type === 'torn' ? d.type : null;
+  if (!type) return null;
+  const inches = typeof d.hailInches === 'number' ? d.hailInches : typeof d.hailInches === 'string' && d.hailInches.trim() ? Number(d.hailInches) : null;
+  const windDamage = typeof d.windDamage === 'boolean' ? d.windDamage : typeof d.comments === 'string' ? remarkNamesWindDamage(d.comments) : null;
+  return { type, hailInches: inches !== null && Number.isFinite(inches) ? inches : null, windDamage };
+}

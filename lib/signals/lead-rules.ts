@@ -83,6 +83,20 @@ export interface LabelInput {
   title?: string | null;
   /** The record's summary. A permit's holds its structured type and class, which routing reads (permit-routing.ts). Optional. */
   summary?: string | null;
+  /**
+   * An SPC storm report's own structured fields (lib/signals/wind-damage.ts stormFactsOf, from data.type, data.hailInches and the wind
+   * damage flag). When present the storm rule reads only these; absent (a row read without its data), it falls back to the title.
+   */
+  storm?: StormFacts | null;
+}
+
+/** What the SPC adapter stored about a storm report (round 18 integration). */
+export interface StormFacts {
+  type: 'hail' | 'wind' | 'torn';
+  /** Hail size in inches; the adapter stores only 1.00 in and larger. */
+  hailInches?: number | null;
+  /** A wind report whose remark names damage to a thing (remarkNamesWindDamage): the adapter's damage flag. */
+  windDamage?: boolean | null;
 }
 
 export interface LabelRule {
@@ -98,6 +112,12 @@ export interface LabelRule {
   subtypes?: readonly string[];
   /** Tested against the record's public title (the part after "Place: ", see titleBody). */
   title?: RegExp;
+  /**
+   * The storm-report rule (round 18 integration): the report's structured fields decide (a tornado, hail of 1.00 in or more, a wind report
+   * whose remark names damage); a row without them falls back to STORM_TITLE_WORDS on the title's event part (before " near "), with word
+   * boundaries, so a place name ("Hailey", "Haile", "Tornado Rd", "Damascus") never makes a report urgent.
+   */
+  storm?: true;
   /** Test `title` against the whole title instead: for sources whose title starts with the event name ("Flood Advisory: Los Angeles, CA"). */
   wholeTitle?: boolean;
   /** Trades this rule is for. A rule with trades never fires when no trade is known (a keyword-only match). */
@@ -135,7 +155,7 @@ export const RULES: readonly LabelRule[] = [
     id: 'act-storm-report',
     label: 'act_now',
     sources: ['spc'],
-    title: /damage|hail|tornado/i,
+    storm: true,
     why: 'A storm report that names damage, hail or a tornado is on record. Damage to a specific property is not confirmed.',
   },
   { id: 'soon-storm-gust', label: 'coming_soon', sources: ['spc'], why: 'A measured wind gust. No damage is reported (a gust never proves damage).' },
@@ -470,8 +490,24 @@ function titleBody(title: string | null | undefined): string {
   return at >= 0 ? t.slice(at + 2) : t;
 }
 
+/** The title fallback of the storm rule: whole words only, and only in the event part of an SPC title ("X reported near PLACE"). */
+const STORM_TITLE_WORDS = /\b(?:damage|hail|tornado)\b/i;
+
+/** Does a storm report name damage, hail or a tornado? From its structured fields when it has them, else from its title (see LabelRule.storm). */
+export function stormReportIsUrgent(sig: Pick<LabelInput, 'title' | 'storm'>): boolean {
+  const f = sig.storm;
+  if (f && (f.type === 'hail' || f.type === 'wind' || f.type === 'torn')) {
+    if (f.type === 'torn') return true;
+    if (f.type === 'hail') return f.hailInches == null || f.hailInches >= 1;
+    return f.windDamage === true;
+  }
+  const event = titleBody(sig.title).split(/\s+near\s+/i)[0];
+  return STORM_TITLE_WORDS.test(event);
+}
+
 function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boolean {
   if (rule.sources && !rule.sources.includes(norm(sig.source))) return false;
+  if (rule.storm && !stormReportIsUrgent(sig)) return false;
   const subtype = norm(sig.subtype);
   if (rule.permit && subtype !== 'permit' && norm(sig.kind) !== 'permit') return false;
   if (rule.subtypes && !rule.subtypes.includes(subtype)) return false;
