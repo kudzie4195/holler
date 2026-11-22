@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
-import { isProbation } from '../signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
 import { trialStartedAt as readTrialStamp } from '../auth/membership';
@@ -189,7 +188,6 @@ export function createStore(db: Db): LifecycleStore {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
-        if (isProbation(s)) continue; // a source on probation is never shown or counted for a member
         const opportunity = scope ? memberOpportunity(s, scope.categories, scope.keywords).label : null;
         if (opportunity === 'context') continue;
         items.push({

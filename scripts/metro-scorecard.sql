@@ -2,6 +2,7 @@
 -- Read-only. Run by an operator in the Supabase SQL editor (service role / postgres). Writes nothing.
 -- Keeps the 10 metros of lib/geo/metros.ts (METROS); tests/geo/metro-scorecard.test.ts fails if the VALUES lists drift from it.
 --
+-- QUERY 1 of 2: per-metro scorecard.
 -- One row per metro (all 10 always appear, zero counts included), over the last 14 days of holler_signals.occurred_at (up to now).
 -- Resident requests (source 'holler-request') are left out of every column.
 --
@@ -13,18 +14,15 @@
 --
 -- Columns:
 --   metro               metro id (same ids as METROS)
---   total_signals       every signal in the metro, probation rows included
---   probation_signals   of those, rows of a source on probation (data->>'probation' = 'true'; lib/signals/probation.ts). These are stored
---                       but never matched, pushed, emailed or shown, so this is the count to eyeball before flipping a source live
+--   total_signals       every signal in the metro
 --   permits             kind = 'permit'
 --   permits_w_contractor  permits that have at least one holler_signal_contacts row with role = 'contractor' and name <> ''
 --   violations_311      data->>'subtype' in ('violation', '311')  (code violations and 311 requests; they never get contacts)
 --   new_businesses      data->>'subtype' = 'business'  (new business licenses)
 --   bids                kind = 'contract' and source <> 'usaspending'  (local bids and solicitations, federal awards left out)
---   contact_share       of the signals that are NOT weather (kind not in alert, report, disaster, quake) and NOT probation, the share that
+--   contact_share       of the signals that are NOT weather (kind not in alert, report, disaster, quake), the share that
 --                       has any company contact row (holler_signal_contacts with name <> '', any role; a bare 'site' address row has no
 --                       name and does not count). 0 to 1, 3 decimals; null when the metro has no such signals
--- permits, permits_w_contractor, violations_311, new_businesses and bids count every row, probation included, so a new source's depth is visible.
 
 with metros(metro, states, lat, lon, radius_mi) as (
   values
@@ -34,7 +32,7 @@ with metros(metro, states, lat, lon, radius_mi) as (
     ('dallas-fort-worth', ARRAY['TX'], 32.7831, -96.8067, 40),
     ('houston', ARRAY['TX'], 29.7633, -95.3633, 40),
     ('atlanta', ARRAY['GA'], 33.749, -84.388, 40),
-    ('washington-dc', ARRAY['DC','MD','VA'], 38.8951, -77.0364, 40),
+    ('washington-dc', ARRAY['DC','MD','VA'], 38.8951, -77.0364, 30),
     ('philadelphia', ARRAY['PA','NJ','DE'], 39.9523, -75.1638, 40),
     ('miami', ARRAY['FL'], 25.7743, -80.1937, 40),
     ('phoenix', ARRAY['AZ'], 33.4484, -112.074, 40)
@@ -43,8 +41,14 @@ metro_cities(metro, city, state) as (
   values
     ('new-york', 'New York City', 'NY'),
     ('new-york', 'Brooklyn', 'NY'),
+    ('new-york', 'Manhattan', 'NY'),
+    ('new-york', 'Queens', 'NY'),
+    ('new-york', 'The Bronx', 'NY'),
+    ('new-york', 'Staten Island', 'NY'),
     ('new-york', 'Newark', 'NJ'),
     ('new-york', 'Jersey City', 'NJ'),
+    ('new-york', 'Bronx', 'NY'),
+    ('new-york', 'New York', 'NY'),
     ('los-angeles', 'Los Angeles', 'CA'),
     ('los-angeles', 'Long Beach', 'CA'),
     ('los-angeles', 'Anaheim', 'CA'),
@@ -86,7 +90,6 @@ metro_cities(metro, city, state) as (
 recent as (
   select s.id, s.kind, s.source, s.lat, s.lon, s.state, s.city,
          s.data->>'subtype' as subtype,
-         coalesce(s.data->>'probation', '') = 'true' as probation,
          exists (select 1 from public.holler_signal_contacts c where c.signal_id = s.id and c.role = 'contractor' and c.name <> '') as has_contractor,
          exists (select 1 from public.holler_signal_contacts c where c.signal_id = s.id and c.name <> '') as has_company
   from public.holler_signals s
@@ -123,18 +126,32 @@ placed as (
 )
 select m.metro,
        count(p.id)                                                              as total_signals,
-       count(*) filter (where p.probation)                                      as probation_signals,
        count(*) filter (where p.kind = 'permit')                                as permits,
        count(*) filter (where p.kind = 'permit' and p.has_contractor)           as permits_w_contractor,
        count(*) filter (where p.subtype in ('violation', '311'))                as violations_311,
        count(*) filter (where p.subtype = 'business')                           as new_businesses,
        count(*) filter (where p.kind = 'contract' and p.source <> 'usaspending') as bids,
        round(
-         (count(*) filter (where p.kind not in ('alert', 'report', 'disaster', 'quake') and not p.probation and p.has_company))::numeric
-         / nullif(count(*) filter (where p.kind not in ('alert', 'report', 'disaster', 'quake') and not p.probation), 0),
+         (count(*) filter (where p.kind not in ('alert', 'report', 'disaster', 'quake') and p.has_company))::numeric
+         / nullif(count(*) filter (where p.kind not in ('alert', 'report', 'disaster', 'quake')), 0),
          3
        )                                                                        as contact_share
 from (select metros.*, row_number() over () as ord from metros) m
 left join placed p on p.metro = m.metro
 group by m.metro, m.ord
 order by m.ord;
+
+-- QUERY 2 of 2: sources on probation (Adapter.probation). Their rows are never in holler_signals; they are kept in holler_source_samples
+-- (service role only, 14 days). Per source: how many rows were sampled in the last 14 days, and 3 of them to eyeball before flipping it live
+-- (remove `probation: true` from the adapter). Needs migration 0022. Read-only.
+with recent as (
+  select source, external_id, fetched_at, "row",
+         row_number() over (partition by source order by fetched_at desc, id desc) as rn,
+         count(*) over (partition by source) as sample_rows
+  from public.holler_source_samples
+  where fetched_at >= now() - interval '14 days'
+)
+select source, sample_rows, external_id, "row"->>'title' as title, "row"->>'city' as city
+from recent
+where rn <= 3
+order by source, rn;

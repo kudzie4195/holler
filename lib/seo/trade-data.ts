@@ -3,7 +3,6 @@ import { publicClient } from './client';
 import { safeUrl } from './summarize';
 import { WINDOW_DAYS } from './threshold';
 import { UPCOMING_DAYS, orderLatest } from '@/lib/time';
-import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -85,7 +84,7 @@ export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
   }
   try {
     const nowMs = Date.now();
-    const base = () => sb.from('holler_signals').select('id,source,kind,title,url,city,state,occurred_at,expires_at').contains('categories', [trade]).or(liveRequestsFilter(nowIso)).is(PROBATION_COLUMN, null);
+    const base = () => sb.from('holler_signals').select('id,source,kind,title,url,city,state,occurred_at,expires_at').contains('categories', [trade]).or(liveRequestsFilter(nowIso));
     const [recent, upcoming] = await Promise.all([
       base()
         .gte('occurred_at', new Date(nowMs - WINDOW_DAYS * DAY).toISOString())

@@ -23,7 +23,7 @@ function recorder() {
       const call = { table, ops: [] as [string, unknown[]][] };
       h.calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'is', 'gte', 'lte', 'lt', 'or', 'order', 'limit', 'abortSignal']) {
+      for (const m of ['select', 'eq', 'gte', 'lte', 'lt', 'or', 'order', 'limit', 'abortSignal']) {
         q[m] = (...args: unknown[]) => {
           call.ops.push([m, args]);
           return q;

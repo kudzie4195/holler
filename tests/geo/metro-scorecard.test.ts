@@ -30,17 +30,28 @@ describe('scripts/metro-scorecard.sql', () => {
       return `${t[1]}|${t[2].replace(/''/g, "'")}|${t[3]}`;
     });
     const expected = METROS.flatMap((m) =>
-      m.cities.map((slug) => {
-        const c = cityBySlug(slug)!;
-        return `${m.id}|${c.name}|${c.state}`;
-      }),
+      [
+        ...m.cities.map((slug) => {
+          const c = cityBySlug(slug)!;
+          return `${m.id}|${c.name}|${c.state}`;
+        }),
+        ...(m.cityNames ?? []).map((n) => `${m.id}|${n}|${m.states[0]}`),
+      ],
     );
     expect(rows).toEqual(expected);
   });
 
+  it('has no probation column; a second query samples holler_source_samples per source', () => {
+    const [first, second] = sql.split('-- QUERY 2 of 2');
+    expect(first).not.toMatch(/probation/i);
+    expect(second).toMatch(/holler_source_samples/);
+    expect(second).toMatch(/rn <= 3/);
+    expect(second).toMatch(/interval '14 days'/);
+  });
+
   it('is read-only and documents every output column', () => {
     expect(sql).not.toMatch(/^\s*(insert|update|delete|drop|alter|truncate|create|grant)\b/im);
-    for (const col of ['metro', 'total_signals', 'probation_signals', 'permits', 'permits_w_contractor', 'violations_311', 'new_businesses', 'bids', 'contact_share']) {
+    for (const col of ['metro', 'total_signals', 'permits', 'permits_w_contractor', 'violations_311', 'new_businesses', 'bids', 'contact_share']) {
       expect(sql, col).toMatch(new RegExp(`^--\\s+${col}\\b`, 'm'));
     }
   });

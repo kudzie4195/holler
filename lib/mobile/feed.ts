@@ -9,7 +9,6 @@ import { mayHaveContacts } from '@/lib/outreach/plan';
 import { requestTextForMember } from '@/lib/requests/details';
 import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
-import { isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, opportunityDto, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
@@ -119,7 +118,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
   const opp = new Map<number, ReturnType<typeof memberOpportunity>>();
   const live = rows.filter((m) => {
     const s = signalOf(m);
-    if (!s || isEndedRequest(s, deps.now) || isProbation(s)) return false;
+    if (!s || isEndedRequest(s, deps.now)) return false;
     const o = memberOpportunity(s, deps.trades, deps.keywords ?? []);
     if (o.label === 'context') return false;
     opp.set(m.id, o);

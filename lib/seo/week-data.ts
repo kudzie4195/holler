@@ -3,7 +3,6 @@ import { publicClient } from './client';
 import { SECTIONS, sectionFor, type SectionId } from './sections';
 import { safeUrl, type SectionItem, type SignalRowDb } from './summarize';
 import { WEEK_MS, isCurrentWeek, parseWeek, weekNeighbors } from './week';
-import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const ROW_COLUMNS = 'id,source,kind,title,summary,url,categories,severity,occurred_at,expires_at,subtype:data->>subtype';
@@ -127,7 +126,6 @@ export async function loadWeekData(slug: string, week: string): Promise<WeekData
       .gte('occurred_at', new Date(startMs).toISOString())
       .lte('occurred_at', new Date(upper).toISOString())
       .or(liveRequestsFilter(nowIso))
-      .is(PROBATION_COLUMN, null)
       .order('occurred_at', { ascending: false })
       .limit(WEEK_ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));

@@ -15,7 +15,6 @@ import { createClient } from '@/lib/supabase/server';
 import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { matchScope } from '@/lib/plan/scope';
-import { isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestTextForMember } from '@/lib/requests/details';
@@ -84,7 +83,7 @@ async function loadDashboard() {
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    if (!s || isEndedRequest(s, now) || isProbation(s)) return false;
+    if (!s || isEndedRequest(s, now)) return false;
     const o = memberOpportunity(s, scope.categories, scope.keywords);
     if (o.label === 'context') return false;
     opp.set(m.id, o);

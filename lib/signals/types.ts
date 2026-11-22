@@ -57,9 +57,12 @@ export interface Adapter {
   /** Human-readable source home page, shown on public pages as citation. */
   sourceUrl: string;
   /**
-   * Probation: a new source whose live responses have not been checked by a person yet. Its rows are stored with `data.probation = true`
-   * and counted in scan_runs and source health, but never matched, pushed, emailed or shown to members or on public pages
-   * (lib/signals/probation.ts). Flip it live by removing this flag after checking real rows, and clear `data.probation` on the stored rows.
+   * Probation: a new source whose live output nobody has checked yet. The scan runs it like any source (same fetch, parsing, privacy
+   * sanitizing and contact extraction) but writes up to 300 rows per run to holler_source_samples (migration 0022, service role only,
+   * kept 14 days) instead of holler_signals / holler_signal_contacts. It is never matched, notified, AI-classified or pinged to IndexNow,
+   * and no member or public page can read its rows. scan_runs and source health log it as usual (inserted = samples written).
+   * Look at the samples with the second query in scripts/metro-scorecard.sql. To flip it live, remove `probation: true`: the next scan
+   * writes to holler_signals normally. Nothing else to clean up or migrate.
    */
   probation?: boolean;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;

@@ -3,7 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { cityBySlug, cityPath } from '@/lib/geo';
 import { publicClient } from './client';
 import { tradeLabel } from './trades';
-import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 /**
@@ -103,8 +102,7 @@ async function count(sb: SupabaseClient, w: Window, filter?: { kind?: string; pl
     .select('id', { count: 'exact', head: true })
     .gte('occurred_at', w.since)
     .lte('occurred_at', w.until)
-    .or(liveRequestsFilter(w.until))
-    .is(PROBATION_COLUMN, null);
+    .or(liveRequestsFilter(w.until));
   if (filter?.kind) q = q.eq('kind', filter.kind);
   if (filter?.place) q = q.eq('place_slug', filter.place);
   const r = await q.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -190,7 +188,6 @@ export async function buildNationalStats(sb: SupabaseClient | null, now: Date): 
           .gte('occurred_at', w30.since)
           .lte('occurred_at', w30.until)
           .or(liveRequestsFilter(w30.until))
-          .is(PROBATION_COLUMN, null)
           .order('occurred_at', { ascending: false })
           .limit(SAMPLE_SIZE)
           .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));

@@ -4,7 +4,6 @@ import { WINDOW_DAYS } from './threshold';
 import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type SignalRowDb } from './summarize';
 import type { SectionId } from './sections';
 import { UPCOMING_DAYS, newestPast } from '../time';
-import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -39,7 +38,6 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       .gte('occurred_at', since)
       .lte('occurred_at', until)
       .or(liveRequestsFilter(nowIso))
-      .is(PROBATION_COLUMN, null)
       .order('occurred_at', { ascending: false })
       .limit(ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -63,7 +61,6 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
             .gte('occurred_at', since)
             .lte('occurred_at', until)
             .or(liveRequestsFilter(nowIso))
-            .is(PROBATION_COLUMN, null)
             .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
           return { section, n: r.error ? 0 : (r.count ?? 0) };
         }),

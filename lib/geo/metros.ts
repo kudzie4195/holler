@@ -12,6 +12,8 @@ export interface Metro {
   states: readonly string[];
   /** core city slugs (lib/geo CITIES) */
   cities: readonly string[];
+  /** extra core city names with no CITIES entry of their own (how a source spells a borough), used only for records without coordinates */
+  cityNames?: readonly string[];
   center: { lat: number; lon: number };
   radiusMi: number;
 }
@@ -21,7 +23,8 @@ export const METROS: readonly Metro[] = [
     id: 'new-york',
     label: 'New York',
     states: ['NY', 'NJ'],
-    cities: ['new-york-city-ny', 'brooklyn-ny', 'newark-nj', 'jersey-city-nj'],
+    cities: ['new-york-city-ny', 'brooklyn-ny', 'manhattan-ny', 'queens-ny', 'the-bronx-ny', 'staten-island-ny', 'newark-nj', 'jersey-city-nj'],
+    cityNames: ['Bronx', 'New York'],
     center: { lat: 40.7143, lon: -74.006 },
     radiusMi: 35,
   },
@@ -71,7 +74,7 @@ export const METROS: readonly Metro[] = [
     states: ['DC', 'MD', 'VA'],
     cities: ['washington-dc', 'arlington-va', 'alexandria-va', 'silver-spring-md'],
     center: { lat: 38.8951, lon: -77.0364 },
-    radiusMi: 40,
+    radiusMi: 30,
   },
   {
     id: 'philadelphia',
@@ -110,12 +113,18 @@ function haversineMi(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return 2 * EARTH_RADIUS_MI * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
-/** Metro id whose center is within its radius of the point (the nearest center wins when circles overlap), else null. */
-export function metroFor(lat: number, lon: number): string | null {
+/**
+ * Metro id whose center is within its radius of the point (the nearest center wins when circles overlap), else null.
+ * When `state` is passed (2-letter code, any case) the metro must also span that state, the rule scripts/metro-scorecard.sql applies:
+ * Stamford CT or Gary IN fall inside a circle but in no metro state, so they are null. A null or empty state passed explicitly matches nothing.
+ */
+export function metroFor(lat: number, lon: number, state?: string | null): string | null {
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   let best: string | null = null;
   let bestD = Infinity;
+  const st = state === undefined ? undefined : (state ?? '').trim().toUpperCase();
   for (const m of METROS) {
+    if (st !== undefined && !m.states.includes(st)) continue;
     const d = haversineMi(m.center.lat, m.center.lon, lat, lon);
     if (d <= m.radiusMi && d < bestD) {
       best = m.id;
@@ -133,6 +142,11 @@ function slugify(s: string): string {
 export function metroForCityState(city: string | null | undefined, state: string | null | undefined): string | null {
   if (!city || !state) return null;
   const slug = `${slugify(city)}-${state.trim().toLowerCase()}`;
-  for (const m of METROS) if (m.cities.includes(slug)) return m.id;
+  const name = city.trim().toLowerCase();
+  const st = state.trim().toUpperCase();
+  for (const m of METROS) {
+    if (m.cities.includes(slug)) return m.id;
+    if (m.states.includes(st) && m.cityNames?.some((n) => n.toLowerCase() === name)) return m.id;
+  }
   return null;
 }

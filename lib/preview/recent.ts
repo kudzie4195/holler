@@ -6,7 +6,6 @@ import { hitLabel, matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/m
 import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from '@/lib/signals/member-opportunity';
 import { OPPORTUNITY_RANK, type Opportunity } from '@/lib/signals/opportunity';
 import { matchScope, type ScopeInput } from '@/lib/plan';
-import { PROBATION_COLUMN, isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
@@ -170,7 +169,6 @@ export async function recentPreviewFor(
         .select(PREVIEW_COLUMNS)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
-        .is(PROBATION_COLUMN, null)
         .overlaps('categories', prefilterCategories(scope.categories))
         .gte('occurred_at', since)
         .lte('occurred_at', now.toISOString())
@@ -218,7 +216,7 @@ export async function recentPreviewFor(
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);
-      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || isProbation(r)) continue;
+      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
       const sig: MatchSignal = {
         id: Number(r.id),
         kind: r.kind,

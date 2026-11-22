@@ -34,8 +34,8 @@ describe('METROS registry', () => {
     }
   });
 
-  it('uses radius 40 miles, except New York 35 and Los Angeles 45', () => {
-    for (const m of METROS) expect(m.radiusMi, m.id).toBe(m.id === 'new-york' ? 35 : m.id === 'los-angeles' ? 45 : 40);
+  it('uses radius 40 miles, except New York 35, Washington DC 30 and Los Angeles 45', () => {
+    for (const m of METROS) expect(m.radiusMi, m.id).toBe(m.id === 'new-york' ? 35 : m.id === 'washington-dc' ? 30 : m.id === 'los-angeles' ? 45 : 40);
   });
 
   it('spans the expected states', () => {
@@ -68,6 +68,21 @@ describe('metroFor', () => {
     expect(metroFor(28.5383, -81.3792)).toBeNull(); // Orlando FL
   });
 
+  it('Baltimore MD (36 mi from DC) is outside the DC circle', () => {
+    expect(metroFor(39.2904, -76.6122, 'MD')).toBeNull();
+    expect(metroFor(39.2904, -76.6122)).toBeNull();
+  });
+
+  it('with a state, the metro must span it (the scorecard SQL rule)', () => {
+    expect(metroFor(41.0534, -73.5387)).toBe('new-york'); // Stamford CT, inside the circle
+    expect(metroFor(41.0534, -73.5387, 'CT')).toBeNull();
+    expect(metroFor(41.5934, -87.3464)).toBe('chicago'); // Gary IN
+    expect(metroFor(41.5934, -87.3464, 'IN')).toBeNull();
+    expect(metroFor(40.7357, -74.1724, 'nj')).toBe('new-york');
+    expect(metroFor(40.7357, -74.1724, 'PA')).toBeNull();
+    expect(metroFor(40.7357, -74.1724, null)).toBeNull();
+  });
+
   it('returns null for non-finite input', () => {
     expect(metroFor(NaN, -80)).toBeNull();
   });
@@ -86,6 +101,10 @@ describe('metroForCityState', () => {
     expect(metroForCityState('Miami Beach', 'FL')).toBe('miami');
     expect(metroForCityState('Tempe', 'AZ')).toBe('phoenix');
     expect(metroForCityState('Arlington', 'VA')).toBe('washington-dc');
+    expect(metroForCityState('Queens', 'NY')).toBe('new-york');
+    expect(metroForCityState('Queens, NY'.split(',')[0], 'NY')).toBe('new-york');
+    for (const n of ['Manhattan', 'Brooklyn', 'Bronx', 'The Bronx', 'Staten Island', 'New York']) expect(metroForCityState(n, 'NY'), n).toBe('new-york');
+    expect(metroForCityState('New York', 'TX')).toBeNull();
     expect(metroForCityState('Arlington', 'TX')).toBe('dallas-fort-worth');
   });
 

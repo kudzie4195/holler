@@ -11,7 +11,6 @@ import {
   type DigestItem,
 } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
-import { isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
@@ -46,8 +45,6 @@ interface SignalRow extends OpportunityRowFields {
   occurred_at: string;
   subtype?: string | null;
   severity?: number | null;
-  /** data->>probation alias (OPPORTUNITY_DATA_COLUMNS): a probation row is never mailed. */
-  probation?: string | null;
 }
 interface MatchRow {
   id: number;
@@ -161,7 +158,7 @@ export async function GET(req: Request) {
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
-        .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()) && !isProbation(r.s));
+        .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()));
       if (live.length === 0) continue;
 
       // The plan-limited trades (the ones matching uses), not every saved trade: a member who moved from Pro to Solo gets no note

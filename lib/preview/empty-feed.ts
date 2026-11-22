@@ -3,7 +3,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { CATEGORY_IDS, categoryById, isCategoryId, type CategoryId } from '@/lib/signals/categories';
 import { enabledDatasets } from '@/lib/signals/capabilities';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { matchScope, type ScopeInput } from '@/lib/plan';
 import { cityBySlug, haversineMi, lookupZip } from '@/lib/geo';
@@ -127,7 +126,6 @@ async function readArea(db: Db, lat: number, lon: number, radius: number, since:
     for (const r of got) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
-      if (isProbation(r)) continue; // a source on probation is stored and counted, never shown
       rows.push(r);
       fresh++;
     }

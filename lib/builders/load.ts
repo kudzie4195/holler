@@ -1,7 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchScope, type ScopeInput } from '@/lib/plan/scope';
-import { PROBATION_COLUMN, isProbation } from '@/lib/signals/probation';
 import { approxReachMi } from '@/lib/signals/approx-location';
 import { matchArea } from '@/lib/signals/match';
 import { memberHasAccess } from '@/lib/contacts/load';
@@ -107,7 +106,6 @@ export async function loadActiveBuilders(
         .select('id, title, source, lat, lon, state, severity, occurred_at, categories, data')
         .eq('kind', 'permit')
         .gte('occurred_at', cutoff)
-        .is(PROBATION_COLUMN, null)
         .or(clauses.join(','))
         .order('occurred_at', { ascending: false })
         .order('id', { ascending: false })
@@ -118,7 +116,6 @@ export async function loadActiveBuilders(
       }
       if (!Array.isArray(data)) return EMPTY();
       for (const r of data as SignalRec[]) {
-        if (isProbation(r)) continue; // a source on probation is stored and counted, never shown
         sigs.set(r.id, r);
         const t = Date.parse(r.occurred_at);
         if (Number.isFinite(t) && t < oldestMs) oldestMs = t;
