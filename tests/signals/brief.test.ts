@@ -375,7 +375,7 @@ describe('hedged wording (review P2)', () => {
   });
   it('a weather alert "was issued"; the next step says to check if it is still in effect', () => {
     const b = briefFor({ source: 'nws', label: 'coming_soon', trade: 'roofing' });
-    expect(b.why).toBe('A weather alert was issued near you; roof repair or install may follow.');
+    expect(b.why).toBe('A weather alert was issued for your area; roof repair or install may follow.');
     expect(b.why).not.toMatch(/is active/);
     expect(b.next).toMatch(/check if it is still in effect/);
   });

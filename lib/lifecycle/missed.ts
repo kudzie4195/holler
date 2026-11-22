@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchOne, type MatchSignal } from '../signals/match';
+import { expandCategoriesForRouting } from '../signals/permit-routing';
 import { matchScope, type ScopeInput } from '../plan';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-location';
@@ -63,7 +64,7 @@ export async function missedSince(
       .select(COLUMNS)
       .neq('source', HOLLER_REQUEST_SOURCE)
       .neq('kind', 'ask')
-      .overlaps('categories', scope.categories)
+      .overlaps('categories', expandCategoriesForRouting(scope.categories))
       .gte('occurred_at', since.toISOString())
       .lte('occurred_at', now.toISOString())
       .order('occurred_at', { ascending: false })

@@ -48,6 +48,14 @@ export function normalizeWorkText(v: string): string {
 export const ADMIN_ONLY_RE =
   /\bowner(?:ship)?\s+change\b|\bchange\s+of\s+(?:owner|contractor|address)|\bcontractor\s+change\b|\bname\s+change\b|\brenewal\b|\bextension\s+of\s+(?:time|permit)|\bpermit\s+extension\b|\bvoid(?:ed)?\b|\bwithdrawn\b|\bre\s?issue\b|\bduplicate\s+permit\b|^\s*zoning\b|\bvariance\b/i;
 
+/**
+ * Work types that are paperwork or temporary protection, not trade work: a sidewalk shed or scaffold, a construction fence, a site-safety
+ * plan ("Protection and Mechanical Methods"), a fire sprinkler or standpipe job, a curb cut. When a STRUCTURED type column holds one of
+ * them the row gets no trade and is dropped (as an admin-only value is), because the description then names the building's other work,
+ * not this permit's (round 15 quality gate: a sidewalk shed read "Roof and window", a fire-sprinkler job at a bank read "Landscaping").
+ */
+export const NO_TRADE_WORK_TYPE_RE = /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|sprinklers?|standpipe|curb cut)$/i;
+
 /** Street suffixes and business words: a trade noun right before one of these names a street or a company, not work. */
 const NOT_WORK_AHEAD =
   '(?!\\s+(?:st|street|dr|drive|rd|road|ln|lane|ave|avenue|blvd|boulevard|ct|court|cir|circle|pkwy|parkway|trl|trail|ter|terrace|hwy|highway|pl|place|way|row|pike|xing|crossing|bend|cove|point|valley|hill|hills|park|village|lake|creek|supply|supplies|co|company|inc|llc|corp|corporation|store|depot|outlet|center|centre|wholesale|distributors?|group|church)\\b)';
@@ -312,7 +320,7 @@ function pickKinds(f: PermitFields): PermitKind[] {
   const structured = clean(f.structured);
   const free = clean(f.free);
   const mixed = clean(f.mixed);
-  if (structured.some((v) => ADMIN_ONLY_RE.test(v))) return [];
+  if (structured.some((v) => ADMIN_ONLY_RE.test(v) || NO_TRADE_WORK_TYPE_RE.test(v))) return [];
   const s = kindsIn(structured);
   // Description kinds, plus the unambiguous work phrases of a mixed column (never a generic kind from it).
   const fr = [...kindsIn(free)];

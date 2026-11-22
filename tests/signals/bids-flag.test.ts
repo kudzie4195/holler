@@ -122,7 +122,7 @@ describe('flag ON: bids match by distance and trade', () => {
     expect(rows).toEqual([{ user_id: 'u-la', signal_id: 2, distance_mi: null }]);
     vi.stubEnv(BIDS_FLAG, '1');
     // The label is act_now (every open city bid is, lead-rules SOURCE_DEFAULTS) and the deadline is the bid's due day (data.dueDate).
-    expect(matchOne(roofBid, profile(['roofing']))).toEqual({ distance_mi: null, label: 'act_now', deadline: '2027-01-08T12:00:00.000Z' });
+    expect(matchOne(roofBid, profile(['roofing']))).toMatchObject({ distance_mi: null, label: 'act_now', deadline: '2027-01-08T12:00:00.000Z', trade: 'roofing' });
   });
 
   it('the real cooling tower bid matches an LA HVAC profile and not a roofing one', () => {

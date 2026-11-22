@@ -174,7 +174,7 @@ describe('renderDigest: Act Now first, with its deadline line', () => {
   });
   it('the cron orders by label, filters non-alert matches and marks them notified without a mail', () => {
     const src = readFileSync('app/api/cron/notify/route.ts', 'utf8');
-    expect(src).toMatch(/orderByLabel\(ranked, \(r\) => labelOf\(r\.s\)\)/);
+    expect(src).toMatch(/orderByLabelScore\(\s*ranked,\s*\(r\) => labelOf\(r\.s\)/);
     expect(src).toMatch(/const rows = live\.filter\(\(r\) => isAlertLabel\(labelOf\(r\.s\)\)\)/);
     expect(src).toMatch(/const silent = live\.filter\(\(r\) => !isAlertLabel\(labelOf\(r\.s\)\)\)/);
   });
@@ -289,7 +289,7 @@ describe('Act Now cards render the deadline or "No deadline published" (acceptan
   });
   it('the feed page orders by label and hides context', () => {
     const page = readFileSync('app/app/page.tsx', 'utf8');
-    expect(page).toMatch(/orderByLabel\(ranked,/);
+    expect(page).toMatch(/orderByLabelScore\(\s*ranked,/);
     expect(page).toMatch(/labelOf\(s\) !== 'context'/);
     expect(page).toMatch(/deadline: deadlineOf\(/);
   });

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { intentOf, type Intent } from '@/lib/signals/intent';
 import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
+import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
 import { matchScope, type ScopeInput } from '@/lib/plan';
 import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
@@ -159,7 +160,7 @@ export async function recentPreviewFor(
         .select(PREVIEW_COLUMNS)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
-        .overlaps('categories', scope.categories)
+        .overlaps('categories', expandCategoriesForRouting(scope.categories))
         .gte('occurred_at', since)
         .lte('occurred_at', now.toISOString())
         .order('occurred_at', { ascending: false })

@@ -25,7 +25,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
 
 export interface SignalRow {
   id: number;
@@ -42,6 +42,8 @@ export interface SignalRow {
   occurred_at: string;
   expires_at: string | null;
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline. */
   categories?: string[] | null;
   deadline?: string | null;

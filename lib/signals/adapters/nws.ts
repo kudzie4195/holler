@@ -30,6 +30,8 @@ export const NWS_RULES: Rule[] = [
   { re: /^tornado/i, categories: ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'public-adjuster', 'auto-body', 'electrical', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /hurricane|tropical storm|typhoon|storm surge/i, categories: ['roofing', 'tree-service', 'restoration', 'general-contractor', 'insurance', 'public-adjuster', 'electrical', 'towing', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /severe thunderstorm/i, categories: ['roofing', 'tree-service', 'restoration', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
+  // A flood advisory or statement is minor (a stream above its banks): clean-up and claims, not a plumber. Warnings keep plumbing (back-ups, sump pumps).
+  { re: /flood advisory|flood statement/i, categories: ['restoration', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /flash flood|flood/i, categories: ['restoration', 'plumbing', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /ice storm/i, categories: ['tree-service', 'electrical', 'snow-removal', 'towing', 'hvac'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /blizzard|winter storm|lake effect snow|heavy snow|snow squall|winter weather/i, categories: ['snow-removal', 'towing', 'hvac', 'tree-service', 'plumbing'], sev: { warning: 2, watch: 1, advisory: 1 } },

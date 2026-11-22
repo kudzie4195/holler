@@ -4,7 +4,8 @@ import { isCategoryId } from '@/lib/signals/categories';
 import { categorize } from '@/lib/signals/adapters/socrata';
 import { civicLabel } from '@/lib/signals/adapters/permit-privacy';
 import { CAT_V, OLDER_VERSIONS, REMAP_SUBTYPES } from './version';
-import { KIND_FOR_CATEGORY, PERMIT_KINDS, classFromKinds, classifyPermit, permitTitleFor } from './permit';
+import { normalizeWorkText } from './permit';
+import { KIND_FOR_CATEGORY, NO_TRADE_WORK_TYPE_RE, PERMIT_KINDS, classFromKinds, classifyPermit, permitTitleFor } from './permit';
 import { pruneStaleMatches, rematchSignals, type PruneResult, type RematchResult } from '@/lib/signals/rematch';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
@@ -56,6 +57,8 @@ const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((
 export function remapPermitRow(row: StoredRuleRow): { categories: CategoryId[]; label: string | null } | null {
   const city = row.city ?? '';
   const parts = (row.summary ?? '').split(' | ').map((p) => p.trim()).filter((p) => p && !isNoisePart(p));
+  // A paperwork or temporary-protection work type (sidewalk shed, site-safety plan, fire sprinklers): no trade work, whatever the old tags say.
+  if (parts.some((v) => NO_TRADE_WORK_TYPE_RE.test(normalizeWorkText(v)))) return { categories: [], label: null };
   const fromSummary = classifyPermit({ structured: parts }, city);
   const specific = fromSummary.kinds.some((id) => !PERMIT_KINDS.find((k) => k.id === id)?.generic);
   if (specific) return { categories: fromSummary.categories, label: fromSummary.label };

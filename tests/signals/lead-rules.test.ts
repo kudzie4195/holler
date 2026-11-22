@@ -121,7 +121,17 @@ const CASES: Case[] = [
   { name: 'Austin code violation', sig: { source: 'socrata-austin-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'junk-removal', want: 'act_now' },
   { name: 'DeKalb code violation', sig: { source: 'arcgis-dekalb-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'lawn-care', want: 'act_now' },
   { name: 'failed food inspection for pest control', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'pest-control', want: 'act_now' },
-  { name: 'failed food inspection for a cleaner', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'cleaning', want: 'act_now' },
+  // Round 15 quality gate: a failed inspection is no house-cleaning job (stored rows still tagged cleaning are context)
+  { name: 'failed food inspection for a house cleaner (context)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'cleaning', want: 'context' },
+  { name: 'failed food inspection for commercial cleaning', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'janitorial-commercial', want: 'act_now' },
+  // Round 15 quality gate (Q-grades #41-#50, #26): event permits and mobile-food licences are not building work
+  { name: 'NYC street event for house cleaning (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Street Event at 5 AVENUE' }, trade: 'cleaning', want: 'context' },
+  { name: 'NYC farmers market for security (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Farmers Market' }, trade: 'security', want: 'context' },
+  { name: 'Mobile Food Services licence for HVAC', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Mobile Food Services' }, trade: 'hvac', want: 'context' },
+  { name: 'Mobile food licence for pest control', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Mobile Food Dispenser' }, trade: 'pest-control', want: 'context' },
+  { name: 'Retail food licence for HVAC keeps its alert (a building with a kitchen)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment' }, trade: 'hvac', want: 'coming_soon' },
+  { name: 'new business licence for house cleaning (blanket tag)', sig: { source: 'socrata-sf-business', kind: 'civic', subtype: 'business', title: 'New business license in San Francisco: Retail' }, trade: 'cleaning', want: 'context' },
+  { name: 'new business licence for commercial cleaning keeps its alert', sig: { source: 'socrata-sf-business', kind: 'civic', subtype: 'business', title: 'New business license in San Francisco: Retail' }, trade: 'janitorial-commercial', want: 'coming_soon' },
   { name: 'failed food inspection for plumbing (a repair trade: only possibly needed)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'plumbing', want: 'coming_soon' },
   { name: 'failed food inspection for a general contractor (a repair trade)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'general-contractor', want: 'coming_soon' },
   { name: 'failed food inspection for a food truck (not a fixer)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'food-truck', want: 'coming_soon' },
@@ -163,6 +173,7 @@ const CASES: Case[] = [
   { name: 'a new home permit for a mover (downstream)', sig: permit('New home permit in X'), trade: 'moving', want: 'coming_soon' },
   { name: 'a new home permit for real estate (downstream)', sig: permit('New home permit in X'), trade: 'real-estate', want: 'coming_soon' },
   { name: 'a demolition permit for junk removal (downstream)', sig: permit('Demolition permit in X'), trade: 'junk-removal', want: 'coming_soon' },
+  { name: 'a re-roof permit for a gutter company (downstream, item 1.1)', sig: permit('Roof permit in X'), trade: 'siding-gutters', want: 'coming_soon' },
   { name: 'FAA ground stop for rideshare', sig: { source: 'faa', kind: 'travel', title: 'Ground stop' }, trade: 'rideshare-delivery', want: 'coming_soon' },
   { name: 'NYC rodent sighting (a pest-control job, not city baiting)', sig: c311('socrata-nyc-311', 'Rodent / Rat Sighting'), trade: 'pest-control', want: 'coming_soon' },
 
@@ -248,7 +259,7 @@ describe('the label is pure and deterministic', () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync('lib/signals/lead-rules.ts', 'utf8');
     const imports = [...src.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1]);
-    expect(imports).toEqual(['./categories']);
+    expect(imports).toEqual(['./categories', './permit-routing']); // permit-routing.ts is pure too (tests/signals/permit-routing.test.ts)
     expect(src).not.toMatch(/server-only|Date\.now|new Date\(\)|Math\.random/);
   });
 });

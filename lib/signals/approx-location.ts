@@ -14,9 +14,15 @@ export const APPROX_LOCATION_SOURCES: ReadonlySet<string> = new Set([
 ]);
 
 /** True when the record's lat/lon is a stand-in. Accepts a feed row, a check item or a stored signal (any of source, data). */
-export function hasApproxLocation(s: { source?: string | null; data?: { loc?: unknown } | null } | null | undefined): boolean {
+export function hasApproxLocation(
+  s: { source?: string | null; data?: { loc?: unknown; approxLocation?: unknown } | null; approxLocation?: unknown } | null | undefined,
+): boolean {
   if (!s) return false;
   if (s.data && s.data.loc === 'approx') return true;
+  // Socrata rows with no coordinates sit at the city centre and carry data.approxLocation: true (adapters/socrata.ts fallbackCenter). Round 15
+  // quality gate: a Bronx street event printed "under 1 mi away" for a Manhattan member. A select that cannot read nested data aliases the
+  // flag flat as `approxLocation:data->>approxLocation` (the value then arrives as the string "true").
+  if ((s.data && s.data.approxLocation === true) || s.approxLocation === true || s.approxLocation === 'true') return true;
   // City open bids sit at the city centre, because the record names a buyer, not a job site (lib/signals/adapters/city-bids.ts). They are
   // kept out of APPROX_LOCATION_SOURCES on purpose: the readers that build SQL from that list (backfill, missed, preview) are for the Cobb
   // feeds. A bid read by its own box still matches with the same reach through matchOne.
@@ -59,6 +65,11 @@ export function approxLocationNote(s: { city?: string | null; source?: string | 
   if (s && (s.subtype === 'bid' || (typeof s.source === 'string' && BID_SOURCE_IDS.includes(s.source)))) {
     const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';
     return `Buyer in ${where}. A bid names the buyer, not a job site, so no distance is shown.`;
+  }
+  // A city feed whose rows have no map point (NYC special events: the row is placed at the city centre): city wording, never "the county".
+  if (s && typeof s.source === 'string' && !APPROX_LOCATION_SOURCES.has(s.source)) {
+    const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';
+    return `In ${where}. The city's feed has no map point for this record, so no distance is shown.`;
   }
   const place = typeof s?.city === 'string' && /\bcounty\b/i.test(s.city) ? s.city.trim() : 'the county';
   return `In ${place}. ${APPROX_LOCATION_REASON}`;

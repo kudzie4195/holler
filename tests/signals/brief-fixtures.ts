@@ -135,7 +135,7 @@ const CASES: (() => FixtureCase)[] = [
   () => buildCase('airport delay', pick(FAA, (s) => /\(ATL\)/.test(s.title), 'ATL'), ['rideshare-delivery'], 'Peachtree Rides'),
   () => buildCase('new-home permit for a mover', newHomePermit(), ['moving'], 'Midtown Movers'),
   () => buildCase('own-trade permit', pick(sx('socrata-chicago-permits', 'socrata-chicago-permits.json'), (s) => /Roof/.test(s.title), 'roof permit'), ['roofing'], 'Logan Roofing'),
-  () => buildCase('new business license', pick(sx('socrata-sf-business', 'socrata-sf-business.json'), (s) => /Food Service/.test(s.title), 'food service'), ['cleaning'], 'Mission Cleaning'),
+  () => buildCase('new business license', pick(sx('socrata-sf-business', 'socrata-sf-business.json'), (s) => /Food Service/.test(s.title), 'food service'), ['janitorial-commercial'], 'Mission Janitorial'),
   () => buildCase('special event permit', sx('socrata-nyc-events', 'socrata-nyc-events.json')[0], ['catering'], 'Village Catering'),
   () => buildCase('big event', parseTicketmaster(j('ticketmaster-events.json'))[0], ['food-truck'], 'Peach Food Truck'),
   () => buildCase('federal bid', pick(parseSam(j('sam-opportunities.json')), (s) => /Roof/.test(s.title), 'roof bid'), ['roofing'], 'Trinity Roofing'),

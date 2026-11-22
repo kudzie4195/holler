@@ -3,6 +3,7 @@ import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile,
 import { matchScope, type ScopeArea } from '@/lib/plan';
 import { APPROX_LOCATION_SOURCES } from './approx-location';
 import { historyRow, upsertMatchRows } from './quiet-matches';
+import { expandCategoriesForRouting } from './permit-routing';
 
 export const BACKFILL_DAYS = 14;
 export const BACKFILL_CAP = 25;
@@ -275,13 +276,16 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const states = [...new Set(scope.areas.map((a) => a.state?.toUpperCase()).filter((x): x is string => Boolean(x)))];
     const reads: Promise<SignalRow[]>[] = [];
     if (scope.categories.length) {
+      // Downstream permit routing (item 1.1): a siding member also reads roof-tagged rows, a painter reads general-contractor rows. A wider
+      // read only; matchOne below decides what the member gets.
+      const readCats = expandCategoriesForRouting(scope.categories);
       for (const a of scope.areas) {
-        const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: scope.categories };
+        const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: readCats };
         reads.push(readNear(db, at, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }));
         reads.push(readNear(db, at, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }));
       }
-      for (const st of states) reads.push(readStateLevel(db, { state: st, categories: scope.categories }, since, until, nowIso));
-      reads.push(readApprox(db, scope.categories, since, until, nowIso));
+      for (const st of states) reads.push(readStateLevel(db, { state: st, categories: readCats }, since, until, nowIso));
+      reads.push(readApprox(db, readCats, since, until, nowIso));
     }
     if (scope.keywords.length) {
       for (const a of scope.areas) reads.push(readKeywordsNear(db, a, profile.radius_mi, scope.keywords, since, until, nowIso));
@@ -294,7 +298,7 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);
-      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label });
+      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade });
     }
     // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
     // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.

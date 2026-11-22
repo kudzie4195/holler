@@ -162,7 +162,8 @@ function slugify(s: string): string {
  * on a city page.
  */
 export function placeSlugFor(s: SignalInput): string | null {
-  if (hasApproxLocation({ source: s.source, data: s.data as { loc?: unknown } | null | undefined })) return null;
+  // Only data.loc counts here: a row placed at its city's centre (data.approxLocation) still belongs on that city's page.
+  if (hasApproxLocation({ source: s.source, data: { loc: (s.data as { loc?: unknown } | null | undefined)?.loc } })) return null;
   try {
     if (typeof s.lat === 'number' && typeof s.lon === 'number') return nearestCity(s.lat, s.lon, 40)?.slug ?? null;
     if (s.city && s.state) return cityBySlug(`${slugify(s.city)}-${s.state.toLowerCase()}`)?.slug ?? null;

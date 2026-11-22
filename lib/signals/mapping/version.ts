@@ -9,8 +9,11 @@
  *    heater permit carried hvac ("heater") and a new construction permit fanned out to landscaping and cleaning.
  *  2: round 7. Permit categories and the title label come from one classification (lib/signals/mapping/permit.ts). Code violations no
  *    longer add plumbing for a roof leak.
+ *  3: round 15 quality gate. A permit whose structured work type is a sidewalk shed, scaffold, construction fence, site-safety plan, fire
+ *    sprinkler, standpipe or curb cut carries no trade (permit.ts NO_TRADE_WORK_TYPE_RE). Code violations are tagged by VIOLATION_RULES alone
+ *    (no keyword list: a gutter order is not roofing).
  */
-export const CAT_V = 2;
+export const CAT_V = 3;
 
 /** Subtypes whose mapping changed since version 1 and are therefore re-mapped from stored text. */
 export const REMAP_SUBTYPES = ['permit', 'violation'] as const;

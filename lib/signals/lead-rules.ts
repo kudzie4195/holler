@@ -1,4 +1,5 @@
 import type { CategoryId } from './categories';
+import { carriedTrades, routeFor } from './permit-routing';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -31,7 +32,8 @@ import type { CategoryId } from './categories';
  * STABLE API (other units build on it; change the signatures only with the callers):
  *   labelFor(sig, trade | null)                 one record, one trade
  *   labelForTrades(sig, trades)                 best label across trades (act_now beats coming_soon beats market_insight beats context)
- *   labelForMember(sig + categories, memberTrades)   what every surface calls: the member's plan trades that the record carries
+ *   labelForMember(sig + categories, memberTrades)   what every surface calls: the member's plan trades that the record carries (a building
+ *                                                    permit also "carries" the trades downstream of its type, lib/signals/permit-routing.ts)
  *   isAlertLabel(label)      act_now | coming_soon: pushed and emailed.  isFeedLabel(label): anything but context: shown in the app feed.
  *   orderByLabel(items, labelOf)                stable, Act Now first
  *   demoteExpired(label, deadline, nowMs)       an Act Now whose published deadline has passed becomes coming_soon
@@ -98,6 +100,16 @@ export interface LabelRule {
   trades?: readonly CategoryId[];
   /** Fires only when the member's trade is known. */
   needsTrade?: boolean;
+  /**
+   * Fires only when the permit's own TITLE makes this trade downstream of the permit (lib/signals/permit-routing.ts routeFor: a re-roof
+   * for gutters, a new building for landscaping). Never reads a trade tag.
+   */
+  routed?: boolean;
+  /**
+   * The label comes from another trade's permit, not from the member's own trade's work. Read by the deterministic score
+   * (lib/signals/score.ts): a downstream pair is not an exact trade fit.
+   */
+  downstream?: boolean;
 }
 
 const PUBLIC_POSTS = ['bluesky', 'websearch-brave', 'websearch-serper'] as const;
@@ -105,8 +117,9 @@ const PUBLIC_POSTS = ['bluesky', 'websearch-brave', 'websearch-serper'] as const
 /**
  * Trades that act on a failed food inspection: the ones whose job is the thing that failed (pests, dirt). A repair trade (plumbing,
  * HVAC, electrical, general contractor) is only possibly needed, so it gets the source default, coming_soon (review: weak evidence).
+ * House cleaning is NOT listed: a failed restaurant is commercial cleaning (round 15 quality gate).
  */
-const INSPECTION_TRADES: readonly CategoryId[] = ['pest-control', 'cleaning', 'janitorial-commercial'];
+const INSPECTION_TRADES: readonly CategoryId[] = ['pest-control', 'janitorial-commercial'];
 
 /**
  * Seeded from the 14-day audit (PLAN-2.0 section 1, live data of Nov 19 to 21 2026). ORDER MATTERS: the first rule that fits wins, so
@@ -253,11 +266,33 @@ export const RULES: readonly LabelRule[] = [
     why: 'A permitted park, plaza or city-venue event (a plaza or partner event, a sports-field permit, a venue rental). For catering, event services and food trucks a Special Event is soon-event-organiser above.',
   },
   {
+    id: 'ctx-inspection-house-cleaning',
+    label: 'context',
+    subtypes: ['inspection'],
+    trades: ['cleaning'],
+    why: 'A failed restaurant or food inspection is not a house-cleaning job (round 15 quality gate). Rows stored before the tag was dropped still carry it, so the rule keeps them out of the feed. Commercial cleaning and pest control keep the alert.',
+  },
+  {
+    id: 'ctx-event-blanket',
+    label: 'context',
+    subtypes: ['event-permit'],
+    trades: ['cleaning', 'security'],
+    why: 'Every event permit (a street event, a farmers market) was tagged to these trades with no evidence of need. Special Event permits for catering, event services and food trucks are soon-event-organiser above.',
+  },
+  {
+    id: 'ctx-mobile-business',
+    label: 'context',
+    subtypes: ['business'],
+    title: /mobile food|food truck|peddl|\bcarts?\b|vending/i,
+    trades: ['hvac', 'pest-control', 'cleaning', 'janitorial-commercial', 'security'],
+    why: 'A mobile food, cart, peddler or vending licence has no building to heat, clean or guard (round 15 quality gate: "Mobile Food Services" told an HVAC company it may need heating and cooling).',
+  },
+  {
     id: 'ctx-business-blanket',
     label: 'context',
     subtypes: ['business'],
-    trades: ['locksmith', 'insurance', 'business-services'],
-    why: 'New business licenses are tagged to these trades with no evidence of need. Phase 3 (business-opening playbook) fixes this properly.',
+    trades: ['locksmith', 'insurance', 'business-services', 'cleaning'],
+    why: 'New business licenses are tagged to these trades with no evidence of need (house cleaning added by the round 15 quality gate: 10 of 10 graded cards were licences a house cleaner does not serve). Phase 3 (business-opening playbook) fixes this properly. Commercial cleaning keeps its licence alerts.',
   },
 
   // ---- market_insight / coming_soon for permits and awards (item 1.1, first half) -------------------------------------------------
@@ -268,6 +303,7 @@ export const RULES: readonly LabelRule[] = [
     permit: true,
     title: /\bnew home\b/i,
     trades: ['real-estate', 'moving'],
+    downstream: true,
     why: 'A new home is coming: sale and moving work follow. These trades do not do the permitted work.',
   },
   {
@@ -276,14 +312,23 @@ export const RULES: readonly LabelRule[] = [
     permit: true,
     title: /\bdemolition\b/i,
     trades: ['junk-removal'],
+    downstream: true,
     why: 'A demolition permit: hauling follows. Junk removal does not do the permitted work.',
+  },
+  {
+    id: 'soon-permit-downstream',
+    label: 'coming_soon',
+    permit: true,
+    routed: true,
+    downstream: true,
+    why: 'PLAN-2.0 item 1.1: the permit type in the title (re-roof, new building, remodel or addition, solar, demolition, tenant fit-out) is followed by work for other trades (permit-routing.ts DOWNSTREAM). The trade that does the permitted work keeps the market insight below.',
   },
   {
     id: 'mi-permit-own-trade',
     label: 'market_insight',
     permit: true,
     needsTrade: true,
-    why: 'A permit is tagged to the trade that does the permitted work, so that trade is usually already hired. Routing a permit to OTHER trades is Phase 1 (item 1.1).',
+    why: 'A permit is tagged to the trade that does the permitted work, so that trade is usually already hired. Other trades get it as coming_soon through soon-permit-downstream above.',
   },
 ];
 
@@ -388,6 +433,7 @@ function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boole
   if (rule.title && !rule.title.test(titleBody(sig.title))) return false;
   if (rule.trades && (trade === null || !rule.trades.includes(trade))) return false;
   if (rule.needsTrade && trade === null) return false;
+  if (rule.routed && !routeFor(sig.title, trade)) return false;
   return true;
 }
 
@@ -430,7 +476,7 @@ export function labelForTrades(sig: LabelInput, trades: readonly (CategoryId | s
  * (a keyword-watch match) is labelled with the trade unknown.
  */
 export function labelForMember(sig: LabelInput & { categories?: readonly string[] | null }, memberTrades: readonly string[]): OpportunityLabel {
-  const shared = (sig.categories ?? []).filter((c) => memberTrades.includes(c));
+  const shared = carriedTrades(sig, sig.categories).filter((c) => memberTrades.includes(c));
   return labelForTrades(sig, shared);
 }
 

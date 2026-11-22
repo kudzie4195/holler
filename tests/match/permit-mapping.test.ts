@@ -7,6 +7,7 @@ import { parseArcgis } from '@/lib/signals/adapters/arcgis';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { PERMIT_RULES, SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { parseSocrata } from '@/lib/signals/adapters/socrata';
+import { CAT_V } from '@/lib/signals/mapping/version';
 
 type Case = [structured: string[], free: string[], cats: CategoryId[], label: string | null];
 
@@ -102,7 +103,12 @@ const CASES: Case[] = [
   [S(''), ['install 6 ft privacy fence'], ['fencing'], 'Fence'],
   [S('FENDRIVE'), [], ['fencing', 'concrete-paving'], 'Fence and concrete'],
   [S('Driveway'), [], ['concrete-paving'], 'Concrete'],
-  [S('Curb Cut'), [], ['concrete-paving'], 'Concrete'],
+  // Round 15 quality gate (Q-grades #6/#7/#40): street-side work types name no trade. Curb Cut was Concrete before; now dropped with the others.
+  [S('Curb Cut'), [], [], null],
+  [S('Supported Scaffold'), [], [], null],
+  [S('Construction Fence'), [], [], null],
+  [S('Sprinklers'), [], [], null],
+  [S('Standpipe'), [], [], null],
   [S(''), ['replace concrete driveway and sidewalk'], ['concrete-paving'], 'Concrete'],
   [S('Sidewalk Shed'), [], [], null],
   [S('Window Replacement'), [], ['windows-doors'], 'Window'],
@@ -264,7 +270,7 @@ describe('the adapters use the same classification', () => {
     const [row] = parseArcgis({ features: [feature('BW-1', 'Residential Water Heater')] }, dekalb);
     expect(row.categories).toEqual(['plumbing']);
     expect(row.title).toBe('Water heater permit in DeKalb County');
-    expect(row.data?.cat_v).toBe(2);
+    expect(row.data?.cat_v).toBe(CAT_V);
   });
 
   it('DeKalb re-roof: roofing, titled "Roof permit"; new construction: general-contractor only; owner change dropped', () => {
@@ -325,7 +331,8 @@ describe('311, violation, licence and inspection mappings (audited round 7): the
     ['business', 'Retail Food Establishment', ['pest-control', 'hvac', 'signs-printing'], ['roofing']],
     ['business', 'Limited Business License', ['signs-printing', 'insurance', 'locksmith'], ['pest-control']],
     ['business', 'Roofing contractor', ['signs-printing'], ['roofing']], // a new roofer is a competitor, not a roofing lead
-    ['inspection', 'Restaurant', ['pest-control', 'cleaning', 'janitorial-commercial'], []],
+    // Round 15 quality gate (Q-grades #41-#50): a failed inspection is not a house-cleaning job, so cleaning is no longer tagged.
+    ['inspection', 'Restaurant', ['pest-control', 'janitorial-commercial'], ['cleaning']],
   ];
   for (const [subtype, value, has, hasNot] of cases) {
     it(`${subtype}: "${value}"`, async () => {

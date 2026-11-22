@@ -85,7 +85,7 @@ describe('backfillMatches', () => {
     await backfillMatches(f.db, profile, NOW);
     expect(f.upserts[0].rows.map((r) => r.signal_id).sort()).toEqual([2, 3]);
     const since = new Date(NOW.getTime() - BACKFILL_DAYS * 86_400_000).toISOString();
-    expect(rpcArgs(f)[0]).toMatchObject({ p_since: since, p_limit: BACKFILL_PAGE_LIMIT, p_categories: ['roofing'], p_lat: 33.749, p_lon: -84.388, p_radius_mi: 25 });
+    expect(rpcArgs(f)[0]).toMatchObject({ p_since: since, p_limit: BACKFILL_PAGE_LIMIT, p_categories: ['roofing', 'solar'], p_lat: 33.749, p_lon: -84.388, p_radius_mi: 25 });
   });
 
   it('inserts notified = true with upsert ignoring duplicates', async () => {
