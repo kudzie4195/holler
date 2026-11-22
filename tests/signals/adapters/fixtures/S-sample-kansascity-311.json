@@ -1,0 +1,106 @@
+{
+ "_provenance": {
+  "kind": "STORED signal rows (parsed form, public fields), NOT raw SODA rows",
+  "source": "read-only select on holler_signals, project ksctghdtklufgxblueqp",
+  "fetched": "2026-11-22",
+  "note": "WebFetch of data.kcmo.org was denied (PROVENANCE_REQUIRED). These are the 8 newest rows Holler has stored; newest occurred_at 2026-11-16T16:02Z; nothing stored after that although scans ran every 3 h."
+ },
+ "rows": [
+  {
+   "external_id": "14249704",
+   "title": "311 request in Kansas City: Sewer and Stormwater / Sewer Backup",
+   "summary": "Sewer and Stormwater | Sewer Backup | new",
+   "occurred_at": "2026-11-16T16:02:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "plumbing"
+   ]
+  },
+  {
+   "external_id": "14249700",
+   "title": "311 request in Kansas City: Sewer and Stormwater / Sewer Backup",
+   "summary": "Sewer and Stormwater | Sewer Backup | new",
+   "occurred_at": "2026-11-16T15:53:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "plumbing"
+   ]
+  },
+  {
+   "external_id": "380220",
+   "title": "311 request in Kansas City: Trees City Row / Trimming",
+   "summary": "Trees City Row | Trimming | new",
+   "occurred_at": "2026-11-16T15:41:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "tree-service"
+   ]
+  },
+  {
+   "external_id": "NPDBU-2026-01056",
+   "title": "311 request in Kansas City: Property Violations / Open to Entry",
+   "summary": "Property Violations | Open to Entry | new",
+   "occurred_at": "2026-11-16T15:26:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ]
+  },
+  {
+   "external_id": "NPD-2026-18562",
+   "title": "311 request in Kansas City: Property Violations / Other Property Maintenance Issues",
+   "summary": "Property Violations | Other Property Maintenance Issues | new",
+   "occurred_at": "2026-11-16T15:23:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ]
+  },
+  {
+   "external_id": "NPD-2026-18561",
+   "title": "311 request in Kansas City: Property Violations / Weeds",
+   "summary": "Property Violations | Weeds | new",
+   "occurred_at": "2026-11-16T15:21:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "lawn-care",
+    "landscaping",
+    "general-contractor",
+    "handyman"
+   ]
+  },
+  {
+   "external_id": "NPD-2026-18560",
+   "title": "311 request in Kansas City: Property Violations / Weeds",
+   "summary": "Property Violations | Weeds | new",
+   "occurred_at": "2026-11-16T15:19:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "lawn-care",
+    "landscaping",
+    "general-contractor",
+    "handyman"
+   ]
+  },
+  {
+   "external_id": "3510653",
+   "title": "311 request in Kansas City: Trash Recycling Bulky Services / Missed Trash",
+   "summary": "Trash Recycling Bulky Services | Missed Trash | Received",
+   "occurred_at": "2026-11-16T15:15:00Z",
+   "city": "Kansas City",
+   "state": "MO",
+   "categories": [
+    "junk-removal"
+   ]
+  }
+ ]
+}
