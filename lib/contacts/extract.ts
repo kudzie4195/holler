@@ -31,8 +31,14 @@ export interface OrgSpec {
   cityField?: string;
   stateField?: string;
   zipField?: string;
-  /** Only a dedicated business phone column of this organization. */
+  /** Only a dedicated business phone column of this organization. Stored only when the name passed cleanOrgName, so a person's phone never is. */
   phoneField?: string;
+  /**
+   * A column that says what the named party is (DeKalb primaryContactType). When its value matches `contractorTypes` the contact is
+   * stored as role 'contractor', otherwise as `role`. The type never decides company vs person: that is cleanOrgName's job alone.
+   */
+  typeField?: string;
+  contractorTypes?: RegExp;
 }
 
 /** Name + type column pairs (Chicago's contact_N_type / contact_N_name). */
@@ -55,6 +61,8 @@ export interface TypedContractorSpec {
 export interface ContactSpec {
   /** The portal URL the column names below were read from. */
   verifiedUrl: string;
+  /** Provenance remark when the columns were not all re-read from `verifiedUrl` by whoever wired them. */
+  note?: string;
   /** Date the columns were read (yyyy-mm-dd). */
   checkedOn: string;
   site?: SiteSpec;
@@ -69,7 +77,7 @@ export function contactSpecFields(spec: ContactSpec | undefined): string[] {
   if (!spec) return [];
   const f: (string | undefined)[] = [];
   if (spec.site) f.push(...spec.site.addressFields, spec.site.cityField, spec.site.stateField, spec.site.zipField);
-  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField);
+  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, o.typeField);
   for (const p of spec.typedContractors?.pairs ?? []) f.push(p.typeField, p.nameField, p.cityField, p.stateField, p.zipField);
   return [...new Set(f.filter((x): x is string => Boolean(x)))];
 }
@@ -112,8 +120,11 @@ export function extractContacts(
         if (name) break;
       }
       if (!name) continue;
+      // The same company named as contractor and again as applicant or owner is one contact (the first column listed wins).
+      if (orgs.some((x) => x.name.toLowerCase() === name!.toLowerCase())) continue;
+      const asContractor = Boolean(o.typeField && o.contractorTypes && o.contractorTypes.test(read(o.typeField)));
       orgs.push({
-        role: o.role,
+        role: asContractor ? 'contractor' : o.role,
         name,
         address: join(read, o.addressFields) || null,
         city: o.cityField ? read(o.cityField) || null : null,

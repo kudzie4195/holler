@@ -1,6 +1,6 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts } from '@/lib/contacts/extract';
-import { civicLabel, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { civicLabel, keepFirstJobValue, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
@@ -186,10 +186,12 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const titlePrint = printableValues(ds, ds.titleFields, (x) => str(a, x));
         const titleBits = titlePrint.values;
         const rawAddress = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
-        const summaryBits = ds.summaryFields
-          .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
-          .map((x) => summaryPart(x, str(a, x)))
-          .filter(Boolean);
+        const summaryBits = keepFirstJobValue(
+          ds.summaryFields
+            .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
+            .map((x) => summaryPart(x, str(a, x)))
+            .filter(Boolean),
+        );
         // Business rows never carry a street address (home addresses of sole proprietors).
         const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
         const parts = [...new Set(summaryBits)];

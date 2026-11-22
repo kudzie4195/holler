@@ -1,0 +1,44 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "PERMIT_ID": "B2611001",
+    "ISSUE_DATE": 1762905600000,
+    "DESC_OF_WORK": "Replace roof",
+    "PERMIT_TYPE_NAME": "CONSTRUCTION",
+    "PERMIT_SUBTYPE_NAME": "ALTERATION AND REPAIR",
+    "PERMIT_CATEGORY_NAME": "Roofing",
+    "FULL_ADDRESS": "1400 U STREET NW",
+    "ZIPCODE": "20009",
+    "PERMIT_APPLICANT": "Pinnacle Roofing LLC",
+    "OWNER_NAME": "Northgate Partners LLC",
+    "LATITUDE": 38.91,
+    "LONGITUDE": -77.03
+   },
+   "geometry": {
+    "x": -77.03,
+    "y": 38.91
+   }
+  },
+  {
+   "attributes": {
+    "PERMIT_ID": "B2611002",
+    "ISSUE_DATE": 1762905600000,
+    "DESC_OF_WORK": "Replace roof",
+    "PERMIT_TYPE_NAME": "CONSTRUCTION",
+    "PERMIT_SUBTYPE_NAME": "ALTERATION AND REPAIR",
+    "PERMIT_CATEGORY_NAME": "Roofing",
+    "FULL_ADDRESS": "612 CORCORAN ST NW",
+    "ZIPCODE": "20001",
+    "PERMIT_APPLICANT": "Marcus Whitfield",
+    "OWNER_NAME": "WHITFIELD MARCUS",
+    "LATITUDE": 38.91,
+    "LONGITUDE": -77.03
+   },
+   "geometry": {
+    "x": -77.03,
+    "y": 38.91
+   }
+  }
+ ]
+}

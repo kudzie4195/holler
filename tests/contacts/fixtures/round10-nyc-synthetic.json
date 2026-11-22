@@ -1,0 +1,36 @@
+[
+ {
+  "work_permit": "B00100001-I1-PL",
+  "issued_date": "2026-11-12T00:00:00.000",
+  "work_type": "Plumbing",
+  "job_description": "Replace water heater",
+  "estimated_job_costs": "6500",
+  "house_no": "245",
+  "street_name": "W 45 STREET",
+  "borough": "MANHATTAN",
+  "zip_code": "10036",
+  "applicant_business_name": "Harbor Plumbing & Heating Corp",
+  "owner_business_name": "Meridian Realty Holdings LLC",
+  "applicant_license": "0012345",
+  "applicant_first_name": "Carla",
+  "applicant_last_name": "Ventresca",
+  "permittee_s_license_type": "MASTER PLUMBER"
+ },
+ {
+  "work_permit": "B00100002-I1-PL",
+  "issued_date": "2026-11-12T00:00:00.000",
+  "work_type": "Plumbing",
+  "job_description": "Replace water heater",
+  "estimated_job_costs": "3000",
+  "house_no": "18",
+  "street_name": "BEDFORD AVENUE",
+  "borough": "BROOKLYN",
+  "zip_code": "11211",
+  "applicant_business_name": "Joseph Rinaldi",
+  "owner_business_name": "Rinaldi Joseph",
+  "applicant_license": "0099999",
+  "applicant_first_name": "Joseph",
+  "applicant_last_name": "Rinaldi",
+  "permittee_s_license_type": "MASTER PLUMBER"
+ }
+]
