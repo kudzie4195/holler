@@ -26,10 +26,12 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
   const items = parseSocrata(fx('socrata-chicago-permits-contacts.json'), ds('socrata-chicago-permits'));
   it('keeps only contractor-type companies and the exact job site', () => {
     expect(items).toHaveLength(2);
-    // FIX-E: "NORTH BRANCH ARCHITECTS LTD" fails R10 ("BRANCH", a listed surname, right after the known word "NORTH").
+    // FIX-E: "NORTH BRANCH ARCHITECTS LTD" fails the strict rule R10 ("BRANCH", a listed surname, right after the known word "NORTH").
+    // Round 18 (NAMES): a contractor-type column uses the trade-name rule, and a final legal form (LTD) is a business marker, so it is named.
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '2150 N DAMEN', city: 'Chicago', state: 'IL', zip: null, phone: null, email: null, website: null },
       { role: 'contractor', name: 'LAKEFRONT ROOFING & SIDING INC', attn: null, address: null, city: null, state: 'IL', zip: '60076', phone: null, email: null, website: null }, // FIX-F (review4 P2-13): city only when it is the dataset city
+      { role: 'contractor', name: 'NORTH BRANCH ARCHITECTS LTD', attn: null, address: null, city: 'CHICAGO', state: 'IL', zip: '60622', phone: null, email: null, website: null },
     ]);
   });
   it('drops owner, owner-as-contractor, tenant, applicant and expediter types, and a contractor that is a person', () => {
@@ -47,10 +49,14 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
 
 describe('Austin permits (contractor_company_name)', () => {
   const items = parseSocrata(fx('socrata-austin-permits-contacts.json'), ds('socrata-austin-permits'));
-  it('FIX-C: "Lone Star Roofing LLC" is no longer an organisation ("Star" is a listed given name), so only the job site stays', () => {
+  it('round 18: "Lone Star Roofing LLC" (refused by the strict rule since FIX-C, "Star" is a listed given name) is a trade name in the contractor column', () => {
     expect(items).toHaveLength(3);
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '4812 AVENUE H', city: 'AUSTIN', state: 'TX', zip: '78751', phone: null, email: null, website: null },
+      {
+        role: 'contractor', name: 'Lone Star Roofing LLC', attn: null, address: '1200 W Ben White Blvd Ste 200', city: 'AUSTIN', state: null, zip: '78704',
+        phone: '512-555-0142', email: null, website: null,
+      },
     ]);
   });
   it('keeps the contractor company with its business phone and address, and the job site; an address line with a person is dropped', () => {
@@ -93,12 +99,10 @@ describe('Chicago food inspections (dba_name)', () => {
 
 describe('Austin food inspections (restaurant_name)', () => {
   const items = parseSocrata(fx('socrata-austin-inspections-contacts.json'), ds('socrata-austin-inspections'));
-  it('business plus site for an establishment, nothing for a person-named row', () => {
+  it('round 18 redo (rule 6): "Taqueria Lopez #3" holds a listed surname, so neither the name nor the site is stored; nothing for a person-named row', () => {
     expect(items).toHaveLength(2);
-    expect(items[0].contacts?.map((c) => [c.role, c.name, c.address, c.city, c.state, c.zip])).toEqual([
-      ['site', '', '1107 E 7th St', 'Austin', 'TX', '78702'],
-      ['business', 'Taqueria Lopez', null, null, null, null], // FIX-C: a trailing store number is stripped (R1); FIX-E input: was "Taqueria Arandas #3" (now fails R10)
-    ]);
+    expect(items[0].contacts).toBeUndefined();
+    expectAbsent(items, ['Lopez', 'Kelly Lewis', '1107 E 7th']);
     expect(items[1].contacts).toBeUndefined();
   });
 });
@@ -193,12 +197,14 @@ describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask 
 describe('contact specs: only verified datasets, only explicit company columns', () => {
   it('every dataset with a spec has its portal metadata URL as verifiedUrl, and is the same object as CONTACT_SPECS', () => {
     const withSpec = SOCRATA_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort();
-    // The five of round 5 plus the permit feeds of round 15 (PLAN-2.0 1.2 and 1.3). No inspection or business feed was added.
+    // The five of round 5, the permit feeds of round 15 (PLAN-2.0 1.2 and 1.3), and round 18: the four other business-licence feeds
+    // (the business on the licence is the prospect) and two code-violation feeds (owner company only).
     expect(withSpec).toEqual([
-      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-batonrouge-permits', 'socrata-buffalo-permits', 'socrata-cambridge-permits',
-      'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-cincinnati-permits', 'socrata-dallas-permits',
-      'socrata-la-permits', 'socrata-montgomery-permits', 'socrata-nola-permits', 'socrata-norfolk-permits', 'socrata-nyc-permits',
-      'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-permits',
+      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-austin-violations', 'socrata-batonrouge-permits', 'socrata-buffalo-permits',
+      'socrata-cambridge-permits', 'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-chicago-violations',
+      'socrata-cincinnati-permits', 'socrata-dallas-permits', 'socrata-la-business', 'socrata-la-permits', 'socrata-montgomery-permits',
+      'socrata-nola-permits', 'socrata-norfolk-permits', 'socrata-nyc-business', 'socrata-nyc-permits', 'socrata-orlando-business',
+      'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-business', 'socrata-sf-permits',
     ]);
     for (const id of withSpec) {
       const d = ds(id);
@@ -206,15 +212,24 @@ describe('contact specs: only verified datasets, only explicit company columns',
       expect(CONTACT_SPECS[id]).toBe(d.contacts);
     }
   });
-  it('no 311, violation, event or other no-contact feed has a spec', () => {
-    for (const d of SOCRATA_DATASETS) if (['311', 'violation', 'event-permit'].includes(d.subtype)) expect(d.contacts, d.id).toBeUndefined();
+  it('no 311, event or other no-contact feed has a spec; a violation spec names only an owner company column (round 18)', () => {
+    for (const d of SOCRATA_DATASETS) if (['311', 'event-permit'].includes(d.subtype)) expect(d.contacts, d.id).toBeUndefined();
+    for (const d of SOCRATA_DATASETS.filter((x) => x.subtype === 'violation' && x.contacts)) {
+      const spec = d.contacts!;
+      expect(spec.site, d.id).toBeUndefined();
+      expect(spec.typedContractors, d.id).toBeUndefined();
+      for (const o of spec.orgs ?? []) {
+        expect(o.role, d.id).toBe('owner');
+        expect([o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), ...(o.addressFields ?? []), o.cityField, o.zipField].filter(Boolean), d.id).toEqual([]);
+      }
+    }
   });
-  it('no spec names an owner, applicant, tenant, description or personal full-name column', () => {
+  it('no spec names an owner, applicant, tenant, description or personal full-name column (an owner-company column only with role owner)', () => {
     const bad = /owner|applicant|tenant|desc|full_name|first_name|last_name|comment|requestor|complainant/i;
     for (const [id, spec] of Object.entries(CONTACT_SPECS)) {
       const cols = [
         ...(spec.site?.addressFields ?? []), spec.site?.cityField, spec.site?.stateField, spec.site?.zipField,
-        ...(spec.orgs ?? []).flatMap((o) => [...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField]),
+        ...(spec.orgs ?? []).flatMap((o) => [...(o.role === 'owner' ? [] : o.nameFields), ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField]),
         ...(spec.typedContractors?.pairs ?? []).flatMap((p) => [p.typeField, p.nameField, p.cityField, p.stateField, p.zipField]),
       ].filter(Boolean) as string[];
       for (const c of cols) expect(bad.test(c), `${id} reads ${c}`).toBe(false);

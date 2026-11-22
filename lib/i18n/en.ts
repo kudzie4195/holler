@@ -412,6 +412,8 @@ export const en = {
   'who.copied_hint': 'Copied to your clipboard. Replace the [bracketed] parts before you send it.',
   'who.copy_failed': 'Copy did not work here. Select the note below and copy it by hand.',
   'who.note_text': '{label}: note text',
+  'who.owner_record': 'Owner on the public record: {name}',
+  'who.public_source': 'Public source',
   'outreach.role.permit': 'Named on this permit',
   'outreach.role.business': 'The business that opened',
   'outreach.role.inspection': 'The business inspected',

@@ -1142,6 +1142,44 @@ export function isListedGivenName(w: string): boolean {
   return isGiven(foldName(w).replace(/[\u2018\u2019`]/g, "'"));
 }
 
+/** Is this one word a listed surname (accents folded, apostrophes ignored)? For the contractor trade-name rule (trade-name.ts). */
+export function isListedSurname(w: string): boolean {
+  return isSurname(foldName(w).replace(/[\u2018\u2019`]/g, "'"));
+}
+
+/** What one plain word is to this classifier (round 18, for trade-name.ts): the same kinds the strict rule uses, never a decision. */
+export type WordClass =
+  | 'given'
+  | 'initial'
+  | 'honor'
+  | 'suffix'
+  | 'cred'
+  | 'title'
+  | 'legalStrong'
+  | 'legalWeak'
+  | 'business'
+  | 'public'
+  | 'known'
+  | 'surname'
+  | 'unknown'
+  | 'bad';
+
+/** Classifies one word (letters, apostrophes and hyphens; a final period is ignored). `isFinal`: the last word of the name (legal forms). */
+export function classifyWord(w: string, isFinal = false): WordClass {
+  const k = foldName(w).replace(/[\u2018\u2019`]/g, "'").replace(/\.$/, '');
+  if (!/^[a-z][a-z'-]*$/.test(k)) return 'bad';
+  if (k.includes('-')) {
+    const parts = k.split('-').filter(Boolean);
+    const kinds = parts.map((p) => wordKind(p, false, undefined));
+    const bad = kinds.find((x) => FAIL_KINDS.has(x));
+    if (bad) return bad as WordClass;
+    if (kinds.includes('given')) return 'given';
+    return kinds.every((x) => x === 'business' || x === 'known' || x === 'public') ? (kinds.includes('business') ? 'business' : 'known') : 'unknown';
+  }
+  const kind = wordKind(k, isFinal, undefined);
+  return kind === 'conj' || kind === 'glued' ? 'unknown' : (kind as WordClass);
+}
+
 /** Plain-word classification for other guards: is this word on a non-name vocabulary (business, public, descriptive)? */
 export function isVocabularyWord(w: string): boolean {
   const k = foldName(w);

@@ -87,7 +87,7 @@ describe('insertNewSignals writes contacts for inserted rows only', () => {
 
     const db2 = new FakeDb();
     await insertNewSignals(asDb(db2), [sig('f', [
-      { role: 'business', name: '  ACME   CAFE  ', address: `  ${'9'.repeat(5)} ${'A'.repeat(300)}`, city: 'C'.repeat(200), state: 'Illinois', zip: '606011234', phone: '123-456-7890', email: 'not an email' },
+      { role: 'business', name: '  SUNSET   CAFE  ', address: `  ${'9'.repeat(5)} ${'A'.repeat(300)}`, city: 'C'.repeat(200), state: 'Illinois', zip: '606011234', phone: '123-456-7890', email: 'not an email' },
       { role: 'awardee', name: 'GOOD SERVICES INC', phone: '312.555.0123 x45', email: 'Bids@Good.COM', website: 'good.com' },
       { role: 'contractor', name: 'OK BUILDERS', attn: 'Jane Doe', zip: 'IL 6060' },
       { role: 'site', name: 'SHOULD BE DROPPED', address: '' },
@@ -95,7 +95,8 @@ describe('insertNewSignals writes contacts for inserted rows only', () => {
     ])]);
     const r = db2.tables.holler_signal_contacts;
     expect(r).toHaveLength(3);
-    const cafe = r.find((x) => x.name === 'ACME CAFE')!;
+    // Redo 1: a two-word licence name needs a plain vocabulary word beside the marker ("ACME CAFE" could be a first name), so SUNSET.
+    const cafe = r.find((x) => x.name === 'SUNSET CAFE')!;
     // FIX-E: a city that is not place words is dropped; state is a US code.
     expect(cafe.address.length).toBe(200); // FIX-E follow-up: one street word after the house number is allowed (cut at 200)
     expect(cafe.city).toBeNull();

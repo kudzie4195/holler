@@ -40,7 +40,7 @@ describe('F8, re-pinned by FIX-E (review3 P2-1, P2-3): no buyer is stored until 
   });
 });
 
-describe('F9: extractContacts gives nothing for code violations and 311 requests, whatever spec is configured', () => {
+describe('F9 (round 18): extractContacts gives nothing for 311 requests, and only an owner company for code violations, whatever spec is configured', () => {
   const spec: ContactSpec = {
     verifiedUrl: 'https://example.test', checkedOn: '2026-11-18',
     site: { addressFields: ['address'] },
@@ -48,8 +48,8 @@ describe('F9: extractContacts gives nothing for code violations and 311 requests
   };
   const row: Record<string, string> = { address: '5521 S KOMENSKY AVE', name: 'ACME ROOFING LLC', phone: '312-555-0100' };
   const read = (f: string) => row[f] ?? '';
-  it('violation and 311 subtypes return []', () => {
-    expect([...NO_CONTACT_SUBTYPES].sort()).toEqual(['311', 'violation']);
+  it('violation and 311 subtypes return [] for a business spec (a violation keeps only role owner)', () => {
+    expect([...NO_CONTACT_SUBTYPES].sort()).toEqual(['311']);
     expect(extractContacts(read, spec, { city: 'Chicago', state: 'IL' }, 'violation')).toEqual([]);
     expect(extractContacts(read, spec, { city: 'Chicago', state: 'IL' }, '311')).toEqual([]);
   });
