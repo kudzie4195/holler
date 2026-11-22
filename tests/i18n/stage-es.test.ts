@@ -12,6 +12,7 @@ import { profileRow, UA } from '../mobile/fakes';
 import { memDb } from '../mobile/memdb';
 
 const AT = '2026-11-22T12:00:00Z';
+const di = (o: Record<string, unknown> = {}) => ({ kind: 'permit', title: 'x', occurredAt: '2026-10-10T00:00:00Z', ...o });
 const KEYS = Object.keys(en).filter((k) => k.startsWith('stage.') || k.startsWith('push.'));
 
 describe('stage and push dictionary keys', () => {
@@ -35,7 +36,7 @@ describe('English is unchanged', () => {
     expect(stageUpdateSubject('finaled')).toBe('Update: finished on a permit near you');
     expect(stageUpdateMeta(AT)).toBe('Stage update, Nov 22, 2026');
     expect(stageName('certificate_of_occupancy')).toBe('certificate of occupancy');
-    expect(digestSubject([{ kind: 'permit', title: 'x', permitStage: 'final_inspection', permitStageAt: AT, permitStageUpdate: true }], 1)).toBe('Update: final inspection on a permit near you');
+    expect(digestSubject([di({ permitStage: 'final_inspection', permitStageAt: AT, permitStageUpdate: true })], 1)).toBe('Update: final inspection on a permit near you');
   });
   it('push: titles and the stage body are the English strings', () => {
     const top = { signalId: 7, title: 'New construction permit in Norfolk', city: 'Norfolk', stage: 'final_inspection' };
@@ -70,10 +71,10 @@ describe('Spanish stage text', () => {
     }
   });
   it('the digest subject is Spanish for one update, updates only, and a mix', () => {
-    const up = { kind: 'permit', title: 'x', permitStage: 'final_inspection', permitStageAt: AT, permitStageUpdate: true };
+    const up = di({ permitStage: 'final_inspection', permitStageAt: AT, permitStageUpdate: true });
     expect(digestSubject([up], 1, 'es')).toBe('Actualización: inspección final en un permiso cerca de usted');
     expect(digestSubject([up, up], 2, 'es')).toBe('2 actualizaciones de permisos cerca de usted');
-    expect(digestSubject([up, { kind: 'permit', title: 'y' }], 2, 'es')).toBe('2 novedades cerca de usted, 1 de ellas una actualización de etapa');
+    expect(digestSubject([up, di({ title: 'y' })], 2, 'es')).toBe('2 novedades cerca de usted, 1 de ellas una actualización de etapa');
   });
 });
 
