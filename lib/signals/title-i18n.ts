@@ -103,7 +103,7 @@ const CIVIC_KEYS: Record<string, DictKey> = {
  * "property violation"); anything else is the record's own text and comes back as it is.
  */
 export function fixedTextLang(text: string, lang: Lang): string {
-  const fixed = FIXED_KEYS[text];
+  const fixed = FIXED_KEYS[text] ?? NAICS_SECTOR_KEYS[text];
   if (fixed) return t(lang, fixed);
   const parts = text.split(' and ');
   if (parts.length >= 1 && parts.length <= 2 && parts.every((p) => CIVIC_KEYS[p])) return parts.map((p) => t(lang, CIVIC_KEYS[p])).join(t(lang, 'civic.and'));
@@ -129,22 +129,89 @@ const NWS_HAZARDS: Record<string, DictKey> = {
   'severe thunderstorm': 'nws.hazard.severe-thunderstorm',
   'flash flood': 'nws.hazard.flash-flood',
   flood: 'nws.hazard.flood',
+  'coastal flood': 'nws.hazard.coastal-flood',
+  'lakeshore flood': 'nws.hazard.lakeshore-flood',
   'winter storm': 'nws.hazard.winter-storm',
+  'winter weather': 'nws.hazard.winter-weather',
   'ice storm': 'nws.hazard.ice-storm',
   blizzard: 'nws.hazard.blizzard',
+  'heavy snow': 'nws.hazard.heavy-snow',
+  'lake effect snow': 'nws.hazard.lake-effect-snow',
+  'snow squall': 'nws.hazard.snow-squall',
   'high wind': 'nws.hazard.high-wind',
+  'extreme wind': 'nws.hazard.extreme-wind',
   wind: 'nws.hazard.wind',
+  'brisk wind': 'nws.hazard.brisk-wind',
+  'lake wind': 'nws.hazard.lake-wind',
+  gale: 'nws.hazard.gale',
   heat: 'nws.hazard.heat',
   'excessive heat': 'nws.hazard.excessive-heat',
+  'extreme heat': 'nws.hazard.extreme-heat',
   freeze: 'nws.hazard.freeze',
+  'hard freeze': 'nws.hazard.hard-freeze',
   frost: 'nws.hazard.frost',
   'extreme cold': 'nws.hazard.extreme-cold',
+  'cold weather': 'nws.hazard.cold-weather',
+  'wind chill': 'nws.hazard.wind-chill',
   hurricane: 'nws.hazard.hurricane',
   'tropical storm': 'nws.hazard.tropical-storm',
+  typhoon: 'nws.hazard.typhoon',
+  'storm surge': 'nws.hazard.storm-surge',
   'red flag': 'nws.hazard.red-flag',
+  'fire weather': 'nws.hazard.fire-weather',
+  'dense fog': 'nws.hazard.dense-fog',
+  'high surf': 'nws.hazard.high-surf',
+  'rip current': 'nws.hazard.rip-current',
+  'small craft': 'nws.hazard.small-craft',
+  'special weather': 'nws.hazard.special-weather',
 };
 
-const NWS_LEVELS: Record<string, DictKey> = { warning: 'nws.level.warning', watch: 'nws.level.watch', advisory: 'nws.level.advisory' };
+const NWS_LEVELS: Record<string, DictKey> = {
+  warning: 'nws.level.warning',
+  watch: 'nws.level.watch',
+  advisory: 'nws.level.advisory',
+  statement: 'nws.level.statement',
+  emergency: 'nws.level.emergency',
+};
+
+/** The NWS event names this module says in Spanish (every hazard x level the table can build is a real NWS product name or a rare one that still reads right). */
+export function knownNwsHazards(): string[] {
+  return Object.keys(NWS_HAZARDS);
+}
+
+const NAICS_SECTOR_KEYS: Record<string, DictKey> = {
+  'Farming and fishing': 'naics.farming',
+  'Mining and oil and gas': 'naics.mining',
+  Utilities: 'naics.utilities',
+  Construction: 'naics.construction',
+  Manufacturing: 'naics.manufacturing',
+  'Wholesale trade': 'naics.wholesale',
+  Retail: 'naics.retail',
+  'Transportation and warehousing': 'naics.transport',
+  'Information and media': 'naics.information',
+  'Finance and insurance': 'naics.finance',
+  'Real estate and rental': 'naics.realestate',
+  'Professional, scientific and technical services': 'naics.professional',
+  'Company management': 'naics.management',
+  'Administrative and support services': 'naics.admin',
+  Education: 'naics.education',
+  'Health care and social assistance': 'naics.health',
+  'Arts, entertainment and recreation': 'naics.arts',
+  'Food service and lodging': 'naics.food',
+  'Other services': 'naics.other',
+  'Public administration': 'naics.public',
+};
+
+/** A NAICS sector name Holler printed ("Food service and lodging") in the language, or null when the text is not one of them. */
+export function naicsSectorLang(text: string, lang: Lang): string | null {
+  const k = NAICS_SECTOR_KEYS[text];
+  return k ? t(lang, k) : null;
+}
+
+/** The English NAICS sector names (socrata-datasets.ts NAICS_SECTORS) this module says in Spanish. */
+export function knownNaicsSectors(): string[] {
+  return Object.keys(NAICS_SECTOR_KEYS);
+}
 
 interface Parsed {
   key: DictKey;
@@ -199,7 +266,10 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   if ((m = /^(.+?) permit in (.+)$/.exec(title))) {
     // English keeps the label as the adapter wrote it (the English path rebuilds, it does not translate)
     const label = lang === 'en' ? m[1] : permitLabelLang(m[1], lang);
-    return label ? { key: 'title.permit', vars: { label, city: m[2] } } : { key: 'title.permit_other', vars: { label: m[1], city: m[2] } };
+    if (label) return { key: 'title.permit', vars: { label, city: m[2] } };
+    // A label Holler does not know is a type the city printed. Say it that way only for a record with a known source: a title with none could be a post.
+    if (source && lang !== 'en') return { key: 'title.permit_other', vars: { label: m[1], city: m[2] } };
+    return lang === 'en' ? { key: 'title.permit_other', vars: { label: m[1], city: m[2] } } : null;
   }
 
   // FEMA, FAA, USGS
@@ -212,13 +282,17 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   if ((m = /^M(\d+\.\d) earthquake (.+)$/.exec(title))) return { key: 'title.quake', vars: { mag: m[1], place: m[2] } };
   if ((m = /^M(\d+\.\d) earthquake$/.exec(title))) return { key: 'title.quake_plain', vars: { mag: m[1] } };
 
-  // National Weather Service: "<Hazard> <Level>: <areas>". Only the hazards and levels in the table; the areas are the NWS's own text.
-  if ((m = /^(.+?) (Warning|Watch|Advisory)(?:: (.*))?$/.exec(title))) {
+  // National Weather Service: "<Hazard> <Level>: <areas>". The hazards and levels in the tables are said in Spanish; any other NWS event keeps
+  // its English name inside a Spanish frame, so a Spanish title never starts with English. The areas are the NWS's own text.
+  if ((m = /^(.+?) (Warning|Watch|Advisory|Statement|Emergency)(?:: (.*))?$/.exec(title))) {
     const hk = NWS_HAZARDS[lc(m[1])];
     if (hk) {
       const vars = { hazard: t(lang, hk), level: t(lang, NWS_LEVELS[lc(m[2])]), area: m[3] ?? '' };
       return { key: m[3] ? 'title.nws' : 'title.nws_plain', vars };
     }
+  }
+  if (source && /^nws/i.test(source) && (m = /^([^:]+)(?:: (.*))?$/.exec(title))) {
+    return { key: m[2] ? 'title.nws_other' : 'title.nws_other_plain', vars: { event: m[1], area: m[2] ?? '' } };
   }
 
   // Ticketmaster: "<event> at <venue>, <city> <ST>"; only for that source, since another source's title can hold " at " itself.

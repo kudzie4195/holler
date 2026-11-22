@@ -11,6 +11,7 @@ import { RequestReply, type RequestReplyState } from './request-reply';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import { t, type Lang } from '@/lib/i18n';
 import { localizeTitle } from '@/lib/signals/title-i18n';
+import { localizeSummary } from '@/lib/signals/summary-i18n';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
@@ -259,7 +260,7 @@ function MatchCard({
   // A resident request has no outside source page and is answered through Holler, so it gets Reply instead of the source link and draft.
   const isRequest = item.source === REQUEST_SOURCE;
   // A permit prints its value once: the brief's "Job value on the permit" line, so the summary's "$N job value" part is left out here (display only).
-  const cardSummary = summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue });
+  const cardSummary = localizeSummary(summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue }), lang, item.source) ?? null;
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
@@ -431,7 +432,7 @@ export function LockedFeed({ items, children, lang = 'en' }: { items: FeedItem[]
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
               <h2 className="h-plain mt-3 text-lg leading-snug">{localizeTitle(item.title, lang, item.source)}</h2>
-              <p className="mt-1 text-muted">{item.summary}</p>
+              <p className="mt-1 text-muted">{localizeSummary(item.summary, lang, item.source)}</p>
               <WhoToContactLocked item={item} lang={lang} />
             </Card>
           </li>

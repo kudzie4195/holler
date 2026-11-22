@@ -5,6 +5,7 @@ import { Card } from '@/components/card';
 import { ComingNextForMember } from '@/components/coming-next-member';
 import { EmptyFeed, emptyFeedApplies } from '@/components/feed/empty-feed';
 import { EmptyFeedShort } from '@/components/feed/empty-feed-es';
+import { RecentActivity } from '@/components/feed/recent-activity';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
@@ -327,7 +328,13 @@ export default async function AppHome(props: PageProps<'/app'>) {
               <EmptyFeed userId={profile.user_id} />
             </Suspense>
           ) : (
-            <EmptyFeedShort lang={lang} zip={profile.zip} trade={profile.categories?.[0] ?? null} />
+            <div className="space-y-6">
+              <EmptyFeedShort lang={lang} zip={profile.zip} trade={profile.categories?.[0] ?? null} />
+              {/* The last 90 days near the member, in Spanish (the English panel's counts and examples, from the same rows). */}
+              <Suspense fallback={null}>
+                <RecentActivity userId={profile.user_id} />
+              </Suspense>
+            </div>
           )
         ) : access.locked ? (
           <LockedFeed items={items} lang={lang}>

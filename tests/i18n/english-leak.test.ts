@@ -29,6 +29,8 @@ import { instructionsFor } from '@/lib/ai/draft';
 import { formatDistance, timeAgo } from '@/components/format';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { titleDataFields } from '@/lib/signals/title-i18n';
+import { localizeSummary } from '@/lib/signals/summary-i18n';
+import { RecentActivityView } from '@/components/feed/recent-activity';
 import { en } from '@/lib/i18n/en';
 import { es } from '@/lib/i18n/es';
 import { NOW } from '../signals/brief-fixtures';
@@ -70,12 +72,25 @@ function leaks(rendered: string, data: Iterable<string>): string[] {
   return [...new Set(words(s).filter((w) => DENY.has(w)))];
 }
 
+/**
+ * The data in a summary. A summary a source wrote (permit type and class, a business, SPC remarks, an NWS description, a post) is data as a
+ * whole. A summary Holler composed (FEMA, FAA, USGS, bids, contracts, Ticketmaster) is Spanish now: only the pieces that survive unchanged
+ * (a buyer, an airport reason, a place) are data, so an untranslated Holler sentence shows up as a leak.
+ */
+function summaryData(c: ShipCase): string[] {
+  const sum = c.signal.summary;
+  if (!sum) return [];
+  const loc = localizeSummary(sum, 'es', c.signal.source) ?? sum;
+  if (loc === sum) return /^(?:spc|nws|bluesky|websearch|socrata|arcgis)/i.test(c.signal.source) ? [sum] : [];
+  return sum.split(/\s*[|:,]\s*|\.\s+|\.$/).map((p) => p.trim()).filter((p) => p.length >= 3 && loc.includes(p));
+}
+
 /** What a case holds that a source wrote or a place/company name: the title's own parts, the summary, every string in data, the contacts. */
 function dataOf(c: ShipCase): string[] {
   const out: string[] = [...titleDataFields(c.signal.title, c.signal.source)];
   // a post or a search hit is the author's own text; any other title left as it was would be a Holler template that was not translated, and must show up as a leak
   if (/^(?:bluesky|websearch)/i.test(c.signal.source)) out.push(c.signal.title);
-  if (c.signal.summary) out.push(c.signal.summary);
+  out.push(...summaryData(c));
   const walk = (v: unknown) => {
     if (typeof v === 'string') out.push(v, v.toLowerCase());
     else if (Array.isArray(v)) v.forEach(walk);
@@ -104,6 +119,27 @@ const esFeedItem = (c: ShipCase, i: number) => {
     bidLine: data.subtype === 'bid' ? bidCardLine({ buyer: data.buyer as string, dueDate: data.dueDate as string, expiresAt: c.signal.expiresAt ?? null }, NOW, 'es') : null,
   };
 };
+
+describe('summaries and the recent block', () => {
+  it('every Holler-composed summary in the fixtures is Spanish on the card (nothing from the sentence is masked)', async () => {
+    const cases = await shipCases();
+    const composed = cases.filter((c) => c.signal.summary && /^(?:fema|faa|usgs|sam-gov|usaspending|ticketmaster|bids-)/.test(c.signal.source));
+    expect(composed.length).toBeGreaterThan(2);
+    for (const c of composed) expect(localizeSummary(c.signal.summary, 'es', c.signal.source), c.signal.source).not.toBe(c.signal.summary);
+  });
+  it('the 90-day recent block for a Spanish member: counts, titles, dates and notes have no English UI words', async () => {
+    const cases = await shipCases();
+    const examples = cases.slice(0, 5).map((c, i) => ({ title: c.signal.title, city: 'Atlanta', state: 'GA', date: `2026-11-${String(10 + i).padStart(2, '0')}` }));
+    const types = ['storm-report', 'weather-alert', 'disaster', 'quake', 'airport', 'permit', '311', 'inspection', 'business', 'violation', 'event', 'event-permit', 'contract', 'federal-bid', 'other'];
+    const preview = { total: 40, byIntent: { demand: 0, spending: 0, asking: 0 }, capped: true, byType: types.map((key, i) => ({ key, count: i + 1 })), examples };
+    const data = cases.slice(0, 5).flatMap(dataOf);
+    const html = renderToStaticMarkup(createElement(RecentActivityView, { preview, lang: 'es' }));
+    expect(leaks(html, [...data, 'Atlanta, GA'])).toEqual([]);
+    expect(leaks(renderToStaticMarkup(createElement(RecentActivityView, { preview: { ...preview, total: 0, byType: [], examples: [] }, lang: 'es' })), [])).toEqual([]);
+    // the English block does have these words: the check is live
+    expect(leaks(renderToStaticMarkup(createElement(RecentActivityView, { preview })), data).length).toBeGreaterThan(3);
+  });
+});
 
 describe('the denylist itself', () => {
   it('is built from the English UI and holds the words the grader found', () => {
