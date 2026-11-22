@@ -23,6 +23,7 @@ const TOKEN_PAGES = [
   '/request/close',
   '/auth/confirm',
   '/auth/confirm/continue',
+  '/waitlist/confirm',
 ];
 
 describe('Referrer-Policy on token pages (P2-2)', () => {

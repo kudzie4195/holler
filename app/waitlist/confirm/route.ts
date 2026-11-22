@@ -5,8 +5,9 @@ import { confirmWaitlist, type ConfirmCode } from '@/lib/waitlist/zip-confirm';
 /**
  * Confirm link from the "Coming to your area" email. Two steps, like /request/confirm: email scanners open every link, so GET only
  * shows a button and the POST does the work. A bad, expired or unknown link always gets the same page.
- * Round 19 UNIFY: these links were emailed by the live site's double opt-in waitlist (holler_zip_waitlist, lib/waitlist/zip-confirm.ts).
- * New sign-ups use this base's waitlist and get no such link, but every link already sent keeps working until it expires (7 days).
+ * Round 19: every sign-up on /check gets one of these links (double opt-in into holler_zip_waitlist, lib/waitlist/service.ts), and links
+ * the live site sent before the merge keep working until they expire (7 days). "Check your ZIP code again to get a new link" is true: a
+ * new sign-up for an unconfirmed address sends a new link.
  */
 const NOT_ACTIVE = () =>
   htmlPage('This link is not active', 'It may have expired. Check your ZIP code again to get a new link.', {

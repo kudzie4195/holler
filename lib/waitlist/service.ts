@@ -3,25 +3,51 @@ import { LIMITS, type Limit } from '@/lib/auth/limits';
 import { isServedZip } from '@/lib/check/coverage';
 import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { limiterMailbox } from '@/lib/requests/tokens';
 import { WAITLIST_EMAIL_MAX, WAITLIST_HONEYPOT, WAITLIST_PAGES } from './copy';
 
 /**
- * Saves one "Coming to your area" waitlist signup. Pure logic over injected dependencies so tests run without a database.
- * Stored: lower-cased email, ZIP, trade, page. Nothing about the visitor (no IP, no user agent, no account id).
+ * Saves one "Coming to your area" waitlist signup, double opt-in. Pure logic over injected dependencies so tests run without a database
+ * or an email provider.
+ *
+ * Round 19 (review defect 1): sign-ups go to holler_zip_waitlist (migration 0031, already live), the table the live site collected
+ * into, and every new row gets ONE confirmation email. Only confirmed rows are ever mailed again. This base keeps its own card, honeypot,
+ * trade check and served-ZIP refusal in front of that. Stored: lower-cased email, ZIP, the ZIP's state and centroid rounded to 3
+ * decimals (never an address), trade, consent wording version. Nothing about the visitor (no IP, no user agent, no account id).
+ * The answer never says whether the address was already on the list: a repeat for a confirmed or unsubscribed row is "ok" and sends nothing.
  * Logs: only a short status code, never the email, the ZIP or the trade.
  */
+export const WAITLIST_TABLE = 'holler_zip_waitlist';
+/** The consent wording version the live site stored (same value, so both sets of rows read alike). */
+export const WAITLIST_CONSENT_VERSION = 'v1-2026-11';
+export const WAITLIST_CONFIRM_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+type DbError = { code?: string; message?: string } | null;
+
+export interface WaitlistRow {
+  email: string;
+  zip: string;
+  state: string | null;
+  lat: number | null;
+  lon: number | null;
+  trade: string | null;
+  consent_version: string;
+}
+
 export interface WaitlistDb {
-  from(table: 'holler_area_waitlist'): {
-    upsert(
-      row: Record<string, unknown>,
-      opts: { onConflict: string; ignoreDuplicates: boolean },
-    ): PromiseLike<{ error: { code?: string; message?: string } | null }>;
-  };
+  /** INSERT ... ON CONFLICT (email, zip) DO NOTHING: a repeat keeps the first row and its confirmed_at. */
+  upsert(row: WaitlistRow): PromiseLike<{ error: DbError }>;
+  find(email: string, zip: string): PromiseLike<{ data: { id: string; confirmed_at: string | null; unsubscribed_at: string | null } | null; error: DbError }>;
 }
 
 export interface WaitlistDeps {
   db: WaitlistDb;
   hit: (limits: Limit[]) => Promise<'allowed' | 'limited' | 'error'>;
+  /** Signs a row id into a confirm token (purpose 'waitlist', 7 days). */
+  signToken: (id: string) => string;
+  /** True when the email was handed to the provider. */
+  sendConfirm: (msg: { to: string; confirmUrl: string; place: string }) => Promise<boolean>;
+  siteUrl: string;
 }
 
 export type WaitlistCode = 'ok' | 'invalid' | 'limited' | 'unavailable';
@@ -76,19 +102,42 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
 
   const deps = typeof depsOrFactory === 'function' ? depsOrFactory() : depsOrFactory;
   const address = email.data.toLowerCase();
-  const h = await deps.hit([LIMITS.waitlistIp(input.ip), LIMITS.waitlistEmail(address)]);
+  const h = await deps.hit([LIMITS.waitlistIp(input.ip), LIMITS.waitlistEmail(limiterMailbox(address))]);
   if (h === 'limited') return { code: 'limited' };
   if (h === 'error') return { code: 'unavailable' };
 
-  // ON CONFLICT (email, zip) DO NOTHING: a repeat is a success with the same answer, so the reply never says whether an address was
-  // already on the list.
-  const { error } = await deps.db
-    .from('holler_area_waitlist')
-    .upsert({ email: address, zip, trade, page }, { onConflict: 'email,zip', ignoreDuplicates: true });
-  if (error) {
-    // A missing table (migration 0021 not applied yet) or any other failure is a soft error, never a throw. Log the code only.
-    console.error('[waitlist] save failed', error.code ?? 'unknown');
+  const up = await deps.db.upsert({
+    email: address,
+    zip,
+    state: /^[A-Z]{2}$/.test(place.state) ? place.state : null,
+    lat: round3(place.lat),
+    lon: round3(place.lon),
+    trade,
+    consent_version: WAITLIST_CONSENT_VERSION,
+  });
+  if (up.error) {
+    // A missing table (migration 0031 not applied) or any other failure is a soft error, never a throw. Log the code only.
+    console.error('[waitlist] save failed', up.error.code ?? 'unknown');
+    return { code: 'unavailable' };
+  }
+  const found = await deps.db.find(address, zip);
+  if (found.error || !found.data) {
+    console.error('[waitlist] read back failed', found.error?.code ?? 'no_row');
+    return { code: 'unavailable' };
+  }
+  // Already confirmed, or unsubscribed: the same answer as a new sign-up, and nothing is sent.
+  if (found.data.confirmed_at || found.data.unsubscribed_at) return { code: 'ok' };
+
+  const confirmUrl = `${deps.siteUrl.replace(/\/$/, '')}/waitlist/confirm?token=${encodeURIComponent(deps.signToken(found.data.id))}`;
+  const sent = await deps.sendConfirm({ to: address, confirmUrl, place: `${place.city}, ${place.state}` });
+  if (!sent) {
+    console.error('[waitlist] confirm email not sent');
     return { code: 'unavailable' };
   }
   return { code: 'ok' };
+}
+
+/** Three decimals is about one block: the ZIP centroid, never an address. */
+function round3(n: number): number | null {
+  return Number.isFinite(n) ? Math.round(n * 1000) / 1000 : null;
 }

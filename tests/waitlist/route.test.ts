@@ -41,7 +41,8 @@ describe('POST /api/waitlist', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(await res.json()).toEqual({ ok: true });
-    expect(state.fake.rows).toEqual([{ email: 'pat@example.com', zip: UNSERVED_ZIP, trade: 'roofing', page: 'check' }]);
+    expect(state.fake.rows).toEqual([expect.objectContaining({ email: 'pat@example.com', zip: UNSERVED_ZIP, trade: 'roofing', consent_version: 'v1-2026-11' })]);
+    expect(state.fake.sent).toHaveLength(1);
   });
   it('the same signup again answers the same way and stores one row', async () => {
     const a = await (await POST(post(good))).json();

@@ -596,7 +596,7 @@ export const es: Record<DictKey, string> = {
   'chk.watch_h': 'Lo que Holler vigila para este oficio cerca de usted',
   'chk.watch_none': 'Todavía ninguna fuente pública etiqueta este oficio en su zona.',
   'chk.quiet': 'Hay temporadas tranquilas, y algunos lugares publican más que otros. Según la fuente, Holler la revisa desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.',
-  'chk.uncovered.cta': 'Deje su correo en la página en inglés y le avisaremos cuando Holler cubra su zona.',
+  'chk.uncovered.cta': 'Deje su correo en la página en inglés y confirme con el enlace del correo que le enviaremos. Así le avisaremos cuando Holler cubra su zona.',
   'chk.uncovered.link': 'Unirse a la lista de espera (en inglés)',
   'chk.source': 'Fuente: {label}',
   'chk.cta.btn': 'Reciba estas alertas por correo. {trial}, sin tarjeta',

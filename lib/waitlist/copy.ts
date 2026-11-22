@@ -12,8 +12,8 @@ export const WAITLIST = {
   tradeLabel: 'What you do',
   button: "Tell me when it's covered",
   sending: 'Saving...',
-  privacy: 'We use your email only to tell you when this area is covered. We never sell it.',
-  thanks: (place: string) => `Thanks. We saved your email for ${place}. We'll tell you when Holler covers it.`,
+  privacy: 'We send one email to confirm your address, then use it only to tell you when this area is covered. We never sell it.',
+  thanks: (place: string) => `Check your email and press the link to confirm. Then you are on the list for ${place}.`,
   errors: {
     email: 'Check your email address.',
     invalid: 'Check the form and try again.',

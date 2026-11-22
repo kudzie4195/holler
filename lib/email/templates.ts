@@ -341,3 +341,23 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
   const text = `Welcome to Holler\n\nYour ${days}-day free trial starts when you finish setting up your alerts. No card needed. Holler never posts anything for you.\n\nOne step left: confirm this email address so we can send you alerts. The link works for 7 days.\n\n${opts.verifyUrl}\n\nYou can set up what you do and where you work any time: ${opts.appUrl}\n\nIf you did not sign up, ignore this email and nothing happens.\n${contactText()}\n${postalFooterText()}\n`;
   return { subject, html, text };
 }
+
+/**
+ * "Coming to your area" double opt-in (restored in round 19 from the other branch's lib/email/templates.ts, review defect 1). One
+ * email; nothing more is ever sent unless the link is pressed. The link is /waitlist/confirm (a token page: no-referrer).
+ */
+export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string }): Rendered {
+  const place = noDash(opts.place);
+  const subject = `Confirm: tell me when Holler reaches ${place}`;
+  const html =
+    WRAP_OPEN +
+    `<h1 style="${S.h1};margin:0 0 12px 0">One click and you are on the list</h1>` +
+    `<p>You asked Holler to tell you when permits and city requests near ${escapeHtml(place)} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.</p>` +
+    button(opts.confirmUrl, 'Confirm my email') +
+    `<p style="${S.muted}">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
+    cardClose() +
+    postalFooterHtml() +
+    WRAP_CLOSE;
+  const text = `One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near ${place} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: ${opts.confirmUrl}\n\nThe link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.\n${contactText()}\n${postalFooterText()}\n`;
+  return { subject, html, text };
+}

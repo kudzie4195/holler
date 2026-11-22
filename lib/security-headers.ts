@@ -32,6 +32,8 @@ export const TOKEN_PAGE_PATHS = [
   '/request/close',
   '/auth/confirm',
   '/auth/confirm/continue',
+  // Round 19 review (defect 6): the waitlist confirm link carries a signed ?token=.
+  '/waitlist/confirm',
 ] as const;
 
 export const NO_REFERRER = [{ key: 'Referrer-Policy', value: 'no-referrer' }];

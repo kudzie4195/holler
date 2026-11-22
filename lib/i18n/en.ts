@@ -615,7 +615,7 @@ export const en = {
   'chk.watch_h': 'What Holler watches for this trade near you',
   'chk.watch_none': 'No public source tags this trade in your area yet.',
   'chk.quiet': 'Quiet stretches happen, and some places publish more than others. Holler scans its sources every 15 minutes to 12 hours, depending on the source, and emails you at most once an hour. An alert can trail the event by a little.',
-  'chk.uncovered.cta': 'Leave your email on the English page to hear when Holler covers your area.',
+  'chk.uncovered.cta': 'Leave your email on the English page and press the link in the email we send, to hear when Holler covers your area.',
   'chk.uncovered.link': 'Join the waitlist (in English)',
   'chk.source': 'Source: {label}',
   'chk.cta.btn': 'Get these by email. {trial}, no card',

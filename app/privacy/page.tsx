@@ -268,9 +268,11 @@ export default function PrivacyPage() {
         </p>
         <p>
           If you check a ZIP code Holler does not cover yet, the Coming to your area card lets you leave your email. We save your
-          email, that ZIP code, the trade you picked and the page you were on, with no account and no name. We use the email only
-          to tell you when we cover that area. We do not set a cookie for it, and we do not share the email or use it for ads.
-          Pressing the button again with the same email and ZIP saves nothing new.
+          email, that ZIP code, the rough center of that ZIP code, the trade you picked and which version of the card&apos;s wording
+          you saw, with no account and no name. We send one email with a link to confirm the address; you are on the list only once
+          you press it. We use the email only to confirm it and to tell you when we cover that area. We do not set a cookie for it,
+          and we do not share the email or use it for ads. Pressing the button again with the same email and ZIP saves nothing new,
+          and once the address is confirmed it sends nothing new either.
         </p>
         <p>
           Holler counts visits and a few steps itself. It uses no outside tracker. To count, a small script sets two first

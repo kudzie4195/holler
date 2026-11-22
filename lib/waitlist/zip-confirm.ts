@@ -1,10 +1,9 @@
 /**
  * holler_zip_waitlist: the double opt-in waitlist the live site ran before round 19 (the other branch's lib/waitlist, migration 0031,
- * applied live as their 0021). Round 19 UNIFY keeps ONE waitlist feature in the product: this base's (holler_area_waitlist, migration
- * 0021, lib/waitlist/service.ts), which new sign-ups use. This file keeps the other one's data usable and loses nothing:
- *  - confirmWaitlist: a confirm link already emailed by the live site (/waitlist/confirm?token=...) still stamps confirmed_at;
- *  - the owner's per-ZIP counts read both tables (lib/admin/metros-load.ts).
- * Nothing here inserts a new row, and nothing sends an email. Pure logic over injected dependencies (taken unchanged from their
+ * applied live as their 0021). Since the round 19 review (defect 1) the product's ONE waitlist writes here with double opt-in
+ * (lib/waitlist/service.ts: this base's card and checks, their table and confirmation email). This file confirms the links:
+ *  - confirmWaitlist: a confirm link (/waitlist/confirm?token=...) stamps confirmed_at, including links the live site sent before;
+ *  - the owner's per-ZIP counts read both tables (lib/admin/metros-load.ts); holler_area_waitlist stays, unused by new sign-ups. Pure logic over injected dependencies (taken unchanged from their
  * lib/waitlist/service.ts confirmWaitlist); production wiring is zipWaitlistConfirmDeps in lib/waitlist/zip-confirm-deps.ts.
  */
 

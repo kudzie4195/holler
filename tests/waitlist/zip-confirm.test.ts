@@ -1,7 +1,7 @@
 // Round 19 UNIFY: the live site's double opt-in waitlist (holler_zip_waitlist). Its confirm links keep working after the merge; the
 // confirm tests and the migration tests are the other branch's tests/waitlist/service.test.ts ones, rewritten for lib/waitlist/zip-confirm.ts
-// and the renamed migration 0031. Their joinWaitlist, email and card tests are not kept: that sign-up path is not in the merged product
-// (this base's waitlist takes new sign-ups; tests/waitlist/service.test.ts covers it).
+// and the renamed migration 0031. Since the review fixes (defect 1) new sign-ups also go to this table with a confirmation email:
+// tests/waitlist/double-opt-in.test.ts restores their sign-up cases.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { signScopedToken, verifyScopedToken } from '../../lib/email/token';
@@ -49,13 +49,6 @@ describe('confirmWaitlist (links the live site already emailed)', () => {
     expect(await confirmWaitlist(failing, signScopedToken(WAITLIST_CONFIRM_PURPOSE, ID, SECRET, 3600))).toEqual({ code: 'unavailable' });
   });
 
-  it('nothing in the merged product inserts into holler_zip_waitlist or sends its confirm email', () => {
-    for (const f of ['lib/waitlist/service.ts', 'lib/waitlist/deps.ts', 'lib/waitlist/zip-confirm.ts', 'lib/waitlist/zip-confirm-deps.ts', 'app/api/waitlist/route.ts']) {
-      const src = readFileSync(f, 'utf8');
-      expect(src, f).not.toMatch(/holler_zip_waitlist['"`]?\)?\s*\.\s*(insert|upsert)/);
-      expect(src, f).not.toMatch(/renderWaitlistConfirm|sendEmail/);
-    }
-  });
 });
 
 describe('migration 0031_holler_zip_waitlist.sql (the other branch 0021, renamed, already applied live)', () => {

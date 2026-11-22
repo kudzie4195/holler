@@ -64,7 +64,8 @@ export const LIMITS = {
   /** "Coming to your area" waitlist (POST /api/waitlist): per IP per hour. Same keyed-hash counter as the interest form. */
   waitlistIp: (ip: string): Limit => ({ key: rateKey('waitlist', 'ip', ip), max: 10, windowSeconds: 3600 }),
   /** Waitlist signups per email address per day. Pass the address; only a keyed hash is stored. */
-  waitlistEmail: (email: string): Limit => ({ key: rateKey('waitlist', 'email', email), max: 5, windowSeconds: 86_400 }),
+  // 3 a day: every accepted sign-up sends one confirmation email (double opt-in), so one mailbox is never flooded (round 19 review).
+  waitlistEmail: (email: string): Limit => ({ key: rateKey('waitlist', 'email', email), max: 3, windowSeconds: 86_400 }),
 } as const;
 
 export const RATE_LIMIT_MESSAGE = 'Too many tries. Wait a bit, then try again.';

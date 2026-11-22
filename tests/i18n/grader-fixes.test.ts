@@ -70,7 +70,8 @@ const CORRECTED: Record<string, string> = {
   "chk.preview.civic.t": "Solicitudes al 311 e infracciones de código",
   "chk.h.watching": "Holler busca trabajo de {trade} cerca de {place}",
   "chk.quiet": "Hay temporadas tranquilas, y algunos lugares publican más que otros. Según la fuente, Holler la revisa desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
-  "chk.uncovered.cta": "Deje su correo en la página en inglés y le avisaremos cuando Holler cubra su zona.",
+  // Round 19 review fix (defect 1): the waitlist is double opt-in again, so the line now says to confirm the emailed link (grader wording kept).
+  "chk.uncovered.cta": "Deje su correo en la página en inglés y confirme con el enlace del correo que le enviaremos. Así le avisaremos cuando Holler cubra su zona.",
   "srcl.fixed.bids-gwinnett": "Compras del condado de Gwinnett: licitaciones abiertas",
   "draft.trade_fallback": "servicios locales",
 };

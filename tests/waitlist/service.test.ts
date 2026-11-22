@@ -1,6 +1,7 @@
 // POST /api/waitlist logic: validation, honeypot, duplicates, rate limit, soft failure, no PII in logs.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { joinWaitlist } from '@/lib/waitlist/service';
+import { joinWaitlist, WAITLIST_CONSENT_VERSION } from '@/lib/waitlist/service';
+import { lookupZip } from '@/lib/geo';
 import { fakeWaitlist, SERVED_ZIP, UNSERVED_ZIP } from './helpers';
 
 vi.mock('server-only', () => ({}));
@@ -10,12 +11,16 @@ const base = { email: 'Pat@Example.com', zip: UNSERVED_ZIP, trade: 'roofing', pa
 afterEach(() => vi.restoreAllMocks());
 
 describe('joinWaitlist: a good signup', () => {
-  it('saves one row with the agreed shape: lower-cased email, zip, trade, page, and nothing about the visitor', async () => {
+  it('saves one row with the agreed shape (round 19: holler_zip_waitlist, double opt-in), and nothing about the visitor', async () => {
     const f = fakeWaitlist();
     const r = await joinWaitlist(f.deps, base);
     expect(r).toEqual({ code: 'ok' });
     expect(f.writes).toHaveLength(1);
-    expect(f.writes[0].row).toEqual({ email: 'pat@example.com', zip: UNSERVED_ZIP, trade: 'roofing', page: 'check' });
+    const z = lookupZip(UNSERVED_ZIP)!;
+    expect(f.writes[0].row).toEqual({
+      email: 'pat@example.com', zip: UNSERVED_ZIP, state: z.state, lat: Math.round(z.lat * 1000) / 1000, lon: Math.round(z.lon * 1000) / 1000,
+      trade: 'roofing', consent_version: WAITLIST_CONSENT_VERSION,
+    });
     expect(f.writes[0].opts).toEqual({ onConflict: 'email,zip', ignoreDuplicates: true });
     expect(JSON.stringify(f.rows)).not.toContain('203.0.113.9');
   });
@@ -108,7 +113,7 @@ describe('rate limit', () => {
     expect(keys[0]).toMatch(/^waitlist:ip:[0-9a-f]{32}$/);
     expect(keys[1]).toMatch(/^waitlist:email:[0-9a-f]{32}$/);
     expect(keys.join(' ')).not.toMatch(/203\.0\.113|example\.com/);
-    expect(f.hits[0].map((l) => [l.max, l.windowSeconds])).toEqual([[10, 3600], [5, 86_400]]);
+    expect(f.hits[0].map((l) => [l.max, l.windowSeconds])).toEqual([[10, 3600], [3, 86_400]]); // 3 a day: each sign-up sends mail
   });
   it('over the limit: "limited", nothing written', async () => {
     const f = fakeWaitlist();
@@ -131,7 +136,7 @@ describe('rate limit', () => {
 });
 
 describe('soft failure and logs', () => {
-  it('a missing table (migration 0021 not applied) is "unavailable", not a throw, and logs only the error code', async () => {
+  it('a missing table (migration 0031 not applied) is "unavailable", not a throw, and logs only the error code', async () => {
     const f = fakeWaitlist({ missingTable: true });
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
