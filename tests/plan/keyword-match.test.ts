@@ -97,7 +97,7 @@ describe('matchSignals (fast path) agrees with matchOne', () => {
       pickHits(
         signals.flatMap((s) => {
           const m = matchOne(s, p);
-          return m ? [{ s, distance_mi: m.distance_mi }] : [];
+          return m ? [{ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade }] : [];
         }),
         now.getTime(),
       ).map((h) => ({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi })),

@@ -154,7 +154,7 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass)
   if (!place && zips.length === 0) return null;
   const eddm = withLabel(buildLink({ type: 'eddm' }), 'Plan a mailing (USPS Every Door Direct Mail)');
   const storm = cls === 'storm';
-  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), storm ? 'Read the guide on storm damage leads' : 'Read the guide on answering leads fast');
+  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), storm ? 'Read the guide on storm damage work' : 'Read the guide on replying fast');
   if (!eddm || !guide) return null;
   return {
     type: 'area',

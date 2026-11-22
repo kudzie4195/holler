@@ -6,6 +6,7 @@ import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { NO_CONTACT_SUBTYPES } from '@/lib/contacts/extract';
 import type { ContactInput } from '@/lib/contacts/types';
 import { archiveAndPrune } from '@/lib/moat/prune';
+import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 
@@ -169,7 +170,10 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const pending: { signalId: number; contacts: ContactInput[]; city?: string | null }[] = [];
     for (const r of rows) {
       const c = r.external_id != null && !noContactSubtype(r.subtype) ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
-      if (c && typeof r.id === 'number') pending.push({ signalId: r.id, contacts: c.contacts, city: c.city });
+      if (c && typeof r.id === 'number') {
+        pending.push({ signalId: r.id, contacts: c.contacts, city: c.city });
+        r.hasContact = hasNamedContact(c.contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
+      }
     }
     if (pending.length) contactBudget -= await writeSignalContacts(db, pending, opts.log, contactBudget);
   }

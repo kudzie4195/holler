@@ -118,7 +118,14 @@ const NWS = parseNws(j('nws-alerts.json'));
 const SPC_HAIL = parseSpc({ csv: fx('spc-hail.csv'), type: 'hail', day: '2026-11-20' });
 const SPC_WIND = parseSpc({ csv: fx('spc-wind.csv'), type: 'wind', day: '2026-11-20' });
 const FEMA = parseFema(j('fema-declarations.json'));
-const USGS = parseUsgs(j('usgs-2.5_day.json'));
+// The fixture's Ridgecrest quake is M4.3 with no USGS alert level, which now reaches insurance only (round 15 re-grade). The plumber card uses
+// the same record at M5.2, the lowest magnitude that still reaches the building trades.
+const USGS = parseUsgs(
+  (() => {
+    const raw = j('usgs-2.5_day.json') as { features: { properties: Record<string, unknown> }[] };
+    return { ...raw, features: raw.features.map((f, i) => (i === 0 ? { ...f, properties: { ...f.properties, mag: 5.2 } } : f)) };
+  })(),
+);
 const FAA = parseFaa(fx('faa-status.xml'));
 const sx = (id: string, file: string) => parseSocrata(j(file), social(id));
 
@@ -135,7 +142,7 @@ const CASES: (() => FixtureCase)[] = [
   () => buildCase('airport delay', pick(FAA, (s) => /\(ATL\)/.test(s.title), 'ATL'), ['rideshare-delivery'], 'Peachtree Rides'),
   () => buildCase('new-home permit for a mover', newHomePermit(), ['moving'], 'Midtown Movers'),
   () => buildCase('own-trade permit', pick(sx('socrata-chicago-permits', 'socrata-chicago-permits.json'), (s) => /Roof/.test(s.title), 'roof permit'), ['roofing'], 'Logan Roofing'),
-  () => buildCase('new business license', pick(sx('socrata-sf-business', 'socrata-sf-business.json'), (s) => /Food Service/.test(s.title), 'food service'), ['cleaning'], 'Mission Cleaning'),
+  () => buildCase('new business license', pick(sx('socrata-sf-business', 'socrata-sf-business.json'), (s) => /Food Service/.test(s.title), 'food service'), ['janitorial-commercial'], 'Mission Janitorial'),
   () => buildCase('special event permit', sx('socrata-nyc-events', 'socrata-nyc-events.json')[0], ['catering'], 'Village Catering'),
   () => buildCase('big event', parseTicketmaster(j('ticketmaster-events.json'))[0], ['food-truck'], 'Peach Food Truck'),
   () => buildCase('federal bid', pick(parseSam(j('sam-opportunities.json')), (s) => /Roof/.test(s.title), 'roof bid'), ['roofing'], 'Trinity Roofing'),

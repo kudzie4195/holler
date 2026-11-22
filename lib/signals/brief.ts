@@ -1,6 +1,7 @@
 import type { CategoryId } from './categories';
 import { formatDeadlineDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidSourceLinkLabel } from './bid-card';
+import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 
 /**
@@ -207,6 +208,8 @@ interface WhyCtx {
   permitType: string | null | undefined;
   /** Federal contract title: the work the title names, null when it names none (only a NAICS code), undefined when no title was passed. */
   awardWork: string | null | undefined;
+  /** Code violation: the short description after the title's ": " (40 characters or fewer), lower-cased. Null when it names nothing ("property violation"). */
+  violation: string | null;
 }
 type WhyFn = (work: string, c: WhyCtx) => string;
 
@@ -222,6 +225,20 @@ export function permitTypeOf(title: string | null | undefined): string | null | 
   const m = t.match(/^(.{2,120}?)\s+permit\s+in\s+/i);
   if (!m || /\d/.test(m[1])) return undefined;
   return m[1].trim();
+}
+
+/**
+ * "Code violation in Chicago: REPAIR GUTTER & DOWNSPOUT" gives "repair gutter & downspout". Only a short, plain description counts: 40
+ * characters or fewer, no digits (an address or a code), not cut off ("..."), and not the fixed fallback "property violation". Anything
+ * else gives null and the generic sentence. Never invents text: it is the record's own title.
+ */
+export function violationOrderOf(title: string | null | undefined): string | null {
+  if (typeof title !== 'string') return null;
+  const at = title.indexOf(': ');
+  if (at < 0) return null;
+  const body = title.slice(at + 2).trim();
+  if (!body || body.length > 40 || /\d|\.\.\.|…/.test(body) || /^property violation$/i.test(body) || /^code violation$/i.test(body)) return null;
+  return body.toLowerCase();
 }
 
 /** "Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)" gives "Plumbing". A title with only a NAICS code gives null. */
@@ -243,7 +260,7 @@ const DAMAGE_PHRASES: [RegExp, string][] = [
   [/\btrees?\b[^.;]{0,25}?\b(?:down|uprooted|snapped|fell|fallen|toppled|broken|split|blown\s+(?:over|down))\b|\b(?:downed|uprooted|snapped|fallen)\s+(?:\w+\s+){0,2}trees?\b|\blimbs?\s+(?:\w+\s+)?(?:down|snapped|broken)\b|\btrees?\s+on\s+\w+/gi, 'trees down'],
   [/\bpower\s+lines?\b[^.;]{0,20}?\b(?:down|snapped|broken)\b|\bdowned\s+(?:power\s+)?lines?\b|\blines?\s+down\b/gi, 'power lines down'],
   [/\bpower\s+poles?\b[^.;]{0,20}?\b(?:down|snapped|broken)\b|\b(?:downed|snapped)\s+(?:power\s+)?poles?\b/gi, 'power poles down'],
-  [/\broofs?\b[^.;]{0,20}?\b(?:off|torn|blown|peeled|damage\w*)\b|\bshingles?\b[^.;]{0,20}?\b(?:torn|blown|off)\b|\bblown\s+(?:off|down)\b/gi, 'roof damage'],
+  [/\broofs?\b[^.;]{0,20}?\b(?:off|torn|blown|peeled|damage\w*)\b|\bshingles?\b[^.;]{0,20}?\b(?:torn|blown|off)\b/gi, 'roof damage'],
   [/\bdamag(?:e|es|ed|ing)\b/gi, 'damage'],
   [/\bdestr(?:oy|oyed|oys|uction)\b|\bcollaps\w*/gi, 'destruction'],
   [/\bflood\w*/gi, 'flooding'],
@@ -296,7 +313,7 @@ const INSPECTION_NEUTRAL = 'A food inspection nearby failed; check if what faile
  */
 const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'weather-alert': {
-    coming_soon: (w) => `A weather alert was issued near you; ${w} may follow.`,
+    coming_soon: (w) => `A weather alert was issued for your area; ${w} may follow.`,
   },
   'storm-report': {
     act_now: (w) => `A storm report was filed nearby; ${w} may follow.`,
@@ -327,7 +344,8 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
     coming_soon: (w) => `A 311 request nearby may involve ${w}.`,
   },
   violation: {
-    act_now: (w) => `A code violation was recorded nearby; ${w} may be needed.`,
+    // The record's own short description of what is wrong is quoted, so a gutter order is not told to a roofer as roof work.
+    act_now: (w, c) => (c.violation ? `A code violation was recorded nearby: ${c.violation}.` : `A code violation was recorded nearby; ${w} may be needed.`),
   },
   inspection: {
     act_now: (w, c) => (c.trade && INSPECTION_REPAIR_TRADES.has(c.trade) ? `A food inspection nearby failed; fixing it may call for ${w}.` : INSPECTION_NEUTRAL),
@@ -390,7 +408,6 @@ export const WHY_OVERRIDES: Readonly<Record<string, string>> = {
   'act_now|storm-report|insurance': 'A storm report was filed nearby, and storm claims can follow.',
   'act_now|storm-report|public-adjuster': 'A storm report was filed nearby, and storm claims can follow.',
   'act_now|inspection|pest-control': 'A food inspection nearby failed; failures often involve pests.',
-  'act_now|inspection|cleaning': 'A food inspection nearby failed; failures often involve cleanliness.',
   'act_now|inspection|janitorial-commercial': 'A food inspection nearby failed; failures often involve cleanliness.',
   'coming_soon|permit|real-estate': 'A new-home permit was filed nearby; a finished home may be sold later.',
   'coming_soon|permit|moving': 'A new-home permit was filed nearby; people may move in once it is built.',
@@ -448,7 +465,7 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   airport: 'Check which airport and how long the delay runs.',
   permit: 'Check the permit type and address, then look at it on a map.',
   '311': 'Check what was reported and where, then look at it on a map.',
-  violation: 'Check the address and fix-by date, then look at it on a map.',
+  violation: 'Check the address and what must be fixed, then look at it on a map.',
   inspection: 'Check what failed and the address, then decide if it is worth a visit.',
   business: 'Check the business name and address.',
   'event-permit': 'Check the event date and who holds the permit.',
@@ -483,8 +500,12 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     trade,
     permitType: family === 'permit' ? permitTypeOf(input.title) : undefined,
     awardWork: family === 'federal-award' ? awardWorkOf(input.title) : undefined,
+    violation: family === 'violation' ? violationOrderOf(input.title) : null,
   };
-  const why = WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
+  // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
+  // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
+  const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
+  const why = routed ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
   // Damage: the brief never says "no damage is reported" (a word list cannot prove a record has no damage). A storm report or quake whose
@@ -599,6 +620,10 @@ export function allBriefStrings(): string[] {
         const b = briefFor({ source: 'socrata-chicago-permits', label, trade, title });
         out.push(b.why, b.uncertain);
       }
+      // A violation card quotes the order's own short title (violationOrderOf); these are real orders from the fixtures and the quality gate.
+      for (const title of ['Code violation in X: REPAIR GUTTER & DOWNSPOUT', 'Code violation in X: REPAIR EXTERIOR WALL', 'Code violation in X: Overgrown weeds', 'Code violation in X: property violation']) {
+        out.push(briefFor({ source: 'socrata-chicago-violations', label, trade, title }).why);
+      }
       for (const title of ['Federal contract ($1K) in X: NAICS 562991', 'Federal contract ($1K) in X: Plumbing (NAICS 238220)']) {
         out.push(briefFor({ source: 'usaspending', label, trade, title }).why);
       }
@@ -609,7 +634,7 @@ export function allBriefStrings(): string[] {
       }
     }
   }
-  out.push(...Object.values(WHY_OVERRIDES), ...Object.values(TRADE_WORK), GENERIC_WORK);
+  out.push(...Object.values(WHY_OVERRIDES), ...Object.entries(ROUTE_WHY).flatMap(([key, t]) => PERMIT_NOUNS[key.split('|')[0] as keyof typeof PERMIT_NOUNS].map((n) => t.replace('{Permit}', n))), ...Object.values(TRADE_WORK), GENERIC_WORK);
   return out;
 }
 
@@ -641,8 +666,9 @@ export function tradeForRecord(
   const rank: Record<OpportunityLabel, number> = { act_now: 0, coming_soon: 1, market_insight: 2, context: 3 };
   let best: string | null = null;
   let bestRank = Infinity;
+  const carried = carriedTrades(sig, recordCategories);
   for (const t of memberTrades) {
-    if (!(recordCategories ?? []).includes(t)) continue;
+    if (!carried.includes(t)) continue;
     const r = rank[labelFor(sig, t as CategoryId)];
     if (r < bestRank) {
       best = t;

@@ -8,6 +8,7 @@ import { APPROX_LOCATION_SOURCES } from '@/lib/signals/approx-location';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { carriedTrades } from '@/lib/signals/permit-routing';
 import { CATEGORY_IDS, classifyText, type CategoryId } from '@/lib/signals/categories';
 import {
   CITY_FEEDS,
@@ -94,7 +95,15 @@ const PRODUCED: Record<SignalTypeId, () => CategoryId[][]> = {
       'New construction | Single Family Residential', 'Install fence', 'Concrete driveway', 'Window and door replacement', 'Vinyl siding and gutters',
       'Flooring replacement hardwood', 'Install sign', 'Tree removal', 'Retaining wall', 'Exterior painting', 'Fire damage repair',
     ];
-    return texts.map((t) => categorize(ds, t).categories);
+    const tagged = texts.map((t) => categorize(ds, t).categories);
+    // Downstream routing (lib/signals/permit-routing.ts, round 15 unit F): a permit with a route kind in its title also reaches the trades
+    // downstream of it. The titles are the ones the permit mapping really writes (PERMIT_KINDS), run through the real carriedTrades.
+    const titles = [
+      'Roof permit in Atlanta', 'New home permit in Atlanta', 'New construction permit in Atlanta', 'Remodel permit in Atlanta',
+      'Addition permit in Atlanta', 'Solar permit in Atlanta', 'Demolition permit in Atlanta', 'Tenant fit-out permit in Atlanta',
+    ];
+    const routed = titles.map((title) => [...carriedTrades({ title, subtype: 'permit' }, [])] as CategoryId[]);
+    return [...tagged, ...routed];
   },
   '311': () => {
     const ds = SOCRATA_DATASETS.find((d) => d.subtype === '311')!;

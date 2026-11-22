@@ -26,7 +26,8 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
+import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { tradeForRecord } from '@/lib/signals/brief';
 
 interface SignalRow {
@@ -44,6 +45,8 @@ interface SignalRow {
   expires_at: string | null;
   /** data->>subtype of the record, for the intent label. */
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
   /** 1..3, for the AI ranking (lib/ai rankSignals). */
   severity?: number | null;
   /** The record's trades, for this member's opportunity label (lib/signals/lead-rules.ts). */
@@ -74,7 +77,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`,
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},bidBuyer:data->>buyer)`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -88,7 +91,7 @@ async function loadDashboard() {
   const memberTrades = matchScope(profile).categories;
   // An Act Now whose published deadline has passed is shown as Coming soon (demoteExpired).
   const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, memberTrades), deadlineOf(s), now);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, memberTrades), deadlineOf(s), now);
 
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown,
@@ -162,8 +165,19 @@ async function loadDashboard() {
       ranked = rows;
     }
   }
-  // Act Now first, then the AI ranking or newest-first order the rows already have (a stable sort).
-  const ordered = orderByLabel(ranked, (m) => labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow));
+  // Act Now first, then the deterministic score (PLAN-2.0 item 2.7), then the AI ranking or newest-first order the rows already have (a stable sort).
+  const ordered = orderByLabelScore(
+    ranked,
+    (m) => labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow),
+    (m) => {
+      const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+      return feedScoreFor(
+        { source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, occurred_at: s.occurred_at, categories: s.categories },
+        memberTrades,
+        { hasContact: hasNamedContact(contactsBySignal.get(s.id)), nowMs: now },
+      );
+    },
+  );
   const items: FeedItem[] = ordered.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
@@ -189,7 +203,7 @@ async function loadDashboard() {
       subtype: s.subtype ?? null,
       label: labelOf(s),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
-      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, memberTrades),
+      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
       deadline: deadlineOf(s),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,

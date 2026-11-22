@@ -25,7 +25,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
 
 export interface SignalRow {
   id: number;
@@ -42,6 +42,8 @@ export interface SignalRow {
   occurred_at: string;
   expires_at: string | null;
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline. */
   categories?: string[] | null;
   deadline?: string | null;
@@ -121,7 +123,7 @@ export interface BuildDeps {
  * title and summary (part 1); a locked member's brief is built WITHOUT the record's text (the alert's own title and summary are masked for them, and the brief must not leak a permit type, a contract's work or storm remarks). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
-  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, deps.trades ?? []);
+  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
   const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
   return {
     why: b.why,
@@ -135,7 +137,7 @@ function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): Brief
 /** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
   const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
   const live = rows.filter((m) => {
     const s = signalOf(m);

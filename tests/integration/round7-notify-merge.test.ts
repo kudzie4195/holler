@@ -34,7 +34,7 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
 const MATCHES = [
   { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind damage reported near Smyrna', 2) },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
-  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
+  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 40) },
 ];
 
 const missing = (t: string) => ({ data: null, error: { code: '42P01', message: `relation "public.${t}" does not exist` } });

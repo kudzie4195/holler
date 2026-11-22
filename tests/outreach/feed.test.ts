@@ -92,6 +92,18 @@ describe('feed: Who to contact (unlocked)', () => {
     expect(html).toContain('/guides/storm-damage-leads-from-weather-alerts-and-storm-reports');
   });
 
+  it('wording rule: the Who to contact block never says "lead", on a storm card or a plain card (round 15 re-grade)', () => {
+    const storm = render([{ ...base, id: 20, kind: 'alert', source: 'nws', contacts: undefined }]);
+    const plain = render([{ ...base, id: 21, contacts: undefined }]);
+    const plainOrg = render([base]);
+    for (const html of [storm, plain, plainOrg]) {
+      expect(html).toContain('Who to contact');
+      expect(html.replace(/<[^>]+>/g, ' ')).not.toMatch(/\blead/i);
+    }
+    expect(storm).toContain('Read the guide on storm damage work');
+    expect(plain).toContain('Read the guide on replying fast');
+  });
+
   it('no block for a resident request, an airport delay or an event', () => {
     for (const [source, kind] of [['holler-request', 'ask'], ['faa', 'travel'], ['socrata-nyc-events', 'event']]) {
       const html = render([{ ...base, id: 3, source, kind, contacts: undefined }]);

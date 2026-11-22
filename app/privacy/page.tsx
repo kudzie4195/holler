@@ -134,7 +134,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           We use your answers and this log to learn which kinds of alerts are worth sending. We also add them up, with no names
-          or account numbers, to describe which kinds of records lead to work. We never sell your answers with your name or
+          or account numbers, to describe which kinds of records turn into work. We never sell your answers with your name or
           account attached.
         </p>
       </DocSection>

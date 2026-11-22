@@ -249,26 +249,30 @@ export const VIOLATION_RULES: CategoryRule[] = [
 ];
 
 /**
- * A new business needs signs, books, insurance, cleaning, security and keys/lock hardware for the new space.
- * Food businesses also need pest control and HVAC. Only the license type and activity are ever classified or stored,
+ * A new business needs signs, books, insurance, commercial cleaning, security and keys/lock hardware for the new space.
+ * Food businesses also need pest control and HVAC, unless they are mobile (a food truck, a cart, a peddler has no building).
+ * Round 15 quality gate: house cleaning (`cleaning`) is NOT tagged here any more. 10 of 10 graded house-cleaning cards were licences (a
+ * raffle, an electronics store, a toner factory) a house cleaner does not serve. Commercial cleaning stays. Only the license type and activity are ever classified or stored,
  * never a business or owner name (see NAME_COLUMN in tests/signals/business-privacy.test.ts).
  */
 export const BUSINESS_RULES: CategoryRule[] = [
-  { re: /./, add: ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning', 'locksmith'] },
+  { re: /./, add: ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'locksmith'] },
   {
     re: /restau|\bcafe\b|coffee|bakery|\bpizza|\btaco|\bgrill\b|kitchen|\bfood\b|\bdeli\b|\bbbq\b|barbecue|\bbar\b|tavern|brew|sushi|diner|eatery|bistro|burger|retail food|\bliquor|catering/i,
     add: ['pest-control', 'hvac'],
+    unless: /mobile food|food truck|peddl|\bcarts?\b|vending/i,
   },
 ];
 
-/** A permitted event needs food, event services, security and cleanup. */
+/** A permitted event needs food, event services and security. House cleaning is not tagged (quality gate: a street event is not a home to clean). */
 export const EVENT_RULES: CategoryRule[] = [
-  { re: /./, add: ['food-truck', 'catering', 'event-services', 'security', 'cleaning'] },
+  { re: /./, add: ['food-truck', 'catering', 'event-services', 'security'] },
 ];
 
 /** Applied to every row that passed the dataset's failure test. */
 export const INSPECTION_RULES: CategoryRule[] = [
-  { re: /./, add: ['pest-control', 'cleaning', 'janitorial-commercial'], severity: 2 },
+  // A failed restaurant inspection is commercial cleaning, not house cleaning (quality gate pattern 1).
+  { re: /./, add: ['pest-control', 'janitorial-commercial'], severity: 2 },
 ];
 
 export const RULES_BY_SUBTYPE: Record<SocrataSubtype, CategoryRule[]> = {

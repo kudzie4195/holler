@@ -24,7 +24,8 @@ import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, orderByLabel, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 
 export const maxDuration = 60;
 
@@ -47,6 +48,8 @@ interface SignalRow {
   state: string | null;
   occurred_at: string;
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
   severity?: number | null;
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
@@ -93,7 +96,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -175,7 +178,7 @@ export async function GET(req: Request) {
         store_expires_at: p.store_expires_at ?? null,
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
-        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades), deadlineOf(s), now.getTime());
+        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades), deadlineOf(s), now.getTime());
       const live = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
@@ -209,15 +212,25 @@ export async function GET(req: Request) {
         rows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
         aiScores,
       ).map((x) => x.r);
-      // Act Now first, then the AI ranking or newest-first order (a stable sort), then the digest cap.
-      const shown = orderByLabel(ranked, (r) => labelOf(r.s)).slice(0, MAX_ITEMS_IN_DIGEST);
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
-      // the owner and current access); any failure just leaves the lines out.
+      // the owner and current access, and reads at most 200 ids in one query); any failure just leaves the lines out. Read BEFORE the
+      // sort because a named contact is part of the score (PLAN-2.0 item 2.7).
       const contacts = await loadMemberContacts({
         db: admin,
         userId: p.user_id,
-        signalIds: shown.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
+        signalIds: ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
       });
+      // Act Now first, then the deterministic score, then the AI ranking or newest-first order (a stable sort), then the digest cap.
+      const shown = orderByLabelScore(
+        ranked,
+        (r) => labelOf(r.s),
+        (r) =>
+          feedScoreFor(
+            { source: r.s.source ?? '', kind: r.s.kind, subtype: r.s.subtype, title: r.s.title, summary: r.s.summary, occurred_at: r.s.occurred_at, categories: r.s.categories },
+            trades,
+            { hasContact: typeof r.s.id === 'number' && hasNamedContact(contacts.get(r.s.id)), nowMs: now.getTime() },
+          ),
+      ).slice(0, MAX_ITEMS_IN_DIGEST);
       const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
         source: s.source ?? null,
@@ -232,7 +245,7 @@ export async function GET(req: Request) {
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
-        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, trades),
+        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
         deadline: deadlineOf(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
       }));

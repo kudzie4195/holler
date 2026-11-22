@@ -19,6 +19,8 @@ import {
   type CategoryRule,
 } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
+import { DOWNSTREAM } from './permit-routing';
+import { NO_LIVE_SOURCE_TRADES } from './lead-rules';
 
 /**
  * What Holler can really deliver, derived from the adapters' own rule tables and dataset configs (imported, never copied).
@@ -60,6 +62,15 @@ function fromRules(rules: CategoryRule[]): CategoryId[] {
   return rules.flatMap((r) => r.add);
 }
 
+/**
+ * Trades that receive permit alerts through downstream routing (lib/signals/permit-routing.ts, PLAN-2.0 item 1.1) although no permit rule
+ * tags them: a new-home permit reaches movers and house cleaners, a re-roof permit reaches gutter and solar companies, and so on.
+ * Trades with no live source (NO_LIVE_SOURCE_TRADES) are left out, because no member can hold them.
+ */
+const ROUTED_PERMIT_TRADES: CategoryId[] = [...new Set(Object.values(DOWNSTREAM).flat())].filter(
+  (t) => !NO_LIVE_SOURCE_TRADES.includes(t),
+);
+
 /** Every trade each signal type can be tagged with, straight from the adapters. */
 const TAGGED: Record<SignalTypeId, CategoryId[]> = {
   'weather-alert': [...NWS_RULES.flatMap((r) => r.categories), ...NWS_HAIL_EXTRA],
@@ -67,7 +78,7 @@ const TAGGED: Record<SignalTypeId, CategoryId[]> = {
   disaster: FEMA_INCIDENT_TYPES.flatMap((t) => femaCategoriesFor(t)),
   quake: QUAKE_TRADES,
   airport: FAA_TRADES,
-  permit: fromRules(PERMIT_RULES),
+  permit: [...fromRules(PERMIT_RULES), ...ROUTED_PERMIT_TRADES],
   '311': fromRules(CIVIC_RULES),
   inspection: fromRules(INSPECTION_RULES),
   business: fromRules(BUSINESS_RULES),

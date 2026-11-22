@@ -148,7 +148,9 @@ describe('trade wording matches the fixture profile trade, for every fixture car
           expect(why, f.name).not.toContain(w);
           expect(why, f.name).toMatch(/\((Roof)\)|awarded for Plumbing/);
         } else {
-          expect(why.includes(w) || why.includes('work like') || why.includes('a resident') || why.includes('Someone posted'), `${f.signal.source}: ${why}`).toBe(true);
+          // Round 15 quality gate: a code violation card quotes the order's own title, not the trade's work (a gutter order is no roof repair)
+          const quotesOrder = want.family === 'violation' && /^A code violation was recorded nearby: .+\.$/.test(why);
+          expect(why.includes(w) || why.includes('work like') || why.includes('a resident') || why.includes('Someone posted') || quotesOrder, `${f.signal.source}: ${why}`).toBe(true);
         }
       }
       // never "your trade", and never another trade's work phrase

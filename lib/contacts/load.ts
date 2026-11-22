@@ -123,3 +123,30 @@ export async function contactsForMember(
     return new Map();
   }
 }
+
+/**
+ * ADMIN ONLY (the owner score report, lib/signals/score-admin.ts behind the CRON_SECRET route). Which of these signal ids have a named
+ * organisation on file (any role but a bare 'site' address, with a name). Returns ids only: no name, phone, e-mail or address leaves
+ * this function. It is not for a member-facing path: those use contactsForMember, which checks the member's own match and access.
+ * Reads in chunks of 200 ids; a read error stops early and the ids found so far are returned (the score then simply lacks +30).
+ */
+export async function signalIdsWithNamedContact(db: Db, signalIds: number[]): Promise<{ ids: Set<number>; reads: number }> {
+  const ids = [...new Set(signalIds.filter((n) => Number.isSafeInteger(n) && n > 0))];
+  const found = new Set<number>();
+  let reads = 0;
+  for (let i = 0; i < ids.length; i += MAX_SIGNAL_IDS) {
+    reads++;
+    const { data, error } = await db
+      .from('holler_signal_contacts')
+      .select('signal_id')
+      .neq('role', 'site')
+      .neq('name', '')
+      .in('signal_id', ids.slice(i, i + MAX_SIGNAL_IDS));
+    if (error) {
+      logFailure('named-contact-ids', error);
+      break;
+    }
+    for (const r of (data ?? []) as { signal_id: number }[]) found.add(r.signal_id);
+  }
+  return { ids: found, reads };
+}

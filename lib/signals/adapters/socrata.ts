@@ -126,8 +126,9 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
       if (rule.severity && rule.severity > severity) severity = rule.severity;
     }
   }
-  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone.
-  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit') classifyText(text).forEach((c) => set.add(c));
+  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone. Code violations decide alone too
+  // (round 15 quality gate: "REPAIR GUTTER & DOWNSPOUT" was tagged roofing by the keyword list; VIOLATION_RULES already routes gutters).
+  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit' && ds.subtype !== 'violation') classifyText(text).forEach((c) => set.add(c));
   return { categories: [...set], severity };
 }
 

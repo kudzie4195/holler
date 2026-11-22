@@ -6,6 +6,8 @@
  *   scripts/fixtures/replay-14d/c311.psv      source|title_rest|cats|n             (6,819 rows, 311 requests)
  *   scripts/fixtures/replay-14d/other.psv     source|subtype|kind|title|cats|n     (3,045 rows, everything else)
  * Output: /home/claude/gates/r13/logs/A-replay.md (or the path given as the first argument).
+ * Round 15 unit F (PLAN-2.0 item 1.1): permits also reach the trades DOWNSTREAM of their type (lib/signals/permit-routing.ts), read from the
+ * permit title. The 'before' stream of that section is the pairs a record's own tags give; 'after' adds the downstream pairs.
  *
  *   scripts/fixtures/replay-14d/smyrna-roofer.json   the live roofer profile near Smyrna GA and its roofing rows (2 rows)
  * Nothing here touches a database, the network or the clock. Run from the repo root with:
@@ -27,6 +29,7 @@ import { dirname, join } from 'node:path';
 import { OPPORTUNITY_LABELS, isAlertLabel, isFeedLabel, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
 import { matchOne, type MatchProfile, type MatchSignal } from '../lib/signals/match';
 import type { CategoryId } from '../lib/signals/categories';
+import { DOWNSTREAM, ROUTE_KINDS, downstreamTradesOf, routeKindsOf, type RouteKind } from '../lib/signals/permit-routing';
 
 const ROOT = join(__dirname, 'fixtures', 'replay-14d');
 const OUT = process.argv[2] ?? '/home/claude/gates/r13/logs/A-replay.md';
@@ -82,13 +85,33 @@ const ruleHits = new Map<string, number>();
 const alertRows: Array<{ trade: string; g: Group; label: OpportunityLabel }> = [];
 const allPairRows: Array<{ trade: string; g: Group; label: OpportunityLabel }> = [];
 
+/** Round 15 (item 1.1): the stream before downstream routing, a record and the trades it is tagged with, labelled the same way. */
+const beforeTrades = new Map<string, TradeStats>();
+/** Downstream pairs added by routing: trade -> rows, and per matrix kind the permit rows that reach each trade. */
+const gained = new Map<string, number>();
+const routedRows = new Map<RouteKind, { permits: number; reach: Map<string, number> }>();
+let permitRows = 0;
+
 for (const g of groups) {
   if (g.cats.length === 0) {
     untagged.rows += g.n;
     continue;
   }
   const sig: LabelInput = { source: g.source, kind: g.kind, subtype: g.subtype, title: g.title };
-  for (const trade of g.cats) {
+  const isPermit = g.subtype === 'permit';
+  if (isPermit) permitRows += g.n;
+  // Own tags first (the old stream), then the trades downstream of the permit type (new).
+  const downstream = isPermit ? downstreamTradesOf(g.title).filter((t) => !g.cats.includes(t)) : [];
+  if (isPermit) {
+    for (const k of routeKindsOf(g.title)) {
+      const e = routedRows.get(k) ?? { permits: 0, reach: new Map<string, number>() };
+      e.permits += g.n;
+      const reached = downstreamTradesOf(g.title);
+      for (const t of DOWNSTREAM[k]) if (reached.includes(t)) e.reach.set(t, (e.reach.get(t) ?? 0) + g.n);
+      routedRows.set(k, e);
+    }
+  }
+  for (const trade of [...g.cats, ...downstream]) {
     const label = labelFor(sig, trade as CategoryId);
     const rule = ruleFor(sig, trade as CategoryId);
     const key = rule ? rule.id : `source-default:${g.source}`;
@@ -100,6 +123,14 @@ for (const g of groups) {
     trades.set(trade, t);
     allPairRows.push({ trade, g, label });
     if (isAlertLabel(label)) alertRows.push({ trade, g, label });
+    if (g.cats.includes(trade)) {
+      const b = beforeTrades.get(trade) ?? blank();
+      b.pairs += g.n;
+      b.byLabel[label] += g.n;
+      beforeTrades.set(trade, b);
+    } else {
+      gained.set(trade, (gained.get(trade) ?? 0) + g.n);
+    }
   }
 }
 
@@ -275,6 +306,48 @@ P('## Roofers and roof permits');
 P();
 P(`Roof permits tagged to roofing in the 14 days: ${roofPairN} pairs. Labels: ${[...roofLabels].map(([l, n]) => `${l}=${n}`).join(', ') || 'none'}.`);
 P(`RESULT: roof permits that are ALERTS (pushed or emailed) for roofers = ${roofAlertN} (${roofAlertN === 0 ? 'PASS' : 'FAIL'}). They stay in the app feed as "Market insight" (feed only), after every alert.`);
+P();
+
+// ---- round 15 unit F: downstream permit routing ---------------------------------------------------------------------------------
+P('## Downstream permit routing (PLAN-2.0 item 1.1, round 15 unit F)');
+P();
+P(`Permits in the 14 days: ${permitRows} rows. The permit type is read from the permit TITLE (lib/signals/permit-routing.ts), never from a trade tag. A trade that does the permitted work keeps the market insight; the trades downstream of the type get coming_soon. "Before" = the pairs a record's own tags give (the stream after round 14); "After" = those plus the downstream pairs.`);
+P();
+P('### Matrix kinds found in the permit titles');
+P();
+P('| Kind | Permit rows | Reaches (trade: rows) |');
+P('|---|---:|---|');
+for (const k of ROUTE_KINDS) {
+  const e = routedRows.get(k);
+  P(`| ${k} | ${e?.permits ?? 0} | ${[...(e?.reach ?? [])].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}: ${n}`).join(', ') || 'none'} |`);
+}
+P();
+P('### Per trade: coming_soon, alerts and feed before and after routing');
+P();
+P('Alerts = act_now + coming_soon (pushed, emailed). Feed = alerts + market_insight (what the app shows). Alert share of the feed = alerts / feed. The share of SENT alerts that are act_now or coming_soon is 100% for every trade by construction (push and the digest send only those two labels), so the useful figure for the PLAN-2.0 target (60%) is how much of what the member SEES is an alert.');
+P();
+P('| Trade | coming_soon before | coming_soon after | gained from routing | alerts before | alerts after | feed before | feed after | alert share of feed before | after |');
+P('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
+const allT = [...new Set([...trades.keys(), ...beforeTrades.keys()])].sort((a, b) => (gained.get(b) ?? 0) - (gained.get(a) ?? 0) || (a < b ? -1 : 1));
+let gainTot = 0;
+for (const t of allT) {
+  const b = beforeTrades.get(t) ?? blank();
+  const a = trades.get(t) ?? blank();
+  const bA = b.byLabel.act_now + b.byLabel.coming_soon;
+  const aA = a.byLabel.act_now + a.byLabel.coming_soon;
+  const bF = bA + b.byLabel.market_insight;
+  const aF = aA + a.byLabel.market_insight;
+  gainTot += gained.get(t) ?? 0;
+  P(`| ${t} | ${b.byLabel.coming_soon} | ${a.byLabel.coming_soon} | ${gained.get(t) ?? 0} | ${bA} | ${aA} | ${bF} | ${aF} | ${pct(bA, bF)} | ${pct(aA, aF)} |`);
+}
+P();
+P(`Downstream pairs added in total: ${gainTot}.`);
+P();
+const downstreamTrades = [...new Set(ROUTE_KINDS.flatMap((k) => DOWNSTREAM[k]))].sort();
+const noGain = downstreamTrades.filter((t) => !(gained.get(t) ?? 0));
+P(`Matrix trades that gained no pair in this window: ${noGain.join(', ') || 'none'} (a trade can also be reached only through its own tags: junk-removal on a demolition is tagged already, so it shows no "gain").`);
+const roofOwn = alertRows.filter((r) => r.trade === 'roofing' && r.g.subtype === 'permit' && routeKindsOf(r.g.title).includes('re-roof') && !/\bsolar\b/i.test(r.g.title));
+P(`Roofers: coming_soon or act_now pairs from roof-typed permits = ${roofOwn.reduce((a, r) => a + r.g.n, 0)} (must be 0). Roofers DO gain solar permits as coming_soon (PLAN matrix: Solar goes to electrical and roofing).`);
 P();
 
 // per trade top 10

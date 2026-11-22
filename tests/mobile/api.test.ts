@@ -305,6 +305,31 @@ describe('GET /api/m/feed', () => {
     // Every member read was scoped to the caller.
     for (const q of w.members[UA].log.filter((x) => x.table === 'holler_matches')) expect(q.eqOf('user_id')).toBe(UA);
   });
+  it('review F P1-2b: an $8.4M commercial alteration is shown to a cleaning + janitorial member under janitorial, never "cleaning may follow"', async () => {
+    w.profiles[UA] = profileRow(UA, { categories: ['cleaning', 'janitorial-commercial'] });
+    w.matches = [
+      {
+        id: 9,
+        user_id: UA,
+        created_at: '2026-11-18T12:00:00+00:00',
+        signal: sig(301, {
+          source: 'arcgis-atlanta-permits',
+          kind: 'permit',
+          subtype: 'permit',
+          title: 'Remodel permit in Atlanta',
+          summary: 'Commercial Alteration | $8,400,000 job value | 100 PEACHTREE ST NE, ATLANTA, GA 30303',
+          categories: ['general-contractor', 'cleaning', 'janitorial-commercial'],
+          severity: 1,
+        }),
+      },
+    ];
+    const b = await (await (await feed())(req('/api/m/feed', { token: TA }))).json();
+    const item = b.items[0];
+    expect(item.signalId).toBe(301);
+    expect(JSON.stringify(item.brief)).not.toMatch(/cleaning may follow/i);
+    expect(item.brief.why).toMatch(/^A commercial permit was filed nearby/);
+    expect(item.brief.why).not.toMatch(/(?<!commercial )\bcleaning may follow/i);
+  });
   it('locked: masked titles, no url, draft, contacts or feedback, and the contacts loader is never called', async () => {
     w.profiles[UA] = profileRow(UA, { trial_ends_at: '2026-01-01T00:00:00Z' });
     w.feedback.push({ user_id: UA, signal_id: 101, verdict: 'useful', job_value_usd: null });

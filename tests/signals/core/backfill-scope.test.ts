@@ -121,9 +121,10 @@ describe('backfill location filter', () => {
 
   it('caps new-business rows at 5 per backfill, nearest first, without touching the other rows', async () => {
     nextId = 1;
-    const cleaning: MatchProfile = { ...atlantaHvac, categories: ['cleaning'] };
-    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: 'business' }, lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
-    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: '311' }, lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
+    // Round 15 quality gate: licences are context for house cleaning, so the cap is proved with security (still alerted on licences).
+    const cleaning: MatchProfile = { ...atlantaHvac, categories: ['security'] };
+    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['security'], data: { subtype: 'business' }, lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
+    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['security'], data: { subtype: '311' }, lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
     const { r, matched } = await run([...biz, ...other], cleaning);
     expect(r.matched).toBe(MAX_BUSINESS_PER_USER + 3);
     const bizIds = matched.filter((id) => biz.some((b) => b.id === id));
