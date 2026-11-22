@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { repairShortTrial, type TrialRow } from '@/lib/auth/trial';
+import { repairShortTrialChecked, type TrialRow } from '@/lib/auth/trial';
 import { siteUrl } from '@/lib/env';
 import { isPaidNow } from '@/lib/auth/access';
 import { hit } from '@/lib/auth/ratelimit';
@@ -72,8 +72,10 @@ export async function POST(req: Request) {
   // repair as /app; no query when the row is already right). Without this a member who subscribes from Settings before opening /app is
   // charged at the old 14-day end while migration 0028 is not applied. repairShortTrial returns the end AS STORED by the write (or null
   // when nothing moved), so Stripe is only ever given a value the row holds.
-  const repairedEnd = await repairShortTrial(user, profile as TrialRow, () => admin);
-  const trialEnd = repairedEnd ?? (profile.trial_ends_at as string | null);
+  const repair = await repairShortTrialChecked(user, profile as TrialRow, () => admin);
+  // Review r3 D1: a repair that was due and failed must not turn into a charge at the short end. Fail closed, like the limiter above.
+  if (repair.failed) return Response.json({ error: 'unavailable' }, { status: 503, headers: { 'Retry-After': '5' } });
+  const trialEnd = repair.end ?? (profile.trial_ends_at as string | null);
   // Already paying (or in Stripe's retry window): a second checkout would create a second subscription.
   // Moving between Solo and Pro goes through POST /api/stripe/change-plan instead.
   // Same paid test as the feed lock (isPaidNow): a store plan whose period ran out with no EXPIRATION webhook, or with no readable

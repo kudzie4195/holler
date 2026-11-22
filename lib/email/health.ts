@@ -76,7 +76,8 @@ export interface HealthReport {
   firecrawl?: FirecrawlHealth | null;
   /**
    * Advertised free trial (TRIAL_DAYS) against what the database enforces (lib/auth/trial-check.ts, migration 0028). Attached by the route;
-   * absent when not checked. A mismatch or a missing migration changes the subject only when the run-level checks found nothing.
+   * absent when not checked. A mismatch, a missing migration or a read error replaces the all-clear subject and is appended to any other
+   * subject (review r2 R6).
    */
   trialCheck?: TrialDbCheck | null;
 }

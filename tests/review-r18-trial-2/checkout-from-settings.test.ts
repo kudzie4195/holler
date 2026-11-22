@@ -146,8 +146,8 @@ describe('R1: every reader of the trial end that shows billing or charges runs t
     expect(settings.indexOf('repairShortTrial(user, loaded')).toBeGreaterThan(0);
     expect(settings.indexOf('repairShortTrial(user, loaded')).toBeLessThan(settings.indexOf('computeAccess(profile)'));
     const checkout = src('app/api/stripe/checkout/route.ts');
-    expect(checkout.indexOf('repairShortTrial(user')).toBeGreaterThan(0);
-    expect(checkout.indexOf('repairShortTrial(user')).toBeLessThan(checkout.indexOf('trialParams(trialEnd)'));
+    expect(checkout.indexOf('repairShortTrialChecked(user')).toBeGreaterThan(0);
+    expect(checkout.indexOf('repairShortTrialChecked(user')).toBeLessThan(checkout.indexOf('trialParams(trialEnd)'));
     expect(checkout).not.toContain('trialParams(profile.trial_ends_at');
     const app = src('app/app/page.tsx');
     expect(app.indexOf('repairShortTrial(user')).toBeLessThan(app.indexOf('computeAccess(profile, now)'));

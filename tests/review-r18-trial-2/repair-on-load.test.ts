@@ -203,7 +203,8 @@ describe('REV2 repair on page load: who is touched', () => {
     const [a, b] = await Promise.all([load(w, T0), load(w, T0 + 3)]);
     expect(w.row!.trial_ends_at).toBe(iso(T0 + 55 * DAY));
     expect(w.calls.updateHit).toBe(1); // the second guarded UPDATE matches nothing
-    expect([a, b].filter(Boolean)).toHaveLength(1);
+    // Review r3 D1b: the load that lost the race is told the end the row now holds too (it must not go on with the short end it read).
+    expect([a, b]).toEqual([iso(T0 + 55 * DAY), iso(T0 + 55 * DAY)]);
     expect(w.calls.ledgerDelete).toBe(1);
   });
 

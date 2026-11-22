@@ -195,7 +195,7 @@ begin
     v_end := v_start + interval '60 days';
     -- Already there, to within a second: the app (lib/auth/trial.ts) writes whole milliseconds, Postgres keeps microseconds (review F4).
     continue when v_end <= now() or v_end <= r.trial_ends_at + interval '1 second';
-    -- An ENDED trial is revived only if the new end is more than 72 hours away, so the 3-day reminder (60 to 84 hours before the end,
+    -- An ENDED trial is revived only if the new end is more than 72 hours away, so the 3-day reminder (36 to 84 hours before the end,
     -- lib/lifecycle/select.ts) always comes before a second "Your alerts are paused" email (review F1). Running trials are always extended.
     continue when r.trial_ends_at <= now() and v_end <= now() + interval '72 hours';
     execute

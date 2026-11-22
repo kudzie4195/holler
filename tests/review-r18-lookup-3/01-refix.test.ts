@@ -12,7 +12,7 @@ import { ENV, NOW, fakeFetch, item, jsonRes, listingsBody, newDb, todayRows } fr
 const out: string[] = [];
 const say = (id: string, verdict: string, note: string) => out.push(`${id.padEnd(6)} ${verdict.padEnd(10)} ${note}`);
 afterAll(async () => {
-  // eslint-disable-next-line no-console
+   
   console.log('\n' + out.join('\n') + '\n');
   const { writeFileSync } = await import('node:fs');
   if (process.env.REV3_OUT) writeFileSync(`${process.env.REV3_OUT}/REV3-LOOKUP-refix.txt`, out.join('\n') + '\n');

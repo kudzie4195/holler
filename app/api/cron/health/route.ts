@@ -8,7 +8,7 @@ import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@
 import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
 import { readStateRuns } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
-import { loadTrialDbCheck } from '@/lib/auth/trial-check';
+import { countShortTrials, loadTrialDbCheck } from '@/lib/auth/trial-check';
 
 export const maxDuration = 60;
 
@@ -142,6 +142,8 @@ export async function GET(req: Request) {
   }
   // Advertised trial length against the database's (migration 0028). Read-only; never throws.
   report.trialCheck = await loadTrialDbCheck(admin);
+  // Review 3 D4: when the database is not at the advertised length, state the real number of members still on a shorter trial.
+  if (report.trialCheck.status === 'not_applied' || report.trialCheck.status === 'mismatch') report.trialCheck.shortTrials = await countShortTrials(admin, now);
 
   // Round 18 business lookups (lib/enrich/business-lookup.ts): the daily circuit breaker (the first 5 answers of a UTC day held no usable
   // match) and the outage stop (3 calls in a row with no answer: login, balance or the service). This email goes out once a day (13:03 UTC),

@@ -12,7 +12,7 @@ import { ENV, NOW, fakeFetch, item, listingsBody, newDb } from '../enrich/helper
 
 const out: string[] = [];
 afterAll(async () => {
-  // eslint-disable-next-line no-console
+   
   console.log('\n' + out.join('\n') + '\n');
   const { writeFileSync } = await import('node:fs');
   if (process.env.REV3_OUT) writeFileSync(`${process.env.REV3_OUT}/REV3-LOOKUP-closed-placewords.txt`, out.join('\n') + '\n');

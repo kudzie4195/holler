@@ -10,7 +10,7 @@ const TRIAL_END_EMAILS = ['trial_ending', 'trial_ended'];
 const HOUR = 3_600_000;
 /**
  * An ENDED trial is moved to start + TRIAL_DAYS only when the new end is more than this far away, so the "trial ends in 3 days" email
- * (60 to 84 hours before the end, lib/lifecycle/select.ts) always comes before a second "Your alerts are paused" (review F1). Same rule as
+ * (36 to 84 hours before the end, normally sent at about 84 hours, lib/lifecycle/select.ts) always comes before a second "Your alerts are paused" (review F1). Same rule as
  * migration 0028.
  */
 export const REVIVE_MIN_LEFT_MS = 72 * HOUR;
@@ -141,7 +141,12 @@ export async function applyTrialRulesDetailed(admin: Admin, userId: string, now:
     if (error) throw new Error(error.message);
     // The guarded UPDATE matched nothing (the member subscribed between the read and the write): no extension, no ledger change (review F9),
     // and the caller is told the end that was read, not the one that was not written (review r2 R4).
-    if (!Array.isArray(moved) || moved.length === 0) return { outcome, extended: false, storedEnd: readEnd };
+    if (!Array.isArray(moved) || moved.length === 0) {
+      // Review r3 D1b: the row changed between the read and the write (a concurrent repair won, or the member subscribed), so the end
+      // read above may be stale. Read what the row holds now (one more read, on this rare path only).
+      const { data: fresh } = await admin.from('holler_profiles').select('trial_ends_at').eq('user_id', userId).maybeSingle();
+      return { outcome, extended: false, storedEnd: typeof fresh?.trial_ends_at === 'string' ? fresh.trial_ends_at : readEnd };
+    }
     // The end as the row holds it: from the write's own returned row, else read back. Never the computed `ends` (review r2 R4).
     let storedEnd: string | null = typeof (moved[0] as { trial_ends_at?: unknown }).trial_ends_at === 'string' ? String((moved[0] as { trial_ends_at: string }).trial_ends_at) : null;
     if (storedEnd === null) {
@@ -171,15 +176,34 @@ export async function repairShortTrial(
   admin: () => Admin,
   now: Date = new Date(),
 ): Promise<string | null> {
+  return (await repairShortTrialChecked(user, profile, admin, now)).end;
+}
+
+/**
+ * repairShortTrial with two more answers (review r3 D1):
+ *  - `end` is the trial end the row holds NOW whenever that is not the end the caller read: moved by this call, or by a concurrent repair
+ *    (another tab, the app, the cron) that won the race. Null when the row still holds what the caller read.
+ *  - `failed` is true when a repair was due and could not be carried out (an Auth admin or database error). A caller that charges
+ *    (Checkout) must not go on with the short end then.
+ */
+export async function repairShortTrialChecked(
+  user: { id: string; app_metadata?: unknown },
+  profile: TrialRow | null,
+  admin: () => Admin,
+  now: Date = new Date(),
+): Promise<{ end: string | null; failed: boolean }> {
   try {
-    if (!profile) return null;
+    if (!profile) return { end: null, failed: false };
     const start = trialStartOf(profile.created_at, trialStartedAt(user.app_metadata));
-    if (!start || !mayExtendTrial(profile, start, now.getTime())) return null;
+    if (!start || !mayExtendTrial(profile, start, now.getTime())) return { end: null, failed: false };
+    const was = parse(profile.trial_ends_at); // read before the call: the caller's object may be the one a write updates
     const r = await applyTrialRulesDetailed(admin(), user.id, now);
-    return r.extended ? r.storedEnd : null;
+    if (r.outcome === 'error') return { end: null, failed: true };
+    const same = r.storedEnd === null || Math.abs(Date.parse(r.storedEnd) - was) <= SAME_END_MS;
+    return { end: same ? null : r.storedEnd, failed: false };
   } catch (e) {
     console.error('repairShortTrial failed:', e instanceof Error ? e.message : String(e));
-    return null;
+    return { end: null, failed: true };
   }
 }
 
@@ -212,5 +236,8 @@ async function resetTrialEndEmails(admin: Admin, userId: string): Promise<boolea
  */
 export async function repairTrialForCron(admin: Admin, userId: string, now: Date = new Date()): Promise<string | null> {
   const r = await applyTrialRulesDetailed(admin, userId, now);
-  return r.extended ? r.storedEnd : null;
+  // Review r3 D2: a failed repair THROWS (the cron then sends nothing in this run and tries again next hour), and the end returned is the
+  // end the row holds now, moved by this call or not (the cron compares it with the end it loaded).
+  if (r.outcome === 'error') throw new Error('trial repair failed');
+  return r.storedEnd;
 }

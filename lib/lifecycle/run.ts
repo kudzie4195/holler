@@ -233,7 +233,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
    * Review r2 R2: a trial email to a member the app would extend is wrong ("ends in 3 days" when 48 days are left). Extend first, skip
    * the email. Only when the repair really moved the row: a failed or refused repair (or a stamp that cannot be read) sends as before.
    */
-  async function extendedFirst(c: Candidate, p: FullProfile): Promise<boolean> {
+  async function extendedFirst(c: Candidate, p: FullProfile): Promise<boolean | 'failed'> {
     if (c.kind === 'welcome') return false;
     let stamp: string | null = null;
     try {
@@ -245,11 +245,14 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     if (!start || !mayExtendTrial(p, start, now.getTime())) return false;
     if (dry) return true;
     if (!deps.repairTrial) return false;
+    let stored: string | null;
     try {
-      return (await deps.repairTrial(c.userId, now)) !== null;
+      stored = await deps.repairTrial(c.userId, now);
     } catch {
-      return false;
+      return 'failed'; // review r3 D2: the repair was due and failed. Send nothing for the old end; the next run tries again.
     }
+    // Skip the email whenever the row no longer holds the end this run loaded: moved by this call, by a page load or by another run.
+    return stored !== null && Math.abs(Date.parse(stored) - Date.parse(p.trial_ends_at ?? '')) > 1000;
   }
 
   if (dry) {
@@ -263,7 +266,7 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
           s.skipped_returning++;
           continue;
         }
-        if (deps.repairTrial && (await extendedFirst(c, p))) {
+        if (deps.repairTrial && (await extendedFirst(c, p)) === true) {
           s.skipped_trial_extended++;
           continue;
         }
@@ -284,7 +287,12 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     const p = byId.get(c.userId);
     if (!p) return 'done';
     tries.set(key(c), (tries.get(key(c)) ?? 0) + 1);
-    if (await extendedFirst(c, p)) {
+    const ext = await extendedFirst(c, p);
+    if (ext === 'failed') {
+      s.failed++;
+      return 'retry'; // no claim, no send
+    }
+    if (ext) {
       s.skipped_trial_extended++;
       return 'done';
     }

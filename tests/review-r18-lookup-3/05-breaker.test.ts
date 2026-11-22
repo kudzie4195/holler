@@ -13,7 +13,7 @@ import { ENV, LOOKUP_URL, fakeFetch, item, jsonRes, listingsBody, newDb } from '
 const out: string[] = [];
 const say = (id: string, verdict: string, note: string) => out.push(`${id.padEnd(4)} ${verdict.padEnd(10)} ${note}`);
 afterAll(async () => {
-  // eslint-disable-next-line no-console
+   
   console.log('\n' + out.join('\n') + '\n');
   const { writeFileSync } = await import('node:fs');
   if (process.env.REV3_OUT) writeFileSync(`${process.env.REV3_OUT}/REV3-LOOKUP-breaker.txt`, out.join('\n') + '\n');
@@ -39,7 +39,6 @@ const STEMS = ['Zorvex', 'Quillon', 'Brantex', 'Veltrix', 'Norvane', 'Kestrol', 
 const NAMES = STEMS.map((w) => `${w} Roofing`);
 const env20 = { ...ENV, HOLLER_LOOKUP_MAX_PER_RUN: '20' };
 const empty = () => jsonRes(listingsBody([], 0.012));
-const foundFor = (name: string) => jsonRes(listingsBody([item({ title: name })], 0.01236));
 const one = (db: unknown, name: string, when: Date, fetch: unknown, opts: Record<string, unknown> = {}) =>
   lookupBusiness({ name, city: 'Atlanta', state: 'GA' }, { db: db as never, fetch: fetch as never, env: env20, now: () => when, sleep: async () => {} }, opts);
 const row = (i: number, status: string, when: Date) => ({ name_key: `seed${i} roofing`, city_key: 'atlanta', state: 'GA', status, phone: status === 'found' ? '404-555-0123' : null, website: null, listing_name: status === 'found' ? 'x' : null, cost_usd: 0.012, checked_at: when.toISOString() });

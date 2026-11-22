@@ -9,7 +9,7 @@ import { ENV, LOOKUP_URL, SECRETS, dbWithoutCache, fakeFetch, item, jsonRes, lis
 const out: string[] = [];
 const say = (id: string, verdict: string, note: string) => out.push(`${id.padEnd(4)} ${verdict.padEnd(8)} ${note}`);
 afterAll(async () => {
-  // eslint-disable-next-line no-console
+   
   console.log('\n' + out.join('\n') + '\n');
   const { writeFileSync } = await import('node:fs');
   if (process.env.REV3_OUT) writeFileSync(`${process.env.REV3_OUT}/REV3-LOOKUP-probe-0026-awardee.txt`, out.join('\n') + '\n');
@@ -23,7 +23,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-type Store = { tables: Record<string, Record<string, unknown>[]>; calls: string[]; touched?: string[] };
 async function probe(qs: string, store: unknown, env: Record<string, string>, fetchImpl: unknown, headers: Record<string, string> = { authorization: 'Bearer s3cret' }) {
   vi.resetModules();
   vi.stubEnv('CRON_SECRET', 's3cret');

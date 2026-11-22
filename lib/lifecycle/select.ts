@@ -15,7 +15,8 @@
  * "Subscribed" means a paid status (active, past_due), a canceled status, or a stripe_subscription_id on the row. A checkout started
  * during the trial stores the subscription id while the status is still 'trialing', so the id counts. Canceled members are left
  * alone: they either chose to leave or their payment failed for good.
- * Windows are closed on both ends and measured in milliseconds, so the edges are exact. They are wide enough (24 to 30 hours) that
+ * Windows are closed on both ends and measured in milliseconds, so the edges are exact. They are wide enough (24 to 48 hours: welcome 24,
+ * trial_ending 48, trial_ended 30) that
  * an hourly cron that misses a few runs still reaches everyone, and the sends ledger keeps each kind to one email per member.
  */
 export type LifecycleKind = 'welcome' | 'trial_ending' | 'trial_ended';
