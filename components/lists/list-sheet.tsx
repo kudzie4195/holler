@@ -114,7 +114,7 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
                       ) : null}
                       <td className="py-1.5 max-sm:p-0 print:hidden">
                         {e.url ? (
-                          <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-brand-text underline">
+                          <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-brand-text underline max-sm:-my-3 max-sm:inline-block max-sm:py-3">
                             {t(lang, 'lists.public_source')}
                           </a>
                         ) : null}
@@ -127,7 +127,8 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
           ))}
         </div>
       )}
-      <p className="mt-6 text-xs text-muted">{t(lang, 'lists.footer')}</p>
+      {/* break-before-avoid: the footer travels with the last row, never alone on a last printed page (review 2, P3-6). */}
+      <p className="mt-6 break-before-avoid text-xs text-muted">{t(lang, 'lists.footer')}</p>
     </article>
   );
 }

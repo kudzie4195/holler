@@ -60,7 +60,7 @@ export default async function StormListPage(props: PageProps<'/app/lists/storm'>
         heading={t(lang, 'lists.storm.title', { kind })}
         damageLines={DAMAGE_LINE}
         notes={[
-          t(lang, 'lists.storm.report', { title: localizeTitle(report.title, lang, 'spc'), date: listDate(report.occurredAt, lang) }),
+          t(lang, 'lists.storm.report', { title: localizeTitle(report.title, lang, 'spc'), date: listDate(report.reportDay, lang) }),
           t(lang, 'lists.storm.radius', { radius: STORM_RADIUS_MI, days: RETENTION_DAYS }),
           t(lang, 'lists.storm.approx'),
         ]}

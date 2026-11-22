@@ -3,6 +3,7 @@ import { hasApproxLocation, hasApproxReach, approxReachMi } from '@/lib/signals/
 import { isAlertLabel, labelForMember, ruleFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { DOWNSTREAM, KIND_DOERS, routeFor, ROUTE_KINDS, type RouteKind } from '@/lib/signals/permit-routing';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
+import { remarkNamesWindDamage } from '@/lib/signals/wind-damage';
 
 /**
  * Address lists (PLAN-2.0 item 3.3, round 18 unit LISTS). Trades that sell to homeowners (roofers, painters, landscapers, fencing, tree
@@ -75,6 +76,8 @@ export interface StormRow {
   occurred_at: string;
   url: string | null;
   categories?: string[] | null;
+  /** data->>day: SPC's report day (YYYY-MM-DD, the convective day starting 12:00 UTC). */
+  spcDay?: string | null;
   /** data->>type: 'hail' | 'wind' | 'torn'. */
   stormType?: string | null;
   /** data->>hailInches (text). */
@@ -86,20 +89,10 @@ export interface StormRow {
 }
 
 /**
- * Wind-damage words for LISTS ONLY (review redo 1, defect 1). The SPC adapter's own test (lib/signals/adapters/spc.ts, inline regex
- * /damage|down|blown|.../) has no word edges, so "downtown", "Main Street", "Rooftop" and "No damage reported" all match it; the adapter keeps
- * it (stored titles and alerts do not change in this unit), and the lists use this stricter pair instead. Checked against the SPC fixtures.
+ * Wind damage (review 2): a remark makes a wind list only when lib/signals/wind-damage.ts remarkNamesWindDamage says it reports damage to a
+ * named thing. Re-exported for the tests and pages that already import it from here.
  */
-export const LIST_WIND_DAMAGE_RE =
-  /\b(?:damag(?:e|ed|es|ing)|downed|down|blown|uproot(?:ed|ing)?|snapped|power\s+(?:out|lines?|poles?|outages?)|roofs?|roofing|shingles?|trees?|limbs?)\b/i;
-/** A remark that says there was no damage: such a report never makes a list, whatever else it says. */
-export const NO_DAMAGE_RE = /\bno\s+(?:known\s+|reported\s+|visible\s+|apparent\s+)?damage\b|\bnone\s+reported\b|\bdamage\s*:?\s*none\b|\bwithout\s+damage\b/i;
-
-/** True when an SPC remark names wind damage and does not say there was none. */
-export function remarkNamesWindDamage(comments: string | null | undefined): boolean {
-  const c = comments ?? '';
-  return !NO_DAMAGE_RE.test(c) && LIST_WIND_DAMAGE_RE.test(c);
-}
+export { remarkNamesWindDamage, UNASSESSED_RE, DAMAGED_THING_RE } from '@/lib/signals/wind-damage';
 
 const num = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
@@ -120,10 +113,8 @@ export function stormKindOf(r: Pick<StormRow, 'source' | 'title' | 'stormType' |
     return inches !== null && inches >= MIN_HAIL_INCHES ? 'hail' : null;
   }
   if (type === 'wind') {
-    // A remark that says "no damage" never makes a list, even under a "Wind damage reported" title.
-    if (NO_DAMAGE_RE.test(r.comments ?? '')) return null;
-    // No measured speed (SPC "UNK"): SPC filed it as a damage report. A title that prints a speed is a measured gust, stored speed or not.
-    if (num(r.windMph) === null && !/^\d+ mph wind gust/i.test(r.title)) return 'wind';
+    // Measured gust or "UNK" speed alike: only the remark's own damage wording makes a list. The stored title ("Wind damage reported") is
+    // written by the adapter's loose word test and proves nothing.
     return remarkNamesWindDamage(r.comments) ? 'wind' : null;
   }
   return null;
@@ -199,13 +190,13 @@ export function isListablePermit(r: Pick<PermitRow, 'source' | 'kind' | 'subtype
   return !r.projectOf;
 }
 
-const UNIT_TAIL_RE = /\s+(?:#\s*[A-Za-z0-9-]+|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room)\.?\s*#?\s*[A-Za-z0-9-]+)\s*$/i;
+const UNIT_TAIL_RE = /\s+(?:#\s*[A-Za-z0-9-]+|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room)(?![A-Za-z])\.?\s*#?\s*[A-Za-z0-9-]+)\s*$/i;
 /**
  * A unit (and anything typed after it) inside an address part: "APT 204", "#305", "UNIT 7", ", STE 100", "LOT 34". Cut BEFORE the street
  * cutter runs, because the cutter rejects a part with a 3-digit token or the word "unit" (review redo 1, defect 5: those buildings were
  * dropped instead of collapsed).
  */
-const UNIT_ANY_RE = /[\s,]+(?:#\s*[A-Za-z0-9-]+|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room|lot)\.?\s*#?\s*[A-Za-z0-9-]+)\b.*$/i;
+const UNIT_ANY_RE = /[\s,]+(?:#\s*[A-Za-z0-9-]+|\d+(?:st|nd|rd|th)\s+(?:fl|floor)\b|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room|lot)(?![A-Za-z])\.?\s*#?\s*[A-Za-z0-9-]+)\b.*$/i;
 
 /**
  * The building's street address from a stored permit summary, or null. The unit is cut first from every part that starts with a house
@@ -217,7 +208,14 @@ export function buildingAddress(summary: string | null | undefined): string | nu
   if (typeof summary !== 'string') return null;
   const cleaned = summary
     .split(' | ')
-    .map((p) => (/^\s*\d/.test(p) ? p.replace(UNIT_ANY_RE, '') : p))
+    .map((p) =>
+      /^\s*\d/.test(p)
+        ? p
+            .replace(/^(\s*\d+[A-Za-z]?)\s+1\/2(?=\s)/, '$1') // "123 1/2 MAIN ST": the half address is listed at its lot, 123 MAIN ST
+            .replace(/[\s,]*\((?:rear|front|upper|lower|basement)\)\s*$/i, '') // "12 OAK ST (REAR)"
+            .replace(UNIT_ANY_RE, '')
+        : p,
+    )
     .join(' | ');
   const site = siteAddressFromSummary(cleaned);
   if (!site) return null;

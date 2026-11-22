@@ -247,7 +247,9 @@ describe('which storm reports make a list', () => {
     expect(stormKindOf(storm())).toBe('hail');
     expect(stormKindOf(storm({ title: '1.00 inch hail reported near X', hailInches: '1' }))).toBe('hail');
     expect(stormKindOf(storm({ title: '0.75 inch hail reported near X', hailInches: '0.75' }))).toBeNull();
-    expect(stormKindOf(storm({ stormType: 'wind', title: 'Wind damage reported near X', hailInches: null }))).toBe('wind');
+    // Review 2: an UNK-speed report lists only when its OWN remark names damage to a thing; the stored title proves nothing.
+    expect(stormKindOf(storm({ stormType: 'wind', title: 'Wind damage reported near X', hailInches: null, comments: 'Trees down.' }))).toBe('wind');
+    expect(stormKindOf(storm({ stormType: 'wind', title: 'Wind damage reported near X', hailInches: null, comments: '' }))).toBeNull();
     expect(stormKindOf(storm({ stormType: 'wind', title: '61 mph wind gust reported near X', windMph: '61', comments: 'Trees down on Main St.' }))).toBe('wind');
     expect(stormKindOf(storm({ stormType: 'wind', title: '61 mph wind gust reported near X', windMph: '61', comments: 'Measured by ASOS.' }))).toBeNull();
     expect(stormKindOf(storm({ stormType: 'torn', title: 'Tornado reported near X' }))).toBeNull();
@@ -382,9 +384,14 @@ describe('print view and empty state', () => {
     expect(hangerLines('en', 'Peach Roofing', '404-555-0199', true)).toEqual([
       'Hello, neighbor',
       'Peach Roofing serves your neighborhood. If you would like a quote, call or text 404-555-0199.',
-      'There was a public storm report near this street. Damage not confirmed.',
-      'We are an independent business, not a city or government office. We found this street in public permit and storm records. We do not have your name or phone number.',
+      'There was a public storm report in this area. Damage not confirmed.',
+      'We are an independent business, not a city or government office. We are leaving this card on streets where public records show a building permit, near a public storm report. Those records list addresses only, no names or phone numbers.',
     ]);
+    // review 2: no "we found this street", no "storm records", no "we do not have your name" promise, in either language
+    for (const lang of ['en', 'es'] as const) for (const storm of [true, false]) {
+      const all = hangerLines(lang, 'Peach Roofing', '404-555-0199', storm).join(' ');
+      expect(all).not.toMatch(/we found|encontramos|storm records|registros públicos de permisos y tormentas|do not have your name|no tenemos su nombre/i);
+    }
     expect(hangerLines('es', 'Techos Peach', '404-555-0199', false).join(' ')).not.toMatch(/tormenta/);
     for (const l of Object.values(HANGER_TEXT.es)) expect(spanishProblems(l)).toEqual([]);
     const html = renderToStaticMarkup(createElement(DoorHanger, { lang: 'en', initialBusiness: 'Peach Roofing', storm: true }));
@@ -526,5 +533,24 @@ describe('review redo 1 regressions', () => {
     const m = calls.find((c) => c.table === 'holler_matches');
     expect(m?.cols).toContain('signal:holler_signals!inner(');
     expect(m?.filters).toEqual(expect.arrayContaining(['eq:signal.source,spc', 'in:signal_id,501']));
+  });
+});
+
+describe('review 2 regressions (redo 2)', () => {
+  it('P3-7: a storm prints the SPC report day, not the next UTC day', async () => {
+    // 7:30 pm Eastern on Nov 19 is 00:30 UTC on Nov 20; SPC files it under the Nov 19 report day
+    const evening = storm({ occurred_at: '2026-11-20T00:30:00+00:00', spcDay: '2026-11-19', comments: '' });
+    const { db } = fakeDb({ holler_matches: [{ user_id: 'user-a', signal_id: 501, signal: evening }] });
+    const [r] = await loadStormReports(db, member(), NOW);
+    expect(r).toMatchObject({ reportDay: '2026-11-19' });
+    const { db: db2 } = fakeDb({ holler_matches: [{ user_id: 'user-a', signal_id: 501, signal: { ...evening, spcDay: null } }] });
+    expect((await loadStormReports(db2, member(), NOW))[0]).toMatchObject({ reportDay: '2026-11-20' });
+    expect(STORM_COLUMNS).toContain('spcDay:data->>day');
+  });
+  it('P3-5 / P3-6: a 44 px touch area for the source link on phones, and the footer never alone on a printed page', () => {
+    const entries = buildList([permit()], { center: { ...SMYRNA, radiusMi: 2 } }).entries;
+    const html = renderToStaticMarkup(createElement(ListSheet, { lang: 'en', heading: 'H', notes: [], entries, total: 1, capped: false }));
+    expect(html).toMatch(/<a [^>]*class="[^"]*max-sm:inline-block max-sm:py-3[^"]*"[^>]*>public source</);
+    expect(html).toMatch(/<p class="[^"]*break-before-avoid[^"]*">From public records/);
   });
 });

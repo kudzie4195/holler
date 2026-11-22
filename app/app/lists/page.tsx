@@ -70,7 +70,7 @@ export default async function ListsPage() {
                         <div className="min-w-0">
                           <p className="break-words font-semibold text-ink">{localizeTitle(r.title, lang, 'spc')}</p>
                           <p className="text-sm text-muted">
-                            {listDate(r.occurredAt, lang)}
+                            {listDate(r.reportDay, lang)}
                             {count === null ? '' : ` · ${countText(count, lang)}`}
                           </p>
                         </div>

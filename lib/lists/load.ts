@@ -33,7 +33,7 @@ import {
  */
 
 export const STORM_COLUMNS =
-  'id,source,kind,title,lat,lon,city,state,county,occurred_at,url,categories,stormType:data->>type,hailInches:data->>hailInches,windMph:data->>windMph,comments:data->>comments';
+  'id,source,kind,title,lat,lon,city,state,county,occurred_at,url,categories,spcDay:data->>day,stormType:data->>type,hailInches:data->>hailInches,windMph:data->>windMph,comments:data->>comments';
 export const PERMIT_COLUMNS =
   'id,source,kind,title,summary,url,lat,lon,city,state,zip,occurred_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,projectOf:data->>projectOf';
 
@@ -68,6 +68,11 @@ export interface StormReportItem {
   state: string | null;
   county: string | null;
   occurredAt: string;
+  /**
+   * The date to print for the report: SPC's own report day (data.day, the convective day that starts at 12:00 UTC, as the SPC report page
+   * labels it), so an evening storm is not printed as the next UTC day (review 2, P3-7). occurred_at's UTC day when data.day is missing.
+   */
+  reportDay: string;
   url: string | null;
   lat: number;
   lon: number;
@@ -90,6 +95,7 @@ function toItem(s: StormRow, label: OpportunityLabel): StormReportItem {
     state: s.state ?? null,
     county: s.county ?? null,
     occurredAt: s.occurred_at,
+    reportDay: typeof s.spcDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.spcDay) ? s.spcDay : s.occurred_at.slice(0, 10),
     url: s.url ?? null,
     lat: s.lat as number,
     lon: s.lon as number,

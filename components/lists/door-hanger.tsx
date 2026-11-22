@@ -15,17 +15,17 @@ export const HANGER_TEXT: Record<Lang, { hello: string; body: string; storm: str
   en: {
     hello: 'Hello, neighbor',
     body: '{business} serves your neighborhood. If you would like a quote, call or text {phone}.',
-    storm: 'There was a public storm report near this street. Damage not confirmed.',
+    storm: 'There was a public storm report in this area. Damage not confirmed.',
     // Without the storm line the card mentions permits only (review redo 1, defect 2).
-    footer: 'We are an independent business, not a city or government office. We found this street in public permit records. We do not have your name or phone number.',
-    footerStorm: 'We are an independent business, not a city or government office. We found this street in public permit and storm records. We do not have your name or phone number.',
+    footer: 'We are an independent business, not a city or government office. We are leaving this card on streets where public records show a building permit. Those records list addresses only, no names or phone numbers.',
+    footerStorm: 'We are an independent business, not a city or government office. We are leaving this card on streets where public records show a building permit, near a public storm report. Those records list addresses only, no names or phone numbers.',
   },
   es: {
     hello: 'Hola, vecino',
     body: '{business} ofrece sus servicios en su vecindario. Si desea un presupuesto, llame o envíe un mensaje al {phone}.',
-    storm: 'Hubo un reporte público de tormenta cerca de esta calle. Daño no confirmado.',
-    footer: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Encontramos esta calle en registros públicos de permisos. No tenemos su nombre ni su número de teléfono.',
-    footerStorm: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Encontramos esta calle en registros públicos de permisos y tormentas. No tenemos su nombre ni su número de teléfono.',
+    storm: 'Hubo un reporte público de tormenta en esta zona. Daño no confirmado.',
+    footer: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Dejamos esta tarjeta en calles donde los registros públicos de permisos muestran un permiso de construcción. Esos registros solo tienen direcciones, no nombres ni teléfonos.',
+    footerStorm: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Dejamos esta tarjeta en calles donde los registros públicos de permisos muestran un permiso de construcción, cerca de un reporte público de tormenta. Esos registros solo tienen direcciones, no nombres ni teléfonos.',
   },
 };
 
