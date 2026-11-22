@@ -4,6 +4,8 @@
  * Most of these are the words code in lib/signals, lib/email, lib/outreach and components already printed; the code now reads them from
  * here, and the existing tests prove the English output did not change by a byte.
  */
+import { EN_ACCOUNT } from './en-account';
+
 export const en = {
   // ---- language names (shown in the Settings picker, always in their own language) ----
   'lang.en': 'English',
@@ -584,7 +586,7 @@ export const en = {
   'fam.civic.from': 'Fallen trees, dumping, rats and repair orders.',
   'fam.good_for': 'Good for: {list}',
   'lang.band.h': 'Alerts in Spanish',
-  'lang.band.p': 'Choose Español in Settings and your alert emails, alert cards and reply drafts are written in Spanish. The sign-up pages are still in English.',
+  'lang.band.p': 'If you create your account from these pages, your alert emails, alert cards, reply drafts and web account are in Spanish. You can change the language any time in Settings.',
   'price.h': '{trial}. Then a flat monthly price.',
   'price.p': 'No card to start. Cancel any time.',
   'price.line': 'The {starter} plan is {a} a month or {b} a year. The {pro} plan is {c} a month or {d} a year.',
@@ -1062,6 +1064,8 @@ export const en = {
   'hanger.preview': 'Preview',
   'hanger.placeholder.business': 'Your business',
   'hanger.placeholder.phone': 'Your phone',
+  // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
+  ...EN_ACCOUNT,
 } as const;
 
 export type DictKey = keyof typeof en;

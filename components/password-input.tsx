@@ -3,14 +3,16 @@
 import { useId, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { Field, controlClasses } from './field';
+import { t, type Lang } from '@/lib/i18n';
 
 /** Password field with a Show/Hide toggle (44 px target, announces state). */
 export function PasswordInput({
   label,
   hint,
   error,
+  lang = 'en',
   ...rest
-}: { label: string; hint?: string; error?: string | null } & Omit<ComponentProps<'input'>, 'type'>) {
+}: { label: string; hint?: string; error?: string | null; /** Language of the Show/Hide toggle. English by default. */ lang?: Lang } & Omit<ComponentProps<'input'>, 'type'>) {
   const id = useId();
   const [shown, setShown] = useState(false);
   return (
@@ -30,7 +32,7 @@ export function PasswordInput({
           aria-pressed={shown}
           className="absolute right-1 top-0 flex h-full min-w-16 items-center justify-center rounded-control px-3 text-sm font-semibold text-muted hover:text-ink"
         >
-          {shown ? 'Hide' : 'Show'}
+          {lang === 'en' ? (shown ? 'Hide' : 'Show') : t(lang, shown ? 'auth.hide' : 'auth.show')}
         </button>
       </div>
     </Field>

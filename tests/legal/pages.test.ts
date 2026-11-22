@@ -57,8 +57,8 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
     const { html, metadata } = await render(page, 'support@localholler.com');
     expect(metadata.title).toBe(page === 'terms' ? 'Terms' : 'Privacy');
     expect(metadata.alternates?.canonical).toBe(`/${page}`);
-    // Round 7: both pages moved to November 19, 2026 (app, store billing, AI, analytics, outcomes, archive). Round 18: November 22, 2026
-    // (60-day free trial in the terms, the trial-email timing in the privacy policy).
+    // Round 7: both pages moved to November 19, 2026. Round 18: both changed text, so both read November 22, 2026 (terms: the 60-day free
+    // trial; privacy: the trial-email timing and, from the ES unit, the holler_lang cookie sentence). /delete-account did not change.
     expect(html).toContain('Last updated November 22, 2026');
   });
 

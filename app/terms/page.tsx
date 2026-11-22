@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { COMPANY } from '@/lib/legal/company';
-import { LEGAL_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
+import { TERMS_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
 import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default function TermsPage() {
     <DocPage
       title="Terms"
       intro="This is the agreement between you and the company that runs Holler. It is written to be read. Using Holler means you accept it."
-      updated={LEGAL_UPDATED}
+      updated={TERMS_UPDATED}
     >
       <DocSection title="Who we are">
         <p>

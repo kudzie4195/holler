@@ -17,7 +17,7 @@ export const FOOTER_TRADES: FooterLink[] = [
   { href: '/for', label: 'All trades' },
 ];
 
-function groups(contact: string | null): { title: string; links: FooterLink[] }[] {
+function groups(contact: string | null, spanishHref: string): { title: string; links: FooterLink[] }[] {
   return [
     {
       title: 'Product',
@@ -27,7 +27,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/#how', label: 'How it works' },
         { href: '/storms', label: 'Storm reports' },
         { href: '/request', label: 'Request a service' },
-        { href: '/es', label: 'Español', lang: 'es', hrefLang: 'es' },
+        { href: spanishHref, label: 'Español', lang: 'es', hrefLang: 'es' },
       ],
     },
     { title: 'Trades', links: FOOTER_TRADES },
@@ -57,8 +57,9 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
 /**
  * Site footer on ink. Brand lockup first, then four link groups: two columns on a phone, four from md up.
  * Text on ink: on-brand 15.2:1, on-brand-faint 8.5:1; group titles in signal 13.2:1. Focus rings are signal (.on-brand).
+ * `spanishHref`: where the "Español" link goes. The Spanish home by default; a page with a Spanish twin (/pricing) passes the twin.
  */
-export function Footer() {
+export function Footer({ spanishHref = '/es' }: { spanishHref?: string } = {}) {
   const contact = contactAddress();
   return (
     <footer className="on-brand mt-auto bg-ink">
@@ -68,7 +69,7 @@ export function Footer() {
           <p className="text-balance text-[0.9375rem] text-on-brand-faint">Public records near you, sorted for your trade.</p>
         </div>
         <nav aria-label="Footer" className="grid grid-cols-1 gap-x-5 gap-y-8 min-[18rem]:grid-cols-2 md:grid-cols-4">
-          {groups(contact).map((g) => (
+          {groups(contact, spanishHref).map((g) => (
             <div key={g.title} className="min-w-0">
               <h2 className="eyebrow">{g.title}</h2>
               <ul className="mt-1 flex flex-col">

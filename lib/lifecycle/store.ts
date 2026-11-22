@@ -205,7 +205,7 @@ export function createStore(db: Db): LifecycleStore {
       };
       const p = await recentPreviewFor(pp, { db: db as unknown as SupabaseClient, now });
       if (!p || p.total <= 0) return null;
-      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count }));
+      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count, key: t.key }));
       if (lines.length === 0) return null;
       return { lines, total: p.total, capped: p.capped, days: PREVIEW_DAYS };
     },

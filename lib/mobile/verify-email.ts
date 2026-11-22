@@ -4,6 +4,7 @@ import { contactAddress, escapeHtml, sendEmail, type Rendered } from '@/lib/emai
 import { verifyUrlFor } from '@/lib/auth/verification';
 import { postalFooterHtml, postalFooterText } from '@/lib/legal/email-footer';
 import { EMAIL_STYLE, PRIMARY_BUTTON_STYLE, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from '@/lib/email/theme';
+import { t, type Lang } from '@/lib/i18n';
 
 /**
  * The plain "confirm your email" message (verify-v3 P1, commander decision 9). Sent to a returning member (had a Holler trial before:
@@ -18,8 +19,34 @@ const WRAP_OPEN = wrapOpen();
 const WRAP_CLOSE = THEME_WRAP_CLOSE;
 const S = EMAIL_STYLE;
 
-/** Pure. */
-export function renderConfirmEmailOnly(o: { verifyUrl: string; appUrl: string }): Rendered {
+/** The same message in Spanish (round 18 ES), for a member whose saved language is Spanish. Words from the dictionary. */
+function renderConfirmEmailOnlyLang(o: { verifyUrl: string; appUrl: string }, lang: Lang): Rendered {
+  const a = contactAddress();
+  const subject = t(lang, 'mail.confirm.subject');
+  const lead = t(lang, 'mail.confirm.first');
+  const ignore = t(lang, 'mail.confirm.ignore');
+  const yours = t(lang, 'mail.confirm.yours');
+  const html =
+    wrapOpen(560, lang) +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(subject)}</h1>` +
+    `<p style="margin:0 0 12px 0">${escapeHtml(lead)}</p>` +
+    `<p style="margin:20px 0"><a href="${escapeHtml(o.verifyUrl)}" style="${PRIMARY_BUTTON_STYLE}">${escapeHtml(t(lang, 'mail.verify.button'))}</a></p>` +
+    `<p style="${S.muted}">${escapeHtml(yours)}: <a href="${escapeHtml(o.appUrl)}" style="${S.mutedLink}">${escapeHtml(o.appUrl)}</a>. ${escapeHtml(ignore)}` +
+    (a ? ` ${escapeHtml(t(lang, 'email.questions'))} <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">${escapeHtml(t(lang, 'email.contact_us'))}</a>.` : '') +
+    `</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text =
+    `${subject}\n\n${lead}\n\n${o.verifyUrl}\n\n${yours}: ${o.appUrl}\n\n${ignore}\n` +
+    (a ? `${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${a}\n` : '') +
+    `\n${postalFooterText(lang)}\n`;
+  return { subject, html, text };
+}
+
+/** Pure. `lang` other than English gives the Spanish message; English is exactly as before. */
+export function renderConfirmEmailOnly(o: { verifyUrl: string; appUrl: string }, lang: Lang = 'en'): Rendered {
+  if (lang !== 'en') return renderConfirmEmailOnlyLang(o, lang);
   const a = contactAddress();
   const lead = 'Confirm this email address so we can send you Holler alerts. The link works for 7 days.';
   const ignore = 'If you did not ask for this, ignore this email and nothing happens.';
@@ -42,14 +69,14 @@ export function renderConfirmEmailOnly(o: { verifyUrl: string; appUrl: string })
 }
 
 /** Signs the link and sends the confirm-only message. Never throws. */
-export async function sendConfirmOnlyEmail(userId: string, email: string): Promise<boolean> {
+export async function sendConfirmOnlyEmail(userId: string, email: string, lang: Lang = 'en'): Promise<boolean> {
   try {
-    const verifyUrl = verifyUrlFor(userId);
+    const verifyUrl = verifyUrlFor(userId, lang);
     if (!verifyUrl) {
       console.error('[verify] CRON_SECRET missing, cannot sign verification link');
       return false;
     }
-    const mail = renderConfirmEmailOnly({ verifyUrl, appUrl: `${siteUrl}/app` });
+    const mail = renderConfirmEmailOnly({ verifyUrl, appUrl: `${siteUrl}/app` }, lang);
     const res = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
     return !('skipped' in res && res.skipped) && 'ok' in res && res.ok === true;
   } catch (e) {

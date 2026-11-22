@@ -61,7 +61,7 @@ function faqLd() {
 
 /**
  * Spanish home. Static: no live data, no client JavaScript. Every word comes from lib/i18n (es.ts); the English home is app/page.tsx.
- * Sign-up, pricing, privacy and terms are English pages, and the links say so.
+ * Pricing and sign-up link to their Spanish pages; privacy, terms and the full FAQ are English pages, and the links say so.
  */
 export default function HomeEs() {
   const trial = t(L, 'land.trial', { months: TRIAL_MONTHS });
@@ -136,7 +136,7 @@ export default function HomeEs() {
             })}
           </p>
           <p className="mt-3">
-            <Link href="/pricing" hrefLang="en" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'price.cta')}</Link>
+            <Link href="/es/pricing" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'price.cta')}</Link>
           </p>
         </section>
 
@@ -160,7 +160,7 @@ export default function HomeEs() {
             <h2 className="m-0 font-display text-4xl text-on-brand md:text-5xl">{t(L, 'close.h')}</h2>
             <ZipForm id="close-zip" lang={L} />
             <div>
-              <ButtonLink href="/signup" variant="outline-signal">{t(L, 'nav.start')}</ButtonLink>
+              <ButtonLink href="/es/signup" variant="outline-signal">{t(L, 'nav.start')}</ButtonLink>
             </div>
           </div>
         </section>

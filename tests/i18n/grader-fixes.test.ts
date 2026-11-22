@@ -65,7 +65,8 @@ const CORRECTED: Record<string, string> = {
   "hero.sub": "Alertas cuando una granizada, un permiso o una solicitud al 311 cerca de usted encaja con su oficio. Cada alerta enlaza a su fuente pública.",
   "fam.civic.tag": "311 E INFRACCIONES",
   "fam.civic.title": "Solicitudes a la ciudad e infracciones de código",
-  "price.line": "El plan \"{starter}\" cuesta {a} al mes o {b} al año. El plan \"{pro}\" cuesta {c} al mes o {d} al año.",
+  // Round 18 ES: the owner's rule for plan names ("El plan Solo cuesta" can read as "the plan only costs"): "Plan Solo:" with a colon.
+  "price.line": "Plan {starter}: {a} al mes o {b} al año. Plan {pro}: {c} al mes o {d} al año.",
   "footer.tag": "Registros públicos cerca de usted, filtrados para su oficio.",
   "chk.preview.civic.t": "Solicitudes al 311 e infracciones de código",
   "chk.h.watching": "Holler busca trabajo de {trade} cerca de {place}",
@@ -164,15 +165,22 @@ describe('C5: acronyms keep their capitals', () => {
 });
 
 describe('P3-3 and P3-4: links to pages in another language say so', () => {
-  it('the Spanish nav labels pricing, log in and sign up "(en inglés)" and marks them hreflang en', () => {
+  // Round 18 ES: pricing, log-in and sign-up now exist in Spanish, so the nav links go to /es/pricing, /es/login and /es/signup with no
+  // "(en inglés)"; privacy and terms are still English and keep the label and hreflang en.
+  it('the Spanish nav links pricing, log in and sign up to the Spanish pages, with no "(en inglés)"', () => {
     const html = renderToStaticMarkup(createElement(TopNavEs, {}));
-    for (const label of ['Precios (en inglés)', 'Iniciar sesión (en inglés)', 'Empezar gratis (en inglés)']) expect(html, label).toContain(label);
-    for (const href of ['/pricing', '/login', '/signup']) expect(html, href).toMatch(new RegExp(`<a[^>]*href="${href}"[^>]*hrefLang="en"|<a[^>]*hrefLang="en"[^>]*href="${href}"`, 'i'));
+    for (const label of ['Precios', 'Iniciar sesión', 'Empezar gratis']) expect(html, label).toContain(`>${label}<`);
+    expect(html).not.toContain('(en inglés)');
+    for (const href of ['/es/pricing', '/es/login', '/es/signup']) expect(html, href).toContain(`href="${href}"`);
+    for (const href of ['/pricing', '/login', '/signup']) expect(html, href).not.toContain(`href="${href}"`);
   });
-  it('the Spanish footer marks pricing, privacy and terms as English pages', () => {
+  it('the Spanish footer marks privacy and terms as English pages; pricing is the Spanish page', () => {
     const html = renderToStaticMarkup(createElement(FooterEs, {}));
-    for (const href of ['/pricing', '/privacy', '/terms']) expect(html, href).toMatch(new RegExp(`<a[^>]*href="${href}"[^>]*hrefLang="en"|<a[^>]*hrefLang="en"[^>]*href="${href}"`, 'i'));
-    expect(html).toContain('Precios (en inglés)');
+    for (const href of ['/privacy', '/terms']) expect(html, href).toMatch(new RegExp(`<a[^>]*href="${href}"[^>]*hrefLang="en"|<a[^>]*hrefLang="en"[^>]*href="${href}"`, 'i'));
+    expect(html).toContain('Privacidad (en inglés)');
+    expect(html).toContain('Términos (en inglés)');
+    expect(html).toContain('href="/es/pricing"');
+    expect(html).not.toContain('Precios (en inglés)');
   });
   it('the English footer\'s Español link says lang="es" and hreflang="es"', () => {
     const html = renderToStaticMarkup(createElement(Footer, {}));

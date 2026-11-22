@@ -6,6 +6,7 @@ import { createStore, runLifecycle } from '@/lib/lifecycle';
 import { rankSignals, scoresFor } from '@/lib/ai';
 import { matchScope } from '@/lib/plan/scope';
 import { repairTrialForCron } from '@/lib/auth/trial';
+import { loadMemberLangs } from '@/lib/auth/member-lang';
 
 export const maxDuration = 60;
 
@@ -35,6 +36,9 @@ export async function GET(req: Request) {
       dry,
       // Round 18: a member the app would extend (old 14-day row, migration 0028 not applied yet) is extended before any trial email.
       repairTrial: (userId, now) => repairTrialForCron(admin, userId, now),
+      // The members' languages (round 18 ES): the profile's language column, read once per run in chunks of 100, on its own so a
+      // database without migration 0024 changes nothing (English). Never throws.
+      langsFor: (userIds) => loadMemberLangs(admin, userIds),
       // Trial-ending "best 3": the stored AI scores for this member's trades (holler_signal_ai, no model call). scoresFor returns an
       // empty map on any error (and before migration 0014), and rankSignals then keeps severity and recency, so the order never breaks.
       rankFor: async (p, items) => {

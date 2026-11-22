@@ -13,7 +13,8 @@ describe('/delete-account', () => {
     expect(metadata.title).toBe('Delete your account');
     expect(metadata.alternates?.canonical).toBe('/delete-account');
     expect(metadata.robots).toBeUndefined();
-    expect(html).toContain('Last updated November 22, 2026');
+    // Round 18 integration: the page's text did not change in round 18, so it keeps its own date (terms and privacy moved to November 22).
+    expect(html).toContain('Last updated November 19, 2026');
     expect(src('app/delete-account/page.tsx')).not.toMatch(/robots\s*:|index:\s*false/);
   });
 

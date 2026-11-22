@@ -177,14 +177,16 @@ describe('one page grid: one 1200 px box, a 24 px gutter at every width, one lef
   const SHELLS = [
     'components/top-nav.tsx', 'components/footer.tsx', 'components/page-header.tsx', 'components/doc-page.tsx',
     'app/local/_components/ui.tsx', 'app/guides/_components/shell.tsx', 'app/check/page.tsx', 'app/request/page.tsx',
-    'app/request/sent/page.tsx', 'app/pricing/page.tsx', 'app/(auth)/layout.tsx', 'app/onboarding/page.tsx',
+    'app/request/sent/page.tsx', 'app/pricing/page.tsx', 'components/auth-shell.tsx', 'app/onboarding/page.tsx',
     'app/onboarding/preview/page.tsx', 'app/app/layout.tsx', 'app/not-found.tsx', 'app/error.tsx',
+    // Round 18 ES: the auth frame moved from app/(auth)/layout.tsx to components/auth-shell.tsx (shared with /es); Spanish pages.
+    'app/es/pricing/page.tsx', 'app/es/onboarding/page.tsx', 'app/es/onboarding/preview/page.tsx',
   ];
   it.each(SHELLS)('%s builds its bands and columns on PAGE_BOX', (f) => {
     expect(read(f)).toContain('${PAGE_BOX}');
   });
   // The one exception (commander decision after the round 9 reviews): sign-in and onboarding centre their form column.
-  const CENTRED = ['app/(auth)/layout.tsx', 'app/onboarding/page.tsx', 'app/onboarding/preview/page.tsx'];
+  const CENTRED = ['components/auth-shell.tsx', 'app/onboarding/page.tsx', 'app/onboarding/preview/page.tsx', 'app/es/onboarding/page.tsx', 'app/es/onboarding/preview/page.tsx'];
   it.each(CENTRED)('%s centres its column inside PAGE_BOX; the logo bar stays on the grid edge', (f) => {
     const src = read(f);
     expect(src).toMatch(/className="mx-auto (?:flex w-full )?max-w-(?:md|2xl)/);
@@ -292,8 +294,8 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
     expect(read('app/page.tsx')).toMatch(/<main id="main" className="text-\[1\.0625rem\]/);
     const shells = [
       'app/local/_components/ui.tsx', 'components/doc-page.tsx', 'app/guides/_components/shell.tsx', 'app/check/page.tsx', 'app/pricing/page.tsx',
-      'app/request/page.tsx', 'app/request/sent/page.tsx', 'app/not-found.tsx', 'app/error.tsx', 'app/(auth)/layout.tsx', 'app/onboarding/page.tsx',
-      'app/onboarding/preview/page.tsx',
+      'app/request/page.tsx', 'app/request/sent/page.tsx', 'app/not-found.tsx', 'app/error.tsx', 'components/auth-shell.tsx', 'app/onboarding/page.tsx',
+      'app/onboarding/preview/page.tsx', 'app/es/pricing/page.tsx', 'app/es/onboarding/page.tsx', 'app/es/onboarding/preview/page.tsx',
     ];
     for (const f of shells) expect(read(f), f).toMatch(/<main id="main" className=\{`[^`]*\$\{BODY_TEXT\}/);
     // Running text on reading pages inherits it: no text-base left on a paragraph, answer or list there.
@@ -320,9 +322,10 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
     // stay 44 px tall and "HOME" is 34 px wide, above the WCAG 2.5.8 24 px minimum.
     expect(crumbs).toMatch(/<a [^>]*class="[^"]*min-h-11[^"]*" href="\/"|href="\/"[^>]*class="[^"]*min-h-11/);
     expect(crumbs).not.toContain('min-w-11');
-    for (const f of ['app/(auth)/login/page.tsx', 'app/(auth)/signup/page.tsx', 'app/(auth)/forgot/page.tsx']) {
-      expect(read(f), f).toContain('className="inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline"');
-    }
+    // Round 18 ES: the login, signup and forgot bodies are shared with /es (components/auth-pages.tsx); every switch link uses switchLink.
+    const bodies = read('components/auth-pages.tsx');
+    expect(bodies).toContain("const switchLink = 'inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline';");
+    expect(bodies.match(/className=\{switchLink\}/g)).toHaveLength(3);
   });
 
   it('a large browser text size cannot push a page sideways: labels wrap under 22.5rem, long words break (review 2b P2-7)', () => {

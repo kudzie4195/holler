@@ -273,3 +273,43 @@ describe('a construction stage update (round 17, STAGE) for a Spanish member', (
     expect(leaks(html, dataOf(c))).toEqual([]);
   });
 });
+
+/**
+ * Round 18, unit ES: the new Spanish pages (pricing, sign-up, log-in, password, confirm, onboarding), the signed-in app for a Spanish
+ * member (header, feed chrome and banners in every trial and billing state, Settings in every billing state, account deletion, the verify
+ * notice) and every new Spanish email and token page. Same denylist as above (it now also holds the English UI words of the pricing,
+ * account, Settings and email strings, from lib/i18n/en-account.ts). Data allowed: the business name, the place and the email address.
+ */
+describe('round 18: new Spanish pages, the app for a Spanish member, and the Spanish account emails', () => {
+  /** Labels that may still say "(en inglés)": the pages that are English on purpose (privacy, terms, the full FAQ). */
+  const ENGLISH_ON_PURPOSE = ['Privacidad (en inglés)', 'Términos (en inglés)', 'términos (en inglés)', 'Política de privacidad (en inglés)', 'Todas las preguntas (en inglés)'];
+  // "Solo" is also "only": it must always be "Plan Solo", and "Plan Solo" is never the subject of a verb ("El plan Solo cuesta" reads as
+  // "the plan only costs"); the copy writes "Plan Solo: $7.99 al mes" or puts the name after a preposition ("del Plan Solo").
+  const soloAlone = (s: string) => [
+    ...[...s.matchAll(/(?<!\p{L})s[oó]lo(?!\p{L})/giu)].filter((m) => !/plan\s+$/i.test(s.slice(Math.max(0, (m.index ?? 0) - 5), m.index))).map((m) => s.slice(Math.max(0, (m.index ?? 0) - 30), (m.index ?? 0) + 20)),
+    ...[...s.matchAll(/plan solo\s+(?:cuesta|es|incluye|cubre|tiene|da|sirve|vale)(?!\p{L})/giu)].map((m) => m[0]),
+  ];
+
+  it('every surface: no English UI word, no Spanish wording rule broken, "Plan Solo" never "Solo" alone, "(en inglés)" only on English-only pages', async () => {
+    const { renderSpanish } = await import('./r18-spanish');
+    const { spanishProblems } = await import('@/lib/i18n/rules');
+    const all = await renderSpanish();
+    expect(Object.keys(all).length).toBeGreaterThanOrEqual(53);
+    for (const [k, s] of Object.entries(all)) {
+      expect(leaks(s.out, s.data), k).toEqual([]);
+      let plain = without(text(s.out).replace(/https?:\/\/\S+/g, ' '), s.data);
+      expect(soloAlone(plain), k).toEqual([]);
+      for (const ok of ENGLISH_ON_PURPOSE) plain = plain.split(ok).join(' ');
+      expect(plain, k).not.toContain('(en inglés)');
+      expect(spanishProblems(plain), k).toEqual([]);
+    }
+  }, 120_000);
+
+  it('the check is live: an English word or a bare "Solo" in a Spanish page is caught', () => {
+    expect(leaks('<p>Billing questions: Manage billing in Settings</p>', [])).toEqual(expect.arrayContaining(['billing', 'manage', 'settings']));
+    expect(soloAlone('El plan Solo cuesta $7.99')).toHaveLength(1);
+    expect(soloAlone('Plan Solo: $7.99 al mes')).toEqual([]);
+    expect(soloAlone('Solo cuesta $7.99 al mes')).toHaveLength(1);
+    expect(soloAlone('La prueba usa los límites del Plan Solo.')).toEqual([]);
+  });
+});

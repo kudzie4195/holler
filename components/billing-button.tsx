@@ -3,6 +3,10 @@
 import { hardNavigate } from './format';
 import { useState } from 'react';
 import { Button, type ButtonSize, type ButtonVariant } from './button';
+import { t, type DictKey, type Lang } from '@/lib/i18n';
+
+/** A message in the member's language (round 18 ES). English is the literal these buttons always showed. */
+const say = (lang: Lang, key: DictKey, en: string) => (lang === 'en' ? en : t(lang, key));
 
 /**
  * POSTs to a billing endpoint (/api/stripe/checkout or /api/stripe/portal) and follows the returned url.
@@ -15,10 +19,11 @@ export function BillingButton({
   variant = 'primary',
   size = 'md',
   full,
-  unavailableMessage = "Billing opens soon, you're on the free trial.",
+  unavailableMessage,
   plan,
   tier,
   note,
+  lang = 'en',
 }: {
   endpoint: '/api/stripe/checkout' | '/api/stripe/portal';
   children: React.ReactNode;
@@ -32,9 +37,12 @@ export function BillingButton({
   tier?: 'starter' | 'pro';
   /** Shown under the button, always visible: the auto-renewal sentence (lib/stripe/plans.ts renewalNote) for a subscribe button. */
   note?: string;
+  /** The member's language for the button's own messages. English by default. */
+  lang?: Lang;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const unavailable = unavailableMessage ?? say(lang, 'bill.unavailable', "Billing opens soon, you're on the free trial.");
 
   async function go() {
     setPending(true);
@@ -46,9 +54,9 @@ export function BillingButton({
           ? await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: plan ?? 'monthly', tier: tier ?? 'starter' }) })
           : await fetch(endpoint, { method: 'POST' });
       if (res.status === 503) {
-        setMessage(unavailableMessage);
+        setMessage(unavailable);
       } else if (res.status === 401) {
-        hardNavigate('/login');
+        hardNavigate(lang === 'en' ? '/login' : '/es/login');
         return;
       } else if (res.status === 409 && endpoint === '/api/stripe/checkout') {
         // Already subscribed: manage it in the billing portal instead of creating a second subscription.
@@ -58,19 +66,19 @@ export function BillingButton({
           window.location.href = body.url;
           return;
         }
-        setMessage('You already have a subscription. Open Settings to manage billing.');
+        setMessage(say(lang, 'bill.already', 'You already have a subscription. Open Settings to manage billing.'));
       } else if (res.ok) {
         const body = (await res.json().catch(() => ({}))) as { url?: string };
         if (body.url) {
           window.location.href = body.url;
           return;
         }
-        setMessage('Billing did not open. Try again in a moment.');
+        setMessage(say(lang, 'bill.failed', 'Billing did not open. Try again in a moment.'));
       } else {
-        setMessage('Billing did not open. Try again in a moment.');
+        setMessage(say(lang, 'bill.failed', 'Billing did not open. Try again in a moment.'));
       }
     } catch {
-      setMessage("We couldn't reach billing. Check your connection and try again.");
+      setMessage(say(lang, 'bill.network', "We couldn't reach billing. Check your connection and try again."));
     }
     setPending(false);
   }
@@ -78,7 +86,7 @@ export function BillingButton({
   return (
     <div className={full ? 'w-full' : 'inline-flex flex-col items-start gap-2'}>
       <Button variant={variant} size={size} full={full} onClick={go} disabled={pending}>
-        {pending ? 'Opening...' : children}
+        {pending ? say(lang, 'bill.opening', 'Opening...') : children}
       </Button>
       {note ? <p className="text-sm text-muted">{note}</p> : null}
       <p role="status" className="text-sm text-muted empty:hidden">
@@ -98,12 +106,15 @@ export function PlanChangeButton({
   children,
   variant = 'primary',
   note,
+  lang = 'en',
 }: {
   tier: 'starter' | 'pro';
   children: React.ReactNode;
   variant?: ButtonVariant;
   /** Shown under the button: the auto-renewal sentence for the new plan (lib/stripe/plans.ts planChangeNote). */
   note?: string;
+  /** The member's language for the button's own messages. English by default. */
+  lang?: Lang;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -118,7 +129,7 @@ export function PlanChangeButton({
         body: JSON.stringify({ tier }),
       });
       if (res.status === 401) {
-        hardNavigate('/login?next=/app/settings');
+        hardNavigate(lang === 'en' ? '/login?next=/app/settings' : '/es/login?next=/app/settings');
         return;
       }
       if (res.ok) {
@@ -126,15 +137,15 @@ export function PlanChangeButton({
         return;
       }
       const err = ((await res.json().catch(() => ({}))) as { error?: string }).error;
-      if (res.status === 402) setMessage('Your card was declined, so nothing changed. Update your card in Manage billing, then try again.');
-      else if (res.status === 409 && err === 'payment_due') setMessage('Your last payment did not go through. Update your card in Manage billing first.');
-      else if (res.status === 409) setMessage('We could not find a subscription to change. Refresh the page and try again.');
-      else if (res.status === 429) setMessage('Too many changes this hour. Wait a bit, then try again.');
-      else if (res.status === 503 && err === 'unavailable') setMessage('Billing is busy. Try again in a moment.');
-      else if (res.status === 503) setMessage('Billing is not open yet.');
-      else setMessage('The change did not go through. Try again in a moment.');
+      if (res.status === 402) setMessage(say(lang, 'bill.declined', 'Your card was declined, so nothing changed. Update your card in Manage billing, then try again.'));
+      else if (res.status === 409 && err === 'payment_due') setMessage(say(lang, 'bill.payment_due', 'Your last payment did not go through. Update your card in Manage billing first.'));
+      else if (res.status === 409) setMessage(say(lang, 'bill.no_sub', 'We could not find a subscription to change. Refresh the page and try again.'));
+      else if (res.status === 429) setMessage(say(lang, 'bill.too_many', 'Too many changes this hour. Wait a bit, then try again.'));
+      else if (res.status === 503 && err === 'unavailable') setMessage(say(lang, 'bill.busy', 'Billing is busy. Try again in a moment.'));
+      else if (res.status === 503) setMessage(say(lang, 'bill.not_open', 'Billing is not open yet.'));
+      else setMessage(say(lang, 'bill.change_failed', 'The change did not go through. Try again in a moment.'));
     } catch {
-      setMessage("We couldn't reach billing. Check your connection and try again.");
+      setMessage(say(lang, 'bill.network', "We couldn't reach billing. Check your connection and try again."));
     }
     setPending(false);
   }
@@ -142,7 +153,7 @@ export function PlanChangeButton({
   return (
     <div className="inline-flex flex-col items-start gap-2">
       <Button variant={variant} onClick={go} disabled={pending}>
-        {pending ? 'Changing...' : children}
+        {pending ? say(lang, 'bill.changing', 'Changing...') : children}
       </Button>
       {note ? <p className="text-sm text-muted">{note}</p> : null}
       <p role="status" className="text-sm text-muted empty:hidden">

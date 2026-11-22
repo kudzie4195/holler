@@ -10,7 +10,17 @@ import { WorkProfileForm } from '@/components/work-profile-form';
 import { readWorkProfile } from '@/lib/auth/work-profile';
 import { createClient } from '@/lib/supabase/server';
 import { hasLanguageSetting } from '@/lib/auth/language';
-import { langOfProfile, t } from '@/lib/i18n';
+import { langOfProfile, t, type Lang } from '@/lib/i18n';
+import { profileCategories } from '@/lib/plan/profile-categories';
+import {
+  annualSavingSentenceEs,
+  downgradeNoteEs,
+  planChangeNoteEs,
+  planLimitsLineEs,
+  planNameEs,
+  planPricesEs,
+  renewalNoteEs,
+} from '@/lib/plan/price-copy-es';
 import { computeAccess } from '@/lib/auth/access';
 import { repairShortTrial } from '@/lib/auth/trial';
 import { requireProfile } from '@/lib/auth/session';
@@ -25,6 +35,8 @@ import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveLanguageSetting, saveSettings, saveWorkProfileSetting } from './actions';
 
+// Static, in the <head> of the first bytes with the layout's noindex, as before round 18. A Spanish member's tab title is set in the
+// browser (components/app-header.tsx APP_LANG_SCRIPT on the first load, components/member-document.tsx after that).
 export const metadata: Metadata = {
   title: 'Settings',
 };
@@ -61,6 +73,97 @@ export default async function SettingsPage() {
     /* hidden */
   }
   const deleteStoreName = store?.storeName ?? (shadowStore === 'apple' ? 'the App Store' : shadowStore === 'google' ? 'Google Play' : null);
+  const lang = langOfProfile(profile);
+
+  // A Spanish member (round 18 ES): the same sections, data and decisions, with the words in Spanish. The English page below is unchanged.
+  if (lang !== 'en') {
+    const storeName = (s: string | null) => (s === 'the App Store' ? t(lang, 'set.store.apple') : s);
+    return (
+      <>
+        <h1 className="text-5xl text-ink">{t(lang, 'set.h1')}</h1>
+        <p className="mt-2 text-muted">
+          {t(lang, 'set.signed_in')} <span className="font-medium text-ink">{user.email}</span>
+        </p>
+
+        <section aria-labelledby="profile-h" className="mt-10">
+          <h2 id="profile-h" className="h-plain text-2xl text-ink">{t(lang, 'set.profile_h')}</h2>
+          <Card className="mt-4">
+            <ProfileForm
+              action={saveSettings}
+              categories={profileCategories(lang)}
+              defaults={{
+                business_name: profile.business_name,
+                categories: profile.categories,
+                zip: profile.zip ?? '',
+                radius: profile.radius_mi,
+                alert_email: profile.alert_email,
+                extra_zips: parseExtraAreas(profile.extra_areas).map((a) => a.zip),
+                keywords: parseKeywords(profile.keywords),
+              }}
+              submitLabel={t(lang, 'set.save')}
+              showAlertToggle
+              tier={tier}
+              upgradeHref="#billing-h"
+              lang={lang}
+            />
+          </Card>
+        </section>
+
+        {hasLanguageSetting(profile) ? (
+          <section aria-labelledby="language-h" className="mt-12">
+            <h2 id="language-h" className="h-plain text-2xl text-ink">{t(lang, 'settings.language.heading')}</h2>
+            <Card className="mt-4">
+              <LanguageForm action={saveLanguageSetting} current={lang} />
+            </Card>
+          </section>
+        ) : null}
+
+        <section aria-labelledby="billing-h" className="mt-12">
+          <h2 id="billing-h" className="h-plain scroll-mt-24 text-2xl text-ink">{t(lang, 'set.billing_h')}</h2>
+          <Card className="mt-4">
+            {store ? (
+              <div className="flex flex-col gap-3">
+                <p>
+                  {t(lang, 'set.your_plan')} <strong className="font-semibold">{planNameEs(tier)}</strong>. {planLimitsLineEs(tier)}.
+                </p>
+                <p className="text-muted">{t(lang, 'set.store.line', { store: storeName(store.storeName) })}</p>
+                <a href={store.manageUrl} className="font-medium text-brand-text underline" rel="noopener" target="_blank">
+                  {t(lang, 'set.store.manage', { store: storeName(store.storeName) })}
+                </a>
+              </div>
+            ) : (
+              <BillingBlockLang
+                lang={lang}
+                status={access.status}
+                daysLeft={access.daysLeft}
+                trialEnded={access.trialEnded}
+                stripeReady={stripeReady}
+                tier={tier}
+                savedPro={profile.plan === 'pro'}
+              />
+            )}
+          </Card>
+        </section>
+
+        <section aria-labelledby="account-h" className="mt-12">
+          <h2 id="account-h" className="h-plain text-2xl text-ink">{t(lang, 'set.account_h')}</h2>
+          <Card className="mt-4 flex flex-col gap-6">
+            <form action="/api/auth/signout" method="post">
+              <Button type="submit" variant="secondary">
+                {t(lang, 'app.signout')}
+              </Button>
+            </form>
+            <div className="border-t border-line pt-6">
+              <h3 className="text-lg font-semibold text-ink">{t(lang, 'set.delete_h')}</h3>
+              <p className="mb-4 mt-1 text-muted">{t(lang, 'set.delete_p')}</p>
+              {deleteStoreName ? <p className="mb-4 text-muted">{t(lang, 'set.delete_store', { store: storeName(deleteStoreName) })}</p> : null}
+              <DeleteAccount lang={lang} />
+            </div>
+          </Card>
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
@@ -276,6 +379,126 @@ function BillingBlock({
                   note={renewalNote(t, 'annual', { inTrial: !trialEnded })}
                 >
                   {priceLabel(t, 'annual')} a year
+                </BillingButton>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The billing block in the member's language (round 18 ES): the same states, buttons and notes as BillingBlock, every price from the table. */
+function BillingBlockLang({
+  lang,
+  status,
+  daysLeft,
+  trialEnded,
+  stripeReady,
+  tier,
+  savedPro,
+}: {
+  lang: Lang;
+  status: string;
+  daysLeft: number;
+  trialEnded: boolean;
+  stripeReady: boolean;
+  tier: Tier;
+  savedPro: boolean;
+}) {
+  const unavailable = stripeReady ? null : <Notice tone="info">{t(lang, 'bill.unavailable')}</Notice>;
+  const current = (
+    <p>
+      {t(lang, 'set.your_plan')} <strong className="font-semibold">{planNameEs(tier)}</strong>. {planLimitsLineEs(tier)}.
+    </p>
+  );
+
+  if (status === 'active') {
+    return (
+      <div className="flex flex-col gap-5">
+        {current}
+        {tier === 'starter' ? (
+          <div className="flex flex-col gap-3 border-t border-line pt-5">
+            <p>
+              {t(lang, 'set.bill.up', {
+                pro: planNameEs('pro'),
+                prices: planPricesEs('pro'),
+                areas: PLAN_LIMITS.pro.extraAreas,
+                trades: PLAN_LIMITS.pro.trades,
+                kw: PLAN_LIMITS.pro.keywords,
+              })}
+            </p>
+            <PlanChangeButton tier="pro" note={planChangeNoteEs('pro')} lang={lang}>
+              {t(lang, 'set.bill.move', { plan: planNameEs('pro') })}
+            </PlanChangeButton>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 border-t border-line pt-5">
+            <p>{t(lang, 'set.bill.down', { solo: planNameEs('starter'), prices: planPricesEs('starter'), downgrade: downgradeNoteEs(), pro: planNameEs('pro') })}</p>
+            <PlanChangeButton tier="starter" variant="secondary" note={planChangeNoteEs('starter')} lang={lang}>
+              {t(lang, 'set.bill.move', { plan: planNameEs('starter') })}
+            </PlanChangeButton>
+          </div>
+        )}
+        <div className="flex flex-col gap-3 border-t border-line pt-5">
+          <p>{t(lang, 'set.bill.manage_p')}</p>
+          <BillingButton endpoint="/api/stripe/portal" variant="secondary" lang={lang}>
+            {t(lang, 'app.manage_billing')}
+          </BillingButton>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'past_due') {
+    return (
+      <div className="flex flex-col gap-4">
+        {current}
+        <Notice tone="warn">{t(lang, 'app.past_due')}</Notice>
+        <BillingButton endpoint="/api/stripe/portal" lang={lang}>
+          {t(lang, 'set.bill.update_card')}
+        </BillingButton>
+      </div>
+    );
+  }
+
+  const headline =
+    status === 'canceled'
+      ? t(lang, 'set.bill.canceled')
+      : trialEnded
+        ? t(lang, 'set.bill.ended')
+        : t(lang, daysLeft === 1 ? 'set.bill.trial_one' : 'set.bill.trial_many', { n: daysLeft });
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p>
+        <strong className="font-semibold">{headline}</strong>{' '}
+        {status === 'canceled' ? t(lang, 'set.bill.canceled_p') : t(lang, 'set.bill.trial_p', { solo: planNameEs('starter') })} {t(lang, 'set.bill.cancel_any')}
+      </p>
+      {savedPro ? <p className="text-sm text-muted">{t(lang, 'set.bill.saved_pro', { pro: planNameEs('pro') })}</p> : null}
+      {unavailable}
+      <div className="grid gap-4 md:grid-cols-2">
+        {(['starter', 'pro'] as const).map((tr) => (
+          <div key={tr} className="flex flex-col gap-3 rounded-card border border-line p-4">
+            <h3 className="text-lg font-semibold text-ink">{planNameEs(tr)}</h3>
+            <p className="text-sm text-muted">
+              {`${planPricesEs(tr)}.`} {annualSavingSentenceEs(tr)} {`${planLimitsLineEs(tr)}.`}
+            </p>
+            {stripeReady ? (
+              <div className="flex flex-col gap-2">
+                <BillingButton endpoint="/api/stripe/checkout" tier={tr} plan="monthly" lang={lang} note={renewalNoteEs(tr, 'monthly', { inTrial: !trialEnded })}>
+                  {t(lang, 'set.bill.monthly', { price: priceLabel(tr, 'monthly') })}
+                </BillingButton>
+                <BillingButton
+                  endpoint="/api/stripe/checkout"
+                  tier={tr}
+                  plan="annual"
+                  variant="secondary"
+                  lang={lang}
+                  note={renewalNoteEs(tr, 'annual', { inTrial: !trialEnded })}
+                >
+                  {t(lang, 'set.bill.annual', { price: priceLabel(tr, 'annual') })}
                 </BillingButton>
               </div>
             ) : null}

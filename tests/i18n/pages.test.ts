@@ -187,11 +187,12 @@ describe('hreflang pairs on the English twins', () => {
     expect(enHomeMeta().alternates).toEqual({ canonical: '/', languages: { en: '/', es: '/es', 'x-default': '/' } });
     expect((await enCheckMeta({ searchParams: Promise.resolve({}) } as never)).alternates).toEqual({ canonical: '/check', languages: { en: '/check', es: '/es/check', 'x-default': '/check' } });
   });
-  it('the pair table points at pages that exist, and only those two pages are paired', () => {
-    expect(ES_PAIRS.map((p) => p.es)).toEqual(['/es', '/es/check']);
-    expect(ES_PATHS).toEqual(['/es', '/es/check']);
-    expect(existsSync('app/es/page.tsx')).toBe(true);
-    expect(existsSync('app/es/check/page.tsx')).toBe(true);
+  it('the pair table points at pages that exist, and only those pages are paired', () => {
+    // Round 18 ES added pricing and the four account pages.
+    const spanish = ['/es', '/es/check', '/es/pricing', '/es/signup', '/es/login', '/es/forgot', '/es/reset'];
+    expect(ES_PAIRS.map((p) => p.es)).toEqual(spanish);
+    expect(ES_PATHS).toEqual(spanish);
+    for (const p of spanish) expect(existsSync(`app${p}/page.tsx`), p).toBe(true);
     expect(pairAlternates(ES_PAIRS[0], 'es').canonical).toBe('/es');
     expect(pairAlternates(ES_PAIRS[0], 'en').canonical).toBe('/');
   });
@@ -213,9 +214,11 @@ describe('sitemap', () => {
     expect(new URL(check.es).pathname).toBe('/es/check');
   });
   it('no other page is paired or listed in Spanish (the SEO city pages are not translated)', () => {
+    // Round 18 ES: pricing (both languages) and the Spanish account pages; the English account pages are noindex and not listed, and
+    // /es/reset (noindex, works only from an emailed link) is left out.
     const withAlt = entries.filter((e) => e.alternates).map((e) => new URL(e.url).pathname).sort();
-    expect(withAlt).toEqual(['/', '/check', '/es', '/es/check']);
-    expect(entries.filter((e) => new URL(e.url).pathname.startsWith('/es')).map((e) => new URL(e.url).pathname).sort()).toEqual(['/es', '/es/check']);
+    expect(withAlt).toEqual(['/', '/check', '/es', '/es/check', '/es/forgot', '/es/login', '/es/pricing', '/es/signup', '/pricing'].sort());
+    expect(entries.filter((e) => new URL(e.url).pathname.startsWith('/es')).map((e) => new URL(e.url).pathname).sort()).toEqual(['/es', '/es/check', '/es/forgot', '/es/login', '/es/pricing', '/es/signup']);
   });
 });
 

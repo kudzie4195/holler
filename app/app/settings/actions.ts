@@ -11,17 +11,23 @@ import { deleteHollerAccount } from '@/lib/mobile/account';
 import { saveProfile } from '@/lib/auth/profile';
 import { saveLanguage, type LanguageState } from '@/lib/auth/language';
 import { saveWorkProfile, type WorkProfileState } from '@/lib/auth/work-profile';
-import { langOfProfile } from '@/lib/i18n';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { cleanKeyword, parseExtraAreas, parseKeywords } from '@/lib/plan';
+import { langOfProfile, parseLang, t, type Lang } from '@/lib/i18n';
+import { clearLangCookieFromAction, setLangCookieFromAction } from '@/lib/auth/lang-cookie';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
   if (!user) redirect('/login?next=/app/settings');
   const before = await getProfile(user.id).catch(() => null);
-  const result = await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' });
+  // The words of the answers follow the member's saved choice (round 18 ES); English calls the save exactly as before.
+  const lang: Lang = langOfProfile(before);
+  const result =
+    lang === 'en'
+      ? await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on' })
+      : await saveProfile(user.id, formData, { alertEmail: formData.get('alert_email') === 'on', lang });
   // A server action can be called without the page's guard, so this save may create the user's FIRST profile (no onboarding). The database
   // trigger (migration 0003, holler_profiles_trial_from_stamp) already stops a returning user from getting a second trial; this records
   // the trial start for a first-time user so it counts later. Never throws into the save.
@@ -80,9 +86,12 @@ const DELETE_ERROR = "We couldn't delete your account. Try again in a moment.";
  * (nothing is deleted if that fails), stamp the trial start, delete matches, push tokens and the profile, untag the shared sign-in
  * (never deleted). Then this session only is signed out (scope 'local').
  */
-export async function deleteAccount(): Promise<DeleteState> {
+export async function deleteAccount(_prev?: DeleteState, formData?: FormData): Promise<DeleteState> {
+  // The Spanish Settings page sends ui_lang 'es' (round 18 ES): the answers and the page after deleting are Spanish then.
+  const lang: Lang = parseLang(formData?.get('ui_lang'));
+  const err = (key: Parameters<typeof t>[1], en: string) => (lang === 'en' ? en : t(lang, key));
   const user = await getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(lang === 'en' ? '/login' : '/es/login');
 
   let admin: ReturnType<typeof createAdminClient>;
   let profile: Awaited<ReturnType<typeof getProfile>>;
@@ -90,13 +99,13 @@ export async function deleteAccount(): Promise<DeleteState> {
     admin = createAdminClient();
     profile = await getProfile(user.id);
   } catch {
-    return { error: DELETE_ERROR };
+    return { error: err('del.err', DELETE_ERROR) };
   }
   const res = await deleteHollerAccount({ admin, userId: user.id, stripe: getStripe(), profile });
   if (!res.ok) {
     return res.error === 'billing_cancel_failed'
-      ? { error: "We couldn't cancel your subscription, so we haven't deleted anything. Open Manage billing, cancel there, then try again." }
-      : { error: DELETE_ERROR };
+      ? { error: err('del.err_billing', "We couldn't cancel your subscription, so we haven't deleted anything. Open Manage billing, cancel there, then try again.") }
+      : { error: err('del.err', DELETE_ERROR) };
   }
 
   try {
@@ -106,7 +115,8 @@ export async function deleteAccount(): Promise<DeleteState> {
   } catch {
     // The stale cookie is harmless and fails verification.
   }
-  redirect('/');
+  await clearLangCookieFromAction();
+  redirect(lang === 'en' ? '/' : '/es');
 }
 
 /**
@@ -118,8 +128,12 @@ export async function saveLanguageSetting(_prev: LanguageState, formData: FormDa
   if (!user) redirect('/login?next=/app/settings');
   const supabase = await createClient();
   const result = await saveLanguage(supabase, user.id, formData.get('language'));
-  // The cards, the header and the settings page read the language from the profile on every request.
-  if (result.ok && !result.skipped) revalidatePath('/app', 'layout');
+  // The cards, the header and the settings page read the language from the profile on every request. The hint cookie follows the
+  // saved choice, so the static header shows the right words on the next full load (lib/auth/lang-cookie.ts).
+  if (result.ok && !result.skipped) {
+    await setLangCookieFromAction(parseLang(formData.get('language')));
+    revalidatePath('/app', 'layout');
+  }
   return result;
 }
 

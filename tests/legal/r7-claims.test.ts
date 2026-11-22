@@ -116,6 +116,16 @@ describe('privacy: AI processing', () => {
   });
 });
 
+describe('privacy: the language cookie (round 18 ES)', () => {
+  it('names holler_lang, says it holds only en or es, one year, not for tracking, and that logging out or deleting the account removes it', async () => {
+    const { text } = await renderLegal('privacy');
+    const { LANG_COOKIE, LANG_COOKIE_MAX_AGE } = await import('@/lib/auth/lang-cookie');
+    expect(LANG_COOKIE).toBe('holler_lang');
+    expect(LANG_COOKIE_MAX_AGE).toBe(365 * 24 * 60 * 60);
+    expect(text).toContain('Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.');
+  });
+});
+
 describe('privacy: first-party counting', () => {
   it('two cookies, their contents, 30 days, no IP or device data, GPC and DNT, account steps always', async () => {
     const { text } = await renderLegal('privacy');

@@ -32,6 +32,8 @@ export const TOKEN_PAGE_PATHS = [
   '/request/close',
   '/auth/confirm',
   '/auth/confirm/continue',
+  // The Spanish twin of /auth/confirm/continue (round 18 ES): same token in the URL, same rule.
+  '/es/confirm',
 ] as const;
 
 export const NO_REFERRER = [{ key: 'Referrer-Policy', value: 'no-referrer' }];

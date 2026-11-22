@@ -13,6 +13,7 @@ import {
   type AlertItem,
 } from './templates';
 import { lifecycleUnsubUrl } from './unsub';
+import type { Lang } from '../i18n';
 
 export const MAX_MEMBERS_PER_RUN = 200;
 export const MAX_TRIES = 3;
@@ -61,6 +62,16 @@ export interface RunDeps {
    * or no admin client): the email goes as before.
    */
   repairTrial?: (userId: string, now: Date) => Promise<string | null>;
+  /**
+   * The member's language (round 18 ES): the cron passes a read of the profile's language column. Absent, a throw, or anything but
+   * 'es' means the English email, exactly as before.
+   */
+  langFor?: (userId: string) => Promise<Lang>;
+  /**
+   * The same, read once for every member the run picked (one query per 100, review P3-9). Used when langFor is absent. A throw means
+   * every email of the run is English.
+   */
+  langsFor?: (userIds: string[]) => Promise<Map<string, Lang>>;
   /** Wall clock for the time budget; tests pass a fake. */
   clock?: () => number;
   budgetMs?: number;
@@ -103,15 +114,25 @@ interface Built {
 export async function buildMail(
   kind: LifecycleKind,
   p: FullProfile,
-  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor'>,
+  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor' | 'langFor'>,
   now: Date,
 ): Promise<Built | null> {
   const base = deps.siteUrl.replace(/\/$/, '');
+  let lang: Lang = 'en';
+  if (deps.langFor) {
+    try {
+      lang = (await deps.langFor(p.user_id)) === 'es' ? 'es' : 'en';
+    } catch {
+      lang = 'en';
+    }
+  }
   const common = {
-    businessName: plain(p.business_name || 'your business'),
+    businessName: plain(p.business_name || (lang === 'en' ? 'your business' : 'su negocio')),
     feedUrl: `${base}/app`,
     plansUrl: `${base}/app/settings#billing-h`,
     unsubscribeUrl: lifecycleUnsubUrl(base, p.user_id, deps.secret, now.getTime()),
+    // Only a Spanish member's emails carry the field: an English render is called exactly as before.
+    ...(lang === 'en' ? {} : { lang }),
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id);
@@ -228,6 +249,16 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
   }
   const candidates = selectLifecycle(profiles, sends, now).slice(0, limit);
   s.selected = candidates.length;
+  // The members' languages, read once for the whole run (round 18 ES). Only when the caller gives a batch reader and no per-member one.
+  if (!deps.langFor && deps.langsFor && candidates.length > 0) {
+    let langs = new Map<string, Lang>();
+    try {
+      langs = await deps.langsFor([...new Set(candidates.map((c) => c.userId))]);
+    } catch {
+      langs = new Map();
+    }
+    deps = { ...deps, langFor: async (id: string) => langs.get(id) ?? 'en' };
+  }
 
   /**
    * Review r2 R2: a trial email to a member the app would extend is wrong ("ends in 3 days" when 48 days are left). Extend first, skip
