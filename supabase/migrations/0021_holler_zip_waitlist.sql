@@ -1,7 +1,7 @@
 -- Holler: "Coming to your area" waitlist, plus a "More ZIP codes" card on the Coming next list.
 -- Purely additive and idempotent; every object is prefixed holler_. Shared Supabase project: never touch non-holler objects.
 --
--- holler_area_waitlist holds one row per (email, ZIP) for people who checked a ZIP code where Holler has no local permit or
+-- holler_zip_waitlist holds one row per (email, ZIP) for people who checked a ZIP code where Holler has no local permit or
 -- city-request data yet and asked to hear when it arrives. A row only counts once confirmed_at is set (double opt-in: the visitor
 -- clicks a link in a confirmation email). The launch email for an area is sent once and stamps notified_at. unsubscribed_at stops
 -- every later email; the row is kept so the address is never mailed again.
@@ -16,7 +16,7 @@
 -- Safe to apply before or after the code that writes it: old code never touches the table, and the new code answers with a soft
 -- error ("Could not save that. Try again later.") when the table is not there yet.
 
-create table if not exists public.holler_area_waitlist (
+create table if not exists public.holler_zip_waitlist (
   id uuid primary key default gen_random_uuid(),
   email text not null,
   zip text not null,
@@ -29,21 +29,21 @@ create table if not exists public.holler_area_waitlist (
   confirmed_at timestamptz,
   notified_at timestamptz,
   unsubscribed_at timestamptz,
-  constraint holler_area_waitlist_email_shape check (char_length(email) between 3 and 254 and email = lower(email) and email like '%_@_%'),
-  constraint holler_area_waitlist_zip_shape check (zip ~ '^[0-9]{5}$'),
-  constraint holler_area_waitlist_state_shape check (state is null or state ~ '^[A-Z]{2}$'),
-  constraint holler_area_waitlist_trade_shape check (trade is null or trade ~ '^[a-z0-9-]{1,40}$'),
-  constraint holler_area_waitlist_consent_len check (char_length(consent_version) <= 20)
+  constraint holler_zip_waitlist_email_shape check (char_length(email) between 3 and 254 and email = lower(email) and email like '%_@_%'),
+  constraint holler_zip_waitlist_zip_shape check (zip ~ '^[0-9]{5}$'),
+  constraint holler_zip_waitlist_state_shape check (state is null or state ~ '^[A-Z]{2}$'),
+  constraint holler_zip_waitlist_trade_shape check (trade is null or trade ~ '^[a-z0-9-]{1,40}$'),
+  constraint holler_zip_waitlist_consent_len check (char_length(consent_version) <= 20)
 );
 
-create unique index if not exists holler_area_waitlist_email_zip_idx on public.holler_area_waitlist (email, zip);
+create unique index if not exists holler_zip_waitlist_email_zip_idx on public.holler_zip_waitlist (email, zip);
 -- The launch job reads confirmed, not-yet-notified, still-subscribed rows near a new source.
-create index if not exists holler_area_waitlist_pending_idx
-  on public.holler_area_waitlist (state, zip)
+create index if not exists holler_zip_waitlist_pending_idx
+  on public.holler_zip_waitlist (state, zip)
   where confirmed_at is not null and notified_at is null and unsubscribed_at is null;
 
-alter table public.holler_area_waitlist enable row level security;
-revoke all on table public.holler_area_waitlist from public, anon, authenticated;
+alter table public.holler_zip_waitlist enable row level security;
+revoke all on table public.holler_zip_waitlist from public, anon, authenticated;
 
 -- "More ZIP codes" joins the Coming next list. Widen the feature check constraint (drop and re-add; same name, so re-running is safe).
 alter table public.holler_feature_interest drop constraint if exists holler_feature_interest_feature_check;

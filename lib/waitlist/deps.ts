@@ -6,7 +6,7 @@ import { lookupZip } from '@/lib/geo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { WAITLIST_CONFIRM_PURPOSE, WAITLIST_CONFIRM_TTL_SECONDS, type WaitlistDeps } from './service';
 
-const TABLE = 'holler_area_waitlist';
+const TABLE = 'holler_zip_waitlist';
 
 /** Production wiring for lib/waitlist/service.ts. Throws the admin client's "not configured" error when Supabase is not set up. */
 export function waitlistDeps(): WaitlistDeps {

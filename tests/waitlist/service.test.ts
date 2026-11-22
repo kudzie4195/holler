@@ -170,10 +170,10 @@ describe('email and card copy', () => {
 });
 
 describe('migration 0021', () => {
-  const sql = readFileSync('supabase/migrations/0021_holler_area_waitlist.sql', 'utf8');
+  const sql = readFileSync('supabase/migrations/0021_holler_zip_waitlist.sql', 'utf8');
   it('is service-role only and touches only holler_ objects', () => {
     expect(sql).toMatch(/enable row level security/);
-    expect(sql).toMatch(/revoke all on table public\.holler_area_waitlist from public, anon, authenticated/);
+    expect(sql).toMatch(/revoke all on table public\.holler_zip_waitlist from public, anon, authenticated/);
     expect(sql).not.toMatch(/create policy/i);
     // Every object the DDL names (comments stripped) is a holler_ object.
     const ddl = sql.replace(/--[^\n]*/g, '');
@@ -185,6 +185,6 @@ describe('migration 0021', () => {
     for (const o of objects) expect(o).toMatch(/^holler_/);
   });
   it('one row per email and ZIP', () => {
-    expect(sql).toMatch(/unique index if not exists holler_area_waitlist_email_zip_idx on public\.holler_area_waitlist \(email, zip\)/);
+    expect(sql).toMatch(/unique index if not exists holler_zip_waitlist_email_zip_idx on public\.holler_zip_waitlist \(email, zip\)/);
   });
 });
