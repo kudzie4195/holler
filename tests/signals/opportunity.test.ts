@@ -566,7 +566,7 @@ describe('copy rules', () => {
 
 describe('round 3 grading fixes', () => {
   it('roof and solar together is rooftop solar: nothing follows for gutters', () => {
-    const s = permit('Roof and solar permit in Austin', ['roofing', 'solar'], { summary: 'Residential | $20,000 job value' });
+    const s = permit('Roof and solar permit in Austin', ['roofing', 'solar']);
     expect(label(s, 'siding-gutters')).toBe('context');
   });
   it('a food truck licence is not a premises: no cleaning or pest contract', () => {
