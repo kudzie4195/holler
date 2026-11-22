@@ -40,31 +40,31 @@ describe('GET /api/cron/lifecycle', () => {
     expect((await GET(req('', { authorization: 'Bearer undefined' }))).status).toBe(401);
     expect(h.run).not.toHaveBeenCalled();
   });
-  it('runs with a bearer token or ?key=, live by default', async () => {
+  it('runs with a bearer token, live by default; ?key= with the right secret is 401', async () => {
     const a = await GET(req('', { authorization: 'Bearer cron-secret-not-real' }));
     expect(a.status).toBe(200);
     expect(h.run.mock.calls[0][0]).toMatchObject({ dry: false, siteUrl: 'https://localholler.com', secret: 'cron-secret-not-real' });
-    const b = await GET(req('?key=cron-secret-not-real'));
-    expect(b.status).toBe(200);
-    expect(h.run).toHaveBeenCalledTimes(2);
+    const b = await GET(req('', { authorization: 'Bearer cron-secret-not-real' }));
+    expect(b.status).toBe(401);
+    expect(h.run).toHaveBeenCalledTimes(1);
   });
   it('?dry=1 asks for a dry run; other values do not', async () => {
-    await GET(req('?key=cron-secret-not-real&dry=1'));
+    await GET(req('?dry=1', { authorization: 'Bearer cron-secret-not-real' }));
     expect(h.run.mock.calls[0][0].dry).toBe(true);
-    await GET(req('?key=cron-secret-not-real&dry=0'));
-    await GET(req('?key=cron-secret-not-real&dry=true'));
+    await GET(req('?dry=0', { authorization: 'Bearer cron-secret-not-real' }));
+    await GET(req('?dry=true', { authorization: 'Bearer cron-secret-not-real' }));
     expect(h.run.mock.calls[1][0].dry).toBe(false);
     expect(h.run.mock.calls[2][0].dry).toBe(false);
   });
   it('answers 503 when the database is not configured and 500 (no detail) when the run throws', async () => {
     h.admin = null;
-    expect((await GET(req('?key=cron-secret-not-real'))).status).toBe(503);
+    expect((await GET(req('', { authorization: 'Bearer cron-secret-not-real' }))).status).toBe(503);
     h.admin = 'ADMIN';
     h.run = vi.fn(async () => {
       throw new Error('secret detail');
     });
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const res = await GET(req('?key=cron-secret-not-real'));
+    const res = await GET(req('', { authorization: 'Bearer cron-secret-not-real' }));
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain('secret detail');
     vi.restoreAllMocks();

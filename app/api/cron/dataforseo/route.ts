@@ -9,7 +9,7 @@ import { buildKeywordPlan, expectedVolumeCostUsd, loadDoneKeywords, refreshVolum
 //   2. Search volume refresh (volume.ts): "<trade> <city>" keywords in batches of up to 1000, as many as the time budget and the
 //      monthly spend cap allow. A full month takes several runs, so the schedule fires it a few times in the first days of the
 //      month; a run with nothing left to do costs nothing.
-// GET with Authorization: Bearer CRON_SECRET or ?key=. ?dry=1 reads state only: no DataForSEO call, no spend.
+// GET with Authorization: Bearer CRON_SECRET only (?key= is refused). ?dry=1 reads state only: no DataForSEO call, no spend.
 // Internal: the response is for the owner, nothing here is shown on a public page.
 export const maxDuration = 60;
 

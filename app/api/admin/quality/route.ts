@@ -8,8 +8,8 @@ export const maxDuration = 60;
 
 /**
  * GET /api/admin/quality (Authorization: Bearer CRON_SECRET). Owner only: the alert-quality dashboard (PLAN-2.0 item 3.4).
- * The same secret as /api/admin/sources and /api/cron/health, but Bearer ONLY: this route has an HTML view a person opens in a browser,
- * and a secret in a ?key= query would land in browser history and server logs, so ?key= is refused here (401). There is no public
+ * The same secret as /api/admin/sources and /api/cron/health, Bearer only like every cron and admin route: a secret in a ?key= query
+ * would land in browser history and server logs, so ?key= is refused (401). There is no public
  * page and no member can reach it. Anyone without the secret gets 401 and nothing else.
  *   (default)       JSON report.
  *   ?format=html    one self-contained page (no script), noindex.

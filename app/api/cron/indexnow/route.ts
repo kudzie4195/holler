@@ -1,30 +1,18 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { env } from '@/lib/env';
+import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { INDEXNOW_MAX_URLS_PER_POST, indexNowConfig, postUrls } from '@/lib/seo/indexnow';
 import { buildSitemapEntries } from '@/lib/seo/sitemap-entries';
 
 // One-time (or occasional) launch ping: sends every URL in the sitemap to IndexNow, 10,000 per POST (the protocol limit).
-// GET with `Authorization: Bearer CRON_SECRET` or `?key=`. `?dry=1` lists counts and a sample without sending anything.
+// GET with `Authorization: Bearer CRON_SECRET` only (`?key=` is refused). `?dry=1` lists counts and a sample without sending anything.
 // Do not schedule it: IndexNow asks for changed URLs only, and the scan already pings what changes.
 export const maxDuration = 60;
 
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
-function authorized(req: NextRequest, secret: string): boolean {
-  const header = req.headers.get('authorization') ?? '';
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const key = req.nextUrl.searchParams.get('key') ?? '';
-  return (bearer !== '' && safeEqual(bearer, secret)) || (key !== '' && safeEqual(key, secret));
-}
 
 export async function GET(req: NextRequest) {
   const secret = env.CRON_SECRET;
-  if (!secret || !authorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!secret || !isCronAuthorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const cfg = indexNowConfig();
   if (!cfg) {

@@ -8,7 +8,7 @@ import { rematchSignals } from '@/lib/ai/rematch-link';
 
 // Hourly AI step after the scan (lib/ai/classify.ts). Classification runs only from here, never per page view. Reply drafts
 // (lib/ai/draft.ts) run only when a signed-in member with access asks for one, under the same monthly cap.
-// GET with Authorization: Bearer CRON_SECRET or ?key= (same helper as every other cron route). ?dry=1 reports what it would do:
+// GET with Authorization: Bearer CRON_SECRET only (same helper as every other cron route; ?key= is refused). ?dry=1 reports what it would do:
 // no model call, no spend row, no write, no email.
 // Every outcome that is not an auth failure answers 200 with a reason, so a failure never looks like an outage to pg_cron:
 // the rule-based categories simply stay in place.

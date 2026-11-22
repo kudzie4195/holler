@@ -24,11 +24,11 @@ describe('GET /api/cron/scan auth', () => {
     expect((await GET(req('?key=nope'))).status).toBe(401);
     expect((await GET(req('', { authorization: 'Bearer nope' }))).status).toBe(401);
   });
-  it('accepts Bearer and ?key=, and rejects an unknown ?source= with 400 (dry, no DB)', async () => {
+  it('accepts Bearer only (?key= with the right secret is 401), and rejects an unknown ?source= with 400 (dry, no DB)', async () => {
     const GET = await load('s3cret');
     const a = await GET(req('?dry=1&source=__nope__', { authorization: 'Bearer s3cret' }));
     expect(a.status).toBe(400);
     const b = await GET(req('?dry=1&source=__nope__&key=s3cret'));
-    expect(b.status).toBe(400);
+    expect(b.status).toBe(401);
   });
 });

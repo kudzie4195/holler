@@ -62,7 +62,7 @@ async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null)
 }
 
 /**
- * GET /api/cron/health (Authorization: Bearer CRON_SECRET, or ?key=). Builds the daily health report from
+ * GET /api/cron/health (Authorization: Bearer CRON_SECRET only). Builds the daily health report from
  * holler_scan_runs, returns it as JSON, and emails it to ADMIN_EMAIL (falling back to SUPPORT_EMAIL).
  * The ingest monitor's conditions are also reported here (under `monitor`, read only), so the daily report stays ONE email and the
  * daily run never stores alert state. The deduped alert email is sent only by the hourly job.

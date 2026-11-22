@@ -6,7 +6,7 @@ import { loadSourceStates } from '@/lib/signals/source-state-load';
 import { summarizeSourceStates, type SourceStateResult } from '@/lib/signals/source-state';
 
 /**
- * GET /api/admin/sources (Authorization: Bearer CRON_SECRET, or ?key=). Internal: the per-source health table as JSON.
+ * GET /api/admin/sources (Authorization: Bearer CRON_SECRET; a ?key= query is refused). Internal: the per-source health table as JSON.
  * Same secret check as /api/cron/health. There is no public page for this.
  */
 export async function GET(req: Request) {

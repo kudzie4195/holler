@@ -49,9 +49,9 @@ describe('GET /api/admin/sources', () => {
     expect(body.counts).toEqual({ healthy: 1, delayed: 0, degraded: 0, unavailable: 1 });
     expect(body.sources.map((s: { source: string }) => s.source)).toEqual(['nws', 'socrata-nyc-311']);
   });
-  it('also accepts ?key=', async () => {
+  it('refuses ?key= even with the right secret (Bearer only, review P2-1)', async () => {
     const { admin } = await load();
-    expect((await admin(req('/api/admin/sources?key=s3cret', null))).status).toBe(200);
+    expect((await admin(req('/api/admin/sources?key=s3cret', null))).status).toBe(401);
   });
   it('500 with no detail when the read fails', async () => {
     const db = new FakeDb();
