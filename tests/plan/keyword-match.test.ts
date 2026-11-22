@@ -64,6 +64,7 @@ describe('matchSignals (fast path) agrees with matchOne', () => {
   const base: MatchProfile = { user_id: 'p', categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 25, plan: 'pro', subscription_status: 'active' };
   const sig = (id: number, o: Partial<MatchSignal> = {}): MatchSignal => ({
     id,
+    kind: 'permit',
     categories: ['plumbing'],
     lat: 33.76,
     lon: -84.4,

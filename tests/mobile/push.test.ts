@@ -150,7 +150,8 @@ describe('sendPush', () => {
 describe('notification text', () => {
   it('real counts, city, the public title at most 80 characters, deep link', () => {
     const one = buildNotification({ count: 1, top: { signalId: 42, title: 'Hail 1.25 in reported', city: 'Smyrna' } }, 'Marietta');
-    expect(one).toEqual({ title: 'New alert near Smyrna', body: 'Hail 1.25 in reported', data: { type: 'alert', signalId: '42', path: '/alert/42' } });
+    // u2: the body leads with the act item ("Act now: <title>").
+    expect(one).toEqual({ title: 'New alert near Smyrna', body: 'Act now: Hail 1.25 in reported', data: { type: 'alert', signalId: '42', path: '/alert/42' } });
     const many = buildNotification({ count: 3, top: { signalId: 42, title: 'x', city: null } }, 'Marietta');
     expect(many.title).toBe('3 new alerts near Marietta');
     expect(many.data).toEqual({ type: 'feed', path: '/feed' });
@@ -163,15 +164,21 @@ describe('notification text', () => {
     expect(/[–—]/.test(one.title + many.title)).toBe(false);
   });
   it('pushEntriesFromMatches: counts per member, newest is the top, ended requests left out, match ids kept', () => {
+    // u2: every counted record is 'act' for the member's trade (a 1.5 inch hail report for roofing).
+    const act = { kind: 'report', source: 'spc', categories: ['roofing'], data: { type: 'hail', hailInches: 1.5 } };
     const m = pushEntriesFromMatches(
       [
-        { id: 11, user_id: UA, created_at: '2026-11-19T10:00:00Z', signal: { id: 1, title: 'Old', city: 'A', occurred_at: '2026-11-19T09:00:00Z' } },
-        { id: 12, user_id: UA, created_at: '2026-11-19T11:00:00Z', signal: [{ id: 2, title: 'New', city: 'Smyrna', occurred_at: '2026-11-19T10:00:00Z' }] },
-        { id: 13, user_id: UA, created_at: '2026-11-19T12:00:00Z', signal: { id: 3, title: 'Closed request', city: 'X', source: 'holler-request', expires_at: '2026-01-01T00:00:00Z', occurred_at: '2026-11-19T10:00:00Z' } },
-        { id: 21, user_id: UB, created_at: '2026-11-19T09:00:00Z', signal: { id: 9, title: 'B', city: null, occurred_at: '2026-11-19T08:00:00Z' } },
+        { id: 11, user_id: UA, created_at: '2026-11-19T10:00:00Z', signal: { ...act, id: 1, title: 'Old', city: 'A', occurred_at: '2026-11-19T09:00:00Z' } },
+        { id: 12, user_id: UA, created_at: '2026-11-19T11:00:00Z', signal: [{ ...act, id: 2, title: 'New', city: 'Smyrna', occurred_at: '2026-11-19T10:00:00Z' }] },
+        { id: 13, user_id: UA, created_at: '2026-11-19T12:00:00Z', signal: { ...act, id: 3, title: 'Closed request', city: 'X', source: 'holler-request', expires_at: '2026-01-01T00:00:00Z', occurred_at: '2026-11-19T10:00:00Z' } },
+        { id: 21, user_id: UB, created_at: '2026-11-19T09:00:00Z', signal: { ...act, id: 9, title: 'B', city: null, occurred_at: '2026-11-19T08:00:00Z' } },
         { id: 22, user_id: UB, created_at: '2026-11-19T09:00:00Z', signal: null },
       ],
       Date.parse('2026-11-19T13:00:00Z'),
+      new Map([
+        [UA, ['roofing']],
+        [UB, ['roofing']],
+      ]),
     );
     expect(m.get(UA)).toEqual({ count: 2, top: { signalId: 2, title: 'New', city: 'Smyrna' }, matchIds: [11, 12] });
     expect(m.get(UB)?.count).toBe(1);
@@ -191,7 +198,8 @@ describe('pushNewMatches', () => {
   const addMatch = (userId: string, createdAt: Date, title = `Hail report ${nextMatch}`, over: Row = {}) => {
     const id = nextMatch++;
     // occurred_at: the record happened when it was matched (news); verify-v1 decision 2 pushes news only
-    m.tables.holler_signals.push({ id: 500 + id, title, city: 'Smyrna', source: 'spc', expires_at: null, occurred_at: createdAt.toISOString() });
+    // u2: push counts only 'act' records for the member's trades: a 1.5 inch hail report is Act now for roofing (profileRow's trade).
+    m.tables.holler_signals.push({ id: 500 + id, title, city: 'Smyrna', source: 'spc', kind: 'report', categories: ['roofing'], data: { type: 'hail', hailInches: 1.5 }, expires_at: null, occurred_at: createdAt.toISOString() });
     m.tables.holler_matches.push({ id, user_id: userId, signal_id: 500 + id, status: 'new', notified: false, pushed_at: null, created_at: createdAt.toISOString(), ...over });
     return id;
   };
@@ -226,8 +234,8 @@ describe('pushNewMatches', () => {
     const r = await run(NOW);
     expect(r).toMatchObject({ status: 'ok', members_pushed: 2, devices_sent: 3, matches_pushed: 4 });
     expect(sent.filter((s) => s.token.startsWith('tA')).map((s) => [s.title, s.body])).toEqual([
-      ['3 new alerts near Smyrna', 'Hail 1.25 in reported'],
-      ['3 new alerts near Smyrna', 'Hail 1.25 in reported'],
+      ['3 new alerts near Smyrna', 'Act now: Hail 1.25 in reported'],
+      ['3 new alerts near Smyrna', 'Act now: Hail 1.25 in reported'],
     ]);
     expect(m.tables.holler_profiles.find((p) => p.user_id === UA)!.last_pushed_at).toBe(NOW.toISOString());
     expect(m.tables.holler_matches.filter((x) => a.includes(x.id as number)).every((x) => x.pushed_at === NOW.toISOString())).toBe(true);
@@ -245,8 +253,8 @@ describe('pushNewMatches', () => {
     expect(await run(at(52))).toMatchObject({ members_pushed: 0 });
     await run(at(61));
     expect(sent.map((s) => [s.title, s.body])).toEqual([
-      ['New alert near Smyrna', 'Tree down on Main St'],
-      ['New alert near Smyrna', 'Tree down on Main St'],
+      ['New alert near Smyrna', 'Act now: Tree down on Main St'],
+      ['New alert near Smyrna', 'Act now: Tree down on Main St'],
     ]);
   });
   it('the count is new since the last push, never a running total (matches held back from email still count once)', async () => {
@@ -257,7 +265,7 @@ describe('pushNewMatches', () => {
     addMatch(UA, at(80), 'Roof permit on Elm');
     await run(at(82));
     expect(sent[0].title).toBe('New alert near Smyrna');
-    expect(sent[0].body).toBe('Roof permit on Elm');
+    expect(sent[0].body).toBe('Act now: Roof permit on Elm');
   });
   it('push does not depend on the email path: a match already marked notified (email off or unconfirmed) is still pushed', async () => {
     addMatch(UA, at(-5), 'Hail 1 in', { notified: true });

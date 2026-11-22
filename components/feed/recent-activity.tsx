@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getProfile } from '@/lib/auth/session';
 import { recentPreviewFor, typeLabel, type RecentPreview } from '@/lib/preview/recent';
+import { OPPORTUNITY_GROUP_LABEL, SHOWN_OPPORTUNITIES } from '@/lib/signals/member-opportunity';
 
 export const RECENT_NOTE = 'These are past records, so you can see what Holler watches. New alerts show up here as they happen.';
 export const RECENT_EMPTY = 'Nothing matched your area and trades in the last 90 days. Try a wider radius or more trades in Settings.';
@@ -13,6 +14,11 @@ function fmtDate(iso: string): string {
 /** The markup, from a finished preview. Every number is a count the query returned; zero lines are never drawn. */
 export function RecentActivityView({ preview }: { preview: RecentPreview }) {
   const lines = preview.byType.filter((t) => t.count > 0);
+  // "2 Act now, 5 Coming soon, 9 Market insights" for the member's trades; zero labels are left out.
+  const counts = preview.byOpportunity;
+  const byLabel = counts
+    ? SHOWN_OPPORTUNITIES.filter((l) => counts[l] > 0).map((l) => `${counts[l].toLocaleString('en-US')} ${OPPORTUNITY_GROUP_LABEL[l]}`)
+    : [];
   const empty = preview.total <= 0 || lines.length === 0;
   return (
     <section aria-labelledby="recent-activity-h" className="rounded-card border border-line bg-surface p-5 shadow-soft md:p-6">
@@ -28,6 +34,12 @@ export function RecentActivityView({ preview }: { preview: RecentPreview }) {
         </>
       ) : (
         <>
+          {byLabel.length > 0 ? (
+            <p className="mt-3 text-sm font-semibold text-ink" data-testid="recent-by-label">
+              {preview.capped ? 'At least ' : ''}
+              {byLabel.join(', ')}
+            </p>
+          ) : null}
           <ul className="mt-3 space-y-1 text-lg text-ink">
             {lines.map((t) => (
               <li key={t.key}>

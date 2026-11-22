@@ -251,6 +251,8 @@ export type ProfileSaveResponse = MeResponse;
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 export type Verdict = 'useful' | 'not_relevant' | 'led_to_work';
 export type IntentKey = 'demand' | 'spending' | 'asking' | 'open-bid' | 'new-business' | 'public-post';
+/** lib/signals/opportunity.ts Opportunity, minus 'context' (never sent). Spelled out here: this file is shared with the app build. */
+export type OpportunityLabel = 'act' | 'soon' | 'intel';
 
 export interface FeedbackDto {
   verdict: Verdict;
@@ -299,6 +301,12 @@ export interface AlertDto {
   expiresAt: string | null;
   severity: number;
   intent: { key: IntentKey; label: string; line: string };
+  /**
+   * What the alert means for this member's trades (lib/signals/member-opportunity.ts): label 'act' | 'soon' | 'intel', labelText
+   * ("Act now", "Coming soon", "Market insight"), why it matters, one next step, and what is not known. Never 'context': those rows
+   * are not sent.
+   */
+  opportunity: { label: OpportunityLabel; labelText: string; why: string; next: string; uncertain: string };
   distanceMi: number | null;
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;

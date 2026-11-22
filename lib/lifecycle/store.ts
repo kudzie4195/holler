@@ -6,6 +6,8 @@ import { trialStartedAt as readTrialStamp } from '../auth/membership';
 import { missedSince } from './missed';
 import { queryRanges, type LifecycleKind, type LifecycleProfile, type SendRow } from './select';
 import type { AlertItem, TypeLine } from './templates';
+import { matchScope } from '../plan/scope';
+import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity } from '../signals/member-opportunity';
 
 type Db = Pick<SupabaseClient, 'from' | 'auth'>;
 
@@ -49,7 +51,11 @@ export interface LifecycleStore {
    * never skips a welcome. Throws or null on a read failure (both mean "treat as a first profile").
    */
   trialStartedAt?(userId: string): Promise<string | null>;
-  matchesOf(userId: string): Promise<MatchesOf>;
+  /**
+   * With `profile`, each item carries its opportunity label for the member's plan-limited trades and keyword watches, and records that
+   * are only 'context' for them are left out (they may be in holler_matches from before trade matching used opportunity).
+   */
+  matchesOf(userId: string, profile?: FullProfile): Promise<MatchesOf>;
   /** Null when there is no usable area, no trades, or the records cannot be read. A total of 0 is also null: nothing to say. */
   quietPreview(profile: FullProfile, now: Date): Promise<QuietPreview | null>;
   /** Throws when the records cannot be read. */
@@ -79,6 +85,13 @@ interface SignalEmbed {
   source: string;
   kind: string;
   title: string | null;
+  summary?: string | null;
+  categories?: string[] | null;
+  opp_type?: string | null;
+  opp_event?: string | null;
+  opp_hail?: string | null;
+  opp_comments?: string | null;
+  opp_mag?: string | null;
   city: string | null;
   state: string | null;
   severity: number | null;
@@ -159,10 +172,11 @@ export function createStore(db: Db): LifecycleStore {
       return (await userOf(userId)).stamp;
     },
 
-    async matchesOf(userId) {
+    async matchesOf(userId, profile) {
+      const scope = profile ? matchScope(profile) : null;
       const { data, error } = await db
         .from('holler_matches')
-        .select('signal:holler_signals(id, source, kind, title, city, state, severity, occurred_at, subtype:data->>subtype)')
+        .select(`signal:holler_signals(id, source, kind, title, summary, categories, city, state, severity, occurred_at, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS})`)
         .eq('user_id', userId)
         .neq('status', 'dismissed')
         .order('created_at', { ascending: false })
@@ -174,7 +188,10 @@ export function createStore(db: Db): LifecycleStore {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
+        const opportunity = scope ? memberOpportunity(s, scope.categories, scope.keywords).label : null;
+        if (opportunity === 'context') continue;
         items.push({
+          opportunity,
           id: s.id,
           title: s.title,
           city: s.city,

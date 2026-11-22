@@ -21,6 +21,8 @@ import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { OPPORTUNITY_RANK } from '@/lib/signals/opportunity';
+import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
 
 export const maxDuration = 60;
 
@@ -30,7 +32,7 @@ const MAX_ITEMS_IN_DIGEST = 10;
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 15;
 
-interface SignalRow {
+interface SignalRow extends OpportunityRowFields {
   id?: number;
   source?: string | null;
   external_id?: string | null;
@@ -56,6 +58,12 @@ interface ProfileRow extends PlanProfile {
   plan?: string | null;
 }
 
+/**
+ * The signal columns the digest reads: the card fields plus what the opportunity label needs (kind, summary, categories, subtype and
+ * the data aliases of lib/signals/member-opportunity.ts).
+ */
+const DIGEST_SIGNAL_COLUMNS = `id, source, external_id, expires_at, kind, title, summary, categories, url, city, state, occurred_at, severity, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS}`;
+
 const PROFILE_COLUMNS: string = 'user_id, business_name, categories, plan, alert_email, subscription_status, trial_ends_at, last_notified_at, email_verified_at, created_at';
 // Migration 0020 adds the store columns (a lapsed store plan is not emailed). Before it, the read retries without them.
 const PROFILE_COLUMNS_0020: string = `${PROFILE_COLUMNS}, ${STORE_PROFILE_COLUMNS}`;
@@ -73,14 +81,14 @@ export async function GET(req: Request) {
     return Response.json({ error: 'not_configured' }, { status: 503 });
   }
 
-  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, matches_skipped_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
+  const counts = { users_considered: 0, emailed: 0, matches_marked: 0, matches_skipped_marked: 0, matches_feed_only_marked: 0, skipped_throttled: 0, skipped_not_entitled: 0, skipped_alerts_off: 0, skipped_unverified: 0, skipped_no_email_provider: 0, failed: 0 };
 
   // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
   const matches: MatchRow[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select('id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, url, city, state, occurred_at, severity, subtype:data->>subtype)')
+      .select(`id, user_id, created_at, signal:holler_signals(${DIGEST_SIGNAL_COLUMNS})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -146,24 +154,15 @@ export async function GET(req: Request) {
     if (Date.now() - started > 50_000) break;
     try {
       const userMatches = byUser.get(p.user_id) ?? [];
-      const rows = userMatches
+      const live = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
         .filter((r): r is { m: MatchRow; s: SignalRow } => !!r.s && !isEndedRequest(r.s, now.getTime()));
-      if (rows.length === 0) continue;
+      if (live.length === 0) continue;
 
-      const { data: userRes, error: uErr } = await admin.auth.admin.getUserById(p.user_id);
-      const email = userRes?.user?.email;
-      if (uErr || !email) {
-        counts.failed++;
-        continue;
-      }
-
-      // AI ranking and notes (lib/ai): stored results only, no model call. Any failure gives empty maps: newest first, no notes.
-      const sigIds = rows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
       // The plan-limited trades (the ones matching uses), not every saved trade: a member who moved from Pro to Solo gets no note
-      // for a trade the plan no longer uses.
+      // or label for a trade the plan no longer uses.
       const trades = matchScope({
         categories: p.categories ?? null,
         lat: null,
@@ -174,12 +173,39 @@ export async function GET(req: Request) {
         plan_source: p.plan_source ?? null,
         store_expires_at: p.store_expires_at ?? null,
       }).categories;
+
+      // Opportunity per match for this member (lib/signals/member-opportunity.ts). The instant digest carries Act now and Coming soon
+      // only; Market insights (and keyword-only or context rows) are in the feed. Those are marked notified with the email, or at once
+      // when there is nothing to email, so they stop being read on every run.
+      const labelled = live.map((r) => ({ ...r, o: memberOpportunity(r.s, trades) }));
+      const rows = labelled.filter((r) => r.o.label === 'act' || r.o.label === 'soon');
+      const feedOnlyIds = labelled.filter((r) => !(r.o.label === 'act' || r.o.label === 'soon')).map((r) => r.m.id);
+      if (rows.length === 0) {
+        for (const part of chunk(feedOnlyIds)) {
+          const r = await admin.from('holler_matches').update({ notified: true }).in('id', part);
+          if (r.error) counts.failed++;
+          else counts.matches_feed_only_marked += part.length;
+        }
+        continue;
+      }
+
+      const { data: userRes, error: uErr } = await admin.auth.admin.getUserById(p.user_id);
+      const email = userRes?.user?.email;
+      if (uErr || !email) {
+        counts.failed++;
+        continue;
+      }
+
+      // AI ranking and notes (lib/ai): stored results only, no model call. Any failure gives empty maps: newest first, no notes.
+      const sigIds = rows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
       const [aiNotes, aiScores] = await Promise.all([notesFor(admin, sigIds, trades), scoresFor(admin, sigIds, trades)]);
       // No stored AI result for any of these (or migration 0014 not applied): keep newest first, exactly as before.
-      const ranked = aiScores.size === 0 ? rows : rankSignals(
+      const aiRanked = aiScores.size === 0 ? rows : rankSignals(
         rows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
         aiScores,
       ).map((x) => x.r);
+      // Act now first, then Coming soon; inside each label the order above (AI rank, or newest first) stands (the sort is stable).
+      const ranked = aiRanked.slice().sort((a, b) => OPPORTUNITY_RANK[b.o.label] - OPPORTUNITY_RANK[a.o.label]);
       const shown = ranked.slice(0, MAX_ITEMS_IN_DIGEST);
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
       // the owner and current access); any failure just leaves the lines out.
@@ -188,7 +214,7 @@ export async function GET(req: Request) {
         userId: p.user_id,
         signalIds: shown.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
       });
-      const items: DigestItem[] = shown.map(({ s }) => ({
+      const items: DigestItem[] = shown.map(({ s, o }) => ({
         kind: s.kind,
         source: s.source ?? null,
         subtype: s.subtype ?? null,
@@ -200,6 +226,7 @@ export async function GET(req: Request) {
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
+        opportunity: { label: o.label, why: o.why, next: o.next, uncertain: o.uncertain },
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),
@@ -228,7 +255,7 @@ export async function GET(req: Request) {
         counts.failed++;
         continue;
       }
-      const ids = rows.map((r) => r.m.id);
+      const ids = [...rows.map((r) => r.m.id), ...feedOnlyIds];
       let mErr = null;
       for (const part of chunk(ids)) {
         const r = await admin.from('holler_matches').update({ notified: true }).in('id', part);

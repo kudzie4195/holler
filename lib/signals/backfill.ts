@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
+import { MAX_BUSINESS_PER_USER, hitLabel, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
+import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from './member-opportunity';
 import { matchScope, type ScopeArea } from '@/lib/plan';
 import { APPROX_LOCATION_SOURCES } from './approx-location';
 import { historyRow, upsertMatchRows } from './quiet-matches';
@@ -27,11 +28,12 @@ interface SignalRow extends MatchSignal {
   expires_at: string | null;
 }
 
-const COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
-/** Keyword reads also need the text the phrase is matched against. */
-const KEYWORD_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+/** Every read carries what the opportunity test needs (kind, source, title, summary, data fields): matchOne labels each row per trade. */
+export const COLUMNS = `id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
+/** Keyword reads: the same columns (the text the phrase is matched against is already there). */
+export const KEYWORD_COLUMNS = COLUMNS;
 /** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
-const RPC_COLUMNS = 'id,categories,lat,lon,state,severity,occurred_at,expires_at,data';
+export const RPC_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,data';
 
 /**
  * Records with coordinates inside the profile's own radius, newest first. The distance test runs in SQL (holler_signals_near,
@@ -177,7 +179,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
 
 /** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
 export const BACKFILL_APPROX_LIMIT = 200;
-const APPROX_COLUMNS = 'id,source,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+export const APPROX_COLUMNS = COLUMNS;
 
 /**
  * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a
@@ -267,16 +269,20 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
 
     // Only what the current plan allows: a Starter profile with saved Pro extras reads its main area and first 5 trades only.
     const scope = matchScope(profile);
+    // The SQL reads narrow by record categories. A trade also earns records tagged for the trades whose permitted work it follows
+    // (siding-gutters reads roofing permits), so the reads take those categories too; matchOne then keeps only rows the member's
+    // trades label act, soon or intel.
+    const readCats = prefilterCategories(scope.categories);
     const states = [...new Set(scope.areas.map((a) => a.state?.toUpperCase()).filter((x): x is string => Boolean(x)))];
     const reads: Promise<SignalRow[]>[] = [];
     if (scope.categories.length) {
       for (const a of scope.areas) {
-        const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: scope.categories };
+        const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: readCats };
         reads.push(readNear(db, at, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }));
         reads.push(readNear(db, at, since, until, { minSeverity: 2, limit: BACKFILL_SEVERE_LIMIT, maxPages: 1 }));
       }
-      for (const st of states) reads.push(readStateLevel(db, { state: st, categories: scope.categories }, since, until, nowIso));
-      reads.push(readApprox(db, scope.categories, since, until, nowIso));
+      for (const st of states) reads.push(readStateLevel(db, { state: st, categories: readCats }, since, until, nowIso));
+      reads.push(readApprox(db, readCats, since, until, nowIso));
     }
     if (scope.keywords.length) {
       for (const a of scope.areas) reads.push(readKeywordsNear(db, a, profile.radius_mi, scope.keywords, since, until, nowIso));
@@ -289,13 +295,14 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);
-      if (m) hits.push({ s, distance_mi: m.distance_mi });
+      if (m) hits.push({ s, distance_mi: m.distance_mi, label: hitLabel(s, profile) });
     }
     // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
     // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.
     const have = await existingMatchIds(db, profile.user_id, hits.map((h) => h.s.id));
     const fresh = have.size ? hits.filter((h) => !have.has(h.s.id)) : hits;
-    // Most severe first, then newest (a future start ranks as now); new-business rows capped at 5, nearest first.
+    // Best label first (act, soon, intel), then most severe, then newest (a future start ranks as now); new-business rows capped at
+    // 5, nearest first.
     const picked = pickHits(fresh, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
     if (picked.length === 0) return { matched: 0, considered: rows.length };
 

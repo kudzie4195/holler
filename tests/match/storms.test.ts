@@ -41,7 +41,7 @@ describe('SPC storm reports map to the promised trades in every state', () => {
       // a member at that place with the trade matches the report
       for (const [sig, trade] of [[h, 'roofing'], [w, 'tree-service'], [t, 'restoration'], [h, 'auto-glass']] as const) {
         const p: MatchProfile = { user_id: `u-${st}`, categories: [trade], lat: lat + 0.05, lon: lon + 0.05, state: st, radius_mi: 25 };
-        const m = matchOne({ id: 1, categories: sig.categories, lat: sig.lat ?? null, lon: sig.lon ?? null, state: sig.state ?? null, severity: sig.severity, occurred_at: sig.occurredAt }, p);
+        const m = matchOne({ id: 1, kind: sig.kind, source: sig.source, title: sig.title, summary: sig.summary ?? null, data: (sig.data ?? null) as Record<string, unknown> | null, categories: sig.categories, lat: sig.lat ?? null, lon: sig.lon ?? null, state: sig.state ?? null, severity: sig.severity, occurred_at: sig.occurredAt }, p);
         expect(m, `${st} ${trade}`).not.toBeNull();
       }
     });
@@ -51,7 +51,7 @@ describe('SPC storm reports map to the promised trades in every state', () => {
     const p: MatchProfile = { user_id: 'smyrna', categories: ['roofing'], lat: 33.8796, lon: -84.5023, state: 'GA', radius_mi: 25 };
     const near = hail('GA', 33.95, -84.35)[0];
     const far = hail('GA', 34.45, -84.5)[0];
-    const asSig = (s: typeof near) => ({ id: 1, categories: s.categories, lat: s.lat ?? null, lon: s.lon ?? null, state: s.state ?? null, severity: s.severity, occurred_at: s.occurredAt });
+    const asSig = (s: typeof near) => ({ id: 1, kind: s.kind, source: s.source, title: s.title, summary: s.summary ?? null, data: (s.data ?? null) as Record<string, unknown> | null, categories: s.categories, lat: s.lat ?? null, lon: s.lon ?? null, state: s.state ?? null, severity: s.severity, occurred_at: s.occurredAt });
     expect(matchOne(asSig(near), p)).not.toBeNull();
     expect(matchOne(asSig(far), p)).toBeNull();
   });

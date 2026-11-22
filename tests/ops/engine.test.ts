@@ -128,7 +128,9 @@ const adapter = (over: Partial<Adapter> = {}): Adapter => ({
   kind: 'alert',
   cadenceMinutes: 15,
   sourceUrl: 'https://example.com',
-  fetch: async () => [sig(), sig({ externalId: 'b', title: 'Second', occurredAt: '2026-11-17T11:30:00Z' })],
+  // u2: matching reads the record's opportunity, so the second alert carries a real NWS event name ('Second' alone is an unknown event,
+  // which is context for every trade).
+  fetch: async () => [sig(), sig({ externalId: 'b', title: 'Hail warning: Second', occurredAt: '2026-11-17T11:30:00Z' })],
   ...over,
 });
 

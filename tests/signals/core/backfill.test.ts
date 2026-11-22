@@ -10,6 +10,8 @@ const profile: MatchProfile = { user_id: 'u1', categories: ['roofing'], lat: 33.
 
 interface Sig {
   id: number;
+  /** Opportunity (u2): the matcher labels each row per trade, so rows carry their kind; an untitled permit is 'intel' for its own trades. */
+  kind: string;
   categories: string[];
   lat: number | null;
   lon: number | null;
@@ -20,6 +22,7 @@ interface Sig {
 }
 const sig = (id: number, over: Partial<Sig> = {}): Sig => ({
   id,
+  kind: 'permit',
   categories: ['roofing'],
   lat: 33.953,
   lon: -84.55,
@@ -85,7 +88,8 @@ describe('backfillMatches', () => {
     await backfillMatches(f.db, profile, NOW);
     expect(f.upserts[0].rows.map((r) => r.signal_id).sort()).toEqual([2, 3]);
     const since = new Date(NOW.getTime() - BACKFILL_DAYS * 86_400_000).toISOString();
-    expect(rpcArgs(f)[0]).toMatchObject({ p_since: since, p_limit: BACKFILL_PAGE_LIMIT, p_categories: ['roofing'], p_lat: 33.749, p_lon: -84.388, p_radius_mi: 25 });
+    // u2: roofing also reads solar permits (roof prep often follows a solar job: lib/signals/member-opportunity.ts prefilterCategories).
+    expect(rpcArgs(f)[0]).toMatchObject({ p_since: since, p_limit: BACKFILL_PAGE_LIMIT, p_categories: ['roofing', 'solar'], p_lat: 33.749, p_lon: -84.388, p_radius_mi: 25 });
   });
 
   it('inserts notified = true with upsert ignoring duplicates', async () => {

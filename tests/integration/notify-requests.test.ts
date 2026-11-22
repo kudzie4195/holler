@@ -28,7 +28,8 @@ function adminFake(matches: unknown[]) {
         return Promise.resolve({
           data: [
             {
-              user_id: 'u1', business_name: 'Acme Roofing', alert_email: true, subscription_status: 'active', trial_ends_at: null,
+              // u2: the digest labels each match for the member's trades, so the profile carries them.
+              user_id: 'u1', business_name: 'Acme Roofing', categories: ['roofing'], alert_email: true, subscription_status: 'active', trial_ends_at: null,
               last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z',
             },
           ],
@@ -62,7 +63,7 @@ afterEach(() => {
 
 const match = (id: number, signal: Record<string, unknown>) => ({
   id, user_id: 'u1', created_at: iso(-60_000),
-  signal: { kind: 'ask', url: 'https://holler.test/request', city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), ...signal },
+  signal: { kind: 'ask', categories: ['roofing'], url: 'https://holler.test/request', city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), ...signal },
 });
 
 describe('GET /api/cron/notify and ended resident requests', () => {
@@ -72,7 +73,8 @@ describe('GET /api/cron/notify and ended resident requests', () => {
     const GET = await load([
       match(1, { source: 'holler-request', title: 'CLOSED request', expires_at: iso(-60_000) }),
       match(2, { source: 'holler-request', title: 'LIVE request', expires_at: iso(86_400_000) }),
-      match(3, { source: 'spc', kind: 'report', title: 'Hail report', expires_at: iso(-60_000) }),
+      // u2: a hail size, so the report is Act now for roofing (an unsized hail report is a Market insight, which is feed-only).
+      match(3, { source: 'spc', kind: 'report', title: 'Hail report', opp_type: 'hail', opp_hail: '1.5', expires_at: iso(-60_000) }),
       match(4, { source: 'holler-request', title: 'EXPIRED request', expires_at: iso(-10 * 86_400_000) }),
     ]);
     const res = await GET(new Request('http://localhost/api/cron/notify', { headers: { authorization: 'Bearer s3cret' } }));

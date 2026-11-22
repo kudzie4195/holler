@@ -1,5 +1,6 @@
 import { siteUrl } from '@/lib/env';
 import { computeAccess } from '@/lib/auth/access';
+import { matchScope } from '@/lib/plan/scope';
 import { adminOrNull } from '@/lib/mobile/admin';
 import { requireMember } from '@/lib/mobile/auth';
 import { buildAlerts, decodeCursor, encodeCursor, readFeedPage } from '@/lib/mobile/feed';
@@ -23,8 +24,10 @@ export async function GET(req: Request) {
 
   const now = Date.now();
   const locked = computeAccess(profile!, now).locked;
+  // The trades and keyword watches the plan covers: each alert carries its opportunity for them, and context rows are left out.
+  const scope = matchScope(profile!);
   const page = await readFeedPage(db, user.id, cursor);
   if (page.error) return fail(req, METHODS, 'server_error', "We couldn't load your alerts. Try again in a moment.");
-  const items = await buildAlerts(page.rows, { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now });
+  const items = await buildAlerts(page.rows, { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: scope.categories, keywords: scope.keywords });
   return ok(req, METHODS, { locked, items, nextCursor: page.nextCursor ? encodeCursor(page.nextCursor) : null });
 }

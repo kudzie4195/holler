@@ -2,7 +2,9 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { intentOf, type Intent } from '@/lib/signals/intent';
-import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
+import { hitLabel, matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
+import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from '@/lib/signals/member-opportunity';
+import { OPPORTUNITY_RANK, type Opportunity } from '@/lib/signals/opportunity';
 import { matchScope, type ScopeInput } from '@/lib/plan';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
@@ -17,12 +19,15 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-loc
  *   B. records without coordinates (state level), severity 2 or more, in a state the member covers, sharing a trade
  *   C. records from the approximate-location sources (Cobb County: the point is a stand-in) inside a box of radius + 15 miles, the
  *      scanner's reach for them (lib/signals/approx-location.ts approxReachMi)
- * Each row then goes through the same matchOne the scanner uses (exact distance, exact state rule, plan limits), so the count is what the
- * member's feed would have held. Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
+ * Each row then goes through the same matchOne the scanner uses (exact distance, exact state rule, plan limits, and the opportunity
+ * test: a record that is only 'context' for every one of the member's trades is never counted), so the count is what the member's feed
+ * would have held. The reads narrow by categories with prefilterCategories (a trade also reads the permits whose follow-on work it does).
+ * Counts are also given per opportunity label (Act now, Coming soon, Market insight). Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
  * Keyword watches are not counted (the preview is about the saved area and trades).
  *
- * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype. Never summary, url,
- * zip, county, data or anything from holler_signal_contacts. Titles are the public, already scrubbed titles.
+ * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype and the public data
+ * fields opportunity reads (OPPORTUNITY_DATA_COLUMNS: notice type, weather event, hail size, storm remarks, magnitude). Never summary,
+ * url, zip, county, the whole data object or anything from holler_signal_contacts. Titles are the public, already scrubbed titles.
  *
  * Each query returns at most 1000 rows (PostgREST cap). When a query hits the cap, `capped` is true and the counts are a floor, never a
  * guess: the component says "at least".
@@ -31,8 +36,7 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-loc
 export const PREVIEW_DAYS = 90;
 export const PREVIEW_ROW_CAP = 1000;
 export const PREVIEW_EXAMPLES = 5;
-export const PREVIEW_COLUMNS =
-  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+export const PREVIEW_COLUMNS = `id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
 
 // ---- type labels ------------------------------------------------------------------------------------------------------------
 const TYPE_LABELS: Record<string, { one: string; many: string }> = {
@@ -95,6 +99,8 @@ export interface PreviewExample {
 export interface RecentPreview {
   total: number;
   byIntent: Record<Intent, number>;
+  /** Matches per opportunity label for the member's trades. Context is never counted. Always set by recentPreviewFor. */
+  byOpportunity?: Record<Exclude<Opportunity, 'context'>, number>;
   /** Biggest first; zero counts are never included. */
   byType: TypeCount[];
   examples: PreviewExample[];
@@ -120,6 +126,11 @@ interface Row {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  opp_type?: string | null;
+  opp_event?: string | null;
+  opp_hail?: string | null;
+  opp_comments?: string | null;
+  opp_mag?: string | null;
 }
 
 const MI_PER_DEG = 68.5; // a little under the true 69.09, so the box is never smaller than the circle
@@ -158,7 +169,7 @@ export async function recentPreviewFor(
         .select(PREVIEW_COLUMNS)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
-        .overlaps('categories', scope.categories)
+        .overlaps('categories', prefilterCategories(scope.categories))
         .gte('occurred_at', since)
         .lte('occurred_at', now.toISOString())
         .order('occurred_at', { ascending: false })
@@ -197,8 +208,9 @@ export async function recentPreviewFor(
       keywords: null,
     };
     const byIntent: Record<Intent, number> = { demand: 0, spending: 0, asking: 0 };
+    const byOpportunity: Record<Exclude<Opportunity, 'context'>, number> = { act: 0, soon: 0, intel: 0 };
     const types = new Map<string, number>();
-    const hits: Row[] = [];
+    const hits: { r: Row; label: Opportunity }[] = [];
     const seen = new Set<string>();
     for (const r of [...rowsA, ...rowsB, ...rowsC]) {
       const id = String(r.id);
@@ -207,6 +219,13 @@ export async function recentPreviewFor(
       if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
       const sig: MatchSignal = {
         id: Number(r.id),
+        kind: r.kind,
+        title: r.title,
+        opp_type: r.opp_type,
+        opp_event: r.opp_event,
+        opp_hail: r.opp_hail,
+        opp_comments: r.opp_comments,
+        opp_mag: r.opp_mag,
         categories: r.categories ?? [],
         lat: r.lat,
         lon: r.lon,
@@ -218,16 +237,24 @@ export async function recentPreviewFor(
         source: r.source,
       };
       if (!matchOne(sig, mp)) continue;
+      const label = hitLabel(sig, mp);
+      if (label === 'context') continue;
+      byOpportunity[label]++;
       const sub = subtypeOf(sig);
       byIntent[intentOf({ kind: r.kind, subtype: sub, source: r.source })]++;
       const key = typeKeyOf({ kind: r.kind, subtype: sub, source: r.source });
       types.set(key, (types.get(key) ?? 0) + 1);
-      hits.push(r);
+      hits.push({ r, label });
     }
 
-    hits.sort((x, y) => (x.occurred_at < y.occurred_at ? 1 : x.occurred_at > y.occurred_at ? -1 : 0));
+    // Examples: Act now first, then Coming soon, then Market insights; newest first inside a label.
+    hits.sort(
+      (x, y) =>
+        OPPORTUNITY_RANK[y.label] - OPPORTUNITY_RANK[x.label] ||
+        (x.r.occurred_at < y.r.occurred_at ? 1 : x.r.occurred_at > y.r.occurred_at ? -1 : 0),
+    );
     const examples: PreviewExample[] = [];
-    for (const r of hits) {
+    for (const { r } of hits) {
       if (examples.length >= PREVIEW_EXAMPLES) break;
       const title = (r.title ?? '').replace(/\s+/g, ' ').trim();
       if (!title) continue;
@@ -237,6 +264,7 @@ export async function recentPreviewFor(
     return {
       total: hits.length,
       byIntent,
+      byOpportunity,
       byType: [...types.entries()].map(([key, count]) => ({ key, count })).sort((x, y) => y.count - x.count || x.key.localeCompare(y.key)),
       examples,
       capped,

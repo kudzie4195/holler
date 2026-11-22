@@ -3,6 +3,7 @@ import { matchOne, type MatchSignal } from '../signals/match';
 import { matchScope, type ScopeInput } from '../plan';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-location';
+import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from '../signals/member-opportunity';
 
 /**
  * Trial-ended: how many new public records matched this member's trades and area since the trial ended. A real count or an error, never a guess.
@@ -10,12 +11,14 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-locati
  * the count reads holler_signals directly and runs each row through the same matchOne the scanner uses, the way lib/preview/recent.ts
  * does for its 90-day count. Same three queries (a box around each allowed area; state-level rows at severity 2 or more; rows from the
  * approximate-location sources (Cobb County) in a box of radius + 15 miles, the scanner's reach for them), same exclusions
- * (resident requests and kind 'ask' never counted). Columns read: id, source, kind, categories, lat, lon, state, severity, occurred_at,
- * data->>subtype. No titles, no summaries, no contacts.
+ * (resident requests and kind 'ask' never counted). matchOne's opportunity test applies (a record that is only 'context' for the
+ * member's trades is not counted), so the rows carry the title (read for the label only, never printed) and the public data fields
+ * of OPPORTUNITY_DATA_COLUMNS. Columns read: id, source, kind, title, categories, lat, lon, state, severity, occurred_at,
+ * data->>subtype and those aliases. No summaries, no contacts.
  */
 export const MISSED_ROW_CAP = 1000;
 const MI_PER_DEG = 68.5;
-const COLUMNS = 'id,source,kind,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+export const MISSED_COLUMNS = `id,source,kind,title,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
 
 export interface MissedProfile extends ScopeInput {
   radius_mi: number | null;
@@ -32,6 +35,12 @@ interface Row {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  title?: string | null;
+  opp_type?: string | null;
+  opp_event?: string | null;
+  opp_hail?: string | null;
+  opp_comments?: string | null;
+  opp_mag?: string | null;
 }
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -59,10 +68,10 @@ export async function missedSince(
   const base = () =>
     db
       .from('holler_signals')
-      .select(COLUMNS)
+      .select(MISSED_COLUMNS)
       .neq('source', HOLLER_REQUEST_SOURCE)
       .neq('kind', 'ask')
-      .overlaps('categories', scope.categories)
+      .overlaps('categories', prefilterCategories(scope.categories))
       .gte('occurred_at', since.toISOString())
       .lte('occurred_at', now.toISOString())
       .order('occurred_at', { ascending: false })
@@ -107,6 +116,13 @@ export async function missedSince(
     if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
     const sig: MatchSignal = {
       id: Number(r.id),
+      kind: r.kind,
+      title: r.title ?? null,
+      opp_type: r.opp_type,
+      opp_event: r.opp_event,
+      opp_hail: r.opp_hail,
+      opp_comments: r.opp_comments,
+      opp_mag: r.opp_mag,
       categories: r.categories ?? [],
       lat: r.lat,
       lon: r.lon,

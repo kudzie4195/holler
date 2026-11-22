@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchProfile, MatchRow, MatchSignal } from './match';
+import { OPPORTUNITY_DATA_COLUMNS } from './member-opportunity';
 import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
@@ -21,9 +22,13 @@ export interface StoredSignal extends MatchSignal {
   place_slug?: string | null;
   /** read back so contacts can be filed under the rows that were actually inserted */
   external_id?: string;
-  /** read back for the alert log (lib/moat/log alertLogRowsFor) */
-  kind?: string;
 }
+
+/**
+ * Columns read back from the insert: everything the matcher needs, including the opportunity fields (kind, title, summary and the
+ * data aliases; lib/signals/member-opportunity.ts), since the scan matches exactly these rows.
+ */
+export const INSERTED_SIGNAL_COLUMNS = `id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS}`;
 
 export interface ScanRunRecord {
   source: string;
@@ -156,7 +161,7 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
+      .select(INSERTED_SIGNAL_COLUMNS);
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);

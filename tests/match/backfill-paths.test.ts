@@ -38,7 +38,7 @@ function dbWithMatches(signals: any[], existing: { user_id: string; signal_id: n
   return { db, matches, upserts };
 }
 
-const sig = (id: number, categories: string[], h: number) => ({ id, categories, lat: 33.95, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(h), expires_at: null });
+const sig = (id: number, categories: string[], h: number) => ({ id, kind: 'permit', categories, lat: 33.95, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(h), expires_at: null });
 
 describe('backfill when the feed already has rows (round 7 fix)', () => {
   const electrical = Array.from({ length: 30 }, (_, i) => sig(i + 1, ['electrical'], i + 1)); // newest

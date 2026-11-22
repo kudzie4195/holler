@@ -836,7 +836,7 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     uncertain: 'The violations are not listed here, and the business may already have a provider.',
   }),
   'new-business': (c) => ({
-    why: `A new business licence was issued here, and new businesses often set up services that fit ${c.trade}.`,
+    why: `A new business license was issued here, and new businesses often set up services that fit ${c.trade}.`,
     next: 'Introduce yourself while the business is getting set up.',
     uncertain: 'What the business does day to day and when it opens are not on the record.',
   }),
@@ -901,9 +901,9 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     uncertain: 'Damage to buildings is not confirmed.',
   }),
   'event-permit': (c) => ({
-    why: `The city permitted an event here, and organisers of events often hire help that fits ${c.trade}.`,
-    next: 'Look up the organiser and offer your service before the date.',
-    uncertain: 'The organiser may already have vendors, and the event size is not on the record.',
+    why: `The city permitted an event here, and organizers of events often hire help that fits ${c.trade}.`,
+    next: 'Look up the organizer and offer your service before the date.',
+    uncertain: 'The organizer may already have vendors, and the event size is not on the record.',
   }),
   'big-event': () => ({
     why: 'A ticketed event is scheduled here, which brings crowds in and out.',

@@ -22,6 +22,7 @@ function perfData(ns: number, np: number, seed = 42): { signals: MatchSignal[]; 
   const lon = () => -122 + rnd() * 50;
   const signals: MatchSignal[] = Array.from({ length: ns }, (_, i) => ({
     id: i,
+    kind: 'permit',
     categories: ['cat' + Math.floor(rnd() * 40)],
     lat: lat(),
     lon: lon(),

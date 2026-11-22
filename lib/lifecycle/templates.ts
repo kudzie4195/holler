@@ -1,6 +1,6 @@
 import { escapeHtml, contactAddress, type Rendered } from '../email/templates';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
-import { INTENT_LABEL, intentOf } from '../signals/intent';
+import { OPPORTUNITY_LABEL, OPPORTUNITY_RANK, type Opportunity } from '../signals/opportunity';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from '../plan/limits';
 // Prices come from the one public price module (lib/plan/public-prices.ts, built from the price table), never from this file.
 import { ENTITLEMENT_FOR_TIER, PUBLIC_PRICES } from '../plan/public-prices';
@@ -24,6 +24,16 @@ export interface AlertItem {
   subtype?: string | null;
   /** 1 to 3. Used by the trial-ending ranking only. */
   severity?: number | null;
+  /**
+   * The record's opportunity for the member's trades (lib/lifecycle/store.ts matchesOf with the profile). Printed as the label
+   * ("Act now", "Coming soon", "Market insight") after the place and date; no label when absent. 'context' rows are never listed.
+   */
+  opportunity?: Opportunity | null;
+}
+
+/** Rank of an item's label for ordering (Act now highest); an item without one ranks lowest. */
+export function opportunityRankOf(i: Pick<AlertItem, 'opportunity'>): number {
+  return i.opportunity ? OPPORTUNITY_RANK[i.opportunity] : -1;
 }
 
 export interface TypeLine {
@@ -66,7 +76,7 @@ function placeOf(i: AlertItem): string {
 }
 
 function metaOf(i: AlertItem): string {
-  const label = INTENT_LABEL[intentOf({ kind: i.kind, subtype: i.subtype, source: i.source ?? '' })];
+  const label = i.opportunity && i.opportunity !== 'context' ? OPPORTUNITY_LABEL[i.opportunity] : '';
   return [placeOf(i), shortDate(i.occurredAt), label].filter(Boolean).join(', ');
 }
 

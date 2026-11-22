@@ -2,17 +2,16 @@ import { MAX_MATCHES_PER_USER, matchSignals, type MatchProfile, type MatchSignal
 import { loadProfiles, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
+import { OPPORTUNITY_DATA_COLUMNS } from './member-opportunity';
 
 /** A signal that happened longer ago than this is matched quietly (notified = true): no email for old news, like the backfill. */
 export const REMATCH_QUIET_AFTER_MS = 3 * 86_400_000;
 const CHUNK = 200;
-const SIGNAL_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+/** Everything matchSignals needs, opportunity fields included (kind, title, summary, data aliases). */
+export const SIGNAL_COLUMNS = `id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
 
 interface Row extends MatchSignal {
   expires_at: string | null;
-  /** read for the alert log (lib/moat/log) */
-  source?: string | null;
-  kind?: string | null;
 }
 
 export interface RematchOptions {

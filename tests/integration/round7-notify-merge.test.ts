@@ -29,11 +29,12 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
   severity,
   subtype: null,
 });
-// Newest match first, as the route reads them.
+// Newest match first, as the route reads them. u2 (opportunity labels): the digest carries Act now and Coming soon only, so the reports
+// carry what makes them actionable for roofing: damage remarks on the wind report (Coming soon), a hail size (Act now).
 const MATCHES = [
-  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind report near Smyrna', 2) },
+  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: { ...sig(1, 'Wind report near Smyrna', 2), summary: 'Trees down on Main St' } },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
-  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
+  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: { ...sig(3, 'Hail report near Marietta', 60), opp_hail: '1.25' } },
 ];
 
 const missing = (t: string) => ({ data: null, error: { code: '42P01', message: `relation "public.${t}" does not exist` } });
@@ -116,13 +117,14 @@ afterEach(() => {
 });
 
 describe('notify cron after the round 7 merge', () => {
-  it('none of 0014, 0015, 0017 applied: the digest still goes out, newest first, with no AI line, and every match is marked', async () => {
+  it('none of 0014, 0015, 0017 applied: the digest still goes out, Act now first then newest, with no AI line, and every match is marked', async () => {
     const w: World = { migrated: false, lastNotified: null, ai: [], calls: [] };
     const r = await runNotify(w);
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ ok: true, emailed: 1, matches_marked: 3, failed: 0 });
     expect(r.sent).toHaveLength(1);
-    expect(order(r.sent[0].text)).toEqual(['Wind report near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta']);
+    // u2: Act now (tornado, hail; newest first inside the label) before Coming soon (the wind report). Was plain newest first.
+    expect(order(r.sent[0].text)).toEqual(['Tornado warning for Cobb County', 'Hail report near Marietta', 'Wind report near Smyrna']);
     expect(r.sent[0].text).not.toContain('Why it may matter');
     expect(r.sent[0].html).not.toContain('Why it may matter');
     // The log and funnel writes were attempted and failed quietly against the missing tables.

@@ -4,6 +4,7 @@ import { UPCOMING_DAYS } from '@/lib/time';
 import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI, CHECK_WINDOW_DAYS } from './scope';
 import type { CheckItem } from './group';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
+import { memberOpportunity, opportunityDto, prefilterCategories } from '@/lib/signals/member-opportunity';
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = CHECK_WINDOW_DAYS;
@@ -17,7 +18,12 @@ const STATE_LIMIT = 20;
 /** Rows that have not started yet (events, event permits). Read separately so they cannot crowd out the recent records. */
 const UPCOMING_LIMIT = 12;
 const QUERY_TIMEOUT_MS: number = 8000;
-const COLUMNS = 'id,source,kind,title,url,city,state,lat,lon,severity,occurred_at,expires_at';
+/**
+ * Card fields plus what the opportunity label needs (categories and data; the RPC result takes plain columns only, so the whole data
+ * object is read). data is used on the server to label the row and is never put in the cached item.
+ */
+export const CHECK_COLUMNS = 'id,source,kind,title,url,city,state,lat,lon,severity,occurred_at,expires_at,categories,data';
+const COLUMNS = CHECK_COLUMNS;
 
 export interface CheckData {
   /** false when the database could not be read (env missing, timeout, error). Render the empty state. */
@@ -40,6 +46,8 @@ interface Row {
   severity: number;
   occurred_at: string;
   expires_at?: string | null;
+  categories?: string[] | null;
+  data?: Record<string, unknown> | null;
 }
 
 
@@ -57,6 +65,9 @@ interface Row {
  *  4. upcoming records (events, event permits) through the same function, soonest first;
  *  5. state-level records (no coordinates, severity 2 or more) for the ZIP's own state.
  * The page decides what to show first (lib/check/group.ts): active severe alerts, then the closest records, then the rest newest first.
+ * Every row is labelled for the chosen trade (lib/signals/opportunity.ts): a record that is only 'context' for it (city work, other
+ * trades' records) is left out, and the reads take the categories of the permits whose follow-on work the trade does
+ * (prefilterCategories), so a gutter company sees nearby re-roof permits.
  */
 export async function loadCheck(cellLat: number, cellLon: number, state: string, trade: string): Promise<CheckData> {
   'use cache: remote';
@@ -80,6 +91,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
   ) {
     return fail();
   }
+  const readCats = prefilterCategories([trade]);
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
     const near = (from: string, until: string, limit: number, soonestFirst: boolean, radiusMi: number = CHECK_SEARCH_RADIUS_MI, minSeverity = 1) =>
@@ -88,7 +100,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
           p_lat: cellLat,
           p_lon: cellLon,
           p_radius_mi: radiusMi,
-          p_categories: [trade],
+          p_categories: readCats,
           p_since: from,
           p_until: until,
           p_limit: limit,
@@ -110,7 +122,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         .is('lat', null)
         .eq('state', state)
         .gte('severity', 2)
-        .overlaps('categories', [trade])
+        .overlaps('categories', readCats)
         .or(`expires_at.is.null,expires_at.gt.${checkedAt}`)
         .gte('occurred_at', since)
         .lte('occurred_at', checkedAt)
@@ -139,6 +151,8 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     for (const r of data) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
+      const o = memberOpportunity(r, [trade]);
+      if (o.label === 'context') continue;
       items.push({
         id: r.id,
         kind: r.kind,
@@ -150,6 +164,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         lon: r.lon,
         occurredAt: r.occurred_at,
         severity: r.severity,
+        opportunity: opportunityDto(o),
       });
     }
     // A live resident request in the list: tag the entry and keep it 15 minutes at most, so a closed request leaves /check promptly.
