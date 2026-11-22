@@ -1,7 +1,7 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
-import { deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { stormFactsOf } from './wind-damage';
 import { bidsEnabled, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
@@ -17,8 +17,8 @@ export const MAX_MATCHES_PER_USER = 25;
  * 25-row cap with licenses. At most this many `business` rows per user per scan (and per backfill), nearest first.
  */
 export const MAX_BUSINESS_PER_USER = 5;
-/** State-level (no coordinates) signals only match when severity is at least this. */
-export const STATE_LEVEL_MIN_SEVERITY = 2;
+/** State-level (no coordinates) signals only match when severity is at least this. Defined with the labels (lead-rules.ts cannotBeDelivered). */
+export { STATE_LEVEL_MIN_SEVERITY };
 
 export interface MatchProfile {
   user_id: string;
@@ -54,7 +54,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -102,8 +102,6 @@ export interface MatchResult {
   hold?: AlertHold;
 }
 
-const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
-
 function hasCoords(lat: number | null | undefined, lon: number | null | undefined): lat is number {
   return typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon);
 }
@@ -138,6 +136,12 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
   summary: signal.summary ?? null,
   // An SPC report's own fields decide its storm label when the row carries its data (round 18 integration).
   storm: stormFactsOf(signal.source, signal.data),
+  permitStage: signal.data?.permitStage,
+  // Where the record is (review P3 item 18: a federal bid with no point is feed only): the same rules decide here as on every surface.
+  lat: signal.lat,
+  lon: signal.lon,
+  state: signal.state,
+  severity: signal.severity,
 });
 
 /**
@@ -266,10 +270,9 @@ function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope
   // A National Weather Service alert with no coordinates is a zone alert (a park, a mountain range, a coastal strip), not a statewide one:
   // matched by state it reached members 100+ miles away (round 15 quality gate: Joshua Tree and Inyo County alerts for Los Angeles).
   // A real statewide record (a FEMA declaration) keeps this branch.
-  if (norm(signal.source) === 'nws') return null;
-  if (signal.severity < STATE_LEVEL_MIN_SEVERITY) return null;
-  if (!signal.state) return null;
-  const st = signal.state.toUpperCase();
+  // The same test the labels use (lead-rules.ts cannotBeDelivered), so a record the matcher can never deliver is never counted as an alert.
+  if (cannotBeDelivered(signal)) return null;
+  const st = (signal.state as string).toUpperCase();
   if (!scope.areas.some((a) => a.state && a.state.toUpperCase() === st)) return null;
   return { distance_mi: null };
 }

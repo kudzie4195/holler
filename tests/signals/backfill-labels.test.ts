@@ -2,6 +2,7 @@
 // Round 13 review P0-1: the signup backfill reads its radius rows through the holler_signals_near RPC. The RPC read must carry
 // source, kind and title, or the opportunity label cannot tell city work (public graffiti, tree trims, sewer work) from an alert and
 // the 25 first-feed slots fill with rows the feed then hides.
+import { HEAT_MARK } from '@/lib/signals/carry';
 import { describe, expect, it } from 'vitest';
 import { backfillMatches, RPC_COLUMNS, BACKFILL_CAP } from '@/lib/signals/backfill';
 import type { MatchProfile } from '@/lib/signals/match';
@@ -60,7 +61,8 @@ describe('backfill RPC read (P0-1)', () => {
 
   it('a heat complaint keeps its act_now label through the RPC read (it is still stored and not dropped to the default)', async () => {
     const hvac: MatchProfile = { ...painter, user_id: 'u-hvac', categories: ['hvac'] };
-    const heat = row(9, { source: 'socrata-nyc-311', city: 'New York', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', categories: ['hvac'] });
+    // round 19 RULES (owner call 1): the building's third complaint in 48 hours, as the scan marks it
+    const heat = row(9, { source: 'socrata-nyc-311', city: 'New York', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', summary: `HEAT/HOT WATER | ENTIRE BUILDING | BRONX | ${HEAT_MARK}`, categories: ['hvac'] });
     const tree = row(10, { title: '311 request in Chicago: Tree Trim Request', categories: ['hvac'] });
     const d = db([heat, tree]);
     await backfillMatches(d, hvac, NOW);

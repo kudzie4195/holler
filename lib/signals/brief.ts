@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
-import { formatRecordDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { formatRecordDate, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { isPaperworkOrder } from './carry';
 import { bidSourceLinkLabel } from './bid-card';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
@@ -202,6 +203,14 @@ export function workFor(trade: string | null | undefined): string {
   return (trade && (TRADE_WORK as Record<string, string | undefined>)[trade]) || GENERIC_WORK;
 }
 
+/** A REASON_COPY sentence with its slots filled. "{type}" without a permit type drops the bracket ("A permit was filed nearby; ..."). */
+export function fillReason(text: string, work: string, permitType: string | null | undefined): string {
+  const typed = text.replace('{work}', work);
+  if (!typed.includes('{type}')) return typed;
+  const withType = permitType ? typed.replace('{type}', permitType) : null;
+  return withType && withType.length <= MAX_WHY ? withType : typed.replace(' ({type})', '');
+}
+
 // ---- table --------------------------------------------------------------------------------------------------------------------------
 
 /** What the record itself says, read from its title (see permitTypeOf, awardWorkOf). */
@@ -213,6 +222,8 @@ interface WhyCtx {
   awardWork: string | null | undefined;
   /** Code violation: the short description after the title's ": " (40 characters or fewer), lower-cased. Null when it names nothing ("property violation"). */
   violation: string | null;
+  /** Storm report: the title is a measured wind gust (isGustReport). False without a title. */
+  gust?: boolean;
 }
 type WhyFn = (work: string, c: WhyCtx) => string;
 
@@ -241,6 +252,8 @@ export function violationOrderOf(title: string | null | undefined): string | nul
   if (at < 0) return null;
   const body = title.slice(at + 2).trim();
   if (!body || body.length > 40 || /\d|\.\.\.|…/.test(body) || /^property violation$/i.test(body) || /^code violation$/i.test(body)) return null;
+  // A paperwork-only order ("OR LICENSED CONTRACTOR") is not a repair: quoting it read "recorded nearby: or licensed contractor." (audit).
+  if (isPaperworkOrder(title)) return null;
   return body.toLowerCase();
 }
 
@@ -320,7 +333,8 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   },
   'storm-report': {
     act_now: (w) => `A storm report was filed nearby; ${w} may follow.`,
-    coming_soon: (w) => `A wind gust was reported nearby; ${w} may follow.`,
+    // Review P2-3: "a gust" only on a gust row; a wind damage heads-up (line 39) or a card without its title says what it is.
+    coming_soon: (w, c) => (c.gust ? `A wind gust was reported nearby; ${w} may follow.` : `A storm report was filed nearby; ${w} may follow.`),
   },
   disaster: {
     coming_soon: (w) => `A disaster was declared near you; ${w} may come up.`,
@@ -410,12 +424,139 @@ export const WHY_OVERRIDES: Readonly<Record<string, string>> = {
   'act_now|storm-report|restoration': 'A storm report was filed nearby, and storm restoration can follow.',
   'act_now|storm-report|insurance': 'A storm report was filed nearby, and storm claims can follow.',
   'act_now|storm-report|public-adjuster': 'A storm report was filed nearby, and storm claims can follow.',
-  'act_now|inspection|pest-control': 'A food inspection nearby failed; failures often involve pests.',
-  'act_now|inspection|janitorial-commercial': 'A food inspection nearby failed; failures often involve cleanliness.',
   'coming_soon|permit|real-estate': 'A new-home permit was filed nearby; a finished home may be sold later.',
   'coming_soon|permit|moving': 'A new-home permit was filed nearby; people may move in once it is built.',
   'coming_soon|permit|junk-removal': 'A demolition permit was filed nearby, and hauling often follows.',
 };
+
+/**
+ * Round 19 RULES (criterion 5): sentences for the record kinds where the audit judged engine B's "why it matters" and "next step" lines
+ * more useful (review-ENGINE-compare.md section 6), keyed by the label rule that decided the pair (lead-rules.ts RULES ids), so a card says
+ * what that rule saw. A cell replaces the family's sentence for that part only; the five-part card is unchanged. None states a legal duty
+ * as a fact about a building, says a vendor is chosen, or claims damage. `{work}` is the trade's work (TRADE_WORK), `{type}` the permit's
+ * type from its title. `labels` limits a cell to those labels.
+ */
+export interface ReasonCopy {
+  why?: string;
+  next?: string;
+  unknown?: string;
+  labels?: readonly BriefLabel[];
+}
+
+export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
+  'heat-per-building': {
+    // the card only: a complaint before the third (owner call 11 puts it in the feed) keeps the 311 family's sentences
+    labels: ['act_now'],
+    why: 'Three or more heat complaints were filed at this building in 48 hours.',
+    next: "Contact the building's owner or managing agent.",
+    unknown: "the building's staff may already be fixing it",
+  },
+  'act-no-heat': {
+    why: 'A no-heat complaint was filed for this building through 311.',
+    next: "Contact the building's owner or managing agent.",
+    unknown: "the building's staff may already be fixing it",
+  },
+  'heat-plumbing': {
+    why: 'A heat or hot water complaint was filed for this building through 311.',
+    next: 'Note the building; its owner or managing agent arranges repairs.',
+    unknown: 'whether hot water is out is not clear',
+  },
+  'mi-heat-apartment': {
+    why: 'A heat or hot water complaint was filed for one apartment through 311.',
+    next: 'The super may handle it first; note the building.',
+    unknown: "the building's own staff may fix it",
+  },
+  'act-private-graffiti': {
+    why: 'Graffiti on private property was reported through 311.',
+    next: 'Offer the owner removal or repainting.',
+    unknown: 'the owner may clean it up without help',
+  },
+  'act-sewage-backup': {
+    why: 'A sewage back-up was reported here; drain work and cleanup can follow.',
+    next: 'Look up the property and offer help to the owner.',
+    unknown: 'the city sewer, not the building, may be at fault',
+  },
+  'soon-sewage-restoration': {
+    why: 'A sewage back-up was reported here; drain work and cleanup can follow.',
+    next: 'Look up the property and offer help to the owner.',
+    unknown: 'the city sewer, not the building, may be at fault',
+  },
+  'property-violation-311': {
+    why: 'A private-property problem was reported to 311; {work} may fit.',
+    next: 'Look up the owner and offer to take care of it.',
+    unknown: 'the owner may handle it without help',
+  },
+  'soon-private-property-311': {
+    why: 'A private-property problem was reported to 311; {work} may fit.',
+    next: 'Look up the owner and offer to take care of it.',
+    unknown: 'the owner may handle it without help',
+  },
+  'soon-building-pests': { why: 'A 311 report names a problem inside a building; {work} may fit.', next: 'Look up the owner or manager and offer help.' },
+  'soon-building-mold': { why: 'A 311 report names a problem inside a building; {work} may fit.', next: 'Look up the owner or manager and offer help.' },
+  'soon-healthy-homes': { why: 'A 311 report names a problem inside a building; {work} may fit.', next: 'Look up the owner or manager and offer help.' },
+  'act-violation-named': { next: 'Look up the property owner and offer the repair.' },
+  'violation-unnamed': {
+    why: 'A code violation was recorded here, but it does not name the repair.',
+    next: 'Look up the owner and ask what must be fixed.',
+    unknown: 'the repair is not on the record',
+  },
+  'violation-paperwork': {
+    why: 'A code violation here is about a permit or a license, not a named repair.',
+    next: 'Look up the owner and ask what must be fixed.',
+    unknown: 'the repair is not on the record',
+  },
+  'violation-abatement': {
+    why: 'A property abatement case was opened here; {work} may fit.',
+    next: 'Look up the owner and offer the cleanup.',
+    unknown: 'the city may do the work itself',
+  },
+  'soon-inspection-pests': { why: 'A food business here failed a health inspection.', next: 'Contact the business and offer a visit.', unknown: 'what failed is not listed here' },
+  'inspection-commercial-cleaning': { why: 'A food business here failed a health inspection.', next: 'Contact the business and offer a visit.', unknown: 'what failed is not listed here' },
+  'soon-inspection-plumbing': { why: 'A food business here failed a health inspection.', next: 'Contact the business and offer a visit.', unknown: 'what failed is not listed here' },
+  'remodel-finish': {
+    labels: ['market_insight'],
+    why: 'A permit was filed nearby ({type}); it does not name {work}.',
+    next: 'Use it to see where building work is picking up near you.',
+    unknown: 'follow-on work is a guess',
+  },
+  'addition-follow-on': {
+    labels: ['market_insight'],
+    why: 'A permit was filed nearby ({type}); it does not name {work}.',
+    next: 'Use it to see where building work is picking up near you.',
+    unknown: 'follow-on work is a guess',
+  },
+  'weather-table': {
+    labels: ['market_insight'],
+    why: 'A weather alert was issued near you; worth knowing for {work}.',
+    next: 'Watch how it develops before you act.',
+    unknown: 'damage is not confirmed, and it may not reach you',
+  },
+  'spc-wind-damage': { why: 'A wind damage report was filed nearby; {work} may be needed.', next: 'Check the area and offer help to owners on affected streets.' },
+  // Review P3 item 8: the inspection step only on an alert; a feed-only hail card (auto glass and body under 1.75 inch) keeps the family's step.
+  'spc-hail': { labels: ['act_now', 'coming_soon'], next: 'Check the area and offer inspections to owners nearby.' },
+  'act-storm-report': { next: 'Check the area and offer inspections to owners nearby.' },
+  'soon-storm-gust': { next: 'Watch for reports of trees or limbs down nearby.' },
+  'mi-airport-delay': { why: 'An airport delay was listed nearby; it changes when arrivals land.', next: 'Watch the airport status if you work airport pickups.' },
+  'soon-bid-not-open': { why: 'A federal notice for {work} was posted; it may not be open yet.', next: "Check the notice type and the buyer's page." },
+  'mi-bid-statewide': { why: 'A federal bid names a state but no city; it cannot be placed near you.' },
+};
+
+/** The weather-table cell for a heads-up alert: B's next step, without presuming damage reports. Snow removal keeps it too. */
+export const WEATHER_SOON_NEXT = 'Be ready in case calls come once it passes.';
+
+/** The reason cell for this record, label and trade, or null (the family's sentences apply). Needs the title: a locked card has none. */
+export function reasonCopyFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): { id: string; copy: ReasonCopy } | null {
+  if (typeof input.title !== 'string' || !input.title.trim()) return null;
+  const sig = { source: input.source, kind: input.kind, subtype: input.subtype, title: input.title, summary: input.summary };
+  const trade = (input.trade ?? null) as CategoryId | null;
+  const rule = ruleFor(sig, trade);
+  const copy = rule ? REASON_COPY[rule.id] : undefined;
+  if (!rule || !copy || (copy.labels && !copy.labels.includes(input.label))) return null;
+  // The card's label can differ from what this rule gives (a passed deadline, a stage update, another trade's label): then the family's
+  // sentences fit the card better than this rule's.
+  if (labelFor(sig, trade) !== input.label) return null;
+  return { id: rule.id, copy };
+}
 
 interface Uncertainty {
   confidence: Confidence;
@@ -510,6 +651,9 @@ export function interiorDemolitionWhy(permitType: string | null | undefined): st
   return typed && typed.length <= MAX_WHY ? typed : 'A permit that includes demolition work was filed nearby; hauling may follow.';
 }
 
+/** A storm report whose title is a measured wind gust ("60 mph wind gust reported near ..."), not a damage, hail or tornado report. */
+export const isGustReport = (title: string | null | undefined): boolean => /\bwind gust\b/i.test(title ?? '');
+
 /** The brief for one record, one label and one trade. Pure, total: any input gives a complete brief. */
 export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): Brief {
   const family = briefFamilyOf(input);
@@ -520,14 +664,20 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     permitType: family === 'permit' ? permitTypeOf(input.title) : undefined,
     awardWork: family === 'federal-award' ? awardWorkOf(input.title) : undefined,
     violation: family === 'violation' ? violationOrderOf(input.title) : null,
+    gust: family === 'storm-report' && isGustReport(input.title),
   };
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
   const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
   const interiorDemo = !routed && isInteriorDemolitionCard(label, family, trade, input.title) ? interiorDemolitionWhy(ctx.permitType) : null;
-  const why = routed ?? interiorDemo ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
+  const reason = reasonCopyFor(input);
+  const reasonWhy = reason?.copy.why ? fillReason(reason.copy.why, workFor(trade), ctx.permitType) : null;
+  const why = routed ?? interiorDemo ?? reasonWhy ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
+  // Review P2-3: "a gust was reported" is said of gust rows only (a wind damage report is a heads-up too since line 39).
+  if (family === 'storm-report' && !ctx.gust) merged.known = u.base.known;
+  if (reason?.copy.unknown) merged.unknown = reason.copy.unknown;
   // Damage: the brief never says "no damage is reported" (a word list cannot prove a record has no damage). A storm report or quake whose
   // own text reports damage says what it mentions, as unconfirmed. A weather alert is a forecast, so it never prints a mention.
   if (family === 'storm-report' || family === 'quake') {
@@ -541,7 +691,7 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     label,
     trade,
     why,
-    next: NEXT_STEP[family],
+    next: reason?.copy.next ?? (family === 'weather-alert' && label === 'coming_soon' && input.title ? WEATHER_SOON_NEXT : NEXT_STEP[family]),
     confidence: merged.confidence,
     uncertain: `${merged.confidence} confidence ${merged.known}; ${merged.unknown}.`,
   };
@@ -693,10 +843,27 @@ export function allBriefStrings(): string[] {
       for (const src of ['nws', 'spc', 'usgs']) {
         for (const summary of [undefined, 'Nothing else.', 'Trees down on homes.', 'Power lines down.', 'Roof damage.', 'Some damage.', 'Destroyed.', 'Flooding.', 'Injuries.', 'Debris.']) {
           out.push(briefFor({ source: src, label, trade, title: 'T', summary }).uncertain);
+          // a measured gust (review P2-3: only these say "a gust was reported")
+          if (src === 'spc') out.push(...Object.values(briefFor({ source: src, label, trade, title: '60 mph wind gust reported near X', summary })).filter((v): v is string => typeof v === 'string'));
         }
       }
     }
   }
+  for (const c of Object.values(REASON_COPY)) {
+    for (const trade of trades) if (c.why) out.push(fillReason(c.why, workFor(trade), null), fillReason(c.why, workFor(trade), 'Remodel'));
+    if (c.next) out.push(c.next);
+    if (c.unknown) {
+      out.push(c.unknown);
+      // the whole "What is uncertain" line, for every family's confidence and known part (the cell is used inside one family)
+      for (const family of BRIEF_FAMILIES) {
+        for (const label of labels) {
+          const u = { ...UNCERTAIN[family].base, ...(UNCERTAIN[family].byLabel?.[label] ?? {}) };
+          out.push(`${u.confidence} confidence ${u.known}; ${c.unknown}.`);
+        }
+      }
+    }
+  }
+  out.push(WEATHER_SOON_NEXT);
   out.push(...Object.values(WHY_OVERRIDES), ...Object.entries(ROUTE_WHY).flatMap(([key, t]) => PERMIT_NOUNS[key.split('|')[0] as keyof typeof PERMIT_NOUNS].map((n) => t.replace('{Permit}', n))), ...Object.values(TRADE_WORK), GENERIC_WORK);
   return out;
 }

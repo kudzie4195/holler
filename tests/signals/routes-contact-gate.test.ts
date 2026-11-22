@@ -74,14 +74,16 @@ describe('matching: the gate holds permit cards with no contact path', () => {
     expect(rows[0]).not.toHaveProperty('alert_hold');
   });
   it('a bid with no contact still alerts; so do storm reports, violations, 311 requests, inspections and business licences', () => {
-    const roofer: MatchProfile = { ...landscaper, categories: ['roofing', 'pest-control', 'plumbing', 'hvac'] };
+    // Round 19 integration: the round 19 rules make a food licence context for HVAC (ctx-licence-hvac); a storefront licence alerts signs
+    // and security (owner call 4), so the licence case below uses security. The gate rule under test is unchanged.
+    const roofer: MatchProfile = { ...landscaper, categories: ['roofing', 'pest-control', 'plumbing', 'hvac', 'security'] };
     const others: MatchSignal[] = [
       rec({ source: 'bids-sf', kind: 'contract', subtype: 'bid', title: 'Roof replacement at a city library', summary: null, categories: ['roofing'], data: { subtype: 'bid' }, contactPath: null }),
       rec({ source: 'spc', kind: 'report', subtype: null, title: 'Hail damage reported near Decatur', summary: null, categories: ['roofing'], data: {}, contactPath: null }),
       rec({ source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation in Chicago: ROOF', summary: null, categories: ['roofing'], data: { subtype: 'violation' }, contactPath: null }),
       rec({ source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', summary: null, categories: ['plumbing'], data: { subtype: '311' }, contactPath: null }),
       rec({ source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection', summary: null, categories: ['pest-control'], data: { subtype: 'inspection' }, contactPath: null }),
-      rec({ source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment', summary: null, categories: ['hvac'], data: { subtype: 'business' }, contactPath: null }),
+      rec({ source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment', summary: null, categories: ['security'], data: { subtype: 'business' }, contactPath: null }),
     ];
     const rows = matchSignals(others, [roofer], undefined, NOW, true);
     expect(rows).toHaveLength(others.length);

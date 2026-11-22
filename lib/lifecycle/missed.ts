@@ -11,13 +11,14 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-locati
  * the count reads holler_signals directly and runs each row through the same matchOne the scanner uses, the way lib/preview/recent.ts
  * does for its 90-day count. Same three queries (a box around each allowed area; state-level rows at severity 2 or more; rows from the
  * approximate-location sources (Cobb County) in a box of radius + 15 miles, the scanner's reach for them), same exclusions
- * (resident requests and kind 'ask' never counted). Columns read: id, source, kind, categories, lat, lon, state, severity, occurred_at,
- * data->>subtype, data->>projectOf (followers are skipped). No titles, no summaries, no contacts.
+ * (resident requests and kind 'ask' never counted). Columns read: id, source, kind, title, summary, categories, lat, lon, state, severity,
+ * occurred_at, data->>subtype, data->>projectOf (followers are skipped), data->>permitStage. Title, summary and stage only feed the label,
+ * as at match time (round 19 RULES review P3 item 15); nothing read here is shown. No contacts.
  */
 export const MISSED_ROW_CAP = 1000;
 const MI_PER_DEG = 68.5;
 // projectOf: a follower (a second listing of a project, lib/signals/projects.ts) never makes a card, so it is not counted either.
-const COLUMNS = 'id,source,kind,title,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf';
+const COLUMNS = 'id,source,kind,title,summary,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf,permitStage:data->>permitStage';
 
 export interface MissedProfile extends ScopeInput {
   radius_mi: number | null;
@@ -28,6 +29,9 @@ interface Row {
   source: string;
   kind: string;
   title?: string | null;
+  /** The summary and the stage update feed the label as they do at match time (review P3 item 15). */
+  summary?: string | null;
+  permitStage?: string | null;
   state: string | null;
   lat: number | null;
   lon: number | null;
@@ -123,6 +127,8 @@ export async function missedSince(
       // Title and kind feed the opportunity label: a context row is not an alert, so it is not counted as missed.
       kind: r.kind,
       title: r.title ?? null,
+      summary: r.summary ?? null,
+      data: { permitStage: r.permitStage ?? null },
     };
     if (matchOne(sig, mp)) count++;
   }

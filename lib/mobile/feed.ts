@@ -15,8 +15,9 @@ import { bidCardLine } from '@/lib/signals/bid-card';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, keptMatchLabel, labelForMember, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
+import { formatNotes } from '@/lib/signals/summary-i18n';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { VALUE_SELECT, jobValueOf } from '@/lib/signals/permit-value';
@@ -31,7 +32,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
 /** MATCH_SELECT without alert_hold, for a database without migration 0027. */
 export const MATCH_SELECT_BEFORE_0027 = MATCH_SELECT.replace('alert_hold,', '');
@@ -48,6 +49,9 @@ export interface SignalRow {
   county: string | null;
   zip: string | null;
   severity?: number | null;
+  /** The point, for the label rules that need it (lead-rules recordLabelInput). Never sent to the app. */
+  lat?: number | null;
+  lon?: number | null;
   occurred_at: string;
   expires_at: string | null;
   subtype?: string | null;
@@ -166,13 +170,14 @@ function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): Brief
 
 /** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
-  const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
+  // A match the member saved or marked done stays whatever its label is now, without an alert chip it no longer earns (review P2-6).
+  const labelOf = (s: SignalRow, status: string | null | undefined) =>
+    keptMatchLabel(demoteExpired(labelForMember({ ...recordLabelInput(s), categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now), status);
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
   const live = dedupeByAlert(rows, (m) => signalOf(m)).filter((m) => {
     const s = signalOf(m);
     // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
-    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s) !== 'context';
+    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s, m.status) !== 'context';
   });
   if (live.length === 0) return [];
 
@@ -212,7 +217,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       ? (requestText[m.id] ?? null)
       : deps.locked
         ? s.summary
-        : summaryForCard({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, jobValue: s.jobValue });
+        : formatNotes(summaryForCard({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, jobValue: s.jobValue }), 'en');
     const item: AlertDto = {
       matchId: m.id,
       signalId: s.id,
@@ -235,10 +240,10 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
-      label: labelOf(s) as AlertDto['label'],
+      label: labelOf(s, m.status) as AlertDto['label'],
       ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
-      brief: briefDto(s, labelOf(s), deps),
+      brief: briefDto(s, labelOf(s, m.status), deps),
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),

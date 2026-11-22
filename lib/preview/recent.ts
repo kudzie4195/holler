@@ -24,9 +24,10 @@ import { hasKey, t, type Lang } from '@/lib/i18n';
  * member's feed would have held. Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
  * Keyword watches are not counted (the preview is about the saved area and trades).
  *
- * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype, data->>projectOf (a
- * follower, a second listing of a project, never makes a card and is not counted). Never summary, url,
- * zip, county, data or anything from holler_signal_contacts. Titles are the public, already scrubbed titles.
+ * Columns read: id, source, kind, title, summary, city, state, lat, lon, categories, severity, occurred_at, data->>subtype, data->>projectOf
+ * (a follower, a second listing of a project, never makes a card and is not counted), data->>permitStage. The summary and the stage feed
+ * the label only, as at match time (round 19 RULES review P3 item 15); they are never shown. Never url, zip, county, other data or anything
+ * from holler_signal_contacts. Titles are the public, already scrubbed titles.
  *
  * Each query returns at most 1000 rows (PostgREST cap). When a query hits the cap, `capped` is true and the counts are a floor, never a
  * guess: the component says "at least".
@@ -36,7 +37,7 @@ export const PREVIEW_DAYS = 90;
 export const PREVIEW_ROW_CAP = 1000;
 export const PREVIEW_EXAMPLES = 5;
 export const PREVIEW_COLUMNS =
-  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf';
+  'id,source,kind,title,summary,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf,permitStage:data->>permitStage';
 
 // ---- type labels ------------------------------------------------------------------------------------------------------------
 const TYPE_LABELS: Record<string, { one: string; many: string }> = {
@@ -122,6 +123,9 @@ interface Row {
   source: string;
   kind: string;
   title: string | null;
+  /** The summary and the stage update feed the label as they do at match time (review P3 item 15). Never shown. */
+  summary?: string | null;
+  permitStage?: string | null;
   city: string | null;
   state: string | null;
   lat: number | null;
@@ -230,6 +234,8 @@ export async function recentPreviewFor(
         // Title and kind feed the opportunity label: context rows are not alerts, so the preview does not count them.
         kind: r.kind,
         title: r.title ?? null,
+        summary: r.summary ?? null,
+        data: { permitStage: r.permitStage ?? null },
       };
       if (!matchOne(sig, mp)) continue;
       const sub = subtypeOf(sig);

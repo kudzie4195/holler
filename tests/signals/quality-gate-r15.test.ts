@@ -53,10 +53,27 @@ describe('the 50 graded cards', () => {
   });
 
   // Passing cards: the member still gets the record, under the label the grader saw.
+  // Round 19 RULES (the audited rule list, review-ENGINE-compare.md section 5): these graded cards change label on purpose. null: no card.
+  const ROUND19: Record<number, { label: 'market_insight' | 'coming_soon' | null; line: number }> = {
+    14: { label: 'market_insight', line: 2 }, // plumbing on a whole-building heat complaint
+    15: { label: 'market_insight', line: 2 }, // plumbing on an apartment-only heat complaint
+    16: { label: 'market_insight', line: 2 },
+    23: { label: null, line: 3 }, // HVAC on a whole-building complaint without the third-complaint mark
+    29: { label: null, line: 25 }, // HVAC on a food licence
+    30: { label: null, line: 25 },
+    35: { label: 'coming_soon', line: 16 }, // DeKalb "property violation" names no repair
+    36: { label: 'coming_soon', line: 16 },
+  };
   describe('passing cards still pass', () => {
     for (const c of CARDS.filter((x) => x.pass)) {
       it(`#${c.n} ${c.trade}/${c.city}: ${c.signal.title}`, () => {
         const m = matched(c);
+        const changed = ROUND19[c.n];
+        if (changed) {
+          if (changed.label === null) expect(m, `round 19 line ${changed.line}: no card`).toBeNull();
+          else expect(m?.label, `round 19 line ${changed.line}`).toBe(changed.label);
+          return;
+        }
         expect(m, 'still matched').not.toBeNull();
         expect(m!.label).toBe(c.label);
         expect(m!.trade).toBe(c.trade);

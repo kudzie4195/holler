@@ -30,7 +30,7 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, keptMatchLabel, labelForMember, recordLabelInput } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
@@ -70,6 +70,9 @@ interface SignalRow {
   approxLocation?: string | null;
   /** 1..3, for the AI ranking (lib/ai rankSignals). */
   severity?: number | null;
+  /** The point, for the label rules that need it (lead-rules recordLabelInput). Never sent to the page. */
+  lat?: number | null;
+  lon?: number | null;
   /** The record's trades, for this member's opportunity label (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
   /** A fix-by, due or response date an adapter read from the record (DEADLINE_SELECT aliases). Usually absent. */
@@ -124,7 +127,7 @@ async function loadDashboard() {
   const readFeed = (holdCol: string) => supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -136,9 +139,10 @@ async function loadDashboard() {
 
   // The member's trades under their plan: the opportunity label of a record depends on the trade that matched it.
   const memberTrades = matchScope(profile).categories;
-  // An Act Now whose published deadline has passed is shown as Coming soon (demoteExpired).
-  const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, memberTrades), deadlineOf(s), now);
+  // An Act Now whose published deadline has passed is shown as Coming soon (demoteExpired). A match the member saved or marked done stays
+  // in the feed whatever its label is now, without an alert chip it no longer earns (keptMatchLabel, review P2-6).
+  const labelOf = (s: SignalRow, status: string | null | undefined) =>
+    keptMatchLabel(demoteExpired(labelForMember({ ...recordLabelInput(s), categories: s.categories }, memberTrades), deadlineOf(s), now), status);
 
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown,
@@ -146,7 +150,7 @@ async function loadDashboard() {
   const rows = dedupeByAlert(((data ?? []) as unknown as MatchRow[]), (m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal)).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     // A city bid is hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
-    return !!s && !isEndedRequest(s, now) && !bidHidden(s, undefined, now) && labelOf(s) !== 'context';
+    return !!s && !isEndedRequest(s, now) && !bidHidden(s, undefined, now) && labelOf(s, m.status) !== 'context';
   });
   // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
   // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
@@ -229,7 +233,7 @@ async function loadDashboard() {
   };
   const ordered = orderByLabelScore(
     ranked,
-    (m) => (holdShown(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)),
+    (m) => (holdShown(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow, m.status)),
     (m) => {
       const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
       return feedScoreFor(
@@ -243,10 +247,11 @@ async function loadDashboard() {
   // near its report. No new card, no new alert: only a line on a card that is already here. Never for a locked account; any failure, no line.
   let stormLinks = new Map<number, { kind: 'hail' | 'wind'; count: number }>();
   if (!access.locked) {
+    // The card's own label as the feed shows it (round 19 rules: a saved or done match keeps no alert chip it no longer earns).
     const stormIds = ordered
-      .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
-      .filter((s) => s.source === 'spc' && isAlertLabel(labelOf(s)))
-      .map((s) => s.id);
+      .map((m) => ({ s: (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow, status: m.status }))
+      .filter(({ s, status }) => s.source === 'spc' && isAlertLabel(labelOf(s, status)))
+      .map(({ s }) => s.id);
     if (stormIds.length > 0) {
       stormLinks = await stormCardLinks(
         supabase,
@@ -279,7 +284,7 @@ async function loadDashboard() {
       county: s.county,
       zip: s.zip,
       subtype: s.subtype ?? null,
-      label: labelOf(s),
+      label: labelOf(s, m.status),
       ...(holdShown(m) ? { hold: holdShown(m) } : {}),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
       trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),

@@ -19,7 +19,7 @@ vi.mock('@/app/app/actions', () => ({
 import { Feed, type FeedItem } from '@/components/feed';
 import { renderDigest } from '@/lib/email/templates';
 import { buildAlerts } from '@/lib/mobile/feed';
-import { allBriefStrings, briefFor, WHY_OVERRIDES, workFor } from '@/lib/signals/brief';
+import { allBriefStrings, briefFor, reasonCopyFor, WHY_OVERRIDES, workFor } from '@/lib/signals/brief';
 import { matchOne } from '@/lib/signals/match';
 import { BANNED } from './banned';
 import { FIXTURES, NOW, digestItem, feedItem, briefInputOf, matchSignalOf, mobileRow, profileFor } from './brief-fixtures';
@@ -141,7 +141,9 @@ describe('trade wording matches the fixture profile trade, for every fixture car
       }
       // the sentence names the matched trade's work, except a market-insight permit or a federal award: those describe the record from the
       // record's own words (its permit type or contract work) and never from the trade tag (review P1-2)
-      if (!Object.values(WHY_OVERRIDES).includes(why)) {
+      // a round 19 reason sentence (REASON_COPY, keyed by the label rule) says what the record shows, not always the trade's work
+      const reasonWhy = reasonCopyFor({ source: f.signal.source, kind: f.signal.kind, subtype: (f.signal.data?.subtype as string | undefined) ?? null, title: f.signal.title, summary: f.signal.summary, label: f.label, trade: f.trade })?.copy.why;
+      if (!Object.values(WHY_OVERRIDES).includes(why) && !reasonWhy) {
         const w = workFor(f.trade);
         const fromRecord = f.label === 'market_insight' && ['permit', 'federal-award'].includes(want.family);
         if (fromRecord) {
@@ -175,9 +177,9 @@ describe('the label rules decide who sees a card (no rules bug: a roofer cannot 
     expect(m(['roofing'])).toBeNull();
     expect(m(['roofing', 'siding-gutters', 'painting'])).toBeNull();
   });
-  it('a pest-control member gets it as Act now; so do cleaning trades (INSPECTION_TRADES)', () => {
-    expect(m(['pest-control'])?.label).toBe('act_now');
-    expect(m(['janitorial-commercial'])?.label).toBe('act_now');
+  it('a pest-control member gets it as a heads-up; commercial cleaning as a feed item (round 19 lines 19 and 20, owner call 6 NO)', () => {
+    expect(m(['pest-control'])?.label).toBe('coming_soon');
+    expect(m(['janitorial-commercial'])?.label).toBe('market_insight');
   });
   it('the FIXTURE record is tagged with trades the rules give it to (live inspections carry more tags, see the review P1-3 tests in brief.test.ts)', () => {
     expect(inspection.signal.categories.every((c) => ['pest-control', 'cleaning', 'janitorial-commercial'].includes(c))).toBe(true);
@@ -345,7 +347,8 @@ describe('mobile, locked member: the brief carries no record text (review R2-2)'
     const lockedAward = locked.find((a) => a.source === 'usaspending')!;
     expect(lockedAward.brief.why).toBe(briefFor({ source: 'usaspending', label: 'market_insight', trade: 'plumbing' }).why);
     const lockedStorm = locked.find((a) => a.source === 'spc')!;
-    expect(lockedStorm.brief.uncertain).toBe('High confidence a gust was reported; damage is not confirmed.');
+    // review P2-3: without its title a card cannot know the report is a gust, so it says what every storm report is
+    expect(lockedStorm.brief.uncertain).toBe('High confidence a storm report was filed; damage is not confirmed.');
   });
 });
 

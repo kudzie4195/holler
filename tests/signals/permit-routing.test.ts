@@ -35,7 +35,7 @@ const R = 're-roof', N = 'new-build', M = 'remodel', S = 'solar', D = 'demolitio
 
 /** [title, expected route kinds (ROUTE_KINDS order)] */
 const TITLES: [string, RouteKind[]][] = [
-  // single kinds (every source has these)
+  // single kinds (every source has these). Round 19 RULES added pool, damage-repair and deck routes (review lines 61, 63, 65).
   ['Roof permit in Atlanta', [R]],
   ['Roof permit in Austin', [R]],
   ['New home permit in Cobb County', [N]],
@@ -56,9 +56,9 @@ const TITLES: [string, RouteKind[]][] = [
   ['Door permit in Austin', []],
   ['Sign permit in Baton Rouge', []],
   ['Landscaping permit in Austin', []],
-  ['Pool permit in Atlanta', []],
+  ['Pool permit in Atlanta', ['pool']],
   ['Water heater permit in Austin', []],
-  ['Damage repair permit in Chicago', []],
+  ['Damage repair permit in Chicago', ['damage-repair']],
   ['Flooring permit in Buffalo', []],
   ['Siding permit in Austin', []],
   ['Painting permit in Baton Rouge', []],
@@ -69,7 +69,7 @@ const TITLES: [string, RouteKind[]][] = [
   ['Structural permit in Cincinnati', []],
   ['Site work permit in Cambridge', []],
   ['Accessory building permit in Baton Rouge', []],
-  ['Deck permit in Chicago', []],
+  ['Deck permit in Chicago', ['deck']],
   // no type at all
   ['Permit in Montgomery County', []],
   // "New construction" beside a named trade: its structured type is only "New" (a new line, a new panel), so it is not a new building
@@ -90,8 +90,8 @@ const TITLES: [string, RouteKind[]][] = [
   ['Roof, HVAC, plumbing and electrical permit in Austin', [R]],
   ['Roof, window and siding permit in Austin', [R]],
   ['Roof, solar and electrical permit in Austin', [R, S]],
-  ['Roof and deck permit in Buffalo', [R]],
-  ['Roof and damage repair permit in Austin', [R]],
+  ['Roof and deck permit in Buffalo', ['re-roof', 'deck']],
+  ['Roof and damage repair permit in Austin', ['re-roof', 'damage-repair']],
   ['Roof and gutter permit in Buffalo', [R]],
   ['Roof, fence and concrete permit in New York City', [R]],
   ['Roof and fence permit in Chicago', [R]],
@@ -135,29 +135,29 @@ const TITLES: [string, RouteKind[]][] = [
   ['HVAC, plumbing, electrical and demolition permit in Chicago', [D]],
   ['Demolition and tenant fit-out permit in San Francisco', [D, F]],
   ['Electrical and demolition permit in Mecklenburg County', [D]],
-  ['Pool and demolition permit in Austin', [D]],
+  ['Pool and demolition permit in Austin', ['demolition', 'pool']],
   ['Demolition and fence permit in Cincinnati', [D]],
   // trade-only combinations
   ['HVAC, plumbing and electrical permit in Austin', []],
   ['Plumbing and landscaping permit in Austin', []],
   ['Plumbing and electrical permit in Austin', []],
-  ['Pool and electrical permit in Orlando', []],
+  ['Pool and electrical permit in Orlando', ['pool']],
   ['Window and door permit in Montgomery County', []],
   ['Fence and concrete permit in Buffalo', []],
   ['HVAC and electrical permit in Austin', []],
   ['HVAC, plumbing, electrical and window permit in Buffalo', []],
   ['Plumbing and window permit in Cincinnati', []],
   ['Window and flooring permit in Buffalo', []],
-  ['Pool and concrete permit in Chicago', []],
-  ['Concrete and deck permit in New York City', []],
+  ['Pool and concrete permit in Chicago', ['pool']],
+  ['Concrete and deck permit in New York City', ['deck']],
   ['Landscaping and concrete permit in Mecklenburg County', []],
   ['HVAC and window permit in Austin', []],
   ['Window and siding permit in Austin', []],
   ['Landscaping and window permit in Austin', []],
   ['Fence and landscaping permit in Chicago', []],
-  ['Pool and landscaping permit in Los Angeles', []],
+  ['Pool and landscaping permit in Los Angeles', ['pool']],
   ['HVAC and plumbing permit in Baton Rouge', []],
-  ['Pool, plumbing and electrical permit in Austin', []],
+  ['Pool, plumbing and electrical permit in Austin', ['pool']],
 ];
 
 describe('permit kind detection from real permit titles (table)', () => {
@@ -203,6 +203,41 @@ const MATRIX: Record<RouteKind, string[]> = {
   solar: ['electrical', 'roofing'],
   demolition: ['junk-removal', 'fencing', 'concrete-paving'],
   'fit-out': ['janitorial-commercial', 'signs-printing', 'security', 'pest-control', 'business-services'], // commercial cleaning, signs, security, pest control, IT
+  // round 19 RULES (review lines 58, 61, 63, 65): lawn care after a new home; a pool, a damage repair and a deck or porch route too
+  pool: ['fencing', 'concrete-paving', 'landscaping', 'electrical'],
+  'damage-repair': ['general-contractor', 'flooring', 'painting'],
+  deck: ['painting'],
+};
+MATRIX['new-build'] = [...MATRIX['new-build'], 'lawn-care'];
+/**
+ * Round 19 RULES: the label of each matrix cell on a plain title (TITLE_OF). The audited list made most follow-on cells feed only or
+ * context; the cells not listed stay coming_soon. Line numbers: review-ENGINE-compare.md section 5.
+ */
+const CELL_LABEL: Record<string, 'coming_soon' | 'market_insight' | 'context'> = {
+  're-roof|solar': 'market_insight', // 48
+  're-roof|junk-removal': 'context', // 47
+  'new-build|fencing': 'market_insight', // 57 and owner call 7
+  'new-build|security': 'market_insight', // 55
+  'new-build|pool-spa': 'context', // 54
+  'new-build|windows-doors': 'context', // 54
+  'remodel|flooring': 'market_insight', // 45
+  'remodel|painting': 'market_insight',
+  'remodel|cleaning': 'market_insight',
+  'remodel|junk-removal': 'market_insight',
+  'remodel|handyman': 'market_insight',
+  'solar|electrical': 'context', // 51
+  'solar|roofing': 'context',
+  'demolition|junk-removal': 'market_insight', // 53
+  'demolition|fencing': 'context', // 52
+  'demolition|concrete-paving': 'context',
+  'fit-out|pest-control': 'context', // 60
+  'fit-out|business-services': 'context',
+  'pool|concrete-paving': 'market_insight', // 61
+  'pool|landscaping': 'market_insight',
+  'pool|electrical': 'market_insight',
+  'damage-repair|general-contractor': 'market_insight', // 63
+  'damage-repair|flooring': 'market_insight',
+  'damage-repair|painting': 'market_insight',
 };
 const TITLE_OF: Record<RouteKind, string> = {
   're-roof': 'Roof permit in Atlanta',
@@ -211,6 +246,9 @@ const TITLE_OF: Record<RouteKind, string> = {
   solar: 'Solar permit in Atlanta',
   demolition: 'Demolition permit in Atlanta',
   'fit-out': 'Tenant fit-out permit in Atlanta',
+  pool: 'Pool permit in Atlanta',
+  'damage-repair': 'Damage repair permit in Atlanta',
+  deck: 'Deck permit in Atlanta',
 };
 const permit = (title: string) => ({ source: 'socrata-chicago-permits', kind: 'civic', subtype: 'permit', title });
 
@@ -220,9 +258,9 @@ describe('the downstream matrix', () => {
   });
   for (const k of ROUTE_KINDS) {
     for (const trade of MATRIX[k]) {
-      it(`${k}: ${trade} is downstream, labelled coming_soon, and has one sentence`, () => {
+      it(`${k}: ${trade} is downstream, labelled ${CELL_LABEL[`${k}|${trade}`] ?? 'coming_soon'}, and has one sentence`, () => {
         expect(routeFor(TITLE_OF[k], trade)).toBe(k);
-        expect(labelFor(permit(TITLE_OF[k]), trade as CategoryId)).toBe('coming_soon');
+        expect(labelFor(permit(TITLE_OF[k]), trade as CategoryId)).toBe(CELL_LABEL[`${k}|${trade}`] ?? 'coming_soon');
         // the cleaning sentence says "home" only when the title says a new HOME (final review, Q3 pattern 6); otherwise "building"
         const want = ROUTE_WHY[`${k}|${trade}`]?.replace('{Permit}', PERMIT_NOUNS[k][0]);
         const homeTitle = k === 'new-build' && trade === 'cleaning' && /new home/i.test(TITLE_OF[k]);
@@ -232,7 +270,8 @@ describe('the downstream matrix', () => {
     }
   }
   it('every (kind, trade) cell has exactly one sentence and no other cell exists', () => {
-    const cells = ROUTE_KINDS.flatMap((k) => MATRIX[k].map((t) => `${k}|${t}`)).sort();
+    // plus the one cell owner call 3 can switch on (HVAC after an addition), which is not in the matrix while the call is NO
+    const cells = [...ROUTE_KINDS.flatMap((k) => MATRIX[k].map((t) => `${k}|${t}`)), 'remodel|hvac'].sort();
     expect(Object.keys(ROUTE_WHY).sort()).toEqual(cells);
   });
 });
@@ -257,8 +296,8 @@ describe('same-trade permits stay market_insight, never downstream', () => {
     expect(roofTitles.length).toBeGreaterThan(15);
     for (const [title] of roofTitles) expect(labelFor(permit(title), 'roofing'), title).toBe('market_insight');
   });
-  it('roofers do get a solar permit as coming_soon (the matrix: solar is followed by roofing), but not a roof+solar one', () => {
-    expect(labelFor(permit('Solar permit in Atlanta'), 'roofing')).toBe('coming_soon');
+  it('roofers get no alert from a solar permit either (round 19 line 51: the installer holds the job), nor from a roof+solar one', () => {
+    expect(labelFor(permit('Solar permit in Atlanta'), 'roofing')).toBe('context');
     expect(labelFor(permit('Roof and solar permit in Chicago'), 'roofing')).toBe('market_insight');
   });
   it('a permit title naming no type routes to nobody and keeps its source default', () => {
@@ -284,7 +323,9 @@ describe('carried trades and the widened read', () => {
   });
   it('expandCategoriesForRouting adds the carrier tags only for members whose trade is downstream', () => {
     expect(expandCategoriesForRouting(['siding-gutters'])).toEqual(['siding-gutters', 'roofing']);
-    expect(expandCategoriesForRouting(['plumbing'])).toEqual(['plumbing']);
+    // round 19: a code-violation order can name plumbing on a row tagged for other trades ("SOIL/WASTE, VENT PIPE"), so the read widens
+    expect(expandCategoriesForRouting(['plumbing'])).toEqual(expect.arrayContaining(['plumbing', 'junk-removal']));
+    expect(expandCategoriesForRouting(['beauty'])).toEqual(['beauty']);
     expect(expandCategoriesForRouting(['cleaning'])).toEqual(expect.arrayContaining(['cleaning', 'general-contractor']));
   });
   it('labelForMember reads the carried trades: a siding member sees a roof permit as coming_soon', () => {
@@ -298,7 +339,7 @@ describe('the one sentence per (permit kind, trade)', () => {
   const cells = Object.entries(ROUTE_WHY).flatMap(([key, text]) =>
     PERMIT_NOUNS[key.split('|')[0] as RouteKind].map((n) => [`${key} / ${n}`, text.replace('{Permit}', n)] as const),
   );
-  it('has 25 cells', () => expect(Object.keys(ROUTE_WHY)).toHaveLength(25));
+  it('has 35 cells (25, plus 10 for round 19)', () => expect(Object.keys(ROUTE_WHY)).toHaveLength(35));
   it.each(cells)('%s: short, hedged, no banned words, no claim of a hire', (_key, text) => {
     expect(text.length).toBeLessThanOrEqual(MAX_WHY);
     for (const re of BANNED) expect(text, String(re)).not.toMatch(re);
@@ -332,7 +373,8 @@ describe('client safety and purity', () => {
   it('imports nothing but types and ./categories-free code (no server module, no clock)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../lib/signals/permit-routing.ts'), 'utf8');
     const imports = [...src.matchAll(/^import .* from '(.+)';/gm)].map((m) => m[1]);
-    expect(imports).toEqual(['./categories']);
+    // round 19: the record vocabulary (carry.ts) and the owner's calls (rule-choices.ts) are pure too (tests/signals/lead-rules.test.ts)
+    expect(imports).toEqual(['./categories', './carry', './rule-choices']);
     expect(src).not.toMatch(/Date\.now|new Date\(|Math\.random|process\.env/);
   });
   it('the same title gives the same answer', () => {

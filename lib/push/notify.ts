@@ -22,7 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { computeAccess } from '@/lib/auth/access';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
-import { isAlertLabel, labelForMember } from '@/lib/signals/lead-rules';
+import { isAlertLabel, labelForMember, recordLabelInput } from '@/lib/signals/lead-rules';
 import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 import { matchScope } from '@/lib/plan/scope';
 import type { PushData } from '@/lib/mobile/types';
@@ -143,6 +143,11 @@ interface SignalLike {
   /** A permit's summary holds its structured type and class, which downstream routing reads (permit-routing.ts). */
   summary?: string | null;
   categories?: string[] | null;
+  /** Where the record is, for the label rules that need it (lead-rules recordLabelInput). Never pushed. */
+  lat?: number | null;
+  lon?: number | null;
+  state?: string | null;
+  severity?: number | null;
   /** Multi-county weather alerts: data.alertId (one alert is stored once per county). */
   alertId?: string | null;
   /** data.permitStage, data.permitStageAt and data.permitStageUpdate (STAGE_SELECT): a stage update bypasses the isNews check. */
@@ -196,7 +201,7 @@ export function pushEntriesFromMatches(
     const stageUpdate = isStageUpdate(s) && now - Date.parse(s.permitStageAt as string) <= PUSH_STAGE_MAX_AGE_MS;
     if (!stageUpdate && !isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
-    if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades))) continue;
+    if (trades && !isAlertLabel(labelForMember({ ...recordLabelInput(s), categories: s.categories }, trades))) continue;
     // One weather alert stored once per county is one alert in the count; its other match rows are still stamped with the push.
     const alertKey = alertKeyOf({ source: s.source, alertId: s.alertId });
     const cur = out.get(m.user_id);
@@ -242,7 +247,7 @@ async function unpushedMatches(db: Db, userIds: string[], since: string, before?
       const build = () => {
         let q = db
           .from('holler_matches')
-          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
+          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, state, lat, lon, severity, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
           .in('user_id', ids)
           .eq('status', 'new')
           .is('pushed_at', null)

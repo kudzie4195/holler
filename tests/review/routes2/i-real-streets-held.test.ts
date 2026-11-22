@@ -20,7 +20,8 @@ const NOW = new Date('2026-11-22T12:00:00Z');
 const atl = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-atlanta-permits')!;
 const live = JSON.parse(readFileSync('tests/coverage/fixtures/arcgis-atlanta-permits-live-2026-11-19.json', 'utf8'));
 // a real live Atlanta row that alerts today, with only its Address changed to another real Atlanta street
-const atlRow = (address: string, i: number) => { const f = live.features.find((x: any) => /Demolition|New/i.test(x.attributes.TypeCombo ?? '')) ?? live.features[1]; return { ...f, attributes: { ...f.attributes, RecordID: `X-${i}`, Address: address } }; };
+// Round 19 integration: a demolition permit alerts no trade under the round 19 rules (line 53), so the new-construction row is preferred.
+const atlRow = (address: string, i: number) => { const f = live.features.find((x: any) => /New/i.test(x.attributes.TypeCombo ?? '')) ?? live.features.find((x: any) => /Demolition/i.test(x.attributes.TypeCombo ?? '')) ?? live.features[1]; return { ...f, attributes: { ...f.attributes, RecordID: `X-${i}`, Address: address } }; };
 const nyc = SOCRATA_DATASETS.find((d) => d.id === 'socrata-nyc-permits')!;
 const sf = SOCRATA_DATASETS.find((d) => d.id === 'socrata-sf-permits')!;
 const toStored = (s: SignalInput, id: number): StoredSignal => ({ id, source: s.source, external_id: s.externalId, kind: s.kind, subtype: 'permit', title: s.title, summary: s.summary ?? null, categories: s.categories, lat: s.lat ?? 0, lon: s.lon ?? 0, state: s.state ?? 'GA', severity: 1, occurred_at: s.occurredAt, data: s.data ?? {} }) as any;

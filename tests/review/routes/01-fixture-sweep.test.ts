@@ -103,7 +103,9 @@ describe('REV-ROUTES 01: permit fixtures, alerted vs held as background', () => 
     console.log(out.join('\n'));
     expect(out.length).toBeGreaterThan(2);
     // Redo 1 (decision 1): the Atlanta-area feeds alert every alert-eligible row (the live Atlanta fixture held 2 of 5 before).
-    expect(res['tests/coverage/fixtures/arcgis-atlanta-permits-live-2026-11-19.json']).toEqual({ eligible: 5, alerted: 5, heldAll: 0 });
+    // Round 19 integration: under the round 19 label rules two of the five rows alert no trade at all (feed only), so 3 are eligible; the
+    // gate's own property is unchanged: every eligible row still alerts.
+    expect(res['tests/coverage/fixtures/arcgis-atlanta-permits-live-2026-11-19.json']).toEqual({ eligible: 3, alerted: 3, heldAll: 0 });
     expect(res['tests/fixtures/arcgis-dekalb-permits.json'].heldAll).toBe(0);
     // Every other fixture: a held row has no address and no business in its record (Raleigh: none and a lot number; LA: the fixture's
     // select left the address column out, see its provenance).

@@ -30,7 +30,9 @@ interface SignalRow extends MatchSignal {
   expires_at: string | null;
 }
 
-const COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
+// Round 19 RULES: the labels also read the summary (a closed status, a permit's class, the NYC heat-per-building mark, the other orders of a
+// code-violation visit), so the backfill reads it too, as every other matching path does.
+const COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
 /** Keyword reads also need the text the phrase is matched against. */
 const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,data';
 /**
@@ -39,7 +41,7 @@ const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurr
  * back to the source default (coming_soon), city work (public graffiti, tree trims, sewer work) would pass as an alert and fill the
  * 25 backfill slots, and a heat complaint would lose its act_now label. holler_signals_near returns all of them (migration 0003).
  */
-export const RPC_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,data';
+export const RPC_COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
 /**
  * Records with coordinates inside the profile's own radius, newest first. The distance test runs in SQL (holler_signals_near,
@@ -185,7 +187,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
 
 /** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
 export const BACKFILL_APPROX_LIMIT = 200;
-const APPROX_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
+const APPROX_COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
 
 /**
  * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a

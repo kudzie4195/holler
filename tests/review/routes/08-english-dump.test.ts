@@ -95,6 +95,11 @@ it('dumps English output', async () => {
   // Round 18 integration: snapshot regenerated once. 163 card renders changed only in React useId values (aria-labelledby "_R_4s_" ->
   // "_R_5c_"), because the lists unit added an optional listLink slot before WhoToContact in components/feed.tsx; with the ids normalised
   // all 3,171 outputs and the match rows are identical to r18-routes fe723dc.
+  // Round 19 integration (step 3, r19-rules merged): snapshot regenerated once. Against r18-ship 353964d (REV_OUT dumps of both trees): 35
+  // cards are no longer shown (210 outputs: the round 19 rules hide them), 156 match rows change label (coming_soon->market_insight 63,
+  // act_now->coming_soon 34, coming_soon->none 30, act_now->market_insight 24, act_now->none 5), and 152 shown cards change on all four
+  // surfaces (card, mobile, digest html, digest text): 121 by their label, 31 by the round 19 brief sentences (reason copy, next steps).
+  // No output exists only on the merged tree. Every difference is the rules unit's intended change.
   const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
   expect({ shown, outputs: Object.keys(out).length, out: sha(out), matchRows: sha(matchRows) }).toMatchSnapshot();
 });

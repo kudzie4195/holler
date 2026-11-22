@@ -132,7 +132,9 @@ export function stormListLabel(r: StormRow, memberTrades: readonly string[], now
   const at = Date.parse(r.occurred_at);
   if (!Number.isFinite(at) || at < nowMs - STORM_LIST_DAYS * 86_400_000 || at > nowMs + 86_400_000) return null;
   const label = labelForMember(
-    { source: r.source, kind: r.kind ?? 'report', title: r.title, categories: r.categories ?? [], storm: stormFactsOf(r.source, { type: r.stormType, hailInches: r.hailInches, comments: r.comments }) },
+    // Round 19 integration: the report's remark is its summary (the SPC adapter stores comments as both), which the round 19 storm rules
+    // read per trade (lib/signals/carry.ts windDamageLevel); the structured fields still decide the round 18 storm rule.
+    { source: r.source, kind: r.kind ?? 'report', title: r.title, summary: r.comments ?? null, categories: r.categories ?? [], storm: stormFactsOf(r.source, { type: r.stormType, hailInches: r.hailInches, comments: r.comments }) },
     memberTrades,
   );
   return isAlertLabel(label) ? label : null;
@@ -162,6 +164,8 @@ export interface PermitRow {
   loc?: string | null;
   /** data->>projectOf: a second listing of a project already held. */
   projectOf?: string | null;
+  /** data->>permitStage (migration 0025): passed to the labeller like every other surface (round 19 integration). */
+  permitStage?: string | null;
 }
 
 /** One line of a list. Only these fields ever leave the server. */
@@ -379,8 +383,38 @@ export const AREA_ROUTE_KINDS: readonly RouteKind[] = ROUTE_KINDS.filter((k) => 
 /** Trades a new-home permit is sent to by the soon-new-home-downstream rule (lib/signals/lead-rules.ts). */
 const NEW_HOME_TRADES: readonly string[] = ['real-estate', 'moving'];
 
-/** Every trade a neighborhood list exists for: the downstream trades of the homeowner route kinds, plus the new-home trades. */
-export const AREA_LIST_TRADES: readonly string[] = [...new Set([...AREA_ROUTE_KINDS.flatMap((k) => DOWNSTREAM[k] as readonly string[]), ...NEW_HOME_TRADES])];
+/**
+ * One homeowner permit of each route kind, as the adapters title it (lib/signals/permit-routing.ts routeFor reads these titles). Used only to
+ * ask the label rules which trades a list can ever hold (round 19 integration, below).
+ */
+const KIND_SAMPLE_TITLES: Readonly<Partial<Record<RouteKind, string>>> = {
+  're-roof': 'Roof permit in X',
+  'new-build': 'New home permit in X',
+  remodel: 'Remodel permit in X',
+  solar: 'Solar permit in X',
+  demolition: 'Demolition permit in X',
+  pool: 'Pool permit in X',
+  'damage-repair': 'Damage repair permit in X',
+  deck: 'Deck permit in X',
+};
+
+/**
+ * Every trade a neighborhood list exists for: a downstream trade of a homeowner route kind (or a new-home trade) for which the label rules
+ * in force (lib/signals/lead-rules.ts with lib/signals/rule-choices.ts) actually give that kind's permit a downstream heads-up. Round 19
+ * integration: the round 19 rules made several downstream pairs feed only (remodel for painters, owner call 2; new home for fencing, owner
+ * call 7; most pool, damage-repair and solar pairs), so a list for those trades could never hold an address. Flipping an owner call
+ * changes this set with it.
+ */
+export const AREA_LIST_TRADES: readonly string[] = [
+  ...new Set(
+    [...AREA_ROUTE_KINDS.flatMap((k) => (DOWNSTREAM[k] as readonly string[]).map((t) => [k, t] as const)), ...NEW_HOME_TRADES.map((t) => ['new-build' as RouteKind, t] as const)]
+      .filter(([k, t]) => {
+        const title = KIND_SAMPLE_TITLES[k];
+        return !!title && createsWorkFor({ source: 'socrata-austin-permits', kind: 'permit', subtype: 'permit', title, summary: 'Permit | Single Family | 1 A ST' }, t);
+      })
+      .map(([, t]) => t),
+  ),
+];
 
 /** The member's plan trades that have a neighborhood list, in the member's own order. */
 export function areaListTrades(memberTrades: readonly string[]): string[] {
@@ -392,8 +426,9 @@ export function areaListTrades(memberTrades: readonly string[]): string[] {
  * is a downstream coming_soon rule, and the route is not a commercial fit-out. The trade that does the permitted work (market insight) and
  * every non-permit record give false.
  */
-export function createsWorkFor(r: Pick<PermitRow, 'source' | 'kind' | 'subtype' | 'title' | 'summary'>, trade: string): boolean {
-  const input = { source: r.source, kind: r.kind, subtype: r.subtype, title: r.title, summary: r.summary };
+export function createsWorkFor(r: Pick<PermitRow, 'source' | 'kind' | 'subtype' | 'title' | 'summary' | 'permitStage'>, trade: string): boolean {
+  // Round 19 integration: the permit's stage too (recordLabelInput on every surface), so a list and the feed agree on a finished permit.
+  const input = { source: r.source, kind: r.kind, subtype: r.subtype, title: r.title, summary: r.summary, permitStage: r.permitStage ?? undefined };
   const rule = ruleFor(input, trade as never);
   if (!rule || !rule.downstream || rule.label !== 'coming_soon') return false;
   const kind = routeFor(r.title, trade, { summary: r.summary, source: r.source });

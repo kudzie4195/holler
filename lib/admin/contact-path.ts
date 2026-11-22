@@ -21,6 +21,8 @@ export interface ContactPathSignal {
   title: string | null;
   summary: string | null;
   subtype: string | null;
+  /** data->>permitStage: passed to the labeller only (round 19 integration). */
+  permitStage?: string | null;
 }
 
 export interface ContactPathRow {
@@ -60,7 +62,7 @@ export function buildContactPathReport(input: {
     if (!Number.isFinite(t) || t < sinceMs || t > nowMs || typeof a.signal_id !== 'number') continue;
     const s = sig.get(a.signal_id);
     if (!s) continue;
-    const label = labelFor({ source: s.source, kind: s.kind, subtype: s.subtype ?? a.subtype, title: s.title, summary: s.summary }, (a.trade ?? null) as CategoryId | null);
+    const label = labelFor({ source: s.source, kind: s.kind, subtype: s.subtype ?? a.subtype, title: s.title, summary: s.summary, permitStage: s.permitStage ?? undefined }, (a.trade ?? null) as CategoryId | null);
     if (!isAlertLabel(label)) continue;
     const has = contactPathOf(bySignal.get(s.id), s.summary) !== null;
     const trade = a.trade ?? KEYWORD_TRADE;
@@ -110,7 +112,7 @@ export async function loadContactPathReport(db: Db, now: Date): Promise<ContactP
     const contacts: (ContactLike & { signal_id: number })[] = [];
     for (let i = 0; i < ids.length; i += CHUNK) {
       const part = ids.slice(i, i + CHUNK);
-      const s = await db.from('holler_signals').select('id, source, kind, title, summary, subtype:data->>subtype').in('id', part);
+      const s = await db.from('holler_signals').select('id, source, kind, title, summary, subtype:data->>subtype, permitStage:data->>permitStage').in('id', part);
       if (s.error) return blank();
       signals.push(...((s.data ?? []) as unknown as ContactPathSignal[]));
       const c = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);

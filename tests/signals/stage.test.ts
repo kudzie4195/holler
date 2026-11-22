@@ -70,11 +70,13 @@ describe('stage wording: timing, never a promise of work', () => {
 
 describe('who gets the update: the stage trades, through the existing routing and label code', () => {
   it('cleaners, commercial cleaners, landscapers and security', () => expect([...STAGE_TRADES].sort()).toEqual(['cleaning', 'janitorial-commercial', 'landscaping', 'security']));
-  it('a new home reaches cleaning, landscaping and security as coming_soon; a re-roof reaches none of them', () => {
+  it('a new home reaches cleaning, landscaping and security; at a finished stage all three are coming_soon; a re-roof reaches none of them', () => {
     const home = { source: 'socrata-sf-permits', kind: 'permit', subtype: 'permit', title: 'New home permit in X', summary: 'Single Family | 12 EXAMPLE LN' };
     for (const t of ['cleaning', 'landscaping', 'security']) {
       expect(routeFor(home.title, t, { summary: home.summary, source: home.source }), t).toBe('new-build');
-      expect(labelFor(home, t as never), t).toBe('coming_soon');
+      // round 19 RULES line 55: security is feed only at issue; the stage update (permitStage) keeps it a heads-up, as before
+      expect(labelFor(home, t as never), t).toBe(t === 'security' ? 'market_insight' : 'coming_soon');
+      for (const stage of ['final_inspection', 'finaled', 'certificate_of_occupancy']) expect(labelFor({ ...home, permitStage: stage }, t as never), `${t} ${stage}`).toBe('coming_soon');
     }
     const roof = { ...home, title: 'Roof permit in X', summary: 'Re-roof | 12 EXAMPLE LN' };
     for (const t of STAGE_TRADES) expect(routeFor(roof.title, t, { summary: roof.summary, source: roof.source }), t).toBeNull();

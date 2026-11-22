@@ -29,7 +29,7 @@ import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { isStageUpdate, STAGE_SELECT } from '@/lib/signals/stage';
-import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { parseLang, type Lang } from '@/lib/i18n';
 import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
@@ -58,6 +58,9 @@ interface SignalRow {
   /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
   approxLocation?: string | null;
   severity?: number | null;
+  /** The point, for the label rules that need it (lead-rules recordLabelInput). Never mailed. */
+  lat?: number | null;
+  lon?: number | null;
   /** The record's trades and any published fix-by or due date, for the opportunity label and deadline (lib/signals/lead-rules.ts). */
   categories?: string[] | null;
   deadline?: string | null;
@@ -119,7 +122,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const readPage = () => admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, lat, lon, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -229,7 +232,7 @@ export async function GET(req: Request) {
         store_expires_at: p.store_expires_at ?? null,
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
-        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades), deadlineOf(s), now.getTime());
+        demoteExpired(labelForMember({ ...recordLabelInput(s), categories: s.categories }, trades), deadlineOf(s), now.getTime());
       const current = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the

@@ -58,7 +58,9 @@ describe('SPC wind card: the damage rule of the address lists', () => {
         continue;
       }
       expect(unk.title, remark).toBe('Wind damage reported near 2 N Smyrna, GA');
-      expect(unk.cardLabel, remark).toBe('act_now');
+      // Round 19 integration: the rules unit's line 39 makes a wind damage report act now for a trade only when its remark names that
+      // trade's work (roof for roofing, trees for tree service), otherwise a heads-up; it stays an alert card either way.
+      expect(['act_now', 'coming_soon'], remark).toContain(unk.cardLabel);
       expect(unk.severity, remark).toBe(2);
       expect(m52.severity, remark).toBe(2);
       titled.push(remark);
@@ -97,7 +99,9 @@ describe('SPC wind card: the damage rule of the address lists', () => {
 
 describe('the act_now storm rule reads the structured fields, and its title fallback ignores place names (round 18 integration, step 2)', () => {
   const PLACES = ['2 N Hailey, ID', '3 S Haile, LA', '1 E Tornado Rd, TX', '4 W Damascus, GA'];
-  const label = (title: string, storm?: Parameters<typeof labelFor>[0]['storm']) => labelFor({ source: 'spc', kind: 'report', title, storm }, 'roofing');
+  // Round 19 integration: roofing, restoration, tree service, insurance and the hail trades now have their own audited storm rules (lead-rules.ts
+  // spc-*, lines 38 to 41); the round 18 rule is the one every other trade gets, so it is tested with a trade that has no audited storm rule.
+  const label = (title: string, storm?: Parameters<typeof labelFor>[0]['storm']) => labelFor({ source: 'spc', kind: 'report', title, storm }, 'handyman');
 
   it('title fallback (a row read without its data): a gust near a place named like a storm word stays coming_soon', () => {
     for (const p of PLACES) expect(label(`61 mph wind gust reported near ${p}`), p).toBe('coming_soon');
@@ -125,10 +129,34 @@ describe('the act_now storm rule reads the structured fields, and its title fall
       const csv = (speed: string, remark: string) => `Time,Speed,Location,County,State,Lat,Lon,Comments\n1906,${speed},${loc},X,${st},33.90,-84.51,${remark}\n`;
       const gust = scanSpc({ csv: csv('61', 'Measured gust.'), type: 'wind', day: '2026-11-20' }).signals[0];
       expect(gust.data?.windDamage, p).toBe(false);
-      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title, storm: stormFactsOf('spc', gust.data) }, 'roofing'), p).toBe('coming_soon');
-      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title }, 'roofing'), `${p} (title only)`).toBe('coming_soon');
+      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title, storm: stormFactsOf('spc', gust.data) }, 'handyman'), p).toBe('coming_soon');
+      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title }, 'handyman'), `${p} (title only)`).toBe('coming_soon');
+      // the audited roofing rule: a gust is feed only, near any place name, with or without the report data
+      expect(labelFor({ source: 'spc', kind: gust.kind, title: gust.title, storm: stormFactsOf('spc', gust.data) }, 'roofing'), p).toBe('market_insight');
       const dmg = scanSpc({ csv: csv('UNK', 'Trees down on a house.'), type: 'wind', day: '2026-11-20' }).signals[0];
-      expect(labelFor({ source: 'spc', kind: dmg.kind, title: dmg.title, storm: stormFactsOf('spc', dmg.data) }, 'roofing'), p).toBe('act_now');
+      expect(labelFor({ source: 'spc', kind: dmg.kind, title: dmg.title, storm: stormFactsOf('spc', dmg.data) }, 'handyman'), p).toBe('act_now');
+      // the audited roofing rule reads the remark: a house is named, a roof is not, so a heads-up (line 39)
+      expect(labelFor({ source: 'spc', kind: dmg.kind, title: dmg.title, summary: dmg.summary, storm: stormFactsOf('spc', dmg.data) }, 'roofing'), p).toBe('coming_soon');
+    }
+  });
+});
+
+describe('round 19 integration: the round 18 storm fix and the rules unit\'s storm rules agree', () => {
+  const PLACES = ['2 N Hailey, ID', '3 S Haile, LA', '1 E Tornado Rd, TX', '4 W Damascus, GA', '2 E Hail Creek, CO'];
+  const TRADES = ['roofing', 'restoration', 'tree-service', 'auto-body', 'auto-glass', 'siding-gutters', 'insurance', 'public-adjuster', 'handyman'] as const;
+  it('a gust near a place named like a storm word is never act now for any trade, with or without the report data', () => {
+    for (const p of PLACES) {
+      const title = `61 mph wind gust reported near ${p}`;
+      for (const t of TRADES) {
+        expect(labelFor({ source: 'spc', kind: 'report', title, summary: 'Measured gust.' }, t), `${p} ${t}`).not.toBe('act_now');
+        expect(labelFor({ source: 'spc', kind: 'report', title, summary: 'Measured gust.', storm: { type: 'wind', windDamage: false } }, t), `${p} ${t} (data)`).not.toBe('act_now');
+      }
+    }
+  });
+  it('the hail rule reads the event, not the place: a gust near "Hail Creek" is no hail report for the hail trades', () => {
+    for (const t of ['auto-body', 'auto-glass', 'siding-gutters'] as const) {
+      expect(labelFor({ source: 'spc', kind: 'report', title: '61 mph wind gust reported near 2 E Hail Creek, CO' }, t), t).not.toBe('act_now');
+      expect(labelFor({ source: 'spc', kind: 'report', title: '2.00 inch hail reported near 2 E Hail Creek, CO' }, t), t).toBe('act_now');
     }
   });
 });

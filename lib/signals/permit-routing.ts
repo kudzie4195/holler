@@ -1,4 +1,6 @@
 import type { CategoryId } from './categories';
+import { CARRY_CARRIER_TAGS, extraCarried } from './carry';
+import { ruleChoice } from './rule-choices';
 
 /**
  * Downstream permit routing (PLAN-2.0 item 1.1). A building permit tells the trade that does the permitted work that a job exists, so
@@ -26,19 +28,33 @@ import type { CategoryId } from './categories';
  *
  * Pure and client-safe: no server imports, no clock. Same title, same answer.
  */
-export type RouteKind = 're-roof' | 'new-build' | 'remodel' | 'solar' | 'demolition' | 'fit-out';
+export type RouteKind = 're-roof' | 'new-build' | 'remodel' | 'solar' | 'demolition' | 'fit-out' | 'pool' | 'damage-repair' | 'deck';
 
 /** Priority order: when a trade is downstream of two kinds in one title, the first listed gives the sentence. */
-export const ROUTE_KINDS: readonly RouteKind[] = ['re-roof', 'new-build', 'remodel', 'solar', 'demolition', 'fit-out'];
+export const ROUTE_KINDS: readonly RouteKind[] = ['re-roof', 'new-build', 'remodel', 'solar', 'demolition', 'fit-out', 'pool', 'damage-repair', 'deck'];
 
 export const DOWNSTREAM: Readonly<Record<RouteKind, readonly CategoryId[]>> = {
   're-roof': ['siding-gutters', 'solar', 'junk-removal'],
-  'new-build': ['moving', 'landscaping', 'fencing', 'cleaning', 'security', 'pool-spa', 'windows-doors'],
+  'new-build': ['moving', 'landscaping', 'fencing', 'cleaning', 'security', 'pool-spa', 'windows-doors', 'lawn-care'],
   remodel: ['flooring', 'painting', 'cleaning', 'junk-removal', 'handyman'],
   solar: ['electrical', 'roofing'],
   demolition: ['junk-removal', 'fencing', 'concrete-paving'],
   'fit-out': ['janitorial-commercial', 'signs-printing', 'security', 'pest-control', 'business-services'],
+  // Round 19 RULES (review lines 61, 63, 65): a pool needs a barrier fence, a deck or patio, planting and pump power; a damage repair is
+  // followed by the rebuild; a deck or porch gets stained or painted. Their labels are in lead-rules.ts (most are feed only).
+  pool: ['fencing', 'concrete-paving', 'landscaping', 'electrical'],
+  'damage-repair': ['general-contractor', 'flooring', 'painting'],
+  deck: ['painting'],
 };
+
+/**
+ * The trades downstream of a kind right now: DOWNSTREAM, plus HVAC on an addition when owner call 3 says additions alert HVAC
+ * (lib/signals/rule-choices.ts; routeFor keeps that cell to titles that name an addition).
+ */
+export function downstreamOf(kind: RouteKind): readonly CategoryId[] {
+  if (kind === 'remodel' && ruleChoice('additionAlertsFollowOnTrades')) return [...DOWNSTREAM.remodel, 'hvac'];
+  return DOWNSTREAM[kind];
+}
 
 /**
  * The tag a permit row carries for work of this kind (what lib/signals/mapping/permit.ts writes into `categories`). Used ONLY to widen
@@ -51,6 +67,9 @@ export const KIND_CARRIER_TAGS: Readonly<Record<RouteKind, readonly CategoryId[]
   solar: ['solar'],
   demolition: ['junk-removal', 'general-contractor'],
   'fit-out': ['general-contractor'],
+  pool: ['pool-spa'],
+  'damage-repair': ['restoration'],
+  deck: ['general-contractor'],
 };
 
 /**
@@ -110,6 +129,10 @@ const LABEL_ROUTE: Readonly<Record<string, RouteKind>> = {
   solar: 'solar',
   demolition: 'demolition',
   'tenant fit-out': 'fit-out',
+  pool: 'pool',
+  'damage repair': 'damage-repair',
+  deck: 'deck',
+  porch: 'deck',
 };
 
 /**
@@ -232,7 +255,12 @@ export function routeFor(title: string | null | undefined, trade: string | null 
   const kinds = routeKindsOf(title, ctx);
   if (kinds.length === 0) return null;
   if (doerTradesOf(title).has(trade as CategoryId)) return null;
-  for (const k of kinds) if ((DOWNSTREAM[k] as readonly string[]).includes(trade)) return k;
+  for (const k of kinds) {
+    if (!(downstreamOf(k) as readonly string[]).includes(trade)) continue;
+    // HVAC follows an ADDITION only (owner call 3), never a remodel.
+    if (k === 'remodel' && trade === 'hvac' && !(permitLabelsOf(title) ?? []).includes('addition')) continue;
+    return k;
+  }
   return null;
 }
 
@@ -242,7 +270,7 @@ export function downstreamTradesOf(title: string | null | undefined, ctx?: Route
   if (kinds.length === 0) return [];
   const doers = doerTradesOf(title);
   const out: CategoryId[] = [];
-  for (const k of kinds) for (const t of DOWNSTREAM[k]) if (!doers.has(t) && !out.includes(t)) out.push(t);
+  for (const k of kinds) for (const t of downstreamOf(k)) if (!doers.has(t) && !out.includes(t) && routeFor(title, t, ctx) === k) out.push(t);
   return out;
 }
 
@@ -269,8 +297,8 @@ export function isPermitRecord(sig: RoutedRecord): boolean {
  */
 export function carriedTrades(sig: RoutedRecord, categories: readonly string[] | null | undefined): readonly string[] {
   const own = categories ?? [];
-  if (!isPermitRecord(sig)) return own;
-  const extra = downstreamTradesOf(sig.title, { summary: sig.summary, source: sig.source }).filter((t) => !own.includes(t));
+  const added = isPermitRecord(sig) ? downstreamTradesOf(sig.title, { summary: sig.summary, source: sig.source }) : extraCarried(sig);
+  const extra = added.filter((t) => !own.includes(t));
   return extra.length ? [...own, ...extra] : own;
 }
 
@@ -281,9 +309,11 @@ export function carriedTrades(sig: RoutedRecord, categories: readonly string[] |
 export function expandCategoriesForRouting(trades: readonly string[]): string[] {
   const out = [...trades];
   for (const k of ROUTE_KINDS) {
-    if (!DOWNSTREAM[k].some((t) => trades.includes(t))) continue;
+    if (!downstreamOf(k).some((t) => trades.includes(t))) continue;
     for (const tag of KIND_CARRIER_TAGS[k]) if (!out.includes(tag)) out.push(tag);
   }
+  // Non-permit records that carry a trade (lib/signals/carry.ts): a sewage back-up tagged plumbing reaches restoration, and so on.
+  for (const t of trades) for (const tag of CARRY_CARRIER_TAGS[t as CategoryId] ?? []) if (!out.includes(tag)) out.push(tag);
   return out;
 }
 
@@ -322,6 +352,17 @@ export const ROUTE_WHY: Readonly<Record<string, string>> = {
   'fit-out|security': '{Permit} was filed nearby; a new space may need security.',
   'fit-out|pest-control': '{Permit} was filed nearby; a new space may need pest control.',
   'fit-out|business-services': '{Permit} was filed nearby; a new space may need IT setup.',
+  // Round 19 RULES. Most of these cells are feed only (lead-rules.ts); the sentence is shown only where the label is a heads-up.
+  'new-build|lawn-care': '{Permit} was filed nearby; new yards often need lawn care.',
+  'remodel|hvac': '{Permit} was filed nearby; new rooms may need heating and cooling.',
+  'pool|fencing': '{Permit} was filed nearby; pools often need a safety fence.',
+  'pool|concrete-paving': '{Permit} was filed nearby; a pool may get a deck or patio.',
+  'pool|landscaping': '{Permit} was filed nearby; planting may follow around a pool.',
+  'pool|electrical': '{Permit} was filed nearby; a pool pump may need wiring.',
+  'damage-repair|general-contractor': '{Permit} was filed nearby; a rebuild may follow the repair.',
+  'damage-repair|flooring': '{Permit} was filed nearby; floors may be redone after it.',
+  'damage-repair|painting': '{Permit} was filed nearby; walls may be repainted after it.',
+  'deck|painting': '{Permit} was filed nearby; new decks and porches are often painted.',
 };
 
 /** Every noun a kind's sentences can use (the permit's own name), with its article. A test fills every cell with every one of them. */
@@ -332,6 +373,9 @@ export const PERMIT_NOUNS: Readonly<Record<RouteKind, readonly string[]>> = {
   solar: ['A solar permit'],
   demolition: ['A demolition permit'],
   'fit-out': ['A tenant fit-out permit', 'A commercial permit', 'An apartment permit'],
+  pool: ['A pool permit'],
+  'damage-repair': ['A damage repair permit'],
+  deck: ['A deck permit', 'A porch permit'],
 };
 
 /** What a "new-build" permit is called in its sentences. Kept for the brief's string table. */
@@ -347,6 +391,8 @@ function permitNounFor(kind: RouteKind, title: string | null | undefined, ctx?: 
     case 'remodel':
       // A new build or fit-out reached through the record's class is a remodel only when the title says so.
       return labels.includes('addition') && !labels.includes('remodel') ? nouns[1] : nouns[0];
+    case 'deck':
+      return labels.includes('deck') ? nouns[0] : nouns[1];
     case 'fit-out':
       if (labels.includes('tenant fit-out')) return nouns[0];
       // "Multi Family" is housing, not a commercial space (final review P2-4): the sentence says so.

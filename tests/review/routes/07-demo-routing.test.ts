@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { labelFor } from '@/lib/signals/lead-rules';
+import { RULE_CHOICES } from '@/lib/signals/rule-choices';
 import { carriedTrades } from '@/lib/signals/permit-routing';
 import type { CategoryId } from '@/lib/signals/categories';
 
@@ -40,7 +41,10 @@ describe('REV-ROUTES 07', () => {
   it('redo 1 (decision 5): an alteration that mentions demolition keeps junk-removal as Coming soon, residential and commercial', () => {
     for (const summary of ['otc alterations permit | 1450 Lombard St', 'Building Combo Permit | Alter Commercial | 100 MAIN ST', 'Commercial Alteration | 100 MAIN ST NE, ATLANTA, GA 30303']) {
       const title = /Commercial Alteration/.test(summary) ? 'Tenant fit-out permit in X' : 'Remodel permit in X';
-      expect(who(title, ['general-contractor', 'junk-removal'], summary).coming_soon, summary).toContain('junk-removal');
+      // Round 19 integration: a residential remodel is feed only for follow-on trades while owner call 2 is YES (supersedes decision 5 there);
+      // a commercial alteration (fit-out) keeps the round 18 rule soon-interior-demolition-hauling.
+      const feedOnly = RULE_CHOICES.remodelFeedOnly && title.startsWith('Remodel') && !/commercial/i.test(summary);
+      expect(who(title, ['general-contractor', 'junk-removal'], summary)[feedOnly ? 'market_insight' : 'coming_soon'], summary).toContain('junk-removal');
     }
   });
 });

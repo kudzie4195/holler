@@ -24,18 +24,18 @@ describe('REV-ROUTES 11: contact path share', () => {
       sig(1), // permit, business contact
       sig(2, { summary: 'New Construction | 250 SYCAMORE ST' }), // permit, site in summary
       sig(3), // permit, nothing
-      sig(4, { source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', summary: null }), // alert, no contact
+      sig(4, { source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: NONCONST / NO HEAT', summary: null }), // alert, no contact (round 19 integration: a whole-building heat complaint alerts only at the third, so a non-residential no-heat complaint for HVAC stands in)
       sig(5, { source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation in Chicago: ROOF', summary: null }), // site contact
       sig(6, { title: 'Roof permit in Atlanta', summary: 'Residential Alteration | 9 OAK ST' }), // own trade: market insight, not an alert
       sig(7), // alert older than the window
     ];
     const contacts = [{ signal_id: 1, role: 'contractor', name: 'Peach Builders LLC', address: null }, { signal_id: 5, role: 'site', name: '', address: '2150 N DAMEN' }, { signal_id: 3, role: 'site', name: '', address: 'MAIN ST' }];
-    const alerts = [al(1, 'landscaping'), al(2, 'landscaping'), al(3, 'landscaping'), al(4, 'plumbing'), al(5, 'roofing'), al(6, 'roofing'), al(7, 'landscaping', 24 * 8), al(99, 'landscaping')];
+    const alerts = [al(1, 'landscaping'), al(2, 'landscaping'), al(3, 'landscaping'), al(4, 'hvac'), al(5, 'roofing'), al(6, 'roofing'), al(7, 'landscaping', 24 * 8), al(99, 'landscaping')];
     const r = buildContactPathReport({ now: NOW, alerts: alerts as any, signals: signals as any, contacts: contacts as any });
     console.log(JSON.stringify({ all: r.all, trades: r.trades }));
     expect(r.all).toEqual({ trade: 'all trades', alerted: 5, withPath: 3, share: 0.6 });
     expect(r.trades.find((t) => t.trade === 'landscaping')).toEqual({ trade: 'landscaping', alerted: 3, withPath: 2, share: 2 / 3 });
-    expect(r.trades.find((t) => t.trade === 'plumbing')).toEqual({ trade: 'plumbing', alerted: 1, withPath: 0, share: 0 });
+    expect(r.trades.find((t) => t.trade === 'hvac')).toEqual({ trade: 'hvac', alerted: 1, withPath: 0, share: 0 });
     expect(r.trades.find((t) => t.trade === 'roofing')).toEqual({ trade: 'roofing', alerted: 1, withPath: 1, share: 1 });
   });
   it('stays blank, never 0% or 100%, when data is missing', async () => {

@@ -12,7 +12,7 @@ import { downstreamTradesOf, routeKindsOf, routeWhyFor, carriedTrades, summaryPa
 import { classifyPermit } from '@/lib/signals/mapping/permit';
 import { matchOne, type MatchProfile } from '@/lib/signals/match';
 import { briefFor, tradeForRecord } from '@/lib/signals/brief';
-import { labelFor } from '@/lib/signals/lead-rules';
+import { labelFor, ruleFor } from '@/lib/signals/lead-rules';
 import type { CategoryId } from '@/lib/signals/categories';
 
 type Row = [number, string, string, string, string, string[]];
@@ -187,10 +187,11 @@ describe('detection compares the title with the record (review P2-8): every samp
   });
   it('the routed share of the sample and its detections after the record class (reported in F-report.md)', () => {
     const routed = ROWS.filter(([, source, title, summary]) => routeKindsOf(title, { summary, source }).length > 0);
-    // 82 rows routed on the title alone (review); the record class drops 9 and redirects 12 to the fit-out row
-    expect(ROWS.filter(([, , title]) => routeKindsOf(title).length > 0)).toHaveLength(82);
-    expect(routed.length).toBeLessThan(82);
-    expect(routed.length).toBeGreaterThan(65);
+    // 82 rows routed on the title alone (review); the record class drops 9 and redirects 12 to the fit-out row. Round 19 RULES added the pool,
+    // damage repair and deck routes (review lines 61, 63, 65): 7 more sample titles route.
+    expect(ROWS.filter(([, , title]) => routeKindsOf(title).length > 0)).toHaveLength(89);
+    expect(routed.length).toBeLessThan(89);
+    expect(routed.length).toBeGreaterThan(72);
   });
 });
 
@@ -201,16 +202,21 @@ describe('the matcher sees the same class (summary reaches the label)', () => {
     source: 'arcgis-atlanta-permits', title, summary, kind: 'permit',
   });
   it('a house cleaner is matched to a residential remodel and not to a commercial alteration', () => {
-    expect(matchOne(sig('Residential Alteration | $30,000 job value | 5 X ST'), cleaner, false)?.label).toBe('coming_soon');
+    // round 19 line 45 (owner call 2): a remodel is feed only for the finish trades, so the residential one is market insight
+    expect(matchOne(sig('Residential Alteration | $30,000 job value | 5 X ST'), cleaner, false)?.label).toBe('market_insight');
     expect(matchOne(sig('Commercial Alteration | $30,000 job value | 5 X ST'), cleaner, false)).toBeNull();
   });
   it('review F P1-2b: tradeForRecord picks janitorial-commercial for an $8.4M commercial alteration, and the card sentence never says cleaning may follow', () => {
     const rec = { source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', title: 'Remodel permit in Atlanta', summary: 'Commercial Alteration | $8,400,000 job value | 100 PEACHTREE ST NE, ATLANTA, GA 30303' };
     const cats = ['general-contractor', 'cleaning', 'janitorial-commercial'];
     const trades = ['cleaning', 'janitorial-commercial'];
-    expect(tradeForRecord(rec, cats, trades)).toBe('janitorial-commercial');
-    // Without the summary (the old call) the card was built for cleaning: this is what the surfaces must not do.
-    expect(tradeForRecord({ ...rec, summary: undefined }, cats, trades)).toBe('cleaning');
+    // Round 19 line 59: a commercial alteration is feed only for commercial cleaning too, so neither trade alerts. The card is built for a
+    // trade whose label is market insight, and the summary still reaches the label (without it the remodel route is read instead).
+    const t0 = tradeForRecord(rec, cats, trades)!;
+    expect(labelFor(rec, t0 as CategoryId)).toBe('market_insight');
+    expect(labelFor(rec, 'janitorial-commercial')).toBe('market_insight');
+    expect(ruleFor(rec, 'janitorial-commercial')?.id).toBe('fit-out-class');
+    expect(ruleFor({ ...rec, summary: undefined }, 'cleaning')?.id).not.toBe('fit-out-class');
     const t = tradeForRecord(rec, cats, trades)!;
     const why = briefFor({ ...rec, label: labelFor(rec, t as CategoryId), trade: t }).why;
     expect(why).not.toMatch(/cleaning may follow/i);
@@ -228,7 +234,7 @@ describe('the matcher sees the same class (summary reaches the label)', () => {
       const src = fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
       const calls = src.match(/labelForMember\(\{[^}]*\}/g) ?? [];
       expect(calls.length, f).toBeGreaterThan(0);
-      for (const c of calls) expect(c, `${f}: ${c}`).toMatch(/summary|\.\.\.input/);
+      for (const c of calls) expect(c, `${f}: ${c}`).toMatch(/summary|\.\.\.input|\.\.\.recordLabelInput\(s\)/);
     }
   });
 });

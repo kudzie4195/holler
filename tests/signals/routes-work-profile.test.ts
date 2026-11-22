@@ -183,14 +183,18 @@ describe('matching uses the work profile', () => {
     expect(matchOne(permit(), gcRepairs, false, NOW.getTime())).toBeNull();
     expect(matchOne(permit(), member({ categories: ['general-contractor'] }), false, NOW.getTime())?.label).toBe('market_insight');
     const installsOnly = member({ categories: ['hvac'], work_type: 'installs' });
-    const noHeat: MatchSignal = { id: nextId++, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', categories: ['hvac'], lat: LOC.lat, lon: LOC.lon, state: 'GA', severity: 1, occurred_at: '2026-11-19T00:00:00Z' };
+    // Round 19 integration: a whole-building heat complaint is urgent only at the third complaint at one building (owner call 1), so the
+    // repair record here is a non-residential no-heat complaint, which stays act now for HVAC (rule act-no-heat).
+    const noHeat: MatchSignal = { id: nextId++, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: NONCONST / NO HEAT', categories: ['hvac'], lat: LOC.lat, lon: LOC.lon, state: 'GA', severity: 1, occurred_at: '2026-11-19T00:00:00Z' };
     expect(matchOne(noHeat, installsOnly, false, NOW.getTime())).toBeNull();
     expect(matchOne(noHeat, member({ categories: ['hvac'] }), false, NOW.getTime())?.label).toBe('act_now');
   });
   it('review P2-3: downstream trades are never filtered by the builder\'s kind of work', () => {
     // A house cleaner on "repairs and service only" still gets the post-construction card of a new-build permit.
     const cleanerRepairs = member({ categories: ['cleaning'], work_type: 'repairs' });
-    const newBuild = permit({ title: 'New construction permit in Atlanta', summary: 'New Construction | 100 MAIN ST NE, ATLANTA, GA 30303', categories: ['general-contractor'] });
+    // Round 19 integration: an unclassed "new construction" permit is feed only for cleaners under the round 19 rules
+    // (mi-new-construction-unclassed); a new home is still the cleaner's heads-up, so the record here is a new home.
+    const newBuild = permit({ title: 'New home permit in Atlanta', summary: 'New | 1 or 2 Family Dwelling | 100 MAIN ST NE, ATLANTA, GA 30303', categories: ['general-contractor'] });
     expect(matchOne(newBuild, cleanerRepairs, false, NOW.getTime())).toMatchObject({ label: 'coming_soon', trade: 'cleaning' });
     expect(matchSignals([newBuild], [cleanerRepairs], undefined, NOW, false)).toHaveLength(1);
     // Landscapers and movers on a new home, the same.

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
-import { isFeedLabel, labelForMember } from '../signals/lead-rules';
+import { isFeedLabel, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
+import { STAGE_SELECT } from '../signals/stage';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
 import { trialStartedAt as readTrialStamp } from '../auth/membership';
 import { missedSince } from './missed';
@@ -92,6 +93,10 @@ interface SignalEmbed {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  /** data->>permitStage (STAGE_SELECT), passed to the labeller only. */
+  permitStage?: string | null;
 }
 
 export function createStore(db: Db): LifecycleStore {
@@ -171,20 +176,22 @@ export function createStore(db: Db): LifecycleStore {
     async matchesOf(userId, trades) {
       const { data, error } = await db
         .from('holler_matches')
-        .select('signal:holler_signals(id, source, kind, title, summary, categories, city, state, severity, occurred_at, subtype:data->>subtype)')
+        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT})`)
         .eq('user_id', userId)
         .neq('status', 'dismissed')
         .order('created_at', { ascending: false })
         .limit(MATCH_ROW_CAP);
       if (error) throw new Error(`matches: ${error.message}`);
-      const rows = (data ?? []) as unknown as { signal: SignalEmbed | SignalEmbed[] | null }[];
+      const rows = (data ?? []) as unknown as { status?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
       const items: (AlertItem & { id: number })[] = [];
       for (const r of rows) {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
+        // Round 19 integration: the same label input as the feed (recordLabelInput: summary, permit stage, place) and the same rule for a
+        // match the member saved or marked done (keptMatchLabel: it stays listed as a feed item whatever its label is now).
         const label = trades
-          ? labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary ?? null, categories: s.categories ?? null }, trades)
+          ? keptMatchLabel(labelForMember({ ...recordLabelInput(s), categories: s.categories ?? null }, trades), r.status)
           : null;
         // A record this base calls context for the member's trades is hidden in the feed, so it is never listed or counted in mail either.
         if (label && !isFeedLabel(label)) continue;

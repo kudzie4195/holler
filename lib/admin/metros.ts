@@ -1,5 +1,5 @@
 import type { CategoryId } from '@/lib/signals/categories';
-import { isAlertLabel, labelFor, OPPORTUNITY_LABELS, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { isAlertLabel, labelFor, OPPORTUNITY_LABELS, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { METROS, metroFor, metroForCityState } from '@/lib/geo/metros';
 import { cityBySlug, lookupZip } from '@/lib/geo';
 import { placeSlugOfDataset } from '@/lib/signals/capabilities';
@@ -63,6 +63,9 @@ export interface MetroSignalLite {
   state: string | null;
   city: string | null;
   subtype: string | null;
+  /** For the label (lead-rules recordLabelInput): the state-level reach and a permit's stage update (review P3 item 14). */
+  severity?: number | null;
+  permitStage?: string | null;
   managerName?: string | null;
   managerRole?: string | null;
 }
@@ -273,7 +276,7 @@ export function buildMetroReport(input: MetroInputs): MetroReport {
       const s = a.signal_id === null ? undefined : sigBy.get(a.signal_id);
       const metro = s ? metroOfRecord(s) : null;
       const label: OpportunityLabel = s
-        ? labelFor({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, (a.trade ?? null) as CategoryId | null)
+        ? labelFor(recordLabelInput(s), (a.trade ?? null) as CategoryId | null)
         : 'context';
       const eligible = !!s && contactEligible(s);
       const has = !!s && contactsOk && (input.namedContactIds!.has(s.id) || managedByLineFrom(s.managerName, s.managerRole) !== null);

@@ -150,14 +150,15 @@ describe('recentPreviewFor', () => {
   });
 
   // Was "two queries" before round 7 integrate3: the third reads the approximate-location (Cobb County) sources at radius + 15 miles.
-  it('uses three queries, the last 90 days, and no free-text, name, contact or link column', async () => {
-    const { db, calls } = fakeDb([row({})]);
-    await recentPreviewFor(profile, { db, now: NOW });
+  it('uses three queries, the last 90 days, and no name, contact or link column; the summary feeds the label only (round 19 review P3 item 15)', async () => {
+    const { db, calls } = fakeDb([row({ summary: 'A SUMMARY THAT IS NEVER SHOWN' })]);
+    const out = await recentPreviewFor(profile, { db, now: NOW });
+    expect(JSON.stringify(out)).not.toContain('A SUMMARY THAT IS NEVER SHOWN');
     expect(calls).toHaveLength(3);
     for (const c of calls) {
       expect(c.cols).toBe(PREVIEW_COLUMNS);
       const cols = c.cols.split(',').map((x) => x.split(':')[0]);
-      for (const bad of ['summary', 'url', 'data', 'zip', 'county', 'contacts', 'name', 'business_name', '*']) expect(cols).not.toContain(bad);
+      for (const bad of ['url', 'data', 'zip', 'county', 'contacts', 'name', 'business_name', '*']) expect(cols).not.toContain(bad);
       expect(c.filters).toContain(`gte:occurred_at,${day(90)}`);
       expect(c.filters).toContain('from:holler_signals');
       expect(c.filters).toContain('neq:source,holler-request');

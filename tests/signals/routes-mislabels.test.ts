@@ -11,6 +11,7 @@ import { classifyPermit } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { carriedTrades, summaryParts } from '@/lib/signals/permit-routing';
 import { labelFor, ruleFor } from '@/lib/signals/lead-rules';
+import { RULE_CHOICES } from '@/lib/signals/rule-choices';
 import { parseSocrata } from '@/lib/signals/adapters/socrata';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 
@@ -72,10 +73,11 @@ describe('pattern H: an alteration permit titled "Demolition" because its descri
     expect(c.label).toBe('Remodel');
     expect(c.kinds).toEqual(['remodel']);
     expect(c.categories).toEqual(['general-contractor', 'junk-removal']);
-    // Junk removal still gets the card as Coming soon (the debris needs hauling), never the own-trade market insight.
+    // Junk removal still carries the card (the debris needs hauling). Round 19 integration: a remodel is feed only for every follow-on trade
+    // while owner call 2 (remodelFeedOnly) is YES (a residential remodel; a commercial alteration keeps the round 18 rule), which supersedes round 18's Coming soon here; with call 2 NO it is Coming soon again.
     const sig = { source: (row(id) as { source: string }).source, kind: 'permit', subtype: 'permit', title: 'Remodel permit in X', summary: row(id).summary };
     expect(carriedTrades(sig, c.categories)).toContain('junk-removal');
-    expect(labelFor(sig, 'junk-removal')).toBe('coming_soon');
+    expect(labelFor(sig, 'junk-removal')).toBe(RULE_CHOICES.remodelFeedOnly && !/commercial/i.test(row(id).summary ?? '') ? 'market_insight' : 'coming_soon');
     expect(ruleFor(sig, 'junk-removal')?.downstream).toBe(true);
   });
   it('a commercial alteration with demolition (fit-out route) still reaches junk-removal as Coming soon', () => {

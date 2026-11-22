@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchScope } from '@/lib/plan';
-import { demoteExpired, deadlineOf, DEADLINE_SELECT, labelForMember, LABEL_RANK, type OpportunityLabel } from './lead-rules';
+import { demoteExpired, deadlineOf, DEADLINE_SELECT, labelForMember, LABEL_RANK, recordLabelInput, type OpportunityLabel } from './lead-rules';
+import { STAGE_SELECT } from './stage';
 import { membersOfTrade, type MatchSignal } from './match';
 import { tradeForRecord } from './brief';
 import { isExactTradeFit, scoreOf, valueUsdOf, type ScoreParts } from './score';
@@ -38,6 +39,8 @@ interface SignalRow {
   fixBy?: string | null;
   dueDate?: string | null;
   responseDeadline?: string | null;
+  /** data->>permitStage (STAGE_SELECT): passed to the labeller only. */
+  permitStage?: string | null;
 }
 
 interface MatchRowIn {
@@ -78,7 +81,7 @@ export async function buildScoreReport(db: Db, now: Date, opts: { days?: number;
   const { data, error } = await db
     .from('holler_matches')
     .select(
-      `id,user_id,signal:holler_signals(id,source,kind,title,summary,occurred_at,expires_at,categories,lat,lon,state,severity,subtype:data->>subtype,${DEADLINE_SELECT})`,
+      `id,user_id,signal:holler_signals(id,source,kind,title,summary,occurred_at,expires_at,categories,lat,lon,state,severity,subtype:data->>subtype,${DEADLINE_SELECT},${STAGE_SELECT})`,
     )
     .gte('created_at', since)
     .order('created_at', { ascending: false })
@@ -102,7 +105,8 @@ export async function buildScoreReport(db: Db, now: Date, opts: { days?: number;
     if (!p) continue;
     const trades = matchScope(p).categories;
     const input = { source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary };
-    const label = demoteExpired(labelForMember({ ...input, categories: s.categories }, trades), deadlineOf(s), nowMs);
+    // Round 19 integration: the same label input as every member surface (summary, permit stage, place: recordLabelInput).
+    const label = demoteExpired(labelForMember({ ...recordLabelInput(s), categories: s.categories }, trades), deadlineOf(s), nowMs);
     if (label === 'context') continue;
     const trade = tradeForRecord(input, s.categories, trades);
     const sig: MatchSignal = {

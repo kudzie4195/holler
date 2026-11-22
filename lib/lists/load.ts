@@ -35,7 +35,7 @@ import {
 export const STORM_COLUMNS =
   'id,source,kind,title,lat,lon,city,state,county,occurred_at,url,categories,spcDay:data->>day,stormType:data->>type,hailInches:data->>hailInches,windMph:data->>windMph,comments:data->>comments';
 export const PERMIT_COLUMNS =
-  'id,source,kind,title,summary,url,lat,lon,city,state,zip,occurred_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,projectOf:data->>projectOf';
+  'id,source,kind,title,summary,url,lat,lon,city,state,zip,occurred_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,projectOf:data->>projectOf,permitStage:data->>permitStage';
 
 /** PostgREST returns at most this many rows per query. A storm or area read that hits it may miss addresses; the list then says so. */
 export const ROW_CAP = 1000;

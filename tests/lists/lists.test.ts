@@ -267,21 +267,28 @@ describe('which storm reports make a list', () => {
 });
 
 describe('neighborhood lists: the existing downstream rules', () => {
-  it('new homes for landscaping and fencing, remodels for painting; never the trade doing the work; never a commercial fit-out', () => {
+  it('new homes for landscaping and cleaning, re-roofs for gutters; never the trade doing the work; never a commercial fit-out', () => {
     const newHome = permit({ title: 'New home permit in Smyrna', summary: 'New | 1 or 2 Family Dwelling | 5 PINE CT' });
     const remodel = permit({ title: 'Remodel permit in Smyrna', summary: 'Alteration | Single Family | 9 ASH LN' });
     const commercial = permit({ title: 'Remodel permit in Smyrna', summary: 'Alteration | Commercial | 1 MARKET ST' });
     expect(createsWorkFor(newHome, 'landscaping')).toBe(true);
-    expect(createsWorkFor(newHome, 'fencing')).toBe(true);
-    expect(createsWorkFor(remodel, 'painting')).toBe(true);
+    expect(createsWorkFor(newHome, 'cleaning')).toBe(true);
+    expect(createsWorkFor(permit(), 'siding-gutters')).toBe(true);
+    // Round 19 integration: the round 19 rules made these feed only (owner call 7: new home for fencing; owner call 2: remodel for
+    // painters), so they make no list line either: a list holds exactly the downstream heads-up the member's feed would show.
+    expect(createsWorkFor(newHome, 'fencing')).toBe(false);
+    expect(createsWorkFor(remodel, 'painting')).toBe(false);
+    // a finished stage (migration 0025) brings the finished-building trades back, as on the feed (rule stage-finished-downstream)
+    expect(createsWorkFor({ ...remodel, permitStage: 'final_inspection' }, 'cleaning')).toBe(true);
     expect(createsWorkFor(permit(), 'roofing')).toBe(false); // a roof permit is the roofer's own (market insight)
     expect(createsWorkFor(commercial, 'cleaning')).toBe(false);
     expect(createsWorkFor(permit({ kind: 'civic', subtype: '311', title: 'New home permit in Smyrna' }), 'landscaping')).toBe(false);
   });
   it('lists exist only for downstream trades of the member plan', () => {
-    expect(AREA_LIST_TRADES).toEqual(expect.arrayContaining(['landscaping', 'fencing', 'painting', 'siding-gutters']));
-    expect(AREA_LIST_TRADES).not.toContain('janitorial-commercial');
-    expect(areaListTrades(['roofing', 'hvac', 'landscaping'])).toEqual(['roofing', 'landscaping']);
+    // Round 19 integration: derived from the rules in force, so a trade whose list could never hold an address has none.
+    expect(AREA_LIST_TRADES).toEqual(expect.arrayContaining(['landscaping', 'cleaning', 'moving', 'siding-gutters']));
+    for (const t of ['janitorial-commercial', 'fencing', 'flooring', 'roofing', 'general-contractor']) expect(AREA_LIST_TRADES, t).not.toContain(t);
+    expect(areaListTrades(['roofing', 'hvac', 'landscaping', 'siding-gutters'])).toEqual(['landscaping', 'siding-gutters']);
   });
   it('grouped by ZIP (street when there is none), newest first', () => {
     const e = (address: string, zip: string | null, date: string): ListEntry => ({ address, zip, city: 'Smyrna', state: 'GA', permitType: 'Remodel', date, url: null, distanceMi: null });

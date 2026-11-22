@@ -9,7 +9,9 @@ import {
   awardWorkOf,
   cardBrief,
   damagePhraseOf,
+  isGustReport,
   permitTypeOf,
+  reasonCopyFor,
   violationOrderOf,
   MAX_WHY,
   TRADE_WORK,
@@ -65,6 +67,10 @@ const NOUN_KEY: Record<string, DictKey> = {
   'A tenant fit-out permit': 'brief.noun.fit_out',
   'A commercial permit': 'brief.noun.commercial',
   'An apartment permit': 'brief.noun.apartment',
+  'A pool permit': 'brief.noun.pool',
+  'A damage repair permit': 'brief.noun.damage_repair',
+  'A deck permit': 'brief.noun.deck',
+  'A porch permit': 'brief.noun.porch',
 };
 
 function key(k: string): DictKey {
@@ -123,6 +129,12 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
     const typed = ctx.permitType ? t(lang, 'brief.why.permit.interior_demolition_typed', { type: ctx.permitType }) : null;
     return typed && typed.length <= max ? typed : t(lang, 'brief.why.permit.interior_demolition');
   }
+  const reason = reasonCopyFor(input);
+  if (reason?.copy.why) {
+    const k = key(`brief.reason.${reason.id}.why`);
+    const typed = ctx.permitType ? t(lang, k, { work, type: ctx.permitType }) : null;
+    return typed && typed.length <= max ? typed : t(lang, k, { work, type: '' }).replace(' ()', '');
+  }
   const override = `brief.override.${label}|${family}|${trade}`;
   if (trade && hasDictKey(override)) return t(lang, key(override));
 
@@ -158,7 +170,8 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
     default:
       break;
   }
-  const plain = `brief.why.${family}.${label}`;
+  // Review P2-3: a storm report heads-up that is not a gust row says a storm report was filed (the act now sentence, without override).
+  const plain = family === 'storm-report' && label === 'coming_soon' && !isGustReport(input.title) ? 'brief.why.storm-report.act_now' : `brief.why.${family}.${label}`;
   if (hasDictKey(plain)) return t(lang, key(plain), v);
   return t(lang, key(`brief.why.fallback.${label}`), v);
 }
@@ -180,7 +193,8 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
     violation: family === 'violation' ? violationOrderOf(input.title) : null,
   };
   const label = input.label;
-  const knownKey = `brief.known.${family}.${label}`;
+  // Review P2-3: the gust wording ("se reportó una ráfaga") is for gust rows only.
+  const knownKey = family === 'storm-report' && !isGustReport(input.title) ? `brief.known.${family}` : `brief.known.${family}.${label}`;
   const unknownKey = `brief.unknown.${family}.${label}`;
   const known = t(lang, hasDictKey(knownKey) ? key(knownKey) : key(`brief.known.${family}`));
   let unknown = t(lang, hasDictKey(unknownKey) ? key(unknownKey) : key(`brief.unknown.${family}`));
@@ -191,10 +205,17 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
     if (phrase && DAMAGE_KEY[phrase]) unknown = t(lang, 'brief.uncertain.mention', { phrase: t(lang, DAMAGE_KEY[phrase]) });
   }
   if (family === 'permit' && ctx.permitType === null) unknown = t(lang, 'brief.uncertain.no_work');
+  const reason = reasonCopyFor(input);
+  if (reason?.copy.unknown) unknown = t(lang, key(`brief.reason.${reason.id}.unknown`));
+  const next = reason?.copy.next
+    ? t(lang, key(`brief.reason.${reason.id}.next`))
+    : family === 'weather-alert' && label === 'coming_soon' && input.title
+      ? t(lang, 'brief.next.weather-alert.soon_titled')
+      : t(lang, key(`brief.next.${family}`));
   return {
     ...base,
     why: whyFromDict(input, family, ctx, lang),
-    next: t(lang, key(`brief.next.${family}`)),
+    next,
     uncertain: t(lang, 'brief.uncertain.format', { confidence: t(lang, key(`brief.confidence.${base.confidence}`)), known, unknown }),
   };
 }

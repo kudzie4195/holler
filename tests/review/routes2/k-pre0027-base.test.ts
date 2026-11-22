@@ -7,9 +7,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FAMILIES, runPre0027Scenario } from './pre0027-scenario';
 
-const BASE = join(__dirname, 'base-8bee203.json');
+// Round 19 integration (step 3): the base is now the rules branch r19-rules 9610e98 (no round 18 code, the round 19 label rules), written
+// with BASE_OUT on a checkout of it. The 8bee203 file stays for the record: the two differ only by the round 19 label rules (member m2's
+// trades lose four ADDR permits), which is the rules unit's intended change, not the gate's.
+const BASE = join(__dirname, 'base-9610e98.json');
 
-describe('0027 not applied: identical to the base commit 8bee203', () => {
+describe('0027 not applied: identical to the base (8bee203, re-recorded on r19-rules 9610e98 at the round 19 integration)', () => {
   for (const stageOn of [true, false]) {
     for (const fam of FAMILIES) {
       it(`${fam.name} codes, stage updates ${stageOn ? 'on' : 'off'}`, async () => {

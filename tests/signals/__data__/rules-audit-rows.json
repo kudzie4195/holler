@@ -1,0 +1,4208 @@
+[
+{
+"id": 1,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Coconino, AZ; Yavapai, AZ",
+"summary": "Flood Advisory issued November 17 at 11:13AM MST until November 17 at 5:15PM MST by NWS Flagstaff AZ. * WHAT...Minor flooding caused by excessive rainfall. * WHERE...Coconino County in north central Arizona... Yavapai County in west central Arizona... * WHEN...Until 515 PM MST Tuesday. * IMPACTS...Minor flooding in cr\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "AZ",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-17T18:13:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"AZ"
+],
+"urgency": "Expected",
+"areaDesc": "Coconino, AZ; Yavapai, AZ",
+"certainty": "Likely",
+"senderName": "NWS Flagstaff AZ",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 35.0081244145013,
+"lon": -111.77212291561
+},
+{
+"id": 6,
+"source": "nws",
+"kind": "alert",
+"title": "Lake Wind Advisory: Central and Southeast Phillips; Central and Southern Valley; Petroleum; Garfield; McCone",
+"summary": "Lake Wind Advisory issued November 17 at 10:28AM MST until November 18 at 2:00PM MST by NWS Glasgow MT. * WHAT...Northwest winds 15 to 25 mph with gusts up to 40 mph expected. * WHERE...Fort Peck Lake. * WHEN...From 8 AM Wednesday to 5 AM MST Thursday. * IMPACTS...Strong winds and rough waves on area lakes will create\u2026",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"electrical"
+],
+"state": "MT",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T15:00:00+00:00",
+"data": {
+"event": "Lake Wind Advisory",
+"states": [
+"MT"
+],
+"urgency": "Expected",
+"areaDesc": "Central and Southeast Phillips; Central and Southern Valley; Petroleum; Garfield; McCone",
+"certainty": "Likely",
+"senderName": "NWS Glasgow MT",
+"hasGeometry": false,
+"nwsSeverity": "Moderate"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 7,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Watch: Coastal Duval; Eastern Clay; Eastern Putnam; Trout River; Western Clay; Western Putnam; S\u2026",
+"summary": "Flood Watch issued November 17 at 12:14PM EST until November 20 at 7:00PM EST by NWS Jacksonville FL. * WHAT...Flooding caused by excessive rainfall continues to be possible. * WHERE...A portion of northeast Florida, including the following areas, Coastal Duval, Eastern Clay, Eastern Putnam, South Central Duval, Trout\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-17T22:00:00+00:00",
+"data": {
+"event": "Flood Watch",
+"states": [
+"FL"
+],
+"urgency": "Future",
+"areaDesc": "Coastal Duval; Eastern Clay; Eastern Putnam; Trout River; Western Clay; Western Putnam; South Central Duval; Western Duval",
+"certainty": "Possible",
+"senderName": "NWS Jacksonville FL",
+"hasGeometry": false,
+"nwsSeverity": "Severe"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 8,
+"source": "nws",
+"kind": "alert",
+"title": "Winter Weather Advisory: Western Uinta Mountains",
+"summary": "Winter Weather Advisory issued November 17 at 10:05AM MST until November 18 at 11:00AM MST by NWS Salt Lake City UT. * WHAT...Snow expected. Total snow accumulations of 4 to 8 inches. * WHERE...Western Uinta Mountains. * WHEN...Until 11 AM MST Wednesday. * IMPACTS...Travel could be difficult at times along mountain ro\u2026",
+"categories": [
+"snow-removal",
+"towing",
+"hvac",
+"tree-service",
+"plumbing"
+],
+"state": "UT",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-17T18:00:00+00:00",
+"data": {
+"event": "Winter Weather Advisory",
+"states": [
+"UT"
+],
+"urgency": "Expected",
+"areaDesc": "Western Uinta Mountains",
+"certainty": "Likely",
+"senderName": "NWS Salt Lake City UT",
+"hasGeometry": false,
+"nwsSeverity": "Moderate"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 9,
+"source": "nws",
+"kind": "alert",
+"title": "Wind Advisory: Western Clark and Southern Nye County; Las Vegas Valley",
+"summary": "Wind Advisory issued November 17 at 8:31AM PST until November 17 at 5:00PM PST by NWS Las Vegas NV. * WHAT...Southwest to west winds 20 to 30 mph with gusts up to 50 mph expected. * WHERE...Las Vegas Valley and Western Clark and Southern Nye County. * WHEN...Until 5 PM PST this afternoon. * IMPACTS...Gusty winds will\u2026",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"electrical"
+],
+"state": "NV",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-17T16:31:00+00:00",
+"data": {
+"event": "Wind Advisory",
+"states": [
+"NV"
+],
+"urgency": "Expected",
+"areaDesc": "Western Clark and Southern Nye County; Las Vegas Valley",
+"certainty": "Likely",
+"senderName": "NWS Las Vegas NV",
+"hasGeometry": false,
+"nwsSeverity": "Moderate"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 14,
+"source": "nws",
+"kind": "alert",
+"title": "High Wind Warning: Central Laramie Range and Southwest Platte County; East Platte County; South Laramie Rang\u2026",
+"summary": "High Wind Warning issued November 17 at 1:49AM MST until November 18 at 5:00PM MST by NWS Cheyenne WY. * WHAT...West winds 35 to 45 mph with gusts up to 75 mph expected. * WHERE...South Laramie Range and Foothills including the Interstate 80 Summit between Cheyenne and Laramie, Bordeaux area along Interstate 25 betwee\u2026",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"electrical"
+],
+"state": "WY",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T09:00:00+00:00",
+"data": {
+"event": "High Wind Warning",
+"states": [
+"WY"
+],
+"urgency": "Expected",
+"areaDesc": "Central Laramie Range and Southwest Platte County; East Platte County; South Laramie Range; South Laramie Range Foothills",
+"certainty": "Likely",
+"senderName": "NWS Cheyenne WY",
+"hasGeometry": false,
+"nwsSeverity": "Severe"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 61,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "New construction permit in Chicago",
+"summary": "PERMIT - NEW CONSTRUCTION | $400,000 job value | 5237 N VIRGINIA AVE",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.9769460068686,
+"lon": -87.7030477531686
+},
+{
+"id": 67,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "Roof permit in Chicago",
+"summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Reroofing | $4,600 job value | 1630 E 92ND ST",
+"categories": [
+"roofing"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.7279377820636,
+"lon": -87.583773703722
+},
+{
+"id": 68,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "Remodel permit in Chicago",
+"summary": "PERMIT - RENOVATION/ALTERATION | $85,000 job value | 2023 N RACINE AVE",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.9187463365216,
+"lon": -87.6580983342682
+},
+{
+"id": 247,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "Damage repair permit in Chicago",
+"summary": "PERMIT - RENOVATION/ALTERATION | $200,000 job value | 1524 N LOTUS AVE",
+"categories": [
+"restoration"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.9083719918686,
+"lon": -87.762287916771
+},
+{
+"id": 257,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "Roof and solar permit in Chicago",
+"summary": "PERMIT - RENOVATION/ALTERATION | $30,090 job value | 5901 S HARLEM AVE",
+"categories": [
+"roofing",
+"solar"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.7846441725621,
+"lon": -87.8010676006056
+},
+{
+"id": 341,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "New construction permit in Chicago",
+"summary": "PERMIT - NEW CONSTRUCTION | $3,000 job value | 401 N MICHIGAN AVE",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.8893542519282,
+"lon": -87.6241024562435
+},
+{
+"id": 597,
+"source": "socrata-chicago-311",
+"kind": "civic",
+"title": "311 request in Chicago: Graffiti Removal Request",
+"summary": "Graffiti Removal Request | Canceled | 60638",
+"categories": [
+"painting",
+"cleaning"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-17T09:15:35+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "v6vf-nfxy",
+"subtype": "311"
+},
+"lat": 41.79659400094,
+"lon": -87.754923000002
+},
+{
+"id": 744,
+"source": "socrata-chicago-inspections",
+"kind": "civic",
+"title": "Failed inspection in Chicago: food establishment",
+"summary": null,
+"categories": [
+"pest-control",
+"cleaning",
+"janitorial-commercial",
+"plumbing",
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 2,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "4ijn-s7e5",
+"subtype": "inspection"
+},
+"lat": 41.809,
+"lon": -87.704
+},
+{
+"id": 764,
+"source": "socrata-nyc-permits",
+"kind": "permit",
+"title": "Landscaping permit in New York City",
+"summary": "Sprinklers | $43,999 job value | Manhattan | 233 PARK AVENUE SOUTH Manhattan",
+"categories": [
+"landscaping"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-13T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "rbx6-tga4",
+"subtype": "permit"
+},
+"lat": 40.737503,
+"lon": -73.988327
+},
+{
+"id": 817,
+"source": "socrata-nyc-permits",
+"kind": "permit",
+"title": "Landscaping permit in New York City",
+"summary": "Sprinklers | $20,000 job value | Brooklyn | 590 FULTON STREET Brooklyn",
+"categories": [
+"landscaping"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-13T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "rbx6-tga4",
+"subtype": "permit"
+},
+"lat": 40.687723,
+"lon": -73.978336
+},
+{
+"id": 871,
+"source": "socrata-nyc-permits",
+"kind": "permit",
+"title": "New home permit in New York City",
+"summary": "General Construction | $1,000,000 job value | Brooklyn | 221 ELMWOOD AVENUE Brooklyn",
+"categories": [
+"real-estate",
+"moving",
+"general-contractor"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-13T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "rbx6-tga4",
+"subtype": "permit"
+},
+"lat": 40.627167,
+"lon": -73.975006
+},
+{
+"id": 1170,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: Rodent / Rat Sighting",
+"summary": "Rodent | Rat Sighting | MANHATTAN",
+"categories": [
+"pest-control"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-16T06:30:06+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.7340615075075,
+"lon": -74.0041675813575
+},
+{
+"id": 1175,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY",
+"summary": "HEAT/HOT WATER | APARTMENT ONLY | BROOKLYN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-16T04:58:48+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.6544683069153,
+"lon": -73.9629113314184
+},
+{
+"id": 1176,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-16T04:55:26+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.6335325264514,
+"lon": -73.9457949680269
+},
+{
+"id": 1191,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-16T04:48:08+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 1237,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: Mold / Public Complaint - Comm Location",
+"summary": "Mold | Public Complaint - Comm Location | MANHATTAN",
+"categories": [
+"restoration"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-16T04:16:27+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8260485672371,
+"lon": -73.9435966375004
+},
+{
+"id": 1381,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: Non-Residential Heat / Inadequate or No Heat",
+"summary": "Non-Residential Heat | Inadequate or No Heat | BROOKLYN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-16T03:01:26+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.6609756896005,
+"lon": -73.915312362586
+},
+{
+"id": 1477,
+"source": "socrata-nyc-inspections",
+"kind": "civic",
+"title": "Failed inspection in New York City: food establishment",
+"summary": null,
+"categories": [
+"pest-control",
+"cleaning",
+"janitorial-commercial"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-14T05:00:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "43nn-pn8j",
+"subtype": "inspection"
+},
+"lat": 40.667,
+"lon": -73.951
+},
+{
+"id": 1481,
+"source": "socrata-nyc-inspections",
+"kind": "civic",
+"title": "Failed inspection in New York City: food establishment",
+"summary": null,
+"categories": [
+"pest-control",
+"cleaning",
+"janitorial-commercial",
+"food-truck"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-14T05:00:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "43nn-pn8j",
+"subtype": "inspection"
+},
+"lat": 40.636,
+"lon": -73.962
+},
+{
+"id": 1663,
+"source": "socrata-sf-311",
+"kind": "civic",
+"title": "311 request in San Francisco: Graffiti Private / not_offensive",
+"summary": "Graffiti Private | not_offensive | building_commercial",
+"categories": [
+"painting",
+"cleaning"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-17T05:56:56+00:00",
+"data": {
+"domain": "data.sf.gov",
+"dataset": "vw6y-z8j6",
+"subtype": "311"
+},
+"lat": 37.78577455,
+"lon": -122.41218041
+},
+{
+"id": 1702,
+"source": "socrata-sf-311",
+"kind": "civic",
+"title": "311 request in San Francisco: Sewer / flooding",
+"summary": "Sewer | flooding | on_street",
+"categories": [
+"plumbing",
+"restoration"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-17T01:24:14+00:00",
+"data": {
+"domain": "data.sf.gov",
+"dataset": "vw6y-z8j6",
+"subtype": "311"
+},
+"lat": 37.77008,
+"lon": -122.399641666667
+},
+{
+"id": 2011,
+"source": "socrata-austin-permits",
+"kind": "permit",
+"title": "Addition permit in Austin",
+"summary": "Building Permit | Addition and Remodel | $1 job value | 8102 MANASSAS DR",
+"categories": [
+"general-contractor"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.austintexas.gov",
+"dataset": "3syk-w9eu",
+"subtype": "permit"
+},
+"lat": 30.19277968,
+"lon": -97.81488946
+},
+{
+"id": 2268,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:31:57+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.2894613,
+"lon": -97.75626411
+},
+{
+"id": 2269,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:28:34+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.21820418,
+"lon": -97.69980177
+},
+{
+"id": 2270,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Debris in Street",
+"summary": "TPW - Debris in Street | Austin Transportation and Public Works | Closed",
+"categories": [
+"junk-removal"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:20:23+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.29168238,
+"lon": -97.64081477
+},
+{
+"id": 2271,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Debris in Street",
+"summary": "TPW - Debris in Street | Austin Transportation and Public Works | Duplicate (closed)",
+"categories": [
+"junk-removal"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:30:29+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.43184243,
+"lon": -97.65273006
+},
+{
+"id": 2272,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Open",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:18:59+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.28852825,
+"lon": -97.75277404
+},
+{
+"id": 2273,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Open",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:14:55+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.27131457,
+"lon": -97.7220535
+},
+{
+"id": 2274,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T16:43:04+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.34304031,
+"lon": -97.76061289
+},
+{
+"id": 2275,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T16:25:23+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.27297248,
+"lon": -97.72887952
+},
+{
+"id": 2482,
+"source": "socrata-la-permits",
+"kind": "permit",
+"title": "Pool permit in Los Angeles",
+"summary": "Grading | 1 or 2 Family Dwelling | $92 job value | 917 N CHAUTAUQUA BLVD",
+"categories": [
+"pool-spa"
+],
+"state": "CA",
+"city": "Los Angeles",
+"severity": 1,
+"occurred_at": "2026-11-13T08:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.lacity.org",
+"dataset": "pi9x-tg5x",
+"subtype": "permit"
+},
+"lat": 34.0467,
+"lon": -118.51667
+},
+{
+"id": 3046,
+"source": "socrata-nola-311",
+"kind": "civic",
+"title": "311 request in New Orleans: Mosquito, Termite & Rodent Control / Rodent Complaint (Mice & Rats)",
+"summary": "Mosquito, Termite & Rodent Control | Rodent Complaint (Mice & Rats) | Pending",
+"categories": [
+"pest-control"
+],
+"state": "LA",
+"city": "New Orleans",
+"severity": 1,
+"occurred_at": "2026-11-16T19:40:25+00:00",
+"data": {
+"domain": "data.nola.gov",
+"dataset": "2jgv-pqrq",
+"subtype": "311"
+},
+"lat": 29.9199460926257,
+"lon": -90.0979914335622
+},
+{
+"id": 3051,
+"source": "socrata-nola-311",
+"kind": "civic",
+"title": "311 request in New Orleans: Healthy Homes",
+"summary": "Healthy Homes | Closed",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "LA",
+"city": "New Orleans",
+"severity": 1,
+"occurred_at": "2026-11-16T16:14:07+00:00",
+"data": {
+"domain": "data.nola.gov",
+"dataset": "2jgv-pqrq",
+"subtype": "311"
+},
+"lat": 29.9694574735279,
+"lon": -90.0618551959158
+},
+{
+"id": 3057,
+"source": "socrata-batonrouge-permits",
+"kind": "permit",
+"title": "New construction permit in Baton Rouge",
+"summary": "New Building Permit (R) | Residential | $421,000 job value | 21450 LITTLE AZALEA DR",
+"categories": [
+"general-contractor"
+],
+"state": "LA",
+"city": "Baton Rouge",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.brla.gov",
+"dataset": "7fq7-8j7r",
+"subtype": "permit"
+},
+"lat": 30.6654689320051,
+"lon": -91.0016084126424
+},
+{
+"id": 3127,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: HEAT, NO HEAT HAZARD",
+"summary": "HEAT, NO HEAT HAZARD | HEALTH-ENVMNTL | NEW",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 2,
+"occurred_at": "2026-11-15T05:00:00+00:00",
+"data": {
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.1776750991137,
+"lon": -84.5098647927548
+},
+{
+"id": 3157,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: ROACHES - BLDG OR APARTMENT",
+"summary": "ROACHES - BLDG OR APARTMENT | HEALTH-ENVMNTL | NEW",
+"categories": [
+"pest-control"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 1,
+"occurred_at": "2026-11-15T05:00:00+00:00",
+"data": {
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.1823298679153,
+"lon": -84.41274417667
+},
+{
+"id": 3174,
+"source": "socrata-cambridge-permits",
+"kind": "permit",
+"title": "Landscaping permit in Cambridge",
+"summary": "Sprinkler and Standpipe | Active | 124 Mt Auburn St, Cambridge, MA 02138",
+"categories": [
+"landscaping"
+],
+"state": "MA",
+"city": "Cambridge",
+"severity": 1,
+"occurred_at": "2026-11-13T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cambridgema.gov",
+"dataset": "3wsm-e5jx",
+"subtype": "permit"
+},
+"lat": 42.373397,
+"lon": -71.12332
+},
+{
+"id": 4064,
+"source": "socrata-kansascity-311",
+"kind": "civic",
+"title": "311 request in Kansas City: Sewer and Stormwater / Sewer Backup",
+"summary": "Sewer and Stormwater | Sewer Backup | new",
+"categories": [
+"plumbing"
+],
+"state": "MO",
+"city": "Kansas City",
+"severity": 1,
+"occurred_at": "2026-11-16T16:02:00+00:00",
+"data": {
+"domain": "data.kcmo.org",
+"dataset": "d4px-6rwg",
+"subtype": "311"
+},
+"lat": 39.0836034004118,
+"lon": -94.5219356213594
+},
+{
+"id": 4067,
+"source": "socrata-kansascity-311",
+"kind": "civic",
+"title": "311 request in Kansas City: Property Violations / Open to Entry",
+"summary": "Property Violations | Open to Entry | new",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "MO",
+"city": "Kansas City",
+"severity": 1,
+"occurred_at": "2026-11-16T15:26:00+00:00",
+"data": {
+"domain": "data.kcmo.org",
+"dataset": "d4px-6rwg",
+"subtype": "311"
+},
+"lat": 39.1830409981622,
+"lon": -94.5231690165245
+},
+{
+"id": 4069,
+"source": "socrata-kansascity-311",
+"kind": "civic",
+"title": "311 request in Kansas City: Property Violations / Weeds",
+"summary": "Property Violations | Weeds | new",
+"categories": [
+"lawn-care",
+"landscaping",
+"general-contractor",
+"handyman"
+],
+"state": "MO",
+"city": "Kansas City",
+"severity": 1,
+"occurred_at": "2026-11-16T15:21:00+00:00",
+"data": {
+"domain": "data.kcmo.org",
+"dataset": "d4px-6rwg",
+"subtype": "311"
+},
+"lat": 39.0630938463712,
+"lon": -94.5225198682613
+},
+{
+"id": 4160,
+"source": "socrata-cambridge-311",
+"kind": "civic",
+"title": "311 request in Cambridge: Rodent Sighting",
+"summary": "Rodent Sighting | Open",
+"categories": [
+"pest-control"
+],
+"state": "MA",
+"city": "Cambridge",
+"severity": 1,
+"occurred_at": "2026-11-17T00:14:53+00:00",
+"data": {
+"domain": "data.cambridgema.gov",
+"dataset": "2z9k-mv9g",
+"subtype": "311"
+},
+"lat": 42.386809445292,
+"lon": -71.1190308542546
+},
+{
+"id": 4165,
+"source": "socrata-cambridge-311",
+"kind": "civic",
+"title": "311 request in Cambridge: Collect Rodent Damaged Trash Can",
+"summary": "Collect Rodent Damaged Trash Can | Open",
+"categories": [
+"pest-control"
+],
+"state": "MA",
+"city": "Cambridge",
+"severity": 1,
+"occurred_at": "2026-11-15T02:38:29+00:00",
+"data": {
+"domain": "data.cambridgema.gov",
+"dataset": "2z9k-mv9g",
+"subtype": "311"
+},
+"lat": 42.3806943040266,
+"lon": -71.1422350216388
+},
+{
+"id": 4249,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ILLUMINATE PUBLIC STAIR/HALL",
+"summary": "ILLUMINATE PUBLIC STAIR/HALL | OPEN | 1500 block of E 69TH ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.77,
+"lon": -87.587
+},
+{
+"id": 4258,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
+"summary": "REPAIR PORCH SYSTEM | OPEN | 3600 block of W GRENSHAW ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.867,
+"lon": -87.716
+},
+{
+"id": 4270,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: PROVIDE SIDEWALK SHED F/PROTCT",
+"summary": "PROVIDE SIDEWALK SHED F/PROTCT | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"concrete-paving"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4273,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ROACHES",
+"summary": "ROACHES | OPEN | 4000 block of S ELLIS AVE",
+"categories": [
+"pest-control"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.822,
+"lon": -87.604
+},
+{
+"id": 4287,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: RAT PROOF OPENINGS",
+"summary": "RAT PROOF OPENINGS | OPEN | 4000 block of S ELLIS AVE",
+"categories": [
+"pest-control"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.822,
+"lon": -87.604
+},
+{
+"id": 4290,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: MICE/RODENTS",
+"summary": "MICE/RODENTS | OPEN | 4000 block of S ELLIS AVE",
+"categories": [
+"pest-control"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.822,
+"lon": -87.604
+},
+{
+"id": 4296,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR INTERIOR STAIR SYSTEM",
+"summary": "REPAIR INTERIOR STAIR SYSTEM | OPEN | 4000 block of S ELLIS AVE",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.822,
+"lon": -87.604
+},
+{
+"id": 4313,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 3400 block of W MONTROSE AVE",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.961,
+"lon": -87.714
+},
+{
+"id": 4315,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR FLOOR",
+"summary": "REPAIR FLOOR | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"flooring"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4319,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR EXTERIOR WALL",
+"summary": "REPAIR EXTERIOR WALL | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4320,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR FENCE",
+"summary": "REPAIR FENCE | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"fencing",
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4322,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR INTERIOR STAIR SYSTEM",
+"summary": "REPAIR INTERIOR STAIR SYSTEM | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4328,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR/REPLACE SMOKE DETECTORS",
+"summary": "REPAIR/REPLACE SMOKE DETECTORS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4329,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR EXTERIOR STAIR",
+"summary": "REPAIR EXTERIOR STAIR | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4380,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: HEATING PLANT ENCLOSURE",
+"summary": "HEATING PLANT ENCLOSURE | OPEN | 10600 block of S CALUMET AVE",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.701,
+"lon": -87.615
+},
+{
+"id": 4387,
+"source": "socrata-austin-violations",
+"kind": "civic",
+"title": "Code violation in Austin: Structure Condition Violation(s)",
+"summary": "Structure Condition Violation(s) | Pending | 1800 block of NUECES STREET",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.austintexas.gov",
+"dataset": "6wtj-zbtb",
+"subtype": "violation"
+},
+"lat": 30.282,
+"lon": -97.745
+},
+{
+"id": 4388,
+"source": "socrata-austin-violations",
+"kind": "civic",
+"title": "Code violation in Austin: Property Abatement",
+"summary": "Property Abatement | Pending | 1700 block of CORONADO HILLS DRIVE",
+"categories": [
+"junk-removal",
+"lawn-care",
+"landscaping"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.austintexas.gov",
+"dataset": "6wtj-zbtb",
+"subtype": "violation"
+},
+"lat": 30.325,
+"lon": -97.685
+},
+{
+"id": 4438,
+"source": "socrata-austin-violations",
+"kind": "civic",
+"title": "Code violation in Austin: Work Without Permit",
+"summary": "Work Without Permit | Active | 7000 block of EASY WIND DRIVE",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-15T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.austintexas.gov",
+"dataset": "6wtj-zbtb",
+"subtype": "violation"
+},
+"lat": 30.339,
+"lon": -97.719
+},
+{
+"id": 4553,
+"source": "socrata-austin-violations",
+"kind": "civic",
+"title": "Code violation in Austin: Property Abatement",
+"summary": "Property Abatement | Closed | 900 block of BRASS STREET",
+"categories": [
+"junk-removal",
+"lawn-care",
+"landscaping"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-12T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.austintexas.gov",
+"dataset": "6wtj-zbtb",
+"subtype": "violation"
+},
+"lat": 30.264,
+"lon": -97.704
+},
+{
+"id": 4616,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Limited Business License",
+"summary": "Limited Business License | Sales of Tickets (Airline, Etc) | Travel Services",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.94,
+"lon": -87.75
+},
+{
+"id": 4617,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Retail Food Establishment",
+"summary": "Retail Food Establishment | Preparation of Food and Dining on Premises With Seating",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.91,
+"lon": -87.69
+},
+{
+"id": 4622,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Limited Business License",
+"summary": "Limited Business License | Retail Sales of General Merchandise and Non-Perishable Food",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.73,
+"lon": -87.55
+},
+{
+"id": 4650,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Public Place of Amusement",
+"summary": "Public Place of Amusement | Charges a Fee for Entertainment or Amusements or Recreational Activities",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.89,
+"lon": -87.63
+},
+{
+"id": 4653,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Tavern",
+"summary": "Tavern | Tavern - Consumption of Liquor on Premises",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.92,
+"lon": -87.68
+},
+{
+"id": 4679,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Package Goods",
+"summary": "Package Goods | Retail Sales of Packaged Liquor",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-10T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.92,
+"lon": -87.64
+},
+{
+"id": 5462,
+"source": "socrata-orlando-business",
+"kind": "civic",
+"title": "New business license in Orlando: BAR/PACKAGE SALES",
+"summary": "BAR/PACKAGE SALES | RESTAU",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "FL",
+"city": "Orlando",
+"severity": 1,
+"occurred_at": "2026-11-17T05:00:00+00:00",
+"data": {
+"domain": "data.cityoforlando.net",
+"dataset": "7388-4re5",
+"subtype": "business"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 5478,
+"source": "socrata-orlando-business",
+"kind": "civic",
+"title": "New business license in Orlando: TAKE OUT RESTAU",
+"summary": "TAKE OUT RESTAU | RESTAU",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "FL",
+"city": "Orlando",
+"severity": 1,
+"occurred_at": "2026-11-11T05:00:00+00:00",
+"data": {
+"domain": "data.cityoforlando.net",
+"dataset": "7388-4re5",
+"subtype": "business"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 5494,
+"source": "socrata-nyc-events",
+"kind": "event",
+"title": "Permitted event in New York City: Special Event at Bell Tower Park: Bell Tower Park",
+"summary": "Special Event | Bronx | Bell Tower Park: Bell Tower Park",
+"categories": [
+"food-truck",
+"catering",
+"event-services",
+"security",
+"cleaning"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-12-01T17:00:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "tvpp-9vvx",
+"subtype": "event-permit",
+"approxLocation": true
+},
+"lat": 40.7128,
+"lon": -74.006
+},
+{
+"id": 5513,
+"source": "socrata-nyc-events",
+"kind": "event",
+"title": "Permitted event in New York City: Street Event at DELANCEY STREET between CHRYSTIE STREET and FORSYTH STREET",
+"summary": "Street Event | Manhattan | DELANCEY STREET between CHRYSTIE STREET and FORSYTH STREET",
+"categories": [
+"food-truck",
+"catering",
+"event-services",
+"security",
+"cleaning"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-12-01T12:30:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "tvpp-9vvx",
+"subtype": "event-permit",
+"approxLocation": true
+},
+"lat": 40.7128,
+"lon": -74.006
+},
+{
+"id": 5522,
+"source": "socrata-nyc-events",
+"kind": "event",
+"title": "Permitted event in New York City: Production Event at WEST 60 STREET between BROADWAY and COLUMBUS AVENUE",
+"summary": "Production Event | Manhattan | WEST 60 STREET between BROADWAY and COLUMBUS AVENUE",
+"categories": [
+"food-truck",
+"catering",
+"event-services",
+"security",
+"cleaning"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-12-01T05:30:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "tvpp-9vvx",
+"subtype": "event-permit",
+"approxLocation": true
+},
+"lat": 40.7128,
+"lon": -74.006
+},
+{
+"id": 5523,
+"source": "socrata-nyc-events",
+"kind": "event",
+"title": "Permitted event in New York City: Special Event at Bowling Green: Subway Plaza (Cobblestone)",
+"summary": "Special Event | Manhattan | Bowling Green: Subway Plaza (Cobblestone)",
+"categories": [
+"food-truck",
+"catering",
+"event-services",
+"security",
+"cleaning"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-12-01T05:00:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "tvpp-9vvx",
+"subtype": "event-permit",
+"approxLocation": true
+},
+"lat": 40.7128,
+"lon": -74.006
+},
+{
+"id": 5683,
+"source": "socrata-nyc-events",
+"kind": "event",
+"title": "Permitted event in New York City: Farmers Market at EAST 125 STREET between PARK AVENUE and LEXINGTON AVENUE",
+"summary": "Farmers Market | Manhattan | EAST 125 STREET between PARK AVENUE and LEXINGTON AVENUE",
+"categories": [
+"food-truck",
+"catering",
+"event-services",
+"security",
+"cleaning"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-25T17:00:00+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "tvpp-9vvx",
+"subtype": "event-permit",
+"approxLocation": true
+},
+"lat": 40.7128,
+"lon": -74.006
+},
+{
+"id": 6468,
+"source": "nws",
+"kind": "alert",
+"title": "Red Flag Warning: Eastern Panhandle/Crescent Lake NWR; Sandhills/Valentine NWR/Nebraska National Forest; Ni\u2026",
+"summary": "Red Flag Warning issued November 17 at 12:40PM CST until November 18 at 6:00PM CST by NWS North Platte NE. The National Weather Service in North Platte has issued a Red Flag Warning for low humidity overlapping with strong westerly winds, which is in effect from 11 AM CST /10 AM MST/ to 6 PM CST /5 PM MST/ Wednesday.\u2026",
+"categories": [
+"restoration",
+"tree-service",
+"landscaping",
+"insurance"
+],
+"state": "NE",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T17:00:00+00:00",
+"data": {
+"event": "Red Flag Warning",
+"states": [
+"NE"
+],
+"urgency": "Expected",
+"areaDesc": "Eastern Panhandle/Crescent Lake NWR; Sandhills/Valentine NWR/Nebraska National Forest; Niobrara Valley/Fort Niobrara NWR/Samuel R McKelvie National Forest; Loup Rivers Basin; Frenchman Basin; Loess Plains",
+"certainty": "Likely",
+"senderName": "NWS North Platte NE",
+"hasGeometry": false,
+"nwsSeverity": "Severe"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 6504,
+"source": "usgs",
+"kind": "quake",
+"title": "M4.0 earthquake 249 km WSW of Adak, Alaska",
+"summary": "Magnitude 4.0 earthquake 249 km WSW of Adak, Alaska, depth 15 km.",
+"categories": [
+"general-contractor",
+"restoration",
+"insurance",
+"plumbing",
+"electrical"
+],
+"state": "AK",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-17T15:19:39.728+00:00",
+"data": {
+"mag": 4,
+"sig": 246,
+"alert": null,
+"place": "249 km WSW of Adak, Alaska",
+"depthKm": 15.047,
+"tsunami": 0
+},
+"lat": 50.8142,
+"lon": -179.7903
+},
+{
+"id": 6612,
+"source": "nws",
+"kind": "alert",
+"title": "Coastal Flood Advisory: Southern Seward Peninsula Coast",
+"summary": "Coastal Flood Advisory issued November 17 at 10:21AM AKST until November 19 at 3:00PM AKST by NWS Fairbanks AK. * WHAT...Water levels of 4 to 6 feet above the normal high tide expected. Southeast winds could gust as high as 55 mph. * WHERE...Southern Seward Peninsula Coast. * WHEN...From 3 AM Wednesday to 3 PM AKST Th\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "AK",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T12:00:00+00:00",
+"data": {
+"event": "Coastal Flood Advisory",
+"states": [
+"AK"
+],
+"urgency": "Expected",
+"areaDesc": "Southern Seward Peninsula Coast",
+"certainty": "Likely",
+"senderName": "NWS Fairbanks AK",
+"hasGeometry": false,
+"nwsSeverity": "Minor"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 6780,
+"source": "nws",
+"kind": "alert",
+"title": "Flash Flood Warning: Coconino, AZ; Yavapai, AZ",
+"summary": "Flash Flood Warning issued November 17 at 1:00PM MST until November 17 at 6:00PM MST by NWS Flagstaff AZ. FFWFGZ The National Weather Service in Flagstaff has issued a * Flash Flood Warning for... Coconino County in north central Arizona... Yavapai County in west central Arizona... * Until 600 PM MST. * At 100 PM MST,\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "AZ",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-17T20:00:00+00:00",
+"data": {
+"event": "Flash Flood Warning",
+"states": [
+"AZ"
+],
+"urgency": "Immediate",
+"areaDesc": "Coconino, AZ; Yavapai, AZ",
+"certainty": "Likely",
+"senderName": "NWS Flagstaff AZ",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 34.8931707308847,
+"lon": -111.702634143706
+},
+{
+"id": 8604,
+"source": "nws",
+"kind": "alert",
+"title": "Severe Thunderstorm Warning: Garfield, CO; Rio Blanco, CO",
+"summary": "Severe Thunderstorm Warning issued November 17 at 3:44PM MST until November 17 at 4:30PM MST by NWS Grand Junction CO. SVRGJT The National Weather Service in Grand Junction has issued a * Severe Thunderstorm Warning for... South Central Rio Blanco County in northwestern Colorado... Southwestern Garfield County in west\u2026",
+"categories": [
+"roofing",
+"tree-service",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CO",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-17T22:44:00+00:00",
+"data": {
+"event": "Severe Thunderstorm Warning",
+"states": [
+"CO"
+],
+"urgency": "Immediate",
+"areaDesc": "Garfield, CO; Rio Blanco, CO",
+"certainty": "Observed",
+"senderName": "NWS Grand Junction CO",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 39.5932206343646,
+"lon": -108.226024166369
+},
+{
+"id": 8834,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 17 at 6:46PM EST until November 17 at 7:45PM EST by NWS Miami FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Northern Miami-Dade County in southeastern Florida... * WHEN...Until 745 PM EST. * IMPACTS...Minor flooding in low-lying and poor drainage areas. * ADDI\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-17T23:46:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.8550000002249,
+"lon": -80.3150000006996
+},
+{
+"id": 9559,
+"source": "socrata-nyc-permits",
+"kind": "permit",
+"title": "Landscaping permit in New York City",
+"summary": "Sprinklers | $90,000 job value | Manhattan | 44 WALL STREET Manhattan",
+"categories": [
+"landscaping"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-16T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "rbx6-tga4",
+"subtype": "permit"
+},
+"lat": 40.706556,
+"lon": -74.009764
+},
+{
+"id": 13977,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Coconino, AZ; Yavapai, AZ",
+"summary": "Flood Warning issued November 17 at 5:40PM MST until November 17 at 11:15PM MST by NWS Flagstaff AZ. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Munds Canyon and Oak Creek near Sedona. * WHEN...Until 1115 PM MST. * IMPACTS...Flooding of creeks and normally dry washes is occurring. Deadly floo\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "AZ",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T00:40:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"AZ"
+],
+"urgency": "Expected",
+"areaDesc": "Coconino, AZ; Yavapai, AZ",
+"certainty": "Likely",
+"senderName": "NWS Flagstaff AZ",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 34.8931707308847,
+"lon": -111.702634143706
+},
+{
+"id": 15702,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 17 at 10:31PM EST until November 17 at 11:30PM EST by NWS Miami FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Central Miami-Dade County in southeastern Florida... * WHEN...Until 1130 PM EST. * IMPACTS...Minor flooding in low-lying and poor drainage areas. * AD\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T03:31:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.5306140350596,
+"lon": -80.3766666665846
+},
+{
+"id": 15854,
+"source": "spc",
+"kind": "report",
+"title": "1.00 inch hail reported near 2 W Hollywood, FL",
+"summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"categories": [
+"roofing",
+"auto-glass",
+"auto-body",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Hollywood",
+"severity": 2,
+"occurred_at": "2026-11-18T04:10:00+00:00",
+"data": {
+"day": "2026-11-17",
+"type": "hail",
+"value": "100",
+"comments": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"hailInches": 1
+},
+"lat": 26.03,
+"lon": -80.19
+},
+{
+"id": 21949,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-17T04:33:10+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 21989,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-17T04:06:43+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 22112,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-17T03:01:56+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 22176,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY",
+"summary": "HEAT/HOT WATER | APARTMENT ONLY | BROOKLYN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-17T02:31:06+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.6871615899581,
+"lon": -73.9126216606185
+},
+{
+"id": 24614,
+"source": "spc",
+"kind": "report",
+"title": "1.00 inch hail reported near 2 W Hollywood, FL",
+"summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"categories": [
+"roofing",
+"auto-glass",
+"auto-body",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Hollywood",
+"severity": 2,
+"occurred_at": "2026-11-19T04:10:00+00:00",
+"data": {
+"day": "2026-11-18",
+"type": "hail",
+"value": "100",
+"comments": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"hailInches": 1
+},
+"lat": 26.03,
+"lon": -80.19
+},
+{
+"id": 29513,
+"source": "socrata-sf-311",
+"kind": "civic",
+"title": "311 request in San Francisco: Sewer / flooding",
+"summary": "Sewer | flooding | on_property",
+"categories": [
+"plumbing",
+"restoration"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-18T02:49:29+00:00",
+"data": {
+"domain": "data.sf.gov",
+"dataset": "vw6y-z8j6",
+"subtype": "311"
+},
+"lat": 37.72016256,
+"lon": -122.42642987
+},
+{
+"id": 29757,
+"source": "socrata-cambridge-311",
+"kind": "civic",
+"title": "311 request in Cambridge: Sewer pipe boundary",
+"summary": "Sewer pipe boundary | Open",
+"categories": [
+"plumbing"
+],
+"state": "MA",
+"city": "Cambridge",
+"severity": 1,
+"occurred_at": "2026-11-17T22:02:36+00:00",
+"data": {
+"domain": "data.cambridgema.gov",
+"dataset": "2z9k-mv9g",
+"subtype": "311"
+},
+"lat": 42.3742218406271,
+"lon": -71.1231678682953
+},
+{
+"id": 29857,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 7:36AM EST until November 18 at 10:30AM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Lower Keys in Monroe in Florida... * WHEN...Until 1030 AM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring.\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T12:36:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 24.6166666666372,
+"lon": -81.6436363635383
+},
+{
+"id": 30155,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 9:17AM EST until November 18 at 11:15AM EST by NWS Miami FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Northern Miami-Dade County in southeastern Florida... * WHEN...Until 1115 AM EST. * IMPACTS...Minor flooding in low-lying and poor drainage areas. * AD\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T14:17:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7645725761243,
+"lon": -80.2695467587913
+},
+{
+"id": 31590,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 11:39AM EST until November 18 at 1:45PM EST by NWS Miami FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Northern Miami-Dade County in southeastern Florida... * WHEN...Until 145 PM EST. * IMPACTS...Minor flooding in low-lying and poor drainage areas. * ADD\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T16:39:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7947445258454,
+"lon": -80.1415328476354
+},
+{
+"id": 32364,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Mobile Food License",
+"summary": "Mobile Food License | Preparation and Sale of Food (ONLY) from a Mobile Food Truck (Mobile Food Preparer)",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-17T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.85,
+"lon": -87.66
+},
+{
+"id": 33526,
+"source": "socrata-chicago-permits",
+"kind": "permit",
+"title": "Deck permit in Chicago",
+"summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Porch,Deck,Balcony,or Fire Escape | $400 job value | 3249 W CARROLL AVE",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-17T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "ydr8-5enu",
+"subtype": "permit"
+},
+"lat": 41.8873880112589,
+"lon": -87.7081620954188
+},
+{
+"id": 38770,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 1:19PM EST until November 18 at 3:15PM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Upper Keys in Monroe in Florida... * WHEN...Until 315 PM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring. *\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T18:19:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 25.2284138486172,
+"lon": -80.3560305957701
+},
+{
+"id": 38810,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 1:44PM EST until November 18 at 1:45PM EST by NWS Miami FL. The Flood Advisory will expire at 145 PM EST this afternoon for a portion of southeast Florida, including the following area, Miami-Dade. The threat for widespread flooding continues and this Advisory will be replaced with\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T18:44:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7645725761243,
+"lon": -80.2695467587913
+},
+{
+"id": 38811,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 1:44PM EST until November 18 at 1:45PM EST by NWS Miami FL. The Flood Advisory will expire at 145 PM EST this afternoon for a portion of southeast Florida, including the following area, Miami-Dade. The threat for widespread flooding continues and this Advisory will be replaced with\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T18:44:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7947445258454,
+"lon": -80.1415328476354
+},
+{
+"id": 40567,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 4:51PM EST until November 18 at 7:45PM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Upper Keys in Monroe in Florida... * WHEN...Until 745 PM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring. *\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T21:51:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 25.2289473684736,
+"lon": -80.3561563000088
+},
+{
+"id": 40650,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 2 W Boca Chica, FL",
+"summary": "Palm trees felled and mobile MCSO speed indicator sign blown over near US1 MM6 between 6:30 and 7:30 AM EST. Peak wind gust recorded at the nearby KNQX ASOS at NAS Key (KEY)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Boca Chica",
+"severity": 2,
+"occurred_at": "2026-11-18T12:00:00+00:00",
+"data": {
+"day": "2026-11-18",
+"type": "wind",
+"value": "UNK",
+"comments": "Palm trees felled and mobile MCSO speed indicator sign blown over near US1 MM6 between 6:30 and 7:30 AM EST. Peak wind gust recorded at the nearby KNQX ASOS at NAS Key (KEY)"
+},
+"lat": 24.58,
+"lon": -81.72
+},
+{
+"id": 54210,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: Dumpster Complaint / Overflowing dumpster",
+"summary": "Dumpster Complaint | Overflowing dumpster | BROOKLYN",
+"categories": [
+"junk-removal"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-18T05:48:52+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.633952395354,
+"lon": -74.020799441766
+},
+{
+"id": 54354,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-18T03:17:08+00:00",
+"data": {
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 55273,
+"source": "nws",
+"kind": "alert",
+"title": "Flash Flood Warning: Santa Barbara, CA",
+"summary": "Flash Flood Warning issued November 19 at 12:44AM PST until November 19 at 2:45AM PST by NWS Los Angeles/Oxnard CA. FFWLOX The National Weather Service in Los Angeles/Oxnard has issued a * Flash Flood Warning for... West Central Santa Barbara County in southwestern California... * Until 245 AM PST. * At 1244 AM PST, D\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-19T08:44:00+00:00",
+"data": {
+"event": "Flash Flood Warning",
+"states": [
+"CA"
+],
+"urgency": "Immediate",
+"areaDesc": "Santa Barbara, CA",
+"certainty": "Likely",
+"senderName": "NWS Los Angeles/Oxnard CA",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 34.7813174402362,
+"lon": -120.538498535598
+},
+{
+"id": 55448,
+"source": "arcgis-atlanta-permits",
+"kind": "permit",
+"title": "Roof and remodel permit in Atlanta",
+"summary": "Residential Alteration | 771 PALATINE SE, ATLANTA, GA 30316",
+"categories": [
+"roofing",
+"general-contractor"
+],
+"state": "GA",
+"city": "Atlanta",
+"severity": 1,
+"occurred_at": "2026-11-17T00:00:00+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0",
+"subtype": "permit"
+},
+"lat": 33.733268935526,
+"lon": -84.356490056674
+},
+{
+"id": 55463,
+"source": "arcgis-atlanta-permits",
+"kind": "permit",
+"title": "Addition permit in Atlanta",
+"summary": "Residential Addition | $450,000 job value | 22 HABERSHAM NW, ATLANTA, GA 30305",
+"categories": [
+"general-contractor"
+],
+"state": "GA",
+"city": "Atlanta",
+"severity": 1,
+"occurred_at": "2026-11-17T00:00:00+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0",
+"subtype": "permit"
+},
+"lat": 33.834190947357,
+"lon": -84.393685003489
+},
+{
+"id": 55537,
+"source": "arcgis-dekalb-violations",
+"kind": "civic",
+"title": "Code violation in DeKalb County: property violation",
+"summary": "2400 block of HARMONY RIDGE CT",
+"categories": [
+"lawn-care",
+"landscaping"
+],
+"state": "GA",
+"city": "DeKalb County",
+"severity": 1,
+"occurred_at": "2026-11-18T09:25:28+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0",
+"subtype": "violation"
+},
+"lat": 33.726,
+"lon": -84.064
+},
+{
+"id": 55572,
+"source": "arcgis-dekalb-violations",
+"kind": "civic",
+"title": "Code violation in DeKalb County: property violation",
+"summary": "1700 block of ELAINE DR",
+"categories": [
+"fencing",
+"general-contractor"
+],
+"state": "GA",
+"city": "DeKalb County",
+"severity": 1,
+"occurred_at": "2026-11-12T10:48:33+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0",
+"subtype": "violation"
+},
+"lat": 33.739,
+"lon": -84.22
+},
+{
+"id": 55573,
+"source": "arcgis-dekalb-violations",
+"kind": "civic",
+"title": "Code violation in DeKalb County: property violation",
+"summary": "1700 block of ELAINE DR",
+"categories": [
+"junk-removal"
+],
+"state": "GA",
+"city": "DeKalb County",
+"severity": 1,
+"occurred_at": "2026-11-12T10:38:34+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0",
+"subtype": "violation"
+},
+"lat": 33.739,
+"lon": -84.22
+},
+{
+"id": 56526,
+"source": "socrata-nola-311",
+"kind": "civic",
+"title": "311 request in New Orleans: Healthy Homes",
+"summary": "Healthy Homes | Pending",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "LA",
+"city": "New Orleans",
+"severity": 1,
+"occurred_at": "2026-11-19T00:51:12+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.nola.gov",
+"dataset": "2jgv-pqrq",
+"subtype": "311"
+},
+"lat": 29.9705089153786,
+"lon": -90.0909819891068
+},
+{
+"id": 56638,
+"source": "nws",
+"kind": "alert",
+"title": "Flash Flood Warning: Santa Barbara, CA",
+"summary": "Flash Flood Warning issued November 19 at 1:24AM PST until November 19 at 3:30AM PST by NWS Los Angeles/Oxnard CA. FFWLOX The National Weather Service in Los Angeles/Oxnard has issued a * Flash Flood Warning for... The Gifford burn scar in... North Central Santa Barbara County in southwestern California... * Until 330\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-19T09:24:00+00:00",
+"data": {
+"event": "Flash Flood Warning",
+"states": [
+"CA"
+],
+"urgency": "Immediate",
+"areaDesc": "Santa Barbara, CA",
+"certainty": "Likely",
+"senderName": "NWS Los Angeles/Oxnard CA",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 35.016776903181,
+"lon": -120.057994751676
+},
+{
+"id": 56651,
+"source": "nws",
+"kind": "alert",
+"title": "Cold Weather Advisory: Southern Salinas Valley/Arroyo Seco and Lake San Antonio",
+"summary": "Cold Weather Advisory issued November 18 at 10:20PM PST until November 21 at 8:00AM PST by NWS San Francisco CA. * WHAT...Cold conditions with temperatures as low as 33 to 36 degrees expected. * WHERE...Southern Salinas Valley/Arroyo Seco and Lake San Antonio. * WHEN...For the first Cold Weather Advisory, from 1 AM to\u2026",
+"categories": [
+"hvac",
+"plumbing",
+"towing",
+"snow-removal"
+],
+"state": "CA",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-21T09:00:00+00:00",
+"data": {
+"event": "Cold Weather Advisory",
+"states": [
+"CA"
+],
+"urgency": "Expected",
+"areaDesc": "Southern Salinas Valley/Arroyo Seco and Lake San Antonio",
+"certainty": "Likely",
+"senderName": "NWS San Francisco CA",
+"hasGeometry": false,
+"nwsSeverity": "Moderate"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 60131,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: PROVIDE OPEN FRONT TOILET SEAT",
+"summary": "PROVIDE OPEN FRONT TOILET SEAT | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60153,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REMOVE MINI-BREAKERS",
+"summary": "REMOVE MINI-BREAKERS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60154,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: SOIL/WASTE,VENT PIPE MATRL",
+"summary": "SOIL/WASTE,VENT PIPE MATRL | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"junk-removal"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60155,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: DEFECTIVE OUTLETS",
+"summary": "DEFECTIVE OUTLETS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60156,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: EXPOSED WIRING",
+"summary": "EXPOSED WIRING | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60157,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OBTAIN PERMIT FOR PLUMBING",
+"summary": "OBTAIN PERMIT FOR PLUMBING | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60158,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: plumbing or leak and heating or cooling",
+"summary": "OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60159,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: EXPOSED WIRING FIXTURES",
+"summary": "EXPOSED WIRING FIXTURES | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 62108,
+"source": "socrata-sf-311",
+"kind": "civic",
+"title": "311 request in San Francisco: Sewer / flooding",
+"summary": "Sewer | flooding",
+"categories": [
+"plumbing",
+"restoration"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-19T07:20:12+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.sf.gov",
+"dataset": "vw6y-z8j6",
+"subtype": "311"
+},
+"lat": 37.7740073982202,
+"lon": -122.422521781155
+},
+{
+"id": 62442,
+"source": "socrata-cambridge-311",
+"kind": "civic",
+"title": "311 request in Cambridge: Dumpster Complaint (Internal)",
+"summary": "Dumpster Complaint (Internal) | Open",
+"categories": [
+"junk-removal"
+],
+"state": "MA",
+"city": "Cambridge",
+"severity": 1,
+"occurred_at": "2026-11-18T21:44:49+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cambridgema.gov",
+"dataset": "2z9k-mv9g",
+"subtype": "311"
+},
+"lat": 42.3615069126015,
+"lon": -71.111402358446
+},
+{
+"id": 71579,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 2 N Long Beach, CA",
+"summary": "A large tree branch was blown down on Interstate 405 near Cherry Avenue. (LOX)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Long Beach",
+"severity": 2,
+"occurred_at": "2026-11-19T17:26:00+00:00",
+"data": {
+"day": "2026-11-19",
+"type": "wind",
+"value": "UNK",
+"comments": "A large tree branch was blown down on Interstate 405 near Cherry Avenue. (LOX)"
+},
+"lat": 33.81,
+"lon": -118.17
+},
+{
+"id": 73586,
+"source": "spc",
+"kind": "report",
+"title": "1.00 inch hail reported near 5 NW Clovis, CA",
+"summary": "(HNX)",
+"categories": [
+"roofing",
+"auto-glass",
+"auto-body",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Clovis",
+"severity": 2,
+"occurred_at": "2026-11-19T21:03:00+00:00",
+"data": {
+"day": "2026-11-19",
+"type": "hail",
+"value": "100",
+"comments": "(HNX)",
+"hailInches": 1
+},
+"lat": 36.87,
+"lon": -119.76
+},
+{
+"id": 76848,
+"source": "socrata-orlando-permits",
+"kind": "permit",
+"title": "Deck permit in Orlando",
+"summary": "Engineering | Other | 8670 HATA ST",
+"categories": [
+"general-contractor"
+],
+"state": "FL",
+"city": "Orlando",
+"severity": 1,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityoforlando.net",
+"dataset": "ryhf-m453",
+"subtype": "permit"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 81317,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 3 NE Inglewood, CA",
+"summary": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Inglewood",
+"severity": 2,
+"occurred_at": "2026-11-19T17:04:00+00:00",
+"data": {
+"day": "2026-11-19",
+"type": "wind",
+"value": "UNK",
+"comments": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)"
+},
+"lat": 33.98,
+"lon": -118.3
+},
+{
+"id": 87677,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | MANHATTAN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-19T04:10:24+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.7185012390263,
+"lon": -73.9914467286101
+},
+{
+"id": 88241,
+"source": "nws",
+"kind": "alert",
+"title": "Coastal Flood Warning: Eastern Putnam",
+"summary": "Coastal Flood Warning issued November 20 at 1:30AM EST until November 21 at 7:00PM EST by NWS Jacksonville FL. * WHAT...Significant coastal flooding. * WHERE...Eastern Putnam County. * WHEN...Until 7 PM EST Saturday. * IMPACTS...Numerous roads may be closed. Low lying property including homes, businesses, and some cri\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-20T06:30:00+00:00",
+"data": {
+"event": "Coastal Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Eastern Putnam",
+"certainty": "Likely",
+"senderName": "NWS Jacksonville FL",
+"hasGeometry": false,
+"nwsSeverity": "Severe"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 88285,
+"source": "usgs",
+"kind": "quake",
+"title": "M5.1 earthquake 10 km NW of Pinnacles, CA",
+"summary": "Magnitude 5.1 earthquake 10 km NW of Pinnacles, CA, depth 7 km.",
+"categories": [
+"general-contractor",
+"restoration",
+"insurance",
+"plumbing",
+"electrical"
+],
+"state": "CA",
+"city": null,
+"severity": 3,
+"occurred_at": "2026-11-20T06:49:16.53+00:00",
+"data": {
+"mag": 5.12,
+"sig": 404,
+"alert": null,
+"place": "10 km NW of Pinnacles, CA",
+"depthKm": 6.69999980926514,
+"tsunami": 1
+},
+"lat": 36.5934982299805,
+"lon": -121.220664978027
+},
+{
+"id": 90466,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 3 NE Inglewood, CA",
+"summary": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Inglewood",
+"severity": 2,
+"occurred_at": "2026-11-20T17:04:00+00:00",
+"data": {
+"day": "2026-11-20",
+"type": "wind",
+"value": "UNK",
+"comments": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)"
+},
+"lat": 33.98,
+"lon": -118.3
+},
+{
+"id": 92520,
+"source": "socrata-batonrouge-permits",
+"kind": "permit",
+"title": "Demolition permit in Baton Rouge",
+"summary": "Demolition Permit (R) | 4765 SWEETBRIAR ST",
+"categories": [
+"junk-removal"
+],
+"state": "LA",
+"city": "Baton Rouge",
+"severity": 1,
+"occurred_at": "2026-11-17T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.brla.gov",
+"dataset": "7fq7-8j7r",
+"subtype": "permit"
+},
+"lat": 30.4101308867075,
+"lon": -91.143577655795
+},
+{
+"id": 93411,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93412,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: WATER HEATER PERMIT",
+"summary": "WATER HEATER PERMIT | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"plumbing",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
+},
+{
+"id": 93413,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93414,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: LICENSED CONTRACTOR",
+"summary": "LICENSED CONTRACTOR | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
+},
+{
+"id": 93415,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93417,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
+},
+{
+"id": 100345,
+"source": "socrata-sf-permits",
+"kind": "permit",
+"title": "Demolition and tenant fit-out permit in San Francisco",
+"summary": "otc alterations permit | $300,000 job value | issued | 575 Market St",
+"categories": [
+"junk-removal",
+"general-contractor"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-19T21:21:46+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.sf.gov",
+"dataset": "i98e-djp9",
+"subtype": "permit"
+},
+"lat": 37.789694982,
+"lon": -122.400512534
+},
+{
+"id": 100357,
+"source": "socrata-sf-permits",
+"kind": "permit",
+"title": "New home, electrical and concrete permit in San Francisco",
+"summary": "otc alterations permit | $88,000 job value | issued | 677 Huron Av",
+"categories": [
+"general-contractor",
+"real-estate",
+"moving",
+"electrical",
+"concrete-paving"
+],
+"state": "CA",
+"city": "San Francisco",
+"severity": 1,
+"occurred_at": "2026-11-19T19:22:08+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.sf.gov",
+"dataset": "i98e-djp9",
+"subtype": "permit"
+},
+"lat": 37.712274791,
+"lon": -122.448863884
+},
+{
+"id": 120691,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: HEAT, NO HEAT HAZARD",
+"summary": "HEAT, NO HEAT HAZARD | HEALTH-ENVMNTL | CLOS-NO",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 2,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.180797725061,
+"lon": -84.5111291467893
+},
+{
+"id": 120738,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: MOLD, BUILDING OR APARTMENT",
+"summary": "MOLD, BUILDING OR APARTMENT | HEALTH-ENVMNTL | NEW",
+"categories": [
+"restoration"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 1,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.1280156371368,
+"lon": -84.5253455347922
+},
+{
+"id": 120748,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: RESTORATION, REPAIR CWW",
+"summary": "RESTORATION, REPAIR CWW | CWW DEFAULT | NEW",
+"categories": [
+"restoration"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 1,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.1667489524001,
+"lon": -84.4318821095067
+},
+{
+"id": 124957,
+"source": "socrata-batonrouge-permits",
+"kind": "permit",
+"title": "Pool permit in Baton Rouge",
+"summary": "Swimming Pool Permit (R) | Residential | $64,893 job value | 3711 STINSON AVE",
+"categories": [
+"pool-spa"
+],
+"state": "LA",
+"city": "Baton Rouge",
+"severity": 1,
+"occurred_at": "2026-11-20T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.brla.gov",
+"dataset": "7fq7-8j7r",
+"subtype": "permit"
+},
+"lat": 30.4840360085458,
+"lon": -91.0523148838153
+},
+{
+"id": 126174,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: DEFECTIVE SAFETY VALVE-BOILER",
+"summary": "DEFECTIVE SAFETY VALVE-BOILER | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
+"id": 126176,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
+"id": 126181,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
+"id": 128005,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | MANHATTAN",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-20T03:26:22+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.7185012390263,
+"lon": -73.9914467286101
+},
+{
+"id": 128083,
+"source": "socrata-nyc-311",
+"kind": "civic",
+"title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+"summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+"categories": [
+"hvac",
+"plumbing"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 2,
+"occurred_at": "2026-11-20T02:37:04+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "erm2-nwe9",
+"subtype": "311"
+},
+"lat": 40.8300223112152,
+"lon": -73.9017597685432
+},
+{
+"id": 131496,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Locksmith",
+"summary": "Locksmith",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-20T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business",
+"approxLocation": true
+},
+"lat": 40.71,
+"lon": -74.01
+},
+{
+"id": 131502,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Garage & Parking Lot",
+"summary": "Garage & Parking Lot",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-20T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.64,
+"lon": -74.01
+},
+{
+"id": 131554,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Secondhand Dealer - General",
+"summary": "Secondhand Dealer - General",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.69,
+"lon": -73.98
+},
+{
+"id": 131662,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Self-Storage Facility",
+"summary": "Self-Storage Facility",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-17T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.68,
+"lon": -73.99
+},
+{
+"id": 131922,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Electronics",
+"summary": "Electronics",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-09T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.69,
+"lon": -73.85
+},
+{
+"id": 138452,
+"source": "arcgis-cobb-commercial-permits",
+"kind": "permit",
+"title": "Remodel permit in Cobb County",
+"summary": "Remodel | $15,129,000 job value | 1410 KINCAID RD | Cobb County",
+"categories": [
+"general-contractor"
+],
+"state": "GA",
+"city": "Cobb County",
+"severity": 1,
+"occurred_at": "2026-11-19T00:00:00+00:00",
+"data": {
+"loc": "approx",
+"cat_v": 2,
+"layer": "https://gis.cobbcounty.org/gisserver/rest/services/comdev/Accela_PermitsDashboard/FeatureServer/1",
+"subtype": "permit",
+"approxLocation": true
+},
+"lat": 33.95,
+"lon": -84.55
+},
+{
+"id": 138456,
+"source": "arcgis-cobb-multiunit-permits",
+"kind": "permit",
+"title": "New home permit in Cobb County",
+"summary": "Townhome | 1263 FARMERS LOOP | Cobb County",
+"categories": [
+"general-contractor",
+"real-estate",
+"moving"
+],
+"state": "GA",
+"city": "Cobb County",
+"severity": 1,
+"occurred_at": "2026-11-19T00:00:00+00:00",
+"data": {
+"loc": "approx",
+"cat_v": 2,
+"layer": "https://gis.cobbcounty.org/gisserver/rest/services/comdev/Accela_PermitsDashboard/FeatureServer/3",
+"subtype": "permit",
+"approxLocation": true
+},
+"lat": 33.95,
+"lon": -84.55
+},
+{
+"id": 145499,
+"source": "nws",
+"kind": "alert",
+"title": "Freeze Warning: Southern Dona Ana County/Mesilla Valley; Salt Basin",
+"summary": "Freeze Warning issued November 21 at 5:41PM MST until November 23 at 9:00AM MST by NWS El Paso Tx/Santa Teresa NM. * WHAT...Sub-freezing temperatures as low as 34 expected. * WHERE...In New Mexico, the Mesilla Valley in southern Dona Ana County. In Texas, The Dell City-Salt Basin area in northeastern Hudspeth County.\u2026",
+"categories": [
+"plumbing",
+"hvac",
+"landscaping",
+"pool-spa",
+"public-adjuster"
+],
+"state": "TX",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-22T09:00:00+00:00",
+"data": {
+"event": "Freeze Warning",
+"states": [
+"NM",
+"TX"
+],
+"urgency": "Expected",
+"areaDesc": "Southern Dona Ana County/Mesilla Valley; Salt Basin",
+"certainty": "Likely",
+"senderName": "NWS El Paso Tx/Santa Teresa NM",
+"hasGeometry": false,
+"nwsSeverity": "Severe"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 145646,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 3 NE Boca Raton Equestr, FL",
+"summary": "Public reported wind damage to their home in the Valencia Palms neighborhood in western Delray Beach from a tornado-warned thunderstorm. Time estimated from radar. (MFL)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Boca Raton Equestr",
+"severity": 2,
+"occurred_at": "2026-11-21T23:19:00+00:00",
+"data": {
+"day": "2026-11-21",
+"type": "wind",
+"value": "UNK",
+"comments": "Public reported wind damage to their home in the Valencia Palms neighborhood in western Delray Beach from a tornado-warned thunderstorm. Time estimated from radar. (MFL)"
+},
+"lat": 26.48,
+"lon": -80.15
+},
+{
+"id": 154638,
+"source": "socrata-cincinnati-311",
+"kind": "civic",
+"title": "311 request in Cincinnati: MICE, BUILDING HAS MICE",
+"summary": "MICE, BUILDING HAS MICE | HEALTH-ENVMNTL | INPROGRS",
+"categories": [
+"pest-control"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 1,
+"occurred_at": "2026-11-20T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cincinnati-oh.gov",
+"dataset": "gcej-gmiw",
+"subtype": "311"
+},
+"lat": 39.1331742296482,
+"lon": -84.5939218225988
+},
+{
+"id": 154864,
+"source": "spc",
+"kind": "report",
+"title": "58 mph wind gust reported near 4 SE Piedmont, OK",
+"summary": "Sundance Airport. (OUN)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "OK",
+"city": "Piedmont",
+"severity": 2,
+"occurred_at": "2026-11-22T08:15:00+00:00",
+"data": {
+"day": "2026-11-21",
+"type": "wind",
+"value": "58",
+"windMph": 58,
+"comments": "Sundance Airport. (OUN)"
+},
+"lat": 35.6,
+"lon": -97.7
+},
+{
+"id": 156051,
+"source": "sam-gov",
+"kind": "contract",
+"title": "Federal bid in Cave Junction, OR: Z--Rehab Kiosk Restrooms, NPS-ORCA",
+"summary": "Solicitation | INTERIOR, DEPARTMENT OF THE / DEPARTMENTAL OFFICES | NAICS 236220 | responses due 2026-12-04",
+"categories": [
+"general-contractor"
+],
+"state": "OR",
+"city": "Cave Junction",
+"severity": 2,
+"occurred_at": "2026-11-21T00:00:00+00:00",
+"data": {
+"type": "Solicitation",
+"naics": "236220",
+"solicitationNumber": "140PP027Q0018"
+},
+"lat": null,
+"lon": null
+},
+{
+"id": 156081,
+"source": "sam-gov",
+"kind": "contract",
+"title": "Federal bid in Temple, TX: Flooring Replacement Services CTXVA",
+"summary": "Solicitation | VETERANS AFFAIRS, DEPARTMENT OF / VETERANS AFFAIRS, DEPARTMENT OF | NAICS 238330 | responses due 2026-11-25",
+"categories": [
+"general-contractor"
+],
+"state": "TX",
+"city": "Temple",
+"severity": 2,
+"occurred_at": "2026-11-20T00:00:00+00:00",
+"data": {
+"type": "Solicitation",
+"naics": "238330",
+"solicitationNumber": "36C25727Q0066"
+},
+"lat": 31.0982,
+"lon": -97.3428
+},
+{
+"id": 156185,
+"source": "sam-gov",
+"kind": "contract",
+"title": "Federal bid in Denver, CO: Y--McGee Creek Natural Scenic Recreation Area (NSRA) Improvements",
+"summary": "Sources Sought | INTERIOR, DEPARTMENT OF THE / DEPARTMENTAL OFFICES | NAICS 236220 | responses due 2026-12-04",
+"categories": [
+"general-contractor"
+],
+"state": "CO",
+"city": "Denver",
+"severity": 2,
+"occurred_at": "2026-11-20T00:00:00+00:00",
+"data": {
+"type": "Sources Sought",
+"naics": "236220",
+"solicitationNumber": "140RR027R0020"
+},
+"lat": 39.7392,
+"lon": -104.9847
+},
+{
+"id": 161866,
+"source": "faa",
+"kind": "travel",
+"title": "Flight delays at Newark Liberty (EWR)",
+"summary": "Flight delays at EWR, Newark: WX:Low Visibility. Delays up to 1 hour and 30 minutes.",
+"categories": [
+"rideshare-delivery"
+],
+"state": "NJ",
+"city": "Newark",
+"severity": 2,
+"occurred_at": "2026-11-22T14:14:34+00:00",
+"data": {
+"max": "1 hour and 30 minutes",
+"type": "delay",
+"trend": "Increasing",
+"reason": "WX:Low Visibility",
+"airport": "EWR"
+},
+"lat": 40.6895,
+"lon": -74.1745
+},
+{
+"id": 167173,
+"source": "socrata-cincinnati-permits",
+"kind": "permit",
+"title": "Solar permit in Cincinnati",
+"summary": "Building Combo Permit | Alter Commercial | 3668 CLIFTON AV",
+"categories": [
+"solar"
+],
+"state": "OH",
+"city": "Cincinnati",
+"severity": 1,
+"occurred_at": "2026-11-20T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cincinnati-oh.gov",
+"dataset": "thvx-5mem",
+"subtype": "permit",
+"approxLocation": true
+},
+"lat": 39.1031,
+"lon": -84.512
+}
+]
