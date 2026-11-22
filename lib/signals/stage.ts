@@ -36,10 +36,16 @@ export function isStageTrade(trade: string | null | undefined): boolean {
   return typeof trade === 'string' && (STAGE_TRADES as readonly string[]).includes(trade);
 }
 
+/**
+ * Upper-case fragments for an adapter's stage query ($where upper(status) like '%FRAGMENT%'): a status that may read as final inspection,
+ * finished or certificate of occupancy. Wide on purpose; permitStageOf makes the real decision per row, so "INCOMPLETE" is read and dropped.
+ */
+export const STAGE_STATUS_FRAGMENTS: readonly string[] = ['FINAL', 'COMPLET', 'CERTIFICATE', 'OCCUPANCY', 'C OF O', 'TCO', 'CO ISSUED', 'CO APPROVED'];
+
 const NEGATIVE_RE = /\b(?:fail(?:ed|ure)?|denied|reject(?:ed)?|not|no)\b|\bincomplete\b|\bnon[\s-]?compliant\b/;
 const STOPPED_RE = /\b(?:expired|cancell?ed|withdrawn|revoked|void(?:ed)?|suspended|denied|rejected|abandoned)\b/;
 const CO_RE = /\bcertificate\s+of\s+occupancy\b|\bc\s?of\s?o\b|\bc\.?o\.?\s+(?:issued|approved|granted)\b|\b(?:temporary|temp)\s+c\.?o\b|\btco\b/;
-const FINALED_RE = /\bfinal(?:ed|led|ized)\b|\bclosed\s*[-:]?\s*final\b|\bpermit\s+final\b|^\s*final\s*$|\bwork\s+complete(?:d)?\b|^\s*complete(?:d)?\s*$|\bproject\s+complete(?:d)?\b/;
+const FINALED_RE = /\bfinal(?:ed|led|ized)\b|\bfinal\s+(?:approved|passed|accepted)\b|\bcertificate\s+of\s+completion\b|\bclosed\s*[-:]?\s*final\b|\bpermit\s+final\b|^\s*final\s*$|\bwork\s+complete(?:d)?\b|^\s*complete(?:d)?\s*$|\bproject\s+complete(?:d)?\b/;
 const FINAL_INSPECTION_RE = /\bfinal\s+(?:inspection|insp)\b|\bready\s+for\s+final\b|\bfinal\s+(?:pending|scheduled|requested)\b/;
 const ISSUED_RE = /^\s*(?:permit\s+)?issued\s*$|^\s*(?:active|approved|reinstated|open)\s*$|\bpermit\s+issued\b/;
 

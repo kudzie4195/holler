@@ -6,7 +6,7 @@ import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
-import { permitStageOf } from '@/lib/signals/stage';
+import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -511,6 +511,73 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   return p;
 }
 
+/** How far back the stage query looks (days): wider than a scan interval, so one missed scan loses nothing. */
+export const STAGE_QUERY_DAYS = 3;
+const STAGE_QUERY_TIMEOUT_MS = 8000;
+
+/**
+ * The stage query (PLAN-2.0 2.1): permits whose status changed lately, whatever their issue date. One page of LIMIT rows, newest change
+ * first. Null for a dataset without a stageQuery, a status column or the permit subtype. With the system column ':updated_at' the row
+ * must also have been created before the window (so a re-published or new row never counts as a change) and `$select=:*,*` brings the
+ * system columns back.
+ */
+export function buildSocrataStageQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams | null {
+  const sq = ds.stageQuery;
+  if (!sq || ds.subtype !== 'permit' || !ds.statusField) return null;
+  const from = new Date(now.getTime() - STAGE_QUERY_DAYS * 86_400_000);
+  const system = sq.dateField.startsWith(':');
+  const since = system ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
+  const clauses = [`${sq.dateField} > '${since}'`];
+  if (system) clauses.push(`:created_at < '${since}'`);
+  if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
+  clauses.push(`(${STAGE_STATUS_FRAGMENTS.map((f) => `upper(${ds.statusField}) like '%${f}%'`).join(' OR ')})`);
+  const p = new URLSearchParams();
+  p.set('$where', clauses.join(' AND '));
+  p.set('$order', `${sq.dateField} DESC`);
+  p.set('$limit', String(LIMIT));
+  if (system) p.set('$select', ':*, *');
+  return p;
+}
+
+/**
+ * Parses a stage query response. Keeps only rows that read as final inspection, finished or certificate of occupancy AND carry a
+ * change date inside the window. Each row says when the portal changed it (stageAt) and, because it may be a permit issued long ago
+ * that Holler never stored (or has pruned), is dated at that change with the issue date kept in data.issuedAt.
+ */
+export function parseSocrataStageRows(raw: unknown, ds: SocrataDataset, now: Date = new Date()): SignalInput[] {
+  const sq = ds.stageQuery;
+  if (!sq || !Array.isArray(raw)) return [];
+  const byId = new Map<string, Row>();
+  for (const r of raw) {
+    if (r && typeof r === 'object') byId.set(externalIdFor(r as Row, ds), r as Row);
+  }
+  const system = sq.dateField.startsWith(':');
+  const out: SignalInput[] = [];
+  for (const it of parseSocrataReport(raw, ds).items) {
+    if (!it.permitStage || !isTriggerStage(it.permitStage)) continue;
+    const row = byId.get(it.externalId);
+    const at = row ? toIso(row[sq.dateField], system ? undefined : ds.tz) : null;
+    const t = at ? Date.parse(at) : NaN;
+    if (!at || !Number.isFinite(t) || t > now.getTime() + 86_400_000 || t < now.getTime() - (STAGE_QUERY_DAYS + 1) * 86_400_000) continue;
+    out.push({ ...it, occurredAt: at, stageAt: at, data: { ...(it.data ?? {}), issuedAt: it.occurredAt } });
+  }
+  return out;
+}
+
+/** Main rows plus the stage query's rows: a permit in both keeps its main row and gains the change date; the others are added. */
+export function mergeStageRows(main: SignalInput[], stage: SignalInput[]): SignalInput[] {
+  const byId = new Map(main.map((m) => [m.externalId, m]));
+  const out = [...main];
+  for (const st of stage) {
+    const m = byId.get(st.externalId);
+    if (m) {
+      if (!m.permitStage) m.permitStage = st.permitStage;
+      m.stageAt = st.stageAt;
+    } else out.push(st);
+  }
+  return out;
+}
+
 function pages(ds: Pick<SocrataDataset, 'maxPages'>): number {
   return Math.max(1, Math.min(ds.maxPages ?? 1, 6));
 }
@@ -532,6 +599,7 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     sourceUrl: datasetPageUrl(ds),
+    ...(ds.stageQuery && ds.subtype === 'permit' && ds.statusField ? { stageQuery: true } : {}),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
         const query = buildSocrataQuery(ds, ctx.now ?? new Date());
@@ -566,6 +634,10 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
             ctx.log(`${ds.id}: ${report.rows} rows, 0 matched a trade`);
           }
         }
+        if (ctx.stageTracking && ds.stageQuery) {
+          const extra = await fetchStageRows(ds, ctx, headers);
+          if (extra.length) return mergeStageRows(report.items, extra);
+        }
         return report.items;
       } catch (e) {
         ctx.log(`${ds.id}: ${e instanceof Error ? e.message : String(e)}`);
@@ -573,6 +645,34 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
       }
     },
   };
+}
+
+/**
+ * The stage query's rows, or none. Never throws and never costs the main rows: one request, one page, its own short timeout. A portal
+ * that answers an error (a status date column that is not there) or a full page of ':updated_at' rows (a column that changes for
+ * every row, so it carries no information) gives none, and says so in the log without any error-looking word.
+ */
+async function fetchStageRows(ds: SocrataDataset, ctx: AdapterContext, headers: Record<string, string>): Promise<SignalInput[]> {
+  try {
+    const now = ctx.now ?? new Date();
+    const query = buildSocrataStageQuery(ds, now);
+    if (!query) return [];
+    const res = await ctx.fetch(`https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`, { headers, signal: AbortSignal.timeout(STAGE_QUERY_TIMEOUT_MS) });
+    if (!res.ok) {
+      ctx.log(`${ds.id}: stage query not used (code ${res.status}; the date column ${ds.stageQuery?.dateField} needs a live check)`);
+      return [];
+    }
+    const part: unknown = await res.json();
+    if (!Array.isArray(part)) return [];
+    if (ds.stageQuery?.dateField.startsWith(':') && part.length >= LIMIT) {
+      ctx.log(`${ds.id}: stage query not used (a full page of rows changed in ${STAGE_QUERY_DAYS} days, so the update time carries no information)`);
+      return [];
+    }
+    return parseSocrataStageRows(part, ds, now);
+  } catch (e) {
+    ctx.log(`${ds.id}: stage query not used (${e instanceof Error ? e.message.slice(0, 80) : 'unknown'})`);
+    return [];
+  }
 }
 
 /** Only verified datasets are enabled by default. */

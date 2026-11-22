@@ -29,15 +29,15 @@ function row(t: TradeQuality, target: number): string {
 
 function duplicatesBlock(d: DuplicateReport | undefined): string {
   if (!d) return '';
-  const head = `<h2>Duplicates dropped per source (last ${d.windowDays} days)</h2>`;
+  const head = `<h2>Duplicate listings per source (last ${d.windowDays} days)</h2>`;
   if (d.status === 'unavailable') return `${head}<p>Not recorded: ${esc(d.reason ?? 'unavailable')} (blank, not zero).</p>`;
-  if (d.bySource.length === 0) return `${head}<p>No duplicates dropped since ${esc(d.since)}.</p>`;
+  if (d.bySource.length === 0) return `${head}<p>No duplicate listings since ${esc(d.since)}.</p>`;
   const rows = d.bySource
-    .map((r) => `<tr><th scope="row">${esc(r.source)}</th><td>${r.duplicates}</td><td>${r.corroborations}</td><td>${r.stored}</td><td>${pct(r.rate)}</td></tr>`)
+    .map((r) => `<tr><th scope="row">${esc(r.source)}</th><td>${r.duplicates}</td><td>${r.corroborations}</td><td>${r.stored === null ? 'blank' : r.stored}</td><td>${r.rate === null ? 'blank' : pct(r.rate)}</td></tr>`)
     .join('');
   return (
-    `${head}<p>${d.totals.duplicates} dropped as duplicates, ${d.totals.corroborations} stored as corroboration (no second card). Rate = duplicates / (stored + duplicates).</p>` +
-    `<table><thead><tr><th>Source</th><th>Dropped as duplicate</th><th>Stored as corroboration</th><th>Stored</th><th>Duplicate rate</th></tr></thead><tbody>${rows}</tbody></table>`
+    `${head}<p>${d.totals.duplicates} stored as another listing of a project the same source already had, ${d.totals.corroborations} stored as corroboration from another source: none makes a second card. Rate = duplicate listings / rows stored.</p>` +
+    `<table><thead><tr><th>Source</th><th>Duplicate listing (no second card)</th><th>Stored as corroboration</th><th>Stored</th><th>Duplicate rate</th></tr></thead><tbody>${rows}</tbody></table>`
   );
 }
 

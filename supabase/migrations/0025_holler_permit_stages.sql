@@ -8,18 +8,21 @@
 -- 1. holler_permit_stages: one row per (source, permit id, stage) the scan has seen. The permit id is the record's own external id
 --    (the permit number inside its source), so (source, permit_id) is the stable id of a permit. The stage is one of five fixed codes
 --    (lib/signals/stage.ts); the portal's own status text is never stored. emitted marks the row that started the one "coming soon"
---    update for that permit. Rows go when their signal is pruned (cascade).
+--    update for that permit. signal_id is ON DELETE SET NULL: the history outlives the 120 day signal prune, so a permit that was already
+--    updated is never updated again when a portal later lists it once more.
 -- 2. holler_project_links: one row per stored permit that has a street address and a trade, keyed by a normalized address + trade
---    (lib/signals/project.ts). A new record is compared with the rows of the same key inside the 3 day window. Rows go with their signal.
--- 3. holler_dedupe_drops: one row per record that was NOT stored as a duplicate, or was stored as corroboration only (no second card).
---    Ids and the kind only: no address, title or text. The quality dashboard counts it per source for the last 7 days; the scan
---    deletes rows older than 30 days.
+--    (lib/signals/project.ts). A new record is compared with the rows of the same key inside the 3 day window. A record that matches an
+--    earlier one is still stored (two permit numbers are two permits); root_source / root_external_id name the first record of its
+--    project, which is the project's one card. Rows go with their signal.
+-- 3. holler_dedupe_drops: one row per record stored as a FOLLOWER of an earlier record (same project: kind 'duplicate' for the same source
+--    or a mirror, 'corroboration' for another source). Nothing is dropped; the name is kept for the dashboard. Ids and the kind only: no
+--    address, title or text. The quality dashboard counts it per source for the last 7 days; the scan deletes rows older than 30 days.
 
 create table if not exists public.holler_permit_stages (
   source text not null,
   permit_id text not null,
   stage text not null,
-  signal_id bigint references public.holler_signals (id) on delete cascade,
+  signal_id bigint references public.holler_signals (id) on delete set null,
   first_seen_at timestamptz not null default now(),
   emitted boolean not null default false,
   constraint holler_permit_stages_pk primary key (source, permit_id, stage),
@@ -39,6 +42,8 @@ create table if not exists public.holler_project_links (
   city text,
   lat double precision,
   lon double precision,
+  root_source text,
+  root_external_id text,
   created_at timestamptz not null default now(),
   constraint holler_project_links_record_key unique (source, external_id),
   constraint holler_project_links_len check (char_length(project_key) between 1 and 300)

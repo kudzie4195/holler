@@ -19,6 +19,7 @@ describe('permitStageOf: portal status text to one of five fixed codes', () => {
     ['Issued', 'issued'], ['issued', 'issued'], ['ACTIVE', 'issued'], ['Permit Issued', 'issued'],
     ['Final Inspection', 'final_inspection'], ['FINAL INSPECTION PENDING', 'final_inspection'], ['Ready for Final', 'final_inspection'],
     ['Finaled', 'finaled'], ['Final', 'finaled'], ['Complete', 'finaled'], ['COMPLETE', 'finaled'], ['Closed - Finaled', 'finaled'], ['Permit Finaled', 'finaled'],
+    ['Final Approved', 'finaled'], ['Final Passed', 'finaled'], ['Final Accepted', 'finaled'], ['Certificate of Completion', 'finaled'],
     ['Certificate of Occupancy Issued', 'certificate_of_occupancy'], ['CO Issued', 'certificate_of_occupancy'], ['TCO', 'certificate_of_occupancy'],
     ['Expired', 'stopped'], ['Cancelled', 'stopped'], ['Withdrawn', 'stopped'],
     // never a trigger
@@ -89,6 +90,15 @@ describe('who gets the update: the stage trades, through the existing routing an
 describe('2.1 which permit sources expose a status field (kept in step with the adapter configs)', () => {
   const socrata = new Map(SOCRATA_DATASETS.map((d) => [d.id, d] as const));
   const arcgis = new Map(ARCGIS_DATASETS.map((d) => [d.id, d] as const));
+  it('the stage query date column of every source matches its dataset config; DeKalb (ArcGIS) has none ("needs live field check")', () => {
+    for (const [id, v] of Object.entries(PERMIT_STATUS_SOURCES)) {
+      const ds = socrata.get(id);
+      expect(ds?.stageQuery?.dateField ?? null, id).toBe(v.stageDate);
+    }
+    expect(PERMIT_STATUS_SOURCES['arcgis-dekalb-permits'].stageDate).toBeNull();
+    // Austin has no status column at all: no stage query either
+    expect(socrata.get('socrata-austin-permits')?.stageQuery).toBeUndefined();
+  });
   it('every dataset with a statusField is listed, with the same field, and every listed source has it', () => {
     const wired: Record<string, string> = {};
     for (const d of [...socrata.values(), ...arcgis.values()]) if (d.statusField) wired[d.id] = d.statusField;

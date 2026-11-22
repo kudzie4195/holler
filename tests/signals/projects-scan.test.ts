@@ -47,21 +47,26 @@ describe('2.3 regression: the Austin "E 14th St" double rows are one card', () =
     expect(rows.map((r) => r.categories)).toEqual([['general-contractor'], ['general-contractor'], ['electrical'], ['general-contractor']]);
   });
 
-  it('collapses to one stored row and one card per member; the electrical permit at the same address is NOT merged', async () => {
+  it('stores all four rows but gives one card per member for the doubled remodel; the electrical permit at the same address is NOT merged', async () => {
     const db = new FakeDb({ holler_profiles: [member('cleaner', 'cleaning'), member('electrician', 'electrical')] });
     const ad = adapterOf('socrata-austin-permits', austinRows);
     const r = await runScan({ now: NOW, adapters: [ad], source: ad.id }, asDb(db));
     expect(r.error).toBeUndefined();
-    expect(r.sources[0]).toMatchObject({ status: 'ok', fetched: 4, parsed: 4, inserted: 3 });
-    expect(db.tables.holler_signals.map((s) => s.external_id).sort()).toEqual(['2026-104411 BP', '2026-104413 EP', '2026-104500 BP']);
+    expect(r.sources[0]).toMatchObject({ status: 'ok', fetched: 4, parsed: 4, inserted: 4 });
+    // two permit numbers are two permits: both stored, the second marked as another listing of the first
+    expect(db.tables.holler_signals.map((s) => s.external_id).sort()).toEqual(['2026-104411 BP', '2026-104412 BP', '2026-104413 EP', '2026-104500 BP']);
+    expect(signalAt(db, '2026-104412 BP')!.data.projectOf).toBe('socrata-austin-permits:2026-104411 BP');
+    expect(signalAt(db, '2026-104411 BP')!.data.projectOf).toBeUndefined();
     // one card for the doubled remodel (plus the one next door), none for the electrical permit; the electrician has exactly the electrical card
     expect(matchesOf(db, 'cleaner')).toHaveLength(2);
     expect(matchesOf(db, 'cleaner').filter((m) => m.signal_id === signalAt(db, '2026-104411 BP')!.id)).toHaveLength(1);
+    expect(matchesOf(db, 'cleaner').filter((m) => m.signal_id === signalAt(db, '2026-104412 BP')!.id)).toHaveLength(0);
     expect(matchesOf(db, 'electrician').map((m) => m.signal_id)).toEqual([signalAt(db, '2026-104413 EP')!.id]);
-    // the drop is logged once, by id, with no address or text
+    // the second listing is logged once, by id, with no address or text; it is counted for the dashboard, not dropped
     expect(db.tables.holler_dedupe_drops).toEqual([expect.objectContaining({ source: 'socrata-austin-permits', external_id: '2026-104412 BP', kind: 'duplicate', of_external_id: '2026-104411 BP' })]);
     expect(Object.keys(db.tables.holler_dedupe_drops[0]).sort()).toEqual(['external_id', 'id', 'kind', 'of_external_id', 'of_source', 'source']);
-    expect(db.tables.holler_project_links).toHaveLength(3);
+    expect(db.tables.holler_project_links).toHaveLength(4);
+    expect(db.tables.holler_project_links.find((l) => l.external_id === '2026-104412 BP')).toMatchObject({ root_source: 'socrata-austin-permits', root_external_id: '2026-104411 BP' });
   });
 
   it('the next scan re-reads all four rows and changes nothing: no new row, no new card, the duplicate is counted once', async () => {
@@ -75,7 +80,7 @@ describe('2.3 regression: the Austin "E 14th St" double rows are one card', () =
     expect(db.tables.holler_signals).toHaveLength(stored);
     expect(db.tables.holler_matches).toHaveLength(matches);
     expect(db.tables.holler_dedupe_drops).toHaveLength(1);
-    expect(db.tables.holler_project_links).toHaveLength(3);
+    expect(db.tables.holler_project_links).toHaveLength(4);
   });
 
   it('the same input WITHOUT the tables stores the doubled row too (that is the "before" this fixes)', async () => {
@@ -86,14 +91,17 @@ describe('2.3 regression: the Austin "E 14th St" double rows are one card', () =
     expect(matchesOf(db, 'cleaner').filter((m) => m.signal_id === signalAt(db, '2026-104411 BP')!.id || m.signal_id === signalAt(db, '2026-104412 BP')!.id)).toHaveLength(2);
   });
 
-  it('a duplicate arriving in a LATER scan is dropped against the stored link, whatever order the ids come in', async () => {
+  it('a duplicate arriving in a LATER scan is linked to the stored project, whatever order the ids come in', async () => {
     const db = new FakeDb({ holler_profiles: [member('cleaner', 'cleaning')] });
     const all = austinRows();
     const first = adapterOf('socrata-austin-permits', () => [all[1]]); // only the second listing
     const second = adapterOf('socrata-austin-permits', () => [all[0], all[1]]); // then both
     await runScan({ now: NOW, adapters: [first], source: first.id }, asDb(db));
     await runScan({ now: later(6), adapters: [second], source: second.id }, asDb(db));
-    expect(db.tables.holler_signals.map((s) => s.external_id)).toEqual(['2026-104412 BP']);
+    // both stored; the earlier-stored one stays the project's card, the later arrival is the follower
+    expect(db.tables.holler_signals.map((s) => s.external_id)).toEqual(['2026-104412 BP', '2026-104411 BP']);
+    expect(signalAt(db, '2026-104411 BP')!.data.projectOf).toBe('socrata-austin-permits:2026-104412 BP');
+    expect(matchesOf(db, 'cleaner')).toHaveLength(1);
     expect(db.tables.holler_dedupe_drops.map((d) => d.external_id)).toEqual(['2026-104411 BP']);
   });
 });
@@ -111,6 +119,7 @@ describe('2.3 corroboration: another source about the same project is evidence, 
     await runScan({ now: NOW, adapters: [a], source: a.id }, asDb(db));
     await runScan({ now: later(1), adapters: [b], source: b.id }, asDb(db));
     expect(db.tables.holler_signals.map((s) => s.source).sort()).toEqual(['src-a', 'src-b']); // both kept as evidence
+    expect(signalAt(db, 'B-9')!.data.projectOf).toBe('src-a:A-1');
     expect(matchesOf(db, 'cleaner')).toHaveLength(1); // one card
     expect(db.tables.holler_dedupe_drops).toEqual([expect.objectContaining({ source: 'src-b', kind: 'corroboration', of_source: 'src-a' })]);
   });
@@ -297,7 +306,7 @@ describe('4. duplicate rate per source', () => {
     const d = await loadDuplicateRates(asDb(db), NOW);
     expect(d.status).toBe('ok');
     expect(d.bySource).toEqual([
-      { source: 'socrata-austin-permits', duplicates: 2, corroborations: 0, stored: 6, rate: 0.25 },
+      { source: 'socrata-austin-permits', duplicates: 2, corroborations: 0, stored: 6, rate: 2 / 6 },
       { source: 'arcgis-cobb-residential-permits', duplicates: 0, corroborations: 1, stored: 1, rate: 0 },
     ]);
     expect(d.totals).toEqual({ duplicates: 2, corroborations: 1 });
@@ -308,7 +317,7 @@ describe('4. duplicate rate per source', () => {
     const { renderQualityHtml } = await import('@/lib/admin/quality-html');
     const ok = new FakeDb({ holler_profiles: [], holler_dedupe_drops: [{ source: 'socrata-austin-permits', external_id: '1', kind: 'duplicate', of_source: 'socrata-austin-permits', of_external_id: '0', dropped_at: NOW.toISOString() }] });
     const html = renderQualityHtml(await loadQualityReport(ok as never, NOW));
-    expect(html).toContain('Duplicates dropped per source (last 7 days)');
+    expect(html).toContain('Duplicate listings per source (last 7 days)');
     expect(html).toContain('socrata-austin-permits');
     const missing = renderQualityHtml(await loadQualityReport(tablesMissing(new FakeDb({ holler_profiles: [] })) as never, NOW));
     expect(missing).toContain('Not recorded: migration 0025 is not applied');

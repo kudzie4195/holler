@@ -9,13 +9,14 @@ import { siteAddressFromSummary } from './permit-value';
  *   - the same trade (the same sorted tag set: an electrical permit and a plumbing permit at one address are two projects), AND
  *   - occurred within PROJECT_WINDOW_DAYS of each other, AND
  *   - the same place: both with a real position within SAME_SITE_MI of each other, or else the same city text.
- * A permit number is a stable id only inside its own source, and the store already keeps (source, external id) unique, so the strong
- * match is for the case where a portal lists one job under two numbers (a re-issued or duplicated row).
+ * A permit number is a stable id only inside its own source, and the store keeps (source, external id) unique. Two DIFFERENT permit
+ * numbers are two real permits (review r1 P1: three DeKalb HVAC permits at one address on one day are three permits, with three sets of
+ * contacts and three stage histories), so a strong match never stops a record from being stored. It only decides that the later record
+ * is a FOLLOWER: stored and linked, marked data.projectOf, and it makes no card of its own (lib/signals/match.ts isFollower).
  *
- * What a match means depends on where the second record came from (relationOf):
- *   duplicate       the same source, or a source listed as a mirror of it (MIRROR_GROUPS): the same record again. Not stored; counted.
- *   corroboration   a different source about the same project: independent evidence. Stored, linked to the first record, and it makes no
- *                   second card or alert.
+ * What a match is called depends on where the second record came from (relationOf); the name is for the quality dashboard only:
+ *   duplicate       the same source, or a source listed as a mirror of it (MIRROR_GROUPS): the same job listed again.
+ *   corroboration   a different source about the same project: independent evidence.
  */
 
 /**

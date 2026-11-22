@@ -44,6 +44,12 @@ export interface SignalInput {
    * lib/signals/projects.ts reads it when migration 0025 is applied and ignores it otherwise.
    */
   permitStage?: PermitStage;
+  /**
+   * Permits: when the portal itself says the status last changed (its status date, or a row-update time), ISO, set only on rows that
+   * came from an adapter's stage query (adapters/socrata.ts buildSocrataStageQuery). A recent value counts as a stage CHANGE even for a
+   * permit never seen before (lib/signals/projects.ts). Not stored.
+   */
+  stageAt?: string;
 }
 
 export interface AdapterContext {
@@ -57,6 +63,11 @@ export interface AdapterContext {
   db?: Db | null;
   /** True for a dry scan (?dry=1): fetch and parse only, write nothing anywhere. */
   dry?: boolean;
+  /**
+   * True only when the scan found migration 0025's stage table (lib/signals/projects.ts stageTrackingAvailable). An adapter with a stage
+   * query makes it only then; absent or false means exactly the fetch an adapter made before 0025.
+   */
+  stageTracking?: boolean;
 }
 
 export interface Adapter {
@@ -79,5 +90,7 @@ export interface Adapter {
    * named by missingEnvFor. Absent: none.
    */
   extraFlags?: Array<{ name: string; on: () => boolean }>;
+  /** True when `fetch` also runs a stage query (a second, capped read for permits whose status changed) while ctx.stageTracking is on. */
+  stageQuery?: boolean;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

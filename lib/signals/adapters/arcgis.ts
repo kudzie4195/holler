@@ -93,7 +93,8 @@ export function optionalFields(ds: ArcgisDataset): string[] {
 function outFields(ds: ArcgisDataset, allowed?: ReadonlySet<string>): string {
   const req = requiredFields(ds);
   const optional = optionalFields(ds).filter((f) => !allowed || allowed.has(f));
-  return [...new Set([...req, ...optional])].join(',');
+  // The status column is asked for by name (stage tracking), not left to be there because summaryFields happens to list it.
+  return [...new Set([...req, ...optional, ...(ds.subtype === 'permit' && ds.statusField ? [ds.statusField] : [])])].join(',');
 }
 
 const FIELD_CACHE_MS = 6 * 3_600_000;

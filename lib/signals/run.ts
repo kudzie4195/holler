@@ -4,7 +4,8 @@ import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { matchOne, matchSignals, type MatchRow } from './match';
-import { ProjectStore } from './projects';
+import { ProjectStore, rearmStageAlerts } from './projects';
+import { matchScope } from '@/lib/plan';
 import { isStageTrade } from './stage';
 import {
   getLastRunTimes,
@@ -199,7 +200,7 @@ interface Fetched {
   health?: { ok: boolean; error: string | null };
 }
 
-async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch, extra: { db?: Db | null; dry?: boolean } = {}): Promise<Fetched> {
+async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch, extra: { db?: Db | null; dry?: boolean; stageTracking?: boolean } = {}): Promise<Fetched> {
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
@@ -208,7 +209,7 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry, stageTracking: !!extra.stageTracking }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           logs.push(`adapter timeout after ${timeoutMs} ms`);
@@ -282,11 +283,18 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     } else due.push(a);
   }
 
+  // PLAN-2.0 2.1 and 2.3 (migration 0025). The stage table is probed once, and only when a source in this scan has a stage query: with
+  // the table missing no adapter makes that query, so the scan fetches exactly what it fetched before.
+  const logsSink: string[] = [];
+  const projects = !dry && db ? new ProjectStore(db, (m) => logsSink.push(m), now) : null;
+  const stageTracking = projects && due.some((a) => a.stageQuery) ? await projects.stageTrackingAvailable() : false;
+  const probeLogs = logsSink.splice(0);
+
   const fetched = await Promise.all(
     due.map((a) => {
       const last = lastRuns[a.id];
       const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, now, timeoutMs, fetchImpl, { db, dry });
+      return fetchOne(a, since, now, timeoutMs, fetchImpl, { db, dry, stageTracking });
     }),
   );
 
@@ -297,8 +305,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     const storedAll: StoredSignal[] = [];
     /** Existing project rows whose permit just moved to a final stage: matched to the stage trades only (lib/signals/projects.ts). */
     const stageSignals: StoredSignal[] = [];
-    const logsSink: string[] = [];
-    const projects = new ProjectStore(db, (m) => logsSink.push(m), now);
+    const projectStore = projects as ProjectStore; // db is set on this branch
     const skippedForTime = new Set<Fetched>();
     // Oldest last successful run first (never run = first), so a source the deadline skipped is the first one written on the next tick.
     // In a fixed order the same late sources were skipped on every tick and a 6 hour feed could starve forever. Array.sort is stable,
@@ -317,14 +324,18 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
           // PLAN-2.0 2.1 and 2.3 (migration 0025). Off, and silent, while the tables are missing: the rows then go in exactly as built.
           logsSink.length = 0;
-          const plan = await projects.plan(rows);
+          if (f.adapter.stageQuery) logsSink.push(...probeLogs);
+          const plan = await projectStore.plan(rows);
           const inserted = await insertNewSignals(db, plan.rows, { log: (m) => f.result.logs.push(m), dedupe: true });
           f.result.inserted = inserted.length;
-          await projects.record(plan, inserted);
-          const events = await projects.stages(plan, inserted);
+          await projectStore.record(plan, inserted);
+          const events = await projectStore.stages(plan, inserted);
           f.result.logs.push(...logsSink);
-          // A row stored as corroboration (another source, same project) is evidence, not a second card.
-          storedAll.push(...inserted.filter((r) => !(r.external_id != null && plan.corroborating.has(r.external_id))));
+          // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card. A row that
+          // came only from the stage query (a permit issued before the lookback window) goes to the stage trades only, never to everyone.
+          const own = (r: StoredSignal) => (r.external_id != null ? r.external_id : '');
+          storedAll.push(...inserted.filter((r) => !plan.followers.has(own(r)) && !plan.stageOnly.has(own(r))));
+          stageSignals.push(...inserted.filter((r) => plan.stageOnly.has(own(r)) && !plan.followers.has(own(r))));
           stageSignals.push(...events);
         } catch (e) {
           f.result.status = 'error';
@@ -341,10 +352,11 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       try {
         const profiles = await loadProfiles(db, now);
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
-        // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, but only for the
-        // stage trades, and insertMatches keeps (user, signal) unique, so a member who already has the card gets no second one.
+        // A stage update (final inspection, finished, certificate of occupancy), or a permit that came only from the stage query: the
+        // project row is matched again, for the stage trades only (a member's own trades, inside the plan's limit). A member with no card
+        // for it gets one new card; a member who already holds the card gets it re-sent once (the stored stage line is already on it).
+        const rearm = new Map<number, string[]>();
         if (stageSignals.length) {
-          // Members who already have the project's card are left out (their card shows the new stage line): no second row, no second alert-log row.
           const have = new Set<string>();
           try {
             const existing = await readAllPages<{ user_id: string; signal_id: number }>(
@@ -357,13 +369,18 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           }
           for (const sig of stageSignals) {
             for (const p of profiles) {
-              if (have.has(`${p.user_id}\u0000${sig.id}`)) continue;
-              const hit = matchOne(sig, p, undefined, now.getTime());
-              if (hit && hit.label === 'coming_soon' && isStageTrade(hit.trade)) rows.push({ user_id: p.user_id, signal_id: sig.id, distance_mi: hit.distance_mi });
+              // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
+              const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
+              if (mine.length === 0) continue;
+              const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
+              if (!hit || hit.label !== 'coming_soon' || !isStageTrade(hit.trade)) continue;
+              if (have.has(`${p.user_id}\u0000${sig.id}`)) rearm.set(sig.id, [...(rearm.get(sig.id) ?? []), p.user_id]);
+              else rows.push({ user_id: p.user_id, signal_id: sig.id, distance_mi: hit.distance_mi });
             }
           }
         }
         await insertMatches(db, rows);
+        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m) => report.sources.find((x) => x.logs)?.logs.push(m));
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
         await logAlerts(db, alertLogRowsFor(rows, alertSignals, profiles));
@@ -455,7 +472,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     if (clock() - t0 <= deadlineMs + 4_000) {
       try {
         report.pruned = await pruneOldSignals(db, now);
-        if (report.pruned) await projects.pruneOld();
+        if (report.pruned) await projectStore.pruneOld();
       } catch (e) {
         report.error = `${report.error ? report.error + '; ' : ''}prune: ${e instanceof Error ? e.message : String(e)}`;
       }

@@ -43,7 +43,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -195,7 +195,18 @@ function tradeMatch(cats: readonly string[], scope: MatchScope): boolean {
   return cats.length > 0 && scope.categories.length > 0 && cats.some((c) => scope.categories.includes(c));
 }
 
+/**
+ * A record stored as the same project as an earlier record (data.projectOf = "source:external id" of that record, written at insert by
+ * lib/signals/projects.ts) never makes a card of its own: the earlier record is the project's card. Read by every matching path (scan,
+ * onboarding and settings backfill, rematch), so a second listing of one project cannot reach a member as a second card.
+ */
+export function isFollower(s: Pick<MatchSignal, 'data'>): boolean {
+  const v = s.data?.projectOf;
+  return typeof v === 'string' && v.length > 0;
+}
+
 function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean, nowMs: number): MatchResult | null {
+  if (isFollower(signal)) return null;
   const where = areaMatch(signal, profile, scope, bidsOn);
   if (!where) return null;
   const cats = seenBy(signal);
@@ -298,6 +309,7 @@ export function matchSignals(
     const idx: number[] = [];
     for (let i = 0; i < n; i++) {
       const s = signals[i];
+      if (isFollower(s)) continue;
       const where = areaMatch(s, p, scope, bidsOn);
       if (!where) continue;
       const cats = (seen[i] ??= seenBy(s));
