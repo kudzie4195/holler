@@ -9,8 +9,9 @@ import { damagePhraseOf } from './brief';
  * wording) does, sentence by sentence, and:
  *  - a sentence that says the damage is unknown, unassessed, pending or still to be reported never counts (UNASSESSED_RE);
  *  - the generic phrases "damage" and "destruction" count only next to a concrete thing (DAMAGED_THING_RE).
- * Used by the address lists (lib/lists/core.ts stormKindOf). lib/signals/adapters/spc.ts still has its own loose word test for the card title
- * and severity; to give cards the same rule, replace that test with this function and run the same table against the adapter.
+ * Used by the address lists (lib/lists/core.ts stormKindOf) and, since the round 18 integration, by the SPC adapter itself
+ * (lib/signals/adapters/spc.ts): whether an UNK-speed or under-50 mph wind row is kept, its "Wind damage reported" title and its damage
+ * severity. Cards and lists share one rule (tests/signals/spc-wind-title.test.ts runs the same table against the adapter).
  */
 /** The detector's phrases that are wind damage (flooding, injuries and debris are not). */
 const WIND_DAMAGE_PHRASES: ReadonlySet<string> = new Set(['trees down', 'power lines down', 'power poles down', 'roof damage', 'damage', 'destruction']);

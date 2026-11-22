@@ -113,8 +113,8 @@ export function stormKindOf(r: Pick<StormRow, 'source' | 'title' | 'stormType' |
     return inches !== null && inches >= MIN_HAIL_INCHES ? 'hail' : null;
   }
   if (type === 'wind') {
-    // Measured gust or "UNK" speed alike: only the remark's own damage wording makes a list. The stored title ("Wind damage reported") is
-    // written by the adapter's loose word test and proves nothing.
+    // Measured gust or "UNK" speed alike: only the remark's own damage wording makes a list. The stored title is not read: rows stored
+    // before the round 18 integration got "Wind damage reported" from the adapter's old loose word test; new rows use this same rule.
     return remarkNamesWindDamage(r.comments) ? 'wind' : null;
   }
   return null;
