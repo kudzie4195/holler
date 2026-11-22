@@ -62,6 +62,10 @@ export function parseSam(raw: unknown): SignalInput[] {
         // or a numeric federal supply class prefix in the title ("36--GENERATOR", "49--REPAIR KIT"). Service codes are letters.
         if (isSupplyBuy(naics, title)) continue;
         let categories = naicsToCategories(naics);
+        // A NAICS outside Holler's trades (equipment rental 5324, elevator 238290, ...) is not a local-trade job: no title guessing.
+        if (naics && categories.length === 0) continue;
+        // Federal custodial contracts are commercial janitorial work, never a house cleaner's job.
+        categories = categories.filter((c) => c !== 'cleaning');
         // NAICS 561730 (landscaping services) also covers snow removal contracts: the title decides.
         if (/\bsnow\b/i.test(title)) categories = ['snow-removal'];
         if (categories.length === 0) categories = classifyText(title);
@@ -70,10 +74,11 @@ export function parseSam(raw: unknown): SignalInput[] {
         const pop = isObj(item.placeOfPerformance) ? item.placeOfPerformance : {};
         // Place of performance only. The contracting office is often in another state (a Mobile, AL office buying for Tyndall AFB,
         // FL), so its city never stands in for where the work is. No state of performance: the work cannot be placed, skip it.
-        const cityN = nameOrCode(pop.city).name;
+        const rawCity = nameOrCode(pop.city).name;
+        const cityN = /[A-Za-z]/.test(rawCity) ? rawCity : ''; // "0" and other codes are not a city
         const stateN = nameOrCode(pop.state);
         const stateCode = normalizeState(stateN.code) ?? normalizeState(stateN.name);
-        if (!stateCode) continue;
+        if (!stateCode || !US_STATES.has(stateCode)) continue; // AE/AP/AA military mail codes and abroad are not local work
         const city = findCity(cityN, stateCode);
         const zip = str(pop.zip).slice(0, 5) || null;
         const posted = isoFromPosted(item.postedDate);
@@ -206,3 +211,5 @@ export function isSupplyBuy(naics: string | null | undefined, title: string): bo
   if (/^(3[1-3]|42|4[45])/.test(n)) return true;
   return /^\s*\d{2,4}--/.test(title);
 }
+
+const US_STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR'.split(' '));

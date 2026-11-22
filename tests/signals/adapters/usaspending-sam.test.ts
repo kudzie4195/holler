@@ -118,7 +118,7 @@ describe('parseSam', () => {
   });
   it('maps janitorial and roofing NAICS, resolves city coordinates, sets deadline as expiresAt', () => {
     const j = out.find((s) => s.title.includes('Janitorial'))!;
-    expect(j.categories).toEqual(['janitorial-commercial', 'cleaning']);
+    expect(j.categories).toEqual(['janitorial-commercial']);
     expect(j.city).toBe('Atlanta');
     expect(j.lat).not.toBeNull();
     expect(j.expiresAt).toBe('2026-12-01T22:00:00.000Z');

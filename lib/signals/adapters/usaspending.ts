@@ -49,6 +49,8 @@ export const NAICS_RULES: [string, CategoryId[]][] = [
   ['238220', ['plumbing', 'hvac']],
   ['238210', ['electrical']],
   ['238320', ['painting']],
+  ['238330', ['flooring']],
+  ['238290', []],
   ['238910', ['general-contractor', 'landscaping']],
   ['238', ['general-contractor']],
   ['236', ['general-contractor']],

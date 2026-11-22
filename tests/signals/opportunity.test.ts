@@ -286,8 +286,13 @@ describe('code violations: act for the repair trades the notice names', () => {
 });
 
 describe('311: city work is context, with a few private exceptions', () => {
+  it('NYC heat and hot water for one apartment is Coming soon for HVAC', () => {
+    const s = v311('socrata-nyc-311', '311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY', ['hvac', 'plumbing']);
+    expect(opportunityTrades(s)).toEqual({ hvac: 'soon', plumbing: 'intel' });
+    expect(opportunityFor(s, 'hvac').why).toMatch(/one apartment/);
+  });
   it('NYC heat and hot water is act for HVAC and market insight for plumbing', () => {
-    for (const title of ['311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', '311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY']) {
+    for (const title of ['311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING']) {
       const s = v311('socrata-nyc-311', title, ['hvac', 'plumbing']);
       expect(opportunityFor(s, 'hvac')).toMatchObject({ label: 'act', reason: 'heat-complaint' });
       expect(opportunityFor(s, 'plumbing')).toMatchObject({ label: 'intel', reason: 'heat-complaint' });
@@ -456,9 +461,11 @@ describe('storm reports, disasters, quakes', () => {
     const s = spc('60 mph wind gust reported near 1 S Allison, NM', { type: 'wind', windMph: 60, comments: 'Peak wind gust from passing thunderstorm. (ABQ)' });
     expect(opportunityTrades(s)).toEqual({ 'tree-service': 'soon', roofing: 'intel', restoration: 'intel' });
   });
-  it('one inch hail is act for roof, siding, auto body, auto glass and public adjusters', () => {
+  it('one inch hail is act for roof, siding and public adjusters; cars need golf-ball hail', () => {
     const s = spc('1.00 inch hail reported near 2 W Hollywood, FL', { type: 'hail', hailInches: 1 });
-    expect(opportunityTrades(s)).toEqual({ roofing: 'act', 'siding-gutters': 'act', 'auto-body': 'act', 'auto-glass': 'act', 'public-adjuster': 'act', insurance: 'intel' });
+    expect(opportunityTrades(s)).toEqual({ roofing: 'act', 'siding-gutters': 'act', 'auto-body': 'intel', 'auto-glass': 'intel', 'public-adjuster': 'act', insurance: 'intel' });
+    const big = spc('1.75 inch hail reported near 2 W Hollywood, FL', { type: 'hail', hailInches: 1.75 });
+    expect(opportunityTrades(big)).toMatchObject({ 'auto-body': 'act', 'auto-glass': 'act' });
   });
   it('a tornado report is act for restoration, tree service and roofing', () => {
     const s = spc('Tornado reported near 3 N Moore, OK (constructed)', { type: 'tornado' });
@@ -488,7 +495,7 @@ describe('asking, federal, events, travel, unknown', () => {
     expect(label(combined, 'security')).toBe('act');
     // no placed city in the title ("Federal bid in <City>, ST:"): worth a look, not Act now
     const unplaced = sig('sam-gov', 'contract', null, 'Federal bid in OR: Z--Rehab Kiosk Restrooms, NPS-ORCA', ['general-contractor'], { data: { type: 'Solicitation' } });
-    expect(opportunityFor(unplaced, 'general-contractor')).toMatchObject({ label: 'soon', reason: 'bid-notice' });
+    expect(opportunityFor(unplaced, 'general-contractor')).toMatchObject({ label: 'soon', reason: 'open-bid-statewide' });
     const noPlace = sig('sam-gov', 'contract', null, 'Federal bid: Z--Rehab Kiosk Restrooms', ['general-contractor'], { data: { type: 'Solicitation' } });
     expect(label(noPlace, 'general-contractor')).toBe('soon');
     const sought = sig('sam-gov', 'contract', null, 'Federal bid in Cleveland, OH: S222--Sources Sought - Hazardous Waste Removal/Disposal', ['junk-removal'], { data: { type: 'Sources Sought' } });
@@ -554,5 +561,17 @@ describe('copy rules', () => {
   it('names the trade by its category label', () => {
     expect(opportunityFor(permit('Roof permit in Austin', ['roofing']), 'siding-gutters').why).toContain('Siding and gutters');
     expect(opportunityFor(permit('HVAC permit in Austin', ['hvac']), 'hvac').why).toContain('an HVAC permit');
+  });
+});
+
+describe('round 3 grading fixes', () => {
+  it('roof and solar together is rooftop solar: nothing follows for gutters', () => {
+    const s = permit('Roof and solar permit in Austin', ['roofing', 'solar'], { summary: 'Residential | $20,000 job value' });
+    expect(label(s, 'siding-gutters')).toBe('context');
+  });
+  it('a food truck licence is not a premises: no cleaning or pest contract', () => {
+    const s = sig('socrata-chicago-business', 'civic', 'business', 'New business license in Chicago: Mobile Food License', ['janitorial-commercial']);
+    expect(label(s, 'janitorial-commercial')).toBe('intel');
+    expect(label(s, 'pest-control')).toBe('context');
   });
 });

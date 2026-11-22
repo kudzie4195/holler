@@ -69,6 +69,7 @@ export const OPPORTUNITY_REASONS = [
   'tornado-report',
   // soon
   'bid-notice',
+  'open-bid-statewide',
   'permit-downstream',
   'violation-general',
   'violation-abatement',
@@ -134,7 +135,7 @@ export interface OpportunityAssessment {
   /** Reason given to every trade not in grants. */
   fallback: OpportunityReason;
   /** Facts the copy may repeat (all read from the record). */
-  detail: { kinds?: string[]; event?: string; publicPost?: boolean; residential?: boolean; hailInches?: number | null };
+  detail: { kinds?: string[]; event?: string; publicPost?: boolean; residential?: boolean; unit?: boolean; hailInches?: number | null };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -371,6 +372,8 @@ export function permitTrades(sig: OpportunityInput): { kinds: string[]; own: Cat
     (PERMIT_DOING[k] ?? []).forEach((t) => own.add(t));
     if (!WEAK_DOWNSTREAM_KINDS.has(k)) (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => after.add(t));
   }
+  // "Roof and solar" on one record is a rooftop solar install, not a re-roof: nothing follows for gutters.
+  if (kinds.includes('roof') && kinds.includes('solar')) after.delete('siding-gutters');
   const weak = new Set<CategoryId>();
   // A known job value under $5,000, or a trade sub-permit (HVAC, plumbing, electrical on a new build), names no follow-on job:
   // its downstream trades drop to market insight too.
@@ -503,9 +506,11 @@ function threeOneOneRule(sig: OpportunityInput): OpportunityAssessment {
     // Heat out: HVAC. Hot water or water out: plumbing ("HEAT/HOT WATER" names both).
     // "HEAT/HOT WATER" is one NYC complaint type for both; most are heat. Plumbing is Act now only when water alone is named.
     const heat = /heat\b/.test(t) && !/no hot water|hot water only|water only/.test(t);
-    if (heat) grantAll(g, ['hvac'], 'act', 'heat-complaint');
-    if (/hot water|no water/.test(t)) grantAll(g, ['plumbing'], heat ? 'intel' : 'act', 'heat-complaint');
-    return assess('311', 'other-trades', g, { residential });
+    // "APARTMENT ONLY": one unit, often the super's fix. Coming soon, not Act now.
+    const unit = /apartment only|unit only/.test(t);
+    if (heat) grantAll(g, ['hvac'], unit ? 'soon' : 'act', 'heat-complaint');
+    if (/hot water|no water/.test(t)) grantAll(g, ['plumbing'], heat ? 'intel' : unit ? 'soon' : 'act', 'heat-complaint');
+    return assess('311', 'other-trades', g, { residential, unit });
   }
   if (/sewage.?back.?up|sewer.?back.?up|sewer maintenance \/ backup|\bbackup\b.*sewer|sewer.*\bbackup\b/.test(t)) {
     grantAll(g, ['plumbing', 'restoration'], 'act', 'sewage-backup');
@@ -573,8 +578,9 @@ function businessRule(sig: OpportunityInput): OpportunityAssessment {
   const t = `${norm(sig.title)} ${norm(sig.summary)}`;
   // A licence that names a place people eat, drink or shop in (a premises with customers) is a real setup moment. A bare category
   // ("Limited Business License | Electronics", "Administrative and support services") may be a home office: market insight only.
-  const food = /food|restaurant|dining|kitchen|bakery|caf[eé]|bar\b|tavern|liquor|consumption on premises|catering|grocery/.test(t);
-  const storefront = food || /retail|store|shop|salon|barber|gym|fitness|clinic|daycare|children's services|hotel|motel|auto repair/.test(t);
+  const mobile = /mobile food|food truck|food cart|peddler|vending/.test(t);
+  const food = !mobile && /food|restaurant|dining|kitchen|bakery|caf[eé]|bar\b|tavern|liquor|consumption on premises|catering|grocery/.test(t);
+  const storefront = !mobile && (food || /retail|store|shop|salon|barber|gym|fitness|clinic|daycare|children's services|hotel|motel|auto repair/.test(t));
   if (food) grantAll(g, ['pest-control'], 'soon', 'new-business');
   grantAll(g, NEW_BUSINESS_TRADES, storefront ? 'soon' : 'intel', 'new-business');
   return assess('business', 'other-trades', g);
@@ -655,8 +661,10 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
     const fromData = typeof d.hailInches === 'number' ? d.hailInches : NaN;
     const m = /([\d.]+)\s*inch hail/.exec(title);
     const inches = Number.isFinite(fromData) ? fromData : m ? parseFloat(m[1]) : NaN;
-    const trades: CategoryId[] = ['roofing', 'siding-gutters', 'auto-body', 'auto-glass', 'public-adjuster'];
-    grantAll(g, trades, Number.isFinite(inches) && inches >= 1 ? 'act' : 'intel', 'hail-report');
+    const big = Number.isFinite(inches) && inches >= 1;
+    grantAll(g, ['roofing', 'siding-gutters', 'public-adjuster'], big ? 'act' : 'intel', 'hail-report');
+    // Cars: quarter-size hail rarely breaks glass or dents panels badly; golf-ball size (1.75 in) and up does.
+    grantAll(g, ['auto-body', 'auto-glass'], Number.isFinite(inches) && inches >= 1.75 ? 'act' : 'intel', 'hail-report');
     if (Number.isFinite(inches) && inches >= 1) grantAll(g, INSURANCE_INTEL, 'intel', 'hail-report');
     return assess('storm-report', 'other-trades', g, { hailInches: Number.isFinite(inches) ? inches : null });
   }
@@ -761,7 +769,8 @@ function assessRaw(sig: OpportunityInput): OpportunityAssessment {
     const g: Partial<Record<CategoryId, Grant>> = {};
     // A solicitation with no city of performance (statewide or office-only) is worth a look, not an Act now for one area.
     const placed = typeof sig.title === 'string' && /^Federal bid in [^,]*[A-Za-z][^,]*, [A-Z]{2}:/.test(sig.title) && !/^Federal bid in 0,/.test(sig.title);
-    if (NOT_YET_BID_RE.test(type) || !placed) grantAll(g, cats, 'soon', 'bid-notice');
+    if (NOT_YET_BID_RE.test(type)) grantAll(g, cats, 'soon', 'bid-notice');
+    else if (!placed) grantAll(g, cats, 'soon', 'open-bid-statewide');
     else grantAll(g, cats, 'act', 'open-bid');
     return assess('federal-bid', 'other-trades', g);
   }
@@ -828,6 +837,11 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     next: 'Read the notice on SAM.gov and note the response date.',
     uncertain: 'No contract has been awarded, and bidding may need an active SAM.gov registration.',
   }),
+  'open-bid-statewide': (c) => ({
+    why: `A federal agency put work that fits ${c.trade} out for bid in your state; the notice names no city.`,
+    next: 'Open the notice on SAM.gov to see where the work is and the response date.',
+    uncertain: 'The work may be far from you, and bidding may need an active SAM.gov registration.',
+  }),
   'bid-notice': (c) => ({
     why: `A federal agency posted a notice about work that fits ${c.trade} before it asks for bids.`,
     next: 'Read the notice and answer it if it asks for interested companies.',
@@ -842,8 +856,8 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     const k = kindsText(c.detail.kinds);
     return {
       why: k
-        ? `The city issued ${article(k)} ${k} permit here, which is work ${c.trade} does, so another company likely has this job.`
-        : `The city issued a permit here for work that fits ${c.trade}, so another company likely has this job.`,
+        ? `The permit office issued ${article(k)} ${k} permit here, which is work ${c.trade} does, so another company likely has this job.`
+        : `The permit office issued a permit here for work that fits ${c.trade}, so another company likely has this job.`,
       next: 'Use it to see where your trade is busy in your area.',
       uncertain: 'Who pulled the permit and the job details are not shown here.',
     };
@@ -851,7 +865,7 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
   'permit-downstream': (c) => {
     const k = kindsText(c.detail.kinds);
     return {
-      why: `The city issued ${k ? `${article(k)} ${k}` : 'a'} permit here, and work for ${c.trade} often follows a job like this.`,
+      why: `The permit office issued ${k ? `${article(k)} ${k}` : 'a'} permit here, and work for ${c.trade} often follows a job like this.`,
       next: 'Keep the address and check back once the main work is done.',
       uncertain: 'The owner may already have hired someone, or may not need this work.',
     };
@@ -859,7 +873,7 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
   'permit-downstream-weak': (c) => {
     const k = kindsText(c.detail.kinds);
     return {
-      why: `The city issued ${k ? `${article(k)} ${k}` : 'a'} permit here. It does not name work for ${c.trade}, but jobs like this sometimes bring it.`,
+      why: `The permit office issued ${k ? `${article(k)} ${k}` : 'a'} permit here. It does not name work for ${c.trade}, but jobs like this sometimes bring it.`,
       next: 'Use it to see where building work is picking up near you.',
       uncertain: 'The permit does not say what work is done, so follow-on work for your trade is a guess.',
     };
@@ -882,7 +896,9 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
   'heat-complaint': (c) => ({
     why: c.detail.residential === false
       ? 'Someone reported no heat in this building through 311, and the owner has to get it working.'
-      : 'Someone reported a heat or hot water outage in this building through 311, and landlords must restore heat and hot water.',
+      : c.detail.unit
+        ? 'Someone reported no heat or hot water in one apartment through 311, and landlords must restore heat and hot water.'
+        : 'Someone reported a heat or hot water outage in this building through 311, and landlords must restore heat and hot water.',
     next: "Contact the building's owner or managing agent today.",
     uncertain: "The building's own staff or contractor may already be fixing it.",
   }),
