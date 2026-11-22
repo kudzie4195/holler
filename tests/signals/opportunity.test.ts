@@ -272,9 +272,11 @@ describe('code violations: act for the repair trades the notice names', () => {
   });
 
   it('unrecognised text is soon for handyman (plus tagged repair trades) and market insight for general contractors', () => {
-    const s = violation('Code violation in Austin: Work Without Permit', ['general-contractor', 'handyman']);
+    const s = violation('Code violation in Austin: Property Violation', ['general-contractor', 'handyman']);
     expect(opportunityTrades(s)).toEqual({ handyman: 'soon', 'general-contractor': 'intel' });
     expect(opportunityFor(s, 'handyman').reason).toBe('violation-general');
+    // paperwork-only notices are not a repair job
+    for (const t of ['Work Without Permit', 'OR LICENSED CONTRACTOR']) expect(label(violation(`Code violation in Austin: ${t}`, ['handyman']), 'handyman'), t).toBe('intel');
     const dekalb = sig('arcgis-dekalb-violations', 'civic', 'violation', 'Code violation in DeKalb County: property violation', ['junk-removal']);
     expect(opportunityTrades(dekalb)).toEqual({ handyman: 'soon', 'general-contractor': 'intel', 'junk-removal': 'soon' });
   });
@@ -286,9 +288,9 @@ describe('code violations: act for the repair trades the notice names', () => {
 });
 
 describe('311: city work is context, with a few private exceptions', () => {
-  it('NYC heat and hot water for one apartment is Coming soon for HVAC', () => {
+  it('NYC heat and hot water for one apartment is market insight for HVAC', () => {
     const s = v311('socrata-nyc-311', '311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY', ['hvac', 'plumbing']);
-    expect(opportunityTrades(s)).toEqual({ hvac: 'soon', plumbing: 'intel' });
+    expect(opportunityTrades(s)).toEqual({ hvac: 'intel', plumbing: 'intel' });
     expect(opportunityFor(s, 'hvac').why).toMatch(/one apartment/);
   });
   it('NYC heat and hot water is act for HVAC and market insight for plumbing', () => {
@@ -411,7 +413,7 @@ describe('weather alerts', () => {
     // a warning is not a claim: public adjusters wait for damage reports
     expect(label(tstorm, 'public-adjuster')).toBe('context');
     expect(label(nws('Tornado Warning: Merced, CA'), 'roofing')).toBe('soon');
-    expect(opportunityTrades(nws('Flash Flood Warning: Coconino, AZ; Yavapai, AZ'))).toEqual({ restoration: 'soon', plumbing: 'soon' });
+    expect(opportunityTrades(nws('Flash Flood Warning: Coconino, AZ; Yavapai, AZ'))).toEqual({ restoration: 'soon' });
     const winter = nws('Winter Storm Warning: Eastern Sierra Slopes of Inyo County');
     expect(opportunityTrades(winter)).toEqual({ 'snow-removal': 'soon', plumbing: 'soon', hvac: 'soon', towing: 'soon' });
     expect(label(nws('Snow Squall Warning: Moffat, CO; Rio Blanco, CO; Routt, CO'), 'snow-removal')).toBe('soon');
@@ -516,8 +518,8 @@ describe('asking, federal, events, travel, unknown', () => {
     const bare = sig('socrata-nyc-events', 'event', 'event-permit', 'Permitted event in New York City: Special Event at Bell Tower Park: Bell Tower Park', cats);
     expect(opportunityTrades(bare)).toEqual({ catering: 'intel', 'food-truck': 'intel', 'event-services': 'intel', security: 'intel' });
   });
-  it('airport delays are soon for rideshare and delivery only', () => {
-    expect(opportunityTrades(sig('faa', 'travel', null, 'Ground stop at Phoenix Sky Harbor (PHX)', ['rideshare-delivery']))).toEqual({ 'rideshare-delivery': 'soon' });
+  it('airport delays are market insight for rideshare and delivery only', () => {
+    expect(opportunityTrades(sig('faa', 'travel', null, 'Ground stop at Phoenix Sky Harbor (PHX)', ['rideshare-delivery']))).toEqual({ 'rideshare-delivery': 'intel' });
   });
   it('unknown sources and kinds are context and flagged', () => {
     const s = sig('nowhere', 'mystery', null, 'Something happened', ['roofing']);
@@ -608,5 +610,11 @@ describe('round 5 grading fixes', () => {
     const { classifyText } = await import('@/lib/signals/categories');
     expect(classifyText('Sprinklers permit at 40 Wall St')).not.toContain('landscaping');
     expect(classifyText('lawn sprinkler repair')).toContain('landscaping');
+  });
+});
+
+describe('round 6 grading fixes', () => {
+  it('a heating plant enclosure violation is not HVAC work', () => {
+    expect(label(violation('Code violation in Chicago: REPAIR HEATING PLANT ENCLOSURE'), 'hvac')).not.toBe('act');
   });
 });

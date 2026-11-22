@@ -465,13 +465,18 @@ function violationRule(sig: OpportunityInput): OpportunityAssessment {
   const hit = new Set<CategoryId>();
   for (const r of VIOLATION_TRADES) {
     // A water heater is plumbing: its words never pick heating.
-    const probe = r.trades.includes('hvac') ? text.replace(/water heaters?/g, ' ') : text;
+    const probe = r.trades.includes('hvac') ? text.replace(/water heaters?|heating plant enclosure|boiler room (?:door|enclosure)/g, ' ') : text;
     if (r.re.test(probe) && !(r.unless && r.unless.test(probe))) r.trades.forEach((x) => hit.add(x));
   }
   if (hit.size) {
     grantAll(g, [...hit], 'act', 'violation-repair');
   } else {
     // The notice names no repair ("property violation", "Work Without Permit", "OR LICENSED CONTRACTOR").
+    // Paperwork-only notices (permit or licensing) are not a repair job at all.
+    if (/licensed contractor|without (?:a )?permit|permit required|registration|license/.test(text)) {
+      grantAll(g, ['handyman', 'general-contractor'], 'intel', 'violation-general');
+      return assess('violation', 'other-trades', g);
+    }
     const tagged = validCats(sig.categories ?? []).filter((c) => VIOLATION_TAG_TRADES.has(c));
     grantAll(g, ['handyman', ...tagged.filter((t) => t !== 'general-contractor')], 'soon', 'violation-general');
     grantAll(g, ['general-contractor'], 'intel', 'violation-general');
@@ -508,10 +513,10 @@ function threeOneOneRule(sig: OpportunityInput): OpportunityAssessment {
     // Heat out: HVAC. Hot water or water out: plumbing ("HEAT/HOT WATER" names both).
     // "HEAT/HOT WATER" is one NYC complaint type for both; most are heat. Plumbing is Act now only when water alone is named.
     const heat = /heat\b/.test(t) && !/no hot water|hot water only|water only/.test(t);
-    // "APARTMENT ONLY": one unit, often the super's fix. Coming soon, not Act now.
+    // "APARTMENT ONLY": one unit without heat means the plant runs; the super usually fixes it. Market insight only.
     const unit = /apartment only|unit only/.test(t);
-    if (heat) grantAll(g, ['hvac'], unit ? 'soon' : 'act', 'heat-complaint');
-    if (/hot water|no water/.test(t)) grantAll(g, ['plumbing'], heat ? 'intel' : unit ? 'soon' : 'act', 'heat-complaint');
+    if (heat) grantAll(g, ['hvac'], unit ? 'intel' : 'act', 'heat-complaint');
+    if (/hot water|no water/.test(t)) grantAll(g, ['plumbing'], heat || unit ? 'intel' : 'act', 'heat-complaint');
     return assess('311', 'other-trades', g, { residential, unit });
   }
   if (/sewage.?back.?up|sewer.?back.?up|sewer maintenance \/ backup|\bbackup\b.*sewer|sewer.*\bbackup\b/.test(t)) {
@@ -605,7 +610,7 @@ function eventPermitRule(sig: OpportunityInput): OpportunityAssessment {
 
 const WIND_TRADES: CategoryId[] = ['roofing', 'tree-service', 'restoration', 'siding-gutters', 'public-adjuster'];
 const WINTER_TRADES: CategoryId[] = ['snow-removal', 'plumbing', 'hvac', 'towing'];
-const FLOOD_TRADES: CategoryId[] = ['restoration', 'plumbing'];
+const FLOOD_TRADES: CategoryId[] = ['restoration'];
 const COLD_TRADES: CategoryId[] = ['plumbing', 'hvac'];
 
 /** Matched in order; the first hit decides. `null` trades means context. */
@@ -716,7 +721,7 @@ function quakeRule(sig: OpportunityInput): OpportunityAssessment {
 
 function travelRule(): OpportunityAssessment {
   const g: Partial<Record<CategoryId, Grant>> = {};
-  grantAll(g, ['rideshare-delivery'], 'soon', 'airport-delay');
+  grantAll(g, ['rideshare-delivery'], 'intel', 'airport-delay');
   return assess('travel', 'other-trades', g);
 }
 
@@ -1016,8 +1021,8 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     uncertain: 'Crowd size on the day is not on the record.',
   }),
   'airport-delay': () => ({
-    why: 'Flights at this airport are delayed or stopped, so arrivals may bunch up later.',
-    next: 'Plan to be near the airport when flights resume.',
+    why: 'Flights at this airport are delayed or held, which changes when arrivals land.',
+    next: 'Watch the airport status if you work airport pickups.',
     uncertain: 'When the delays clear is not certain.',
   }),
   'public-works': () => ({

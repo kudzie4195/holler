@@ -155,7 +155,7 @@ for (const r of rows) {
     }
     if (r.source === 'socrata-nyc-311' && /HEAT\/HOT WATER/i.test(title)) {
       i4Rows++;
-      const want = /apartment only/i.test(title) ? 'soon' : 'act';
+      const want = /apartment only/i.test(title) ? 'intel' : 'act';
       if (labels.hvac !== want) i4.push(`${r.id} ${title} -> hvac ${labels.hvac} (want ${want})`);
     }
     if (a.fallback === 'city-request' && Object.keys(a.grants).length === 0) bump(cityRequest, titleKey(title));
@@ -205,7 +205,7 @@ const check = (id: string, ok: boolean, msg: string, samples: string[] = []) => 
 check('I1', i1.length === 0, `permit own-trade never act/soon (${i1.length} violations)`, i1);
 check('I2', i2.length === 0, `311 graffiti without private marker never act/soon for painting/cleaning (${i2.length} violations)`, i2);
 check('I3', i3.length === 0 && i3Rows > 0, `city-work 311 rows are context for every trade (${i3Rows} rows, ${i3.length} violations)`, i3);
-check('I4', i4.length === 0 && i4Rows > 0, `NYC HEAT/HOT WATER 311 rows are act for hvac, soon for one apartment (${i4Rows} rows, ${i4.length} violations)`, i4);
+check('I4', i4.length === 0 && i4Rows > 0, `NYC HEAT/HOT WATER 311 rows are act for hvac, insight for one apartment (${i4Rows} rows, ${i4.length} violations)`, i4);
 const STRICT = new Set(['permit', '311', 'violation', 'inspection', 'business', 'alert', 'report', 'contract']);
 const strictUnknown = [...unknownBy.entries()].filter(([k]) => STRICT.has(k.split(' | ')[1]));
 const ruleless = [...sourcesSeen.entries()].filter(([, s]) => s.unknown === s.rows).map(([src]) => src);
