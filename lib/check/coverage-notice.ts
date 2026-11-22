@@ -1,6 +1,7 @@
 import { enabledDatasets, SIGNAL_TRADES, type SignalTypeId } from '@/lib/signals/capabilities';
 import { localSourcesNear, LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { agePhrase, isBehind, STATE_SEVERITY, type SourceState } from '@/lib/signals/source-state';
+import { t as tr, localizeDate, type Lang } from '@/lib/i18n';
 
 /**
  * The calm one-line coverage notice (PLAN-2.0 item 2.4): when a source that covers a place and a trade is delayed, degraded or
@@ -59,6 +60,15 @@ function shortDate(t: number): string {
   return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
+/** Spanish twin of agePhrase (same rounding). */
+function agePhraseLang(ageMs: number, lang: Lang): string {
+  const mins = Math.max(0, Math.round(ageMs / 60_000));
+  if (mins < 90) return tr(lang, mins <= 1 ? 'age.minute' : 'age.minutes', { n: Math.max(1, mins) });
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return tr(lang, hours === 1 ? 'age.hour' : 'age.hours', { n: hours });
+  return tr(lang, 'age.days', { n: Math.round(hours / 24) });
+}
+
 const VERB: Record<'delayed' | 'degraded' | 'unavailable', string> = {
   delayed: 'are delayed',
   degraded: 'are not updating reliably',
@@ -74,7 +84,10 @@ export function coverageNotice(input: {
   trades: readonly string[];
   states: StateLookup | null | undefined;
   now: number;
+  /** 'es' writes the line and the source names in Spanish from the dictionary. English (the default) is unchanged. */
+  lang?: Lang;
 }): CoverageNotice | null {
+  const lang: Lang = input.lang ?? 'en';
   const { states } = input;
   if (!states) return null;
   const candidates: Array<{ id: string; name: string }> = [];
@@ -83,9 +96,9 @@ export function coverageNotice(input: {
     const ds = datasets.get(c.id);
     const noun = ds ? TYPE_NOUN[ds.subtype] : undefined;
     if (!ds || !noun || !receives(ds.subtype, input.trades)) continue;
-    candidates.push({ id: c.id, name: `${c.city} ${noun}` });
+    candidates.push({ id: c.id, name: lang === 'en' ? `${c.city} ${noun}` : tr(lang, 'cov.name', { city: c.city, noun: tr(lang, `cov.type.${ds.subtype}` as 'cov.type.permit') }) });
   }
-  for (const n of NATIONAL) if (receives(n.type, input.trades)) candidates.push({ id: n.id, name: n.name });
+  for (const n of NATIONAL) if (receives(n.type, input.trades)) candidates.push({ id: n.id, name: lang === 'en' ? n.name : tr(lang, `cov.national.${n.id}` as 'cov.national.nws') });
 
   // One entry per name. Within a name the worst state wins; of equals, the oldest last update.
   const byName = new Map<string, CoverageNotice['affected'][number]>();
@@ -107,6 +120,19 @@ export function coverageNotice(input: {
 
   const [main, ...rest] = affected;
   const t = main.lastRecordAt ? Date.parse(main.lastRecordAt) : NaN;
+  if (lang !== 'en') {
+    const quietEs = main.reason === 'repeated_empty' || main.reason === 'repeated_trouble';
+    const lastEs = !Number.isFinite(t)
+      ? tr(lang, 'cov.none')
+      : quietEs
+        ? tr(lang, 'cov.quiet', { date: (localizeDate(shortDate(t), lang) ?? '') })
+        : tr(lang, 'cov.last', { age: agePhraseLang(input.now - t, lang) });
+    const moreEs = rest.length > 0 ? (rest.length === 1 ? tr(lang, 'cov.more_one') : tr(lang, 'cov.more_many', { n: rest.length })) : '';
+    return {
+      line: tr(lang, 'cov.line', { name: main.name, verb: tr(lang, `cov.verb.${main.state}` as 'cov.verb.delayed'), last: lastEs, more: moreEs, tail: tr(lang, 'cov.tail') }),
+      affected,
+    };
+  }
   const quiet = main.reason === 'repeated_empty' || main.reason === 'repeated_trouble';
   const last = !Number.isFinite(t)
     ? 'no records received yet'

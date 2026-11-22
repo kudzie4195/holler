@@ -138,7 +138,7 @@ describe('recentPreviewFor', () => {
     const { db } = fakeDb(rows);
     const p = await recentPreviewFor(profile, { db, now: NOW });
     expect(p?.examples.map((e) => e.title)).toEqual(['T0', 'T1', 'T2', 'T3', 'T4']);
-    expect(Object.keys(p!.examples[0]).sort()).toEqual(['city', 'date', 'state', 'title']);
+    expect(Object.keys(p!.examples[0]).sort()).toEqual(['city', 'date', 'source', 'state', 'title']);
     expect(p?.examples[0].date).toBe(day(1).slice(0, 10));
   });
 

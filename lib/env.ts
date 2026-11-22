@@ -11,6 +11,8 @@ export const ENV_KEYS = [
   'AI_GATEWAY_API_KEY',
   'AI_CLASSIFY_MODEL',
   'AI_MONTHLY_CAP_USD',
+  'AI_MAX_SIGNALS_PER_RUN',
+  'AI_MAX_SIGNALS_PER_DAY',
   'BRAVE_SEARCH_API_KEY',
   'SERPER_API_KEY',
   'SAM_API_KEY',
@@ -54,6 +56,8 @@ export const env: Record<EnvKey, string | undefined> = {
   // Read again from process.env inside lib/ai (classifyModelId, monthlyCapUsd); listed here so .env.example and LAUNCH.md name them.
   AI_CLASSIFY_MODEL: process.env.AI_CLASSIFY_MODEL,
   AI_MONTHLY_CAP_USD: process.env.AI_MONTHLY_CAP_USD,
+  AI_MAX_SIGNALS_PER_RUN: process.env.AI_MAX_SIGNALS_PER_RUN,
+  AI_MAX_SIGNALS_PER_DAY: process.env.AI_MAX_SIGNALS_PER_DAY,
   BRAVE_SEARCH_API_KEY: process.env.BRAVE_SEARCH_API_KEY,
   SERPER_API_KEY: process.env.SERPER_API_KEY,
   SAM_API_KEY: process.env.SAM_API_KEY,

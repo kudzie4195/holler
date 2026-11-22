@@ -5,6 +5,8 @@
  * The card says what the record says: a solicitation is open and has a due date. It never says the member can win it, may bid on it,
  * is eligible, or is being chosen: a source can name a bid without saying who is allowed to answer it.
  */
+import { localizeDate, t, type Lang } from '@/lib/i18n';
+
 export const BID_LABEL = 'Open bid';
 export const BID_SOURCE_LINK_LABEL = 'Open the source';
 /** Baton Rouge rows link to the City-Parish bid portal, not to a page for that solicitation, so the link says so. */
@@ -27,35 +29,36 @@ export const NO_DUE_DATE_TEXT = 'No due date published';
 const DAY_MS = 86_400_000;
 
 /** "2026-12-10" -> "Dec 10, 2026". Null for anything that is not a plain date. */
-export function formatDueDate(dueDate: string | null | undefined): string | null {
+export function formatDueDate(dueDate: string | null | undefined, lang: Lang = 'en'): string | null {
   if (typeof dueDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return null;
   const d = new Date(`${dueDate}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(d);
+  const en = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(d);
+  return lang === 'en' ? en : localizeDate(en, lang);
 }
 
 /** "19 days left", "1 day left", "closes within 24 hours" or "closed". Null when the bid has no due instant. */
-export function daysLeftText(expiresAt: string | null | undefined, now: Date): string | null {
+export function daysLeftText(expiresAt: string | null | undefined, now: Date, lang: Lang = 'en'): string | null {
   if (typeof expiresAt !== 'string' || !expiresAt) return null;
-  const t = Date.parse(expiresAt);
-  if (!Number.isFinite(t)) return null;
-  const ms = t - now.getTime();
-  if (ms <= 0) return 'closed';
-  if (ms < DAY_MS) return 'closes within 24 hours';
+  const due = Date.parse(expiresAt);
+  if (!Number.isFinite(due)) return null;
+  const ms = due - now.getTime();
+  if (ms <= 0) return t(lang, 'bid.closed');
+  if (ms < DAY_MS) return t(lang, 'bid.closes_24');
   const days = Math.ceil(ms / DAY_MS);
-  return days === 1 ? '1 day left' : `${days} days left`;
+  return days === 1 ? t(lang, 'bid.day_left') : t(lang, 'bid.days_left', { n: days });
 }
 
 /** "Due Dec 10, 2026, 19 days left" or "No due date published". */
-export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date): string {
-  const date = formatDueDate(b.dueDate);
-  const left = daysLeftText(b.expiresAt, now);
-  if (!date && !left) return NO_DUE_DATE_TEXT;
-  return ['Due ' + (date ?? ''), left].filter((p) => p && p !== 'Due ').join(', ');
+export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en'): string {
+  const date = formatDueDate(b.dueDate, lang);
+  const left = daysLeftText(b.expiresAt, now, lang);
+  if (!date && !left) return t(lang, 'bid.none');
+  return [date ? t(lang, 'bid.due', { date }) : null, left].filter((p) => p).join(', ');
 }
 
 /** The one line under the label on a bid card: "Buyer: Water & Power. Due Dec 10, 2026, 19 days left." */
-export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null }, now: Date): string {
-  const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `Buyer: ${b.buyer.trim()}. ` : '';
-  return `${buyer}${bidDueText(b, now)}.`;
+export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en'): string {
+  const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `${t(lang, 'bid.buyer', { buyer: b.buyer.trim() })} ` : '';
+  return `${buyer}${bidDueText(b, now, lang)}.`;
 }

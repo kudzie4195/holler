@@ -27,6 +27,8 @@ import { matchScope } from '@/lib/plan/scope';
 import type { PushData } from '@/lib/mobile/types';
 import { isFcmConfigured, sendPush, type PushMessage, type SendResult } from './fcm';
 import { isStageUpdate, stageName, STAGE_SELECT } from '@/lib/signals/stage';
+import { parseLang, t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 import { allActiveTokens, disableTokens, isMissingTable, type ActiveToken } from './tokens';
 
 type Db = Pick<SupabaseClient, 'from'>;
@@ -57,7 +59,7 @@ export interface PushEntry {
   /** Matches never pushed to this member (new since the last push). */
   count: number;
   /** The newest of them. `title` is the public signal title. */
-  top: { signalId: number; title: string; city: string | null; stage?: string | null };
+  top: { signalId: number; title: string; city: string | null; stage?: string | null; source?: string };
   /** How many of the counted matches are stage updates (data.permitStageUpdate). */
   updates?: number;
   /** The matches this notification counts: stamped pushed_at once it is delivered. */
@@ -107,22 +109,24 @@ export function truncate(text: string, max: number = PUSH_TITLE_MAX): string {
 }
 
 /** The notification for one member: "3 new alerts near Smyrna" (new since the last push), the newest alert's title, and a deep link. Pure. */
-export function buildNotification(entry: Pick<PushEntry, 'count' | 'top' | 'updates'>, memberCity: string | null): { title: string; body: string; data: PushData } {
+export function buildNotification(entry: Pick<PushEntry, 'count' | 'top' | 'updates'>, memberCity: string | null, lang: Lang = 'en'): { title: string; body: string; data: PushData } {
   const count = Math.max(1, Math.floor(entry.count));
   const city = (entry.top.city ?? memberCity ?? '').trim();
-  const where = city ? `near ${city}` : 'for you';
+  const where = city ? t(lang, 'push.where.near', { city }) : t(lang, 'push.where.you');
   const updates = Math.min(count, Math.max(0, Math.floor(entry.updates ?? 0)));
+  // The record title is source data; a Holler-built title is rebuilt in the member's language (English is returned unchanged).
+  const topTitle = lang === 'en' ? entry.top.title : localizeTitle(entry.top.title, lang, entry.top.source);
   // A stage update never says "new": "Update near Smyrna" with the stage in the body.
-  let title = count === 1 ? `New alert ${where}` : `${count} new alerts ${where}`;
-  if (updates === count) title = count === 1 ? `Update ${where}` : `${count} updates ${where}`;
-  else if (updates > 0) title = `${count} alerts ${where}`;
+  let title = count === 1 ? t(lang, 'push.title.new_one', { where }) : t(lang, 'push.title.new_many', { n: count, where });
+  if (updates === count) title = count === 1 ? t(lang, 'push.title.update_one', { where }) : t(lang, 'push.title.update_many', { n: count, where });
+  else if (updates > 0) title = t(lang, 'push.title.mixed', { n: count, where });
   if (count === 1 && updates === 1) {
-    const name = stageName(entry.top.stage);
-    return { title, body: truncate(name ? `Stage update, ${name}: ${entry.top.title}` : entry.top.title), data: { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } };
+    const name = stageName(entry.top.stage, lang);
+    return { title, body: truncate(name ? t(lang, 'push.body.stage', { name, title: topTitle }) : topTitle), data: { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } };
   }
   const data: PushData =
     count === 1 ? { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } : { type: 'feed', path: '/feed' };
-  return { title, body: truncate(entry.top.title), data };
+  return { title, body: truncate(topTitle), data };
 }
 
 interface SignalLike {
@@ -197,7 +201,7 @@ export function pushEntriesFromMatches(
     }
     if (alertKey) seenAlerts.set(m.user_id, (seenAlerts.get(m.user_id) ?? new Set<string>()).add(alertKey));
     if (!cur) {
-      out.set(m.user_id, { count: 1, ...(stageUpdate ? { updates: 1 } : {}), top: { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}) }, matchIds: [m.id] });
+      out.set(m.user_id, { count: 1, ...(stageUpdate ? { updates: 1 } : {}), top: { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}), ...(s.source ? { source: s.source } : {}) }, matchIds: [m.id] });
       newest.set(m.user_id, m.created_at);
       continue;
     }
@@ -206,7 +210,7 @@ export function pushEntriesFromMatches(
     if (stageUpdate) cur.updates = (cur.updates ?? 0) + 1;
     cur.matchIds.push(m.id);
     if (Date.parse(m.created_at) > Date.parse(newest.get(m.user_id) ?? '')) {
-      cur.top = { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}) };
+      cur.top = { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}), ...(s.source ? { source: s.source } : {}) };
       newest.set(m.user_id, m.created_at);
     }
   }
@@ -289,6 +293,19 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
       profiles.push(...((data ?? []) as ProfileRow[]));
     }
 
+    // Member language (migration 0024), read on its own: a database without the column fails this read and every push stays English.
+    const langById = new Map<string, Lang>();
+    for (const ids of chunks([...byUser.keys()], CHUNK)) {
+      const { data: langRows, error: langErr } = await db.from('holler_profiles').select('user_id, language').in('user_id', ids);
+      if (langErr) {
+        langById.clear();
+        break;
+      }
+      for (const r of (langRows ?? []) as unknown as Array<{ user_id?: string; language?: unknown }>) {
+        if (r && typeof r.user_id === 'string') langById.set(r.user_id, parseLang(r.language));
+      }
+    }
+
     // 2. Preference, access and the hour.
     const cutoff = nowMs - PUSH_INTERVAL_MS;
     const ready: ProfileRow[] = [];
@@ -354,7 +371,7 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
         counts.skipped_recent++;
         continue;
       }
-      const n = buildNotification(entry, p.city);
+      const n = buildNotification(entry, p.city, langById.get(p.user_id) ?? 'en');
       const results: SendResult[] = await Promise.all(
         devices.map((d) =>
           send({ token: d.token, title: n.title, body: n.body, data: n.data as Record<string, string> }).catch(

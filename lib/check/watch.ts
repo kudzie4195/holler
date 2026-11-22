@@ -1,4 +1,5 @@
 import { CITY_FEEDS, type SignalTypeId } from '@/lib/signals/capabilities';
+import { t, type Lang } from '@/lib/i18n';
 import { CITY_TYPES, NATIONAL_TYPES, SIGNAL_PHRASES, activeTradeSignals } from '@/lib/seo/signal-types';
 
 /**
@@ -13,6 +14,6 @@ export function watchTypes(trade: string, citySlug: string | null, has?: Paramet
   return forTrade.filter((t) => (NATIONAL_TYPES.includes(t) ? true : CITY_TYPES.includes(t) && cityHas.includes(t)));
 }
 
-export function watchList(trade: string, citySlug: string | null, has?: Parameters<typeof activeTradeSignals>[1]): string[] {
-  return watchTypes(trade, citySlug, has).map((t) => SIGNAL_PHRASES[t]);
+export function watchList(trade: string, citySlug: string | null, has?: Parameters<typeof activeTradeSignals>[1], lang: Lang = 'en'): string[] {
+  return watchTypes(trade, citySlug, has).map((type) => (lang === 'en' ? SIGNAL_PHRASES[type] : t(lang, `chk.watch.${type}` as 'chk.watch.permit')));
 }

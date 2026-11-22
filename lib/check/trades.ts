@@ -1,4 +1,5 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
+import { hasKey, t, type Lang } from '@/lib/i18n';
 
 export interface TradeOption {
   id: string;
@@ -13,7 +14,8 @@ const GROUP_LABELS: Record<string, string> = Object.fromEntries(CATEGORY_GROUPS.
 const GROUP_ORDER: string[] = CATEGORY_GROUPS.map((g) => g.id);
 
 /** Reads CATEGORIES at runtime. Grouped by `group` when entries have it, otherwise one flat list. */
-export function tradeGroups(): TradeGroup[] {
+export function tradeGroups(lang: Lang = 'en'): TradeGroup[] {
+  if (lang !== 'en') return tradeGroupsLang(lang);
   const cats = CATEGORIES as unknown as { id: string; label: string; group?: string }[];
   if (!cats.some((c) => typeof c.group === 'string')) {
     return [{ label: null, options: cats.map((c) => ({ id: c.id, label: c.label })) }];
@@ -29,6 +31,17 @@ export function tradeGroups(): TradeGroup[] {
   return ids.map((g) => ({ label: GROUP_LABELS[g] ?? g, options: byGroup.get(g)! }));
 }
 
-export function tradeLabel(id: string): string {
+export function tradeLabel(id: string, lang: Lang = 'en'): string {
+  if (lang !== 'en' && hasKey(`trade.${id}`)) return t(lang, `trade.${id}` as 'trade.roofing');
   return CATEGORIES.find((c) => c.id === id)?.label ?? id;
+}
+
+/** Spanish trade and group labels from the dictionary. An id with no Spanish label keeps its English one (tests/i18n checks every id has one). */
+function tradeGroupsLang(lang: Lang): TradeGroup[] {
+  const base = tradeGroups('en');
+  const groupKey = Object.fromEntries(CATEGORY_GROUPS.map((g) => [g.label, g.id]));
+  return base.map((g) => ({
+    label: g.label === null ? null : (hasKey(`group.${groupKey[g.label] ?? g.label}`) ? t(lang, `group.${groupKey[g.label] ?? g.label}` as 'group.home') : g.label),
+    options: g.options.map((o) => ({ id: o.id, label: tradeLabel(o.id, lang) })),
+  }));
 }

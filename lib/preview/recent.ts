@@ -9,6 +9,7 @@ import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
+import { hasKey, t, type Lang } from '@/lib/i18n';
 
 /**
  * "Near you in the last 90 days": how many real records in holler_signals would have matched this member's saved area and trades.
@@ -77,7 +78,11 @@ export function typeKeyOf(s: { kind: string; subtype?: string | null; source?: s
   }
 }
 
-export function typeLabel(key: string, count: number): string {
+export function typeLabel(key: string, count: number, lang: Lang = 'en'): string {
+  if (lang !== 'en') {
+    const k = `recent.type.${TYPE_LABELS[key] ? key : 'other'}.${count === 1 ? 'one' : 'many'}`;
+    if (hasKey(k)) return t(lang, k);
+  }
   const l = TYPE_LABELS[key] ?? TYPE_LABELS.other;
   return count === 1 ? l.one : l.many;
 }
@@ -93,6 +98,8 @@ export interface PreviewExample {
   state: string | null;
   /** ISO date, YYYY-MM-DD */
   date: string;
+  /** The record's source id (a public id such as "spc"), so a Spanish member's example title can be rebuilt in Spanish. Never free text. */
+  source: string | null;
 }
 export interface RecentPreview {
   total: number;
@@ -236,7 +243,7 @@ export async function recentPreviewFor(
       if (examples.length >= PREVIEW_EXAMPLES) break;
       const title = (r.title ?? '').replace(/\s+/g, ' ').trim();
       if (!title) continue;
-      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10) });
+      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10), source: r.source ?? null });
     }
 
     return {

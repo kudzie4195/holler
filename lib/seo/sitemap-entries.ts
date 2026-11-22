@@ -2,6 +2,7 @@ import { cacheLife } from 'next/cache';
 import { CITIES, STATES, cityPath, citiesInState } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { absoluteUrl } from './canonical';
+import { ES_PAIRS } from '@/lib/i18n/seo';
 import { loadPlaceCounts, type PlaceCounts } from './data';
 import { selectIndexableCities } from './select';
 import { GUIDES, guidePath } from './guides';
@@ -16,6 +17,8 @@ export interface SitemapEntry {
   lastModified?: Date;
   changeFrequency: 'daily' | 'weekly' | 'monthly';
   priority: number;
+  /** hreflang links: the Spanish pair of a page (lib/i18n/seo.ts). Only the pages that have a Spanish version carry it. */
+  alternates?: { languages: Record<string, string> };
 }
 
 export interface TradeLive {
@@ -61,9 +64,17 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; 
   const { slugs } = selectIndexableCities(places);
   const bySlug = new Map(CITIES.map((c) => [c.slug, c]));
 
+  // The two pages that exist in English and Spanish (home, area check): both languages are listed, each with the same hreflang set.
+  const pair = (i: 0 | 1) => ({
+    languages: { en: absoluteUrl(ES_PAIRS[i].en), es: absoluteUrl(ES_PAIRS[i].es), 'x-default': absoluteUrl(ES_PAIRS[i].en) },
+  });
+  const withPair = (e: SitemapEntry, i: 0 | 1): SitemapEntry => ({ ...e, alternates: pair(i) });
+
   const entries: SitemapEntry[] = [
-    entry('/', 'weekly', 1),
-    entry('/check', 'weekly', 0.8),
+    withPair(entry('/', 'weekly', 1), 0),
+    withPair(entry(ES_PAIRS[0].es, 'weekly', 0.8), 0),
+    withPair(entry('/check', 'weekly', 0.8), 1),
+    withPair(entry(ES_PAIRS[1].es, 'weekly', 0.7), 1),
     entry('/about', 'monthly', 0.5),
     entry('/for', 'weekly', 0.8),
     entry('/local', 'daily', 0.8),

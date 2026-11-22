@@ -4,9 +4,13 @@ import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { bidSourceLinkLabel } from '../signals/bid-card';
-import { cardBrief, sourceLine, type CardBrief } from '../signals/brief';
-import { isStageUpdate, stageUpdateLine, stageUpdateSubject } from '../signals/stage';
-import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
+import { sourceLine, type CardBrief } from '../signals/brief';
+import { bidSourceLinkLabelLang, cardBriefLang, sourceLineLang } from '../signals/brief-i18n';
+import { isStageUpdate, stageUpdateLine, stageUpdateMeta, stageUpdateSubject } from '../signals/stage';
+import { lowerFirst, t, type Lang } from '../i18n';
+import { localizeTitle } from '../signals/title-i18n';
+import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
+import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
@@ -54,9 +58,9 @@ export interface DigestItem {
 }
 
 /** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
-export function chipText(it: Pick<DigestItem, 'label' | 'deadline'>): string | null {
+export function chipText(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lang = 'en'): string | null {
   if (!it.label || it.label === 'context') return null;
-  return it.label === 'act_now' ? `${OPPORTUNITY_CHIP.act_now}. ${deadlineLine(it.deadline)}` : OPPORTUNITY_CHIP[it.label];
+  return it.label === 'act_now' ? `${chipLabel('act_now', lang)}. ${deadlineLineLang(it.deadline, lang)}` : chipLabel(it.label, lang);
 }
 
 export interface Rendered {
@@ -78,7 +82,8 @@ const KIND_LABELS: Record<string, string> = {
   travel: 'Airport delays',
 };
 
-export function kindLabel(kind: string): string {
+export function kindLabel(kind: string, lang: Lang = 'en'): string {
+  if (lang !== 'en') return t(lang, kind in KIND_LABELS ? (`email.kind.${kind}` as Parameters<typeof t>[1]) : 'email.kind.unknown');
   return KIND_LABELS[kind] ?? 'Local signal';
 }
 
@@ -108,16 +113,17 @@ export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, 
 }
 
 /** Label of the link under a digest item. */
-export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
+export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl, lang: Lang = 'en'): string {
+  if (lang !== 'en') return isResidentRequest(it, base) ? t(lang, 'brief.link.request') : bidSourceLinkLabelLang(it.source, lang);
   return isResidentRequest(it, base) ? 'Open the request form' : bidSourceLinkLabel(it.source);
 }
 
 /** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
-export function digestBrief(it: DigestItem, base: string = siteUrl): CardBrief & { href: string | null; linkText: string } {
-  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, managerName: it.managerName, managerRole: it.managerRole, jobValue: it.jobValue, permitStage: it.permitStage, permitStageAt: it.permitStageAt });
+export function digestBrief(it: DigestItem, base: string = siteUrl, lang: Lang = 'en'): CardBrief & { href: string | null; linkText: string } {
+  const b = cardBriefLang({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, managerName: it.managerName, managerRole: it.managerRole, jobValue: it.jobValue, permitStage: it.permitStage, permitStageAt: it.permitStageAt }, lang);
   const own = safeUrl(it.sourceUrl);
   // The link label keeps the digest's own rule: "Open the request form" for a resident request (known by source or by its /request link).
-  return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base) : b.source.linkText };
+  return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base, lang) : b.source.linkText };
 }
 
 /** Text we show must never contain an em dash (house copy rule), including text from sources. */
@@ -125,13 +131,14 @@ function noDash(s: string): string {
   return s.replace(/—/g, '-');
 }
 
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  return relativeTime(iso, now.getTime(), 'email');
+export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'): string {
+  return relativeTime(iso, now.getTime(), 'email', lang);
 }
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
-export function contactLine(c: { name: string; role: string }): string {
-  return noDash(`Contact: ${c.name} (${c.role})`);
+export function contactLine(c: { name: string; role: string }, lang: Lang = 'en'): string {
+  // The role is a capitalised label ("Aparece en este permiso"); inside the parentheses Spanish writes it in lower case.
+  return noDash(t(lang, 'email.contact', { name: c.name, role: lang === 'en' ? c.role : lowerFirst(c.role) }));
 }
 
 // Look comes from lib/email/theme.ts (one place for every color and font).
@@ -153,14 +160,14 @@ export function contactAddress(): string | null {
   return /^[^\s<>@]+@[^\s<>@]+$/.test(from) ? from : null;
 }
 
-function contactHtml(): string {
+function contactHtml(lang: Lang = 'en'): string {
   const a = contactAddress();
-  return a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">Contact us</a>.` : '';
+  return a ? ` ${t(lang, 'email.questions')} <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">${t(lang, 'email.contact_us')}</a>.` : '';
 }
 
-function contactText(): string {
+function contactText(lang: Lang = 'en'): string {
   const a = contactAddress();
-  return a ? `\nQuestions? Contact us: ${a}\n` : '';
+  return a ? `\n${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${a}\n` : '';
 }
 
 function button(href: string, label: string): string {
@@ -176,24 +183,25 @@ function isUpdateItem(it: DigestItem): boolean {
  * The digest subject. One stage update reads "Update: final inspection on a permit near you"; stage updates only read "N permit updates near
  * you"; a mix says how many are updates. Never "new" for a stage update.
  */
-export function digestSubject(items: readonly DigestItem[], total: number): string {
+export function digestSubject(items: readonly DigestItem[], total: number, lang: Lang = 'en'): string {
   const updates = items.filter(isUpdateItem);
   if (updates.length === 0) {
-    return total === 1 ? `1 new thing near you: ${items[0]?.title ?? 'local signal'}`.slice(0, 120) : `${total} new things near you`;
+    return total === 1
+      ? t(lang, 'email.subject.one', { title: items[0] ? localizeTitle(items[0].title, lang, items[0].source) : t(lang, 'email.subject.fallback_title') }).slice(0, 120)
+      : t(lang, 'email.subject.many', { n: total });
   }
-  if (total === 1 && updates.length === 1) return stageUpdateSubject(updates[0].permitStage) ?? 'Update on a permit near you';
-  if (updates.length === items.length && total === items.length) return `${total} permit updates near you`;
-  return `${total} things near you, ${updates.length} of them a stage update`;
+  if (total === 1 && updates.length === 1) return stageUpdateSubject(updates[0].permitStage, lang) ?? t(lang, 'stage.update.subject_fallback');
+  if (updates.length === items.length && total === items.length) return t(lang, 'stage.update.subject_only', { n: total });
+  return t(lang, 'stage.update.subject_mixed', { n: total, u: updates.length });
 }
 
 /** The time part of an item's meta line: a stage update shows the date of the change, never "N days ago" as if the permit were fresh. */
-function metaTime(it: DigestItem, now: Date): string {
+function metaTime(it: DigestItem, now: Date, lang: Lang = 'en'): string {
   if (isUpdateItem(it)) {
-    const line = stageUpdateLine(it.permitStage, it.permitStageAt);
-    const m = line?.match(/ on (.+)\.$/);
-    if (m) return `Stage update, ${m[1]}`;
+    const meta = stageUpdateMeta(it.permitStageAt, lang);
+    if (meta) return meta;
   }
-  return timeAgo(it.occurredAt, now);
+  return timeAgo(it.occurredAt, now, lang);
 }
 
 export function renderDigest(opts: {
@@ -203,76 +211,83 @@ export function renderDigest(opts: {
   appUrl: string;
   unsubscribeUrl: string;
   now?: Date;
+  /** The member's language (profiles.language, migration 0024). 'en' (the default) is the digest as it always was. */
+  lang?: Lang;
 }): Rendered {
+  const lang: Lang = opts.lang ?? 'en';
   const now = opts.now ?? new Date();
   const total = opts.totalCount ?? opts.items.length;
   const more = Math.max(0, total - opts.items.length);
-  const subject = noDash(digestSubject(opts.items, total));
+  const subject = noDash(digestSubject(opts.items, total, lang));
 
   // Act Now first (item 0.3); inside a label stage updates come first, then the order the caller gave (a stable sort).
   const items = orderByLabel(
     [...opts.items.filter(isUpdateItem), ...opts.items.filter((it) => !isUpdateItem(it))],
     (it) => it.label ?? 'coming_soon',
   );
+  const kindText = (it: DigestItem) => (it.subtype === 'bid' ? t(lang, 'bid.label') : kindLabel(it.kind, lang));
 
   const htmlItems = items
     .map((it) => {
-      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, metaTime(it, now)]
+      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
-      const chip = chipText(it);
+      const chip = chipText(it, lang);
       const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
       const bidHtml = it.bidLine ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.bidLine))}</div>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
-      const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
+      // The one-line AI note is written in English by the model, so a Spanish digest leaves it out (the brief below says the same in Spanish).
+      const note = it.note && lang === 'en' ? `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.note')}:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
-        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
+        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>`
         : '';
-      const br = digestBrief(it);
+      const br = digestBrief(it, siteUrl, lang);
       const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
-      const stageLineText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine;
+      const stageLineText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
       const stageHtml = stageLineText ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(stageLineText))}</div>` : '';
       const briefHtml =
         valueHtml +
         stageHtml +
-        `<div style="font-size:14px;margin:6px 0 2px 0"><strong>Why it matters:</strong> ${escapeHtml(noDash(br.why))}</div>` +
-        `<div style="font-size:14px;margin:2px 0"><strong>Next step:</strong> ${escapeHtml(noDash(br.next))}</div>` +
+        `<div style="font-size:14px;margin:6px 0 2px 0"><strong>${t(lang, 'brief.h.why')}:</strong> ${escapeHtml(noDash(br.why))}</div>` +
+        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.next')}:</strong> ${escapeHtml(noDash(br.next))}</div>` +
         (br.managedBy ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(br.managedBy))}</div>` : '') +
-        `<div style="font-size:14px;margin:2px 0"><strong>Source:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
+        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.source')}:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
           br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
         }</div>` +
-        `<div style="font-size:14px;margin:2px 0 4px 0"><strong>What is uncertain:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
+        `<div style="font-size:14px;margin:2px 0 4px 0"><strong>${t(lang, 'brief.h.uncertain')}:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(localizeTitle(it.title, lang, it.source)))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
     })
     .join('');
 
   const html =
-    WRAP_OPEN +
-    `<p style="margin:0 0 6px 0;${S.eyebrow}">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
+    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
+    `<p style="margin:0 0 6px 0;${S.eyebrow}">${escapeHtml(t(lang, 'email.eyebrow', { name: noDash(opts.businessName) }))}</p>` +
     `<h1 style="${S.h1};font-size:24px;margin:0 0 20px 0">${escapeHtml(subject)}</h1>` +
     `<ul style="margin:0;padding:0">${htmlItems}</ul>` +
-    (more > 0 ? `<p style="${S.mutedLink}">Plus ${more} more in your feed.</p>` : '') +
-    button(opts.appUrl, 'Open your feed') +
-    `<p style="${S.small};margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">Turn off email alerts</a>.${contactHtml()}</p>` +
+    (more > 0 ? `<p style="${S.mutedLink}">${escapeHtml(t(lang, 'email.plus_more', { n: more }))}</p>` : '') +
+    button(opts.appUrl, t(lang, 'email.open_feed')) +
+    `<p style="${S.small};margin-top:32px">${t(lang, 'email.footer.why')} <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">${t(lang, 'email.footer.off')}</a>.${contactHtml(lang)}</p>` +
     cardClose() +
-    postalFooterHtml() +
+    postalFooterHtml(lang) +
     WRAP_CLOSE;
 
   const textItems = items
     .map((it) => {
-      const br = digestBrief(it);
-      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, metaTime(it, now)]
+      const br = digestBrief(it, siteUrl, lang);
+      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
         .filter(Boolean)
         .join(' | ');
-      const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${(isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine) ? `\n${noDash((isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine) as string)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
+      const chip = chipText(it, lang);
+      const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
+      const stageText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =
-    `Holler for ${noDash(opts.businessName)}\n\n${subject}\n\n${textItems}\n\n` +
-    (more > 0 ? `Plus ${more} more in your feed.\n\n` : '') +
-    `Open your feed: ${opts.appUrl}\n\nTurn off email alerts: ${opts.unsubscribeUrl}\n${contactText()}\n${postalFooterText()}\n`;
+    `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${subject}\n\n${textItems}\n\n` +
+    (more > 0 ? `${t(lang, 'email.plus_more', { n: more })}\n\n` : '') +
+    `${t(lang, 'email.open_feed')}: ${opts.appUrl}\n\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
 
   return { subject, html, text };
 }

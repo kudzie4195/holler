@@ -1,5 +1,6 @@
 import type { SignalKind } from '@/lib/signals/types';
 import { kindLabel } from './signal-meta';
+import type { Lang } from '@/lib/i18n';
 
 const KIND_CLASS: Record<SignalKind, string> = {
   ask: 'bg-kind-ask-bg text-kind-ask-fg',
@@ -24,9 +25,9 @@ const tag = 'inline-flex items-center rounded-chip px-2 py-0.5 font-mono text-xs
  * Badge for a signal kind, in its family tint: weather sky (storm-ink 7.6:1), permits and spending sage (sage-ink 7.7:1),
  * 311 and civic purple (civic-ink 7.1:1). Unknown kinds render neutral rather than crash.
  */
-export function Badge({ kind, label }: { kind: string; label?: string }) {
+export function Badge({ kind, label, lang = 'en' }: { kind: string; label?: string; lang?: Lang }) {
   const cls = (KIND_CLASS as Record<string, string>)[kind] ?? NEUTRAL;
-  return <span className={`${tag} ${cls}`}>{label ?? kindLabel(kind)}</span>;
+  return <span className={`${tag} ${cls}`}>{label ?? kindLabel(kind, lang)}</span>;
 }
 
 const TONES = {

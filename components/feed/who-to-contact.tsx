@@ -4,6 +4,7 @@ import { useId, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ContactInput } from '@/lib/contacts/types';
 import { hasBlock, mayHaveContacts, outreachPlan, type OrgEntry, type OutreachPlan, type PlanLink } from '@/lib/outreach/plan';
 import { CopyNoteButton } from './copy-note-button';
+import { t, type Lang } from '@/lib/i18n';
 
 const WIDE = '(min-width: 768px)';
 function subscribeWide(cb: () => void) {
@@ -37,7 +38,7 @@ function ExternalIcon() {
   );
 }
 
-function ActionLink({ link }: { link: PlanLink }) {
+function ActionLink({ link, lang }: { link: PlanLink; lang: Lang }) {
   if (!link.external) {
     return (
       <a href={link.href} className={actionClass}>
@@ -48,44 +49,44 @@ function ActionLink({ link }: { link: PlanLink }) {
   return (
     <a href={link.href} target={link.target} rel={link.rel} className={actionClass}>
       {link.label}
-      <span className="sr-only"> (opens in a new tab)</span>
+      <span className="sr-only">{t(lang, 'brief.sr_new_tab')}</span>
       <ExternalIcon />
     </a>
   );
 }
 
-function Entry({ e }: { e: OrgEntry }) {
+function Entry({ e, lang }: { e: OrgEntry; lang: Lang }) {
   return (
     <li className="min-w-0 rounded-control border border-line bg-surface p-3">
       <p className="break-words text-base font-semibold text-ink">{e.name}</p>
       <p className="text-sm text-muted">{e.role}</p>
-      {e.attn ? <p className="mt-1 break-words text-sm text-ink">Attention: {e.attn}</p> : null}
-      {e.address ? <p className="mt-1 break-words text-sm text-ink">{e.addressLabel}: {e.address}</p> : null}
-      {e.phone ? <p className="break-words text-sm text-ink">Phone: {e.phone}</p> : null}
-      {e.license ? <p className="break-words text-sm text-ink">Contractor license number: {e.license}</p> : null}
-      {e.email ? <p className="break-all text-sm text-ink">Email: {e.email}</p> : null}
+      {e.attn ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.attention', { value: e.attn })}</p> : null}
+      {e.address ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: e.addressLabel, value: e.address })}</p> : null}
+      {e.phone ? <p className="break-words text-sm text-ink">{t(lang, 'who.phone', { value: e.phone })}</p> : null}
+      {e.license ? <p className="break-words text-sm text-ink">{t(lang, 'who.license', { value: e.license })}</p> : null}
+      {e.email ? <p className="break-all text-sm text-ink">{t(lang, 'who.email', { value: e.email })}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {e.search ? <ActionLink link={e.search} /> : null}
-        {e.map ? <ActionLink link={e.map} /> : null}
-        {e.website ? <ActionLink link={e.website} /> : null}
-        <CopyNoteButton label="Copy a first note" text={e.note} />
+        {e.search ? <ActionLink link={e.search} lang={lang} /> : null}
+        {e.map ? <ActionLink link={e.map} lang={lang} /> : null}
+        {e.website ? <ActionLink link={e.website} lang={lang} /> : null}
+        <CopyNoteButton label={t(lang, 'who.copy_note')} text={e.note} lang={lang} />
       </div>
     </li>
   );
 }
 
-function Body({ plan }: { plan: OutreachPlan }) {
+function Body({ plan, lang }: { plan: OutreachPlan; lang: Lang }) {
   if (plan.type === 'org') {
     return (
       <>
         <ul className="flex flex-col gap-3">
           {plan.entries.map((e) => (
-            <Entry key={e.key} e={e} />
+            <Entry key={e.key} e={e} lang={lang} />
           ))}
         </ul>
         {plan.moreCount > 0 ? (
           <p className="mt-2 text-sm text-muted">
-            and {plan.moreCount} more. Open the source to see the full record.
+            {t(lang, 'who.more', { n: plan.moreCount })}
           </p>
         ) : null}
       </>
@@ -95,26 +96,26 @@ function Body({ plan }: { plan: OutreachPlan }) {
     return (
       <div className="rounded-control border border-line bg-surface p-3">
         <p className="text-base font-semibold text-ink">{plan.heading}</p>
-        <p className="mt-1 break-words text-sm text-ink">Address: {plan.address}</p>
+        <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: t(lang, 'who.address'), value: plan.address })}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {plan.map ? <ActionLink link={plan.map} /> : null}
-          {plan.letter ? <CopyNoteButton label={plan.letter.label} text={plan.letter.note} /> : null}
+          {plan.map ? <ActionLink link={plan.map} lang={lang} /> : null}
+          {plan.letter ? <CopyNoteButton label={plan.letter.label} text={plan.letter.note} lang={lang} /> : null}
         </div>
       </div>
     );
   }
   return (
     <div className="rounded-control border border-line bg-surface p-3">
-      <p className="text-base font-semibold text-ink">Reach this area</p>
-      {plan.place ? <p className="mt-1 break-words text-sm text-ink">{/county\b/i.test(plan.place.split(',')[0]) ? 'Area' : 'City'}: {plan.place}</p> : null}
+      <p className="text-base font-semibold text-ink">{t(lang, 'who.reach_area')}</p>
+      {plan.place ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: t(lang, /county\b|condado/i.test(plan.place.split(',')[0]) ? 'who.area' : 'who.city'), value: plan.place })}</p> : null}
       {plan.zips.length > 0 ? (
         <p className="break-words text-sm text-ink">
-          {plan.zips.length === 1 ? 'ZIP code' : 'ZIP codes'}: {plan.zips.join(', ')}
+          {t(lang, 'who.labelled', { label: t(lang, plan.zips.length === 1 ? 'who.zip' : 'who.zips'), value: plan.zips.join(', ') })}
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <ActionLink link={plan.eddm} />
-        <CopyNoteButton label={plan.noteLabel} text={plan.note} />
+        <ActionLink link={plan.eddm} lang={lang} />
+        <CopyNoteButton label={plan.noteLabel} text={plan.note} lang={lang} />
       </div>
       <p className="mt-3 text-sm text-muted">
         {plan.rules} <a href={plan.guide.href} className="font-medium text-brand-text underline">{plan.guide.label}</a>.
@@ -127,8 +128,8 @@ function Body({ plan }: { plan: OutreachPlan }) {
  * "Who to contact" for one alert, inside its card. A disclosure: closed on phones, opened on wider screens after load.
  * Native details/summary, so it works with the keyboard (Enter or Space on the summary) and is announced as expandable.
  */
-export function WhoToContact({ item, contacts }: { item: ContactSignal; contacts?: ContactInput[] | null }) {
-  const plan = useMemo(() => outreachPlan(item, contacts), [item, contacts]);
+export function WhoToContact({ item, contacts, lang = 'en' }: { item: ContactSignal; contacts?: ContactInput[] | null; lang?: Lang }) {
+  const plan = useMemo(() => outreachPlan(item, contacts, lang), [item, contacts, lang]);
   // Closed on phones, open on wider screens (the server render is always closed). Once the member toggles it, their choice stays.
   const wide = useSyncExternalStore(subscribeWide, isWide, () => false);
   const [manual, setManual] = useState<boolean | null>(null);
@@ -142,19 +143,19 @@ export function WhoToContact({ item, contacts }: { item: ContactSignal; contacts
       <details open={open} onToggle={(e) => { if (e.currentTarget.open !== open) setManual(e.currentTarget.open); }} className="group">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-control text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
           <span id={headingId}>
-            Who to contact
+            {t(lang, 'who.heading')}
             {summaryCount ? <span className="ml-2 font-mono text-xs tabular-nums text-muted">{summaryCount}</span> : null}
           </span>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
-            <span className="group-open:hidden">Show</span>
-            <span className="hidden group-open:inline">Hide</span>
+            <span className="group-open:hidden">{t(lang, 'who.show')}</span>
+            <span className="hidden group-open:inline">{t(lang, 'who.hide')}</span>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="transition-transform group-open:rotate-180">
               <path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
         </summary>
         <div className="pb-1 pt-2">
-          <Body plan={plan} />
+          <Body plan={plan} lang={lang} />
           <p className="mt-3 text-sm text-muted">{plan.reminder}</p>
         </div>
       </details>
@@ -163,15 +164,15 @@ export function WhoToContact({ item, contacts }: { item: ContactSignal; contacts
 }
 
 /** Locked member: the heading and a short prompt, never contact data. Rendered only for records that have a block. */
-export function WhoToContactLocked({ item }: { item: Pick<ContactSignal, 'source' | 'kind'> }) {
+export function WhoToContactLocked({ item, lang = 'en' }: { item: Pick<ContactSignal, 'source' | 'kind'>; lang?: Lang }) {
   if (!hasBlock(item.source, item.kind)) return null;
   return (
     <section className="mt-4 border-t border-line pt-3">
-      <h3 className="text-sm font-semibold text-ink">Who to contact</h3>
+      <h3 className="text-sm font-semibold text-ink">{t(lang, 'who.heading')}</h3>
       <p className="mt-1 text-sm text-muted">
         {mayHaveContacts(item.source, item.kind)
-          ? 'Pick a plan to see who this record names and how to reach them.'
-          : 'Pick a plan to see how to reach this area.'}
+          ? t(lang, 'who.locked.org')
+          : t(lang, 'who.locked.area')}
       </p>
     </section>
   );

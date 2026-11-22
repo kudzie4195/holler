@@ -12,8 +12,8 @@ describe('LAUNCH.md matches the code (review follow-ups)', () => {
     expect(md).toContain('anon and authenticated SELECT on holler_scan_runs');
     expect(md).not.toContain('anon SELECT on holler_matches and holler_scan_runs');
   });
-  it('the re-run note runs the additive files through 0023 (P2-4b)', () => {
-    expect(md).toContain('run 0001 to 0006 and 0008 to 0023 in order');
+  it('the re-run note runs the additive files through 0025 (P2-4b; 0024 and 0025 joined in round 17)', () => {
+    expect(md).toContain('run 0001 to 0006 and 0008 to 0025 in order');
     expect(md).not.toMatch(/0008 to 0020 in order/);
   });
   it('the reset protection is described as the app route only, with the Supabase setting as the owner decision (P2-3)', () => {

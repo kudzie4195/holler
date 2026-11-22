@@ -2,7 +2,8 @@ import type { ContactInput, ContactRole } from '@/lib/contacts/types';
 import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, type OutreachLink } from './links';
-import { OUTREACH_REMINDER, STORM_REMINDER, renderNote, type NoteKind } from './templates';
+import { reminderFor, renderNote, type NoteKind } from './templates';
+import { t, type Lang } from '@/lib/i18n';
 
 /**
  * What the "Who to contact" block shows for one alert. Pure: no I/O, no framework. Contacts come from the server loader
@@ -49,12 +50,17 @@ const ROLE_FOR_CLASS: Partial<Record<RecordClass, ContactRole>> = {
   bid: 'buyer',
 };
 
-const ROLE_WORDS: Partial<Record<RecordClass, string>> = {
-  permit: 'Named on this permit',
-  business: 'The business that opened',
-  inspection: 'The business inspected',
-  award: 'The company that won this award',
-  bid: 'The office taking bids',
+const ROLE_KEYS = {
+  permit: 'outreach.role.permit',
+  business: 'outreach.role.business',
+  inspection: 'outreach.role.inspection',
+  award: 'outreach.role.award',
+  bid: 'outreach.role.bid',
+} as const;
+
+const roleWordsFor = (cls: RecordClass, lang: Lang): string | undefined => {
+  const k = (ROLE_KEYS as Partial<Record<RecordClass, (typeof ROLE_KEYS)[keyof typeof ROLE_KEYS]>>)[cls];
+  return k ? t(lang, k) : undefined;
 };
 
 const NOTE_FOR_CLASS: Partial<Record<RecordClass, NoteKind>> = {
@@ -66,8 +72,8 @@ const NOTE_FOR_CLASS: Partial<Record<RecordClass, NoteKind>> = {
 };
 
 /** Plain-words role of a named organisation on this record. Null for records that carry no organisation contact. */
-export function roleWords(source: string, kind: string): string | null {
-  return ROLE_WORDS[recordClass(source, kind)] ?? null;
+export function roleWords(source: string, kind: string, lang: Lang = 'en'): string | null {
+  return roleWordsFor(recordClass(source, kind), lang) ?? null;
 }
 
 export const MAX_CONTACTS_SHOWN = 3;
@@ -99,7 +105,7 @@ export interface OrgEntry {
   attn: string | null;
   address: string | null;
   /** 'Address' when the entry has its own street address; 'Job site' when the line shows the record's job-site address instead. */
-  addressLabel: 'Address' | 'Job site';
+  addressLabel: string;
   phone: string | null;
   email: string | null;
   /** The contractor's licence number when the permit publishes it. */
@@ -146,35 +152,35 @@ function formatAddress(c: Pick<ContactInput, 'address' | 'city' | 'state' | 'zip
   return [street, tail].filter(Boolean).join(', ');
 }
 
-function siteHeading(c: RecordClass): string {
+function siteHeading(c: RecordClass, lang: Lang): string {
   switch (c) {
-    case 'permit': return 'The job site';
-    case 'business': return 'Where the business is';
-    case 'inspection': return 'Where it was inspected';
-    default: return 'Where the work is';
+    case 'permit': return t(lang, 'outreach.site.permit');
+    case 'business': return t(lang, 'outreach.site.business');
+    case 'inspection': return t(lang, 'outreach.site.inspection');
+    default: return t(lang, 'outreach.site.default');
   }
 }
 
-function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass): OutreachPlan | null {
+function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass, lang: Lang): OutreachPlan | null {
   const city = cleanText(signal.city);
   const state = cleanText(signal.state);
   const zips = [...new Set([signal.zip, ...contacts.map((c) => c.zip)].map(cleanText).filter((z) => /^\d{5}(-\d{4})?$/.test(z)).map((z) => z.slice(0, 5)))].slice(0, 6);
   const place = [city, state].filter(Boolean).join(', ') || null;
   if (!place && zips.length === 0) return null;
-  const eddm = withLabel(buildLink({ type: 'eddm' }), 'Plan a mailing (USPS Every Door Direct Mail)');
+  const eddm = withLabel(buildLink({ type: 'eddm' }), t(lang, 'outreach.link.eddm'));
   const storm = cls === 'storm';
-  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), storm ? 'Read the guide on storm damage work' : 'Read the guide on replying fast');
+  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), t(lang, storm ? 'outreach.link.guide_storms' : 'outreach.link.guide_respond'));
   if (!eddm || !guide) return null;
   return {
     type: 'area',
     place,
     zips,
     eddm,
-    noteLabel: 'Copy a door hanger note',
-    note: renderNote(storm ? 'door-hanger-storm' : 'door-hanger'),
-    rules: 'Mail, door knocking and calls follow different rules in each place.',
+    noteLabel: t(lang, 'who.copy_door'),
+    note: renderNote(storm ? 'door-hanger-storm' : 'door-hanger', {}, lang),
+    rules: t(lang, 'outreach.rules'),
     guide,
-    reminder: storm ? STORM_REMINDER : OUTREACH_REMINDER,
+    reminder: reminderFor(storm, lang),
   };
 }
 
@@ -187,11 +193,11 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass)
  *  - resident requests, airport delays, events and unknown sources: null (no block).
  * An organisation record with nothing usable falls back to the area kit when the record names a place, else null.
  */
-export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null | undefined): OutreachPlan | null {
+export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): OutreachPlan | null {
   const cls = recordClass(signal.source, signal.kind);
   if (cls === 'none' || cls === 'request') return null;
   const list = Array.isArray(contacts) ? contacts.filter((c): c is PlanContact => !!c && typeof c === 'object') : [];
-  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls);
+  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang);
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
   const sites = list.filter((c) => c.role === 'site');
@@ -208,7 +214,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
     }
   }
   const orgs = list.filter((c) => c.role === wantRole && cleanText(c.name));
-  const role = ROLE_WORDS[cls]!;
+  const role = roleWordsFor(cls, lang)!;
   const noteKind = NOTE_FOR_CLASS[cls]!;
 
   if (orgs.length > 0) {
@@ -245,12 +251,12 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         role,
         attn: cls === 'bid' ? cleanText(c.attn) || null : null,
         address: printAddress ? address : null,
-        addressLabel: own || cls !== 'permit' ? 'Address' : 'Job site',
+        addressLabel: t(lang, own || cls !== 'permit' ? 'who.address' : 'who.job_site'),
         phone: cleanText(c.phone) || null,
         email: cleanText(c.email) || null,
         license: cleanText(c.license) || null,
-        website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), 'Website'),
-        search: withLabel(buildLink({ type: 'search', org: name, city, state }), 'Search this business'),
+        website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), t(lang, 'outreach.link.website')),
+        search: withLabel(buildLink({ type: 'search', org: name, city, state }), t(lang, 'outreach.link.search')),
         map: address
           ? withLabel(
               buildLink({
@@ -260,38 +266,38 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
                 state: cleanText(mapSrc.state) || signal.state,
                 zip: mapSrc.zip,
               }),
-              'Open map',
+              t(lang, 'outreach.link.map'),
             )
           : null,
         // A permit note names the job site, never the contractor's own office. No site address means no address in the note.
-        note: renderNote(noteKind, { org: name, address: cls === 'permit' ? siteAddress : address }),
+        note: renderNote(noteKind, { org: name, address: cls === 'permit' ? siteAddress : address }, lang),
       };
     });
-    return { type: 'org', entries, moreCount: Math.max(0, unique.length - entries.length), reminder: OUTREACH_REMINDER };
+    return { type: 'org', entries, moreCount: Math.max(0, unique.length - entries.length), reminder: reminderFor(false, lang) };
   }
 
   if (siteAddress && siteRaw) {
     return {
       type: 'site',
-      heading: siteHeading(cls),
+      heading: siteHeading(cls, lang),
       address: siteAddress,
       map: withLabel(
         buildLink({ type: 'map', address: cleanText(siteRaw.address), city: siteRaw.city || signal.city, state: siteRaw.state || signal.state, zip: siteRaw.zip }),
-        'Open map',
+        t(lang, 'outreach.link.map'),
       ),
-      letter: cls === 'permit' ? { label: 'Copy a letter', note: renderNote('trade-to-owner', { address: siteAddress, greeting: 'Property owner' }) } : null,
-      reminder: OUTREACH_REMINDER,
+      letter: cls === 'permit' ? { label: t(lang, 'who.copy_letter'), note: renderNote('trade-to-owner', { address: siteAddress, greeting: 'Property owner' }, lang) } : null,
+      reminder: reminderFor(false, lang),
     };
   }
 
-  return areaPlan(signal, list, cls);
+  return areaPlan(signal, list, cls, lang);
 }
 
 /** The single organisation named for the alert email: name and role in words. No address, phone or email ever. */
-export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined): { name: string; role: string } | null {
+export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): { name: string; role: string } | null {
   const cls = recordClass(signal.source, signal.kind);
   const wantRole = ROLE_FOR_CLASS[cls];
-  const role = ROLE_WORDS[cls];
+  const role = roleWordsFor(cls, lang);
   if (!wantRole || !role || !Array.isArray(contacts)) return null;
   const hit = contacts.find((c) => c && c.role === wantRole && cleanText(c.name));
   return hit ? { name: cleanText(hit.name), role } : null;

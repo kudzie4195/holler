@@ -2,6 +2,8 @@ import { generateText, type LanguageModel } from 'ai';
 import { monthKey, monthlyCapUsd, priceFor, reserve, settle, type Db } from './budget';
 import { fallbackDraft, violatesDraftRules, BANNED_WORDS, type DraftInput } from './fallback';
 import { failedBeforeResponse } from './errors';
+import { hasKey, t, type Lang } from '@/lib/i18n';
+import { ES_BANNED_DRAFT_WORDS } from '@/lib/i18n/rules';
 
 export * from './fallback';
 
@@ -25,6 +27,36 @@ function gatewayAuthAvailable(env: Record<string, string | undefined>): boolean 
 
 const INSTRUCTIONS = `You write short reply drafts for a local business owner who found a public post where someone asked for a recommendation.
 Rules: 2 to 3 sentences. Neighborly, plain, helpful. Mention the business name exactly once. No links, no phone numbers, no emojis, no em dashes. Do not use hype words (${BANNED_WORDS.join(', ')}). Do not invent prices, licenses, reviews or years in business. Answer what the person asked, then offer to help. Output only the reply text.`;
+
+/** The model instructions in the member's language. English is the literal above (unchanged); Spanish comes from the dictionary. */
+export function instructionsFor(lang: Lang): string {
+  return lang === 'es' ? t(lang, 'draft.instructions', { banned: ES_BANNED_DRAFT_WORDS.join(', ') }) : INSTRUCTIONS;
+}
+
+/** The prompt (the facts about the business and the post) with labels in the member's language. English is unchanged. */
+export function promptFor(i: DraftInput, lang: Lang): string {
+  if (lang === 'es') {
+    const trades = i.categories.map((c) => (hasKey(`trade.${c}`) ? t(lang, `trade.${c}` as 'trade.roofing') : c.replace(/-/g, ' '))).join(', ');
+    return [
+      t(lang, 'draft.p.business', { value: i.businessName }),
+      t(lang, 'draft.p.does', { value: trades || t(lang, 'draft.p.local_services') }),
+      i.city ? t(lang, 'draft.p.area', { value: i.city }) : '',
+      t(lang, 'draft.p.title', { value: i.title }),
+      i.summary ? t(lang, 'draft.p.text', { value: i.summary }) : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+  return [
+    `Business: ${i.businessName}`,
+    `What the business does: ${i.categories.join(', ') || 'local services'}`,
+    i.city ? `Business area: ${i.city}` : '',
+    `Post title: ${i.title}`,
+    i.summary ? `Post text: ${i.summary}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
 
 export type DraftOutcome =
   | { ok: true; draft: string; source: 'ai' | 'fallback' }
@@ -51,21 +83,15 @@ export async function generateDraft(i: DraftInput, deps: DraftDeps): Promise<Dra
   const env = deps.env ?? process.env;
   const price = priceFor(DRAFT_MODEL);
   if ((!deps.model && !gatewayAuthAvailable(env)) || !price) return { ok: true, draft: fallbackDraft(i), source: 'fallback' };
-  const prompt = [
-    `Business: ${i.businessName}`,
-    `What the business does: ${i.categories.join(', ') || 'local services'}`,
-    i.city ? `Business area: ${i.city}` : '',
-    `Post title: ${i.title}`,
-    i.summary ? `Post text: ${i.summary}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const lang: Lang = i.lang === 'es' ? 'es' : 'en';
+  const instructions = instructionsFor(lang);
+  const prompt = promptFor(i, lang);
 
   const res = await reserve(deps.db, {
     month: monthKey(deps.now ?? new Date()),
     capUsd: monthlyCapUsd(env),
     signals: 0,
-    inputChars: INSTRUCTIONS.length + prompt.length,
+    inputChars: instructions.length + prompt.length,
     maxOutputTokens: DRAFT_MAX_OUTPUT_TOKENS,
     price,
     cacheMisses: 0,
@@ -87,7 +113,7 @@ export async function generateDraft(i: DraftInput, deps: DraftDeps): Promise<Dra
   try {
     const r = await generateText({
       model: deps.model ?? DRAFT_MODEL,
-      instructions: INSTRUCTIONS,
+      instructions,
       prompt,
       maxOutputTokens: DRAFT_MAX_OUTPUT_TOKENS,
       maxRetries: 0,
@@ -105,7 +131,7 @@ export async function generateDraft(i: DraftInput, deps: DraftDeps): Promise<Dra
     }
     const draft = r.text.trim();
     const mentions = draft.split(i.businessName).length - 1;
-    if (!draft || violatesDraftRules(draft) || mentions !== 1) {
+    if (!draft || violatesDraftRules(draft, lang) || mentions !== 1) {
       return { ok: true, draft: fallbackDraft(i), source: 'fallback' };
     }
     return { ok: true, draft, source: 'ai' };

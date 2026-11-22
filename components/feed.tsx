@@ -9,6 +9,9 @@ import { EmptyState } from './empty-state';
 import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
+import { t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
+import { localizeSummary } from '@/lib/signals/summary-i18n';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
@@ -83,11 +86,14 @@ export function Feed({
   items: initial,
   cityPage,
   firstRun = false,
+  lang = 'en',
 }: {
   items: FeedItem[];
   cityPage: { href: string; label: string } | null;
   /** New account: the feed was filled from the last two weeks, so say so. */
   firstRun?: boolean;
+  /** The member's language (profile.language). Defaults to English. */
+  lang?: Lang;
 }) {
   const [items, setItems] = useState(initial);
   const [filter, setFilter] = useState<Filter>('all');
@@ -137,7 +143,7 @@ export function Feed({
       const res = await setMatchStatus(id, status).catch(() => ({ ok: false }));
       if (!res.ok) {
         setItems(prev);
-        setError("That didn't save. Try again.");
+        setError(t(lang, 'card.save_error'));
       }
     });
   }
@@ -149,50 +155,49 @@ export function Feed({
   if (items.length === 0) {
     return (
       <EmptyState
-        title="Nothing has matched yet"
+        title={t(lang, 'card.empty.title')}
         action={
           cityPage ? (
             <ButtonLink href={cityPage.href} variant="secondary">
-              See what&apos;s happening in {cityPage.label}
+              {t(lang, 'card.empty.see_city', { city: cityPage.label })}
             </ButtonLink>
           ) : undefined
         }
       >
         <p>
-          {CADENCE_SHORT} When something matches what you do and where you work, it
-          lands here and in your email. Quiet days happen.
+          {lang === 'en' ? CADENCE_SHORT : t(lang, 'cadence.short')} {t(lang, 'card.empty.body')}
         </p>
       </EmptyState>
     );
   }
 
   const tabs: { id: Filter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'ask', label: 'People asking' },
-    { id: 'signals', label: 'Signals' },
+    { id: 'all', label: t(lang, 'card.filter.all') },
+    { id: 'ask', label: t(lang, 'card.filter.ask') },
+    { id: 'signals', label: t(lang, 'card.filter.signals') },
   ];
 
   return (
     <div>
       {firstRun ? (
         <p className="mb-4 text-muted">
-          Here is what the last two weeks looked like near you. New alerts arrive by email.
+          {t(lang, 'card.first_run')}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Filter matches" className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
+        <div role="group" aria-label={t(lang, 'card.filter.aria')} className="flex flex-wrap gap-2">
+          {tabs.map((tab) => (
             <button
-              key={t.id}
+              key={tab.id}
               type="button"
-              aria-pressed={filter === t.id}
-              onClick={() => setFilter(t.id)}
+              aria-pressed={filter === tab.id}
+              onClick={() => setFilter(tab.id)}
               className={`inline-flex min-h-11 items-center gap-2 rounded-control border px-4 text-sm font-medium transition-colors ${
-                filter === t.id ? 'border-brand bg-brand text-on-brand hover:bg-brand-raised' : 'border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand'
+                filter === tab.id ? 'border-brand bg-brand text-on-brand hover:bg-brand-raised' : 'border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand'
               }`}
             >
-              {t.label}
-              <span className="font-mono text-xs tabular-nums opacity-80">{counts[t.id]}</span>
+              {tab.label}
+              <span className="font-mono text-xs tabular-nums opacity-80">{counts[tab.id]}</span>
             </button>
           ))}
         </div>
@@ -204,7 +209,7 @@ export function Feed({
               onChange={(e) => setShowClosed(e.target.checked)}
               className="h-4 w-4 accent-brand"
             />
-            Show done and dismissed ({closedCount})
+            {t(lang, 'card.show_closed', { n: closedCount })}
           </label>
         ) : null}
       </div>
@@ -215,8 +220,8 @@ export function Feed({
 
       {visible.length === 0 ? (
         <div className="mt-6">
-          <EmptyState title={filter === 'ask' ? 'No one is asking right now' : filter === 'signals' ? 'No signals right now' : 'All caught up'}>
-            <p>New matches show up here as soon as a scan finds them.</p>
+          <EmptyState title={filter === 'ask' ? t(lang, 'card.none_asking') : filter === 'signals' ? t(lang, 'card.no_signals') : t(lang, 'card.caught_up')}>
+            <p>{t(lang, 'card.new_matches')}</p>
           </EmptyState>
         </div>
       ) : (
@@ -229,6 +234,7 @@ export function Feed({
                 onDraft={setDraft}
                 replyState={replyStates[item.id]}
                 onReplied={markReplied}
+                lang={lang}
               />
             </li>
           ))}
@@ -244,7 +250,9 @@ function MatchCard({
   onDraft,
   replyState,
   onReplied,
+  lang,
 }: {
+  lang: Lang;
   item: FeedItem;
   onStatus: (id: number, status: MatchStatus) => void;
   onDraft: (id: number, draft: string) => void;
@@ -255,11 +263,11 @@ function MatchCard({
   // A resident request has no outside source page and is answered through Holler, so it gets Reply instead of the source link and draft.
   const isRequest = item.source === REQUEST_SOURCE;
   // A permit prints its value once: the brief's "Job value on the permit" line, so the summary's "$N job value" part is left out here (display only).
-  const cardSummary = summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue });
+  const cardSummary = localizeSummary(summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue }), lang, item.source) ?? null;
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <Badge kind={item.kind} label={item.subtype === 'bid' ? 'Open bid' : undefined} />
+        <Badge kind={item.kind} label={item.subtype === 'bid' ? t(lang, 'bid.label') : undefined} lang={lang} />
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
           {item.ago}
         </time>
@@ -274,63 +282,63 @@ function MatchCard({
             <span>{item.place}</span>
           </>
         ) : null}
-        {item.status === 'saved' ? <StatusBadge tone="brand">Saved</StatusBadge> : null}
-        {item.status === 'done' ? <StatusBadge tone="success">Done</StatusBadge> : null}
-        {item.status === 'dismissed' ? <StatusBadge>Dismissed</StatusBadge> : null}
+        {item.status === 'saved' ? <StatusBadge tone="brand">{t(lang, 'card.saved')}</StatusBadge> : null}
+        {item.status === 'done' ? <StatusBadge tone="success">{t(lang, 'card.done')}</StatusBadge> : null}
+        {item.status === 'dismissed' ? <StatusBadge>{t(lang, 'card.dismissed')}</StatusBadge> : null}
       </div>
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
-      <OpportunityChip label={item.label} deadline={item.deadline} />
+      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} />
       {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">
-          <span className="font-semibold">Why it may matter: </span>
+          <span className="font-semibold">{`${t(lang, 'brief.h.note')}: `}</span>
           {item.aiNote}
         </p>
       ) : null}
-      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
+      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{localizeTitle(item.title, lang, item.source)}</h2>
       {cardSummary ? <p className="mt-1 line-clamp-2 text-muted">{cardSummary}</p> : null}
 
-      <BriefBlock item={item} />
+      <BriefBlock item={item} lang={lang} />
 
-      {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
+      {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} lang={lang} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {isRequest ? (
-          <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} />
+          <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} lang={lang} />
         ) : item.kind === 'ask' ? (
-          <DraftControls item={item} onDraft={onDraft} />
+          <DraftControls item={item} onDraft={onDraft} lang={lang} />
         ) : null}
         {item.status === 'new' ? (
           <>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>Done</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>Dismiss</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>{t(lang, 'card.save')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
           </>
         ) : null}
         {item.status === 'saved' ? (
           <>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>Done</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>Dismiss</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>Unsave</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>{t(lang, 'card.unsave')}</Button>
           </>
         ) : null}
         {closed ? (
-          <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>Move back to inbox</Button>
+          <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>{t(lang, 'card.move_back')}</Button>
         ) : null}
       </div>
 
       {/* key: a fresh draft from "Redraft reply" replaces whatever was edited. */}
-      {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} /> : null}
+      {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} lang={lang} /> : null}
 
-      {typeof item.signalId === 'number' ? <FeedbackButtons signalId={item.signalId} initial={item.feedback ?? null} /> : null}
+      {typeof item.signalId === 'number' ? <FeedbackButtons signalId={item.signalId} initial={item.feedback ?? null} lang={lang} /> : null}
     </Card>
   );
 }
 
 /** "Draft reply" button. The draft text itself renders in DraftPanel below the actions. */
-function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number, draft: string) => void }) {
+function DraftControls({ item, onDraft, lang }: { item: FeedItem; onDraft: (id: number, draft: string) => void; lang: Lang }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -351,14 +359,14 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
       if (res.ok && body.draft) {
         onDraft(item.id, body.draft);
       } else if (res.status === 400 || res.status === 404) {
-        setError('Drafts only work for people asking for help.');
+        setError(t(lang, 'card.draft_err.not_ask'));
       } else if ((res.status === 403 || res.status === 429 || res.status === 503) && typeof body.message === 'string') {
         setError(body.message);
       } else {
-        setError("We couldn't write a draft just now. Try again.");
+        setError(t(lang, 'card.draft_err.generic'));
       }
     } catch {
-      setError("We couldn't reach the server. Try again.");
+      setError(t(lang, 'card.draft_err.network'));
     }
     setPending(false);
   }
@@ -366,7 +374,7 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
   return (
     <>
       <Button size="sm" variant="primary" onClick={run} disabled={pending}>
-        {pending ? 'Writing...' : item.draft ? 'Redraft reply' : 'Draft reply'}
+        {pending ? t(lang, 'card.writing') : item.draft ? t(lang, 'card.redraft') : t(lang, 'card.draft')}
       </Button>
       <p role="alert" className="w-full text-sm text-danger empty:hidden">
         {error}
@@ -375,7 +383,7 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
   );
 }
 
-function DraftPanel({ item }: { item: FeedItem }) {
+function DraftPanel({ item, lang }: { item: FeedItem; lang: Lang }) {
   const [text, setText] = useState(item.draft ?? '');
   const [copied, setCopied] = useState(false);
 
@@ -392,7 +400,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
   return (
     <div className="mt-4 rounded-card border border-line bg-background p-4">
       <label htmlFor={`draft-${item.id}`} className="text-sm font-semibold text-ink">
-        Your draft. Edit it, then post it yourself.
+        {t(lang, 'card.draft_panel')}
       </label>
       <textarea
         id={`draft-${item.id}`}
@@ -403,10 +411,10 @@ function DraftPanel({ item }: { item: FeedItem }) {
       />
       <div className="mt-2 flex items-center gap-3">
         <Button size="sm" variant="secondary" onClick={copy}>
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t(lang, 'card.copied') : t(lang, 'card.copy')}
         </Button>
         <span role="status" className="text-sm text-muted">
-          {copied ? 'Copied to your clipboard.' : 'Holler never posts for you.'}
+          {copied ? t(lang, 'card.copied_status') : t(lang, 'card.never_posts')}
         </span>
       </div>
     </div>
@@ -414,7 +422,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
 }
 
 /** Paywall view: placeholders only. The server sends masked text, so nothing real sits behind the blur. */
-export function LockedFeed({ items, children }: { items: FeedItem[]; children: React.ReactNode }) {
+export function LockedFeed({ items, children, lang = 'en' }: { items: FeedItem[]; children: React.ReactNode; lang?: Lang }) {
   return (
     <div className="relative min-h-[30rem]">
       <ul aria-hidden="true" inert className="pointer-events-none flex select-none flex-col gap-4 blur-[6px]">
@@ -422,13 +430,13 @@ export function LockedFeed({ items, children }: { items: FeedItem[]; children: R
           <li key={item.id}>
             <Card as="article">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                <Badge kind={item.kind} label={item.subtype === 'bid' ? 'Open bid' : undefined} />
+                <Badge kind={item.kind} label={item.subtype === 'bid' ? t(lang, 'bid.label') : undefined} lang={lang} />
                 <span className="font-mono text-xs">{item.ago}</span>
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
-              <h2 className="h-plain mt-3 text-lg leading-snug">{item.title}</h2>
-              <p className="mt-1 text-muted">{item.summary}</p>
-              <WhoToContactLocked item={item} />
+              <h2 className="h-plain mt-3 text-lg leading-snug">{localizeTitle(item.title, lang, item.source)}</h2>
+              <p className="mt-1 text-muted">{localizeSummary(item.summary, lang, item.source)}</p>
+              <WhoToContactLocked item={item} lang={lang} />
             </Card>
           </li>
         ))}

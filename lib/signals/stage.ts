@@ -1,4 +1,5 @@
 import type { CategoryId } from './categories';
+import { localizeDate, t, type DictKey, type Lang } from '../i18n';
 
 /**
  * Construction stage of a building permit (PLAN-2.0 item 2.1). Pure and client-safe: no server imports, no clock, no network.
@@ -71,15 +72,16 @@ export function permitStageOf(raw: unknown): PermitStage | null {
 // ---- the card line ------------------------------------------------------------------------------------------------------------------
 
 /**
- * One fixed sentence per trigger stage. Timing only: it says what the public source lists and that the building may be ready soon.
- * It never says work is needed, that a hire happened or that anyone is choosing a vendor. At most 130 characters with the date.
+ * One fixed sentence per trigger stage (dictionary keys stage.line.*, English and Spanish). Timing only: it says what the public source
+ * lists and that the building may be ready soon. It never says work is needed, that a hire happened or that anyone is choosing a vendor.
+ * At most 130 characters with the date.
  */
-const STAGE_TEXT: Readonly<Record<PermitStage, string | null>> = {
+const STAGE_LINE_KEY: Readonly<Record<PermitStage, DictKey | null>> = {
   issued: null,
   stopped: null,
-  final_inspection: 'The public source lists this permit at final inspection ({date}). The building may be ready soon.',
-  finaled: 'The public source lists this permit as finished ({date}). The building may be ready soon.',
-  certificate_of_occupancy: 'The public source lists a certificate of occupancy ({date}). The building may open soon.',
+  final_inspection: 'stage.line.final_inspection',
+  finaled: 'stage.line.finaled',
+  certificate_of_occupancy: 'stage.line.certificate_of_occupancy',
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -96,16 +98,17 @@ function dayText(iso: string | null | undefined): string | null {
  * The card line for a stored stage (data.permitStage) and the day Holler first saw it (data.permitStageAt), or null for no stage, a stage
  * that is not a trigger, or a value this code does not know (a hand-edited row never prints free text). Without a date it reads "on record".
  */
-export function stageLine(stage: unknown, seenAt?: string | null): string | null {
+export function stageLine(stage: unknown, seenAt?: string | null, lang: Lang = 'en'): string | null {
   if (!isPermitStage(stage)) return null;
-  const text = STAGE_TEXT[stage];
-  if (!text) return null;
-  return text.replace('{date}', dayText(seenAt) ? `seen ${dayText(seenAt)}` : 'on record');
+  const key = STAGE_LINE_KEY[stage];
+  if (!key) return null;
+  const day = dayText(seenAt);
+  return t(lang, key, { date: day ? t(lang, 'stage.date.seen', { date: localizeDate(day, lang) }) : t(lang, 'stage.date.on_record') });
 }
 
 /** Every string stageLine can print, for the wording tests. */
-export function allStageStrings(): string[] {
-  return PERMIT_STAGES.map((s) => stageLine(s, '2026-11-22T12:00:00Z')).filter((x): x is string => x !== null);
+export function allStageStrings(lang: Lang = 'en'): string[] {
+  return PERMIT_STAGES.map((s) => stageLine(s, '2026-11-22T12:00:00Z', lang)).filter((x): x is string => x !== null);
 }
 
 /** PostgREST select aliases for the data keys a stage update writes (the pattern of DEADLINE_SELECT and VALUE_SELECT). */
@@ -128,8 +131,14 @@ export const STAGE_RANK: Readonly<Record<PermitStage, number>> = { issued: 0, st
 /** Most stage updates one member gets in a UTC day, counted together with the per-scan cap of 25 (lib/signals/match.ts MAX_MATCHES_PER_USER). */
 export const MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY = 5;
 
-/** Short names for the email subject, the digest and the push. */
-const STAGE_NAME: Readonly<Record<PermitStage, string | null>> = { issued: null, stopped: null, final_inspection: 'final inspection', finaled: 'finished', certificate_of_occupancy: 'certificate of occupancy' };
+/** Short names for the email subject, the digest and the push (dictionary keys stage.name.*). */
+const STAGE_NAME_KEY: Readonly<Record<PermitStage, DictKey | null>> = {
+  issued: null,
+  stopped: null,
+  final_inspection: 'stage.name.final_inspection',
+  finaled: 'stage.name.finaled',
+  certificate_of_occupancy: 'stage.name.certificate_of_occupancy',
+};
 
 /**
  * A record row that carries a stage UPDATE (data.permitStageUpdate, written only when a stage change reached an already stored project):
@@ -141,22 +150,47 @@ export function isStageUpdate(row: { permitStage?: unknown; permitStageAt?: unkn
   return flag && isTriggerStage(row.permitStage) && typeof row.permitStageAt === 'string' && Number.isFinite(Date.parse(row.permitStageAt));
 }
 
-/** "final inspection", "finished" or "certificate of occupancy", or null for a stage that is not a trigger. */
-export function stageName(stage: unknown): string | null {
-  return isPermitStage(stage) ? STAGE_NAME[stage] : null;
+/** "final inspection", "finished" or "certificate of occupancy" (Spanish: "inspección final", ...), or null for a stage that is not a trigger. */
+export function stageName(stage: unknown, lang: Lang = 'en'): string | null {
+  if (!isPermitStage(stage)) return null;
+  const key = STAGE_NAME_KEY[stage];
+  return key ? t(lang, key) : null;
+}
+
+/** The day of a stage date as the reader's language writes it ("Nov 22, 2026" / "22 nov 2026"), or null. */
+export function stageDay(at: unknown, lang: Lang = 'en'): string | null {
+  const day = typeof at === 'string' ? dayText(at) : null;
+  return day ? localizeDate(day, lang) : null;
 }
 
 /** "Stage update: final inspection, listed by the public source on Nov 22, 2026." (null when this is not a stage update). */
-export function stageUpdateLine(stage: unknown, at: unknown): string | null {
-  const name = stageName(stage);
-  const day = typeof at === 'string' ? dayText(at) : null;
-  return name && day ? `Stage update: ${name}, listed by the public source on ${day}.` : null;
+export function stageUpdateLine(stage: unknown, at: unknown, lang: Lang = 'en'): string | null {
+  const name = stageName(stage, lang);
+  const day = stageDay(at, lang);
+  return name && day ? t(lang, 'stage.update.line', { name, date: day }) : null;
+}
+
+/** The time part of a stage update's meta line: "Stage update, Nov 22, 2026" (null without a valid date). */
+export function stageUpdateMeta(at: unknown, lang: Lang = 'en'): string | null {
+  const day = stageDay(at, lang);
+  return day ? t(lang, 'stage.update.meta', { date: day }) : null;
 }
 
 /** Email subject for one stage update: "Update: final inspection on a permit near you". */
-export function stageUpdateSubject(stage: unknown): string | null {
-  const name = stageName(stage);
-  return name ? `Update: ${name} on a permit near you` : null;
+export function stageUpdateSubject(stage: unknown, lang: Lang = 'en'): string | null {
+  const name = stageName(stage, lang);
+  return name ? t(lang, 'stage.update.subject', { name }) : null;
+}
+
+/** Every string a stage update (email subject, line, meta) and its push can print, for the wording tests. */
+export function allStageUpdateStrings(lang: Lang = 'en'): string[] {
+  const at = '2026-11-22T12:00:00Z';
+  const out: Array<string | null> = [];
+  for (const s of TRIGGER_STAGES) {
+    out.push(stageUpdateLine(s, at, lang), stageUpdateSubject(s, lang), stageUpdateMeta(at, lang));
+  }
+  out.push(t(lang, 'stage.update.subject_fallback'), t(lang, 'stage.update.subject_only', { n: 2 }), t(lang, 'stage.update.subject_mixed', { n: 3, u: 2 }));
+  return out.filter((x): x is string => x !== null);
 }
 
 /** The scan note written to holler_scan_runs.error when a source's stage query did not work. Not a failure of the source itself. */

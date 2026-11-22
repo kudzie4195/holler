@@ -22,6 +22,7 @@ import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
+import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 
 // Only /check itself is indexed. Every ?zip=&trade= variant is noindex (tens of thousands of combinations, one canonical).
 export async function generateMetadata(props: PageProps<'/check'>): Promise<Metadata> {
@@ -31,7 +32,7 @@ export async function generateMetadata(props: PageProps<'/check'>): Promise<Meta
     title: 'See what happened near you',
     description:
       'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.',
-    alternates: { canonical: '/check' },
+    alternates: pairAlternates(ES_PAIRS[1], 'en'),
     robots: variant ? { index: false, follow: true } : { index: true, follow: true },
   };
 }

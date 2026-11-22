@@ -366,3 +366,13 @@ export function routeWhyFor(title: string | null | undefined, trade: string | nu
   const out = text.replace('{Permit}', noun);
   return k === 'new-build' && trade === 'cleaning' && noun === 'A new-home permit' ? out.replace('finished buildings', 'finished homes') : out;
 }
+
+/**
+ * The kind and the permit's own noun behind routeWhyFor, for a sentence built in another language (lib/signals/brief-i18n.ts). The noun
+ * is one of PERMIT_NOUNS (English); the caller looks it up in the dictionary. Null when the trade is not downstream of the title.
+ */
+export function routeParts(title: string | null | undefined, trade: string | null | undefined, ctx?: RouteContext | null): { kind: RouteKind; noun: string } | null {
+  const k = routeFor(title, trade, ctx);
+  if (!k || !ROUTE_WHY[`${k}|${trade}`]) return null;
+  return { kind: k, noun: permitNounFor(k, title, ctx) };
+}

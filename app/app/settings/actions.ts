@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getProfile, getUser } from '@/lib/auth/session';
 import { deleteHollerAccount } from '@/lib/mobile/account';
 import { saveProfile } from '@/lib/auth/profile';
+import { saveLanguage, type LanguageState } from '@/lib/auth/language';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
@@ -103,4 +105,18 @@ export async function deleteAccount(): Promise<DeleteState> {
     // The stale cookie is harmless and fails verification.
   }
   redirect('/');
+}
+
+/**
+ * Saves the member's language (English or Español). Separate from saveSettings on purpose: a database without migration 0024 has no
+ * `language` column, and that must never make "Save changes" fail. Without the column this writes nothing and shows no error.
+ */
+export async function saveLanguageSetting(_prev: LanguageState, formData: FormData): Promise<LanguageState> {
+  const user = await getUser();
+  if (!user) redirect('/login?next=/app/settings');
+  const supabase = await createClient();
+  const result = await saveLanguage(supabase, user.id, formData.get('language'));
+  // The cards, the header and the settings page read the language from the profile on every request.
+  if (result.ok && !result.skipped) revalidatePath('/app', 'layout');
+  return result;
 }

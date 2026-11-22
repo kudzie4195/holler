@@ -1,5 +1,6 @@
 import { EMAIL_STYLE } from '@/lib/email/theme';
 import { COMPANY } from './company';
+import { t, type Lang } from '@/lib/i18n';
 
 /**
  * Sender identity and postal address for the end of every email Holler sends to members.
@@ -17,13 +18,15 @@ function escape(s: string): string {
 }
 
 /** "Holler is run by ColorLabPro, Inc., <address>." Plain text, no trailing newline. */
-export function postalFooterText(): string {
-  return `${COMPANY.brand} is run by ${COMPANY.legalName}, ${COMPANY.addressLine}.`;
+export function postalFooterText(lang: Lang = 'en'): string {
+  return t(lang, 'email.postal', { brand: COMPANY.brand, legal: COMPANY.legalName, address: COMPANY.addressLine });
 }
 
 /** The same line as a small grey paragraph (size and color from the email theme), every value HTML-escaped. */
-export function postalFooterHtml(): string {
-  return `<p style="${EMAIL_STYLE.small};margin:16px 0 0 0">${escape(COMPANY.brand)} is run by ${escape(
-    COMPANY.legalName,
-  )}, ${escape(COMPANY.addressLine)}.</p>`;
+export function postalFooterHtml(lang: Lang = 'en'): string {
+  return `<p style="${EMAIL_STYLE.small};margin:16px 0 0 0">${t(lang, 'email.postal', {
+    brand: escape(COMPANY.brand),
+    legal: escape(COMPANY.legalName),
+    address: escape(COMPANY.addressLine),
+  })}</p>`;
 }

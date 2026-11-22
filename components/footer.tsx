@@ -4,7 +4,7 @@ import { contactAddress } from '@/lib/email/templates';
 import { PAGE_BOX } from './grid';
 import { Logo } from './logo';
 
-type FooterLink = { href: string; label: string };
+type FooterLink = { href: string; label: string; /** Set on a link to a page in another language: the label is read in that language and the link says what it points to. */ lang?: string; hrefLang?: string };
 
 /** Trade pages linked from the footer, by category id in lib/signals/categories.ts. */
 export const FOOTER_TRADES: FooterLink[] = [
@@ -27,6 +27,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/#how', label: 'How it works' },
         { href: '/storms', label: 'Storm reports' },
         { href: '/request', label: 'Request a service' },
+        { href: '/es', label: 'Español', lang: 'es', hrefLang: 'es' },
       ],
     },
     { title: 'Trades', links: FOOTER_TRADES },
@@ -78,7 +79,7 @@ export function Footer() {
                         {l.label}
                       </a>
                     ) : (
-                      <Link href={l.href} className="h-link text-[0.9375rem] leading-snug text-on-brand">
+                      <Link href={l.href} {...(l.lang ? { lang: l.lang, hrefLang: l.hrefLang } : {})} className="h-link text-[0.9375rem] leading-snug text-on-brand">
                         {l.label}
                       </Link>
                     )}

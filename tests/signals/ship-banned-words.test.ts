@@ -40,6 +40,8 @@ const MODULES = [
   'lib/outreach', 'lib/signals/brief.ts', 'lib/signals/permit-routing.ts', 'lib/signals/permit-value.ts', 'lib/signals/managed-by.ts', 'lib/signals/approx-location.ts',
   'lib/check/coverage-notice.ts', 'lib/email/templates.ts', 'lib/mobile/feed.ts', 'lib/push', 'lib/moat/email.ts', 'lib/lifecycle/templates.ts',
   'components/feed.tsx', 'components/feed', 'components/coverage-notice.tsx', 'app/app',
+  // r17 ES: the dictionary (English and Spanish values), the Spanish pages and their chrome. The Spanish wording rules are in tests/i18n.
+  'lib/i18n/en.ts', 'lib/i18n/es.ts', 'lib/i18n/index.ts', 'lib/signals/brief-i18n.ts', 'lib/signals/lead-i18n.ts', 'app/es', 'components/es',
 ];
 
 describe('banned words: member-facing source strings', () => {

@@ -89,6 +89,7 @@ describe('/check?zip= with no trade (the home page ZIP form)', () => {
     const meta = async (sp: Sp) => generateMetadata({ searchParams: Promise.resolve(sp) } as never);
     expect((await meta({ zip: '60614' })).robots).toEqual({ index: false, follow: true });
     expect((await meta({})).robots).toEqual({ index: true, follow: true });
-    expect((await meta({ zip: '60614' })).alternates).toEqual({ canonical: '/check' });
+    // r17 ES: the canonical is unchanged; the hreflang pair (en, es, x-default) is new.
+    expect((await meta({ zip: '60614' })).alternates).toEqual({ canonical: '/check', languages: { en: '/check', es: '/es/check', 'x-default': '/check' } });
   });
 });
