@@ -254,7 +254,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   let lastRuns: Record<string, number> = {};
   if (!dry && db && !opts.source) {
     try {
-      lastRuns = await getLastRunTimes(db);
+      lastRuns = await getLastRunTimes(db, now.getTime());
     } catch (e) {
       report.error = e instanceof Error ? e.message : String(e);
       return report;
