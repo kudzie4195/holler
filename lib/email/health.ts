@@ -4,6 +4,7 @@
  */
 
 import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
+import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
 
 export interface HealthAdapter {
   id: string;
@@ -62,6 +63,12 @@ export interface HealthReport {
   totals24h: { runs: number; fetched: number; inserted: number };
   counts: HealthCounts;
   sources: SourceHealth[];
+  /**
+   * Source states (lib/signals/source-state.ts): healthy, delayed, degraded, unavailable, not set up yet. Attached by the route after
+   * planHealth; absent when the state read failed. Shown in the email as its own block, and it changes the subject only when the
+   * run-level checks found nothing (so "all sources OK" is never printed over a degraded source).
+   */
+  sourceStates?: SourceStateSummary | null;
 }
 
 const MIN = 60_000;
@@ -260,6 +267,27 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
   }
   if (report.watch.length) blocks.push({ title: 'Watch', lines: report.watch.slice(0, 10) });
   if (report.notConfigured.length) blocks.push({ title: 'Not configured (skipped on purpose)', lines: report.notConfigured });
+  const states = report.sourceStates;
+  let subject = report.subject;
+  if (states) {
+    const c = states.counts;
+    const lines = [
+      `${c.healthy} healthy, ${c.delayed} delayed, ${c.degraded} degraded, ${c.unavailable} unavailable, ${c.not_set_up} ${STATE_LABEL.not_set_up.toLowerCase()} (of ${states.total})`,
+    ];
+    for (const r of states.attention.filter((x) => x.state !== 'not_set_up').slice(0, maxLines)) {
+      const run = r.sinceSuccessMs === null ? 'no successful run yet' : `last successful run ${agePhrase(r.sinceSuccessMs)} ago`;
+      const rec = r.lastRecordAt === null ? 'no record received yet' : `newest record ${agePhrase(Math.max(0, Date.parse(report.generatedAt) - Date.parse(r.lastRecordAt)))} ago`;
+      lines.push(`${r.id}: ${STATE_LABEL[r.state].toLowerCase()}, ${run}, ${rec} (${r.detail})`);
+    }
+    // Healthy by the rules (it runs and does not fail) but has never returned a row in its history: worth a look, not an alarm.
+    if (states.quiet.length > 0) {
+      lines.push(`Running but never returned a row in the history we hold (check the source is still right): ${states.quiet.map((q) => q.id).join(', ')}`);
+    }
+    blocks.push({ title: 'Source states', lines });
+    if (states.behind > 0 && report.problemCount === 0) {
+      subject = `Holler health: ${states.behind} ${states.behind === 1 ? 'source is' : 'sources are'} behind on data`;
+    }
+  }
   const c = report.counts;
   blocks.push({
     title: 'Last 24 hours',
@@ -271,14 +299,14 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
     ],
   });
 
-  const text = [report.subject, ...blocks.map((b) => `\n${b.title}\n${b.lines.map((l) => `- ${l}`).join('\n')}`)].join('\n') + '\n';
+  const text = [subject, ...blocks.map((b) => `\n${b.title}\n${b.lines.map((l) => `- ${l}`).join('\n')}`)].join('\n') + '\n';
   const html =
     wrapOpen(600) +
-    `<h1 style="${EMAIL_STYLE.h1};font-size:22px;margin:0 0 12px 0">${esc(report.subject)}</h1>` +
+    `<h1 style="${EMAIL_STYLE.h1};font-size:22px;margin:0 0 12px 0">${esc(subject)}</h1>` +
     blocks
       .map((b) => `<h2 style="${EMAIL_STYLE.h2};font-size:15px;margin:16px 0 4px 0">${esc(b.title)}</h2><ul style="margin:0;padding-left:20px">${b.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`)
       .join('') +
     cardClose() +
     WRAP_CLOSE;
-  return { subject: report.subject, text, html };
+  return { subject, text, html };
 }
