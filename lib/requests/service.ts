@@ -5,7 +5,10 @@ import { contactAddress } from '@/lib/email/templates';
 import { renderRequestAdmin, renderRequestConfirm, renderRequestPublished, renderRequestReply } from '@/lib/email/request-emails';
 import { lookupZip, nearestCity } from '@/lib/geo';
 import { matchSignals } from '@/lib/signals/match';
-import { canSeeAlerts, insertMatches, insertNewSignals, loadProfiles, type StoredSignal } from '@/lib/signals/store';
+import { INSERTED_SIGNAL_COLUMNS, canSeeAlerts, insertMatches, insertNewSignals, loadProfiles, type StoredSignal } from '@/lib/signals/store';
+
+/** The stored request row, read back with what matching needs (kind and the opportunity fields), as the insert reads it. */
+const REQUEST_SIGNAL_COLUMNS = INSERTED_SIGNAL_COLUMNS;
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import {
   CONFIRM_DAYS,
@@ -248,7 +251,7 @@ async function publish(deps: RequestDeps, row: RequestRow, expiresAt: Date, now:
   if (!stored) {
     const { data } = await deps.db
       .from('holler_signals')
-      .select('id, source, title, categories, lat, lon, state, severity, occurred_at, place_slug')
+      .select(REQUEST_SIGNAL_COLUMNS)
       .eq('source', REQUEST_SOURCE)
       .eq('external_id', row.public_id)
       .maybeSingle();

@@ -136,7 +136,8 @@ describe('missedSince (day 8 count)', () => {
   const since = new Date('2026-11-17T06:00:00Z');
   const base = { categories: ['roofing'] as string[] | null, lat: 33.749, lon: -84.388, state: 'GA', radius_mi: 25, plan: null, subscription_status: 'trialing', extra_areas: null, keywords: null };
   type Row = Record<string, unknown>;
-  const row = (id: number, over: Row = {}): Row => ({ id, source: 'spc', kind: 'report', state: 'GA', lat: 33.75, lon: -84.39, categories: ['roofing'], severity: 2, occurred_at: '2026-11-18T10:00:00Z', subtype: null, ...over });
+  // u2: the count applies the opportunity test, so a storm report carries what makes it one (a hail report, title and data->>type).
+  const row = (id: number, over: Row = {}): Row => ({ id, source: 'spc', kind: 'report', title: 'Hail report near Atlanta', opp_type: 'hail', state: 'GA', lat: 33.75, lon: -84.39, categories: ['roofing'], severity: 2, occurred_at: '2026-11-18T10:00:00Z', subtype: null, ...over });
   function stub(a: Row[], b: Row[] = [], err?: string, c: Row[] = []): { db: never; filters: string[] } {
     const filters: string[] = [];
     const db = {
@@ -158,7 +159,7 @@ describe('missedSince (day 8 count)', () => {
   }
 
   it('counts matching rows exactly, never counting a row twice', async () => {
-    const { db, filters } = stub([row(1), row(2), row(3, { categories: ['plumbing'] }), row(2)], [row(4, { lat: null, lon: null, severity: 2 }), row(5, { lat: null, lon: null, severity: 1 })]);
+    const { db, filters } = stub([row(1), row(2), row(3, { categories: ['plumbing'], kind: 'permit', title: 'Plumbing permit in Atlanta', opp_type: null }), row(2)], [row(4, { lat: null, lon: null, severity: 2 }), row(5, { lat: null, lon: null, severity: 1 })]);
     const r = await missedSince(db, base, since, now);
     expect(r).toEqual({ count: 3, capped: false }); // 1, 2 and 4 (3 is another trade, 5 is state-level at severity 1)
     expect(filters).toContain(`gte:occurred_at,${since.toISOString()}`);

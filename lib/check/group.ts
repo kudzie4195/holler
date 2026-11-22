@@ -1,3 +1,4 @@
+import type { OpportunityDto } from '@/lib/signals/member-opportunity';
 export interface CheckItem {
   id: number;
   kind: string;
@@ -10,6 +11,18 @@ export interface CheckItem {
   lon?: number | null;
   occurredAt: string;
   severity: number;
+  /** The record's opportunity for the chosen trade (lib/check/load.ts). Context rows are never listed. */
+  opportunity?: OpportunityDto | null;
+}
+
+/** Counts per label (Act now, Coming soon, Market insight) of the items that will be shown. Pure. */
+export function opportunityCounts(items: readonly Pick<CheckItem, 'opportunity'>[]): Record<'act' | 'soon' | 'intel', number> {
+  const out = { act: 0, soon: 0, intel: 0 };
+  for (const it of items) {
+    const l = it.opportunity?.label;
+    if (l === 'act' || l === 'soon' || l === 'intel') out[l]++;
+  }
+  return out;
 }
 
 export interface CheckGroup {
@@ -90,7 +103,8 @@ function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: n
  * after the groups that have recent items. `origin` is the ZIP's own position; without it nothing counts as local.
  */
 export function groupItems(items: CheckItem[], now: number = Date.now(), origin?: { lat: number; lon: number }): CheckGroup[] {
-  const sorted = items.slice().sort((a, b) => compareItems(a, b, now, origin));
+  // A record that is only 'context' for the trade is never listed as an alert (lib/check/load.ts already leaves them out).
+  const sorted = items.filter((i) => i.opportunity?.label !== 'context').sort((a, b) => compareItems(a, b, now, origin));
   const buckets = new Map<string, CheckItem[]>();
   let total = 0;
   for (const it of sorted) {

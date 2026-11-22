@@ -32,7 +32,9 @@ describe('decision 2, guard 2: the push counts only news (verifier probe)', () =
     });
   });
   const add = (id: number, occurredMsAgo: number, over: Record<string, unknown> = {}) => {
-    m.tables.holler_signals.push({ id: 500 + id, title: `Roof permit in Atlanta ${id}`, city: 'Atlanta', source: 'arcgis-atlanta-permits', expires_at: null, occurred_at: ago(occurredMsAgo) });
+    // u2: push counts only 'act' records for the member's trades (a re-roof permit is a Market insight for a roofer, never pushed),
+    // so the record here is a 1.5 inch hail report, Act now for roofing.
+    m.tables.holler_signals.push({ id: 500 + id, title: `Hail report in Atlanta ${id}`, city: 'Atlanta', source: 'spc', kind: 'report', categories: ['roofing'], data: { type: 'hail', hailInches: 1.5 }, expires_at: null, occurred_at: ago(occurredMsAgo) });
     m.tables.holler_matches.push({ id, user_id: UA, signal_id: 500 + id, status: 'new', notified: true, pushed_at: null, created_at: ago(5 * 60_000), ...over });
   };
 

@@ -1,0 +1,51 @@
+{
+ "rows": [
+  {
+   "permitnumber": "ZP-2026-011042",
+   "permittype": "Zoning",
+   "typeofwork": "Change of Use",
+   "approvedscopeofwork": "Residential - Household Living - Single-Family; Vacant",
+   "permitdescription": null,
+   "permitissuedate": "2026-11-21T22:32:57Z",
+   "contractorname": null,
+   "address": "1300 W SOMERSET ST",
+   "zip": "19132-2737",
+   "opa_owner": "JAMES CARTER ETUX",
+   "contractoraddress1": null,
+   "lat": 39.9987,
+   "lon": -75.1527
+  },
+  {
+   "permitnumber": "ZP-2026-009614",
+   "permittype": "Zoning",
+   "typeofwork": "New construction, addition, GFA change",
+   "approvedscopeofwork": "For the creation of a deck at the rear of an existing attached structure...",
+   "permitdescription": null,
+   "permitissuedate": "2026-11-21T16:32:27Z",
+   "contractorname": "Paulette Ahmad",
+   "address": "5851 MALVERN AVE",
+   "zip": "19131-2235",
+   "opa_owner": "RANDOLPH STANTON, KATHRYN STANTON",
+   "contractoraddress1": "Paulette Ahmad\n6245 Webster St\nPhiladelphia, PA  19143\nUSA",
+   "lat": 39.9754,
+   "lon": -75.2352
+  },
+  {
+   "permitnumber": "ZP-2026-010793",
+   "permittype": "Zoning",
+   "typeofwork": "Change of Use",
+   "approvedscopeofwork": "Residential - Household Living - Two-Family",
+   "permitdescription": null,
+   "permitissuedate": "2026-11-21T14:05:51Z",
+   "contractorname": null,
+   "address": "3116 N 9TH ST",
+   "zip": "19133-2029",
+   "opa_owner": "WO HOLDINGS LLC",
+   "contractoraddress1": null,
+   "lat": 40.0014,
+   "lon": -75.1404
+  }
+ ],
+ "time": 0.01,
+ "total_rows": 3
+}

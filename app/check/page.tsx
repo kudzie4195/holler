@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { AreaWaitlist } from '@/components/area-waitlist';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
@@ -11,6 +12,7 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
+import { localCoverage } from '@/lib/check/coverage';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -140,6 +142,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
         <CheckResults {...common} mode="uncovered" items={[]} checkedAt={new Date(now).toISOString()} />
+        <AreaWaitlist zip={params.zip} trade={params.trade} placeLabel={placeLabel} className="mt-8" />
       </>
     );
   }
@@ -161,7 +164,11 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const ctx = await eventContext().catch(() => null);
   if (ctx) after(() => trackVisitorStep('area_check', ctx, '/check'));
 
-  const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
+  // Both reads in parallel. Coverage ignores the trade: it asks whether any city or county feed reaches this place at all.
+  const [data, coverage] = await Promise.all([
+    loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
+    localCoverage(scope.cellLat, scope.cellLon),
+  ]);
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
 
   return (
@@ -169,6 +176,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
       <FormBand>
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
+      {coverage === 'none' ? <AreaWaitlist zip={params.zip} trade={params.trade} placeLabel={placeLabel} className="mt-8" /> : null}
       <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
     </>
   );

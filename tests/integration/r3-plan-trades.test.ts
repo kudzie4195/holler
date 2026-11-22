@@ -33,11 +33,12 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
   severity,
   subtype: null,
 });
-// Newest match first, as the route reads them.
+// Newest match first, as the route reads them. u2 (opportunity labels): the digest carries Act now and Coming soon only, so the reports
+// carry what makes them actionable for roofing: damage remarks on the wind report, a hail size (data->>hailInches as the route reads it).
 const MATCHES = [
-  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind report near Smyrna', 2) },
+  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: { ...sig(1, 'Wind report near Smyrna', 2), summary: 'Trees down on Main St' } },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
-  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
+  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: { ...sig(3, 'Hail report near Marietta', 60), opp_hail: '1.25' } },
 ];
 
 const missing = (t: string) => ({ data: null, error: { code: '42P01', message: `relation "public.${t}" does not exist` } });
@@ -122,7 +123,8 @@ afterEach(() => {
 });
 
 // Six saved trades; Solo uses the first 5, so roofing (the 6th) is saved but not matched.
-const SIX = ['plumbing', 'hvac', 'electrical', 'painting', 'pest-control', 'roofing'];
+// u2: tree-service first so the Solo member still has labelled reports (wind damage, tornado); roofing stays the 6th trade.
+const SIX = ['tree-service', 'hvac', 'electrical', 'painting', 'pest-control', 'roofing'];
 const AI = [{ signal_id: 3, trades: { roofing: 0.95 }, notes: { roofing: 'A roof inspection may follow this hail report.' } }];
 
 describe('notify digest: notes and ranking use the plan-limited trades', () => {
@@ -132,8 +134,9 @@ describe('notify digest: notes and ranking use the plan-limited trades', () => {
     const r = await runNotify(w);
     expect(r.body).toMatchObject({ emailed: 1 });
     expect(r.sent[0].text).not.toContain('A roof inspection may follow');
-    // the hail record was classified with none of the plan's trades: it scores 0 and goes last
-    expect(order(r.sent[0].text)[2]).toBe('Hail report near Marietta');
+    // u2: the hail report is 'context' for every trade the plan uses (hail is a roofing record), so it is not in the digest at all
+    // (it was "scores 0 and goes last" before the digest used opportunity labels).
+    expect(r.sent[0].text).not.toContain('Hail report near Marietta');
   });
 
   it('Pro with the same trades: the note shows and ranks first', async () => {
@@ -172,8 +175,9 @@ describe('notify digest: integrate3 patches', () => {
     vi.restoreAllMocks();
   });
   it('a Cobb County row says the feed has a street address but no map point, instead of a town', async () => {
-    const cobb = { ...sig(9, 'Residential permit: re-roof', 3), source: 'arcgis-cobb-residential-permits', kind: 'permit', city: 'Cobb County' };
-    const w: World = { migrated: true, lastNotified: null, ai: [], calls: [], matches: [{ id: 109, user_id: UID, created_at: new Date(NOW - H).toISOString(), signal: cobb }] };
+    // u2: a re-roof permit is 'Coming soon' for a gutter company (a roofer gets it as a Market insight, which is feed-only).
+    const cobb = { ...sig(9, 'Roof permit in Cobb County', 3), source: 'arcgis-cobb-residential-permits', kind: 'permit', categories: ['roofing'], city: 'Cobb County' };
+    const w: World = { migrated: true, lastNotified: null, ai: [], calls: [], profile: { categories: ['siding-gutters'] }, matches: [{ id: 109, user_id: UID, created_at: new Date(NOW - H).toISOString(), signal: cobb }] };
     const r = await runNotify(w);
     expect(r.sent[0].text).toContain("In Cobb County. The county's feed has a street address but no map point, so no distance is shown.");
     expect(r.sent[0].text).not.toContain('Cobb County, GA');

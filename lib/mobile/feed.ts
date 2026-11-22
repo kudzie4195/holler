@@ -11,6 +11,7 @@ import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
+import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, opportunityDto, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
 import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -20,10 +21,9 @@ import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from
  * masked text and nothing else. Any failure of an extra (contacts, request text, feedback) leaves that extra out, never the alert.
  */
 
-export const MATCH_SELECT =
-  'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,occurred_at,expires_at,subtype:data->>subtype)';
+export const MATCH_SELECT = `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,occurred_at,expires_at,categories,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS})`;
 
-export interface SignalRow {
+export interface SignalRow extends OpportunityRowFields {
   id: number;
   source: string;
   kind: string;
@@ -91,6 +91,11 @@ function contactDto(c: ContactRecord): ContactDto {
   return out;
 }
 
+/** The DTO without 'context' (buildAlerts never sends a context row, so this only narrows the type). */
+function shownOpportunity(o: ReturnType<typeof opportunityDto>): AlertDto['opportunity'] {
+  return { ...o, label: o.label === 'context' ? 'intel' : o.label };
+}
+
 export interface BuildDeps {
   userId: string;
   locked: boolean;
@@ -100,13 +105,24 @@ export interface BuildDeps {
   admin: SupabaseClient | null;
   siteUrl: string;
   now: number;
+  /**
+   * The member's plan-limited trades and keyword watches (lib/plan matchScope), for each alert's `opportunity`. Rows whose best label
+   * is 'context' are dropped (they may be in holler_matches from before trade matching used opportunity).
+   */
+  trades: readonly string[];
+  keywords?: readonly string[];
 }
 
-/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests are dropped. */
+/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context rows are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
+  const opp = new Map<number, ReturnType<typeof memberOpportunity>>();
   const live = rows.filter((m) => {
     const s = signalOf(m);
-    return !!s && !isEndedRequest(s, deps.now);
+    if (!s || isEndedRequest(s, deps.now)) return false;
+    const o = memberOpportunity(s, deps.trades, deps.keywords ?? []);
+    if (o.label === 'context') return false;
+    opp.set(m.id, o);
+    return true;
   });
   if (live.length === 0) return [];
 
@@ -157,6 +173,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: INTENT_LABEL[intentOf(intentIn)], line: intentLine(intentIn) },
+      opportunity: shownOpportunity(opportunityDto(opp.get(m.id)!)),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
@@ -166,7 +183,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     };
     // Locked: placeholders only, never the real text, link, draft or contacts (the web's LockedFeed rule).
     return deps.locked
-      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [] }
+      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [], opportunity: { ...item.opportunity, why: maskText(item.opportunity.why) } }
       : item;
   });
 }

@@ -105,11 +105,11 @@ describe('P1-1: the feed reads request text with the service role, for the membe
           data: [
             {
               id: 11, status: 'new', distance_mi: 2, draft: null, created_at: iso(-60_000),
-              signal: { id: 5, source: 'holler-request', kind: 'ask', title: 'Service request in Atlanta: Roofing', summary: opts.signalSummary, url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000) },
+              signal: { id: 5, source: 'holler-request', kind: 'ask', categories: ['roofing'], title: 'Service request in Atlanta: Roofing', summary: opts.signalSummary, url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000) },
             },
             {
               id: 12, status: 'new', distance_mi: 2, draft: null, created_at: iso(-60_000),
-              signal: { id: 6, source: 'nws', kind: 'alert', title: 'Wind advisory', summary: 'Gusts to 45 mph', url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000) },
+              signal: { id: 6, source: 'nws', kind: 'alert', categories: ['roofing'], title: 'Wind advisory', summary: 'Gusts to 45 mph', url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000) },
             },
           ],
           error: null,
@@ -169,7 +169,7 @@ describe('P1-1: the alert email carries the request text for that member’s liv
     vi.stubEnv('CRON_SECRET', 's3cret');
     const sent: any[] = [];
     const matches = [
-      { id: 1, user_id: 'u1', created_at: iso(-60_000), signal: { source: 'holler-request', external_id: PUB, kind: 'ask', title: 'Service request in Atlanta: Roofing', url: 'https://holler.test/request', city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000), summary: 'PUBLIC ROW TEXT' } },
+      { id: 1, user_id: 'u1', created_at: iso(-60_000), signal: { source: 'holler-request', external_id: PUB, kind: 'ask', categories: ['roofing'], title: 'Service request in Atlanta: Roofing', url: 'https://holler.test/request', city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), expires_at: iso(86_400_000), summary: 'PUBLIC ROW TEXT' } },
     ];
     const requestsQueried: unknown[] = [];
     const admin = {
@@ -186,7 +186,7 @@ describe('P1-1: the alert email carries the request text for that member’s liv
             return { data: [{ public_id: PUB, status: 'open', expires_at: iso(86_400_000), public_summary: 'Roof leak over the kitchen.' }], error: null };
           }
           return {
-            data: [{ user_id: 'u1', business_name: 'Acme Roofing', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
+            data: [{ user_id: 'u1', business_name: 'Acme Roofing', categories: ['roofing'], alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
             error: null,
           };
         };

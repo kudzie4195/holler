@@ -101,7 +101,7 @@ export async function buildMail(
     unsubscribeUrl: lifecycleUnsubUrl(base, p.user_id, deps.secret, now.getTime()),
   };
   if (kind === 'welcome') {
-    const m = await deps.store.matchesOf(p.user_id);
+    const m = await deps.store.matchesOf(p.user_id, p);
     if (m.total > 0) {
       return { ...renderWelcomeMatches({ ...common, total: m.total, capped: m.capped, items: m.items.slice(0, 5) }), variant: 'matches' };
     }
@@ -110,7 +110,7 @@ export async function buildMail(
     return { ...renderWelcomeQuiet({ ...common, lines: q.lines, total: q.total, capped: q.capped, days: q.days }), variant: 'quiet' };
   }
   if (kind === 'trial_ending') {
-    const m = await deps.store.matchesOf(p.user_id);
+    const m = await deps.store.matchesOf(p.user_id, p);
     let rank = deps.rank;
     if (deps.rankFor) {
       try {

@@ -4,6 +4,7 @@ import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
+import { OPPORTUNITY_LABEL, OPPORTUNITY_RANK, type Opportunity } from '../signals/opportunity';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
@@ -25,6 +26,28 @@ export interface DigestItem {
   contact?: { name: string; role: string } | null;
   /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
   note?: string | null;
+  /**
+   * The record's opportunity for this member (lib/signals/member-opportunity.ts): label, why, next step and what is not known. When
+   * set it replaces the intent label and line. The instant digest carries only 'act' and 'soon' items (Act now first); 'intel' and
+   * 'context' items passed here are left out.
+   */
+  opportunity?: { label: Opportunity; why: string; next: string; uncertain: string } | null;
+}
+
+/** Labels the instant digest shows, in order. Market insights are in the feed only; context is never an alert. */
+export const DIGEST_OPPORTUNITIES: readonly Opportunity[] = ['act', 'soon'];
+
+/**
+ * Digest order: items with an opportunity label first, Act now before Coming soon (input order kept inside each label), then items
+ * without one (older callers). Items labelled 'intel' or 'context' are dropped. Pure.
+ */
+export function digestOrder<T extends Pick<DigestItem, 'opportunity'>>(items: readonly T[]): T[] {
+  const kept = items.filter((it) => !it.opportunity || DIGEST_OPPORTUNITIES.includes(it.opportunity.label));
+  const rank = (it: T) => (it.opportunity ? OPPORTUNITY_RANK[it.opportunity.label] : -1);
+  return kept
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => rank(b.it) - rank(a.it) || a.i - b.i)
+    .map((x) => x.it);
 }
 
 export interface Rendered {
@@ -136,30 +159,43 @@ export function renderDigest(opts: {
   now?: Date;
 }): Rendered {
   const now = opts.now ?? new Date();
-  const total = opts.totalCount ?? opts.items.length;
-  const more = Math.max(0, total - opts.items.length);
+  const items = digestOrder(opts.items);
+  const total = Math.max(opts.totalCount ?? items.length, items.length);
+  const more = Math.max(0, total - items.length);
   const subject = noDash(
     total === 1
-      ? `1 new thing near you: ${opts.items[0]?.title ?? 'local signal'}`.slice(0, 120)
+      ? `1 new thing near you: ${items[0]?.title ?? 'local signal'}`.slice(0, 120)
       : `${total} new things near you`,
   );
 
-  const htmlItems = opts.items
-    .map((it) => {
+  // One heading per label group (Act now, Coming soon) when the items carry labels.
+  const headingFor = (i: number): Opportunity | null => {
+    const l = items[i].opportunity?.label ?? null;
+    if (!l) return null;
+    return i === 0 || items[i - 1].opportunity?.label !== l ? l : null;
+  };
+  const htmlItems = items
+    .map((it, i) => {
       const src = safeUrl(it.sourceUrl);
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const intent = intentOf(sig);
-      const intentHtml = `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intent])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
+      const o = it.opportunity;
+      const intentHtml = o
+        ? `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(OPPORTUNITY_LABEL[o.label])}.</strong> ${escapeHtml(noDash(o.why))}</div>` +
+          `<div style="font-size:14px;margin:2px 0"><strong>Next step:</strong> ${escapeHtml(noDash(o.next))}</div>` +
+          `<div style="${S.small};margin:2px 0">Not known: ${escapeHtml(noDash(o.uncertain))}</div>`
+        : `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intentOf(sig)])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
+      const h = headingFor(i);
+      const heading = h ? `<li style="margin:8px 0 8px 0;padding:0;list-style:none"><h2 style="${S.h1};font-size:18px;margin:0">${escapeHtml(OPPORTUNITY_LABEL[h])}</h2></li>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
       const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
+      return `${heading}<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
         src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
       }</li>`;
     })
@@ -177,15 +213,19 @@ export function renderDigest(opts: {
     postalFooterHtml() +
     WRAP_CLOSE;
 
-  const textItems = opts.items
-    .map((it) => {
+  const textItems = items
+    .map((it, i) => {
       const src = safeUrl(it.sourceUrl);
       const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
         .filter(Boolean)
         .join(' | ');
       const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const intent = intentOf(sig);
-      return `${meta}\n${noDash(it.title)}\n${INTENT_LABEL[intent]}. ${intentLine(sig)}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      const o = it.opportunity;
+      const label = o
+        ? `${OPPORTUNITY_LABEL[o.label]}. ${noDash(o.why)}\nNext step: ${noDash(o.next)}\nNot known: ${noDash(o.uncertain)}`
+        : `${INTENT_LABEL[intentOf(sig)]}. ${intentLine(sig)}`;
+      const h = headingFor(i);
+      return `${h ? `== ${OPPORTUNITY_LABEL[h]} ==\n\n` : ''}${meta}\n${noDash(it.title)}\n${label}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
     })
     .join('\n\n');
   const text =
@@ -243,5 +283,21 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
     postalFooterHtml() +
     WRAP_CLOSE;
   const text = `Welcome to Holler\n\nYour ${days}-day free trial starts when you finish setting up your alerts. No card needed. Holler never posts anything for you.\n\nOne step left: confirm this email address so we can send you alerts. The link works for 7 days.\n\n${opts.verifyUrl}\n\nYou can set up what you do and where you work any time: ${opts.appUrl}\n\nIf you did not sign up, ignore this email and nothing happens.\n${contactText()}\n${postalFooterText()}\n`;
+  return { subject, html, text };
+}
+
+/** "Coming to your area" double opt-in. One email; nothing more is ever sent unless the link is pressed. */
+export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string }): Rendered {
+  const place = noDash(opts.place);
+  const subject = `Confirm: tell me when Holler reaches ${place}`;
+  const html =
+    WRAP_OPEN +
+    `<h1 style="${S.h1};margin:0 0 12px 0">One click and you are on the list</h1>` +
+    `<p>You asked Holler to tell you when permits and city requests near ${escapeHtml(place)} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.</p>` +
+    button(opts.confirmUrl, 'Confirm my email') +
+    `<p style="${S.muted}">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
+    postalFooterHtml() +
+    WRAP_CLOSE;
+  const text = `One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near ${place} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: ${opts.confirmUrl}\n\nThe link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.\n${contactText()}\n${postalFooterText()}\n`;
   return { subject, html, text };
 }

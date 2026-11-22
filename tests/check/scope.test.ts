@@ -112,8 +112,10 @@ const NOW = new Date('2026-11-17T12:00:00Z');
 const hoursAgo = (hrs: number) => new Date(NOW.getTime() - hrs * 3_600_000).toISOString();
 const daysAhead = (d: number) => new Date(NOW.getTime() + d * 86_400_000).toISOString();
 let nid = 1;
+// u2: the check labels each row for the trade and leaves out 'context' rows, so the generic row is an untitled permit tagged for the
+// trade (a Market insight for it); it was an untyped civic row, which now reads as context.
 const sig = (over: Row): Row => ({
-  id: nid++, source: 'x', kind: 'civic', title: 't', url: null, city: null, state: null, lat: null, lon: null, categories: ['hvac'],
+  id: nid++, source: 'x', kind: 'permit', title: 't', url: null, city: null, state: null, lat: null, lon: null, categories: ['hvac'],
   severity: 1, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over,
 });
 /** The review's reproduction: 400 NYC heat rows in the last 10 hours fill any bounding-box read with a row limit. */
@@ -171,7 +173,8 @@ describe('N1: a dense feed 26 to 60 miles away must not empty the page (the revi
     const sc = deriveScope(z);
     const cluster = Array.from({ length: 400 }, (_, i) => sig({ title: `cluster${i}`, state: 'NY', lat: sc.cellLat, lon: sc.cellLon + (30 + (i % 70) / 10) / (69.09 * Math.cos((sc.cellLat * Math.PI) / 180)), occurred_at: hoursAgo(0.01 + i / 1000) }));
     const local = Array.from({ length: 5 }, (_, i) => sig({ title: `local${i}`, state: 'NJ', lat: z.lat + (i + 1) * 0.01, lon: z.lon, occurred_at: hoursAgo(48 + i) }));
-    const warning = sig({ title: 'warning3', kind: 'report', severity: 3, state: 'NJ', lat: z.lat + 18 / 69.09, lon: z.lon, occurred_at: hoursAgo(24) });
+    // u2: a weather warning HVAC hears about (data.event, as the NWS adapter stores it); an untyped storm report is context.
+    const warning = sig({ title: 'warning3', kind: 'alert', data: { event: 'Extreme Cold Warning' }, severity: 3, state: 'NJ', lat: z.lat + 18 / 69.09, lon: z.lon, occurred_at: hoursAgo(24) });
     const { r } = await checkZip('07960', 'hvac', [...cluster, ...local, warning]);
     const titles = r.items.map((i) => i.title);
     for (let i = 0; i < 5; i++) expect(titles).toContain(`local${i}`);
@@ -234,7 +237,8 @@ describe('N1: a dense feed 26 to 60 miles away must not empty the page (the revi
   it('upcoming events are their own bounded read, soonest first, and cannot crowd out recent rows', async () => {
     nid = 1;
     const z = lookupZip('30303')!;
-    const events = Array.from({ length: 30 }, (_, i) => sig({ title: `ev${i}`, kind: 'event', state: 'GA', lat: z.lat, lon: z.lon, occurred_at: daysAhead(1 + i * 0.5) }));
+    // u2: upcoming rows the trade gets a label for (a ticketed event is context for HVAC); the upcoming read is by date, not kind.
+    const events = Array.from({ length: 30 }, (_, i) => sig({ title: `ev${i}`, kind: 'permit', state: 'GA', lat: z.lat, lon: z.lon, occurred_at: daysAhead(1 + i * 0.5) }));
     const recent = Array.from({ length: 5 }, (_, i) => sig({ title: `rec${i}`, state: 'GA', lat: z.lat, lon: z.lon, occurred_at: hoursAgo(i + 1) }));
     const { r } = await checkZip('30303', 'hvac', [...events, ...recent]);
     const ev = r.items.filter((i) => i.title.startsWith('ev'));

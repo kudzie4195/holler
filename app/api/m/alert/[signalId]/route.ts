@@ -1,5 +1,6 @@
 import { siteUrl } from '@/lib/env';
 import { computeAccess } from '@/lib/auth/access';
+import { matchScope } from '@/lib/plan/scope';
 import { adminOrNull } from '@/lib/mobile/admin';
 import { requireMember } from '@/lib/mobile/auth';
 import { buildAlerts, readOneMatch } from '@/lib/mobile/feed';
@@ -25,10 +26,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ signalId: strin
 
   const now = Date.now();
   const locked = computeAccess(profile!, now).locked;
+  // The trades and keyword watches the plan covers: each alert carries its opportunity for them, and context rows are left out.
+  const scope = matchScope(profile!);
   const one = await readOneMatch(db, user.id, signalId);
   if (one.error) return fail(req, METHODS, 'server_error');
   if (!one.row) return fail(req, METHODS, 'not_found');
-  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now });
+  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: scope.categories, keywords: scope.keywords });
   if (!item || item.signalId !== signalId) return fail(req, METHODS, 'not_found');
   return ok(req, METHODS, { locked, item });
 }

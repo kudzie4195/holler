@@ -15,6 +15,7 @@ import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
 import { IntentNote } from './feed/intent-note';
 import type { FeedbackState } from '@/lib/feedback/types';
+import { OPPORTUNITY_GROUP_LABEL, SHOWN_OPPORTUNITIES, type OpportunityDto } from '@/lib/signals/member-opportunity';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -36,8 +37,13 @@ export interface FeedItem {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
-  /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label. */
+  /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label when there is no opportunity. */
   subtype?: string | null;
+  /**
+   * The record's opportunity for this member's trades (lib/signals/member-opportunity.ts): label chip, why, next step, what is not
+   * known. The page never sends a 'context' row. Null for a locked member.
+   */
+  opportunity?: OpportunityDto | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
@@ -56,7 +62,21 @@ export interface FeedItem {
   contacts?: ContactInput[];
 }
 
-type Filter = 'all' | 'ask' | 'signals';
+type Filter = 'all' | 'act' | 'soon' | 'intel';
+
+/** Act now first, then Coming soon, then Market insights; rows without a label last. Stable inside a label. */
+function labelRank(i: Pick<FeedItem, 'opportunity'>): number {
+  const l = i.opportunity?.label;
+  const at = l && l !== 'context' ? SHOWN_OPPORTUNITIES.indexOf(l) : -1;
+  return at >= 0 ? at : SHOWN_OPPORTUNITIES.length;
+}
+
+export function orderByOpportunity<T extends Pick<FeedItem, 'opportunity'>>(items: readonly T[]): T[] {
+  return items
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => labelRank(a.it) - labelRank(b.it) || a.i - b.i)
+    .map((x) => x.it);
+}
 
 /** Source id of resident requests made on Holler (/request). Matches lib/requests/constants.ts REQUEST_SOURCE. */
 export const REQUEST_SOURCE = 'holler-request';
@@ -107,11 +127,12 @@ export function Feed({
   const pool = showClosed ? items : open;
   const counts = {
     all: pool.length,
-    ask: pool.filter((i) => i.kind === 'ask').length,
-    signals: pool.filter((i) => i.kind !== 'ask').length,
+    act: pool.filter((i) => i.opportunity?.label === 'act').length,
+    soon: pool.filter((i) => i.opportunity?.label === 'soon').length,
+    intel: pool.filter((i) => i.opportunity?.label === 'intel').length,
   };
   const visible = useMemo(
-    () => pool.filter((i) => (filter === 'all' ? true : filter === 'ask' ? i.kind === 'ask' : i.kind !== 'ask')),
+    () => orderByOpportunity(pool.filter((i) => (filter === 'all' ? true : i.opportunity?.label === filter))),
     [pool, filter],
   );
 
@@ -154,9 +175,16 @@ export function Feed({
 
   const tabs: { id: Filter; label: string }[] = [
     { id: 'all', label: 'All' },
-    { id: 'ask', label: 'People asking' },
-    { id: 'signals', label: 'Signals' },
+    { id: 'act', label: OPPORTUNITY_GROUP_LABEL.act },
+    { id: 'soon', label: OPPORTUNITY_GROUP_LABEL.soon },
+    { id: 'intel', label: OPPORTUNITY_GROUP_LABEL.intel },
   ];
+  const emptyTitle: Record<Filter, string> = {
+    all: 'All caught up',
+    act: 'Nothing to act on right now',
+    soon: 'Nothing coming up right now',
+    intel: 'No market insights right now',
+  };
 
   return (
     <div>
@@ -201,14 +229,20 @@ export function Feed({
 
       {visible.length === 0 ? (
         <div className="mt-6">
-          <EmptyState title={filter === 'ask' ? 'No one is asking right now' : filter === 'signals' ? 'No signals right now' : 'All caught up'}>
+          <EmptyState title={emptyTitle[filter]}>
             <p>New matches show up here as soon as a scan finds them.</p>
           </EmptyState>
         </div>
       ) : (
         <ul className="mt-6 flex flex-col gap-4">
-          {visible.map((item) => (
+          {visible.map((item, idx) => (
             <li key={item.id}>
+              {/* In the All view, a heading starts each label group (Act now, Coming soon, Market insights). */}
+              {filter === 'all' && item.opportunity && item.opportunity.label !== 'context' && (idx === 0 || visible[idx - 1].opportunity?.label !== item.opportunity.label) ? (
+                <h2 className="h-plain mb-3 mt-2 text-xl text-ink" data-testid="opportunity-group">
+                  {OPPORTUNITY_GROUP_LABEL[item.opportunity.label]}
+                </h2>
+              ) : null}
               <MatchCard
                 item={item}
                 onStatus={update}

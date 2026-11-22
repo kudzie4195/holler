@@ -17,7 +17,8 @@ type Row = Record<string, unknown>;
 const ATL = { lat: 33.749, lon: -84.388 };
 let n = 1;
 function row(over: Row): Row {
-  return { id: n++, source: 'x', kind: 'report', title: 'Hail report', city: 'Atlanta', state: 'GA', ...ATL, categories: ['roofing'], severity: 2, occurred_at: day(3), subtype: null, ...over };
+  // u2: opp_type (data->>type, as the preview reads it) makes the default row a hail report, which roofing gets a label for.
+  return { id: n++, source: 'x', kind: 'report', title: 'Hail report', opp_type: 'hail', city: 'Atlanta', state: 'GA', ...ATL, categories: ['roofing'], severity: 2, occurred_at: day(3), subtype: null, ...over };
 }
 
 /** Records every call so tests can assert what was selected and filtered. Query A has a `not lat is null` filter, B has `is lat null`. */
@@ -126,7 +127,7 @@ describe('recentPreviewFor', () => {
 
   it('drops rows that the matcher would not match (too far, wrong trade, state-level at severity 1)', async () => {
     const { db } = fakeDb(
-      [row({}), row({ lat: 40.7, lon: -74 }), row({ categories: ['plumbing'] })],
+      [row({}), row({ lat: 40.7, lon: -74 }), row({ categories: ['plumbing'], kind: 'permit', title: 'Plumbing permit in Atlanta', opp_type: null })],
       [row({ lat: null, lon: null, severity: 1 }), row({ lat: null, lon: null, severity: 2, kind: 'disaster' })],
     );
     const p = await recentPreviewFor(profile, { db, now: NOW });

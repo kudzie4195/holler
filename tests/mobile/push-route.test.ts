@@ -26,7 +26,8 @@ function setup(profile: Record<string, unknown>) {
 let nextId = 1;
 function match(at: Date, title: string) {
   const id = nextId++;
-  m.tables.holler_signals.push({ id: 900 + id, source: 'spc', external_id: `x${id}`, expires_at: null, kind: 'report', title, url: null, city: 'Smyrna', state: 'GA', occurred_at: at.toISOString(), severity: 1, subtype: null });
+  // u2: push counts only 'act' records for the member's trades: a 1.5 inch hail report is Act now for roofing.
+  m.tables.holler_signals.push({ id: 900 + id, source: 'spc', external_id: `x${id}`, expires_at: null, kind: 'report', title, categories: ['roofing'], data: { type: 'hail', hailInches: 1.5 }, url: null, city: 'Smyrna', state: 'GA', occurred_at: at.toISOString(), severity: 1, subtype: null });
   m.tables.holler_matches.push({ id, user_id: UA, signal_id: 900 + id, status: 'new', notified: false, pushed_at: null, created_at: at.toISOString() });
 }
 
@@ -75,8 +76,8 @@ describe('notify cron: push is independent of the email digest', () => {
     const r = await runAt(day(D, '13:22'));
     expect(r.push).toMatchObject({ members_pushed: 1, matches_pushed: 1 });
     expect(pushes.map((p) => [p.title, p.body])).toEqual([
-      ['New alert near Smyrna', 'Hail 1.00 in near Smyrna'],
-      ['New alert near Smyrna', 'Tree down on Main St'],
+      ['New alert near Smyrna', 'Act now: Hail 1.00 in near Smyrna'],
+      ['New alert near Smyrna', 'Act now: Tree down on Main St'],
     ]);
     expect(m.tables.holler_matches.every((x) => x.notified === true && typeof x.pushed_at === 'string')).toBe(true);
     expect(emails).toBe(0);
@@ -90,7 +91,7 @@ describe('notify cron: push is independent of the email digest', () => {
     match(day(D, '13:20'), 'Roof permit on Elm');
     await runAt(day(D, '13:22'));
     expect(pushes.map((p) => p.title)).toEqual(['5 new alerts near Smyrna', 'New alert near Smyrna']);
-    expect(pushes[1].body).toBe('Roof permit on Elm');
+    expect(pushes[1].body).toBe('Act now: Roof permit on Elm');
   });
 
   it('unconfirmed email past the grace days (skipped and marked by email) still gets the push', async () => {

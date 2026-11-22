@@ -30,7 +30,7 @@ export interface GuideDataSpec {
 }
 
 function datasetIds(subtype: SocrataSubtype): string[] {
-  return [...SOCRATA_DATASETS.filter((d) => d.subtype === subtype), ...ARCGIS_DATASETS.filter((d) => d.subtype === subtype)].map((d) => d.id);
+  return [...SOCRATA_DATASETS.filter((d) => d.subtype === subtype && !d.probation), ...ARCGIS_DATASETS.filter((d) => d.subtype === subtype && !d.probation)].map((d) => d.id);
 }
 
 /** Guides that get a data line, by slug. The others get none. */

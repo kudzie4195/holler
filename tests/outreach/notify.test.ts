@@ -56,7 +56,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
           patch
             ? Promise.resolve({ error: null })
             : Promise.resolve({
-                data: [{ user_id: 'u1', business_name: 'Acme', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
+                // u2: the digest labels each match for the member's trades (gutters for the re-roof permits, commercial cleaning for a licence).
+                data: [{ user_id: 'u1', business_name: 'Acme', categories: ['siding-gutters', 'janitorial-commercial'], alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
                 error: null,
               });
         q.then = (res: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(res);
@@ -88,7 +89,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     id: id * 10,
     user_id: 'u1',
     created_at: new Date(NOW.getTime() - 60_000).toISOString(),
-    signal: { id, kind: 'permit', source: 'socrata-chicago-permits', title: `Permit ${id}`, url: 'https://example.com', city: 'Atlanta', state: 'GA', occurred_at: new Date(NOW.getTime() - 3_600_000).toISOString(), ...over },
+    // u2: a re-roof permit title, which is Coming soon for a gutter company (an untitled permit with no trade label is context).
+    signal: { id, kind: 'permit', source: 'socrata-chicago-permits', title: `Roof permit in Atlanta #${id}`, categories: ['roofing'], url: 'https://example.com', city: 'Atlanta', state: 'GA', occurred_at: new Date(NOW.getTime() - 3_600_000).toISOString(), ...over },
   });
 
   it('one Contact line per organisation alert, no address, phone or email, none for other alerts', async () => {
@@ -121,13 +123,15 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     });
     expect(res.status).toBe(200);
     expect(sent).toHaveLength(1);
-    expect(sent[0].html).toContain('Permit 1');
+    expect(sent[0].html).toContain('Roof permit in Atlanta #1');
     expect(sent[0].html).not.toContain('Contact:');
   });
-  it('the email intent label comes from the signal subtype: a business licence reads "Money being spent"', async () => {
+  // u2: was 'the email intent label comes from the signal subtype: a business licence reads "Money being spent"'. The digest now
+  // labels by opportunity for the member's trade, and a city-work 311 request is context, so it is not mailed at all.
+  it('the email label comes from the opportunity: a business licence reads "Coming soon" with its next step; a pothole request is left out', async () => {
     const res = await run(
       [
-        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
+        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence', summary: 'Retail Food Establishment | Preparation of Food and Dining on Premises With Seating' }),
         sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
       ],
       async () => new Map(),
@@ -136,10 +140,12 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent).toHaveLength(1);
     const html = sent[0].html;
     const text = sent[0].text;
-    expect(html).toContain('Money being spent');
-    expect(text).toContain('Money being spent');
-    expect(html).toContain('Might need work');
-    // the licence is labeled Money being spent, not Might need work
-    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Money being spent'));
+    expect(html).toContain('Coming soon');
+    expect(text).toContain('Coming soon. A new business license was issued here');
+    expect(text).toContain('Next step: Introduce yourself while the business is getting set up.');
+    expect(text).toContain('Not known: ');
+    expect(html).not.toContain('Money being spent');
+    expect(text).not.toContain('Pothole request');
+    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Coming soon. A new business'));
   });
 });

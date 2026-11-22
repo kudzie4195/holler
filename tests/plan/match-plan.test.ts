@@ -20,6 +20,7 @@ const base = (over: Partial<MatchProfile> = {}): MatchProfile => ({
 const pro = (over: Partial<MatchProfile> = {}) => base({ plan: 'pro', subscription_status: 'active', ...over });
 const sig = (over: Partial<MatchSignal> = {}): MatchSignal => ({
   id: 1,
+  kind: 'permit',
   categories: ['roofing'],
   lat: 33.95,
   lon: -83.39, // next to Athens
@@ -132,10 +133,11 @@ describe('matchOne with plan limits', () => {
   });
 
   it('starter with more than 5 saved trades uses the first 5 only', () => {
-    const cats = ['t0', 't1', 't2', 't3', 't4', 'roofing'];
+    // u2: real trade ids (matching reads the record's opportunity per trade, and an unknown id such as 't4' never gets a label).
+    const cats = ['plumbing', 'hvac', 'electrical', 'painting', 'pest-control', 'roofing'];
     expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), base({ categories: cats }))).toBeNull();
     expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), pro({ categories: cats }))).not.toBeNull();
-    expect(matchOne(sig({ lat: 33.75, lon: -84.39, categories: ['t4'] }), base({ categories: cats }))).not.toBeNull();
+    expect(matchOne(sig({ lat: 33.75, lon: -84.39, categories: ['pest-control'] }), base({ categories: cats }))).not.toBeNull();
   });
 
   it('a profile without plan fields behaves as before for up to 5 trades (existing callers keep working)', () => {

@@ -255,7 +255,7 @@ describe('P1 permit mapping: Atlanta Name (address, description or name) gives a
 // ---- P1 #6: Cobb County rows -----------------------------------------------------------------------------------------------------
 
 describe('P1 Cobb County: matched across the county, labelled as approximate, never on a city page', () => {
-  const cobbRow = { id: 77, source: 'arcgis-cobb-residential-permits', categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: ago(1), data: { subtype: 'permit', loc: 'approx' } };
+  const cobbRow = { id: 77, kind: 'permit', source: 'arcgis-cobb-residential-permits', categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: ago(1), data: { subtype: 'permit', loc: 'approx' } };
   const at = (zip: string, radius: number): MatchProfile => {
     const z = lookupZip(zip)!;
     return { user_id: zip, categories: ['general-contractor'], lat: z.lat, lon: z.lon, state: 'GA', radius_mi: radius };

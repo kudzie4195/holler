@@ -28,7 +28,9 @@ describe('deslop metrics on every rendered email (text part and HTML part)', () 
   }
 
   it('also holds with other real-shaped titles (short, long, odd punctuation)', () => {
-    const mk = (title: string, kind = 'permit'): AlertItem => ({ title, kind, city: 'Roswell', state: 'GA', occurredAt: '2026-11-18T10:00:00Z', severity: 2, source: 'x', subtype: kind === 'permit' ? 'permit' : null });
+    // u2: items carry their opportunity label for the member (permit: Market insight, warning: Coming soon, report: Act now).
+    const OPP: Record<string, AlertItem['opportunity']> = { permit: 'intel', alert: 'soon', report: 'act' };
+    const mk = (title: string, kind = 'permit'): AlertItem => ({ title, kind, city: 'Roswell', state: 'GA', occurredAt: '2026-11-18T10:00:00Z', severity: 2, source: 'x', subtype: kind === 'permit' ? 'permit' : null, opportunity: OPP[kind] });
     const sets: AlertItem[][] = [
       [mk('Re-roof permit issued'), mk('Tornado warning for Cobb County', 'alert'), mk('Hail report near Roswell', 'report'), mk('Roof tear-off permit, 2100 sq ft'), mk('Gutter and fascia permit')],
       [
@@ -62,7 +64,10 @@ describe('copy rules', () => {
         expect(/–/.test(part)).toBe(false);
         expect(bannedHits(part)).toEqual([]);
         for (const re of BAN) expect(re.test(part), String(re)).toBe(false);
-        for (const re of PRESSURE) expect(re.test(m.text), String(re)).toBe(false);
+        // u2: an alert's opportunity label ("Act now", the same label the feed, app and digest show) sits at the end of the item's
+        // place and date in parentheses. It names what the record is, not a sales push, so it is taken out before the pressure check.
+        const prose = m.text.replace(/, Act now\)$/gm, ')');
+        for (const re of PRESSURE) expect(re.test(prose), String(re)).toBe(false);
         expect(/cancelled|colour|neighbour|organis/i.test(part)).toBe(false);
       }
     });
@@ -126,13 +131,16 @@ describe('every email', () => {
 });
 
 describe('day 1', () => {
-  it('matches variant: the count, up to 5 items with place, date and intent label, a feed link', () => {
+  // u2: was "... place, date and intent label": the label is now the alert's opportunity for the member (Act now, Coming soon,
+  // Market insight), not the intent (Might need work, Money being spent, Someone asked).
+  it('matches variant: the count, up to 5 items with place, date and opportunity label, a feed link', () => {
     const m = samples()['welcome matches (5 shown of 12)'];
     expect(m.text).toContain('12 records already match');
-    const lines = m.text.split('\n').filter((l) => /\((.*), (Might need work|Money being spent|Someone asked)\)$/.test(l));
+    const lines = m.text.split('\n').filter((l) => /\((.*), (Act now|Coming soon|Market insight)\)$/.test(l));
     expect(lines).toHaveLength(5);
-    expect(m.text).toContain('Hail report: 1.25 inch hail near Marietta (Marietta, GA, Nov 17, Might need work)');
-    expect(m.text).toContain('Residential re-roof permit, 2300 sq ft, Roswell Rd (Atlanta, GA, Nov 18, Money being spent)');
+    expect(m.text).toContain('Hail report: 1.25 inch hail near Marietta (Marietta, GA, Nov 17, Act now)');
+    expect(m.text).toContain('Residential re-roof permit, 2300 sq ft, Roswell Rd (Atlanta, GA, Nov 18, Market insight)');
+    expect(m.text).not.toMatch(/Might need work|Money being spent|Someone asked/);
     expect(m.text).toContain('Open your feed: https://localholler.com/app');
     expect(m.text).toContain('The rest are in your feed.');
   });

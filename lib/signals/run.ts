@@ -3,6 +3,7 @@ import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
 import { MAX_FUTURE_DAYS } from './run-limits';
+import { pruneSourceSamples, SAMPLES_MISSING, SamplesMissingError, storeSourceSamples } from './samples';
 import { matchSignals, type MatchRow } from './match';
 import {
   getLastRunTimes,
@@ -254,7 +255,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   let lastRuns: Record<string, number> = {};
   if (!dry && db && !opts.source) {
     try {
-      lastRuns = await getLastRunTimes(db);
+      lastRuns = await getLastRunTimes(db, now.getTime());
     } catch (e) {
       report.error = e instanceof Error ? e.message : String(e);
       return report;
@@ -298,6 +299,18 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         continue;
       }
       if (f.result.status !== 'error' && f.signals.length) {
+        if (f.adapter.probation) {
+          // Probation: same fetch, parsing and sanitizing as any source, but the rows go to holler_source_samples (service role only).
+          // Never holler_signals, so no matching, notification, AI classification or IndexNow can see them (they stay out of storedAll).
+          try {
+            f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
+          } catch (e) {
+            f.result.status = 'error';
+            f.result.error = e instanceof SamplesMissingError ? e.message : (e instanceof Error ? e.message : String(e)).slice(0, 500);
+            f.health = { ok: false, error: f.result.error };
+          }
+          continue;
+        }
         try {
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
           const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m), dedupe: true });
@@ -310,6 +323,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         }
       }
     }
+    // Sample retention, once per scan for every source (not only probation sources that returned rows). A missing table (migration 0022
+    // not applied) is logged once here, unless a probation source already reported it on its own scan_runs row.
+    if ((await pruneSourceSamples(db, now)) === 'missing' && !fetched.some((f) => f.result.error === SAMPLES_MISSING)) console.warn(SAMPLES_MISSING);
     // The report keeps the registry order whatever order the writes happened in.
     for (const f of fetched) report.sources.push(f.result);
 
@@ -333,7 +349,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         report.error = msg;
         // These signals are stored but nobody was matched. Put it on the scan_runs row so the health email shows it.
         for (const f of fetched) {
-          if (f.result.inserted > 0) {
+          // Probation sources are never matched, so a matching failure is not theirs (their inserted count is samples).
+          if (f.result.inserted > 0 && !f.adapter.probation) {
             f.result.status = 'error';
             f.result.error = msg.slice(0, 500);
           }

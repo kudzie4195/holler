@@ -95,6 +95,8 @@ export interface SocrataDataset {
   isFailure?: (row: Record<string, unknown>) => boolean;
   cadenceMinutes: number;
   verified: boolean;
+  /** Probation: the adapter built from this config keeps its rows in holler_source_samples only (Adapter.probation) and is not listed as live anywhere. */
+  probation?: boolean;
   verifiedUrl: string;
   fieldSource: 'sourced' | 'assumed';
   note?: string;
@@ -365,6 +367,85 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
         phoneField: 'contractor_phone',
       },
     ],
+  },
+  // ---- Round 10 (U3 contacts). Company columns below were named by the commander after reading each portal's metadata on 2026-11-19; this
+  // unit's own re-read (WebFetch of <domain>/api/views/<id>.json) was blocked, so they are NOT re-verified here (see /home/claude/runlog/u3-contacts.md).
+  // Site-only specs reuse the addressFields already read in rounds 2 and 7. A column that can hold a person (owner, applicant, a contractor's own
+  // name) is read only as an organisation name: lib/contacts/org.ts cleanOrgName decides company vs person, and a person gives nothing, no phone either.
+  // Licence numbers (applicant_license, licno, contractorlicnum) are public but holler_signal_contacts has no column for them, so they are not stored.
+  'socrata-orlando-permits': {
+    verifiedUrl: 'https://data.cityoforlando.net/api/views/ryhf-m453.json',
+    checkedOn: '2026-11-19',
+    note: 'contractor_name, contractor_phone_number, contractor_address, property_owner_name, parcel_owner_name named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['permit_address'] },
+    orgs: [
+      { role: 'contractor', nameFields: ['contractor_name'], addressFields: ['contractor_address'], phoneField: 'contractor_phone_number' },
+      { role: 'business', nameFields: ['property_owner_name', 'parcel_owner_name'] },
+    ],
+  },
+  'socrata-nyc-permits': {
+    verifiedUrl: 'https://data.cityofnewyork.us/api/views/rbx6-tga4.json',
+    checkedOn: '2026-11-19',
+    note: 'applicant_business_name and owner_business_name named by the commander 2026-11-19, not re-read here. applicant first/last name columns are never read.',
+    site: { addressFields: ['house_no', 'street_name', 'borough'], zipField: 'zip_code' },
+    orgs: [
+      { role: 'business', nameFields: ['applicant_business_name'] },
+      { role: 'business', nameFields: ['owner_business_name'] },
+    ],
+  },
+  'socrata-nola-permits': {
+    verifiedUrl: 'https://data.nola.gov/api/views/rcm3-fn58.json',
+    checkedOn: '2026-11-19',
+    note: 'contractors, owner, applicant named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['address'] },
+    orgs: [
+      { role: 'contractor', nameFields: ['contractors'] },
+      { role: 'business', nameFields: ['owner'] },
+      { role: 'business', nameFields: ['applicant'] },
+    ],
+  },
+  'socrata-buffalo-permits': {
+    verifiedUrl: 'https://data.buffalony.gov/api/views/9p2d-f3yt.json',
+    checkedOn: '2026-11-19',
+    note: 'applicant named by the commander 2026-11-19, not re-read here. No site: the portal publishes a street name with no house number.',
+    orgs: [{ role: 'business', nameFields: ['applicant'] }],
+  },
+  'socrata-seattle-permits': {
+    verifiedUrl: 'https://data.seattle.gov/api/views/76t5-zqzr.json',
+    checkedOn: '2026-11-19',
+    note: 'contractorcompanyname named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['originaladdress1'], zipField: 'originalzip' },
+    orgs: [{ role: 'contractor', nameFields: ['contractorcompanyname'] }],
+  },
+  'socrata-batonrouge-permits': {
+    verifiedUrl: 'https://data.brla.gov/api/views/7fq7-8j7r.json',
+    checkedOn: '2026-11-19',
+    note: 'contractorname, ownername, applicantname named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['streetaddress'], zipField: 'zip' },
+    orgs: [
+      { role: 'contractor', nameFields: ['contractorname'] },
+      { role: 'business', nameFields: ['ownername'] },
+      { role: 'business', nameFields: ['applicantname'] },
+    ],
+  },
+  // Site only (addressFields read in earlier rounds; no company column was verified for these).
+  'socrata-sf-permits': {
+    verifiedUrl: 'https://data.sf.gov/api/views/i98e-djp9.json',
+    checkedOn: '2026-11-17',
+    note: 'Site only. Contractor columns not checked in this unit.',
+    site: { addressFields: ['street_number', 'street_name', 'street_suffix'], zipField: 'zipcode' },
+  },
+  'socrata-la-permits': {
+    verifiedUrl: 'https://data.lacity.org/api/views/pi9x-tg5x.json',
+    checkedOn: '2026-11-17',
+    note: 'Site only. Contractor columns not checked in this unit.',
+    site: { addressFields: ['primary_address'], zipField: 'zip_code' },
+  },
+  'socrata-montgomery-permits': {
+    verifiedUrl: 'https://data.montgomerycountymd.gov/api/views/m88u-pqki.json',
+    checkedOn: '2026-11-17',
+    note: 'Site only. Contractor columns not checked in this unit.',
+    site: { addressFields: ['stno', 'predir', 'stname', 'suffix', 'postdir'], zipField: 'zip' },
   },
   // Chicago Food Inspections (4ijn-s7e5): dba_name ("Doing Business As"), address, city, state, zip. No phone column.
   'socrata-chicago-inspections': {

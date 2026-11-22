@@ -16,7 +16,7 @@ const NOW = new Date('2026-11-17T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
 const NYC = { lat: 40.7128, lon: -74.006 };
 let nextId = 1;
-const sig = (over: Row): Row => ({ id: nextId++, categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over });
+const sig = (over: Row): Row => ({ id: nextId++, kind: 'permit', categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over });
 const run = async (signals: Row[], profile: MatchProfile) => {
   const fake = fakeSignalsDb(signals, { now: NOW });
   const r = await backfillMatches(fake as never, profile, NOW);
@@ -68,7 +68,8 @@ describe('backfill location filter', () => {
     const { fake } = await run([], { user_id: 'u', categories: ['hvac'], lat: 40.2171, lon: -74.7429, state: 'NJ', radius_mi: 50 });
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
     expect(rpc).toHaveLength(2); // the main read and the separate severity 2+ read
-    expect(rpc[0].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_categories: ['hvac'], p_soonest_first: false, p_min_severity: 1 });
+    // u2: hvac also reads general-contractor permits (an addition is new rooms to heat and cool: prefilterCategories).
+    expect(rpc[0].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_categories: ['hvac', 'general-contractor'], p_soonest_first: false, p_min_severity: 1 });
     expect(rpc[1].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_soonest_first: false, p_min_severity: 2 });
   });
 

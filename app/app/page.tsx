@@ -23,9 +23,13 @@ import { loadFeedback } from '@/lib/feedback/service';
 import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
+import { ActiveBuilders } from '@/components/builders/active-builders';
+import { loadActiveBuilders } from '@/lib/builders/load';
+import type { ActiveBuilder } from '@/lib/builders/active';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
+import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, opportunityDto, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
 
-interface SignalRow {
+interface SignalRow extends OpportunityRowFields {
   id: number;
   source: string;
   kind: string;
@@ -53,6 +57,9 @@ interface MatchRow {
   signal: SignalRow | SignalRow[] | null;
 }
 
+/** The member's matches with each record's card fields and what the opportunity label needs (kind, categories, data aliases). */
+const FEED_SELECT = `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS})`;
+
 /** Loads the feed. Kept out of the component so time-dependent values (trial days, "x min ago") are computed per request. */
 async function loadDashboard() {
   const { user, profile } = await requireProfile();
@@ -60,9 +67,7 @@ async function loadDashboard() {
 
   const { data, error } = await supabase
     .from('holler_matches')
-    .select(
-      'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,subtype:data->>subtype)',
-    )
+    .select(FEED_SELECT)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100);
@@ -71,10 +76,18 @@ async function loadDashboard() {
   const access = computeAccess(profile, now);
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
+  // The member's opportunity for each record (lib/signals/member-opportunity.ts), for the trades and keyword watches the plan covers.
+  // A row whose best label is 'context' is not shown: it may be in holler_matches from before trade matching used opportunity.
+  const scope = matchScope(profile);
+  const opp = new Map<number, ReturnType<typeof memberOpportunity>>();
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    return !!s && !isEndedRequest(s, now);
+    if (!s || isEndedRequest(s, now)) return false;
+    const o = memberOpportunity(s, scope.categories, scope.keywords);
+    if (o.label === 'context') return false;
+    opp.set(m.id, o);
+    return true;
   });
   // A resident's filtered description is not in the public record. It is read with the service role for this member's own request
   // matches only (requestTextForMember checks user_id and that the request is still open), and never for a locked account.
@@ -109,6 +122,20 @@ async function loadDashboard() {
       } catch {
         contactsBySignal = new Map();
       }
+    }
+  }
+  // Companies that pulled permits near the member in the last 30 days (lib/builders). Service role, never for a locked account.
+  // The loader never throws: any failure is an empty list and the section stays hidden.
+  let builders: ActiveBuilder[] = [];
+  let builderWindowDays = 30;
+  if (!access.locked) {
+    try {
+      const res = await loadActiveBuilders(createAdminClient(), user.id, profile, new Date(now));
+      builders = res.builders;
+      builderWindowDays = res.windowDays;
+    } catch {
+      builders = [];
+      builderWindowDays = 30;
     }
   }
   // The member's own feedback answers (RLS: own rows only). A missing table or any failure just means no answers are shown.
@@ -166,6 +193,7 @@ async function loadDashboard() {
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,
+      opportunity: opp.has(m.id) ? opportunityDto(opp.get(m.id)!) : null,
     };
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
@@ -175,19 +203,19 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, opportunity: null }
       : base;
   });
 
   // Accounts under 3 days old were filled from the 14-day backfill at signup.
   const firstRun = now - new Date(profile.created_at).getTime() < 3 * 86_400_000;
 
-  return { profile, access, cityPage, items, firstRun, failed: Boolean(error) };
+  return { profile, access, cityPage, items, firstRun, builders, builderWindowDays, failed: Boolean(error) };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, access, cityPage, items, firstRun, failed } = await loadDashboard();
+  const { profile, access, cityPage, items, firstRun, builders, builderWindowDays, failed } = await loadDashboard();
 
   return (
     <>
@@ -212,6 +240,8 @@ export default async function AppHome(props: PageProps<'/app'>) {
         <TrialBanner access={access} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
+
+      <ActiveBuilders builders={builders} windowDays={builderWindowDays} />
 
       <div className="mt-6">
         {emptyFeedApplies({ items: items.length, locked: access.locked, failed }) ? (

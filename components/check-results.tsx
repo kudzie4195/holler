@@ -3,7 +3,9 @@ import { ButtonLink } from './button';
 import { timeAgo } from './format';
 import { FamilyDot } from './page-header';
 import { kindFamily, sourceLabel } from './signal-meta';
-import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
+import { distanceFrom, groupItems, opportunityCounts, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
+import { OPPORTUNITY_GROUP_LABEL, SHOWN_OPPORTUNITIES } from '@/lib/signals/member-opportunity';
+import { IntentNote } from './feed/intent-note';
 import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
 
@@ -48,6 +50,11 @@ export function CheckResults({
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
+  // Counts per label of what is listed, for the chosen trade ("3 Act now, 5 Coming soon, 2 Market insights").
+  const byLabel = opportunityCounts(groups.flatMap((g) => g.items));
+  const labelLine = SHOWN_OPPORTUNITIES.filter((l) => byLabel[l] > 0)
+    .map((l) => `${byLabel[l]} ${OPPORTUNITY_GROUP_LABEL[l]}`)
+    .join(', ');
 
   if (shown === 0) {
     const trade = tradeLabel.toLowerCase();
@@ -97,6 +104,11 @@ export function CheckResults({
         {shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}
         Every record links to its source. Checked {timeAgo(checkedAt, now)}.
       </p>
+      {labelLine ? (
+        <p className="mt-2 font-semibold text-ink" data-testid="check-by-label">
+          For {tradeLabel.toLowerCase()}: {labelLine}.
+        </p>
+      ) : null}
       <div className="mt-8 flex flex-col gap-10">
         {groups.map((g) => (
           <div key={g.id}>
@@ -122,6 +134,7 @@ export function CheckResults({
                         </time>
                       </div>
                       <p className="mt-2 text-lg font-semibold leading-snug text-ink">{it.title}</p>
+                      {it.opportunity ? <IntentNote item={it} /> : null}
                       <p className="text-sm text-muted">
                         {href ? (
                           <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline decoration-1 underline-offset-4">

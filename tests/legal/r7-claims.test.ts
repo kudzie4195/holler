@@ -48,7 +48,8 @@ describe('privacy: the mobile app', () => {
     expect(deps).toContain('@capacitor-firebase/messaging');
     // Push content: count and city in the title, the public signal title in the body.
     expect(text).toContain('A push shows the city and the title of a public record');
-    expect(src('lib/push/notify.ts')).toContain('return { title, body: truncate(entry.top.title), data };');
+    // u2: the body leads with the opportunity label of the act item ("Act now: <public title>"); still only the public title.
+    expect(src('lib/push/notify.ts')).toContain('return { title, body: truncate(`${OPPORTUNITY_LABEL.act}: ${entry.top.title}`), data };');
     expect(text).toContain("Turn pushes off with the switch in the app's Settings, or in your phone's settings.");
     expect(src('mobile/src/screens/Settings.tsx')).toContain('label="Push notifications"');
     expect(text).toContain("Signing out removes that phone's token.");

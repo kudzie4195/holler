@@ -13,6 +13,7 @@ const profile = (over: Partial<MatchProfile> = {}): MatchProfile => ({
 });
 const signal = (over: Partial<MatchSignal> = {}): MatchSignal => ({
   id: 1,
+  kind: 'permit',
   categories: ['roofing', 'insurance'],
   lat: 33.953,
   lon: -84.55,

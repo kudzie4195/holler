@@ -57,7 +57,8 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
           expect(String(s.lon).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(2);
           expect(s.data?.loc).toBe('approx');
           expect(s.data?.approxLocation).toBe(true);
-          expect(s.contacts).toBeUndefined();
+          // Round 10: the layers have street columns, so a row may carry the job-site address, and nothing else (no company, phone or email).
+          for (const c of s.contacts ?? []) expect(c).toMatchObject({ role: 'site', name: '', phone: null, email: null, website: null });
         }
       });
 
@@ -167,7 +168,7 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
   });
 
   it('matcher: a Smyrna profile (ZIP 30080, 25 mi) matches a Cobb row; a Lawrenceville profile (30046, 25 mi) does not', () => {
-    const sig: MatchSignal = { id: 1, categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: '2026-11-13T00:00:00.000Z', subtype: 'permit' };
+    const sig: MatchSignal = { id: 1, kind: 'permit', categories: ['general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon, state: 'GA', severity: 1, occurred_at: '2026-11-13T00:00:00.000Z', subtype: 'permit' };
     const smyrna = { user_id: 'u', categories: ['general-contractor'], lat: 33.8826, lon: -84.5144, state: 'GA', radius_mi: 25 };
     const lawrenceville = { user_id: 'u2', categories: ['general-contractor'], lat: 33.9562, lon: -83.9879, state: 'GA', radius_mi: 25 };
     expect(matchOne(sig, smyrna)).not.toBeNull();

@@ -61,15 +61,17 @@ export interface ArcgisDataset {
   windowForwardDays?: number;
   cadenceMinutes: number;
   verified: boolean;
+  /** Probation: the adapter built from this config keeps its rows in holler_source_samples only (Adapter.probation) and is not listed as live anywhere. */
+  probation?: boolean;
   verifiedUrl: string;
   /** Date the layer was checked. */
   checkedOn: string;
   fieldSource: 'sourced' | 'assumed';
   note?: string;
   /**
-   * Who to contact (private: holler_signal_contacts only). None of the layers below has one: their field lists could not be re-read on
-   * 2026-11-17 (the WebFetch of each `?f=json` URL was refused), and no column is added unread. Add one only after reading the layer's
-   * fields, with the URL in contacts.verifiedUrl.
+   * Who to contact (private: holler_signal_contacts only). Assigned from ARCGIS_CONTACT_SPECS below. A column goes into a spec only
+   * after the layer's field list was read; the URL is in contacts.verifiedUrl, and contacts.note says when a column was named by someone
+   * else and not re-read. A bad outFields name makes ArcGIS reject the whole query, so an unread column here would stop the permit feed.
    */
   contacts?: ContactSpec;
 }
@@ -92,9 +94,9 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     id: 'arcgis-dekalb-permits', city: 'DeKalb County', state: 'GA', tz: 'America/New_York', layerUrl: DEKALB, countyAnchor: { lat: 33.7748, lon: -84.2963 },
     kind: 'permit', subtype: 'permit', idField: 'applicationNumber', dateField: 'issuedDateTime', dateType: 'date',
     titleFields: ['WorkTypeDescription'], textFields: ['WorkTypeDescription', 'OccupancyTypeDescription'],
-    summaryFields: ['WorkTypeDescription', 'OccupancyTypeDescription', 'statusDescription'], addressFields: ['location'],
+    summaryFields: ['WorkTypeDescription', 'OccupancyTypeDescription', 'statusDescription', 'calculatedValuation', 'declaredValuation'], addressFields: ['location'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(DEKALB), checkedOn: '2026-11-17', fieldSource: 'sourced',
-    note: 'Metro Atlanta (DeKalb County, GA). Hansen Building Applications MapServer layer, 44 fields. Live checks: latest issuedDateTime 2026-11-13 22:20 UTC, 453 rows issued since 2026-11-01, geometry returned as lon/lat with outSR=4326 (layer native SR is feet, wkid 102667). WorkTypeDescription values seen: Commercial Air Conditioning, Residential Air Conditioning, New Construction, Additions to Existing Structures, Owner Change Only. primaryContact*, comments and applicationName are never read.',
+    note: 'Metro Atlanta (DeKalb County, GA). Hansen Building Applications MapServer layer, 44 fields. Live checks: latest issuedDateTime 2026-11-13 22:20 UTC, 453 rows issued since 2026-11-01, geometry returned as lon/lat with outSR=4326 (layer native SR is feet, wkid 102667). WorkTypeDescription values seen: Commercial Air Conditioning, Residential Air Conditioning, New Construction, Additions to Existing Structures, Owner Change Only. comments and applicationName are never read. Round 10: calculatedValuation and declaredValuation (named by the commander 2026-11-19, not re-read) feed the "job value" summary part (first non-zero one only), and primaryContactName/Phone/Type feed the private contacts spec (company names only; the email column is never read).',
   },
   {
     id: 'arcgis-raleigh-permits', city: 'Raleigh', state: 'NC', tz: 'America/New_York', layerUrl: RALEIGH,
@@ -102,7 +104,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     titleFields: ['description', 'permittype'], textFields: ['description', 'proposedworkdescription', 'workclass', 'permittype'],
     summaryFields: ['permittype', 'workclass', 'estprojectcost'], addressFields: ['originaladdress1'], zipField: 'originalzip',
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(RALEIGH), checkedOn: '2026-11-17', fieldSource: 'sourced',
-    note: 'City of Raleigh Building Permits, 83 fields. editingInfo.lastEditDate 2026-11-15 22:03 UTC; live query returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. parcelownername, contractor and reviewer columns are never read.',
+    note: 'City of Raleigh Building Permits, 83 fields. editingInfo.lastEditDate 2026-11-15 22:03 UTC; live query returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. reviewer columns are never read. Round 10: contractor company and parcel owner feed the private contacts spec only (company names only).',
   },
   {
     id: 'arcgis-dc-permits', city: 'Washington', state: 'DC', tz: 'America/New_York', layerUrl: DC,
@@ -110,7 +112,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     titleFields: ['DESC_OF_WORK', 'PERMIT_TYPE_NAME'], textFields: ['DESC_OF_WORK', 'PERMIT_TYPE_NAME', 'PERMIT_SUBTYPE_NAME', 'PERMIT_CATEGORY_NAME'],
     summaryFields: ['PERMIT_TYPE_NAME', 'PERMIT_SUBTYPE_NAME'], addressFields: ['FULL_ADDRESS'], zipField: 'ZIPCODE',
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(DC), checkedOn: '2026-11-17', fieldSource: 'sourced',
-    note: 'DC DCRA feed, layer 4 "Building Permits - Last 30 Days" (a rolling layer, so no yearly layer swap). Layer 4 returned count 3950; the same schema on layer 18 (2026) returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. OWNER_NAME and PERMIT_APPLICANT are never read.',
+    note: 'DC DCRA feed, layer 4 "Building Permits - Last 30 Days" (a rolling layer, so no yearly layer swap). Layer 4 returned count 3950; the same schema on layer 18 (2026) returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. OWNER_NAME and PERMIT_APPLICANT feed the private contacts spec only (company names only, round 10).',
   },
   {
     id: 'arcgis-mecklenburg-permits', city: 'Mecklenburg County', state: 'NC', tz: 'America/New_York', layerUrl: MECK, countyAnchor: { lat: 35.2271, lon: -80.8431 },
@@ -178,6 +180,79 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     note: 'DISABLED. Business_Licenses_2026_Citywide (Dept. of Revenue), 24 fields, license_issued is esriFieldTypeDate. editingInfo.lastEditDate 2026-10-20 but the newest license_issued is 2026-07-01, so a 14 day window returns nothing. Re-enable if the Revenue export is refreshed. PRIVACY: business_name is never read (can be a person) and the street address is dropped for business rows.',
   },
 ];
+
+// --- Contacts (round 10, U3) -------------------------------------------------------------------------------------------------
+// Company columns for Raleigh, DeKalb and DC were named by the commander after reading each layer's field list on 2026-11-19. This
+// unit's own re-read of `<layer>?f=json` (WebFetch) was blocked, so they are NOT re-verified here: run the check in
+// /home/claude/runlog/u3-contacts.md before merging. Site-only specs reuse the address columns this file already requests.
+// Mecklenburg owner_* phone and email are homeowners and are never read. Licence numbers have no column in holler_signal_contacts.
+// Every name still goes through lib/contacts/org.ts cleanOrgName: a person gives no contact and no phone.
+const DEKALB_CONTRACTOR_TYPE = /contract|builder|architect|engineer|plumb|electric|mechanic|roof|hvac/i;
+
+export const ARCGIS_CONTACT_SPECS: Record<string, ContactSpec> = {
+  'arcgis-raleigh-permits': {
+    verifiedUrl: M(RALEIGH),
+    checkedOn: '2026-11-19',
+    note: 'contractorcompanyname, contractordba, contractorphone, parcelownername named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['originaladdress1'], zipField: 'originalzip' },
+    orgs: [
+      { role: 'contractor', nameFields: ['contractorcompanyname', 'contractordba'], phoneField: 'contractorphone' },
+      { role: 'business', nameFields: ['parcelownername'] },
+    ],
+  },
+  'arcgis-dekalb-permits': {
+    verifiedUrl: M(DEKALB),
+    checkedOn: '2026-11-19',
+    note: 'primaryContactName, primaryContactPhone, primaryContactType named by the commander 2026-11-19, not re-read here. primaryContactEMailAddress is deliberately never read (a mailbox on a company row is often a personal one).',
+    site: { addressFields: ['location'] },
+    orgs: [
+      { role: 'business', nameFields: ['primaryContactName'], phoneField: 'primaryContactPhone', typeField: 'primaryContactType', contractorTypes: DEKALB_CONTRACTOR_TYPE },
+    ],
+  },
+  'arcgis-dc-permits': {
+    verifiedUrl: M(DC),
+    checkedOn: '2026-11-19',
+    note: 'PERMIT_APPLICANT and OWNER_NAME named by the commander 2026-11-19, not re-read here.',
+    site: { addressFields: ['FULL_ADDRESS'], zipField: 'ZIPCODE' },
+    orgs: [
+      { role: 'business', nameFields: ['PERMIT_APPLICANT'] },
+      { role: 'business', nameFields: ['OWNER_NAME'] },
+    ],
+  },
+  // Site only: the address columns already requested for these layers. Their company columns were not checked in this unit.
+  'arcgis-mecklenburg-permits': {
+    verifiedUrl: M(MECK),
+    checkedOn: '2026-11-17',
+    note: 'Site only. owner_* (homeowner name, phone, email) is never read.',
+    site: { addressFields: ['project_address'], zipField: 'zip_code' },
+  },
+  'arcgis-atlanta-permits': {
+    verifiedUrl: M(ATL_PERMITS),
+    checkedOn: '2026-11-19',
+    note: 'Site only. The layer has no owner, applicant or contractor column.',
+    site: { addressFields: ['Address'] },
+  },
+  'arcgis-cobb-residential-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/4`),
+    checkedOn: '2026-11-19',
+    note: 'Site only. The layer has no owner, applicant or contractor column.',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+  'arcgis-cobb-commercial-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/1`),
+    checkedOn: '2026-11-19',
+    note: 'Site only. The layer has no owner, applicant or contractor column.',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+  'arcgis-cobb-multiunit-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/3`),
+    checkedOn: '2026-11-19',
+    note: 'Site only. The layer has no owner, applicant or contractor column.',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+};
+
+for (const d of ARCGIS_DATASETS) if (ARCGIS_CONTACT_SPECS[d.id]) d.contacts = ARCGIS_CONTACT_SPECS[d.id];
 
 /** Default lookback (days) for the where clause. */
 export function arcgisLookbackDays(ds: ArcgisDataset): number {

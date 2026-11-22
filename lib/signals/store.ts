@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchProfile, MatchRow, MatchSignal } from './match';
+import { OPPORTUNITY_DATA_COLUMNS } from './member-opportunity';
 import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
@@ -21,9 +22,13 @@ export interface StoredSignal extends MatchSignal {
   place_slug?: string | null;
   /** read back so contacts can be filed under the rows that were actually inserted */
   external_id?: string;
-  /** read back for the alert log (lib/moat/log alertLogRowsFor) */
-  kind?: string;
 }
+
+/**
+ * Columns read back from the insert: everything the matcher needs, including the opportunity fields (kind, title, summary and the
+ * data aliases; lib/signals/member-opportunity.ts), since the scan matches exactly these rows.
+ */
+export const INSERTED_SIGNAL_COLUMNS = `id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS}`;
 
 export interface ScanRunRecord {
   source: string;
@@ -72,8 +77,9 @@ export async function readAllPages<T>(
  * Paged: 40 sources at 15 to 720 minute cadences write about 350 rows a day, so one 1000-row page can drop a slow
  * source off the end, which would make it look "never run" and re-run it on every tick.
  */
-export async function getLastRunTimes(db: Db): Promise<Record<string, number>> {
-  const since = new Date(Date.now() - 3 * 86400_000).toISOString();
+/** `nowMs` is the scan's own clock (runScan's `now`), so a scan simulated or replayed at another time reads the right window. */
+export async function getLastRunTimes(db: Db, nowMs: number = Date.now()): Promise<Record<string, number>> {
+  const since = new Date(nowMs - 3 * 86400_000).toISOString();
   let rows: { source: string | null; started_at: string | null }[];
   try {
     rows = await readAllPages(
@@ -156,7 +162,7 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select('id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype');
+      .select(INSERTED_SIGNAL_COLUMNS);
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);
@@ -312,7 +318,7 @@ export async function dropDuplicateRecords(
 }
 
 /** data.subtype of a code violation or a 311 request (lib/contacts/extract.ts NO_CONTACT_SUBTYPES). */
-function noContactSubtype(subtype: unknown): boolean {
+export function noContactSubtype(subtype: unknown): boolean {
   return typeof subtype === 'string' && NO_CONTACT_SUBTYPES.has(subtype.trim().toLowerCase());
 }
 

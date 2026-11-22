@@ -16,6 +16,8 @@ function sig(id: number, over: Record<string, unknown> = {}) {
     kind: 'alert',
     title: `Severe thunderstorm warning ${id}`,
     summary: 'Hail up to 1 inch',
+    // u2: the feed labels each alert for the member's trades (profileRow: roofing) and leaves out 'context' rows, so rows carry their trade.
+    categories: ['roofing'],
     url: 'https://api.weather.gov/alerts/x',
     city: 'Smyrna',
     state: 'GA',
@@ -298,6 +300,13 @@ describe('GET /api/m/feed', () => {
       place: 'Smyrna, GA',
     });
     expect(b.items[0].intent).toMatchObject({ key: 'spending', label: 'Money being spent' });
+    // u2: each item carries `opportunity` next to `intent`: a severe thunderstorm warning is Coming soon for a roofer, a roofing permit
+    // is a Market insight (another company likely has the job).
+    expect(Object.keys(nws.opportunity).sort()).toEqual(['label', 'labelText', 'next', 'uncertain', 'why']);
+    expect(nws.opportunity).toMatchObject({ label: 'soon', labelText: 'Coming soon', next: 'Get ready for calls and check damage reports once it passes.' });
+    expect(nws.opportunity.why).toContain('Roofing');
+    expect(nws.opportunity.uncertain).toBe('Damage to homes is not confirmed.');
+    expect(b.items[0].opportunity).toMatchObject({ label: 'intel', labelText: 'Market insight' });
     // Contacts: loaded once, for the caller, with only the caller's own contact-capable signal ids.
     expect(contactCalls).toEqual([{ userId: UA, signalIds: [102], locked: false }]);
     expect(b.items[0].contacts).toEqual([{ role: 'contractor', name: 'Acme Builders LLC', phone: '555-0100' }]);

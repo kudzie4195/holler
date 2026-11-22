@@ -3,7 +3,7 @@ import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signa
 import { env } from '@/lib/env';
 import { extractContacts } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { keepFirstJobValue, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import {
@@ -422,7 +422,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
-      const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
+      const summaryBits = keepFirstJobValue(summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean));
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
@@ -518,6 +518,7 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     label,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
+    ...(ds.probation ? { probation: true } : {}),
     sourceUrl: datasetPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
