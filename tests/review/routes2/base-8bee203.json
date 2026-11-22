@@ -1,0 +1,1047 @@
+{
+ "stage-on": {
+  "afterScan": [
+   {
+    "user": "m1",
+    "ext": "ADDR-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-10",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-11",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-12",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-13",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-14",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-10",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-11",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-12",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-13",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-14",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   }
+  ],
+  "logged1": [
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "sent": [
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "rearmed": [
+   "late|NOPATH-15",
+   "late|NOPATH-16",
+   "late|NOPATH-17",
+   "late|NOPATH-18",
+   "late|NOPATH-19",
+   "m1|NOPATH-15",
+   "m1|NOPATH-16",
+   "m1|NOPATH-17",
+   "m1|NOPATH-18",
+   "m1|NOPATH-19"
+  ],
+  "logged": [
+   "late|NOPATH-15",
+   "late|NOPATH-16",
+   "late|NOPATH-17",
+   "late|NOPATH-18",
+   "late|NOPATH-19",
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-15",
+   "m1|NOPATH-16",
+   "m1|NOPATH-17",
+   "m1|NOPATH-18",
+   "m1|NOPATH-19",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "contacts": 1
+ },
+ "stage-off": {
+  "afterScan": [
+   {
+    "user": "m1",
+    "ext": "ADDR-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "ADDR-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-10",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-11",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-12",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-13",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-14",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m1",
+    "ext": "NOPATH-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "ADDR-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-0",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-1",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-10",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-11",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-12",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-13",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-14",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-2",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-3",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-4",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-5",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-6",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-7",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-8",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   },
+   {
+    "user": "m2",
+    "ext": "NOPATH-9",
+    "notified": false,
+    "pushed": null,
+    "keys": "distance_mi,notified,pushed_at,signal_id,status,user_id"
+   }
+  ],
+  "logged1": [
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "sent": [
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "rearmed": [],
+  "logged": [
+   "m1|ADDR-0",
+   "m1|ADDR-1",
+   "m1|ADDR-2",
+   "m1|ADDR-3",
+   "m1|ADDR-4",
+   "m1|ADDR-5",
+   "m1|ADDR-6",
+   "m1|ADDR-7",
+   "m1|ADDR-8",
+   "m1|ADDR-9",
+   "m1|NOPATH-0",
+   "m1|NOPATH-1",
+   "m1|NOPATH-10",
+   "m1|NOPATH-11",
+   "m1|NOPATH-12",
+   "m1|NOPATH-13",
+   "m1|NOPATH-14",
+   "m1|NOPATH-2",
+   "m1|NOPATH-3",
+   "m1|NOPATH-4",
+   "m1|NOPATH-5",
+   "m1|NOPATH-6",
+   "m1|NOPATH-7",
+   "m1|NOPATH-8",
+   "m1|NOPATH-9",
+   "m2|ADDR-0",
+   "m2|ADDR-1",
+   "m2|ADDR-2",
+   "m2|ADDR-3",
+   "m2|ADDR-4",
+   "m2|ADDR-5",
+   "m2|ADDR-6",
+   "m2|ADDR-7",
+   "m2|ADDR-8",
+   "m2|ADDR-9",
+   "m2|NOPATH-0",
+   "m2|NOPATH-1",
+   "m2|NOPATH-10",
+   "m2|NOPATH-11",
+   "m2|NOPATH-12",
+   "m2|NOPATH-13",
+   "m2|NOPATH-14",
+   "m2|NOPATH-2",
+   "m2|NOPATH-3",
+   "m2|NOPATH-4",
+   "m2|NOPATH-5",
+   "m2|NOPATH-6",
+   "m2|NOPATH-7",
+   "m2|NOPATH-8",
+   "m2|NOPATH-9"
+  ],
+  "contacts": 1
+ }
+}

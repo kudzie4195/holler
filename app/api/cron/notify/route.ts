@@ -32,6 +32,7 @@ import { isStageUpdate, STAGE_SELECT } from '@/lib/signals/stage';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { parseLang, type Lang } from '@/lib/i18n';
+import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 
 export const maxDuration = 60;
 
@@ -82,6 +83,8 @@ interface MatchRow {
   id: number;
   user_id: string;
   created_at: string;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). Absent before 0027. A held match is never emailed. */
+  alert_hold?: string | null;
   signal: SignalRow | SignalRow[] | null;
 }
 interface ProfileRow extends PlanProfile {
@@ -111,15 +114,22 @@ export async function GET(req: Request) {
 
   // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
   let matches: MatchRow[] = [];
+  // alert_hold (migration 0027) is read with the match; before 0027 the read fails on that column and every page is read without it.
+  let holdCol = 'alert_hold, ';
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await admin
+    const readPage = () => admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    let { data, error } = await readPage();
+    if (error && holdCol && missingHoldColumn(error)) {
+      holdCol = '';
+      ({ data, error } = await readPage());
+    }
     if (error) return Response.json({ error: 'query_failed', detail: error.message }, { status: 500 });
     const rows = (data ?? []) as unknown as MatchRow[];
     matches.push(...rows);
@@ -220,7 +230,7 @@ export async function GET(req: Request) {
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
         demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades), deadlineOf(s), now.getTime());
-      const live = userMatches
+      const current = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
@@ -228,11 +238,15 @@ export async function GET(req: Request) {
       // Only Act Now and Coming Soon are mailed (items 0.2 and 0.3). A market_insight match is stored for the in-app feed only, and a
       // context match stored before the label rules existed is hidden: both are marked notified without an email, so neither goes out
       // nor is read again on every run.
+      // A feed-only match (alert_hold, migration 0027: a permit with no business or site address, below the member's minimum, or a held
+      // trade family) is not an alert: marked notified with the silent ones below, never emailed.
+      const held = current.filter((r) => !!holdOf(r.m));
+      const live = held.length ? current.filter((r) => !holdOf(r.m)) : current;
       const rows = live.filter((r) => isAlertLabel(labelOf(r.s)));
       // One weather alert stored once per county is one digest item (sendRows). Every duplicate match in `rows` is still marked notified below.
       const sendRows = dedupeByAlert(rows, (r) => r.s);
       const silent = live.filter((r) => !isAlertLabel(labelOf(r.s)));
-      for (const part of chunk(silent.map((r) => r.m.id))) {
+      for (const part of chunk([...silent, ...held].map((r) => r.m.id))) {
         const { error: qErr } = await admin.from('holler_matches').update({ notified: true }).in('id', part);
         if (qErr) counts.failed++;
         else counts.matches_skipped_marked += part.length;

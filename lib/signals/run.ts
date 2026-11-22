@@ -11,6 +11,8 @@ import {
   getLastRunTimes,
   insertMatches,
   insertNewSignals,
+  markStoredContactPaths,
+  contactGateOn,
   loadProfiles,
   logRun,
   pruneOldSignals,
@@ -20,6 +22,9 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
+import { contactPathOf, holdOf, missingHoldColumn } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
+import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { normalizeState } from './adapters/usaspending';
@@ -267,16 +272,47 @@ async function stageUpdatesToday(db: Db, now: Date, exceptSignalIds: readonly nu
     const ids = [...new Set(stages.map((x) => x.signal_id).filter((x): x is number => typeof x === 'number' && !except.has(x)))];
     for (let i = 0; i < ids.length; i += 200) {
       const part = ids.slice(i, i + 200);
-      const matches = await readAllPages<{ user_id: string }>(
-        (from, to) => db.from('holler_matches').select('user_id').in('signal_id', part).order('id', { ascending: true }).range(from, to),
-        10,
-      );
-      for (const m of matches) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
+      const read = (cols: string) =>
+        readAllPages<{ user_id: string; alert_hold?: string | null }>(
+          (from, to) => db.from('holler_matches').select(cols).in('signal_id', part).order('id', { ascending: true }).range(from, to),
+          10,
+        );
+      let matches: Array<{ user_id: string; alert_hold?: string | null }>;
+      try {
+        matches = await read('user_id, alert_hold');
+      } catch (e) {
+        if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+        matches = await read('user_id');
+      }
+      // A feed-only card never got its update (it is never sent), so it does not use one of the member's 5 places.
+      for (const m of matches) if (!holdOf(m)) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
     }
   } catch {
     /* no count: the per-scan room still caps the member */
   }
   return out;
+}
+
+/**
+ * Round 18 contact gate (lib/signals/alert-gate.ts): for every building permit this scan just stored, whether it names a business or a
+ * job-site street address (from the contacts the adapter attached, sanitised exactly as they are stored, or from the public summary).
+ * Set on the stored row object (like hasContact) so matchSignals can hold a permit card with neither out of email and push. Rows that are
+ * not permits are left untouched (their contact state stays unknown, and the gate never applies to them).
+ */
+export function markContactPaths(inserted: StoredSignal[], built: readonly SignalInput[]): void {
+  const byKey = new Map<string, SignalInput>();
+  for (const b of built) byKey.set(`${b.source}\u0000${b.externalId}`, b);
+  for (const r of inserted) {
+    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null })) continue;
+    const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+    let contacts: ReturnType<typeof sanitizeContacts> = [];
+    try {
+      contacts = sanitizeContacts(b?.contacts ?? [], { datasetCity: b?.city ?? null });
+    } catch {
+      contacts = [];
+    }
+    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null);
+  }
 }
 
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
@@ -373,6 +409,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           await projectStore.record(plan, inserted);
           const events = await projectStore.stages(plan, inserted);
           f.result.logs.push(...logsSink);
+          markContactPaths(inserted, plan.rows);
           // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card.
           storedAll.push(...inserted.filter((r) => !(r.external_id != null && plan.followers.has(r.external_id))));
           stageSignals.push(...events);
@@ -390,6 +427,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     if (storedAll.length || stageSignals.length) {
       try {
         const profiles = await loadProfiles(db, now);
+        // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
+        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
+        if (!gateOn) for (const s of storedAll) s.contactPath = undefined;
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
         // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
@@ -398,18 +438,40 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         const rearm = new Map<number, string[]>();
         if (stageSignals.length) {
           const have = new Map<string, string>();
+          /** Pairs whose card is feed-only (alert_hold): a re-sent card would still be held, so it gets no update and takes no place. */
+          const heldPairs = new Set<string>();
+          // A member with no card yet gets a fresh one: the contact gate reads the stored contacts for it, as the scan did for the others.
+          if (gateOn) await markStoredContactPaths(db, stageSignals);
+          else for (const sig of stageSignals) sig.contactPath = undefined;
           try {
-            const existing = await readAllPages<{ user_id: string; signal_id: number; status: string | null }>(
-              (from, to) => db.from('holler_matches').select('user_id, signal_id, status').in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
-              20,
-            );
-            for (const m of existing) have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
+            type Existing = { user_id: string; signal_id: number; status: string | null; alert_hold?: string | null };
+            const read = (cols: string) =>
+              readAllPages<Existing>(
+                (from, to) => db.from('holler_matches').select(cols).in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
+                20,
+              );
+            let existing: Existing[];
+            try {
+              existing = await read('user_id, signal_id, status, alert_hold');
+            } catch (e) {
+              if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+              existing = await read('user_id, signal_id, status');
+              // Migration 0027 is not applied after all: no card is feed-only. Every card of this scan is stored as a plain alert (insertMatches
+              // drops the hold too) and every stage update goes out exactly as before round 18.
+              for (const r of rows) delete r.alert_hold;
+              for (const sig of stageSignals) sig.contactPath = undefined;
+            }
+            for (const m of existing) {
+              have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
+              if (holdOf(m)) heldPairs.add(`${m.user_id}\u0000${m.signal_id}`);
+            }
           } catch {
             /* insertMatches keeps (user, signal) unique anyway */
           }
           const usedToday = await stageUpdatesToday(db, now, stageSignals.map((s) => s.id));
           const normal = new Map<string, number>();
-          for (const r of rows) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
+          // Only cards that go out count against the room: a feed-only card of this scan gives way to a stage update (trimmed below).
+          for (const r of rows) if (!r.alert_hold) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
           for (const p of profiles) {
             // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
             const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
@@ -417,10 +479,12 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             const hits: Array<{ sig: StoredSignal; fresh: boolean; distance: number | null; score: number }> = [];
             for (const sig of stageSignals) {
               const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
-              if (!hit || hit.label !== 'coming_soon' || !isStageTrade(hit.trade)) continue;
+              // A card that is feed-only for this member (below their minimum job value, migration 0027) gets no stage update either.
+              if (!hit || hit.label !== 'coming_soon' || hit.hold || !isStageTrade(hit.trade)) continue;
               // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
               const held = have.get(`${p.user_id}\u0000${sig.id}`);
               if (held !== undefined && held !== 'new') continue;
+              if (heldPairs.has(`${p.user_id}\u0000${sig.id}`)) continue;
               hits.push({ sig, fresh: held === undefined, distance: hit.distance_mi, score: hit.score });
             }
             if (hits.length === 0) continue;
@@ -432,11 +496,27 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             }
           }
         }
+        // Still at most MAX_MATCHES_PER_USER new rows per member: a fresh stage card takes the place of this scan's last feed-only card.
+        if (stageSignals.length) {
+          const count = new Map<string, number>();
+          for (const r of rows) count.set(r.user_id, (count.get(r.user_id) ?? 0) + 1);
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            if (r.alert_hold && (count.get(r.user_id) ?? 0) > MAX_MATCHES_PER_USER) {
+              rows.splice(i, 1);
+              count.set(r.user_id, (count.get(r.user_id) ?? 0) - 1);
+            }
+          }
+        }
+        // A held row is stored as already handled (notified, pushed_at): the email and push runs never read it again (review P3-4). If
+        // 0027 turns out to be missing, insertMatches drops all three keys and the card is stored exactly as before round 18.
+        for (const r of rows) if (r.alert_hold) Object.assign(r, { notified: true, pushed_at: now.toISOString() });
         await insertMatches(db, rows);
         if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; report.sources.find((x) => x.id === src)?.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
-        await logAlerts(db, alertLogRowsFor(rows, alertSignals, profiles));
+        // A feed-only card (alert_hold: background, below the member's minimum, or a held trade family) is not an alert: not logged as one.
+        await logAlerts(db, alertLogRowsFor(rows.filter((r) => !r.alert_hold), alertSignals, profiles));
         const sourceById = new Map(alertSignals.map((s) => [s.id, s.source]));
         const bySource = new Map<string, number>();
         for (const r of rows) {

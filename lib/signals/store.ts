@@ -9,6 +9,9 @@ import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { contactPathOf, missingHoldColumn, type ContactLike } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
+import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
 export type Db = SupabaseClient;
 
@@ -510,18 +513,128 @@ export async function loadProfiles(db: Db, now: Date = new Date()): Promise<Matc
   } catch (e) {
     throw new Error(`profiles read failed: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  const out = rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  if (out.length === 0) return out;
+  // Work profiles (migration 0027, holler_work_profiles), read on their own: before 0027 the read fails, nothing is attached and matching
+  // is exactly as before.
+  const work = await loadWorkProfiles(db, out.map((p) => p.user_id));
+  if (work.size === 0) return out;
+  return out.map((p) => {
+    const w = work.get(p.user_id);
+    return w ? { ...p, work_property: w.work_property, work_min_value: w.work_min_value, work_type: w.work_type } : p;
+  });
 }
 
+/**
+ * The table or a column of migration 0027 is missing: Postgres 42P01 (undefined table) or 42703 (undefined column), PostgREST PGRST205
+ * (table not in the schema cache) or PGRST204 (column not in the schema cache), or the same in words.
+ */
+export function missingWorkProfiles(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!e) return false;
+  if (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || e.code === 'PGRST204') return true;
+  const m = e.message ?? '';
+  return /holler_work_profiles|work_(?:property|min_value|type)/.test(m) && /does not exist|could not find|schema cache/i.test(m);
+}
+
+/**
+ * The work settings (migration 0027, holler_work_profiles) of these members, only for members whose settings change matching (not all
+ * defaults). Never throws: a missing table or column is silent, any other failure is logged; both give an empty map, so matching is as
+ * before 0027.
+ */
+export async function loadWorkProfiles(db: Pick<Db, 'from'>, userIds: readonly string[]): Promise<Map<string, WorkColumns>> {
+  const out = new Map<string, WorkColumns>();
+  try {
+    for (const part of chunks([...userIds], CHUNK)) {
+      const { data, error } = await db.from('holler_work_profiles').select(`user_id, ${WORK_PROFILE_COLUMNS}`).in('user_id', part);
+      if (error) {
+        if (!missingWorkProfiles(error)) console.error(`work profiles read failed (matching without them): ${error.message}`);
+        return new Map();
+      }
+      for (const r of (data ?? []) as Array<WorkColumns & { user_id?: unknown }>) {
+        if (typeof r?.user_id === 'string' && workProfileOf(r)) out.set(r.user_id, { work_property: r.work_property, work_min_value: r.work_min_value, work_type: r.work_type });
+      }
+    }
+  } catch (e) {
+    console.error(`work profiles read failed (matching without them): ${e instanceof Error ? e.message : String(e)}`);
+    return new Map();
+  }
+  return out;
+}
+
+/**
+ * Contact paths for permit rows READ BACK from the database (the rematch, a stage update): the stored contacts (holler_signal_contacts)
+ * and the public summary, by the same rule as the scan (alert-gate.ts contactPathOf). Sets `contactPath` on each permit row. Never
+ * throws: on any failed read the rows stay "not known" and are never held.
+ */
+export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Array<MatchSignal & { id: number }>): Promise<void> {
+  const permits = signals.filter((s) => s.contactPath === undefined && isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
+  if (permits.length === 0) return;
+  try {
+    const by = new Map<number, ContactLike[]>();
+    // A row read without its summary (the backfill's RPC read) gets it here: the card's own text is part of the answer, so the same
+    // permit gets the same answer on every path.
+    const summaries = new Map<number, string | null>();
+    const noSummary = permits.filter((s) => s.summary === undefined).map((s) => s.id);
+    for (const part of chunks(noSummary, 150)) {
+      const { data, error } = await db.from('holler_signals').select('id, summary').in('id', part);
+      if (error) return;
+      for (const r of (data ?? []) as Array<{ id: number; summary: string | null }>) summaries.set(r.id, r.summary ?? null);
+    }
+    for (const part of chunks(permits.map((s) => s.id), 150)) {
+      const { data, error } = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);
+      if (error) return;
+      for (const c of (data ?? []) as Array<ContactLike & { signal_id: number }>) by.set(c.signal_id, [...(by.get(c.signal_id) ?? []), c]);
+    }
+    for (const s of permits) {
+      const summary = s.summary !== undefined ? s.summary : summaries.has(s.id) ? summaries.get(s.id) : undefined;
+      if (summary === undefined) continue; // not read: not known, never held
+      s.contactPath = contactPathOf(by.get(s.id), summary ?? null);
+    }
+  } catch {
+    /* not known: never held */
+  }
+}
+
+/**
+ * Is the contact gate on? Only when migration 0027 is applied (holler_matches.alert_hold can be read). Before it the gate is completely
+ * inert: no card is ranked, stored or sent differently from before round 18 (round 18 review 2, P1-1). Any failed read counts as "off".
+ */
+export async function contactGateOn(db: Pick<Db, 'from'>): Promise<boolean> {
+  try {
+    const { error } = await db.from('holler_matches').select('alert_hold').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027) and is stored as already handled
+ * (notified, pushed_at). Held and plain rows go in SEPARATE upserts: PostgREST sends a bulk upsert with the union of the rows' columns, so a
+ * plain row in a mixed batch would get notified = null. Before 0027 the column is missing: the held batch is retried without the three
+ * keys, so those cards are stored exactly as before (and go out as alerts as before).
+ */
 export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
   let n = 0;
+  const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
   for (const part of chunks(rows, 500)) {
-    const { data, error } = await db
-      .from('holler_matches')
-      .upsert(part, { onConflict: 'user_id,signal_id', ignoreDuplicates: true })
-      .select('id');
-    if (error) throw new Error(`matches upsert failed: ${error.message}`);
-    n += data?.length ?? 0;
+    const plain = part.filter((r) => !('alert_hold' in r));
+    const held = part.filter((r) => 'alert_hold' in r);
+    for (const group of [plain, held]) {
+      if (group.length === 0) continue;
+      let { data, error } = await send(group);
+      if (error && missingHoldColumn(error) && group === held) {
+        // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
+        for (const r of group) {
+          delete r.alert_hold;
+          delete r.notified;
+          delete r.pushed_at;
+        }
+        ({ data, error } = await send(group));
+      }
+      if (error) throw new Error(`matches upsert failed: ${error.message}`);
+      n += data?.length ?? 0;
+    }
   }
   return n;
 }

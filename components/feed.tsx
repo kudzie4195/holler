@@ -20,6 +20,7 @@ import { BriefBlock } from './feed/brief-block';
 import { summaryForCard } from '@/lib/signals/brief';
 import type { FeedbackState } from '@/lib/feedback/types';
 import type { OpportunityLabel } from '@/lib/signals/lead-rules';
+import type { AlertHold } from '@/lib/signals/alert-gate';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -45,6 +46,11 @@ export interface FeedItem {
   subtype?: string | null;
   /** Opportunity label for this member's trades (lib/signals/lead-rules.ts). Drives the chip and the order. Absent: no chip. */
   label?: OpportunityLabel;
+  /**
+   * Feed-only reason (lib/signals/alert-gate.ts, migration 0027): the card was not sent as an alert. Shown instead of the label chip
+   * ("Background", "Below your minimum") with one line saying why. Absent: the label chip as before.
+   */
+  hold?: AlertHold | null;
   /** ISO date of a fix-by, due or response date the record publishes. Shown on Act Now cards; null shows "No deadline published". */
   deadline?: string | null;
   /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes the "Why it matters" line trade-specific. */
@@ -289,7 +295,7 @@ function MatchCard({
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
-      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} />
+      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} />
       {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">

@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dumps English output 1`] = `
+{
+  "matchRows": "19d313b05e882e89ed2ad049930c3026f5980acd8b6c06fc2bef360c4f80ef79",
+  "out": "23021efd0d23c94f0797475f180e1bfbd48df280a1118f1679aca42c4128fcf1",
+  "outputs": 3171,
+  "shown": 527,
+}
+`;

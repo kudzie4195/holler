@@ -332,6 +332,12 @@ export interface AlertDto {
    * app builds ignore it. Show "Act now", "Coming soon" or "Market insight" as a chip; Act Now rows carry the deadline line.
    */
   label: 'act_now' | 'coming_soon' | 'market_insight';
+  /**
+   * Round 18 (migration 0027): set only when the card was NOT sent as an alert and stays in the feed: 'background' (a permit that names no
+   * business and no site address, or a trade family on hold) or 'below_min' (the permit's job value is below the member's minimum).
+   * Additive: older app builds ignore it.
+   */
+  hold?: 'below_min' | 'held' | 'background';
   /** ISO date of a fix-by, due or response date the record publishes. Null means "No deadline published". */
   deadline: string | null;
   /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." Null for every other record. Additive: older app builds ignore it. */

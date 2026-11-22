@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { missingHoldColumn, withoutHold, type AlertHold } from './alert-gate';
 
 type Db = Pick<SupabaseClient, 'from'>;
 
@@ -15,6 +16,8 @@ export interface MatchInsertRow {
   notified: boolean;
   /** Set (insert time) on history rows; null on news. */
   pushed_at?: string | null;
+  /** Feed-only reason (lib/signals/alert-gate.ts, migration 0027). Absent on every other row. */
+  alert_hold?: AlertHold;
 }
 
 /** True when a write failed because holler_matches.pushed_at does not exist yet (migration 0020 not applied). */
@@ -43,9 +46,19 @@ export async function upsertMatchRows(db: Db, rows: MatchInsertRow[], opts: { co
     const { error } = await q;
     return { n: part.length, error };
   };
-  let r = await send(rows as unknown as Record<string, unknown>[]);
-  if (r.error && missingPushedAtColumn(r.error.message) && rows.some((x) => 'pushed_at' in x)) {
-    r = await send(rows.map(({ pushed_at: _p, ...rest }) => (void _p, rest)));
+  let list = rows as unknown as Record<string, unknown>[];
+  let r = await send(list);
+  // A missing column is retried without it, each at most once: alert_hold before migration 0027 (the card is then stored as before),
+  // pushed_at before 0020. The database may name either first.
+  for (let i = 0; i < 2 && r.error; i++) {
+    if (missingHoldColumn(r.error) && list.some((x) => 'alert_hold' in x)) {
+      // The caller's rows lose the hold too: before 0027 the card is stored, and logged, as the plain match it is.
+      for (const x of rows) delete x.alert_hold;
+      list = withoutHold(list);
+    }
+    else if (missingPushedAtColumn(r.error.message) && list.some((x) => 'pushed_at' in x)) list = list.map(({ pushed_at: _p, ...rest }) => (void _p, rest));
+    else break;
+    r = await send(list);
   }
   if (r.error) throw new Error(r.error.message);
   return r.n;

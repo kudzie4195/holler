@@ -355,6 +355,15 @@ export const RULES: readonly LabelRule[] = [
     why: 'PLAN-2.0 item 1.1: the permit type in the title (re-roof, new building, remodel or addition, solar, demolition, tenant fit-out) is followed by work for other trades (permit-routing.ts DOWNSTREAM). The trade that does the permitted work keeps the market insight below.',
   },
   {
+    id: 'soon-interior-demolition-hauling',
+    label: 'coming_soon',
+    permit: true,
+    title: /^(?!.*\bdemolition\b)/i,
+    trades: ['junk-removal'],
+    downstream: true,
+    why: 'Round 18 review P2-4: an alteration whose description mentions demolition is titled by the alteration ("Remodel permit"), and keeps junk-removal as a tag for the debris (mapping/permit.ts tagOnly). Junk removal does not do the permitted work, so it gets Coming soon, never the own-trade market insight.',
+  },
+  {
     id: 'mi-permit-own-trade',
     label: 'market_insight',
     permit: true,

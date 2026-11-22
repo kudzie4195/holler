@@ -38,9 +38,11 @@ import { coverageNotice } from '@/lib/check/coverage-notice';
 import { CoverageNoticeLine } from '@/components/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
-import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
+import { VALUE_SELECT, jobValueOf, parseMoney } from '@/lib/signals/permit-value';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { langOfProfile, t } from '@/lib/i18n';
+import { holdOf, missingHoldColumn, shownHold } from '@/lib/signals/alert-gate';
 
 interface SignalRow {
   id: number;
@@ -89,6 +91,8 @@ interface MatchRow {
   distance_mi: number | null;
   draft: string | null;
   created_at: string;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts): shown on the card, never alerted. Absent before 0027. */
+  alert_hold?: string | null;
   signal: SignalRow | SignalRow[] | null;
 }
 
@@ -109,14 +113,17 @@ async function loadDashboard() {
   const snapshotRead =
     !access.locked && profile.lat !== null && profile.lon !== null ? loadSourceStateSnapshot().catch(() => null) : null;
 
-  const { data, error } = await supabase
+  // alert_hold (migration 0027) is read with the match; before 0027 that read fails on the column and is made again without it.
+  const readFeed = (holdCol: string) => supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100);
+  let { data, error } = await readFeed('alert_hold,');
+  if (error && missingHoldColumn(error)) ({ data, error } = await readFeed(''));
 
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
@@ -201,9 +208,21 @@ async function loadDashboard() {
     }
   }
   // Act Now first, then the deterministic score (PLAN-2.0 item 2.7), then the AI ranking or newest-first order the rows already have (a stable sort).
+  // A feed-only card (alert_hold) sorts with the market insights, after every alert. A 'background' card whose text or contacts name a
+  // place or a business shows no hold (shownHold): the feed never says "no site address" next to one.
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the chip once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (rows.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(supabase, user.id).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
+  const holdShown = (m: MatchRow) => {
+    const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+  };
   const ordered = orderByLabelScore(
     ranked,
-    (m) => labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow),
+    (m) => (holdShown(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)),
     (m) => {
       const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
       return feedScoreFor(
@@ -237,6 +256,7 @@ async function loadDashboard() {
       zip: s.zip,
       subtype: s.subtype ?? null,
       label: labelOf(s),
+      ...(holdShown(m) ? { hold: holdShown(m) } : {}),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
       trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
       deadline: deadlineOf(s),

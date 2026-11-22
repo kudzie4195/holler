@@ -6,6 +6,9 @@ import { DeleteAccount } from '@/components/delete-account';
 import { Notice } from '@/components/notice';
 import { ProfileForm } from '@/components/profile-form';
 import { LanguageForm } from '@/components/language-form';
+import { WorkProfileForm } from '@/components/work-profile-form';
+import { readWorkProfile } from '@/lib/auth/work-profile';
+import { createClient } from '@/lib/supabase/server';
 import { hasLanguageSetting } from '@/lib/auth/language';
 import { langOfProfile, t } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
@@ -20,7 +23,7 @@ import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { readShadowStore } from '@/lib/storebilling/shadow';
 import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { saveLanguageSetting, saveSettings } from './actions';
+import { saveLanguageSetting, saveSettings, saveWorkProfileSetting } from './actions';
 
 export const metadata: Metadata = {
   title: 'Settings',
@@ -49,6 +52,13 @@ export default async function SettingsPage() {
     } catch {
       shadowStore = null;
     }
+  }
+  // "What work do you take?" (migration 0027): read with the member's own client. Before 0027 the read fails and the section is hidden.
+  let work: Awaited<ReturnType<typeof readWorkProfile>> = { available: false, settings: { property: 'both', minValue: null, workType: 'both' } };
+  try {
+    work = await readWorkProfile(await createClient(), user.id);
+  } catch {
+    /* hidden */
   }
   const deleteStoreName = store?.storeName ?? (shadowStore === 'apple' ? 'the App Store' : shadowStore === 'google' ? 'Google Play' : null);
 
@@ -88,6 +98,16 @@ export default async function SettingsPage() {
           <h2 id="language-h" className="h-plain text-2xl text-ink">{t(langOfProfile(profile), 'settings.language.heading')}</h2>
           <Card className="mt-4">
             <LanguageForm action={saveLanguageSetting} current={langOfProfile(profile)} />
+          </Card>
+        </section>
+      ) : null}
+
+      {/* Only when the database has the work table (migration 0027): without it the section is hidden and matching is as before. */}
+      {work.available ? (
+        <section aria-labelledby="work-h" className="mt-12">
+          <h2 id="work-h" className="h-plain text-2xl text-ink">{t(langOfProfile(profile), 'settings.work.heading')}</h2>
+          <Card className="mt-4">
+            <WorkProfileForm action={saveWorkProfileSetting} current={work.settings} lang={langOfProfile(profile)} />
           </Card>
         </section>
       ) : null}
