@@ -39,6 +39,9 @@ export const ENV_KEYS = [
   'DATAFORSEO_LOGIN',
   'DATAFORSEO_PASSWORD',
   'DATAFORSEO_MONTHLY_CAP_USD',
+  'HOLLER_LOOKUP_MAX_PER_RUN',
+  'HOLLER_LOOKUP_MAX_PER_DAY',
+  'HOLLER_LOOKUP_DRY_RUN',
   'HOLLER_PREVIEW_FIXTURES',
 ] as const;
 
@@ -89,6 +92,10 @@ export const env: Record<EnvKey, string | undefined> = {
   DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
   DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
   DATAFORSEO_MONTHLY_CAP_USD: process.env.DATAFORSEO_MONTHLY_CAP_USD,
+  // Round 18 business listing lookup (lib/enrich/business-lookup.ts lookupSettings reads them again from process.env).
+  HOLLER_LOOKUP_MAX_PER_RUN: process.env.HOLLER_LOOKUP_MAX_PER_RUN,
+  HOLLER_LOOKUP_MAX_PER_DAY: process.env.HOLLER_LOOKUP_MAX_PER_DAY,
+  HOLLER_LOOKUP_DRY_RUN: process.env.HOLLER_LOOKUP_DRY_RUN,
   // Local only (lib/seo/home-live.ts previewFixturesEnabled): ignored whenever VERCEL is set.
   HOLLER_PREVIEW_FIXTURES: process.env.HOLLER_PREVIEW_FIXTURES,
 };

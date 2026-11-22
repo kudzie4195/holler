@@ -20,7 +20,7 @@ export type Db = SupabaseClient;
 export const DFS_BASE = 'https://api.dataforseo.com';
 export const DEFAULT_MONTHLY_CAP_USD = 30;
 
-export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch';
+export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch' | 'businessListingsSearch';
 
 /**
  * The one table of per-task prices (USD), used only to ESTIMATE a call before it is made. The real cost is always the `cost` field
@@ -35,6 +35,11 @@ export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch';
  *   https://dataforseo.com/pricing/ai-optimization/llm-mentions). The sample responses show cost 0.103 for limit 3
  *   (search_mentions/live) and 0.101 (target_metrics/live), so the model here is 0.10 per task plus 0.001 per item returned.
  *   https://docs.dataforseo.com/v3/ai_optimization/llm_mentions/search_mentions/live/
+ * - businessListingsSearch (round 18, lib/enrich/business-lookup.ts): 0.012 per task plus 0.00036 per item returned. Verified
+ *   2026-11-22 on the pricing page ("Each Live request costs $0.012, plus $0.00036 for each returned item",
+ *   https://dataforseo.com/pricing/business-data/business-listings-api). The sample response on the endpoint page shows cost 0.0109
+ *   for 3 items (an older 0.01 + 0.0003 rate), so the estimate from the current page is the higher, safer figure.
+ *   https://docs.dataforseo.com/v3/business_data/business_listings/search/live/
  */
 export const PRICE_TABLE = {
   searchVolumeLive: {
@@ -57,6 +62,13 @@ export const PRICE_TABLE = {
     perItemUsd: 0.001,
     verified: false,
     doc: 'https://docs.dataforseo.com/v3/ai_optimization/llm_mentions/search_mentions/live/',
+  },
+  businessListingsSearch: {
+    path: '/v3/business_data/business_listings/search/live',
+    perTaskUsd: 0.012,
+    perItemUsd: 0.00036,
+    verified: true,
+    doc: 'https://docs.dataforseo.com/v3/business_data/business_listings/search/live/',
   },
 } as const;
 

@@ -1,7 +1,7 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
 import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
-import { buildLink, cleanText, type OutreachLink } from './links';
+import { buildLink, cleanText, safeWebsite, type OutreachLink } from './links';
 import { reminderFor, renderNote, type NoteKind } from './templates';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -111,9 +111,36 @@ export interface OrgEntry {
   /** The contractor's licence number when the permit publishes it. */
   license: string | null;
   website: PlanLink | null;
+  /**
+   * Round 18: phone and website from the business's own public listing (lib/enrich/business-lookup.ts), shown under the name with a
+   * label saying where they come from. Null when the record names no listing. The website is shown with rel="noopener noreferrer nofollow".
+   */
+  listing: ListingLines | null;
   search: PlanLink | null;
   map: PlanLink | null;
   note: string;
+}
+
+export interface ListingLines {
+  phone: string | null;
+  website: { href: string; text: string } | null;
+  /** "From the business's public listing." in the member's language. */
+  note: string;
+}
+
+/** A listing as lines to show: the website parsed again (https, real host) and shown by its host name. Null when nothing is usable. */
+export function listingLines(listing: ContactInput['listing'], lang: Lang = 'en'): ListingLines | null {
+  if (!listing || typeof listing !== 'object') return null;
+  const phone = cleanText(listing.phone) || null;
+  const href = safeWebsite(listing.website ?? null);
+  let website: ListingLines['website'] = null;
+  if (href) {
+    const u = new URL(href);
+    const path = u.pathname === '/' ? '' : u.pathname;
+    website = { href, text: `${u.hostname.replace(/^www\./, '')}${path}`.slice(0, 80) };
+  }
+  if (!phone && !website) return null;
+  return { phone, website, note: t(lang, 'listing.note') };
 }
 
 export type OutreachPlan =
@@ -232,6 +259,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
       for (const f of ['phone', 'email', 'website', 'license', 'address', 'city', 'state', 'zip'] as const) {
         if (!cleanText(first[f]) && cleanText(c[f])) (first as unknown as Record<string, unknown>)[f] = c[f];
       }
+      if (!first.listing && c.listing) first.listing = c.listing;
     }
     const unique = [...byKey.values()];
     // The job site is one fact about the record, so it is printed on the first entry that has no address of its own, not on every entry.
@@ -256,6 +284,8 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         email: cleanText(c.email) || null,
         license: cleanText(c.license) || null,
         website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), t(lang, 'outreach.link.website')),
+        // Only for an organisation with no phone and no website of its own on the record (the lookup never runs for one that has them).
+        listing: cleanText(c.phone) || cleanText(c.website) ? null : listingLines(c.listing, lang),
         search: withLabel(buildLink({ type: 'search', org: name, city, state }), t(lang, 'outreach.link.search')),
         map: address
           ? withLabel(
@@ -293,12 +323,28 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   return areaPlan(signal, list, cls, lang);
 }
 
-/** The single organisation named for the alert email: name and role in words. No address, phone or email ever. */
-export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): { name: string; role: string } | null {
-  const cls = recordClass(signal.source, signal.kind);
-  const wantRole = ROLE_FOR_CLASS[cls];
-  const role = roleWordsFor(cls, lang);
-  if (!wantRole || !role || !Array.isArray(contacts)) return null;
-  const hit = contacts.find((c) => c && c.role === wantRole && cleanText(c.name));
-  return hit ? { name: cleanText(hit.name), role } : null;
+/** The organisation a card and its email name first: the first contact with the record's organisation role and a name. */
+export function namedContact<C extends PlanContact>(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: C[] | null | undefined): C | null {
+  const wantRole = ROLE_FOR_CLASS[recordClass(signal.source, signal.kind)];
+  if (!wantRole || !Array.isArray(contacts)) return null;
+  return contacts.find((c) => c && c.role === wantRole && cleanText(c.name)) ?? null;
+}
+
+export interface EmailContact {
+  name: string;
+  role: string;
+  /** Round 18: present only when the business's public listing was found (phone and website, labelled as such in the email). */
+  listing?: ListingLines;
+}
+
+/**
+ * The single organisation named for the alert email: name and role in words. The record's own address, phone and email are never in the
+ * email; the one addition (round 18) is the phone and website of the business's public listing, when one was found.
+ */
+export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): EmailContact | null {
+  const role = roleWordsFor(recordClass(signal.source, signal.kind), lang);
+  const hit = namedContact(signal, contacts);
+  if (!hit || !role) return null;
+  const listing = cleanText(hit.phone) || cleanText(hit.website) ? null : listingLines(hit.listing, lang);
+  return listing ? { name: cleanText(hit.name), role, listing } : { name: cleanText(hit.name), role };
 }

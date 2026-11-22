@@ -28,10 +28,11 @@ export interface DigestItem {
   /** Resident requests only: the filtered description, read with the service role for this member's own match. Plain text. */
   detail?: string | null;
   /**
-   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role only: the email never
-   * carries an address, phone number or email address. Absent when the record names no organization.
+   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role: the email never carries
+   * the record's address, phone number or email address. Round 18: `listing` adds the phone and website of the business's own public
+   * listing when one was found, labelled as such. Absent when the record names no organization.
    */
-  contact?: { name: string; role: string } | null;
+  contact?: { name: string; role: string; listing?: { phone: string | null; website: { href: string; text: string } | null; note: string } | null } | null;
   /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
   note?: string | null;
   /**
@@ -133,6 +134,24 @@ function noDash(s: string): string {
 
 export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'): string {
   return relativeTime(iso, now.getTime(), 'email', lang);
+}
+
+type ListingForEmail = NonNullable<NonNullable<DigestItem['contact']>['listing']>;
+
+/** The listing lines under the Contact line, html. The website is a normal link with rel="noopener noreferrer nofollow". */
+function listingHtml(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l || (!l.phone && !l.website) || !/^https:\/\//.test(l.website?.href ?? 'https://')) return '';
+  const phone = l.phone ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.phone', { value: l.phone })))}</div>` : '';
+  const site = l.website
+    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(l.website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(l.website.text)}</a></div>`
+    : '';
+  return `${phone}${site}<div style="${S.small};margin:2px 0">${escapeHtml(noDash(l.note))}</div>`;
+}
+
+/** The listing lines under the Contact line, plain text. */
+function listingText(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l || (!l.phone && !l.website) || !/^https:\/\//.test(l.website?.href ?? 'https://')) return '';
+  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${l.website ? `\n${noDash(t(lang, 'listing.website', { value: l.website.href }))}` : ''}\n${noDash(l.note)}`;
 }
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
@@ -240,7 +259,7 @@ export function renderDigest(opts: {
       // The one-line AI note is written in English by the model, so a Spanish digest leaves it out (the brief below says the same in Spanish).
       const note = it.note && lang === 'en' ? `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.note')}:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
-        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>`
+        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>${listingHtml(it.contact.listing, lang)}`
         : '';
       const br = digestBrief(it, siteUrl, lang);
       const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
@@ -281,7 +300,7 @@ export function renderDigest(opts: {
       const chip = chipText(it, lang);
       const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
       const stageText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}${listingText(it.contact.listing, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

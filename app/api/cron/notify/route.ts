@@ -14,7 +14,8 @@ import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
-import { emailContact, mayHaveContacts } from '@/lib/outreach/plan';
+import { emailContact, mayHaveContacts, namedContact } from '@/lib/outreach/plan';
+import { lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
@@ -194,6 +195,11 @@ export async function GET(req: Request) {
     .map((s) => s.external_id as string);
   const requestText = requestIds.length > 0 ? await requestTextByPublicId(admin, requestIds, now) : new Map<string, string>();
 
+  // Round 18 (lib/enrich/business-lookup.ts): business phone and website from public listings, for cards about to be emailed only.
+  // One budget for the whole run (HOLLER_LOOKUP_MAX_PER_RUN, HOLLER_LOOKUP_MAX_PER_DAY, the DataForSEO monthly cap). Without DataForSEO
+  // credentials, without migration 0026 or with HOLLER_LOOKUP_DRY_RUN set there is no call and every card is as before.
+  const lookupBudget = newBudget(lookupSettings());
+
   for (const p of eligible.slice(0, MAX_USERS_PER_RUN)) {
     if (Date.now() - started > 50_000) break;
     try {
@@ -250,10 +256,12 @@ export async function GET(req: Request) {
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
       // the owner and current access, and reads at most 200 ids in one query); any failure just leaves the lines out. Read BEFORE the
       // sort because a named contact is part of the score (PLAN-2.0 item 2.7).
+      const withContacts = ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind));
       const contacts = await loadMemberContacts({
         db: admin,
         userId: p.user_id,
-        signalIds: ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
+        signalIds: withContacts.map(({ s }) => s.id as number),
+        places: new Map(withContacts.map(({ s }) => [s.id as number, { city: s.city, state: s.state }])),
       });
       // Act Now first, then the deterministic score, then the AI ranking or newest-first order (a stable sort), then the digest cap.
       const ordered = orderByLabelScore(
@@ -268,6 +276,24 @@ export async function GET(req: Request) {
       );
       // Stage updates are never cut by the cap of 10: they go first into the cut, and the digest lists them first inside their label.
       const shown = [...ordered.filter((r) => isStageUpdate(r.s)), ...ordered.filter((r) => !isStageUpdate(r.s))].slice(0, MAX_ITEMS_IN_DIGEST);
+      // The cards in this email that name a business: look up its public listing (cache first, then at most the budget's calls). Done
+      // after the sort and the cap so only cards that are really sent are looked up. Any failure leaves the cards as they are.
+      // No email provider means no email goes out (sendEmail skips), so nothing is looked up either.
+      let cardContacts = contacts;
+      if (env.RESEND_API_KEY && env.EMAIL_FROM && Date.now() - started < 35_000) {
+        try {
+          cardContacts = await lookupForCards(
+            contacts,
+            shown
+              .filter(({ s }) => typeof s.id === 'number' && contacts.has(s.id))
+              .map(({ s }) => ({ signalId: s.id as number, city: s.city, state: s.state, contact: namedContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id as number)) })),
+            lookupBudget,
+            { db: admin, timeoutMs: 8_000 },
+          );
+        } catch {
+          cardContacts = contacts;
+        }
+      }
       const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
         source: s.source ?? null,
@@ -279,7 +305,7 @@ export async function GET(req: Request) {
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
-        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id), lang) : null,
+        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, cardContacts.get(s.id), lang) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
@@ -349,5 +375,6 @@ export async function GET(req: Request) {
   // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
   const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
 
-  return Response.json({ ok: true, ...counts, push, ms: Date.now() - started });
+  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, spentUsd: lookupBudget.spentUsd, skipped: lookupBudget.skipped };
+  return Response.json({ ok: true, ...counts, push, lookup, ms: Date.now() - started });
 }
