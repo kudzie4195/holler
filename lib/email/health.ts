@@ -7,6 +7,7 @@ import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
 import { isStageNote } from '../signals/stage';
 import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
 import { firecrawlLines, type FirecrawlHealth } from '../firecrawl/health';
+import { trialCheckLine, type TrialDbCheck } from '../auth/trial-check';
 
 export interface HealthAdapter {
   id: string;
@@ -73,6 +74,11 @@ export interface HealthReport {
   sourceStates?: SourceStateSummary | null;
   /** Firecrawl credits and per-source state (lib/firecrawl/health.ts). Absent when nothing is configured or the read failed. */
   firecrawl?: FirecrawlHealth | null;
+  /**
+   * Advertised free trial (TRIAL_DAYS) against what the database enforces (lib/auth/trial-check.ts, migration 0028). Attached by the route;
+   * absent when not checked. A mismatch or a missing migration changes the subject only when the run-level checks found nothing.
+   */
+  trialCheck?: TrialDbCheck | null;
 }
 
 const MIN = 60_000;
@@ -297,6 +303,12 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
     }
   }
   if (report.firecrawl) blocks.push({ title: 'Firecrawl (agency bid pages)', lines: firecrawlLines(report.firecrawl) });
+  if (report.trialCheck) {
+    blocks.push({ title: 'Free trial length', lines: [trialCheckLine(report.trialCheck)] });
+    if ((report.trialCheck.status === 'mismatch' || report.trialCheck.status === 'not_applied') && report.problemCount === 0) {
+      subject = 'Holler health: free trial length does not match the database';
+    }
+  }
   const c = report.counts;
   blocks.push({
     title: 'Last 24 hours',

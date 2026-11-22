@@ -209,11 +209,11 @@ describe('privacy: outcomes, archive and deletion', () => {
 describe('privacy: emails', () => {
   it('three trial emails with a no-login stop link, the weekly follow-up tied to alert emails', async () => {
     const { text } = await renderLegal('privacy');
-    expect(text).toContain('Up to three emails about your free trial: about a day after you sign up, about two days before the trial ends, and about a day after it ends.');
-    // lib/lifecycle/select.ts windows: welcome 20 to 44 h after signup, trial_ending 36 to 60 h before the end, trial_ended 18 to 48 h after.
+    expect(text).toContain('Up to three emails about your free trial: about a day after you sign up, about three days before the trial ends, and about a day after it ends. If we extend your trial, the last two can come again for the new end date.');
+    // lib/lifecycle/select.ts windows: welcome 20 to 44 h after signup, trial_ending 60 to 84 h before the end (round 18, 60-day trial; was 36 to 60), trial_ended 18 to 48 h after.
     const sel = src('lib/lifecycle/select.ts');
     expect(sel).toContain('welcome: { from: 20, to: 44 }');
-    expect(sel).toContain('trial_ending: { from: 36, to: 60 }');
+    expect(sel).toContain('trial_ending: { from: 60, to: 84 }');
     expect(sel).toContain('trial_ended: { from: 18, to: 48 }');
     expect(MIG('0016_holler_lifecycle.sql')).toContain("check (kind in ('welcome', 'trial_ending', 'trial_ended', 'optout'))");
     expect(text).toContain("Each has a link to stop them that needs no login, and your mail app's unsubscribe button works too.");

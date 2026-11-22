@@ -9,7 +9,7 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import { tradeLabel } from '@/lib/check/trades';
-import { FROM_MONTHLY, TRIAL_DAYS } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, TRIAL_DAYS, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TIER_NAMES } from '@/lib/plan/limits';
 
@@ -63,7 +63,7 @@ function faqLd() {
  * Sign-up, pricing, privacy and terms are English pages, and the links say so.
  */
 export default function HomeEs() {
-  const trial = t(L, 'land.trial', { days: TRIAL_DAYS });
+  const trial = t(L, 'land.trial', { months: TRIAL_MONTHS });
   return (
     <>
       <TopNavEs englishHref={PAIR.en} />

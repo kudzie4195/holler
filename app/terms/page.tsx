@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { COMPANY } from '@/lib/legal/company';
 import { LEGAL_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
-import { PUBLIC_PRICES, TRIAL_DAYS } from '@/lib/plan/public-prices';
+import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -97,7 +97,7 @@ export default function TermsPage() {
 
       <DocSection title="Free trial">
         <ul>
-          <li>A new account gets a {TRIAL_DAYS}-day free trial, on the website or in the app. No card is needed to start.</li>
+          <li>A new account gets a {PUBLIC_PRICES.trialPhrase}, on the website or in the app. No card is needed to start.</li>
           <li>The trial has the same limits as {solo.name}.</li>
           <li>Each person gets one free trial. Deleting an account and signing up again does not start a new one.</li>
           <li>When the trial ends, your feed locks unless you subscribe. We never charge you just because a trial ended.</li>

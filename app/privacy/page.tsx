@@ -199,8 +199,8 @@ export default function PrivacyPage() {
         <ul>
           <li>Alert emails, when email alerts are on. Every alert email has a link to turn alerts off.</li>
           <li>
-            Up to three emails about your free trial: about a day after you sign up, about two days before the trial ends,
-            and about a day after it ends. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
+            Up to three emails about your free trial: about a day after you sign up, about three days before the trial ends,
+            and about a day after it ends. If we extend your trial, the last two can come again for the new end date. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
             button works too. Stopping them does not stop your alerts.
           </li>
           <li>

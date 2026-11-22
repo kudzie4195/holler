@@ -1,4 +1,4 @@
-import { FROM_MONTHLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, TRIAL_HEADLINE } from '@/lib/plan/price-copy';
 import type { HomeMap } from '@/lib/seo/home-map';
 import { RadiusMap } from './radius-map';
 import { ZipForm } from './zip-form';
@@ -17,7 +17,7 @@ export function Hero({ lead, map }: { lead: string; map: HomeMap }) {
           <ZipForm id="hero-zip" />
           {/* "/mo" keeps the line to one line on 360 to 375 px phones (design item 9): about 303 px at 15 px in a 312 px column. */}
           <p className="m-0 text-[0.9375rem] text-on-brand-muted">
-            From {FROM_MONTHLY}/mo after {TRIAL_DAYS_FREE}. No card.
+            From {FROM_MONTHLY}/mo after {TRIAL_HEADLINE}. No card.
           </p>
         </div>
         <RadiusMap map={map} />

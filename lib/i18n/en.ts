@@ -516,7 +516,7 @@ export const en = {
   // ---- public Spanish pages: /es (home) and /es/check (area check) ----
   'land.title': 'Holler: know when your town needs you',
   'land.description': 'Holler watches public data and sends a short alert when something nearby fits what you do. Plans from {from} a month after a {days}-day free trial. No card to start.',
-  'land.trial': '{days} days free',
+  'land.trial': '{months} months free',
   'nav.home': 'Holler home',
   'nav.skip': 'Skip to content',
   'nav.main': 'Main',

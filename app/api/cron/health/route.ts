@@ -8,6 +8,7 @@ import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@
 import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
 import { readStateRuns } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
+import { loadTrialDbCheck } from '@/lib/auth/trial-check';
 
 export const maxDuration = 60;
 
@@ -139,6 +140,8 @@ export async function GET(req: Request) {
   } catch {
     report.firecrawl = null;
   }
+  // Advertised trial length against the database's (migration 0028). Read-only; never throws.
+  report.trialCheck = await loadTrialDbCheck(admin);
 
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };

@@ -202,7 +202,7 @@ export function renderWelcomeQuiet(o: WelcomeQuiet): Rendered {
 }
 
 // ---- trial-ending ----------------------------------------------------------------------------------------------------------------
-/** Whole days the trial-ending email talks about: the middle of its window (36 to 60 hours before the end) is 48 hours. Not a trial length. */
+/** Whole days the trial-ending email talks about: the middle of its window (60 to 84 hours before the end) is 72 hours. Not a trial length. */
 export const TRIAL_ENDING_DAYS = Math.round((WINDOWS.trial_ending.from + WINDOWS.trial_ending.to) / 2 / 24);
 export const TRIAL_ENDING_SUBJECT = `Your trial ends in ${TRIAL_ENDING_DAYS} days`;
 

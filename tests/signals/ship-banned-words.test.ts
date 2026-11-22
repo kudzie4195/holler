@@ -1,6 +1,6 @@
 /**
  * Round 15 integration (unit I): the banned-words scan over every member-facing string the merged branches add or touch.
- * Rules (CONTEXT.md): never "lead", "they need you", "you will win", "guaranteed", "official record"; no free-month offer (the trial is 14 days).
+ * Rules (CONTEXT.md): never "lead", "they need you", "you will win", "guaranteed", "official record"; the only "months free" is the trial headline built from TRIAL_DAYS (60 days, round 18); the yearly saving is a percent.
  * Two reads: (1) every string literal and JSX text in the member-facing modules, (2) every string of the rendered surfaces (web feed, digest
  * html and text, mobile DTO) for the integration fixtures, plus every routed sentence and every brief sentence.
  */
@@ -32,6 +32,13 @@ export const BANNED: [string, RegExp][] = [
   ['proves damage', /\bproves?\b[^.]*\b(?:damage|hir)/i],
 ];
 
+/**
+ * Round 18 owner decision: the free trial is 60 days, and its headline form is the number of months plus "months free", filled from
+ * TRIAL_DAYS. The i18n template for it is the ONE string literal allowed to say so (tests/plan/no-months-free.test.ts owns the full rule:
+ * never "about N months free", never next to a yearly price).
+ */
+const ALLOWED_LITERALS: Record<string, string[]> = { 'free months': ['{months} months free'] };
+
 const ROOT = process.cwd();
 const walk = (p: string): string[] => (statSync(join(ROOT, p)).isFile() ? [p] : readdirSync(join(ROOT, p)).flatMap((f) => walk(join(p, f))));
 const isSlug = (t: string) => /^\/[a-z0-9/_-]*$/i.test(t) || /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(t);
@@ -52,7 +59,7 @@ describe('banned words: member-facing source strings', () => {
   for (const [name, re] of BANNED) {
     it(`no "${name}" in any string literal`, () => {
       const hits: string[] = [];
-      for (const f of files) for (const t of stringLiterals(readFileSync(join(ROOT, f), 'utf8'))) if (!isSlug(t) && re.test(t)) hits.push(`${f}: ${t.slice(0, 90)}`);
+      for (const f of files) for (const t of stringLiterals(readFileSync(join(ROOT, f), 'utf8'))) if (!isSlug(t) && re.test(t) && !(ALLOWED_LITERALS[name] ?? []).includes(t)) hits.push(`${f}: ${t.slice(0, 90)}`);
       expect(hits).toEqual([]);
     });
   }

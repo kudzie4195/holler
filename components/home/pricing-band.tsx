@@ -1,5 +1,5 @@
 import { Pricing } from '@/components/pricing';
-import { TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE } from '@/lib/plan/price-copy';
 import { COL, H2 } from './styles';
 
 /** Pricing on the home page: the headline beside the two short plan cards. Every figure comes from the plan files. */
@@ -9,7 +9,7 @@ export function PricingBand() {
       <div className={`${COL} flex flex-wrap items-start gap-12 py-24`}>
         <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-4">
           <h2 id="pricing-h" className={H2}>
-            {TRIAL_DAYS_FREE}. Then a flat monthly price.
+            {TRIAL_HEADLINE}. Then a flat monthly price.
           </h2>
           <p className="m-0 text-[1.0625rem] text-muted">No card to start. No per-lead fees. Cancel any{'\u00a0'}time.</p>
         </div>

@@ -104,7 +104,7 @@ describe('every email', () => {
     const s = samples();
     expect(s['welcome matches (5 shown of 12)'].subject).toBe('What we found near you');
     expect(s['welcome quiet'].subject).toBe('What we found near you');
-    expect(s['trial_ending with alerts'].subject).toBe('Your trial ends in 2 days');
+    expect(s['trial_ending with alerts'].subject).toBe('Your trial ends in 3 days');
     expect(s['trial_ended missed'].subject).toBe('Your alerts are paused');
   });
 

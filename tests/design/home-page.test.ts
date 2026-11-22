@@ -12,7 +12,7 @@ import Home from '../../app/page';
 import { NO_LIVE, homeLivePreviewFixture } from '../../lib/seo/home-live';
 import { homeCopy } from '../../lib/seo/public-copy';
 import { priceLabel } from '@/lib/stripe/plans';
-import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { TRIAL_HEADLINE } from '@/lib/plan/price-copy';
 import { PUSH_INTERVAL_MS } from '@/lib/push/notify';
 import { PUSH_CAP, capPhrase } from '@/lib/seo/home-cadence';
 import { tidyInches } from '@/components/home/select';
@@ -132,8 +132,9 @@ describe('home page, Version 3', () => {
     for (const p of [priceLabel('starter', 'monthly'), priceLabel('pro', 'monthly'), priceLabel('starter', 'annual'), priceLabel('pro', 'annual')]) {
       expect(text).toContain(p);
     }
-    expect(text).toContain(`From ${priceLabel('starter', 'monthly')}/mo after ${TRIAL_DAYS} days free. No card.`);
-    expect(text).toContain(`${TRIAL_DAYS} days free. Then a flat monthly price.`);
+    expect(text).toContain(`From ${priceLabel('starter', 'monthly')}/mo after ${TRIAL_HEADLINE}. No card.`);
+    expect(text).toContain('after 2 months free. No card.'); // round 18: the headline form of the 60-day trial
+    expect(text).toContain(`${TRIAL_HEADLINE}. Then a flat monthly price.`);
     expect(text).not.toContain('Starter');
     expect(html).toContain('aria-label="Plans"');
     expect(html.match(/data-price="/g)?.length).toBe(4);

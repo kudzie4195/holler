@@ -84,7 +84,8 @@ describe('Pricing component', () => {
   it('lists what each plan includes and the free trial line', () => {
     for (const f of [...PLAN_FEATURES.starter, ...PLAN_FEATURES.pro]) expect(text).toContain(f);
     expect(text).toContain(`Every plan starts with a ${TRIAL_DAYS}-day free trial. No card needed.`);
-    expect(TRIAL_DAYS).toBe(14);
+    expect(TRIAL_DAYS).toBe(60);
+    expect(text).toContain('Every plan starts with a 60-day free trial. No card needed.');
     expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
   });
   it('links to /signup', () => {

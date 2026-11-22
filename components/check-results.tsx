@@ -6,7 +6,7 @@ import { FamilyDot } from './page-header';
 import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
-import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE, TRIAL_DAYS } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, FROM_YEARLY, TRIAL_HEADLINE, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { lowerFirst, t, type Lang } from '@/lib/i18n';
 import { localizeTitle } from '@/lib/signals/title-i18n';
 
@@ -16,7 +16,7 @@ function Cta({ citySlug, children, lang }: { citySlug: string | null; children?:
     <div className="on-brand mt-10 rounded-card bg-brand px-6 py-8 md:px-8">
       {children}
       <ButtonLink href={href} variant="signal" size="lg" className="max-w-full whitespace-normal! py-3 text-center">
-        {lang === 'en' ? `Get these by email. ${TRIAL_DAYS_FREE}, no card` : t(lang, 'chk.cta.btn', { trial: t(lang, 'land.trial', { days: TRIAL_DAYS }) })}
+        {lang === 'en' ? `Get these by email. ${TRIAL_HEADLINE}, no card` : t(lang, 'chk.cta.btn', { trial: t(lang, 'land.trial', { months: TRIAL_MONTHS }) })}
       </ButtonLink>
       <p className="mt-3 text-sm text-on-brand-muted">
         {lang === 'en' ? `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.` : t(lang, 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY })}

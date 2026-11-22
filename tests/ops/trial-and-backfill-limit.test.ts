@@ -12,9 +12,18 @@ const NOW = new Date('2026-11-17T12:00:00Z');
 const day = 86_400_000;
 const iso = (d: number) => new Date(NOW.getTime() + d * day).toISOString();
 
-function fakeAdmin(init: { meta?: Record<string, unknown>; profile?: Record<string, unknown> | null; failUpdate?: boolean }) {
-  const state = { meta: { ...(init.meta ?? {}) } as Record<string, unknown>, profile: init.profile === undefined ? { user_id: 'u1', created_at: iso(0), trial_ends_at: iso(7) } : init.profile };
+function fakeAdmin(init: { meta?: Record<string, unknown>; profile?: Record<string, unknown> | null; failUpdate?: boolean; failSendsDelete?: boolean }) {
+  const state = {
+    meta: { ...(init.meta ?? {}) } as Record<string, unknown>,
+    profile:
+      init.profile === undefined
+        ? ({ user_id: 'u1', created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS), subscription_status: 'trialing', stripe_subscription_id: null } as Record<string, unknown>)
+        : init.profile,
+    sends: [] as { user_id: string; kind: string }[],
+  };
   const calls: string[] = [];
+  // Filters of the last update, so a test can see the paid guard (status trialing, no Stripe subscription, only later).
+  const updateFilters: string[] = [];
   const admin: any = {
     auth: {
       admin: {
@@ -27,53 +36,141 @@ function fakeAdmin(init: { meta?: Record<string, unknown>; profile?: Record<stri
         },
       },
     },
-    from: () => {
+    from: (table: string) => {
+      if (table === 'holler_lifecycle_sends') {
+        const d: any = {
+          filters: {} as Record<string, unknown>,
+          delete: () => d,
+          eq: (k: string, v: unknown) => ((d.filters[k] = v), d),
+          in: (k: string, v: unknown[]) => {
+            calls.push('sends.delete');
+            if (init.failSendsDelete) return Promise.resolve({ error: { code: 'PGRST205', message: 'missing table' } });
+            state.sends = state.sends.filter((r) => !(r.user_id === d.filters.user_id && v.includes(r.kind)));
+            return Promise.resolve({ error: null });
+          },
+        };
+        return d;
+      }
       const q: any = {
         select: () => q,
         eq: () => q,
         update: (patch: Record<string, unknown>) => {
           calls.push('profile.update');
-          if (state.profile) Object.assign(state.profile, patch);
-          return { eq: async () => ({ error: null }) };
+          updateFilters.length = 0;
+          const pending = { patch, ok: true };
+          const u: any = {
+            eq: (k: string, v: unknown) => {
+              updateFilters.push(`${k}=${v}`);
+              if (k !== 'user_id' && state.profile && state.profile[k] !== v) pending.ok = false;
+              return u;
+            },
+            is: (k: string, v: unknown) => {
+              updateFilters.push(`${k} is ${v}`);
+              if (state.profile && state.profile[k] !== v) pending.ok = false;
+              return u;
+            },
+            lt: (k: string, v: string) => {
+              updateFilters.push(`${k}<${v}`);
+              if (state.profile && !(Date.parse(String(state.profile[k])) < Date.parse(v))) pending.ok = false;
+              return u;
+            },
+            then: (res: (v: { error: null }) => void) => {
+              if (state.profile && pending.ok) Object.assign(state.profile, pending.patch);
+              res({ error: null });
+            },
+          };
+          return u;
         },
         maybeSingle: async () => ({ data: state.profile, error: null }),
       };
       return q;
     },
   };
-  return { admin, state, calls };
+  return { admin, state, calls, updateFilters };
 }
 
-describe('one free trial per person (review L3)', () => {
-  it('first profile: records the trial start from the profile and leaves the default trial alone', async () => {
+const trialing = (over: Record<string, unknown>) => ({ user_id: 'u1', subscription_status: 'trialing', stripe_subscription_id: null, ...over });
+
+describe('one free trial per person (review L3), 60 days from the first start (round 18)', () => {
+  it('first profile with the 0028 default (start + 60): records the trial start and changes nothing else', async () => {
     const f = fakeAdmin({});
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('first');
     expect(f.state.meta.holler_trial_started_at).toBe(iso(0));
-    expect(f.state.profile!.trial_ends_at).toBe(iso(7));
+    expect(f.state.profile!.trial_ends_at).toBe(iso(TRIAL_DAYS));
     expect(f.calls).not.toContain('profile.update');
   });
 
-  it('delete then re-onboard 20 days later: the new profile gets the ORIGINAL trial end, already past, not a fresh 7 days', async () => {
-    // day 0: signed up (stamped). day 3: deleted. day 20: onboards again, the table default gives now + 7 days.
-    const stamped = { holler_trial_started_at: iso(-20) };
-    const f = fakeAdmin({ meta: stamped, profile: { user_id: 'u1', created_at: iso(0), trial_ends_at: iso(7) } });
+  it('first profile BEFORE 0028 (the database default still gives 14 days): the app moves it to start + 60, so the site never promises more than the row holds', async () => {
+    const f = fakeAdmin({ profile: trialing({ created_at: iso(0), trial_ends_at: iso(14) }) });
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('first');
+    expect(f.state.meta.holler_trial_started_at).toBe(iso(0));
+    expect(f.state.profile!.trial_ends_at).toBe(iso(60));
+    expect(f.updateFilters).toEqual(['user_id=u1', 'subscription_status=trialing', 'stripe_subscription_id is null', `trial_ends_at<${iso(60)}`]);
+    expect(f.calls).toContain('sends.delete');
+    // Running it again (re-submitted onboarding) changes nothing.
+    f.calls.length = 0;
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
+    expect(f.calls).toEqual([]);
+  });
+
+  it('delete then re-onboard 70 days later: the new profile gets the ORIGINAL trial end, already past, not a fresh trial', async () => {
+    // day -70: signed up (stamped). Deleted. Today: onboards again; the table default gives now + 60 days.
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-70) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(60) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
-    expect(f.state.profile!.trial_ends_at).toBe(trialEndFromStart(iso(-20)));
+    expect(f.state.profile!.trial_ends_at).toBe(trialEndFromStart(iso(-70)));
     expect(Date.parse(f.state.profile!.trial_ends_at as string)).toBeLessThan(NOW.getTime());
   });
 
-  it('returns during the original trial: only the remaining days', async () => {
-    // A fresh row gets the column default (TRIAL_DAYS = 14 since migration 0019); the person started 2 days ago, so 12 days are left.
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: { user_id: 'u1', created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS) } });
+  it('returns during the original trial: only the remaining days (60 - 2 = 58)', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS) }) });
     await applyTrialRules(f.admin, 'u1', NOW);
-    expect(TRIAL_DAYS).toBe(14);
+    expect(TRIAL_DAYS).toBe(60);
     expect(f.state.profile!.trial_ends_at).toBe(iso(TRIAL_DAYS - 2));
   });
 
-  it('is idempotent and never extends: a profile already at or before the original end is untouched', async () => {
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: { user_id: 'u1', created_at: iso(-2), trial_ends_at: iso(5) } });
+  it('a returning person cut to stamp + 14 by the pre-0028 trigger gets the remainder of 60 days from the ORIGINAL start', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-20) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(-6) }) });
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
+    expect(f.state.profile!.trial_ends_at).toBe(iso(40));
+  });
+
+  it('is idempotent: a profile already at start + 60 is untouched', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(-2), trial_ends_at: iso(58) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
     expect(f.calls).not.toContain('profile.update');
+  });
+
+  it('never lengthens a paid or once-paid row: active, past_due, canceled, or any Stripe subscription id', async () => {
+    for (const over of [{ subscription_status: 'active' }, { subscription_status: 'past_due' }, { subscription_status: 'canceled' }, { stripe_subscription_id: 'sub_1' }]) {
+      const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-10) }, profile: trialing({ created_at: iso(-10), trial_ends_at: iso(4), ...over }) });
+      expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
+      expect(f.calls).not.toContain('profile.update');
+      expect(f.state.profile!.trial_ends_at).toBe(iso(4));
+    }
+  });
+
+  it('never moves an end to a date already past (start more than 60 days ago)', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-61) }, profile: trialing({ created_at: iso(-61), trial_ends_at: iso(-47) }) });
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
+    expect(f.calls).not.toContain('profile.update');
+  });
+
+  it('an extension clears the trial_ending and trial_ended ledger rows only (opt-out and welcome stay); a missing ledger table is not an error', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-12) }, profile: trialing({ created_at: iso(-12), trial_ends_at: iso(2) }) });
+    f.state.sends = [
+      { user_id: 'u1', kind: 'welcome' },
+      { user_id: 'u1', kind: 'trial_ending' },
+      { user_id: 'u1', kind: 'optout' },
+      { user_id: 'u2', kind: 'trial_ending' },
+    ];
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
+    expect(f.state.profile!.trial_ends_at).toBe(iso(48));
+    expect(f.state.sends).toEqual([{ user_id: 'u1', kind: 'welcome' }, { user_id: 'u1', kind: 'optout' }, { user_id: 'u2', kind: 'trial_ending' }]);
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const g = fakeAdmin({ meta: { holler_trial_started_at: iso(-12) }, profile: trialing({ created_at: iso(-12), trial_ends_at: iso(2) }), failSendsDelete: true });
+    expect(await applyTrialRules(g.admin, 'u1', NOW)).toBe('returning');
+    expect(g.state.profile!.trial_ends_at).toBe(iso(48));
+    spy.mockRestore();
   });
 
   it('an unparseable stamp is ignored (treated as no stamp)', () => {
@@ -91,21 +188,21 @@ describe('one free trial per person (review L3)', () => {
     expect(leaveHollerPatch({ products: ['clovermap', 'holler'] }, NOW, iso(-1)).products).toEqual(['clovermap']);
   });
 
-  it('full cycle through the same fake: sign up, delete (patch merges into app_metadata), come back', async () => {
+  it('full cycle through the same fake: sign up, delete (patch merges into app_metadata), come back after the 60 days', async () => {
     const f = fakeAdmin({});
     await applyTrialRules(f.admin, 'u1', new Date(iso(0)));
     // delete: the shared auth user is kept and the patch is merged in
     Object.assign(f.state.meta, leaveHollerPatch(f.state.meta, new Date(iso(3)), iso(0)));
     expect(f.state.meta.holler_trial_started_at).toBe(iso(0)); // still the original
-    // 30 days later: new profile row with the default trial
-    f.state.profile = { user_id: 'u1', created_at: iso(30), trial_ends_at: iso(37) };
-    await applyTrialRules(f.admin, 'u1', new Date(iso(30)));
-    expect(Date.parse(f.state.profile.trial_ends_at as string)).toBeLessThan(Date.parse(iso(30)));
+    // 70 days later: new profile row with the default trial
+    f.state.profile = trialing({ created_at: iso(70), trial_ends_at: iso(130) });
+    await applyTrialRules(f.admin, 'u1', new Date(iso(70)));
+    expect(Date.parse(f.state.profile.trial_ends_at as string)).toBeLessThan(Date.parse(iso(70)));
   });
 
   it('never throws: an admin failure is logged and reported', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const f = fakeAdmin({ failUpdate: true });
+    const f = fakeAdmin({ failUpdate: true, meta: {} });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('error');
     const bad: any = { auth: { admin: { getUserById: async () => { throw new Error('down'); } } }, from: () => ({}) };
     expect(await applyTrialRules(bad, 'u1', NOW)).toBe('error');

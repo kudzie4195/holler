@@ -1,7 +1,7 @@
 # Holler: build spec (the contract every worker builds to)
 
 ## Product in one paragraph
-Holler tells local businesses when their area needs them. It watches public data (weather alerts, hail reports, disasters, building permits, 311 complaints, failed health inspections, federal contracts, big events, airport delays) and public posts where people ask "anyone recommend a ___ near ___?". A business picks what it does and where it works. Holler sends a short alert when something nearby matches. Two plans after a 14-day free trial (`TRIAL_DAYS` in `lib/auth/membership.ts`), no card to start: Solo at $7.99 a month or $79.99 a year, and Pro at $13.99 a month or $139.99 a year (prices live in `lib/stripe/plans.ts`; the Solo plan's internal id is `starter`). It never posts anything for the user and never touches anyone's social accounts.
+Holler tells local businesses when their area needs them. It watches public data (weather alerts, hail reports, disasters, building permits, 311 complaints, failed health inspections, federal contracts, big events, airport delays) and public posts where people ask "anyone recommend a ___ near ___?". A business picks what it does and where it works. Holler sends a short alert when something nearby matches. Two plans after a 60-day free trial (2 months; `TRIAL_DAYS` in `lib/auth/membership.ts`, round 18), no card to start: Solo at $7.99 a month or $79.99 a year, and Pro at $13.99 a month or $139.99 a year (prices live in `lib/stripe/plans.ts`; the Solo plan's internal id is `starter`). It never posts anything for the user and never touches anyone's social accounts.
 
 Every city also gets a free public page ("What's happening in Atlanta, GA") built from the same data. Those pages are the SEO and AI-search engine: real, fresh, cited local information in one place, with a call to action to get alerts.
 
@@ -30,7 +30,7 @@ holler_profiles (
   radius_mi int not null default 25 check (radius_mi between 5 and 100),
   alert_email boolean not null default true,
   subscription_status text not null default 'trialing', -- trialing|active|past_due|canceled
-  trial_ends_at timestamptz not null default now() + interval '14 days', -- 7 in 0001; 14 since migration 0019
+  trial_ends_at timestamptz not null default now() + interval '60 days', -- 7 in 0001; 14 since 0019; 60 since migration 0028
   stripe_customer_id text, stripe_subscription_id text,
   last_notified_at timestamptz,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()

@@ -10,6 +10,7 @@
  * plan key and entitlement are `solo`.
  */
 import { TRIAL_DAYS } from '../auth/membership';
+import { TRIAL_HEADLINE, TRIAL_PHRASE } from './price-copy';
 import { annualSavingLabel, annualSavingsPercent, priceDecimal, priceLabel, PRICES_CENTS, type Plan } from '../stripe/plans';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from './limits';
 
@@ -96,10 +97,14 @@ function plan(entitlement: Entitlement): PublicPlan {
 
 export const PUBLIC_PRICES = {
   currency: 'USD',
-  /** Free trial length in days. The web trial needs no card. The stores have no introductory offer (mobile/STORE-SETUP.md); if one is added it must match this length. */
+  /** Free trial length in days (60). The web trial needs no card. The stores have no introductory offer (mobile/STORE-SETUP.md); if one is added it must match this length. */
   trialDays: TRIAL_DAYS,
-  /** ISO 8601 trial period for a store introductory offer, computed from TRIAL_DAYS (P14D today). */
+  /** ISO 8601 trial period for a store introductory offer, computed from TRIAL_DAYS (P60D today). */
   trialPeriod: `P${TRIAL_DAYS}D`,
+  /** Headline form for listings and the app: TRIAL_HEADLINE (lib/plan/price-copy.ts), the 2-month headline. */
+  trialHeadline: TRIAL_HEADLINE,
+  /** Precise form for listings and the app: "60-day free trial" (lib/plan/price-copy.ts). */
+  trialPhrase: TRIAL_PHRASE,
   plans: { solo: plan('solo'), pro: plan('pro') } as Record<Entitlement, PublicPlan>,
 } as const;
 

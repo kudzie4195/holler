@@ -2,7 +2,9 @@
  * Who gets which trial email. Pure: no database, no clock of its own.
  *
  *   welcome  20 to 44 hours after signup (profile created_at), not subscribed.
- *   trial_ending  36 to 60 hours before trial_ends_at, still trialing, no subscription.
+ *   trial_ending  60 to 84 hours before trial_ends_at (about 3 days), still trialing, no subscription. Round 18: was 36 to 60 hours
+ *                 (about 2 days) when the trial was 14 days; a 60-day trial gets one more day of notice, the same 3 days Stripe uses
+ *                 for its own trial_will_end event.
  *   trial_ended  18 to 48 hours after trial_ends_at, still unsubscribed, never canceled.
  * Every kind needs a verified email (email_verified_at set): no lifecycle email ever goes to an unverified address, which may be a
  * stranger's mistyped one.
@@ -26,8 +28,8 @@ export const RETURNING_SLACK_MS = HOUR;
 export const WINDOWS = {
   /** Hours since signup. */
   welcome: { from: 20, to: 44 },
-  /** Hours until the trial ends. */
-  trial_ending: { from: 36, to: 60 },
+  /** Hours until the trial ends: about 3 days (round 18, for the 60-day trial; was 36 to 60). */
+  trial_ending: { from: 60, to: 84 },
   /** Hours since the trial ended. */
   trial_ended: { from: 18, to: 48 },
 } as const;

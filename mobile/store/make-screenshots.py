@@ -36,6 +36,11 @@ TMP = Path("/tmp/holler-shots-work"); TMP.mkdir(exist_ok=True)
 PORT = 8799
 BASE = f"http://127.0.0.1:{PORT}"
 DSF = 4  # every app capture; downscaled with Lanczos to the exact size on the canvas
+# The trial wording on shot 8 comes from the server's one constant (lib/auth/membership.ts TRIAL_DAYS, phrases from
+# lib/plan/price-copy.ts) through .gen/data.json (build-data.mjs), never typed here.
+_CFG = json.loads((GEN / "data.json").read_text())["config"]
+TRIAL_DAYS = int(_CFG["trialDays"])
+TRIAL_HEADLINE = _CFG["trialHeadline"]  # built by the server from TRIAL_DAYS (lib/plan/price-copy.ts)
 
 FRAUNCES = REPO / "node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2"
 GEIST = REPO / "node_modules/geist/dist/fonts/geist-sans"
@@ -56,8 +61,8 @@ SHOTS = [
     dict(name="06-trade-radius", head=("Your trades,", "your radius"), sub="Set trades and how far you drive", bg="sky_deep"),
     dict(name="07-push", head=("Alerts that", "fit. No spam."), sub="At most one push an hour", bg="sand"),
     # Google asks for preview images without price promotion and "free": the Android file states the flat price model instead.
-    dict(name="08-price", head=("14 days free.", "Then $7.99/mo."), sub="Free account first. No card. Subscribe later.", bg="accent",
-         android=dict(head=("Flat monthly", "plans"), sub="No per-lead fees. 14-day trial, no card.")),
+    dict(name="08-price", head=(f"{TRIAL_HEADLINE[0].upper()}{TRIAL_HEADLINE[1:]}.", "Then $7.99/mo."), sub="Free account first. No card. Subscribe later.", bg="accent",
+         android=dict(head=("Flat monthly", "plans"), sub=f"No per-lead fees. {TRIAL_DAYS}-day trial, no card.")),
 ]
 
 T = {
@@ -775,12 +780,12 @@ def shot08(browser, plat, shot):
     hd = shot if plat == "ios" else dict(shot, **shot["android"])
     ctx, page, hm = header_page(browser, plat, name, hd["head"], hd["sub"], shot["bg"])
     if plat == "ios":
-        # The ringed element is the real trial surface: the Feed's banner for a new account (14 days left), read from the live app.
+        # The ringed element is the real trial surface: the Feed's banner for a new account (TRIAL_DAYS left), read from the live app.
         ctx2, p2, tall = feed_capture(browser, plat, 340, "08-price", me="trial")
         n = p2.evaluate("""() => { const e = document.querySelector('.notice.info'); const b = e.getBoundingClientRect();
           return {x: b.left, y: b.top, w: b.width, h: b.height, text: e.innerText, px: parseFloat(getComputedStyle(e).fontSize)}; }""")
         ctx2.close()
-        assert n["text"].startswith("14 days left in your free trial.") and "See plans" in n["text"], n
+        assert n["text"].startswith(f"{TRIAL_DAYS} days left in your free trial.") and "See plans" in n["text"], n
         bp, bsize = save_scaled(crop_css(tall, n), t["lift_w"] - 40, f"{plat}-{name}-banner.png")
         bs = bsize[0] / n["w"]
         bx = (t["W"] - bsize[0]) / 2; by = t["content_top"] + t["ring"] + RING_CLEAR + 1

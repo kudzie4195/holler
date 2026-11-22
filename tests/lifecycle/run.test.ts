@@ -31,7 +31,7 @@ function prof(id: string, over: Partial<FullProfile> = {}): FullProfile {
   };
 }
 const trial_ending = (id: string, over: Partial<FullProfile> = {}) =>
-  prof(id, { created_at: new Date(NOW.getTime() - 5 * 24 * H).toISOString(), trial_ends_at: new Date(NOW.getTime() + 48 * H).toISOString(), ...over });
+  prof(id, { created_at: new Date(NOW.getTime() - 5 * 24 * H).toISOString(), trial_ends_at: new Date(NOW.getTime() + 72 * H).toISOString(), ...over });
 const trial_ended = (id: string, over: Partial<FullProfile> = {}) =>
   prof(id, { created_at: new Date(NOW.getTime() - 9 * 24 * H).toISOString(), trial_ends_at: new Date(NOW.getTime() - 30 * H).toISOString(), ...over });
 
@@ -113,7 +113,7 @@ describe('what gets sent', () => {
     const s = summary(await runLifecycle(deps(w, m)));
     expect(s.sent).toEqual({ welcome: 1, trial_ending: 1, trial_ended: 1 });
     expect(m.sent.map((x) => [x.to, x.subject])).toEqual([
-      ['b@example.test', 'Your trial ends in 2 days'],
+      ['b@example.test', 'Your trial ends in 3 days'],
       ['a@example.test', 'What we found near you'],
       ['c@example.test', 'Your alerts are paused'],
     ]);
@@ -299,7 +299,7 @@ describe('idempotence and overlapping runs', () => {
     expect(totals).toBe(4);
     expect(results.map((r) => summary(r).already_sent).reduce((a, b) => a + b, 0)).toBe(8);
     expect([...m.sent.map((x) => `${x.to}|${x.subject}`)].sort()).toEqual(
-      ['a2@example.test|What we found near you', 'a@example.test|What we found near you', 'b@example.test|Your trial ends in 2 days', 'c@example.test|Your alerts are paused'].sort(),
+      ['a2@example.test|What we found near you', 'a@example.test|What we found near you', 'b@example.test|Your trial ends in 3 days', 'c@example.test|Your alerts are paused'].sort(),
     );
   });
 
@@ -583,7 +583,7 @@ describe('dry run', () => {
 });
 
 describe('any trial length: each email exactly once, at the right time', () => {
-  for (const trialDays of [14, 7]) {
+  for (const trialDays of [60, 14, 7]) {
     it(`a ${trialDays}-day trial (length read only from trial_ends_at) gets welcome, trial_ending and trial_ended once each`, async () => {
       const T0 = Date.parse('2026-12-01T08:30:00.000Z');
       const created = new Date(T0).toISOString();
@@ -600,12 +600,12 @@ describe('any trial length: each email exactly once, at the right time', () => {
         t = T0 + h * H;
         await runLifecycle({ store: storeOf(w), send, siteUrl: SITE, secret: SECRET, now: new Date(t) });
       }
-      expect(Object.keys(at).sort()).toEqual(['What we found near you', 'Your alerts are paused', 'Your trial ends in 2 days']);
+      expect(Object.keys(at).sort()).toEqual(['What we found near you', 'Your alerts are paused', 'Your trial ends in 3 days']);
       for (const times of Object.values(at)) expect(times).toHaveLength(1);
       const hrs = (ms: number) => ms / H;
       expect(hrs(at['What we found near you'][0] - T0)).toBe(20); // first hourly run inside the window
-      expect(hrs(Date.parse(ends) - at['Your trial ends in 2 days'][0])).toBeGreaterThanOrEqual(36);
-      expect(hrs(Date.parse(ends) - at['Your trial ends in 2 days'][0])).toBeLessThanOrEqual(60);
+      expect(hrs(Date.parse(ends) - at['Your trial ends in 3 days'][0])).toBeGreaterThanOrEqual(60);
+      expect(hrs(Date.parse(ends) - at['Your trial ends in 3 days'][0])).toBeLessThanOrEqual(84);
       expect(hrs(at['Your alerts are paused'][0] - Date.parse(ends))).toBeGreaterThanOrEqual(18);
       expect(hrs(at['Your alerts are paused'][0] - Date.parse(ends))).toBeLessThanOrEqual(48);
       expect([...w.ledger].sort()).toEqual(['m:trial_ended', 'm:trial_ending', 'm:welcome']);
@@ -617,7 +617,7 @@ describe('any trial length: each email exactly once, at the right time', () => {
     const path = await import('node:path');
     const { samples } = await import('./helpers');
     const dir = path.join(__dirname, '../../lib/lifecycle');
-    const bad = /\b7[- ]days?\b|\b14[- ]days?\b|\bday ?[158]\b|\bseven\b|\bfourteen\b/i;
+    const bad = /\b7[- ]days?\b|\b14[- ]days?\b|\b60[- ]days?\b|\bsixty\b|\bday ?[158]\b|\bseven\b|\bfourteen\b/i;
     for (const m of Object.values(samples())) expect(bad.test(m.subject + m.text + m.html)).toBe(false);
     for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.ts'))) {
       const code = fs.readFileSync(path.join(dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

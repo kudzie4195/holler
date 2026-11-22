@@ -23,7 +23,7 @@ function me() {
   const profile = { businessName: 'Sample Roofing', trades: m.trades, zip: m.zip, city: m.city, state: m.state, radiusMi: m.radiusMi, extraZips: [], keywords: [], alertEmail: true, pushAlerts: false, emailVerified: true, createdAt: iso(-3 * 864e5) };
   const trial = scenario.me === 'trial';
   const access = trial
-    ? { state: 'trial', tier: 'starter', tierName: 'Solo', subscriptionStatus: 'trialing', trialEndsAt: iso(14 * 864e5), trialDaysLeft: 14, billingSource: 'none', storeProductId: null, storeExpiresAt: null, mayBuyInStore: true, manageUrl: null }
+    ? { state: 'trial', tier: 'starter', tierName: 'Solo', subscriptionStatus: 'trialing', trialEndsAt: iso(data.config.trialDays * 864e5), trialDaysLeft: data.config.trialDays, billingSource: 'none', storeProductId: null, storeExpiresAt: null, mayBuyInStore: true, manageUrl: null }
     : { state: 'paid', tier: 'starter', tierName: 'Solo', subscriptionStatus: 'active', trialEndsAt: iso(-1 * 864e5), trialDaysLeft: 0, billingSource: 'apple', storeProductId: 'com.localholler.app.solo.monthly', storeExpiresAt: iso(20 * 864e5), mayBuyInStore: true, manageUrl: 'https://apps.apple.com/account/subscriptions' };
   return { ok: true, user: USER, needsOnboarding: false, profile, access, limits: SOLO_LIMITS };
 }
