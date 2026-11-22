@@ -78,6 +78,7 @@ export type DropReason =
   | 'link_off_domain'
   | 'not_open'
   | 'not_on_page'
+  | 'due_not_on_page'
   | 'duplicate'
   | 'no_trade'
   | 'no_place';
@@ -156,6 +157,32 @@ export function parseDue(raw: string, tz: string): { iso: string; hasTime: boole
   return iso ? { iso, hasTime: time !== null } : null;
 }
 
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+
+/**
+ * Does the page text print this calendar day (YYYY-MM-DD) in a form people write? Forms: 2026-12-17, 12/17/2026, 12/17/26, 12-17-2026,
+ * "December 17, 2026" and "Dec. 17th, 2026", "17 December 2026". The extraction is an LLM: it must not be able to "correct" a printed
+ * date (a typo on the agency's page, an old date) into one the page never shows.
+ */
+export function dayAppearsOn(markdown: string, ymd: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const text = markdown.replace(/\s+/g, ' ');
+  const zeroOpt = (n: number) => `0?${n}`; // an optional leading zero
+  const year = `(?:${y}|${String(y).slice(2)})`;
+  const sep = '[\\/.-]';
+  const forms = [
+    `(?<!\\d)${y}-${p2(mo)}-${p2(d)}(?!\\d)`,
+    `(?<!\\d)${zeroOpt(mo)}${sep}${zeroOpt(d)}${sep}${year}(?!\\d)`,
+  ];
+  const name = MONTH_NAMES[mo - 1];
+  const nameRe = `${name.slice(0, 3)}(?:${name.slice(3)}|\\.)?`;
+  forms.push(`${nameRe}\\s*${zeroOpt(d)}(?:st|nd|rd|th)?,?\\s*${y}(?!\\d)`);
+  forms.push(`(?<!\\d)${zeroOpt(d)}(?:st|nd|rd|th)?\\s+${nameRe},?\\s*${y}(?!\\d)`);
+  return new RegExp(forms.join('|'), 'i').test(text);
+}
+
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 /** "RFP #26-28" -> "RFP2628"; a trailing code the source says is not part of the number is dropped first. */
@@ -169,13 +196,15 @@ function linkFor(raw: string, src: LocalBidSource): { url: string; kind: 'solici
   if (t) {
     try {
       const u = new URL(t, src.listUrl);
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') return 'off_domain';
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return src.listFallback ? { url: src.listUrl, kind: 'list' } : 'off_domain';
       const host = u.hostname.toLowerCase();
-      if (!src.domains.some((d) => host === d || host === `www.${d}` || host.endsWith(`.${d}`))) return 'off_domain';
+      // A page that has no link per row sends bidders to the agency's own list page when a row's link is somewhere else (a portal's
+      // vendor-registration link the model copied): the link is always on the agency's domain.
+      if (!src.domains.some((d) => host === d || host === `www.${d}` || host.endsWith(`.${d}`))) return src.listFallback ? { url: src.listUrl, kind: 'list' } : 'off_domain';
       u.protocol = 'https:';
       return { url: u.toString(), kind: 'solicitation' };
     } catch {
-      return 'off_domain';
+      return src.listFallback ? { url: src.listUrl, kind: 'list' } : 'off_domain';
     }
   }
   return src.listFallback ? { url: src.listUrl, kind: 'list' } : null;
@@ -251,6 +280,15 @@ export function validateRows(raw: unknown, src: LocalBidSource, opts: { now: Dat
         continue;
       }
     }
+    const dueLocalDay = localDay(due.iso, src.tz);
+    let dueOnPage: boolean | null = null;
+    if (opts.markdown !== null) {
+      dueOnPage = !!dueLocalDay && dayAppearsOn(opts.markdown, dueLocalDay);
+      if (!dueOnPage) {
+        drop(titleRaw, number, 'due_not_on_page');
+        continue;
+      }
+    }
     const nn = normalizeNumber(number, src.numberSuffix);
     const dedupeKey = nn.length >= 3 ? `n:${nn}` : link.kind === 'solicitation' ? `u:${link.url}` : `t:${norm(titleRaw)}|${due.iso}`;
     if (seen.has(dedupeKey)) {
@@ -301,6 +339,8 @@ export function validateRows(raw: unknown, src: LocalBidSource, opts: { now: Dat
         buyer,
         dueDate: dueLocal,
         noDueDate: false,
+        // true: the due day is printed on the page text. null: no page text was available to check it against.
+        dueOnPage,
         linkKind: link.kind,
         tz: src.tz,
         // The position is the agency's ZIP centroid, not a job site: the matcher reads radius + 15 miles and no screen shows a distance.

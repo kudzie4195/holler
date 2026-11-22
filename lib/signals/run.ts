@@ -103,6 +103,7 @@ export function missingEnvFor(adapter: Adapter, e: Record<string, string | undef
   // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
   // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
   if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
+  for (const f of adapter.extraFlags ?? []) if (!f.on()) keys.push(f.name);
   return keys;
 }
 

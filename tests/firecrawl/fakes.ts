@@ -27,7 +27,7 @@ export class FakeDb {
         let lim = Infinity;
         let range: [number, number] | null = null;
         const q = {
-          like: (c: string, p: string) => (filters.push((r) => String(r[c] ?? '').startsWith(p.replace('%', ''))), q),
+          like: (c: string, p: string) => (filters.push((r) => String(r[c] ?? '').startsWith(p.replace('%', '').replace(/\\/g, ''))), q),
           eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
           gte: (c: string, v: string) => (filters.push((r) => String(r[c] ?? '') >= v), q),
           order: (c: string, o: { ascending: boolean }) => ((order = [...order, [c, o.ascending]]), q),
@@ -51,6 +51,8 @@ export interface ClientScript {
   /** Called per scrape; return a result or throw. */
   scrape: (req: ScrapeRequest, n: number) => Partial<ScrapeResult> | Error;
   remaining?: number | null;
+  /** billingPeriodStart returned by credit-usage. */
+  billingStart?: string | null;
 }
 
 export function mockClient(script: ClientScript) {
@@ -67,7 +69,7 @@ export function mockClient(script: ClientScript) {
     async creditUsage() {
       creditUsageCalls += 1;
       if (script.remaining === undefined) throw new FirecrawlError('network', null, 'no', true);
-      return { remainingCredits: script.remaining, planCredits: 1000, billingPeriodEnd: null };
+      return { remainingCredits: script.remaining, planCredits: 1000, billingPeriodStart: script.billingStart ?? null, billingPeriodEnd: null };
     },
   };
   return { client, calls, creditUsageCalls: () => creditUsageCalls };

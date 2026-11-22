@@ -49,10 +49,10 @@ describe('request shape', () => {
   });
 
   it('reads the balance from GET /v2/team/credit-usage', async () => {
-    const f = vi.fn(async () => ok({ remainingCredits: 912, planCredits: 1000, billingPeriodEnd: '2026-12-01T00:00:00Z' }));
+    const f = vi.fn(async () => ok({ remainingCredits: 912, planCredits: 1000, billingPeriodStart: '2026-11-01T00:00:00Z', billingPeriodEnd: '2026-12-01T00:00:00Z' }));
     const u = await client(f as unknown as typeof fetch).creditUsage();
     expect((f.mock.calls[0] as unknown as [string, RequestInit])[0]).toBe('https://api.firecrawl.dev/v2/team/credit-usage');
-    expect(u).toEqual({ remainingCredits: 912, planCredits: 1000, billingPeriodEnd: '2026-12-01T00:00:00Z' });
+    expect(u).toEqual({ remainingCredits: 912, planCredits: 1000, billingPeriodStart: '2026-11-01T00:00:00Z', billingPeriodEnd: '2026-12-01T00:00:00Z' });
   });
 
   it('refuses an empty key and treats a blank env value as no key', () => {

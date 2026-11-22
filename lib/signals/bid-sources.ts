@@ -7,6 +7,12 @@
  * push or digest. The default is off so shipping this code changes nothing until the owner flips the flag.
  */
 export const BIDS_FLAG = 'HOLLER_BIDS_ENABLED';
+/**
+ * The Atlanta-area agency feeds read with Firecrawl spend paid credits, so they have their OWN switch on top of HOLLER_BIDS_ENABLED
+ * (round 16 review): turning on the city bids (SF, LA, Baton Rouge, NYC) never starts Firecrawl spend by itself. Default off. All three are
+ * needed: HOLLER_BIDS_ENABLED, HOLLER_LOCAL_BIDS_ENABLED and FIRECRAWL_API_KEY.
+ */
+export const LOCAL_BIDS_FLAG = 'HOLLER_LOCAL_BIDS_ENABLED';
 
 /** Every city-bid source id the code knows. A source can be configured here and still be disabled (see city-bids.ts `verified`). */
 export const BID_SOURCE_IDS: readonly string[] = [
@@ -28,6 +34,11 @@ const ON = new Set(['1', 'true', 'on', 'yes']);
 
 /** Reads the flag at call time (not at import), so a test or a redeploy with a new value takes effect without a rebuild of this module. */
 export function bidsEnabled(value: string | undefined = process.env[BIDS_FLAG]): boolean {
+  return ON.has((value ?? '').trim().toLowerCase());
+}
+
+/** The Firecrawl agency feeds' own switch, same on-values as the bids flag. Read at call time. */
+export function localBidsEnabled(value: string | undefined = process.env[LOCAL_BIDS_FLAG]): boolean {
   return ON.has((value ?? '').trim().toLowerCase());
 }
 

@@ -43,6 +43,12 @@ export class FirecrawlError extends Error {
   readonly retryable: boolean;
   /** HTTP attempts made before giving up. */
   readonly attempts: number;
+  /**
+   * Credits this FAILED call may still have cost, so the caller records them (round 16 review). Firecrawl bills "1 credit if a document
+   * comes back" even for a 403 or 404 page (https://docs.firecrawl.dev/billing), and a request that WE aborted at the deadline may have
+   * finished and been billed on their side. 0 for a refusal before any document (401, 402, 429, 5xx without a result).
+   */
+  creditsBilled = 0;
   constructor(code: FirecrawlErrorCode, status: number | null, message: string, retryable: boolean, attempts = 1) {
     super(message);
     this.name = 'FirecrawlError';
@@ -90,6 +96,8 @@ export interface ScrapeResult {
 export interface CreditUsage {
   remainingCredits: number | null;
   planCredits: number | null;
+  /** Start of the account's billing cycle (the free credits reset per cycle, not per calendar month), when the API reports it. */
+  billingPeriodStart: string | null;
   billingPeriodEnd: string | null;
 }
 
@@ -204,23 +212,40 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
   const nowFn = opts.now ?? Date.now;
   const gate = gateFor(opts.concurrency ?? 2);
 
-  function backoff(attempt: number, res: Response | null): number {
+  /**
+   * How long to wait before the next attempt, or null to stop. A Retry-After from Firecrawl is honoured in full as long as it fits in the
+   * time left before the deadline (without a deadline, up to 60 s); a longer one means stop, never retry early (docs.firecrawl.dev/api-reference/errors).
+   */
+  function backoff(attempt: number, res: Response | null, deadlineMs: number | undefined): number | null {
     const exp = Math.min(maxDelay, baseDelay * 2 ** (attempt - 1));
     const jittered = exp * (0.5 + random() * 0.5);
     const ra = res ? retryAfterMs(res) : null;
-    return Math.min(maxDelay, Math.max(jittered, ra ?? 0));
+    if (ra === null) return jittered;
+    const room = deadlineMs === undefined ? Math.max(maxDelay, 60_000) : deadlineMs - nowFn() - 500;
+    if (ra > room) return null;
+    return Math.max(jittered, ra);
   }
 
   /** One call with retries. Returns the parsed JSON body of a 2xx response. */
-  async function call(method: 'GET' | 'POST', path: string, body: unknown, timeoutMs: number, deadlineMs: number | undefined): Promise<{ body: unknown; attempts: number }> {
+  async function call(method: 'GET' | 'POST', path: string, body: unknown, timeoutMs: number, deadlineMs: number | undefined, cost = 0): Promise<{ body: unknown; attempts: number }> {
     let lastErr: FirecrawlError | null = null;
+    // Set when one of our own aborts cut a request that Firecrawl may have finished (and billed) anyway.
+    let possiblyBilled = false;
+    const fail = (e: FirecrawlError): FirecrawlError => {
+      if (possiblyBilled) e.creditsBilled = Math.max(e.creditsBilled, cost);
+      return e;
+    };
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const remaining = deadlineMs === undefined ? Infinity : deadlineMs - nowFn();
-      if (remaining <= 500) throw lastErr ?? new FirecrawlError('timeout', null, 'no time left for the Firecrawl call', false, attempt - 1);
-      const attemptTimeout = Math.min(timeoutMs, remaining);
+      if (remaining <= 500) throw fail(lastErr ?? new FirecrawlError('timeout', null, 'no time left for the Firecrawl call', false, attempt - 1));
       let res: Response | null = null;
       await gate.acquire();
       try {
+        // Time spent waiting for a free slot counts against the deadline (round 16 review): the timeout is worked out AFTER the wait, and a
+        // call that could not finish inside what is left is never started.
+        const left = deadlineMs === undefined ? Infinity : deadlineMs - nowFn();
+        if (left <= 500) throw fail(lastErr ?? new FirecrawlError('timeout', null, 'no time left for the Firecrawl call after waiting for a slot', false, attempt - 1));
+        const attemptTimeout = Math.min(timeoutMs, left);
         res = await fetchImpl(`${FIRECRAWL_BASE_URL}${path}`, {
           method,
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Holler/1.0 (+https://holler.app/about)' },
@@ -228,7 +253,9 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
           signal: AbortSignal.timeout(attemptTimeout),
         });
       } catch (e) {
+        if (e instanceof FirecrawlError) throw e;
         const timedOut = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+        if (timedOut) possiblyBilled = true;
         lastErr = new FirecrawlError(timedOut ? 'timeout' : 'network', null, timedOut ? 'the Firecrawl request timed out' : 'the Firecrawl request could not be sent', true, attempt);
       } finally {
         gate.release();
@@ -254,15 +281,16 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
         }
         const c = classify(res.status);
         lastErr = new FirecrawlError(c.code, res.status, `Firecrawl HTTP ${res.status}${detail ? `: ${detail}` : ''}`, c.retryable, attempt);
-        if (!c.retryable) throw lastErr;
+        if (!c.retryable) throw fail(lastErr);
       }
 
       if (attempt >= maxAttempts || !lastErr?.retryable) break;
-      const wait = backoff(attempt, res);
+      const wait = backoff(attempt, res, deadlineMs);
+      if (wait === null) break; // Retry-After asks for longer than the budget allows: stop, do not retry early
       if (deadlineMs !== undefined && nowFn() + wait >= deadlineMs - 500) break; // waiting would eat the whole budget
       await sleep(wait);
     }
-    throw lastErr ?? new FirecrawlError('network', null, 'the Firecrawl request failed', true, maxAttempts);
+    throw fail(lastErr ?? new FirecrawlError('network', null, 'the Firecrawl request failed', true, maxAttempts));
   }
 
   return {
@@ -275,7 +303,7 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
         timeout: Math.max(1000, Math.min(300_000, timeoutMs - 2000)),
       };
       if (typeof req.maxAgeMs === 'number') payload.maxAge = Math.max(0, Math.floor(req.maxAgeMs));
-      const { body, attempts } = await call('POST', '/scrape', payload, timeoutMs, req.deadlineMs);
+      const { body, attempts } = await call('POST', '/scrape', payload, timeoutMs, req.deadlineMs, estimateCredits(req.formats));
       if (!isObj(body) || body.success === false || !isObj(body.data)) {
         const err = isObj(body) && typeof body.error === 'string' ? `: ${scrub(body.error, apiKey).slice(0, 120)}` : '';
         throw new FirecrawlError('bad_response', null, `Firecrawl did not return a scrape result${err}`, false, attempts);
@@ -285,7 +313,10 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
       const pageStatus = typeof meta.statusCode === 'number' ? meta.statusCode : null;
       if (pageStatus !== null && pageStatus >= 400) {
         // The target page itself refused or was missing: nothing usable, and the rows below would be guesses.
-        throw new FirecrawlError('target_error', pageStatus, `the page answered HTTP ${pageStatus} to Firecrawl`, false, attempts);
+        const te = new FirecrawlError('target_error', pageStatus, `the page answered HTTP ${pageStatus} to Firecrawl`, false, attempts);
+        // "Pages that return error statuses like 403 or 404 still cost 1 credit if a document comes back" (docs.firecrawl.dev/billing).
+        te.creditsBilled = CREDITS.scrape;
+        throw te;
       }
       const ct = isObj(data.changeTracking) ? data.changeTracking : null;
       const cs = ct && typeof ct.changeStatus === 'string' ? ct.changeStatus : null;
@@ -309,7 +340,7 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
       const d = isObj(body) && isObj(body.data) ? body.data : null;
       if (!d) throw new FirecrawlError('bad_response', null, 'Firecrawl did not return credit usage', false, 1);
       const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-      return { remainingCredits: num(d.remainingCredits), planCredits: num(d.planCredits), billingPeriodEnd: typeof d.billingPeriodEnd === 'string' ? d.billingPeriodEnd : null };
+      return { remainingCredits: num(d.remainingCredits), planCredits: num(d.planCredits), billingPeriodStart: typeof d.billingPeriodStart === 'string' ? d.billingPeriodStart : null, billingPeriodEnd: typeof d.billingPeriodEnd === 'string' ? d.billingPeriodEnd : null };
     },
   };
 }

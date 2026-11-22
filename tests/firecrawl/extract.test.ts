@@ -12,19 +12,22 @@ describe('Gwinnett County, real list read on 2026-11-22 (28 rows)', () => {
   const r = run('bids-gwinnett', NOW_LIVE);
   it('keeps the open trade solicitations with the due instant, the PDF link on gwinnettcounty.com and the trades', () => {
     expect(r.rows).toBe(28);
-    expect(r.items.map((i) => (i.data as { solicitationId: string }).solicitationId)).toEqual(['BL137-26 NOT', 'BL099-26 INV', 'BL154-26 NOT', 'BL138-26 INV', 'BL160-26 NOT']);
+    expect(r.items.map((i) => (i.data as { solicitationId: string }).solicitationId)).toEqual(['BL137-26 NOT', 'BL153-26 INV', 'BL099-26 INV', 'BL154-26 NOT', 'BL136-26 INV', 'BL138-26 INV', 'BL160-26 NOT']);
     const roof = r.items[0];
     expect(roof.title).toBe('Open bid in Gwinnett County: Lime Building Roof Replacement at Yellow River Water Reclamation Facility');
     expect(roof.expiresAt).toBe('2026-12-17T20:00:00.000Z'); // 3:00 PM Eastern
     expect((roof.data as { dueDate: string }).dueDate).toBe('2026-12-17');
     expect(roof.url).toBe('https://www.gwinnettcounty.com/static/upload/bid/802545/BL137-26%20NOT.pdf');
     expect(roof.categories).toEqual(['roofing']);
-    expect(r.items[3].categories).toEqual(['tree-service']);
+    expect(r.items[5].categories).toEqual(['tree-service']);
+    // Round 16 review: the fence installation contract (BL153-26) was missed before the fencing rule; the guardrail-and-fencing one is kept too.
+    expect(r.items[1].categories).toEqual(['fencing']);
+    expect(r.items[4].categories).toEqual(['fencing']);
     expect(r.items.every((i) => new URL(i.url!).hostname.endsWith('gwinnettcounty.com'))).toBe(true);
   });
 
   it('drops past rows (the page still lists the 4 that opened on Nov 20) and rows that name no Holler trade, and says why', () => {
-    expect(reasons(r)).toEqual({ due_date_passed: 4, no_trade: 19 });
+    expect(reasons(r)).toEqual({ due_date_passed: 4, no_trade: 17 });
     expect(r.dropped.filter((d) => d.reason === 'due_date_passed').map((d) => d.number)).toEqual(['BL152-26 NOT', 'IWQ 140950', 'IWQ 141809 INV', 'IWQ 111026 INV']);
   });
 
@@ -59,7 +62,7 @@ describe('Rockdale County, real list read on 2026-11-22 (10 rows)', () => {
 
   it('a trade row with no link falls back to the list page on rockdalecountyga.gov, flagged as a list link', () => {
     const rows = [{ title: 'ROOF REPLACEMENT AT FIRE STATION 5', solicitationNumber: 'ITB #26-30', dueDate: '2026-12-20T14:00', detailUrl: '', status: 'open' }];
-    const r = validateRows(rows, src('bids-rockdale'), { now: NOW_LIVE, markdown: 'ITB #26-30 ROOF REPLACEMENT AT FIRE STATION 5' });
+    const r = validateRows(rows, src('bids-rockdale'), { now: NOW_LIVE, markdown: 'ITB #26-30 ROOF REPLACEMENT AT FIRE STATION 5 DUE: December 20, 2026, at 2:00 PM' });
     expect(r.items).toHaveLength(1);
     expect(r.items[0].url).toBe('https://www.rockdalecountyga.gov/current-bids-rfp-rfq');
     expect(r.items[0].data).toMatchObject({ linkKind: 'list' });
@@ -87,7 +90,7 @@ describe('Dunwoody and Tucker snapshots', () => {
 
 describe('validation rules', () => {
   const base = { title: 'Roof Replacement at the Annex', solicitationNumber: 'BL200-27', dueDate: '2026-12-30T15:00', detailUrl: 'https://www.gwinnettcounty.com/static/upload/bid/1/BL200-27.pdf', status: 'open' };
-  const md = 'BL200-27 Roof Replacement at the Annex';
+  const md = 'BL200-27 Roof Replacement at the Annex Opening Date 2026-12-30 and 2026-11-22';
   const v = (row: Record<string, unknown>, id = 'bids-gwinnett', m: string | null = md) => validateRows([row], src(id), { now: NOW_LIVE, markdown: m });
 
   it('accepts the clean row', () => expect(v(base).items).toHaveLength(1));
@@ -102,7 +105,7 @@ describe('validation rules', () => {
   it('drops a placeholder date years away', () => expect(v({ ...base, dueDate: '2031-01-01T10:00' }).dropped[0].reason).toBe('due_date_placeholder'));
   it('drops awarded, closed and cancelled rows', () => {
     for (const status of ['awarded', 'closed', 'cancelled']) expect(v({ ...base, status }).dropped[0].reason).toBe('not_open');
-    expect(v({ ...base, title: 'CANCELLED - Roof Replacement at the Annex' }, 'bids-gwinnett', 'BL200-27 CANCELLED - Roof Replacement at the Annex').dropped[0].reason).toBe('not_open');
+    expect(v({ ...base, title: 'CANCELLED - Roof Replacement at the Annex' }, 'bids-gwinnett', 'BL200-27 CANCELLED - Roof Replacement at the Annex 2026-12-30').dropped[0].reason).toBe('not_open');
   });
   it('drops a link on another domain (a Teams meeting, a portal), and a missing link where the page has per-row links', () => {
     expect(v({ ...base, detailUrl: 'https://teams.microsoft.com/meet/123' }).dropped[0].reason).toBe('link_off_domain');

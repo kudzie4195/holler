@@ -68,6 +68,9 @@ export const BID_TRADE_RULES: BidTradeRule[] = [
       '(?:road|street|roadway) (?:imprv|improvements?|rehabilitation|rehab|reconstruction|resurfacing)',
     ],
   },
+  // Round 16 review, from Gwinnett's live list: "Purchase and Installation of Fence on an Annual Contract" (BL153-26). A supply-only title
+  // ("Fence panels") still drops through the supply rule below; an install/repair title passes.
+  { trades: ['fencing'], patterns: ['fenc(?:e|es|ing)'] },
   { trades: ['pest-control'], patterns: ['pest', 'rodent', 'termite', 'mosquito', 'extermination', 'exterminator', 'vector control', 'fumigation', 'bed bug'] },
   {
     trades: ['security'],

@@ -8,6 +8,7 @@ async function load(opts: { key?: string; db?: FakeDb; script?: ReturnType<typeo
   vi.stubEnv('CRON_SECRET', 's3cret');
   vi.stubEnv('FIRECRAWL_API_KEY', opts.key ?? KEY);
   vi.stubEnv('HOLLER_BIDS_ENABLED', ''); // the probe must work while bids are still off
+  vi.stubEnv('HOLLER_LOCAL_BIDS_ENABLED', '');
   const db = opts.db ?? new FakeDb();
   const mock = mockClient(opts.script ?? fixtureScript('bids-gwinnett', 'same'));
   vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => db }));
@@ -58,7 +59,7 @@ describe('GET /api/admin/firecrawl-probe', () => {
     expect((await GET(req('/api/admin/firecrawl-probe?source=bids-gwinnett'))).status).toBe(503);
     expect(mock.calls).toHaveLength(0);
   });
-  it('dry run: kept rows, dropped rows with reasons, credits; writes nothing; works with the bids flag off; never echoes the key', async () => {
+  it('dry run: kept rows, dropped rows with reasons, credits; writes no signal; works with the bid switches off; never echoes the key', async () => {
     const { GET, db, mock } = await load();
     const res = await GET(req('/api/admin/firecrawl-probe?source=bids-gwinnett'));
     expect(res.status).toBe(200);
@@ -67,13 +68,14 @@ describe('GET /api/admin/firecrawl-probe', () => {
     expect(text).not.toContain(KEY);
     const body = JSON.parse(text);
     expect(body).toMatchObject({ ok: true, source: 'bids-gwinnett', status: 'ok', rowsExtracted: 28 });
-    expect(body.kept).toHaveLength(5);
+    expect(body.kept).toHaveLength(7);
     expect(body.kept[0]).toMatchObject({ title: expect.any(String), dueDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), url: expect.stringContaining('gwinnettcounty.com') });
-    expect(body.dropped).toHaveLength(23);
+    expect(body.dropped).toHaveLength(21);
     expect(body.dropped[0]).toMatchObject({ title: expect.any(String), reason: expect.any(String) });
     expect(body.credits).toMatchObject({ calls: 1, estimated: 5, reported: null });
     expect(body.credits.remainingBefore).toBe(900);
-    expect(db.inserts).toEqual([]);
+    expect(db.inserts).toEqual([expect.objectContaining({ source: '_fc:probe:bids-gwinnett', fetched: 5, error: 'probe' })]); // the spend is on the books, no signal is written
+    expect(body.notes).toContain('robots.txt allows the page');
     expect(mock.calls).toHaveLength(1);
     expect(mock.calls[0].formats.some((f) => typeof f === 'object' && f.type === 'changeTracking')).toBe(false);
   });

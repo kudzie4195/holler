@@ -9,7 +9,7 @@ import { NOW_LIVE } from './helpers';
 
 const GW = localSourceById('bids-gwinnett')!;
 const RK = localSourceById('bids-rockdale')!;
-const BOTH = { HOLLER_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: 'fc-test-key-0000000000' };
+const BOTH = { HOLLER_BIDS_ENABLED: '1', HOLLER_LOCAL_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: 'fc-test-key-0000000000' };
 
 beforeEach(() => {
   resetRunSpend();
@@ -21,12 +21,16 @@ function deps(over: Partial<PipelineDeps> & { client: ReturnType<typeof mockClie
   return { fetch: okRobots(), env: { ...BOTH }, now: NOW_LIVE, log: () => undefined, db: null, makeClient: () => client.client, ...rest };
 }
 
-describe('flag gating: either env missing means zero calls of any kind', () => {
+describe('flag gating: any of the three switches missing means zero calls of any kind', () => {
+  const KEY = BOTH.FIRECRAWL_API_KEY;
   it.each([
-    ['no flag', { FIRECRAWL_API_KEY: BOTH.FIRECRAWL_API_KEY }, 'flag_off'],
-    ['flag off', { HOLLER_BIDS_ENABLED: '0', FIRECRAWL_API_KEY: BOTH.FIRECRAWL_API_KEY }, 'flag_off'],
-    ['no key', { HOLLER_BIDS_ENABLED: '1' }, 'no_key'],
-    ['blank key', { HOLLER_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: '  ' }, 'no_key'],
+    ['no bids flag', { HOLLER_LOCAL_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: KEY }, 'flag_off'],
+    ['bids flag off', { HOLLER_BIDS_ENABLED: '0', HOLLER_LOCAL_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: KEY }, 'flag_off'],
+    ['no local flag (city bids on, key set: Production today)', { HOLLER_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: KEY }, 'local_flag_off'],
+    ['local flag off', { HOLLER_BIDS_ENABLED: '1', HOLLER_LOCAL_BIDS_ENABLED: 'no', FIRECRAWL_API_KEY: KEY }, 'local_flag_off'],
+    ['no key', { HOLLER_BIDS_ENABLED: '1', HOLLER_LOCAL_BIDS_ENABLED: '1' }, 'no_key'],
+    ['blank key', { HOLLER_BIDS_ENABLED: '1', HOLLER_LOCAL_BIDS_ENABLED: '1', FIRECRAWL_API_KEY: '  ' }, 'no_key'],
+    ['only the local flag', { HOLLER_LOCAL_BIDS_ENABLED: '1' }, 'flag_off'],
     ['neither', {}, 'flag_off'],
   ])('%s', async (_n, env, reason) => {
     const c = mockClient(fixtureScript('bids-gwinnett', 'changed'));
@@ -52,17 +56,17 @@ describe('first run: check, then extract', () => {
     expect(r.status).toBe('ok');
     expect(r.calls).toBe(2);
     expect(r.creditsEstimated).toBe(6);
-    expect(r.kept).toHaveLength(5);
+    expect(r.kept).toHaveLength(7);
     expect(r.rowsExtracted).toBe(28);
     expect(c.calls[0].formats).toEqual(['markdown', { type: 'changeTracking', tag: 'holler-bids-gwinnett' }]);
     expect(c.calls[0].url).toBe(GW.listUrl);
-    expect(c.calls[0].maxAgeMs).toBe(0); // the 2-day default cache must not hide today's page from the daily check
+    expect(c.calls[0].maxAgeMs).toBeUndefined(); // change tracking bypasses Firecrawl's cache and ignores maxAge (docs.firecrawl.dev/features/change-tracking)
     expect(c.calls[1].maxAgeMs).toBe(600_000);
     const f1 = c.calls[1].formats;
     expect(f1[0]).toBe('markdown');
     expect(f1[1]).toMatchObject({ type: 'json' });
     expect(((f1[1] as unknown as { schema: { required: string[] } }).schema).required).toEqual(['solicitations']);
-    expect(db.inserts).toEqual([expect.objectContaining({ source: '_fc:bids-gwinnett', fetched: 6, inserted: 5, matched: 23, error: 'extracted' })]);
+    expect(db.inserts).toEqual([expect.objectContaining({ source: '_fc:bids-gwinnett', fetched: 6, inserted: 7, matched: 21, error: 'extracted' })]);
   });
 
   it('unchanged page: 1 credit, no extraction, no rows', async () => {
@@ -106,7 +110,7 @@ describe('lost work is retried, not forgotten', () => {
     expect(r2.status).toBe('ok');
     expect(next.calls).toHaveLength(1); // only the extraction
     expect(next.calls[0].formats.some((f) => typeof f === 'object' && f.type === 'json')).toBe(true);
-    expect(r2.kept).toHaveLength(5);
+    expect(r2.kept).toHaveLength(7);
   });
 
   it('rows handed to a scan that never stored them (no later scan_runs row) are extracted again', async () => {
@@ -243,22 +247,24 @@ describe('robots.txt', () => {
 });
 
 describe('probe mode (dry + force)', () => {
-  it('runs the extraction only, without the bids flag, writes nothing, and does not touch change tracking', async () => {
+  const PROBE = { FIRECRAWL_API_KEY: BOTH.FIRECRAWL_API_KEY };
+  it('runs the extraction only, without the bid switches, writes no signal, does not touch change tracking, and records its credits as a probe row', async () => {
     const c = mockClient(fixtureScript('bids-gwinnett', 'same'));
     const db = new FakeDb();
-    const r = await runLocalBidSource(GW, deps({ client: c, db: db as never, dry: true, force: true, ignoreBidsFlag: true, env: { FIRECRAWL_API_KEY: BOTH.FIRECRAWL_API_KEY } }));
+    const r = await runLocalBidSource(GW, deps({ client: c, db: db as never, dry: true, force: true, ignoreBidsFlag: true, env: PROBE }));
     expect(r.status).toBe('ok');
     expect(r.calls).toBe(1);
     expect(r.creditsEstimated).toBe(5);
     expect(c.calls[0].formats.some((f) => typeof f === 'object' && f.type === 'changeTracking')).toBe(false);
-    expect(db.inserts).toEqual([]);
-    expect(r.kept).toHaveLength(5);
-    expect(r.dropped).toHaveLength(23);
+    expect(db.inserts).toEqual([expect.objectContaining({ source: '_fc:probe:bids-gwinnett', fetched: 5, error: 'probe' })]);
+    expect(r.kept).toHaveLength(7);
+    expect(r.dropped).toHaveLength(21);
+    expect(r.notes).toContain('robots.txt allows the page');
   });
-  it('still needs the key', async () => {
+  it('still needs the key, and a database (it fails closed rather than spend off the books)', async () => {
     const c = mockClient(fixtureScript('bids-gwinnett', 'same'));
-    const r = await runLocalBidSource(GW, deps({ client: c, dry: true, force: true, ignoreBidsFlag: true, env: {} }));
-    expect(r.reason).toBe('no_key');
+    expect((await runLocalBidSource(GW, deps({ client: c, db: new FakeDb() as never, dry: true, force: true, ignoreBidsFlag: true, env: {} }))).reason).toBe('no_key');
+    expect((await runLocalBidSource(GW, deps({ client: c, db: null, dry: true, force: true, ignoreBidsFlag: true, env: PROBE }))).reason).toBe('ledger_unreadable');
     expect(c.calls).toHaveLength(0);
   });
 });

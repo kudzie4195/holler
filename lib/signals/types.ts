@@ -68,5 +68,10 @@ export interface Adapter {
   enabled?: () => boolean;
   /** Name of the env var behind `enabled`, shown when the adapter is switched off (missingEnvFor). Absent: 'feature flag'. City bids: HOLLER_BIDS_ENABLED. */
   flag?: string;
+  /**
+   * More switches that must ALL be on besides `enabled` (the Firecrawl agency feeds need HOLLER_LOCAL_BIDS_ENABLED too). Each off one is
+   * named by missingEnvFor. Absent: none.
+   */
+  extraFlags?: Array<{ name: string; on: () => boolean }>;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

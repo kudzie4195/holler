@@ -6,8 +6,9 @@ import { LOCAL_BID_SOURCES, localSourceById } from './local-sources';
 /**
  * The owner probe behind GET /api/admin/firecrawl-probe?source=<id>. A dry run of one source: it reads the page once with the
  * extraction (5 credits by the documented formula; the change baseline is not touched), validates the rows exactly as the scan would, and
- * writes nothing: no signal, no ledger row. It runs even while HOLLER_BIDS_ENABLED is off, so a source can be tested before bids go live,
- * but it still needs FIRECRAWL_API_KEY, still honours robots.txt, and still obeys the credit caps and the balance floor.
+ * writes no signal. It does write one `probe` ledger row, so its credits count in the day and month totals and in its own daily cap
+ * (FIRECRAWL_PROBE_DAILY_CAP, default 25). It runs even while the bid switches are off, so a source can be tested before bids go live, but
+ * it still needs FIRECRAWL_API_KEY and a database, still honours robots.txt, and still obeys the credit caps and the balance floor.
  * Credits are reported three ways: estimated (documented formula), reported (only if the API says), and measured (the balance read from
  * /v2/team/credit-usage before and after, so it also shows anything else spending on the same account).
  */

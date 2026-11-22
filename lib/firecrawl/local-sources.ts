@@ -6,8 +6,9 @@ import zipcodes from 'zipcodes';
  *
  * A source is only listed here when (1) the page is on the agency's own domain, (2) the agency does not send bidders to a paid
  * third-party portal for the list itself (BidNet, OpenGov, Bonfire, Periscope, DemandStar), and (3) the page text read on 2026-11-22
- * shows a bid list. Excluded agencies (Cobb, DeKalb, Fulton, Marietta, Sandy Springs, Cherokee, Forsyth, Johns Creek, Smyrna, Atlanta,
- * Decatur) are named with their reason in the report.
+ * shows a bid list. Agencies not listed (Cobb, DeKalb, Fulton, Marietta, Sandy Springs, Cherokee, Johns Creek: the list is on a portal;
+ * Atlanta: no list on its page; Smyrna, Decatur, Forsyth: evaluated in round 16 and not added yet) are named with their reason in the
+ * report (FC-report.md, "Review fixes").
  *
  * Place: an agency has an address but the list has no job sites, so the position is the centroid of the agency's ZIP code from the
  * `zipcodes` dataset the app already uses (never typed in by hand), marked data.loc = 'approx' like every city bid. The street address is

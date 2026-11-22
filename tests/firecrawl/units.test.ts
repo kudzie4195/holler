@@ -48,11 +48,11 @@ describe('robots.txt rules (RFC 9309)', () => {
 describe('budget rules', () => {
   const cfg = readBudgetConfig({});
   it('defaults are half the free plan: run 24, day 30, month 500, floor 100', () => {
-    expect(cfg).toEqual({ runCap: 24, dayCap: 30, monthCap: 500, minRemaining: 100 });
+    expect(cfg).toEqual({ runCap: 24, dayCap: 30, monthCap: 500, minRemaining: 100, probeCap: 25 });
     expect(DEFAULTS.monthCap * 2).toBeLessThanOrEqual(1000);
   });
   it('env overrides; junk falls back to the default', () => {
-    expect(readBudgetConfig({ FIRECRAWL_RUN_CREDIT_CAP: '6', FIRECRAWL_DAILY_CREDIT_CAP: '12', FIRECRAWL_MONTHLY_CREDIT_CAP: '100', FIRECRAWL_MIN_REMAINING: '0' })).toEqual({ runCap: 6, dayCap: 12, monthCap: 100, minRemaining: 0 });
+    expect(readBudgetConfig({ FIRECRAWL_RUN_CREDIT_CAP: '6', FIRECRAWL_DAILY_CREDIT_CAP: '12', FIRECRAWL_MONTHLY_CREDIT_CAP: '100', FIRECRAWL_MIN_REMAINING: '0', FIRECRAWL_PROBE_DAILY_CAP: '10' })).toEqual({ runCap: 6, dayCap: 12, monthCap: 100, minRemaining: 0, probeCap: 10 });
     expect(readBudgetConfig({ FIRECRAWL_RUN_CREDIT_CAP: '-1', FIRECRAWL_DAILY_CREDIT_CAP: 'lots', FIRECRAWL_MONTHLY_CREDIT_CAP: '1.5' }).runCap).toBe(24);
   });
   const snap = { ledgerToday: 0, ledgerMonth: 0, remainingLive: 1000 };

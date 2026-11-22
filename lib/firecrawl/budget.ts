@@ -10,17 +10,21 @@
  * Four caps, all must pass before a paid call. Defaults are deliberately about half of what the free plan allows:
  *   run      24 credits per scan run   (4 sources x 6, so one run can never spend more than a full day for four sources)
  *   day      30 credits per UTC day    (ledger, holler_scan_runs marker rows `_fc:<source>`)
- *   month   500 credits per UTC month  (the same ledger; 50% of the 1,000 free-plan credits, so two months fit with room to spare)
+ *   month   500 credits per billing cycle  (the same ledger; the window starts at the account's billingPeriodStart when Firecrawl reports it, else the
+ *           UTC calendar month; 50% of the 1,000 free-plan credits, so two months fit with room to spare)
+ *   probe    25 credits per UTC day for the owner probe (also counted in the day and month caps)
  *   balance  never draw the account below 100 remaining credits (live GET /v2/team/credit-usage; the account may be shared with other work)
  * Every cap is an env var and a smaller number only makes it stricter. A bad value (not a whole number >= 0) falls back to the default.
  */
-export const DEFAULTS = { runCap: 24, dayCap: 30, monthCap: 500, minRemaining: 100 } as const;
+export const DEFAULTS = { runCap: 24, dayCap: 30, monthCap: 500, minRemaining: 100, probeCap: 25 } as const;
 
 export interface BudgetConfig {
   runCap: number;
   dayCap: number;
   monthCap: number;
   minRemaining: number;
+  /** Most credits the owner probe may spend per UTC day (inside the day and month caps too). */
+  probeCap: number;
 }
 
 function whole(v: string | undefined, dflt: number): number {
@@ -35,6 +39,7 @@ export function readBudgetConfig(e: Record<string, string | undefined> = process
     dayCap: whole(e.FIRECRAWL_DAILY_CREDIT_CAP, DEFAULTS.dayCap),
     monthCap: whole(e.FIRECRAWL_MONTHLY_CREDIT_CAP, DEFAULTS.monthCap),
     minRemaining: whole(e.FIRECRAWL_MIN_REMAINING, DEFAULTS.minRemaining),
+    probeCap: whole(e.FIRECRAWL_PROBE_DAILY_CAP, DEFAULTS.probeCap),
   };
 }
 
@@ -69,8 +74,8 @@ export function checkBudget(cfg: BudgetConfig, snap: BudgetSnapshot, runSpent: n
 /** Credits spent so far in one scan run, shared by every Firecrawl source in it. Keyed by the run clock, which every adapter in a run shares. */
 export class RunSpend {
   spent = 0;
-  /** Live balance read once for the run, so five sources do not make five credit-usage calls. */
-  remainingLive: number | null | undefined = undefined;
+  /** Credit usage (balance and billing cycle) read once for the run, so four sources do not make four credit-usage calls. null = read failed. */
+  usage: { remainingCredits: number | null; planCredits: number | null; billingPeriodStart: string | null; billingPeriodEnd: string | null } | null | undefined = undefined;
 }
 
 const runs = new Map<string, RunSpend>();
