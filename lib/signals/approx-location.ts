@@ -15,10 +15,12 @@ export const APPROX_LOCATION_SOURCES: ReadonlySet<string> = new Set([
 
 /** True when the record's lat/lon is a stand-in. Accepts a feed row, a check item or a stored signal (any of source, data). */
 export function hasApproxLocation(
-  s: { source?: string | null; data?: { loc?: unknown; approxLocation?: unknown } | null; approxLocation?: unknown } | null | undefined,
+  s: { source?: string | null; data?: { loc?: unknown; approxLocation?: unknown } | null; approxLocation?: unknown; loc?: unknown } | null | undefined,
 ): boolean {
   if (!s) return false;
   if (s.data && s.data.loc === 'approx') return true;
+  // A select that cannot read nested data aliases the flag flat as `loc:data->>loc` (county-level weather alerts, Cobb rows).
+  if (s.loc === 'approx') return true;
   // Socrata rows with no coordinates sit at the city centre and carry data.approxLocation: true (adapters/socrata.ts fallbackCenter). Round 15
   // quality gate: a Bronx street event printed "under 1 mi away" for a Manhattan member. A select that cannot read nested data aliases the
   // flag flat as `approxLocation:data->>approxLocation` (the value then arrives as the string "true").

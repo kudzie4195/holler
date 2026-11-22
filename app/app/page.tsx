@@ -30,6 +30,7 @@ import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { tradeForRecord } from '@/lib/signals/brief';
+import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { coverageNotice } from '@/lib/check/coverage-notice';
 import { CoverageNoticeLine } from '@/components/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
@@ -67,6 +68,9 @@ interface SignalRow {
   /** NYC no-heat rows only (data.managerName, data.managerRole): the company the city's building registration names. */
   managerName?: string | null;
   managerRole?: string | null;
+  /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; the feed shows it once). */
+  loc?: string | null;
+  alertId?: string | null;
   /** Permits: data.jobValue (text form, VALUE_SELECT), the project value the city published. */
   jobValue?: string | null;
 }
@@ -95,7 +99,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -112,7 +116,7 @@ async function loadDashboard() {
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown,
   // including matches stored before the label rules existed (items 0.2 and 0.3). Market insight rows are shown, after every alert.
-  const rows = ((data ?? []) as unknown as MatchRow[]).filter((m) => {
+  const rows = dedupeByAlert(((data ?? []) as unknown as MatchRow[]), (m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal)).filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     // A city bid is hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
     return !!s && !isEndedRequest(s, now) && !bidHidden(s, undefined, now) && labelOf(s) !== 'context';

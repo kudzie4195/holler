@@ -1,5 +1,5 @@
 import type { CategoryId } from './categories';
-import { formatDeadlineDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
+import { formatRecordDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidSourceLinkLabel } from './bid-card';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
@@ -570,7 +570,7 @@ export function briefSource(input: { source: string; url?: string | null; occurr
     href: own ?? home,
     linkText: request ? 'Open the request form' : own ? bidSourceLinkLabel(input.source) : 'Open the source home page',
     recordLink: !!own,
-    dateText: formatDeadlineDate(input.occurredAt ?? null),
+    dateText: formatRecordDate(input.occurredAt ?? null, input.source),
   };
 }
 
@@ -613,9 +613,15 @@ export interface CardBriefInput extends BriefInput {
  * "Job value on the permit" line, so a value is shown once. Unchanged when no value was parsed or the record is not a permit. Display only.
  */
 export function summaryForCard(input: CardBriefInput): string | null {
-  const summary = input.summary ?? null;
+  let summary = input.summary ?? null;
   if (summary === null) return null;
-  const shown = briefFamilyOf(input) === 'permit' && jobValueLine({ jobValue: input.jobValue, summary }) !== null;
+  const permit = briefFamilyOf(input) === 'permit';
+  // Rows stored before the DeKalb fix carry the field label "Issued Status Code" as a summary part: it is not a status, so it is not shown.
+  if (permit && /(?:^| \| )Issued Status Code(?: \||$)/i.test(summary)) {
+    summary = summary.split(' | ').filter((p) => !/^issued status code$/i.test(p.trim())).join(' | ') || null;
+    if (summary === null) return null;
+  }
+  const shown = permit && jobValueLine({ jobValue: input.jobValue, summary }) !== null;
   return shown ? (summaryWithoutValue(summary) ?? null) : summary;
 }
 

@@ -115,7 +115,7 @@ describe('web card: every part once, on every card', () => {
     const { html } = webCards().find((w) => w.c === c)!;
     const t = text(html);
     expect(t).toContain('Act now');
-    expect(t).toContain('Nov 29, 2026');
+    expect(t).toContain('Nov 30, 2026'); // the bid's response date is the day 2026-11-30 (stored as midnight UTC), not the evening before
     expect(count(html, 'data-testid="brief"')).toBe(1);
   });
 

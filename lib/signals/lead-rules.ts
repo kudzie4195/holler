@@ -292,6 +292,15 @@ export const RULES: readonly LabelRule[] = [
     why: 'A mobile food, cart, peddler or vending licence has no building to heat, clean or guard (round 15 quality gate: "Mobile Food Services" told an HVAC company it may need heating and cooling).',
   },
   {
+    id: 'ctx-liquor-licence',
+    label: 'context',
+    subtypes: ['business'],
+    // a liquor, patio or on-premises consumption licence with no food-premises word in it (a restaurant that also sells liquor keeps its cards)
+    title: /^(?!.*\b(?:restau|cafe|bakery|kitchen|food|deli|pizza|diner|bistro|grill))(?=.*(?:liquor|consumption on premises|outdoor patio))/i,
+    trades: ['hvac'],
+    why: 'A liquor, patio or on-premises consumption licence is an activity of an existing business, not a space to heat or cool (final review P2-6: "Outdoor Patio, Sale of Liquor" told an HVAC company it may need heating and cooling).',
+  },
+  {
     id: 'ctx-minor-quake',
     label: 'context',
     sources: ['usgs'],
@@ -560,12 +569,17 @@ const EXPIRY_IS_DEADLINE = new Set(['sam-gov']);
 /** PostgREST select aliases for the four keys above, read from holler_signals.data. Add to any select that feeds a card. */
 export const DEADLINE_SELECT = 'deadline:data->>deadline,fixBy:data->>fixBy,responseDeadline:data->>responseDeadline,dueDate:data->>dueDate';
 
-/** A date-only value ("2026-12-01") is kept at noon UTC so every US time zone shows the same day. */
+/** A date-only value ("2026-12-01"), or the same day written as midnight UTC ("2026-12-01T00:00:00Z"), which a portal's date column produces. */
+const MIDNIGHT_UTC = /^(\d{4}-\d{2}-\d{2})T00:00:00(?:\.0+)?(?:Z|\+00:00)$/;
+
+/** A date-only value ("2026-12-01") is kept at noon UTC so every US time zone shows the same day. Midnight UTC is read as that same day. */
 function isoDay(v: unknown): string | null {
   if (typeof v !== 'string' || !v.trim()) return null;
   const raw = v.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const t = Date.parse(`${raw}T12:00:00Z`);
+  const mid = MIDNIGHT_UTC.exec(raw);
+  if (mid || /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const day = mid ? mid[1] : raw;
+    const t = Date.parse(`${day}T12:00:00Z`);
     return Number.isFinite(t) ? new Date(t).toISOString() : null;
   }
   const t = Date.parse(raw);
@@ -611,6 +625,30 @@ export function formatDeadlineDate(iso: string | null | undefined): string | nul
   const parts = DAY_PARTS.formatToParts(new Date(t));
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
   return `${MONTHS[get('month') - 1]} ${get('day')}, ${get('year')}`;
+}
+
+/**
+ * Sources whose occurred_at is a calendar day stored as midnight UTC (the portal publishes a date, not a time). Printed as that day, not
+ * as the evening before in New York. Keep in step with ArcgisDataset.dateOnly (tests/signals/date-only.test.ts). FEMA's declarationDate
+ * ("2026-10-27T00:00:00.000Z") is the same kind of value.
+ */
+export const DATE_ONLY_SOURCES: ReadonlySet<string> = new Set([
+  'arcgis-atlanta-permits',
+  'arcgis-cobb-residential-permits',
+  'arcgis-cobb-commercial-permits',
+  'arcgis-cobb-multiunit-permits',
+  'arcgis-johnscreek-permits',
+  'fema',
+]);
+
+/**
+ * The record date for the Source line: "Nov 16, 2026". A date-only source stored at midnight UTC prints that calendar day; every other
+ * record (and a date-only source with a real time of day) keeps the Eastern-time day of formatDeadlineDate.
+ */
+export function formatRecordDate(iso: string | null | undefined, source?: string | null): string | null {
+  const m = typeof iso === 'string' ? MIDNIGHT_UTC.exec(iso.trim()) : null;
+  if (m && typeof source === 'string' && DATE_ONLY_SOURCES.has(source)) return formatDeadlineDate(`${m[1]}T12:00:00Z`);
+  return formatDeadlineDate(iso);
 }
 
 export const NO_DEADLINE_TEXT = 'No deadline published';

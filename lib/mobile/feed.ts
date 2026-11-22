@@ -15,6 +15,7 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
+import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
@@ -27,7 +28,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
 export interface SignalRow {
   id: number;
@@ -54,6 +55,9 @@ export interface SignalRow {
   dueDate?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; a page shows it once). */
+  loc?: string | null;
+  alertId?: string | null;
   /** NYC no-heat rows only (data.managerName, data.managerRole), read with MANAGER_SELECT. */
   managerName?: string | null;
   managerRole?: string | null;
@@ -148,7 +152,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
   const labelOf = (s: SignalRow) =>
     demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
-  const live = rows.filter((m) => {
+  const live = dedupeByAlert(rows, (m) => signalOf(m)).filter((m) => {
     const s = signalOf(m);
     // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
     return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s) !== 'context';
@@ -220,7 +224,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     };
     // Locked: placeholders only, never the real text, link, draft or contacts (the web's LockedFeed rule).
     return deps.locked
-      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [] }
+      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [], bidLine: null }
       : item;
   });
 }

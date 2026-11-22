@@ -1,4 +1,5 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
+import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, type OutreachLink } from './links';
 import { OUTREACH_REMINDER, STORM_REMINDER, renderNote, type NoteKind } from './templates';
@@ -211,17 +212,30 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   const noteKind = NOTE_FOR_CLASS[cls]!;
 
   if (orgs.length > 0) {
-    const seen = new Set<string>();
-    const unique = orgs.filter((c) => {
-      const k = cleanText(c.name).toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+    // The same company written two ways ("SUNRUN INSTALLATION SERVICES" and "SUNRUN INSTALLATION SERVICES INC") is one entry: the first
+    // spelling is kept and fills in any phone, e-mail, website, licence or address only the other row has (final review P2-2).
+    const byKey = new Map<string, PlanContact>();
+    for (const c of orgs) {
+      const name = cleanText(c.name);
+      const k = companyKey(name) || name.toLowerCase();
+      const first = byKey.get(k);
+      if (!first) {
+        byKey.set(k, { ...c });
+        continue;
+      }
+      for (const f of ['phone', 'email', 'website', 'license', 'address', 'city', 'state', 'zip'] as const) {
+        if (!cleanText(first[f]) && cleanText(c[f])) (first as unknown as Record<string, unknown>)[f] = c[f];
+      }
+    }
+    const unique = [...byKey.values()];
+    // The job site is one fact about the record, so it is printed on the first entry that has no address of its own, not on every entry.
+    let siteLinePrinted = false;
     const entries: OrgEntry[] = unique.slice(0, MAX_CONTACTS_SHOWN).map((c, i) => {
       const name = cleanText(c.name);
       const own = formatAddress(c, signal.city, signal.state);
       const address = own ?? siteAddress;
+      const printAddress = own ? true : !siteLinePrinted;
+      if (!own && address) siteLinePrinted = true;
       const mapSrc = own ? c : (siteRaw ?? c);
       const city = cleanText(c.city) || cleanText(signal.city);
       const state = cleanText(c.state) || cleanText(signal.state);
@@ -230,7 +244,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         name,
         role,
         attn: cls === 'bid' ? cleanText(c.attn) || null : null,
-        address,
+        address: printAddress ? address : null,
         addressLabel: own || cls !== 'permit' ? 'Address' : 'Job site',
         phone: cleanText(c.phone) || null,
         email: cleanText(c.email) || null,

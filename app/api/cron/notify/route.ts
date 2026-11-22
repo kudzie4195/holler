@@ -24,6 +24,7 @@ import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
+import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
@@ -61,6 +62,9 @@ interface SignalRow {
   /** NYC no-heat rows only: data.managerName and data.managerRole (company names only). */
   managerName?: string | null;
   managerRole?: string | null;
+  /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county). */
+  loc?: string | null;
+  alertId?: string | null;
   /** Permits: data.jobValue (text form). */
   jobValue?: string | null;
   dueDate?: string | null;
@@ -103,7 +107,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, ${DEADLINE_SELECT}, ${VALUE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -195,13 +199,15 @@ export async function GET(req: Request) {
       // context match stored before the label rules existed is hidden: both are marked notified without an email, so neither goes out
       // nor is read again on every run.
       const rows = live.filter((r) => isAlertLabel(labelOf(r.s)));
+      // One weather alert stored once per county is one digest item (sendRows). Every duplicate match in `rows` is still marked notified below.
+      const sendRows = dedupeByAlert(rows, (r) => r.s);
       const silent = live.filter((r) => !isAlertLabel(labelOf(r.s)));
       for (const part of chunk(silent.map((r) => r.m.id))) {
         const { error: qErr } = await admin.from('holler_matches').update({ notified: true }).in('id', part);
         if (qErr) counts.failed++;
         else counts.matches_skipped_marked += part.length;
       }
-      if (rows.length === 0) continue;
+      if (sendRows.length === 0) continue;
 
       const { data: userRes, error: uErr } = await admin.auth.admin.getUserById(p.user_id);
       const email = userRes?.user?.email;
@@ -211,12 +217,12 @@ export async function GET(req: Request) {
       }
 
       // AI ranking and notes (lib/ai): stored results only, no model call. Any failure gives empty maps: newest first, no notes.
-      const sigIds = rows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
+      const sigIds = sendRows.map(({ s }) => s.id).filter((x): x is number => typeof x === 'number');
       // `trades` (above) is the plan-limited list: a member who moved from Pro to Solo gets no note for a trade the plan no longer uses.
       const [aiNotes, aiScores] = await Promise.all([notesFor(admin, sigIds, trades), scoresFor(admin, sigIds, trades)]);
       // No stored AI result for any of these (or migration 0014 not applied): keep newest first, exactly as before.
-      const ranked = aiScores.size === 0 ? rows : rankSignals(
-        rows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
+      const ranked = aiScores.size === 0 ? sendRows : rankSignals(
+        sendRows.map((r) => ({ id: typeof r.s.id === 'number' ? r.s.id : -1, severity: r.s.severity ?? null, occurred_at: r.s.occurred_at, r })),
         aiScores,
       ).map((x) => x.r);
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
@@ -265,7 +271,7 @@ export async function GET(req: Request) {
       const mail = renderDigest({
         businessName: p.business_name,
         items,
-        totalCount: rows.length,
+        totalCount: sendRows.length,
         appUrl: `${siteUrl}/app`,
         unsubscribeUrl,
         now,

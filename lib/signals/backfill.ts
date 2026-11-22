@@ -28,9 +28,9 @@ interface SignalRow extends MatchSignal {
   expires_at: string | null;
 }
 
-const COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+const COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
 /** Keyword reads also need the text the phrase is matched against. */
-const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,data';
 /**
  * The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype.
  * source, kind and title are NEEDED: the opportunity label (lib/signals/lead-rules.ts) reads them. Without them every row would fall
@@ -183,7 +183,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
 
 /** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
 export const BACKFILL_APPROX_LIMIT = 200;
-const APPROX_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype';
+const APPROX_COLUMNS = 'id,source,kind,title,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
 
 /**
  * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a

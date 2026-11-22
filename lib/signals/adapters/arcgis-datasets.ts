@@ -31,6 +31,12 @@ export interface ArcgisDataset {
   dateField: string;
   /** 'date' (esriFieldTypeDate, epoch ms in the response) or 'dateOnly' (esriFieldTypeDateOnly, 'yyyy-mm-dd'). */
   dateType: 'date' | 'dateOnly';
+  /**
+   * The date is a calendar DAY that the portal stores as midnight UTC (Atlanta Opend, Cobb DateIssued, Johns Creek ISSUE_DATE; round 15 Q3).
+   * The stored occurred_at is kept as is, and every card prints it as that calendar day (lib/signals/lead-rules.ts formatRecordDate), never
+   * shifted to New York time. The list of such source ids is DATE_ONLY_SOURCES there; tests/signals/date-only.test.ts keeps the two in step.
+   */
+  dateOnly?: true;
   /** Attribute coordinates used when the feature has no usable geometry. */
   latField?: string;
   lonField?: string;
@@ -127,7 +133,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   // ---- Atlanta metro, round 7 ----
   {
     id: 'arcgis-atlanta-permits', city: 'Atlanta', state: 'GA', tz: 'America/New_York', layerUrl: ATL_PERMITS,
-    kind: 'permit', subtype: 'permit', idField: 'RecordID', dateField: 'Opend', dateType: 'date', latField: 'DisplayY', lonField: 'DisplayX',
+    kind: 'permit', subtype: 'permit', idField: 'RecordID', dateField: 'Opend', dateType: 'date', dateOnly: true, latField: 'DisplayY', lonField: 'DisplayX',
     // Name is a free-text project name (a street address, a description or sometimes a person's surname): read to pick trades, never printed.
     // Group_ is "Building" on every row, so it stays out (it would tag every row general-contractor).
     titleFields: ['TypeCombo'], textFields: ['Name', 'TypeCombo', 'Subtype', 'Use_'], mixedTextFields: ['Name'], summaryFields: ['TypeCombo', 'JOB_VALUE'],
@@ -140,7 +146,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-cobb-residential-permits', city: 'Cobb County', state: 'GA', tz: 'America/New_York', layerUrl: `${COBB_PERMITS}/4`,
     countyAnchor: COBB_CENTER, fallbackCenter: COBB_CENTER,
-    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date',
+    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date', dateOnly: true,
     titleFields: ['PermitType'], textFields: ['PermitType'], summaryFields: ['PermitType', 'JobValueCalc'],
     addressFields: ['StreetNo', 'StreetName', 'StreetType'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(`${COBB_PERMITS}/4`), checkedOn: '2026-11-19', fieldSource: 'sourced',
@@ -149,7 +155,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-cobb-commercial-permits', city: 'Cobb County', state: 'GA', tz: 'America/New_York', layerUrl: `${COBB_PERMITS}/1`,
     countyAnchor: COBB_CENTER, fallbackCenter: COBB_CENTER,
-    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date',
+    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date', dateOnly: true,
     titleFields: ['PermitType', 'PermitSubType', 'CobbWorkType'], textFields: ['PermitType', 'PermitSubType', 'CobbWorkType'], summaryFields: ['PermitSubType', 'VALUE'],
     addressFields: ['StreetNo', 'StreetName', 'StreetType'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(`${COBB_PERMITS}/1`), checkedOn: '2026-11-19', fieldSource: 'sourced',
@@ -158,7 +164,7 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-cobb-multiunit-permits', city: 'Cobb County', state: 'GA', tz: 'America/New_York', layerUrl: `${COBB_PERMITS}/3`,
     countyAnchor: COBB_CENTER, fallbackCenter: COBB_CENTER,
-    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date',
+    kind: 'permit', subtype: 'permit', idField: 'PermitNo', dateField: 'DateIssued', dateType: 'date', dateOnly: true,
     titleFields: ['PermitType', 'PermitSubType', 'CobbWorkType'], textFields: ['PermitType', 'PermitSubType', 'CobbWorkType'], summaryFields: ['PermitSubType', 'VALUE'],
     addressFields: ['StreetNo', 'StreetName', 'StreetType'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(`${COBB_PERMITS}/3`), checkedOn: '2026-11-19', fieldSource: 'sourced',

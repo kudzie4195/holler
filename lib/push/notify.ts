@@ -17,6 +17,7 @@
  * Fail soft: before migration 0020 (no table, no pushed_at or push columns) a read fails and the run is `not_ready`: nothing is sent.
  * Never throws; every failure is a count in the result.
  */
+import { alertKeyOf } from '@/lib/signals/alert-dedupe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { computeAccess } from '@/lib/auth/access';
@@ -119,6 +120,8 @@ interface SignalLike {
   /** A permit's summary holds its structured type and class, which downstream routing reads (permit-routing.ts). */
   summary?: string | null;
   categories?: string[] | null;
+  /** Multi-county weather alerts: data.alertId (one alert is stored once per county). */
+  alertId?: string | null;
 }
 
 interface MatchLike {
@@ -152,6 +155,7 @@ export function pushEntriesFromMatches(
 ): Map<string, PushEntry> {
   const out = new Map<string, PushEntry>();
   const newest = new Map<string, string>();
+  const seenAlerts = new Map<string, Set<string>>();
   for (const m of matches) {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
@@ -161,7 +165,14 @@ export function pushEntriesFromMatches(
     if (!isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
     if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades))) continue;
+    // One weather alert stored once per county is one alert in the count; its other match rows are still stamped with the push.
+    const alertKey = alertKeyOf({ source: s.source, alertId: s.alertId });
     const cur = out.get(m.user_id);
+    if (cur && alertKey && seenAlerts.get(m.user_id)?.has(alertKey)) {
+      if (!cur.matchIds.includes(m.id)) cur.matchIds.push(m.id);
+      continue;
+    }
+    if (alertKey) seenAlerts.set(m.user_id, (seenAlerts.get(m.user_id) ?? new Set<string>()).add(alertKey));
     if (!cur) {
       out.set(m.user_id, { count: 1, top: { signalId: s.id, title: s.title, city: s.city }, matchIds: [m.id] });
       newest.set(m.user_id, m.created_at);
@@ -195,7 +206,7 @@ async function unpushedMatches(db: Db, userIds: string[], since: string): Promis
     for (let page = 0; page < MAX_MATCH_PAGES; page++) {
       const { data, error } = await db
         .from('holler_matches')
-        .select('id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype)')
+        .select('id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId)')
         .in('user_id', ids)
         .eq('status', 'new')
         .is('pushed_at', null)

@@ -223,7 +223,10 @@ describe('the downstream matrix', () => {
       it(`${k}: ${trade} is downstream, labelled coming_soon, and has one sentence`, () => {
         expect(routeFor(TITLE_OF[k], trade)).toBe(k);
         expect(labelFor(permit(TITLE_OF[k]), trade as CategoryId)).toBe('coming_soon');
-        expect(routeWhyFor(TITLE_OF[k], trade)).toBe(ROUTE_WHY[`${k}|${trade}`]?.replace('{Permit}', PERMIT_NOUNS[k][0]));
+        // the cleaning sentence says "home" only when the title says a new HOME (final review, Q3 pattern 6); otherwise "building"
+        const want = ROUTE_WHY[`${k}|${trade}`]?.replace('{Permit}', PERMIT_NOUNS[k][0]);
+        const homeTitle = k === 'new-build' && trade === 'cleaning' && /new home/i.test(TITLE_OF[k]);
+        expect(routeWhyFor(TITLE_OF[k], trade)).toBe(homeTitle ? want?.replace('finished buildings', 'finished homes') : want);
         expect(routeWhyFor(TITLE_OF[k], trade)).toBeTruthy();
       });
     }

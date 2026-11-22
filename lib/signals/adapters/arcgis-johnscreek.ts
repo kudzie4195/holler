@@ -30,7 +30,7 @@ export const JC_SYNTH_FIELD = 'JobWorkType';
 
 export const JOHNS_CREEK_PERMITS: ArcgisDataset = {
   id: 'arcgis-johnscreek-permits', city: 'Johns Creek', state: 'GA', tz: 'America/New_York', layerUrl: JC_LAYER,
-  kind: 'permit', subtype: 'permit', idField: 'JobID', dateField: 'ISSUE_DATE', dateType: 'date',
+  kind: 'permit', subtype: 'permit', idField: 'JobID', dateField: 'ISSUE_DATE', dateType: 'date', dateOnly: true,
   titleFields: ['JobTypeDescription'], textFields: ['JobTypeDescription', JC_SYNTH_FIELD], summaryFields: [JC_SYNTH_FIELD],
   addressFields: ['JobAddress'],
   // Round 15: the job-site address as a private site row (no owner, applicant or contractor column exists). No value column either.

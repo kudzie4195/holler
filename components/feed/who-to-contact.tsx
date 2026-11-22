@@ -106,7 +106,7 @@ function Body({ plan }: { plan: OutreachPlan }) {
   return (
     <div className="rounded-control border border-line bg-surface p-3">
       <p className="text-base font-semibold text-ink">Reach this area</p>
-      {plan.place ? <p className="mt-1 break-words text-sm text-ink">City: {plan.place}</p> : null}
+      {plan.place ? <p className="mt-1 break-words text-sm text-ink">{/county\b/i.test(plan.place.split(',')[0]) ? 'Area' : 'City'}: {plan.place}</p> : null}
       {plan.zips.length > 0 ? (
         <p className="break-words text-sm text-ink">
           {plan.zips.length === 1 ? 'ZIP code' : 'ZIP codes'}: {plan.zips.join(', ')}

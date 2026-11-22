@@ -253,7 +253,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const summaryBits = ds.summaryFields
           .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
           .map((x) => summaryPart(x, str(a, x)))
-          .filter(Boolean);
+          // DeKalb's statusDescription holds the literal text "Issued Status Code" on live rows: a field label, not a status (final review, Q3 pattern 3).
+          .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).
         const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
         const parts = [...new Set(summaryBits)];

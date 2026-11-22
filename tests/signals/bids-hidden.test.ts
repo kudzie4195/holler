@@ -209,10 +209,17 @@ describe('open bids through the opportunity label (r13-rules rebase)', () => {
 
   it('an open bid with the member\'s trade is act_now with the due day as the deadline, and the card line has the days left', async () => {
     vi.stubEnv(BIDS_FLAG, '1');
-    const [a] = await buildAlerts([row(1, stored())], deps);
+    const [a] = await buildAlerts([row(1, stored())], { ...deps, locked: false });
     expect(a.label).toBe('act_now');
     expect(a.deadline).toBe('2026-12-10T12:00:00.000Z');
     expect(a.bidLine).toBe('Buyer: Water & Power. Due Dec 10, 2026, 19 days left.');
+  });
+
+  it('a locked member gets no bid line (final review P2-7: the web already nulls it)', async () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    const [a] = await buildAlerts([row(1, stored())], deps);
+    expect(a.label).toBe('act_now');
+    expect(a.bidLine).toBeNull();
   });
 
   it('a bid whose due date has passed is dropped, not demoted to coming_soon (review P2-14)', async () => {

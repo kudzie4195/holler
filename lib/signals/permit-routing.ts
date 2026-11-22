@@ -139,7 +139,7 @@ export interface RouteContext {
 
 /** Summary parts that are not type vocabulary: an address, an amount, a ZIP, a status word (same test as mapping/remap.ts). */
 function isNoisePart(p: string): boolean {
-  return /^\s*\d/.test(p) || /\bjob value\b|\bblock of\b|\b\d{5}\b/i.test(p) || /^\s*(?:issued|finaled|final|active|open|closed|approved|expired|complete[d]?|permit issued)\s*$/i.test(p);
+  return /^\s*\d/.test(p) || /\bjob value\b|\bblock of\b|\b\d{5}\b/i.test(p) || /^\s*(?:issued|issued status code|finaled|final|active|open|closed|approved|expired|complete[d]?|permit issued)\s*$/i.test(p);
 }
 
 /** The structured type, class and use parts of a permit summary, in order ("Bldg-Addition", "1 or 2 Family Dwelling"). */
@@ -303,7 +303,7 @@ export const ROUTE_WHY: Readonly<Record<string, string>> = {
   'new-build|moving': '{Permit} was filed nearby; people may move in once it is built.',
   'new-build|landscaping': '{Permit} was filed nearby; new yards often need landscaping.',
   'new-build|fencing': '{Permit} was filed nearby; new homes often get a fence.',
-  'new-build|cleaning': '{Permit} was filed nearby; a finished home may need a clean.',
+  'new-build|cleaning': '{Permit} was filed nearby; finished buildings may need a clean.',
   'new-build|security': '{Permit} was filed nearby; new places may get security later.',
   'new-build|pool-spa': '{Permit} was filed nearby; some new homes add a pool.',
   'new-build|windows-doors': '{Permit} was filed nearby; windows and doors may be part of it.',
@@ -331,14 +331,14 @@ export const PERMIT_NOUNS: Readonly<Record<RouteKind, readonly string[]>> = {
   remodel: ['A remodel permit', 'An addition permit'],
   solar: ['A solar permit'],
   demolition: ['A demolition permit'],
-  'fit-out': ['A tenant fit-out permit', 'A commercial permit'],
+  'fit-out': ['A tenant fit-out permit', 'A commercial permit', 'An apartment permit'],
 };
 
 /** What a "new-build" permit is called in its sentences. Kept for the brief's string table. */
 export const NEW_BUILD_NOUNS = ['new-home permit', 'new-construction permit'] as const;
 
 /** The permit's noun for the sentence: its own words from the title, never the route kind's. */
-function permitNounFor(kind: RouteKind, title: string | null | undefined): string {
+function permitNounFor(kind: RouteKind, title: string | null | undefined, ctx?: RouteContext | null): string {
   const labels = permitLabelsOf(title) ?? [];
   const nouns = PERMIT_NOUNS[kind];
   switch (kind) {
@@ -348,7 +348,9 @@ function permitNounFor(kind: RouteKind, title: string | null | undefined): strin
       // A new build or fit-out reached through the record's class is a remodel only when the title says so.
       return labels.includes('addition') && !labels.includes('remodel') ? nouns[1] : nouns[0];
     case 'fit-out':
-      return labels.includes('tenant fit-out') ? nouns[0] : nouns[1];
+      if (labels.includes('tenant fit-out')) return nouns[0];
+      // "Multi Family" is housing, not a commercial space (final review P2-4): the sentence says so.
+      return /\bmulti[\s-]?family\b|\bapartments?\b/i.test(ctx?.summary ?? '') ? nouns[2] : nouns[1];
     default:
       return nouns[0];
   }
@@ -359,5 +361,8 @@ export function routeWhyFor(title: string | null | undefined, trade: string | nu
   const k = routeFor(title, trade, ctx);
   const text = k ? ROUTE_WHY[`${k}|${trade}`] : undefined;
   if (!k || !text) return null;
-  return text.replace('{Permit}', permitNounFor(k, title));
+  const noun = permitNounFor(k, title, ctx);
+  // "A finished building may need a clean" says "home" only when the permit's own title says a home is being built.
+  const out = text.replace('{Permit}', noun);
+  return k === 'new-build' && trade === 'cleaning' && noun === 'A new-home permit' ? out.replace('finished buildings', 'finished homes') : out;
 }
