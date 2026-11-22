@@ -779,7 +779,121 @@ interface PartResult {
   toks: Tok[];
 }
 
-/** R1 to R7 on one part. */
+/**
+ * R12 (round 10, entity-marker rescue). Entity and trade words that make a registered business name public by design ("Capitol Roofing
+ * Inc", "Queen City Electric Co"). Legal forms (Inc, LLC, Co ...) are handled apart as FINAL words. "Trust" and "Estate" are NOT here: they
+ * are role words (R2) and a personal trust must never pass. Folded lower case.
+ */
+const ENTITY_MARKER_WORDS = new Set(
+  list(
+    'holdings properties group enterprises services solutions contracting contractors construction builders roofing plumbing electric ' +
+      'electrical mechanical hvac heating cooling air restoration landscaping lawn tree fence paving concrete painting remodeling homes ' +
+      'development realty management partners associates bank church school university authority district',
+  ),
+);
+/** Marker words that name an institution; they never rescue a name that carries a surname ("Grace Church", "Anna Bank" stay rejected). */
+const INSTITUTION_MARKERS = new Set(list('bank church school university authority district'));
+
+/**
+ * R12. Words that the name lists read as given names or glued names (R2, R10) although in a company name they are ordinary words, places
+ * or brands: "Capitol", "Queen City", "Harbor Point", "Magnolia", "Triangle". Only these exact words (folded) are lifted, only inside a
+ * name that holds an entity marker and no other personal word. A listed given name that is not here ("John", "Maria") still fails.
+ */
+const SOFT_NAME_WORDS = new Set(
+  list(
+    'capitol triangle queen magnolia point pointe liberty phoenix river delta sterling harbor lake patriot union apex cardinal beacon ' +
+      'heritage gateway keystone pinnacle atlas summit crown colony hudson dixie cypress cedar laurel ash ember sage forest stone ridge ' +
+      'field wood bay shore aspen blue star comfort hill park madison ashford georgia virginia savannah willow fulton christian harmony ' +
+      'rose charlotte austin dallas houston denver orlando service tech',
+  ),
+);
+
+/**
+ * R12: a word made of two ordinary words ("Riverbend", "Ironwood", "Oakwood", "Lakeside"): both pieces of 3+ letters are soft, vocabulary
+ * or business words. A given name glued to a surname ("JOHNSMITH", "MARIALOPEZ") never splits this way.
+ */
+function isCompoundWord(k: string): boolean {
+  if (!/^[a-z]{6,}$/.test(k)) return false;
+  const ok = (w: string) => SOFT_NAME_WORDS.has(w) || ((BUSINESS.has(w) || PUBLIC.has(w) || KNOWN.has(w)) && !isGiven(w));
+  for (let i = 3; i <= k.length - 3; i++) if (ok(k.slice(0, i)) && ok(k.slice(i))) return true;
+  return false;
+}
+
+/**
+ * R12: a name with an entity marker is a company even when other words look like names. Allowed: soft words (above), vocabulary words,
+ * at most ONE word that is unknown or a listed surname (also one that is a listed given name too: "Smith Roofing"); R10/R11 still
+ * apply to that word. Never allowed: a listed given name that is not also a surname ("John Smith LLC", "Maria Lopez Roofing"), an
+ * initial, honorific, suffix, credential, job title, glued name, or "&" joined to a given name. Needs a marker word that is not a legal
+ * form, and two words that are not legal forms. Returns null when it does not hold.
+ */
+function rescueMarker(toks: Tok[]): string | null {
+  if (toks.length < 2) return null;
+  // "City of Marietta", "County of Madison", "State of Georgia": a public body, public by design, even when the place is also a given
+  // name. Exactly one word after "of" ("City of Austin John Smith", "Town of John Smith" still fail).
+  if (toks.length === 3 && ['city', 'county', 'state'].includes(toks[0].k) && toks[1].k === 'of') {
+    const place = toks[2];
+    if (['given', 'surname', 'unknown', 'known', 'business', 'public'].includes(place.kind) && /^[a-z]{3,}$/.test(place.k)) {
+      return toks.map((x) => x.raw).join(' ');
+    }
+  }
+  const last = toks[toks.length - 1];
+  const legalLast = last.kind === 'legalStrong' || last.kind === 'legalWeak';
+  const body = legalLast ? toks.slice(0, -1) : toks;
+  if (body.some((x) => x.kind === 'conj') && body.filter((x) => x.kind === 'conj').length > 1) return null;
+  if (body[0].kind === 'conj' || body[body.length - 1].kind === 'conj') return null;
+  const words = body.filter((x) => x.kind !== 'conj');
+  if (words.length < 2) return null;
+  let marker = false;
+  let institution = false;
+  let surnameWord = false;
+  let softGiven = false;
+  let budget = 0;
+  const adjusted: Tok[] = [];
+  for (const x of toks) {
+    const k = x.k.replace(/\.$/, '');
+    if (x === last && legalLast) {
+      adjusted.push(x);
+      continue;
+    }
+    if (x.kind === 'conj') {
+      adjusted.push(x);
+      continue;
+    }
+    if (ENTITY_MARKER_WORDS.has(k)) {
+      marker = true;
+      if (INSTITUTION_MARKERS.has(k)) institution = true;
+      adjusted.push({ ...x, kind: 'business', unknown: 0 });
+      continue;
+    }
+    if (SOFT_NAME_WORDS.has(k) || isCompoundWord(k)) {
+      if (isGiven(k)) softGiven = true;
+      adjusted.push({ ...x, kind: 'known', unknown: 0 });
+      continue;
+    }
+    if (x.kind === 'business' || x.kind === 'public' || x.kind === 'known') {
+      adjusted.push(x);
+      continue;
+    }
+    if (x.kind === 'unknown' || x.kind === 'surname') {
+      budget += x.unknown;
+      if (x.kind === 'surname') surnameWord = true;
+      adjusted.push(x);
+      continue;
+    }
+    return null; // a given name, initial, honorific, suffix, credential, job title, glued or bad word
+  }
+  const phrase = adjusted.some((x, i) => PUBLIC_PHRASE_HEADS.has(x.k) && adjusted[i + 1]?.k === 'of' && i + 2 < adjusted.length);
+  if (!marker && !phrase) return null;
+  // An institution word ("Church", "Bank", "School") next to a surname or a given-name word needs a third word: "Grace Church", "Anna Bank",
+  // "Queen Bank" stay rejected, "Georgia Tech University" and "Fulton County School District" pass.
+  if (institution && (surnameWord || (softGiven && words.length < 3))) return null;
+  if (budget > 1) return null;
+  if (!r10Ok(adjusted)) return null;
+  const out = toks.map((x) => x.raw).join(' ');
+  return out.length < MIN_LEN || out.length > MAX_LEN ? null : out;
+}
+
+/** R1 to R7 on one part, then the R12 entity-marker rescue. */
 function evaluatePart(text: string): PartResult {
   let t = text.replace(/\s+/g, ' ').trim();
   t = t.replace(STORE_NUMBER_RE, '').trim();
@@ -789,25 +903,34 @@ function evaluatePart(text: string): PartResult {
   if (!t || /\d/.test(t)) return fail; // R1: no digit left after one trailing store number
   if (/[^A-Za-z\u00C0-\u024F\s&'.\-]/.test(t)) return fail; // R3
   if (/[^\x00-\x7f]/.test(foldName(t))) return fail; // R1
-  if (!toks.length || toks.some((x) => FAIL_KINDS.has(x.kind))) return fail; // R2, R3
+  if (!toks.length) return fail;
+  const strict = strictPart(toks);
+  if (strict !== null) return { out: strict, toks };
+  const rescued = rescueMarker(toks);
+  return rescued !== null ? { out: rescued, toks } : fail;
+}
+
+/** R1 to R7 and R10 on the tokens of one part (the strict shape rule). */
+function strictPart(toks: Tok[]): string | null {
+  if (toks.some((x) => FAIL_KINDS.has(x.kind))) return null; // R2, R3
   const conj = toks.filter((x) => x.kind === 'conj' || x.kind === 'glued').length;
-  if (conj > 1) return fail; // R3: a single "&" or "AND"
-  if (toks[0].kind === 'conj' || toks[toks.length - 1].kind === 'conj') return fail;
+  if (conj > 1) return null; // R3: a single "&" or "AND"
+  if (toks[0].kind === 'conj' || toks[toks.length - 1].kind === 'conj') return null;
   const last = toks[toks.length - 1];
-  if (STREET_ABBR.has(last.k.replace(/\.$/, ''))) return fail; // R4
+  if (STREET_ABBR.has(last.k.replace(/\.$/, ''))) return null; // R4
   const strongLegal = last.kind === 'legalStrong';
   // One word alone is a trade or a place ("ROOFING", "Motel"), never a name to show: at least two words (when unsure, null).
-  if (toks.length < 2) return fail;
+  if (toks.length < 2) return null;
   const unknown = toks.reduce((n, x) => n + x.unknown, 0);
   const word = toks.some((x) => x.kind === 'business' || x.kind === 'public');
   const phrase = toks.some((x, i) => PUBLIC_PHRASE_HEADS.has(x.k) && toks[i + 1]?.k === 'of' && i + 2 < toks.length);
   const evidence = word || phrase || strongLegal; // R5; a weak legal form only with other evidence
-  if (!evidence) return fail;
-  if (unknown > 1) return fail; // R6: one unknown word, legal form or not
-  if (!r10Ok(toks)) return fail; // R10
+  if (!evidence) return null;
+  if (unknown > 1) return null; // R6: one unknown word, legal form or not
+  if (!r10Ok(toks)) return null; // R10
   const out = toks.map((x) => x.raw).join(' ');
-  if (out.length < MIN_LEN || out.length > MAX_LEN) return fail;
-  return { out, toks };
+  if (out.length < MIN_LEN || out.length > MAX_LEN) return null;
+  return out;
 }
 
 const EVIDENCE_KINDS = new Set<Kind>(['business', 'public', 'legalStrong', 'legalWeak']);

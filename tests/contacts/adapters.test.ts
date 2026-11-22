@@ -47,10 +47,14 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
 
 describe('Austin permits (contractor_company_name)', () => {
   const items = parseSocrata(fx('socrata-austin-permits-contacts.json'), ds('socrata-austin-permits'));
-  it('FIX-C: "Lone Star Roofing LLC" is no longer an organisation ("Star" is a listed given name), so only the job site stays', () => {
+  it('round 10: "Lone Star Roofing LLC" is an organisation again (an entity marker, "Star" is only a word here), so the company is kept with the job site', () => {
     expect(items).toHaveLength(3);
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '4812 AVENUE H', city: 'AUSTIN', state: 'TX', zip: '78751', phone: null, email: null, website: null },
+      {
+        role: 'contractor', name: 'Lone Star Roofing LLC', attn: null, address: '1200 W Ben White Blvd Ste 200', city: 'AUSTIN', state: null, zip: '78704',
+        phone: '512-555-0142', email: null, website: null,
+      },
     ]);
   });
   it('keeps the contractor company with its business phone and address, and the job site; an address line with a person is dropped', () => {
