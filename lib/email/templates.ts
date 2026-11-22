@@ -292,10 +292,10 @@ export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string 
   const subject = `Confirm: tell me when Holler reaches ${place}`;
   const html =
     WRAP_OPEN +
-    `<h1 style="font-size:22px;margin:0 0 12px 0">One click and you are on the list</h1>` +
+    `<h1 style="${S.h1};margin:0 0 12px 0">One click and you are on the list</h1>` +
     `<p>You asked Holler to tell you when permits and city requests near ${escapeHtml(place)} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.</p>` +
     button(opts.confirmUrl, 'Confirm my email') +
-    `<p style="font-size:14px;color:#5C574F">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
+    `<p style="${S.muted}">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
     postalFooterHtml() +
     WRAP_CLOSE;
   const text = `One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near ${place} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: ${opts.confirmUrl}\n\nThe link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.\n${contactText()}\n${postalFooterText()}\n`;

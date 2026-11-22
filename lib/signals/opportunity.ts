@@ -84,6 +84,7 @@ export const OPPORTUNITY_REASONS = [
   'airport-delay',
   // intel
   'permit-own-trade',
+  'permit-downstream-weak',
   'contract-award',
   'weather-watch',
   'cold-weather',
@@ -361,24 +362,34 @@ export function permitKindsFromTitle(title: string | null | undefined): { kinds:
 }
 
 /** Own trades (do the work) and downstream trades (come after) for a permit record. */
-export function permitTrades(sig: OpportunityInput): { kinds: string[]; own: CategoryId[]; downstream: CategoryId[] } {
+export function permitTrades(sig: OpportunityInput): { kinds: string[]; own: CategoryId[]; downstream: CategoryId[]; weakDownstream: CategoryId[] } {
   const { kinds } = permitKindsFromTitle(sig.title);
   const cats = validCats(sig.categories ?? []);
   const own = new Set<CategoryId>();
   const after = new Set<CategoryId>();
   for (const k of kinds) {
     (PERMIT_DOING[k] ?? []).forEach((t) => own.add(t));
-    (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => after.add(t));
+    if (!WEAK_DOWNSTREAM_KINDS.has(k)) (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => after.add(t));
   }
+  // Generic building / remodel / structural permits name no finish work: their follow-on trades are market insight, not alerts.
+  const weak = new Set<CategoryId>();
+  for (const k of kinds) if (WEAK_DOWNSTREAM_KINDS.has(k)) (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => { if (!after.has(t)) weak.add(t); });
   // A tagged trade that is not a documented downstream trade of the title's kinds is treated as doing the work (older rows).
-  for (const c of cats) if (!after.has(c)) own.add(c);
-  return { kinds, own: [...own], downstream: [...after].filter((t) => !own.has(t)) };
+  for (const c of cats) if (!after.has(c) && !weak.has(c)) own.add(c);
+  return { kinds, own: [...own], downstream: [...after].filter((t) => !own.has(t)), weakDownstream: [...weak].filter((t) => !own.has(t)) };
 }
 
+/**
+ * Kinds whose follow-on trades are plausible but not named on the record. Replay (Nov 22): as 'soon' they made generic building
+ * and remodel permits 3x a painter's and 14x a handyman's instant email, almost none of it a job they could act on.
+ */
+const WEAK_DOWNSTREAM_KINDS = new Set(['building', 'remodel', 'structural']);
+
 function permitRule(sig: OpportunityInput): OpportunityAssessment {
-  const { kinds, own, downstream } = permitTrades(sig);
+  const { kinds, own, downstream, weakDownstream } = permitTrades(sig);
   const g: Partial<Record<CategoryId, Grant>> = {};
   grantAll(g, own, 'intel', 'permit-own-trade');
+  grantAll(g, weakDownstream, 'intel', 'permit-downstream-weak');
   grantAll(g, downstream, 'soon', 'permit-downstream');
   const labels = kinds.map((k) => PERMIT_KIND_LABELS.find((x) => x.id === k)!.label);
   return assess('permit', 'other-trades', g, { kinds: labels });
@@ -594,6 +605,9 @@ function weatherRule(sig: OpportunityInput): OpportunityAssessment {
 // ---------------------------------------------------------------------------------------------------------------------------------
 // Storm reports (SPC), disasters, quakes, travel, ticketed events
 
+/** Agents see claims and policy questions after real damage; worth knowing, never a job lead on its own. */
+const INSURANCE_INTEL: CategoryId[] = ['insurance'];
+
 const DAMAGE_WORDS_RE = /damage|\bdown(?:ed)?\b|blown|uproot|snapped|felled|roof|tree|limb|branch/;
 
 function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
@@ -603,6 +617,7 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
   const g: Partial<Record<CategoryId, Grant>> = {};
   if (type === 'tornado' || /^tornado reported/.test(title)) {
     grantAll(g, ['restoration', 'tree-service', 'roofing'], 'act', 'tornado-report');
+    grantAll(g, INSURANCE_INTEL, 'intel', 'tornado-report');
     return assess('storm-report', 'other-trades', g);
   }
   if (type === 'hail') {
@@ -611,6 +626,7 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
     const inches = Number.isFinite(fromData) ? fromData : m ? parseFloat(m[1]) : NaN;
     const trades: CategoryId[] = ['roofing', 'siding-gutters', 'auto-body', 'auto-glass', 'public-adjuster'];
     grantAll(g, trades, Number.isFinite(inches) && inches >= 1 ? 'act' : 'intel', 'hail-report');
+    if (Number.isFinite(inches) && inches >= 1) grantAll(g, INSURANCE_INTEL, 'intel', 'hail-report');
     return assess('storm-report', 'other-trades', g, { hailInches: Number.isFinite(inches) ? inches : null });
   }
   if (type === 'wind') {
@@ -633,6 +649,7 @@ const DISASTER_TRADES: CategoryId[] = ['restoration', 'roofing', 'tree-service',
 function disasterRule(): OpportunityAssessment {
   const g: Partial<Record<CategoryId, Grant>> = {};
   grantAll(g, DISASTER_TRADES, 'soon', 'disaster-declaration');
+  grantAll(g, INSURANCE_INTEL, 'intel', 'disaster-declaration');
   return assess('disaster', 'other-trades', g);
 }
 
@@ -786,6 +803,14 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
       why: `The city issued ${k ? `${article(k)} ${k}` : 'a'} permit here, and work for ${c.trade} often follows a job like this.`,
       next: 'Keep the address and check back once the main work is done.',
       uncertain: 'The owner may already have hired someone, or may not need this work.',
+    };
+  },
+  'permit-downstream-weak': (c) => {
+    const k = kindsText(c.detail.kinds);
+    return {
+      why: `The city issued ${k ? `${article(k)} ${k}` : 'a'} permit here. It does not name work for ${c.trade}, but jobs like this sometimes bring it.`,
+      next: 'Use it to see where building work is picking up near you.',
+      uncertain: 'The permit does not say what work is done, so follow-on work for your trade is a guess.',
     };
   },
   'violation-repair': (c) => ({

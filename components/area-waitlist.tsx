@@ -41,7 +41,7 @@ export function AreaWaitlist({ zip, trade, placeLabel, className = '' }: { zip: 
 
   return (
     <section aria-labelledby={headingId} className={`rounded-card border border-line bg-surface p-5 sm:p-6 ${className}`}>
-      <p className="text-sm font-semibold uppercase tracking-wide text-accent-text">Coming soon</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-brand-text">Coming soon</p>
       <h2 id={headingId} className="mt-1 text-2xl text-ink">
         Holler is not in {placeLabel} yet.
       </h2>

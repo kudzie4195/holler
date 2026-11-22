@@ -136,8 +136,21 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
     const p = permit('Plumbing and remodel permit in Chicago', ['plumbing', 'general-contractor']);
     expect(label(p, 'plumbing')).toBe('intel');
     expect(label(p, 'general-contractor')).toBe('intel');
-    expect(label(p, 'flooring')).toBe('soon');
-    expect(label(p, 'electrical')).toBe('soon');
+    // remodel names no finish work: follow-on trades are market insight (Nov 22 volume retune)
+    expect(label(p, 'flooring')).toBe('intel');
+    expect(label(p, 'electrical')).toBe('intel');
+  });
+
+  it('generic building / remodel / structural permits never alert follow-on trades; an addition still does', () => {
+    for (const t of ['Building permit in Austin', 'Remodel permit in Chicago', 'Structural permit in Seattle']) {
+      const s = permit(t, ['general-contractor']);
+      for (const tr of ['painting', 'handyman', 'flooring', 'cleaning', 'junk-removal', 'electrical']) expect(label(s, tr), `${t} ${tr}`).toBe('intel');
+    }
+    const a = permit('Addition permit in Austin', ['general-contractor']);
+    expect(label(a, 'painting')).toBe('soon');
+    expect(label(a, 'hvac')).toBe('soon');
+    const both = permit('Remodel and deck permit in Austin', ['general-contractor']);
+    expect(label(both, 'painting')).toBe('soon');
   });
 
   it('a new home is soon for movers, realtors and yard trades; the builder gets intel', () => {
@@ -354,15 +367,15 @@ describe('storm reports, disasters, quakes', () => {
   });
   it('one inch hail is act for roof, siding, auto body, auto glass and public adjusters', () => {
     const s = spc('1.00 inch hail reported near 2 W Hollywood, FL', { type: 'hail', hailInches: 1 });
-    expect(opportunityTrades(s)).toEqual({ roofing: 'act', 'siding-gutters': 'act', 'auto-body': 'act', 'auto-glass': 'act', 'public-adjuster': 'act' });
+    expect(opportunityTrades(s)).toEqual({ roofing: 'act', 'siding-gutters': 'act', 'auto-body': 'act', 'auto-glass': 'act', 'public-adjuster': 'act', insurance: 'intel' });
   });
   it('a tornado report is act for restoration, tree service and roofing', () => {
     const s = spc('Tornado reported near 3 N Moore, OK (constructed)', { type: 'tornado' });
-    expect(opportunityTrades(s)).toEqual({ restoration: 'act', 'tree-service': 'act', roofing: 'act' });
+    expect(opportunityTrades(s)).toEqual({ restoration: 'act', 'tree-service': 'act', roofing: 'act', insurance: 'intel' });
   });
   it('a FEMA declaration is soon for recovery trades', () => {
     const s = sig('fema', 'disaster', null, 'Major disaster declaration: Severe Storms (FL) (constructed)');
-    expect(opportunityTrades(s)).toEqual({ restoration: 'soon', roofing: 'soon', 'tree-service': 'soon', 'public-adjuster': 'soon', 'junk-removal': 'soon' });
+    expect(opportunityTrades(s)).toEqual({ restoration: 'soon', roofing: 'soon', 'tree-service': 'soon', 'public-adjuster': 'soon', 'junk-removal': 'soon', insurance: 'intel' });
   });
   it('earthquakes below magnitude 5 are context', () => {
     expect(allContext(sig('usgs', 'quake', null, 'M2.8 earthquake 83 km ENE of Ugashik, Alaska'))).toBe(true);
