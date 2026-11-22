@@ -1,4 +1,4 @@
-import { hasContactShape, isListedGivenName } from '@/lib/contacts/org';
+import { registeredCompanyName } from '@/lib/contacts/org';
 
 /**
  * "Managed by" for NYC no-heat / hot-water cards (PLAN-2.0 item 2.6).
@@ -10,9 +10,10 @@ import { hasContactShape, isListedGivenName } from '@/lib/contacts/org';
  *  - the lookup selects ONLY registrationid, type and corporationname. FirstName, LastName, title and the business address are never
  *    requested, so no person's name can reach this file;
  *  - a contact whose CorporationName is empty (an individual owner, an individual site manager) yields nothing;
- *  - the CorporationName column is free text and sometimes holds a person ("JOHN B. LOVETT"), so every name must pass companyNameOf:
- *    a company word (LLC, INC, CORP, MANAGEMENT, REALTY ...) or a single non-given-name word. A trust, an estate or a two-word name with
- *    no company word is dropped.
+ *  - the CorporationName column is free text and sometimes holds a person ("JOHN B. LOVETT"), so every name must pass companyNameOf
+ *    (registeredCompanyName in lib/contacts/org.ts): a real company marker (LLC, INC, CORP, MANAGEMENT, REALTY ...), no role word
+ *    (owner, manager, tenant, agent, trust, estate), no placeholder, no listed given name, nothing that reads as a person. A single word,
+ *    a trust and an estate never pass.
  *
  * Pure and client-safe apart from the org.ts helpers (no server import). Same input, same output.
  */
@@ -33,36 +34,15 @@ export interface HpdContactRow {
   corporationname?: unknown;
 }
 
-const MAX_NAME_LEN = 70;
 /** A building that has more registrations than this (a development with one registration per building, such as Co-op City) gets nothing: no single company can be named for the lot. */
 export const MAX_REGISTRATIONS_PER_BBL = 6;
 
-const COMPANY_WORD =
-  /\b(?:l\.?l\.?c|l\.?l\.?p|l\.?p|inc|incorporated|corp|corporation|co|company|companies|ltd|limited|hdfc|associates|association|assoc|management|managment|mgmt|mgt|manager|realty|real estate|properties|property|holdings?|group|equities|equity|enterprises?|services?|housing|condominiums?|condo|owners?|tenants?|partners|partnership|cooperative|coop|organization|development|developers|capital|residential|redevelopment|federation|ventures?|investors?|investments?|builders?|construction|apartments?|apts|realtors?|brokerage|advisors?|operating|operations|resources|solutions|consulting|bank|church|foundation|society|council|authority)\b/i;
-
-/** Words that mark a person's or a family's legal vehicle, never a company that manages a building. */
-const NOT_A_COMPANY = /\b(?:estate of|estates?|trust|trustee|living|revocable|irrevocable|deceased|heirs|individual|unknown|none|n\/a)\b/i;
-
-const GENERIC_ONLY = /^(?:corporation|company|corp|inc|llc|owner|agent|manager|management|individual|self|same|tbd|na|n\/a|none|unknown)\.?$/i;
-
 /**
- * The company name to print, or null. Accepts only a name that reads as a company (see the file header). Never throws, never returns a
- * string longer than 70 characters.
+ * The company name to print, or null. This is the repo's one classifier for structured company fields: registeredCompanyName in
+ * lib/contacts/org.ts (company marker required, role words, placeholders and person shapes rejected). Never throws.
  */
 export function companyNameOf(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const t = raw.replace(/\s+/g, ' ').trim();
-  if (t.length < 3 || t.length > MAX_NAME_LEN) return null;
-  if (!/^[A-Za-z0-9 &.,'\-/()#+]+$/.test(t)) return null; // plain ASCII only: no look-alike letters, no markup, no "@"
-  if (!/[A-Za-z]/.test(t)) return null;
-  if (hasContactShape(t)) return null;
-  if (GENERIC_ONLY.test(t)) return null;
-  if (NOT_A_COMPANY.test(t)) return null;
-  if (COMPANY_WORD.test(t)) return t;
-  const words = t.split(/[\s,]+/).filter(Boolean);
-  // One word ("Newmark", "RHAMCO"): a person is never named by one word, unless it is a listed given name.
-  if (words.length === 1 && t.replace(/[^A-Za-z]/g, '').length >= 4 && !isListedGivenName(words[0].replace(/[^A-Za-z]/g, ''))) return t;
-  return null;
+  return registeredCompanyName(raw);
 }
 
 /** A registration's contact rows to one company: the agent company, else a site manager company, else the corporate owner. */

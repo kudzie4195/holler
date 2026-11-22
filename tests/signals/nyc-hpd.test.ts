@@ -18,10 +18,13 @@ import {
   BBLS_PER_QUERY,
   ENRICH_WINDOW_HOURS,
   MAX_BBLS_PER_RUN,
+  LOOKUP_BUDGET_MS,
+  ADAPTER_DEADLINE_MS,
   adapters,
   bblKey,
   buildNycHeatAdapter,
   clearManagerCache,
+  enrichHeatRows,
   contactsQuery,
   groupContacts,
   groupRegistrations,
@@ -31,6 +34,7 @@ import {
   resolveManagers,
 } from '@/lib/signals/adapters/nyc-hpd';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
+import { registeredCompanyName } from '@/lib/contacts/org';
 import { cardBrief } from '@/lib/signals/brief';
 import {
   MANAGER_SELECT,
@@ -55,48 +59,63 @@ const fx = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'nyc-hpd-heat-sam
 
 beforeEach(() => clearManagerCache());
 
-describe('companyNameOf: company names only', () => {
-  it('accepts company names as the registration prints them', () => {
-    for (const n of [
-      'PRESTIGE MANAGEMENT INC.',
-      'STONEHENGE MANAGEMENT LLC',
-      'Brookman Management Corp.',
-      'WINNRESIDENTAL (NY) LLC',
-      'R.E.M. Residential',
-      'HOULIHAN-PARNES PROPERTIES',
-      'GOUVERNEUR GARDENS HOUSING CORP',
-      '1864 CORP',
-      'Newmark',
-      'RHAMCO',
-    ]) {
-      expect(companyNameOf(n)).toBe(n);
-    }
+/** Every string the reviewer probed (review-HSK K-P1-1) plus real-shaped person strings: all must be null. */
+const REVIEWER_PROBES = [
+  'JOHN SMITH OWNER', 'JOHN SMITH (OWNER)', 'MARIA LOPEZ MANAGER', 'MARY JONES TENANT',
+  'GOLDBERG', 'PATEL', 'NGUYEN', 'RODRIGUEZ', 'EFRAIM', 'SAME AS OWNER', 'OWNER-OCCUPIED',
+  'JOHN B. LOVETT', 'KYLE BARBARIA', 'Seah Myers', // seen live in the CorporationName column
+];
+const PEOPLE = [
+  'ROBERT JOHNSON', 'Linda Martinez', 'DAVID A. KIM', 'SMITH, JOHN', 'GARCIA MARIA E', "WILLIAM O'BRIEN", 'Patricia Nguyen',
+  'JAMES T WILSON JR', 'ELIZABETH ANN TAYLOR', 'Hector Ramirez Jr.', 'CHEN WEI', 'AHMED HASSAN', 'OLGA PETROVA', 'Michael & Susan Brown',
+  'JOSE L RIVERA', 'Tyrone Washington', 'SHEILA M. GREENE', 'Anthony DiMarco', 'NANCY LEE', 'Kareem Abdul Jones',
+  'JOHN SMITH SUPERINTENDENT', 'Ana Gomez, Agent', 'Robert Hill, Super', 'LEON COHEN TRUST', 'THE SMITH FAMILY TRUST',
+  'ESTATE OF MARY JONES', 'JOHN SMITH MANAGEMENT LLC', 'J SMITH LLC', 'MARIA LOPEZ LLC', 'Daniel Okafor Realty Inc',
+  'Priya Patel Properties LLC', 'C/O JOHN SMITH', 'JOHN SMITH ATTN', 'SELF-MANAGED', 'N/A', 'NONE', 'UNKNOWN',
+  'Individual Owner', 'Tenant', 'owner', 'Corporation', 'Manager', 'AGENT', 'Property Management LLC', 'INC',
+];
+/** Real names from the live HPD sample (tests/signals/fixtures) and the registry: all must pass. */
+const COMPANIES = [
+  'PRESTIGE MANAGEMENT INC.', 'STONEHENGE MANAGEMENT LLC', 'VERCO PROPERTIES LLC', 'VIVMARK RESIDENTIAL MANAGEMENT LLC',
+  'YECO REALTY CORPORATION', 'VISTA REALTY CORP', 'GOUVERNEUR GARDENS HOUSING CORP', 'RIGHTBANC REALTY LLC', 'HOULIHAN-PARNES PROPERTIES',
+  'WAVECREST MGMT GROUP', 'GENYC REALTY LLC', 'PRIDE PROPERTY MANAGEMENT', 'Progress Property Management LLC', 'Frontgate Management',
+  'BELMONT GARDENS LLC', 'TEHAMA 36 REALTY LLC', 'Atlantis Properties Management', 'VDI Land Corp', 'NEWPORT APARTMENTS INC',
+  'FLAT MGT LLC', 'Brookman Management Corp.', 'Bronstein Properties LLC', 'Meda Realty, LLC', 'IRENE REALTY CO LLC',
+  'GAZIVODA REALTY CO., INC.', 'DKRE REALTY INc', 'NEZ INC', 'ROBO LLC', '1864 CORP', 'HORIZON HOUSE CO. LLC',
+  'DELTA MANAGEMENT LLC', 'PARK MANAGEMENT INC.', 'Total Management NYC', 'Edel Family Management Corp',
+];
+
+describe('companyNameOf: company names only (one classifier: registeredCompanyName in lib/contacts/org.ts)', () => {
+  it('is the org.ts classifier', () => {
+    for (const n of [...COMPANIES, ...PEOPLE, ...REVIEWER_PROBES]) expect(companyNameOf(n)).toBe(registeredCompanyName(n));
   });
 
-  it('rejects a person written in the CorporationName column, a trust, an estate, an address, a placeholder', () => {
-    for (const n of [
-      'JOHN B. LOVETT', // seen live as an Agent corporationname
-      'KYLE BARBARIA', // seen live as an Agent corporationname
-      'Seah Myers',
-      'MARIA LOPEZ',
-      'ANNETTEGARRIS-GREENE REV TRUSt',
-      'MEI LIEN SHIU LIVING TRUST',
-      'ESTATE OF RUTH ADAMS',
-      '382 E 197TH STREET',
-      'Corporation',
-      'INDIVIDUAl',
-      'NONE',
-      '',
-      '   ',
-      'AB',
-      'Jose', // one word, a listed given name
-    ]) {
+  it(`accepts ${COMPANIES.length} real company names unchanged`, () => {
+    expect(COMPANIES.length).toBeGreaterThanOrEqual(30);
+    for (const n of COMPANIES) expect(companyNameOf(n), n).toBe(n);
+  });
+
+  it('rejects every reviewer probe: owner / manager / tenant / agent are not company words, one-word surnames, placeholders', () => {
+    for (const n of REVIEWER_PROBES) expect(companyNameOf(n), n).toBeNull();
+  });
+
+  it(`rejects ${PEOPLE.length} real-shaped person strings, role strings and placeholders`, () => {
+    expect(PEOPLE.length).toBeGreaterThanOrEqual(30);
+    for (const n of PEOPLE) expect(companyNameOf(n), n).toBeNull();
+  });
+
+  it('rejects a trust, an estate, an address and a bare company marker', () => {
+    for (const n of ['ANNETTEGARRIS-GREENE REV TRUSt', 'MEI LIEN SHIU LIVING TRUST', 'ESTATE OF RUTH ADAMS', '382 E 197TH STREET', 'Corporation', 'INDIVIDUAl', 'LLC', '', '   ', 'AB']) {
       expect(companyNameOf(n), n).toBeNull();
     }
   });
 
+  it('a single word never passes, a surname or not', () => {
+    for (const n of ['Newmark', 'RHAMCO', 'Jose', 'SMITH', 'Okonjo', 'Management', 'Realty']) expect(companyNameOf(n), n).toBeNull();
+  });
+
   it('rejects contact details, markup, look-alike letters and non-strings', () => {
-    for (const n of ['Acme Realty LLC 212-555-0100', 'info@acme.com Realty LLC', 'www.acme-realty.com LLC', 'Acme <b>Realty</b> LLC', 'Acme Rеalty LLC', 'Acme​Realty LLC']) {
+    for (const n of ['Acme Realty LLC 212-555-0100', 'info@acme.com Realty LLC', 'www.acme-realty.com LLC', 'Acme <b>Realty</b> LLC', 'Acme R\u0435alty LLC', 'Acme\u200BRealty LLC']) {
       expect(companyNameOf(n), n).toBeNull();
     }
     for (const v of [null, undefined, 42, {}, ['Acme Realty LLC']]) expect(companyNameOf(v)).toBeNull();
@@ -115,9 +134,9 @@ describe('managerForRegistration: agent first, then the corporate owner, never a
   });
 
   it('falls back to the owner company with the owner wording (a registered owner is not said to manage)', () => {
-    const m = managerForRegistration([{ type: 'Agent' }, { type: 'CorporateOwner', corporationname: 'Lennon and Green Inc.' }]);
-    expect(m).toEqual({ name: 'Lennon and Green Inc.', role: 'owner' });
-    expect(managedByLine(m!)).toBe("Owner company: Lennon and Green Inc. (from the city's building registration)");
+    const m = managerForRegistration([{ type: 'Agent' }, { type: 'CorporateOwner', corporationname: 'VISTA REALTY CORP' }]);
+    expect(m).toEqual({ name: 'VISTA REALTY CORP', role: 'owner' });
+    expect(managedByLine(m!)).toBe("Owner company: VISTA REALTY CORP (from the city's building registration)");
   });
 
   it('shows nothing for a person with no CorporationName (individual owner, individual site manager)', () => {
@@ -215,9 +234,16 @@ describe('the heat-card company rate on the 100-row sample (ESTIMATED: values re
     expect(rows.length).toBeGreaterThanOrEqual(100);
   });
 
-  it('at least 60% of the rows get a company (target of PLAN-2.0 2.6)', () => {
-    const rate = named.filter(Boolean).length / rows.length;
-    expect(rate).toBeGreaterThanOrEqual(0.6);
+  it('headline: the managing-agent rate is at least 40% (41% measured); the owner fallback is reported separately', () => {
+    const agent = named.filter((m) => m?.role === 'agent').length / rows.length;
+    const owner = named.filter((m) => m?.role === 'owner').length / rows.length;
+    expect(agent).toBeGreaterThanOrEqual(0.4);
+    expect(agent).toBeLessThan(0.6); // the 60% target is NOT met by managing agents alone
+    expect(owner).toBeGreaterThan(0.15);
+  });
+
+  it('agent plus owner company reaches the 60% target of PLAN-2.0 2.6 (64% measured)', () => {
+    expect(named.filter(Boolean).length / rows.length).toBeGreaterThanOrEqual(0.6);
   });
 
   it('every named company passes the company-only check and prints a card line', () => {
@@ -469,5 +495,99 @@ describe('the other two surfaces: mobile alert and email digest', () => {
     const without = mk([base]);
     expect(without.html).not.toContain('Managed by');
     expect(without.text).not.toContain('Managed by');
+  });
+});
+
+// ---- the NYC 311 run is never put at risk (review K-P1-2) -------------------------------------------------------------------------------
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** A fake whose HPD calls take `ms` and ignore the abort signal (a hung API). The 311 call is instant. */
+function slowHpd(ms: number) {
+  const calls: { url: string; at: number }[] = [];
+  const t0 = Date.now();
+  const f: typeof fetch = async (input, init) => {
+    const url = String(input);
+    calls.push({ url, at: Date.now() - t0 });
+    if (url.includes('/resource/erm2-nwe9.json')) return new Response(JSON.stringify(heatRows), { status: 200, headers: { 'content-type': 'application/json' } });
+    await sleep(ms);
+    return fakeSocrata().f(input, init);
+  };
+  return { f, calls };
+}
+const heatRows = [row311('71183111', '1002430056'), row311('71183112', '3016100002'), row311('71183113', '1004140028')];
+
+describe('HPD lookups cannot hurt the 311 run', () => {
+  const ds = SOCRATA_DATASETS.find((d) => d.id === 'socrata-nyc-311')!;
+  const ctxFor = (f: typeof fetch): AdapterContext => ({ since: new Date(NOW.getTime() - 3 * 86_400_000), now: NOW, fetch: f, env: {}, log: () => {} });
+
+  it('the budget is well under the 40 s the scan gives an adapter', () => {
+    expect(LOOKUP_BUDGET_MS).toBeLessThanOrEqual(12_000);
+    expect(ADAPTER_DEADLINE_MS).toBeLessThanOrEqual(25_000);
+  });
+
+  it('a hung HPD (9 s per call, abort signal ignored): the 311 rows come back at the budget, without a company, identical to the plain adapter', async () => {
+    const slow = slowHpd(9000);
+    const t = Date.now();
+    const out = await buildNycHeatAdapter(ds, { budgetMs: 300 }).fetch(ctxFor(slow.f));
+    const took = Date.now() - t;
+    expect(took).toBeLessThan(1500);
+    expect(out).toHaveLength(3);
+    for (const s of out) expect(s.data).not.toHaveProperty('managerName');
+    const plain = await (await import('@/lib/signals/adapters/socrata')).buildSocrataAdapter(ds).fetch(ctxFor(slowHpd(0).f));
+    expect(out).toEqual(plain);
+  });
+
+  it('a slow but answering HPD after the budget: rows kept without a company, no request starts after the deadline', async () => {
+    const slow = slowHpd(400);
+    const out = await buildNycHeatAdapter(ds, { budgetMs: 200 }).fetch(ctxFor(slow.f));
+    expect(out).toHaveLength(3);
+    for (const s of out) expect(s.data).not.toHaveProperty('managerName');
+    expect(slow.calls.filter((c) => !c.url.includes('erm2-nwe9')).every((c) => c.at < 1000)).toBe(true);
+  });
+
+  it('a normal HPD inside the budget still enriches', async () => {
+    const slow = slowHpd(20);
+    const out = await buildNycHeatAdapter(ds, { budgetMs: 3000 }).fetch(ctxFor(slow.f));
+    expect(out.find((s) => s.externalId === '71183111')!.data).toMatchObject({ managerName: 'PRESTIGE MANAGEMENT INC.' });
+  });
+
+  it('requests run concurrently (pool of 4): 60 lots = 3 registration requests of 300 ms finish in about 300 ms, not 900 ms', async () => {
+    const f: typeof fetch = async (input, init) => {
+      await sleep(300);
+      return fakeSocrata().f(input, init);
+    };
+    const many = Array.from({ length: 60 }, (_, i) => `3${String(1000 + i).padStart(5, '0')}0001`);
+    const t = Date.now();
+    await lookupManagers(many, { fetch: f, maxBbls: 60 });
+    const took = Date.now() - t;
+    expect(took).toBeGreaterThanOrEqual(280);
+    expect(took).toBeLessThan(700);
+  });
+
+  it('the pool never has more than its size in flight', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const f: typeof fetch = async (input, init) => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await sleep(30);
+      inFlight--;
+      return fakeSocrata().f(input, init);
+    };
+    const many = Array.from({ length: 100 }, (_, i) => `3${String(1000 + i).padStart(5, '0')}0001`);
+    await lookupManagers(many, { fetch: f, pool: 2 });
+    expect(peak).toBeLessThanOrEqual(2);
+    expect(peak).toBeGreaterThanOrEqual(2);
+  });
+
+  it('enrichHeatRows alone: a fetch that never settles returns the rows at the budget', async () => {
+    const never: typeof fetch = () => new Promise<Response>(() => {});
+    const items = await (await import('@/lib/signals/adapters/socrata')).buildSocrataAdapter(ds).fetch(ctxFor(slowHpd(0).f));
+    const map = new Map(items.map((s) => [s.externalId, '1002430056'] as const));
+    const t = Date.now();
+    const out = await enrichHeatRows(items, map, { fetch: never, budgetMs: 150, now: NOW.getTime() });
+    expect(Date.now() - t).toBeLessThan(1000);
+    expect(out).toEqual(items);
   });
 });

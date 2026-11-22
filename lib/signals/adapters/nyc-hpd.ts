@@ -26,8 +26,14 @@ import {
  * skipped leaves the row exactly as it was before, so the card simply has no "Managed by" line.
  *
  * Bounds per scan run: MAX_BBLS_PER_RUN distinct BBLs, at most ceil(n / BBLS_PER_QUERY) registration requests and ceil(regs / REGS_PER_QUERY)
- * contact requests (8 s timeout each), only rows newer than ENRICH_WINDOW_HOURS (older rows were stored by an earlier run; the store never
- * overwrites a stored signal), and a per-process cache (24 h) so a repeated BBL costs nothing.
+ * contact requests, only rows newer than ENRICH_WINDOW_HOURS (older rows were stored by an earlier run; the store never overwrites a
+ * stored signal), and a per-process cache (24 h) so a repeated BBL costs nothing.
+ *
+ * TIME (the NYC 311 run must never be at risk, review K-P1-2): the scan gives one adapter 40 s (lib/signals/run.ts) and the 311 fetch itself
+ * can use 15 s. The lookups run at most POOL_SIZE requests at a time, each with a CALL_TIMEOUT_MS timeout that is also cut to what is left
+ * of the budget, inside a total LOOKUP_BUDGET_MS (12 s) that also ends by ADAPTER_DEADLINE_MS (25 s) after the adapter started. The whole
+ * enrichment is raced against that budget: when it runs out (a slow or hung API, a fetch that ignores its abort signal), the 311 rows are
+ * returned as the plain adapter returned them, without a company. Lookups that finished by then stay in the cache.
  *
  * Terms: NYC Open Data Terms of Use (data is public, no attribution field required, API usable without a key; an app token only raises
  * rate limits). The card says where the name comes from: "(from the city's building registration)". Registrations can be out of date.
@@ -44,7 +50,14 @@ export const REGS_PER_QUERY = 100;
 export const ENRICH_WINDOW_HOURS = 24;
 const CACHE_TTL_MS = 24 * 3_600_000;
 const CACHE_MAX = 5000;
-const TIMEOUT_MS = 8000;
+/** Per request. */
+export const CALL_TIMEOUT_MS = 6000;
+/** Requests in flight at once. */
+export const POOL_SIZE = 4;
+/** Total time the lookups may take, from the start of the enrichment. */
+export const LOOKUP_BUDGET_MS = 12_000;
+/** The lookups end by this long after the adapter started, whatever the budget says. */
+export const ADAPTER_DEADLINE_MS = 25_000;
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 
 export interface Bbl {
@@ -163,13 +176,38 @@ export interface LookupOptions {
   appToken?: string;
   now?: number;
   maxBbls?: number;
+  /** Absolute time (ms since epoch, Date.now() clock) after which no request is started and a running one is cut. Absent: no deadline. */
+  deadline?: number;
+  /** Requests in flight at once (default POOL_SIZE). */
+  pool?: number;
+  /** Per request timeout (default CALL_TIMEOUT_MS). */
+  callTimeoutMs?: number;
+}
+
+/** Runs the tasks with at most `size` in flight; a task that throws is the caller's to catch (the tasks here never throw). */
+async function runPool<T>(tasks: readonly (() => Promise<T>)[], size: number): Promise<T[]> {
+  const out: T[] = new Array(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      out[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(size, tasks.length)) }, worker));
+  return out;
 }
 
 async function getJson(url: string, o: LookupOptions): Promise<unknown | null> {
   const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
   if (o.appToken) headers['X-App-Token'] = o.appToken;
+  const left = o.deadline === undefined ? Infinity : o.deadline - Date.now();
+  if (left <= 0) {
+    o.log?.('nyc-hpd: budget used up, request skipped');
+    return null;
+  }
   try {
-    const res = await o.fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await o.fetch(url, { headers, signal: AbortSignal.timeout(Math.max(1, Math.min(o.callTimeoutMs ?? CALL_TIMEOUT_MS, left))) });
     if (!res.ok) {
       o.log?.(`nyc-hpd: HTTP ${res.status}`);
       return null;
@@ -205,19 +243,26 @@ export async function lookupManagers(bblValues: readonly unknown[], o: LookupOpt
   }
   if (wanted.length === 0) return result;
 
-  // 1. registrations of each lot
+  // 1. registrations of each lot (concurrent, bounded)
   const lots = new Map<string, string[]>();
   const failedKeys = new Set<string>();
-  for (let i = 0; i < wanted.length; i += BBLS_PER_QUERY) {
-    const part = wanted.slice(i, i + BBLS_PER_QUERY);
-    const body = await getJson(`https://${HPD_DOMAIN}/resource/${HPD_REGISTRATIONS_ID}.json?${registrationsQuery(part).toString()}`, o);
-    if (body === null) {
-      for (const b of part) failedKeys.add(bblKey(b));
-      continue;
-    }
-    const grouped = groupRegistrations(body, new Set(part.map(bblKey)));
-    for (const [k, ids] of grouped) lots.set(k, ids);
-  }
+  const chunksOf = <T,>(list: readonly T[], n: number): T[][] => {
+    const parts: T[][] = [];
+    for (let i = 0; i < list.length; i += n) parts.push(list.slice(i, i + n));
+    return parts;
+  };
+  const size = o.pool ?? POOL_SIZE;
+  await runPool(
+    chunksOf(wanted, BBLS_PER_QUERY).map((part) => async () => {
+      const body = await getJson(`https://${HPD_DOMAIN}/resource/${HPD_REGISTRATIONS_ID}.json?${registrationsQuery(part).toString()}`, o);
+      if (body === null) {
+        for (const b of part) failedKeys.add(bblKey(b));
+        return;
+      }
+      for (const [k, ids] of groupRegistrations(body, new Set(part.map(bblKey)))) lots.set(k, ids);
+    }),
+    size,
+  );
 
   // 2. contacts of the registrations of lots that are small enough to name a company for
   const regIds: string[] = [];
@@ -225,15 +270,17 @@ export async function lookupManagers(bblValues: readonly unknown[], o: LookupOpt
   const uniqueRegs = [...new Set(regIds)];
   const contacts = new Map<string, HpdContactRow[]>();
   const failedRegs = new Set<string>();
-  for (let i = 0; i < uniqueRegs.length; i += REGS_PER_QUERY) {
-    const part = uniqueRegs.slice(i, i + REGS_PER_QUERY);
-    const body = await getJson(`https://${HPD_DOMAIN}/resource/${HPD_CONTACTS_ID}.json?${contactsQuery(part).toString()}`, o);
-    if (body === null) {
-      for (const id of part) failedRegs.add(id);
-      continue;
-    }
-    for (const [id, rows] of groupContacts(body)) contacts.set(id, rows);
-  }
+  await runPool(
+    chunksOf(uniqueRegs, REGS_PER_QUERY).map((part) => async () => {
+      const body = await getJson(`https://${HPD_DOMAIN}/resource/${HPD_CONTACTS_ID}.json?${contactsQuery(part).toString()}`, o);
+      if (body === null) {
+        for (const id of part) failedRegs.add(id);
+        return;
+      }
+      for (const [id, rows] of groupContacts(body)) contacts.set(id, rows);
+    }),
+    size,
+  );
 
   const keys = wanted.map(bblKey);
   const resolved = resolveManagers(lots, contacts, keys);
@@ -251,19 +298,41 @@ export async function lookupManagers(bblValues: readonly unknown[], o: LookupOpt
 // ---- the NYC 311 adapter with the lookup ------------------------------------------------------------------------------------------------
 
 /** Adds data.managerName / data.managerRole to the heat rows that have a company. New objects; the input is not changed. Never throws. */
+export interface EnrichOptions extends LookupOptions {
+  /** Total time for the lookups (default LOOKUP_BUDGET_MS). */
+  budgetMs?: number;
+  /** Date.now() when the adapter started: the lookups end by this plus ADAPTER_DEADLINE_MS (default: now). */
+  startedAt?: number;
+}
+
 export async function enrichHeatRows(
   items: readonly SignalInput[],
   bblByExternalId: ReadonlyMap<string, string>,
-  o: LookupOptions,
+  o: EnrichOptions,
 ): Promise<SignalInput[]> {
   const now = o.now ?? Date.now();
   const cutoff = now - ENRICH_WINDOW_HOURS * 3_600_000;
+  const plain = [...items];
   try {
     const targets = items.filter(
       (s) => isResidentialHeatTitle(s.title) && bblByExternalId.has(s.externalId) && Date.parse(s.occurredAt) >= cutoff,
     );
-    if (targets.length === 0) return [...items];
-    const found = await lookupManagers(targets.map((s) => bblByExternalId.get(s.externalId)), o);
+    if (targets.length === 0) return plain;
+    const t0 = Date.now();
+    const budget = o.budgetMs ?? LOOKUP_BUDGET_MS;
+    const deadline = Math.min(t0 + budget, (o.startedAt ?? t0) + ADAPTER_DEADLINE_MS, o.deadline ?? Infinity);
+    // The lookups carry the deadline themselves; the race below is for a fetch that ignores its abort signal and never settles.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const exhausted = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), Math.max(0, deadline - Date.now()) + 250);
+    });
+    const found = await Promise.race([lookupManagers(targets.map((s) => bblByExternalId.get(s.externalId)), { ...o, deadline }), exhausted]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    if (found === null) {
+      o.log?.('nyc-hpd: lookup budget used up, heat rows kept without a company');
+      return plain;
+    }
     return items.map((s) => {
       if (!targets.includes(s)) return s;
       const b = parseBbl(bblByExternalId.get(s.externalId));
@@ -271,15 +340,16 @@ export async function enrichHeatRows(
       return m ? { ...s, data: { ...(s.data ?? {}), managerName: m.name, managerRole: m.role } } : s;
     });
   } catch {
-    return [...items];
+    return plain;
   }
 }
 
-export function buildNycHeatAdapter(ds: SocrataDataset): Adapter {
+export function buildNycHeatAdapter(ds: SocrataDataset, tuning: Pick<EnrichOptions, 'budgetMs' | 'pool' | 'callTimeoutMs'> = {}): Adapter {
   const base = buildSocrataAdapter(ds);
   return {
     ...base,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
+      const startedAt = Date.now();
       const bblById = new Map<string, string>();
       // Reads the 311 rows the base adapter fetches (it parses them into signals that carry no BBL) without changing the response.
       const wrapped: typeof fetch = async (input, init) => {
@@ -304,6 +374,8 @@ export function buildNycHeatAdapter(ds: SocrataDataset): Adapter {
         log: ctx.log,
         appToken: ctx.env.SOCRATA_APP_TOKEN,
         now: (ctx.now ?? new Date()).getTime(),
+        startedAt,
+        ...tuning,
       });
     },
   };

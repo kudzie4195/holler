@@ -1147,3 +1147,61 @@ export function isVocabularyWord(w: string): boolean {
   const k = foldName(w);
   return notName(k) && (BUSINESS.has(k) || PUBLIC.has(k) || KNOWN.has(k));
 }
+
+// ---- structured company fields ---------------------------------------------------------------------------------------------------------
+
+/**
+ * Words that make a registered name a company name (a legal form, or a word that only a business carries). One of them is REQUIRED by
+ * registeredCompanyName. Role words (owner, manager, tenant, agent, trust, estate) are never in this list.
+ */
+const COMPANY_MARKERS = new Set(
+  list(
+    'llc l.l.c inc inc. incorporated corp corp. corporation co co. company ltd limited lp l.p. llp lllp lllc pllc hdfc ' +
+      'management managment mgmt mgt realty properties property associates holdings holding group partners equities enterprises ' +
+      'development housing apartments residential capital services investments ventures builders construction brokerage',
+  ),
+);
+/** Extra person-role and placeholder shapes for structured fields (hasRoleWord already covers owner, tenant, trust, estate, c/o ...). */
+const STRUCTURED_ROLE_RE =
+  /\b(?:agents?|managers?|supers?|superintendents?|lessees?|lessors?|landlords?|occupants?|residents?|self[- ]managed|owner[- ]occupied|same as|see above|as above|n\/?a|none|unknown|individual|tbd|various|multiple)\b/i;
+
+/**
+ * A company name read from a STRUCTURED business field (a registration's CorporationName, a permit's contractor company column), or null.
+ * cleanOrgName stays the gate for free text; it is strict enough to reject real managing agents here ("STONEHENGE MANAGEMENT LLC":
+ * measured, 12 of 111 live agent and owner names pass), so a structured field gets this rule on the same vocabularies. ALL must hold:
+ *  S1. Plain ASCII letters, digits, spaces and & . , ' - / ( ) #; no invisible character; no phone, email or link; at most 70 characters.
+ *  S2. No role word (hasRoleWord: owner, tenant, trust, estate, c/o ...; and agent, manager, super, same as, n/a, self-managed ...).
+ *  S3. A company marker word (COMPANY_MARKERS: LLC, INC, CORP, CO, LP, LLP, HDFC, MANAGEMENT, REALTY, PROPERTIES, ASSOCIATES, HOLDINGS ...).
+ *  S4. The rest of the name (marker words, "the", "and", digits and symbols removed). One word left is fine ("PRESTIGE MANAGEMENT INC").
+ *      Two or more words left must hold no listed given name and must not read as a person (mentionsPersonName: unknown or surname words
+ *      side by side, an initial next to a word): "JOHN SMITH MANAGEMENT LLC" and "J SMITH LLC" fail.
+ *  S5. A name that reads as an address ("159 GELSTON AVENUE LLC", an owner entity named for its building) is allowed because the marker is
+ *      required and street words are not names; "382 E 197TH STREET" has no marker and fails S3.
+ *  S6. Something besides the marker words: a distinctive word or a number ("1864 CORP" passes, "Corporation" does not).
+ * A single word never passes (S3). Returns the name with whitespace collapsed, otherwise unchanged.
+ */
+export function registeredCompanyName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = collapse(raw);
+  if (t.length < 5 || t.length > 70) return null;
+  if (/[​-‏‪-‮⁠-⁤⁦-⁩﻿­]/.test(t)) return null;
+  if (!/^[A-Za-z0-9 &.,'\-/()#]+$/.test(t)) return null;
+  if (hasContactShape(t) || hasRoleWord(t) || STRUCTURED_ROLE_RE.test(t)) return null;
+  const words = t.split(/[\s,/()]+/).filter(Boolean);
+  const isMarker = (w: string) => COMPANY_MARKERS.has(w.toLowerCase().replace(/\.$/, '')) || COMPANY_MARKERS.has(w.toLowerCase());
+  if (!words.some(isMarker)) return null;
+  const core = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/\d/.test(w) && !STREET_SUFFIX_WORDS.has(w.toLowerCase().replace(/\.$/, '')) && !/^(?:n|s|e|w|north|south|east|west)\.?$/i.test(w))
+    .map((w) => w.replace(/[^A-Za-z.'-]/g, ''))
+    .filter(Boolean);
+  if (/\bdba\b/i.test(t)) return null;
+  // A marker alone ("Corporation", "Property Management LLC") names nobody: one distinctive word or a number is required.
+  if (core.length === 0 && !words.some((w) => /\d/.test(w))) return null;
+  // One distinctive word next to the marker ("STONEHENGE MANAGEMENT LLC", "PARK MANAGEMENT INC") is a company, even when the word is also a
+  // first name. Two or more words are a person's full name when any is a listed given name or they read as a person together.
+  if (core.length >= 2) {
+    if (core.some((w) => isListedGivenName(w.replace(/\./g, '')))) return null;
+    if (mentionsPersonName(core.join(' '))) return null;
+  }
+  return t;
+}
