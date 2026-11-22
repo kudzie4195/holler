@@ -568,17 +568,27 @@ function inspectionRule(sig: OpportunityInput): OpportunityAssessment {
 /** Trades a business opening reliably buys (sign, books and POS, cleaning contract, alarm). Locksmith, insurance and house cleaning are not. */
 const NEW_BUSINESS_TRADES: CategoryId[] = ['signs-printing', 'business-services', 'janitorial-commercial', 'security'];
 
-function businessRule(): OpportunityAssessment {
+function businessRule(sig: OpportunityInput): OpportunityAssessment {
   const g: Partial<Record<CategoryId, Grant>> = {};
-  grantAll(g, NEW_BUSINESS_TRADES, 'soon', 'new-business');
+  const t = `${norm(sig.title)} ${norm(sig.summary)}`;
+  // A licence that names a place people eat, drink or shop in (a premises with customers) is a real setup moment. A bare category
+  // ("Limited Business License | Electronics", "Administrative and support services") may be a home office: market insight only.
+  const food = /food|restaurant|dining|kitchen|bakery|caf[eé]|bar\b|tavern|liquor|consumption on premises|catering|grocery/.test(t);
+  const storefront = food || /retail|store|shop|salon|barber|gym|fitness|clinic|daycare|children's services|hotel|motel|auto repair/.test(t);
+  if (food) grantAll(g, ['pest-control'], 'soon', 'new-business');
+  grantAll(g, NEW_BUSINESS_TRADES, storefront ? 'soon' : 'intel', 'new-business');
   return assess('business', 'other-trades', g);
 }
 
 const EVENT_PERMIT_TRADES: CategoryId[] = ['catering', 'food-truck', 'event-services', 'security'];
 
-function eventPermitRule(): OpportunityAssessment {
+function eventPermitRule(sig: OpportunityInput): OpportunityAssessment {
   const g: Partial<Record<CategoryId, Grant>> = {};
-  grantAll(g, EVENT_PERMIT_TRADES, 'soon', 'event-permit');
+  // Most park event permits carry no event name, organiser, size or date ("Special Event at Clark Playground", "Event 2 Cluster 3"):
+  // nothing a caterer could act on. Only a record that names a festival, fair, market, concert, parade, race or wedding is Coming soon.
+  const t = `${norm(sig.title)} ${norm(sig.summary)}`;
+  const named = /festival|fair\b|market|concert|parade|\brace\b|marathon|\b5k\b|wedding|block party|street fair|carnival|expo|tournament/.test(t);
+  grantAll(g, EVENT_PERMIT_TRADES, named ? 'soon' : 'intel', 'event-permit');
   return assess('event-permit', 'other-trades', g);
 }
 
@@ -721,6 +731,20 @@ function subtypeOf(sig: OpportunityInput): string {
 
 /** The full assessment of one record (all trades). Exported for the replay and tests. */
 export function assessOpportunity(sig: OpportunityInput): OpportunityAssessment {
+  const a = assessRaw(sig);
+  // A closed, complied or resolved case has no job left: whatever the rule said becomes market insight.
+  if (CLOSED_RE.test(String(sig.summary ?? '')) && (a.family === 'violation' || a.family === '311' || a.family === 'inspection')) {
+    for (const k of Object.keys(a.grants) as CategoryId[]) {
+      const gr = a.grants[k]!;
+      if (gr.label === 'act' || gr.label === 'soon') a.grants[k] = { ...gr, label: 'intel' };
+    }
+  }
+  return a;
+}
+
+const CLOSED_RE = /(?:^|\|)\s*(?:closed|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
+
+function assessRaw(sig: OpportunityInput): OpportunityAssessment {
   const kind = norm(sig.kind);
   const source = norm(sig.source);
   const subtype = subtypeOf(sig);
@@ -750,8 +774,8 @@ export function assessOpportunity(sig: OpportunityInput): OpportunityAssessment 
   if (subtype === 'violation') return violationRule(sig);
   if (subtype === '311') return threeOneOneRule(sig);
   if (subtype === 'inspection') return inspectionRule(sig);
-  if (subtype === 'business') return businessRule();
-  if (subtype === 'event-permit') return eventPermitRule();
+  if (subtype === 'business') return businessRule(sig);
+  if (subtype === 'event-permit') return eventPermitRule(sig);
   if (kind === 'alert') return weatherRule(sig);
   if (kind === 'report') return stormReportRule(sig);
   if (kind === 'disaster') return disasterRule();

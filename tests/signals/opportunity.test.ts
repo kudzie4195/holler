@@ -378,12 +378,24 @@ describe('inspections and business licences', () => {
     }
   });
 
-  it('a new business licence is soon for signs, business services, commercial cleaning and security only', () => {
-    const s = sig('socrata-nyc-business', 'civic', 'business', 'New business license in New York City: Locksmith', [
+  it('a storefront business licence is soon for signs, business services, commercial cleaning and security only', () => {
+    const s = sig('socrata-nyc-business', 'civic', 'business', 'New business license in New York City: Locksmith retail store', [
       'signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning', 'locksmith',
     ]);
     expect(opportunityTrades(s)).toEqual({ 'signs-printing': 'soon', 'business-services': 'soon', 'janitorial-commercial': 'soon', security: 'soon' });
     for (const t of ['locksmith', 'insurance', 'cleaning']) expect(label(s, t), t).toBe('context');
+  });
+  it('a bare-category licence is market insight; a food licence adds pest control', () => {
+    const bare = sig('socrata-chicago-business', 'civic', 'business', 'New business license in Chicago: Limited Business License', ['signs-printing', 'janitorial-commercial']);
+    expect(label(bare, 'janitorial-commercial')).toBe('intel');
+    expect(label(bare, 'signs-printing')).toBe('intel');
+    const food = sig('socrata-chicago-business', 'civic', 'business', 'New business license in Chicago: Retail Food Establishment', ['janitorial-commercial']);
+    expect(label(food, 'janitorial-commercial')).toBe('soon');
+    expect(label(food, 'pest-control')).toBe('soon');
+  });
+  it('a closed or complied case is never Act now or Coming soon', () => {
+    const s = { ...sig('socrata-austin-violations', 'civic', 'violation', 'Code violation in Austin: trash or debris and overgrown yard', ['junk-removal']), summary: 'trash or debris and overgrown yard | Closed | 1200 block of X ST' };
+    expect(label(s, 'junk-removal')).toBe('intel');
   });
 });
 
@@ -484,11 +496,12 @@ describe('asking, federal, events, travel, unknown', () => {
     const award = sig('usaspending', 'contract', null, 'Federal contract ($114K) in Blacksburg, VA: NAICS 561730', ['landscaping', 'lawn-care']);
     expect(opportunityTrades(award)).toEqual({ landscaping: 'intel', 'lawn-care': 'intel' });
   });
-  it('event permits are soon for catering, food trucks, event services and security', () => {
-    const s = sig('socrata-nyc-events', 'event', 'event-permit', 'Permitted event in New York City: Special Event at Bell Tower Park: Bell Tower Park', [
-      'food-truck', 'catering', 'event-services', 'security', 'cleaning',
-    ]);
-    expect(opportunityTrades(s)).toEqual({ catering: 'soon', 'food-truck': 'soon', 'event-services': 'soon', security: 'soon' });
+  it('named event permits are soon for catering, food trucks, event services and security; unnamed park permits are insight', () => {
+    const cats = ['food-truck', 'catering', 'event-services', 'security', 'cleaning'];
+    const named = sig('socrata-nyc-events', 'event', 'event-permit', 'Permitted event in New York City: Street Fair at Court Street', cats);
+    expect(opportunityTrades(named)).toEqual({ catering: 'soon', 'food-truck': 'soon', 'event-services': 'soon', security: 'soon' });
+    const bare = sig('socrata-nyc-events', 'event', 'event-permit', 'Permitted event in New York City: Special Event at Bell Tower Park: Bell Tower Park', cats);
+    expect(opportunityTrades(bare)).toEqual({ catering: 'intel', 'food-truck': 'intel', 'event-services': 'intel', security: 'intel' });
   });
   it('airport delays are soon for rideshare and delivery only', () => {
     expect(opportunityTrades(sig('faa', 'travel', null, 'Ground stop at Phoenix Sky Harbor (PHX)', ['rideshare-delivery']))).toEqual({ 'rideshare-delivery': 'soon' });

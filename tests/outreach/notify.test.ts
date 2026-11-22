@@ -131,7 +131,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
   it('the email label comes from the opportunity: a business licence reads "Coming soon" with its next step; a pothole request is left out', async () => {
     const res = await run(
       [
-        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
+        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence', summary: 'Retail Food Establishment | Preparation of Food and Dining on Premises With Seating' }),
         sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
       ],
       async () => new Map(),

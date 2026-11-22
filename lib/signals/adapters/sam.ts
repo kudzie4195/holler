@@ -62,17 +62,20 @@ export function parseSam(raw: unknown): SignalInput[] {
         // or a numeric federal supply class prefix in the title ("36--GENERATOR", "49--REPAIR KIT"). Service codes are letters.
         if (isSupplyBuy(naics, title)) continue;
         let categories = naicsToCategories(naics);
+        // NAICS 561730 (landscaping services) also covers snow removal contracts: the title decides.
+        if (/\bsnow\b/i.test(title)) categories = ['snow-removal'];
         if (categories.length === 0) categories = classifyText(title);
         if (categories.length === 0) continue;
 
         const pop = isObj(item.placeOfPerformance) ? item.placeOfPerformance : {};
-        const office = isObj(item.officeAddress) ? item.officeAddress : {};
-        const cityN = nameOrCode(pop.city).name || str(office.city);
+        // Place of performance only. The contracting office is often in another state (a Mobile, AL office buying for Tyndall AFB,
+        // FL), so its city never stands in for where the work is. No state of performance: the work cannot be placed, skip it.
+        const cityN = nameOrCode(pop.city).name;
         const stateN = nameOrCode(pop.state);
-        const stateCode = normalizeState(stateN.code) ?? normalizeState(stateN.name) ?? normalizeState(str(office.state));
+        const stateCode = normalizeState(stateN.code) ?? normalizeState(stateN.name);
         if (!stateCode) continue;
         const city = findCity(cityN, stateCode);
-        const zip = str(pop.zip).slice(0, 5) || str(office.zipcode).slice(0, 5) || null;
+        const zip = str(pop.zip).slice(0, 5) || null;
         const posted = isoFromPosted(item.postedDate);
         const deadline = isoFromPosted(item.responseDeadLine ?? item.reponseDeadLine);
         const agency = str(item.fullParentPathName).split('.').filter(Boolean).slice(0, 2).join(' / ');

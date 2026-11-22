@@ -265,3 +265,18 @@ describe('SAM supply buys are dropped', () => {
     expect(isSupplyBuy(null, 'J026--Pneumatic Tube System Preventive Maintenance')).toBe(false);
   });
 });
+
+describe('SAM location and snow (final review)', () => {
+  const base = { noticeId: 'n1', type: 'Solicitation', naicsCode: '561730', postedDate: '2026-11-20', fullParentPathName: 'DEFENSE.AIR FORCE' };
+  it('never places a bid at the contracting office', () => {
+    const rows = parseSam({ opportunitiesData: [{ ...base, title: 'Grounds maintenance', officeAddress: { city: 'MOBILE', state: 'AL' }, placeOfPerformance: {} }] });
+    expect(rows).toHaveLength(0);
+    const fl = parseSam({ opportunitiesData: [{ ...base, title: 'Grounds maintenance', officeAddress: { city: 'MOBILE', state: 'AL' }, placeOfPerformance: { state: { code: 'FL' } } }] });
+    expect(fl[0].state).toBe('FL');
+    expect(fl[0].title).toMatch(/^Federal bid in FL:/);
+  });
+  it('a snow removal title goes to snow removal whatever the NAICS', () => {
+    const rows = parseSam({ opportunitiesData: [{ ...base, title: 'DOI-NPS Snow Removal Services', placeOfPerformance: { state: { code: 'VA' } } }] });
+    expect(rows[0].categories).toEqual(['snow-removal']);
+  });
+});
