@@ -7,6 +7,7 @@ import { bidSourceLinkLabel } from '../signals/bid-card';
 import { sourceLine, type CardBrief } from '../signals/brief';
 import { bidSourceLinkLabelLang, cardBriefLang, sourceLineLang } from '../signals/brief-i18n';
 import { t, type Lang } from '../i18n';
+import { localizeTitle } from '../signals/title-i18n';
 import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
@@ -182,7 +183,7 @@ export function renderDigest(opts: {
   const more = Math.max(0, total - opts.items.length);
   const subject = noDash(
     total === 1
-      ? t(lang, 'email.subject.one', { title: opts.items[0]?.title ?? t(lang, 'email.subject.fallback_title') }).slice(0, 120)
+      ? t(lang, 'email.subject.one', { title: opts.items[0] ? localizeTitle(opts.items[0].title, lang, opts.items[0].source) : t(lang, 'email.subject.fallback_title') }).slice(0, 120)
       : t(lang, 'email.subject.many', { n: total }),
   );
 
@@ -216,7 +217,7 @@ export function renderDigest(opts: {
           br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
         }</div>` +
         `<div style="font-size:14px;margin:2px 0 4px 0"><strong>${t(lang, 'brief.h.uncertain')}:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(localizeTitle(it.title, lang, it.source)))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
     })
     .join('');
 
@@ -240,7 +241,7 @@ export function renderDigest(opts: {
         .join(' | ');
       const chip = chipText(it, lang);
       const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

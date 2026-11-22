@@ -10,6 +10,7 @@ import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
 import { t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
@@ -292,7 +293,7 @@ function MatchCard({
           {item.aiNote}
         </p>
       ) : null}
-      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
+      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{localizeTitle(item.title, lang, item.source)}</h2>
       {cardSummary ? <p className="mt-1 line-clamp-2 text-muted">{cardSummary}</p> : null}
 
       <BriefBlock item={item} lang={lang} />
@@ -429,7 +430,7 @@ export function LockedFeed({ items, children, lang = 'en' }: { items: FeedItem[]
                 <span className="font-mono text-xs">{item.ago}</span>
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
-              <h2 className="h-plain mt-3 text-lg leading-snug">{item.title}</h2>
+              <h2 className="h-plain mt-3 text-lg leading-snug">{localizeTitle(item.title, lang, item.source)}</h2>
               <p className="mt-1 text-muted">{item.summary}</p>
               <WhoToContactLocked item={item} lang={lang} />
             </Card>

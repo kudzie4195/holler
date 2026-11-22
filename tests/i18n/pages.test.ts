@@ -145,7 +145,7 @@ describe('/es/check', () => {
     expect(t).toContain('Techos: dentro de unas 25 a 50 millas de Atlanta, GA, últimos 30 días');
     expect(t).toContain('Clima y desastres');
     expect(t).toContain('Permisos de construcción');
-    expect(t).toContain('1.50 inch hail reported near 2 ESE Atlanta, GA');
+    expect(t).toContain('Granizo de 1.50 pulgadas reportado cerca de 2 ESE Atlanta, GA');
     expect(t).toContain('Fuente: Reportes de tormenta del Centro de Predicción de Tormentas de NOAA');
     expect(t).toContain('Fuente: Datos abiertos de Atlanta: permisos de construcción');
     expect(t).toMatch(/hace 3 h|hace 3 horas/);
@@ -158,7 +158,7 @@ describe('/es/check', () => {
     loadCheck.mockResolvedValue({ ok: true, checkedAt: new Date().toISOString(), items: [] });
     const { html } = await renderCheck({ zip: '30303', trade: 'roofing' });
     const t = text(html);
-    expect(t).toContain('Holler vigila cerca de');
+    expect(t).toContain('Holler busca trabajo de');
     expect(t).toContain(es['chk.watch_h']);
     expect(spanishProblems(t)).toEqual([]);
   });

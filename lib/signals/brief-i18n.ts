@@ -1,4 +1,5 @@
 import { sourceLabelLang } from './source-label-i18n';
+import { permitLabelLang, tradeIdFromEnglishLabel } from './title-i18n';
 import { hasKey, t, localizeDate, type Lang, type DictKey } from '@/lib/i18n';
 import {
   BRIEF_FAMILIES,
@@ -83,6 +84,26 @@ interface Ctx {
   violation: string | null;
 }
 
+/**
+ * The permit type a title names ("Roof", "HVAC and plumbing"), in the language. The type is Holler's own English label (permit-privacy.ts), so
+ * Spanish says it with the dictionary. A type a city printed itself ("Residential Alteration") has no Spanish form here: it gives undefined,
+ * which is the generic sentence with no claim about the type. null and undefined keep their meaning (the title names no type / no title).
+ */
+function permitTypeInLang(type: string | null | undefined, lang: Lang): string | null | undefined {
+  if (typeof type !== 'string' || lang === 'en') return type;
+  return permitLabelLang(type, lang) ?? undefined;
+}
+
+/**
+ * The work a federal contract title names, in the language: Holler's English trade label ("Plumbing") becomes the same words the brief uses for
+ * that trade ("trabajo de plomería"). A label that is not one of Holler's trades ("federal award") gives null, the sentence with no work named.
+ */
+function awardWorkInLang(work: string | null | undefined, lang: Lang): string | null | undefined {
+  if (typeof work !== 'string' || lang === 'en') return work;
+  const id = tradeIdFromEnglishLabel(work);
+  return id ? workForLang(id, lang) : null;
+}
+
 /** The "why it matters" sentence: the same choice tree as briefFor, with the dictionary's words. */
 function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | null }, family: BriefFamily, ctx: Ctx, lang: Lang): string {
   const label = input.label;
@@ -147,8 +168,8 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
   const family = briefFamilyOf(input);
   const ctx: Ctx = {
     trade: input.trade ?? null,
-    permitType: family === 'permit' ? permitTypeOf(input.title) : undefined,
-    awardWork: family === 'federal-award' ? awardWorkOf(input.title) : undefined,
+    permitType: family === 'permit' ? permitTypeInLang(permitTypeOf(input.title), lang) : undefined,
+    awardWork: family === 'federal-award' ? awardWorkInLang(awardWorkOf(input.title), lang) : undefined,
     violation: family === 'violation' ? violationOrderOf(input.title) : null,
   };
   const label = input.label;

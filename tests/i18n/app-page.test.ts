@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NOW, iso } from '../signals/brief-fixtures';
 import { shipCases } from '../signals/ship-fixtures';
 import { spanishProblems } from '@/lib/i18n/rules';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&middot;/g, '·').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 
@@ -94,7 +95,7 @@ describe('/app for a Spanish member', () => {
     expect(t).toContain('Fuente:');
     expect(t).toContain('Qué es incierto:');
     expect(t).toMatch(/Guardar|Descartar/);
-    for (const c of chosen) expect(t).toContain(c.signal.title.replace(/&/g, '&'));
+    for (const c of chosen) expect(t).toContain(localizeTitle(c.signal.title, 'es', c.signal.source).replace(/&/g, '&'));
     // English chrome is gone
     for (const english of ['Your matches', 'Why it matters', 'Next step', 'What is uncertain', 'People asking', 'Dismiss', 'Was this alert helpful?']) expect(t, english).not.toContain(english);
   });
@@ -106,7 +107,7 @@ describe('/app for a Spanish member', () => {
   it('the rendered Spanish chrome breaks no Spanish wording rule', async () => {
     const { html, chosen } = await renderApp('es');
     let t = text(html);
-    for (const c of chosen) for (const v of [c.signal.title, c.signal.summary ?? '']) if (v) t = t.split(v.replace(/&/g, '&')).join(' ');
+    for (const c of chosen) for (const v of [localizeTitle(c.signal.title, 'es', c.signal.source) === c.signal.title ? c.signal.title : '', c.signal.summary ?? '']) if (v) t = t.split(v.replace(/&/g, '&')).join(' ');
     expect(spanishProblems(t)).toEqual([]);
   });
   it('the AI note (English, written by the model) is not shown to a Spanish member, and is shown to an English one', async () => {

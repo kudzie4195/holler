@@ -50,9 +50,22 @@ describe('brief in Spanish', () => {
   });
   it('a record title stays as the source wrote it (data fields are not translated)', () => {
     const b = briefForLang({ source: 'socrata-chicago-permits', label: 'coming_soon', trade: 'plumbing', title: 'HVAC permit in Chicago' }, 'es');
-    expect(b.why).toContain('(HVAC)');
+    expect(b.why).toContain('permiso de HVAC');
+    // Holler's own English permit label is said in Spanish (grader C1), and a type a city printed itself is not spliced in as English
+    const roof = briefForLang({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'roofing', title: 'Roof permit in Chicago' }, 'es');
+    expect(roof.why).toBe('Se presentó un permiso de techo cerca; hay trabajo planeado.');
+    const own = briefForLang({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'roofing', title: 'Residential Alteration permit in Chicago' }, 'es');
+    expect(own.why).not.toContain('Residential');
+    const mix = briefForLang({ source: 'socrata-chicago-permits', label: 'coming_soon', trade: 'plumbing', title: 'Roof, HVAC and plumbing permit in Chicago' }, 'es');
+    expect(mix.why).toContain('permiso de techo, HVAC y plomería');
     const v = briefForLang({ source: 'socrata-chicago-violations', label: 'act_now', trade: 'roofing', title: 'Code violation in X: REPAIR GUTTER & DOWNSPOUT' }, 'es');
     expect(v.why).toContain('repair gutter & downspout');
+  });
+  it('a federal award names its work in Spanish, from the trade, never the English label (grader C2)', () => {
+    const b = briefForLang({ source: 'usaspending', label: 'market_insight', trade: 'plumbing', title: 'Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)' }, 'es');
+    expect(b.why).toBe('Se adjudicó un contrato federal para trabajo de plomería; ya está cerrado.');
+    const none = briefForLang({ source: 'usaspending', label: 'market_insight', trade: 'plumbing', title: 'Federal contract in Cincinnati, OH: federal award' }, 'es');
+    expect(none.why).not.toMatch(/federal award/);
   });
   it('weather and storm cards never claim damage: they say "daño no confirmado"', () => {
     for (const source of ['nws', 'spc', 'usgs']) {
@@ -60,7 +73,7 @@ describe('brief in Spanish', () => {
       expect(b.uncertain).toMatch(/daño no confirmado/);
     }
     const mention = briefForLang({ source: 'spc', label: 'act_now', trade: 'roofing', title: 'T', summary: 'Roof damage reported.' }, 'es');
-    expect(mention.uncertain).toMatch(/menciona .*, no confirmado/);
+    expect(mention.uncertain).toMatch(/menciona .* \(dato no confirmado\)/);
   });
   it('reads in usted form with the family sentence for a sample card', () => {
     const c = cardBriefLang(

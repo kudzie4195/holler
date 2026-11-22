@@ -1,5 +1,5 @@
 import { hasKey, t, type Lang } from '@/lib/i18n';
-import { ES_BANNED_DRAFT_WORDS, spanishProblems } from '@/lib/i18n/rules';
+import { bannedDraftWordsIn, spanishProblems } from '@/lib/i18n/rules';
 
 export const BANNED_WORDS = [
   'unlock', 'supercharge', 'seamless', 'elevate', 'game-changer', 'game changer', 'revolutionize',
@@ -46,7 +46,7 @@ export function fallbackDraft(i: DraftInput): string {
 /** True when text breaks the draft rules: URLs, em dashes, banned words, emoji, or bad length. */
 export function violatesDraftRules(text: string, lang: Lang = 'en'): boolean {
   const t = text.toLowerCase();
-  if (lang === 'es' && (ES_BANNED_DRAFT_WORDS.some((w) => t.includes(w)) || spanishProblems(text).length > 0)) return true;
+  if (lang === 'es' && (bannedDraftWordsIn(text).length > 0 || spanishProblems(text).length > 0)) return true;
   if (/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|app|ca|us)\b/i.test(text)) return true;
   if (text.includes('—')) return true;
   if (/\p{Extended_Pictographic}/u.test(text)) return true;

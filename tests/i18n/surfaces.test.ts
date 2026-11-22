@@ -15,6 +15,7 @@ import { NOTE_KINDS, renderNote } from '@/lib/outreach/templates';
 import { fallbackDraft, violatesDraftRules } from '@/lib/ai/fallback';
 import { coverageNotice } from '@/lib/check/coverage-notice';
 import { spanishProblems } from '@/lib/i18n/rules';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 import { es } from '@/lib/i18n/es';
 import { en } from '@/lib/i18n/en';
 import { allBriefStringsLang } from '@/lib/signals/brief-i18n';
@@ -25,10 +26,10 @@ import { NOW } from '../signals/brief-fixtures';
 import { shipCases, shipDigestItem, shipFeedItem, type ShipCase } from '../signals/ship-fixtures';
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
-/** The card chrome only: a record's title and summary are the city's own words and stay as they are. */
+/** The card chrome and Holler's own titles: a summary and a title a source wrote are the source's words and stay as they are. */
 function chrome(cases: ShipCase[], s: string): string {
   let out = s;
-  for (const c of cases) for (const v of [c.signal.title, c.signal.summary ?? '']) if (v) out = out.split(v).join(' ').split(v.replace(/&/g, '&amp;')).join(' ');
+  for (const c of cases) for (const v of [localizeTitle(c.signal.title, 'es', c.signal.source) === c.signal.title ? c.signal.title : '', c.signal.summary ?? '']) if (v) out = out.split(v).join(' ').split(v.replace(/&/g, '&amp;')).join(' ');
   return text(out);
 }
 
@@ -59,7 +60,7 @@ describe('Spanish digest', () => {
     expect(mail.subject).toMatch(/novedades/);
     expect(mail.text).toMatch(/Holler/);
     // source data stays as is
-    for (const c of cases.slice(0, 3)) expect(mail.text).toContain(c.signal.title.replace(/\s+/g, ' ').slice(0, 20));
+    for (const c of cases.slice(0, 3)) expect(mail.text).toContain(localizeTitle(c.signal.title, 'es', c.signal.source).replace(/\s+/g, ' ').slice(0, 20));
     // none of the English chrome is left
     for (const english of [en['brief.h.why'], en['brief.h.next'], en['brief.h.uncertain'], 'Unsubscribe', 'Open Holler']) expect(chrome(cases, mail.html)).not.toContain(english);
     expect(spanishProblems(chrome(cases, mail.html))).toEqual([]);

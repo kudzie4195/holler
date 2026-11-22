@@ -6,7 +6,7 @@ import { ButtonLink } from '@/components/button';
 import { PAGE_BOX } from '@/components/grid';
 import { ZipForm } from '@/components/home/zip-form';
 import { FamilyDot, Ledger, type Family } from '@/components/page-header';
-import { t } from '@/lib/i18n';
+import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import { tradeLabel } from '@/lib/check/trades';
 import { FROM_MONTHLY, TRIAL_DAYS } from '@/lib/plan/price-copy';
@@ -107,7 +107,7 @@ export default function HomeEs() {
                   <p className="font-mono text-xs uppercase tracking-[0.06em] text-muted">{t(L, `fam.${f.id}.tag` as 'fam.weather.tag')}</p>
                   <p className="font-semibold text-ink">{t(L, `fam.${f.id}.title` as 'fam.weather.title')}</p>
                   <p className="text-muted">{t(L, `fam.${f.id}.from` as 'fam.weather.from')}</p>
-                  <p className="text-sm text-muted">{t(L, 'fam.good_for', { list: f.trades.map((id) => tradeLabel(id, L).toLowerCase()).join(', ') })}</p>
+                  <p className="text-sm text-muted">{t(L, 'fam.good_for', { list: f.trades.map((id) => lowerFirst(tradeLabel(id, L))).join(', ') })}</p>
                 </div>
               </li>
             ))}

@@ -80,3 +80,8 @@ export function localizeDate(text: string | null | undefined, lang: Lang): strin
   if (i < 0) return text;
   return `${m[2]} ${MONTHS_ES[i]}${m[3] ? ` ${m[3]}` : ''}`;
 }
+
+/** First letter lower-cased, the rest as it is: "Calefacción y aire acondicionado (HVAC)" keeps its acronym. For Spanish text only. */
+export function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}

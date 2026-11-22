@@ -14,9 +14,9 @@ const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[0.9375rem] font-me
  */
 export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
   const links = [
-    { href: '/es/check', label: t(L, 'nav.check') },
-    { href: '/es#how', label: t(L, 'nav.how') },
-    { href: '/pricing', label: t(L, 'nav.pricing') },
+    { href: '/es/check', label: t(L, 'nav.check'), english: false },
+    { href: '/es#how', label: t(L, 'nav.how'), english: false },
+    { href: '/pricing', label: t(L, 'nav.pricing'), english: true },
   ];
   return (
     <>
@@ -34,7 +34,7 @@ export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
               <ul className="flex items-center gap-4 lg:gap-6">
                 {links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className={linkCls}>
+                    <Link href={l.href} className={linkCls} {...(l.english ? { hrefLang: 'en' } : {})}>
                       {l.label}
                     </Link>
                   </li>
@@ -44,10 +44,10 @@ export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
             <a href={englishHref} hrefLang="en" lang="en" className={linkCls}>
               {t(L, 'nav.other_language')}
             </a>
-            <Link href="/login" className={`${linkCls} hidden min-[28rem]:inline-flex`}>
+            <Link href="/login" hrefLang="en" className={`${linkCls} hidden min-[28rem]:inline-flex`}>
               {t(L, 'nav.login')}
             </Link>
-            <ButtonLink href="/signup" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
+            <ButtonLink href="/signup" hrefLang="en" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
               {t(L, 'nav.start')}
             </ButtonLink>
           </div>

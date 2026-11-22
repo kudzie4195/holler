@@ -7,7 +7,8 @@ import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE, TRIAL_DAYS } from '@/lib/plan/price-copy';
-import { t, type Lang } from '@/lib/i18n';
+import { lowerFirst, t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 
 function Cta({ citySlug, children, lang }: { citySlug: string | null; children?: React.ReactNode; lang: Lang }) {
   const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
@@ -63,7 +64,7 @@ export function CheckResults({
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
 
   if (shown === 0) {
-    const trade = tradeLabel.toLowerCase();
+    const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
     const days = CHECK_WINDOW_DAYS;
     const ago = timeAgo(checkedAt, now, lang);
     const within = t(lang, 'chk.within', { place: placeLabel });
@@ -151,7 +152,7 @@ export function CheckResults({
                           {timeAgo(it.occurredAt, now, lang)}
                         </time>
                       </div>
-                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{it.title}</p>
+                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{localizeTitle(it.title, lang, it.source)}</p>
                       <p className="text-sm text-muted">
                         {href ? (
                           <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline decoration-1 underline-offset-4">

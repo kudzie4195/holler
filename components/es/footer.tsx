@@ -24,13 +24,13 @@ export function FooterEs({ englishHref = '/' }: { englishHref?: string }) {
               <Link href="/es/check" className={linkCls}>{t(L, 'nav.check')}</Link>
             </li>
             <li>
-              <Link href="/pricing" className={linkCls}>{t(L, 'nav.pricing')}</Link>
+              <Link href="/pricing" hrefLang="en" className={linkCls}>{t(L, 'nav.pricing')}</Link>
             </li>
             <li>
-              <Link href="/privacy" className={linkCls}>{t(L, 'footer.privacy')}</Link>
+              <Link href="/privacy" hrefLang="en" className={linkCls}>{t(L, 'footer.privacy')}</Link>
             </li>
             <li>
-              <Link href="/terms" className={linkCls}>{t(L, 'footer.terms')}</Link>
+              <Link href="/terms" hrefLang="en" className={linkCls}>{t(L, 'footer.terms')}</Link>
             </li>
             {contact ? (
               <li>
