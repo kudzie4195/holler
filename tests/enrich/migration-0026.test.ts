@@ -36,4 +36,31 @@ it.skipIf(!hasPglite)('applies twice; RLS on; only service_role has privileges; 
   await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('a e','x','GA','retry','404-555-0123')`)).rejects.toThrow();
   await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('summit roofing','hammond 46320','IN','found','219-555-0177') on conflict (name_key, city_key, state) do update set status = excluded.status, phone = excluded.phone`);
   expect((await db.query(`select status, phone from holler_business_lookup where city_key = 'hammond 46320'`)).rows[0]).toEqual({ status: 'found', phone: '219-555-0177' });
+  // redo 2: the 'truncated' marker (an answer cut by the page limit), no detail allowed
+  await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('apex roofing','austin 78745','TX','truncated')`);
+  await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, website) values ('apex roofing 2','austin','TX','truncated','https://x.example/')`)).rejects.toThrow();
 }, 30_000);
+
+// Review 2, P3-I: an earlier version of 0026 may have been applied. Running today's file on top of it must bring the schema to today's:
+// the 'retry' and 'truncated' statuses accepted, the shape rule for them in place. Each earlier file is the exact committed text.
+for (const [label, file] of [
+  ['first pass 3eb9e31 (found / not_found only)', 'tests/enrich/fixtures/0026-first-pass-3eb9e31.sql'],
+  ['redo 1 ea97b59 (no truncated)', 'tests/enrich/fixtures/0026-redo1-ea97b59.sql'],
+] as const) {
+  it.skipIf(!hasPglite)(`converges from the ${label}: data kept, retry and truncated accepted, shape enforced, twice`, async () => {
+    const db = await bootDb('0025_zzz');
+    await db.exec(fs.readFileSync(file, 'utf8'));
+    await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('peachtree roofing','atlanta','GA','found','404-555-0123')`);
+    await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('t roofing','atlanta','GA','truncated')`)).rejects.toThrow();
+    await db.exec(SQL);
+    await db.exec(SQL);
+    await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('t roofing','atlanta','GA','truncated')`);
+    await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('r roofing','atlanta','GA','retry')`);
+    await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('u roofing','atlanta','GA','truncated','404-555-0123')`)).rejects.toThrow();
+    await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('v roofing','atlanta','GA','maybe')`)).rejects.toThrow();
+    const rows = (await db.query(`select name_key, status from holler_business_lookup order by name_key`)).rows;
+    expect(rows).toEqual([{ name_key: 'peachtree roofing', status: 'found' }, { name_key: 'r roofing', status: 'retry' }, { name_key: 't roofing', status: 'truncated' }]);
+    const grants = await db.query(`select distinct grantee from information_schema.role_table_grants where table_name = 'holler_business_lookup' and grantee in ('anon','authenticated','public')`);
+    expect(grants.rows).toEqual([]);
+  }, 30_000);
+}

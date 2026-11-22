@@ -140,6 +140,20 @@ export async function GET(req: Request) {
     report.firecrawl = null;
   }
 
+  // Round 18 business lookups: the daily circuit breaker (lib/enrich/business-lookup.ts). When the first 5 answers of the UTC day held no
+  // usable match, one Watch line tells the owner to run the lookup probe. Read only, and only with DataForSEO credentials; never throws.
+  let lookup: { tripped: boolean; tried: number; message: string | null } | null = null;
+  try {
+    const { credentials } = await import('@/lib/dataforseo/client');
+    if (credentials(process.env)) {
+      const { lookupBreaker } = await import('@/lib/enrich/business-lookup');
+      lookup = await lookupBreaker(admin, now);
+      if (lookup?.tripped && lookup.message) report.watch.unshift(lookup.message);
+    }
+  } catch {
+    lookup = null;
+  }
+
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
   else if (!to) email = { status: 'no_recipient', detail: 'Set ADMIN_EMAIL or SUPPORT_EMAIL to receive the health email.' };
@@ -156,5 +170,5 @@ export async function GET(req: Request) {
   // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
   const monitorResult = await monitor(admin, now, true, to);
 
-  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult, lookup }, { headers: { 'Cache-Control': 'no-store' } });
 }

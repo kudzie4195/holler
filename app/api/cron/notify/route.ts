@@ -377,6 +377,8 @@ export async function GET(req: Request) {
   // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
   const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
 
-  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, timedOut: lookupBudget.timedOut, spentUsd: lookupBudget.spentUsd, msLeft: lookupBudget.msLeft, skipped: lookupBudget.skipped };
+  // `refused` counts why answers were not attached (truncated, ambiguous, closed, address_mismatch ...); `breaker` is the owner line when the
+  // daily circuit breaker stopped lookups ("Business lookups returned no usable match today (N tried). Run the lookup probe.").
+  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, timedOut: lookupBudget.timedOut, spentUsd: lookupBudget.spentUsd, msLeft: lookupBudget.msLeft, skipped: lookupBudget.skipped, refused: lookupBudget.refused, breaker: lookupBudget.breaker };
   return Response.json({ ok: true, ...counts, push, lookup, ms: Date.now() - started });
 }

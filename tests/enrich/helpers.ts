@@ -28,6 +28,7 @@ export function item(over: Record<string, unknown> = {}, addr: Record<string, un
     latitude: 33.7601,
     longitude: -84.3912,
     is_claimed: true,
+    work_time: { work_hours: { timetable: null, current_status: 'open' } },
     ...over,
   };
 }

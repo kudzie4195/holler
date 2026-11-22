@@ -74,7 +74,7 @@ describe('documented endpoint, request and price', () => {
     const got = parseListingResult(listingsBody([item(), { title: '' }, null, 'x'], 0.01, 36).tasks[0] as never);
     expect(got.totalCount).toBe(36);
     expect(got.items).toEqual([
-      { title: 'Peachtree Roofing', phone: '+14045550123', url: 'https://www.peachtreeroofing.example/', domain: 'www.peachtreeroofing.example', address: '100 Example St NW, Atlanta, GA 30303', city: 'Atlanta', zip: '30303', countryCode: 'US', lat: 33.7601, lon: -84.3912 },
+      { title: 'Peachtree Roofing', phone: '+14045550123', url: 'https://www.peachtreeroofing.example/', domain: 'www.peachtreeroofing.example', address: '100 Example St NW, Atlanta, GA 30303', street: '100 Example St NW', city: 'Atlanta', zip: '30303', countryCode: 'US', status: 'open', lat: 33.7601, lon: -84.3912 },
     ]);
     expect(parseListingItems({ result: 'nope' } as never)).toEqual([]);
     expect(parseListingItems(null)).toEqual([]);
@@ -188,9 +188,9 @@ describe('rejected: on any doubt nothing is attached', () => {
     expect((await one([item({ address: null }, { region: 'GA', zip: null })])).listing).toBeUndefined(); // a region alone is no proof of state
   });
 
-  it('same city name but far away, or no point and another city: rejected', async () => {
+  it('same city name but far away, or no point and a ZIP far away (city text alone never decides, review 2 P3-F): rejected', async () => {
     expect((await one([item({ latitude: 34.9, longitude: -84.388 })])).listing).toBeUndefined();
-    expect((await one([item({ latitude: null, longitude: null }, { city: 'Decatur', zip: '30030' })])).listing).toBeUndefined();
+    expect((await one([item({ latitude: null, longitude: null, address: null }, { city: 'Atlanta', zip: '31401' })])).listing).toBeUndefined();
   });
 
   it('two same-named listings that are not plainly the same business are ambiguous', async () => {

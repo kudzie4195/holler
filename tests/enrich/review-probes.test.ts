@@ -81,7 +81,7 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
   });
 
   it('1g same name 37 km away (Alpharetta): refused', () => {
-    expect(choose('Peachtree Roofing LLC', ATL, [item({ latitude: 34.0754, longitude: -84.2941 }, { city: 'Alpharetta', zip: '30009' })]).reason).toBe('wrong_place');
+    expect(choose('Peachtree Roofing LLC', ATL, [item({ latitude: 34.0754, longitude: -84.2941 }, { city: 'Alpharetta', zip: '30009' })]).reason).toBe('too_far');
   });
 
   it('1h (was DEFECT) a Kansas City, KS listing (ZIP 66101) for a Kansas City, MO record: refused with region null or set', () => {
@@ -97,9 +97,10 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
     expect(r.choice).toBeNull();
   });
 
-  it('1j no city but a point within 25 km and a ZIP in the state: attached; no point and no city: refused', () => {
+  it('1j no city but a point within 25 km and a ZIP in the state: attached; no point: the ZIP\'s own point decides (review 2, P3-F)', () => {
     expect(choose('Peachtree Roofing', ATL, [item({}, { city: null })]).reason).toBe('found');
-    expect(choose('Peachtree Roofing', ATL, [item({ latitude: null, longitude: null }, { city: null })]).choice).toBeNull();
+    expect(choose('Peachtree Roofing', ATL, [item({ latitude: null, longitude: null }, { city: null })]).reason).toBe('found'); // ZIP 30303 is in Atlanta
+    expect(choose('Peachtree Roofing', ATL, [item({ latitude: null, longitude: null, address: null }, { city: null, zip: null })]).reason).toBe('no_state');
   });
 
   it('1k (was DEFECT for 4+ words) no extra word passes', () => {
@@ -148,7 +149,7 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
 
   it('1o (was DEFECT) the Indiana contractor (ZIP 46320) on a Chicago permit is looked up in Hammond, IN, and a Chicago listing is not attached', async () => {
     const c = contractor(7, 'Summit Roofing LLC', { state: 'IN', zip: '46320' });
-    expect(lookupInputFor(c, [c], { city: 'Chicago', state: 'IL' })).toEqual({ name: 'Summit Roofing LLC', city: null, state: 'IN', zip: '46320', strict: false });
+    expect(lookupInputFor(c, [c], { city: 'Chicago', state: 'IL' })).toEqual({ name: 'Summit Roofing LLC', city: null, state: 'IN', zip: '46320', jobCity: 'Chicago' });
     const chicago = item({ title: 'Summit Roofing', phone: '+13125550166', latitude: 41.88, longitude: -87.63, address: '1 W Wacker Dr, Chicago, IL 60601' }, { city: 'Chicago', zip: '60601' });
     const fetch = fakeFetch([chicago]);
     const got = await lookupForCards(new Map([[7, [c]]]), [{ signalId: 7, city: 'Chicago', state: 'IL', contact: c }], newBudget(lookupSettings(ENV)), deps(newDb(), fetch));
@@ -171,16 +172,16 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
     expect(lookupInputFor(contractor(9, 'Summit Roofing LLC', { state: 'IN' }), [], { city: 'Chicago', state: 'IL' })).toBeNull();
   });
 
-  it('1r a business on a licence is looked up at its site ZIP within 5 km, and a same-named listing 9 km away is refused', async () => {
+  it('1r a business on a licence is looked up at its site ZIP within 5 km and needs the site\'s street address (fixture updated in redo 2)', async () => {
     const biz: ContactRecord = { signalId: 11, role: 'business', name: 'Lakeview Bakery LLC', city: null, state: null };
     const site: ContactRecord = { signalId: 11, role: 'site', name: '', address: '200 W Addison St', city: 'Chicago', state: 'IL', zip: '60613' };
     const input = lookupInputFor(biz, [biz, site], { city: 'Chicago', state: 'IL' })!;
-    expect(input).toMatchObject({ zip: '60613', strict: true });
-    const place = resolvePlace(input.city, input.state, input.zip, { strict: true })!;
+    expect(input).toMatchObject({ zip: '60613', strict: true, street: '200 W Addison St' });
+    const place = resolvePlace(input.city, input.state, input.zip, { strict: true, street: input.street })!;
     expect(place.radiusKm).toBe(5);
-    const far = parse([item({ title: 'Lakeview Bakery', latitude: 41.87, longitude: -87.63, address: null }, { city: 'Chicago', zip: '60605' })]);
-    expect(chooseListing('Lakeview Bakery LLC', place, far.items).choice).toBeNull();
-    const near = parse([item({ title: 'Lakeview Bakery', latitude: place.lat, longitude: place.lon, address: null }, { city: 'Chicago', zip: '60613' })]);
+    const far = parse([item({ title: 'Lakeview Bakery', latitude: 41.87, longitude: -87.63, address: null }, { city: 'Chicago', zip: '60605', address: '200 W Addison St' })]);
+    expect(chooseListing('Lakeview Bakery LLC', place, far.items).reason).toBe('address_mismatch');
+    const near = parse([item({ title: 'Lakeview Bakery', latitude: place.lat, longitude: place.lon, address: null }, { city: 'Chicago', zip: '60613', address: '200 West Addison Street' })]);
     expect(chooseListing('Lakeview Bakery LLC', place, near.items).reason).toBe('found');
     // without a site ZIP a business is not looked up (a city-wide search is not close enough)
     expect(lookupInputFor(biz, [biz], { city: 'Chicago', state: 'IL' })).toBeNull();
@@ -188,11 +189,11 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
 });
 
 describe('2. privacy and generic names (review criterion 2)', () => {
-  it('2a only business, contractor and awardee are ever looked up or shown a listing', async () => {
-    expect([...LOOKUP_ROLES].sort()).toEqual(['awardee', 'business', 'contractor']);
+  it('2a only business and contractor are ever looked up or shown a listing (awardee removed in redo 2)', async () => {
+    expect([...LOOKUP_ROLES].sort()).toEqual(['business', 'contractor']);
     const fetch = fakeFetch([item({ title: 'Peachtree Roofing' })]);
     const db = newDb({ holler_business_lookup: [{ name_key: 'peachtree roofing', city_key: 'atlanta', state: 'GA', status: 'found', phone: '404-555-0123', website: null, listing_name: 'Peachtree Roofing', checked_at: NOW.toISOString() }] });
-    for (const role of ['owner', 'applicant', 'site', 'buyer', 'tenant', 'agent', '']) {
+    for (const role of ['owner', 'applicant', 'site', 'buyer', 'tenant', 'agent', 'awardee', '']) {
       const c = { signalId: 1, role, name: 'Peachtree Roofing LLC', city: null, state: null } as unknown as ContactRecord;
       expect(mayLookUp(c), role).toBe(false);
       const got = await lookupForCards(new Map([[1, [c]]]), [{ signalId: 1, city: 'Atlanta', state: 'GA', contact: c }], newBudget(lookupSettings(ENV)), deps(newDb(), fetch));
@@ -255,7 +256,8 @@ describe('3. spend and time (review criterion 3)', () => {
   it('3a sequential runs: per-run 5 and per-day 25 hold (6 runs of 10 cards)', async () => {
     expect(POOL.length).toBeGreaterThanOrEqual(60);
     const db = newDb();
-    const fetch = fakeFetch([]);
+    // every lookup finds its own listing, so the daily circuit breaker never trips here (it has its own tests)
+    const fetch = vi.fn(async (_u?: unknown, init?: unknown) => jsonRes(listingsBody([item({ title: JSON.parse((init as { body: string }).body)[0].title })])));
     let made = 0;
     for (let run = 0; run < 6; run++) {
       const { contacts, cards } = cardsFor(namesForRun(run), run * 100);
@@ -333,12 +335,18 @@ describe('3. spend and time (review criterion 3)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('3f (was P3-3) the owner probe makes no call with 0026 missing', async () => {
+  it('3f (reversed in redo 2, decision 4c) the owner probe works BEFORE 0026 is applied: one call, the ledger only, the cache table untouched', async () => {
     const fetch = fakeFetch([item()]);
     const db = dbWithoutCache('PGRST205');
     const r = await lookupBusiness({ name: 'Peachtree Roofing LLC', city: 'Atlanta', state: 'GA' }, deps(db, fetch), { probe: true });
-    expect(r).toMatchObject({ status: 'skipped', reason: 'cache_missing' });
-    expect(fetch).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ status: 'found', source: 'api' });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(db.touched).toEqual([]);
+    expect(db.tables.holler_dataforseo_spend).toHaveLength(1);
+    // the alert run still makes no call without 0026
+    const f2 = fakeFetch([item()]);
+    expect(await lookupBusiness({ name: 'Peachtree Roofing LLC', city: 'Atlanta', state: 'GA' }, deps(dbWithoutCache('42P01'), f2))).toMatchObject({ status: 'skipped', reason: 'cache_missing' });
+    expect(f2).not.toHaveBeenCalled();
   });
 
   it('3g (was DEFECT) a hanging DataForSEO: lookupForCards returns at its deadline, at most 3 calls, all left as retry', async () => {

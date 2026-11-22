@@ -195,7 +195,7 @@ describe('GET /api/admin/lookup-probe', () => {
     const { res, body } = await probe('?name=Peachtree%20Roofing%20LLC&city=Atlanta&state=GA', store, ENV, fetch);
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('no-store');
-    expect(body).toEqual({ status: 'found', wouldAttach: { phone: '404-555-0123', website: 'https://www.peachtreeroofing.example/' }, listingName: 'Peachtree Roofing', candidates: 1, costUsd: 0.0156 });
+    expect(body).toEqual({ status: 'found', path: 'city', wouldAttach: { phone: '404-555-0123', website: 'https://www.peachtreeroofing.example/' }, listingName: 'Peachtree Roofing', candidates: 1, costUsd: 0.0156 });
     expect(store.tables.holler_dataforseo_spend).toEqual([expect.objectContaining({ endpoint: '/v3/business_data/business_listings/search/live', cost_usd: 0.0156, status: 'ok' })]);
     expect(store.tables.holler_business_lookup).toEqual([]);
     expect(fetch).toHaveBeenCalledTimes(1);
