@@ -15,6 +15,7 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { cardBrief, tradeForRecord } from '@/lib/signals/brief';
+import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -25,7 +26,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,${DEADLINE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
 export interface SignalRow {
   id: number;
@@ -52,6 +53,9 @@ export interface SignalRow {
   dueDate?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** NYC no-heat rows only (data.managerName, data.managerRole), read with MANAGER_SELECT. */
+  managerName?: string | null;
+  managerRole?: string | null;
 }
 
 export interface MatchRow {
@@ -124,13 +128,14 @@ export interface BuildDeps {
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
   const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole });
   return {
     why: b.why,
     next: b.next,
     source: { label: b.source.label, url: b.source.href, linkText: b.source.linkText, recordLink: b.source.recordLink, date: b.source.dateText },
     uncertain: b.uncertain,
     confidence: b.confidence,
+    ...(b.managedBy ? { managedBy: b.managedBy } : {}),
   };
 }
 

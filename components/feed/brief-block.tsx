@@ -12,6 +12,9 @@ export interface BriefBlockItem {
   trade?: string | null;
   url?: string | null;
   occurredAt: string;
+  /** NYC no-heat cards: the stored company name and role (lib/signals/managed-by.ts). */
+  managerName?: string | null;
+  managerRole?: string | null;
 }
 
 /** The brief for a feed item (parts 2 to 5). Pure; the web card, the tests and the screenshots all call it. */
@@ -26,6 +29,8 @@ export function briefOfItem(item: BriefBlockItem): CardBrief {
     trade: item.trade,
     url: item.url,
     occurredAt: item.occurredAt,
+    managerName: item.managerName,
+    managerRole: item.managerRole,
   });
 }
 
@@ -48,6 +53,11 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
         <span className="font-semibold">Next step: </span>
         {b.next}
       </p>
+      {b.managedBy ? (
+        <p className={ROW} data-testid="brief-managed">
+          {b.managedBy}
+        </p>
+      ) : null}
       <p className={ROW} data-testid="brief-source">
         <span className="font-semibold">Source: </span>
         {b.source.label}
