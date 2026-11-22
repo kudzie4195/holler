@@ -74,6 +74,24 @@ const PEOPLE = [
   'Priya Patel Properties LLC', 'C/O JOHN SMITH', 'JOHN SMITH ATTN', 'SELF-MANAGED', 'N/A', 'NONE', 'UNKNOWN',
   'Individual Owner', 'Tenant', 'owner', 'Corporation', 'Manager', 'AGENT', 'Property Management LLC', 'INC',
 ];
+/**
+ * Re-verification bypasses (review-HSK K, P2): a given name, an honorific or a digit-disguised given name next to a word that is also a
+ * street, direction or digit word. Run on the words BEFORE street/direction/digit words are dropped. All must be null.
+ */
+const PERSON_NAMED_ENTITIES = [
+  'JOHN WEST LLC', 'JOHN LANE LLC', 'JAMES COURT MANAGEMENT', 'MARY NORTH INC', 'J0HN SMITH LLC', 'DR. PATEL MANAGEMENT INC',
+  'JOHN ST LLC', 'MARIA AVE HOLDINGS', 'MARIA AVENUE HOLDINGS', 'ROBERT EAST CORP', 'Susan Park Realty LLC', 'DAVID PLACE REALTY INC',
+  'MAR1A LOPEZ LLC', 'J0SE ROAD LLC', 'JOHN 12 STREET LLC', 'MR. PATEL REALTY LLC', 'MRS SMITH PROPERTIES LLC', 'MS. LEE MANAGEMENT INC',
+  'DR PATEL REALTY CORP', 'REV. JONES HOLDINGS LLC', 'J WEST LLC', 'M LANE MANAGEMENT INC', 'ANNA SOUTH 5TH LLC', 'LIN4 WEST INC',
+  'dr. patel management inc', 'John West, LLC', 'WEST JOHN LLC',
+];
+/** Street-named and distinctive-word entities that must keep passing after the stricter person check. */
+const STILL_COMPANIES = [
+  'PRESTIGE MANAGEMENT INC.', 'STONEHENGE MANAGEMENT LLC', '3420 32ND STREET LLC', 'PHOENIX MANAGMENT 23 LLC', 'PARK MANAGEMENT INC',
+  '159 GELSTON AVENUE LLC', '100 OCEAN DR LLC', '5TH AVENUE REALTY CORP', 'WEST END HOLDINGS LLC', '342 WEST 71 STREET LLC', '560-568 AUDUBON REALTY, LLC', 'FLGSP 45-35 44 ST LLC', '92-40 QUEENS BOULEVARD, LLC', 'NORTH SHORE PROPERTIES INC', 'EAST 12 REALTY LLC',
+  '1864 CORP', 'TEHAMA 36 REALTY LLC',
+];
+
 /** Real names from the live HPD sample (tests/signals/fixtures) and the registry: all must pass. */
 const COMPANIES = [
   'PRESTIGE MANAGEMENT INC.', 'STONEHENGE MANAGEMENT LLC', 'VERCO PROPERTIES LLC', 'VIVMARK RESIDENTIAL MANAGEMENT LLC',
@@ -87,7 +105,7 @@ const COMPANIES = [
 
 describe('companyNameOf: company names only (one classifier: registeredCompanyName in lib/contacts/org.ts)', () => {
   it('is the org.ts classifier', () => {
-    for (const n of [...COMPANIES, ...PEOPLE, ...REVIEWER_PROBES]) expect(companyNameOf(n)).toBe(registeredCompanyName(n));
+    for (const n of [...COMPANIES, ...PEOPLE, ...REVIEWER_PROBES, ...PERSON_NAMED_ENTITIES, ...STILL_COMPANIES]) expect(companyNameOf(n)).toBe(registeredCompanyName(n));
   });
 
   it(`accepts ${COMPANIES.length} real company names unchanged`, () => {
@@ -102,6 +120,15 @@ describe('companyNameOf: company names only (one classifier: registeredCompanyNa
   it(`rejects ${PEOPLE.length} real-shaped person strings, role strings and placeholders`, () => {
     expect(PEOPLE.length).toBeGreaterThanOrEqual(30);
     for (const n of PEOPLE) expect(companyNameOf(n), n).toBeNull();
+  });
+
+  it(`rejects ${PERSON_NAMED_ENTITIES.length} person-named entities (given name, honorific or digit-disguised given name beside a street/direction word)`, () => {
+    expect(PERSON_NAMED_ENTITIES.length).toBeGreaterThanOrEqual(25);
+    for (const n of PERSON_NAMED_ENTITIES) expect(companyNameOf(n), n).toBeNull();
+  });
+
+  it('keeps street-named and distinctive-word company names that carry no given name or honorific', () => {
+    for (const n of STILL_COMPANIES) expect(companyNameOf(n), n).toBe(n);
   });
 
   it('rejects a trust, an estate, an address and a bare company marker', () => {

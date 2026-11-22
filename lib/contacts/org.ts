@@ -1165,6 +1165,19 @@ const COMPANY_MARKERS = new Set(
 const STRUCTURED_ROLE_RE =
   /\b(?:agents?|managers?|supers?|superintendents?|lessees?|lessors?|landlords?|occupants?|residents?|self[- ]managed|owner[- ]occupied|same as|see above|as above|n\/?a|none|unknown|individual|tbd|various|multiple)\b/i;
 
+/** Ordinal street numbers ("32ND", "5th"): digits plus a suffix, never read as a digit-for-letter disguise. */
+const ORDINAL_RE = /^\d+(?:st|nd|rd|th)$/i;
+/** Honorifics: a registered company name that starts with or holds one names a person ("DR. PATEL MANAGEMENT INC"). */
+const COMPANY_NAME_HONORIFICS = new Set(['dr', 'mr', 'mrs', 'ms', 'mx', 'miss', 'rev', 'prof']);
+const DIGIT_FOR_LETTER: Record<string, string> = { '0': 'O', '1': 'I', '3': 'E', '4': 'A', '5': 'S' };
+/** A word as the name check reads it: punctuation off, and digit-for-letter disguises undone inside words that mix letters and digits ("J0HN" -> "JOHN"). */
+function nameFormOf(w: string): string {
+  const bare = w.replace(/[^A-Za-z0-9'-]/g, '').replace(/^['-]+|['-]+$/g, '');
+  if (!/[A-Za-z]/.test(bare)) return ''; // "560-568", "45"
+  if (!/\d/.test(bare)) return bare;
+  return bare.replace(/[01345]/g, (d) => DIGIT_FOR_LETTER[d]);
+}
+
 /**
  * A company name read from a STRUCTURED business field (a registration's CorporationName, a permit's contractor company column), or null.
  * cleanOrgName stays the gate for free text; it is strict enough to reject real managing agents here ("STONEHENGE MANAGEMENT LLC":
@@ -1177,6 +1190,10 @@ const STRUCTURED_ROLE_RE =
  *      side by side, an initial next to a word): "JOHN SMITH MANAGEMENT LLC" and "J SMITH LLC" fail.
  *  S5. A name that reads as an address ("159 GELSTON AVENUE LLC", an owner entity named for its building) is allowed because the marker is
  *      required and street words are not names; "382 E 197TH STREET" has no marker and fails S3.
+ *      The given-name, honorific (DR, MR, MRS, MS, MX, REV ...) and initial checks run on every non-marker word BEFORE street, direction
+ *      and digit words are dropped, after digit-for-letter disguises are undone ("J0HN" is "JOHN"): "JOHN WEST LLC", "MARY NORTH INC",
+ *      "JOHN LANE LLC", "JAMES COURT MANAGEMENT", "J0HN SMITH LLC" and "DR. PATEL MANAGEMENT INC" fail. A listed given name next to any
+ *      other word is a person-named entity, rejected even when the second word is also a street word (privacy first).
  *  S6. Something besides the marker words: a distinctive word or a number ("1864 CORP" passes, "Corporation" does not).
  * A single word never passes (S3). Returns the name with whitespace collapsed, otherwise unchanged.
  */
@@ -1197,11 +1214,22 @@ export function registeredCompanyName(raw: unknown): string | null {
   if (/\bdba\b/i.test(t)) return null;
   // A marker alone ("Corporation", "Property Management LLC") names nobody: one distinctive word or a number is required.
   if (core.length === 0 && !words.some((w) => /\d/.test(w))) return null;
-  // One distinctive word next to the marker ("STONEHENGE MANAGEMENT LLC", "PARK MANAGEMENT INC") is a company, even when the word is also a
-  // first name. Two or more words are a person's full name when any is a listed given name or they read as a person together.
-  if (core.length >= 2) {
-    if (core.some((w) => isListedGivenName(w.replace(/\./g, '')))) return null;
-    if (mentionsPersonName(core.join(' '))) return null;
+  // Person check, run on EVERY non-marker word BEFORE street, direction and digit words are dropped (a surname can be "West", "Lane" or
+  // "Court"; a given name can hide as "J0HN"). A given name next to any other word, an honorific, or an initial next to a word is a
+  // person-named entity ("JOHN WEST LLC", "MARY NORTH INC", "DR. PATEL MANAGEMENT INC", "J SMITH LLC"): privacy first, reject it.
+  const nameWords = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/^\d+$/.test(w) && !ORDINAL_RE.test(w))
+    .map(nameFormOf)
+    .filter(Boolean);
+  // "DR" is also a street word ("OCEAN DR LLC"): it names a person only as the first word.
+  if (nameWords.some((w) => COMPANY_NAME_HONORIFICS.has(w.toLowerCase()) && !(w.toLowerCase() === 'dr' && words[0] && nameFormOf(words[0]).toLowerCase() !== 'dr'))) return null;
+  if (nameWords.length >= 2) {
+    // A compass word is a direction here even where it is also a listed given name ("342 WEST 71 STREET LLC").
+    if (nameWords.some((w) => !/^(?:north|south|east|west)$/i.test(w) && isListedGivenName(w))) return null;
+    if (nameWords.some((w) => w.length === 1 && !/^[nsew]$/i.test(w)) && nameWords.some((w) => w.length > 1)) return null;
   }
+  // One distinctive word next to the marker ("STONEHENGE MANAGEMENT LLC", "PARK MANAGEMENT INC") is a company, even when the word is also a
+  // first name. Two or more distinctive words read as a person's full name when they look like one together.
+  if (core.length >= 2 && mentionsPersonName(core.join(' '))) return null;
   return t;
 }
