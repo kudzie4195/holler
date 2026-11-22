@@ -11,6 +11,7 @@ vi.mock('server-only', () => ({}));
 const SECRET = 'right-secret-for-tests-0123456789';
 
 const ROUTES = [
+  'admin/coverage-probe',
   'admin/firecrawl-probe',
   'admin/metros',
   'admin/quality',

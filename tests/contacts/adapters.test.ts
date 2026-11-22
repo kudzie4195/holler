@@ -146,7 +146,9 @@ describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask 
   const WITH_SPEC = [
     'arcgis-atlanta-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits', 'arcgis-cobb-residential-permits',
     'arcgis-dc-permits', 'arcgis-dekalb-permits', 'arcgis-mecklenburg-permits', 'arcgis-raleigh-permits',
-  ];
+    // Round 19 coverage, on probation (lib/signals/adapters/coverage-datasets.ts).
+    'arcgis-arlington-permits', 'arcgis-miamidade-permits', 'arcgis-phoenix-permits', 'arcgis-tempe-permits',
+  ].sort();
   it('exactly the permit layers named in PLAN-2.0 1.2 and 1.3 carry a spec; no violation, 311 or business layer does', () => {
     expect(ARCGIS_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort()).toEqual(WITH_SPEC);
     for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit') expect(d.contacts, d.id).toBeUndefined();

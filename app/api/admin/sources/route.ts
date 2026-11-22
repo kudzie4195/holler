@@ -4,6 +4,7 @@ import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { readSourceHealth, summarizeSourceHealth } from '@/lib/signals/health';
 import { loadSourceStates } from '@/lib/signals/source-state-load';
 import { summarizeSourceStates, type SourceStateResult } from '@/lib/signals/source-state';
+import { probationOverview, type ProbationRow } from '@/lib/signals/probation';
 
 /**
  * GET /api/admin/sources (Authorization: Bearer CRON_SECRET; a ?key= query is refused). Internal: the per-source health table as JSON.
@@ -29,7 +30,17 @@ export async function GET(req: Request) {
     } catch {
       states = null;
     }
-    return Response.json({ ...summary, states }, { headers: { 'Cache-Control': 'no-store' } });
+    // Round 19 coverage: every source on probation with its last run and check (a schema mismatch is named here). Never fails the table.
+    let probation: ProbationRow[] | null = null;
+    try {
+      const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
+      const { sourcePlaces } = await import('@/lib/admin/metros');
+      const places = sourcePlaces();
+      probation = probationOverview(ALL_ADAPTERS, summary.sources, (id) => places.get(id) ?? null);
+    } catch {
+      probation = null;
+    }
+    return Response.json({ ...summary, states, probation }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
     return Response.json({ error: 'source_health_read_failed' }, { status: 500 });
   }

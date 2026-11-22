@@ -7,6 +7,8 @@ import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfte
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
+import { lookupZip } from '@/lib/geo';
+import { schemaMismatchLog, schemaProblem } from '@/lib/signals/schema-check';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -79,8 +81,41 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
       if (p) return { ...p, approx: false };
     }
   }
+  if (ds.zipCentroid && ds.zipField) {
+    // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state.
+    const z = lookupZip(s(row, ds.zipField));
+    if (z && z.state === ds.state) {
+      const p = validLatLon(z.lat, z.lon);
+      if (p) return { ...p, approx: true };
+    }
+  }
   if (ds.fallbackCenter) return { ...ds.fallbackCenter, approx: true };
   return null;
+}
+
+/**
+ * "11/16/26" or "11/16/2026" (month/day/year, a local calendar day) as a floating timestamp "2026-11-16T00:00:00", else null. A two-digit
+ * year is 20xx (the feeds read here start long after 2000). An impossible day ("02/30/26") is null.
+ */
+export function mdyToFloating(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})(?:\s.*)?$/);
+  if (!m) return null;
+  const mo = Number(m[1]);
+  const d = Number(m[2]);
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00`;
+}
+
+/** The record's own date as an ISO instant: dateFormat 'mdy' text first (Dallas), else the usual SODA timestamp (toIso). */
+export function recordDateIso(v: unknown, ds: Pick<SocrataDataset, 'tz' | 'dateFormat'>): string | null {
+  if (ds.dateFormat === 'mdy') {
+    const f = mdyToFloating(v);
+    if (f) return toIso(f, ds.tz);
+  }
+  return toIso(v, ds.tz);
 }
 
 /** Offset (ms) of `tz` from UTC at the instant `ms`. */
@@ -363,8 +398,11 @@ function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: str
  * `shapeOk` counts rows that look like the configured shape before any trade filtering, so the adapter can tell
  * "columns changed" (shapeOk 0) from "nothing relevant today". Never throws: malformed input returns an empty report.
  */
-export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseReport {
+export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date } = {}): ParseReport {
   const report: ParseReport = { items: [], rows: 0, shapeOk: 0 };
+  // Round 19 coverage: with a query column other than the record date, an old record touched again is dropped by its own date.
+  // Applied only when the caller passes `now` (the adapter and the probe do), so a pure parse of fixture rows does not depend on the clock.
+  const oldest = ds.maxRecordAgeDays != null && opts.now ? opts.now.getTime() - ds.maxRecordAgeDays * 86_400_000 : null;
   if (!Array.isArray(raw)) return report;
   report.rows = raw.length;
   const out = report.items;
@@ -373,11 +411,12 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
     try {
       if (!item || typeof item !== 'object') continue;
       const row = item as Row;
-      const occurredAt = toIso(row[ds.dateField], ds.tz);
+      const occurredAt = recordDateIso(row[ds.dateField], ds);
       const rawId = externalIdFor(row, ds);
       const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
       if (!occurredAt || !rawId || !text) continue;
       report.shapeOk += 1;
+      if (oldest !== null && Date.parse(occurredAt) < oldest) continue;
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
@@ -492,9 +531,11 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
  */
 export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams {
   const from = new Date(now.getTime() - lookbackDays(ds) * 86_400_000);
-  const sinceStr = toFloatingLocal(from, ds.tz);
-  const clauses = [`${ds.dateField} > '${sinceStr}'`];
-  if (ds.windowForwardDays != null) {
+  // A system column (':updated_at') is a UTC timestamp; a dataset column is a floating local one. queryDateField: see socrata-datasets.ts.
+  const qField = ds.queryDateField ?? ds.dateField;
+  const sinceStr = qField.startsWith(':') ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
+  const clauses = [`${qField} > '${sinceStr}'`];
+  if (ds.windowForwardDays != null && !ds.queryDateField) {
     const to = new Date(now.getTime() + ds.windowForwardDays * 86_400_000);
     clauses.push(`${ds.dateField} <= '${toFloatingLocal(to, ds.tz)}'`);
   }
@@ -506,7 +547,7 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   const p = new URLSearchParams();
   p.set('$where', clauses.join(' AND '));
   // Paged datasets order by the id too: many rows share one date-only timestamp, and an unstable order would repeat or skip rows across pages.
-  p.set('$order', pages(ds) > 1 ? `${ds.dateField} DESC, ${ds.idField}` : `${ds.dateField} DESC`);
+  p.set('$order', pages(ds) > 1 ? `${qField} DESC, ${ds.idField}` : `${qField} DESC`);
   p.set('$limit', String(LIMIT));
   return p;
 }
@@ -648,9 +689,12 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
           body.push(...part);
           if (part.length < LIMIT) break;
         }
-        const report = parseSocrataReport(body, ds);
+        const report = parseSocrataReport(body, ds, { now: ctx.now ?? new Date() });
         if (report.rows > 0 && report.items.length === 0) {
-          if (report.shapeOk === 0) {
+          const problem = report.shapeOk === 0 && ds.schemaUnverified ? socrataSchemaProblem(body, ds) : null;
+          if (problem) {
+            ctx.log(schemaMismatchLog(ds.id, problem, body));
+          } else if (report.shapeOk === 0) {
             ctx.log(`error: parsed 0 of ${report.rows} rows, shape may have changed (${ds.id})`);
           } else {
             // Rows look right but none map to a trade (or none failed): a quiet window, not a broken source.
@@ -682,6 +726,15 @@ async function fetchStageRows(ds: SocrataDataset, ctx: AdapterContext, headers: 
   else if (run.outcome.state === 'failed') ctx.log(`${ds.id}: stage query not used (${run.message ?? 'no usable answer'})`);
   else if (run.outcome.state === 'full_page') ctx.log(`${ds.id}: stage query returned a full page; the newest changes were read`);
   return run.items;
+}
+
+/** Round 19 coverage: why no row of a schema-unverified dataset parsed (missing id or date column, unreadable date), or null. */
+export function socrataSchemaProblem(rows: readonly unknown[], ds: SocrataDataset): string | null {
+  return schemaProblem(rows, {
+    idFields: ds.idFields?.length ? ds.idFields : [ds.idField],
+    dateField: ds.dateField,
+    readsAsDate: (v) => recordDateIso(v, ds) !== null,
+  });
 }
 
 /** Only verified datasets are enabled by default. */

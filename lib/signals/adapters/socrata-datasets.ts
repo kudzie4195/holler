@@ -130,6 +130,23 @@ export interface SocrataDataset {
    * Only for datasets with a statusField. None of these date columns is in this repo's fixtures: a wrong name makes the portal answer an error, which the adapter logs and ignores (the main query is untouched).
    */
   stageQuery?: { dateField: string };
+  /**
+   * Round 19 coverage. The column the $where window and $order use when `dateField` cannot be compared as a date (Dallas issued_date is
+   * TEXT in MM/DD/YY form, so `issued_date > '2026-10-21'` compares strings). A Socrata system column (':updated_at') is a real UTC
+   * timestamp. The record's own date is still read from `dateField`, in code (dateFormat), and rows older than maxRecordAgeDays are dropped.
+   */
+  queryDateField?: string;
+  /** 'mdy': `dateField` holds text such as "11/16/26" or "11/16/2026" (local day). ISO values are still read as before. */
+  dateFormat?: 'mdy';
+  /** With queryDateField: a row whose own record date is older than this many days is dropped (an old permit touched again is not news). */
+  maxRecordAgeDays?: number;
+  /** No coordinates in the feed: place the row at its ZIP's centroid (lib/geo lookupZip, same state only), flagged approxLocation. */
+  zipCentroid?: boolean;
+  /**
+   * Round 19 coverage: the column names were NOT read from the portal (research tags [3P] or [A]). The adapter then reports a source
+   * whose rows match none of the expected id or date columns as "schema mismatch: expected <col>" (an error the sources report shows).
+   */
+  schemaUnverified?: boolean;
 }
 
 // --- Category rules ---------------------------------------------------------------------------
@@ -694,11 +711,14 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   },
   {
     id: 'socrata-dallas-permits', city: 'Dallas', state: 'TX', tz: 'America/Chicago', domain: 'www.dallasopendata.com', datasetId: 'e7gq-4sah',
-    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issued_date', fallbackCenter: { lat: 32.7767, lon: -96.797 },
+    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issued_date',
+    // Round 19 coverage: ON PROBATION. issued_date is TEXT (MM/DD/YY), so the window and order use the system column :updated_at and the
+    // issue date is parsed in code; a row issued more than 30 days ago is dropped. No coordinates: the ZIP centroid places the row.
+    queryDateField: ':updated_at', dateFormat: 'mdy', maxRecordAgeDays: 30, zipCentroid: true, schemaUnverified: true,
     titleFields: ['work_description', 'permit_type'], textFields: ['work_description', 'permit_type', 'land_use'],
     summaryFields: ['permit_type', 'value'], addressFields: ['street_address'], zipField: 'zip_code', cadenceMinutes: 360,
-    verified: false, verifiedUrl: D('www.dallasopendata.com', 'e7gq-4sah'), fieldSource: 'sourced',
-    note: 'DISABLED: issued_date is a text column (SoQL range filters on text are unreliable) and there are no coordinates.',
+    verified: true, probation: true, verifiedUrl: D('www.dallasopendata.com', 'e7gq-4sah'), fieldSource: 'sourced',
+    note: 'ON PROBATION (round 19 coverage). Column names were read from the CSV on 2026-11-21 (rows of 2018); a third party measured 5,481 permits in October 2026 and contractor / value filled on only 4 of 2,855 November permits (COVERAGE-research.md 1.1 A, [3P]). issued_date is TEXT in MM/DD/YY form: never compared in SoQL. No coordinates: rows are placed at their ZIP centroid (approxLocation). Promote only after /api/admin/coverage-probe?source=socrata-dallas-permits shows current rows.',
   },
   // ---- New Orleans ----
   {

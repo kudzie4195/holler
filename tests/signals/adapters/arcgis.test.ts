@@ -128,7 +128,8 @@ describe('arcgis config', () => {
     for (const x of ARCGIS_DATASETS) {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: x.tz })).not.toThrow();
       expect(x.verifiedUrl).toBe(`${x.layerUrl}?f=json`);
-      expect(x.checkedOn).toMatch(/^2026-11-(17|19)$/);
+      // Round 19 coverage layers (on probation, schema unverified) carry the research date.
+      expect(x.checkedOn).toMatch(x.probation ? /^2026-11-22$/ : /^2026-11-(17|19)$/);
     }
     expect(new Set(ARCGIS_DATASETS.map((x) => x.id)).size).toBe(ARCGIS_DATASETS.length);
   });
