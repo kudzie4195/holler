@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { contactsForMember } from '@/lib/contacts/load';
 import { isStoredContactName } from '@/lib/contacts/names';
+import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
 import type { ContactRecord, ContactRole } from '@/lib/contacts/types';
 
 /**
@@ -40,10 +41,13 @@ export async function loadMemberContacts(opts: {
     const got = await loader(opts.db, opts.userId, ids);
     if (!(got instanceof Map)) return out;
     const wanted = new Set(ids);
+    // An owner company is shown only while HOLLER_VIOLATION_OWNERS_ENABLED is on (lib/contacts/owner-switch.ts).
+    const ownersOn = violationOwnersEnabled();
     for (const [signalId, list] of got) {
       if (!wanted.has(signalId) || !Array.isArray(list)) continue;
       const kept = list.filter((c) => {
         if (!c || c.signalId !== signalId) return false;
+        if (c.role === 'owner' && !ownersOn) return false;
         if (c.role === 'site' || c.role === 'buyer') return true;
         return orgCheck ? orgCheck(c.name, c.role) : true;
       });

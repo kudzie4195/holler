@@ -1,19 +1,20 @@
 import { cleanOrgName, isOrganisationName } from './org';
 import { ownerCompanyName, isOwnerCompanyName } from './owner-company';
-import { cleanBusinessName, cleanContractorName, isBusinessName, isContractorName } from './trade-name';
+import { cleanBusinessName, cleanContractorName, isBusinessName, isContractorName, isPlaceholderName } from './trade-name';
 import type { ContactRole } from './types';
 
 /**
  * Which name rule decides each contact role (round 18, NAMES). One place, used at extraction (extract.ts), at storage (sanitize.ts)
  * and when a stored row is shown (lib/outreach/loader.ts):
- *  - contractor: the contractor trade-name rule (trade-name.ts cleanContractorName: the strict rule, else a trade name with a business
- *    marker). Only contractor company columns carry this role.
- *  - owner: the strict registered-company rule (owner-company.ts ownerCompanyName). Code-violation owner columns only; never a person.
- *  - business (licence and inspection names): trade-name.ts cleanBusinessName, the strict rule, else a trade or business name in
- *    which no word is a listed given name, a listed surname or an initial. A licence can belong to a home business whose site is a home,
- *    so a person's name plus a trade word ("Maria Lopez Home Daycare", "Lopez Daycare") is refused here even though a contractor column
- *    would show it.
- *  - awardee, buyer: the strict organisation rule (org.ts cleanOrgName), unchanged.
+ *  - contractor: the contractor trade-name rule (trade-name.ts cleanContractorName, C1 to C8: wider than the strict org.ts rule for
+ *    trade names, narrower for person shapes, placeholders and family holdings). Only contractor company columns carry this role.
+ *  - owner: the institutional-owner rule (owner-company.ts ownerCompanyName: legal form required, no person-name word anywhere).
+ *    Code-violation owner columns only, and only while HOLLER_VIOLATION_OWNERS_ENABLED is on (owner-switch.ts); never a person.
+ *  - business (licence and inspection names): trade-name.ts cleanBusinessName: a legal form, or a business name with no person-name
+ *    word, no possessive person form, no initial and no home-based activity. A licence can belong to a home business whose site is a
+ *    home, so "Maria Lopez Home Daycare", "Lopez Daycare" and "Gareth Barber" give nothing here.
+ *  - awardee, buyer: the strict organisation rule (org.ts cleanOrgName), plus the placeholder refusal of redo rule 2 ("Self
+ *    Contractor", "No Contractor", "TBD" ...) that every role gets.
  *  - site: no name.
  */
 export function contactNameFor(role: ContactRole, raw: unknown): string | null {
@@ -27,7 +28,7 @@ export function contactNameFor(role: ContactRole, raw: unknown): string | null {
     case 'business':
       return cleanBusinessName(raw);
     default:
-      return typeof raw === 'string' ? cleanOrgName(raw) : null;
+      return typeof raw === 'string' && !isPlaceholderName(raw) ? cleanOrgName(raw) : null;
   }
 }
 
@@ -43,6 +44,6 @@ export function isStoredContactName(role: ContactRole, name: unknown): boolean {
     case 'business':
       return isBusinessName(name);
     default:
-      return typeof name === 'string' && isOrganisationName(name);
+      return typeof name === 'string' && !isPlaceholderName(name) && isOrganisationName(name);
   }
 }

@@ -48,7 +48,8 @@ describe('contacts are added beside the public fields, never into them', () => {
         const off = parseSocrata(raw, { ...d, contacts: undefined });
         expect(on.map(publicProjection)).toEqual(off.map(publicProjection));
       }
-      expect(on.some((s) => s.contacts?.length)).toBe(true);
+      // Round 18 redo: the only Austin inspection names are "Taqueria Lopez #3" and "Kelly Lewis", both refused by the licence rule.
+      expect(on.some((s) => s.contacts?.length)).toBe(f !== 'socrata-austin-inspections-contacts.json');
     });
     it(`${f}: no contact phone, email, contractor name or org address appears in title, summary or data; data has no contact keys`, () => {
       for (const s of parse(raw)) {

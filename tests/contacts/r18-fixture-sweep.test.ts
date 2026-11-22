@@ -2,8 +2,9 @@
  * Round 18 (NAMES): what changed on the existing fixtures, the business-licence contacts, and the privacy sweep over every fixture.
  *
  * fixtures/contacts-before-r18.json holds the contacts every fixture gave at r17-ship 8bee203 (before this unit). The only differences
- * now are the names listed in EXPECTED_ADDED: the business on four business-licence feeds (criterion 5) and two contractor names the
- * trade-name rule accepts. Nothing is removed, and the public title, summary and data are pinned separately (public-output.test.ts).
+ * now are EXPECTED_ADDED (the business on two business-licence feeds and two contractor names the trade-name rule accepts) and
+ * EXPECTED_REMOVED (redo 1: "Taqueria Lopez" holds a listed surname, so the inspection names nobody and stores no address). The public
+ * title, summary and data are pinned separately (public-output.test.ts).
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -56,13 +57,13 @@ const key = (c: ContactInput) => JSON.stringify(c);
 /** fixture file + record id -> the contacts added by round 18 (role: name). Every newly named business, for a human to eyeball. */
 const EXPECTED_ADDED: Record<string, string[]> = {
   'tests/fixtures/socrata-la-business.json 0000123456-0001-0': ['site: 6000 W SUNSET BLVD', 'business: SUNSET PIZZA'],
-  'tests/fixtures/socrata-nyc-business.json 2099001-DCA': ['site: 1200 FLATBUSH AVE', 'business: FLATBUSH LOCKSMITH'],
-  'tests/fixtures/socrata-orlando-business.json BTR-2026-9001': ['site: 800 N ORANGE AVE', 'business: COLONIAL GRILL AND BAR'],
   'tests/fixtures/socrata-orlando-business.json BTR-2026-9002': ['site: 200 S ORANGE AVE', 'business: SUMMIT CONSULTING GROUP'],
-  'tests/fixtures/socrata-sf-business.json 1234567-02-001': ['site: 2100 Mission St', 'business: Mission Taqueria'],
-  'tests/fixtures/socrata-sf-business.json 1234568-02-001': ['business: Bayview Bookkeeping'],
   'tests/contacts/fixtures/socrata-austin-permits-contacts.json 2026-123456 BP': ['contractor: Lone Star Roofing LLC'],
   'tests/contacts/fixtures/socrata-chicago-permits-contacts.json 101300001': ['contractor: NORTH BRANCH ARCHITECTS LTD'],
+};
+/** Redo 1: contacts the r17 code stored that the licence rule now refuses. */
+const EXPECTED_REMOVED: Record<string, string[]> = {
+  'tests/contacts/fixtures/socrata-austin-inspections-contacts.json 2026-10-30-10099901:2026-10-30': ['site: 1107 E 7th St', 'business: Taqueria Lopez'],
 };
 
 describe('existing fixtures: contacts change only by the newly accepted business names', () => {
@@ -71,18 +72,24 @@ describe('existing fixtures: contacts change only by the newly accepted business
     expect(now.map((p) => p.key).sort()).toEqual(Object.keys(before).sort());
     for (const p of now) expect(p.items.map((s) => s.externalId), p.key).toEqual(before[p.key].map((r) => r.id));
   });
-  it('nothing removed; the additions are exactly EXPECTED_ADDED', () => {
+  it('the additions are exactly EXPECTED_ADDED and the removals exactly EXPECTED_REMOVED', () => {
     const added: Record<string, string[]> = {};
+    const removed: Record<string, string[]> = {};
+    const label = (c: ContactInput) => `${c.role}: ${c.role === 'site' ? c.address : c.name}`;
     for (const p of now) {
       p.items.forEach((s, i) => {
-        const was = new Set(before[p.key][i].contacts.map(key));
-        const is = new Set((s.contacts ?? []).map(key));
-        for (const k of was) expect(is.has(k), `${p.key} ${s.externalId} lost ${k}`).toBe(true);
-        const add = (s.contacts ?? []).filter((c) => !was.has(key(c))).map((c) => `${c.role}: ${c.role === 'site' ? c.address : c.name}`);
+        const was = before[p.key][i].contacts;
+        const is = s.contacts ?? [];
+        const wasK = new Set(was.map(key));
+        const isK = new Set(is.map(key));
+        const add = is.filter((c) => !wasK.has(key(c))).map(label);
+        const rem = was.filter((c) => !isK.has(key(c))).map(label);
         if (add.length) added[`${p.key} ${s.externalId}`] = add;
+        if (rem.length) removed[`${p.key} ${s.externalId}`] = rem;
       });
     }
     expect(added).toEqual(EXPECTED_ADDED);
+    expect(removed).toEqual(EXPECTED_REMOVED);
   });
   it('the English "Who to contact" block changes only on those records', () => {
     const strip = (x: unknown) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'owner' && v === null ? undefined : v)));
@@ -91,23 +98,43 @@ describe('existing fixtures: contacts change only by the newly accepted business
         const sig = { source: s.source, kind: s.kind, city: s.city, state: s.state, zip: s.zip, summary: s.summary, url: s.url };
         const was = strip(outreachPlan(sig, before[p.key][i].contacts, 'en'));
         const is = strip(outreachPlan(sig, s.contacts ?? [], 'en'));
-        if (!EXPECTED_ADDED[`${p.key} ${s.externalId}`]) expect(is, `${p.key} ${s.externalId}`).toEqual(was);
+        const k = `${p.key} ${s.externalId}`;
+        if (!EXPECTED_ADDED[k] && !EXPECTED_REMOVED[k]) expect(is, k).toEqual(was);
       });
     }
   });
 });
 
 describe('business licences: the business on the licence is the contact on every enabled business-licence source', () => {
+  // Redo 1 (rule 6): the NYC and SF fixture names ("FLATBUSH LOCKSMITH", "Mission Taqueria", "Bayview Bookkeeping") put an unknown word
+  // beside one marker, which cannot be told apart from a first name, so they give nothing; those two feeds are proved on inline rows.
   const cases: [string, string, string][] = [
     ['socrata-chicago-business', '../contacts/fixtures/socrata-chicago-business-contacts.json', 'SUMMIT CITY CAFE'],
     ['socrata-la-business', '../fixtures/socrata-la-business.json', 'SUNSET PIZZA'],
-    ['socrata-nyc-business', '../fixtures/socrata-nyc-business.json', 'FLATBUSH LOCKSMITH'],
-    ['socrata-orlando-business', '../fixtures/socrata-orlando-business.json', 'COLONIAL GRILL AND BAR'],
-    ['socrata-sf-business', '../fixtures/socrata-sf-business.json', 'Mission Taqueria'],
+    ['socrata-orlando-business', '../fixtures/socrata-orlando-business.json', 'SUMMIT CONSULTING GROUP'],
+  ];
+  const inline: [string, Record<string, unknown>, string][] = [
+    ['socrata-nyc-business', { license_nbr: 'X1', business_name: 'SAMPLE PERSON', dba_trade_name: 'FLATBUSH LOCKSMITH INC', business_category: 'Locksmith', license_type: 'Business', license_status: 'Active', license_creation_date: '2026-10-28T00:00:00.000', address_building: '1200', address_street_name: 'FLATBUSH AVE', address_zip: '11226', latitude: '40.6410', longitude: '-73.9570' }, 'FLATBUSH LOCKSMITH INC'],
+    ['socrata-sf-business', { uniqueid: 'X2', ownership_name: 'SAMPLE OWNER PERSON', dba_name: 'Mission Street Taqueria', full_business_address: '2100 Mission St San Francisco CA 94110', business_zip: '94110', location_start_date: '2026-11-02T00:00:00.000', lic_code_description: 'Food Service', location: { type: 'Point', coordinates: ['-122.4194', '37.7599'] } }, 'Mission Street Taqueria'],
   ];
   it('covers every enabled business-licence dataset', () => {
     const enabled = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.subtype === 'business' && d.verified).map((d) => d.id).sort();
-    expect(cases.map((c) => c[0]).sort()).toEqual(enabled);
+    expect([...cases.map((c) => c[0]), ...inline.map((c) => c[0])].sort()).toEqual(enabled);
+  });
+  it.each(inline)('%s (inline row) names the business with its site; the owner column never appears', (id, row, name) => {
+    const d = SOCRATA_DATASETS.find((x) => x.id === id)!;
+    const [s] = parseSocrata([row], d);
+    expect(s.contacts?.find((c) => c.role === 'business')?.name).toBe(name);
+    expect(s.contacts?.some((c) => c.role === 'site')).toBe(true);
+    expect(JSON.stringify(s)).not.toMatch(/SAMPLE (?:OWNER )?PERSON/);
+  });
+  it('a home-based licence category gives no name and no address, unless the name has a legal form (rule 6)', () => {
+    const d = SOCRATA_DATASETS.find((x) => x.id === 'socrata-chicago-business')!;
+    const row = (dba: string, activity: string) => ({ id: `${dba}-${activity}`, doing_business_as_name: dba, address: '2318 W 47TH ST', zip_code: '60609', license_description: 'Limited Business License', business_activity: activity, application_type: 'ISSUE', date_issued: '2026-11-12T00:00:00.000', latitude: '41.8', longitude: '-87.6' });
+    const items = parseSocrata([row('SUNSET ACADEMY', 'Home Day Care'), row('SUNSET ACADEMY', 'Tutoring'), row('SUNSET ACADEMY LLC', 'Home Day Care')], d);
+    expect(items[0].contacts ?? []).toEqual([]);
+    expect(items[1].contacts?.map((c) => c.role)).toEqual(['site', 'business']);
+    expect(items[2].contacts?.map((c) => c.role)).toEqual(['site', 'business']);
   });
   it.each(cases)('%s names the business and shows it as "The business that opened"', (id, file, name) => {
     const d = SOCRATA_DATASETS.find((x) => x.id === id)!;

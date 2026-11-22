@@ -99,12 +99,10 @@ describe('Chicago food inspections (dba_name)', () => {
 
 describe('Austin food inspections (restaurant_name)', () => {
   const items = parseSocrata(fx('socrata-austin-inspections-contacts.json'), ds('socrata-austin-inspections'));
-  it('business plus site for an establishment, nothing for a person-named row', () => {
+  it('round 18 redo (rule 6): "Taqueria Lopez #3" holds a listed surname, so neither the name nor the site is stored; nothing for a person-named row', () => {
     expect(items).toHaveLength(2);
-    expect(items[0].contacts?.map((c) => [c.role, c.name, c.address, c.city, c.state, c.zip])).toEqual([
-      ['site', '', '1107 E 7th St', 'Austin', 'TX', '78702'],
-      ['business', 'Taqueria Lopez', null, null, null, null], // FIX-C: a trailing store number is stripped (R1); FIX-E input: was "Taqueria Arandas #3" (now fails R10)
-    ]);
+    expect(items[0].contacts).toBeUndefined();
+    expectAbsent(items, ['Lopez', 'Kelly Lewis', '1107 E 7th']);
     expect(items[1].contacts).toBeUndefined();
   });
 });

@@ -388,7 +388,12 @@ export async function writeSignalContacts(
     try {
       const send = (batch: Record<string, unknown>[]) =>
         db.from('holler_signal_contacts').upsert(batch, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
-      const strip = (batch: Record<string, unknown>[]) => batch.map(({ license: _l, ...rest }) => rest);
+      const strip = (batch: Record<string, unknown>[]) =>
+        batch.map((r) => {
+          const rest = { ...r };
+          delete rest.license;
+          return rest;
+        });
       const noOwner = (batch: Record<string, unknown>[]) => batch.filter((r) => r.role !== 'owner');
       let batch = withOwner ? part : noOwner(part);
       if (batch.length === 0) continue;

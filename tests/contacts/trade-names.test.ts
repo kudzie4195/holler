@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { cleanOrgName } from '@/lib/contacts/org';
-import { cleanBusinessName, cleanContractorName, isContractorName, TRADE_WORDS } from '@/lib/contacts/trade-name';
+import { AMBIGUOUS_WORDS, cleanBusinessName, cleanContractorName, FIRM_WORDS, isContractorName } from '@/lib/contacts/trade-name';
 import { contactNameFor, isStoredContactName } from '@/lib/contacts/names';
 import { extractContacts, type ContactSpec } from '@/lib/contacts/extract';
 import { sanitizeContact } from '@/lib/contacts/sanitize';
@@ -32,11 +32,14 @@ const ORLANDO_REAL = [
 ];
 /** The real strings the strict rule refused and the trade-name rule now names (every one listed for a human to eyeball). */
 const NEWLY_ACCEPTED_REAL = [
-  'ARRINGTON ROOFING CO INC.', 'TEMPO MECHANICAL', 'CONDOR FENCING', 'SERVICE 1ST',
+  'ARRINGTON ROOFING CO INC.', 'TEMPO MECHANICAL', 'CONDOR FENCING',
   'ESPARZA UNDERGROUND INC', 'AMBIENT TECHNOLOGIES INC', 'GULF COAST CUSTOM CABLE INC', 'KIMLEY HORN AND ASSOCIATES INC', 'VERDANTAS LLC', 'DUKE ENERGY',
 ];
-/** Real strings still refused: no business marker the rule can read ("ELSTONAIRE"), or a single letter before an ambiguous word ("A #1 AIR"). */
-const STILL_REFUSED_REAL = ['ELSTONAIRE', 'A #1 AIR'];
+/**
+ * Real strings refused: no marker ("ELSTONAIRE"); "Service" is an ambiguous word that never qualifies alone (redo 1, "SERVICE 1ST");
+ * "Air" is ambiguous and "A" is an initial ("A #1 AIR").
+ */
+const STILL_REFUSED_REAL = ['ELSTONAIRE', 'SERVICE 1ST', 'A #1 AIR'];
 
 /** Trade names under a person's name: a business by the owner's decision, in a contractor column only (invented). */
 const TRADE_NAMES: [string, string][] = [
@@ -48,6 +51,13 @@ const TRADE_NAMES: [string, string][] = [
   ['LINDA MARTINEZ ELECTRIC', 'LINDA MARTINEZ ELECTRIC'],
   ['JENNIFER DAVIS HVAC', 'JENNIFER DAVIS HVAC'],
   ['Kowalski Roofing', 'Kowalski Roofing'],
+  ['Smith Homes LLC', 'Smith Homes LLC'],
+  ['Smith Glass & Glazing', 'Smith Glass & Glazing'],
+  ['Smith Heating & Cooling', 'Smith Heating & Cooling'],
+  ['Smith Family Roofing', 'Smith Family Roofing'],
+  ['John Smith of Smith Roofing', 'Smith Roofing'],
+  ['John Smith c/o Smith Roofing', 'Smith Roofing'],
+  ['JOHN SMITH C/O ACME ROOFING', 'ACME ROOFING'],
   ['Smith & Sons', 'Smith & Sons'],
   ['Smith Bros.', 'Smith Bros.'],
   ['J. Smith Roofing', 'J. Smith Roofing'],
@@ -65,6 +75,12 @@ const TRADE_NAMES: [string, string][] = [
 
 /** Invented person shapes: never named, in any column (at least 25; the tricky ones first). */
 const PERSONS = [
+  // redo 1: surnames that are ambiguous trade words, placeholders, family holdings, a person beside a firm
+  'John Drain', 'T Boring', 'Thomas J Boring', 'Mary Mold', 'Deontay Glass', 'Truong Pool', 'Sherlock Homes', 'Mary Cooling', 'Jim Bob Cooling',
+  'Saoirse Tile', 'Kevin Tile', 'Gareth Barber', 'Saoirse Kitchen', 'Bashir Market', 'Bashir Power', 'Zooey Glass', 'Romina Power',
+  'Self Contractor', 'No Contractor', 'Owner Builder', 'Homeowner', 'Self', 'None', 'N/A', 'TBD', 'Various', 'Unknown', 'Same as owner',
+  'SMITH FAMILY LLC', 'JOHN SMITH FAMILY LLC', 'John & Mary Smith Properties', 'Smith Family Services', 'John Smith Property',
+  'Roofing Mary Glass', 'John Smith Smith Roofing', 'John Smith The Roofing', 'John Smith Self Services',
   'Mason Carpenter', 'Glass, Mary', 'Bill Painter', 'Homes, Sherlock', 'Carter, Electra', 'Electric, Carter', 'Tree, Ann', 'Glass Mary',
   'Homes Sherlock', 'Mary Glass', 'Ann Stone', 'Kelly Wood', 'Ray Stone', 'Mark Steel', 'Rosa Solar', 'Bill Lawn', 'Pat Mason', 'Ann Mason',
   'Jim Baker', 'Joe Cook', 'Ted Mason Carpenter', 'Robert Plumber', 'Carter Electrician', 'Tom Electrician', 'Chris Builder', 'Bob the Builder',
@@ -72,14 +88,14 @@ const PERSONS = [
   'JAMES CARTER', 'MARIA L GARCIA', 'CARTER, JAMES A', 'DAVID WILSON', 'MICHAEL T BROWN', 'WILLIAM TAYLOR', 'Maria Lopez', 'Kim Lee', 'J SMITH',
   'D. Wilson', 'Dr. John Smith', 'JOHN SMITH JR', 'Mary & John Smith', 'Smith & Jones', 'John Smith, Qualifier', 'JOHN SMITH QUALIFIER',
   'JOHN SMITH LICENSE HOLDER', 'John Smith Owner', 'JOHN SMITH (OWNER)', 'JOHN SMITH ET AL', 'Jane Doe 512-555-0100', 'Smith, Roofing',
-  'Smith Roofing DBA John Smith', 'LINDA MARTINEZ (JAMES CARTER)', 'ROBERT JOHNSON (DAVID WILSON)', 'JOHN SMITH C/O ACME ROOFING',
+  'Smith Roofing DBA John Smith', 'LINDA MARTINEZ (JAMES CARTER)', 'ROBERT JOHNSON (DAVID WILSON)',
 ];
 
 describe('trade-name rule on real contractor strings: accepted before and after, per source', () => {
   const rate = (xs: string[], f: (x: string) => string | null) => xs.filter((x) => f(x)).length;
-  it('Dallas: 13 of 19 before, 17 of 19 after; Orlando: 8 of 14 before, 14 of 14 after; all real: 21 of 33 (64%) -> 31 of 33 (94%)', () => {
+  it('Dallas: 13 of 19 before, 16 of 19 after; Orlando: 8 of 14 before, 14 of 14 after; all real: 21 of 33 (64%) -> 30 of 33 (91%)', () => {
     expect(rate(DALLAS_REAL, cleanOrgName)).toBe(13);
-    expect(rate(DALLAS_REAL, cleanContractorName)).toBe(17);
+    expect(rate(DALLAS_REAL, cleanContractorName)).toBe(16);
     expect(rate(ORLANDO_REAL, cleanOrgName)).toBe(8);
     expect(rate(ORLANDO_REAL, cleanContractorName)).toBe(14);
     const all = [...DALLAS_REAL, ...ORLANDO_REAL];
@@ -110,18 +126,26 @@ describe('person shapes are never named', () => {
   });
   it.each(PERSONS)('%s: no name under any role', (p) => {
     expect(cleanContractorName(p)).toBeNull();
-    for (const role of ['contractor', 'business', 'owner', 'awardee'] as const) expect(contactNameFor(role, p), role).toBeNull();
+    // Awardees (federal recipients) keep the strict org.ts rule; placeholders are refused there too (redo rule 2).
+    for (const role of ['contractor', 'business', 'owner'] as const) expect(contactNameFor(role, p), role).toBeNull();
   });
 });
 
 describe('the rule applies to contractor columns only', () => {
   it('an owner column never uses the trade-name rule (registered company only)', () => {
     for (const x of ['Smith Roofing', 'Carter Electric', 'JOHN SMITH ROOFING', 'TEMPO MECHANICAL', 'Smith & Sons']) expect(contactNameFor('owner', x), x).toBeNull();
-    expect(contactNameFor('owner', 'ACME HOLDINGS LLC')).toBe('ACME HOLDINGS LLC');
+    expect(contactNameFor('owner', 'MIDWEST REALTY GROUP LLC')).toBe('MIDWEST REALTY GROUP LLC');
   });
-  it('a business licence or inspection name refuses a person plus a trade word (the site can be a home)', () => {
-    for (const x of ['Carter Electric', 'JOHN SMITH ROOFING', 'Maria Lopez Home Daycare', 'MARIALOPEZ DAYCARE', 'Rossi Pizza', 'J R Pizza']) expect(cleanBusinessName(x), x).toBeNull();
-    for (const x of ['SUNSET PIZZA', 'FLATBUSH LOCKSMITH', 'COLONIAL GRILL AND BAR', 'Bayview Bookkeeping']) expect(cleanBusinessName(x), x).toBe(x);
+  it('placeholders are refused under every role, awardees included', () => {
+    for (const x of ['Self Contractor', 'No Contractor', 'Owner Builder', 'Homeowner', 'Self', 'None', 'N/A', 'TBD', 'Various', 'Unknown', 'Same as owner'])
+      for (const role of ['contractor', 'business', 'owner', 'awardee'] as const) expect(contactNameFor(role, x), `${role} ${x}`).toBeNull();
+  });
+  it('a business licence or inspection name refuses a person, a possessive, a home-based activity (redo rule 6: the site can be a home)', () => {
+    for (const x of ['Carter Electric', 'JOHN SMITH ROOFING', 'Maria Lopez Home Daycare', 'MARIALOPEZ DAYCARE', 'Rossi Pizza', 'J R Pizza', 'Gareth Barber',
+      'Saoirse Kitchen', 'Bashir Market', 'MARIAS DAYCARE', 'Lopez Daycare', 'JOES LAWN CARE', 'Marias Cleaning', "John's Lawn Care", 'Ifeoma Salon',
+      'Freya Spa', 'Sherlock Homes', 'Sunset Daycare', 'Sunset Child Care', 'REGINALD JACKSON HOME IMPROVEMENT LLC', 'Danny Smith LLC', 'Taqueria Lopez'])
+      expect(cleanBusinessName(x), x).toBeNull();
+    for (const x of ['SUNSET PIZZA', 'SUMMIT CITY CAFE', 'SUMMIT CONSULTING GROUP', 'APEX HOME REMODELING LLC', 'Main Street Deli', 'Sunset Daycare LLC']) expect(cleanBusinessName(x), x).toBe(x);
   });
   it('a Chicago owner, applicant or tenant type with a trade name is still dropped; a contractor type with one is kept', () => {
     const spec: ContactSpec = {
@@ -145,7 +169,24 @@ describe('the rule applies to contractor columns only', () => {
     const spec: ContactSpec = { verifiedUrl: 'https://example.test', checkedOn: '2026-11-22', orgs: [{ role: 'contractor', nameFields: ['contractor'], runTogether: true }] };
     const run = (v: string) => extractContacts((f) => (f === 'contractor' ? v : ''), spec, { city: 'Dallas', state: 'TX' }, 'permit');
     expect(run('TEMPO MECHANICAL 12 ELM ST, DALLAS, TX 75201 214-555-0101')).toEqual([expect.objectContaining({ name: 'TEMPO MECHANICAL', phone: '214-555-0101', address: null })]);
+    expect(run('JOHN DRAIN 12 ELM ST, DALLAS, TX 75201 214-555-0101')).toEqual([]);
     expect(run('JAMES CARTER 12 ELM ST, DALLAS, TX 75201 214-555-0101')).toEqual([]);
+  });
+});
+
+describe('redo rule 5: a contractor\'s own address only with a legal form; the phone rule is unchanged', () => {
+  it('no legal form: name and business phone kept, own street, city, state and zip dropped', () => {
+    expect(sanitizeContact({ role: 'contractor', name: 'Carter Electric', address: '12 MAIN ST', city: 'Austin', state: 'TX', zip: '78701', phone: '512-555-0101' }, { datasetCity: 'Austin' })).toMatchObject({
+      name: 'Carter Electric', address: null, city: null, state: null, zip: null, phone: '512-555-0101',
+    });
+  });
+  it('a legal form: the address stays', () => {
+    expect(sanitizeContact({ role: 'contractor', name: 'Carter Electric LLC', address: '12 MAIN ST', city: 'Austin', state: 'TX', zip: '78701' }, { datasetCity: 'Austin' })).toMatchObject({
+      address: '12 MAIN ST', city: 'Austin', state: 'TX', zip: '78701',
+    });
+  });
+  it('a business licence keeps its site address (licence rule decides the name instead)', () => {
+    expect(sanitizeContact({ role: 'business', name: 'SUNSET PIZZA', address: '12 MAIN ST' })?.address).toBe('12 MAIN ST');
   });
 });
 
@@ -165,11 +206,12 @@ describe('stability and the stored-name re-check', () => {
     expect(sanitizeContact({ role: 'business', name: 'Carter Electric', phone: '404-555-0101' })).toBeNull();
     expect(sanitizeContact({ role: 'awardee', name: 'Carter Electric' })).toBeNull();
   });
-  it('the trade-word list is documented and holds no singular agent noun that is a person role or surname', () => {
-    for (const w of ['roofing', 'plumbing', 'electric', 'electrical', 'heating', 'cooling', 'hvac', 'mechanical', 'construction', 'contracting', 'contractors', 'builders', 'homes', 'remodeling', 'restoration', 'painting', 'landscaping', 'lawn', 'tree', 'paving', 'concrete', 'fence', 'flooring', 'glass', 'solar', 'pools', 'services', 'group', 'enterprises', 'company'])
-      expect(TRADE_WORDS.has(w), w).toBe(true);
-    for (const w of ['painter', 'carpenter', 'mason', 'roofer', 'plumber', 'builder', 'contractor', 'handyman', 'locksmith', 'electrician', 'qualifier'])
-      expect(TRADE_WORDS.has(w), w).toBe(false);
+  it('the two documented lists: unambiguous business forms and ambiguous words that never qualify alone (redo rule 1)', () => {
+    for (const w of ['roofing', 'plumbing', 'electric', 'electrical', 'heating', 'cooling', 'hvac', 'mechanical', 'construction', 'contracting', 'contractors', 'builders', 'remodeling', 'restoration', 'painting', 'landscaping', 'paving', 'fencing', 'flooring', 'enterprises', 'services'])
+      expect(FIRM_WORDS.has(w) && !AMBIGUOUS_WORDS.has(w), w).toBe(true);
+    for (const w of ['glass', 'pool', 'power', 'cable', 'service', 'drain', 'mold', 'boring', 'mason', 'carpenter', 'painter', 'gardner', 'stone', 'wood', 'steel', 'tile', 'homes', 'tree', 'lawn', 'fence', 'roof', 'plumb', 'barber', 'kitchen', 'market'])
+      expect(AMBIGUOUS_WORDS.has(w) && !FIRM_WORDS.has(w), w).toBe(true);
+    for (const w of ['roofer', 'plumber', 'builder', 'contractor', 'handyman', 'electrician', 'qualifier']) expect(FIRM_WORDS.has(w), w).toBe(false);
   });
 });
 
@@ -183,7 +225,7 @@ describe('review3 appendix replay (adversarial strings): what the contractor rul
       if (!out) continue;
       accepted++;
       const words = out.toLowerCase().replace(/\./g, '').split(/\s+/);
-      const marker = LEGAL.test(out) || /\b(?:sons?|bros|brothers|associates)$/i.test(out) || words.some((w) => TRADE_WORDS.has(w)) || cleanOrgName(r.input) === out;
+      const marker = LEGAL.test(out) || /\b(?:sons?|bros|brothers|associates|daughters)$/i.test(out) || words.some((w) => FIRM_WORDS.has(w)) || cleanOrgName(r.input) === out;
       expect(marker, `${r.input} -> ${out}`).toBe(true);
     }
     expect(accepted).toBeGreaterThan(0);

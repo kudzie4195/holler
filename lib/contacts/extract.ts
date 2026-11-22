@@ -1,4 +1,6 @@
 import { contactNameFor } from './names';
+import { violationOwnersEnabled } from './owner-switch';
+import { hasLegalSuffix, HOME_BASED_RE } from './trade-name';
 import { cleanAddressPart, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
 import { firstMoney } from '@/lib/signals/permit-value';
@@ -25,7 +27,8 @@ export interface SiteSpec {
 
 /**
  * A column that is explicitly a business, contractor company or (code violations only) property-owner name. The name rule follows the
- * role (names.ts contactNameFor): contractor -> trade-name rule, owner -> registered-company rule, business -> strict rule.
+ * role (names.ts contactNameFor): contractor -> contractor trade-name rule, owner -> institutional-owner rule (behind
+ * HOLLER_VIOLATION_OWNERS_ENABLED), business -> licence rule (trade-name.ts cleanBusinessName, wider than the strict org.ts rule).
  */
 export interface OrgSpec {
   role: 'business' | 'contractor' | 'owner';
@@ -57,6 +60,12 @@ export interface OrgSpec {
    * is read from the tail; the street, city and ZIP of the string are never stored.
    */
   runTogether?: boolean;
+  /**
+   * Business licences (redo 1, rule 6): columns that say what the licence is for (category, NAICS description, facility type). When one
+   * of them, or the name, reads as a home-based activity (trade-name.ts HOME_BASED_RE: daycare, child care, home occupation ...), the
+   * business is not shown and its address is not stored, unless the name ends with a legal form.
+   */
+  homeFields?: string[];
 }
 
 /** Name + type column pairs (Chicago's contact_N_type / contact_N_name). */
@@ -101,7 +110,7 @@ export function contactSpecFields(spec: ContactSpec | undefined): string[] {
   if (!spec) return [];
   const f: (string | undefined)[] = [];
   if (spec.site) f.push(...spec.site.addressFields, spec.site.cityField, spec.site.stateField, spec.site.zipField);
-  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), o.typeField);
+  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), o.typeField, ...(o.homeFields ?? []));
   for (const p of spec.typedContractors?.pairs ?? []) f.push(p.typeField, p.nameField, p.cityField, p.stateField, p.zipField);
   return [...new Set(f.filter((x): x is string => Boolean(x)))];
 }
@@ -136,20 +145,22 @@ export function splitRunTogether(value: string): { name: string; phone: string |
 export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['311']);
 
 /**
- * Record kinds whose only possible contact is an owner company (round 18): a code violation may name the registered company that owns
- * the property ("Owner on the public record"), never a person, never a phone, an email, an address or a site.
+ * Record kinds whose only possible contact is an owner company (round 18): a code violation may name the institutional company that
+ * owns the property ("Owner on the public record"), never a person, never a phone, an email, an address or a site. Only while
+ * HOLLER_VIOLATION_OWNERS_ENABLED is on (owner-switch.ts); off, a code violation gets no contact at all.
  */
 export const OWNER_ONLY_SUBTYPES: ReadonlySet<string> = new Set(['violation']);
 
 /**
- * The contacts a record of this kind may keep: none for a 311 request, only role 'owner' for a code violation, and never role 'owner'
- * for anything else. Used at extraction and again before any write (lib/signals/store.ts). `subtype` is matched trimmed, any case.
+ * The contacts a record of this kind may keep: none for a 311 request, only role 'owner' for a code violation (and none at all while the
+ * owner switch is off), and never role 'owner' for anything else. Used at extraction and again before any write (lib/signals/store.ts).
+ * `subtype` is matched trimmed, any case. `ownersOn` defaults to the HOLLER_VIOLATION_OWNERS_ENABLED switch.
  */
-export function contactsAllowedFor<T extends { role: string }>(subtype: unknown, contacts: readonly T[] | null | undefined): T[] {
+export function contactsAllowedFor<T extends { role: string }>(subtype: unknown, contacts: readonly T[] | null | undefined, ownersOn: boolean = violationOwnersEnabled()): T[] {
   const list = Array.isArray(contacts) ? contacts : [];
   const k = typeof subtype === 'string' ? subtype.trim().toLowerCase() : '';
   if (NO_CONTACT_SUBTYPES.has(k)) return [];
-  if (OWNER_ONLY_SUBTYPES.has(k)) return list.filter((c) => c?.role === 'owner');
+  if (OWNER_ONLY_SUBTYPES.has(k)) return ownersOn ? list.filter((c) => c?.role === 'owner') : [];
   return list.filter((c) => c?.role !== 'owner');
 }
 
@@ -181,6 +192,8 @@ export function extractContacts(
   if (!spec) return [];
   if (subtype !== undefined && NO_CONTACT_SUBTYPES.has(subtype)) return [];
   const ownerOnly = subtype !== undefined && OWNER_ONLY_SUBTYPES.has(subtype);
+  // The owner switch is off: a code violation reads nothing at all (no owner column is even read).
+  if (ownerOnly && !violationOwnersEnabled()) return [];
   try {
     const orgs: ContactInput[] = [];
     for (const o of spec.orgs ?? []) {
@@ -205,6 +218,8 @@ export function extractContacts(
         if (name) break;
       }
       if (!name) continue;
+      // Redo 1, rule 6: a licence for a home-based activity names nobody (and stores no address) unless the name has a legal form.
+      if (o.role === 'business' && !hasLegalSuffix(name) && (HOME_BASED_RE.test(name) || (o.homeFields ?? []).some((f) => HOME_BASED_RE.test(read(f))))) continue;
       if (o.role === 'owner') {
         // The owner on the public record: the company name only. Owner phones, emails, addresses and ids are never read.
         orgs.push({ role: 'owner', name, address: null, city: null, state: null, zip: null, phone: null });

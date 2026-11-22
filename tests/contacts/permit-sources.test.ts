@@ -321,5 +321,7 @@ describe('DeKalb primaryContactType allow-list matches whole types (review HSK r
     ['Non-Contractor'], ['Not a Contractor'], ['Landlord Contractor'], ['Self Builder'], ['Owner/Contractor'], ['Contractor (Owner)'], ['Owner-Builder'],
     ['Owner/Builder'], ['Applicant/Contractor'], ['Tenant Contractor'], ['Contractor Agent'], ['Home Owner'], ['Resident'], ['Applicant'], ['Agent'],
     ['Architect'], ['Engineer'], [''], ['Unknown'], ['Property Manager'], ['Not Contractor'], ['Self-Contractor'],
+    // round 18 redo (review P3-5): the whole type must match
+    ['Contractor Primary'], ['Contractor Authorized'], ['Contractor\u200B'], ['Builder (Owner)'], ['Contractor (self)'],
   ])('does not show %j', (t) => expect(shown(t)).toBe(false));
 });

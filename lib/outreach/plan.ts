@@ -1,4 +1,5 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
+import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
 import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, type OutreachLink } from './links';
@@ -40,8 +41,8 @@ export function isViolationSource(source: string): boolean {
  * True when contacts may exist for this record, so the loader is worth asking. Organisation records, and code violations (an owner
  * company on the public record, round 18). Other area records and requests never carry contacts.
  */
-export function mayHaveContacts(source: string, kind: string): boolean {
-  return ORG_CLASSES.includes(recordClass(source, kind)) || (recordClass(source, kind) === 'area' && isViolationSource(source));
+export function mayHaveContacts(source: string, kind: string, ownersOn: boolean = violationOwnersEnabled()): boolean {
+  return ORG_CLASSES.includes(recordClass(source, kind)) || (ownersOn && recordClass(source, kind) === 'area' && isViolationSource(source));
 }
 
 /** True for records whose block names organisations (permits, licences, inspections, awards, bids): the locked prompt says so. */

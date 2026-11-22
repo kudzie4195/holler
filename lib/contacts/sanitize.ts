@@ -1,4 +1,5 @@
 import { contactNameFor } from './names';
+import { hasLegalSuffix } from './trade-name';
 import {
   STREET_SUFFIX_WORDS,
   foldName,
@@ -246,6 +247,8 @@ export interface SanitizeOptions {
  *  - a business, contractor, awardee or owner whose name the role's rule does not accept (names.ts contactNameFor: contractor ->
  *    trade-name rule, owner -> registered-company rule, the others -> the strict organization rule of org.ts);
  *  - an owner company keeps its name only: address, city, state, zip, phone, email and licence are always null;
+ *  - a contractor's own address (address, city, state, zip) is kept only when the name ends with a legal form (redo 1, rule 5): a sole
+ *    trader's street address is often a home;
  *  - a site whose address does not pass cleanAddress. A site never carries a name, a phone, an email or a website: it is a place.
  * Every role: `address` through cleanAddress (house number or PO BOX first, cut after the street suffix and one unit), `state` a US code
  * (cleanState), `city` through cleanCity (the dataset's own city or place words only), `zip` 5 digits or ZIP+4, `attn` and `website`
@@ -271,12 +274,13 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     return { role: 'owner', name: cleaned.slice(0, CONTACT_LIMITS.name), attn: null, address: null, city: null, state: null, zip: null, phone: null, email: null, website: null };
   }
   const license = cleanLicense(c.license);
+  const ownAddress = c.role !== 'contractor' || hasLegalSuffix(cleaned);
   return {
     role: c.role,
     name: cleaned.slice(0, CONTACT_LIMITS.name),
     attn: null,
-    address: cleanAddress(typeof c.address === 'string' ? c.address : ''),
-    ...base,
+    address: ownAddress ? cleanAddress(typeof c.address === 'string' ? c.address : '') : null,
+    ...(ownAddress ? base : { city: null, state: null, zip: null }),
     phone: usPhone(c.phone),
     email: plainEmail(c.email),
     ...(license ? { license } : {}),
