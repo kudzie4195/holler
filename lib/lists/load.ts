@@ -101,18 +101,27 @@ function toItem(s: StormRow, label: OpportunityLabel): StormReportItem {
  * the last STORM_LIST_DAYS, qualifying (hail of 1 inch or more, wind damage) and act_now or coming_soon for the member's plan trades.
  * Newest first, at most MAX_STORM_LISTS. Any read error gives an empty list.
  */
-export async function loadStormReports(db: SupabaseClient, profile: ListProfile, now: Date = new Date()): Promise<StormReportItem[]> {
+export async function loadStormReports(
+  db: SupabaseClient,
+  profile: ListProfile,
+  now: Date = new Date(),
+  /** Only these signal ids (the feed's storm cards). Absent: every storm match of the window. */
+  signalIds?: readonly number[],
+): Promise<StormReportItem[]> {
   const trades = matchScope(profile).categories;
   const nowMs = now.getTime();
   // A report that occurred inside the window was matched after it occurred, so its match is at least this new.
   const since = new Date(nowMs - (STORM_LIST_DAYS + 1) * 86_400_000).toISOString();
-  const { data, error } = await db
+  // !inner + signal.source = spc: only storm matches are read, so a member with many permit matches never loses a storm list to the row cap
+  // (review P3-8). The filter uses the embed's alias, as PostgREST documents for aliased embeds.
+  let q = db
     .from('holler_matches')
-    .select(`signal_id,signal:holler_signals(${STORM_COLUMNS})`)
+    .select(`signal_id,signal:holler_signals!inner(${STORM_COLUMNS})`)
     .eq('user_id', profile.user_id)
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(MATCH_CAP);
+    .eq('signal.source', 'spc')
+    .gte('created_at', since);
+  if (signalIds) q = q.in('signal_id', [...signalIds]);
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(MATCH_CAP);
   if (error) throw new Error(error.message);
   const out: StormReportItem[] = [];
   const seen = new Set<number>();
@@ -216,15 +225,23 @@ export async function loadAreaList(db: SupabaseClient, profile: ListProfile, tra
   return { ...built, partial };
 }
 
-/** Address counts of every neighborhood list of the member (one read for all trades). Empty when the member has none. */
-export async function loadAreaCounts(db: SupabaseClient, profile: ListProfile, now: Date = new Date()): Promise<{ trade: string; total: number }[]> {
+/**
+ * Address counts of every neighborhood list of the member (one read for all trades). Empty when the member has none. `partial` is true when
+ * the shared read hit the row cap, so a count may be lower than its list (the index then prints "N+", review P3-9).
+ */
+export async function loadAreaCounts(
+  db: SupabaseClient,
+  profile: ListProfile,
+  now: Date = new Date(),
+): Promise<{ trade: string; total: number; partial: boolean }[]> {
   const m = memberAreas(profile);
   const trades = m ? areaListTrades(m.trades) : [];
   if (!m || trades.length === 0) return [];
-  const { rows, since } = await areaRows(db, m.areas, m.radius, trades, now);
+  const { rows, since, partial } = await areaRows(db, m.areas, m.radius, trades, now);
   return trades.map((trade) => ({
     trade,
     total: buildList(rows, { areas: m.areas, areaRadiusMi: m.radius, sinceIso: since, accept: (r) => createsWorkFor(r, trade) }).total,
+    partial,
   }));
 }
 
@@ -246,7 +263,7 @@ export async function stormCardLinks(
   if (signalIds.length === 0) return out;
   try {
     const wanted = new Set(signalIds);
-    const reports = (await loadStormReports(db, profile, now)).filter((r) => wanted.has(r.id)).slice(0, MAX_CARD_LINKS);
+    const reports = (await loadStormReports(db, profile, now, signalIds)).filter((r) => wanted.has(r.id)).slice(0, MAX_CARD_LINKS);
     const lists = await Promise.all(reports.map((r) => loadStormList(db, r, now).catch(() => null)));
     reports.forEach((r, i) => {
       const l = lists[i];

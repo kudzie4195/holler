@@ -1,8 +1,7 @@
 import { haversineMi } from '@/lib/geo';
-import { WIND_DAMAGE_RE } from '@/lib/signals/adapters/spc';
 import { hasApproxLocation, hasApproxReach, approxReachMi } from '@/lib/signals/approx-location';
 import { isAlertLabel, labelForMember, ruleFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
-import { DOWNSTREAM, routeFor, ROUTE_KINDS, type RouteKind } from '@/lib/signals/permit-routing';
+import { DOWNSTREAM, KIND_DOERS, routeFor, ROUTE_KINDS, type RouteKind } from '@/lib/signals/permit-routing';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 
 /**
@@ -86,6 +85,22 @@ export interface StormRow {
   comments?: string | null;
 }
 
+/**
+ * Wind-damage words for LISTS ONLY (review redo 1, defect 1). The SPC adapter's own test (lib/signals/adapters/spc.ts, inline regex
+ * /damage|down|blown|.../) has no word edges, so "downtown", "Main Street", "Rooftop" and "No damage reported" all match it; the adapter keeps
+ * it (stored titles and alerts do not change in this unit), and the lists use this stricter pair instead. Checked against the SPC fixtures.
+ */
+export const LIST_WIND_DAMAGE_RE =
+  /\b(?:damag(?:e|ed|es|ing)|downed|down|blown|uproot(?:ed|ing)?|snapped|power\s+(?:out|lines?|poles?|outages?)|roofs?|roofing|shingles?|trees?|limbs?)\b/i;
+/** A remark that says there was no damage: such a report never makes a list, whatever else it says. */
+export const NO_DAMAGE_RE = /\bno\s+(?:known\s+|reported\s+|visible\s+|apparent\s+)?damage\b|\bnone\s+reported\b|\bdamage\s*:?\s*none\b|\bwithout\s+damage\b/i;
+
+/** True when an SPC remark names wind damage and does not say there was none. */
+export function remarkNamesWindDamage(comments: string | null | undefined): boolean {
+  const c = comments ?? '';
+  return !NO_DAMAGE_RE.test(c) && LIST_WIND_DAMAGE_RE.test(c);
+}
+
 const num = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -105,9 +120,11 @@ export function stormKindOf(r: Pick<StormRow, 'source' | 'title' | 'stormType' |
     return inches !== null && inches >= MIN_HAIL_INCHES ? 'hail' : null;
   }
   if (type === 'wind') {
-    if (/^wind damage reported/i.test(r.title)) return 'wind';
-    if (num(r.windMph) === null) return 'wind';
-    return WIND_DAMAGE_RE.test(r.comments ?? '') ? 'wind' : null;
+    // A remark that says "no damage" never makes a list, even under a "Wind damage reported" title.
+    if (NO_DAMAGE_RE.test(r.comments ?? '')) return null;
+    // No measured speed (SPC "UNK"): SPC filed it as a damage report. A title that prints a speed is a measured gust, stored speed or not.
+    if (num(r.windMph) === null && !/^\d+ mph wind gust/i.test(r.title)) return 'wind';
+    return remarkNamesWindDamage(r.comments) ? 'wind' : null;
   }
   return null;
 }
@@ -117,7 +134,7 @@ export function stormKindOf(r: Pick<StormRow, 'source' | 'title' | 'stormType' |
  * is an act_now or coming_soon card for the member's plan trades: the alert the member already receives. No new alert volume.
  */
 export function stormListLabel(r: StormRow, memberTrades: readonly string[], nowMs: number): OpportunityLabel | null {
-  if (!stormKindOf(r) || !isNum(r.lat) || !isNum(r.lon)) return null;
+  if (!stormKindOf(r) || !isNum(r.lat) || !isNum(r.lon) || (r.lat === 0 && r.lon === 0)) return null;
   const at = Date.parse(r.occurred_at);
   if (!Number.isFinite(at) || at < nowMs - STORM_LIST_DAYS * 86_400_000 || at > nowMs + 86_400_000) return null;
   const label = labelForMember({ source: r.source, kind: r.kind ?? 'report', title: r.title, categories: r.categories ?? [] }, memberTrades);
@@ -183,17 +200,30 @@ export function isListablePermit(r: Pick<PermitRow, 'source' | 'kind' | 'subtype
 }
 
 const UNIT_TAIL_RE = /\s+(?:#\s*[A-Za-z0-9-]+|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room)\.?\s*#?\s*[A-Za-z0-9-]+)\s*$/i;
+/**
+ * A unit (and anything typed after it) inside an address part: "APT 204", "#305", "UNIT 7", ", STE 100", "LOT 34". Cut BEFORE the street
+ * cutter runs, because the cutter rejects a part with a 3-digit token or the word "unit" (review redo 1, defect 5: those buildings were
+ * dropped instead of collapsed).
+ */
+const UNIT_ANY_RE = /[\s,]+(?:#\s*[A-Za-z0-9-]+|(?:apt|apartment|unit|ste|suite|fl|floor|bldg|rm|room|lot)\.?\s*#?\s*[A-Za-z0-9-]+)\b.*$/i;
 
 /**
- * The building's street address from a stored permit summary, or null. siteAddressFromSummary finds the part that starts with a house number
- * and cuts it after the street (a name typed after the street is never returned); the unit is then cut too, so "12 OAK ST APT 4" and
- * "12 OAK ST #5" are both "12 OAK ST". A block-level address ("2300 block of ...", violations only) is not a permit address and gives null.
+ * The building's street address from a stored permit summary, or null. The unit is cut first from every part that starts with a house
+ * number, then siteAddressFromSummary finds the part that starts with a house number and cuts it after the street (a name typed after the
+ * street is never returned), then any unit left and trailing punctuation go. "12 OAK ST APT 204", "12 OAK ST #305" and "12 OAK STREET, APT 4"
+ * all give the one building line. A block-level address ("2300 block of ...", violations only) is not a permit address and gives null.
  */
 export function buildingAddress(summary: string | null | undefined): string | null {
-  const site = siteAddressFromSummary(summary);
+  if (typeof summary !== 'string') return null;
+  const cleaned = summary
+    .split(' | ')
+    .map((p) => (/^\s*\d/.test(p) ? p.replace(UNIT_ANY_RE, '') : p))
+    .join(' | ');
+  const site = siteAddressFromSummary(cleaned);
   if (!site) return null;
   let a = site.address.replace(/\s+/g, ' ').trim();
   for (let i = 0; i < 2 && UNIT_TAIL_RE.test(a); i++) a = a.replace(UNIT_TAIL_RE, '').trim();
+  a = a.replace(/[.,;]+$/, '').trim();
   if (!/^\d+[A-Za-z]?\s+\S+/.test(a) || /\bblock of\b/i.test(a)) return null;
   return a;
 }
@@ -201,7 +231,10 @@ export function buildingAddress(summary: string | null | undefined): string | nu
 /** "Roof, HVAC and plumbing permit in Chicago" gives "Roof, HVAC and plumbing". "Permit in Chicago" gives null. */
 export function permitTypeOf(title: string | null | undefined): string | null {
   const m = /^(.{2,80}?)\s+permit\s+in\s+/i.exec((title ?? '').trim());
-  return m ? m[1].trim() : null;
+  if (!m) return null;
+  // Only Holler's own work-kind vocabulary (lib/signals/permit-routing.ts KIND_DOERS) is printed; anything else is just "Permit" (review P3-11).
+  const parts = m[1].split(/\s*,\s*|\s+and\s+/i).map((p) => p.trim().toLowerCase()).filter(Boolean);
+  return parts.length > 0 && parts.every((p) => p in KIND_DOERS) ? m[1].trim() : null;
 }
 
 const addressKey = (e: Pick<ListEntry, 'address' | 'zip' | 'city'>) => `${e.address.toUpperCase().replace(/[.,]/g, '').replace(/\s+/g, ' ')}|${e.zip ?? e.city ?? ''}`;
@@ -259,8 +292,9 @@ export function buildList(rows: readonly PermitRow[], opts: BuildOptions): Built
     if (seen.has(r.id)) continue;
     seen.add(r.id);
     if (!isListablePermit(r)) continue;
-    if (opts.sinceIso && r.occurred_at < opts.sinceIso) continue;
-    if (!isNum(r.lat) || !isNum(r.lon)) continue;
+    // Compared as instants: PostgREST prints "+00:00" (or the session's offset), the cut is "...Z" (review P3-7).
+    if (opts.sinceIso && !(Date.parse(r.occurred_at) >= Date.parse(opts.sinceIso))) continue;
+    if (!isNum(r.lat) || !isNum(r.lon) || (r.lat === 0 && r.lon === 0)) continue;
     let distance: number | null = null;
     let approx = false;
     if (opts.center) {
@@ -288,7 +322,7 @@ export function buildList(rows: readonly PermitRow[], opts: BuildOptions): Built
 }
 
 export interface ListGroup {
-  /** The ZIP, or the street name when the record has no ZIP. */
+  /** The ZIP, or '' for the one group of addresses with no ZIP. */
   key: string;
   kind: 'zip' | 'street';
   entries: ListEntry[];
@@ -299,20 +333,31 @@ export function streetOf(address: string): string {
   return address.replace(/^\d+[A-Za-z]?(?:-\d+)?\s+/, '').trim().toUpperCase();
 }
 
-/** Grouped by ZIP (by street name when there is no ZIP). Groups by their newest entry, entries newest first inside each group. */
+/**
+ * Grouped by ZIP; every address with no ZIP goes in ONE last group, sorted by street then house number (review P3-14: one table per street
+ * made eight misaligned tables). ZIP groups by their newest entry, entries newest first inside each.
+ */
 export function groupEntries(entries: readonly ListEntry[]): ListGroup[] {
   const groups = new Map<string, ListGroup>();
+  const noZip: ListEntry[] = [];
   for (const e of entries) {
-    const kind: ListGroup['kind'] = e.zip ? 'zip' : 'street';
-    const key = e.zip ?? streetOf(e.address);
-    const id = `${kind}:${key}`;
-    const g = groups.get(id) ?? { key, kind, entries: [] };
+    if (!e.zip) {
+      noZip.push(e);
+      continue;
+    }
+    const g = groups.get(e.zip) ?? { key: e.zip, kind: 'zip' as const, entries: [] };
     g.entries.push(e);
-    groups.set(id, g);
+    groups.set(e.zip, g);
   }
   const newest = (g: ListGroup) => g.entries.reduce((m, e) => (e.date > m ? e.date : m), '');
   for (const g of groups.values()) g.entries.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.address.localeCompare(b.address)));
-  return [...groups.values()].sort((a, b) => (newest(a) < newest(b) ? 1 : newest(a) > newest(b) ? -1 : a.key.localeCompare(b.key)));
+  const out = [...groups.values()].sort((a, b) => (newest(a) < newest(b) ? 1 : newest(a) > newest(b) ? -1 : a.key.localeCompare(b.key)));
+  if (noZip.length > 0) {
+    const house = (a: string) => Number(/^(\d+)/.exec(a)?.[1] ?? 0);
+    noZip.sort((a, b) => streetOf(a.address).localeCompare(streetOf(b.address)) || house(a.address) - house(b.address) || (a.date < b.date ? 1 : -1));
+    out.push({ key: '', kind: 'street', entries: noZip });
+  }
+  return out;
 }
 
 // ---- neighborhood lists: which trades, which permits ------------------------------------------------------------------------------

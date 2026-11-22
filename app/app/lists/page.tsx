@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { Card } from '@/components/card';
 import { Notice } from '@/components/notice';
@@ -9,6 +10,7 @@ import { langOfProfile, t } from '@/lib/i18n';
 import { AREA_LIST_DAYS, STORM_LIST_DAYS } from '@/lib/lists/core';
 import { loadAreaCounts, loadStormList, loadStormReports, type StormReportItem } from '@/lib/lists/load';
 import { createClient } from '@/lib/supabase/server';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 import { countText, isLocked, listProfileOf, LIST_METADATA, LockedLists } from './shared';
 
 export const metadata: Metadata = { title: 'Lists', ...LIST_METADATA };
@@ -18,6 +20,8 @@ export const metadata: Metadata = { title: 'Lists', ...LIST_METADATA };
  * (requireProfile), behind the /app layout's Suspense boundary; every read is a request-time read with the member's own session client.
  */
 async function loadIndex() {
+  // Request-time only: the session read and the clock below never run in a prerender (no Date.now() prerender warning).
+  await connection();
   const { profile } = await requireProfile();
   const lang = langOfProfile(profile);
   if (isLocked(profile)) return { lang, locked: true as const };
@@ -29,7 +33,7 @@ async function loadIndex() {
     const stormCounts = await Promise.all(reports.map((r) => loadStormList(db, r, now).then((l) => l.total).catch(() => null)));
     return { lang, locked: false as const, failed: false, storms: reports.map((r, i) => ({ r, count: stormCounts[i] })), areas };
   } catch {
-    return { lang, locked: false as const, failed: true, storms: [] as { r: StormReportItem; count: number | null }[], areas: [] as { trade: string; total: number }[] };
+    return { lang, locked: false as const, failed: true, storms: [] as { r: StormReportItem; count: number | null }[], areas: [] as { trade: string; total: number; partial: boolean }[] };
   }
 }
 
@@ -58,12 +62,13 @@ export default async function ListsPage() {
             ) : (
               <ul className="mt-4 flex flex-col gap-3">
                 {data.storms.map(({ r, count }) => {
-                  const place = [r.city, r.state].filter(Boolean).join(', ');
+                  // The report's own title ("1.75 inch hail reported near 2 ESE Smyrna, GA"): size or speed and SPC's place tell two storms in
+                  // one town apart (review P3-17).
                   return (
                     <li key={r.id}>
                       <Card className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-ink">{t(lang, r.kind === 'hail' ? 'lists.storm.hail' : 'lists.storm.wind', { place })}</p>
+                        <div className="min-w-0">
+                          <p className="break-words font-semibold text-ink">{localizeTitle(r.title, lang, 'spc')}</p>
                           <p className="text-sm text-muted">
                             {listDate(r.occurredAt, lang)}
                             {count === null ? '' : ` · ${countText(count, lang)}`}
@@ -92,7 +97,7 @@ export default async function ListsPage() {
                     <Card className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-ink">{tradeLabel(a.trade, lang)}</p>
-                        <p className="text-sm text-muted">{countText(a.total, lang)}</p>
+                        <p className="text-sm text-muted">{a.partial ? t(lang, 'lists.count.plus', { n: a.total.toLocaleString('en-US') }) : countText(a.total, lang)}</p>
                       </div>
                       <Link href={`/app/lists/area?trade=${encodeURIComponent(a.trade)}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline">
                         {t(lang, 'lists.open')}

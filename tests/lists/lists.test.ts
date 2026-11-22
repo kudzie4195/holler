@@ -37,6 +37,9 @@ import { boxFilter, loadAreaList, loadStormList, loadStormReport, loadStormRepor
 import { listLinkFor } from '@/lib/lists/card';
 import { ListSheet } from '@/components/lists/list-sheet';
 import { DoorHanger, HANGER_TEXT, hangerLines } from '@/components/lists/door-hanger';
+import { readFileSync } from 'node:fs';
+import { scanSpc } from '@/lib/signals/adapters/spc';
+import { loadAreaCounts, ROW_CAP } from '@/lib/lists/load';
 import { Feed, type FeedItem } from '@/components/feed';
 
 // The rules of tests/signals/ship-banned-words.test.ts (copied: importing that file would run its suites here too).
@@ -118,7 +121,9 @@ function fakeDb(tables: Record<string, object[]>) {
       chain.eq = (col: string, v: unknown) => (q.filters.push(`eq:${col},${String(v)}`), eqs.push([col, v]), chain);
       chain.select = (c: string) => ((q.cols = c), chain);
       chain.then = (res: (v: unknown) => unknown) => {
-        const rows = ((tables[table] ?? []) as Row[]).filter((r) => eqs.every(([c, v]) => String(r[c]) === String(v)));
+        // "signal.source" reads the embedded row, as PostgREST filters an aliased !inner embed.
+        const at = (r: Row, c: string) => c.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Row)[k] : undefined), r);
+        const rows = ((tables[table] ?? []) as Row[]).filter((r) => eqs.every(([c, v]) => String(at(r, c)) === String(v)));
         return Promise.resolve(res({ data: rows, error: null }));
       };
       return chain;
@@ -275,10 +280,15 @@ describe('neighborhood lists: the existing downstream rules', () => {
   });
   it('grouped by ZIP (street when there is none), newest first', () => {
     const e = (address: string, zip: string | null, date: string): ListEntry => ({ address, zip, city: 'Smyrna', state: 'GA', permitType: 'Remodel', date, url: null, distanceMi: null });
-    const groups = groupEntries([e('1 A ST', '30080', '2026-11-18'), e('2 B ST', '30082', '2026-11-21'), e('3 A ST', '30080', '2026-11-20'), e('9 OAK DR', null, '2026-11-19')]);
-    expect(groups.map((g) => g.key)).toEqual(['30082', '30080', 'OAK DR']);
+    const groups = groupEntries([
+      e('1 A ST', '30080', '2026-11-18'), e('2 B ST', '30082', '2026-11-21'), e('3 A ST', '30080', '2026-11-20'),
+      e('9 OAK DR', null, '2026-11-19'), e('4 ELM ST', null, '2026-11-21'), e('2 OAK DR', null, '2026-11-17'),
+    ]);
+    expect(groups.map((g) => g.key)).toEqual(['30082', '30080', '']);
     expect(groups[1].entries.map((x) => x.address)).toEqual(['3 A ST', '1 A ST']);
+    // every address with no ZIP is in ONE last group, by street then house number
     expect(groups[2].kind).toBe('street');
+    expect(groups[2].entries.map((x) => x.address)).toEqual(['4 ELM ST', '2 OAK DR', '9 OAK DR']);
   });
   it('a list shows at most MAX_LIST_ADDRESSES, newest first, and says how many there were', () => {
     const rows = Array.from({ length: MAX_LIST_ADDRESSES + 20 }, (_, i) => permit({ summary: `Re-roof | ${100 + i} MAIN ST`, occurred_at: new Date(NOW.getTime() - i * 3_600_000).toISOString() }));
@@ -353,7 +363,7 @@ describe('print view and empty state', () => {
     );
     expect(html).toContain('<table');
     expect(html).toMatch(/ZIP 30080/);
-    expect(html).toMatch(/No ZIP: CHURCH ST/);
+    expect(html).toMatch(/>No ZIP</);
     expect(html).toMatch(/class="[^"]*print:hidden[^"]*"><button>Print this list/);
     expect(html).toContain('>public source<');
     expect(html).not.toMatch(/official/i);
@@ -371,14 +381,14 @@ describe('print view and empty state', () => {
   it('the door hanger prints the typed name and phone in either language, with the storm line saying damage is not confirmed', () => {
     expect(hangerLines('en', 'Peach Roofing', '404-555-0199', true)).toEqual([
       'Hello, neighbor',
-      'Peach Roofing is working in your neighborhood. If you would like a quote, call or text 404-555-0199.',
+      'Peach Roofing serves your neighborhood. If you would like a quote, call or text 404-555-0199.',
       'There was a public storm report near this street. Damage not confirmed.',
-      'We found this street in public permit and storm records. We do not have your name or phone number.',
+      'We are an independent business, not a city or government office. We found this street in public permit and storm records. We do not have your name or phone number.',
     ]);
-    expect(hangerLines('es', 'Techos Peach', '404-555-0199', false).join(' ')).not.toMatch(/tormenta cerca/);
+    expect(hangerLines('es', 'Techos Peach', '404-555-0199', false).join(' ')).not.toMatch(/tormenta/);
     for (const l of Object.values(HANGER_TEXT.es)) expect(spanishProblems(l)).toEqual([]);
     const html = renderToStaticMarkup(createElement(DoorHanger, { lang: 'en', initialBusiness: 'Peach Roofing', storm: true }));
-    expect(html).toContain('Peach Roofing is working in your neighborhood');
+    expect(html).toContain('Peach Roofing serves your neighborhood');
     expect(html).toContain('Damage not confirmed.');
     expect(html).not.toMatch(/<form[^>]*action=/);
   });
@@ -428,5 +438,93 @@ describe('wording', () => {
       expect(es[k as keyof typeof es]).toBeTruthy();
       expect(spanishProblems(es[k as keyof typeof es])).toEqual([]);
     }
+  });
+});
+
+describe('review redo 1 regressions', () => {
+  const gust = { source: 'spc', title: '61 mph wind gust reported near 2 N Smyrna, GA', stormType: 'wind', hailInches: null, windMph: '61' };
+  it('defect 1: wind words need word edges; a "no damage" remark never makes a list, even under a "Wind damage reported" title', () => {
+    for (const c of ['Measured by ASOS at the downtown airport.', 'Gust measured at Main Street mesonet site.', 'Rooftop anemometer measured 61 mph.', 'Powerful gust measured by a trained spotter.', 'ASOS at DeKalb-Peachtree Airport measured 61 mph.'])
+      expect(stormKindOf({ ...gust, comments: c }), c).toBeNull();
+    for (const c of ['Trees down on Paces Ferry.', 'Power lines snapped.', 'Roof blown off a barn.', 'Several large limbs downed.', 'Shingles torn off.'])
+      expect(stormKindOf({ ...gust, comments: c }), c).toBe('wind');
+    for (const c of ['Measured gust. No damage reported.', 'Trees swaying, no known damage.', 'Damage: none reported.', 'Gust measured, none reported.'])
+      expect(stormKindOf({ ...gust, comments: c }), c).toBeNull();
+    const unk = { ...gust, title: 'Wind damage reported near 2 N Smyrna, GA', windMph: null };
+    expect(stormKindOf({ ...unk, comments: 'Trees down.' })).toBe('wind');
+    expect(stormKindOf({ ...unk, comments: 'No damage reported.' })).toBeNull();
+    // a gust title with no stored speed is still a measured gust
+    expect(stormKindOf({ ...gust, windMph: null, comments: 'Measured at the Main Street mesonet site.' })).toBeNull();
+  });
+  it('defect 1: the SPC fixtures flag the same wind rows as before (only the damage report)', () => {
+    for (const [f, type] of [['tests/fixtures/spc-wind.csv', 'wind'], ['tests/fixtures/spc-filtered-combined.csv', 'torn']] as const) {
+      const wind = scanSpc({ csv: readFileSync(f, 'utf8'), type, day: '2026-11-20' }).signals.filter((x) => (x.data as { type?: string }).type === 'wind');
+      const flagged = wind.filter((x) => {
+        const d = x.data as { windMph?: number; comments?: string };
+        return stormKindOf({ source: 'spc', title: x.title, stormType: 'wind', hailInches: null, windMph: d.windMph ?? null, comments: d.comments }) === 'wind';
+      });
+      expect(flagged.map((x) => x.title), f).toEqual(['Wind damage reported near 1 W Grannis, AR']);
+    }
+  });
+  it('defect 2: without the storm line the hanger mentions permits only, in both languages; no damage claim, no insurance, not the city', () => {
+    for (const lang of ['en', 'es'] as const) {
+      const off = hangerLines(lang, 'Acme', '404-555-0100', false).join(' ');
+      expect(off).not.toMatch(/storm|tormenta|damage|daño/i);
+      expect(off).toMatch(/permit|permisos/i);
+      for (const storm of [true, false]) {
+        const all = hangerLines(lang, 'Acme', '404-555-0100', storm).join(' ');
+        expect(all).not.toMatch(/insur|seguro|claim|reclamo|sent by|enviado por|on behalf|en nombre/i);
+        expect(all).toMatch(/independent business, not a city or government office|negocio independiente, no una oficina de la ciudad ni del gobierno/);
+        if (storm) expect(all).toMatch(lang === 'en' ? /Damage not confirmed\./ : /Daño no confirmado\./);
+      }
+    }
+    for (const l of [...Object.values(HANGER_TEXT.es)]) expect(spanishProblems(l)).toEqual([]);
+  });
+  it('defect 3: every ZIP table of a storm list repeats the damage line in a print-only header row, and no group avoids page breaks', () => {
+    const rows = [permit({ summary: 'Re-roof | 10 CHURCH ST' }), permit({ summary: 'Re-roof | 11 SPRING RD', zip: '30082' }), permit({ summary: 'Re-roof | 12 KING ST', zip: null })];
+    const entries = buildList(rows, { center: { ...SMYRNA, radiusMi: 2 } }).entries;
+    const html = renderToStaticMarkup(createElement(ListSheet, { lang: 'es', heading: 'H', notes: [], damageLines: DAMAGE_LINE, entries, total: 3, capped: false, showDistance: true }));
+    const tables = html.split('<table').length - 1;
+    expect(tables).toBe(3);
+    expect(html.split('data-testid="print-damage-row"').length - 1).toBe(tables);
+    expect(html).toMatch(/<tr class="hidden print:table-row"[^>]*><th colSpan="4"[^>]*><span lang="en">Damage not confirmed\./);
+    expect(html).not.toContain('break-inside-avoid-page');
+    // area lists carry no damage row
+    expect(renderToStaticMarkup(createElement(ListSheet, { lang: 'en', heading: 'H', notes: [], entries, total: 3, capped: false }))).not.toContain('print-damage-row');
+  });
+  it('defect 4: rows stack below 640 px (no sideways table on a phone)', () => {
+    const entries = buildList([permit()], { center: { ...SMYRNA, radiusMi: 2 } }).entries;
+    const html = renderToStaticMarkup(createElement(ListSheet, { lang: 'en', heading: 'H', notes: [], entries, total: 1, capped: false, showDistance: true }));
+    expect(html).toMatch(/<table class="[^"]*max-sm:block/);
+    expect(html).toMatch(/<thead class="[^"]*max-sm:hidden/);
+    expect(html).toMatch(/<tr class="[^"]*max-sm:flex max-sm:flex-wrap/);
+    expect(html).toMatch(/<td class="[^"]*max-sm:w-full[^"]*">2318 CHURCH ST/);
+  });
+  it('defect 5: APT, #, UNIT and STE forms collapse to one building line, none dropped, no trailing punctuation', () => {
+    const forms = ['12 OAK ST', '12 OAK ST APT 4', '12 OAK ST APT 204', '12 OAK ST #305', '12 OAK ST UNIT 7', '12 OAK ST STE 100', '12 OAK ST UNIT 1504', '12 OAK ST, UNIT 4', '12 OAK ST.', '12 OAK ST APT. 3'];
+    for (const f of forms) expect(buildingAddress(`Re-roof | ${f}`), f).toBe('12 OAK ST');
+    expect(buildingAddress('Re-roof | 12 OAK STREET, APT 4')).toBe('12 OAK STREET');
+    expect(buildingAddress('Re-roof | 4812 AVENUE H UNIT 12')).toBe('4812 AVENUE H');
+    const list = buildList(forms.map((f) => permit({ summary: `Re-roof | ${f}` })), { center: { ...SMYRNA, radiusMi: 2 } });
+    expect(list.entries.map((e) => e.address)).toEqual(['12 OAK ST']);
+    // separate buildings stay separate
+    expect(buildList([permit({ summary: 'Re-roof | 12A OAK ST' }), permit({ summary: 'Re-roof | 12B OAK ST' })], { center: { ...SMYRNA, radiusMi: 2 } }).total).toBe(2);
+  });
+  it('P3-11: the Permit column prints only Holler vocabulary', () => {
+    expect(permitTypeOf('Garcia Residence permit in Atlanta')).toBeNull();
+    expect(permitTypeOf('Roof and gutter permit in Atlanta')).toBe('Roof and gutter');
+  });
+  it('P3-9: the index count says when the shared read hit the row cap', async () => {
+    const rows = Array.from({ length: ROW_CAP }, (_, i) => permit({ title: 'New home permit in Smyrna', summary: `New | 1 or 2 Family Dwelling | ${i + 1} PINE CT`, occurred_at: day(1) }));
+    const { db } = fakeDb({ holler_signals: rows });
+    const counts = await loadAreaCounts(db, member({ categories: ['landscaping'] }), NOW);
+    expect(counts[0]).toMatchObject({ trade: 'landscaping', partial: true });
+  });
+  it('P3-8: the storm read filters on the SPC source and, for the feed, on the card ids', async () => {
+    const { db, calls } = fakeDb({ holler_matches: [{ user_id: 'user-a', signal_id: 501, signal: storm() }], holler_signals: [] });
+    await stormCardLinks(db, member(), [501], NOW);
+    const m = calls.find((c) => c.table === 'holler_matches');
+    expect(m?.cols).toContain('signal:holler_signals!inner(');
+    expect(m?.filters).toEqual(expect.arrayContaining(['eq:signal.source,spc', 'in:signal_id,501']));
   });
 });

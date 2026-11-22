@@ -8,21 +8,24 @@ import { t, type Lang } from '@/lib/i18n';
 /**
  * Door hanger / leave-behind (round 18, unit LISTS). The member types a business name and phone, picks the language of the printed card,
  * and prints. Client-side only: the form has no action, nothing is fetched, nothing goes to storage, so what is typed is gone when the page
- * closes. The printed text never names a resident, never says the house was damaged (the storm line says "Damage not confirmed") and never
- * promises anything.
+ * closes. The printed text never names a resident, makes no damage claim (the storm line says "Damage not confirmed"), makes no insurance
+ * promise, and says the business is independent, not the city or any authority. Without the storm line it mentions permits only.
  */
-export const HANGER_TEXT: Record<Lang, { hello: string; body: string; storm: string; footer: string }> = {
+export const HANGER_TEXT: Record<Lang, { hello: string; body: string; storm: string; footer: string; footerStorm: string }> = {
   en: {
     hello: 'Hello, neighbor',
-    body: '{business} is working in your neighborhood. If you would like a quote, call or text {phone}.',
+    body: '{business} serves your neighborhood. If you would like a quote, call or text {phone}.',
     storm: 'There was a public storm report near this street. Damage not confirmed.',
-    footer: 'We found this street in public permit and storm records. We do not have your name or phone number.',
+    // Without the storm line the card mentions permits only (review redo 1, defect 2).
+    footer: 'We are an independent business, not a city or government office. We found this street in public permit records. We do not have your name or phone number.',
+    footerStorm: 'We are an independent business, not a city or government office. We found this street in public permit and storm records. We do not have your name or phone number.',
   },
   es: {
     hello: 'Hola, vecino',
-    body: '{business} está trabajando en su vecindario. Si desea un presupuesto, llame o envíe un mensaje al {phone}.',
+    body: '{business} ofrece sus servicios en su vecindario. Si desea un presupuesto, llame o envíe un mensaje al {phone}.',
     storm: 'Hubo un reporte público de tormenta cerca de esta calle. Daño no confirmado.',
-    footer: 'Encontramos esta calle en registros públicos de permisos y tormentas. No tenemos su nombre ni su número de teléfono.',
+    footer: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Encontramos esta calle en registros públicos de permisos. No tenemos su nombre ni su número de teléfono.',
+    footerStorm: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Encontramos esta calle en registros públicos de permisos y tormentas. No tenemos su nombre ni su número de teléfono.',
   },
 };
 
@@ -31,7 +34,9 @@ export function hangerLines(lang: Lang, business: string, phone: string, storm: 
   const x = HANGER_TEXT[lang];
   const b = business.trim() || '____________';
   const p = phone.trim() || '____________';
-  return [x.hello, x.body.replace('{business}', b).replace('{phone}', p), ...(storm ? [x.storm] : []), x.footer];
+  // Replacer functions: typed "$$" or "$&" is printed as typed, and a typed "{phone}" is never filled (review P3-10).
+  const body = x.body.replace(/\{business\}|\{phone\}/g, (k) => (k === '{business}' ? b : p));
+  return [x.hello, body, ...(storm ? [x.storm, x.footerStorm] : [x.footer])];
 }
 
 export function DoorHanger({ lang, initialBusiness = '', storm = false }: { lang: Lang; initialBusiness?: string; storm?: boolean }) {

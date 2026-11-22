@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Notice } from '@/components/notice';
@@ -10,6 +11,7 @@ import { DAMAGE_LINE, STORM_RADIUS_MI } from '@/lib/lists/core';
 import { loadStormList, loadStormReport } from '@/lib/lists/load';
 import { localizeTitle } from '@/lib/signals/title-i18n';
 import { createClient } from '@/lib/supabase/server';
+import { RETENTION_DAYS } from '@/lib/signals/store';
 import { BackLink, isLocked, listProfileOf, LIST_METADATA, LockedLists } from '../shared';
 
 export const metadata: Metadata = { title: 'Storm list', ...LIST_METADATA };
@@ -22,6 +24,8 @@ export const metadata: Metadata = { title: 'Storm list', ...LIST_METADATA };
 export default async function StormListPage(props: PageProps<'/app/lists/storm'>) {
   const raw = (await props.searchParams).id;
   const id = Number(Array.isArray(raw) ? raw[0] : raw);
+  // Request-time only: the session read and the clock below never run in a prerender (no Date.now() prerender warning).
+  await connection();
   const { profile } = await requireProfile();
   const lang = langOfProfile(profile);
   if (isLocked(profile)) {
@@ -57,7 +61,7 @@ export default async function StormListPage(props: PageProps<'/app/lists/storm'>
         damageLines={DAMAGE_LINE}
         notes={[
           t(lang, 'lists.storm.report', { title: localizeTitle(report.title, lang, 'spc'), date: listDate(report.occurredAt, lang) }),
-          t(lang, 'lists.storm.radius', { radius: STORM_RADIUS_MI }),
+          t(lang, 'lists.storm.radius', { radius: STORM_RADIUS_MI, days: RETENTION_DAYS }),
           t(lang, 'lists.storm.approx'),
         ]}
         entries={list.entries}

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Notice } from '@/components/notice';
@@ -22,6 +23,8 @@ export const metadata: Metadata = { title: 'Neighborhood list', ...LIST_METADATA
 export default async function AreaListPage(props: PageProps<'/app/lists/area'>) {
   const raw = (await props.searchParams).trade;
   const trade = String(Array.isArray(raw) ? raw[0] : (raw ?? '')).slice(0, 40);
+  // Request-time only: the session read and the clock below never run in a prerender (no Date.now() prerender warning).
+  await connection();
   const { profile } = await requireProfile();
   const lang = langOfProfile(profile);
   if (isLocked(profile)) {

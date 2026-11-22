@@ -70,12 +70,22 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
       ) : (
         <div className="mt-6 space-y-6">
           {groups.map((g) => (
-            <section key={`${g.kind}:${g.key}`} className="break-inside-avoid-page">
-              <h2 className="h-plain text-lg text-ink">
-                {g.kind === 'zip' ? t(lang, 'lists.group.zip', { zip: g.key }) : t(lang, 'lists.group.street', { street: g.key })}
+            // No break-inside-avoid on the group: a long ZIP group starts on page 1 and continues (review redo 1, defect 3).
+            <section key={`${g.kind}:${g.key}`}>
+              <h2 className="h-plain break-after-avoid text-lg text-ink">
+                {g.kind === 'zip' ? t(lang, 'lists.group.zip', { zip: g.key }) : t(lang, 'lists.group.nozip')}
               </h2>
-              <table className="mt-2 w-full border-collapse text-left text-sm">
-                <thead>
+              {/* Below 640 px each row stacks (address on its own line, then type, date, miles, link), so a phone never scrolls sideways. */}
+              <table className="mt-2 w-full border-collapse text-left text-sm max-sm:block">
+                <thead className="max-sm:hidden print:table-header-group">
+                  {damageLines ? (
+                    // Print only: the browser repeats the table header on every printed page, so every page with addresses carries the line.
+                    <tr className="hidden print:table-row" data-testid="print-damage-row">
+                      <th colSpan={showDistance ? 4 : 3} className="pb-1 text-left text-xs font-semibold">
+                        <span lang="en">{damageLines.en}</span> <span lang="es">{damageLines.es}</span>
+                      </th>
+                    </tr>
+                  ) : null}
                   <tr className="border-b border-line-strong">
                     <th scope="col" className="py-1.5 pr-3 font-semibold">{t(lang, 'lists.col.address')}</th>
                     <th scope="col" className="py-1.5 pr-3 font-semibold">{t(lang, 'lists.col.permit')}</th>
@@ -84,17 +94,25 @@ export function ListSheet({ lang, heading, notes, damageLines, entries, total, c
                     <th scope="col" className="py-1.5 font-semibold print:hidden">{t(lang, 'lists.col.source')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="max-sm:block">
                   {g.entries.map((e) => (
-                    <tr key={`${e.address}|${e.zip ?? e.city ?? ''}`} className="break-inside-avoid border-b border-line align-top">
-                      <td className="py-1.5 pr-3 font-medium">
+                    <tr
+                      key={`${e.address}|${e.zip ?? e.city ?? ''}`}
+                      className="break-inside-avoid border-b border-line align-top max-sm:flex max-sm:flex-wrap max-sm:items-baseline max-sm:gap-x-3 max-sm:py-2"
+                    >
+                      <td className="py-1.5 pr-3 font-medium max-sm:w-full max-sm:p-0 max-sm:break-words">
                         {e.address}
                         {e.city ? <span className="text-muted">{`, ${e.city}${e.state ? `, ${e.state}` : ''}`}</span> : null}
                       </td>
-                      <td className="py-1.5 pr-3">{permitTypeText(e.permitType, lang)}</td>
-                      <td className="whitespace-nowrap py-1.5 pr-3 font-mono text-xs tabular-nums">{listDate(e.date, lang)}</td>
-                      {showDistance ? <td className="py-1.5 pr-3 font-mono text-xs tabular-nums">{e.distanceMi === null ? '' : e.distanceMi.toFixed(1)}</td> : null}
-                      <td className="py-1.5 print:hidden">
+                      <td className="py-1.5 pr-3 max-sm:p-0">{permitTypeText(e.permitType, lang)}</td>
+                      <td className="whitespace-nowrap py-1.5 pr-3 font-mono text-xs tabular-nums max-sm:p-0">{listDate(e.date, lang)}</td>
+                      {showDistance ? (
+                        <td className="py-1.5 pr-3 font-mono text-xs tabular-nums max-sm:p-0">
+                          {e.distanceMi === null ? '' : e.distanceMi.toFixed(1)}
+                          {e.distanceMi === null ? null : <span className="sm:hidden"> mi</span>}
+                        </td>
+                      ) : null}
+                      <td className="py-1.5 max-sm:p-0 print:hidden">
                         {e.url ? (
                           <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-brand-text underline">
                             {t(lang, 'lists.public_source')}
