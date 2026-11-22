@@ -95,10 +95,18 @@ export interface ArcgisDataset {
    * missing columns are left out of outFields (the field stays empty), and the date comparison follows the layer's own date type.
    */
   schemaUnverified?: boolean;
-  /** The address column may hold a project or occupant name instead (Arlington FOLDERNAME): kept only when it starts with a house number. */
-  addressMustStartWithNumber?: boolean;
-  /** Rows to drop in code (Miami-Dade CONF_FLAG = 'Y', a confidential case). The field is asked for only when the layer has it. */
-  skipWhen?: { field: string; values: string[] };
+  /**
+   * Round 19 coverage (review P1-B): the address columns are unverified and may hold a name ("4521 MARIA LOPEZ FENCE"). Only what the tree's
+   * shared site-address rule keeps (lib/contacts/sanitize.ts cleanAddress: house number, street words, street suffix, cut there) is stored;
+   * anything else gives no address at all.
+   */
+  strictAddress?: boolean;
+  /**
+   * Round 19 coverage (review P1-A): the column that marks a confidential case (Miami-Dade CONF_FLAG). REQUIRED: it is always asked for, a
+   * layer whose field list lacks it is a schema mismatch, a row without it is dropped, and any truthy value (Y, YES, TRUE, T, 1, any case,
+   * spaces ignored) drops the row (arcgis.ts isConfidential).
+   */
+  confidentialField?: string;
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;

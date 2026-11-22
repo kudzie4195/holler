@@ -8,6 +8,7 @@ import { MAX_MATCHES_PER_USER, matchOne, matchSignals, type MatchRow } from './m
 import { ProjectStore, rearmStageAlerts } from './projects';
 import { matchScope } from '@/lib/plan';
 import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
+import { isProbationNote } from './probation-note';
 import {
   getLastRunTimes,
   insertMatches,
@@ -44,6 +45,8 @@ export interface SourceResult {
   error?: string;
   /** The source's stage query did not work (lib/signals/stage.ts isStageNote). Not a failure of the source: its status stays ok; it is written on the source's scan_runs row. */
   stageNote?: string;
+  /** A probation source's note (lib/signals/probation-note.ts, e.g. "row cap reached"). Not a failure; written on its scan_runs row. */
+  note?: string;
   /** newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
   latestOccurredAt?: string | null;
   missingEnv?: string[];
@@ -72,6 +75,8 @@ export interface RunOptions {
   now?: Date;
   /** per-adapter timeout in ms (default 40000) */
   adapterTimeoutMs?: number;
+  /** per-adapter timeout of a probation source in ms (default PROBATION_TIMEOUT_MS; never above adapterTimeoutMs) */
+  probationTimeoutMs?: number;
   /** Test hook: stage updates on or off (default: the HOLLER_STAGE_UPDATES_ENABLED flag). */
   stageUpdates?: boolean;
   /** override adapter list (tests) */
@@ -89,6 +94,11 @@ export interface RunOptions {
 }
 
 export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
+/**
+ * Round 19 coverage (review P2-E): a probation source is an unchecked portal. It gets at most 12 s in all, and the scan writes and matches
+ * every live source WITHOUT waiting for it (its samples are written after matching), so a hanging probation portal never delays live rows.
+ */
+export const PROBATION_TIMEOUT_MS = 12_000;
 /** The scan route has maxDuration = 60 s. Fetching takes up to 40 s, so new writes stop at 48 s and leave 12 s for matching, logging and the response. */
 export const SCAN_DEADLINE_MS = 48_000;
 /**
@@ -241,6 +251,11 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
       result.status = 'error';
       result.error = logs.filter((l) => ERROR_LOG.test(l)).join(' | ').slice(0, 500);
     }
+    // A probation source that worked but left a note (row cap reached): kept for its scan_runs row and the owner's sources report.
+    if (adapter.probation && result.status !== 'error') {
+      const note = logs.find((l) => isProbationNote(l));
+      if (note) result.note = note.slice(0, 200);
+    }
   } catch (e) {
     result.status = 'error';
     // A timeout is recorded as exactly "timeout" so the health email and dashboards can group on it.
@@ -348,15 +363,22 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   const stageTracking = projects && updatesOn && due.some((a) => a.stageQuery) ? await projects.stageTrackingAvailable() : false;
   const probeLogs = logsSink.splice(0);
 
-  const fetched = await Promise.all(
-    due.map((a) => {
-      const last = lastRuns[a.id];
-      const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, now, timeoutMs, fetchImpl, { db, dry, stageTracking });
-    }),
-  );
+  // Every fetch starts now, together. A probation source gets the short limit and is awaited only after the live sources are written and
+  // matched (review P2-E), so it can never hold them up.
+  const probationTimeoutMs = Math.min(timeoutMs, opts.probationTimeoutMs ?? PROBATION_TIMEOUT_MS);
+  const started = due.map((a) => {
+    const last = lastRuns[a.id];
+    const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
+    return { a, p: fetchOne(a, since, now, a.probation ? probationTimeoutMs : timeoutMs, fetchImpl, { db, dry, stageTracking }) };
+  });
+  const liveFetched = await Promise.all(started.filter((x) => !x.a.probation).map((x) => x.p));
+  const probationPending = Promise.all(started.filter((x) => x.a.probation).map((x) => x.p));
+  /** Live and probation results together, in the registry order (the report and the run log keep that order). */
+  const inOrder = (list: Fetched[]): Fetched[] => due.map((a) => list.find((f) => f.adapter === a)).filter((f): f is Fetched => Boolean(f));
+  let fetched: Fetched[] = liveFetched;
 
   if (dry || !db) {
+    fetched = inOrder([...liveFetched, ...(await probationPending)]);
     for (const f of fetched) report.sources.push(f.result);
   } else {
     // Phase 1: persist new signals per source.
@@ -368,30 +390,13 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     // Oldest last successful run first (never run = first), so a source the deadline skipped is the first one written on the next tick.
     // In a fixed order the same late sources were skipped on every tick and a 6 hour feed could starve forever. Array.sort is stable,
     // so sources with equal ages keep their registry order.
-    const writeOrder = [...fetched].sort((a, b) => (lastRuns[a.adapter.id] ?? 0) - (lastRuns[b.adapter.id] ?? 0));
+    const writeOrder = [...liveFetched].sort((a, b) => (lastRuns[a.adapter.id] ?? 0) - (lastRuns[b.adapter.id] ?? 0));
     for (const f of writeOrder) {
       if (clock() - t0 > deadlineMs && f.result.status !== 'error' && f.signals.length) {
         // Out of time for new writes. Not logged below, so this source is due again on the next tick and nothing is silently lost.
         f.result.status = 'error';
         f.result.error = `deadline: scan passed ${Math.round(deadlineMs / 1000)} s before this source was written; it will retry next tick`;
         skippedForTime.add(f);
-        continue;
-      }
-      if (f.result.status !== 'error' && f.signals.length && f.adapter.probation) {
-        // Probation: same fetch, parsing and contact clean-up as any source, but the rows go to holler_source_samples (service role
-        // only). Never holler_signals or the project store, so no matching, card, alert, AI note or IndexNow ping can see them (they
-        // stay out of storedAll). A table that went missing since the probe is a skip, not an error.
-        try {
-          f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
-        } catch (e) {
-          if (e instanceof SamplesMissingError) {
-            f.result.logs.push(SAMPLES_MISSING);
-          } else {
-            f.result.status = 'error';
-            f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
-            f.health = { ok: false, error: f.result.error };
-          }
-        }
         continue;
       }
       if (f.result.status !== 'error' && f.signals.length) {
@@ -416,11 +421,6 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         }
       }
     }
-    // Sample retention, once per scan for every source (a quiet, promoted or removed source's samples expire too). Skipped when the
-    // probe already found the table missing; never throws and never fails the scan.
-    if (samplesState !== 'missing') await pruneSourceSamples(db, now);
-    // The report keeps the registry order whatever order the writes happened in.
-    for (const f of fetched) report.sources.push(f.result);
 
     // Phase 2: match all new signals at once so the per-user cap applies per scan.
     if (storedAll.length || stageSignals.length) {
@@ -469,7 +469,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           }
         }
         await insertMatches(db, rows);
-        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; report.sources.find((x) => x.id === src)?.logs.push(m); });
+        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; liveFetched.find((x) => x.adapter.id === src)?.result.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
         await logAlerts(db, alertLogRowsFor(rows, alertSignals, profiles));
@@ -494,6 +494,37 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       }
     }
 
+    // Probation sources, after the live ones are written and matched (review P2-E). Same fetch, parsing and contact clean-up as any
+    // source, but the rows go to holler_source_samples (service role only). Never holler_signals or the project store, so no matching,
+    // card, alert, AI note or IndexNow ping can see them (they stay out of storedAll). A table that went missing since the probe is a skip.
+    const probationFetched = await probationPending;
+    for (const f of probationFetched) {
+      if (f.result.status === 'error' || !f.signals.length) continue;
+      if (clock() - t0 > deadlineMs) {
+        f.result.status = 'error';
+        f.result.error = `deadline: scan passed ${Math.round(deadlineMs / 1000)} s before this source was written; it will retry next tick`;
+        skippedForTime.add(f);
+        continue;
+      }
+      try {
+        f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
+      } catch (e) {
+        if (e instanceof SamplesMissingError) {
+          f.result.logs.push(SAMPLES_MISSING);
+        } else {
+          f.result.status = 'error';
+          f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+          f.health = { ok: false, error: f.result.error };
+        }
+      }
+    }
+    // Sample retention, once per scan for every source (a quiet, promoted or removed source's samples expire too). Skipped when the
+    // probe already found the table missing; never throws and never fails the scan.
+    if (samplesState !== 'missing') await pruneSourceSamples(db, now);
+    fetched = inOrder([...liveFetched, ...probationFetched]);
+    // The report keeps the registry order whatever order the writes happened in.
+    for (const f of fetched) report.sources.push(f.result);
+
     // Phase 3: log one scan_runs row per adapter that ran.
     // Always runs (even past the deadline), concurrently in small batches: 45 sequential inserts would eat the time that is left.
     const finishedAt = new Date().toISOString();
@@ -508,7 +539,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             fetched: f.result.fetched,
             inserted: f.result.inserted,
             matched: f.result.matched,
-            error: f.result.error ?? f.result.stageNote ?? null,
+            error: f.result.error ?? f.result.stageNote ?? f.result.note ?? null,
           }),
         ),
       );

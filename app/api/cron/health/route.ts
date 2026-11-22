@@ -34,10 +34,14 @@ async function loadCounts(admin: Admin, now: Date): Promise<HealthCounts> {
  * Ingest monitor: scan error or stall, whole-feed silence, silent or failing sources, with one deduped email. It never throws:
  * a failure comes back as { status: 'error' } and the health report is unaffected.
  */
-/** Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. */
+/**
+ * Sources that are on right now: in the registry, with every env key they need, and not on probation (round 19 coverage, review P3-K: an
+ * unchecked probation source is judged in the daily report and GET /api/admin/sources, never by an owner alert). The monitor judges only these.
+ */
 async function enabledSources(): Promise<Set<string>> {
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
-  return new Set(ALL_ADAPTERS.filter((a) => missingEnvFor(a).length === 0).map((a) => a.id));
+  const { monitoredSourceIds } = await import('@/lib/signals/probation');
+  return monitoredSourceIds(ALL_ADAPTERS, (a) => missingEnvFor(a as (typeof ALL_ADAPTERS)[number]));
 }
 
 async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null): Promise<MonitorResult> {

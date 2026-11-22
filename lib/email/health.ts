@@ -5,6 +5,7 @@
 
 import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
 import { isStageNote } from '../signals/stage';
+import { isProbationNote } from '../signals/probation-note';
 import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
 import { firecrawlLines, type FirecrawlHealth } from '../firecrawl/health';
 
@@ -177,7 +178,8 @@ export function planHealth(input: {
     const problems: ProblemCode[] = [];
     // A stage-query note ("stage query: ...") is the optional second query failing or being refused. The source itself ran fine, so it is
     // one watch line for the source, never an error.
-    const stageNote = last && isStageNote(last.r.error) ? oneLine(last.r.error as string) : null;
+    // A probation note ("probation note: row cap reached ...", round 19 coverage) is a watch line the same way.
+    const stageNote = last && (isStageNote(last.r.error) || isProbationNote(last.r.error)) ? oneLine(last.r.error as string) : null;
     const lastError = last?.r.error && !stageNote ? oneLine(last.r.error) : null;
     if (stageNote) watch.push(`${a.id}: ${stageNote}`);
 

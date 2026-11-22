@@ -1,14 +1,16 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { extractContacts, extractJobValue } from '@/lib/contacts/extract';
+import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
-import { lookupZip } from '@/lib/geo';
-import { schemaMismatchLog, schemaProblem } from '@/lib/signals/schema-check';
+import { haversineMi, lookupZip } from '@/lib/geo';
+import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
+import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
+import { cleanAddress } from '@/lib/contacts/sanitize';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -82,9 +84,11 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
     }
   }
   if (ds.zipCentroid && ds.zipField) {
-    // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state.
+    // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state AND
+    // within maxMi of the dataset's city (review P3-H: an El Paso ZIP on a Dallas row is not placed in El Paso).
     const z = lookupZip(s(row, ds.zipField));
-    if (z && z.state === ds.state) {
+    const near = ds.zipCentroid.near;
+    if (z && z.state === ds.state && haversineMi(near.lat, near.lon, z.lat, z.lon) <= ds.zipCentroid.maxMi) {
       const p = validLatLon(z.lat, z.lon);
       if (p) return { ...p, approx: true };
     }
@@ -109,11 +113,26 @@ export function mdyToFloating(v: unknown): string | null {
   return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00`;
 }
 
-/** The record's own date as an ISO instant: dateFormat 'mdy' text first (Dallas), else the usual SODA timestamp (toIso). */
+/** "2026-11-16" or "2026-11-16T00:00:00.000" (optionally with a zone) naming a real calendar day; anything else false. */
+function strictIsoDay(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+/**
+ * The record's own date as an ISO instant. dateFormat 'mdy' (Dallas) is STRICT (review P3-G): the MM/DD/YY(YY) form, or a strict
+ * yyyy-mm-dd prefix naming a real day; anything else (an impossible "02/30/26", free text) is null, never a lenient guess. Other datasets:
+ * the usual SODA timestamp (toIso).
+ */
 export function recordDateIso(v: unknown, ds: Pick<SocrataDataset, 'tz' | 'dateFormat'>): string | null {
   if (ds.dateFormat === 'mdy') {
     const f = mdyToFloating(v);
     if (f) return toIso(f, ds.tz);
+    return strictIsoDay(v) ? toIso(v.trim().length === 10 ? `${v.trim()}T00:00:00` : v.trim(), ds.tz) : null;
   }
   return toIso(v, ds.tz);
 }
@@ -355,6 +374,10 @@ export interface ParseReport {
   rows: number;
   /** rows that had an id, a parseable date and at least one non-empty text field: the shape the config expects */
   shapeOk: number;
+  /** Round 19 coverage (review P2-D): rows of the expected shape dropped because their own date is older than maxRecordAgeDays. */
+  tooOld?: number;
+  /** The newest record date among those rows. */
+  newestTooOld?: string | null;
 }
 
 function externalIdFor(row: Row, ds: SocrataDataset): string {
@@ -416,7 +439,11 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
       if (!occurredAt || !rawId || !text) continue;
       report.shapeOk += 1;
-      if (oldest !== null && Date.parse(occurredAt) < oldest) continue;
+      if (oldest !== null && Date.parse(occurredAt) < oldest) {
+        report.tooOld = (report.tooOld ?? 0) + 1;
+        if (!report.newestTooOld || occurredAt > report.newestTooOld) report.newestTooOld = occurredAt;
+        continue;
+      }
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
@@ -461,7 +488,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       const titleBits = titlePrint.values;
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
+      // Review P1-B: an unverified address column is used only as the shared site-address rule keeps it (lib/contacts cleanAddress).
+      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, ds.strictAddress ? (cleanAddress(rawAddress) ?? '') : rawAddress);
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
       const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
@@ -667,6 +695,9 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
         const query = buildSocrataQuery(ds, ctx.now ?? new Date());
+        // Review P3-M: a schema-unverified dataset asks only for the columns it reads ($select), so nothing else is downloaded.
+        if (ds.schemaUnverified) query.set('$select', socrataSelectColumns(ds).join(','));
+        const timeoutMs = ds.schemaUnverified ? UNVERIFIED_REQUEST_TIMEOUT_MS : 15000;
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         if (token) headers['X-App-Token'] = token;
@@ -674,13 +705,32 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
         for (let page = 0; page < pages(ds); page++) {
           if (page > 0) query.set('$offset', String(page * LIMIT));
           const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`;
-          const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+          const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
           if (!res.ok) {
-            ctx.log(`${ds.id}: HTTP ${res.status}`);
+            if (ds.schemaUnverified && res.status === 400) {
+              // Socrata answers 400 for a column it does not have ($select, $order): that is the schema, said as such (column names only).
+              let msg = '';
+              try {
+                const b = (await res.json()) as { message?: unknown };
+                msg = String(b?.message ?? '').replace(/[^\w :.,'-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+              } catch {
+                /* the status is enough */
+              }
+              ctx.log(`error: schema mismatch: the portal refused the column list (${ds.id}: HTTP 400${msg ? `; ${msg}` : ''})`);
+            } else ctx.log(`${ds.id}: HTTP ${res.status}`);
             if (page === 0) return [];
             break; // keep the pages already read
           }
-          const part: unknown = await res.json();
+          let part: unknown;
+          if (ds.schemaUnverified) {
+            const read = await readJsonBody(res);
+            if (!read.ok) {
+              ctx.log(`error: ${ds.id}: ${read.problem} (HTTP ${res.status})`);
+              if (page === 0) return [];
+              break;
+            }
+            part = read.body;
+          } else part = await res.json();
           if (!Array.isArray(part)) {
             ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
             if (page === 0) return [];
@@ -688,6 +738,8 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
           }
           body.push(...part);
           if (part.length < LIMIT) break;
+          // Review P2-F: the last page allowed was full: older rows in the window were not read.
+          if (ds.schemaUnverified && page === pages(ds) - 1) ctx.log(`${PROBATION_NOTE_PREFIX} row cap reached: ${body.length} rows read (limit ${LIMIT * pages(ds)}); older rows in the window were not read`);
         }
         const report = parseSocrataReport(body, ds, { now: ctx.now ?? new Date() });
         if (report.rows > 0 && report.items.length === 0) {
@@ -696,6 +748,9 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
             ctx.log(schemaMismatchLog(ds.id, problem, body));
           } else if (report.shapeOk === 0) {
             ctx.log(`error: parsed 0 of ${report.rows} rows, shape may have changed (${ds.id})`);
+          } else if (report.tooOld && report.tooOld === report.shapeOk) {
+            // Review P2-D: every row is older than the age limit (a republished dataset, or a feed that stopped): broken, not quiet.
+            ctx.log(`error: ${ds.id}: no rows in the last ${ds.maxRecordAgeDays} days: newest is ${(report.newestTooOld ?? '').slice(0, 10)} (${report.rows} rows read)`);
           } else {
             // Rows look right but none map to a trade (or none failed): a quiet window, not a broken source.
             ctx.log(`${ds.id}: ${report.rows} rows, 0 matched a trade`);
@@ -707,11 +762,26 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
         }
         return report.items;
       } catch (e) {
-        ctx.log(`${ds.id}: ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        // Review P2-C: for an unverified source every failure reads as an error, so it never shows as "ok".
+        ctx.log(ds.schemaUnverified ? `error: ${ds.id}: ${msg}` : `${ds.id}: ${msg}`);
         return [];
       }
     },
   };
+}
+
+/** The columns a dataset reads (id, date, title, text, summary, address, zip, coordinates, status, contacts, value), for $select. */
+export function socrataSelectColumns(ds: SocrataDataset): string[] {
+  return [
+    ...new Set(
+      [
+        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields,
+        ...(ds.addressFields ?? []), ds.zipField, ds.latField, ds.lonField, ds.locationField, ds.latLonTextField, ds.statusField,
+        ...contactSpecFields(ds.contacts), ...(ds.valueFields ?? []),
+      ].filter((x): x is string => Boolean(x)),
+    ),
+  ];
 }
 
 /**

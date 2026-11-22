@@ -265,6 +265,8 @@ function arcgisGuardRow(d: ArcgisDataset) {
   a[d.dateField] = Date.parse('2026-11-12T10:00:00Z');
   if (d.latField) a[d.latField] = 33.7491;
   if (d.lonField) a[d.lonField] = -84.3902;
+  // Round 19 coverage (review P1-A): a layer with a required confidential flag drops a row without it; this row is not confidential.
+  if (d.confidentialField) a[d.confidentialField] = 'N';
   for (const k of NAME_KEYS) a[k] = PERSON;
   for (const f of Object.keys(a)) if (NAME_LIKE_COLUMN.test(f) && !NAME_COLUMN_OK.includes(f)) a[f] = PERSON;
   return { features: [{ attributes: a, geometry: { x: -84.3902, y: 33.7491 } }] };

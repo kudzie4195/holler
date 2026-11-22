@@ -1,4 +1,5 @@
 import { isSchemaMismatch } from './schema-check';
+import { isProbationNote } from './probation-note';
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -77,6 +78,15 @@ export interface ProbationHealthLite {
   last_run_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  /** Newest record date the source ever returned (null: it has never returned a row). */
+  last_record_at?: string | null;
+}
+
+/** The latest holler_scan_runs row of a source (error column only): carries a probation note such as "row cap reached". */
+export interface ProbationRunLite {
+  source: string;
+  started_at: string | null;
+  error: string | null;
 }
 
 export interface ProbationRow {
@@ -88,10 +98,19 @@ export interface ProbationRow {
   lastSuccessAt: string | null;
   lastError: string | null;
   /**
-   * not_run: no scan has recorded it yet (or the samples table is missing, which skips it). schema_mismatch: the last run found none of the
-   * expected id or date columns (lastError says which). error: any other failure. ok: the last run worked.
+   * Review P2-C/D/F: a broken source never reads "ok".
+   *   not_run          no scan has recorded it yet (or the samples table is missing, which skips it)
+   *   schema_mismatch  the expected id, date or flag column is missing, or the date is unreadable (lastError says which)
+   *   not_json         the portal answered 200 with an HTML page or an empty body
+   *   no_recent_rows   rows came back, but none in the age window (lastError names the newest date)
+   *   error            any other failure (HTTP status, timeout, unreadable field list ...)
+   *   no_rows          ran without error but has never returned a row
+   *   row_cap          worked, but the last run read a full page: older rows in the window were not read (note says so)
+   *   ok               the last run worked and the source has returned rows
    */
-  check: 'not_run' | 'ok' | 'schema_mismatch' | 'error';
+  check: 'not_run' | 'ok' | 'schema_mismatch' | 'not_json' | 'no_recent_rows' | 'error' | 'no_rows' | 'row_cap';
+  /** The latest run's probation note (row cap), when there is one. */
+  note?: string;
   /** Coverage sources only: the probe to run before promoting it. */
   probe?: string;
   /** Where to remove the flag to promote it. */
@@ -112,18 +131,40 @@ function platformOf(id: string): ProbationPlatform | null {
 }
 
 /** Every registered probation source with its last recorded run (holler_source_health), sorted by id. */
+/** The check state of one probation source from its health row and its latest scan_runs row (see ProbationRow.check). */
+export function probationCheck(h: ProbationHealthLite | undefined, lastRun?: ProbationRunLite): ProbationRow['check'] {
+  if (!h || !h.last_run_at) return 'not_run';
+  const e = h.last_error;
+  if (e) {
+    if (isSchemaMismatch(e)) return 'schema_mismatch';
+    if (/empty response body|response was not JSON/.test(e)) return 'not_json';
+    if (/no rows in the last \d+ days/.test(e)) return 'no_recent_rows';
+    return 'error';
+  }
+  if (!h.last_record_at) return 'no_rows';
+  if (lastRun && isProbationNote(lastRun.error) && /row cap reached/.test(lastRun.error ?? '')) return 'row_cap';
+  return 'ok';
+}
+
 export function probationOverview(
   adapters: ReadonlyArray<{ id: string; probation?: boolean }>,
   health: readonly ProbationHealthLite[],
   metroOf: (id: string) => string | null,
+  lastRuns: readonly ProbationRunLite[] = [],
 ): ProbationRow[] {
   const by = new Map(health.map((h) => [h.source, h]));
+  const runBy = new Map<string, ProbationRunLite>();
+  for (const r of lastRuns) {
+    const prev = runBy.get(r.source);
+    if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
+  }
   const coverage = new Set(COVERAGE_R19_SOURCES.map((s) => s.id));
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
       const h = by.get(a.id);
-      const check: ProbationRow['check'] = !h || !h.last_run_at ? 'not_run' : isSchemaMismatch(h.last_error) ? 'schema_mismatch' : h.last_error ? 'error' : 'ok';
+      const run = runBy.get(a.id);
+      const check = probationCheck(h, run);
       const platform = platformOf(a.id);
       const file = platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
       return {
@@ -134,9 +175,18 @@ export function probationOverview(
         lastSuccessAt: h?.last_success_at ?? null,
         lastError: h?.last_error ?? null,
         check,
+        ...(run && isProbationNote(run.error) ? { note: run.error as string } : {}),
         ...(coverage.has(a.id) ? { probe: coverageProbePath(a.id) } : {}),
-        promote: `remove probation: true from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
+        promote: `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
       };
     })
     .sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+}
+
+/**
+ * Review P3-K: the sources the owner monitor may alert on: on now (no missing env key or flag) and NOT on probation. A probation source is
+ * judged in the daily health report and GET /api/admin/sources, never by an alert email (several have assumed URLs and will fail first).
+ */
+export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probation?: boolean }>, missingEnvOf: (a: { id: string }) => readonly string[]): Set<string> {
+  return new Set(adapters.filter((a) => missingEnvOf(a).length === 0 && !a.probation).map((a) => a.id));
 }

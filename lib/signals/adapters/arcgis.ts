@@ -6,7 +6,9 @@ import { permitStageOf } from '@/lib/signals/stage';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
-import { schemaMismatchLog, schemaProblem } from '@/lib/signals/schema-check';
+import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
+import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
+import { cleanAddress } from '@/lib/contacts/sanitize';
 
 const LIMIT = 500;
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
@@ -75,7 +77,7 @@ export function valueFieldsOf(ds: ArcgisDataset): string[] {
 /** Fields that decide whether a row is parsed at all. Everything else (contacts, value columns) is an extra that may be left out. */
 function requiredFields(ds: ArcgisDataset): Set<string> {
   return new Set<string>(
-    [ds.idField, ...(ds.idFields ?? []), ds.dateField, ds.latField, ds.lonField, ds.nameField, ds.zipField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? [])].filter(
+    [ds.idField, ...(ds.idFields ?? []), ds.dateField, ds.confidentialField, ds.latField, ds.lonField, ds.nameField, ds.zipField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? [])].filter(
       (x): x is string => Boolean(x),
     ),
   );
@@ -84,7 +86,7 @@ function requiredFields(ds: ArcgisDataset): Set<string> {
 /** Extras the layer may or may not have: contact columns and value columns that are not required fields. */
 export function optionalFields(ds: ArcgisDataset): string[] {
   const req = requiredFields(ds);
-  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds), ...(ds.skipWhen ? [ds.skipWhen.field] : [])])].filter((f) => !req.has(f));
+  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds)])].filter((f) => !req.has(f));
 }
 
 /**
@@ -228,8 +230,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       if (ds.subtype === 'inspection' && !INSPECTION_ID_RE.test(externalId)) continue;
       report.shapeOk += 1;
       if (seen.has(externalId)) continue;
-      // Round 19 coverage: a row the source marks confidential (Miami-Dade CONF_FLAG = 'Y') is dropped whole.
-      if (ds.skipWhen && ds.skipWhen.values.some((v) => v.toUpperCase() === str(a, ds.skipWhen!.field).toUpperCase())) continue;
+      // Round 19 coverage (review P1-A): a confidential case is dropped whole, and so is a row that does not carry the flag at all.
+      if (ds.confidentialField && (!(ds.confidentialField in a) || isConfidential(a[ds.confidentialField]))) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (x) => str(a, x)) : null;
       const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
@@ -254,8 +256,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const titlePrint = printableValues(ds, ds.titleFields, (x) => str(a, x));
         const titleBits = titlePrint.values;
         const joined = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
-        // An unverified address column that may hold a project or occupant name: only a value that starts with a house number is an address.
-        const rawAddress = ds.addressMustStartWithNumber && !/^\d/.test(joined) ? '' : joined;
+        // Review P1-B: an unverified address column may hold a name. Only what the shared site-address rule keeps is used, else nothing.
+        const rawAddress = ds.strictAddress ? (cleanAddress(joined) ?? '') : joined;
         const summaryBits = ds.summaryFields
           .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
           .map((x) => summaryPart(x, str(a, x)))
@@ -323,7 +325,7 @@ export function layerSchemaCheck(
 ): { problem: string | null; present: ReadonlySet<string>; dateType: ArcgisDataset['dateType'] } | null {
   if (!fields) return null;
   const { names, types } = fields;
-  const missing = [...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField].filter((f) => !names.has(f));
+  const missing = [...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...(ds.confidentialField ? [ds.confidentialField] : [])].filter((f) => !names.has(f));
   if (missing.length) return { problem: `expected ${[...new Set(missing)].join(', ')}`, present: names, dateType: ds.dateType };
   const t = types?.get(ds.dateField) ?? '';
   if (t === 'esriFieldTypeString') return { problem: `${ds.dateField} is text, not a date field`, present: names, dateType: ds.dateType };
@@ -345,7 +347,7 @@ export async function layerFields(ds: ArcgisDataset, ctx: AdapterContext, now: D
   if (hit !== undefined) return hit;
   let out: { names: Set<string>; types?: Map<string, string> } | null = null;
   try {
-    const res = await ctx.fetch(`${ds.layerUrl}?f=json`, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(15000) });
+    const res = await ctx.fetch(`${ds.layerUrl}?f=json`, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(requestTimeoutMs(ds)) });
     if (res.ok) {
       const body = (await res.json()) as { fields?: { name?: unknown; type?: unknown }[] };
       if (Array.isArray(body.fields) && body.fields.length > 0) {
@@ -368,6 +370,18 @@ export function arcgisSchemaProblem(features: readonly unknown[], ds: ArcgisData
     dateField: ds.dateField,
     readsAsDate: (v) => arcgisDateToIso(v) !== null,
   });
+}
+
+/** Review P1-A: any truthy flag value marks a confidential case: Y, YES, TRUE, T, 1 (any case, spaces ignored), or boolean true / number 1. */
+export function isConfidential(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  if (typeof v !== 'string' && typeof v !== 'number') return false;
+  return ['Y', 'YES', 'TRUE', 'T', '1'].includes(String(v).replace(/\s+/g, '').toUpperCase());
+}
+
+/** Per-request limit: short for a schema-unverified (probation) layer, so an unchecked portal cannot hold the scan (review P2-E). */
+export function requestTimeoutMs(ds: Pick<ArcgisDataset, 'schemaUnverified'>): number {
+  return ds.schemaUnverified ? UNVERIFIED_REQUEST_TIMEOUT_MS : 15000;
 }
 
 export function parseArcgis(raw: unknown, ds: ArcgisDataset): SignalInput[] {
@@ -397,19 +411,32 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
         let schema: ReturnType<typeof layerSchemaCheck> = null;
         if (ds.schemaUnverified) {
           schema = layerSchemaCheck(ds, await layerFields(ds, ctx, now));
-          if (schema?.problem) {
+          if (!schema) {
+            // Review P1-A: without the field list no column can be checked (the confidential flag included), so no data query is sent.
+            ctx.log(`error: ${ds.id}: could not read the layer's field list; no query sent this run`);
+            return [];
+          }
+          if (schema.problem) {
             ctx.log(`error: schema mismatch: ${schema.problem} (${ds.id}: from the layer's field list; no query sent)`);
             return [];
           }
         }
         const allowed = await resolveOptionalFields(ds, ctx, now);
         const url = `${ds.layerUrl}/query?${buildArcgisQuery(ds, now, allowed, schema ? { present: schema.present, dateType: schema.dateType } : undefined).toString()}`;
-        const res = await ctx.fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(15000) });
+        const res = await ctx.fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(requestTimeoutMs(ds)) });
         if (!res.ok) {
           ctx.log(`${ds.id}: HTTP ${res.status}`);
           return [];
         }
-        const body: unknown = await res.json();
+        let body: unknown;
+        if (ds.schemaUnverified) {
+          const read = await readJsonBody(res);
+          if (!read.ok) {
+            ctx.log(`error: ${ds.id}: ${read.problem} (HTTP ${res.status})`);
+            return [];
+          }
+          body = read.body;
+        } else body = await res.json();
         const report = parseArcgisReport(body, ds);
         if (report.apiError) {
           ctx.log(`error: ${ds.id}: ${report.apiError}`);
@@ -430,9 +457,15 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
             ctx.log(`${ds.id}: ${report.rows} rows, 0 matched a trade`);
           }
         }
+        // Review P2-F: a full page (or the server's own flag) means older rows in the window were not read. Paging is a promotion step.
+        if (ds.schemaUnverified && (report.rows >= LIMIT || (body as { exceededTransferLimit?: unknown }).exceededTransferLimit === true)) {
+          ctx.log(`${PROBATION_NOTE_PREFIX} row cap reached: ${report.rows} rows read (limit ${LIMIT}); older rows in the window were not read`);
+        }
         return report.items;
       } catch (e) {
-        ctx.log(`${ds.id}: ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        // Review P2-C: for an unverified source every failure reads as an error, so it never shows as "ok".
+        ctx.log(ds.schemaUnverified ? `error: ${ds.id}: ${msg}` : `${ds.id}: ${msg}`);
         return [];
       }
     },

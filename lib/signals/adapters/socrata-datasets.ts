@@ -140,8 +140,13 @@ export interface SocrataDataset {
   dateFormat?: 'mdy';
   /** With queryDateField: a row whose own record date is older than this many days is dropped (an old permit touched again is not news). */
   maxRecordAgeDays?: number;
-  /** No coordinates in the feed: place the row at its ZIP's centroid (lib/geo lookupZip, same state only), flagged approxLocation. */
-  zipCentroid?: boolean;
+  /**
+   * No coordinates in the feed: place the row at its ZIP's centroid (lib/geo lookupZip, same state only, and within `maxMi` of `near`,
+   * review P3-H), flagged approxLocation.
+   */
+  zipCentroid?: { near: { lat: number; lon: number }; maxMi: number };
+  /** Round 19 coverage (review P1-B): the address is stored only as lib/contacts cleanAddress keeps it, else not at all. */
+  strictAddress?: boolean;
   /**
    * Round 19 coverage: the column names were NOT read from the portal (research tags [3P] or [A]). The adapter then reports a source
    * whose rows match none of the expected id or date columns as "schema mismatch: expected <col>" (an error the sources report shows).
@@ -714,7 +719,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issued_date',
     // Round 19 coverage: ON PROBATION. issued_date is TEXT (MM/DD/YY), so the window and order use the system column :updated_at and the
     // issue date is parsed in code; a row issued more than 30 days ago is dropped. No coordinates: the ZIP centroid places the row.
-    queryDateField: ':updated_at', dateFormat: 'mdy', maxRecordAgeDays: 30, zipCentroid: true, schemaUnverified: true,
+    queryDateField: ':updated_at', dateFormat: 'mdy', maxRecordAgeDays: 30, zipCentroid: { near: { lat: 32.7767, lon: -96.797 }, maxMi: 40 }, strictAddress: true, schemaUnverified: true,
     titleFields: ['work_description', 'permit_type'], textFields: ['work_description', 'permit_type', 'land_use'],
     summaryFields: ['permit_type', 'value'], addressFields: ['street_address'], zipField: 'zip_code', cadenceMinutes: 360,
     verified: true, probation: true, verifiedUrl: D('www.dallasopendata.com', 'e7gq-4sah'), fieldSource: 'sourced',

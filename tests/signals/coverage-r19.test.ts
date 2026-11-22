@@ -10,8 +10,13 @@ import { SAMPLES_MISSING } from '@/lib/signals/samples';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS, type ArcgisDataset } from '@/lib/signals/adapters/arcgis-datasets';
 import { buildSocrataAdapter, buildSocrataQuery, mdyToFloating, parseSocrataReport, recordDateIso } from '@/lib/signals/adapters/socrata';
-import { buildArcgisAdapter, buildArcgisQuery, layerSchemaCheck, parseArcgisReport, resetArcgisFieldCache } from '@/lib/signals/adapters/arcgis';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, probationOverview } from '@/lib/signals/probation';
+import { buildArcgisAdapter, buildArcgisQuery, isConfidential, layerSchemaCheck, parseArcgisReport, requestTimeoutMs, resetArcgisFieldCache } from '@/lib/signals/adapters/arcgis';
+import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { isProbationNote, isRunNote } from '@/lib/signals/probation-note';
+import { computeSourceStates } from '@/lib/signals/source-state';
+import { PROBATION_TIMEOUT_MS } from '@/lib/signals/run';
+import { UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
+import { socrataSelectColumns } from '@/lib/signals/adapters/socrata';
 import { columnsSeen, isSchemaMismatch, schemaProblem } from '@/lib/signals/schema-check';
 import { expectedColumns, runCoverageProbe, coverageProbeSourceIds } from '@/lib/signals/coverage-probe';
 import { enabledDatasets, CITY_FEEDS } from '@/lib/signals/capabilities';
@@ -86,7 +91,7 @@ const DALLAS_ROW = {
   contractor: 'MILESTONE ELECTRIC 7501 US HWY 287, Suite C4, ARLINGTON, TX 76001 (817) 969-5050', // the shape seen in the 2018 CSV
 };
 
-type LayerSpec = { fields?: Array<{ name: string; type: string }> | 'down'; features?: unknown[] | 'error' };
+type LayerSpec = { fields?: Array<{ name: string; type: string }> | 'down'; features?: unknown[] | 'error' | 'html' | 'empty'; count?: number; extra?: Record<string, unknown> };
 /** Layer fields of a dataset, built from its own expected columns (date column typed as a date). */
 function fieldsOf(ds: ArcgisDataset, drop: string[] = [], dateType = 'esriFieldTypeDate'): Array<{ name: string; type: string }> {
   return expectedColumns({ platform: 'arcgis', ds })
@@ -98,21 +103,28 @@ function feature(id: string, over: Record<string, unknown> = {}, extras = true) 
 }
 
 /** A fake portal: ArcGIS layers by URL prefix, the Dallas Socrata dataset, and a log of every URL asked for. */
-function portal(layers: Record<string, LayerSpec>, dallasRows: unknown[] | 'error' = [DALLAS_ROW]) {
+const HTML = '<!DOCTYPE html><html><body>Service temporarily unavailable</body></html>';
+function portal(layers: Record<string, LayerSpec>, dallasRows: unknown[] | 'error' | 'html' | 'empty' = [DALLAS_ROW], dallasCount?: number) {
   const urls: string[] = [];
   const f = (async (input: string | URL) => {
     const url = String(input);
     urls.push(url);
     if (url.includes('dallasopendata.com/api/views/')) return new Response(JSON.stringify({ columns: Object.keys(DALLAS_ROW).map((fieldName) => ({ fieldName })) }), { status: 200 });
     if (url.includes('dallasopendata.com/resource/')) {
-      return dallasRows === 'error' ? new Response(JSON.stringify({ message: 'no such column' }), { status: 400 }) : new Response(JSON.stringify(dallasRows), { status: 200 });
+      if (new URL(url).searchParams.get('$select')?.startsWith('count(')) return new Response(JSON.stringify([{ n: String(dallasCount ?? (Array.isArray(dallasRows) ? dallasRows.length : 0)) }]), { status: 200 });
+      if (dallasRows === 'html') return new Response(HTML, { status: 200 });
+      if (dallasRows === 'empty') return new Response('', { status: 200 });
+      return dallasRows === 'error' ? new Response(JSON.stringify({ message: 'No such column: issued_date' }), { status: 400 }) : new Response(JSON.stringify(dallasRows), { status: 200 });
     }
     for (const ds of ARCGIS_DATASETS) {
       if (!url.startsWith(ds.layerUrl)) continue;
       const spec = layers[ds.id] ?? {};
+      if (url.includes('/query?') && url.includes('returnCountOnly=true')) return new Response(JSON.stringify({ count: spec.count ?? 1 }), { status: 200 });
       if (url.includes('/query?')) {
         if (spec.features === 'error') return new Response(JSON.stringify({ error: { code: 400, message: 'Invalid field' } }), { status: 200 });
-        return new Response(JSON.stringify({ features: spec.features ?? [feature(ds.id)] }), { status: 200 });
+        if (spec.features === 'html') return new Response(HTML, { status: 200 });
+        if (spec.features === 'empty') return new Response('', { status: 200 });
+        return new Response(JSON.stringify({ features: spec.features ?? [feature(ds.id)], ...(spec.extra ?? {}) }), { status: 200 });
       }
       if (spec.fields === 'down') return new Response('nope', { status: 500 });
       return new Response(JSON.stringify({ fields: spec.fields ?? fieldsOf(ds) }), { status: 200 });
@@ -121,6 +133,9 @@ function portal(layers: Record<string, LayerSpec>, dallasRows: unknown[] | 'erro
   }) as typeof fetch;
   return { fetch: f, urls };
 }
+
+/** The data request (not the count request). */
+const rowsUrl = (urls: string[]) => urls.find((u) => (u.includes('/query?') && !u.includes('returnCountOnly')) || (u.includes('/resource/') && !/count%28|count\(/.test(u)))!;
 
 function ctx(doFetch: typeof fetch) {
   const logs: string[] = [];
@@ -421,7 +436,7 @@ describe('ArcGIS coverage layers: unverified schemas fail safe', () => {
     expect(it0.lat).not.toBeNull();
     expect(Math.abs(it0.lat! - GEOM[id].y)).toBeLessThan(0.01);
     expect(urls.filter((u) => u.endsWith('?f=json'))).toHaveLength(1); // the field list is read before the query
-    expect(new URL(urls.find((u) => u.includes('/query?'))!).searchParams.get('outSR')).toBe('4326');
+    expect(new URL(rowsUrl(urls)).searchParams.get('outSR')).toBe('4326');
     expect(JSON.stringify(items)).not.toMatch(new RegExp(PRIVATE_VALUES.join('|')));
   });
 
@@ -446,12 +461,12 @@ describe('ArcGIS coverage layers: unverified schemas fail safe', () => {
     expect(urls.some((u) => u.includes('/query?'))).toBe(false);
   });
 
-  it.each(ARC_IDS)('%s: field list unreadable and rows without the id or date columns: schema mismatch after the query', async (id) => {
+  it.each(ARC_IDS)('%s: the layer lists the columns but its rows lack the id or date: schema mismatch after the query', async (id) => {
     const ds = arc(id);
     const idCols = ds.idFields?.length ? ds.idFields : [ds.idField];
     const strip = Object.fromEntries([...idCols, ds.dateField].map((k) => [k, undefined]));
     const rows = [feature(id, strip, false), feature(id, strip, false)].map((x) => ({ ...x, attributes: JSON.parse(JSON.stringify(x.attributes)) }));
-    const { fetch: doFetch } = portal({ [id]: { fields: 'down', features: rows } });
+    const { fetch: doFetch } = portal({ [id]: { features: rows } });
     const { c, logs } = ctx(doFetch);
     expect(await buildArcgisAdapter(ds).fetch(c)).toEqual([]);
     const line = logs.find((l) => l.includes('schema mismatch'))!;
@@ -460,11 +475,11 @@ describe('ArcGIS coverage layers: unverified schemas fail safe', () => {
 
   it.each(ARC_IDS)('%s: a missing non-key column is left out of the query and the field stays empty (no crash, nothing in the wrong slot)', async (id) => {
     const ds = arc(id);
-    const optional = expectedColumns({ platform: 'arcgis', ds }).filter((c) => c !== ds.dateField && !(ds.idFields ?? [ds.idField]).includes(c) && c !== ds.textFields[0]);
+    const optional = expectedColumns({ platform: 'arcgis', ds }).filter((c) => c !== ds.dateField && !(ds.idFields ?? [ds.idField]).includes(c) && c !== ds.textFields[0] && c !== ds.confidentialField);
     const { fetch: doFetch, urls } = portal({ [id]: { fields: fieldsOf(ds, optional) } });
     const { c } = ctx(doFetch);
     const items = await buildArcgisAdapter(ds).fetch(c);
-    const asked = new URL(urls.find((u) => u.includes('/query?'))!).searchParams.get('outFields')!.split(',');
+    const asked = new URL(rowsUrl(urls)).searchParams.get('outFields')!.split(',');
     for (const o of optional) expect(asked, o).not.toContain(o);
     // The fake server still sends every column; the record is built the same way and never crashes.
     expect(items.length).toBeLessThanOrEqual(1);
@@ -549,7 +564,7 @@ describe('GET /api/admin/coverage-probe', () => {
       { ...DALLAS_ROW, permit_number: 'B4', issued_date: '11/10/26' },
     ];
     const { fetch: doFetch, urls } = portal({}, rows);
-    const out = await runCoverageProbe('socrata-dallas-permits', doFetch);
+    const out = await runCoverageProbe('socrata-dallas-permits', doFetch, NOW);
     expect(out).toMatchObject({ status: 'ok', platform: 'socrata', httpStatus: 200, rowCount: 4, schema: 'ok', columnsFrom: 'column list', wroteNothing: true });
     expect(out.endpoint).toBe('https://www.dallasopendata.com/resource/e7gq-4sah.json');
     expect(out.columns).toEqual(Object.keys(DALLAS_ROW).sort());
@@ -557,14 +572,14 @@ describe('GET /api/admin/coverage-probe', () => {
     expect(out.newestDate).toBe('2026-11-18T06:00:00.000Z');
     expect(out.mapped).toHaveLength(3);
     expect(JSON.stringify(out)).not.toContain('Maria Lopez');
-    const rowUrl = new URL(urls.find((u) => u.includes('/resource/'))!);
+    const rowUrl = new URL(rowsUrl(urls));
     expect(rowUrl.searchParams.get('$order')).toBe(':updated_at DESC');
     expect(rowUrl.searchParams.get('$limit')).toBe('5');
   });
 
   it('Dallas with renamed columns: schema mismatch with the missing columns named', async () => {
     const { fetch: doFetch } = portal({}, [{ permit_no: 'A1', issue_dt: '11/16/26', work_description: 'Re-roof' }]);
-    const out = await runCoverageProbe('socrata-dallas-permits', doFetch);
+    const out = await runCoverageProbe('socrata-dallas-permits', doFetch, NOW);
     expect(out.schema).toBe('mismatch');
     expect(out.schemaProblem).toBe('expected permit_number, issued_date');
   });
@@ -573,13 +588,13 @@ describe('GET /api/admin/coverage-probe', () => {
     const ds = arc(id);
     const extra = [{ name: 'OWNER_NAME', type: 'esriFieldTypeString' }];
     const { fetch: doFetch, urls } = portal({ [id]: { fields: [...fieldsOf(ds), ...extra], features: [feature(id), feature(id, ds.idFields ? { FOLDERSEQUENCE: '2' } : { [ds.idField]: 'second' })] } });
-    const out = await runCoverageProbe(id, doFetch);
+    const out = await runCoverageProbe(id, doFetch, NOW);
     expect(out).toMatchObject({ status: 'ok', platform: 'arcgis', httpStatus: 200, rowCount: 2, schema: 'ok', columnsFrom: 'column list', missingExpected: [] });
     expect(out.columns).toContain('OWNER_NAME'); // a column NAME is reported ...
     expect(JSON.stringify(out)).not.toMatch(new RegExp(PRIVATE_VALUES.join('|'))); // ... never its value
     expect(out.newestDate).toBe(new Date(ROWS[id][ds.dateField] as number).toISOString());
     expect(out.mapped.length).toBeGreaterThan(0);
-    const q = new URL(urls.find((u) => u.includes('/query?'))!);
+    const q = new URL(rowsUrl(urls));
     expect(q.searchParams.get('outSR')).toBe('4326');
     expect(q.searchParams.get('resultRecordCount')).toBe('5');
     expect(q.searchParams.get('outFields')).not.toContain('OWNER_NAME');
@@ -588,7 +603,7 @@ describe('GET /api/admin/coverage-probe', () => {
   it('a layer without the date column: mismatch named, no rows requested', async () => {
     const ds = arc('arcgis-tempe-permits');
     const { fetch: doFetch, urls } = portal({ [ds.id]: { fields: fieldsOf(ds, ['IssuedDate']) } });
-    const out = await runCoverageProbe(ds.id, doFetch);
+    const out = await runCoverageProbe(ds.id, doFetch, NOW);
     expect(out).toMatchObject({ schema: 'mismatch', schemaProblem: 'expected IssuedDate' });
     expect(out.missingExpected).toContain('IssuedDate');
     expect(urls.some((u) => u.includes('/query?'))).toBe(false);
@@ -630,6 +645,303 @@ describe('schema-check helpers', () => {
     expect(columnsSeen([{ b: 1, a: null }, null, { c: 'x' }])).toEqual(['a', 'b', 'c']);
     expect(schemaProblem([], { idFields: ['ID'], dateField: 'D', readsAsDate: () => true })).toBeNull();
     expect(schemaProblem([{ ID: 1, D: 'x' }], { idFields: ['ID'], dateField: 'D', readsAsDate: () => true })).toBeNull();
+  });
+});
+
+// ====================================================================================================================================
+// REVIEW FIXES (review-COVERAGE.md, FIX FIRST). Each block reproduces the reviewer's case with the fixed expectation.
+// ====================================================================================================================================
+
+const viol = () => arc('arcgis-miamidade-violations');
+const samplesOf = (f: FakeDb) => (f.tables.holler_source_samples ?? []).map((x) => x.row as SignalInput);
+
+describe('review P1-A: a confidential Miami-Dade case is never stored', () => {
+  it('reviewer reproduction: field list 503, the query would return CONF_FLAG Y: NO data query is sent, the source errors, nothing is stored', async () => {
+    const ds = viol();
+    const leaked = { attributes: { CASE_NUM: 'CONFIDENTIAL-1', CASE_DATE: ISSUED, PROBLEM_DESC: 'OVERGROWN LOT', STAT_DESC: 'OPEN', ADDRESS: '1450 NW 7 ST' }, geometry: GEOM[ds.id] };
+    const { fetch: doFetch, urls } = portal({ [ds.id]: { fields: 'down', features: [leaked] } });
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const r = await runScan({ now: NOW, adapters: [adapterOf(ds.id)], fetchImpl: doFetch }, asDb(f));
+    expect(urls.some((u) => u.includes('/query?'))).toBe(false);
+    expect(r.sources[0].status).toBe('error');
+    expect(r.sources[0].error).toMatch(/could not read the layer's field list; no query sent this run/);
+    expect(f.tables.holler_source_samples ?? []).toEqual([]);
+    expect(f.tables.holler_source_health.find((x) => x.source === ds.id)!.last_error).toMatch(/could not read the layer's field list/);
+  });
+
+  it('every coverage layer sends no data query when its field list cannot be read', async () => {
+    for (const id of ARC_IDS) {
+      resetArcgisFieldCache();
+      const { fetch: doFetch, urls } = portal({ [id]: { fields: 'down' } });
+      const { c, logs } = ctx(doFetch);
+      expect(await buildArcgisAdapter(arc(id)).fetch(c), id).toEqual([]);
+      expect(urls.some((u) => u.includes('/query?')), id).toBe(false);
+      expect(logs.join(' '), id).toMatch(/^error: .*could not read the layer's field list/);
+    }
+  });
+
+  it('CONF_FLAG is required: always in outFields; a layer without it is "schema mismatch: expected CONF_FLAG" with no query', async () => {
+    const ds = viol();
+    expect(buildArcgisQuery(ds, NOW).get('outFields')).toContain('CONF_FLAG');
+    expect(buildArcgisQuery(ds, NOW, new Set()).get('outFields')).toContain('CONF_FLAG');
+    const { fetch: doFetch, urls } = portal({ [ds.id]: { fields: fieldsOf(ds, ['CONF_FLAG']) } });
+    const { c, logs } = ctx(doFetch);
+    expect(await buildArcgisAdapter(ds).fetch(c)).toEqual([]);
+    expect(logs.join(' ')).toContain('schema mismatch: expected CONF_FLAG');
+    expect(urls.some((u) => u.includes('/query?'))).toBe(false);
+  });
+
+  it('a row without the flag column is dropped; any truthy value drops the row (Y, YES, Yes, 1, true, T, spaces)', () => {
+    const ds = viol();
+    const truthy: unknown[] = ['Y', 'y', 'YES', 'Yes', ' yes ', '1', 1, 'true', 'TRUE', true, 'T', ' Y '];
+    const feats = [
+      ...truthy.map((v, i) => feature(ds.id, { CASE_NUM: `T${i}`, CONF_FLAG: v })),
+      feature(ds.id, { CASE_NUM: 'NOFLAG' }),
+      feature(ds.id, { CASE_NUM: 'KEPT-N', CONF_FLAG: 'N' }),
+      feature(ds.id, { CASE_NUM: 'KEPT-BLANK', CONF_FLAG: '' }),
+    ];
+    const noflag = feats.find((x) => (x.attributes as Record<string, unknown>).CASE_NUM === 'NOFLAG')!;
+    delete (noflag.attributes as Record<string, unknown>).CONF_FLAG;
+    const r = parseArcgisReport({ features: feats }, ds);
+    expect(r.items.map((i) => i.externalId)).toEqual(['KEPT-N', 'KEPT-BLANK']);
+    for (const v of truthy) expect(isConfidential(v), String(v)).toBe(true);
+    for (const v of ['N', 'NO', '0', 0, false, '', null, undefined]) expect(isConfidential(v), String(v)).toBe(false);
+  });
+});
+
+describe('review P1-B: an address column never carries a name into the summary', () => {
+  const STRINGS = ['4521 MARIA LOPEZ FENCE', '2026 SMITH RESIDENCE REMODEL', '1203 OAK ST - JOHN SMITH RESIDENCE'];
+
+  it('reviewer reproduction (Arlington FOLDERNAME, through runScan): only the shared site-address rule output is stored', async () => {
+    const ds = arc('arcgis-arlington-permits');
+    const feats = STRINGS.map((v, i) => feature(ds.id, { FOLDERSEQUENCE: `S${i}`, FOLDERNAME: v }));
+    const { fetch: doFetch } = portal({ [ds.id]: { features: feats } });
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    await runScan({ now: NOW, adapters: [adapterOf(ds.id)], fetchImpl: doFetch }, asDb(f));
+    const by = Object.fromEntries(samplesOf(f).map((x) => [x.externalId, x]));
+    expect(by['RB:26:S0'].summary).toBe('Residential Roofing | Issued');
+    expect(by['RB:26:S1'].summary).toBe('Residential Roofing | Issued');
+    expect(by['RB:26:S2'].summary).toBe('Residential Roofing | Issued | 1203 OAK ST');
+    expect(JSON.stringify(f.tables.holler_source_samples)).not.toMatch(/MARIA|LOPEZ|SMITH|RESIDENCE|REMODEL|FENCE/);
+  });
+
+  it.each([...ARC_IDS.filter((id) => (arc(id).addressFields ?? []).length), 'socrata-dallas-permits'])(
+    '%s: the same strings in its address column never reach a stored record',
+    async (id) => {
+      const isDallas = id === 'socrata-dallas-permits';
+      const addrField = isDallas ? 'street_address' : arc(id).addressFields![0];
+      const idField = isDallas ? 'permit_number' : arc(id).idFields ? 'FOLDERSEQUENCE' : arc(id).idField;
+      const { fetch: doFetch } = isDallas
+        ? portal({}, STRINGS.map((v, i) => ({ ...DALLAS_ROW, permit_number: `D${i}`, street_address: v })))
+        : portal({ [id]: { features: STRINGS.map((v, i) => feature(id, { [idField]: `S${i}`, [addrField]: v })) } });
+      const f = new FakeDb({ holler_profiles: PROFILES });
+      await runScan({ now: NOW, adapters: [adapterOf(id)], fetchImpl: doFetch }, asDb(f));
+      expect(samplesOf(f).length, id).toBe(3);
+      expect(JSON.stringify(f.tables.holler_source_samples), id).not.toMatch(/MARIA|LOPEZ|SMITH|RESIDENCE|REMODEL|FENCE/);
+    },
+  );
+
+  it.each(IDS)('%s: a person-like value planted in each printed summary column is never stored', async (id) => {
+    const isDallas = id === 'socrata-dallas-permits';
+    const fields = isDallas ? dallas.summaryFields : arc(id).summaryFields;
+    for (const field of fields) {
+      resetArcgisFieldCache();
+      const planted = 'Maria Lopez Gonzalez';
+      const { fetch: doFetch } = isDallas
+        ? portal({}, [{ ...DALLAS_ROW, [field]: planted }])
+        : portal({ [id]: { features: [feature(id, { [field]: planted })] } });
+      const f = new FakeDb({ holler_profiles: PROFILES });
+      await runScan({ now: NOW, adapters: [adapterOf(id)], fetchImpl: doFetch }, asDb(f));
+      expect(JSON.stringify(f.tables.holler_source_samples ?? []), `${id} ${field}`).not.toMatch(/Maria|Lopez|Gonzalez/);
+    }
+  });
+});
+
+describe('review P2-C: an HTML page or an empty body (HTTP 200) is an error, never "ok"', () => {
+  it.each([['html', 'response was not JSON'], ['empty', 'empty response body']] as const)('every coverage source, %s body: error "%s", check not_json', async (kind, text) => {
+    const layers = Object.fromEntries(ARC_IDS.map((id) => [id, { features: kind } as LayerSpec]));
+    const { fetch: doFetch } = portal(layers, kind);
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const r = await runScan({ now: NOW, adapters: IDS.map(adapterOf), fetchImpl: doFetch }, asDb(f));
+    for (const id of IDS) {
+      const src = r.sources.find((x) => x.id === id)!;
+      expect(src.status, id).toBe('error');
+      expect(src.error, id).toContain(text);
+    }
+    const health = f.tables.holler_source_health.map((h) => ({ ...h, last_record_at: null })) as unknown as Parameters<typeof probationOverview>[1];
+    const rows = probationOverview(IDS.map((id) => ({ id, probation: true })), health, () => null);
+    for (const row of rows) expect(row.check, row.id).toBe('not_json');
+    expect(f.tables.holler_source_samples ?? []).toEqual([]);
+  });
+
+  it('the probe says why too', async () => {
+    const { fetch: doFetch } = portal({ 'arcgis-tempe-permits': { features: 'html' } }, 'empty');
+    expect(await runCoverageProbe('arcgis-tempe-permits', doFetch, NOW)).toMatchObject({ schema: 'unreachable', message: 'response was not JSON' });
+    expect(await runCoverageProbe('socrata-dallas-permits', doFetch, NOW)).toMatchObject({ schema: 'unreachable', message: 'empty response body' });
+  });
+
+  it('check states: ok needs a record date; a run with no row ever is no_rows', () => {
+    const at = '2026-11-22T10:00:00Z';
+    const h = { source: 'x', last_run_at: at, last_success_at: at, last_error: null };
+    expect(probationCheck(undefined)).toBe('not_run');
+    expect(probationCheck({ ...h, last_record_at: null })).toBe('no_rows');
+    expect(probationCheck({ ...h, last_record_at: at })).toBe('ok');
+    expect(probationCheck({ ...h, last_error: 'error: x: no rows in the last 30 days: newest is 2018-03-15 (500 rows read)' })).toBe('no_recent_rows');
+    expect(probationCheck({ ...h, last_error: 'error: x: HTTP 503' })).toBe('error');
+  });
+});
+
+describe('review P2-D: Dallas rows that are all older than the window', () => {
+  const OLD = Array.from({ length: 500 }, (_, i) => ({ ...DALLAS_ROW, permit_number: `OLD-${i}`, issued_date: '03/15/18' }));
+
+  it('reviewer reproduction: 500 rows issued 03/15/18: error "no rows in the last 30 days: newest is 2018-03-15", check no_recent_rows, no samples', async () => {
+    const { fetch: doFetch } = portal({}, OLD);
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const r = await runScan({ now: NOW, adapters: [adapterOf('socrata-dallas-permits')], fetchImpl: doFetch }, asDb(f));
+    expect(r.sources[0].status).toBe('error');
+    expect(r.sources[0].error).toContain('socrata-dallas-permits: no rows in the last 30 days: newest is 2018-03-15 (500 rows read)');
+    expect(r.sources[0].logs.join(' ')).not.toMatch(/0 matched a trade/);
+    expect(f.tables.holler_source_samples ?? []).toEqual([]);
+    const h = f.tables.holler_source_health.find((x) => x.source === 'socrata-dallas-permits')!;
+    expect(probationCheck(h as never)).toBe('no_recent_rows');
+  });
+
+  it('the probe uses the scan clock: freshness stale with the newest date, no mapped rows from 2018', async () => {
+    const { fetch: doFetch } = portal({}, OLD.slice(0, 5), 397_000);
+    const out = await runCoverageProbe('socrata-dallas-permits', doFetch, NOW);
+    expect(out).toMatchObject({ freshness: 'stale', freshnessNote: 'no rows in the last 30 days: newest is 2018-03-15', parsedRows: 0, mapped: [] });
+  });
+});
+
+describe('review P2-F: a full page is reported (row cap), never silent', () => {
+  it('ArcGIS: 500 features or exceededTransferLimit: a probation note on the scan_runs row, samples still written, check row_cap, not a failure', async () => {
+    const id = 'arcgis-phoenix-permits';
+    const many = Array.from({ length: 500 }, (_, i) => feature(id, { PERMIT_NUMBER: `PR-${i}` }));
+    for (const spec of [{ features: many }, { features: [feature(id)], extra: { exceededTransferLimit: true } }] as LayerSpec[]) {
+      resetArcgisFieldCache();
+      const { fetch: doFetch } = portal({ [id]: spec });
+      const f = new FakeDb({ holler_profiles: PROFILES });
+      const r = await runScan({ now: NOW, adapters: [adapterOf(id)], fetchImpl: doFetch }, asDb(f));
+      expect(r.sources[0].status).toBe('ok');
+      expect(r.sources[0].note).toMatch(/^probation note: row cap reached: \d+ rows read \(limit 500\); older rows in the window were not read/);
+      const run = f.tables.holler_scan_runs.find((x) => x.source === id)!;
+      expect(isProbationNote(run.error)).toBe(true);
+      expect((f.tables.holler_source_samples ?? []).length).toBeGreaterThan(0);
+      const h = f.tables.holler_source_health.find((x) => x.source === id)!;
+      expect(h.last_error).toBeNull();
+      expect(probationCheck(h as never, run as never)).toBe('row_cap');
+      // The source-state rules read the note as a note, not a failure.
+      const st = computeSourceStates({ adapters: [{ id, kind: 'permit', cadenceMinutes: 360, missingEnv: [] }], health: [h as never], runs: [run as never, run as never, run as never], now: NOW });
+      expect(st[0].state).toBe('healthy');
+    }
+  });
+
+  it('Dallas: a full page of 500 is noted too', async () => {
+    const rows = Array.from({ length: 500 }, (_, i) => ({ ...DALLAS_ROW, permit_number: `N-${i}` }));
+    const { fetch: doFetch } = portal({}, rows);
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const r = await runScan({ now: NOW, adapters: [adapterOf('socrata-dallas-permits')], fetchImpl: doFetch }, asDb(f));
+    expect(r.sources[0].note).toMatch(/row cap reached: 500 rows read \(limit 500\)/);
+  });
+
+  it('the probe counts the window against the row cap; the sources report shows the note', async () => {
+    const { fetch: doFetch } = portal({ 'arcgis-tempe-permits': { count: 1200 } }, [DALLAS_ROW], 1500);
+    expect(await runCoverageProbe('arcgis-tempe-permits', doFetch, NOW)).toMatchObject({ windowCount: 1200, rowCap: 500, rowCapNote: 'row cap reached: 1200 rows in the window, 700 would not be read per run' });
+    expect(await runCoverageProbe('socrata-dallas-permits', doFetch, NOW)).toMatchObject({ windowCount: 1500, rowCap: 500 });
+    const rows = probationOverview(
+      [{ id: 'arcgis-tempe-permits', probation: true }],
+      [{ source: 'arcgis-tempe-permits', last_run_at: NOW.toISOString(), last_success_at: NOW.toISOString(), last_error: null, last_record_at: NOW.toISOString() }],
+      () => 'phoenix',
+      [{ source: 'arcgis-tempe-permits', started_at: NOW.toISOString(), error: 'probation note: row cap reached: 500 rows read (limit 500); older rows in the window were not read' }],
+    );
+    expect(rows[0]).toMatchObject({ check: 'row_cap', note: expect.stringContaining('row cap reached') });
+    expect(isRunNote(rows[0].note)).toBe(true);
+  });
+});
+
+describe('review P2-E: a hanging probation portal never holds up live sources', () => {
+  it('live rows are written and matched before the probation source is given up; it then errors with "timeout" and stores nothing', async () => {
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const t0 = Date.now();
+    const writes: Array<[string, number]> = [];
+    const realFrom = f.from.bind(f);
+    (f as unknown as { from: (t: string) => unknown }).from = (t: string) => {
+      if (t === 'holler_signals' || t === 'holler_matches' || t === 'holler_source_samples') writes.push([t, Date.now() - t0]);
+      return realFrom(t);
+    };
+    const live: Adapter = {
+      id: 'live-dallas', label: 'Live', kind: 'permit', cadenceMinutes: 15, sourceUrl: 'https://example.com',
+      fetch: async () => [{ source: 'live-dallas', externalId: 'L1', kind: 'permit', title: 'Roof permit in Dallas', summary: null, url: 'https://example.com/1', categories: ['roofing'], severity: 1, occurredAt: '2026-11-22T10:00:00Z', lat: 32.78, lon: -96.8, state: 'TX', city: 'Dallas' }],
+    };
+    const hanging = { ...adapterOf('arcgis-houston-311'), fetch: () => new Promise<SignalInput[]>(() => {}) };
+    const r = await runScan({ now: NOW, adapters: [hanging, live], probationTimeoutMs: 400 }, asDb(f));
+    const firstLive = writes.find(([t]) => t === 'holler_signals')![1];
+    const firstMatch = writes.find(([t]) => t === 'holler_matches')![1];
+    expect(firstLive).toBeLessThan(300);
+    expect(firstMatch).toBeLessThan(300);
+    expect(f.tables.holler_signals.map((x) => x.external_id)).toEqual(['L1']);
+    expect(f.tables.holler_matches.length).toBeGreaterThan(0);
+    expect(r.sources.map((x) => x.id)).toEqual(['arcgis-houston-311', 'live-dallas']); // registry order kept
+    expect(r.sources[0]).toMatchObject({ status: 'error', error: 'timeout' });
+    expect(f.tables.holler_source_samples ?? []).toEqual([]);
+  });
+
+  it('limits: a probation source gets at most 12 s in all and 8 s per request', () => {
+    expect(PROBATION_TIMEOUT_MS).toBe(12_000);
+    expect(UNVERIFIED_REQUEST_TIMEOUT_MS).toBe(8_000);
+    for (const id of ARC_IDS) expect(requestTimeoutMs(arc(id))).toBe(8_000);
+    expect(requestTimeoutMs(arc('arcgis-dc-permits'))).toBe(15_000);
+  });
+});
+
+describe('review P3 items', () => {
+  it('G: the Dallas date parser is strict: impossible days and free text are null, never a lenient guess', () => {
+    for (const v of ['02/30/26', '02/29/26', '13/01/26', '2026-02-30', 'pending', 'Nov 16 2026', '11-16-26']) expect(recordDateIso(v, dallas), v).toBeNull();
+    expect(recordDateIso('2026-11-12', dallas)).toBe('2026-11-12T06:00:00.000Z');
+    expect(recordDateIso('2026-11-12T00:00:00.000', dallas)).toBe('2026-11-12T06:00:00.000Z');
+    expect(recordDateIso('02/28/26', dallas)).toBe('2026-02-28T06:00:00.000Z');
+  });
+
+  it('H: a Texas ZIP far from Dallas (El Paso 79901) is not placed', () => {
+    const r = parseSocrataReport([{ ...DALLAS_ROW, zip_code: '79901' }, { ...DALLAS_ROW, permit_number: 'FW', zip_code: '76102' }], dallas);
+    expect([r.items[0].lat, r.items[0].lon]).toEqual([null, null]);
+    expect(r.items[1].lat).toBeCloseTo(32.75, 1); // Fort Worth, inside 40 miles
+  });
+
+  it('I: the probe asks for dated rows only and uses 10 s requests', async () => {
+    const { fetch: doFetch, urls } = portal({});
+    await runCoverageProbe('arcgis-phoenix-permits', doFetch, NOW);
+    expect(new URL(rowsUrl(urls)).searchParams.get('where')).toBe('PERMIT_ISSUE_DATE IS NOT NULL');
+    const { readFileSync } = await import('node:fs');
+    expect(readFileSync('lib/signals/coverage-probe.ts', 'utf8')).toMatch(/const TIMEOUT_MS = 10000;/);
+    expect(readFileSync('app/api/admin/coverage-probe/route.ts', 'utf8')).toMatch(/maxDuration = 60/);
+  });
+
+  it('K: probation sources are never judged by an owner alert (monitor), only by the daily report and the sources list', async () => {
+    const ids = monitoredSourceIds(ALL_ADAPTERS, () => []);
+    for (const id of IDS) expect(ids.has(id), id).toBe(false);
+    expect(ids.has('socrata-chicago-permits')).toBe(true);
+    const { readFileSync } = await import('node:fs');
+    expect(readFileSync('app/api/cron/health/route.ts', 'utf8')).toMatch(/monitoredSourceIds\(ALL_ADAPTERS/);
+  });
+
+  it('L: every schema-unverified dataset is on probation (removing the flag alone cannot make an unchecked source live)', () => {
+    const unverified = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.schemaUnverified);
+    expect(unverified.length).toBe(IDS.length);
+    for (const d of unverified) expect(d.probation, d.id).toBe(true);
+  });
+
+  it('M: Dallas asks only for its configured columns ($select); a refused column is a named schema mismatch', async () => {
+    const { fetch: doFetch, urls } = portal({});
+    const { c } = ctx(doFetch);
+    await buildSocrataAdapter(dallas).fetch(c);
+    const sel = new URL(rowsUrl(urls)).searchParams.get('$select')!.split(',');
+    expect(sel.sort()).toEqual(['contractor', 'issued_date', 'land_use', 'permit_number', 'permit_type', 'street_address', 'value', 'work_description', 'zip_code']);
+    expect(socrataSelectColumns(dallas).sort()).toEqual(sel);
+    const bad = portal({}, 'error');
+    const x = ctx(bad.fetch);
+    expect(await buildSocrataAdapter(dallas).fetch(x.c)).toEqual([]);
+    expect(x.logs.join(' ')).toMatch(/^error: schema mismatch: the portal refused the column list \(socrata-dallas-permits: HTTP 400; No such column: issued_date\)/);
   });
 });
 

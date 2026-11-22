@@ -54,3 +54,25 @@ export function schemaMismatchLog(sourceId: string, problem: string, rows: reado
 export function isSchemaMismatch(error: string | null | undefined): boolean {
   return typeof error === 'string' && error.includes(`${SCHEMA_MISMATCH}:`);
 }
+
+/**
+ * Review P2-C: a portal that answers 200 with an HTML page or an empty body is broken, not quiet. Reads the body as text once and says
+ * which: 'empty response body' or 'response was not JSON'. Never throws (a body that cannot even be read is 'response was not JSON').
+ */
+export async function readJsonBody(res: Response): Promise<{ ok: true; body: unknown } | { ok: false; problem: 'empty response body' | 'response was not JSON' }> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { ok: false, problem: 'response was not JSON' };
+  }
+  if (!text.trim()) return { ok: false, problem: 'empty response body' };
+  try {
+    return { ok: true, body: JSON.parse(text) as unknown };
+  } catch {
+    return { ok: false, problem: 'response was not JSON' };
+  }
+}
+
+/** Per-request limit for a schema-unverified (probation) source: an unchecked portal must not hold the scan (review P2-E). */
+export const UNVERIFIED_REQUEST_TIMEOUT_MS = 8000;
