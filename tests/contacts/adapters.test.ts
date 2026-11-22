@@ -47,10 +47,14 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
 
 describe('Austin permits (contractor_company_name)', () => {
   const items = parseSocrata(fx('socrata-austin-permits-contacts.json'), ds('socrata-austin-permits'));
-  it('FIX-C: "Lone Star Roofing LLC" is no longer an organisation ("Star" is a listed given name), so only the job site stays', () => {
+  it('round 10: "Lone Star Roofing LLC" is an organisation again (an entity marker, "Star" is only a word here), so the company is kept with the job site', () => {
     expect(items).toHaveLength(3);
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '4812 AVENUE H', city: 'AUSTIN', state: 'TX', zip: '78751', phone: null, email: null, website: null },
+      {
+        role: 'contractor', name: 'Lone Star Roofing LLC', attn: null, address: '1200 W Ben White Blvd Ste 200', city: 'AUSTIN', state: null, zip: '78704',
+        phone: '512-555-0142', email: null, website: null,
+      },
     ]);
   });
   it('keeps the contractor company with its business phone and address, and the job site; an address line with a person is dropped', () => {
@@ -142,11 +146,9 @@ describe('USAspending awards (Recipient Name)', () => {
   });
 });
 
-describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
-  it('no ArcGIS layer has a contact spec (their fields could not be re-read), so queries are unchanged', () => {
-    for (const d of ARCGIS_DATASETS) expect(d.contacts, d.id).toBeUndefined();
-    const raleigh = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
-    expect(buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z')).get('outFields')).not.toMatch(/contractor|owner/i);
+describe('ArcGIS: generic contact support', () => {
+  it('only permit layers carry a spec (round 10: tests/contacts/round10-sources.test.ts), never a violation, inspection or business layer', () => {
+    for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit') expect(d.contacts, d.id).toBeUndefined();
   });
   it('a TEST-ONLY spec (hypothetical columns) extracts the company and the site, never the owner', () => {
     const base = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
@@ -167,7 +169,7 @@ describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
     ]);
     expectAbsent(items, ['PERSONNAME', '919-555-0123']);
     // and the public part is identical with or without the spec
-    const plain = parseArcgis(fx('arcgis-synthetic-contacts.json'), base);
+    const plain = parseArcgis(fx('arcgis-synthetic-contacts.json'), { ...base, contacts: undefined });
     const { contacts: _c, ...pub } = items[0];
     void _c;
     expect(pub).toEqual(plain[0]);
@@ -175,9 +177,13 @@ describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
 });
 
 describe('contact specs: only verified datasets, only explicit company columns', () => {
-  it('exactly the five datasets whose columns were read on 2026-11-17 carry a spec, each with its verified URL', () => {
+  it('the five datasets read on 2026-11-17 and the round 10 permit sources carry a spec, each with its verified URL', () => {
     const withSpec = SOCRATA_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort();
-    expect(withSpec).toEqual(['socrata-austin-inspections', 'socrata-austin-permits', 'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits']);
+    expect(withSpec).toEqual([
+      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-batonrouge-permits', 'socrata-buffalo-permits', 'socrata-chicago-business',
+      'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-la-permits', 'socrata-montgomery-permits', 'socrata-nola-permits',
+      'socrata-nyc-permits', 'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-permits',
+    ]);
     for (const id of withSpec) {
       const d = ds(id);
       expect(d.contacts!.verifiedUrl).toBe(`https://${d.domain}/api/views/${d.datasetId}.json`);
@@ -187,9 +193,10 @@ describe('contact specs: only verified datasets, only explicit company columns',
   it('no 311, violation, event or other no-contact feed has a spec', () => {
     for (const d of SOCRATA_DATASETS) if (['311', 'violation', 'event-permit'].includes(d.subtype)) expect(d.contacts, d.id).toBeUndefined();
   });
-  it('no spec names an owner, applicant, tenant, description or personal full-name column', () => {
+  it('the five 2026-11-17 specs name no owner, applicant, tenant, description or personal full-name column (round 10 specs: round10-sources.test.ts)', () => {
     const bad = /owner|applicant|tenant|desc|full_name|first_name|last_name|comment|requestor|complainant/i;
-    for (const [id, spec] of Object.entries(CONTACT_SPECS)) {
+    const original = ['socrata-chicago-permits', 'socrata-austin-permits', 'socrata-chicago-inspections', 'socrata-austin-inspections', 'socrata-chicago-business'];
+    for (const [id, spec] of Object.entries(CONTACT_SPECS).filter(([k]) => original.includes(k))) {
       const cols = [
         ...(spec.site?.addressFields ?? []), spec.site?.cityField, spec.site?.stateField, spec.site?.zipField,
         ...(spec.orgs ?? []).flatMap((o) => [...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField]),

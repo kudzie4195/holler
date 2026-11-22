@@ -75,7 +75,8 @@ describe('arcgis query builder', () => {
     expect(p.get('outSR')).toBe('4326');
     expect(p.get('f')).toBe('json');
     expect(p.get('outFields')).toContain('permitnum');
-    expect(p.get('outFields')).not.toMatch(/owner/i);
+    // Round 10: Raleigh's contact spec reads the parcel owner as an organisation name only; no owner phone or e-mail column is requested.
+    expect(p.get('outFields')).not.toMatch(/owner(phone|email|tel)|e-?mail/i);
   });
   it('dateOnly fields use date literals', () => {
     const d: ArcgisDataset = { ...ds('arcgis-raleigh-permits'), dateType: 'dateOnly' };

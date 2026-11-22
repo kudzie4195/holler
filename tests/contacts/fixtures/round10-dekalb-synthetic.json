@@ -1,0 +1,64 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "applicationNumber": "BP-2026-1001",
+    "issuedDateTime": 1762905600000,
+    "WorkTypeDescription": "Residential Air Conditioning",
+    "OccupancyTypeDescription": "Single Family",
+    "statusDescription": "Issued",
+    "location": "2540 Candler Rd",
+    "primaryContactName": "Peachtree Heating & Air LLC",
+    "primaryContactPhone": "404-555-0142",
+    "primaryContactEMailAddress": "service@peachtreeheating.example",
+    "primaryContactType": "Contractor",
+    "calculatedValuation": 8500,
+    "declaredValuation": 9000
+   },
+   "geometry": {
+    "x": -84.25,
+    "y": 33.77
+   }
+  },
+  {
+   "attributes": {
+    "applicationNumber": "BP-2026-1002",
+    "issuedDateTime": 1762905600000,
+    "WorkTypeDescription": "Residential Air Conditioning",
+    "OccupancyTypeDescription": "Single Family",
+    "statusDescription": "Issued",
+    "location": "101 Clairemont Ave",
+    "primaryContactName": "Latoya Brown",
+    "primaryContactPhone": "404-555-0177",
+    "primaryContactEMailAddress": "latoya.brown@mail.example",
+    "primaryContactType": "Owner",
+    "calculatedValuation": 0,
+    "declaredValuation": 5200
+   },
+   "geometry": {
+    "x": -84.25,
+    "y": 33.77
+   }
+  },
+  {
+   "attributes": {
+    "applicationNumber": "BP-2026-1003",
+    "issuedDateTime": 1762905600000,
+    "WorkTypeDescription": "Residential Air Conditioning",
+    "OccupancyTypeDescription": "Single Family",
+    "statusDescription": "Issued",
+    "location": "330 Memorial Dr",
+    "primaryContactName": "Decatur Rental Holdings LLC",
+    "primaryContactPhone": "404-555-0188",
+    "primaryContactEMailAddress": "",
+    "primaryContactType": "Owner",
+    "calculatedValuation": null,
+    "declaredValuation": null
+   },
+   "geometry": {
+    "x": -84.25,
+    "y": 33.77
+   }
+  }
+ ]
+}

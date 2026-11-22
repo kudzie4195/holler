@@ -1,0 +1,44 @@
+[
+ {
+  "permit_number": "BLD2026-10001",
+  "issue_permit_date": "2026-11-12T00:00:00.000",
+  "worktype": "Roof",
+  "application_type": "Residential Re-roof",
+  "project_name": "Re-roof",
+  "permit_address": "1520 E Colonial Dr",
+  "estimated_cost": "14200",
+  "contractor_name": "Summit Roofing Inc",
+  "contractor_phone_number": "407-555-0142",
+  "contractor_address": "900 Orange Ave",
+  "property_owner_name": "Meridian Property Holdings LLC",
+  "parcel_owner_name": "Meridian Property Holdings LLC"
+ },
+ {
+  "permit_number": "BLD2026-10002",
+  "issue_permit_date": "2026-11-12T00:00:00.000",
+  "worktype": "Roof",
+  "application_type": "Residential Re-roof",
+  "project_name": "Re-roof",
+  "permit_address": "77 Lake Eola Dr",
+  "estimated_cost": "9800",
+  "contractor_name": "Maria Lopez",
+  "contractor_phone_number": "407-555-0177",
+  "contractor_address": "12 Pine St",
+  "property_owner_name": "Maria Lopez",
+  "parcel_owner_name": "LOPEZ MARIA & JOHN"
+ },
+ {
+  "permit_number": "BLD2026-10003",
+  "issue_permit_date": "2026-11-12T00:00:00.000",
+  "worktype": "Roof",
+  "application_type": "Residential Re-roof",
+  "project_name": "Re-roof",
+  "permit_address": "410 W Central Blvd",
+  "estimated_cost": "0",
+  "contractor_name": "",
+  "contractor_phone_number": "407-555-0188",
+  "contractor_address": "",
+  "property_owner_name": "Danny Smith",
+  "parcel_owner_name": ""
+ }
+]

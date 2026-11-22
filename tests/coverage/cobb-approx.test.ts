@@ -57,7 +57,8 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
           expect(String(s.lon).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(2);
           expect(s.data?.loc).toBe('approx');
           expect(s.data?.approxLocation).toBe(true);
-          expect(s.contacts).toBeUndefined();
+          // Round 10: the layers have street columns, so a row may carry the job-site address, and nothing else (no company, phone or email).
+          for (const c of s.contacts ?? []) expect(c).toMatchObject({ role: 'site', name: '', phone: null, email: null, website: null });
         }
       });
 

@@ -1,0 +1,24 @@
+[
+ {
+  "permitnum": "6900001-CN",
+  "issueddate": "2026-11-12T00:00:00.000",
+  "permittypedesc": "Construction",
+  "permitclass": "Single Family/Duplex",
+  "description": "Replace roof",
+  "estprojectcost": "12000",
+  "originaladdress1": "1234 5TH AVE N",
+  "originalzip": "98109",
+  "contractorcompanyname": "Rainier Roofing Company"
+ },
+ {
+  "permitnum": "6900002-CN",
+  "issueddate": "2026-11-12T00:00:00.000",
+  "permittypedesc": "Construction",
+  "permitclass": "Single Family/Duplex",
+  "description": "Replace roof",
+  "estprojectcost": "0",
+  "originaladdress1": "500 NE 65TH ST",
+  "originalzip": "98115",
+  "contractorcompanyname": "OWNER"
+ }
+]

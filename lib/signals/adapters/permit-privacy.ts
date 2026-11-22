@@ -222,6 +222,20 @@ export function summaryPart(field: string, raw: string): string {
   return v;
 }
 
+/**
+ * A dataset with two money columns (DeKalb calculatedValuation and declaredValuation) must print one "job value", not two: only the
+ * first "$N job value" part is kept, in the order the config lists the columns. Other parts pass through unchanged.
+ */
+export function keepFirstJobValue(parts: string[]): string[] {
+  let seen = false;
+  return parts.filter((p) => {
+    if (!/ job value$/.test(p)) return true;
+    if (seen) return false;
+    seen = true;
+    return true;
+  });
+}
+
 // ---- Permit titles ----------------------------------------------------------------------------------------------------------------
 
 /** Column names that hold a type or class (a short code-like value) rather than a description. */
