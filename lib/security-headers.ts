@@ -15,3 +15,28 @@ export const SECURITY_HEADERS: { key: string; value: string }[] = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()' },
 ];
+
+/**
+ * Pages whose URL carries a single-use or signed token (?t=, ?token=, ?token_hash=). They get Referrer-Policy: no-referrer, so not
+ * even a same-origin click sends the token URL on as a Referer (review P2-2). lib/email/html-page.ts sets the same header itself, but
+ * a next.config.ts header with the same key replaces it, so the override lives here and comes AFTER the global rule: for two
+ * matching entries with the same key, the last one wins (node_modules/next/dist/docs/01-app/03-api-reference/05-config/
+ * 01-next-config-js/headers.md, "Header Overriding Behavior").
+ */
+export const TOKEN_PAGE_PATHS = [
+  '/api/auth/verify',
+  '/api/feedback/outcome',
+  '/api/cron/notify/unsubscribe',
+  '/api/cron/lifecycle/unsubscribe',
+  '/request/confirm',
+  '/request/close',
+  '/auth/confirm',
+  '/auth/confirm/continue',
+] as const;
+
+export const NO_REFERRER = [{ key: 'Referrer-Policy', value: 'no-referrer' }];
+
+/** The full headers() list: the global rule first, then the token pages (last match wins). */
+export function securityHeaderRules(): { source: string; headers: { key: string; value: string }[] }[] {
+  return [{ source: '/:path*', headers: SECURITY_HEADERS }, ...TOKEN_PAGE_PATHS.map((source) => ({ source, headers: NO_REFERRER }))];
+}
