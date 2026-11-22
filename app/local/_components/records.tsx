@@ -1,4 +1,5 @@
 import { sourceInfo } from '@/lib/seo/sources';
+import { stripNotes } from '@/lib/signals/carry';
 import type { SectionDef } from '@/lib/seo/sections';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { fmtItemTime } from '@/lib/seo/view';
@@ -27,7 +28,8 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
           item.title
         )}
       </p>
-      {!ask && item.summary ? <p className="mt-1 line-clamp-2 text-[0.9375rem] text-muted">{item.summary}</p> : null}
+      {/* Holler's own notes (the heat count, "Also cited") are member-feed wording, never printed on a public page (round 19 review P3 item 11). */}
+      {!ask && stripNotes(item.summary) ? <p className="mt-1 line-clamp-2 text-[0.9375rem] text-muted">{stripNotes(item.summary)}</p> : null}
       <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         <time dateTime={item.occurredAt} className="font-mono text-xs uppercase tracking-[0.04em] text-ink">
           {fmtItemTime(item.occurredAt, asOf)}

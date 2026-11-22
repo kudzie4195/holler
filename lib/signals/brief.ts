@@ -222,6 +222,8 @@ interface WhyCtx {
   awardWork: string | null | undefined;
   /** Code violation: the short description after the title's ": " (40 characters or fewer), lower-cased. Null when it names nothing ("property violation"). */
   violation: string | null;
+  /** Storm report: the title is a measured wind gust (isGustReport). False without a title. */
+  gust?: boolean;
 }
 type WhyFn = (work: string, c: WhyCtx) => string;
 
@@ -331,7 +333,8 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   },
   'storm-report': {
     act_now: (w) => `A storm report was filed nearby; ${w} may follow.`,
-    coming_soon: (w) => `A wind gust was reported nearby; ${w} may follow.`,
+    // Review P2-3: "a gust" only on a gust row; a wind damage heads-up (line 39) or a card without its title says what it is.
+    coming_soon: (w, c) => (c.gust ? `A wind gust was reported nearby; ${w} may follow.` : `A storm report was filed nearby; ${w} may follow.`),
   },
   disaster: {
     coming_soon: (w) => `A disaster was declared near you; ${w} may come up.`,
@@ -442,6 +445,8 @@ export interface ReasonCopy {
 
 export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   'heat-per-building': {
+    // the card only: a complaint before the third (owner call 11 puts it in the feed) keeps the 311 family's sentences
+    labels: ['act_now'],
     why: 'Three or more heat complaints were filed at this building in 48 hours.',
     next: "Contact the building's owner or managing agent.",
     unknown: "the building's staff may already be fixing it",
@@ -462,7 +467,7 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
     unknown: "the building's own staff may fix it",
   },
   'act-private-graffiti': {
-    why: 'Graffiti on private property was reported; owners are usually told to remove it.',
+    why: 'Graffiti on private property was reported through 311.',
     next: 'Offer the owner removal or repainting.',
     unknown: 'the owner may clean it up without help',
   },
@@ -527,7 +532,8 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
     unknown: 'damage is not confirmed, and it may not reach you',
   },
   'spc-wind-damage': { why: 'A wind damage report was filed nearby; {work} may be needed.', next: 'Check the area and offer help to owners on affected streets.' },
-  'spc-hail': { next: 'Check the area and offer inspections to owners nearby.' },
+  // Review P3 item 8: the inspection step only on an alert; a feed-only hail card (auto glass and body under 1.75 inch) keeps the family's step.
+  'spc-hail': { labels: ['act_now', 'coming_soon'], next: 'Check the area and offer inspections to owners nearby.' },
   'act-storm-report': { next: 'Check the area and offer inspections to owners nearby.' },
   'soon-storm-gust': { next: 'Watch for reports of trees or limbs down nearby.' },
   'mi-airport-delay': { why: 'An airport delay was listed nearby; it changes when arrivals land.', next: 'Watch the airport status if you work airport pickups.' },
@@ -629,6 +635,9 @@ export interface Brief {
   uncertain: string;
 }
 
+/** A storm report whose title is a measured wind gust ("60 mph wind gust reported near ..."), not a damage, hail or tornado report. */
+export const isGustReport = (title: string | null | undefined): boolean => /\bwind gust\b/i.test(title ?? '');
+
 /** The brief for one record, one label and one trade. Pure, total: any input gives a complete brief. */
 export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): Brief {
   const family = briefFamilyOf(input);
@@ -639,6 +648,7 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     permitType: family === 'permit' ? permitTypeOf(input.title) : undefined,
     awardWork: family === 'federal-award' ? awardWorkOf(input.title) : undefined,
     violation: family === 'violation' ? violationOrderOf(input.title) : null,
+    gust: family === 'storm-report' && isGustReport(input.title),
   };
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
@@ -648,6 +658,8 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   const why = routed ?? reasonWhy ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
+  // Review P2-3: "a gust was reported" is said of gust rows only (a wind damage report is a heads-up too since line 39).
+  if (family === 'storm-report' && !ctx.gust) merged.known = u.base.known;
   if (reason?.copy.unknown) merged.unknown = reason.copy.unknown;
   // Damage: the brief never says "no damage is reported" (a word list cannot prove a record has no damage). A storm report or quake whose
   // own text reports damage says what it mentions, as unconfirmed. A weather alert is a forecast, so it never prints a mention.
@@ -814,6 +826,8 @@ export function allBriefStrings(): string[] {
       for (const src of ['nws', 'spc', 'usgs']) {
         for (const summary of [undefined, 'Nothing else.', 'Trees down on homes.', 'Power lines down.', 'Roof damage.', 'Some damage.', 'Destroyed.', 'Flooding.', 'Injuries.', 'Debris.']) {
           out.push(briefFor({ source: src, label, trade, title: 'T', summary }).uncertain);
+          // a measured gust (review P2-3: only these say "a gust was reported")
+          if (src === 'spc') out.push(...Object.values(briefFor({ source: src, label, trade, title: '60 mph wind gust reported near X', summary })).filter((v): v is string => typeof v === 'string'));
         }
       }
     }

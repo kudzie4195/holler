@@ -177,9 +177,9 @@ describe('the label rules decide who sees a card (no rules bug: a roofer cannot 
     expect(m(['roofing'])).toBeNull();
     expect(m(['roofing', 'siding-gutters', 'painting'])).toBeNull();
   });
-  it('a pest-control member gets it as a heads-up; so does commercial cleaning (round 19 lines 19 and 20, owner call 6)', () => {
+  it('a pest-control member gets it as a heads-up; commercial cleaning as a feed item (round 19 lines 19 and 20, owner call 6 NO)', () => {
     expect(m(['pest-control'])?.label).toBe('coming_soon');
-    expect(m(['janitorial-commercial'])?.label).toBe('coming_soon');
+    expect(m(['janitorial-commercial'])?.label).toBe('market_insight');
   });
   it('the FIXTURE record is tagged with trades the rules give it to (live inspections carry more tags, see the review P1-3 tests in brief.test.ts)', () => {
     expect(inspection.signal.categories.every((c) => ['pest-control', 'cleaning', 'janitorial-commercial'].includes(c))).toBe(true);
@@ -347,7 +347,8 @@ describe('mobile, locked member: the brief carries no record text (review R2-2)'
     const lockedAward = locked.find((a) => a.source === 'usaspending')!;
     expect(lockedAward.brief.why).toBe(briefFor({ source: 'usaspending', label: 'market_insight', trade: 'plumbing' }).why);
     const lockedStorm = locked.find((a) => a.source === 'spc')!;
-    expect(lockedStorm.brief.uncertain).toBe('High confidence a gust was reported; damage is not confirmed.');
+    // review P2-3: without its title a card cannot know the report is a gust, so it says what every storm report is
+    expect(lockedStorm.brief.uncertain).toBe('High confidence a storm report was filed; damage is not confirmed.');
   });
 });
 

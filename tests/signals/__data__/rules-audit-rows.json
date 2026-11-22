@@ -326,6 +326,28 @@
 "lon": -87.6241024562435
 },
 {
+"id": 597,
+"source": "socrata-chicago-311",
+"kind": "civic",
+"title": "311 request in Chicago: Graffiti Removal Request",
+"summary": "Graffiti Removal Request | Canceled | 60638",
+"categories": [
+"painting",
+"cleaning"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-17T09:15:35+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "v6vf-nfxy",
+"subtype": "311"
+},
+"lat": 41.79659400094,
+"lon": -87.754923000002
+},
+{
 "id": 744,
 "source": "socrata-chicago-inspections",
 "kind": "civic",
@@ -662,6 +684,174 @@
 "lon": -97.81488946
 },
 {
+"id": 2268,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:31:57+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.2894613,
+"lon": -97.75626411
+},
+{
+"id": 2269,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:28:34+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.21820418,
+"lon": -97.69980177
+},
+{
+"id": 2270,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Debris in Street",
+"summary": "TPW - Debris in Street | Austin Transportation and Public Works | Closed",
+"categories": [
+"junk-removal"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T18:20:23+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.29168238,
+"lon": -97.64081477
+},
+{
+"id": 2271,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Debris in Street",
+"summary": "TPW - Debris in Street | Austin Transportation and Public Works | Duplicate (closed)",
+"categories": [
+"junk-removal"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:30:29+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.43184243,
+"lon": -97.65273006
+},
+{
+"id": 2272,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Open",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:18:59+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.28852825,
+"lon": -97.75277404
+},
+{
+"id": 2273,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Open",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T17:14:55+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.27131457,
+"lon": -97.7220535
+},
+{
+"id": 2274,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T16:43:04+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.34304031,
+"lon": -97.76061289
+},
+{
+"id": 2275,
+"source": "socrata-austin-311",
+"kind": "civic",
+"title": "311 request in Austin: TPW - Tree Issue Right of Way",
+"summary": "TPW - Tree Issue Right of Way | Austin Transportation and Public Works | Closed",
+"categories": [
+"tree-service"
+],
+"state": "TX",
+"city": "Austin",
+"severity": 1,
+"occurred_at": "2026-11-16T16:25:23+00:00",
+"data": {
+"domain": "data.austintexas.gov",
+"dataset": "xwdj-i9he",
+"subtype": "311"
+},
+"lat": 30.27297248,
+"lon": -97.72887952
+},
+{
 "id": 2482,
 "source": "socrata-la-permits",
 "kind": "permit",
@@ -946,6 +1136,51 @@
 "lon": -87.587
 },
 {
+"id": 4258,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR PORCH SYSTEM",
+"summary": "REPAIR PORCH SYSTEM | OPEN | 3600 block of W GRENSHAW ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-16T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.867,
+"lon": -87.716
+},
+{
+"id": 4270,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: PROVIDE SIDEWALK SHED F/PROTCT",
+"summary": "PROVIDE SIDEWALK SHED F/PROTCT | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"concrete-paving"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
 "id": 4273,
 "source": "socrata-chicago-violations",
 "kind": "civic",
@@ -1055,6 +1290,142 @@
 },
 "lat": 41.961,
 "lon": -87.714
+},
+{
+"id": 4315,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR FLOOR",
+"summary": "REPAIR FLOOR | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"flooring"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4319,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR EXTERIOR WALL",
+"summary": "REPAIR EXTERIOR WALL | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4320,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR FENCE",
+"summary": "REPAIR FENCE | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"fencing",
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4322,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR INTERIOR STAIR SYSTEM",
+"summary": "REPAIR INTERIOR STAIR SYSTEM | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4328,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR/REPLACE SMOKE DETECTORS",
+"summary": "REPAIR/REPLACE SMOKE DETECTORS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 4329,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REPAIR EXTERIOR STAIR",
+"summary": "REPAIR EXTERIOR STAIR | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"general-contractor",
+"handyman"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
 },
 {
 "id": 4380,
@@ -1256,6 +1627,91 @@
 },
 "lat": 41.73,
 "lon": -87.55
+},
+{
+"id": 4650,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Public Place of Amusement",
+"summary": "Public Place of Amusement | Charges a Fee for Entertainment or Amusements or Recreational Activities",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.89,
+"lon": -87.63
+},
+{
+"id": 4653,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Tavern",
+"summary": "Tavern | Tavern - Consumption of Liquor on Premises",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.92,
+"lon": -87.68
+},
+{
+"id": 4679,
+"source": "socrata-chicago-business",
+"kind": "civic",
+"title": "New business license in Chicago: Package Goods",
+"summary": "Package Goods | Retail Sales of Packaged Liquor",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith",
+"pest-control",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-10T06:00:00+00:00",
+"data": {
+"domain": "data.cityofchicago.org",
+"dataset": "uupf-x98q",
+"subtype": "business"
+},
+"lat": 41.92,
+"lon": -87.64
 },
 {
 "id": 5462,
@@ -1729,6 +2185,34 @@
 "lon": -80.3766666665846
 },
 {
+"id": 15854,
+"source": "spc",
+"kind": "report",
+"title": "1.00 inch hail reported near 2 W Hollywood, FL",
+"summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"categories": [
+"roofing",
+"auto-glass",
+"auto-body",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Hollywood",
+"severity": 2,
+"occurred_at": "2026-11-18T04:10:00+00:00",
+"data": {
+"day": "2026-11-17",
+"type": "hail",
+"value": "100",
+"comments": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"hailInches": 1
+},
+"lat": 26.03,
+"lon": -80.19
+},
+{
 "id": 21949,
 "source": "socrata-nyc-311",
 "kind": "civic",
@@ -1817,6 +2301,34 @@
 "lon": -73.9126216606185
 },
 {
+"id": 24614,
+"source": "spc",
+"kind": "report",
+"title": "1.00 inch hail reported near 2 W Hollywood, FL",
+"summary": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"categories": [
+"roofing",
+"auto-glass",
+"auto-body",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": "Hollywood",
+"severity": 2,
+"occurred_at": "2026-11-19T04:10:00+00:00",
+"data": {
+"day": "2026-11-18",
+"type": "hail",
+"value": "100",
+"comments": "Quarter size hail reported to fall in Hollywood associated with a severe thunderstorm over the area. (MFL)",
+"hailInches": 1
+},
+"lat": 26.03,
+"lon": -80.19
+},
+{
 "id": 29513,
 "source": "socrata-sf-311",
 "kind": "civic",
@@ -1860,6 +2372,40 @@
 "lon": -71.1231678682953
 },
 {
+"id": 29857,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 7:36AM EST until November 18 at 10:30AM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Lower Keys in Monroe in Florida... * WHEN...Until 1030 AM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring.\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T12:36:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 24.6166666666372,
+"lon": -81.6436363635383
+},
+{
 "id": 30155,
 "source": "nws",
 "kind": "alert",
@@ -1892,6 +2438,40 @@
 },
 "lat": 25.7645725761243,
 "lon": -80.2695467587913
+},
+{
+"id": 31590,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 11:39AM EST until November 18 at 1:45PM EST by NWS Miami FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Northern Miami-Dade County in southeastern Florida... * WHEN...Until 145 PM EST. * IMPACTS...Minor flooding in low-lying and poor drainage areas. * ADD\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T16:39:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7947445258454,
+"lon": -80.1415328476354
 },
 {
 "id": 32364,
@@ -1943,6 +2523,142 @@
 },
 "lat": 41.8873880112589,
 "lon": -87.7081620954188
+},
+{
+"id": 38770,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 1:19PM EST until November 18 at 3:15PM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Upper Keys in Monroe in Florida... * WHEN...Until 315 PM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring. *\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T18:19:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 25.2284138486172,
+"lon": -80.3560305957701
+},
+{
+"id": 38810,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 1:44PM EST until November 18 at 1:45PM EST by NWS Miami FL. The Flood Advisory will expire at 145 PM EST this afternoon for a portion of southeast Florida, including the following area, Miami-Dade. The threat for widespread flooding continues and this Advisory will be replaced with\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T18:44:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7645725761243,
+"lon": -80.2695467587913
+},
+{
+"id": 38811,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Advisory: Miami-Dade, FL",
+"summary": "Flood Advisory issued November 18 at 1:44PM EST until November 18 at 1:45PM EST by NWS Miami FL. The Flood Advisory will expire at 145 PM EST this afternoon for a portion of southeast Florida, including the following area, Miami-Dade. The threat for widespread flooding continues and this Advisory will be replaced with\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 1,
+"occurred_at": "2026-11-18T18:44:00+00:00",
+"data": {
+"event": "Flood Advisory",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Miami-Dade, FL",
+"certainty": "Likely",
+"senderName": "NWS Miami FL",
+"hasGeometry": true,
+"nwsSeverity": "Minor"
+},
+"lat": 25.7947445258454,
+"lon": -80.1415328476354
+},
+{
+"id": 40567,
+"source": "nws",
+"kind": "alert",
+"title": "Flood Warning: Monroe, FL",
+"summary": "Flood Warning issued November 18 at 4:51PM EST until November 18 at 7:45PM EST by NWS Key West FL. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...Upper Keys in Monroe in Florida... * WHEN...Until 745 PM EST. * IMPACTS...Flooding of low-lying and flood-prone locations is imminent or occurring. *\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "FL",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-18T21:51:00+00:00",
+"data": {
+"event": "Flood Warning",
+"states": [
+"FL"
+],
+"urgency": "Expected",
+"areaDesc": "Monroe, FL",
+"certainty": "Likely",
+"senderName": "NWS Key West FL",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 25.2289473684736,
+"lon": -80.3561563000088
 },
 {
 "id": 40650,
@@ -2014,6 +2730,40 @@
 "lon": -73.9017597685432
 },
 {
+"id": 55273,
+"source": "nws",
+"kind": "alert",
+"title": "Flash Flood Warning: Santa Barbara, CA",
+"summary": "Flash Flood Warning issued November 19 at 12:44AM PST until November 19 at 2:45AM PST by NWS Los Angeles/Oxnard CA. FFWLOX The National Weather Service in Los Angeles/Oxnard has issued a * Flash Flood Warning for... West Central Santa Barbara County in southwestern California... * Until 245 AM PST. * At 1244 AM PST, D\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-19T08:44:00+00:00",
+"data": {
+"event": "Flash Flood Warning",
+"states": [
+"CA"
+],
+"urgency": "Immediate",
+"areaDesc": "Santa Barbara, CA",
+"certainty": "Likely",
+"senderName": "NWS Los Angeles/Oxnard CA",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 34.7813174402362,
+"lon": -120.538498535598
+},
+{
 "id": 55448,
 "source": "arcgis-atlanta-permits",
 "kind": "permit",
@@ -2079,6 +2829,49 @@
 "lon": -84.064
 },
 {
+"id": 55572,
+"source": "arcgis-dekalb-violations",
+"kind": "civic",
+"title": "Code violation in DeKalb County: property violation",
+"summary": "1700 block of ELAINE DR",
+"categories": [
+"fencing",
+"general-contractor"
+],
+"state": "GA",
+"city": "DeKalb County",
+"severity": 1,
+"occurred_at": "2026-11-12T10:48:33+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0",
+"subtype": "violation"
+},
+"lat": 33.739,
+"lon": -84.22
+},
+{
+"id": 55573,
+"source": "arcgis-dekalb-violations",
+"kind": "civic",
+"title": "Code violation in DeKalb County: property violation",
+"summary": "1700 block of ELAINE DR",
+"categories": [
+"junk-removal"
+],
+"state": "GA",
+"city": "DeKalb County",
+"severity": 1,
+"occurred_at": "2026-11-12T10:38:34+00:00",
+"data": {
+"cat_v": 2,
+"layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0",
+"subtype": "violation"
+},
+"lat": 33.739,
+"lon": -84.22
+},
+{
 "id": 56526,
 "source": "socrata-nola-311",
 "kind": "civic",
@@ -2100,6 +2893,40 @@
 },
 "lat": 29.9705089153786,
 "lon": -90.0909819891068
+},
+{
+"id": 56638,
+"source": "nws",
+"kind": "alert",
+"title": "Flash Flood Warning: Santa Barbara, CA",
+"summary": "Flash Flood Warning issued November 19 at 1:24AM PST until November 19 at 3:30AM PST by NWS Los Angeles/Oxnard CA. FFWLOX The National Weather Service in Los Angeles/Oxnard has issued a * Flash Flood Warning for... The Gifford burn scar in... North Central Santa Barbara County in southwestern California... * Until 330\u2026",
+"categories": [
+"restoration",
+"plumbing",
+"junk-removal",
+"towing",
+"auto-repair",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": null,
+"severity": 2,
+"occurred_at": "2026-11-19T09:24:00+00:00",
+"data": {
+"event": "Flash Flood Warning",
+"states": [
+"CA"
+],
+"urgency": "Immediate",
+"areaDesc": "Santa Barbara, CA",
+"certainty": "Likely",
+"senderName": "NWS Los Angeles/Oxnard CA",
+"hasGeometry": true,
+"nwsSeverity": "Severe"
+},
+"lat": 35.016776903181,
+"lon": -120.057994751676
 },
 {
 "id": 56651,
@@ -2131,6 +2958,183 @@
 },
 "lat": null,
 "lon": null
+},
+{
+"id": 60131,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: PROVIDE OPEN FRONT TOILET SEAT",
+"summary": "PROVIDE OPEN FRONT TOILET SEAT | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60153,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: REMOVE MINI-BREAKERS",
+"summary": "REMOVE MINI-BREAKERS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60154,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: SOIL/WASTE,VENT PIPE MATRL",
+"summary": "SOIL/WASTE,VENT PIPE MATRL | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"junk-removal"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60155,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: DEFECTIVE OUTLETS",
+"summary": "DEFECTIVE OUTLETS | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60156,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: EXPOSED WIRING",
+"summary": "EXPOSED WIRING | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60157,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OBTAIN PERMIT FOR PLUMBING",
+"summary": "OBTAIN PERMIT FOR PLUMBING | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60158,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: plumbing or leak and heating or cooling",
+"summary": "OPEN | 5600 block of S WOOD ST",
+"categories": [
+"plumbing",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
+},
+{
+"id": 60159,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: EXPOSED WIRING FIXTURES",
+"summary": "EXPOSED WIRING FIXTURES | OPEN | 5600 block of S WOOD ST",
+"categories": [
+"electrical"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-13T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.792,
+"lon": -87.67
 },
 {
 "id": 62108,
@@ -2254,6 +3258,32 @@
 "lon": null
 },
 {
+"id": 81317,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 3 NE Inglewood, CA",
+"summary": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Inglewood",
+"severity": 2,
+"occurred_at": "2026-11-19T17:04:00+00:00",
+"data": {
+"day": "2026-11-19",
+"type": "wind",
+"value": "UNK",
+"comments": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)"
+},
+"lat": 33.98,
+"lon": -118.3
+},
+{
 "id": 87677,
 "source": "socrata-nyc-311",
 "kind": "civic",
@@ -2339,6 +3369,32 @@
 "lon": -121.220664978027
 },
 {
+"id": 90466,
+"source": "spc",
+"kind": "report",
+"title": "Wind damage reported near 3 NE Inglewood, CA",
+"summary": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)",
+"categories": [
+"tree-service",
+"roofing",
+"restoration",
+"insurance",
+"public-adjuster"
+],
+"state": "CA",
+"city": "Inglewood",
+"severity": 2,
+"occurred_at": "2026-11-20T17:04:00+00:00",
+"data": {
+"day": "2026-11-20",
+"type": "wind",
+"value": "UNK",
+"comments": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)"
+},
+"lat": 33.98,
+"lon": -118.3
+},
+{
 "id": 92520,
 "source": "socrata-batonrouge-permits",
 "kind": "permit",
@@ -2359,6 +3415,139 @@
 },
 "lat": 30.4101308867075,
 "lon": -91.143577655795
+},
+{
+"id": 93411,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93412,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: WATER HEATER PERMIT",
+"summary": "WATER HEATER PERMIT | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"plumbing",
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
+},
+{
+"id": 93413,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93414,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: LICENSED CONTRACTOR",
+"summary": "LICENSED CONTRACTOR | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
+},
+{
+"id": 93415,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 8500 block of W HIGGINS RD",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.987,
+"lon": -87.84
+},
+{
+"id": 93417,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 5100 block of S DR MARTIN L KING JR DR",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.802,
+"lon": -87.616
 },
 {
 "id": 100345,
@@ -2499,6 +3688,72 @@
 "lon": -91.0523148838153
 },
 {
+"id": 126174,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: DEFECTIVE SAFETY VALVE-BOILER",
+"summary": "DEFECTIVE SAFETY VALVE-BOILER | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
+"id": 126176,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: ADJUST BOILER BURNER",
+"summary": "ADJUST BOILER BURNER | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"hvac"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
+"id": 126181,
+"source": "socrata-chicago-violations",
+"kind": "civic",
+"title": "Code violation in Chicago: OR LICENSED CONTRACTOR",
+"summary": "OR LICENSED CONTRACTOR | OPEN | 500 block of N AUSTIN BLVD",
+"categories": [
+"general-contractor"
+],
+"state": "IL",
+"city": "Chicago",
+"severity": 1,
+"occurred_at": "2026-11-18T06:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofchicago.org",
+"dataset": "22u3-xenr",
+"subtype": "violation"
+},
+"lat": 41.89,
+"lon": -87.775
+},
+{
 "id": 128005,
 "source": "socrata-nyc-311",
 "kind": "civic",
@@ -2600,6 +3855,62 @@
 },
 "lat": 40.64,
 "lon": -74.01
+},
+{
+"id": 131554,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Secondhand Dealer - General",
+"summary": "Secondhand Dealer - General",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-19T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.69,
+"lon": -73.98
+},
+{
+"id": 131662,
+"source": "socrata-nyc-business",
+"kind": "civic",
+"title": "New business license in New York City: Self-Storage Facility",
+"summary": "Self-Storage Facility",
+"categories": [
+"signs-printing",
+"business-services",
+"insurance",
+"janitorial-commercial",
+"security",
+"cleaning",
+"locksmith"
+],
+"state": "NY",
+"city": "New York City",
+"severity": 1,
+"occurred_at": "2026-11-17T05:00:00+00:00",
+"data": {
+"cat_v": 2,
+"domain": "data.cityofnewyork.us",
+"dataset": "w7w3-xahh",
+"subtype": "business"
+},
+"lat": 40.68,
+"lon": -73.99
 },
 {
 "id": 131922,
@@ -2805,6 +4116,27 @@
 },
 "lat": null,
 "lon": null
+},
+{
+"id": 156081,
+"source": "sam-gov",
+"kind": "contract",
+"title": "Federal bid in Temple, TX: Flooring Replacement Services CTXVA",
+"summary": "Solicitation | VETERANS AFFAIRS, DEPARTMENT OF / VETERANS AFFAIRS, DEPARTMENT OF | NAICS 238330 | responses due 2026-11-25",
+"categories": [
+"general-contractor"
+],
+"state": "TX",
+"city": "Temple",
+"severity": 2,
+"occurred_at": "2026-11-20T00:00:00+00:00",
+"data": {
+"type": "Solicitation",
+"naics": "238330",
+"solicitationNumber": "36C25727Q0066"
+},
+"lat": 31.0982,
+"lon": -97.3428
 },
 {
 "id": 156185,

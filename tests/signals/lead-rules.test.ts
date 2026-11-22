@@ -128,7 +128,7 @@ const CASES: Case[] = [
   { name: 'failed food inspection for pest control (line 19)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'pest-control', want: 'coming_soon' },
   // Round 15 quality gate: a failed inspection is no house-cleaning job (stored rows still tagged cleaning are context)
   { name: 'failed food inspection for a house cleaner (context)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'cleaning', want: 'context' },
-  { name: 'failed food inspection for commercial cleaning (line 20, owner call 6)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'janitorial-commercial', want: 'coming_soon' },
+  { name: 'failed food inspection for commercial cleaning (line 20, owner call 6 NO)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'janitorial-commercial', want: 'market_insight' },
   // Round 15 quality gate (Q-grades #41-#50, #26): event permits and mobile-food licences are not building work
   { name: 'NYC street event for house cleaning (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Street Event at 5 AVENUE' }, trade: 'cleaning', want: 'context' },
   { name: 'NYC farmers market for security (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Farmers Market' }, trade: 'security', want: 'context' },

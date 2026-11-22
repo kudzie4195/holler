@@ -253,7 +253,7 @@ export const es: Record<DictKey, string> = {
   'brief.reason.mi-heat-apartment.why': 'Se presentó una queja al 311 por calefacción o agua caliente en un solo apartamento.',
   'brief.reason.mi-heat-apartment.next': 'Puede que el encargado lo resuelva primero; anote el edificio.',
   'brief.reason.mi-heat-apartment.unknown': 'puede que el propio personal del edificio lo arregle',
-  'brief.reason.act-private-graffiti.why': 'Se reportó grafiti en una propiedad privada; a los dueños se les suele pedir que lo quiten.',
+  'brief.reason.act-private-graffiti.why': 'Se reportó grafiti en una propiedad privada a través del 311.',
   'brief.reason.act-private-graffiti.next': 'Ofrézcale al dueño quitarlo o volver a pintar.',
   'brief.reason.act-private-graffiti.unknown': 'puede que el dueño lo limpie sin ayuda',
   'brief.reason.act-sewage-backup.why': 'Se reportó un desborde de aguas negras aquí; pueden seguir trabajos de drenaje y limpieza.',

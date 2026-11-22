@@ -143,9 +143,18 @@ describe('trade-specific, and honest about what the record does not show', () =>
   });
   it('a gust is "reported", never "measured" (SPC speeds are often estimated)', () => {
     for (const t of TRADES) {
-      const b = briefFor({ source: 'spc', label: 'coming_soon', trade: t, title: 'x' });
+      const b = briefFor({ source: 'spc', label: 'coming_soon', trade: t, title: '60 mph wind gust reported near 1 S Allison, NM' });
       expect(b.why + b.uncertain).not.toMatch(/measured/);
       expect(b.why).toMatch(/A wind gust was reported nearby/);
+    }
+  });
+  it('review P2-3: only a gust row says a gust was reported; another storm report heads-up, or a card without its title, says a report was filed', () => {
+    for (const t of TRADES) {
+      for (const title of ['Wind damage reported near 2 SE Waco, TX', undefined]) {
+        const b = briefFor({ source: 'spc', label: 'coming_soon', trade: t, title });
+        expect(b.why + b.uncertain).not.toMatch(/gust/);
+        expect(b.uncertain).toMatch(/^High confidence a storm report was filed; /);
+      }
     }
   });
   // A curated table of real-style SPC remarks and the exact uncertainty line each must give. The expected lines are written by hand from the

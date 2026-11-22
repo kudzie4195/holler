@@ -264,7 +264,7 @@ export const en = {
   'brief.reason.mi-heat-apartment.why': 'A heat or hot water complaint was filed for one apartment through 311.',
   'brief.reason.mi-heat-apartment.next': 'The super may handle it first; note the building.',
   'brief.reason.mi-heat-apartment.unknown': "the building's own staff may fix it",
-  'brief.reason.act-private-graffiti.why': 'Graffiti on private property was reported; owners are usually told to remove it.',
+  'brief.reason.act-private-graffiti.why': 'Graffiti on private property was reported through 311.',
   'brief.reason.act-private-graffiti.next': 'Offer the owner removal or repainting.',
   'brief.reason.act-private-graffiti.unknown': 'the owner may clean it up without help',
   'brief.reason.act-sewage-backup.why': 'A sewage back-up was reported here; drain work and cleanup can follow.',

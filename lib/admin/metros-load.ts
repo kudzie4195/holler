@@ -2,7 +2,7 @@ import type { Db } from '@/lib/signals/store';
 import { loadSourceStates } from '@/lib/signals/source-state-load';
 import { isSamplesTableMissing } from '@/lib/signals/samples';
 import type { SourceState } from '@/lib/signals/source-state';
-import { isAlertLabel, labelFor } from '@/lib/signals/lead-rules';
+import { isAlertLabel, labelFor, recordLabelInput } from '@/lib/signals/lead-rules';
 import type { CategoryId } from '@/lib/signals/categories';
 import { readPagesCapped, MAX_PAGES } from './quality-load';
 import type { SectionStatus } from './quality';
@@ -42,7 +42,7 @@ function chunks<T>(arr: readonly T[], n: number): T[][] {
   return out;
 }
 
-const SIGNAL_COLUMNS = 'id, source, kind, title, summary, lat, lon, state, city, subtype:data->>subtype, managerName:data->>managerName, managerRole:data->>managerRole';
+const SIGNAL_COLUMNS = 'id, source, kind, title, summary, lat, lon, state, city, severity, subtype:data->>subtype, permitStage:data->>permitStage, managerName:data->>managerName, managerRole:data->>managerRole';
 
 async function readSignals(db: Db, ids: readonly number[]): Promise<MetroSignalLite[]> {
   const out: MetroSignalLite[] = [];
@@ -140,7 +140,7 @@ export async function loadMetroReport(
       .filter((a) => {
         const s = a.signal_id === null ? undefined : sigBy.get(a.signal_id);
         if (!s || !contactEligible(s)) return false;
-        return isAlertLabel(labelFor({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, (a.trade ?? null) as CategoryId | null));
+        return isAlertLabel(labelFor(recordLabelInput(s), (a.trade ?? null) as CategoryId | null));
       })
       .map((a) => a.signal_id as number);
     namedContactIds = await readNamedContactIds(db, ids);

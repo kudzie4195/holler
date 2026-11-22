@@ -10,8 +10,9 @@
  * Engine B (the other team's engine, kept unchanged under reference/r10-engine) is loaded HERE ONLY, at run time, for the 4 by 4 table and
  * for its permit-kind vocabulary in invariant I1. No product file imports it (tests/integration/r19-unify-boundaries.test.ts).
  *
- * The ingest marks of lib/signals/repeat-marks.ts (the per-building heat count, repeated NWS alerts) are applied to the rows first, with the
- * same pure functions the scan calls, as if every row arrived in time order.
+ * The ingest marks of lib/signals/repeat-marks.ts (the per-building heat count, repeated NWS alerts, storm reports listed twice, the
+ * orders of one code-violation visit) are applied to the rows first, with the same pure functions the scan calls, as if every row arrived
+ * in time order. The heat count is also run in three other arrival orders (review P2-5) to show it gives the same buildings.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,6 +27,10 @@ import {
   nwsRepeatKeyOf,
   nwsRepeats,
   nwsRootRef,
+  orderMeaning,
+  repeatsWithin,
+  spcReportKeyOf,
+  SPC_REPEAT_HOURS,
   withHeatMark,
   hasHeatMark,
   violationVisits,
@@ -73,18 +78,25 @@ const heatTimeline: TimelineRow[] = rows.filter((r) => isWholeBuildingHeat(r) &&
 const heatHit = heatTriggers(heatTimeline);
 const nwsTimeline: TimelineRow[] = rows.filter((r) => nwsRepeatKeyOf(r)).map((r) => ({ key: nwsRepeatKeyOf(r) as string, t: t(r.occurred_at), id: String(r.id), stored: false }));
 const nwsRep = nwsRepeats(nwsTimeline);
+const spcTimeline: TimelineRow[] = rows.filter((r) => spcReportKeyOf(r)).map((r) => ({ key: spcReportKeyOf(r) as string, t: t(r.occurred_at), id: String(r.id), stored: false }));
+const spcRep = repeatsWithin(spcTimeline, SPC_REPEAT_HOURS);
 const visits = violationVisits(
-  rows.filter((r) => visitKeyOf(r)).map((r) => ({ key: visitKeyOf(r) as string, id: String(r.id), title: r.title, summary: r.summary, stored: false })),
+  rows
+    .filter((r) => visitKeyOf(r))
+    .map((r) => ({ key: visitKeyOf(r) as string, id: String(r.id), source: r.source, kind: r.kind, title: r.title, summary: r.summary, categories: r.categories ?? [], stored: false })),
 );
 const marked: Row[] = rows.map((r) => {
   const id = String(r.id);
   if (heatHit.has(id)) return { ...r, summary: withHeatMark(r.summary) };
   const root = nwsRep.get(id);
   if (root) return { ...r, data: { ...(r.data ?? {}), projectOf: nwsRootRef(root) } };
+  const spcRoot = spcRep.get(id);
+  if (spcRoot) return { ...r, data: { ...(r.data ?? {}), projectOf: `spc:${spcRoot}` } };
   const lead = visits.followerOf.get(id);
   if (lead) return { ...r, data: { ...(r.data ?? {}), projectOf: `${r.source}:${lead}` } };
   const cited = visits.alsoCited.get(id);
-  if (cited) return { ...r, summary: withAlsoCited(r.summary, cited) };
+  const tags = visits.categories.get(id);
+  if (cited || tags) return { ...r, ...(cited ? { summary: withAlsoCited(r.summary, cited) } : {}), ...(tags ? { categories: tags } : {}) };
   return r;
 });
 const follower = (r: Row) => typeof r.data?.projectOf === 'string' && (r.data.projectOf as string).length > 0;
@@ -111,7 +123,7 @@ function runEngine(src: Row[], opts: Opts = {}): PairOut[] {
     for (const tr of TRADES) {
       if (!carried.includes(tr)) continue;
       if (!opts.labelsOnly && follower(r)) {
-        rule[tr] = r.source === 'nws' ? 'nws-repeat (follower, repeat-marks.ts)' : 'violation-visit (follower, repeat-marks.ts)';
+        rule[tr] = r.source === 'nws' ? 'nws-repeat (follower, repeat-marks.ts)' : r.source === 'spc' ? 'spc-repeat (follower, repeat-marks.ts)' : 'violation-visit (follower, repeat-marks.ts)';
         continue;
       }
       const l = LEVEL_OF[labelFor(input, tr)];
@@ -132,6 +144,8 @@ const labelsOnlyHeatOff = withRuleChoices({ heatPerBuilding: false }, () => runE
 const heatOnly: Row[] = rows.map((r) => (heatHit.has(String(r.id)) ? { ...r, summary: withHeatMark(r.summary) } : r));
 const labelsOnlyHeatOn = runEngine(heatOnly, { labelsOnly: true });
 const labelsOnlyAuditCalls = withRuleChoices({ shopLicenceAlerts: false, failedInspectionAlertsCommercialCleaners: false }, () => runEngine(heatOnly, { labelsOnly: true }));
+// The round's first commit (6edfc79) defaults for owner call 6 (YES): what changing it to NO removed, labels only.
+const labelsOnlyCall6Yes = withRuleChoices({ failedInspectionAlertsCommercialCleaners: true }, () => runEngine(heatOnly, { labelsOnly: true }));
 const deliverableHeatOff = withRuleChoices({ heatPerBuilding: false }, () => runEngine(marked));
 
 // ---- 3. before (engine A at the base) and engine B ------------------------------------------------------------------------------
@@ -176,7 +190,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 P('RULES replay: this engine (lib/signals/lead-rules.ts) over the live export');
 P(`Rows: ${fmt(rows.length)} from ${ROWS}. Trades: ${TRADES.length}. Pairs: ${fmt(rows.length * TRADES.length)}.`);
-P(`Ingest marks applied first (lib/signals/repeat-marks.ts): ${heatHit.size} NYC whole-building heat rows marked (building = point to 4 decimals, 3rd complaint in 48 h, one per building per 7 days); ${nwsRep.size} NWS rows marked as repeats of an alert seen less than 24 h earlier (same data.event and data.areaDesc); ${visits.followerOf.size} code-violation orders stored as followers of ${visits.alsoCited.size} visit cards (same source, point to 3 decimals, same day).`);
+P(`Ingest marks applied first (lib/signals/repeat-marks.ts): ${heatHit.size} NYC whole-building heat rows marked (building = point to 4 decimals, a 48 h window holding 3 complaints, one per building per 7 days); ${nwsRep.size} NWS rows marked as repeats of an alert less than 24 h from the first (same data.event, data.areaDesc and place: county, else point to 0.1 degree, else state); ${spcRep.size} storm reports marked as the second listing of a report (same type, value, point, clock time and remark, within ${SPC_REPEAT_HOURS} h); ${visits.followerOf.size} code-violation orders stored as followers of ${new Set(visits.followerOf.values()).size} visit cards (same source, point to 3 decimals, same day, and the same meaning for every trade: repeat-marks.ts orderMeaning).`);
 P();
 
 // ---- 5. alert pair counts --------------------------------------------------------------------------------------------------------
@@ -196,6 +210,7 @@ show('This engine, labels only, heat rule ON (compare with the audit\'s 5,500, w
 show('This engine, labels only, heat rule ON, owner calls 4 (shops) and 6 answered as the audit\'s simulation assumed (NO, NO)', count(labelsOnlyAuditCalls));
 show('This engine, deliverable rows only, heat rule OFF', count(deliverableHeatOff));
 show('This engine, FINAL (deliverable rows only, NWS repeats once, heat rule ON)', count(after));
+show('For reference: labels only, heat rule ON, owner call 6 as the first commit had it (YES)', count(labelsOnlyCall6Yes));
 P();
 for (const [name, c] of [['labels only, heat rule ON (the audit\'s list includes line 3)', count(labelsOnlyHeatOn)], ['the same with owner calls 4 and 6 as the audit assumed', count(labelsOnlyAuditCalls)]] as const) {
   const n = c.urgent + c['heads-up'];
@@ -320,6 +335,119 @@ const inv = (name: string, n: number, what: string, examples: string[]) => {
   const d = [...byDefault.values()].reduce((a, b) => a + b, 0);
   P(`  Alert pairs decided by a bare source default rather than a named rule: ${fmt(d)} of ${fmt(alertPairs)} (before: 6,583 of 26,919). ${[...byDefault].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `${k} ${v}`).join(', ')}`);
 }
+{
+  // Review P3 item 13: inspections, licences and event permits default to heads-up for a tagged trade no rule lists; no live pair may be
+  // decided that way (any label).
+  const ex: string[] = [];
+  let n = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (!['inspection', 'business', 'event-permit'].includes(subtypeOf(rows[i]) ?? '')) continue;
+    for (const [tr, id] of Object.entries(after[i].rule)) if ((id as string).startsWith('default:')) { n++; ex.push(`${rows[i].id} ${tr} ${id}`); }
+  }
+  inv('I6 (review P3 item 13)', n, 'No inspection, licence or event-permit pair is decided by the bare source default.', ex);
+}
+{
+  // Review P1-A, P1-B: a merged NWS pair is the same event for the same place.
+  const byId = new Map(rows.map((r) => [String(r.id), r]));
+  const miles = (a: Row, b: Row) => {
+    const k = Math.PI / 180;
+    const h = Math.sin(((b.lat! - a.lat!) * k) / 2) ** 2 + Math.cos(a.lat! * k) * Math.cos(b.lat! * k) * Math.sin(((b.lon! - a.lon!) * k) / 2) ** 2;
+    return 2 * 3958.8 * Math.asin(Math.sqrt(h));
+  };
+  const ex: string[] = [];
+  let n = 0;
+  let withPoints = 0;
+  let maxMi = 0;
+  let noPoint = 0;
+  for (const [a, b] of nwsRep) {
+    const [ra, rb] = [byId.get(a)!, byId.get(b)!];
+    if (ra.lat === null || rb.lat === null) { noPoint++; continue; }
+    withPoints++;
+    const d = miles(ra, rb);
+    maxMi = Math.max(maxMi, d);
+    if (d > 10) { n++; ex.push(`${a} follows ${b}, ${d.toFixed(0)} mi`); }
+  }
+  inv('I7 (review P1)', n, `No NWS repeat is more than 10 miles from the row it follows (${nwsRep.size} repeats: ${withPoints} with a point on both rows, largest gap ${maxMi.toFixed(1)} mi; ${noPoint} state-level rows without a point, which no member can receive).`, ex);
+}
+{
+  // Review P2-2 and P3 item 4: a visit card's first order alone earns the card's label for every trade, and every order folded into it
+  // keeps every trade and label it had alone.
+  const alone = runEngine(rows);
+  const idx = new Map(rows.map((r, i) => [String(r.id), i]));
+  const rank: Record<Level, number> = { urgent: 3, 'heads-up': 2, background: 1, none: 0 };
+  const ex: string[] = [];
+  let n = 0;
+  for (const [f, lead] of visits.followerOf) {
+    const [fi, li] = [idx.get(f)!, idx.get(lead)!];
+    for (const tr of Object.keys(alone[fi].rule) as CategoryId[]) {
+      if (rank[lv(after[li], tr)] < rank[lv(alone[fi], tr)]) { n++; ex.push(`${f} ${tr} ${lv(alone[fi], tr)} alone, card ${lead} gives ${lv(after[li], tr)}`); }
+    }
+  }
+  for (const lead of new Set(visits.followerOf.values())) {
+    const li = idx.get(lead)!;
+    for (const tr of TRADES) if (lv(after[li], tr) !== lv(alone[li], tr)) { n++; ex.push(`card ${lead} ${tr} ${lv(after[li], tr)}, its own order ${lv(alone[li], tr)}`); }
+  }
+  const leads = [...new Set(visits.followerOf.values())];
+  const sameMeaning = leads.every((lead) => {
+    const r = rows[idx.get(lead)!];
+    const m = orderMeaning(r);
+    return [...visits.followerOf].filter(([, l]) => l === lead).every(([f]) => orderMeaning(rows[idx.get(f)!]) === m);
+  });
+  if (!sameMeaning) { n++; ex.push('a card holds orders of different meaning'); }
+  inv('I8 (review P2-2, P3 item 4)', n, `Visit grouping: each of the ${leads.length} cards' own first order earns the card's label for every trade, and none of the ${visits.followerOf.size} folded orders loses a trade or a level.`, ex);
+}
+{
+  // Review P2-5: the heat count in other arrival orders gives the same buildings, never two cards for one building.
+  const heatRows = rows.filter((r) => isWholeBuildingHeat(r) && buildingKeyOf(r));
+  const scan = (batches: Row[][]) => {
+    const stored: TimelineRow[] = [];
+    const cards = new Map<string, number>();
+    for (const b of batches) {
+      const arriving = b.map((r) => ({ key: buildingKeyOf(r) as string, t: t(r.occurred_at), id: String(r.id), stored: false }));
+      const hit = heatTriggers([...stored, ...arriving]);
+      for (const a of arriving) {
+        const m = hit.has(a.id);
+        stored.push({ ...a, stored: true, marked: m });
+        if (m) cards.set(a.key, (cards.get(a.key) ?? 0) + 1);
+      }
+    }
+    return cards;
+  };
+  const byDay = new Map<string, Row[]>();
+  for (const r of heatRows) byDay.set(r.occurred_at.slice(0, 10), [...(byDay.get(r.occurred_at.slice(0, 10)) ?? []), r]);
+  const days = [...byDay.keys()].sort();
+  let seed = 19;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const shuffled = (xs: Row[]) => {
+    const a = [...xs];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const orders: Array<[string, Row[][]]> = [
+    ['one day at a time, in time order', days.map((d) => byDay.get(d)!)],
+    ['one day at a time, newest day first', [...days].reverse().map((d) => byDay.get(d)!)],
+    ['one row per scan, in id order', [...heatRows].sort((a, b) => a.id - b.id).map((r) => [r])],
+    ['one row per scan, random order (seed 19)', shuffled(heatRows).map((r) => [r])],
+    ['one row per scan, random order (seed 20)', ((seed = 20), shuffled(heatRows).map((r) => [r]))],
+    ['one row per scan, newest first', [...heatRows].sort((a, b) => t(b.occurred_at) - t(a.occurred_at) || b.id - a.id).map((r) => [r])],
+  ];
+  const ref = new Set([...heatHit].map((id) => buildingKeyOf(rows.find((r) => String(r.id) === id)!) as string));
+  const ex: string[] = [];
+  let n = 0;
+  for (const [name, batches] of orders) {
+    const cards = scan(batches);
+    const keys = new Set(cards.keys());
+    const twice = [...cards.values()].filter((c) => c > 1).length;
+    const missing = [...ref].filter((k) => !keys.has(k)).length;
+    const extra = [...keys].filter((k) => !ref.has(k)).length;
+    P(`  Heat cards, ${name}: ${keys.size} buildings (missing against the all-at-once count: ${missing}, extra: ${extra}, buildings with two cards: ${twice}).`);
+    if (missing || extra || twice) { n++; ex.push(name); }
+  }
+  inv('I9 (review P2-5)', n, `The per-building heat count gives the same ${ref.size} buildings in every arrival order above, never two cards for one building.`, ex);
+}
 P();
 
 // ---- 8. this engine's own replay checks (scripts/replay-labels.ts) -------------------------------------------------------------------
@@ -418,6 +546,8 @@ P();
 P(`| Metro | ${SIX.join(' | ')} |`);
 P(`|---|${SIX.map(() => '---:').join('|')}|`);
 let worst = { metro: '', trade: '', perDay: 0, urgent: 0 };
+let worstHeads = { metro: '', trade: '', perDay: 0, heads: 0 };
+const nyHeads: string[] = [];
 let nyHvacUrgent = 0;
 const zero: string[] = [];
 for (const m of METROS) {
@@ -425,6 +555,8 @@ for (const m of METROS) {
   for (const tr of TRADES) {
     const v = volume(m, tr, marked);
     if (v.urgentPerDay > worst.perDay) worst = { metro: m[0], trade: tr, perDay: v.urgentPerDay, urgent: v.urgent };
+    if (v.headsPerDay > worstHeads.perDay) worstHeads = { metro: m[0], trade: tr, perDay: v.headsPerDay, heads: v.heads };
+    if (m[0] === 'New York' && ['janitorial-commercial', 'signs-printing', 'security'].includes(tr)) nyHeads.push(`${tr} ${v.heads} heads-up (${f1(v.headsPerDay)} a day; ${[...v.bySource].map(([k, c]) => `${k} ${c}`).join(', ')})`);
     if (m[0] === 'New York' && tr === 'hvac') nyHvacUrgent = v.urgent;
     if (SIX.includes(tr)) {
       cells[SIX.indexOf(tr)] = `${v.urgent}+${v.heads} (${f1(v.urgentPerDay)}/${f1(v.headsPerDay)})`;
@@ -435,7 +567,10 @@ for (const m of METROS) {
 }
 P();
 P(`Worst urgent rate across all ${TRADES.length} trades in the four metros: ${worst.metro} ${worst.trade}, ${worst.urgent} urgent cards, ${f1(worst.perDay)} a day (ceiling 10).`);
+P(`Worst heads-up rate across all ${TRADES.length} trades in the four metros: ${worstHeads.metro} ${worstHeads.trade}, ${worstHeads.heads} heads-up cards, ${f1(worstHeads.perDay)} a day (ceiling 25, review P2-7).`);
+P(`New York commercial cleaning, signs and security (cards by source; review P2-7): ${nyHeads.join('; ')}.`);
 if (worst.perDay > 10) failures.push('volume ceiling');
+if (worstHeads.perDay > 25) failures.push('heads-up ceiling');
 P(`New York HVAC urgent cards after the heat rule: ${nyHvacUrgent} (audit: about 38 in 5.1 days of NYC 311).`);
 P(`Zero alerts in the window (owner call 10: allowed, not padded): ${zero.join(', ') || 'none'}.`);
 P();
@@ -469,7 +604,7 @@ P('## 7. Owner calls in force (lib/signals/rule-choices.ts)');
 P();
 for (const q of RULE_CHOICE_QUESTIONS) P(`- ${q.n}. ${q.question}: ${RULE_CHOICES[q.key] ? 'YES' : 'NO'} (${q.key})`);
 P();
-P(failures.length ? `RESULT: FAIL (${failures.join(', ')})` : 'RESULT: PASS (every invariant at 0, no trade above 10 urgent cards a day in the four metros)');
+P(failures.length ? `RESULT: FAIL (${failures.join(', ')})` : 'RESULT: PASS (every invariant at 0, no trade above 10 urgent or 25 heads-up cards a day in the four metros)');
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, lines.join('\n') + '\n');
@@ -484,6 +619,8 @@ writeFileSync(
         title: r.title,
         heatMark: heatHit.has(String(r.id)),
         nwsRepeatOf: nwsRep.get(String(r.id)) ?? null,
+        spcRepeatOf: spcRep.get(String(r.id)) ?? null,
+        visitCardOf: visits.followerOf.get(String(r.id)) ?? null,
         undeliverable: cannotBeDelivered(r),
         after: after[i].lvl,
         rule: after[i].rule,

@@ -142,6 +142,20 @@ function partLang(part: string, lang: Lang, source: string): string {
 }
 
 /**
+ * The summary with the two notes Holler writes (lib/signals/repeat-marks.ts: the per-building heat count, the other orders of a code
+ * violation visit) put in the language's dictionary form; every other part is left exactly as stored (review P3 item 11: no surface
+ * prints a note in its stored form). For the mobile API, which has no language of its own: 'en'.
+ */
+export function formatNotes(summary: string | null | undefined, lang: Lang): string | null {
+  if (typeof summary !== 'string' || !summary) return summary ?? null;
+  const parts = summary.split(' | ');
+  if (!parts.some((p) => p === HEAT_MARK || p.startsWith(ALSO_CITED_PREFIX))) return summary;
+  return parts
+    .map((p) => (p === HEAT_MARK ? t(lang, 'sum.heat_building') : p.startsWith(ALSO_CITED_PREFIX) ? t(lang, 'sum.also_cited', { orders: p.slice(ALSO_CITED_PREFIX.length) }) : p))
+    .join(' | ');
+}
+
+/**
  * A record's summary as the member should read it. English returns it unchanged. Spanish rebuilds the sentences Holler composed and the fixed
  * parts it adds ("$14,500 job value", "due 2026-11-30", "by AGENCY", "starts ..."); everything a source wrote stays as the source wrote it.
  * A summary a source wrote in full (SPC remarks, an NWS headline and description, a bluesky post) is not touched.

@@ -185,25 +185,25 @@ describe('criterion 4: weather rows without coordinates and repeated NWS alerts'
     expect(labelFor(inputOf(liveRow(8), { noLocation: true }), 'snow-removal')).toBe('coming_soon');
   });
 
-  it('the live rows carry no alert id; repeats are found by data.event and data.areaDesc', () => {
+  it('the live rows carry no alert id; repeats are found by data.event, data.areaDesc and the place (review P1-B)', () => {
     for (const r of LIVE_ROWS.filter((x) => x.source === 'nws')) expect(r.data?.alertId).toBeUndefined();
-    const [a, b, c] = [8834, 15702, 30155].map(liveRow); // three Flood Advisories for Miami-Dade, FL
-    expect(nwsRepeatKeyOf(a)).toBe('flood advisory|miami-dade, fl');
+    const [a, b, c] = [8834, 15702, 30155].map(liveRow); // three Flood Advisories for Miami-Dade, FL, three different polygons
+    expect(nwsRepeatKeyOf(a)).toBe('flood advisory|miami-dade, fl|p:25.9,-80.3');
     const tl = [a, b, c].map((r) => ({ key: nwsRepeatKeyOf(r) as string, t: Date.parse(r.occurred_at), id: String(r.id), stored: false }));
-    const rep = nwsRepeats(tl);
-    // 8834 Nov 17 23:46; 15702 Nov 18 03:31 repeats it; 30155 Nov 18 14:17 is still inside 24 h of the first
-    expect(Object.fromEntries(rep)).toEqual({ '15702': '8834', '30155': '8834' });
+    // 15702 sits 22 miles south of 8834: a different place, so its own card
+    expect(nwsRepeats(tl).size).toBe(0);
   });
 
   it('a repeat is stored as a follower, and a follower makes no card for anyone', async () => {
-    const rowsIn = [8834, 15702].map((id) => {
+    // 30155 (Nov 18 14:17) and 38810 (Nov 18 18:44): the same Miami-Dade advisory polygon issued again (same centre)
+    const rowsIn = [30155, 38810].map((id) => {
       const r = liveRow(id);
       return { source: 'nws', externalId: `nws-${id}`, kind: 'alert', title: r.title, summary: r.summary, lat: r.lat, lon: r.lon, categories: r.categories, severity: 2, occurredAt: r.occurred_at, data: r.data ?? {}, placeSlug: null } as unknown as SignalRowInput;
     });
     const out = await markRepeats(fakeDb(() => ({ data: [], error: null })) as never, rowsIn);
     expect(out.nwsRepeats).toBe(1);
-    const follower = out.rows.find((r) => r.externalId === 'nws-15702')!;
-    expect(follower.data?.projectOf).toBe('nws:nws-8834');
+    const follower = out.rows.find((r) => r.externalId === 'nws-38810')!;
+    expect(follower.data?.projectOf).toBe('nws:nws-30155');
     const member: MatchProfile = { user_id: 'u', categories: ['restoration'], lat: 25.76, lon: -80.19, state: 'FL', radius_mi: 50, plan: 'pro', subscription_status: 'active' };
     const sig = (r: SignalRowInput, id: number) => ({ id, categories: r.categories, lat: r.lat, lon: r.lon, state: 'FL', severity: 2, occurred_at: r.occurredAt, data: r.data, source: 'nws', kind: 'alert', title: r.title, summary: r.summary }) as unknown as MatchSignal;
     expect(matchOne(sig(out.rows[0], 1), member, false)).not.toBeNull();
@@ -230,19 +230,20 @@ describe('criterion 4: weather rows without coordinates and repeated NWS alerts'
 
 describe('code-violation visits: the orders of one inspection are one card, and no named trade is lost', () => {
   const visit = [4273, 4287, 4290, 4296].map(liveRow); // ROACHES, RAT PROOF OPENINGS, MICE/RODENTS, REPAIR INTERIOR STAIR SYSTEM
-  it('the four live orders share one visit key and become one card that lists the others', () => {
+  it('the four live orders share one visit key; the three pest orders become one card, the stair order keeps its own (review P2-2)', () => {
     const keys = new Set(visit.map((r) => visitKeyOf({ ...r, occurredAt: r.occurred_at })));
     expect(keys.size).toBe(1);
-    const plan = violationVisits(visit.map((r) => ({ key: visitKeyOf({ ...r, occurredAt: r.occurred_at }) as string, id: String(r.id), title: r.title, summary: r.summary, stored: false })));
-    expect(plan.alsoCited.get('4273')).toEqual(['RAT PROOF OPENINGS', 'MICE/RODENTS', 'REPAIR INTERIOR STAIR SYSTEM']);
-    expect([...plan.followerOf.keys()].sort()).toEqual(['4287', '4290', '4296']);
+    const plan = violationVisits(visit.map((r) => ({ key: visitKeyOf({ ...r, occurredAt: r.occurred_at }) as string, id: String(r.id), source: r.source, kind: r.kind, title: r.title, summary: r.summary, categories: r.categories, stored: false })));
+    expect(plan.alsoCited.get('4273')).toEqual(['RAT PROOF OPENINGS', 'MICE/RODENTS']);
+    expect([...plan.followerOf.keys()].sort()).toEqual(['4287', '4290']);
     const lead = inputOf(visit[0], { summary: withAlsoCited(visit[0].summary, plan.alsoCited.get('4273')!) });
-    expect(lead.summary).toBe('ROACHES | OPEN | 4000 block of S ELLIS AVE | Also cited: RAT PROOF OPENINGS; MICE/RODENTS; REPAIR INTERIOR STAIR SYSTEM');
-    // the stair order's trades reach the card: the general contractor is urgent, the handyman next to it a heads-up
-    expect(carriedTrades(lead, visit[0].categories)).toEqual(expect.arrayContaining(['pest-control', 'general-contractor', 'handyman']));
+    expect(lead.summary).toBe('ROACHES | OPEN | 4000 block of S ELLIS AVE | Also cited: RAT PROOF OPENINGS; MICE/RODENTS');
     expect(labelFor(lead, 'pest-control')).toBe('act_now');
-    expect(labelFor(lead, 'general-contractor')).toBe('act_now');
-    expect(labelFor(lead, 'handyman')).toBe('coming_soon');
+    // a general contractor no longer gets a card titled "ROACHES": the stair order is its own card, titled with the stair
+    expect(carriedTrades(lead, visit[0].categories)).not.toContain('general-contractor');
+    const stair = inputOf(visit[3]);
+    expect(labelFor(stair, 'general-contractor')).toBe('act_now');
+    expect(labelFor(stair, 'handyman')).toBe('coming_soon');
   });
 
   it('the handyman is primary on an order no specialist shares (smoke detectors)', () => {
@@ -311,10 +312,15 @@ describe('UNIFY review defect 2: a federal bid that names a state and no city is
     expect(labelForMember({ ...sig, categories: ga.categories }, ['landscaping'])).toBe('market_insight');
   });
 
-  it('a bid that names a city is unchanged (act now)', () => {
+  it('a bid that names a city and has a point is unchanged (act now); one without a point is feed only (review P3 item 18)', () => {
+    const placed = liveRow(156081);
+    expect(placed.title).toMatch(/^Federal bid in Temple, TX: /);
+    expect(labelFor(inputOf(placed), 'general-contractor')).toBe('act_now');
     const r = liveRow(156051);
     expect(r.title).toMatch(/^Federal bid in Cave Junction, OR: /);
-    expect(labelFor(inputOf(r), 'general-contractor')).toBe('act_now');
+    expect(r.lat).toBeNull();
+    expect(labelFor(inputOf(r), 'general-contractor')).toBe('market_insight');
+    expect(ruleFor(inputOf(r), 'general-contractor')?.id).toBe('mi-bid-unplaced');
   });
 });
 

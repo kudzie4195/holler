@@ -87,6 +87,27 @@ const NOT_HEATING_RE = /water heaters?|heating plant enclosure|boiler room (?:do
  */
 export const ALSO_CITED_PREFIX = 'Also cited: ';
 
+/**
+ * An order text as it is listed under "Also cited": the two separators the notes use (" | " between summary parts, "; " between orders)
+ * are replaced, so one order always reads as one order (review P3 item 10).
+ */
+export function cleanOrderText(text: string | null | undefined): string {
+  return (text ?? '').replace(/\s*\|\s*/g, ' / ').replace(/\s*;\s*/g, ', ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * A summary with the notes this product writes (the heat note, the "Also cited" list) removed. Applied to every incoming row before the
+ * marks are written (lib/signals/repeat-marks.ts), so a source's own text can never carry either note. Null when nothing is left.
+ */
+export function stripNotes(summary: string | null | undefined): string | null {
+  if (typeof summary !== 'string') return null;
+  const parts = summary.split(' | ');
+  const kept = parts.filter((p) => p.trim() !== HEAT_MARK && !p.trim().startsWith(ALSO_CITED_PREFIX));
+  if (kept.length === parts.length) return summary;
+  const out = kept.join(' | ').trim();
+  return out || null;
+}
+
 /** Every order a violation card holds: its title's, then the "Also cited" ones. */
 export function violationOrders(title: string | null | undefined, summary?: string | null): string[] {
   const out = [orderText(title)];
@@ -258,7 +279,8 @@ export function windDamageLevel(summary: string | null | undefined, trade: 'roof
   const c = lower(summary);
   const road = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c);
   const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c) && !(road && !/home|house|yard|residen/.test(c));
-  const roof = /roof|shingle|tarp|siding|gutter/.test(c);
+  // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
+  const roof = /roof|shingle|siding|gutter/.test(c);
   const homeDamage = /home|house|residen|roof|siding|garage|carport|porch|structure|building/.test(c);
   if (trade === 'tree-service') return trees ? 'act_now' : roof ? 'market_insight' : 'coming_soon';
   if (trade === 'roofing') return roof ? 'act_now' : 'coming_soon';
@@ -328,11 +350,12 @@ export const CARRY_CARRIER_TAGS: Readonly<Partial<Record<CategoryId, readonly Ca
   landscaping: ['general-contractor', 'handyman', 'junk-removal', 'lawn-care'],
   'junk-removal': ['general-contractor', 'handyman', 'lawn-care', 'landscaping'],
   security: ['general-contractor', 'handyman'],
-  handyman: ['general-contractor', 'electrical', 'windows-doors', 'flooring', 'pest-control', 'hvac', 'painting'],
+  handyman: ['general-contractor', 'electrical', 'windows-doors', 'flooring', 'pest-control', 'hvac', 'painting', 'concrete-paving'],
   'general-contractor': ['handyman', 'fencing', 'roofing', 'siding-gutters', 'hvac', 'concrete-paving'],
   plumbing: ['junk-removal', 'flooring', 'hvac', 'general-contractor', 'handyman'],
   electrical: ['general-contractor', 'handyman'],
   'windows-doors': ['general-contractor', 'handyman'],
   painting: ['general-contractor', 'handyman'],
   flooring: ['plumbing'],
+  locksmith: ['windows-doors', 'handyman'],
 };

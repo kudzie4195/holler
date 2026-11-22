@@ -290,7 +290,7 @@ describe('Act Now cards render the deadline or "No deadline published" (acceptan
   it('the feed page orders by label and hides context', () => {
     const page = readFileSync('app/app/page.tsx', 'utf8');
     expect(page).toMatch(/orderByLabelScore\(\s*ranked,/);
-    expect(page).toMatch(/labelOf\(s\) !== 'context'/);
+    expect(page).toMatch(/labelOf\(s, m\.status\) !== 'context'/);
     expect(page).toMatch(/deadline: deadlineOf\(/);
   });
 });
@@ -348,8 +348,8 @@ describe('market_insight: kept in the feed, last, never pushed and never emailed
     expect(cron).toMatch(/const rows = live\.filter\(\(r\) => isAlertLabel\(labelOf\(r\.s\)\)\)/);
   });
   it('the web and mobile feeds show it (after the alerts) and hide only context', () => {
-    expect(readFileSync('app/app/page.tsx', 'utf8')).toMatch(/labelOf\(s\) !== 'context'/);
-    expect(readFileSync('lib/mobile/feed.ts', 'utf8')).toMatch(/labelOf\(s\) !== 'context'/);
+    expect(readFileSync('app/app/page.tsx', 'utf8')).toMatch(/labelOf\(s, m\.status\) !== 'context'/);
+    expect(readFileSync('lib/mobile/feed.ts', 'utf8')).toMatch(/labelOf\(s, m\.status\) !== 'context'/);
   });
   it('the card says "Market insight" and not an alert', () => {
     const h = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', deadline: null }));

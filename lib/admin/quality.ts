@@ -1,5 +1,5 @@
 import type { CategoryId } from '@/lib/signals/categories';
-import { isAlertLabel, labelFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { isAlertLabel, labelFor, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { computeAccess } from '@/lib/auth/access';
 import { matchScope } from '@/lib/plan/scope';
 import type { DuplicateReport } from '@/lib/signals/dedupe-metrics';
@@ -53,6 +53,12 @@ export interface SignalLite {
   summary?: string | null;
   subtype: string | null;
   categories: string[] | null;
+  /** For the label (lead-rules recordLabelInput): a permit's stage update (review P3 item 14) and where the record is. Optional. */
+  permitStage?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  state?: string | null;
+  severity?: number | null;
 }
 export interface FeedbackRow {
   user_id: string;
@@ -219,7 +225,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   ): OpportunityLabel => {
     const s = ref.signalId === null ? undefined : sigBy.get(ref.signalId);
     return labelFor(
-      { source: s?.source ?? ref.source ?? '', kind: s?.kind ?? ref.kind, subtype: s?.subtype ?? ref.subtype, title: s?.title ?? null, summary: s?.summary ?? null },
+      s ? recordLabelInput(s) : { source: ref.source ?? '', kind: ref.kind, subtype: ref.subtype, title: null, summary: null },
       trade as CategoryId | null,
     );
   };

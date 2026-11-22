@@ -9,6 +9,7 @@ import {
   awardWorkOf,
   cardBrief,
   damagePhraseOf,
+  isGustReport,
   permitTypeOf,
   reasonCopyFor,
   violationOrderOf,
@@ -163,7 +164,8 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
     default:
       break;
   }
-  const plain = `brief.why.${family}.${label}`;
+  // Review P2-3: a storm report heads-up that is not a gust row says a storm report was filed (the act now sentence, without override).
+  const plain = family === 'storm-report' && label === 'coming_soon' && !isGustReport(input.title) ? 'brief.why.storm-report.act_now' : `brief.why.${family}.${label}`;
   if (hasDictKey(plain)) return t(lang, key(plain), v);
   return t(lang, key(`brief.why.fallback.${label}`), v);
 }
@@ -185,7 +187,8 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
     violation: family === 'violation' ? violationOrderOf(input.title) : null,
   };
   const label = input.label;
-  const knownKey = `brief.known.${family}.${label}`;
+  // Review P2-3: the gust wording ("se reportó una ráfaga") is for gust rows only.
+  const knownKey = family === 'storm-report' && !isGustReport(input.title) ? `brief.known.${family}` : `brief.known.${family}.${label}`;
   const unknownKey = `brief.unknown.${family}.${label}`;
   const known = t(lang, hasDictKey(knownKey) ? key(knownKey) : key(`brief.known.${family}`));
   let unknown = t(lang, hasDictKey(unknownKey) ? key(unknownKey) : key(`brief.unknown.${family}`));

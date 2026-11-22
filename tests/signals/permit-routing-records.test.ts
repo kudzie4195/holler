@@ -234,7 +234,7 @@ describe('the matcher sees the same class (summary reaches the label)', () => {
       const src = fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
       const calls = src.match(/labelForMember\(\{[^}]*\}/g) ?? [];
       expect(calls.length, f).toBeGreaterThan(0);
-      for (const c of calls) expect(c, `${f}: ${c}`).toMatch(/summary|\.\.\.input/);
+      for (const c of calls) expect(c, `${f}: ${c}`).toMatch(/summary|\.\.\.input|\.\.\.recordLabelInput\(s\)/);
     }
   });
 });

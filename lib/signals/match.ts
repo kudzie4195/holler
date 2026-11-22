@@ -109,6 +109,11 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
   title: signal.title ?? null,
   summary: signal.summary ?? null,
   permitStage: signal.data?.permitStage,
+  // Where the record is (review P3 item 18: a federal bid with no point is feed only): the same rules decide here as on every surface.
+  lat: signal.lat,
+  lon: signal.lon,
+  state: signal.state,
+  severity: signal.severity,
 });
 
 /**

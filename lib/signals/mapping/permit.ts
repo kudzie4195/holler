@@ -57,8 +57,9 @@ export const ADMIN_ONLY_RE =
 export const NO_TRADE_WORK_TYPES = ['sidewalk shed', 'supported scaffold', 'construction fence', 'protection and mechanical methods', 'sprinkler', 'standpipe', 'curb cut'] as const;
 // Round 19 RULES (review line 64): a fire-protection type written as a pair or a system ("Sprinkler and Standpipe", Cambridge row 3174; "Fire
 // Sprinkler System") is the same no-trade work; before, only a bare "Sprinkler(s)" or "Standpipe" matched and row 3174 stayed "Landscaping".
+// A bare "Sprinkler System" is not (review P3 item 16): it may be a lawn system, so it is mapped from its words like any other type.
 export const NO_TRADE_WORK_TYPE_RE =
-  /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|(?:fire\s+)?sprinklers?(?:\s+(?:systems?|and\s+standpipes?))?|(?:fire\s+)?standpipes?(?:\s+systems?)?|curb cut)$/i;
+  /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|sprinklers?|fire\s+sprinklers?(?:\s+systems?)?|(?:fire\s+)?sprinklers?\s+and\s+standpipes?|(?:fire\s+)?standpipes?(?:\s+systems?)?|curb cut)$/i;
 
 /** Street suffixes and business words: a trade noun right before one of these names a street or a company, not work. */
 const NOT_WORK_AHEAD =

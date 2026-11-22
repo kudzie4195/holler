@@ -114,7 +114,8 @@ export interface LabelInput {
   lat?: number | null;
   lon?: number | null;
   state?: string | null;
-  severity?: number | null;  /**
+  severity?: number | null;
+  /**
    * data.permitStage of a permit (lib/signals/stage.ts, migration 0025 feature): every surface that labels a stored match passes it from
    * STAGE_SELECT, so a stage update keeps the label it had before round 19 (rule stage-finished-downstream). Absent: no stage known.
    */
@@ -180,7 +181,9 @@ const HOT_WATER_ONLY_RE = /no hot water|hot water only|water only/i;
 const NYC_HEAT_RE = /^heat\/hot water\b/i;
 
 /** Line 64: a fire-protection work type in the permit's structured summary (live rows 764, 817, 9559 "Sprinklers", 3174 "Sprinkler and Standpipe"). */
-export const FIRE_PROTECTION_PART_RE = /^(?:fire\s+)?sprinklers?(?:\s+(?:system|and\s+standpipes?))?$|^(?:fire\s+)?standpipes?(?:\s+system)?$|^fire\s+(?:suppression|protection)(?:\s+system)?$/i;
+// Review P3 item 16: a bare "Sprinkler System" may be a lawn system, so only "fire sprinkler(s) (system(s))", "sprinkler(s) and standpipe(s)",
+// a standpipe or fire suppression/protection is a fire job; the bare base-era "Sprinkler(s)" type stays one, as the mapping has it.
+export const FIRE_PROTECTION_PART_RE = /^sprinklers?$|^fire\s+sprinklers?(?:\s+systems?)?$|^(?:fire\s+)?sprinklers?\s+and\s+standpipes?$|^(?:fire\s+)?standpipes?(?:\s+systems?)?$|^fire\s+(?:suppression|protection)(?:\s+systems?)?$/i;
 
 const sumParts = (summary: string | null | undefined) => (summary ?? '').split(' | ').map((p) => p.trim()).filter(Boolean);
 export const isFireProtectionPermit = (sig: LabelInput) => sumParts(sig.summary).some((p) => FIRE_PROTECTION_PART_RE.test(p));
@@ -220,19 +223,29 @@ const isNewBuildTitle = (f: PermitFacts) => f.labels.includes('new home') || f.l
  * Every other licence (a contractor, a home office, a vendor, a consultant, "Limited Business License") names no premises: feed only for
  * signs, security and commercial cleaning. `kind` says which owner call decides it.
  */
-export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: RegExp; kind: 'shop' | 'food' | 'parking' }>>> = {
+export type StorefrontKind = 'shop' | 'food' | 'parking' | 'storage';
+
+export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: RegExp; kind: StorefrontKind }>>> = {
   'socrata-nyc-business': [
-    { re: /^electronics(?: store)?$/i, kind: 'shop' },
+    // NOT "Electronics" (review P2-7): owner call 4 is about NEW storefronts, and a NYC licence row cannot say whether it is new. The
+    // rows carry only business_category (data keys cat_v, dataset, domain, subtype, approxLocation); the adapter reads
+    // license_creation_date with license_status = 'Active' and no application type, status change or original issue date
+    // (lib/signals/adapters/socrata-datasets.ts, socrata-nyc-business). 257 "Electronics" rows in nine working days (59% of NYC
+    // licences) look like a renewal cycle, so they are feed only for signs, security and commercial cleaning.
     { re: /^secondhand dealer\b/i, kind: 'shop' },
     { re: /^pawnbroker$/i, kind: 'shop' },
     { re: /^dealer in products for the disabled$/i, kind: 'shop' },
     { re: /^(?:tobacco retail dealer|electronic cigarette dealer)$/i, kind: 'shop' },
     { re: /^(?:laundries|laundry|laundry jobber)$/i, kind: 'shop' },
     { re: /^garage(?: & parking lot)?$|^parking lot$/i, kind: 'parking' },
+    // a storage building: security only (review P3 item 5, row 131662)
+    { re: /^self-storage facility$/i, kind: 'storage' },
   ],
   'socrata-chicago-business': [
     { re: /^retail food establishment$/i, kind: 'food' },
     { re: /^tobacco$/i, kind: 'shop' },
+    // review P3 item 5: a bar (row 4653), a liquor store (row 4679), an amusement venue (row 4650)
+    { re: /^(?:tavern|package goods|public place of amusement)$/i, kind: 'shop' },
     { re: /^motor vehicle services license$/i, kind: 'shop' },
     { re: /^(?:commercial garage|public garage)$/i, kind: 'parking' },
   ],
@@ -257,7 +270,7 @@ export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: Re
 /** The licence name a business row carries: the title body ("New business license in Chicago: Tobacco" gives "Tobacco"). */
 const licenceName = (sig: LabelInput) => titleBodyOf(sig.title).trim();
 
-export function storefrontKindOf(sig: LabelInput): 'shop' | 'food' | 'parking' | null {
+export function storefrontKindOf(sig: LabelInput): StorefrontKind | null {
   const list = STOREFRONT_LICENCES[lc(sig.source)] ?? [];
   const name = licenceName(sig);
   return list.find((e) => e.re.test(name))?.kind ?? null;
@@ -324,7 +337,9 @@ export const RULES: readonly LabelRule[] = [
     label: 'context',
     subtypes: ['311', 'violation', 'inspection'],
     when: (s) => isClosedCase(s),
-    pick: () => (ruleChoice('closedCaseHidden') ? 'context' : 'market_insight'),
+    // Owner call 8 "no" moves a closed case to the feed, and does nothing else: a record the later rules hide (city work, another
+    // trade's order) stays hidden (review P2-4).
+    pick: (s, t) => (ruleChoice('closedCaseHidden') || labelAfter('closed-case', s, t) === 'context' ? 'context' : 'market_insight'),
     line: 5,
     choice: 'closedCaseHidden',
     why: 'The case is closed, complied, resolved, cancelled or a duplicate: no job is left. Owner call 8: it disappears, feed included.',
@@ -338,6 +353,17 @@ export const RULES: readonly LabelRule[] = [
     title: STATEWIDE_BID_RE,
     wholeTitle: true,
     why: 'Out for bid, but the notice names a state and no city, so it cannot be placed near the member.',
+  },
+  {
+    // Review P3 item 18: SAM's place of performance names a city the gazetteer could not place, so the row has no point and is matched
+    // to the whole state. Whether or not the title names a city, the bid cannot be placed near the member: feed only. Needs the location
+    // (every surface that labels a stored match passes it: recordLabelInput).
+    id: 'mi-bid-unplaced',
+    label: 'market_insight',
+    sources: ['sam-gov'],
+    when: (s) => locationGiven(s) && !hasPoint(s.lat, s.lon),
+    line: 44,
+    why: 'A federal bid with no coordinates reaches a whole state: it cannot be placed near the member, so it is feed only.',
   },
   {
     id: 'soon-bid-not-open',
@@ -427,19 +453,19 @@ export const RULES: readonly LabelRule[] = [
     sources: ['socrata-nyc-311'],
     subtypes: ['311'],
     title: /^heat\/hot water \/ entire building/i,
-    trades: ['hvac'],
-    when: () => ruleChoice('heatPerBuilding'),
-    pick: (s) => (hasHeatMark(s.summary) ? 'act_now' : 'context'),
+    // HVAC, and a keyword-watch match (no trade known, review P2-1): a watch on "heat" gets the same one card per building.
+    when: (_s, t) => ruleChoice('heatPerBuilding') && (t === null || t === 'hvac'),
+    pick: (s) => (hasHeatMark(s.summary) ? 'act_now' : ruleChoice('heatFirstComplaintsInFeed') ? 'market_insight' : 'context'),
     line: 3,
     choice: 'heatPerBuilding',
-    why: 'NYC whole-building heat: one card per building, at the third complaint there within 48 hours (marked at ingest, lib/signals/repeat-marks.ts). Earlier and later complaints make no card.',
+    why: 'NYC whole-building heat: one card per building, at the third complaint there within 48 hours (marked at ingest, lib/signals/repeat-marks.ts). Other complaints make no card; owner call 11 puts them in the feed.',
   },
   {
     id: 'mi-heat-apartment',
     label: 'market_insight',
     subtypes: ['311'],
     title: /^heat\/hot water \/ apartment only/i,
-    trades: ['hvac'],
+    when: (_s, t) => t === null || t === 'hvac',
     line: 1,
     why: 'One apartment without heat means the building\'s plant runs; the super usually fixes it. Feed only.',
   },
@@ -498,8 +524,9 @@ export const RULES: readonly LabelRule[] = [
     id: 'property-violation-311',
     label: 'coming_soon',
     subtypes: ['311'],
+    sources: ['socrata-kansascity-311'],
     title: /^property violations?\b/i,
-    pick: (s, t) => (t && (kcPropertyTrades('socrata-kansascity-311', s.title) ?? []).includes(t) ? 'coming_soon' : 'context'),
+    pick: (s, t) => (t && (kcPropertyTrades(lc(s.source), s.title) ?? []).includes(t) ? 'coming_soon' : 'context'),
     line: 9,
     why: 'A property violation reported through 311 (Kansas City): the trades its subtype names (weeds, trash, open to entry, upkeep) get a heads-up; any other tag is context.',
   },
@@ -595,8 +622,9 @@ export const RULES: readonly LabelRule[] = [
     subtypes: ['violation'],
     needsTrade: true,
     when: (s, t) => !!t && violationTrades(s.title, s.summary).includes(t),
-    pick: (s, t) => (violationTradeRoles(s.title, s.summary).get(t as CategoryId) === 'secondary' ? 'coming_soon' : 'act_now'),
+    pick: (s, t) => (ruleChoice('handymanSecondToSpecialist') && violationTradeRoles(s.title, s.summary).get(t as CategoryId) === 'secondary' ? 'coming_soon' : 'act_now'),
     line: 13,
+    choice: 'handymanSecondToSpecialist',
     why: 'The order names a repair this trade does (engine B\'s violation vocabulary): the owner has been told to fix it. A handyman named next to the specialist for the repair (a general contractor, windows and doors, flooring) gets a heads-up.',
   },
   {
@@ -720,10 +748,11 @@ export const RULES: readonly LabelRule[] = [
     label: 'coming_soon',
     subtypes: ['business'],
     trades: ['janitorial-commercial', 'security', 'signs-printing'],
-    pick: (s) => {
+    pick: (s, t) => {
       const kind = storefrontKindOf(s);
       if (kind === 'food') return 'coming_soon';
       if (kind === 'shop') return ruleChoice('shopLicenceAlerts') ? 'coming_soon' : 'market_insight';
+      if (kind === 'storage') return t === 'security' && ruleChoice('shopLicenceAlerts') ? 'coming_soon' : 'market_insight';
       if (kind === 'parking') return ruleChoice('parkingLicenceAlerts') ? 'coming_soon' : 'market_insight';
       return 'market_insight';
     },
@@ -1188,6 +1217,17 @@ function decide(sig: LabelInput, trade: CategoryId | null): { rule: LabelRule; l
   return null;
 }
 
+/** The label the rules AFTER rule `id` give (the source default when none fits): what the record is without that rule. */
+function labelAfter(id: string, sig: LabelInput, trade: CategoryId | null): OpportunityLabel {
+  const at = RULES.findIndex((r) => r.id === id);
+  for (const r of RULES.slice(at + 1)) {
+    if (!fits(r, sig, trade)) continue;
+    const label = r.pick ? r.pick(sig, trade) : r.label;
+    if (label) return label;
+  }
+  return SOURCE_DEFAULTS[norm(sig.source)] ?? FALLBACK_LABEL;
+}
+
 /** The rule that decides this pair, or null when only the source default applies. */
 export function ruleFor(sig: LabelInput, trade: CategoryId | null): LabelRule | null {
   return decide(sig, trade)?.rule ?? null;
@@ -1225,6 +1265,38 @@ export function labelForTrades(sig: LabelInput, trades: readonly (CategoryId | s
  * The label for a record seen by a member: the member's trades that the record is tagged with. A record tagged with none of them
  * (a keyword-watch match) is labelled with the trade unknown.
  */
+/**
+ * The label input of a stored record as a surface reads it (the feeds, the digest, the push, the admin reports). The location (point,
+ * state, severity) is passed when the surface selected it (`lat` and `severity` present in the row), so the rules that need it (ctx-undeliverable,
+ * mi-bid-unplaced) decide the same on every surface as at match time.
+ */
+export function recordLabelInput(s: {
+  source?: string | null;
+  kind?: string | null;
+  subtype?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  permitStage?: unknown;
+  lat?: number | null;
+  lon?: number | null;
+  state?: string | null;
+  severity?: number | null;
+}): LabelInput {
+  const base: LabelInput = { source: s.source ?? '', kind: s.kind ?? null, subtype: s.subtype ?? null, title: s.title ?? null, summary: s.summary ?? null, permitStage: s.permitStage };
+  return s.lat === undefined || s.severity === undefined ? base : { ...base, lat: s.lat ?? null, lon: s.lon ?? null, state: s.state ?? null, severity: s.severity ?? null };
+}
+
+/** Match statuses the member set that keep a match in their feed whatever its label is now (review P2-6). */
+export const KEPT_MATCH_STATUSES: readonly string[] = ['saved', 'done'];
+
+/**
+ * Review P2-6 (owner decision a): a match the member saved or marked done stays in their feed whatever its label is now. When the rules
+ * would hide it (context), it is shown as a feed item (market insight), without an alert chip it no longer earns; any other label is kept.
+ */
+export function keptMatchLabel(label: OpportunityLabel, status: string | null | undefined): OpportunityLabel {
+  return label === 'context' && typeof status === 'string' && KEPT_MATCH_STATUSES.includes(status) ? 'market_insight' : label;
+}
+
 export function labelForMember(sig: LabelInput & { categories?: readonly string[] | null }, memberTrades: readonly string[]): OpportunityLabel {
   const shared = carriedTrades(sig, sig.categories).filter((c) => memberTrades.includes(c));
   return labelForTrades(sig, shared);
