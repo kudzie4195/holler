@@ -7,6 +7,7 @@ import { clientIp, hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit'
 import { sendVerifyEmail } from '@/lib/auth/verification';
 import { SIGNUP_LANG_KEY } from '@/lib/auth/signup-lang';
 import { t, type Lang } from '@/lib/i18n';
+import { setLangCookie } from '@/lib/auth/lang-cookie';
 
 const body = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address.')),
@@ -79,7 +80,9 @@ export async function POST(request: Request) {
     if (signedIn.error) {
       return NextResponse.json({ ok: true, signedIn: false, next: lang === 'en' ? '/login' : '/es/login', message: msg('api.signup.exists', 'If you already have an account, log in.') });
     }
-    return NextResponse.json({ ok: true, signedIn: true, next: lang === 'en' ? '/onboarding' : '/es/onboarding' });
+    const res = NextResponse.json({ ok: true, signedIn: true, next: lang === 'en' ? '/onboarding' : '/es/onboarding' });
+    setLangCookie(res, lang);
+    return res;
   } catch (e) {
     if (isConfigError(e)) return jsonError(msg('api.signup.off', 'Sign-up is not switched on yet. Please check back soon.'), 503);
     return jsonError(msg('api.server', 'Something went wrong on our side. Try again in a moment.'), 500);

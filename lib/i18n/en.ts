@@ -556,7 +556,7 @@ export const en = {
   'fam.civic.from': 'Fallen trees, dumping, rats and repair orders.',
   'fam.good_for': 'Good for: {list}',
   'lang.band.h': 'Alerts in Spanish',
-  'lang.band.p': 'Choose Español in Settings and your alert emails, alert cards and reply drafts are written in Spanish. The sign-up pages are still in English.',
+  'lang.band.p': 'If you create your account from these pages, your alert emails, alert cards, reply drafts and web account are in Spanish. You can change the language any time in Settings.',
   'price.h': '{trial}. Then a flat monthly price.',
   'price.p': 'No card to start. Cancel any time.',
   'price.line': 'The {starter} plan is {a} a month or {b} a year. The {pro} plan is {c} a month or {d} a year.',

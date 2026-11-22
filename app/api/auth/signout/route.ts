@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { LANG_COOKIE, clearLangCookie } from '@/lib/auth/lang-cookie';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +11,11 @@ export async function POST(request: NextRequest) {
     // Nothing to sign out of if Supabase is unconfigured.
   }
   const url = request.nextUrl.clone();
-  url.pathname = '/';
+  // A Spanish member lands on the Spanish home (round 18 ES); the hint cookie is then cleared.
+  url.pathname = request.cookies.get(LANG_COOKIE)?.value === 'es' ? '/es' : '/';
   url.search = '';
   // 303 turns the POST into a GET on the home page.
-  return NextResponse.redirect(url, 303);
+  const res = NextResponse.redirect(url, 303);
+  clearLangCookie(res);
+  return res;
 }

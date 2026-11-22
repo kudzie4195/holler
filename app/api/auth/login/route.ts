@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { authMessage, friendlyAuthError, INVALID_LOGIN_MESSAGE, isConfigError, jsonError, readJsonLang } from '@/lib/auth/api';
 import { t, type Lang } from '@/lib/i18n';
+import { setLangCookie } from '@/lib/auth/lang-cookie';
+import { loadMemberLang } from '@/lib/auth/member-lang';
+import { signupLang } from '@/lib/auth/signup-lang';
 import { hasHollerTag, hasLeftHoller, rejoinHollerPatch } from '@/lib/auth/membership';
 import { clientIp, hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit';
 
@@ -70,7 +73,11 @@ export async function POST(request: Request) {
       await supabase.auth.signOut({ scope: 'local' });
       return jsonError(msg('api.invalid_login', INVALID_LOGIN_MESSAGE), 401);
     }
-    return NextResponse.json({ ok: true });
+    const res = NextResponse.json({ ok: true });
+    // The language hint for the /app header (lib/auth/lang-cookie.ts): the saved profile language, else the one parked at sign-up.
+    // A failed read is English; the hint never decides what a page shows.
+    setLangCookie(res, (await loadMemberLang(admin, data.user.id)) ?? signupLang(data.user.app_metadata));
+    return res;
   } catch (e) {
     if (isConfigError(e)) return jsonError(msg('api.login.off', 'Log in is not switched on yet. Please check back soon.'), 503);
     return jsonError(msg('api.server', 'Something went wrong on our side. Try again in a moment.'), 500);

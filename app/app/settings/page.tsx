@@ -8,7 +8,6 @@ import { ProfileForm } from '@/components/profile-form';
 import { LanguageForm } from '@/components/language-form';
 import { hasLanguageSetting } from '@/lib/auth/language';
 import { langOfProfile, t, type Lang } from '@/lib/i18n';
-import { memberLang } from '@/lib/auth/member-lang';
 import { profileCategories } from '@/lib/plan/profile-categories';
 import {
   annualSavingSentenceEs,
@@ -32,11 +31,11 @@ import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveLanguageSetting, saveSettings } from './actions';
 
-/** "Settings | Holler", or the Spanish title for a Spanish member (round 18 ES). The page already reads the session. */
-export async function generateMetadata(): Promise<Metadata> {
-  const lang = await memberLang();
-  return { title: lang === 'en' ? 'Settings' : t(lang, 'set.h1') };
-}
+// Static, in the <head> of the first bytes with the layout's noindex, as before round 18. A Spanish member's tab title is set in the
+// browser (components/app-header.tsx APP_LANG_SCRIPT on the first load, components/member-document.tsx after that).
+export const metadata: Metadata = {
+  title: 'Settings',
+};
 
 export default async function SettingsPage() {
   const { user, profile } = await requireProfile();

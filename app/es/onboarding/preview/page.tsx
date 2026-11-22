@@ -12,6 +12,7 @@ const L = 'es' as const;
 
 export const metadata: Metadata = {
   title: t(L, 'onb.preview.title'),
+  description: t(L, 'onb.preview.desc'),
   robots: { index: false, follow: false },
 };
 

@@ -15,6 +15,7 @@ import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { cleanKeyword, parseExtraAreas, parseKeywords } from '@/lib/plan';
 import { langOfProfile, parseLang, t, type Lang } from '@/lib/i18n';
+import { setLangCookieFromAction } from '@/lib/auth/lang-cookie';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
@@ -125,7 +126,11 @@ export async function saveLanguageSetting(_prev: LanguageState, formData: FormDa
   if (!user) redirect('/login?next=/app/settings');
   const supabase = await createClient();
   const result = await saveLanguage(supabase, user.id, formData.get('language'));
-  // The cards, the header and the settings page read the language from the profile on every request.
-  if (result.ok && !result.skipped) revalidatePath('/app', 'layout');
+  // The cards, the header and the settings page read the language from the profile on every request. The hint cookie follows the
+  // saved choice, so the static header shows the right words on the next full load (lib/auth/lang-cookie.ts).
+  if (result.ok && !result.skipped) {
+    await setLangCookieFromAction(parseLang(formData.get('language')));
+    revalidatePath('/app', 'layout');
+  }
   return result;
 }

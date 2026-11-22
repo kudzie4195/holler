@@ -89,5 +89,5 @@ export function planFeaturesEs(tier: Tier): string[] {
 
 /** What a move down to Plan Solo does (DOWNGRADE_NOTE in English). */
 export function downgradeNoteEs(): string {
-  return `Con el ${planNameEs('starter')}, sus zonas extra, los oficios después del número ${PLAN_LIMITS.starter.trades} y sus palabras clave dejan de usarse. Quedan guardados y vuelven a funcionar si regresa al ${planNameEs('pro')}.`;
+  return `Con el ${planNameEs('starter')}, sus zonas extra, los oficios que pasan de ${PLAN_LIMITS.starter.trades} y sus palabras clave dejan de usarse. Quedan guardados y vuelven a funcionar si regresa al ${planNameEs('pro')}.`;
 }

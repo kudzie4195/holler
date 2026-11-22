@@ -536,7 +536,7 @@ export const es: Record<DictKey, string> = {
   'fam.civic.from': 'Árboles caídos, basura tirada, ratas y órdenes de reparación.',
   'fam.good_for': 'Sirve para: {list}',
   'lang.band.h': 'Alertas en español',
-  'lang.band.p': 'Si crea su cuenta desde estas páginas, todo le llega en español: los correos de alertas, las tarjetas, los borradores de respuesta y su cuenta en la web. Puede cambiar el idioma cuando quiera en Configuración.',
+  'lang.band.p': 'Si crea su cuenta desde estas páginas, sus correos de alertas, sus tarjetas, sus borradores de respuesta y su cuenta en la web están en español. Puede cambiar el idioma cuando quiera en Configuración.',
   'price.h': '{trial}. Luego, un precio mensual fijo.',
   'price.p': 'Sin tarjeta para empezar. Cancele cuando quiera.',
   'price.line': 'Plan {starter}: {a} al mes o {b} al año. Plan {pro}: {c} al mes o {d} al año.',

@@ -24,6 +24,8 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * The intended changes to English markup, applied to the base render before the comparison. Each must occur exactly once in the base,
  * so a change cannot slip in elsewhere under cover of one of these.
  *  - /pricing: the footer's "Español" link goes to /es/pricing (the Spanish twin of the page) instead of /es.
+ *  - /app layout (redo 1, review P2-4): the language-hint script after the header (components/app-header.tsx APP_LANG_SCRIPT). The static
+ *    fallback header also carries data-es attributes; that is checked in "the static /app header" below.
  * (The other intended change, the "Español" link in the footer of /signup, /login, /forgot and /reset, depends on the path and is tested in
  * tests/i18n/es-account.test.ts; here the path is /app, where that link renders nothing.)
  */
@@ -188,6 +190,8 @@ describe('English output is unchanged (round 18 ES)', () => {
     expect(existsSync(FIXTURE), FIXTURE).toBe(true);
     const base = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
     expect(Object.keys(now).sort()).toEqual(Object.keys(base).sort());
+    const { APP_LANG_SCRIPT } = await import('@/components/app-header');
+    INTENDED['app-layout.html'] = [['</header><main', `</header><script type="text/javascript">${APP_LANG_SCRIPT}</script><main`]];
     for (const [k, swaps] of Object.entries(INTENDED)) {
       for (const [from, to] of swaps) {
         expect(base[k].split(from).length - 1, `${k}: ${from}`).toBe(1);
@@ -196,4 +200,39 @@ describe('English output is unchanged (round 18 ES)', () => {
     }
     for (const k of Object.keys(base)) expect(now[k], k).toBe(base[k]);
   }, 60_000);
+});
+
+describe('the /app head and static header (redo 1, review P2-2 and P2-4)', () => {
+  it('/app and /app/settings keep static metadata, as on the base: no generateMetadata, the same titles, noindex from the layout', async () => {
+    baseMocks({ profile: member() });
+    const layout = await import('@/app/app/layout');
+    expect(layout.metadata).toEqual({ title: { default: 'Your matches', template: '%s | Holler' }, robots: { index: false, follow: false } });
+    const page = (await import('@/app/app/page')) as Record<string, unknown>;
+    expect(page.generateMetadata).toBeUndefined();
+    expect(page.metadata).toBeUndefined();
+    const settings = (await import('@/app/app/settings/page')) as Record<string, unknown>;
+    expect(settings.generateMetadata).toBeUndefined();
+    expect(settings.metadata).toEqual({ title: 'Settings' });
+    // the same as the base fixture's metadata of both pages
+    const base = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
+    expect(base['settings.meta']).toBe('{"title":"Settings"}');
+    expect(base['app.meta']).toBe('{}');
+  });
+
+  it('the static fallback header is the base header plus data-es hints only', async () => {
+    baseMocks({ profile: member() });
+    const { AppHeaderBar, AppSkipLink } = await import('@/components/app-header');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const shell = renderToStaticMarkup(createElement('div', null, createElement(AppSkipLink, { lang: 'en', hint: true }), createElement(AppHeaderBar, { lang: 'en', hint: true })));
+    expect(shell).toContain('data-es="Ajustes"');
+    expect(shell).toContain('data-es="Salir"');
+    expect(shell).toContain('data-es-label="Cerrar sesión"');
+    const stripped = shell.replace(/ data-es(?:-label)?="[^"]*"/g, '');
+    const base = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
+    const baseHeader = base['app-layout.html'];
+    // skip link, then the header's inner bar: every element of the fallback is in the base, in the same order
+    const skip = baseHeader.slice(0, baseHeader.indexOf('<header'));
+    const bar = baseHeader.slice(baseHeader.indexOf('<a class="inline-flex shrink-0'), baseHeader.indexOf('</nav>') + '</nav>'.length);
+    expect(stripped).toBe(`<div>${skip}${bar}</div>`);
+  });
 });

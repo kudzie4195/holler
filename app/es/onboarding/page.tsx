@@ -9,6 +9,7 @@ const L = 'es' as const;
 
 export const metadata: Metadata = {
   title: t(L, 'onb.meta.title'),
+  description: t(L, 'onb.meta.desc'),
   robots: { index: false, follow: false },
 };
 

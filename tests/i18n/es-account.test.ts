@@ -372,24 +372,26 @@ describe('the recovery link for a Spanish email stays in Spanish', () => {
 
 // ---- the app shell, Settings and the emails --------------------------------------------------------------------------------------------
 describe('the signed-in app for a Spanish member', () => {
-  it('the /app layout stays static: the header for the member streams in behind Suspense, with the English header as the fallback', () => {
+  it('the /app layout stays static: the header for the member streams in behind Suspense, with the hinted English header as the fallback', () => {
     const src = readFileSync('app/app/layout.tsx', 'utf8');
     expect(src).not.toMatch(/cookies\(|headers\(|connection\(|getUser|getProfile|createClient/);
-    expect(src).toContain('<Suspense fallback={<AppHeaderBar lang="en" />}>');
-    expect(src).toContain('<Suspense fallback={<AppSkipLink lang="en" />}>');
+    expect(src).toContain('<Suspense fallback={<AppHeaderBar lang="en" hint />}>');
+    expect(src).toContain('<Suspense fallback={<AppSkipLink lang="en" hint />}>');
+    expect(src).toContain('<AppLangScript />');
   });
   it('header, banners, Settings and billing are Spanish; the page titles too', async () => {
     const { renderSpanish } = await import('./r18-spanish');
     const all = await renderSpanish();
     const txt = (k: string) => all[k].out.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    expect(txt('app.layout')).toContain('Coincidencias Configuración Cerrar sesión');
+    expect(txt('app.layout')).toContain('Coincidencias Ajustes Salir');
+    expect(all['app.layout'].out).toContain('aria-label="Cerrar sesión"');
     expect(txt('app.trialing')).toContain('Le quedan 5 días de prueba gratis.');
     expect(txt('app.trialing.1day')).toContain('Le queda 1 día de prueba gratis.');
     expect(txt('app.past_due')).toContain('Su último pago no se procesó.');
     expect(txt('app.locked')).toContain('Su prueba gratis terminó');
     expect(txt('app.locked')).toContain('Plan Solo: $7.99 al mes. Plan Pro: $13.99 al mes');
-    expect(all['app.meta'].out).toBe('{"title":{"absolute":"Sus coincidencias"}}');
-    expect(all['settings.meta'].out).toBe('{"title":"Configuración"}');
+    const { APP_TITLES_ES } = await import('@/components/app-header');
+    expect(APP_TITLES_ES).toEqual({ '/app': 'Sus coincidencias | Holler', '/app/settings': 'Configuración | Holler' });
     expect(txt('settings.trialing')).toContain('Prueba gratis: le quedan 5 días.');
     expect(txt('settings.active.solo')).toContain('Cambiar al Plan Pro');
     expect(txt('settings.active.pro')).toContain('Cambiar al Plan Solo');

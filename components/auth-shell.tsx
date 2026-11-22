@@ -28,13 +28,14 @@ export function AuthShell({ lang = 'en', children, languageLink }: { lang?: Lang
       <main id="main" className={`${PAGE_BOX} flex flex-1 flex-col pb-16 pt-6 sm:pt-12 ${BODY_TEXT}`}>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col">{children}</div>
       </main>
-      <footer className={`${PAGE_BOX} flex justify-center gap-4 pb-8 text-sm text-muted`}>
+      {/* Spanish labels are longer ("Privacidad (en inglés)"): they wrap as whole links, never inside one (review P3-7). */}
+      <footer className={es ? `${PAGE_BOX} flex flex-wrap justify-center gap-x-4 pb-8 text-sm text-muted` : `${PAGE_BOX} flex justify-center gap-4 pb-8 text-sm text-muted`}>
         {es ? (
           <>
-            <Link href="/privacy" hrefLang="en" className={footLink}>
+            <Link href="/privacy" hrefLang="en" className={`${footLink} whitespace-nowrap`}>
               {t(lang, 'footer.privacy')}
             </Link>
-            <Link href="/terms" hrefLang="en" className={footLink}>
+            <Link href="/terms" hrefLang="en" className={`${footLink} whitespace-nowrap`}>
               {t(lang, 'footer.terms')}
             </Link>
           </>

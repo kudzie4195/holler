@@ -294,7 +294,7 @@ describe('round 18: new Spanish pages, the app for a Spanish member, and the Spa
     const { renderSpanish } = await import('./r18-spanish');
     const { spanishProblems } = await import('@/lib/i18n/rules');
     const all = await renderSpanish();
-    expect(Object.keys(all).length).toBeGreaterThanOrEqual(55);
+    expect(Object.keys(all).length).toBeGreaterThanOrEqual(53);
     for (const [k, s] of Object.entries(all)) {
       expect(leaks(s.out, s.data), k).toEqual([]);
       let plain = without(text(s.out).replace(/https?:\/\/\S+/g, ' '), s.data);

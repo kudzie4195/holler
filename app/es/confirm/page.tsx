@@ -11,6 +11,7 @@ import { t } from '@/lib/i18n';
  */
 export const metadata: Metadata = {
   title: t('es', 'auth.forgot.h'),
+  description: t('es', 'auth.meta.confirm.desc'),
   robots: { index: false, follow: false },
 };
 

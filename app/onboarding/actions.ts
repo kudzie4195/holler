@@ -14,6 +14,7 @@ import { saveLanguage } from '@/lib/auth/language';
 import { signupLang } from '@/lib/auth/signup-lang';
 import { createClient } from '@/lib/supabase/server';
 import { parseLang } from '@/lib/i18n';
+import { setLangCookieFromAction } from '@/lib/auth/lang-cookie';
 
 export async function completeOnboarding(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
@@ -55,5 +56,7 @@ export async function completeOnboarding(_prev: ProfileFormState, formData: Form
   // They may have clicked the confirm-email link before this profile existed.
   await applyPendingVerification(user);
   // The saved settings are unchanged; the next screen shows what Holler watches there (a past-records preview), then links on to /app.
+  // The language hint for the /app header (lib/auth/lang-cookie.ts). Never throws.
+  await setLangCookieFromAction(spanish ? 'es' : 'en');
   redirect(spanish ? '/es/onboarding/preview' : '/onboarding/preview');
 }

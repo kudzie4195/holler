@@ -58,6 +58,11 @@ export interface RunDeps {
    * 'es' means the English email, exactly as before.
    */
   langFor?: (userId: string) => Promise<Lang>;
+  /**
+   * The same, read once for every member the run picked (one query per 100, review P3-9). Used when langFor is absent. A throw means
+   * every email of the run is English.
+   */
+  langsFor?: (userIds: string[]) => Promise<Map<string, Lang>>;
   /** Wall clock for the time budget; tests pass a fake. */
   clock?: () => number;
   budgetMs?: number;
@@ -211,6 +216,16 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
   const byId = new Map(profiles.map((p) => [p.user_id, p]));
   const candidates = selectLifecycle(profiles, sends, now).slice(0, limit);
   s.selected = candidates.length;
+  // The members' languages, read once for the whole run (round 18 ES). Only when the caller gives a batch reader and no per-member one.
+  if (!deps.langFor && deps.langsFor && candidates.length > 0) {
+    let langs = new Map<string, Lang>();
+    try {
+      langs = await deps.langsFor([...new Set(candidates.map((c) => c.userId))]);
+    } catch {
+      langs = new Map();
+    }
+    deps = { ...deps, langFor: async (id: string) => langs.get(id) ?? 'en' };
+  }
 
   if (dry) {
     s.would_send = [];

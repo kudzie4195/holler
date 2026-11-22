@@ -79,7 +79,6 @@ export async function renderSpanish(): Promise<Record<string, SpanishSurface>> {
     appMocks(s.rows ?? []);
     const page = await import('@/app/app/page');
     add(`app.${name}`, await renderResolved(page.default({ params: Promise.resolve({}), searchParams: Promise.resolve(s.upgraded ? { upgraded: '1' } : {}) } as never)));
-    if (name === 'trialing') add('app.meta', JSON.stringify(await page.generateMetadata()));
   }
   const future = iso(20 * 86_400_000);
   const settingsStates: Record<string, { profile: Record<string, unknown>; stripe?: boolean; shadow?: string | null }> = {
@@ -99,7 +98,6 @@ export async function renderSpanish(): Promise<Record<string, SpanishSurface>> {
     appMocks();
     const page = await import('@/app/app/settings/page');
     add(`settings.${name}`, await renderResolved(createElement(page.default as never)), [...DATA, 'retiro de árboles']);
-    if (name === 'trialing') add('settings.meta', JSON.stringify(await page.generateMetadata()));
   }
 
   // ---- emails ----------------------------------------------------------------------------------------------------------------------

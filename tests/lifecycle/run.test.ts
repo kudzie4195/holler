@@ -625,3 +625,19 @@ describe('any trial length: each email exactly once, at the right time', () => {
     }
   });
 });
+
+describe('member language (round 18 ES, review P3-9)', () => {
+  it('reads every picked member\'s language once per run, sends each email in that language, and a failed read sends English', async () => {
+    const w = world([prof('a'), prof('b')], { matches: { a: withMatches(2), b: withMatches(2) } });
+    const calls: string[][] = [];
+    const m = mailer();
+    await runLifecycle(deps(w, m, { langsFor: async (ids) => (calls.push([...ids].sort()), new Map([['a', 'es' as const]])) }));
+    expect(calls).toEqual([['a', 'b']]);
+    const subjects = m.sent.map((x) => x.subject).sort();
+    expect(subjects).toEqual(['Lo que encontramos cerca de usted', 'What we found near you']);
+    const w2 = world([prof('a')], { matches: { a: withMatches(2) } });
+    const m2 = mailer();
+    await runLifecycle(deps(w2, m2, { langsFor: async () => { throw new Error('42703'); } }));
+    expect(m2.sent.map((x) => x.subject)).toEqual(['What we found near you']);
+  });
+});

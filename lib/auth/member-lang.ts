@@ -29,6 +29,26 @@ export async function memberLang(): Promise<Lang> {
 }
 
 /**
+ * Saved languages of many members, read in chunks of 100 (lib/moat/run.ts does the same). A member with no row, no column (migration
+ * 0024 not applied) or a failed chunk is simply not in the map: English. Never throws.
+ */
+export async function loadMemberLangs(db: Pick<SupabaseClient, 'from'>, userIds: string[]): Promise<Map<string, Lang>> {
+  const out = new Map<string, Lang>();
+  for (let i = 0; i < userIds.length; i += 100) {
+    try {
+      const { data, error } = await db.from('holler_profiles').select('user_id, language').in('user_id', userIds.slice(i, i + 100));
+      if (error) continue;
+      for (const row of (data ?? []) as Array<{ user_id?: unknown; language?: unknown }>) {
+        if (typeof row.user_id === 'string' && (row.language === 'es' || row.language === 'en')) out.set(row.user_id, row.language);
+      }
+    } catch {
+      // English
+    }
+  }
+  return out;
+}
+
+/**
  * One member's saved language, read with the service role for an email sent outside a page (verify resend, password reset, lifecycle).
  * null when there is no profile row, no language column (migration 0024 not applied: Postgres 42703, PostgREST PGRST204), or any error,
  * so the caller falls back to what it already knows (the sign-up language, then the page). Never throws.

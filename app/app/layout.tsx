@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { PAGE_BOX } from '@/components/grid';
-import { AppHeaderBar, AppSkipLink, MemberHeaderBar, MemberSkipLink } from '@/components/app-header';
+import { AppHeaderBar, AppLangScript, AppSkipLink, MemberHeaderBar, MemberSkipLink } from '@/components/app-header';
 
 export const metadata: Metadata = {
   title: { default: 'Your matches', template: '%s | Holler' },
@@ -12,17 +12,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* The skip link and the header bar are in the member's language (round 18 ES). The English ones are the static fallback, so the
-          layout stays static; the member's version streams in behind each boundary (components/app-header.tsx). */}
-      <Suspense fallback={<AppSkipLink lang="en" />}>
+          layout stays static; the member's version streams in behind each boundary. The fallback carries the Spanish words, and the
+          script after the header shows them before the first paint when the language hint cookie says Spanish (components/app-header.tsx). */}
+      <Suspense fallback={<AppSkipLink lang="en" hint />}>
         <MemberSkipLink />
       </Suspense>
       <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
         <div className={`${PAGE_BOX} flex h-16 items-center justify-between gap-2`}>
-          <Suspense fallback={<AppHeaderBar lang="en" />}>
+          <Suspense fallback={<AppHeaderBar lang="en" hint />}>
             <MemberHeaderBar />
           </Suspense>
         </div>
       </header>
+      <AppLangScript />
       <main id="main" className={`${PAGE_BOX} flex-1 pb-20 pt-8`}>
         {/* Everything below reads the session, so it streams in behind this boundary. The column starts under the logo. */}
         <div className="max-w-3xl">

@@ -40,18 +40,7 @@ import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { langOfProfile, t, type Lang } from '@/lib/i18n';
-import { memberLang } from '@/lib/auth/member-lang';
 import { planNameEs, renewalNoteEs } from '@/lib/plan/price-copy-es';
-import type { Metadata } from 'next';
-
-/**
- * The tab title in the member's language (round 18 ES). An English member gets no page title of its own, exactly as before (the layout's
- * default, "Your matches"); a Spanish member gets the Spanish one. The page already reads the session, so this adds no dynamic access.
- */
-export async function generateMetadata(): Promise<Metadata> {
-  const lang = await memberLang();
-  return lang === 'en' ? {} : { title: { absolute: t(lang, 'app.title') } };
-}
 
 interface SignalRow {
   id: number;

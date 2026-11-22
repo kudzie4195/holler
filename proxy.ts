@@ -29,5 +29,6 @@ export async function proxy(request: NextRequest) {
 // /app, /onboarding and the guest-only pages need the session. /local, /for, /storms and /guides/<slug> only get the slug check;
 // they never read or write cookies, so Set-Cookie headers can't interfere with their caching. The /guides hub itself is not matched.
 export const config = {
-  matcher: ['/app/:path*', '/onboarding/:path*', '/login', '/signup', '/forgot', '/local/:path*', '/for/:path*', '/guides/:path+', '/storms', '/storms/:path*'],
+  // Round 18 ES: the Spanish account pages get the same session refresh and gate as their English twins.
+  matcher: ['/app/:path*', '/onboarding/:path*', '/login', '/signup', '/forgot', '/es/login', '/es/signup', '/es/forgot', '/es/onboarding/:path*', '/local/:path*', '/for/:path*', '/guides/:path+', '/storms', '/storms/:path*'],
 };

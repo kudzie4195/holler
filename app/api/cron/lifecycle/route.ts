@@ -5,7 +5,7 @@ import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { createStore, runLifecycle } from '@/lib/lifecycle';
 import { rankSignals, scoresFor } from '@/lib/ai';
 import { matchScope } from '@/lib/plan/scope';
-import { loadMemberLang } from '@/lib/auth/member-lang';
+import { loadMemberLangs } from '@/lib/auth/member-lang';
 
 export const maxDuration = 60;
 
@@ -33,9 +33,9 @@ export async function GET(req: Request) {
       siteUrl,
       secret: env.CRON_SECRET as string,
       dry,
-      // The member's language (round 18 ES): the profile's language column, read on its own so a database without migration 0024 changes
-      // nothing (null, so English). Never throws.
-      langFor: async (userId) => (await loadMemberLang(admin, userId)) ?? 'en',
+      // The members' languages (round 18 ES): the profile's language column, read once per run in chunks of 100, on its own so a
+      // database without migration 0024 changes nothing (English). Never throws.
+      langsFor: (userIds) => loadMemberLangs(admin, userIds),
       // Trial-ending "best 3": the stored AI scores for this member's trades (holler_signal_ai, no model call). scoresFor returns an
       // empty map on any error (and before migration 0014), and rankSignals then keeps severity and recency, so the order never breaks.
       rankFor: async (p, items) => {
