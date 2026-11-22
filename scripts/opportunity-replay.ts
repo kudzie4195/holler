@@ -10,7 +10,7 @@
  *   I2 no 311 graffiti row without an explicit private marker is act or soon for painting or cleaning.
  *   I3 every Tree Trim Request, Tree Planting, Sewer Cleaning, catch basin, Missed Trash, Fly Dumping, Rodent Baiting 311 row is
  *      context for every trade.
- *   I4 every NYC HEAT/HOT WATER 311 row is act for hvac.
+ *   I4 every NYC HEAT/HOT WATER 311 row is act for hvac (soon when it is one apartment only).
  *   I5 every source has an explicit rule; the unknown default count is 0 for permit, 311, violation, inspection, business, alert,
  *      report and contract rows.
  *   I6 (report only) context share, for painting, tree-service and plumbing, of the rows whose categories include that trade.
@@ -155,7 +155,8 @@ for (const r of rows) {
     }
     if (r.source === 'socrata-nyc-311' && /HEAT\/HOT WATER/i.test(title)) {
       i4Rows++;
-      if (labels.hvac !== 'act') i4.push(`${r.id} ${title} -> hvac ${labels.hvac}`);
+      const want = /apartment only/i.test(title) ? 'soon' : 'act';
+      if (labels.hvac !== want) i4.push(`${r.id} ${title} -> hvac ${labels.hvac} (want ${want})`);
     }
     if (a.fallback === 'city-request' && Object.keys(a.grants).length === 0) bump(cityRequest, titleKey(title));
   }
@@ -204,7 +205,7 @@ const check = (id: string, ok: boolean, msg: string, samples: string[] = []) => 
 check('I1', i1.length === 0, `permit own-trade never act/soon (${i1.length} violations)`, i1);
 check('I2', i2.length === 0, `311 graffiti without private marker never act/soon for painting/cleaning (${i2.length} violations)`, i2);
 check('I3', i3.length === 0 && i3Rows > 0, `city-work 311 rows are context for every trade (${i3Rows} rows, ${i3.length} violations)`, i3);
-check('I4', i4.length === 0 && i4Rows > 0, `NYC HEAT/HOT WATER 311 rows are act for hvac (${i4Rows} rows, ${i4.length} violations)`, i4);
+check('I4', i4.length === 0 && i4Rows > 0, `NYC HEAT/HOT WATER 311 rows are act for hvac, soon for one apartment (${i4Rows} rows, ${i4.length} violations)`, i4);
 const STRICT = new Set(['permit', '311', 'violation', 'inspection', 'business', 'alert', 'report', 'contract']);
 const strictUnknown = [...unknownBy.entries()].filter(([k]) => STRICT.has(k.split(' | ')[1]));
 const ruleless = [...sourcesSeen.entries()].filter(([, s]) => s.unknown === s.rows).map(([src]) => src);
