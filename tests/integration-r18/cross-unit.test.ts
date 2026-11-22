@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
+vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }), headers: async () => new Headers() }));
 
 import type { ContactRecord } from '@/lib/contacts/types';
 import { isOrganisationName } from '@/lib/contacts/org';
@@ -15,7 +16,7 @@ import { lookupBusiness, lookupForCards, lookupInputFor, lookupSettings, mayLook
 import { contactPathOf, textShowsPlace } from '@/lib/signals/alert-gate';
 import { buildingAddress } from '@/lib/lists/core';
 import { buildingStreetFromPart } from '@/lib/signals/site-address';
-import { AppNavLinks, appNavLabel } from '@/components/app-nav';
+import { appNavLabel } from '@/components/app-nav';
 import { en } from '@/lib/i18n/en';
 import { es } from '@/lib/i18n/es';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
@@ -135,14 +136,23 @@ describe('the "Lists" header link', () => {
     expect(appNavLabel('/app/lists', 'es')).toBe('Listas');
   });
 
-  it('is hidden below 375 px and shown from 375 px; Matches and Settings show at every width', () => {
-    const html = renderToStaticMarkup(createElement(AppNavLinks as (p: { lang?: 'en' | 'es' }) => ReturnType<typeof AppNavLinks>, { lang: 'es' }));
-    const tags = [...html.matchAll(/<a\b[^>]*>[^<]*<\/a>/g)].map((m) => m[0]);
-    const tagFor = (href: string) => tags.find((x) => x.includes(`href="${href}"`));
-    expect(tagFor('/app/lists')).toMatch(/>Listas<\/a>$/);
-    expect(tagFor('/app/lists')).toMatch(/class="hidden min-\[375px\]:inline-flex /);
-    for (const href of ['/app', '/app/settings']) expect(tagFor(href), href).toMatch(/class="inline-flex /);
-    expect(renderToStaticMarkup(createElement(AppNavLinks))).toContain('>Lists</a>');
+  it('the real header bar (round 18 ES): Spanish labels by href, Lists hidden below 375 px, the English fallback carries the Spanish hint', async () => {
+    const { AppHeaderBar } = await import('@/components/app-header');
+    const tagsOf = (html: string) => [...html.matchAll(/<a\b[^>]*>[^<]*<\/a>/g)].map((m) => m[0]);
+    const es = renderToStaticMarkup(createElement(AppHeaderBar, { lang: 'es' }));
+    const nav = tagsOf(es).filter((x) => /href="\/app(?:\/[a-z]+)?"/.test(x) && !/aria-label=/.test(x));
+    expect(nav.map((x) => />([^<]*)<\/a>$/.exec(x)?.[1])).toEqual(['Coincidencias', 'Listas', 'Ajustes']);
+    expect(es).toMatch(/>Salir<\/button>/);
+    const lists = nav.find((x) => x.includes('href="/app/lists"'))!;
+    expect(lists).toMatch(/class="hidden min-\[375px\]:inline-flex /);
+    for (const x of nav.filter((y) => !y.includes('/app/lists'))) expect(x).toMatch(/class="inline-flex /);
+    const en = renderToStaticMarkup(createElement(AppHeaderBar, { lang: 'en' }));
+    expect(tagsOf(en).filter((x) => /href="\/app(?:\/[a-z]+)?"/.test(x) && !/aria-label=/.test(x)).map((x) => />([^<]*)<\/a>$/.exec(x)?.[1])).toEqual(['Matches', 'Lists', 'Settings']);
+    const hint = renderToStaticMarkup(createElement(AppHeaderBar, { lang: 'en', hint: true }));
+    expect(tagsOf(hint).find((x) => x.includes('href="/app/lists"'))).toMatch(/data-es="Listas"/);
+    // The Spanish words fit the budget the ES unit measured in Chrome (ES2-header-widths.log: with "Listas" the bar fits from 360 px; the
+    // link shows from 375 px). Pinned so a longer word is noticed.
+    expect(['Coincidencias', 'Listas', 'Ajustes', 'Salir'].join('').length).toBeLessThanOrEqual(31);
   });
 });
 

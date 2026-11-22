@@ -9,7 +9,7 @@ import { env } from '@/lib/env';
 
 /**
  * "Last updated" dates (round 18 integration): each legal page carries the date its own text last changed.
- *  - /terms: November 22, 2026 (round 18 trial: "60-day free trial").
+ *  - /terms: November 22, 2026 (round 18 trial: the trial length sentence).
  *  - /privacy: November 22, 2026 (round 18 trial: trial-email timing; round 18 ES: the holler_lang cookie sentence). PRIVACY_UPDATED below.
  *  - /delete-account: November 19, 2026 (no text change in round 18).
  */

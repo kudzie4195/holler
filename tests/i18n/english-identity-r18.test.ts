@@ -4,8 +4,9 @@
  * deletion, the verify notice, and the welcome, verify, password reset, trial lifecycle and outcome-question emails) is rendered here
  * for an English member or visitor and compared with tests/i18n/fixtures/english-r18.json.
  *
- * That file was written by this test at the base commit (8bee203, before any r18 ES change) with WRITE_ENGLISH_BASELINE=1, and is not
- * edited by hand. The only intended English differences are listed in INTENDED below and checked on their own.
+ * That file was written by this test at the base commit with WRITE_ENGLISH_BASELINE=1, and is not edited by hand. Base: first 8bee203;
+ * at the round 18 integration it was rewritten at 765687f (the five other round 18 units merged, before this unit), with this harness, so
+ * the trial wording, the Lists link, the print classes and the work-profile section are in the base and only this unit's changes differ. The only intended English differences are listed in INTENDED below and checked on their own.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createElement } from 'react';
@@ -32,9 +33,9 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  */
 const INTENDED: Record<string, [string, string][]> = {
   'pricing.html': [['href="/es">Español</a>', 'href="/es/pricing">Español</a>']],
-  // Redo 2 (review 2 P2-2): the privacy page names the holler_lang cookie, and its date moves to November 22, 2026. NEEDS KUDZI.
+  // Redo 2 (review 2 P2-2): the privacy page names the holler_lang cookie. NEEDS KUDZI. (Its date, November 22, 2026, is already in the
+  // round 18 integration base: the trial unit moved it first, so it is no ES difference here.)
   'privacy.html': [
-    ['Last updated November 19, 2026', 'Last updated November 22, 2026'],
     [
       'Our city, trade and storm pages never read cookies on our servers.</p>',
       'Our city, trade and storm pages never read cookies on our servers.</p><p>Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.</p>',

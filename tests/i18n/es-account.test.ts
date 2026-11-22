@@ -227,7 +227,8 @@ function onboardingMocks(langResult: { error: { code?: string; message?: string 
   vi.doMock('@/lib/supabase/server', () => ({
     createClient: async () => ({ from: () => ({ update: (patch: unknown) => ({ eq: async () => (h.updates.push(patch), langResult) }) }) }),
   }));
-  vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => 'first' }));
+  // Round 18 integration: partial, so the trial unit's repairShortTrial (used by /app since the merge) stays real for later tests.
+  vi.doMock('@/lib/auth/trial', async (orig) => ({ ...(await orig<typeof import('@/lib/auth/trial')>()), applyTrialRules: async () => 'first' }));
   vi.doMock('@/lib/analytics/request', () => ({ recordSignup: async () => {} }));
   vi.doMock('@/lib/analytics/signup', () => ({ priorTrial: async () => 'none', shouldRecordSignup: () => false }));
   vi.doMock('@/lib/signals/backfill-run', () => ({ backfillWithLimit: async () => ({ ran: true }) }));
@@ -383,7 +384,8 @@ describe('the signed-in app for a Spanish member', () => {
     const { renderSpanish } = await import('./r18-spanish');
     const all = await renderSpanish();
     const txt = (k: string) => all[k].out.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    expect(txt('app.layout')).toContain('Coincidencias Ajustes Salir');
+    // Round 18 integration: the lists unit's link sits between the two (hidden below 375 px by its class, still in the markup).
+    expect(txt('app.layout')).toContain('Coincidencias Listas Ajustes Salir');
     expect(all['app.layout'].out).toContain('aria-label="Cerrar sesión"');
     expect(txt('app.trialing')).toContain('Le quedan 5 días de prueba gratis.');
     expect(txt('app.trialing.1day')).toContain('Le queda 1 día de prueba gratis.');
