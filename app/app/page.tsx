@@ -28,6 +28,10 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
 import { tradeForRecord } from '@/lib/signals/brief';
+import { coverageNotice } from '@/lib/check/coverage-notice';
+import { CoverageNoticeLine } from '@/components/coverage-notice';
+import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
+import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 
 interface SignalRow {
   id: number;
@@ -212,12 +216,32 @@ async function loadDashboard() {
   // Accounts under 3 days old were filled from the 14-day backfill at signup.
   const firstRun = now - new Date(profile.created_at).getTime() < 3 * 86_400_000;
 
-  return { profile, access, cityPage, items, firstRun, failed: Boolean(error) };
+  // Source states (lib/signals/source-state.ts): when a source covering the member's area and trades is delayed, degraded or
+  // unavailable, the header says so in one line, so a quiet feed is never read as full coverage. Any failure means no line.
+  let coverage: string | null = null;
+  try {
+    if (profile.lat !== null && profile.lon !== null) {
+      const snapshot = await loadSourceStateSnapshot();
+      coverage =
+        coverageNotice({
+          lat: profile.lat,
+          lon: profile.lon,
+          radiusMi: Math.max(profile.radius_mi ?? 0, LOCAL_COVERAGE_RADIUS_MI),
+          trades: memberTrades,
+          states: snapshot?.states,
+          now,
+        })?.line ?? null;
+    }
+  } catch {
+    coverage = null;
+  }
+
+  return { profile, access, cityPage, items, firstRun, failed: Boolean(error), coverage };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, access, cityPage, items, firstRun, failed } = await loadDashboard();
+  const { profile, access, cityPage, items, firstRun, failed, coverage } = await loadDashboard();
 
   return (
     <>
@@ -240,6 +264,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
         ) : null}
         {profile.email_verified_at ? null : <VerifyNotice />}
         <TrialBanner access={access} />
+        <CoverageNoticeLine line={coverage} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
 

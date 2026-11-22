@@ -19,6 +19,8 @@ import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
+import { coverageNotice } from '@/lib/check/coverage-notice';
+import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
 
 // Only /check itself is indexed. Every ?zip=&trade= variant is noindex (tens of thousands of combinations, one canonical).
@@ -168,7 +170,12 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const ctx = await eventContext().catch(() => null);
   if (ctx) after(() => trackVisitorStep('area_check', ctx, '/check'));
 
-  const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
+  const [data, snapshot] = await Promise.all([
+    loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
+    // Source states (lib/signals/source-state.ts): when a source covering this ZIP and trade is behind, the results say so.
+    loadSourceStateSnapshot(),
+  ]);
+  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now });
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
 
   return (
@@ -177,7 +184,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
+      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} />
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { Badge } from './badge';
+import { CoverageNoticeLine } from './coverage-notice';
 import { ButtonLink } from './button';
 import { timeAgo } from './format';
 import { FamilyDot } from './page-header';
@@ -32,6 +33,7 @@ export function CheckResults({
   watches,
   now,
   origin,
+  coverage = null,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -45,6 +47,8 @@ export function CheckResults({
   now: number;
   /** The ZIP's own position, used to order records by distance and to show how far each one is. */
   origin?: { lat: number; lon: number };
+  /** One line when a source covering this place and trade is delayed, degraded or unavailable (lib/check/coverage-notice.ts). Never shown as full coverage. */
+  coverage?: string | null;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
@@ -52,7 +56,10 @@ export function CheckResults({
   if (shown === 0) {
     const trade = tradeLabel.toLowerCase();
     const intro: Record<CheckMode, string> = {
-      results: `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
+      // With a source behind, an empty list is not "nothing happened": say it is nothing in what Holler has read so far.
+      results: coverage
+        ? `In the records Holler has read so far, nothing within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`
+        : `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
@@ -63,6 +70,7 @@ export function CheckResults({
           {mode === 'uncovered' ? `Holler does not cover ${placeLabel} yet` : `Holler is watching near ${placeLabel} for ${trade} work`}
         </h2>
         <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
+        {mode === 'results' ? <div className="mt-4 max-w-2xl empty:hidden"><CoverageNoticeLine line={coverage} /></div> : null}
         {mode !== 'uncovered' ? (
           <div className="mt-8">
             <h3 className="text-xl text-ink">What Holler watches for this trade near you</h3>
@@ -97,6 +105,9 @@ export function CheckResults({
         {shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}
         Every record links to its source. Checked {timeAgo(checkedAt, now)}.
       </p>
+      <div className="mt-4 max-w-2xl empty:hidden">
+        <CoverageNoticeLine line={coverage} />
+      </div>
       <div className="mt-8 flex flex-col gap-10">
         {groups.map((g) => (
           <div key={g.id}>
