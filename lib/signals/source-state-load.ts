@@ -1,6 +1,7 @@
 import { readAllPages, type Db } from './store';
 import { readSourceHealth } from './health';
 import { missingEnvFor } from './run';
+import { samplesTableState } from './samples';
 import {
   computeSourceStates,
   type ScanRunRow,
@@ -46,13 +47,29 @@ export async function readStateRuns(db: Db, now: Date, adapters: readonly StateA
 }
 
 export async function loadSourceStates(db: Db, now: Date, adapters?: StateAdapter[]): Promise<SourceStateResult[]> {
-  const list = adapters ?? (await defaultAdapters());
+  const list = adapters ?? (await defaultAdapters(db));
   const [health, runs] = await Promise.all([readSourceHealth(db), readStateRuns(db, now, list)]);
   return computeSourceStates({ adapters: list, health, runs, now });
 }
 
+/** What a probation source is missing when the samples table (migration 0032) is not there: the scan skips it, so it is "not set up". */
+export const SAMPLES_TABLE_MISSING_ENV = 'migration 0032 (holler_source_samples)';
+
+/**
+ * Probation sources (Adapter.probation) are skipped by the scan while holler_source_samples is missing (lib/signals/run.ts). Their state
+ * must then say "not set up", never "unavailable" or behind (round 19 review, defect 7): this adds SAMPLES_TABLE_MISSING_ENV to their
+ * missing list. The table is probed only when a probation source is listed and a db is given; a probe that fails for another reason
+ * changes nothing.
+ */
+export async function withProbationSetup<T extends { probation?: boolean; missingEnv: readonly string[] }>(db: Db | null | undefined, list: T[]): Promise<T[]> {
+  if (!db || !list.some((a) => a.probation)) return list;
+  if ((await samplesTableState(db)) !== 'missing') return list;
+  return list.map((a) => (a.probation && !a.missingEnv.includes(SAMPLES_TABLE_MISSING_ENV) ? { ...a, missingEnv: [...a.missingEnv, SAMPLES_TABLE_MISSING_ENV] } : a));
+}
+
 /** Every registered adapter with the env keys or flag it is missing. The registry is imported on demand (it pulls in every adapter). */
-export async function defaultAdapters(): Promise<StateAdapter[]> {
+export async function defaultAdapters(db?: Db | null): Promise<StateAdapter[]> {
   const { ALL_ADAPTERS } = await import('./registry');
-  return ALL_ADAPTERS.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a) }));
+  const list = ALL_ADAPTERS.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a), probation: !!a.probation }));
+  return (await withProbationSetup(db, list)).map(({ id, kind, cadenceMinutes, missingEnv }) => ({ id, kind, cadenceMinutes, missingEnv }));
 }

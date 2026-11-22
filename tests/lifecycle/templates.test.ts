@@ -293,3 +293,17 @@ describe('no price literal in the lifecycle source', () => {
     expect(/from '\.\.\/stripe\/plans'|from '\.\.\/plan\/public-prices'/.test(t)).toBe(true);
   });
 });
+
+describe('round 19 review (defect 9): the chip names', () => {
+  it('a labelled item prints the feed chip (Act now, Coming soon, Market insight), an unlabelled one keeps the record-type words', () => {
+    const items: AlertItem[] = [
+      { ...ITEMS[0], label: 'act_now' },
+      { ...ITEMS[0], title: 'Second record', label: 'market_insight' },
+      { ...ITEMS[0], title: 'Third record' },
+    ];
+    const m = renderWelcomeMatches({ businessName: 'A', feedUrl: BASE, plansUrl: BASE, unsubscribeUrl: BASE, total: 3, items });
+    expect(m.text).toMatch(/, Act now\)/);
+    expect(m.text).toMatch(/Second record \([^)]*Market insight\)/);
+    expect(m.text).toMatch(/Third record \([^)]*(Might need work|Money being spent|Someone asked)\)/);
+  });
+});

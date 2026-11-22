@@ -2,6 +2,7 @@ import type { SendEmailInput, SendEmailResult } from '../email';
 import { bestAlerts } from './best';
 import { isReturningMember, selectLifecycle, type Candidate, type LifecycleKind } from './select';
 import { NotMigrated, type FullProfile, type LifecycleStore } from './store';
+import { matchScope } from '../plan/scope';
 import {
   plain,
   renderWelcomeMatches,
@@ -101,7 +102,7 @@ export async function buildMail(
     unsubscribeUrl: lifecycleUnsubUrl(base, p.user_id, deps.secret, now.getTime()),
   };
   if (kind === 'welcome') {
-    const m = await deps.store.matchesOf(p.user_id);
+    const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
     if (m.total > 0) {
       return { ...renderWelcomeMatches({ ...common, total: m.total, capped: m.capped, items: m.items.slice(0, 5) }), variant: 'matches' };
     }
@@ -110,7 +111,7 @@ export async function buildMail(
     return { ...renderWelcomeQuiet({ ...common, lines: q.lines, total: q.total, capped: q.capped, days: q.days }), variant: 'quiet' };
   }
   if (kind === 'trial_ending') {
-    const m = await deps.store.matchesOf(p.user_id);
+    const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
     let rank = deps.rank;
     if (deps.rankFor) {
       try {

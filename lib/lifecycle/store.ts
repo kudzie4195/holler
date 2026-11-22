@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
+import { isFeedLabel, labelForMember } from '../signals/lead-rules';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
 import { trialStartedAt as readTrialStamp } from '../auth/membership';
 import { missedSince } from './missed';
@@ -49,7 +50,12 @@ export interface LifecycleStore {
    * never skips a welcome. Throws or null on a read failure (both mean "treat as a first profile").
    */
   trialStartedAt?(userId: string): Promise<string | null>;
-  matchesOf(userId: string): Promise<MatchesOf>;
+  /**
+   * The member's matches for the welcome and trial-ending mail. With `trades` (the plan's trades, matchScope), each item carries this
+   * base's label for the member (lead-rules labelForMember, the feed's own rule) and a match whose label is not a feed label (context)
+   * is left out, exactly as the feed hides it (round 19 review, defect 9). Without `trades` every match is listed, unlabelled.
+   */
+  matchesOf(userId: string, trades?: readonly string[]): Promise<MatchesOf>;
   /** Null when there is no usable area, no trades, or the records cannot be read. A total of 0 is also null: nothing to say. */
   quietPreview(profile: FullProfile, now: Date): Promise<QuietPreview | null>;
   /** Throws when the records cannot be read. */
@@ -79,6 +85,8 @@ interface SignalEmbed {
   source: string;
   kind: string;
   title: string | null;
+  summary?: string | null;
+  categories?: string[] | null;
   city: string | null;
   state: string | null;
   severity: number | null;
@@ -159,10 +167,10 @@ export function createStore(db: Db): LifecycleStore {
       return (await userOf(userId)).stamp;
     },
 
-    async matchesOf(userId) {
+    async matchesOf(userId, trades) {
       const { data, error } = await db
         .from('holler_matches')
-        .select('signal:holler_signals(id, source, kind, title, city, state, severity, occurred_at, subtype:data->>subtype)')
+        .select('signal:holler_signals(id, source, kind, title, summary, categories, city, state, severity, occurred_at, subtype:data->>subtype)')
         .eq('user_id', userId)
         .neq('status', 'dismissed')
         .order('created_at', { ascending: false })
@@ -174,7 +182,13 @@ export function createStore(db: Db): LifecycleStore {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
+        const label = trades
+          ? labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary ?? null, categories: s.categories ?? null }, trades)
+          : null;
+        // A record this base calls context for the member's trades is hidden in the feed, so it is never listed or counted in mail either.
+        if (label && !isFeedLabel(label)) continue;
         items.push({
+          ...(label ? { label } : {}),
           id: s.id,
           title: s.title,
           city: s.city,

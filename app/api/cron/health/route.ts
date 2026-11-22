@@ -6,7 +6,7 @@ import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
 import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@/lib/signals/health';
 import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
-import { readStateRuns } from '@/lib/signals/source-state-load';
+import { readStateRuns, withProbationSetup } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
 
 export const maxDuration = 60;
@@ -34,10 +34,14 @@ async function loadCounts(admin: Admin, now: Date): Promise<HealthCounts> {
  * Ingest monitor: scan error or stall, whole-feed silence, silent or failing sources, with one deduped email. It never throws:
  * a failure comes back as { status: 'error' } and the health report is unaffected.
  */
-/** Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. */
-async function enabledSources(): Promise<Set<string>> {
+/**
+ * Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. A probation source
+ * with the samples table missing is skipped by the scan, so it is not on (review defect 7).
+ */
+async function enabledSources(admin: Admin): Promise<Set<string>> {
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
-  return new Set(ALL_ADAPTERS.filter((a) => missingEnvFor(a).length === 0).map((a) => a.id));
+  const list = await withProbationSetup(admin, ALL_ADAPTERS.map((a) => ({ id: a.id, probation: !!a.probation, missingEnv: missingEnvFor(a) })));
+  return new Set(list.filter((a) => a.missingEnv.length === 0).map((a) => a.id));
 }
 
 async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null): Promise<MonitorResult> {
@@ -47,7 +51,7 @@ async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null)
       now,
       dry,
       to,
-      enabledSources: await enabledSources(),
+      enabledSources: await enabledSources(admin),
       sourcesUrl: `${siteUrl}/api/admin/sources`,
       send: async (mail) => {
         const res = await sendEmail(mail);
@@ -107,7 +111,10 @@ export async function GET(req: Request) {
   }
 
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
-  const adapters = ALL_ADAPTERS.map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a) }));
+  // A probation source with the samples table missing is "not set up" (it is skipped by the scan), never a failure (review defect 7).
+  const adapters = (
+    await withProbationSetup(admin, ALL_ADAPTERS.map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a), probation: !!a.probation })))
+  ).map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv }));
   const counts = await loadCounts(admin, now);
   const report = planHealth({ adapters, runs, counts, now });
 

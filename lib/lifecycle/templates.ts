@@ -1,6 +1,7 @@
 import { escapeHtml, contactAddress, type Rendered } from '../email/templates';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { INTENT_LABEL, intentOf } from '../signals/intent';
+import { OPPORTUNITY_CHIP, type OpportunityLabel } from '../signals/lead-rules';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from '../plan/limits';
 // Prices come from the one public price module (lib/plan/public-prices.ts, built from the price table), never from this file.
 import { ENTITLEMENT_FOR_TIER, PUBLIC_PRICES } from '../plan/public-prices';
@@ -24,6 +25,8 @@ export interface AlertItem {
   subtype?: string | null;
   /** 1 to 3. Used by the trial-ending ranking only. */
   severity?: number | null;
+  /** This base's label for the member (lib/lifecycle/store.ts matchesOf with trades). Printed as the feed chip ("Act now"). */
+  label?: OpportunityLabel | null;
 }
 
 export interface TypeLine {
@@ -66,7 +69,8 @@ function placeOf(i: AlertItem): string {
 }
 
 function metaOf(i: AlertItem): string {
-  const label = INTENT_LABEL[intentOf({ kind: i.kind, subtype: i.subtype, source: i.source ?? '' })];
+  // The feed's chip when the member's label is known (round 19 review, defect 9); the record-type wording only for an unlabelled item.
+  const label = i.label ? OPPORTUNITY_CHIP[i.label] : INTENT_LABEL[intentOf({ kind: i.kind, subtype: i.subtype, source: i.source ?? '' })];
   return [placeOf(i), shortDate(i.occurredAt), label].filter(Boolean).join(', ');
 }
 

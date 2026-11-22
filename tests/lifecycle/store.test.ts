@@ -102,6 +102,24 @@ describe('matchesOf', () => {
     expect(r.capped).toBe(false);
     expect(r.items[0]).toMatchObject({ id: 6, city: 'Atlanta', state: 'GA', kind: 'alert', source: 'nws', severity: 2, occurredAt: '2026-11-16T00:00:00Z' });
   });
+  it('round 19 review (defect 9): with the member trades, a match the feed hides (context) is neither listed nor counted, and items carry the feed label', async () => {
+    const db = new FakeDb({
+      holler_matches: [
+        // A city tree request: context for tree service (the city does the work), so the feed hides it.
+        { id: 1, user_id: U, status: 'new', created_at: '2026-11-11T00:00:00Z', signal: sig(1, { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Chicago: Tree Trim Request', categories: ['tree-service'] }) },
+        // A hail warning: shown in the feed.
+        { id: 2, user_id: U, status: 'new', created_at: '2026-11-12T00:00:00Z', signal: sig(2, { title: 'Severe Thunderstorm Warning: Fulton County, GA', categories: ['tree-service'] }) },
+      ],
+    });
+    const r = await mk(db).matchesOf(U, ['tree-service']);
+    expect(r.items.map((i) => i.id)).toEqual([2]);
+    expect(r.total).toBe(1);
+    expect(r.items[0].label).toBe('coming_soon');
+    // Without trades (older callers) nothing is filtered and nothing is labelled.
+    const all = await mk(db).matchesOf(U);
+    expect(all.items.map((i) => i.id).sort()).toEqual([1, 2]);
+    expect(all.items.every((i) => i.label === undefined)).toBe(true);
+  });
   it('a read error throws (the cron then sends nothing for that member)', async () => {
     const db = new FakeDb({ holler_matches: [] });
     db.failOn['holler_matches.select'] = 'boom';
