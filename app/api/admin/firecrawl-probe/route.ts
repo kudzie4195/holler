@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { isBearerAuthorized } from '@/lib/email/cron-auth';
+import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { runProbe } from '@/lib/firecrawl/probe';
 
 export const maxDuration = 60;
@@ -12,7 +12,7 @@ export const maxDuration = 60;
  * The response carries row titles and public links only: never the key, never a Firecrawl response body.
  */
 export async function GET(req: Request) {
-  if (!isBearerAuthorized(req, env.CRON_SECRET)) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!isCronAuthorized(req, env.CRON_SECRET)) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' };
   const source = new URL(req.url).searchParams.get('source');
   if (!source) {
