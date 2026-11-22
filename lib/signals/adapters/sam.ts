@@ -35,10 +35,15 @@ function nameOrCode(v: unknown): { name: string; code: string } {
   return { name: str(v), code: str(v) };
 }
 
-function isoFromPosted(v: unknown): string | null {
+/**
+ * A bare date ("2026-12-05") is stored at midnight UTC for a posted date, and at NOON UTC for a response deadline, so every US time zone
+ * reads it as that same day. Midnight UTC is not used for a deadline: a real 7 PM Eastern or 4 PM Pacific deadline is also 00:00Z of the next
+ * day, and the two must stay apart.
+ */
+function isoFromPosted(v: unknown, bareAt: '00:00:00' | '12:00:00' = '00:00:00'): string | null {
   const t = str(v);
   if (!t) return null;
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00Z` : t);
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T${bareAt}Z` : t);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
@@ -71,7 +76,7 @@ export function parseSam(raw: unknown): SignalInput[] {
         const city = findCity(cityN, stateCode);
         const zip = str(pop.zip).slice(0, 5) || str(office.zipcode).slice(0, 5) || null;
         const posted = isoFromPosted(item.postedDate);
-        const deadline = isoFromPosted(item.responseDeadLine ?? item.reponseDeadLine);
+        const deadline = isoFromPosted(item.responseDeadLine ?? item.reponseDeadLine, '12:00:00');
         const agency = str(item.fullParentPathName).split('.').filter(Boolean).slice(0, 2).join(' / ');
 
         out.push({

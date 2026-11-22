@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { JOHNS_CREEK_PERMITS } from '@/lib/signals/adapters/arcgis-johnscreek';
 import { cardBrief } from '@/lib/signals/brief';
+import { parseSam } from '@/lib/signals/adapters/sam';
 import { DATE_ONLY_SOURCES, deadlineLine, deadlineOf, formatDeadlineDate, formatRecordDate } from '@/lib/signals/lead-rules';
 import { renderDigest } from '@/lib/email/templates';
 
@@ -48,20 +49,52 @@ describe('record date on the Source line', () => {
   });
 });
 
-describe('a deadline stored as a date at midnight UTC prints that day', () => {
-  it.each([
-    ['data.deadline as a bare date', { source: 'socrata-x', data: { deadline: '2026-12-05' } }],
-    ['data.deadline at midnight UTC', { source: 'socrata-x', data: { deadline: '2026-12-05T00:00:00Z' } }],
-    ['data.fixBy at midnight UTC with milliseconds', { source: 'socrata-x', data: { fixBy: '2026-12-05T00:00:00.000Z' } }],
-    ['sam-gov expires_at at midnight UTC', { source: 'sam-gov', data: null, expires_at: '2026-12-05T00:00:00Z' }],
-  ])('%s -> Deadline: Dec 5, 2026', (_n, sig) => {
-    expect(deadlineLine(deadlineOf(sig as never))).toBe('Deadline: Dec 5, 2026');
+describe('a deadline stored as a date at midnight UTC prints that day, for date-only sources only', () => {
+  it.each(['arcgis-atlanta-permits', 'arcgis-cobb-residential-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits', 'arcgis-johnscreek-permits', 'fema'])(
+    '%s: data.deadline at midnight UTC -> Deadline: Dec 5, 2026',
+    (source) => {
+      expect(deadlineLine(deadlineOf({ source, data: { deadline: '2026-12-05T00:00:00Z' } } as never))).toBe('Deadline: Dec 5, 2026');
+      expect(deadlineLine(deadlineOf({ source, data: { fixBy: '2026-12-05T00:00:00.000Z' } } as never))).toBe('Deadline: Dec 5, 2026');
+    },
+  );
+  it('a bare date prints that day for any source', () => {
+    expect(deadlineLine(deadlineOf({ source: 'socrata-x', data: { deadline: '2026-12-05' } } as never))).toBe('Deadline: Dec 5, 2026');
+    expect(deadlineLine(deadlineOf({ source: 'sam-gov', data: null, expires_at: '2026-12-05' } as never))).toBe('Deadline: Dec 5, 2026');
+  });
+  it('a date-only source keeps the day at noon UTC, not a time that has already passed', () => {
+    expect(Date.parse(deadlineOf({ source: 'fema', data: { deadline: '2026-12-05T00:00:00Z' } } as never)!)).toBe(Date.parse('2026-12-05T12:00:00Z'));
   });
   it('a deadline with a real time keeps its Eastern day (9 PM Eastern is that evening)', () => {
     expect(deadlineLine(deadlineOf({ source: 'socrata-x', data: { deadline: '2026-12-06T02:00:00Z' } } as never))).toBe('Deadline: Dec 5, 2026');
   });
-  it('the fix does not turn the deadline into a time that has already passed in the Eastern evening', () => {
-    expect(Date.parse(deadlineOf({ source: 'socrata-x', data: { deadline: '2026-12-05T00:00:00Z' } } as never)!)).toBe(Date.parse('2026-12-05T12:00:00Z'));
+});
+
+describe('a real evening deadline at 00:00Z of the next day is not moved (sam-gov and other sources)', () => {
+  it.each([
+    ['sam-gov 7 PM Eastern', '2026-12-05T19:00:00-05:00'],
+    ['sam-gov 4 PM Pacific', '2026-12-05T16:00:00-08:00'],
+  ])('%s through parseSam -> Deadline: Dec 5, 2026', (_n, responseDeadLine) => {
+    const rows = parseSam({
+      opportunitiesData: [
+        { noticeId: 'n1', title: 'Roof repair', type: 'Solicitation', postedDate: '2026-11-20', responseDeadLine, naicsCode: '238160', placeOfPerformance: { city: { name: 'Atlanta' }, state: { code: 'GA' } } },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].expiresAt).toBe('2026-12-06T00:00:00.000Z');
+    expect(deadlineLine(deadlineOf({ source: 'sam-gov', data: null, expires_at: rows[0].expiresAt } as never))).toBe('Deadline: Dec 5, 2026');
+  });
+  it('sam-gov with a bare responseDeadLine date is stored at noon UTC and prints that day', () => {
+    const rows = parseSam({
+      opportunitiesData: [
+        { noticeId: 'n2', title: 'Roof repair', type: 'Solicitation', postedDate: '2026-11-20', responseDeadLine: '2026-12-05', naicsCode: '238160', placeOfPerformance: { city: { name: 'Atlanta' }, state: { code: 'GA' } } },
+      ],
+    });
+    expect(rows[0].expiresAt).toBe('2026-12-05T12:00:00.000Z');
+    expect(deadlineLine(deadlineOf({ source: 'sam-gov', data: null, expires_at: rows[0].expiresAt } as never))).toBe('Deadline: Dec 5, 2026');
+  });
+  it('a non-date-only source at 00:00Z is the Eastern evening before (a real instant)', () => {
+    expect(deadlineLine(deadlineOf({ source: 'socrata-x', data: { deadline: '2026-12-06T00:00:00Z' } } as never))).toBe('Deadline: Dec 5, 2026');
+    expect(deadlineLine(deadlineOf({ source: 'sam-gov', data: null, expires_at: '2026-12-06T00:00:00Z' } as never))).toBe('Deadline: Dec 5, 2026');
   });
 });
 

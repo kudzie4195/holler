@@ -572,11 +572,15 @@ export const DEADLINE_SELECT = 'deadline:data->>deadline,fixBy:data->>fixBy,resp
 /** A date-only value ("2026-12-01"), or the same day written as midnight UTC ("2026-12-01T00:00:00Z"), which a portal's date column produces. */
 const MIDNIGHT_UTC = /^(\d{4}-\d{2}-\d{2})T00:00:00(?:\.0+)?(?:Z|\+00:00)$/;
 
-/** A date-only value ("2026-12-01") is kept at noon UTC so every US time zone shows the same day. Midnight UTC is read as that same day. */
-function isoDay(v: unknown): string | null {
+/**
+ * A bare date ("2026-12-01") is kept at noon UTC so every US time zone shows the same day. Midnight UTC is read as that same day ONLY when
+ * dateOnly is true (the source publishes a calendar date, see DATE_ONLY_SOURCES); for any other source 00:00Z is a real instant (a 7 PM
+ * Eastern deadline is 00:00Z) and is kept as is.
+ */
+function isoDay(v: unknown, dateOnly = false): string | null {
   if (typeof v !== 'string' || !v.trim()) return null;
   const raw = v.trim();
-  const mid = MIDNIGHT_UTC.exec(raw);
+  const mid = dateOnly ? MIDNIGHT_UTC.exec(raw) : null;
   if (mid || /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const day = mid ? mid[1] : raw;
     const t = Date.parse(`${day}T12:00:00Z`);
@@ -594,13 +598,14 @@ function isoDay(v: unknown): string | null {
 export function deadlineOf(sig: DeadlineInput): string | null {
   const source = norm(sig.source);
   if (isThreeOneOne(source)) return null;
+  const dateOnly = DATE_ONLY_SOURCES.has(source);
   const keys: string[] = [...DEADLINE_KEYS, ...(isBidSource(source) ? BID_ONLY_KEYS : [])];
   for (const k of keys) {
     const flat = (sig as unknown as Record<string, unknown>)[k];
-    const d = isoDay(flat ?? sig.data?.[k]);
+    const d = isoDay(flat ?? sig.data?.[k], dateOnly);
     if (d) return d;
   }
-  if (EXPIRY_IS_DEADLINE.has(source)) return isoDay(sig.expires_at ?? sig.expiresAt ?? null);
+  if (EXPIRY_IS_DEADLINE.has(source)) return isoDay(sig.expires_at ?? sig.expiresAt ?? null, dateOnly);
   return null;
 }
 
