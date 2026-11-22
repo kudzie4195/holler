@@ -13,6 +13,7 @@ export class FakeDb {
   from(table: string) {
     this.touched += 1;
     if (table !== 'holler_scan_runs') throw new Error(`unexpected table ${table}`);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the returned object literals need the fake db
     const db = this;
     return {
       insert: async (r: Row) => {
