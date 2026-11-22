@@ -303,3 +303,18 @@ describe('licence numbers: only where the record says it is a contractor licence
     expect(withLicense).toEqual(['arcgis-raleigh-permits']);
   });
 });
+
+describe('DeKalb primaryContactType allow-list matches whole types (review HSK re-verification)', () => {
+  const ds = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-dekalb-permits')!;
+  const org = ds.contacts!.orgs![0];
+  const shown = (t: string) => org.acceptType!.test(t) && !org.rejectType!.test(t);
+  it.each([['Contractor'], ['General Contractor'], ['Subcontractor'], ['Sub-Contractor'], ['Licensed Contractor'], ['Builder'], ['Licensed Professional'], ['contractor'], ['Contractor - Residential']])(
+    'shows %s',
+    (t) => expect(shown(t)).toBe(true),
+  );
+  it.each([
+    ['Non-Contractor'], ['Not a Contractor'], ['Landlord Contractor'], ['Self Builder'], ['Owner/Contractor'], ['Contractor (Owner)'], ['Owner-Builder'],
+    ['Owner/Builder'], ['Applicant/Contractor'], ['Tenant Contractor'], ['Contractor Agent'], ['Home Owner'], ['Resident'], ['Applicant'], ['Agent'],
+    ['Architect'], ['Engineer'], [''], ['Unknown'], ['Property Manager'], ['Not Contractor'], ['Self-Contractor'],
+  ])('does not show %j', (t) => expect(shown(t)).toBe(false));
+});

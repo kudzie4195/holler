@@ -192,3 +192,36 @@ describe('review HSK G-P2: a value or a site that merely looks like one', () => 
     expect(JSON.stringify(plan ?? {})).not.toContain('10 stories');
   });
 });
+
+describe('review HSK re-verification: the read-path site address cuts after the street and unit', () => {
+  it.each([
+    ['123 MAIN ST APT 4 JOHN SMITH', '123 MAIN ST APT 4'],
+    ['123 MAIN ST JOHN SMITH', '123 MAIN ST'],
+    ['123 MAIN ST #5B MARIA LOPEZ', '123 MAIN ST #5B'],
+    ['1234 5TH AVE N', '1234 5TH AVE N'],
+    ['1431 SHARON NW', '1431 SHARON NW'],
+    ['2150 N DAMEN', '2150 N DAMEN'],
+    ['4410 W ADDISON', '4410 W ADDISON'],
+    ['245 First St, Cambridge', '245 First St'],
+    ['4812 AVENUE H', '4812 AVENUE H'],
+  ])('%s gives %s', (part, want) => {
+    expect(siteAddressFromSummary(`PERMIT | ${part}`)?.address).toBe(want);
+  });
+  it.each([
+    ['2 Way Radio Install'],
+    ['1 Court Ordered Repair'],
+    ['4 SOUTH WINDOWS'],
+    ['30 DAYS ST'],
+    ['1 Lot Line Adjustment ST'],
+    ['10 stories'],
+    ['216 WOODBRIDGE'],
+    ['5 Year Plan'],
+  ])('%s is not a street', (part) => {
+    expect(siteAddressFromSummary(`PERMIT | ${part}`)).toBeNull();
+  });
+  it('no trailing word is ever returned', () => {
+    for (const p of ['123 MAIN ST APT 4 JOHN SMITH', '9 ELM ST MARIA', '77 OAK AVE BOB JONES']) {
+      expect(siteAddressFromSummary(`X | ${p}`)?.address ?? '').not.toMatch(/JOHN|SMITH|MARIA|BOB|JONES/);
+    }
+  });
+});

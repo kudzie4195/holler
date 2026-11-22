@@ -84,12 +84,53 @@ const HOUSE_START_RE = /^\d{1,6}[A-Za-z]?(?:\s*-\s*\d{1,6}[A-Za-z]?)?\s+\S/;
 /** A summary part that is not an address even though it starts with a number. */
 const NOT_ADDRESS_RE =
   /\bjob value\b|\bblock of\b|^\d+(?:\.\d+)?$|\bsq\.?\s?ft\b|\b(?:stories|story|floors?|levels?|units?|bed(?:room)?s?|baths?|rooms?|buildings?|acres?|lots?|sf|sqft|feet|ft|years?|months?|days?|hours?|permits?|stalls?|spaces?|seats?|dwellings?)\b\s*$/i;
-/** A street word: a suffix (ST, AVE, BLVD, BV ...) or a direction (N, NW, SOUTH ...). Review HSK G-P2-2: "10 stories" has neither. */
-const STREET_WORD_RE =
-  /^(?:st|street|ave|avenue|av|blvd|boulevard|bv|rd|road|dr|drive|ln|lane|ct|court|pl|place|way|pkwy|parkway|pky|hwy|highway|cir|circle|ter|terrace|trl|trail|sq|square|pk|park|loop|run|row|aly|alley|xing|crossing|pass|path|walk|cv|cove|pt|point|ridge|bnd|bend|expy|fwy|plz|plaza|n|s|e|w|ne|nw|se|sw|north|south|east|west)\.?,?$/i;
-function hasStreetWord(part: string): boolean {
-  const words = part.split(/\s+/).slice(1); // after the house number
-  return words.length >= 2 && words.some((w) => STREET_WORD_RE.test(w));
+/** Words that are never part of a street name in a permit summary: counts, work words, durations ("30 DAYS ST", "1 Lot Line Adjustment ST"). */
+const NOT_STREET_WORDS = new Set(
+  'stories story floors floor levels level units unit bedroom bedrooms bed beds bath baths room rooms building buildings acre acres lot lots days day months month years year hours hour permit permits repair repairs install installation addition remodel replace replacement adjustment window windows roof reroof demolition inspection construction radio ordered'.split(' '),
+);
+const SUFFIX_WORDS = new Set(
+  'st street ave avenue av blvd boulevard bv rd road dr drive ln lane ct court pl place way pkwy parkway pky hwy highway cir circle ter terrace trl trail sq square pk park loop run row aly alley xing crossing pass path walk cv cove pt point ridge bnd bend expy fwy plz plaza'.split(' '),
+);
+const DIR_ABBR = new Set(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']);
+const DIR_FULL = new Set(['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest']);
+const UNIT_WORD = new Set(['ste', 'suite', 'unit', 'apt', 'fl', 'floor', 'bldg', 'rm']);
+const kw = (w: string | undefined) => (w ?? '').toLowerCase().replace(/[.,]+$/g, '');
+const nameWordOk = (w: string) => /^#?[A-Za-z0-9'-]+[.,]?$/.test(w) && (!/\d{3,}/.test(w) || /^\d+(?:st|nd|rd|th)[.,]?$/i.test(w));
+const unitTokenOk = (t: string | undefined) => !!t && /^[A-Za-z0-9-]{1,6}$/.test(t) && (/\d/.test(t) || /^[A-Za-z]{1,2}$/.test(t));
+
+/**
+ * The street of one summary part, cut after the street suffix (plus a trailing direction and one unit), or null when the part is not a
+ * street ("10 stories", "30 DAYS ST", "2 Way Radio Install", "4 SOUTH WINDOWS"). Trailing words (a name, a city) are never returned:
+ * "123 MAIN ST APT 4 JOHN SMITH" gives "123 MAIN ST APT 4". Without a suffix only "N DAMEN" (abbreviated direction and one word, as Chicago
+ * prints it) or "SHARON NW" (one word and an abbreviated direction) is a street.
+ */
+function cutStreet(part: string): string | null {
+  const tokens = part.split(/\s+/);
+  const house = tokens[0];
+  const rest = tokens.slice(1);
+  if (rest.length < 2 || rest.length > 8 || !rest.every(nameWordOk)) return null;
+  if (rest.some((w, i) => i < 5 && NOT_STREET_WORDS.has(kw(w)))) return null;
+  const lead = DIR_ABBR.has(kw(rest[0])) || DIR_FULL.has(kw(rest[0])) ? 1 : 0;
+  // 1. with a suffix: up to three name words before it (type-first "AVENUE H" ends at the next token)
+  for (let i = lead; i < rest.length && i <= lead + 3; i++) {
+    if (!SUFFIX_WORDS.has(kw(rest[i]))) continue;
+    let end = i;
+    if (i === lead) {
+      if (lead === 1 && DIR_FULL.has(kw(rest[0]))) end = i; // "9541 SOUTH BV": the full direction word is the street name
+      else if (/^(?:[A-Za-z]|\d{1,3})[.,]?$/.test(rest[i + 1] ?? '')) end = i + 1;
+      else continue; // "2 Way Radio Install": a suffix word with no street name before it
+    }
+    const out = rest.slice(0, end + 1);
+    if (DIR_ABBR.has(kw(rest[end + 1])) && (rest.length === end + 2 || UNIT_WORD.has(kw(rest[end + 2])))) out.push(rest[end + 1]);
+    const u = rest[out.length];
+    if (u?.startsWith('#') && unitTokenOk(u.slice(1))) out.push(u);
+    else if (u && UNIT_WORD.has(kw(u)) && unitTokenOk(rest[out.length + 1])) out.push(u, rest[out.length + 1]);
+    return `${house} ${out.join(' ').replace(/,$/, '')}`;
+  }
+  // 2. no suffix: "N DAMEN" / "W 47TH" or "SHARON NW" (abbreviated direction, one street word)
+  if (rest.length === 2 && DIR_ABBR.has(kw(rest[0])) && /^(?:[A-Za-z]+|\d+(?:st|nd|rd|th))[.,]?$/i.test(rest[1])) return `${house} ${rest.join(' ').replace(/,$/, '')}`;
+  if (rest.length === 2 && DIR_ABBR.has(kw(rest[1])) && /^[A-Za-z]+$/.test(rest[0]) && !DIR_ABBR.has(kw(rest[0]))) return `${house} ${rest.join(' ').replace(/,$/, '')}`;
+  return null;
 }
 const PHONE_OR_MAIL_RE = /@|(?<!\d)\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}(?!\d)/;
 
@@ -110,15 +151,20 @@ export function siteAddressFromSummary(summary: string | null | undefined): Site
   if (typeof summary !== 'string' || !summary.trim()) return null;
   for (const raw of summary.split(' | ')) {
     const part = raw.replace(/\s+/g, ' ').trim();
-    if (!part || NOT_ADDRESS_RE.test(part) || PHONE_OR_MAIL_RE.test(part) || !HOUSE_START_RE.test(part) || !hasStreetWord(part)) continue;
+    if (!part || NOT_ADDRESS_RE.test(part) || PHONE_OR_MAIL_RE.test(part) || !HOUSE_START_RE.test(part)) continue;
     // "1431 SHARON NW, ATLANTA, GA 30314" or "245 First St, Cambridge, MA 02142" or "9541 SOUTH BV CHARLOTTE NC 28273".
     // With a comma the city may have several words; without one the city is the single word before the state ("9541 SOUTH BV CHARLOTTE NC 28273").
     const tailMatch =
       /^(.*?),\s*((?:[A-Za-z][A-Za-z .'-]{1,30}),?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/.exec(part) ??
       /^(.*\S)\s+([A-Za-z][A-Za-z'-]{1,24},?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/.exec(part);
-    if (tailMatch && /^\d/.test(tailMatch[1]) && tailMatch[1].split(' ').length >= 2) return { address: tailMatch[1].replace(/,$/, '').trim(), tail: tailMatch[2].trim() };
-    if (part.length > 90 || part.split(' ').length > 9) continue;
-    return { address: part.replace(/,$/, '').trim(), tail: null };
+    if (tailMatch && /^\d/.test(tailMatch[1])) {
+      const street = cutStreet(tailMatch[1].replace(/,$/, '').trim());
+      if (street) return { address: street, tail: tailMatch[2].trim() };
+      continue;
+    }
+    if (part.length > 90 || part.split(' ').length > 12) continue;
+    const street = cutStreet(part);
+    if (street) return { address: street, tail: null };
   }
   return null;
 }

@@ -215,8 +215,10 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
         typeField: 'primaryContactType',
         // Review HSK G-P1-1: the filer of a DeKalb application is often the owner or the owner's company. Only a filer whose type says
         // contractor (or builder, or a licensed professional) is shown as the contractor; a blank or unknown type shows nothing.
-        acceptType: /contractor|builder|licensed\s+professional/i,
-        rejectType: /owner|resident|tenant|home\s?owner|individual|person|occupant|applicant|agent|architect|engineer/i,
+        // Anchored (review HSK re-verification): the type must START with the allowed word, so "Non-Contractor", "Not a Contractor",
+        // "Landlord Contractor" and "Self Builder" do not match; the deny regex still removes "Contractor/Owner", "Contractor Agent" and so on.
+        acceptType: /^(?:(?:general|sub-?|licensed)\s*)?contractor\b|^builder\b|^licensed\s+professional\b/i,
+        rejectType: /\b(?:owners?|residents?|tenants?|home\s?owners?|individuals?|persons?|occupants?|applicants?|agents?|architects?|engineers?|landlords?|non|not|self)\b/i,
       },
     ],
   },
