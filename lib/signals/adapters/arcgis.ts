@@ -2,6 +2,7 @@ import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
+import { permitStageOf } from '@/lib/signals/stage';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
@@ -92,7 +93,8 @@ export function optionalFields(ds: ArcgisDataset): string[] {
 function outFields(ds: ArcgisDataset, allowed?: ReadonlySet<string>): string {
   const req = requiredFields(ds);
   const optional = optionalFields(ds).filter((f) => !allowed || allowed.has(f));
-  return [...new Set([...req, ...optional])].join(',');
+  // The status column is asked for by name (stage tracking), not left to be there because summaryFields happens to list it.
+  return [...new Set([...req, ...optional, ...(ds.subtype === 'permit' && ds.statusField ? [ds.statusField] : [])])].join(',');
 }
 
 const FIELD_CACHE_MS = 6 * 3_600_000;
@@ -263,6 +265,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
+      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
       report.items.push({
         source: ds.id,
         externalId,
@@ -286,6 +289,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(permitStage ? { permitStage } : {}),
       });
     } catch {
       // skip malformed feature

@@ -4,6 +4,7 @@
  */
 
 import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
+import { isStageNote } from '../signals/stage';
 import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
 import { firecrawlLines, type FirecrawlHealth } from '../firecrawl/health';
 
@@ -174,7 +175,11 @@ export function planHealth(input: {
     if (last && !(newestRun >= last.t)) newestRun = last.t;
 
     const problems: ProblemCode[] = [];
-    const lastError = last?.r.error ? oneLine(last.r.error) : null;
+    // A stage-query note ("stage query: ...") is the optional second query failing or being refused. The source itself ran fine, so it is
+    // one watch line for the source, never an error.
+    const stageNote = last && isStageNote(last.r.error) ? oneLine(last.r.error as string) : null;
+    const lastError = last?.r.error && !stageNote ? oneLine(last.r.error) : null;
+    if (stageNote) watch.push(`${a.id}: ${stageNote}`);
 
     if (!last) {
       problems.push('never_ran');

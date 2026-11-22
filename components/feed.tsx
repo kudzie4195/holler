@@ -48,6 +48,9 @@ export interface FeedItem {
   trade?: string | null;
   /** Permits: the project value the city published, in whole dollars (data.jobValue). Never for a locked member. */
   jobValue?: number | null;
+  /** data.permitStage and data.permitStageAt of a permit (stage update). */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */

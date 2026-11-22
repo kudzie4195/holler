@@ -27,6 +27,7 @@ import { tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
+import { isStageUpdate, STAGE_SELECT } from '@/lib/signals/stage';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 
@@ -67,6 +68,10 @@ interface SignalRow {
   alertId?: string | null;
   /** Permits: data.jobValue (text form). */
   jobValue?: string | null;
+  /** Permits: data.permitStage and data.permitStageAt (STAGE_SELECT). */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
+  permitStageUpdate?: string | null;
   dueDate?: string | null;
   fixBy?: string | null;
   responseDeadline?: string | null;
@@ -107,7 +112,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -234,7 +239,7 @@ export async function GET(req: Request) {
         signalIds: ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
       });
       // Act Now first, then the deterministic score, then the AI ranking or newest-first order (a stable sort), then the digest cap.
-      const shown = orderByLabelScore(
+      const ordered = orderByLabelScore(
         ranked,
         (r) => labelOf(r.s),
         (r) =>
@@ -243,7 +248,9 @@ export async function GET(req: Request) {
             trades,
             { hasContact: typeof r.s.id === 'number' && hasNamedContact(contacts.get(r.s.id)), nowMs: now.getTime() },
           ),
-      ).slice(0, MAX_ITEMS_IN_DIGEST);
+      );
+      // Stage updates are never cut by the cap of 10: they go first into the cut, and the digest lists them first inside their label.
+      const shown = [...ordered.filter((r) => isStageUpdate(r.s)), ...ordered.filter((r) => !isStageUpdate(r.s))].slice(0, MAX_ITEMS_IN_DIGEST);
       const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
         source: s.source ?? null,
@@ -261,6 +268,9 @@ export async function GET(req: Request) {
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
         deadline: deadlineOf(s),
         jobValue: s.jobValue ?? null,
+        permitStage: s.permitStage ?? null,
+        permitStageAt: s.permitStageAt ?? null,
+        permitStageUpdate: isStageUpdate(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,

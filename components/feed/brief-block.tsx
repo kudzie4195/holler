@@ -17,6 +17,8 @@ export interface BriefBlockItem {
   managerRole?: string | null;
   /** data.jobValue of a permit (whole dollars). The summary's "$N job value" is the fallback. */
   jobValue?: number | null;
+  permitStage?: string | null;
+  permitStageAt?: string | null;
 }
 
 /** The brief for a feed item (parts 2 to 5). Pure; the web card, the tests and the screenshots all call it. */
@@ -34,6 +36,8 @@ export function briefOfItem(item: BriefBlockItem): CardBrief {
     managerName: item.managerName,
     managerRole: item.managerRole,
     jobValue: item.jobValue,
+    permitStage: item.permitStage,
+    permitStageAt: item.permitStageAt,
   });
 }
 
@@ -51,6 +55,11 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
       {b.valueLine ? (
         <p className={ROW} data-testid="brief-value">
           {b.valueLine}
+        </p>
+      ) : null}
+      {b.stageLine ? (
+        <p className={ROW} data-testid="brief-stage">
+          {b.stageLine}
         </p>
       ) : null}
       <p className={ROW} data-testid="brief-why">

@@ -1,5 +1,6 @@
 import type { QualityReport, TradeQuality } from './quality';
 import { aiCoverageLine, type AiCoverage } from './ai-coverage';
+import type { DuplicateReport } from '@/lib/signals/dedupe-metrics';
 
 /**
  * The alert-quality report as one self-contained HTML page for the owner. No script, no external file, no cookie, no form: a table
@@ -27,6 +28,20 @@ function row(t: TradeQuality, target: number): string {
   );
 }
 
+function duplicatesBlock(d: DuplicateReport | undefined): string {
+  if (!d) return '';
+  const head = `<h2>Duplicate listings per source (last ${d.windowDays} days)</h2>`;
+  if (d.status === 'unavailable') return `${head}<p>Not recorded: ${esc(d.reason ?? 'unavailable')} (blank, not zero).</p>`;
+  if (d.bySource.length === 0) return `${head}<p>No duplicate listings since ${esc(d.since)}.</p>`;
+  const rows = d.bySource
+    .map((r) => `<tr><th scope="row">${esc(r.source)}</th><td>${r.duplicates}</td><td>${r.corroborations}</td><td>${r.stored === null ? 'blank' : r.stored}</td><td>${r.rate === null ? 'blank' : pct(r.rate)}</td></tr>`)
+    .join('');
+  return (
+    `${head}<p>${d.totals.duplicates} stored as another listing of a project the same source already had, ${d.totals.corroborations} stored as corroboration from another source: none makes a second card. Rate = duplicate listings / rows stored.</p>` +
+    `<table><thead><tr><th>Source</th><th>Duplicate listing (no second card)</th><th>Stored as corroboration</th><th>Stored</th><th>Duplicate rate</th></tr></thead><tbody>${rows}</tbody></table>`
+  );
+}
+
 export function renderQualityHtml(r: QualityReport, ai?: AiCoverage): string {
   const head =
     '<tr><th>Trade</th><th>Members (with access)</th><th>Sent</th>' +
@@ -49,6 +64,7 @@ export function renderQualityHtml(r: QualityReport, ai?: AiCoverage): string {
     (r.belowTarget.length ? `<p><strong>Below target:</strong> ${r.belowTarget.map(esc).join(', ')}</p>` : '') +
     `<table><thead>${head}</thead><tbody>${row(r.all, r.target)}${r.trades.map((t) => row(t, r.target)).join('')}</tbody></table>` +
     '<p>* fewer than 10 answers: small sample. "Sent" = emailed (holler_alert_log.emailed_at). "Not relevant" is what members told us, not proof the record was wrong. Time to first card counts any card in the feed that is Act now or Coming soon for one of the member&#39;s trades.</p>' +
+    duplicatesBlock(r.duplicates) +
     (r.notes.length ? `<h2>Notes</h2><ul>${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '') +
     '</body></html>'
   );

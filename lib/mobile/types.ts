@@ -292,6 +292,8 @@ export interface BriefDto {
   managedBy?: string;
   /** Permits that publish a project value: "Job value on the permit: $12,500". Absent or null otherwise. Additive. */
   valueLine?: string | null;
+  /** A permit whose stage changed (final inspection, finished, certificate of occupancy): one timing sentence. Absent otherwise and for a locked member. Additive. */
+  stageLine?: string;
 }
 
 export interface AlertDto {
