@@ -1,8 +1,7 @@
-import { summaryNamesSite, textShowsPlace } from '@/lib/signals/alert-gate';
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { extractContacts, extractJobValue, siteSpecText, withGateSite as withGate } from '@/lib/contacts/extract';
+import { extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
@@ -448,9 +447,6 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       // Permits: the stage the status column shows, as a fixed code (lib/signals/stage.ts). The scan decides whether to store it.
       const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(s(row, ds.statusField)) : null;
-      // Round 18 alert gate: a gate-only site entry (never stored, never shown) when the record's own site-address columns name a place
-      // that the display cutter refused and the public summary does not print one either.
-      const outContacts = withGate(contacts, ds.subtype === 'permit' && !summaryNamesSite(summary) && textShowsPlace(siteSpecText((f) => s(row, f), ds.contacts)));
       out.push({
         source: ds.id,
         externalId,
@@ -475,7 +471,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(outContacts.length ? { contacts: outContacts } : {}),
+        ...(contacts.length ? { contacts } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {

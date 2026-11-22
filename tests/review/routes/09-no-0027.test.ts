@@ -76,7 +76,8 @@ for (const fam of FAMILIES) {
       for (const s of rep.sources) expect(s.status, String(s.error)).not.toBe('error');
       expect(db.tables.holler_matches).toHaveLength(2);
       expect(db.tables.holler_matches.every((m) => !('alert_hold' in m))).toBe(true);
-      expect(seen).toContain('upsert alert_hold');
+      // Redo 2 (review 2, P1-1): before 0027 the gate is off, so the scan never even tries to write alert_hold (the base commit's upsert).
+      expect(seen).not.toContain('upsert alert_hold');
       expect(seen).toContain('work_profiles');
       expect(errs.mock.calls.map((c) => String(c[0])).filter((m) => /work profiles|alert_hold/.test(m))).toEqual([]);
       errs.mockRestore();

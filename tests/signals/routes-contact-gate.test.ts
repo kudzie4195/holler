@@ -137,8 +137,8 @@ describe('the hold column before migration 0027 (real PostgREST codes)', () => {
       const c = client(err);
       const n = await insertMatches(c.db, [{ user_id: 'm1', signal_id: 1, distance_mi: 1, alert_hold: 'background' }, { user_id: 'm1', signal_id: 2, distance_mi: 1 }]);
       expect(n).toBe(2);
-      expect(c.sent).toHaveLength(2);
-      expect(c.sent[1]).toEqual([{ user_id: 'm1', signal_id: 1, distance_mi: 1 }, { user_id: 'm1', signal_id: 2, distance_mi: 1 }]);
+      // Redo 2: plain and held rows go in separate upserts (no mixed column sets); the held one is retried as a plain row.
+      expect(c.sent).toEqual([[{ user_id: 'm1', signal_id: 2, distance_mi: 1 }], [{ user_id: 'm1', signal_id: 1, distance_mi: 1 }], [{ user_id: 'm1', signal_id: 1, distance_mi: 1 }]]);
     });
     it(`${err.code}: backfill and rematch rows (upsertMatchRows) are retried without it too`, async () => {
       const c = client(err);
@@ -230,42 +230,33 @@ describe('precision holds', () => {
   });
 });
 
-describe('redo 1: the contact path is read from what Holler holds, in order (business, site field or site contact, then the summary)', () => {
+describe('redo 2: the contact path comes only from what is stored and shown (business, stored site row, the card\'s own text)', () => {
   const dekalb = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-dekalb-permits')!;
   const feature = (locationLine1: string) => ({
     features: [{ attributes: { applicationNumber: 'MC-1', issuedDateTime: 1794588029000, workType: 'M-RAC', WorkTypeDescription: 'Residential Air Conditioning', OccupancyTypeDescription: 'Single Family Dwelling', statusDescription: 'Issued', locationLine1 }, geometry: { x: -84.23, y: 33.79 } }],
   });
-  it("DeKalb: the summary prints no address, but the site spec's locationLine1 does: the permit alerts", () => {
-    // A street the stored-contact cleaner accepts becomes a real site contact.
-    const [plain] = parseArcgis(feature('4415 CANDLER RD'), dekalb);
-    expect(plain.contacts?.map((c) => [c.role, c.address])).toEqual([['site', '4415 CANDLER RD']]);
-    // A real Atlanta-area shape the cleaner refuses (two street words, no suffix): a gate-only entry, so the card still alerts.
-    const [s] = parseArcgis(feature('2300 NANCY CREEK NW'), dekalb);
-    expect(s.summary ?? '').not.toMatch(/NANCY/);
-    // The gate-only site entry: role site, no name, no address, never stored.
-    expect(s.contacts).toEqual([{ role: 'site', name: '', address: null, gateOnly: true }]);
+  const markedOf = (s: SignalInput) => {
     const stored = [{ id: 1, source: s.source, external_id: s.externalId, kind: 'permit', title: s.title, summary: s.summary, categories: s.categories, lat: 0, lon: 0, state: 'GA', severity: 1, occurred_at: '' }] as StoredSignal[];
     markContactPaths(stored, [s]);
-    expect(stored[0].contactPath).toBe('site');
+    return stored[0].contactPath;
+  };
+  it("DeKalb: the site spec's locationLine1 is stored as a site row (shown on the card) when the cleaner keeps it, and that is the path", () => {
+    const [plain] = parseArcgis(feature('4415 CANDLER RD'), dekalb);
+    expect(plain.contacts?.map((c) => [c.role, c.address])).toEqual([['site', '4415 CANDLER RD']]);
+    expect(markedOf(plain)).toBe('site');
   });
-  it('a site field that is not a place ("0 PEACHTREE", "LOT 5 OAK SUBDIVISION", empty) gives no path', () => {
-    for (const v of ['0 PEACHTREE', 'LOT 5 OAK SUBDIVISION', '']) {
-      const [s] = parseArcgis(feature(v), dekalb);
-      expect((s.contacts ?? []).some((c) => c.gateOnly), v).toBe(false);
-    }
-  });
-  it('the gate-only entry is never written to holler_signal_contacts', async () => {
-    const { writeSignalContacts } = await import('@/lib/signals/store');
-    const db = new FakeDb();
-    await writeSignalContacts(db as unknown as Db, [{ signalId: 1, contacts: [{ role: 'site', name: '', address: null, gateOnly: true }] }], () => {});
-    expect(db.tables.holler_signal_contacts ?? []).toEqual([]);
+  it('a site the cleaner refuses is not stored, not shown, and so is no contact path (never an alert on something the member cannot see)', () => {
+    const [s] = parseArcgis(feature('2300 NANCY CREEK NW'), dekalb);
+    expect(s.contacts ?? []).toEqual([]);
+    expect(s.summary ?? '').not.toMatch(/NANCY/);
+    expect(markedOf(s)).toBeNull();
+    for (const v of ['0 PEACHTREE', 'LOT 5 OAK SUBDIVISION', '']) expect(markedOf(parseArcgis(feature(v), dekalb)[0]), v).toBeNull();
   });
   it('the order holds: a business first, then a site, then the summary', () => {
     expect(contactPathOf([{ role: 'contractor', name: 'Peach Builders LLC' }, { role: 'site', name: '', address: '12 OAK ST' }], '1 MAIN ST')).toBe('business');
     expect(contactPathOf([{ role: 'site', name: '', address: '1584 ABNER NW' }], null)).toBe('site');
-    expect(contactPathOf([], null, true)).toBe('site');
     expect(contactPathOf([], 'Residential Alteration | 5600 LA SALLE SW, ATLANTA, GA 30331')).toBe('site');
-    expect(contactPathOf([{ role: 'site', name: '', address: '0 PEACHTREE' }], 'Issued Status Code', false)).toBeNull();
+    expect(contactPathOf([{ role: 'site', name: '', address: '0 PEACHTREE' }], 'Issued Status Code')).toBeNull();
     expect(textShowsPlace('Main St & 3rd Ave')).toBe(true);
   });
   it('the feed never says "no site address" next to one: a stored Background hold is not shown when the card prints a place', () => {

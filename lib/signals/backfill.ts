@@ -1,4 +1,5 @@
-import { loadWorkProfiles } from './store';
+import { contactGateOn, loadWorkProfiles, markStoredContactPaths } from './store';
+import { isPermitRecord } from './permit-routing';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
 import { matchScope, type ScopeArea } from '@/lib/plan';
@@ -296,6 +297,9 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const byId = new Map<number, SignalRow>();
     for (const r of (await Promise.all(reads)).flat()) if (!byId.has(r.id)) byId.set(r.id, r);
     const rows = [...byId.values()].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
+    // The contact gate (migration 0027) reads the stored contacts and the card's own text, as the scan does: the same permit gets the same
+    // answer here. Before 0027 it is off and nothing is held.
+    if (rows.some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) })) && (await contactGateOn(db))) await markStoredContactPaths(db, rows);
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);

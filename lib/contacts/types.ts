@@ -26,12 +26,6 @@ export interface ContactInput {
   website?: string | null;
   /** The contractor's licence number when the permit publishes it (a public registry number, never a personal id). Roles contractor and business only. */
   license?: string | null;
-  /**
-   * Alert gate only (round 18): the source's own site-address columns name a place to go, but the display cutter refused them, so there is
-   * no stored site contact. Set by the adapter on an entry with role 'site', empty name and no address. NEVER stored (writeSignalContacts
-   * drops it) and never shown; lib/signals/run.ts markContactPaths reads it.
-   */
-  gateOnly?: boolean;
 }
 
 export interface ContactRecord extends ContactInput {

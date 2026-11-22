@@ -12,6 +12,7 @@ import {
   insertMatches,
   insertNewSignals,
   markStoredContactPaths,
+  contactGateOn,
   loadProfiles,
   logRun,
   pruneOldSignals,
@@ -306,11 +307,11 @@ export function markContactPaths(inserted: StoredSignal[], built: readonly Signa
     const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
     let contacts: ReturnType<typeof sanitizeContacts> = [];
     try {
-      contacts = sanitizeContacts((b?.contacts ?? []).filter((c) => !c.gateOnly), { datasetCity: b?.city ?? null });
+      contacts = sanitizeContacts(b?.contacts ?? [], { datasetCity: b?.city ?? null });
     } catch {
       contacts = [];
     }
-    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null, (b?.contacts ?? []).some((c) => c.gateOnly === true));
+    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null);
   }
 }
 
@@ -426,6 +427,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     if (storedAll.length || stageSignals.length) {
       try {
         const profiles = await loadProfiles(db, now);
+        // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
+        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
+        if (!gateOn) for (const s of storedAll) s.contactPath = undefined;
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
         // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
@@ -437,7 +441,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           /** Pairs whose card is feed-only (alert_hold): a re-sent card would still be held, so it gets no update and takes no place. */
           const heldPairs = new Set<string>();
           // A member with no card yet gets a fresh one: the contact gate reads the stored contacts for it, as the scan did for the others.
-          await markStoredContactPaths(db, stageSignals);
+          if (gateOn) await markStoredContactPaths(db, stageSignals);
+          else for (const sig of stageSignals) sig.contactPath = undefined;
           try {
             type Existing = { user_id: string; signal_id: number; status: string | null; alert_hold?: string | null };
             const read = (cols: string) =>
@@ -451,6 +456,10 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             } catch (e) {
               if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
               existing = await read('user_id, signal_id, status');
+              // Migration 0027 is not applied after all: no card is feed-only. Every card of this scan is stored as a plain alert (insertMatches
+              // drops the hold too) and every stage update goes out exactly as before round 18.
+              for (const r of rows) delete r.alert_hold;
+              for (const sig of stageSignals) sig.contactPath = undefined;
             }
             for (const m of existing) {
               have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
@@ -499,6 +508,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             }
           }
         }
+        // A held row is stored as already handled (notified, pushed_at): the email and push runs never read it again (review P3-4). If
+        // 0027 turns out to be missing, insertMatches drops all three keys and the card is stored exactly as before round 18.
+        for (const r of rows) if (r.alert_hold) Object.assign(r, { notified: true, pushed_at: now.toISOString() });
         await insertMatches(db, rows);
         if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; report.sources.find((x) => x.id === src)?.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.

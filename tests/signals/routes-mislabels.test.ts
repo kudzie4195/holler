@@ -115,3 +115,37 @@ describe('stored rows are not re-mapped', () => {
     expect(CAT_V).toBe(3);
   });
 });
+
+describe('redo 2 (review 2, P2-1): what a junk-removal card for an alteration with interior demolition says', () => {
+  const card = (title: string, summary: string, source = 'arcgis-atlanta-permits') => ({ source, kind: 'permit', subtype: 'permit', title, summary });
+  it('says what the record is, a permit that includes demolition work, never "a demolition permit", in English and Spanish', async () => {
+    const { briefFor } = await import('@/lib/signals/brief');
+    const { briefForLang } = await import('@/lib/signals/brief-i18n');
+    for (const [title, summary] of [
+      ['Tenant fit-out permit in Atlanta', 'Commercial Alteration | 100 MAIN ST NE, ATLANTA, GA 30303'],
+      ['Remodel permit in Cincinnati', 'Building Combo Permit | Alter Commercial | 1 PAYCOR STADIUM'],
+      ['Plumbing permit in San Francisco', 'otc alterations permit | 138 Avila St'],
+    ] as const) {
+      const sig = card(title, summary);
+      expect(labelFor(sig, 'junk-removal'), title).toBe('coming_soon');
+      const en = briefFor({ ...sig, label: 'coming_soon', trade: 'junk-removal' });
+      const es = briefForLang({ ...sig, label: 'coming_soon', trade: 'junk-removal' }, 'es');
+      for (const b of [en, es]) {
+        const all = `${b.why} ${b.next} ${b.uncertain}`;
+        expect(all, title).not.toMatch(/demolition permit|permiso de demolici/i);
+        // nothing may claim a vendor is chosen
+        expect(all, title).not.toMatch(/\b(?:hired|chosen|selected|awarded)\b|contrat(?:ó|ado)\b/i);
+      }
+      expect(en.why).toMatch(/^A permit that includes demolition work was filed nearby/);
+      expect(es.why).toMatch(/que incluye trabajo de demolici/);
+      expect(en.why.length).toBeLessThanOrEqual(80);
+      expect(es.why.length).toBeLessThanOrEqual(112);
+    }
+  });
+  it('a real demolition permit, a re-roof or remodel route and a locked brief (no title) keep their sentences', async () => {
+    const { briefFor } = await import('@/lib/signals/brief');
+    expect(briefFor({ ...card('Demolition permit in Atlanta', 'Commercial Demolition | 1 MAIN ST'), label: 'coming_soon', trade: 'junk-removal' }).why).toBe('A demolition permit was filed nearby, and hauling often follows.');
+    expect(briefFor({ ...card('Remodel permit in Atlanta', 'Residential Alteration | 1 MAIN ST'), label: 'coming_soon', trade: 'junk-removal' }).why).toMatch(/debris from the job may need hauling/);
+    expect(briefFor({ source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', title: null, summary: null, label: 'coming_soon', trade: 'junk-removal' }).why).toBe('A demolition permit was filed nearby, and hauling often follows.');
+  });
+});

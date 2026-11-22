@@ -1,5 +1,6 @@
 import 'server-only';
 import { holdOf, missingHoldColumn, shownHold, type AlertHold } from '@/lib/signals/alert-gate';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDistance, maskText } from '@/components/format';
 import type { ContactRecord } from '@/lib/contacts/types';
@@ -18,7 +19,7 @@ import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type Opport
 import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
-import { VALUE_SELECT } from '@/lib/signals/permit-value';
+import { VALUE_SELECT, jobValueOf } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
@@ -189,8 +190,15 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     feedback = await loadFeedback(deps.db, deps.userId, live.map((m) => signalOf(m)!.id));
   }
 
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the hold once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (!deps.locked && live.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(deps.db, deps.userId).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
   return live.map((m) => {
     const s = signalOf(m)!;
+    const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
@@ -223,7 +231,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
-      ...(shownHold(holdOf(m), contacts.get(s.id), s.summary) ? { hold: shownHold(holdOf(m), contacts.get(s.id), s.summary) as AlertHold } : {}),
+      ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s), deps),
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,

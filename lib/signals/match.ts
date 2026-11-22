@@ -81,6 +81,9 @@ export interface MatchRow {
    * card that goes out as before, so those rows are byte-for-byte the rows of earlier rounds.
    */
   alert_hold?: AlertHold;
+  /** Set by the scan on a held row only (round 18 review P3-4): stored as already handled, so the email and push reads never see it. */
+  notified?: boolean;
+  pushed_at?: string;
 }
 
 /** What matchOne found: where it is, and the label this member's trades give the record (lib/signals/lead-rules.ts). */

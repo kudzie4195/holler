@@ -16,6 +16,10 @@ import { belowMinimum, type WorkProfile, type WorkRecord } from './work-profile'
  * never held by it. A record whose contact state is not known (undefined: a row read back from the database without its contacts, as the
  * backfill and the rematch do) is never held by it either: only the scan, which holds the contacts it just stored, decides "no contact".
  *
+ * A held card stays held: nothing ever clears alert_hold or re-arms the row, so a held card whose permit later gains a contact (or whose
+ * member later lowers the minimum) is never sent. The feed then shows it without the hold chip (shownHold). Kept on purpose (round 18
+ * review 2, decision 5): an old record is never released later as a fresh alert.
+ *
  * Pure and client-safe.
  */
 export type AlertHold = 'below_min' | 'held' | 'background';
@@ -31,7 +35,7 @@ export function isAlertHold(v: unknown): v is AlertHold {
  *
  * The owner's intent is "tells me who to call or where to go". A named business tells who to call. A street address with a house number
  * tells where to go: the address of permitted work is public record and is shown without any owner name. A bare street name with no
- * house number ("MAIN ST"), a block, a ZIP or a county is NOT a place to go and does not count.
+ * house number ("MAIN ST"), a ZIP or a county is NOT a place to go and does not count.
  */
 export type ContactPath = 'business' | 'site';
 
@@ -41,37 +45,54 @@ export interface ContactLike {
   address?: string | null;
 }
 
-/** A part that holds something other than a place: an amount, a block, a use class, an email, or a count at its end ("10 stories"). */
-const NOT_PLACE_RE =
-  /\bjob value\b|\bblock of\b|^\d+(?:\.\d+)?$|^\d+\s+or\s+(?:\d+|more)\b|@|\bsq\.?\s?ft\b|\b(?:stories|story|floors?|levels?|units?|bed(?:room)?s?|baths?|rooms?|buildings?|acres?|lots?|sf|sqft|feet|ft|years?|months?|weeks?|days?|hours?|permits?|stalls?|spaces?|seats?|dwellings?)\b\s*$/i;
+/** A part that holds something other than a place: an amount, a bare number, "1 or 2 ...", an email, square footage. */
+const NOT_PLACE_RE = /\bjob value\b|^\d+(?:\.\d+)?$|^\d+\s+or\s+(?:\d+|more)\b|\S@\S|\bsq\.?\s?ft\b/i;
 /** "..., ATLANTA, GA 30309", "... MATTHEWS NC 28105", ", Cambridge, MA 02138": a printed city, state and ZIP after the street. */
 const CITY_STATE_ZIP_TAIL_RE = /(?:,\s*[A-Za-z][A-Za-z .'-]{0,30}?,?|\s+[A-Za-z][A-Za-z'-]{1,24},?)\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?$/;
-/** A house number: 1 to 6 digits (not all zeros), an optional letter ("123A"), an optional range ("123-125") and an optional "1/2". */
-const HOUSE_RE = /^(\d{1,6}[A-Za-z]?(?:\s*-\s*\d{1,6}[A-Za-z]?)?(?:\s+1\/2)?)\s+(\S.*)$/;
+/** A house number: 1 to 6 digits (not all zeros), an optional letter ("123A"), a range or a letter after a hyphen ("123-125", "123-B") and "1/2". */
+const HOUSE_RE = /^(\d{1,6}[A-Za-z]?(?:\s*-\s*(?:\d{1,6}[A-Za-z]?|[A-Za-z]))?(?:\s+1\/2)?)\s+(\S.*)$/;
 const STREET_SUFFIX_RE =
   /^(?:st|street|ave?|avenue|blvd|bv|boulevard|rd|road|dr|drive|ln|lane|ct|court|pl|place|way|wy|pkwy|pky|parkway|hwy|highway|cir|circle|ter|terrace|trl|trail|sq|square|loop|run|row|aly|alley|xing|crossing|pass|path|walk|cv|cove|pt|point|ridge|bnd|bend|expy|fwy|plz|plaza|broadway)\.?$/i;
 const ORDINAL_STREET_RE = /^\d+(?:st|nd|rd|th)$/i;
-/** Words that make a numbered phrase a count or a work description, not a street ("2 Way Radio Install", "4 SOUTH WINDOWS", "1 or 2 Family"). */
-const NOT_STREET_WORDS = new Set(
+const QUADRANT_RE = /^(?:n|s|e|w|ne|nw|se|sw)\.?$/i;
+/**
+ * Words that make a numbered phrase a COUNT or a work description when the phrase ENDS in one and nothing else says it is a street (no
+ * street suffix after a name word, no printed city, state and ZIP, no trailing quadrant): "30 day", "2 baths", "3 new units",
+ * "4 SOUTH WINDOWS", "2 Way Radio Install", "10 stories", "200 AMP SERVICE". A street NAME that contains one of these words is still a
+ * street: "3080 NEW HOPE SW, ATLANTA, GA 30331", "1800 BATH AVENUE", "25 Day St", "653 NEW LOTS AVENUE" (round 18 review 2, P2-2).
+ */
+const COUNT_WORDS = new Set(
   ('radio install installation installed repair repairs replace replacement remodel addition additions window windows roof reroof demolition demo ' +
     'inspection construction adjustment line lines permit permits day days week weeks month months year years hour hours amp amps gal gallon ' +
-    'gallons ton tons kw kva or family families dwelling dwellings stories bedroom bedrooms bath baths sqft sf feet ft acre acres new existing ' +
-    'service panel circuit circuits fixture fixtures heater heaters system systems car cars stall stalls spaces seats rooms').split(' '),
+    'gallons ton tons kw kva family families dwelling dwellings story stories floor floors level levels unit units bed beds bedroom bedrooms ' +
+    'bath baths room rooms building buildings acre acres lot lots sf sqft feet ft new existing service panel panels circuit circuits fixture ' +
+    'fixtures heater heaters system systems car cars stall stalls space spaces seat seats sfd sfr townhome townhomes townhouses homes houses ' +
+    'sign signs tree trees shingle shingles plex phase electric dumpster dumpsters fence').split(' '),
 );
 /** A word right before a number that makes the number a lot, block, unit or box, not a house number ("Lot 2 Sample Ct", "PO Box 12"). */
-const NOT_HOUSE_BEFORE = new Set('lot lots block blk tract unit ste suite apt bldg building fl floor rm room box no no. number phase section sec #'.split(' '));
+const NOT_HOUSE_BEFORE = new Set('lot lots tract unit ste suite apt bldg building fl floor rm room box no no. number phase section sec #'.split(' '));
 const STREET_WORD_RE = /^[#A-Za-z0-9'./-]+$/;
 
 const words = (t: string) => t.split(' ').map((w) => w.replace(/[,;]+$/, '')).filter(Boolean);
 const allZero = (house: string) => !/[1-9]/.test(house.replace(/\s+1\/2$/, ''));
 
-/** "123 Main St", "123-125 Main", "123A Main", "123 1/2 Main St", "1584 ABNER NW", "20 ARGYLE", "1790 BROADWAY Manhattan". */
-function startsWithNumberedStreet(t: string): boolean {
+/**
+ * "123 Main St", "123-125 Main", "123A Main", "123-B Main St", "123 1/2 Main St", "1584 ABNER NW", "20 ARGYLE", "1200 block of Main St".
+ * `addressish`: the text ended in a printed city, state and ZIP, which by itself says the part is an address.
+ */
+function startsWithNumberedStreet(t: string, addressish = false): boolean {
   const m = HOUSE_RE.exec(t);
   if (!m || allZero(m[1])) return false;
   const w = words(m[2]);
-  if (w.length === 0 || w.length > 8) return false;
-  return w.every((x) => STREET_WORD_RE.test(x) && !NOT_STREET_WORDS.has(x.toLowerCase()));
+  if (w.length === 0 || w.length > 8 || !w.every((x) => STREET_WORD_RE.test(x))) return false;
+  if (w[0].toLowerCase() === 'or') return false;
+  if (addressish) return true;
+  // A street suffix after a street-name word ("1800 BATH AVENUE", "25 Day St"); "2 Way Radio Install" has its "Way" first, so it is not one.
+  if (w.some((x, i) => i > 0 && STREET_SUFFIX_RE.test(x))) return true;
+  // A trailing quadrant after a street name ("1240 COUNTY LINE SW", "55 NEW JERSEY NW").
+  if (w.length >= 2 && QUADRANT_RE.test(w[w.length - 1])) return true;
+  // Otherwise a phrase that ENDS in a count or work word is a count ("30 day", "2 baths", "4 SOUTH WINDOWS").
+  return !COUNT_WORDS.has(w[w.length - 1].toLowerCase());
 }
 
 /** A named building or place with a numbered street inside it: "One Atlantic Center 1201 W Peachtree St". The street must end in a suffix. */
@@ -81,7 +102,7 @@ function innerNumberedStreet(t: string): boolean {
     if (!/^\d{1,6}[A-Za-z]?$/.test(w[i]) || allZero(w[i]) || NOT_HOUSE_BEFORE.has(w[i - 1].toLowerCase())) continue;
     const after = w.slice(i + 1, i + 6);
     const at = after.findIndex((x, j) => j > 0 && STREET_SUFFIX_RE.test(x));
-    if (at > 0 && after.slice(0, at).every((x) => STREET_WORD_RE.test(x) && !NOT_STREET_WORDS.has(x.toLowerCase()))) return true;
+    if (at > 0 && after.slice(0, at).every((x) => STREET_WORD_RE.test(x))) return true;
   }
   return false;
 }
@@ -90,35 +111,38 @@ function innerNumberedStreet(t: string): boolean {
 function streetSide(side: string): boolean {
   const w = words(side.trim());
   if (w.length === 0 || w.length > 4) return false;
-  if (!w.every((x) => /^[A-Za-z0-9'.-]+$/.test(x) && !NOT_STREET_WORDS.has(x.toLowerCase()))) return false;
+  if (!w.every((x) => /^[A-Za-z0-9'.-]+$/.test(x))) return false;
   const last = w[w.length - 1];
-  return STREET_SUFFIX_RE.test(last) || (w.length === 1 && ORDINAL_STREET_RE.test(last)) || (w.length > 1 && /^(?:n|s|e|w|ne|nw|se|sw)$/i.test(last) && STREET_SUFFIX_RE.test(w[w.length - 2]));
+  return STREET_SUFFIX_RE.test(last) || (w.length === 1 && ORDINAL_STREET_RE.test(last)) || (w.length > 1 && QUADRANT_RE.test(last) && STREET_SUFFIX_RE.test(w[w.length - 2]));
 }
 
-/** An intersection: "Main St & 3rd Ave", "Peachtree St and 10th St", "Main St at Oak Ave". Both sides must read as streets. */
+/** An intersection: "Main St & 3rd Ave", "PEACHTREE ST / 10TH ST", "Main St @ 3rd Ave", "Peachtree St and 10th St". Both sides must be streets. */
 function intersection(t: string): boolean {
-  const sides = t.split(/\s+(?:&|and|at)\s+/i);
+  const sides = t.split(/\s*(?:&|@|\/)\s*|\s+(?:and|at)\s+/i);
   return sides.length === 2 && streetSide(sides[0]) && streetSide(sides[1]);
 }
 
 /**
- * For the alert gate ONLY (a yes or no: nothing is cut, stored or shown): does this text name a place a member can go to? Wider than the
- * display cutter (permit-value.ts siteAddressFromSummary, sanitize.ts cleanAddress), which must also CUT the street safely and so refuses
- * many real addresses ("196 MONTGOMERY FERRY NE, ATLANTA, GA 30309", "6344 TILLEY WY MATTHEWS NC 28105", "20 ARGYLE").
- * Counts: a house number (not 0; a range, a letter or "1/2" allowed) and a street; a named building with a numbered street; an
- * intersection of two streets. Does not count: "0 Peachtree", a lot or subdivision with no street, a PO Box, a street with no number and
- * no cross street, a block ("1200 block of Main St"), a count or a work phrase ("10 stories", "4 SOUTH WINDOWS", "2 Way Radio Install").
+ * Does this text name a place a member can go to? (a yes or no for the alert gate: nothing is cut, stored or shown). The text is always
+ * one the member SEES on the card: a stored site contact or a part of the public summary. Wider than the display cutter
+ * (permit-value.ts siteAddressFromSummary, sanitize.ts cleanAddress), which must also CUT the street safely.
+ * Counts: a house number (not 0; a range, a letter or "1/2" allowed) and a street, whatever ordinary words the street name holds; a
+ * hundred-block ("1200 block of Main St"); a named building with a numbered street; an intersection of two streets.
+ * Does not count: "0 Peachtree", a lot or subdivision with no street, a PO Box, a street with no number and no cross street, and a number
+ * that belongs to a count or a work phrase ("10 stories", "3 new units", "4 SOUTH WINDOWS", "2 Way Radio Install").
  */
 export function textShowsPlace(text: string | null | undefined): boolean {
   if (typeof text !== 'string') return false;
   let t = text.replace(/\s+/g, ' ').trim();
   if (!t || /\bp\.?\s?o\.?\s*box\b/i.test(t) || NOT_PLACE_RE.test(t)) return false;
+  const whole = t;
   t = t.replace(CITY_STATE_ZIP_TAIL_RE, '').trim();
   if (!t || NOT_PLACE_RE.test(t)) return false;
-  if (startsWithNumberedStreet(t)) return true;
+  const addressish = t !== whole;
+  if (startsWithNumberedStreet(t, addressish)) return true;
   // "Peachtree Center, 225 Peachtree St": a later comma part that is itself a numbered street.
   const commaParts = t.split(/\s*,\s*/);
-  if (commaParts.slice(1).some((p) => !NOT_PLACE_RE.test(p) && startsWithNumberedStreet(p))) return true;
+  if (commaParts.slice(1).some((p) => !NOT_PLACE_RE.test(p) && startsWithNumberedStreet(p, addressish))) return true;
   return innerNumberedStreet(t) || intersection(t);
 }
 
@@ -129,21 +153,18 @@ export function summaryNamesSite(summary: string | null | undefined): boolean {
 }
 
 /**
- * The contact path, in the order the owner set (round 18 review, decision 1):
- *  a. a stored business contact (an organisation with a name);
- *  b. a site: a stored site contact's address, or the raw site-address field of the source spec (`siteSeen`, read by the adapter before the
- *     display cutter, never stored);
- *  c. only as a fallback, a place printed in the public summary.
- * The card's own text is part of (c): a card that prints a street address is never held.
+ * The contact path, read only from what Holler stores and the card shows (round 18 review 2, decision 2), in this order:
+ *  a. a stored business contact (an organisation with a name): the card's "Who to contact";
+ *  b. a stored site contact whose address names a place: the job site the card already displays (lib/contacts extract.ts writes it for
+ *     every source whose contact spec has a site, when the display cleaner keeps the street);
+ *  c. a place printed in the card's own text (the public summary).
+ * An alert never goes out on the strength of something the member cannot see, and the same permit gets the same answer on the scan, the
+ * rematch, the backfill and the stage step (they all read the stored contacts and the summary).
  */
-export function contactPathOf(
-  contacts: readonly ContactLike[] | null | undefined,
-  summary: string | null | undefined,
-  siteSeen?: boolean,
-): ContactPath | null {
+export function contactPathOf(contacts: readonly ContactLike[] | null | undefined, summary: string | null | undefined): ContactPath | null {
   const list = contacts ?? [];
   if (list.some((c) => c.role !== 'site' && typeof c.name === 'string' && c.name.trim().length > 0)) return 'business';
-  if (siteSeen === true || list.some((c) => c.role === 'site' && textShowsPlace(c.address))) return 'site';
+  if (list.some((c) => c.role === 'site' && textShowsPlace(c.address))) return 'site';
   if (summaryNamesSite(summary)) return 'site';
   // The display reader too (it cuts a street out of a longer part); house number 0 is never a place.
   const shown = siteAddressFromSummary(summary);

@@ -5,7 +5,8 @@
  *   scripts/fixtures/replay-14d/permits.psv   title_norm|cats|n                    (10,195 rows, permit titles with the city removed)
  *   scripts/fixtures/replay-14d/c311.psv      source|title_rest|cats|n             (6,819 rows, 311 requests)
  *   scripts/fixtures/replay-14d/other.psv     source|subtype|kind|title|cats|n     (3,045 rows, everything else)
- * Output: /home/claude/gates/r13/logs/A-replay.md (or the path given as the first argument).
+ * Output: replay-labels.md in the system temp folder (or the path given as the first argument). Until round 18 the default was a path
+ * outside the repo (/home/claude/gates/r13/logs/A-replay.md), which every run overwrote; pass that path explicitly to write there.
  * Round 15 unit F (PLAN-2.0 item 1.1): permits also reach the trades DOWNSTREAM of their type (lib/signals/permit-routing.ts), read from the
  * permit title. The 'before' stream of that section is the pairs a record's own tags give; 'after' adds the downstream pairs.
  *
@@ -26,13 +27,14 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { OPPORTUNITY_LABELS, isAlertLabel, isFeedLabel, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
 import { matchOne, type MatchProfile, type MatchSignal } from '../lib/signals/match';
 import type { CategoryId } from '../lib/signals/categories';
 import { DOWNSTREAM, ROUTE_KINDS, downstreamTradesOf, routeKindsOf, type RouteKind } from '../lib/signals/permit-routing';
 
 const ROOT = join(__dirname, 'fixtures', 'replay-14d');
-const OUT = process.argv[2] ?? '/home/claude/gates/r13/logs/A-replay.md';
+const OUT = process.argv[2] ?? join(tmpdir(), 'replay-labels.md');
 
 interface Group {
   source: string;

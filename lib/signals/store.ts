@@ -356,8 +356,7 @@ export async function writeSignalContacts(
   const rows: Record<string, unknown>[] = [];
   for (const it of items) {
     if (!Number.isSafeInteger(it.signalId) || it.signalId <= 0) continue;
-    // A gate-only entry (ContactInput.gateOnly, round 18) is never stored.
-    for (const c of sanitizeContacts(it.contacts.filter((x) => !x.gateOnly), { datasetCity: it.city ?? null })) {
+    for (const c of sanitizeContacts(it.contacts, { datasetCity: it.city ?? null })) {
       rows.push({
         signal_id: it.signalId,
         role: c.role,
@@ -544,33 +543,70 @@ export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Arra
   if (permits.length === 0) return;
   try {
     const by = new Map<number, ContactLike[]>();
+    // A row read without its summary (the backfill's RPC read) gets it here: the card's own text is part of the answer, so the same
+    // permit gets the same answer on every path.
+    const summaries = new Map<number, string | null>();
+    const noSummary = permits.filter((s) => s.summary === undefined).map((s) => s.id);
+    for (const part of chunks(noSummary, 150)) {
+      const { data, error } = await db.from('holler_signals').select('id, summary').in('id', part);
+      if (error) return;
+      for (const r of (data ?? []) as Array<{ id: number; summary: string | null }>) summaries.set(r.id, r.summary ?? null);
+    }
     for (const part of chunks(permits.map((s) => s.id), 150)) {
       const { data, error } = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);
       if (error) return;
       for (const c of (data ?? []) as Array<ContactLike & { signal_id: number }>) by.set(c.signal_id, [...(by.get(c.signal_id) ?? []), c]);
     }
-    for (const s of permits) s.contactPath = contactPathOf(by.get(s.id), s.summary ?? null);
+    for (const s of permits) {
+      const summary = s.summary !== undefined ? s.summary : summaries.has(s.id) ? summaries.get(s.id) : undefined;
+      if (summary === undefined) continue; // not read: not known, never held
+      s.contactPath = contactPathOf(by.get(s.id), summary ?? null);
+    }
   } catch {
     /* not known: never held */
   }
 }
 
 /**
- * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027). Before 0027 the column is missing: the
- * batch is retried without it, so those cards are stored exactly as before (and go out as alerts as before).
+ * Is the contact gate on? Only when migration 0027 is applied (holler_matches.alert_hold can be read). Before it the gate is completely
+ * inert: no card is ranked, stored or sent differently from before round 18 (round 18 review 2, P1-1). Any failed read counts as "off".
+ */
+export async function contactGateOn(db: Pick<Db, 'from'>): Promise<boolean> {
+  try {
+    const { error } = await db.from('holler_matches').select('alert_hold').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027) and is stored as already handled
+ * (notified, pushed_at). Held and plain rows go in SEPARATE upserts: PostgREST sends a bulk upsert with the union of the rows' columns, so a
+ * plain row in a mixed batch would get notified = null. Before 0027 the column is missing: the held batch is retried without the three
+ * keys, so those cards are stored exactly as before (and go out as alerts as before).
  */
 export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
   let n = 0;
+  const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
   for (const part of chunks(rows, 500)) {
-    const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
-    let { data, error } = await send(part);
-    if (error && missingHoldColumn(error) && part.some((r) => 'alert_hold' in r)) {
-      // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
-      for (const r of part) delete r.alert_hold;
-      ({ data, error } = await send(part));
+    const plain = part.filter((r) => !('alert_hold' in r));
+    const held = part.filter((r) => 'alert_hold' in r);
+    for (const group of [plain, held]) {
+      if (group.length === 0) continue;
+      let { data, error } = await send(group);
+      if (error && missingHoldColumn(error) && group === held) {
+        // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
+        for (const r of group) {
+          delete r.alert_hold;
+          delete r.notified;
+          delete r.pushed_at;
+        }
+        ({ data, error } = await send(group));
+      }
+      if (error) throw new Error(`matches upsert failed: ${error.message}`);
+      n += data?.length ?? 0;
     }
-    if (error) throw new Error(`matches upsert failed: ${error.message}`);
-    n += data?.length ?? 0;
   }
   return n;
 }

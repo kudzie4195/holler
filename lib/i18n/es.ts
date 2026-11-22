@@ -170,6 +170,8 @@ export const es: Record<DictKey, string> = {
   'brief.why.airport.coming_soon': 'Hay un retraso en un aeropuerto cercano; puede cambiar la demanda de {work}.',
   'brief.why.permit.coming_soon': 'Se presentó un permiso cerca; puede haber {work}.',
   'brief.why.permit.coming_soon_typed': 'Se presentó un permiso de {type} cerca; puede haber {work}.',
+  'brief.why.permit.interior_demolition': 'Se presentó cerca un permiso que incluye trabajo de demolición; puede seguir el acarreo.',
+  'brief.why.permit.interior_demolition_typed': 'Se presentó cerca un permiso de {type} que incluye trabajo de demolición.',
   'brief.why.permit.market_insight': 'Se presentó un permiso cerca; hay trabajo planeado.',
   'brief.why.permit.market_insight_typed': 'Se presentó un permiso de {type} cerca; hay trabajo planeado.',
   'brief.why.permit.market_insight_untyped': 'Se presentó un permiso cerca; el permiso no indica qué trabajo es.',

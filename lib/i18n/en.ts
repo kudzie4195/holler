@@ -178,6 +178,8 @@ export const en = {
   'brief.why.airport.coming_soon': 'An airport delay is listed nearby; it may affect {work}.',
   'brief.why.permit.coming_soon': 'A permit was filed nearby; {work} may follow.',
   'brief.why.permit.coming_soon_typed': 'A permit was filed nearby ({type}); {work} may follow.',
+  'brief.why.permit.interior_demolition': 'A permit that includes demolition work was filed nearby; hauling may follow.',
+  'brief.why.permit.interior_demolition_typed': 'A permit that includes demolition work was filed nearby ({type}).',
   'brief.why.permit.market_insight': 'A permit was filed nearby; work is planned.',
   'brief.why.permit.market_insight_typed': 'A permit was filed nearby ({type}); work is planned.',
   'brief.why.permit.market_insight_untyped': 'A permit was filed nearby; the permit does not say what the work is.',
