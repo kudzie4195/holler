@@ -1,5 +1,6 @@
 import { cacheLife } from 'next/cache';
 import { publicClient } from '@/lib/seo/client';
+import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { CHECK_RADIUS_MI } from './scope';
 
 /**
@@ -36,6 +37,7 @@ export async function localCoverage(cellLat: number, cellLon: number): Promise<C
       .from('holler_signals')
       .select('id')
       .in('kind', LOCAL_KINDS)
+      .is(PROBATION_COLUMN, null)
       .gte('lat', cellLat - dLat)
       .lte('lat', cellLat + dLat)
       .gte('lon', cellLon - dLon)

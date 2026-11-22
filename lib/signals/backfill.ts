@@ -3,6 +3,7 @@ import { MAX_BUSINESS_PER_USER, hitLabel, matchOne, pickHits, type Hit, type Mat
 import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from './member-opportunity';
 import { matchScope, type ScopeArea } from '@/lib/plan';
 import { APPROX_LOCATION_SOURCES } from './approx-location';
+import { PROBATION_COLUMN } from './probation';
 import { historyRow, upsertMatchRows } from './quiet-matches';
 
 export const BACKFILL_DAYS = 14;
@@ -107,6 +108,7 @@ async function readStateLevel(
     .gte('occurred_at', since)
     .lte('occurred_at', until)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .is(PROBATION_COLUMN, null)
     .order('occurred_at', { ascending: false })
     .limit(BACKFILL_STATE_LIMIT);
   if (error) throw new Error(error.message);
@@ -149,6 +151,7 @@ async function readKeywordsNear(
     .gte('occurred_at', since)
     .lte('occurred_at', until)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .is(PROBATION_COLUMN, null)
     .or(filter)
     .order('occurred_at', { ascending: false })
     .limit(BACKFILL_KEYWORD_LIMIT);
@@ -170,6 +173,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
     .gte('occurred_at', since)
     .lte('occurred_at', until)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+    .is(PROBATION_COLUMN, null)
     .or(filter)
     .order('occurred_at', { ascending: false })
     .limit(BACKFILL_KEYWORD_LIMIT);
@@ -196,6 +200,7 @@ async function readApprox(db: Db, categories: string[], since: string, until: st
       .gte('occurred_at', since)
       .lte('occurred_at', until)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .is(PROBATION_COLUMN, null)
       .order('occurred_at', { ascending: false })
       .limit(BACKFILL_APPROX_LIMIT);
     if (error) return [];
@@ -221,6 +226,7 @@ async function readApproxKeywords(db: Db, keywords: string[], since: string, unt
       .gte('occurred_at', since)
       .lte('occurred_at', until)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .is(PROBATION_COLUMN, null)
       .or(filter)
       .order('occurred_at', { ascending: false })
       .limit(BACKFILL_APPROX_LIMIT);

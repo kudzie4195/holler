@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchOne, type MatchSignal } from '../signals/match';
 import { matchScope, type ScopeInput } from '../plan';
+import { PROBATION_COLUMN, isProbation } from '../signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-location';
 import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from '../signals/member-opportunity';
@@ -71,6 +72,7 @@ export async function missedSince(
       .select(MISSED_COLUMNS)
       .neq('source', HOLLER_REQUEST_SOURCE)
       .neq('kind', 'ask')
+      .is(PROBATION_COLUMN, null)
       .overlaps('categories', prefilterCategories(scope.categories))
       .gte('occurred_at', since.toISOString())
       .lte('occurred_at', now.toISOString())
@@ -113,7 +115,7 @@ export async function missedSince(
     const id = String(r.id);
     if (seen.has(id)) continue;
     seen.add(id);
-    if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
+    if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || isProbation(r)) continue;
     const sig: MatchSignal = {
       id: Number(r.id),
       kind: r.kind,

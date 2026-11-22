@@ -1,5 +1,6 @@
 import { cacheLife } from 'next/cache';
 import { lookupZip } from '@/lib/geo';
+import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import type { Adapter } from '@/lib/signals/types';
@@ -128,6 +129,7 @@ export async function buildWeatherExample(client: ClientSource, now: Date): Prom
       .select('source,kind,title,state,severity,occurred_at,expires_at')
       .in('kind', ['report', 'alert'])
       .neq('source', HOLLER_REQUEST_SOURCE)
+      .is(PROBATION_COLUMN, null)
       .gte('occurred_at', new Date(now.getTime() - 7 * DAY).toISOString())
       .lte('occurred_at', nowIso)
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)

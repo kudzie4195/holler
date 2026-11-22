@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { generateText, NoObjectGeneratedError, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
 import { CATEGORY_IDS, categoryById, type CategoryId } from '@/lib/signals/categories';
+import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import {
   alertFlags,
@@ -365,6 +366,7 @@ export async function loadCandidates(db: Db, now: Date, want: number): Promise<{
     const { data, error } = await db
       .from('holler_signals')
       .select('id,source,kind,title,summary,city,state,categories,subtype:data->>subtype')
+      .is(PROBATION_COLUMN, null) // a source on probation is not sent to the model (and is never matched)
       .gte('occurred_at', since)
       .order('occurred_at', { ascending: false })
       .order('id', { ascending: false })

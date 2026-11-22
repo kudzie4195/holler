@@ -1,3 +1,4 @@
+import { colOf } from '../fixtures/json-col';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -44,6 +45,7 @@ function fake(rows: Row[], view: { place_slug: string; signals_60d: number; late
         },
         gte(col: string, v: string) { filters.push((r) => (r as unknown as Record<string, string>)[col] >= v); return q; },
         lte(col: string, v: string) { filters.push((r) => (r as unknown as Record<string, string>)[col] <= v); return q; },
+        is(col: string, v: null) { filters.push((r) => (colOf(r as unknown as Record<string, unknown>, col) == null) === (v === null)); return q; },
         eq(col: string, v: string) { filters.push((r) => (r as unknown as Record<string, string>)[col] === v); return q; },
         or(s: string) { filters.push((r) => splitTop(s).some((t) => evalTerm(t, r as unknown as Record<string, unknown>))); return q; },
         order(col: string, o: { ascending: boolean }) { order = { col, asc: o.ascending }; return q; },

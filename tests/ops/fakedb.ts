@@ -51,6 +51,7 @@ class Builder implements PromiseLike<{ data: any; error: { message: string } | n
   update(patch: Row) { this.op = 'update'; this.payload = patch; this.db.calls.push(`${this.table}.update`); return this; }
   delete(o?: { count?: string }) { this.op = 'delete'; if (o?.count) this.wantCount = true; this.db.calls.push(`${this.table}.delete`); return this; }
   eq(c: string, v: any) { this.filters.push((r) => r[c] === v); return this; }
+  is(c: string, v: any) { this.filters.push((r) => { const m = /^(\w+)->>(\w+)$/.exec(c); const x = m ? r[m[1]]?.[m[2]] : r[c]; return v === null ? x == null : x === v; }); return this; }
   neq(c: string, v: any) { this.filters.push((r) => r[c] !== v); return this; }
   gt(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] > v); return this; }
   gte(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] >= v); return this; }

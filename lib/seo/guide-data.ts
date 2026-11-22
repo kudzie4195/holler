@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicClient } from './client';
 import { SOCRATA_DATASETS, type SocrataSubtype } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
+import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 
 /**
@@ -94,6 +95,7 @@ export async function buildGuideFact(sb: SupabaseClient | null, slug: string, no
       .select('source, occurred_at', { count: 'exact' })
       .in('source', sources)
       .neq('source', HOLLER_REQUEST_SOURCE)
+      .is(PROBATION_COLUMN, null)
       .gte('occurred_at', since)
       .lte('occurred_at', until)
       .order('occurred_at', { ascending: false })

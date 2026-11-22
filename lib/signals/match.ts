@@ -2,6 +2,7 @@ import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
 import { approxReachMi, hasApproxLocation } from './approx-location';
 import { OPPORTUNITY_RANK, opportunityTrades, type Opportunity } from './opportunity';
+import { isProbation } from './probation';
 import { opportunityInputOf, type OpportunityRowFields } from './member-opportunity';
 
 export const MAX_MATCHES_PER_USER = 25;
@@ -146,6 +147,7 @@ export function hitLabel(signal: MatchSignal, profile: MatchProfile): Opportunit
 
 function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
   assertKind(signal);
+  if (isProbation(signal)) return null; // a source on probation is stored and counted, never matched
   const where = areaMatch(signal, profile, scope);
   if (!where) return null;
   if (scope.categories.length > 0 && bestLabelIn(signalTrades(signal), scope.categories) !== 'context') return where;
@@ -204,6 +206,7 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
   const n = signals.length;
   const texts: (string | undefined)[] = new Array(n);
   for (const s of signals) assertKind(s);
+  const probation = signals.map((s) => isProbation(s));
   const labels: (Partial<Record<string, Opportunity>> | undefined)[] = new Array(n);
   /** phrase -> per record: 0 not tested yet, 1 contains it, 2 does not. */
   const phraseCache = new Map<string, Uint8Array>();
@@ -213,6 +216,7 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
     const hits: Hit[] = [];
     for (let i = 0; i < n; i++) {
       const s = signals[i];
+      if (probation[i]) continue; // a source on probation is stored and counted, never matched
       const where = areaMatch(s, p, scope);
       if (!where) continue;
       let lab = labels[i];

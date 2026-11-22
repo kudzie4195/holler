@@ -1,6 +1,7 @@
 import { cacheLife } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { haversineMi, lookupZip } from '@/lib/geo';
+import { PROBATION_COLUMN } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { publicClient } from './client';
 import { labelPhrase, mapLabel } from './home-label';
@@ -323,6 +324,7 @@ export async function buildHomeMap(client: ClientSource, now: Date, zip = MAP_ZI
         .in('kind', kinds)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
+        .is(PROBATION_COLUMN, null)
         .gte('lat', box.latLo)
         .lte('lat', box.latHi)
         .gte('lon', box.lonLo)

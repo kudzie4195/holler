@@ -3,6 +3,7 @@ import { publicClient } from '@/lib/seo/client';
 import { UPCOMING_DAYS } from '@/lib/time';
 import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI, CHECK_WINDOW_DAYS } from './scope';
 import type { CheckItem } from './group';
+import { PROBATION_COLUMN, withoutProbation } from '@/lib/signals/probation';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
 import { memberOpportunity, opportunityDto, prefilterCategories } from '@/lib/signals/member-opportunity';
 
@@ -123,6 +124,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         .eq('state', state)
         .gte('severity', 2)
         .overlaps('categories', readCats)
+        .is(PROBATION_COLUMN, null)
         .or(`expires_at.is.null,expires_at.gt.${checkedAt}`)
         .gte('occurred_at', since)
         .lte('occurred_at', checkedAt)
@@ -141,9 +143,9 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (stateLevel.error) console.error('[check] state-level read failed:', stateLevel.error.code ?? stateLevel.error.message);
     const rowsOf = (r: { error: unknown; data: unknown }): Row[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as Row[]));
     // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
-    const data: Row[] = withoutEndedRequests(
-      [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)],
-      now.getTime(),
+    // Rows of a source on probation are dropped here (the near RPC cannot filter them in SQL; COLUMNS selects data for the test).
+    const data: Row[] = withoutProbation(
+      withoutEndedRequests([...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)], now.getTime()),
     );
 
     const seen = new Set<number>();

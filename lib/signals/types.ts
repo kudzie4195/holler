@@ -56,5 +56,11 @@ export interface Adapter {
   requiresEnv?: string[];
   /** Human-readable source home page, shown on public pages as citation. */
   sourceUrl: string;
+  /**
+   * Probation: a new source whose live responses have not been checked by a person yet. Its rows are stored with `data.probation = true`
+   * and counted in scan_runs and source health, but never matched, pushed, emailed or shown to members or on public pages
+   * (lib/signals/probation.ts). Flip it live by removing this flag after checking real rows, and clear `data.probation` on the stored rows.
+   */
+  probation?: boolean;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

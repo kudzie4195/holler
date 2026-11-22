@@ -26,10 +26,11 @@ import {
 /**
  * The data fields opportunity.ts reads, as PostgREST JSON aliases (usable in plain and embedded selects): data.type (SAM.gov notice
  * type, SPC report type), data.event (NWS event name), data.hailInches, data.comments (SPC remarks) and data.mag (USGS magnitude).
- * No personal fields: these are public weather, quake and federal notice values.
+ * Also data.probation as the `probation` alias (lib/signals/probation.ts), so every read that feeds a member-visible path can drop rows of a
+ * source on probation. No personal fields: these are public weather, quake and federal notice values.
  */
 export const OPPORTUNITY_DATA_COLUMNS =
-  'opp_type:data->>type,opp_event:data->>event,opp_hail:data->>hailInches,opp_comments:data->>comments,opp_mag:data->>mag';
+  'opp_type:data->>type,opp_event:data->>event,opp_hail:data->>hailInches,opp_comments:data->>comments,opp_mag:data->>mag,probation:data->>probation';
 
 /** Everything opportunity needs from a holler_signals row (plain or embedded select). */
 export const OPPORTUNITY_SIGNAL_COLUMNS = `kind,source,title,summary,categories,severity,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
@@ -49,6 +50,8 @@ export interface OpportunityRowFields {
   opp_hail?: string | number | null;
   opp_comments?: string | null;
   opp_mag?: string | number | null;
+  /** data->>probation alias ('true' for a row of a source on probation). */
+  probation?: string | boolean | null;
 }
 
 const num = (v: unknown): number | undefined => {

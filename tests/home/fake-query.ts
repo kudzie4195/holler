@@ -1,6 +1,7 @@
 // In-memory stand-in for the anonymous Supabase client used by the home page loaders: records each filter call and applies it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { evalTerm, splitTop } from '../fixtures/fake-signals-db';
+import { colOf } from '../fixtures/json-col';
 
 export type Row = Record<string, unknown>;
 
@@ -19,6 +20,7 @@ export function fakeClient(rows: Row[], opts: { fail?: 'error' | 'throw' } = {})
       const q: Record<string, unknown> = {
         select(c: string) { log.push(`select:${c}`); return q; },
         in(c: string, v: unknown[]) { log.push(`in:${c}=${v.join(',')}`); filters.push((r) => v.includes(r[c])); return q; },
+        is(c: string, v: null) { log.push(`is:${c}`); filters.push((r) => (colOf(r, c) == null) === (v === null)); return q; },
         neq(c: string, v: unknown) { log.push(`neq:${c}=${v}`); filters.push((r) => r[c] != null && r[c] !== v); return q; },
         gte(c: string, v: unknown) { log.push(`gte:${c}`); filters.push((r) => r[c] != null && cmp(r[c], v) >= 0); return q; },
         lte(c: string, v: unknown) { log.push(`lte:${c}`); filters.push((r) => r[c] != null && cmp(r[c], v) <= 0); return q; },

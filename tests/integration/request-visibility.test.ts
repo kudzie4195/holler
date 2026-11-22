@@ -1,6 +1,7 @@
 // Integration round 3, item 2b: read-time defence in depth. Every public and member read of holler_signals / holler_matches leaves out
 // resident requests (source 'holler-request') whose expires_at has passed, and a cached page listing a live request is kept 15 minutes
 // at most. One expired request row and one live row are fed to each path; only the live one may come out.
+import { colOf } from '../fixtures/json-col';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -60,6 +61,7 @@ function selectFake(data: Record<string, unknown>[], opts: { ignoreOr?: boolean 
       const q: Record<string, unknown> = {
         select: (_c: string, o?: { count?: string; head?: boolean }) => ((head = !!o?.head), (wantCount = !!o?.count), q),
         eq: (c: string, v: unknown) => (f.push((r) => r[c] === v), q),
+        is: (c: string, v: null) => (f.push((r) => (colOf(r, c) == null) === (v === null)), q),
         gte: (c: string, v: string) => (f.push((r) => String(r[c]) >= v), q),
         lte: (c: string, v: string) => (f.push((r) => String(r[c]) <= v), q),
         gt: (c: string, v: string) => (f.push((r) => String(r[c]) > v), q),

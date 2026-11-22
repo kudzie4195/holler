@@ -22,6 +22,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { computeAccess } from '@/lib/auth/access';
+import { isProbation } from '@/lib/signals/probation';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import type { PushData } from '@/lib/mobile/types';
 import { matchScope } from '@/lib/plan/scope';
@@ -163,6 +164,7 @@ export function pushEntriesFromMatches(matches: MatchLike[], now: number, trades
   for (const m of matches) {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
+    if (isProbation(s)) continue; // a source on probation is never pushed
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
     if (!isNews(s.occurred_at, m.created_at, now)) continue;
     if (!isActFor(s, tradesOf(m.user_id))) continue;

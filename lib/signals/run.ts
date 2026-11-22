@@ -2,6 +2,7 @@ import { hasApproxLocation } from './approx-location';
 import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
+import { withProbationData, withoutProbation } from './probation';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { matchSignals, type MatchRow } from './match';
 import {
@@ -299,7 +300,14 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       }
       if (f.result.status !== 'error' && f.signals.length) {
         try {
-          const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
+          // A source on probation (Adapter.probation) is stored with data.probation = true, other data keys kept: counted, never matched or shown.
+          const rows: SignalRowInput[] = f.signals.map((s) => ({
+            ...s,
+            data: withProbationData(s.data, f.adapter.probation) as Record<string, unknown> | undefined,
+            // No place slug for a probation row: city pages, weekly pages, the holler_place_counts view (sitemap thresholds, /data) and
+            // IndexNow all key on it, so the row stays off every public page without a migration.
+            placeSlug: f.adapter.probation ? null : placeSlugFor(s),
+          }));
           const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m), dedupe: true });
           f.result.inserted = inserted.length;
           storedAll.push(...inserted);
@@ -314,6 +322,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     for (const f of fetched) report.sources.push(f.result);
 
     // Phase 2: match all new signals at once so the per-user cap applies per scan.
+    // Probation rows stay in storedAll (they are counted as inserted in scan_runs and source health) but matchSignals skips them, and
+    // they are left out of the IndexNow ping below: no member-visible or public page changes because of them.
     if (storedAll.length) {
       try {
         const profiles = await loadProfiles(db, now);
@@ -398,8 +408,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
 
     // One IndexNow ping per run for the city pages and the current weekly page that got new rows. It never throws, gives up after 5 s,
     // and is skipped when the scan is already close to the route limit. A key-less or localhost site skips it silently.
-    if (storedAll.length && clock() - t0 <= deadlineMs + 2_000) {
-      const outcome = await pingNewSignals({ db, inserted: storedAll, now, ...opts.indexNow }).catch(
+    const visibleNew = withoutProbation(storedAll);
+    if (visibleNew.length && clock() - t0 <= deadlineMs + 2_000) {
+      const outcome = await pingNewSignals({ db, inserted: visibleNew, now, ...opts.indexNow }).catch(
         (): PingOutcome => ({ status: 'failed', urls: 0, error: 'unexpected' }),
       );
       if (outcome.status !== 'skipped') report.indexNow = outcome;
