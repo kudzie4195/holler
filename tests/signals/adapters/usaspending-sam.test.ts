@@ -249,3 +249,19 @@ describe('SAM failure modes and paging', () => {
     expect(u.searchParams.get('offset')).toBe('0');
   });
 });
+
+import { isSupplyBuy } from '@/lib/signals/adapters/sam';
+describe('SAM supply buys are dropped', () => {
+  it('goods NAICS and numeric supply classes are supply buys', () => {
+    expect(isSupplyBuy('333995', '36--GENERATOR,OXYGEN-NITRO')).toBe(true);
+    expect(isSupplyBuy('335931', 'REPAIR KIT,ELECTRICAL')).toBe(true);
+    expect(isSupplyBuy(null, '16--GENERATOR CONTROL U, IN REPAIR/MO')).toBe(true);
+    expect(isSupplyBuy('423610', 'Wire and cable')).toBe(true);
+  });
+  it('service and construction notices are kept', () => {
+    expect(isSupplyBuy('238220', 'Z1DA--NRM CONST - Replace Boiler')).toBe(false);
+    expect(isSupplyBuy('561720', 'S--BGNDRF CUSTODIAL SERVICES')).toBe(false);
+    expect(isSupplyBuy('811310', 'Repair HVAC Seedling Cooler')).toBe(false);
+    expect(isSupplyBuy(null, 'J026--Pneumatic Tube System Preventive Maintenance')).toBe(false);
+  });
+});

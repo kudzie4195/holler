@@ -58,6 +58,9 @@ export function parseSam(raw: unknown): SignalInput[] {
         if (/award|justification|special notice|sale of surplus/i.test(type)) continue;
 
         const naics = str(item.naicsCode);
+        // Supply buys are not jobs for a local trade: goods NAICS (manufacturing 31-33, wholesale 42, retail 44-45)
+        // or a numeric federal supply class prefix in the title ("36--GENERATOR", "49--REPAIR KIT"). Service codes are letters.
+        if (isSupplyBuy(naics, title)) continue;
         let categories = naicsToCategories(naics);
         if (categories.length === 0) categories = classifyText(title);
         if (categories.length === 0) continue;
@@ -193,3 +196,10 @@ const sam: Adapter = {
 };
 
 export const adapters: Adapter[] = [sam];
+
+/** True when a SAM notice is a purchase of goods rather than work a local business would do. */
+export function isSupplyBuy(naics: string | null | undefined, title: string): boolean {
+  const n = (naics ?? '').replace(/\D/g, '');
+  if (/^(3[1-3]|42|4[45])/.test(n)) return true;
+  return /^\s*\d{2}--/.test(title);
+}
