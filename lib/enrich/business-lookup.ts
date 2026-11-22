@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { credentials, dfsCall, estimateUsd, monthKey, monthlyCapUsd, monthSpendUsd, PRICE_TABLE, type DfsDeps } from '@/lib/dataforseo/client';
 import { foldName, isOrganisationName } from '@/lib/contacts/org';
 import { isStoredContactName } from '@/lib/contacts/names';
+import { isHundredBlock, isZeroHouseNumber } from '@/lib/signals/site-address';
 import { usPhone } from '@/lib/contacts/sanitize';
 import type { ContactRecord, ListingInfo } from '@/lib/contacts/types';
 import { safeWebsite } from '@/lib/outreach/links';
@@ -294,7 +295,8 @@ export function parseStreet(raw: string | null | undefined): { number: string; s
   const first = raw.split(',')[0];
   const toks = foldName(first).replace(/['.]/g, '').replace(/#/g, ' # ').split(/[^a-z0-9#]+/).filter(Boolean);
   const m = toks.length > 1 && /^\d{1,6}[a-z]?$/.test(toks[0]) ? toks[0] : null;
-  if (!m) return null;
+  // The shared site-address rule (lib/signals/site-address.ts, round 18 integration): house number 0 and a hundred-block are not a site.
+  if (!m || isZeroHouseNumber(m) || isHundredBlock(first)) return null;
   const rest: string[] = [];
   const tail = toks.slice(1);
   for (let i = 0; i < tail.length; i++) {

@@ -3,6 +3,8 @@ import { hasApproxLocation, hasApproxReach, approxReachMi } from '@/lib/signals/
 import { isAlertLabel, labelForMember, ruleFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { DOWNSTREAM, KIND_DOERS, routeFor, ROUTE_KINDS, type RouteKind } from '@/lib/signals/permit-routing';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
+import { buildingStreetFromPart, isHundredBlock, isZeroHouseNumber } from '@/lib/signals/site-address';
+import { textShowsPlace } from '@/lib/signals/alert-gate';
 import { remarkNamesWindDamage } from '@/lib/signals/wind-damage';
 
 /**
@@ -218,11 +220,16 @@ export function buildingAddress(summary: string | null | undefined): string | nu
     )
     .join(' | ');
   const site = siteAddressFromSummary(cleaned);
-  if (!site) return null;
-  let a = site.address.replace(/\s+/g, ' ').trim();
+  // Round 18 integration: a part the contact gate reads as a job-site address but the display cutter does not cut ("6344 TILLEY WY
+  // MATTHEWS NC 28105", "346 HENRY AARON SW, ATLANTA, GA 30310") is listed with the shared strict street rule (lib/signals/site-address.ts),
+  // so a card alerted for its address is not missing from the list. Only a street that ends in a street type or a quadrant is printed.
+  const fallback = site ? null : cleaned.split(' | ').map((p) => (textShowsPlace(p) ? buildingStreetFromPart(p) : null)).find((x) => x) ?? null;
+  if (!site && !fallback) return null;
+  let a = (site ? site.address : (fallback as string)).replace(/\s+/g, ' ').trim();
   for (let i = 0; i < 2 && UNIT_TAIL_RE.test(a); i++) a = a.replace(UNIT_TAIL_RE, '').trim();
   a = a.replace(/[.,;]+$/, '').trim();
-  if (!/^\d+[A-Za-z]?\s+\S+/.test(a) || /\bblock of\b/i.test(a)) return null;
+  // The shared site-address rule (lib/signals/site-address.ts): never house number 0, never a hundred-block (round 18 integration).
+  if (!/^\d+[A-Za-z]?\s+\S+/.test(a) || /\bblock of\b/i.test(a) || isHundredBlock(a) || isZeroHouseNumber(a.split(' ')[0])) return null;
   return a;
 }
 

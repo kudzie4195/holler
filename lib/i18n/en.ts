@@ -1004,6 +1004,8 @@ export const en = {
   'push.title.mixed': '{n} alerts {where}',
   'push.body.stage': 'Stage update, {name}: {title}',
   // Address lists (round 18, unit LISTS, PLAN-2.0 item 3.3): /app/lists, the print view, the door hanger and the storm card line.
+  /** The signed-in header link to /app/lists (round 18 integration). Hidden below 375 px (components/app-nav.tsx). */
+  'app.nav.lists': 'Lists',
   'lists.title': 'Address lists',
   'lists.intro': 'Street addresses of permitted work, for door-knocking and mailers. Addresses only: Holler never lists owner names or phone numbers.',
   'lists.open_from_app': 'Address lists for door-knocking and mailers',
