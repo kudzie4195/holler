@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
 import type { ContactInput } from '@/lib/contacts/types';
+import type { Db } from './store';
 
 export type SignalKind =
   | 'ask'
@@ -46,6 +47,10 @@ export interface AdapterContext {
   fetch: typeof fetch;
   env: Record<string, string | undefined>;
   log: (m: string) => void;
+  /** Service-role client for the few adapters that keep their own bookkeeping (lib/firecrawl ledger). Absent on a dry run and in unit tests. */
+  db?: Db | null;
+  /** True for a dry scan (?dry=1): fetch and parse only, write nothing anywhere. */
+  dry?: boolean;
 }
 
 export interface Adapter {

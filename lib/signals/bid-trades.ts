@@ -50,7 +50,7 @@ export const BID_TRADE_RULES: BidTradeRule[] = [
   { trades: ['lawn-care'], patterns: ['lawn', 'mowing'] },
   {
     trades: ['tree-service'],
-    patterns: ['tree (?:trim|trimming|removal|pruning|maintenance|care|services?)', 'arborist', 'stump', 'urban forestry', 'forestry'],
+    patterns: ['tree (?:trim|trimming|removal|pruning|maintenance|care|services?)', 'trimming of (?:\\w+ ){0,2}trees?', 'arborist', 'stump', 'urban forestry', 'forestry'],
   },
   {
     trades: ['janitorial-commercial', 'cleaning'],
@@ -94,12 +94,14 @@ export const BID_TRADE_RULES: BidTradeRule[] = [
  * buyer's "Roofing Consultant". Three tiers, applied before the trade table:
  *  1. The portal's own category says the buyer wants goods ("Goods", "Commodity"): no trade. Los Angeles and San Francisco call every
  *     purchase a Commodity; their construction and service bids carry another category.
- *  2. The title is design, consulting, engineering, software or licence work: no trade, whatever else it says.
+ *  2. The title is design, consulting, engineering, software, licence, professional-services or review work: no trade, whatever else it says
+ *     (round 16, from Rockdale County's live list: "Professional Environmental Review & Lead-Based Paint Services" matched painting and
+ *     "On-call Professional Services for ... Plan Review, Inspection, and Arborist Services" matched tree service; neither is trade work).
  *  3. The title is a supply purchase (supplies, materials, parts, filters, fixtures, equipment, "purchase of"): no trade, unless it also
  *     names a work verb (install, repair, replace, maintenance), as in "HVAC equipment replacement".
  */
 const GOODS_CATEGORY = /^\s*goods\b|commodit/i;
-const PAPER_WORK = /(?<![a-z0-9])(?:consult(?:ant|ants|ing)|engineering|engineers?|design services?|architect(?:ural|ure)?(?: services?)?|software|licen[cs]es?|licen[cs]ing|subscriptions?)(?![a-z0-9])/i;
+const PAPER_WORK = /(?<![a-z0-9])(?:consult(?:ant|ants|ing)|engineering|engineers?|design services?|architect(?:ural|ure)?(?: services?)?|software|licen[cs]es?|licen[cs]ing|subscriptions?|professional services?|plan review|environmental review)(?![a-z0-9])/i;
 const SUPPLY_WORDS = /(?<![a-z0-9])(?:supplies|supply of|materials?|parts|filters?|fixtures?|equipment|purchase of|purchase|goods|commodities)(?![a-z0-9])/i;
 const WORK_VERBS = /(?<![a-z0-9])(?:install(?:ation|ing|ed)?|repairs?|repairing|replac(?:e|es|ing|ement)|maintenance|maintain|rehabilitat(?:e|ion)|retrofit|construction)(?![a-z0-9])/i;
 

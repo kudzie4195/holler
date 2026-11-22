@@ -9,7 +9,7 @@ export const BID_LABEL = 'Open bid';
 export const BID_SOURCE_LINK_LABEL = 'Open the source';
 /** Baton Rouge rows link to the City-Parish bid portal, not to a page for that solicitation, so the link says so. */
 export const BID_PORTAL_LINK_LABEL = 'Open the bid portal';
-const PORTAL_LINK_SOURCES = new Set(['bids-batonrouge']);
+const PORTAL_LINK_SOURCES = new Set(['bids-batonrouge', 'bids-rockdale']);
 /** Text of the source link on a bid card: "Open the bid portal" where the link is a portal, otherwise "Open the source". */
 export function bidSourceLinkLabel(source: string | null | undefined): string {
   return source && PORTAL_LINK_SOURCES.has(source) ? BID_PORTAL_LINK_LABEL : BID_SOURCE_LINK_LABEL;

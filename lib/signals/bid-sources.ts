@@ -9,7 +9,17 @@
 export const BIDS_FLAG = 'HOLLER_BIDS_ENABLED';
 
 /** Every city-bid source id the code knows. A source can be configured here and still be disabled (see city-bids.ts `verified`). */
-export const BID_SOURCE_IDS: readonly string[] = ['bids-sf', 'bids-la', 'bids-batonrouge', 'bids-nyc'];
+export const BID_SOURCE_IDS: readonly string[] = [
+  'bids-sf',
+  'bids-la',
+  'bids-batonrouge',
+  'bids-nyc',
+  // Atlanta-area agency pages read with Firecrawl (lib/firecrawl/local-sources.ts, lib/signals/adapters/bids-local.ts).
+  'bids-gwinnett',
+  'bids-rockdale',
+  'bids-tucker',
+  'bids-dunwoody',
+];
 
 /** Prefix of every city-bid source id. */
 export const BID_SOURCE_PREFIX = 'bids-';

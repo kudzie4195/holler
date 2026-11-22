@@ -5,6 +5,7 @@
 
 import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
 import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
+import { firecrawlLines, type FirecrawlHealth } from '../firecrawl/health';
 
 export interface HealthAdapter {
   id: string;
@@ -69,6 +70,8 @@ export interface HealthReport {
    * run-level checks found nothing (so "all sources OK" is never printed over a degraded source).
    */
   sourceStates?: SourceStateSummary | null;
+  /** Firecrawl credits and per-source state (lib/firecrawl/health.ts). Absent when nothing is configured or the read failed. */
+  firecrawl?: FirecrawlHealth | null;
 }
 
 const MIN = 60_000;
@@ -288,6 +291,7 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
       subject = `Holler health: ${states.behind} ${states.behind === 1 ? 'source is' : 'sources are'} behind on data`;
     }
   }
+  if (report.firecrawl) blocks.push({ title: 'Firecrawl (agency bid pages)', lines: firecrawlLines(report.firecrawl) });
   const c = report.counts;
   blocks.push({
     title: 'Last 24 hours',
