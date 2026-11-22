@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { hardNavigate } from './format';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Badge, StatusBadge } from './badge';
@@ -75,6 +76,11 @@ export interface FeedItem {
    * Absent for records without contacts and always absent for a locked member.
    */
   contacts?: ContactInput[];
+  /**
+   * Storm cards only (round 18, unit LISTS): the address list near this hail or wind-damage report, when it has at least one address. The
+   * line text is written on the server in the member's language ("12 permitted addresses near this hail report"). Never for a locked member.
+   */
+  listLink?: { href: string; text: string; open: string } | null;
 }
 
 type Filter = 'all' | 'ask' | 'signals';
@@ -301,6 +307,15 @@ function MatchCard({
       {cardSummary ? <p className="mt-1 line-clamp-2 text-muted">{cardSummary}</p> : null}
 
       <BriefBlock item={item} lang={lang} />
+
+      {item.listLink ? (
+        <p className="mt-3 text-sm text-ink" data-testid="list-link">
+          {item.listLink.text}.{' '}
+          <Link href={item.listLink.href} className="font-semibold text-brand-text underline">
+            {item.listLink.open}
+          </Link>
+        </p>
+      ) : null}
 
       {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} lang={lang} />}
 

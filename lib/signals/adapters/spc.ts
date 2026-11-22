@@ -33,6 +33,12 @@ export const HAIL_CATS: CategoryId[] = ['roofing', 'auto-glass', 'auto-body', 'r
 // Wind and hail damage is what insurance claims and public adjusters are filed for.
 export const WIND_CATS: CategoryId[] = ['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster'];
 
+/**
+ * Words in a wind report's remarks that describe damage ("trees down", "roof blown off", "power lines snapped"). A wind report with one of
+ * them is a wind-DAMAGE report (lib/lists reads the same test); the damage to any one property is still not confirmed.
+ */
+export const WIND_DAMAGE_RE = /damage|down|blown|uproot|snapped|power|roof|tree/i;
+
 function parseCsvLine(line: string): string[] {
   const cells: string[] = [];
   let cur = '';
@@ -162,7 +168,7 @@ export function scanSpc(raw: unknown): SpcScan {
       data.hailInches = inches;
     } else if (type === 'wind') {
       const mph = parseInt(val, 10);
-      const damage = /damage|down|blown|uproot|snapped|power|roof|tree/i.test(comments);
+      const damage = WIND_DAMAGE_RE.test(comments);
       if (!Number.isFinite(mph) && !damage) continue;
       if (Number.isFinite(mph) && mph < 50 && !damage) continue;
       title = Number.isFinite(mph) ? `${mph} mph wind gust reported near ${where}` : `Wind damage reported near ${where}`;
