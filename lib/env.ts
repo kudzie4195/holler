@@ -36,6 +36,10 @@ export const ENV_KEYS = [
   'REVENUECAT_WEBHOOK_SECRET',
   'REVENUECAT_ALLOW_SANDBOX',
   'FIREBASE_SERVICE_ACCOUNT_JSON',
+  'DATAFORSEO_LOGIN',
+  'DATAFORSEO_PASSWORD',
+  'DATAFORSEO_MONTHLY_CAP_USD',
+  'HOLLER_PREVIEW_FIXTURES',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -81,6 +85,12 @@ export const env: Record<EnvKey, string | undefined> = {
   REVENUECAT_WEBHOOK_SECRET: process.env.REVENUECAT_WEBHOOK_SECRET,
   REVENUECAT_ALLOW_SANDBOX: process.env.REVENUECAT_ALLOW_SANDBOX,
   FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+  // Read again from process.env in lib/dataforseo/client.ts and app/api/cron/dataforseo; listed here so .env.example and LAUNCH.md name them.
+  DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
+  DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
+  DATAFORSEO_MONTHLY_CAP_USD: process.env.DATAFORSEO_MONTHLY_CAP_USD,
+  // Local only (lib/seo/home-live.ts previewFixturesEnabled): ignored whenever VERCEL is set.
+  HOLLER_PREVIEW_FIXTURES: process.env.HOLLER_PREVIEW_FIXTURES,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

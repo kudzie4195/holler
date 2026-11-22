@@ -90,3 +90,56 @@ describe('names not in the input', () => {
     expect(noteViolations('Older AC units may need service after this storm.', INPUT)).toEqual([]);
   });
 });
+
+describe('final review r17 P1-2: the noun "lead" is dropped whatever comes before it; the verb and the trade terms are kept', () => {
+  const PERMIT = 'New construction permit in Norfolk New Construction | 100 EXAMPLE AVE permit socrata-norfolk-permits general-contractor Norfolk VA';
+  const VIOL = 'Code violation in Detroit: Lead hazard, peeling paint on a pre 1978 house. Status: Open. det-violations painting Detroit MI';
+
+  it('the reviewer probe (FINAL-probe-tests/x3b): all four noun notes are dropped, the verb hedge is kept', () => {
+    for (const n of [
+      'This new build could be a strong lead for landscapers.',
+      'This could be a promising lead for a final clean.',
+      'One lead worth a look for cleaning crews after the build.',
+      'This may be a quality lead for landscaping once the house is done.',
+    ]) {
+      expect(noteViolations(n, PERMIT, { kind: 'permit' }), n).toContain('claims_customer');
+      expect(cleanNote(n, PERMIT, { kind: 'permit' }), n).toBeNull();
+    }
+    expect(cleanNote('Could lead to cleaning work once the building is finished.', PERMIT, { kind: 'permit' })).not.toBeNull();
+  });
+
+  it('noun forms are dropped: "a lead", "strong lead", "leads", "new leads"', () => {
+    for (const n of [
+      'This permit may be a lead for landscaping work.',
+      'A new build like this could be a strong lead for cleaners.',
+      'Permits like this may bring leads for fencing crews.',
+      'Leads like this may follow from new construction.',
+      'New leads may come from permits like this one.',
+      'Lead for cleaners: a new house may need a final clean.',
+      'A good sales lead may sit in permits like this one.',
+    ]) expect(noteViolations(n, PERMIT, { kind: 'permit' }), n).toContain('claims_customer');
+  });
+
+  it('the verb, "leading" and the adjective are kept: "lead to", "leading", "lead time"', () => {
+    for (const n of [
+      'A new build like this could lead to landscaping work later.',
+      'New construction often leads to fencing and cleaning work.',
+      'A new house may lead into fencing work once it is finished.',
+      'Permits like this are often leading signs of landscaping work.',
+      'Long lead time on materials may push finish work back.',
+      'Material lead times may delay the final clean on this build.',
+    ]) expect(noteViolations(n, PERMIT, { kind: 'permit' }), n).toEqual([]);
+  });
+
+  it('metal and abatement terms from permits and violations are kept: "lead paint", "lead pipe", "lead abatement"', () => {
+    for (const n of [
+      'Lead paint on an older house may call for careful painting work.',
+      'A lead-based paint violation may mean scraping and repainting work.',
+      'Older homes with a lead pipe may need water line work.',
+      'Lead pipes in older houses may mean plumbing work nearby.',
+      'A lead abatement order may mean painting work for this property.',
+      'A lead hazard violation may mean careful paint removal work.',
+      'Lead-safe painting work may be needed on this older house.',
+    ]) expect(noteViolations(n, VIOL, { kind: 'civic' }), n).toEqual([]);
+  });
+});

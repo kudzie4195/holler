@@ -24,7 +24,8 @@ import { hasKey, t, type Lang } from '@/lib/i18n';
  * member's feed would have held. Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
  * Keyword watches are not counted (the preview is about the saved area and trades).
  *
- * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype. Never summary, url,
+ * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype, data->>projectOf (a
+ * follower, a second listing of a project, never makes a card and is not counted). Never summary, url,
  * zip, county, data or anything from holler_signal_contacts. Titles are the public, already scrubbed titles.
  *
  * Each query returns at most 1000 rows (PostgREST cap). When a query hits the cap, `capped` is true and the counts are a floor, never a
@@ -35,7 +36,7 @@ export const PREVIEW_DAYS = 90;
 export const PREVIEW_ROW_CAP = 1000;
 export const PREVIEW_EXAMPLES = 5;
 export const PREVIEW_COLUMNS =
-  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf';
 
 // ---- type labels ------------------------------------------------------------------------------------------------------------
 const TYPE_LABELS: Record<string, { one: string; many: string }> = {
@@ -129,6 +130,7 @@ interface Row {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  projectOf?: string | null;
 }
 
 const MI_PER_DEG = 68.5; // a little under the true 69.09, so the box is never smaller than the circle
@@ -213,7 +215,7 @@ export async function recentPreviewFor(
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);
-      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
+      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || r.projectOf) continue;
       const sig: MatchSignal = {
         id: Number(r.id),
         categories: r.categories ?? [],

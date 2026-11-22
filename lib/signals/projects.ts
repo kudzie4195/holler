@@ -406,7 +406,10 @@ export class ProjectStore {
         const targetStaged = !!t.sig && !t.fresh && isTriggerStage(t.sig.data?.permitStage);
         const stage = r.permitStage as PermitStage;
         const emitted = this.updates && isTriggerStage(stage) && !priorTrigger && changed && !targetStaged;
-        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: own.sig.id, emitted, first_seen_at: this.now.toISOString() });
+        // An emitted row names the record that got the update (the project's first record for a follower): the 5-a-day cap
+        // (run.ts stageUpdatesToday) counts today's updates through the members' matches on that id, and a follower has none.
+        const signalId = emitted && t.sig && typeof t.sig.id === 'number' ? t.sig.id : own.sig.id;
+        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: signalId, emitted, first_seen_at: this.now.toISOString() });
         // A later trigger stage of an already updated permit only refreshes the card line, and only upward (final inspection never replaces finished).
         const higher = STAGE_RANK[stage] > (isTriggerStage(t.sig?.data?.permitStage) ? STAGE_RANK[t.sig?.data?.permitStage as PermitStage] : 0);
         const lineOnly = this.updates && isTriggerStage(stage) && priorTrigger && !root && !own.fresh && higher;
@@ -469,17 +472,18 @@ export class ProjectStore {
  * Members who already hold a project's card hear about its stage change ONCE: their existing match goes back to "not yet sent" (the
  * email digest reads notified = false, the push reads pushed_at is null), and the card already shows the new stage line. The caller
  * passes only (project, member) pairs of a stage event, and an event happens once per project (holler_permit_stages primary key), so a
- * repeat scan finds nothing to re-send. A card the member already saved or finished is never re-sent: the digest and the push read
- * status = 'new' only. Never throws; returns how many members were re-armed.
+ * repeat scan finds nothing to re-send. Only a card still in New is re-armed: a saved, done or dismissed card keeps its sent marks, so
+ * moving it back to New later sends no stale "Update" (final review r17 P2-4). Never throws; returns how many members were passed to an
+ * update that succeeded (a card not in New among them is left as it is).
  */
 export async function rearmStageAlerts(db: Db, pairs: ReadonlyArray<{ signalId: number; userIds: readonly string[] }>, log: (m: string, signalId: number) => void = () => undefined): Promise<number> {
   let n = 0;
   for (const p of pairs) {
     for (const part of chunks([...p.userIds], 200)) {
       try {
-        let { error } = await db.from('holler_matches').update({ notified: false, pushed_at: null }).eq('signal_id', p.signalId).in('user_id', part);
+        let { error } = await db.from('holler_matches').update({ notified: false, pushed_at: null }).eq('signal_id', p.signalId).eq('status', 'new').in('user_id', part);
         // Before migration 0020 there is no pushed_at column and no push can have been sent.
-        if (error && /pushed_at/i.test(error.message ?? '')) ({ error } = await db.from('holler_matches').update({ notified: false }).eq('signal_id', p.signalId).in('user_id', part));
+        if (error && /pushed_at/i.test(error.message ?? '')) ({ error } = await db.from('holler_matches').update({ notified: false }).eq('signal_id', p.signalId).eq('status', 'new').in('user_id', part));
         if (error) log(`projects: stage alert re-send skipped: ${error.message.slice(0, 120)}`, p.signalId);
         else n += part.length;
       } catch (e) {

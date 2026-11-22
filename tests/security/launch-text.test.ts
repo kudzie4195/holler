@@ -16,6 +16,15 @@ describe('LAUNCH.md matches the code (review follow-ups)', () => {
     expect(md).toContain('run 0001 to 0006 and 0008 to 0025 in order');
     expect(md).not.toMatch(/0008 to 0020 in order/);
   });
+  it('Round 17 order: 0024 is applied at or before the deploy, because /es advertises the Settings language control (final review r17 P2-1)', () => {
+    const block = md.slice(md.indexOf('**Round 17 order**'), md.indexOf('- [ ] Run `supabase/migrations/0001_holler.sql`'));
+    expect(block).toMatch(/Apply migration 0024 \(`0024_holler_language\.sql`\) AT OR BEFORE THE DEPLOY/);
+    expect(block).toMatch(/`\/es` page goes live with the deploy/);
+    expect(block).toMatch(/Settings language control stays hidden until 0024 exists/);
+    // 0024 is no longer called "safe before or after the deploy" anywhere; 0025 still is.
+    expect(md).not.toMatch(/0024[^\n]*each is safe before or after the deploy/);
+    expect(md).not.toMatch(/0024_holler_language\.sql`[^\n]*safe before or after the code deploy/);
+  });
   it('the reset protection is described as the app route only, with the Supabase setting as the owner decision (P2-3)', () => {
     expect(md).toMatch(/Password change protection is for Holler's own route only/);
     expect(md).toMatch(/Secure password change/);

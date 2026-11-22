@@ -187,6 +187,12 @@ describe('missedSince (day 8 count)', () => {
     expect((await missedSince(db, base, since, now)).count).toBe(1);
   });
 
+  it('final review r17 P2-3: a follower (a second listing of a project) is not counted; the first record of its project is', async () => {
+    const { db, filters } = stub([row(1), row(2, { projectOf: 'spc:1' })]);
+    expect((await missedSince(db, base, since, now)).count).toBe(1);
+    expect(filters.find((f) => f.startsWith('select:'))).toContain('projectOf:data->>projectOf');
+  });
+
   it('never counts resident requests or asks even if the query returned them', async () => {
     const { db } = stub([row(1, { source: 'holler-request' }), row(2, { kind: 'ask' }), row(3)]);
     expect((await missedSince(db, base, since, now)).count).toBe(1);

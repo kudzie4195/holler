@@ -108,7 +108,8 @@ describe('migration 0024', () => {
   const code = sql.split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
   it('is idempotent: add column if not exists, a guarded constraint, a repeatable grant', () => {
     expect(code).toMatch(/alter table public\.holler_profiles add column if not exists language text not null default 'en'/);
-    expect(code).toMatch(/if not exists \(select 1 from pg_constraint where conname = 'holler_profiles_language_check'\)/);
+    // final review r17 P2-10: the constraint is looked up on holler_profiles, not by name alone (as 0005 and 0022 do).
+    expect(code).toMatch(/if not exists \(\s*select 1 from pg_constraint where conname = 'holler_profiles_language_check' and conrelid = 'public\.holler_profiles'::regclass\s*\)/);
     expect(code).toMatch(/check \(language in \('en', 'es'\)\)/);
     expect(code).toMatch(/grant insert \(language\), update \(language\) on table public\.holler_profiles to authenticated/);
   });

@@ -69,11 +69,13 @@ function escapeRe(s: string): string {
 
 const NEED_OBJ = new Set(['a', 'an', 'you', 'your', 'help', 'someone', 'service', 'services']);
 /**
- * A claim that someone is a customer or a lead. "lead" counts only as a noun ("new leads", "a lead"): the verb in an honest hedge
- * ("could lead to", "may lead to", "often leads to") and the metal ("lead paint", "lead pipes") do not (verify-v1 decision 5).
+ * A claim that someone is a customer or a lead. "lead" counts only as a noun ("new leads", "a lead", "a strong lead", "One lead"),
+ * whatever word comes before it: the verb in an honest hedge ("could lead to", "may lead to", "often leads to"), "leading", and the
+ * metal and trade terms found on permits and violations ("lead paint", "lead-based paint", "lead pipes", "lead abatement", "lead time")
+ * do not (verify-v1 decision 5, final review r17 P1-2). A false hit only drops the note.
  */
 const CUSTOMER =
-  /\b(customers?|clients?|prospects?|buyers?)\b|\bleads\b(?!\s+(?:to|into)\b)|\b(?:a|an|the|new|more|hot|warm|fresh|sales|good|great|your|real|solid|likely|possible|potential)\s+lead\b(?!\s+(?:to|into|paint|pipes?|lines?|service|abatement|based|free|safe|testing)\b)/i;
+  /\b(customers?|clients?|prospects?|buyers?)\b|\bleads\b(?!\s+(?:to|into)\b)|\blead\b(?![\s-]+(?:to|into|paint|pipes?|lines?|service|abatement|based|free|safe|testing|tests?|times?|hazards?|poisoning|exposure|levels?|remediation|inspections?|contamination)\b)/i;
 /** Certainty about work or customers: notes speak of possibilities only ("may", "could"). */
 const CERTAIN =
   /\b(will|won't|wont|guarantee[sd]?|guaranteeing|definitely|certainly|for sure|sure to|bound to)\b|\b(you|they|we|it|this|that|there|who)['\u2019]ll\b|\bgoing\s+to\s+(win|get|land|need|want|hire)\b/i;

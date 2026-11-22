@@ -16,7 +16,9 @@ alter table public.holler_profiles add column if not exists language text not nu
 
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'holler_profiles_language_check') then
+  if not exists (
+    select 1 from pg_constraint where conname = 'holler_profiles_language_check' and conrelid = 'public.holler_profiles'::regclass
+  ) then
     alter table public.holler_profiles
       add constraint holler_profiles_language_check check (language in ('en', 'es'));
   end if;
