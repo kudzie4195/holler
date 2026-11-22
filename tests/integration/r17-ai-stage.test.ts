@@ -67,8 +67,8 @@ describe('a stage-update email keeps the AI note and the stage line', () => {
   });
 
   it('the same note passes the read-time wording check for a permit, and a stage word in a note would not turn it into a vendor claim', () => {
-    expect(wordingViolations(note, 'permit')).toEqual([]);
-    expect(wordingViolations('The permit is at final inspection, so the contractor already has the job.', 'permit').length).toBeGreaterThan(0);
+    expect(wordingViolations(note, { kind: 'permit' })).toEqual([]);
+    expect(wordingViolations('The permit is at final inspection, so the contractor already has the job.', { kind: 'permit' }).length).toBeGreaterThan(0);
   });
 
   it('nothing in the email breaks the wording rules', () => {
