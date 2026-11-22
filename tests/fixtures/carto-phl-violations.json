@@ -1,0 +1,48 @@
+{
+ "rows": [
+  {
+   "violationnumber": "VI-2026-097764",
+   "casenumber": "CF-2026-157184",
+   "casecreateddate": "2026-11-21T19:19:59Z",
+   "violationcodetitle": "VACANT STRUCTURE & LAND",
+   "violationstatus": "OPEN",
+   "address": "1441 HIGBEE ST",
+   "zip": "19149-3222",
+   "opa_owner": "LOPEZ EVELYN",
+   "lat": 40.0306,
+   "lon": -75.0912,
+   "violationcode": "PM15-301",
+   "caseresponsibility": "QOL VACANT PROPERTY INVESTIGATOR"
+  },
+  {
+   "violationnumber": "VI-2026-097745",
+   "casenumber": "CF-2026-157192",
+   "casecreateddate": "2026-11-21T19:27:42Z",
+   "violationcodetitle": "EXTERIOR AREA WEEDS",
+   "violationstatus": "OPEN",
+   "address": "6500 TORRESDALE AVE",
+   "zip": "19135-2822",
+   "opa_owner": "ANAS REALTY INC, ETA REALESTATE LLC",
+   "lat": 40.0229,
+   "lon": -75.0516,
+   "violationcode": "PM15-302.4",
+   "caseresponsibility": "QOL PM EXTERIOR INVESTIGATOR"
+  },
+  {
+   "violationnumber": "VI-2022-013781",
+   "casenumber": "CF-2022-016640",
+   "casecreateddate": "2022-03-02T15:03:51Z",
+   "violationcodetitle": "ALTER EXISTING PLUMBING",
+   "violationstatus": "CLOSED",
+   "address": "3222 BROOKDALE RD",
+   "zip": "19114-3530",
+   "opa_owner": "ROMERO ANGEL",
+   "lat": 40.0721,
+   "lon": -74.9889,
+   "violationcode": "A-301.1/55",
+   "caseresponsibility": "BUILDING COURTS"
+  }
+ ],
+ "time": 0.01,
+ "total_rows": 3
+}

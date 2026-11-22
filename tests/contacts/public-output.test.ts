@@ -68,6 +68,6 @@ describe('contacts are added beside the public fields, never into them', () => {
     const files = readdirSync(join(__dirname, '../fixtures')).filter((x) => x.endsWith('.json'));
     const covered = new Set(Object.keys(before));
     const others = files.filter((x) => !covered.has(x));
-    for (const o of others) expect(o, o).toMatch(/^(bluesky|fema|nws|sam|ticketmaster|usgs|websearch)/);
+    for (const o of others) expect(o, o).toMatch(/^(bluesky|carto-phl|fema|nws|sam|ticketmaster|usgs|websearch)/);
   });
 });

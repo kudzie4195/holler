@@ -121,8 +121,8 @@ export function briefFamilyOf(sig: BriefInput): BriefFamily {
   const source = norm(sig.source);
   if (SOURCE_FAMILY[source]) return SOURCE_FAMILY[source];
   if (source.startsWith('bids-')) return 'city-bid';
-  // Socrata and ArcGIS ids end in what the dataset is: socrata-chicago-311, arcgis-dekalb-violations, socrata-nyc-business ...
-  const tail = source.replace(/^(?:socrata|arcgis)-.*?-(permits|311|violations|inspections|business|events)$/, '$1');
+  // Socrata, ArcGIS and Carto ids end in what the dataset is: socrata-chicago-311, arcgis-dekalb-violations, carto-phl-business ...
+  const tail = source.replace(/^(?:socrata|arcgis|carto)-.*?-(permits|311|violations|inspections|business|events)$/, '$1');
   const byTail: Record<string, BriefFamily> = {
     permits: 'permit',
     '311': '311',

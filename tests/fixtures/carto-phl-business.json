@@ -1,0 +1,60 @@
+{
+ "rows": [
+  {
+   "licensenum": "1024919",
+   "licensetype": "Rental",
+   "rentalcategory": "Residential Dwellings",
+   "initialissuedate": "2026-11-21T22:46:46Z",
+   "licensestatus": "Active",
+   "address": "159 MARKLE ST",
+   "zip": "19127-1709",
+   "opa_owner": "MONI DELAW GROUP LLC",
+   "legalname": "The Moni DeLaw Group LLC",
+   "legalentitytype": "Company",
+   "business_name": "The Moni DeLaw Group LLC",
+   "ownercontact1name": "Dean Hussey",
+   "ownercontact2name": "Robert DeMaio",
+   "legalfirstname": null,
+   "legallastname": null,
+   "lat": 40.0268,
+   "lon": -75.2189
+  },
+  {
+   "licensenum": "1024918",
+   "licensetype": "Rental",
+   "rentalcategory": "Residential Dwellings",
+   "initialissuedate": "2026-11-21T17:49:11Z",
+   "licensestatus": "Active",
+   "address": "1643 MAYLAND ST",
+   "zip": "19138-1121",
+   "opa_owner": "FALANA ADEBIYI AKANJI",
+   "legalname": "Adebiyi  Akanji Falana",
+   "legalentitytype": "Individual",
+   "business_name": null,
+   "ownercontact1name": null,
+   "legalfirstname": "ADEBIYI",
+   "legallastname": "FALANA",
+   "lat": 40.0517,
+   "lon": -75.1583
+  },
+  {
+   "licensenum": "1024916",
+   "licensetype": "Limited Lodging Operator",
+   "rentalcategory": null,
+   "initialissuedate": "2026-11-21T15:48:12Z",
+   "licensestatus": "Active",
+   "address": "3857 BRANDYWINE ST",
+   "zip": "19104-2309",
+   "opa_owner": "REGO LOUIS",
+   "legalname": "Louis Rego",
+   "legalentitytype": "Individual",
+   "business_name": null,
+   "legalfirstname": "LOUIS",
+   "legallastname": "REGO",
+   "lat": 39.9623,
+   "lon": -75.1987
+  }
+ ],
+ "time": 0.01,
+ "total_rows": 3
+}

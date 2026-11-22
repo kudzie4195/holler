@@ -424,6 +424,12 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   // Permitted events (coming_soon; park and plaza events are context by rule)
   'socrata-nyc-events': 'coming_soon',
   'socrata-chicago-events': 'coming_soon',
+  // Philadelphia (Carto, lib/signals/adapters/carto.ts). ON PROBATION: their rows go to holler_source_samples only, so no member sees a
+  // label for them yet. The entries say what each record kind gets once a source is put live: the same defaults as the Socrata sources of
+  // the same kind (a permit coming_soon before the own-trade rule, a code violation act_now, a new business licence coming_soon).
+  'carto-phl-permits': 'coming_soon',
+  'carto-phl-violations': 'act_now',
+  'carto-phl-business': 'coming_soon',
   // Federal contracts and big events
   'usaspending': 'market_insight',
   'sam-gov': 'act_now',

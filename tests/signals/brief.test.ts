@@ -44,6 +44,9 @@ describe('families', () => {
     expect(briefFamilyOf({ source: 'socrata-austin-violations' })).toBe('violation');
     expect(briefFamilyOf({ source: 'socrata-sf-business' })).toBe('business');
     expect(briefFamilyOf({ source: 'socrata-nyc-events' })).toBe('event-permit');
+    expect(briefFamilyOf({ source: 'carto-phl-permits' })).toBe('permit');
+    expect(briefFamilyOf({ source: 'carto-phl-violations' })).toBe('violation');
+    expect(briefFamilyOf({ source: 'carto-phl-business' })).toBe('business');
     expect(briefFamilyOf({ source: 'bids-la' })).toBe('city-bid');
     expect(briefFamilyOf({ source: 'future-source', subtype: 'bid' })).toBe('city-bid');
     expect(briefFamilyOf({ source: 'future-source', subtype: 'violation' })).toBe('violation');
