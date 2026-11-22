@@ -6,10 +6,13 @@ export const MONTH = '2026-11-01';
 export const ENV = { DATAFORSEO_LOGIN: 'lookup-login@example.test', DATAFORSEO_PASSWORD: 'Sup3r-S3cret-pa55word' };
 export const SECRETS = [ENV.DATAFORSEO_LOGIN, ENV.DATAFORSEO_PASSWORD, Buffer.from(`${ENV.DATAFORSEO_LOGIN}:${ENV.DATAFORSEO_PASSWORD}`).toString('base64')];
 export const ATLANTA = { lat: 33.749, lon: -84.388 };
+export const LOOKUP_URL = 'https://api.dataforseo.com/v3/business_data/business_listings/search/live';
 
 /**
  * One Business Listings item, shaped like the documented sample response (docs.dataforseo.com/v3/business_data/business_listings/search/live:
- * title, phone "+441615322922", url, domain, address_info { borough, address, city, zip, region, country_code }, latitude, longitude).
+ * title, phone "+441615322922", url, domain, address "30 Portland St, Manchester M1 4GS", address_info { borough, address, city, zip,
+ * region, country_code }, latitude, longitude). `region` is null as in all three documented sample items (a "DMA region", never a state).
+ * The US address ending ", GA 30303" is assumed (the samples are British).
  */
 export function item(over: Record<string, unknown> = {}, addr: Record<string, unknown> = {}) {
   return {
@@ -21,7 +24,7 @@ export function item(over: Record<string, unknown> = {}, addr: Record<string, un
     url: 'https://www.peachtreeroofing.example/',
     domain: 'www.peachtreeroofing.example',
     address: '100 Example St NW, Atlanta, GA 30303',
-    address_info: { borough: null, address: '100 Example St NW', city: 'Atlanta', zip: '30303', region: 'GA', country_code: 'US', ...addr },
+    address_info: { borough: null, address: '100 Example St NW', city: 'Atlanta', zip: '30303', region: null, country_code: 'US', ...addr },
     latitude: 33.7601,
     longitude: -84.3912,
     is_claimed: true,
@@ -29,8 +32,8 @@ export function item(over: Record<string, unknown> = {}, addr: Record<string, un
   };
 }
 
-/** A full response body around the items, with the documented envelope (status_code 20000, cost, tasks[0].result[0].items). */
-export function listingsBody(items: unknown[], cost = 0.01396) {
+/** A full response body around the items, with the documented envelope (status_code 20000, cost, tasks[0].result[0] total_count, items). */
+export function listingsBody(items: unknown[], cost = 0.01596, totalCount: number = items.length) {
   return {
     version: '0.1.20240422',
     status_code: 20000,
@@ -49,7 +52,7 @@ export function listingsBody(items: unknown[], cost = 0.01396) {
         result_count: 1,
         path: ['v3', 'business_data', 'business_listings', 'search', 'live'],
         data: {},
-        result: [{ total_count: items.length, count: items.length, offset: 0, offset_token: 'x', items }],
+        result: [{ total_count: totalCount, count: items.length, offset: 0, offset_token: 'x', items }],
       },
     ],
   };
@@ -59,12 +62,51 @@ export function jsonRes(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-export function fakeFetch(items: unknown[], cost = 0.01396) {
-  return vi.fn(async () => jsonRes(listingsBody(items, cost)));
+export function fakeFetch(items: unknown[], cost = 0.01596) {
+  return vi.fn<(url?: unknown, init?: unknown) => Promise<Response>>(async () => jsonRes(listingsBody(items, cost)));
 }
 
-export function newDb(seed: Record<string, Record<string, unknown>[]> = {}) {
-  return new FakeDb({ holler_dataforseo_spend: [], holler_business_lookup: [], ...seed });
+/** A DataForSEO that accepts the request and never answers: only an abort ends it (or nothing, with `ignoreAbort`). */
+export function hangingFetch(opts: { ignoreAbort?: boolean } = {}) {
+  return vi.fn((url: unknown, init?: { signal?: AbortSignal }) =>
+    String(url) === LOOKUP_URL
+      ? new Promise<Response>((_res, rej) => {
+          if (!opts.ignoreAbort) init?.signal?.addEventListener('abort', () => rej(Object.assign(new Error('timeout'), { name: 'TimeoutError' })));
+        })
+      : Promise.resolve(new Response('{}', { status: 200 })),
+  );
+}
+
+/**
+ * The shared FakeDb with the two behaviours of the real database the lookup depends on (review P3-11): an upsert on holler_business_lookup
+ * MERGES (postgrest-js sends resolution=merge-duplicates by default), and a ledger insert gets created_at = now (0011 column default).
+ */
+export class LookupDb extends FakeDb {
+  clock: () => Date = () => NOW;
+  from(table: string) {
+    const b = super.from(table) as unknown as { upsert: (rows: unknown, o?: { onConflict?: string }) => unknown; insert: (r: unknown) => unknown };
+    if (table === 'holler_business_lookup') {
+      const up = b.upsert.bind(b);
+      b.upsert = (rows: unknown, o?: { onConflict?: string }) => {
+        const keys = String(o?.onConflict ?? 'id').split(',');
+        for (const r of (Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[]) {
+          this.tables[table] = this.tables[table].filter((x) => !keys.every((k) => x[k] === r[k]));
+        }
+        return up(rows, o);
+      };
+    }
+    if (table === 'holler_dataforseo_spend') {
+      const ins = b.insert.bind(b);
+      b.insert = (r: unknown) => ins((Array.isArray(r) ? r : [r]).map((x) => ({ created_at: this.clock().toISOString(), ...(x as object) })));
+    }
+    return b as unknown as ReturnType<FakeDb['from']>;
+  }
+}
+
+export function newDb(seed: Record<string, Record<string, unknown>[]> = {}, clock?: () => Date) {
+  const db = new LookupDb({ holler_dataforseo_spend: [], holler_business_lookup: [], ...seed });
+  if (clock) db.clock = clock;
+  return db;
 }
 
 /** A database where holler_business_lookup does not exist (migration 0026 not applied), with the real PostgREST / Postgres error. */
@@ -89,4 +131,24 @@ export function dbWithoutCache(code: 'PGRST205' | '42P01', seed: Record<string, 
     },
   };
   return db;
+}
+
+/** Ledger rows already booked today for the lookup endpoint. */
+export function todayRows(n: number, status = 'ok', startId = 1) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: startId + i,
+    month: MONTH,
+    endpoint: '/v3/business_data/business_listings/search/live',
+    units: 20,
+    estimated_usd: 0.0192,
+    cost_usd: 0.0192,
+    status,
+    created_at: '2026-11-22T01:00:00Z',
+  }));
+}
+
+/** The JSON body a fetch mock was called with (the one task). */
+export function sentTask(f: { mock: { calls: unknown[][] } }, i = 0): Record<string, unknown> {
+  const init = f.mock.calls[i][1] as { body: string };
+  return JSON.parse(init.body)[0];
 }

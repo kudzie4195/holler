@@ -138,20 +138,29 @@ export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'):
 
 type ListingForEmail = NonNullable<NonNullable<DigestItem['contact']>['listing']>;
 
+/** The listing's website only when it is an https link; a phone stays even when the website is dropped. */
+function httpsSite(l: ListingForEmail): ListingForEmail['website'] {
+  return l.website && /^https:\/\//.test(l.website.href) ? l.website : null;
+}
+
 /** The listing lines under the Contact line, html. The website is a normal link with rel="noopener noreferrer nofollow". */
 function listingHtml(l: ListingForEmail | null | undefined, lang: Lang): string {
-  if (!l || (!l.phone && !l.website) || !/^https:\/\//.test(l.website?.href ?? 'https://')) return '';
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
   const phone = l.phone ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.phone', { value: l.phone })))}</div>` : '';
-  const site = l.website
-    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(l.website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(l.website.text)}</a></div>`
+  const site = website
+    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(website.text)}</a></div>`
     : '';
   return `${phone}${site}<div style="${S.small};margin:2px 0">${escapeHtml(noDash(l.note))}</div>`;
 }
 
 /** The listing lines under the Contact line, plain text. */
 function listingText(l: ListingForEmail | null | undefined, lang: Lang): string {
-  if (!l || (!l.phone && !l.website) || !/^https:\/\//.test(l.website?.href ?? 'https://')) return '';
-  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${l.website ? `\n${noDash(t(lang, 'listing.website', { value: l.website.href }))}` : ''}\n${noDash(l.note)}`;
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
+  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${website ? `\n${noDash(t(lang, 'listing.website', { value: website.href }))}` : ''}\n${noDash(l.note)}`;
 }
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */

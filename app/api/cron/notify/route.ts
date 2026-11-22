@@ -15,7 +15,7 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
 import { emailContact, mayHaveContacts, namedContact } from '@/lib/outreach/plan';
-import { lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
+import { LOOKUP_CALL_TIMEOUT_MS, LOOKUP_START_CUTOFF_MS, lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
@@ -196,8 +196,10 @@ export async function GET(req: Request) {
   const requestText = requestIds.length > 0 ? await requestTextByPublicId(admin, requestIds, now) : new Map<string, string>();
 
   // Round 18 (lib/enrich/business-lookup.ts): business phone and website from public listings, for cards about to be emailed only.
-  // One budget for the whole run (HOLLER_LOOKUP_MAX_PER_RUN, HOLLER_LOOKUP_MAX_PER_DAY, the DataForSEO monthly cap). Without DataForSEO
-  // credentials, without migration 0026 or with HOLLER_LOOKUP_DRY_RUN set there is no call and every card is as before.
+  // One budget for the whole run (HOLLER_LOOKUP_MAX_PER_RUN, HOLLER_LOOKUP_MAX_PER_DAY, the DataForSEO monthly cap) and one time budget
+  // (LOOKUP_RUN_BUDGET_MS, 6 s in total; each call at most 3 s; none starts after 30 s into the run). At the deadline the email goes out
+  // without the lookup. Without DataForSEO credentials, without migration 0026 or with HOLLER_LOOKUP_DRY_RUN set there is no call and
+  // every card is as before.
   const lookupBudget = newBudget(lookupSettings());
 
   for (const p of eligible.slice(0, MAX_USERS_PER_RUN)) {
@@ -280,7 +282,7 @@ export async function GET(req: Request) {
       // after the sort and the cap so only cards that are really sent are looked up. Any failure leaves the cards as they are.
       // No email provider means no email goes out (sendEmail skips), so nothing is looked up either.
       let cardContacts = contacts;
-      if (env.RESEND_API_KEY && env.EMAIL_FROM && Date.now() - started < 35_000) {
+      if (env.RESEND_API_KEY && env.EMAIL_FROM && lookupBudget.msLeft > 0 && Date.now() - started < LOOKUP_START_CUTOFF_MS) {
         try {
           cardContacts = await lookupForCards(
             contacts,
@@ -288,7 +290,7 @@ export async function GET(req: Request) {
               .filter(({ s }) => typeof s.id === 'number' && contacts.has(s.id))
               .map(({ s }) => ({ signalId: s.id as number, city: s.city, state: s.state, contact: namedContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id as number)) })),
             lookupBudget,
-            { db: admin, timeoutMs: 8_000 },
+            { db: admin, timeoutMs: LOOKUP_CALL_TIMEOUT_MS, deadline: Math.min(Date.now() + lookupBudget.msLeft, started + LOOKUP_START_CUTOFF_MS + LOOKUP_CALL_TIMEOUT_MS) },
           );
         } catch {
           cardContacts = contacts;
@@ -375,6 +377,6 @@ export async function GET(req: Request) {
   // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
   const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
 
-  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, spentUsd: lookupBudget.spentUsd, skipped: lookupBudget.skipped };
+  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, timedOut: lookupBudget.timedOut, spentUsd: lookupBudget.spentUsd, msLeft: lookupBudget.msLeft, skipped: lookupBudget.skipped };
   return Response.json({ ok: true, ...counts, push, lookup, ms: Date.now() - started });
 }

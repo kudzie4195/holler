@@ -78,7 +78,7 @@ export function estimateUsd(kind: PriceKind, items = 0): number {
   return Math.round((p.perTaskUsd + p.perItemUsd * Math.max(0, items)) * 100_000) / 100_000;
 }
 
-export type DfsFailure = 'not_configured' | 'cap_reached' | 'spend_unavailable' | 'http_error' | 'network_error' | 'api_error' | 'bad_shape';
+export type DfsFailure = 'not_configured' | 'cap_reached' | 'admit_refused' | 'spend_unavailable' | 'http_error' | 'network_error' | 'api_error' | 'bad_shape';
 
 export interface DfsTask {
   id?: string;
@@ -101,6 +101,8 @@ export interface DfsDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Per request timeout. Default 30 s. */
   timeoutMs?: number;
+  /** One retry on an HTTP 5xx (default true). The business lookup passes false: one lookup is one request. */
+  retry5xx?: boolean;
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -203,7 +205,16 @@ async function settle(db: Db, id: number | string, patch: { cost_usd: number; st
 export async function dfsCall(
   path: string,
   task: Record<string, unknown>,
-  opts: { kind: PriceKind; items?: number },
+  opts: {
+    kind: PriceKind;
+    items?: number;
+    /**
+     * Optional extra gate, asked AFTER this call's reservation row is booked and the monthly cap passed, with the reservation's id. False
+     * refuses the call (the row is settled as refused, cost 0) with reason 'admit_refused'. The business lookup uses it to hold its daily
+     * cap under overlapping runs: book first, then count the booked rows up to and including this one.
+     */
+    admit?: (db: Db, reservationId: number | string) => Promise<boolean>;
+  },
   deps: DfsDeps = {},
 ): Promise<DfsResult> {
   const env = deps.env ?? process.env;
@@ -244,6 +255,18 @@ export async function dfsCall(
       await settle(db, rid, { cost_usd: 0, status: 'refused', detail: 'cap_reached' });
       return { fail: { ok: false, reason: 'cap_reached', spentUsd: Math.round((total - estimate) * 100_000) / 100_000, capUsd: cap } };
     }
+    if (opts.admit) {
+      let admitted = false;
+      try {
+        admitted = await opts.admit(db, rid);
+      } catch {
+        admitted = false;
+      }
+      if (!admitted) {
+        await settle(db, rid, { cost_usd: 0, status: 'refused', detail: 'admit_refused' });
+        return { fail: { ok: false, reason: 'admit_refused' } };
+      }
+    }
     return { id: rid };
   };
   const first = await reserve();
@@ -282,7 +305,7 @@ export async function dfsCall(
     }
     const reported = plausible(costOf(json), estimate);
 
-    if (res.status >= 500 && attempt === 0) {
+    if (res.status >= 500 && attempt === 0 && deps.retry5xx !== false) {
       // Book what this attempt really cost, then reserve a fresh estimate for the retry so the cap sees both.
       await settle(db, id, { cost_usd: reported ?? 0, status: 'error', detail: `http ${res.status}, retried` });
       await sleep(1000);

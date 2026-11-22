@@ -13,7 +13,7 @@ it('0026 only creates holler_ objects and has no grant to anon or authenticated'
   expect(SQL).toMatch(/enable row level security/);
 });
 
-it.skipIf(!hasPglite)('applies twice; RLS on; only service_role has privileges; the checks hold; upsert on the key works', async () => {
+it.skipIf(!hasPglite)('applies twice; RLS on; only service_role has privileges; the checks hold (found, not_found, retry); upsert on the key works', async () => {
   const db = await bootDb('0026_zzz');
   await db.exec(SQL);
   const rls = await db.query(`select relrowsecurity from pg_class where relname = 'holler_business_lookup'`);
@@ -31,4 +31,9 @@ it.skipIf(!hasPglite)('applies twice; RLS on; only service_role has privileges; 
   await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('a b','x','GA','found')`)).rejects.toThrow(); // found needs a phone or website
   await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('a c','x','GA','not_found','404-555-0123')`)).rejects.toThrow();
   await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('a d','x','Georgia','not_found')`)).rejects.toThrow();
+  // redo 1: the 'retry' claim row, written before a call and left in place when it times out; it carries no detail
+  await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status) values ('summit roofing','hammond 46320','IN','retry')`);
+  await expect(db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('a e','x','GA','retry','404-555-0123')`)).rejects.toThrow();
+  await db.exec(`insert into holler_business_lookup (name_key, city_key, state, status, phone) values ('summit roofing','hammond 46320','IN','found','219-555-0177') on conflict (name_key, city_key, state) do update set status = excluded.status, phone = excluded.phone`);
+  expect((await db.query(`select status, phone from holler_business_lookup where city_key = 'hammond 46320'`)).rows[0]).toEqual({ status: 'found', phone: '219-555-0177' });
 }, 30_000);

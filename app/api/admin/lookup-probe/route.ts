@@ -9,7 +9,8 @@ export const maxDuration = 30;
  * A dry check of the round 18 business listing lookup (lib/enrich/business-lookup.ts): runs ONE DataForSEO Business Listings search for
  * the name near the city, applies the same name and place checks as the alert run, and returns what would be attached and the call's
  * cost. It writes nothing except the DataForSEO spend ledger row (holler_dataforseo_spend, so the monthly cap and the daily lookup cap
- * cover it): no cache row, no contact, no card. ?dry=1 makes no call and returns the request and the estimated cost.
+ * cover it): no cache row, no contact, no card. ?dry=1 makes no call and returns the request and the estimated cost. Like the alert run it
+ * makes no call until migration 0026 is applied (`cache_missing`). One request, no retry, 10 s timeout (maxDuration is 30 s).
  * A name the business classifier rejects (a person) is never sent. The response never carries the DataForSEO login or password.
  */
 export async function GET(req: Request) {
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     db = null;
   }
   try {
-    const r = await lookupBusiness({ name, city, state }, { db, timeoutMs: 20_000 }, { probe: true, dryRun: dry });
+    const r = await lookupBusiness({ name, city, state }, { db, timeoutMs: 10_000 }, { probe: true, dryRun: dry });
     const body =
       r.status === 'found'
         ? { status: 'found', wouldAttach: { phone: r.listing.phone, website: r.listing.website }, listingName: r.listing.name, candidates: r.candidates ?? 1, costUsd: r.costUsd }
