@@ -21,7 +21,7 @@ export const NOTE_BANNED = [
 ];
 
 /** Words that make a damage word a possibility instead of a claim, when one of them is within 3 words before it. */
-const HEDGES = new Set(['may', 'might', 'can', 'could', 'possible', 'possibly', 'risk', 'check', 'inspect', 'inspecting', 'reported', 'reportedly']);
+const HEDGES = new Set(['may', 'might', 'can', 'could', 'possible', 'possibly', 'risk', 'check', 'inspect', 'inspecting', 'reported', 'reportedly', 'often', 'usually', 'typically', 'generally']);
 /** For a civic record (311, violation, inspection) the record itself is a report or a complaint, so "a report of a damaged sidewalk" is a possibility. */
 const CIVIC_HEDGES = new Set(['report', 'reports', 'complaint', 'complaints', 'violation', 'violations', 'request', 'requests']);
 const DAMAGE =
@@ -103,6 +103,7 @@ const VENDOR = new RegExp(
     '\\balready\\s+(?:has|have|had|got|handled|hired|booked|taken)\\b',
     `\\b${VENDOR_NOUN}\\s+(?:already|has|have|had|got)\\b`,
     '\\b(?:locked\\s+in|spoken\\s+for|taken\\s+care\\s+of|lined\\s+up|in\\s+good\\s+hands)\\b',
+    '\\b(?:handling|handles|handled|doing|running|managing)\\s+(?:it|this|that|the\\s+(?:job|work|project|roof))\\b',
     '\\bwent\\s+with\\b',
     '\\bon\\s+the\\s+job\\b',
     '\\bof\\s+record\\b',
@@ -210,13 +211,16 @@ export function wordingViolations(note: string, ctx: { kind?: string | null } = 
   }
   if (CUSTOMER.test(t)) out.push('claims_customer');
   if (CERTAIN.test(t)) out.push('claims_certain');
-  if (VENDOR.test(t)) out.push('claims_vendor');
+  // A federal or local contract award does name its winner, so "the winning contractor may need subs" is a fact about the record.
+  if ((ctx.kind ?? '').toLowerCase() !== 'contract' && VENDOR.test(t)) out.push('claims_vendor');
   if (PROOF.test(t)) out.push('claims_proof');
   // Weather never proves damage: for weather records a causal verb is refused even when a hedge is nearby.
   if (WEATHER_KINDS.has((ctx.kind ?? '').toLowerCase()) && CAUSAL.test(t)) out.push('claims_cause');
   // A 311 record IS a request, so "this 311 request" or "a service request about a leak" only names the record. Those phrases are
   // taken out before the request check for civic records; "someone requested work" is still refused.
-  const forRequest = civic ? t.replace(/\b(?:311|service|work|repair|maintenance|code)\s+requests?\b/gi, ' ').replace(/\brequests?\s+(?:in|about|for|of|on)\b/gi, ' ') : t;
+  // A hedged want or need ("may also want new gutters", "usually needs a safety barrier") is a possibility, not a claim.
+  const hedgedWant = t.replace(/\b(?:may|might|could|often|usually|typically|generally|sometimes)\s+(?:also\s+)?(?:want|need)s?\b/gi, ' ');
+  const forRequest = civic ? hedgedWant.replace(/\b(?:311|service|work|repair|maintenance|code)\s+requests?\b/gi, ' ').replace(/\brequests?\s+(?:in|about|for|of|on)\b/gi, ' ') : hedgedWant;
   if (REQUEST.test(forRequest)) out.push('claims_request');
   else {
     // "needs a roofer" is a claim; "may need a look" is not. "need" counts only without a hedge in the 2 words before it.
@@ -233,6 +237,8 @@ export function wordingViolations(note: string, ctx: { kind?: string | null } = 
 
 /** Capitalized words a note may use even when the input does not contain them. */
 const NAME_OK = new Set(['ac', 'hvac', 'ev', 'us', 'u.s', 'diy', 'ok']);
+/** Sentence-opening function words: never a name, so they are not checked even when a capitalized word follows. */
+const LEAD_OK = new Set(['a', 'an', 'the', 'this', 'that', 'these', 'those', 'its', 'their', 'any', 'some', 'each', 'every', 'one', 'no', 'new', 'another', 'such', 'once', 'after', 'if', 'when', 'with']);
 
 /**
  * Capitalized words that do not appear in the input: a place, person or business the record never named. Every capitalized word after
@@ -245,7 +251,7 @@ function unknownNames(note: string, input: string): string[] {
   const toks = note.match(/[A-Za-z][A-Za-z.'\u2019]*/g) ?? [];
   const cap = (w: string | undefined) => !!w && /^[A-Z]/.test(w);
   return toks
-    .filter((w, i) => cap(w) && (i > 0 || (cap(toks[1]) && toks[1] !== toks[1].toUpperCase())))
+    .filter((w, i) => cap(w) && (i > 0 || (cap(toks[1]) && toks[1] !== toks[1].toUpperCase() && !LEAD_OK.has(w.toLowerCase()))))
     .map((w) => w.toLowerCase().replace(/[.'\u2019]+$/, ''))
     .filter((w) => !known.has(w) && !NAME_OK.has(w));
 }

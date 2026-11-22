@@ -377,10 +377,10 @@ export const PRIORITY_READ = 1000;
  * Permit and civic records that have no holler_signal_ai row yet, OLDEST first, read straight from the database with an anti-join
  * (holler_signals left join holler_signal_ai, keep the rows where the AI side is null; the foreign key from 0014 makes this a to-one
  * embed). The newest-first scan below stops after CANDIDATE_WANT rows of any kind, classified ones included, so under a backlog the
- * oldest unclassified rows would never be seen; this read does not depend on how many other rows there are. Returns [] on any error
- * (the scan below still runs, as before).
+ * oldest unclassified rows would never be seen; this read does not depend on how many other rows there are. Returns no rows on any error
+ * (the scan below still runs, as before) and `failed` holds the error code, which the run report shows as backlogFallback.
  */
-export async function loadPriorityBacklog(db: Db, now: Date, limit = PRIORITY_READ): Promise<SignalForAi[]> {
+export async function loadPriorityBacklog(db: Db, now: Date, limit = PRIORITY_READ): Promise<{ rows: SignalForAi[]; failed: string | null }> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
   try {
     const { data, error } = await db
@@ -392,23 +392,25 @@ export async function loadPriorityBacklog(db: Db, now: Date, limit = PRIORITY_RE
       .order('occurred_at', { ascending: true })
       .order('id', { ascending: true })
       .range(0, limit - 1);
-    if (error) return [];
+    // The error code only (PGRST200, 42703 ...), never the message: it is shown in the run report.
+    if (error) return { rows: [], failed: String((error as { code?: unknown }).code || 'error').slice(0, 20) };
     // The embed column is only there for the filter: drop it, and double-check that no row actually has an AI result.
-    return ((data ?? []) as (SignalForAi & { holler_signal_ai?: unknown })[])
-      .filter((r) => r.holler_signal_ai == null)
+    const rows = ((data ?? []) as (SignalForAi & { holler_signal_ai?: unknown })[])
+      .filter((r) => r.holler_signal_ai == null || (Array.isArray(r.holler_signal_ai) && r.holler_signal_ai.length === 0))
       .map((r) => {
         const { holler_signal_ai: _drop, ...rest } = r;
         void _drop;
         return rest;
       });
+    return { rows, failed: null };
   } catch {
-    return [];
+    return { rows: [], failed: 'exception' };
   }
 }
 
-export async function loadCandidates(db: Db, now: Date, want: number): Promise<{ signals: SignalForAi[]; scanned: number }> {
+export async function loadCandidates(db: Db, now: Date, want: number): Promise<{ signals: SignalForAi[]; scanned: number; backlogFailed: string | null }> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
-  const backlog = await loadPriorityBacklog(db, now);
+  const { rows: backlog, failed: backlogFailed } = await loadPriorityBacklog(db, now);
   const out: SignalForAi[] = [...backlog];
   const have = new Set(backlog.map((r) => r.id));
   let scanned = backlog.length;
@@ -433,7 +435,7 @@ export async function loadCandidates(db: Db, now: Date, want: number): Promise<{
     for (const r of rows) if (!done.has(r.id) && !have.has(r.id) && out.length < want) out.push(r);
     if (rows.length < CANDIDATE_PAGE) break;
   }
-  return { signals: out, scanned };
+  return { signals: out, scanned, backlogFailed };
 }
 
 /** Run rematch for changed signals and mark them. False when rematch failed (the next run retries those ids). */
@@ -639,6 +641,8 @@ export interface RunSummary {
    */
   limits: { perRun: number; perDay: number; usedToday: number | null; allowed: number | null; deferred: number };
   /** Permit and civic records written this run (any origin): how many, how many changed trades, how many got a note. */
+  /** The oldest-first backlog read (anti-join) failed and the plain newest-first scan was used instead: the PostgREST error code, else null. */
+  backlogFallback: string | null;
   byKind: Record<'permit' | 'civic', { classified: number; applied: number; withNote: number }>;
   alerts: AlertKind[];
   elapsedMs: number;
@@ -726,6 +730,7 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     capUsd,
     worstCaseUsd: 0,
     limits: { perRun: runLimit(env), perDay: dayLimit(env), usedToday: null, allowed: null, deferred: 0 },
+    backlogFallback: null,
     byKind: { permit: { classified: 0, applied: 0, withNote: 0 }, civic: { classified: 0, applied: 0, withNote: 0 } },
     alerts: [],
     elapsedMs: 0,
@@ -776,6 +781,7 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     const got = await loadCandidates(o.db, now, CANDIDATE_WANT);
     candidates = got.signals;
     s.scanned = got.scanned;
+    s.backlogFallback = got.backlogFailed;
   } catch (e) {
     s.reason = e instanceof Error && e.message === 'not_migrated' ? 'not_migrated' : 'signals_read_failed';
     return finish();

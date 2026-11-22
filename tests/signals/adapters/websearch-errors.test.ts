@@ -144,6 +144,25 @@ describe('review P2-6: partial and encoded keys', () => {
       for (const piece of [K.slice(0, 8), K.slice(0, 8).toUpperCase(), 'Ab%2BCd', 'Ab+Cd', 'Cd/Ef']) expect(d).not.toContain(piece);
     });
   }
+  // Review 2 P2-A: a prefix followed by "." or "..." (no key: label in front) used to be kept.
+  const dotted: Array<[string, string]> = [
+    ['prefix and a period', `Invalid API key ${K.slice(0, 20)}.`],
+    ['prefix and an ellipsis', `key ${K.slice(0, 16)}... invalid`],
+    ['masked middle', `Invalid credential ${K.slice(0, 12)}...${K.slice(-6)} for this account`],
+    ['single dot mask', `Invalid credential ${K.slice(0, 10)}.${K.slice(-6)} for this account`],
+    ['short prefix and period', `The key ${K.slice(0, 12)}. is invalid`],
+  ];
+  for (const [name, text] of dotted) {
+    it(`dotted: ${name}`, async () => {
+      expect(redactSecrets(text, [K])).toContain('[removed]');
+      const d = await errorDetail(new Response(JSON.stringify({ message: text }), { status: 401 }), [K]);
+      for (let i = 0; i + 8 <= K.length; i++) expect(d).not.toContain(K.slice(i, i + 8));
+    });
+  }
+  it('a run that decodes to a short string is left alone, and ordinary dotted text is untouched', () => {
+    expect(redactSecrets('value %61%31%62%32%63 rejected', [K])).toBe('value %61%31%62%32%63 rejected');
+    expect(redactSecrets('Request failed. See docs.example for limits...', [K])).toBe('Request failed. See docs.example for limits...');
+  });
   it('ordinary reasons are not touched', async () => {
     expect(await errorDetail(new Response('{"message":"Query exceeded credits for this billing period"}', { status: 400 }), [K])).toBe('Query exceeded credits for this billing period');
   });

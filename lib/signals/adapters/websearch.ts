@@ -394,7 +394,9 @@ export function redactSecrets(text: string, knownKeys: Array<string | undefined>
         // keep the raw run
       }
       d = d.toLowerCase();
-      return keys.some((k) => k.includes(d) || d.includes(k)) ? '[removed]' : m;
+      // Test the whole run and each letter/digit piece of it: a trailing "." or "..." must not hide a key prefix.
+      const parts = [d, ...d.split(/[^a-z0-9]+/)].filter((p) => p.length >= 8);
+      return parts.some((p) => keys.some((k) => k.includes(p) || p.includes(k))) ? '[removed]' : m;
     });
   }
   return t
