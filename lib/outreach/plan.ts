@@ -184,6 +184,9 @@ function siteHeading(c: RecordClass, lang: Lang): string {
 
 /** The owner company of a code-violation record, as the area block shows it, or null. */
 function ownerLine(signal: PlanSignal, contacts: PlanContact[], lang: Lang): { name: string; line: string; source: PlanLink | null } | null {
+  // Redo 2 (review P3-4): not gated here. This runs in the client card, where a server-only switch reads as undefined; the server is the
+  // gate (lib/outreach/loader.ts drops every owner row while HOLLER_VIOLATION_OWNERS_ENABLED is off, and sanitize.ts and store.ts never
+  // keep one), so an owner contact can only reach this function while the switch is on.
   if (!isViolationSource(signal.source)) return null;
   const c = contacts.find((x) => x.role === 'owner' && cleanText(x.name));
   if (!c) return null;

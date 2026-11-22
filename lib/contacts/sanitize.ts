@@ -1,5 +1,6 @@
 import { contactNameFor } from './names';
 import { hasLegalSuffix } from './trade-name';
+import { violationOwnersEnabled } from './owner-switch';
 import {
   STREET_SUFFIX_WORDS,
   foldName,
@@ -268,9 +269,12 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }
-  const cleaned = contactNameFor(c.role, typeof c.name === 'string' ? c.name : '');
+  // A business name was checked against its row at extraction (trade-name.ts rule L3); here only its shape can be re-checked.
+  const cleaned = contactNameFor(c.role, typeof c.name === 'string' ? c.name : '', { shapeOnly: true });
   if (!cleaned) return null;
   if (c.role === 'owner') {
+    // Redo 2 (review P3-4): the switch is checked here too, so no caller can store an owner row while it is off.
+    if (!violationOwnersEnabled()) return null;
     return { role: 'owner', name: cleaned.slice(0, CONTACT_LIMITS.name), attn: null, address: null, city: null, state: null, zip: null, phone: null, email: null, website: null };
   }
   const license = cleanLicense(c.license);

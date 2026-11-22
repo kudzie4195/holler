@@ -1,6 +1,6 @@
 import { contactNameFor } from './names';
 import { violationOwnersEnabled } from './owner-switch';
-import { hasLegalSuffix, HOME_BASED_RE } from './trade-name';
+import { hasLegalSuffix, HOME_BASED_RE, HOME_PRONE_RE } from './trade-name';
 import { cleanAddressPart, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
 import { firstMoney } from '@/lib/signals/permit-value';
@@ -66,6 +66,14 @@ export interface OrgSpec {
    * business is not shown and its address is not stored, unless the name ends with a legal form.
    */
   homeFields?: string[];
+  /**
+   * Business licences (review 2): the row's OTHER name columns, the legal entity or the owner (legal_name, business_name,
+   * ownership_name, business_owner_name). COMPARISON ONLY: a trade name with one unknown word is shown only when it shares no word with a
+   * person named here (trade-name.ts rule L3). The value is never stored, shown or logged, and never becomes a contact through this key.
+   */
+  ownerNameFields?: string[];
+  /** The record kind is an establishment (a food-establishment inspection): rule L3 needs no owner column. */
+  storefront?: boolean;
 }
 
 /** Name + type column pairs (Chicago's contact_N_type / contact_N_name). */
@@ -110,7 +118,7 @@ export function contactSpecFields(spec: ContactSpec | undefined): string[] {
   if (!spec) return [];
   const f: (string | undefined)[] = [];
   if (spec.site) f.push(...spec.site.addressFields, spec.site.cityField, spec.site.stateField, spec.site.zipField);
-  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), o.typeField, ...(o.homeFields ?? []));
+  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), o.typeField, ...(o.homeFields ?? []), ...(o.ownerNameFields ?? []));
   for (const p of spec.typedContractors?.pairs ?? []) f.push(p.typeField, p.nameField, p.cityField, p.stateField, p.zipField);
   return [...new Set(f.filter((x): x is string => Boolean(x)))];
 }
@@ -206,12 +214,18 @@ export function extractContacts(
       }
       let name: string | null = null;
       let runPhone: string | null = null;
+      let viaRow = false;
       for (const f of o.nameFields) {
         const raw = read(f);
         if (o.runTogether) {
           const parts = splitRunTogether(raw);
           name = contactNameFor(o.role, parts.name);
           runPhone = parts.phone;
+        } else if (o.role === 'business') {
+          // The licence rule with the row: its other name columns (never the column being read) are compared, never stored (redo 2).
+          const ownerNames = (o.ownerNameFields ?? []).filter((x) => x !== f).map((x) => read(x));
+          name = contactNameFor(o.role, raw, { ownerNames, storefront: o.storefront });
+          viaRow = Boolean(name) && !hasLegalSuffix(name);
         } else {
           name = contactNameFor(o.role, raw);
         }
@@ -220,6 +234,8 @@ export function extractContacts(
       if (!name) continue;
       // Redo 1, rule 6: a licence for a home-based activity names nobody (and stores no address) unless the name has a legal form.
       if (o.role === 'business' && !hasLegalSuffix(name) && (HOME_BASED_RE.test(name) || (o.homeFields ?? []).some((f) => HOME_BASED_RE.test(read(f))))) continue;
+      // Review 2: a licence name without a legal form is dropped when a category column reads as a home-prone activity.
+      if (viaRow && (o.homeFields ?? []).some((f) => HOME_PRONE_RE.test(read(f)))) continue;
       if (o.role === 'owner') {
         // The owner on the public record: the company name only. Owner phones, emails, addresses and ids are never read.
         orgs.push({ role: 'owner', name, address: null, city: null, state: null, zip: null, phone: null });

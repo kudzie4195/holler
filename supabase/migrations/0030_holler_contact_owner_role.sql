@@ -14,6 +14,7 @@
 do $$
 declare
   c record;
+  has_license boolean;
 begin
   if to_regclass('public.holler_signal_contacts') is null then
     return;
@@ -35,14 +36,33 @@ begin
     alter table public.holler_signal_contacts
       add constraint holler_signal_contacts_role_check check (role in ('site', 'business', 'contractor', 'awardee', 'buyer', 'owner'));
   end if;
-  -- An owner row is the company name only (review P3-2): the database refuses any detail next to it.
+  -- An owner row is the company name only (review P3-2; redo 2: also `license` when migration 0022 added that column). Convergent: a
+  -- check written by an earlier run without `license` is replaced, and any owner row that already carries a detail (only possible by
+  -- hand) is reduced to its name first, so adding the check never stops on an existing row (review 2, P3-8).
+  has_license := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'holler_signal_contacts' and column_name = 'license'
+  );
+  if has_license and exists (
+    select 1 from pg_constraint
+    where conname = 'holler_signal_contacts_owner_name_only'
+      and conrelid = 'public.holler_signal_contacts'::regclass
+      and pg_get_constraintdef(oid) not like '%license%'
+  ) then
+    alter table public.holler_signal_contacts drop constraint holler_signal_contacts_owner_name_only;
+  end if;
   if not exists (
     select 1 from pg_constraint where conname = 'holler_signal_contacts_owner_name_only' and conrelid = 'public.holler_signal_contacts'::regclass
   ) then
-    alter table public.holler_signal_contacts
-      add constraint holler_signal_contacts_owner_name_only check (
-        role <> 'owner'
-        or (phone is null and email is null and website is null and attn is null and coalesce(btrim(address), '') = '' and city is null and state is null and zip is null)
-      );
+    update public.holler_signal_contacts
+      set phone = null, email = null, website = null, attn = null, address = '', city = null, state = null, zip = null
+      where role = 'owner';
+    if has_license then
+      execute 'update public.holler_signal_contacts set license = null where role = ''owner''';
+    end if;
+    execute format(
+      'alter table public.holler_signal_contacts add constraint holler_signal_contacts_owner_name_only check (role <> %L or (phone is null and email is null and website is null and attn is null and coalesce(btrim(address), %L) = %L and city is null and state is null and zip is null%s))',
+      'owner', '', '', case when has_license then ' and license is null' else '' end
+    );
   end if;
 end $$;

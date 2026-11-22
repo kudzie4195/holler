@@ -33,8 +33,15 @@ import {
  *  C3. No honorific, suffix (JR, SR), credential, job-title or licence-holder word, connector (at, for, by, with, from ...). Digits only
  *      as a short token ("#1", "1ST", "A1").
  *  C4. A business marker, one of:
- *      - a final legal form (LLC, INC, CORP, CORPORATION, CO, COMPANY, LP, LLP, LLLP, PLLC, LTD, LIMITED, INCORPORATED, PC, PA);
- *      - a family or partnership phrase at the end ("& Sons", "and Son", "Bros", "Brothers", "& Associates", "& Co");
+ *      - a final unambiguous legal form (STRONG_LEGAL: LLC, L.L.C., INC, INCORPORATED, CORP, CORPORATION, LTD, LIMITED, LLP, LLLP,
+ *        PLLC, PLC, "LIMITED PARTNERSHIP"; "Company" spelled out only with no person-name word or with a second marker). Redo 2: the
+ *        short forms CO, PA, PC, SA, AG, LP (NAME_LIKE_LEGAL) count only next to an unambiguous marker or in a name of three or more words
+ *        with no person-name word ("Maria Co", "VANG PA", "Smith Co." are refused; "Smith Roofing Co" passes);
+ *      - a family or partnership phrase at the end ("& Sons", "and Son", "& Daughters", "& Associates", "& Partners"), never after a
+ *        first name alone ("John & Sons"). Redo 2: "Bros" and "Brothers" need a second marker ("Smith Brothers Roofing");
+ *      - redo 2: a generic firm word (GENERIC_FORMS: Services, Group, Enterprises, Company, Associates, Solutions ...) qualifies alone only
+ *        with no person-name word ("Acme Services"); next to one it needs a trade word or a strong legal form ("Smith Lawn Services",
+ *        "Smith Services LLC"; "John Smith Services" is refused);
  *      - an UNAMBIGUOUS trade or business form (FIRM_WORDS below) in the final run of trade words, followed only by safe tail words
  *        ("Roofing Depot", "Plumbing Pros"). Ambiguous words that are also surnames or common nouns (AMBIGUOUS_WORDS below: Glass,
  *        Pool, Power, Cable, Service, Drain, Mold, Boring, Mason, Carpenter, Painter, Gardner, Stone, Wood, Steel, Tile, Homes, Tree,
@@ -99,7 +106,7 @@ export const AMBIGUOUS_WORDS: ReadonlySet<string> = new Set(
       'solar air ac a/c comfort garage floor floors iron locks lock signs sign furnace furnaces junk spas spa fiber gutter rooter chimney ' +
       'chimneys shutters doors windows decks drilling repair repairs design designs pest lumber supply supplies equipment rentals ' +
       'storage moving transport security alarm alarms automation controls locksmith pizza grill bar tavern diner deli salon nails ' +
-      'tailor cafe coffee tea liquor',
+      'tailor cafe coffee tea liquor holding property investment',
   ),
 );
 
@@ -110,15 +117,39 @@ const LICENCE_WORDS: ReadonlySet<string> = new Set(
 
 /** Words allowed after the last marker (C4): they describe the firm, never a person. */
 const TAIL_WORDS: ReadonlySet<string> = new Set(
-  list('pros pro experts masters guys team crew unlimited plus usa america express depot direct now today'),
+  list('pros pro experts expert masters guys team crew unlimited plus usa america express depot direct now today works'),
 );
 
-/** A family or partnership phrase at the end (C4). */
-const FAMILY_TAIL = new Set(list('sons son daughters associates assoc co company partners'));
+/**
+ * A family or partnership phrase at the end (C4): "& Sons", "and Son", "& Daughters", "& Associates", "& Partners". Redo 2: accepted only
+ * when the part before the "&" is not a first name alone ("Smith & Sons" passes; "John & Sons", "Mary & Daughters" do not). "Bros" and
+ * "Brothers" are no family phrase any more ("Brothers" is a listed surname: "John Brothers", "Smith Brothers"); they need a second
+ * marker ("Smith Brothers Roofing", "Smith Bros Inc").
+ */
+const FAMILY_TAIL = new Set(list('sons son daughters associates assoc partners'));
 const BROTHERS = new Set(list('bros brothers'));
 
+/**
+ * Unambiguous legal forms (C4, redo 2): each makes a business on its own, subject to C1 (placeholders) and C6 (family and holdings).
+ * "Company" spelled out is a legal form too, but next to a person-name word it is a generic word (GENERIC_FORMS) and needs a second
+ * marker ("Acme Company" passes, "Maria Lopez Company" does not).
+ */
+const STRONG_LEGAL = new Set(list('llc inc incorporated corp corporation ltd limited llp lllp pllc plc company'));
+/**
+ * Redo 2 (review P1-A): short legal forms that are also surnames, given names or other words: Co ("Maria Co", "TRAN CO"), PA ("VANG PA",
+ * "Lee Pa"), PC, SA, AG, LP ("Kim Lp"). They never make a two-word name a company. They count only next to an unambiguous marker (a
+ * trade or business form, or a strong legal form before them: "Smith Roofing Co", "ACM PLUMBING CO.", "ARRINGTON ROOFING CO INC."), or in a
+ * name of three or more words with no person-name word ("INVITATION HOMES LP"). A period does not change that ("Smith Co." is refused).
+ */
+const NAME_LIKE_LEGAL = new Set(list('co pa pc sa ag lp'));
 /** Final legal forms (C4), dots removed. */
-const LEGAL = new Set(list('llc inc incorporated corp corporation co company lp llp lllp pllc ltd limited pc pa plc'));
+const LEGAL = new Set([...STRONG_LEGAL, ...NAME_LIKE_LEGAL]);
+/**
+ * Redo 2 (commander rule 3): generic firm words. Next to a person-name word they never qualify on their own ("John Smith Services",
+ * "John Smith Group" are refused); they need a second marker, a trade form or an unambiguous legal form ("Smith Lawn Services", "Smith
+ * Services LLC" pass). With no person-name word they qualify ("Acme Services", "SUMMIT CONSULTING GROUP").
+ */
+const GENERIC_FORMS = new Set(list('services group enterprises enterprise company associates solutions systems industries technologies consulting consultants development developers properties holdings investments realty ventures foundation management partners capital'));
 /** Words that never belong in a contractor's trade name (C3): connectors that join a person to a company. */
 const CONNECTORS = new Set(list('at for by with via from or vs versus nee obo attn of'));
 const DBA_RE = /(?:^|\s)(?:d\/b\/a|d\.b\.a\.?|d b a|dba:?|t\/a|trading as|doing business as|operating as|o\/a)(?=\s|$)/gi;
@@ -132,11 +163,15 @@ const PLACEHOLDER_RE =
 const PLACEHOLDER_FIRST = new Set(
   list(
     'self myself me my our own ownr owner owners homeowner homeowners homeownr hmownr no none not na n/a tbd unknown unk various multiple ' +
-      'same test null pending private personal individual unlicensed relative dad mom husband wife friend friends volunteer volunteers',
+      'same test null pending private personal individual unlicensed relative dad mom husband wife friend friends volunteer volunteers ' +
+      'diy exempt undecided undetermined ourselves yourself himself herself mine bldr awaiting ho cash uncle aunt cousin nephew niece ' +
+      'weekend sweat zzz xyz sample example demo',
   ),
 );
+/** C1 (review 2, P3-1): placeholder phrases anywhere ("To Be Hired Roofing", "Bid Pending Construction", "Do It Yourself Construction"). */
+const PLACEHOLDER_PHRASE_RE = /^h\.?\s?o\.?\s|\b(?:to be (?:hired|selected|determined|named|announced)|out to bid|bid pending|see (?:plans|permit|attached)|do it yourself|ownr\/bldr|owner\/bldr|not yet (?:hired|selected))\b/i;
 /** C1: placeholder words anywhere in a name ("John Smith Self Services", "Owner Builder Roofing"). */
-const PLACEHOLDER_ANYWHERE = new Set(list('self myself personal private homeowner homeowners homeownr own unlicensed notary'));
+const PLACEHOLDER_ANYWHERE = new Set(list('self myself personal private homeowner homeowners homeownr own unlicensed notary volunteer volunteers'));
 /** Words that are never distinctive (C1, C8). */
 const GENERIC_WORDS = new Set(
   list(
@@ -148,11 +183,13 @@ const GENERIC_WORDS = new Set(
   ),
 );
 /** C6: family and personal holding words. */
-const FAMILY_WORDS = new Set(list('family fam families estate estates heirs heir trustee trustees ttee living revocable irrevocable legacy'));
+const FAMILY_WORDS = new Set(
+  list('family fam families estate estates heirs heir trustee trustees ttee living revocable irrevocable legacy kids children siblings grandkids grandchildren grandpa grandma'),
+);
 
 /** Licence names (rule 6): a home-based activity in the name or the licence category gives no contact unless a legal form is named. */
 export const HOME_BASED_RE =
-  /\b(?:day ?care|daycares|child ?care|childcare|family day|family child|home occupation|home[- ]based|in[- ]home|home daycare|babysit\w*|nanny|nannies|group home|foster|bed and breakfast|short[- ]term rental|home office|home business|residential care|adult family home)\b/i;
+  /\b(?:day ?care|daycares|child ?care|childcare|pre-?schools?|preschool|nursery school|family day|family child|home occupation|home[- ]based|in[- ]home|home daycare|babysit\w*|nanny|nannies|group home|foster|bed and breakfast|short[- ]term rental|home office|home business|residential care|adult family home)\b/i;
 
 function collapse(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
@@ -166,7 +203,7 @@ interface Tok {
 const DIGIT_TOKEN_RE = /^(?:#?\d{1,3}|\d{1,3}(?:st|nd|rd|th)|[a-z]\d{1,2})$/i;
 
 function toks(s: string): Tok[] {
-  return s.split(' ').filter(Boolean).map((raw) => ({ raw, k: foldName(raw).replace(/\./g, '').replace(/[‘’]/g, "'") }));
+  return s.split(' ').filter(Boolean).map((raw) => ({ raw, k: foldName(raw).replace(/\./g, '').replace(/[\u2018\u2019]/g, "'") }));
 }
 
 /** An unambiguous marker word (C4). A word that is a listed given name or on SURNAME_VOCAB never is. */
@@ -180,7 +217,7 @@ function isAmbiguous(k: string): boolean {
 }
 
 /** A listed given name glued to a listed surname (either order, each 3+ letters) or one or two letters before a listed surname (4+). */
-function gluedPersonWord(k: string): boolean {
+export function gluedPersonWord(k: string): boolean {
   if (k.length < 5) return false;
   for (let i = 3; i <= k.length - 3; i++) {
     const a = k.slice(0, i);
@@ -208,16 +245,38 @@ export function isPlaceholderName(raw: unknown): boolean {
   if (typeof raw !== 'string') return false;
   const t = collapse(foldName(raw).replace(/[^a-z0-9/&' .-]/g, ' '));
   if (!t) return true;
-  if (PLACEHOLDER_RE.test(t)) return true;
+  if (PLACEHOLDER_RE.test(t) || PLACEHOLDER_PHRASE_RE.test(t)) return true;
   const words = t.replace(/^the\s+/, '').split(/[\s-]+/).map((w) => w.replace(/[.']/g, ''));
   return PLACEHOLDER_FIRST.has(words[0]) || words.some((w) => PLACEHOLDER_ANYWHERE.has(w));
+}
+
+/**
+ * Is the token at `i` a legal form here? A strong form always ("LIMITED PARTNERSHIP" too); a short name-like form (NAME_LIKE_LEGAL) only
+ * next to an unambiguous marker before it, or in a name of three or more words with no person-name word (redo 2, review P1-A).
+ */
+function isLegalAt(ts: Tok[], i: number): boolean {
+  const t = ts[i];
+  if (!t) return false;
+  if (t.k === 'partnership' && ts[i - 1]?.k === 'limited') return true;
+  if (!LEGAL.has(t.k)) return false;
+  if (STRONG_LEGAL.has(t.k)) return true;
+  const before = ts.slice(0, i);
+  if (before.some((o) => isFirm(o.k) || STRONG_LEGAL.has(o.k))) return true;
+  const words = ts.filter((o) => o.k !== '&' && o.k !== 'and' && o.k !== 'the');
+  return words.length >= 3 && !before.some((o) => o.k !== '&' && o.k !== 'and' && o.k !== 'the' && (personWord(o.k) || possessivePerson(o.k)));
+}
+
+/** A strong (unambiguous) legal form at the end, not counting "Company" (redo 2: a generic word next to a person). */
+function strongLegalEnd(ts: Tok[]): boolean {
+  const last = ts[ts.length - 1];
+  return ts.length >= 2 && Boolean(last) && (STRONG_LEGAL.has(last.k) || (last.k === 'partnership' && ts[ts.length - 2]?.k === 'limited')) && last.k !== 'company';
 }
 
 /** Does this name end with a legal form (C4; also rule 5: a contractor's own address is kept only then)? */
 export function hasLegalSuffix(name: unknown): boolean {
   if (typeof name !== 'string') return false;
   const ts = toks(collapse(name.replace(/,/g, ' ')));
-  return ts.length >= 2 && LEGAL.has(ts[ts.length - 1].k);
+  return ts.length >= 2 && isLegalAt(ts, ts.length - 1);
 }
 
 /** C2: the candidate text after the bracket and DBA rules, or null. */
@@ -242,10 +301,10 @@ function candidateOf(s: string): string | null {
 /** C2 and C3 on the whole value: the cleaned candidate as written, or null. */
 function shapeOk(raw: string): string | null {
   if (raw.length > 400) return null;
-  if (/[​-‏‪-‮⁠-⁤⁦-⁩﻿­]/.test(raw)) return null;
+  if (/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\u00AD]/.test(raw)) return null;
   if (/\p{L}/u.test(foldName(raw).replace(/[a-z]/g, ''))) return null; // look-alike scripts
-  const s = collapse(raw.normalize('NFKC').replace(/[‘’‛´]/g, "'").replace(/[  -   　]/g, ' '));
-  if (!s || /[‐-―−]/.test(s)) return null;
+  const s = collapse(raw.normalize('NFKC').replace(/[\u2018\u2019\u201B\u00B4]/g, "'").replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' '));
+  if (!s || /[\u2010-\u2015\u2212]/.test(s)) return null;
   if (hasContactShape(s) || hasRoleWord(s) || hasStreetAddressShape(s) || BLOCKED_PHRASES_RE.test(s)) return null;
   const cand = candidateOf(s);
   if (!cand) return null;
@@ -260,6 +319,12 @@ function shapeOk(raw: string): string | null {
       continue;
     }
     if (/^a\/c$/i.test(t.raw)) continue;
+    // Redo 2 (review P3-2): glued initials joined by "&" are a firm token ("J&J Roofing", "A&B Electric"); never an honorific pair.
+    const amp = t.k.match(/^([a-z]{1,2})&([a-z]{1,2})$/);
+    if (amp) {
+      if (classifyWord(amp[1]) === 'honor' || classifyWord(amp[2]) === 'honor') return null;
+      continue;
+    }
     if (CONNECTORS.has(t.k)) return null;
     // A period only at the end of a legal form, a single initial, "Bros." or "Assoc." ("J. Smith Roofing", "Smith Bros.").
     if (t.raw.includes('.') && !(LEGAL.has(t.k) || BROTHERS.has(t.k) || t.k === 'assoc' || /^[a-z]$/i.test(t.k) || /^(?:[a-z]\.)+$/i.test(t.raw))) return null;
@@ -279,14 +344,18 @@ function analyse(name: string, extraMarker: (k: string) => boolean = () => false
   const ts = toks(name);
   let end = ts.length;
   let legal = 0;
-  while (end > 1 && legal < 2 && LEGAL.has(ts[end - 1].k)) {
+  while (end > 1 && legal < 2 && isLegalAt(ts, end - 1)) {
     end--;
     legal++;
   }
   const core = ts.slice(0, end);
   const last = core[core.length - 1]?.k ?? '';
   const prev = core[core.length - 2]?.k;
-  const family = (FAMILY_TAIL.has(last) && (prev === '&' || prev === 'and') && core.length >= 3) || (BROTHERS.has(last) && core.length >= 2);
+  // Review 2 (P1-B): "Brothers" is itself a listed surname ("John Brothers", "Joyce Brothers"), so written out it never qualifies after
+  // one word alone; "Smith Bros", "Smith & Jones Brothers" and "Smith Brothers Roofing" (the trade form) still do.
+  // Redo 2: "& Sons" after a first name alone ("John & Sons") is a person; "Bros" / "Brothers" are no family phrase at all.
+  const firstAlone = core.length === 3 && isListedGivenName(core[0].k) && !isListedSurname(core[0].k);
+  const family = FAMILY_TAIL.has(last) && (prev === '&' || prev === 'and') && core.length >= 3 && !firstAlone;
   const isMarker = (t: Tok) => isFirm(t.k) || isAmbiguous(t.k) || extraMarker(t.k) || /^a\/c$/i.test(t.raw);
   // Skip safe tail words, then take the run of marker words (and "&" / "and" between them) at the end.
   let i = core.length - 1;
@@ -300,7 +369,13 @@ function analyse(name: string, extraMarker: (k: string) => boolean = () => false
   // Person-shaped (C5): two words, or first + initial + last, with no legal form.
   const words = ts.filter((t) => t.k !== '&' && t.k !== 'and');
   const personShaped = legal === 0 && (words.length === 2 || (words.length === 3 && /^[a-z]$/.test(words[1].k)));
-  return { ts, legal, family, run: runWords, personShaped };
+  // Person-name words outside the marker run (redo 2: a generic firm word next to one needs a second marker).
+  const runSet = new Set(run);
+  const personTokens = core.filter(
+    (t, j) =>
+      !runSet.has(t) && t.k !== '&' && t.k !== 'and' && t.k !== 'the' && !isMarker(t) && !(t.k === 'real' && core[j + 1]?.k === 'estate') && !(t.k === 'estate' && core[j - 1]?.k === 'real') && (personWord(t.k) || possessivePerson(t.k)),
+  );
+  return { ts, legal, family, run: runWords, personShaped, personTokens, strongLegal: legal > 0 && strongLegalEnd(ts) };
 }
 
 /** C1 (a distinctive word), C6 and C7 on a candidate: shared by the contractor and the licence rules. */
@@ -308,11 +383,17 @@ function personGuardsOk(name: string, extraMarker: (k: string) => boolean = () =
   const ts = toks(name);
   const ks = ts.map((t) => t.k);
   const markerWord = (k: string) => isFirm(k) || isAmbiguous(k) || extraMarker(k);
-  // C1 / C8: a distinctive word.
+  // C1 / C8: a distinctive word. Redo 2 (review P3-2): not needed when a strong legal form ends a name of two or more words with a word
+  // that is not generic ("Home Depot USA Inc", "Power Home Remodeling Group LLC"), or when the name is two or more marker words with a real
+  // trade among them and nothing else, at least three ("Power Home Remodeling"). "Roofing LLC", "General Contractor LLC", "Home
+  // Remodeling" and "Plumbing Repair" stay refused.
   const distinctive = ks.filter(
     (k) => !GENERIC_WORDS.has(k) && !markerWord(k) && !LEGAL.has(k) && !TAIL_WORDS.has(k) && !FAMILY_TAIL.has(k) && !BROTHERS.has(k) && !DIGIT_TOKEN_RE.test(k),
   );
-  if (!distinctive.length) return false;
+  const coreKs = ks.filter((k) => !LEGAL.has(k) && k !== '&' && k !== 'and' && k !== 'the');
+  const legalCore = strongLegalEnd(ts) && coreKs.length >= 2 && coreKs.some((k) => !GENERIC_WORDS.has(k));
+  const allMarkers = coreKs.length >= 3 && coreKs.every((k) => markerWord(k) || TAIL_WORDS.has(k)) && coreKs.some((k) => TRADE_FIRM_WORDS.has(k));
+  if (!distinctive.length && !legalCore && !allMarkers) return false;
   // C6: family and personal holding shapes.
   const realTrade = ks.some((k) => TRADE_FIRM_WORDS.has(k));
   // "REAL ESTATE" is a trade, not an estate.
@@ -332,19 +413,31 @@ function personGuardsOk(name: string, extraMarker: (k: string) => boolean = () =
 /** C4 and C5 for the contractor rule, on a candidate that passed C2 and C3. `strictPassed`: the strict rule accepted it. */
 function contractorMarkerOk(name: string, strictPassed: boolean): boolean {
   const a = analyse(name);
-  if (a.legal > 0 || a.family) return true;
-  const firm = a.run.filter((t) => isFirm(t.k));
-  if (firm.length > 0) {
-    // C5: the only marker is itself a listed surname ("Mary Cooling", "Jim Bob Cooling"): a person, whatever the length.
-    return !firm.every((t) => isListedSurname(t.k));
+  if (a.strongLegal || a.family) return true;
+  const hasPerson = a.personTokens.length > 0;
+  // A real trade form in the final run lifts the name, unless its only trade word is a listed surname (C5: "Mary Cooling").
+  const trade = a.run.filter((t) => isFirm(t.k) && !GENERIC_FORMS.has(t.k));
+  if (trade.length > 0 && !trade.every((t) => isListedSurname(t.k))) return true;
+  const generic = a.run.filter((t) => GENERIC_FORMS.has(t.k));
+  const ambiguous = a.run.filter((t) => isAmbiguous(t.k) && !GENERIC_FORMS.has(t.k));
+  const weakOrCompany = a.legal > 0; // "Company" spelled out, or a short form that isLegalAt accepted
+  if (generic.length > 0 || weakOrCompany) {
+    // Redo 2 (rule 3): a generic word (or "Company") next to a person-name word needs a second marker: a trade word in the run.
+    if (!hasPerson) return true;
+    return ambiguous.length > 0 || trade.length > 0;
   }
   if (a.run.length > 0) return false; // ambiguous words only: never alone
-  // No marker at all: only a value the strict rule accepted, and not person-shaped.
-  return strictPassed && !a.personShaped;
+  // No marker at all: only a value the strict rule accepted, not person-shaped, with no person-name word.
+  return strictPassed && !a.personShaped && !hasPerson;
 }
+
+/** Redo 2 (review P3-1): filler first words that name a real firm only with a strong legal form ("ABC Construction" no, "ABC Roofing Inc" yes). */
+const FILLER_FIRST = new Set(list('abc xyz aaa'));
 
 function contractorOne(raw: string): string | null {
   if (!raw.trim() || isPlaceholderName(raw)) return null;
+  const first = foldName(raw.trim()).split(/\s+/)[0];
+  if (FILLER_FIRST.has(first) && !strongLegalEnd(toks(collapse(raw.replace(/,/g, ' '))))) return null;
   const strict = cleanOrgName(raw);
   const cand = strict ?? shapeOk(raw);
   if (!cand || isPlaceholderName(cand)) return null;
@@ -352,7 +445,7 @@ function contractorOne(raw: string): string | null {
   if (strict && shapeOk(strict) !== strict) return null;
   if (!personGuardsOk(cand)) return null;
   if (!contractorMarkerOk(cand, strict !== null)) return null;
-  const out = cand.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const out = cand.normalize('NFD').replace(/[\u0300-\u036F]/g, '');
   if (out.length < 3 || out.length > 120) return null;
   return out;
 }
@@ -376,67 +469,153 @@ export function isContractorName(name: unknown): boolean {
 }
 
 /**
- * The name a BUSINESS-LICENCE or inspection column may show (role 'business', redo rule 6), or null. A licence site can be a home, so
- * the business is shown (with its address) only when no word is a listed given name, an initial, a glued or a possessive person form
- * (even with a legal form: "REGINALD JACKSON HOME IMPROVEMENT LLC" gives nothing), and:
- *  - the name ends with a legal form (and passes C1 to C3, C6, C7); or
- *  - no word is a person-name word (a listed given name, a listed surname, an initial, a glued name), no word is a possessive person
- *    form ("John's", "MARIAS", "JOES"), the name does not read as a home-based activity (HOME_BASED_RE: daycare, child care, home
- *    occupation, home-based ...), it has a business marker (a trade or business word, LICENCE_WORDS or org.ts business vocabulary),
- *    and an ambiguous marker (Barber, Kitchen, Market, Pizza ...) stands only beside plain vocabulary words that are not names ("SUNSET
- *    PIZZA" passes; "Gareth Barber", "Saoirse Kitchen", "Bashir Market" do not).
- * The licence CATEGORY is checked for a home-based activity in extract.ts (OrgSpec.homeFields). "Lopez Daycare", "MARIAS DAYCARE" and
- * "Maria Lopez Home Daycare" give nothing.
+ * Review 2 (licence recall): what the licence ROW says about its name, beyond the name itself. Built in extract.ts from the dataset's own
+ * columns; nothing in it is ever stored, shown or logged.
  */
-export function cleanBusinessName(raw: unknown): string | null {
+export interface LicenceContext {
+  /**
+   * The row's OTHER name columns: the legal entity or the owner (Chicago legal_name, Los Angeles and NYC business_name, San Francisco
+   * ownership_name, Orlando business_owner_name). Comparison only.
+   */
+  ownerNames?: readonly (string | null | undefined)[];
+  /** The record kind is an establishment by definition (a food-establishment inspection): the site is never a home office. */
+  storefront?: boolean;
+  /** Re-check of a name the extraction already accepted (storage, display): the row is gone, so only the shape is checked. */
+  shapeOnly?: boolean;
+}
+
+/** Licence trade names (rule L3): plain shop words the vocabularies lack. None is a name. */
+const LICENCE_EXTRA_WORDS: ReadonlySet<string> = new Set(list('print prints ship shipping copy copies'));
+/**
+ * Rule L3: words on the given-name list that are ordinary English adjectives or nouns in shop names ("WINDY CITY CAFE", "GOLDEN DRAGON
+ * RESTAURANT", "LUCKY NAILS"). Allowed only inside rule L3, where no word of the name may be a listed surname and the owner check holds.
+ */
+const PLAIN_ENGLISH_GIVEN: ReadonlySet<string> = new Set(list('windy golden blue star bay king queen lucky happy sunny royal grand silver magic'));
+/** Rule L3: activities that are mostly run from a home, a car or a phone. With one of these the trade-name rule gives nothing. */
+export const HOME_PRONE_RE =
+  /\b(?:tutor\w*|lessons?|sitting|sitters?|walking|walkers?|housekeep\w*|house ?clean\w*|maids?|home ?(?:health|care|made|maker|makers)|homecare|freelanc\w*|ride ?share|notary|doulas?|midwi\w*|caregiv\w*|personal (?:train\w*|chef|care|assistant|shopper)|life coach\w*|coaching|etsy|ebay|online|vacation rentals?|airbnb|room rentals?|mobile|handmade|crafts?|sewing|cottage|apartment|spare room|basement|living room|kitchen table|residential|home|homes|home-?based|homebased)\b/i;
+
+function nameTokens(s: string): string[] {
+  return foldName(s).split(/[^a-z]+/).filter((w) => w.length >= 2);
+}
+
+/**
+ * Rule L3, the owner check: the row names its owner or legal entity in another column, and no word of the trade name comes from a
+ * person named there. An owner value that ends with a legal form is a company and is not compared ("SUMMIT CITY CAFE" owned by "SUMMIT
+ * CITY CAFE LLC"). False when the row has no such column value at all: no evidence, no name.
+ */
+function distinctFromOwner(nameWords: string[], ctx: LicenceContext): boolean {
+  const owners = (ctx.ownerNames ?? []).filter((o): o is string => typeof o === 'string' && o.trim().length > 0);
+  if (!owners.length) return false;
+  return !sharesWithOwner(nameWords, ctx);
+}
+
+/**
+ * Redo 2: does a word of the name come from a PERSON named in the row's owner or legal-entity column (exact word, a shared stem of four
+ * letters, or the owner's initials)? An owner value that ends with a legal form is a company and is not compared. Comparison only.
+ */
+function sharesWithOwner(nameWords: string[], ctx: LicenceContext): boolean {
+  const owners = (ctx.ownerNames ?? []).filter((o): o is string => typeof o === 'string' && o.trim().length > 0);
+  for (const o of owners) {
+    if (hasLegalSuffix(o)) continue;
+    const ot = nameTokens(o);
+    const initials = ot.map((w) => w[0]).join('');
+    for (const w of nameWords) {
+      if (ot.some((x) => x === w || (x.length >= 4 && w.length >= 4 && (x.startsWith(w) || w.startsWith(x))))) return true;
+      // The owner's initials in any order ("BQ TUTORING" for Bashir Qasim).
+      if (w.length <= 3 && ot.length >= 2 && [...w].every((ch) => initials.includes(ch))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * The name a BUSINESS-LICENCE or inspection column may show (role 'business'), or null. A licence site can be a home, so the business is
+ * shown (with its address) only when the name is clearly not a person and not a home-based activity. Every name passes C1 to C3, C6
+ * and C7, and holds no initial, no possessive or glued person form and no listed given name. Then one of:
+ *  L1. the name ends with a legal form;
+ *  L2. it has a business marker and EVERY other word is plain vocabulary that is not a name, whatever the length ("SUNSET PIZZA",
+ *      "SUMMIT CONSULTING GROUP"; review 2: "Bashir Qasim Tutoring" and "Ifeoma Chukwudi Catering" used to pass with three words);
+ *  L3. (review 2, needs the ROW) a trade name: a business marker, at most ONE word on no vocabulary, no listed surname, no home-prone
+ *      activity in the name or the category columns (HOME_PRONE_RE), not "UNKNOWN + SURNAME-WORD" in two words ("Gareth Barber"), and
+ *      the row backs it: its owner or legal-entity column is filled and shares no word with the name (distinctFromOwner), or the record
+ *      kind is an establishment (ctx.storefront). "FLATBUSH LOCKSMITH" owned by "SAMPLE PERSON" passes; "QASIM LOCKSMITH" owned by
+ *      "QASIM BASHIR" does not; with no owner column value nothing passes by L3.
+ * In L2 and L3 a home-based activity in the name (HOME_BASED_RE) gives nothing; extract.ts checks the category columns.
+ */
+export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
   if (isPlaceholderName(raw)) return null;
   const strict = cleanOrgName(raw);
   const cand = strict ?? shapeOk(raw);
   if (!cand || isPlaceholderName(cand)) return null;
   if (strict && shapeOk(strict) !== strict) return null;
-  const marker = (k: string) => LICENCE_WORDS.has(k) || classifyWord(k) === 'business';
+  const marker = (k: string) => LICENCE_WORDS.has(k) || LICENCE_EXTRA_WORDS.has(k) || classifyWord(k) === 'business';
   if (!personGuardsOk(cand, marker)) return null;
   const a = analyse(cand, marker);
+  const out = cand.normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+  if (out.length < 3 || out.length > 120) return null;
+  const plainGiven = (k: string) => PLAIN_ENGLISH_GIVEN.has(k);
+  let usedPlainGiven = false;
   // Every licence name, legal form or not: no listed given name, no glued or possessive person form, no initial ("REGINALD JACKSON HOME
   // IMPROVEMENT LLC", "Danny Smith LLC", "JT Smith LLC" give nothing: the site of a licence can be the person's home).
   for (const t of a.ts) {
     if (t.k === '&' || t.k === 'and' || t.k === 'the' || /\d/.test(t.k) || LEGAL.has(t.k)) continue;
     if (/^[a-z]$/.test(t.k) || possessivePerson(t.k) || gluedPersonWord(t.k) || /[a-z][A-Z]/.test(t.raw)) return null;
-    if (isListedGivenName(t.k.replace(/'s$/, '')) && !isFirm(t.k)) return null;
-  }
-  if (a.legal === 0) {
-    if (HOME_BASED_RE.test(cand)) return null;
-    const words = a.ts.filter((t) => t.k !== '&' && t.k !== 'and' && t.k !== 'the');
-    const markerWord = (k: string) => isFirm(k) || isAmbiguous(k) || marker(k);
-    if (!words.some((t) => markerWord(t.k))) return null;
-    const plain = (o: Tok) => /\d/.test(o.k) || (isVocabularyWord(o.k) && !personWord(o.k));
-    // Two words (or first + initial + last): the word beside the marker must be plain vocabulary ("SUNSET PIZZA", not "Gareth Barber",
-    // "Ifeoma Salon" or "Bayview Bookkeeping": an unknown word there cannot be told apart from a first name missing from the lists).
-    if (a.personShaped && words.filter((o) => !markerWord(o.k)).some((o) => !plain(o))) return null;
-    for (const t of words) {
-      if (/[a-z][A-Z]/.test(t.raw)) return null; // a glued name in mixed case ("MariaLopez")
-      if (possessivePerson(t.k)) return null;
-      if (/^[a-z]$/.test(t.k)) return null; // an initial
-      if (/\d/.test(t.k)) continue;
-      const isMarkerWord = markerWord(t.k);
-      if (!isMarkerWord && personWord(t.k)) return null;
-      if (isMarkerWord && (isAmbiguous(t.k) || isListedSurname(t.k) || isListedGivenName(t.k))) {
-        // An ambiguous marker (also a surname or a common noun) beside an unknown word reads as "FIRST LAST": every other word must be
-        // plain vocabulary that is not a name, or an unambiguous trade form.
-        const others = words.filter((o) => o !== t && !isFirm(o.k));
-        if (others.some((o) => !plain(o))) return null;
-      }
+    // Review 2 (P1-D): a hyphenated word is checked part by part ("Mary-Ann Smith-Jones Catering", "Maria-Elena Tutoring Services").
+    const parts = t.k.includes('-') ? t.k.split('-').filter(Boolean) : [];
+    if (parts.some((p) => possessivePerson(p) || (isListedGivenName(p) && !isFirm(p) && !plainGiven(p)))) return null;
+    if (a.legal === 0 && parts.some((p) => isListedSurname(p) && !isFirm(p) && !plainGiven(p))) return null;
+    if (isListedGivenName(t.k.replace(/'s$/, '')) && !isFirm(t.k)) {
+      if (!plainGiven(t.k) || a.legal > 0) return null;
+      usedPlainGiven = true; // only rule L3 may accept it
     }
   }
-  const out = cand.normalize('NFD').replace(/[̀-ͯ]/g, '');
-  if (out.length < 3 || out.length > 120) return null;
-  return out;
+  const words = a.ts.filter((t) => t.k !== '&' && t.k !== 'and' && t.k !== 'the' && !LEGAL.has(t.k));
+  const markerWord = (k: string) => isFirm(k) || isAmbiguous(k) || marker(k);
+  // Redo 2 (commander rule 4): on every path, a name that shares a word with a PERSON named in the row's owner or legal-entity column is
+  // that person's ("QASIM LOCKSMITH" owned by "QASIM BASHIR"). The owner value is compared here and nowhere stored, shown or logged.
+  const allWords = words.filter((o) => !/\d/.test(o.k)).map((o) => o.k.replace(/[^a-z]/g, '')).filter((w) => w.length >= 2);
+  if (!ctx.shapeOnly && sharesWithOwner(allWords, ctx)) return null;
+  if (a.legal > 0) {
+    // L1. Review 2 (P2): two or more words on no vocabulary before the legal form read as FIRST LAST with names missing from the lists
+    // ("Deontay Kamara LLC", "KAMARA DEONTAY PA"); one such word is a company name ("Verdantas LLC", "Kowalczyk Inc").
+    const unknown = words.filter((o) => !markerWord(o.k) && !/\d/.test(o.k) && !isVocabularyWord(o.k) && !isListedSurname(o.k));
+    if (unknown.length > 1) return null;
+    // Redo 2: a storefront record (no owner column to compare) needs a legal name with no person-name word at all, surnames included.
+    if (ctx.storefront && words.some((o) => !markerWord(o.k) && !/\d/.test(o.k) && personWord(o.k))) return null;
+    return out;
+  }
+  if (HOME_BASED_RE.test(cand)) return null;
+  if (!words.some((t) => markerWord(t.k))) return null;
+  const plain = (o: Tok) => /\d/.test(o.k) || (isVocabularyWord(o.k) && !personWord(o.k));
+  const others = words.filter((o) => !markerWord(o.k));
+  // L2: every word beside the markers is plain vocabulary that is not a name.
+  const l2 = !usedPlainGiven && others.every(plain) && words.every((t) => !(markerWord(t.k) && (isAmbiguous(t.k) || isListedSurname(t.k) || isListedGivenName(t.k))) || words.filter((o) => o !== t && !isFirm(o.k)).every(plain));
+  // Review 2: a home-prone activity in the name gives nothing by L2 or L3 ("Mobile Detailing Services", "Cottage Food Bakery").
+  if (HOME_PRONE_RE.test(cand)) return null;
+  if (l2) return out;
+  // L3: a trade name the row backs. A possessive of any word ("Deontay's Barbershop") is a person's shop: nothing.
+  if (others.some((o) => /'s$/.test(o.k))) return null;
+  const odd = others.filter((o) => !plain(o));
+  if (odd.length > 1) return null;
+  // Redo 2: an unknown word ending in "s" may be a possessive written without the apostrophe ("Saoirses Bakery").
+  if (odd.some((o) => /s$/.test(o.k))) return null;
+  for (const o of others) {
+    if (/\d/.test(o.k) || plainGiven(o.k)) continue;
+    if (isListedSurname(o.k) || isListedGivenName(o.k) || personWord(o.k)) return null;
+  }
+  // "UNKNOWN + SURNAME-WORD" in two words reads as FIRST LAST ("Gareth Barber", "Bashir Market", "Golden Barber").
+  const surnameMarker = (k: string) => isListedSurname(k) || isListedGivenName(k);
+  if (words.length === 2 && odd.length + others.filter((o) => plainGiven(o.k)).length > 0 && words.some((t) => markerWord(t.k) && surnameMarker(t.k))) return null;
+  if (ctx.shapeOnly || ctx.storefront) return out;
+  return distinctFromOwner(others.filter((o) => !/\d/.test(o.k)).map((o) => o.k.replace(/[^a-z]/g, '')).filter((w) => w.length >= 2), ctx) ? out : null;
 }
 
 /** True only when cleanBusinessName returns the same string (after whitespace normalization). */
 export function isBusinessName(name: unknown): boolean {
   if (typeof name !== 'string') return false;
-  const c = cleanBusinessName(name);
+  // A stored name: the row that backed it (rule L3) is gone, so the shape is what can be re-checked.
+  const c = cleanBusinessName(name, { shapeOnly: true });
   return c !== null && c === collapse(name);
 }

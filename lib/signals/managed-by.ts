@@ -1,4 +1,6 @@
 import { registeredCompanyName } from '@/lib/contacts/org';
+import { ownerCompanyName } from '@/lib/contacts/owner-company';
+import { gluedPersonWord } from '@/lib/contacts/trade-name';
 
 /**
  * "Managed by" for NYC no-heat / hot-water cards (PLAN-2.0 item 2.6).
@@ -38,11 +40,24 @@ export interface HpdContactRow {
 export const MAX_REGISTRATIONS_PER_BBL = 6;
 
 /**
- * The company name to print, or null. This is the repo's one classifier for structured company fields: registeredCompanyName in
+ * The AGENT or site-manager company name to print, or null: registeredCompanyName in
  * lib/contacts/org.ts (company marker required, role words, placeholders and person shapes rejected). Never throws.
  */
 export function companyNameOf(raw: unknown): string | null {
-  return registeredCompanyName(raw);
+  const n = registeredCompanyName(raw);
+  // Round 18 redo 2: a person's name written as one word ("JOHNSMITH MANAGEMENT LLC", "JSMITH REALTY INC") is not a company.
+  if (n && n.split(/[\s,/()&.#-]+/).some((w) => /^[A-Za-z]{5,}$/.test(w) && gluedPersonWord(w.toLowerCase()))) return null;
+  return n;
+}
+
+/**
+ * Round 18 redo 2 (review P2-5): the registered CORPORATE OWNER of the building gets the institutional-owner rule of code-violation
+ * cards (lib/contacts/owner-company.ts ownerCompanyName): "SMITH LLC", "JOHNSMITH LLC", "MARIA LLC", "GARCIA FAMILY PROPERTIES LLC"
+ * are not shown as the owner company. This path is NOT behind HOLLER_VIOLATION_OWNERS_ENABLED (it predates it and stays on). A managing
+ * agent or site manager company keeps companyNameOf above.
+ */
+export function ownerNameOf(raw: unknown): string | null {
+  return ownerCompanyName(raw);
 }
 
 /** A registration's contact rows to one company: the agent company, else a site manager company, else the corporate owner. */
@@ -50,7 +65,7 @@ export function managerForRegistration(rows: readonly HpdContactRow[]): Manager 
   const byType = (type: string): string | null => {
     for (const r of rows) {
       if (typeof r?.type === 'string' && r.type.toLowerCase() === type) {
-        const n = companyNameOf(r.corporationname);
+        const n = type === 'corporateowner' ? ownerNameOf(r.corporationname) : companyNameOf(r.corporationname);
         if (n) return n;
       }
     }
@@ -111,9 +126,10 @@ export function managedByLine(m: Manager): string {
  * with companyNameOf, so a row that was edited or written by another path can never print a person.
  */
 export function managedByLineFrom(name: unknown, role: unknown): string | null {
-  const n = companyNameOf(name);
+  const isOwner = role === 'owner';
+  const n = isOwner ? ownerNameOf(name) : companyNameOf(name);
   if (!n) return null;
-  return managedByLine({ name: n, role: role === 'owner' ? 'owner' : 'agent' });
+  return managedByLine({ name: n, role: isOwner ? 'owner' : 'agent' });
 }
 
 /** A no-heat or no-hot-water request in a residential building. A non-residential heat request is not an HPD-registered dwelling. */

@@ -38,7 +38,7 @@ const ds = (id: string): SocrataDataset => SOCRATA_DATASETS.find((d) => d.id ===
 const fx = (n: string): unknown => JSON.parse(readFileSync(join(__dirname, '../fixtures', n), 'utf8'));
 
 const COMPANIES = [
-  'MIDWEST REALTY GROUP LLC', 'NORTHSIDE PROPERTIES LLC', '1864 CORP', 'Lakeview Properties Inc.', 'NORTHERN TRUST COMPANY',
+  'MIDWEST REALTY GROUP LLC', 'NORTHSIDE PROPERTIES LLC', '342 WEST 71 STREET LLC', 'Lakeview Properties Inc.', 'NORTHERN TRUST COMPANY',
   'CHICAGO TITLE LAND TRUST COMPANY', 'ATLANTA HOUSING AUTHORITY', 'CHICAGO HOUSING AUTHORITY', 'DETROIT LAND BANK AUTHORITY', 'NEIGHBORHOOD HOUSING SERVICES INC',
 ];
 const NOT_COMPANIES = [
@@ -53,6 +53,9 @@ const NOT_COMPANIES = [
   'JOHNSMITH LLC', 'MARIAGARCIA LLC', 'JSMITH LLC', 'JSMITH PROPERTIES LLC', 'MGARCIA LLC', 'SMITH LLC', 'JOHN LLC', 'MARY LLC', 'MARIA LLC', 'LOPEZ INC',
   'GARCIA PROPERTIES LLC', 'GARCIA FAMILY PROPERTIES LLC', 'THE SMITH COMPANY', 'JS LLC', 'MG PROPERTIES LLC', 'TAXPAYER LLC', 'Deontay Homes LLC',
   'ACME HOLDINGS LLC', 'STONEHENGE MANAGEMENT LLC', 'PARK MANAGEMENT INC',
+  // redo 2 (commander rule 8, review P2-4): one word plus a legal form is never institutional; surnames on neither list
+  '1864 CORP', 'GOLD LLC', 'BRIGHT LLC', 'HAWK PROPERTIES LLC', 'ROCK HAWK LLC', 'GOLD NORTH LLC', 'SUNSET PROPERTIES LLC', '12 JOHN LLC',
+  'Smith Kids LLC', 'SMITH CHILDREN LLC',
   // contact shapes
   'MIDWEST REALTY GROUP LLC 312-555-0100', 'acme@holdings.com LLC',
 ];
@@ -311,6 +314,9 @@ describe('review P3-1, P3-2: score and migration guards', () => {
     const sql = readFileSync(join(__dirname, '../../supabase/migrations/0030_holler_contact_owner_role.sql'), 'utf8').toLowerCase();
     expect(sql).toContain("to_regclass('public.holler_signal_contacts') is null");
     expect(sql).toContain('holler_signal_contacts_owner_name_only');
-    expect(sql).toMatch(/role <> 'owner'\s+or \(phone is null and email is null/);
+    expect(sql).toMatch(/role <> %l or \(phone is null and email is null/);
+    // Redo 2 (review P3-3, P3-8): license is in the check when the column exists, and old owner rows are reduced to their name first.
+    expect(sql).toContain("' and license is null'");
+    expect(sql).toMatch(/update public\.holler_signal_contacts\s+set phone = null/);
   });
 });

@@ -530,14 +530,14 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
   'socrata-chicago-inspections': {
     verifiedUrl: 'https://data.cityofchicago.org/api/views/4ijn-s7e5.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['dba_name'], homeFields: ['facility_type'] }],
+    orgs: [{ role: 'business', nameFields: ['dba_name'], homeFields: ['facility_type'], storefront: true }],
     site: { addressFields: ['address'], cityField: 'city', stateField: 'state', zipField: 'zip', onlyWithOrganisation: true },
   },
   // Austin Food Establishment Inspection Scores (ecmv-9xxi): restaurant_name, address, zip_code. No phone column.
   'socrata-austin-inspections': {
     verifiedUrl: 'https://data.austintexas.gov/api/views/ecmv-9xxi.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['restaurant_name'] }],
+    orgs: [{ role: 'business', nameFields: ['restaurant_name'], storefront: true }],
     site: { addressFields: ['address'], zipField: 'zip_code', onlyWithOrganisation: true },
   },
   // ---- Round 18 (NAMES): business-licence contacts on every enabled business-licence source ----
@@ -545,37 +545,49 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
   // lib/contacts/trade-name.ts cleanBusinessName, redo 1 rule 6): a legal form, or a business name with no person-name word, no
   // possessive person form, no initial and no home-based activity in the name or in the homeFields category columns. A sole proprietor's
   // own name ("Kelly Lewis", "GARRETT MAYS", "Gareth Barber") and a home daycare ("Lopez Daycare") give nothing, and
-  // the site address is stored only when a name passed (a home business gives neither its name nor its home address). Owner columns
-  // (ownership_name, business_owner_name) and the owner's email and phone are never read. Column names are those of the repo's fixtures
-  // tests/fixtures/socrata-<id>.json and socrata-<id>-people.json (their header: column names read from each portal's metadata,
-  // 2026-11-17); not re-read live in round 18. The public title, summary and data do not change (tests/contacts/public-output.test.ts).
+  // the site address is stored only when a name passed (a home business gives neither its name nor its home address).
+  // Redo 2 (review 2, P1-C, P2-1): `ownerNameFields` names the row's owner or legal-entity column. It is read for COMPARISON ONLY (a
+  // licence name that shares a word with a person named there gives nothing; a trade name with one unknown word is shown only when the
+  // row names someone else, rule L3) and is never stored, logged or shown (tests/contacts/r18-fixture-sweep.test.ts). The owner's email
+  // and phone are never read.
+  //   feed      name columns                      owner / legal column      category columns                         status
+  //   Chicago   doing_business_as_name, legal_name legal_name               license_description, business_activity   sourced from fixture
+  //   LA        dba_name, business_name          business_name             primary_naics_description                sourced from fixture
+  //   NYC       dba_trade_name, business_name    business_name             business_category, license_type          sourced from fixture
+  //   Orlando   business_name                    business_owner_name       license_type, license_category           sourced from fixture
+  //   SF        dba_name                         ownership_name            lic_code_description(s)                  sourced from fixture
+  // "Sourced from fixture": the column is in tests/fixtures/socrata-<id>.json or socrata-<id>-people.json, whose header says the column
+  // names were read from each portal's metadata on 2026-11-17. None was re-read live in round 18 (assumed live). Food inspections
+  // (Chicago dba_name, Austin restaurant_name) have no owner column; they are establishments by kind (`storefront`). The public title,
+  // summary and data do not change (tests/contacts/public-output.test.ts).
   // Los Angeles Listing of Active Businesses (6rrh-rzua): dba_name, then business_name; street_address, city, zip_code.
   'socrata-la-business': {
     verifiedUrl: 'https://data.lacity.org/api/views/6rrh-rzua.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['dba_name', 'business_name'], homeFields: ['primary_naics_description'] }],
+    orgs: [{ role: 'business', nameFields: ['dba_name', 'business_name'], homeFields: ['primary_naics_description'], ownerNameFields: ['business_name'] }],
     site: { addressFields: ['street_address'], cityField: 'city', zipField: 'zip_code', onlyWithOrganisation: true },
   },
   // NYC DCWP Issued Licenses (w7w3-xahh): dba_trade_name, then business_name; address_building, address_street_name, address_zip.
   'socrata-nyc-business': {
     verifiedUrl: 'https://data.cityofnewyork.us/api/views/w7w3-xahh.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['dba_trade_name', 'business_name'], homeFields: ['business_category', 'license_type'] }],
+    orgs: [{ role: 'business', nameFields: ['dba_trade_name', 'business_name'], homeFields: ['business_category', 'license_type'], ownerNameFields: ['business_name'], typeField: 'license_type', rejectType: /^\s*individual\s*$/i }],
     site: { addressFields: ['address_building', 'address_street_name'], zipField: 'address_zip', onlyWithOrganisation: true },
   },
-  // Orlando Business Tax Receipts (7388-4re5): business_name; business_address. business_owner_name, business_email: never read.
+  // Orlando Business Tax Receipts (7388-4re5): business_name; business_address. business_owner_name: compared only (redo 2);
+  // business_email: never read.
   'socrata-orlando-business': {
     verifiedUrl: 'https://data.cityoforlando.net/api/views/7388-4re5.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['business_name'], homeFields: ['license_type', 'license_category'] }],
+    orgs: [{ role: 'business', nameFields: ['business_name'], homeFields: ['license_type', 'license_category'], ownerNameFields: ['business_owner_name'] }],
     site: { addressFields: ['business_address'], onlyWithOrganisation: true },
   },
-  // San Francisco Registered Business Locations (g8m3-pdis): dba_name only (ownership_name is the owner and is never read);
+  // San Francisco Registered Business Locations (g8m3-pdis): dba_name only (ownership_name is the owner: compared only, redo 2);
   // full_business_address (cut after the street suffix by sanitize.ts cleanAddress), business_zip.
   'socrata-sf-business': {
     verifiedUrl: 'https://data.sf.gov/api/views/g8m3-pdis.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['dba_name'], homeFields: ['lic_code_description', 'lic_code_descriptions_list'] }],
+    orgs: [{ role: 'business', nameFields: ['dba_name'], homeFields: ['lic_code_description', 'lic_code_descriptions_list'], ownerNameFields: ['ownership_name'] }],
     site: { addressFields: ['full_business_address'], zipField: 'business_zip', onlyWithOrganisation: true },
   },
   // ---- Round 18 (NAMES): owner companies on code violations ----
@@ -605,7 +617,7 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
   'socrata-chicago-business': {
     verifiedUrl: 'https://data.cityofchicago.org/api/views/uupf-x98q.json',
     checkedOn: '2026-11-17',
-    orgs: [{ role: 'business', nameFields: ['doing_business_as_name', 'legal_name'], homeFields: ['license_description', 'business_activity'] }],
+    orgs: [{ role: 'business', nameFields: ['doing_business_as_name', 'legal_name'], homeFields: ['license_description', 'business_activity'], ownerNameFields: ['legal_name'] }],
     site: { addressFields: ['address'], cityField: 'city', stateField: 'state', zipField: 'zip_code', onlyWithOrganisation: true },
   },
 };
@@ -907,7 +919,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     zipField: 'business_zip', naicsField: 'self_reported_naics_code',
     extraWhere: "city = 'San Francisco' AND location_end_date IS NULL AND (lic_code_description IS NULL OR lic_code_description NOT IN ('TATTOO, BODY PIERCING, PRACTITIONER','GENERAL MASSAGE PRACTITIONER','OUTCALL MASSAGE SERVICE','TOW CAR DRIVER','RENEWAL OF COMMERCIAL DOG WALKER - OWNER','RENEWAL OF COMMERCIAL DOG WALKER - EMPLOYEE','TOUR GUIDE: OWNER - WALKING'))", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.sf.gov', 'g8m3-pdis'), fieldSource: 'sourced',
-    note: 'Registered Business Locations, updated 2026-11-15. The dataset covers every business registered in the city, including ones located in other cities (live 2026-11-17: Clovis, Livermore, San Jose, Fremont, Stockton, even New York), so the query keeps only city = San Francisco (verify round 2 P2-3). location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: the public parser reads no name column (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Only the private contact spec (CONTACT_SPECS, round 18) reads dba_name, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName); ownership_name is never read. Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row. self_reported_naics_code (a 6-digit NAICS code, never a name) is read as a text field only so the parser can tell a live feed from a changed one: live 2026-11-17, 267 of 268 rows since 2026-11-03 have no lic_code_description and every row has the NAICS code (review verify.md N2).',
+    note: 'Registered Business Locations, updated 2026-11-15. The dataset covers every business registered in the city, including ones located in other cities (live 2026-11-17: Clovis, Livermore, San Jose, Fremont, Stockton, even New York), so the query keeps only city = San Francisco (verify round 2 P2-3). location_start_date holds future dates (max 2028-02-26), so the query caps it at now. PRIVACY: the public parser reads no name column (dba_name, ownership_name): 11 of 60 live dba_name values were bare personal names (for example Kelly Lewis). Only the private contact spec (CONTACT_SPECS, round 18) reads dba_name, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName); ownership_name is read only to compare with the name (round 18 redo 2), never stored or shown. Title is the license type only, no street address, individual practitioner types are excluded. uniqueid is assumed unique per row. self_reported_naics_code (a 6-digit NAICS code, never a name) is read as a text field only so the parser can tell a live feed from a changed one: live 2026-11-17, 267 of 268 rows since 2026-11-03 have no lic_code_description and every row has the NAICS code (review verify.md N2).',
   },
   {
     id: 'socrata-la-business', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '6rrh-rzua',
@@ -934,7 +946,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     titleFields: [], textFields: ['license_type', 'license_category'], summaryFields: ['license_type', 'license_category'],
     extraWhere: "business_close_date IS NULL AND license_category NOT IN ('PROFES','PEDDLE','MASSEU') AND license_type NOT IN ('INSURANCE ADJUSTER','INSTRUCTOR/TUTOR','MISC PEDDLER','FOOD PEDDLER')", windowForwardDays: 0,
     cadenceMinutes: 720, verified: true, verifiedUrl: D('data.cityoforlando.net', '7388-4re5'), fieldSource: 'sourced',
-    note: 'Business Tax Receipts, updated 2026-11-16, 214 rows opened since Oct 15. business_open_date holds garbage future dates (max year 8201), so the query caps it at now. business_owner_name, email and phone are never read. PRIVACY: the public parser does not read business_name either: 18 of 60 live values were personal names (nurse practitioners, sole proprietors). Only the private contact spec (CONTACT_SPECS, round 18) reads it, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName). Title is the license type only, no street address, and the PROFES, PEDDLE and MASSEU categories (individuals, 2026-11-17 group-by) are excluded.',
+    note: 'Business Tax Receipts, updated 2026-11-16, 214 rows opened since Oct 15. business_open_date holds garbage future dates (max year 8201), so the query caps it at now. business_owner_name is read only to compare with the name (round 18 redo 2), never stored or shown; email and phone are never read. PRIVACY: the public parser does not read business_name either: 18 of 60 live values were personal names (nurse practitioners, sole proprietors). Only the private contact spec (CONTACT_SPECS, round 18) reads it, through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName). Title is the license type only, no street address, and the PROFES, PEDDLE and MASSEU categories (individuals, 2026-11-17 group-by) are excluded.',
   },
   // ---- Special event and film permits (upcoming events: window runs forward) ----
   {

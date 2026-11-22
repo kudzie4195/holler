@@ -144,6 +144,8 @@ export async function signalIdsWithNamedContact(db: Db, signalIds: number[]): Pr
       .from('holler_signal_contacts')
       .select('signal_id')
       .neq('role', 'site')
+      // Redo 2 (review P3-5): an owner company is not a contact a member can reach (hasNamedContact in score.ts ignores it too).
+      .neq('role', 'owner')
       .neq('name', '')
       .in('signal_id', ids.slice(i, i + MAX_SIGNAL_IDS));
     if (error) {

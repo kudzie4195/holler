@@ -1,6 +1,6 @@
 import { cleanOrgName, isOrganisationName } from './org';
 import { ownerCompanyName, isOwnerCompanyName } from './owner-company';
-import { cleanBusinessName, cleanContractorName, isBusinessName, isContractorName, isPlaceholderName } from './trade-name';
+import { cleanBusinessName, cleanContractorName, isBusinessName, isContractorName, isPlaceholderName, type LicenceContext } from './trade-name';
 import type { ContactRole } from './types';
 
 /**
@@ -17,7 +17,7 @@ import type { ContactRole } from './types';
  *    Contractor", "No Contractor", "TBD" ...) that every role gets.
  *  - site: no name.
  */
-export function contactNameFor(role: ContactRole, raw: unknown): string | null {
+export function contactNameFor(role: ContactRole, raw: unknown, licence: LicenceContext = {}): string | null {
   switch (role) {
     case 'site':
       return null;
@@ -26,7 +26,7 @@ export function contactNameFor(role: ContactRole, raw: unknown): string | null {
     case 'owner':
       return ownerCompanyName(raw);
     case 'business':
-      return cleanBusinessName(raw);
+      return cleanBusinessName(raw, licence);
     default:
       return typeof raw === 'string' && !isPlaceholderName(raw) ? cleanOrgName(raw) : null;
   }

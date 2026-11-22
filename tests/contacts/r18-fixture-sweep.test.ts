@@ -8,7 +8,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseSocrata } from '@/lib/signals/adapters/socrata';
 import { parseArcgis } from '@/lib/signals/adapters/arcgis';
 import { parseUsaSpending } from '@/lib/signals/adapters/usaspending';
@@ -56,8 +56,15 @@ const key = (c: ContactInput) => JSON.stringify(c);
 
 /** fixture file + record id -> the contacts added by round 18 (role: name). Every newly named business, for a human to eyeball. */
 const EXPECTED_ADDED: Record<string, string[]> = {
+  // Redo 2: the licence rule with the row (owner column compared, never stored) names all ten fixture businesses.
+  'tests/fixtures/socrata-chicago-business.json 3011111-20261112': ['site: 1840 W DIVISION ST', 'business: WINDY CITY CAFE'],
+  'tests/fixtures/socrata-chicago-business.json 3011112-20261113': ['site: 3300 N LINCOLN AVE', 'business: NORTH SIDE PRINT AND SHIP'],
   'tests/fixtures/socrata-la-business.json 0000123456-0001-0': ['site: 6000 W SUNSET BLVD', 'business: SUNSET PIZZA'],
+  'tests/fixtures/socrata-nyc-business.json 2099001-DCA': ['site: 1200 FLATBUSH AVE', 'business: FLATBUSH LOCKSMITH'],
+  'tests/fixtures/socrata-orlando-business.json BTR-2026-9001': ['site: 800 N ORANGE AVE', 'business: COLONIAL GRILL AND BAR'],
   'tests/fixtures/socrata-orlando-business.json BTR-2026-9002': ['site: 200 S ORANGE AVE', 'business: SUMMIT CONSULTING GROUP'],
+  'tests/fixtures/socrata-sf-business.json 1234567-02-001': ['site: 2100 Mission St', 'business: Mission Taqueria'],
+  'tests/fixtures/socrata-sf-business.json 1234568-02-001': ['business: Bayview Bookkeeping'],
   'tests/contacts/fixtures/socrata-austin-permits-contacts.json 2026-123456 BP': ['contractor: Lone Star Roofing LLC'],
   'tests/contacts/fixtures/socrata-chicago-permits-contacts.json 101300001': ['contractor: NORTH BRANCH ARCHITECTS LTD'],
 };
@@ -106,12 +113,14 @@ describe('existing fixtures: contacts change only by the newly accepted business
 });
 
 describe('business licences: the business on the licence is the contact on every enabled business-licence source', () => {
-  // Redo 1 (rule 6): the NYC and SF fixture names ("FLATBUSH LOCKSMITH", "Mission Taqueria", "Bayview Bookkeeping") put an unknown word
-  // beside one marker, which cannot be told apart from a first name, so they give nothing; those two feeds are proved on inline rows.
+  // Redo 2: every feed names its fixture business again; an unknown word beside one marker ("FLATBUSH LOCKSMITH") is shown only when the
+  // row's owner column names someone else (rule L3). The inline rows below stay as extra proof.
   const cases: [string, string, string][] = [
     ['socrata-chicago-business', '../contacts/fixtures/socrata-chicago-business-contacts.json', 'SUMMIT CITY CAFE'],
     ['socrata-la-business', '../fixtures/socrata-la-business.json', 'SUNSET PIZZA'],
     ['socrata-orlando-business', '../fixtures/socrata-orlando-business.json', 'SUMMIT CONSULTING GROUP'],
+    ['socrata-nyc-business', '../fixtures/socrata-nyc-business.json', 'FLATBUSH LOCKSMITH'],
+    ['socrata-sf-business', '../fixtures/socrata-sf-business.json', 'Mission Taqueria'],
   ];
   const inline: [string, Record<string, unknown>, string][] = [
     ['socrata-nyc-business', { license_nbr: 'X1', business_name: 'SAMPLE PERSON', dba_trade_name: 'FLATBUSH LOCKSMITH INC', business_category: 'Locksmith', license_type: 'Business', license_status: 'Active', license_creation_date: '2026-10-28T00:00:00.000', address_building: '1200', address_street_name: 'FLATBUSH AVE', address_zip: '11226', latitude: '40.6410', longitude: '-73.9570' }, 'FLATBUSH LOCKSMITH INC'],
@@ -119,7 +128,7 @@ describe('business licences: the business on the licence is the contact on every
   ];
   it('covers every enabled business-licence dataset', () => {
     const enabled = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.subtype === 'business' && d.verified).map((d) => d.id).sort();
-    expect([...cases.map((c) => c[0]), ...inline.map((c) => c[0])].sort()).toEqual(enabled);
+    expect([...new Set([...cases.map((c) => c[0]), ...inline.map((c) => c[0])])].sort()).toEqual(enabled);
   });
   it.each(inline)('%s (inline row) names the business with its site; the owner column never appears', (id, row, name) => {
     const d = SOCRATA_DATASETS.find((x) => x.id === id)!;
@@ -131,7 +140,8 @@ describe('business licences: the business on the licence is the contact on every
   it('a home-based licence category gives no name and no address, unless the name has a legal form (rule 6)', () => {
     const d = SOCRATA_DATASETS.find((x) => x.id === 'socrata-chicago-business')!;
     const row = (dba: string, activity: string) => ({ id: `${dba}-${activity}`, doing_business_as_name: dba, address: '2318 W 47TH ST', zip_code: '60609', license_description: 'Limited Business License', business_activity: activity, application_type: 'ISSUE', date_issued: '2026-11-12T00:00:00.000', latitude: '41.8', longitude: '-87.6' });
-    const items = parseSocrata([row('SUNSET ACADEMY', 'Home Day Care'), row('SUNSET ACADEMY', 'Tutoring'), row('SUNSET ACADEMY LLC', 'Home Day Care')], d);
+    // Redo 2: "Tutoring" is a home-prone activity too, so the control row is a retail one.
+    const items = parseSocrata([row('SUNSET ACADEMY', 'Home Day Care'), row('SUNSET ACADEMY', 'Retail sales'), row('SUNSET ACADEMY LLC', 'Home Day Care')], d);
     expect(items[0].contacts ?? []).toEqual([]);
     expect(items[1].contacts?.map((c) => c.role)).toEqual(['site', 'business']);
     expect(items[2].contacts?.map((c) => c.role)).toEqual(['site', 'business']);
@@ -210,5 +220,42 @@ describe('privacy sweep over every fixture: no person, owner phone or owner emai
     const dekalb = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-dekalb-permits')!;
     expect(dekalb.contacts?.orgs?.[0].acceptType).toBeInstanceOf(RegExp);
     expect(dekalb.contacts?.orgs?.[0].rejectType).toBeInstanceOf(RegExp);
+  });
+});
+
+describe('redo 2: the owner column of a licence row is compared, never stored, logged or shown', () => {
+  const OWNER = 'Zyxwvut Qasimova';
+  const rows: [string, Record<string, unknown>][] = [
+    ['socrata-sf-business', { uniqueid: 'O1', ownership_name: OWNER, dba_name: 'Excelsior Taqueria', full_business_address: '2100 Mission St San Francisco CA 94110', business_zip: '94110', location_start_date: '2026-11-02T00:00:00.000', lic_code_description: 'Food Service', location: { type: 'Point', coordinates: ['-122.4194', '37.7599'] } }],
+    ['socrata-orlando-business', { case_number: 'O2', business_name: 'PARRAMORE GROCERY', business_owner_name: OWNER, business_address: '800 N ORANGE AVE', license_type: 'Business Tax Receipt', license_category: 'RETAIL', business_open_date: '2026-11-03T00:00:00.000', geocoded_column: { type: 'Point', coordinates: [-81.3789, 28.553] } }],
+    ['socrata-sf-business', { uniqueid: 'O3', ownership_name: 'Qasim, Bashir', dba_name: 'Qasim Locksmith', full_business_address: '2100 Mission St San Francisco CA 94110', business_zip: '94110', location_start_date: '2026-11-02T00:00:00.000', lic_code_description: 'Retail', location: { type: 'Point', coordinates: ['-122.4194', '37.7599'] } }],
+  ];
+  it('the business is named, the owner value appears nowhere in the stored item or in a log line', () => {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a) => { logs.push(a.join(' ')); });
+    const err = vi.spyOn(console, 'error').mockImplementation((...a) => { logs.push(a.join(' ')); });
+    const out = rows.slice(0, 2).map(([id, row]) => parseSocrata([row], SOCRATA_DATASETS.find((d) => d.id === id)!)[0]);
+    spy.mockRestore();
+    err.mockRestore();
+    expect(out.map((s) => s.contacts?.find((c) => c.role === 'business')?.name)).toEqual(['Excelsior Taqueria', 'PARRAMORE GROCERY']);
+    const hay = JSON.stringify(out).toLowerCase();
+    for (const w of ['zyxwvut', 'qasimova']) expect(hay.includes(w), w).toBe(false);
+    expect(logs.join('\n').toLowerCase()).not.toContain('zyxwvut');
+  });
+  it('a name that shares a word with the person in the owner column gives nothing ("Qasim Locksmith" owned by "Qasim, Bashir")', () => {
+    const [id, row] = rows[2];
+    const s = parseSocrata([row], SOCRATA_DATASETS.find((d) => d.id === id)!)[0];
+    expect(s.contacts ?? []).toEqual([]);
+    expect(JSON.stringify(s).toLowerCase()).not.toMatch(/qasim|bashir/);
+  });
+  it('ownerNameFields appears only on licence specs (role business), as documented', () => {
+    const withOwner = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.contacts?.orgs?.some((o) => o.ownerNameFields?.length));
+    expect(withOwner.map((d) => d.id).sort()).toEqual(['socrata-chicago-business', 'socrata-la-business', 'socrata-nyc-business', 'socrata-orlando-business', 'socrata-sf-business']);
+    for (const d of withOwner) for (const o of d.contacts!.orgs!) if (o.ownerNameFields?.length) expect(o.role).toBe('business');
+  });
+  it('NYC: an Individual licence type gives nothing', () => {
+    const d = SOCRATA_DATASETS.find((x) => x.id === 'socrata-nyc-business')!;
+    const s = parseSocrata([{ license_nbr: 'O4', business_name: 'SAMPLE PERSON', dba_trade_name: 'FLATBUSH LOCKSMITH INC', business_category: 'Locksmith', license_type: 'Individual', license_status: 'Active', license_creation_date: '2026-10-28T00:00:00.000', address_building: '1200', address_street_name: 'FLATBUSH AVE', address_zip: '11226', latitude: '40.6410', longitude: '-73.9570' }], d)[0];
+    expect(s.contacts ?? []).toEqual([]);
   });
 });
