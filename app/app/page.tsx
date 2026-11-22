@@ -43,6 +43,9 @@ import { readWorkProfile } from '@/lib/auth/work-profile';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { langOfProfile, t } from '@/lib/i18n';
 import { holdOf, missingHoldColumn, shownHold } from '@/lib/signals/alert-gate';
+import { isAlertLabel } from '@/lib/signals/lead-rules';
+import { stormCardLinks } from '@/lib/lists/load';
+import { listLinkFor } from '@/lib/lists/card';
 
 interface SignalRow {
   id: number;
@@ -232,6 +235,23 @@ async function loadDashboard() {
       );
     },
   );
+  // Address lists (round 18, unit LISTS): an act_now or coming_soon storm card the member already has may point to the permitted addresses
+  // near its report. No new card, no new alert: only a line on a card that is already here. Never for a locked account; any failure, no line.
+  let stormLinks = new Map<number, { kind: 'hail' | 'wind'; count: number }>();
+  if (!access.locked) {
+    const stormIds = ordered
+      .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
+      .filter((s) => s.source === 'spc' && isAlertLabel(labelOf(s)))
+      .map((s) => s.id);
+    if (stormIds.length > 0) {
+      stormLinks = await stormCardLinks(
+        supabase,
+        { user_id: user.id, categories: profile.categories, lat: profile.lat, lon: profile.lon, state: profile.state, radius_mi: profile.radius_mi, plan: profile.plan ?? null, subscription_status: profile.subscription_status, plan_source: profile.plan_source ?? null, store_expires_at: profile.store_expires_at ?? null, extra_areas: profile.extra_areas, keywords: profile.keywords ?? null },
+        stormIds,
+        new Date(now),
+      );
+    }
+  }
   const items: FeedItem[] = ordered.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
@@ -273,6 +293,8 @@ async function loadDashboard() {
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : null,
     };
+    const storm = stormLinks.get(s.id);
+    if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
         const contact: Partial<ContactRecord> = { ...c };
@@ -281,7 +303,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, managerName: null, managerRole: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, managerName: null, managerRole: null, listLink: null }
       : base;
   });
 
@@ -339,6 +361,12 @@ export default async function AppHome(props: PageProps<'/app'>) {
             {t(lang, 'card.empty.see_city', { city: cityPage.label })}
           </Link>
         ) : null}
+      </p>
+      {/* Address lists (round 18, unit LISTS): reachable at every width; the header link shows from 400 px up. */}
+      <p className="mt-1">
+        <Link href="/app/lists" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline md:min-h-9">
+          {t(lang, 'lists.open_from_app')}
+        </Link>
       </p>
 
       <div className="mt-6 flex flex-col gap-4 empty:hidden">

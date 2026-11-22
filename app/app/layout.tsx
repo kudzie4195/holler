@@ -19,7 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-line bg-background/90 backdrop-blur print:hidden">
         <div className={`${PAGE_BOX} flex h-16 items-center justify-between gap-2`}>
           {/* Under 480 px the wordmark hides (the link keeps its "Holler home" name) so the logo, two links and Sign out fit in one row at 320 px. */}
           <Logo href="/app" className="max-[479px]:[&>span]:hidden" />
@@ -33,7 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main id="main" className={`${PAGE_BOX} flex-1 pb-20 pt-8`}>
+      <main id="main" className={`${PAGE_BOX} flex-1 pb-20 pt-8 print:p-0`}>
         {/* Everything below reads the session, so it streams in behind this boundary. The column starts under the logo. */}
         <div className="max-w-3xl">
           <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
