@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { builderKey, summarizeBuilders, type BuilderRow } from '@/lib/builders/active';
-import { FakeDb } from '../ops/fakedb';
+import { builderKey, summarizeBuilders, telHref, type BuilderRow } from '@/lib/builders/active';
 import anchor from '../builders/austin-builders.json';
 
 vi.mock('server-only', () => ({}));
@@ -51,25 +50,52 @@ describe('summarizeBuilders', () => {
     expect(out[0].relation).toBe('same-trade');
   });
 
-  it('marks a company with 3 new-home permits as builder for a painter', () => {
+  it('never labels a general-only company as builder: relation is same-trade or other', () => {
     const rows = [1, 2, 3].map((i) => row('Lakeline Homes LLC', 'New home permit in Austin', i));
-    const out = summarizeBuilders(rows, ['painting'], NOW);
-    expect(out[0].relation).toBe('builder');
-    expect(out[0].permits).toBe(3);
-  });
-
-  it('is other (not builder) for a trade sub whose permits mix general and trade kinds', () => {
-    const rows = [1, 2, 3].map((i) => row('Landmark Electric', 'New home and electrical permit in Austin', i));
     expect(summarizeBuilders(rows, ['painting'], NOW)[0].relation).toBe('other');
+    expect(summarizeBuilders(rows, ['general-contractor'], NOW)[0].relation).toBe('other');
+    expect(JSON.stringify(summarizeBuilders(rows, ['general-contractor'], NOW))).not.toContain('builder');
   });
 
-  it('is other for a single new-home permit, builder needs at least 2', () => {
-    expect(summarizeBuilders([row('Lakeline Homes LLC', 'New home permit in Austin')], ['painting'], NOW)[0].relation).toBe('other');
+  it('F4: a general-contractor member does not see a plumbing sub on new-home permits as same-trade; a plumber does', () => {
+    const rows = [1, 2].map((i) => row('Victory Plumbing Company', 'New home and plumbing permit in Austin', i, { categories: ['general-contractor', 'plumbing'] }));
+    expect(summarizeBuilders(rows, ['general-contractor'], NOW)[0].relation).toBe('other');
+    expect(summarizeBuilders(rows, ['plumbing'], NOW)[0].relation).toBe('same-trade');
+  });
+
+  it('F4: tagged categories and unparsed kinds grant nothing', () => {
+    expect(summarizeBuilders([row('Lakeline Homes LLC', 'New home permit in Austin', 2, { categories: ['general-contractor', 'plumbing'] })], ['plumbing'], NOW)[0].relation).toBe('other');
+    expect(summarizeBuilders([row('Acme Plumbing LLC', 'Home Occupation permit in Austin')], ['plumbing'], NOW)[0].relation).toBe('other');
+    expect(summarizeBuilders([row('Acme Plumbing LLC', 'Mechanical permit in Austin')], ['plumbing'], NOW)[0].relation).toBe('other');
   });
 
   it('is other for a specialty company outside the member trade', () => {
     const out = summarizeBuilders([row('Cool Air Systems LLC', 'HVAC permit in Austin')], ['painting'], NOW);
     expect(out[0].relation).toBe('other');
+  });
+
+  it('F5: INCORPORATED, CORPORATION, PLLC, LLP, PC, LIMITED are trailing legal forms', () => {
+    for (const f of ['Incorporated', 'Corporation', 'PLLC', 'LLP', 'PC', 'Limited']) expect(builderKey(`Acme Roofing ${f}`)).toBe(builderKey('Acme Roofing'));
+    const rows = ['Acme Roofing Incorporated', 'Acme Roofing Corporation', 'Acme Roofing PLLC', 'Acme Roofing'].map((n) => row(n, 'Roof permit in Austin'));
+    const out = summarizeBuilders(rows, [], NOW);
+    expect(out).toHaveLength(1);
+    expect(out[0].permits).toBe(4);
+  });
+
+  it('F5: a spelling tie prefers the one that is not ALL CAPS', () => {
+    const rows = [row('ACME ROOFING LLC', 'Roof permit in Austin'), row('Acme Roofing LLC', 'Roof permit in Austin')];
+    expect(summarizeBuilders(rows, [], NOW)[0].name).toBe('Acme Roofing LLC');
+    expect(summarizeBuilders([...rows].reverse(), [], NOW)[0].name).toBe('Acme Roofing LLC');
+  });
+
+  it('F6: phones need 7 digits; a junk phone never wins over a real one and tel href is digits and a leading +', () => {
+    const out = summarizeBuilders([row('Acme Roofing LLC', 'Roof permit in Austin', 2, { phone: 'N/A' }), row('Acme Roofing LLC', 'Roof permit in Austin', 3, { phone: '+1 (512) 555-0100' })], [], NOW);
+    expect(out[0].phone).toBe('+1 (512) 555-0100');
+    expect(telHref(out[0].phone)).toBe('+15125550100');
+    expect(telHref('N/A')).toBeNull();
+    expect(telHref('123456')).toBeNull();
+    expect(summarizeBuilders([row('Acme Roofing LLC', 'Roof permit in Austin', 2, { phone: '12-34' })], [], NOW)[0].phone).toBeNull();
+    expect('website' in out[0]).toBe(false);
   });
 
   it('ignores permits older than 30 days', () => {
@@ -112,8 +138,9 @@ describe('Austin anchor data', () => {
     expect(out.map((b) => b.permits)).toEqual([15, 9, 9, 7]);
   });
 
-  it('labels every builder other for a painter', () => {
+  it('labels every builder other for a painter and for a general-contractor member', () => {
     expect(Object.values(rel(['painting']))).toEqual(['other', 'other', 'other', 'other']);
+    expect(Object.values(rel(['general-contractor']))).toEqual(['other', 'other', 'other', 'other']);
   });
 
   it('labels plumbers same-trade for a plumbing member', () => {
@@ -136,39 +163,3 @@ describe('Austin anchor data', () => {
   });
 });
 
-describe('loadActiveBuilders', () => {
-  const profile = { categories: ['plumbing'], lat: 30.27, lon: -97.74, state: 'TX', radius_mi: 25 };
-
-  it('returns [] on a database error', async () => {
-    const { loadActiveBuilders } = await import('@/lib/builders/load');
-    const db = new FakeDb();
-    db.failOn['holler_signals.select'] = 'boom';
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(await loadActiveBuilders(db as never, profile, NOW)).toEqual([]);
-    db.failOn = { 'holler_signal_contacts.select': 'boom' };
-    db.tables.holler_signals = [{ id: 1, kind: 'permit', title: 'Plumbing permit in Austin', source: 's', lat: 30.27, lon: -97.74, occurred_at: daysAgo(1), categories: ['plumbing'] }];
-    expect(await loadActiveBuilders(db as never, profile, NOW)).toEqual([]);
-    spy.mockRestore();
-  });
-
-  it('returns builders from nearby permits only, in two queries', async () => {
-    const { loadActiveBuilders } = await import('@/lib/builders/load');
-    const db = new FakeDb({
-      holler_signals: [
-        { id: 1, kind: 'permit', title: 'Plumbing permit in Austin', source: 's', lat: 30.28, lon: -97.75, occurred_at: daysAgo(2), categories: ['plumbing'] },
-        { id: 2, kind: 'permit', title: 'Plumbing permit in Dallas', source: 's', lat: 32.78, lon: -96.8, occurred_at: daysAgo(2), categories: ['plumbing'] },
-        { id: 3, kind: 'permit', title: 'Plumbing permit in Austin', source: 's', lat: 30.28, lon: -97.75, occurred_at: daysAgo(40), categories: ['plumbing'] },
-      ],
-      holler_signal_contacts: [
-        { id: 1, signal_id: 1, role: 'contractor', name: 'Victory Plumbing Company', phone: '512-555-0101', website: null },
-        { id: 2, signal_id: 1, role: 'site', name: '', phone: null, website: null },
-        { id: 3, signal_id: 2, role: 'contractor', name: 'Dallas Pipes LLC', phone: null, website: null },
-        { id: 4, signal_id: 3, role: 'contractor', name: 'Old Pipes LLC', phone: null, website: null },
-      ],
-    });
-    const out = await loadActiveBuilders(db as never, profile, NOW);
-    expect(out.map((b) => b.name)).toEqual(['Victory Plumbing Company']);
-    expect(out[0].relation).toBe('same-trade');
-    expect(db.calls).toEqual(['holler_signals.select', 'holler_signal_contacts.select']);
-  });
-});

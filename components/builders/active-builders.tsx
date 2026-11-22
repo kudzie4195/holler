@@ -1,12 +1,11 @@
-import type { ActiveBuilder } from '@/lib/builders/active';
+import { telHref, type ActiveBuilder } from '@/lib/builders/active';
 
 const RELATION_LABEL: Partial<Record<ActiveBuilder['relation'], string>> = {
   'same-trade': 'Works in your trade',
-  builder: 'Builder: may hire subs',
 };
 
-/** "Who's building near you": companies with permits in the last 30 days. Hidden entirely when there are none. Server-rendered. */
-export function ActiveBuilders({ builders }: { builders: ActiveBuilder[] }) {
+/** "Who's building near you": companies with permits in the window the loader read (windowDays). Hidden entirely when there are none. Server-rendered. */
+export function ActiveBuilders({ builders, windowDays }: { builders: ActiveBuilder[]; windowDays: number }) {
   if (builders.length === 0) return null;
   return (
     <section aria-labelledby="builders-h" className="mt-6 rounded-card border border-line bg-surface p-5 md:p-6">
@@ -20,13 +19,13 @@ export function ActiveBuilders({ builders }: { builders: ActiveBuilder[] }) {
               <div className="min-w-0">
                 <p className="font-medium text-ink">{b.name}</p>
                 <p className="text-sm text-muted">
-                  <span className="tabular-nums">{b.permits}</span> {b.permits === 1 ? 'permit' : 'permits'} in 30 days
+                  <span className="tabular-nums">{b.permits}</span> {b.permits === 1 ? 'permit' : 'permits'} in the last {windowDays === 1 ? 'day' : `${windowDays} days`}
                   {b.kinds.length > 0 ? `: ${b.kinds.join(', ')}` : ''}
                 </p>
                 {label ? <p className="mt-1 text-xs font-medium text-brand-text">{label}</p> : null}
               </div>
-              {b.phone ? (
-                <a href={`tel:${b.phone.replace(/[^\d+]/g, '')}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
+              {b.phone && telHref(b.phone) ? (
+                <a href={`tel:${telHref(b.phone)}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
                   {b.phone}
                 </a>
               ) : null}
