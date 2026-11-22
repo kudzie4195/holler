@@ -119,7 +119,7 @@ export interface PlanDto {
   name: string;
   monthly: PriceDto;
   yearly: PriceDto;
-  /** "about 2 months free", computed from the prices. Empty string when the math does not support a claim. */
+  /** "save 16%", computed from the prices and rounded down. Empty string when there is no saving to state. */
   yearlySaving: string;
   limits: PlanLimitsDto;
 }

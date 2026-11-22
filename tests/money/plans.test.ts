@@ -9,9 +9,8 @@ import {
   MONTHLY_PRICE_CENTS,
   PRICES_CENTS,
   PRODUCT_IDS,
-  annualMonthsFree,
-  annualMonthsSaved,
   annualSavingLabel,
+  annualSavingSentence,
   annualSavingsCents,
   parsePlan,
   priceDataFor,
@@ -54,22 +53,21 @@ describe('priceDataFor', () => {
 });
 
 describe('annual savings copy: computed, never typed', () => {
-  it('Solo: 12 x $7.99 = $95.88 against $79.99 saves $15.89, which is 1.99 monthly payments: "about 2 months free"', () => {
+  it('Solo: 12 x $7.99 = $95.88 against $79.99 saves $15.89 = 16.57%, shown rounded down as "save 16%"', () => {
     expect(MONTHLY_PRICE_CENTS * 12).toBe(9588);
     expect(ANNUAL_PRICE_CENTS).toBe(7999);
     expect(annualSavingsCents('starter')).toBe(1589);
-    expect(annualMonthsSaved('starter')).toBeCloseTo(1.9887, 3);
-    expect(annualMonthsFree('starter')).toBe(2);
-    expect(annualSavingLabel('starter')).toBe('about 2 months free');
-    expect(ANNUAL_SAVINGS_PERCENT).toBe(17); // (9588 - 7999) / 9588 = 16.57%
+    expect(annualSavingLabel('starter')).toBe('save 16%');
+    expect(annualSavingSentence('starter')).toBe('Paying yearly saves 16%.');
+    expect(ANNUAL_SAVINGS_PERCENT).toBe(16); // (9588 - 7999) / 9588 = 16.57%, rounded down
   });
-  it('Pro: 12 x $13.99 = $167.88 against $139.99 saves $27.89, which is 1.99 monthly payments: "about 2 months free"', () => {
+  it('Pro: 12 x $13.99 = $167.88 against $139.99 saves $27.89 = 16.61%, shown as "save 16%"', () => {
     expect(PRICES_CENTS.pro.monthly * 12).toBe(16788);
     expect(annualSavingsCents('pro')).toBe(2789);
-    expect(annualMonthsSaved('pro')).toBeCloseTo(1.9936, 3);
-    expect(annualSavingLabel('pro')).toBe('about 2 months free');
+    expect(annualSavingLabel('pro')).toBe('save 16%');
+    expect(annualSavingSentence('pro')).toBe('Paying yearly saves 16%.');
   });
-  it('the old prices would NOT earn "months free" (9.6 months paid for 12): the helper falls back to a computed percent', async () => {
+  it('rounds down, and is empty when the saving is under 1% or a price is missing', async () => {
     const { vi } = await import('vitest');
     vi.resetModules();
     const plans = await import('../../lib/stripe/plans');
@@ -77,8 +75,14 @@ describe('annual savings copy: computed, never typed', () => {
     try {
       plans.PRICES_CENTS.starter.monthly = 500;
       plans.PRICES_CENTS.starter.annual = 4800;
-      expect(plans.annualMonthsFree('starter')).toBeNull(); // 1200 / 500 = 2.4 months: not within 0.05 of a whole number
       expect(plans.annualSavingLabel('starter')).toBe('save 20%');
+      plans.PRICES_CENTS.starter.annual = 5950; // 0.8% saving
+      expect(plans.annualSavingLabel('starter')).toBe('');
+      expect(plans.annualSavingSentence('starter')).toBe('');
+      plans.PRICES_CENTS.starter.annual = 0;
+      expect(plans.annualSavingLabel('starter')).toBe('');
+      plans.PRICES_CENTS.starter.annual = 6000;
+      expect(plans.annualSavingLabel('starter')).toBe('');
     } finally {
       Object.assign(plans.PRICES_CENTS.starter, saved); // a fresh module instance (resetModules), restored anyway
     }

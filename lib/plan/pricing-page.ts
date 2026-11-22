@@ -4,7 +4,7 @@
  */
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { absoluteUrl } from '@/lib/seo/canonical';
-import { annualMonthsFree, annualSavingLabel, annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
+import { annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
 import { PLAN_FEATURES } from './copy';
 import { PLAN_LIMITS, TIER_NAMES, TIERS, type Tier } from './limits';
 
@@ -67,10 +67,13 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
 
 /** The yearly saving line under the cards. Every number comes from lib/stripe/plans.ts (computed from the cents), never typed. */
 export function yearlyNote(): string {
-  const solo = annualMonthsFree('starter');
-  const pro = annualMonthsFree('pro');
-  if (solo !== null && solo === pro) return `Pay yearly on either plan and you get ${annualSavingLabel('starter')}.`;
-  return `Paying yearly saves ${annualSavingsPercent('starter')}% on ${SOLO} and ${annualSavingsPercent('pro')}% on ${PRO}.`;
+  const solo = annualSavingsPercent('starter');
+  const pro = annualSavingsPercent('pro');
+  if (solo >= 1 && solo === pro) return `Pay yearly on either plan and you save ${solo}%.`;
+  if (solo >= 1 && pro >= 1) return `Paying yearly saves ${solo}% on ${SOLO} and ${pro}% on ${PRO}.`;
+  if (solo >= 1) return `Paying yearly saves ${solo}% on ${SOLO}.`;
+  if (pro >= 1) return `Paying yearly saves ${pro}% on ${PRO}.`;
+  return '';
 }
 
 export const YEARLY_NOTE = yearlyNote();

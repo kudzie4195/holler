@@ -60,8 +60,8 @@ describe('public prices for the apps and stores', () => {
     expect([solo.monthly.cents, solo.annual.cents, pro.monthly.cents, pro.annual.cents]).toEqual([799, 7999, 1399, 13999]);
     expect([solo.monthly.decimal, pro.annual.decimal]).toEqual(['7.99', '139.99']);
     expect([solo.monthly.period, solo.annual.period]).toEqual(['P1M', 'P1Y']);
-    expect([solo.annualSaving, pro.annualSaving]).toEqual(['about 2 months free', 'about 2 months free']);
-    expect([solo.annualMonthsFree, pro.annualMonthsFree]).toEqual([2, 2]);
+    expect([solo.annualSaving, pro.annualSaving]).toEqual(['save 16%', 'save 16%']);
+    expect([solo.annualSavingsPercent, pro.annualSavingsPercent]).toEqual([16, 16]);
     expect(PUBLIC_PRICES.currency).toBe('USD');
   });
 

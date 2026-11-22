@@ -450,7 +450,7 @@ Do this once in test mode (use `sk_test_...` and a test webhook) to prove it wor
 - [ ] Click the confirm link. It works once.
 - [ ] Onboarding: pick two trades (they are grouped), a ZIP, a radius. Finish. You land on `/app`.
 - [ ] The feed already has items, or the empty state names what Holler watches near you.
-- [ ] Settings shows monthly and yearly options and the "about 2 months free" line when Stripe is configured. The trial banner and the welcome email both say 14 days.
+- [ ] Settings shows monthly and yearly options and the "Paying yearly saves 16%." line when Stripe is configured. The trial banner and the welcome email both say 14 days.
 - [ ] Wait for the next scan and notify cycle (up to 30 minutes). With a matching item you get a digest email with an unsubscribe link that works.
 - [ ] Settings > Delete account removes your Holler profile and matches.
 - [ ] `<SITE>/privacy` and `<SITE>/terms` show your `SUPPORT_EMAIL`.
