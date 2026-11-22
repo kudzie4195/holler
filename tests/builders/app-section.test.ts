@@ -18,8 +18,10 @@ const BUILDERS: ActiveBuilder[] = [
   { name: 'Charge Electrical Services LLC', permits: 1, kinds: ['electrical'], newest: iso(-2 * 86_400_000), phone: null, relation: 'other' },
 ];
 
-async function renderApp(opts: { language?: 'en' | 'es'; locked?: boolean; builders?: ActiveBuilder[] | 'throw'; windowDays?: number } = {}) {
+async function renderApp(opts: { language?: 'en' | 'es'; locked?: boolean; builders?: ActiveBuilder[] | 'throw'; windowDays?: number; panelFlag?: string; repairTo?: string | null; matches?: unknown[] } = {}) {
   vi.resetModules();
+  // Round 19 integration: the panel ships dark (HOLLER_BUILDERS_PANEL_ENABLED, lib/builders/switch.ts). These tests switch it on unless told.
+  vi.stubEnv('HOLLER_BUILDERS_PANEL_ENABLED', opts.panelFlag ?? '1');
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.doMock('server-only', () => ({}));
@@ -36,10 +38,14 @@ async function renderApp(opts: { language?: 'en' | 'es'; locked?: boolean; build
       q.from = () => q;
       q.select = () => q;
       for (const m of ['eq', 'order']) q[m] = () => q;
-      q.limit = async () => ({ data: [], error: null });
+      q.limit = async () => ({ data: opts.matches ?? [], error: null });
       return q;
     },
   }));
+  // Round 18 trial repair (lib/auth/trial.ts repairShortTrial) runs before anything renders; the page reads access from the repaired row.
+  const repair = vi.fn(async () => opts.repairTo ?? null);
+  vi.doMock('@/lib/auth/trial', async (orig) => ({ ...(await orig<typeof import('@/lib/auth/trial')>()), repairShortTrial: repair }));
+  vi.doMock('@/lib/outreach/loader', async (orig) => ({ ...(await orig<typeof import('@/lib/outreach/loader')>()), loadMemberContacts: async () => new Map() }));
   vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({}) }));
   const loader = vi.fn(async () => {
     if (opts.builders === 'throw') throw new Error('boom');
@@ -66,7 +72,7 @@ async function renderApp(opts: { language?: 'en' | 'es'; locked?: boolean; build
   loader.mockClear();
   const panelHtml = found ? renderToStaticMarkup(await BuildersPanel(found.props as Parameters<typeof BuildersPanel>[0])) : '';
   // The static page render shows the Suspense fallback (null) for the async panel; the panel's own HTML is appended for the text checks.
-  return { html: pageHtml.replace(/<section aria-labelledby="builders-h"[\s\S]*?<\/section>/, '') + panelHtml, pageHtml, panelHtml, loader, found, callsBeforePanel, callsInPage, tree, BuildersPanel };
+  return { repair, html: pageHtml.replace(/<section aria-labelledby="builders-h"[\s\S]*?<\/section>/, '') + panelHtml, pageHtml, panelHtml, loader, found, callsBeforePanel, callsInPage, tree, BuildersPanel };
 }
 
 /** Depth-first search of a React element tree for an element of `type`, with its position (order of visit). */
@@ -86,6 +92,7 @@ function findElement(node: unknown, type: unknown, order = { n: 0 }): { props: R
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.resetModules();
@@ -124,6 +131,17 @@ describe('/app: who is building near you', () => {
     for (const en of ["Who's building near you", 'Companies only', 'Works in your trade', 'permits in the last']) expect(t, en).not.toContain(en);
     const section = t.slice(t.indexOf('Quién está construyendo'), t.indexOf('Trabaja en su mismo oficio') + 30);
     expect(spanishProblems(section)).toEqual([]);
+  });
+
+  it('round 19 integration: with HOLLER_BUILDERS_PANEL_ENABLED unset or off, no panel element, no loader call, the page is the page without it', async () => {
+    const on = await renderApp({ builders: [] });
+    for (const flag of ['', '0', 'false']) {
+      const off = await renderApp({ panelFlag: flag });
+      expect(off.found, flag).toBeNull();
+      expect(off.loader, flag).not.toHaveBeenCalled();
+      expect(off.callsInPage, flag).toBe(0);
+      expect(off.pageHtml, flag).toBe(on.pageHtml);
+    }
   });
 
   it('a locked account never calls the loader and shows no section', async () => {
@@ -176,5 +194,46 @@ describe('/app: who is building near you', () => {
     expect(Object.keys(builderScopeOf({ categories: ['plumbing'], lat: 1, lon: 2, state: 'TX', radius_mi: 25 })).sort()).toEqual(
       ['categories', 'extra_areas', 'lat', 'lon', 'plan', 'plan_source', 'radius_mi', 'state', 'store_expires_at', 'subscription_status'],
     );
+  });
+});
+
+describe('/app round 19 integration: the panel with round 18 header, Lists link, hold chips and trial repair', () => {
+  const heldCard = {
+    id: 9, status: 'new', distance_mi: 1.2, draft: null, created_at: iso(-3_600_000), alert_hold: 'background',
+    signal: { id: 501, source: 'socrata-austin-permits', kind: 'permit', title: 'Roof permit in Austin', summary: 'Re-roof', url: 'https://example.test/p/1', city: 'Austin', state: 'TX', county: null, zip: '78701', occurred_at: iso(-86_400_000), expires_at: null, severity: 1, categories: ['roofing', 'plumbing'], subtype: 'permit' },
+  };
+
+  it('a locked trial that the repair moves to 60 days renders as open: the repair runs first, then the panel is offered', async () => {
+    const { repair, found, loader, html } = await renderApp({ locked: true, repairTo: iso(30 * 86_400_000) });
+    expect(repair).toHaveBeenCalledTimes(1);
+    expect(found).not.toBeNull();
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect(text(html)).not.toContain('Your free trial is over');
+  });
+
+  it('a locked trial the repair leaves alone stays locked: no panel, no loader call', async () => {
+    const { repair, found, loader } = await renderApp({ locked: true, repairTo: null });
+    expect(repair).toHaveBeenCalledTimes(1);
+    expect(found).toBeNull();
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  it('the Lists link (round 18) sits above the feed and the panel below it, in both languages', async () => {
+    for (const [language, link] of [['en', 'Address lists for door-knocking and mailers'], ['es', 'Listas de direcciones para visitas y correo directo']] as const) {
+      const { pageHtml, html, found } = await renderApp({ language });
+      expect(pageHtml).toContain('href="/app/lists"');
+      expect(text(pageHtml)).toContain(link);
+      expect(found).not.toBeNull();
+      expect(text(html).indexOf(language === 'en' ? "Who's building near you" : 'Quién está construyendo')).toBeGreaterThan(text(html).indexOf(link));
+    }
+  });
+
+  it('a held (Background) card keeps its chip with the panel on, and the panel adds no card', async () => {
+    const { pageHtml, found, loader } = await renderApp({ matches: [heldCard] });
+    expect(text(pageHtml)).toContain('Background');
+    expect(text(pageHtml)).toContain('Roof permit in Austin');
+    expect(found).not.toBeNull();
+    expect(loader).toHaveBeenCalledTimes(1);
+    expect((pageHtml.match(/Roof permit in Austin/g) ?? []).length).toBe(1);
   });
 });

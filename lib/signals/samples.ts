@@ -1,5 +1,6 @@
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
-import { noContactSubtype, type Db } from './store';
+import type { Db } from './store';
+import { contactsAllowedFor } from '@/lib/contacts/extract';
 import type { SignalInput } from './types';
 
 /**
@@ -75,13 +76,16 @@ export async function storeSourceSamples(db: Db, source: string, signals: Signal
 }
 
 /**
- * The contact hygiene the live path applies (insertNewSignals / writeSignalContacts in store.ts), reusing its functions: a code violation
- * or 311 request keeps no contact at all (noContactSubtype), every other contact goes through sanitizeContacts with the signal's own city.
+ * The contact hygiene the live path applies (insertNewSignals / writeSignalContacts in store.ts), reusing its functions: the record kind
+ * decides first (contactsAllowedFor, round 18: a 311 request keeps no contact, a code violation only an owner company and only while
+ * HOLLER_VIOLATION_OWNERS_ENABLED is on, no other record an owner row), then every kept contact goes through sanitizeContacts with the
+ * signal's own city.
  */
 export function sanitizeSample(s: SignalInput): SignalInput {
   if (!s.contacts?.length) return s;
-  if (noContactSubtype(s.data?.subtype)) return { ...s, contacts: [] };
-  return { ...s, contacts: sanitizeContacts(s.contacts, { datasetCity: s.city ?? null }) };
+  const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
+  if (!allowed.length) return { ...s, contacts: [] };
+  return { ...s, contacts: sanitizeContacts(allowed, { datasetCity: s.city ?? null }) };
 }
 
 /**

@@ -1,13 +1,14 @@
-import { cleanOrgName, isOrganisationName } from '@/lib/contacts/org';
+import { contactNameFor } from '@/lib/contacts/names';
 import { GENERIC_LABELS, KIND_DOERS, permitLabelsOf } from '@/lib/signals/permit-routing';
 
 /**
  * "Who's building near you": companies that pulled building permits in the last 30 days, from public permit records (ported in round 19
  * UNIFY from origin/r10-integrate 9de8594 and 0cd8361, adapted to this base).
  *
- * Pure and client-safe (no server imports). Businesses only: a row is dropped before grouping unless its role is 'contractor', its name
- * passes this base's organisation check exactly (lib/contacts/org.ts isOrganisationName, the same rule lib/outreach/loader.ts applies to
- * every contractor name a member sees) and cleanOrgName leaves a printable name. No address, no person, no website is ever returned.
+ * Pure and client-safe (no server imports). Businesses only: a row is dropped before grouping unless its role is 'contractor' and its
+ * name passes the round 18 contractor business-name rule (builderName below: lib/contacts/names.ts contactNameFor('contractor'), the same
+ * rule lib/outreach/loader.ts applies to every contractor name a member sees). No address, no person, no website is ever returned. The
+ * panel is behind HOLLER_BUILDERS_PANEL_ENABLED (lib/builders/switch.ts, off by default).
  *
  * Adapted from the other branch: their permit kinds came from their engine (reference/r10-engine/lib/signals/opportunity.ts: PERMIT_KIND_LABELS, PERMIT_DOING,
  * permitKindsFromTitle). This base reads the same thing from lib/signals/permit-routing.ts: permitLabelsOf (the work-kind labels a typed
@@ -86,11 +87,15 @@ export function telHref(phone: string | null | undefined): string | null {
   return t ? `${t.startsWith('+') ? '+' : ''}${t.replace(/\D/g, '')}` : null;
 }
 
-/** The company name to print, or null: businesses only (this base's organisation check, exact pass). */
+/**
+ * The company name to print, or null. Round 19 integration (review defect 5): the round 18 business-name rule of the contractor role
+ * (lib/contacts/names.ts contactNameFor('contractor'), i.e. trade-name.ts cleanContractorName), the same rule that decides which
+ * contractor name a card stores and shows. On the review's 60 names it shows 48 (the old strict check 15; two of those 15 are now refused:
+ * tests/builders/names-60.test.ts), and it refuses every private person of the round 18 contractor matrix (tests/contacts/r18-review2-probes.test.ts).
+ */
 export function builderName(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
-  if (!isOrganisationName(raw)) return null;
-  return cleanOrgName(raw);
+  return contactNameFor('contractor', raw);
 }
 
 const isAllCaps = (s: string): boolean => /\p{L}/u.test(s) && s === s.toUpperCase();

@@ -144,8 +144,12 @@ export interface ConfigResponse {
   ok: true;
   apiVersion: number;
   currency: 'USD';
-  /** Free trial length in days (14). Store introductory offers are set up to match. */
+  /** Free trial length in days (60, lib/auth/membership.ts TRIAL_DAYS). Store introductory offers are set up to match. */
   trialDays: number;
+  /** The headline form (lib/plan/price-copy.ts TRIAL_HEADLINE, the 2-month headline), built from TRIAL_DAYS on the server (lib/plan/price-copy.ts). Added in round 18; older servers omit it. */
+  trialHeadline?: string;
+  /** "60-day free trial": the precise form, built from TRIAL_DAYS on the server. Added in round 18; older servers omit it. */
+  trialPhrase?: string;
   plans: Record<EntitlementId, PlanDto>;
   entitlements: readonly EntitlementId[];
   offeringId: string;
@@ -328,6 +332,12 @@ export interface AlertDto {
    * app builds ignore it. Show "Act now", "Coming soon" or "Market insight" as a chip; Act Now rows carry the deadline line.
    */
   label: 'act_now' | 'coming_soon' | 'market_insight';
+  /**
+   * Round 18 (migration 0027): set only when the card was NOT sent as an alert and stays in the feed: 'background' (a permit that names no
+   * business and no site address, or a trade family on hold) or 'below_min' (the permit's job value is below the member's minimum).
+   * Additive: older app builds ignore it.
+   */
+  hold?: 'below_min' | 'held' | 'background';
   /** ISO date of a fix-by, due or response date the record publishes. Null means "No deadline published". */
   deadline: string | null;
   /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." Null for every other record. Additive: older app builds ignore it. */

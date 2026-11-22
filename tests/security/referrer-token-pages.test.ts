@@ -24,6 +24,8 @@ const TOKEN_PAGES = [
   '/auth/confirm',
   '/auth/confirm/continue',
   '/waitlist/confirm',
+  // Round 18 ES (merged at round 19 integration): the Spanish twin of /auth/confirm/continue.
+  '/es/confirm',
 ];
 
 describe('Referrer-Policy on token pages (P2-2)', () => {

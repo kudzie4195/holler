@@ -1,6 +1,7 @@
 import type { SendEmailInput, SendEmailResult } from '../email';
 import { bestAlerts } from './best';
-import { isReturningMember, selectLifecycle, type Candidate, type LifecycleKind } from './select';
+import { isReturningMember, selectLifecycle, staleTrialSends, type Candidate, type LifecycleKind } from './select';
+import { mayExtendTrial, trialStartOf } from '../auth/trial';
 import { NotMigrated, type FullProfile, type LifecycleStore } from './store';
 import { matchScope } from '../plan/scope';
 import {
@@ -8,10 +9,12 @@ import {
   renderWelcomeMatches,
   renderWelcomeQuiet,
   renderTrialEnding,
+  trialEndingDays,
   renderTrialEnded,
   type AlertItem,
 } from './templates';
 import { lifecycleUnsubUrl } from './unsub';
+import type { Lang } from '../i18n';
 
 export const MAX_MEMBERS_PER_RUN = 200;
 export const MAX_TRIES = 3;
@@ -53,6 +56,23 @@ export interface RunDeps {
    * for this member's items, or undefined for the default order. A throw or rejection also means the default order. Wins over `rank`.
    */
   rankFor?: (p: FullProfile, items: (AlertItem & { id: number })[]) => Promise<(<T extends AlertItem>(items: T[]) => T[]) | undefined>;
+  /**
+   * Round 18 (review r2 R2): before a trial_ending or trial_ended email to a member the app would extend (mayExtendTrial: never paid, end
+   * earlier than start + TRIAL_DAYS), this extends the row first (lib/auth/trial.ts repairTrialForCron with the admin client) and returns
+   * the stored new end, or null when nothing moved. When it moved, the email is skipped: the new end gets its own emails. Absent (tests,
+   * or no admin client): the email goes as before.
+   */
+  repairTrial?: (userId: string, now: Date) => Promise<string | null>;
+  /**
+   * The member's language (round 18 ES): the cron passes a read of the profile's language column. Absent, a throw, or anything but
+   * 'es' means the English email, exactly as before.
+   */
+  langFor?: (userId: string) => Promise<Lang>;
+  /**
+   * The same, read once for every member the run picked (one query per 100, review P3-9). Used when langFor is absent. A throw means
+   * every email of the run is English.
+   */
+  langsFor?: (userIds: string[]) => Promise<Map<string, Lang>>;
   /** Wall clock for the time budget; tests pass a fake. */
   clock?: () => number;
   budgetMs?: number;
@@ -75,6 +95,10 @@ export interface Summary {
   send_unknown: number;
   /** Ambiguous sends retried once at once with the same idempotency key (verify-v3 P2, commander decision 10). */
   send_retried: number;
+  /** Trial emails skipped because the member's trial was moved to start + TRIAL_DAYS first (round 18, review r2 R2). In dry: would be. */
+  skipped_trial_extended: number;
+  /** Ledger rows sent for an earlier trial end, cleared before selection (review r2 R3). In dry: found, not cleared. */
+  stale_cleared: number;
   failed: number;
   retried: number;
   would_send?: { user_id: string; kind: LifecycleKind; variant: string }[];
@@ -91,15 +115,25 @@ interface Built {
 export async function buildMail(
   kind: LifecycleKind,
   p: FullProfile,
-  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor'>,
+  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor' | 'langFor'>,
   now: Date,
 ): Promise<Built | null> {
   const base = deps.siteUrl.replace(/\/$/, '');
+  let lang: Lang = 'en';
+  if (deps.langFor) {
+    try {
+      lang = (await deps.langFor(p.user_id)) === 'es' ? 'es' : 'en';
+    } catch {
+      lang = 'en';
+    }
+  }
   const common = {
-    businessName: plain(p.business_name || 'your business'),
+    businessName: plain(p.business_name || (lang === 'en' ? 'your business' : 'su negocio')),
     feedUrl: `${base}/app`,
     plansUrl: `${base}/app/settings#billing-h`,
     unsubscribeUrl: lifecycleUnsubUrl(base, p.user_id, deps.secret, now.getTime()),
+    // Only a Spanish member's emails carry the field: an English render is called exactly as before.
+    ...(lang === 'en' ? {} : { lang }),
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id, matchScope(p).categories);
@@ -121,7 +155,9 @@ export async function buildMail(
       }
     }
     const items = bestAlerts(m.items, rank);
-    return { ...renderTrialEnding({ ...common, items }), variant: items.length ? 'alerts' : 'no_alerts' };
+    const hoursLeft = (Date.parse(p.trial_ends_at ?? '') - now.getTime()) / 3_600_000;
+    const daysLeft = trialEndingDays(Number.isFinite(hoursLeft) ? hoursLeft : 84);
+    return { ...renderTrialEnding({ ...common, items, daysLeft }), variant: items.length ? 'alerts' : 'no_alerts' };
   }
   const missed = await deps.store.missedSince(p, now);
   return { ...renderTrialEnded({ ...common, missed: missed.count, capped: missed.capped }), variant: missed.count > 0 ? 'missed' : 'paused_only' };
@@ -142,6 +178,8 @@ function emptySummary(dry: boolean): Summary {
     skipped_returning: 0,
     send_unknown: 0,
     send_retried: 0,
+    skipped_trial_extended: 0,
+    stale_cleared: 0,
     failed: 0,
     retried: 0,
   };
@@ -194,8 +232,60 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     throw e;
   }
   const byId = new Map(profiles.map((p) => [p.user_id, p]));
+  // Review r2 R3: a trial_ending / trial_ended row written for an EARLIER end (the extension moved the end; its ledger reset was lost) does
+  // not count as sent (selectLifecycle ignores it) and is cleared here so the claim below can take it. A failed clear is retried next run;
+  // until then the claim finds the row and nothing is sent twice.
+  const stale = staleTrialSends(profiles, sends);
+  for (const r of stale) {
+    if (dry) {
+      s.stale_cleared++;
+      continue;
+    }
+    try {
+      await store.release(r.user_id, r.kind as LifecycleKind);
+      s.stale_cleared++;
+    } catch (e) {
+      console.error('[lifecycle] stale ledger clear failed', r.kind, e instanceof Error ? e.message : e);
+    }
+  }
   const candidates = selectLifecycle(profiles, sends, now).slice(0, limit);
   s.selected = candidates.length;
+  // The members' languages, read once for the whole run (round 18 ES). Only when the caller gives a batch reader and no per-member one.
+  if (!deps.langFor && deps.langsFor && candidates.length > 0) {
+    let langs = new Map<string, Lang>();
+    try {
+      langs = await deps.langsFor([...new Set(candidates.map((c) => c.userId))]);
+    } catch {
+      langs = new Map();
+    }
+    deps = { ...deps, langFor: async (id: string) => langs.get(id) ?? 'en' };
+  }
+
+  /**
+   * Review r2 R2: a trial email to a member the app would extend is wrong ("ends in 3 days" when 48 days are left). Extend first, skip
+   * the email. Only when the repair really moved the row: a failed or refused repair (or a stamp that cannot be read) sends as before.
+   */
+  async function extendedFirst(c: Candidate, p: FullProfile): Promise<boolean | 'failed'> {
+    if (c.kind === 'welcome') return false;
+    let stamp: string | null = null;
+    try {
+      stamp = store.trialStartedAt ? await store.trialStartedAt(c.userId) : null;
+    } catch {
+      stamp = null;
+    }
+    const start = trialStartOf(p.created_at, stamp);
+    if (!start || !mayExtendTrial(p, start, now.getTime())) return false;
+    if (dry) return true;
+    if (!deps.repairTrial) return false;
+    let stored: string | null;
+    try {
+      stored = await deps.repairTrial(c.userId, now);
+    } catch {
+      return 'failed'; // review r3 D2: the repair was due and failed. Send nothing for the old end; the next run tries again.
+    }
+    // Skip the email whenever the row no longer holds the end this run loaded: moved by this call, by a page load or by another run.
+    return stored !== null && Math.abs(Date.parse(stored) - Date.parse(p.trial_ends_at ?? '')) > 1000;
+  }
 
   if (dry) {
     s.would_send = [];
@@ -206,6 +296,10 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
       try {
         if (await returningWelcome(store, c, p)) {
           s.skipped_returning++;
+          continue;
+        }
+        if (deps.repairTrial && (await extendedFirst(c, p)) === true) {
+          s.skipped_trial_extended++;
           continue;
         }
         const m = await buildMail(c.kind, p, deps, now);
@@ -225,6 +319,15 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     const p = byId.get(c.userId);
     if (!p) return 'done';
     tries.set(key(c), (tries.get(key(c)) ?? 0) + 1);
+    const ext = await extendedFirst(c, p);
+    if (ext === 'failed') {
+      s.failed++;
+      return 'retry'; // no claim, no send
+    }
+    if (ext) {
+      s.skipped_trial_extended++;
+      return 'done';
+    }
     let claimed: 'claimed' | 'exists';
     try {
       claimed = await store.claim(c.userId, c.kind);

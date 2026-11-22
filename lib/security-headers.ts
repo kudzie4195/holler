@@ -34,6 +34,8 @@ export const TOKEN_PAGE_PATHS = [
   '/auth/confirm/continue',
   // Round 19 review (defect 6): the waitlist confirm link carries a signed ?token=.
   '/waitlist/confirm',
+  // The Spanish twin of /auth/confirm/continue (round 18 ES): same token in the URL, same rule.
+  '/es/confirm',
 ] as const;
 
 export const NO_REFERRER = [{ key: 'Referrer-Policy', value: 'no-referrer' }];

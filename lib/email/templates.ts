@@ -12,6 +12,7 @@ import { localizeTitle } from '../signals/title-i18n';
 import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
+import { trialPhraseEs } from '../plan/price-copy-es';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
 export interface DigestItem {
@@ -28,10 +29,11 @@ export interface DigestItem {
   /** Resident requests only: the filtered description, read with the service role for this member's own match. Plain text. */
   detail?: string | null;
   /**
-   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role only: the email never
-   * carries an address, phone number or email address. Absent when the record names no organization.
+   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role: the email never carries
+   * the record's address, phone number or email address. Round 18: `listing` adds the phone and website of the business's own public
+   * listing when one was found, labelled as such. Absent when the record names no organization.
    */
-  contact?: { name: string; role: string } | null;
+  contact?: { name: string; role: string; listing?: { phone: string | null; website: { href: string; text: string } | null; note: string } | null } | null;
   /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
   note?: string | null;
   /**
@@ -133,6 +135,33 @@ function noDash(s: string): string {
 
 export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'): string {
   return relativeTime(iso, now.getTime(), 'email', lang);
+}
+
+type ListingForEmail = NonNullable<NonNullable<DigestItem['contact']>['listing']>;
+
+/** The listing's website only when it is an https link; a phone stays even when the website is dropped. */
+function httpsSite(l: ListingForEmail): ListingForEmail['website'] {
+  return l.website && /^https:\/\//.test(l.website.href) ? l.website : null;
+}
+
+/** The listing lines under the Contact line, html. The website is a normal link with rel="noopener noreferrer nofollow". */
+function listingHtml(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
+  const phone = l.phone ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.phone', { value: l.phone })))}</div>` : '';
+  const site = website
+    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(website.text)}</a></div>`
+    : '';
+  return `${phone}${site}<div style="${S.small};margin:2px 0">${escapeHtml(noDash(l.note))}</div>`;
+}
+
+/** The listing lines under the Contact line, plain text. */
+function listingText(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
+  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${website ? `\n${noDash(t(lang, 'listing.website', { value: website.href }))}` : ''}\n${noDash(l.note)}`;
 }
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
@@ -240,7 +269,7 @@ export function renderDigest(opts: {
       // The one-line AI note is written in English by the model, so a Spanish digest leaves it out (the brief below says the same in Spanish).
       const note = it.note && lang === 'en' ? `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.note')}:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
-        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>`
+        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>${listingHtml(it.contact.listing, lang)}`
         : '';
       const br = digestBrief(it, siteUrl, lang);
       const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
@@ -281,7 +310,7 @@ export function renderDigest(opts: {
       const chip = chipText(it, lang);
       const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
       const stageText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}${listingText(it.contact.listing, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =
@@ -292,7 +321,41 @@ export function renderDigest(opts: {
   return { subject, html, text };
 }
 
-export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
+/** How long a verify link works (lib/email/token.ts signs it for 7 days). Said in the verify emails. */
+export const VERIFY_LINK_DAYS = 7;
+
+/**
+ * The account emails in a language other than English (round 18 ES): password reset, welcome, and welcome plus verify. Same layout,
+ * buttons and footer as the English ones below, which are left exactly as they were. Every word comes from the dictionary; the trial
+ * length from TRIAL_DAYS through lib/plan/price-copy-es.ts trialPhraseEs.
+ */
+function accountMail(lang: Lang, o: { subject: string; heading: string; paras: string[]; button: { href: string; label: string }; note: string; noteText?: string; textLink?: string }): Rendered {
+  const html =
+    wrapOpen(560, lang) +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(o.heading)}</h1>` +
+    o.paras.map((p) => `<p>${escapeHtml(p)}</p>`).join('') +
+    button(o.button.href, o.button.label) +
+    `<p style="${S.muted}">${o.note}${contactHtml(lang)}</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text = `${o.heading}\n\n${o.paras.join('\n\n')}\n\n${o.textLink ?? `${o.button.label}: ${o.button.href}`}\n\n${o.noteText ?? o.note}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+  return { subject: o.subject, html, text };
+}
+
+export function renderPasswordReset(opts: { resetUrl: string; lang?: Lang }): Rendered {
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    return accountMail(lang, {
+      subject: t(lang, 'mail.reset.subject'),
+      heading: t(lang, 'mail.reset.h'),
+      paras: [t(lang, 'mail.reset.p')],
+      button: { href: opts.resetUrl, label: t(lang, 'mail.reset.button') },
+      note: escapeHtml(t(lang, 'mail.reset.ignore')),
+      noteText: t(lang, 'mail.reset.ignore'),
+      textLink: opts.resetUrl,
+    });
+  }
   const subject = 'Reset your Holler password';
   const html =
     WRAP_OPEN +
@@ -307,8 +370,24 @@ export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
   return { subject, html, text };
 }
 
-export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const a = contactAddress();
+    const html =
+      wrapOpen(560, lang) +
+      `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) }))}</h1>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') }))}</p>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) }))}</p>` +
+      button(opts.appUrl, t(lang, 'email.open_feed')) +
+      (a ? `<p style="${S.muted}">${contactHtml(lang).trim()}</p>` : '') +
+      cardClose() +
+      postalFooterHtml(lang) +
+      WRAP_CLOSE;
+    const text = `${t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) })}\n\n${t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') })}\n\n${t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) })}\n\n${t(lang, 'email.open_feed')}: ${opts.appUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+    return { subject: t(lang, 'mail.welcome.subject'), html, text };
+  }
   const subject = 'Welcome to Holler';
   const html =
     WRAP_OPEN +
@@ -325,8 +404,21 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
 }
 
 /** Welcome plus the email-confirmation link sent right after signup (and on resend). */
-export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const url = escapeHtml(opts.appUrl);
+    return accountMail(lang, {
+      subject: t(lang, 'mail.verify.subject'),
+      heading: t(lang, 'mail.verify.h'),
+      paras: [t(lang, 'mail.verify.p1', { trial: trialPhraseEs(days) }), t(lang, 'mail.verify.p2', { days: VERIFY_LINK_DAYS })],
+      button: { href: opts.verifyUrl, label: t(lang, 'mail.verify.button') },
+      note: `${escapeHtml(t(lang, 'mail.verify.setup'))} <a href="${url}" style="${S.mutedLink}">${url}</a>. ${escapeHtml(t(lang, 'mail.verify.ignore'))}`,
+      noteText: `${t(lang, 'mail.verify.setup')} ${opts.appUrl}\n\n${t(lang, 'mail.verify.ignore')}`,
+      textLink: opts.verifyUrl,
+    });
+  }
   const subject = 'Welcome to Holler: confirm your email';
   const html =
     WRAP_OPEN +
@@ -346,18 +438,24 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
  * "Coming to your area" double opt-in (restored in round 19 from the other branch's lib/email/templates.ts, review defect 1). One
  * email; nothing more is ever sent unless the link is pressed. The link is /waitlist/confirm (a token page: no-referrer).
  */
-export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string }): Rendered {
+export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string; lang?: Lang }): Rendered {
+  // Round 19 integration: words from lib/i18n (wl.email.*); English is the round 19 text unchanged, Spanish only when asked for.
+  const lang = opts.lang ?? 'en';
   const place = noDash(opts.place);
-  const subject = `Confirm: tell me when Holler reaches ${place}`;
+  const subject = t(lang, 'wl.email.subject', { place });
+  const h = t(lang, 'wl.email.h');
+  const body = t(lang, 'wl.email.body', { place });
+  const note = t(lang, 'wl.email.note');
+  const button1 = t(lang, 'wl.confirm.button');
   const html =
-    WRAP_OPEN +
-    `<h1 style="${S.h1};margin:0 0 12px 0">One click and you are on the list</h1>` +
-    `<p>You asked Holler to tell you when permits and city requests near ${escapeHtml(place)} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.</p>` +
-    button(opts.confirmUrl, 'Confirm my email') +
-    `<p style="${S.muted}">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
+    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
+    `<h1 style="${S.h1};margin:0 0 12px 0">${escapeHtml(h)}</h1>` +
+    `<p>${escapeHtml(body)}</p>` +
+    button(opts.confirmUrl, button1) +
+    `<p style="${S.muted}">${escapeHtml(note)}${contactHtml(lang)}</p>` +
     cardClose() +
-    postalFooterHtml() +
+    postalFooterHtml(lang) +
     WRAP_CLOSE;
-  const text = `One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near ${place} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: ${opts.confirmUrl}\n\nThe link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.\n${contactText()}\n${postalFooterText()}\n`;
+  const text = `${h}\n\n${body}\n\n${button1}: ${opts.confirmUrl}\n\n${note}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
   return { subject, html, text };
 }

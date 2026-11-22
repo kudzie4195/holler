@@ -210,7 +210,16 @@ describe('privacy by construction', () => {
   it('a stored name is checked again when the card is built (a row written by another path cannot print a person)', () => {
     expect(managedByLineFrom('JOHN B. LOVETT', 'agent')).toBeNull();
     expect(managedByLineFrom('STONEHENGE MANAGEMENT LLC', 'agent')).toBe("Managed by: STONEHENGE MANAGEMENT LLC (from the city's building registration)");
-    expect(managedByLineFrom('STONEHENGE MANAGEMENT LLC', 'owner')).toMatch(/^Owner company: /);
+    // Round 18 redo 2: the corporate owner gets the institutional-owner rule (an unknown word cannot be told from a first name).
+    expect(managedByLineFrom('STONEHENGE MANAGEMENT LLC', 'owner')).toBeNull();
+    expect(managedByLineFrom('342 WEST 71 STREET LLC', 'owner')).toBe("Owner company: 342 WEST 71 STREET LLC (from the city's building registration)");
+    for (const p of ['SMITH LLC', 'JOHNSMITH LLC', 'MARIA LLC', 'LOPEZ INC', 'GARCIA FAMILY PROPERTIES LLC', 'JSMITH PROPERTIES LLC', 'MGARCIA LLC']) {
+      expect(managedByLineFrom(p, 'owner'), p).toBeNull();
+      expect(managerForRegistration([{ registrationid: 1, type: 'CorporateOwner', corporationname: p }]), p).toBeNull();
+    }
+    // A managing agent keeps the company rule; a person written as one word is not a company in any role.
+    expect(managerForRegistration([{ registrationid: 1, type: 'Agent', corporationname: 'PRESTIGE MANAGEMENT INC' }])).toEqual({ name: 'PRESTIGE MANAGEMENT INC', role: 'agent' });
+    expect(managerForRegistration([{ registrationid: 1, type: 'Agent', corporationname: 'JOHNSMITH MANAGEMENT LLC' }])).toBeNull();
     expect(managedByLineFrom(null, 'agent')).toBeNull();
   });
 });
@@ -266,11 +275,13 @@ describe('the heat-card company rate on the 100-row sample (ESTIMATED: values re
     const owner = named.filter((m) => m?.role === 'owner').length / rows.length;
     expect(agent).toBeGreaterThanOrEqual(0.4);
     expect(agent).toBeLessThan(0.6); // the 60% target is NOT met by managing agents alone
-    expect(owner).toBeGreaterThan(0.15);
+    // Round 18 redo 2: the owner fallback uses the institutional-owner rule; it was 23 of 100 rows, now 7 (address-named building
+    // entities and housing bodies only).
+    expect(owner).toBeCloseTo(0.07, 5);
   });
 
-  it('agent plus owner company reaches the 60% target of PLAN-2.0 2.6 (64% measured)', () => {
-    expect(named.filter(Boolean).length / rows.length).toBeGreaterThanOrEqual(0.6);
+  it('round 18 redo 2: agent plus owner company is 48% (was 64%; the 60% target of PLAN-2.0 2.6 is no longer met, privacy first)', () => {
+    expect(named.filter(Boolean).length / rows.length).toBeCloseTo(0.48, 5);
   });
 
   it('every named company passes the company-only check and prints a card line', () => {

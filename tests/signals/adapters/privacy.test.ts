@@ -59,6 +59,11 @@ const PEOPLE: { id: string; file: string; count: number; titleStart: RegExp }[] 
 ];
 
 describe('person-name rows: no name in any stored field', () => {
+  it('round 18: the business-licence and violation datasets now carry contact specs, so the rows below also run the name rules', () => {
+    for (const id of ['socrata-chicago-business', 'socrata-sf-business', 'socrata-la-business', 'socrata-nyc-business', 'socrata-orlando-business', 'socrata-chicago-violations', 'socrata-austin-violations']) {
+      expect(ds(id).contacts, id).toBeDefined();
+    }
+  });
   for (const p of PEOPLE) {
     it(`${p.id}: parses ${p.count} rows, titles are record type and place only`, () => {
       const items = parseSocrata(fx(p.file), ds(p.id));

@@ -2,21 +2,29 @@ import 'server-only';
 import { env, siteUrl } from '@/lib/env';
 import { renderVerifyEmail, sendEmail, signVerifyToken } from '@/lib/email';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { Lang } from '@/lib/i18n';
 
-export function verifyUrlFor(userId: string): string | null {
+/**
+ * The signed confirm link. `lang` 'es' adds l=es, which only picks the language of the confirm page the link opens (it is not signed and
+ * changes nothing else). English links are exactly as before.
+ */
+export function verifyUrlFor(userId: string, lang: Lang = 'en'): string | null {
   if (!env.CRON_SECRET) return null;
-  return `${siteUrl}/api/auth/verify?t=${encodeURIComponent(signVerifyToken(userId, env.CRON_SECRET))}`;
+  return `${siteUrl}/api/auth/verify?t=${encodeURIComponent(signVerifyToken(userId, env.CRON_SECRET))}${lang === 'en' ? '' : `&l=${lang}`}`;
 }
 
-/** Sends the welcome + confirm-your-email message. Never throws. */
-export async function sendVerifyEmail(userId: string, email: string): Promise<boolean> {
+/**
+ * Sends the welcome + confirm-your-email message. Never throws. `lang`: the language of the page the person signed up on (round 18 ES);
+ * there is no profile yet, so that is the only language known.
+ */
+export async function sendVerifyEmail(userId: string, email: string, lang: Lang = 'en'): Promise<boolean> {
   try {
-    const verifyUrl = verifyUrlFor(userId);
+    const verifyUrl = verifyUrlFor(userId, lang);
     if (!verifyUrl) {
       console.error('[verify] CRON_SECRET missing, cannot sign verification link');
       return false;
     }
-    const mail = renderVerifyEmail({ verifyUrl, appUrl: `${siteUrl}/app` });
+    const mail = lang === 'en' ? renderVerifyEmail({ verifyUrl, appUrl: `${siteUrl}/app` }) : renderVerifyEmail({ verifyUrl, appUrl: `${siteUrl}/app`, lang });
     const res = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
     return !('skipped' in res && res.skipped) && 'ok' in res && res.ok === true;
   } catch (e) {

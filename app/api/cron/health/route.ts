@@ -8,6 +8,8 @@ import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@
 import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
 import { readStateRuns, withProbationSetup } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
+import { countShortTrials, loadTrialDbCheck } from '@/lib/auth/trial-check';
+import { loadHeldPermitReport } from '@/lib/admin/held-permits';
 
 export const maxDuration = 60;
 
@@ -146,6 +148,44 @@ export async function GET(req: Request) {
   } catch {
     report.firecrawl = null;
   }
+  // Advertised trial length against the database's (migration 0028). Read-only; never throws.
+  report.trialCheck = await loadTrialDbCheck(admin);
+  // Review 3 D4: when the database is not at the advertised length, state the real number of members still on a shorter trial.
+  if (report.trialCheck.status === 'not_applied' || report.trialCheck.status === 'mismatch') report.trialCheck.shortTrials = await countShortTrials(admin, now);
+
+  // Round 18 business lookups (lib/enrich/business-lookup.ts): the daily circuit breaker (the first 5 answers of a UTC day held no usable
+  // match) and the outage stop (3 calls in a row with no answer: login, balance or the service). This email goes out once a day (13:03 UTC),
+  // so a stop later in the day is reported by the next day's email ("yesterday"). One Watch line each. Read only, and only with DataForSEO
+  // credentials; never throws.
+  let lookup: { tripped: boolean; tried: number; message: string | null } | null = null;
+  try {
+    const { credentials } = await import('@/lib/dataforseo/client');
+    if (credentials(process.env)) {
+      const { lookupBreaker, lookupOutage, breakerMessage, outageMessage } = await import('@/lib/enrich/business-lookup');
+      const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1);
+      lookup = await lookupBreaker(admin, now);
+      if (lookup?.tripped && lookup.message) report.watch.unshift(lookup.message);
+      else {
+        const prev = await lookupBreaker(admin, yesterday);
+        if (prev?.tripped) report.watch.unshift(breakerMessage(prev.tried, 'yesterday'));
+      }
+      const outage = await lookupOutage(admin, now);
+      if (outage?.stopped && outage.message) report.watch.unshift(outage.message);
+      else {
+        const prev = await lookupOutage(admin, yesterday);
+        if (prev?.stopped) report.watch.unshift(outageMessage(prev.failed, 'yesterday'));
+      }
+    }
+  } catch {
+    lookup = null;
+  }
+
+  // Round 18 integration: a source whose permit cards were mostly held as Background by the contact gate (more than 80% of at least 10 in
+  // the last 7 days) gets one Watch line ("DeKalb County permits: 92% held for no contact path, check the site-address field"). Silent
+  // when the gate is off (migration 0027 not applied) or on any read failure. Never throws.
+  const heldPermits = await loadHeldPermitReport(admin, now);
+  // At the front: the email shows the first 10 Watch lines.
+  report.watch.unshift(...heldPermits.lines);
 
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
@@ -163,5 +203,5 @@ export async function GET(req: Request) {
   // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
   const monitorResult = await monitor(admin, now, true, to);
 
-  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult, lookup, heldPermits }, { headers: { 'Cache-Control': 'no-store' } });
 }

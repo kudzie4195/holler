@@ -7,7 +7,7 @@ import { t } from '@/lib/i18n';
 
 const L = 'es' as const;
 
-/** Footer of the Spanish public pages. Privacy, terms and pricing are in English, and the links say so. */
+/** Footer of the Spanish public pages. Privacy and terms are in English (legal text needs a human translation), and the links say so. */
 export function FooterEs({ englishHref = '/' }: { englishHref?: string }) {
   const contact = contactAddress();
   const linkCls = 'h-link text-[0.9375rem] leading-snug text-on-brand';
@@ -24,7 +24,7 @@ export function FooterEs({ englishHref = '/' }: { englishHref?: string }) {
               <Link href="/es/check" className={linkCls}>{t(L, 'nav.check')}</Link>
             </li>
             <li>
-              <Link href="/pricing" hrefLang="en" className={linkCls}>{t(L, 'nav.pricing')}</Link>
+              <Link href="/es/pricing" className={linkCls}>{t(L, 'nav.pricing')}</Link>
             </li>
             <li>
               <Link href="/privacy" hrefLang="en" className={linkCls}>{t(L, 'footer.privacy')}</Link>

@@ -285,6 +285,11 @@ describe('every permit source: the privacy sweep', () => {
   it('every spec that names a contractor column reads it through the classifier only (no spec lists a *_full_name, owner or applicant name column; the DeKalb filer column only behind a type allow-list)', () => {
     for (const d of [...SOCRATA_DATASETS, ...ARCGIS_DATASETS]) {
       for (const o of d.contacts?.orgs ?? []) {
+        // Round 18: an owner-company column is read only with role 'owner' (registered-company rule, name only), on code violations only.
+        if (o.role === 'owner') {
+          expect(d.subtype, `${d.id}: an owner column only on a code violation`).toBe('violation');
+          continue;
+        }
         for (const f of o.nameFields) {
           if (d.id === 'arcgis-dekalb-permits' && f === 'primaryContactName') {
             expect(o.acceptType, 'DeKalb needs the allow-list').toBeInstanceOf(RegExp); // the one filer column, gated by an allow-list
@@ -316,5 +321,7 @@ describe('DeKalb primaryContactType allow-list matches whole types (review HSK r
     ['Non-Contractor'], ['Not a Contractor'], ['Landlord Contractor'], ['Self Builder'], ['Owner/Contractor'], ['Contractor (Owner)'], ['Owner-Builder'],
     ['Owner/Builder'], ['Applicant/Contractor'], ['Tenant Contractor'], ['Contractor Agent'], ['Home Owner'], ['Resident'], ['Applicant'], ['Agent'],
     ['Architect'], ['Engineer'], [''], ['Unknown'], ['Property Manager'], ['Not Contractor'], ['Self-Contractor'],
+    // round 18 redo (review P3-5): the whole type must match
+    ['Contractor Primary'], ['Contractor Authorized'], ['Contractor\u200B'], ['Builder (Owner)'], ['Contractor (self)'],
   ])('does not show %j', (t) => expect(shown(t)).toBe(false));
 });

@@ -1,4 +1,6 @@
 import 'server-only';
+import { holdOf, missingHoldColumn, shownHold, type AlertHold } from '@/lib/signals/alert-gate';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDistance, maskText } from '@/components/format';
 import type { ContactRecord } from '@/lib/contacts/types';
@@ -17,7 +19,7 @@ import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type Opport
 import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
-import { VALUE_SELECT } from '@/lib/signals/permit-value';
+import { VALUE_SELECT, jobValueOf } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
@@ -29,7 +31,10 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+
+/** MATCH_SELECT without alert_hold, for a database without migration 0027. */
+export const MATCH_SELECT_BEFORE_0027 = MATCH_SELECT.replace('alert_hold,', '');
 
 export interface SignalRow {
   id: number;
@@ -71,6 +76,8 @@ export interface SignalRow {
 
 export interface MatchRow {
   id: number;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). Absent before 0027. */
+  alert_hold?: string | null;
   status: string;
   distance_mi: number | null;
   draft: string | null;
@@ -112,7 +119,12 @@ function absolute(url: string | null | undefined, siteUrl: string): string | nul
   return /^https?:\/\//i.test(url) ? url : null;
 }
 
-function contactDto(c: ContactRecord): ContactDto {
+/**
+ * One contact for the app. An owner company on a code violation (round 18, role 'owner') is not sent: the app has no "Owner on the
+ * public record" wording or source link yet, and older app builds would print it under a bare role label.
+ */
+function contactDto(c: ContactRecord): ContactDto | null {
+  if (c.role === 'owner') return null;
   const out: ContactDto = { role: c.role, name: c.name };
   for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website', 'license'] as const) {
     if (c[k] !== undefined) out[k] = c[k] ?? null;
@@ -183,8 +195,15 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     feedback = await loadFeedback(deps.db, deps.userId, live.map((m) => signalOf(m)!.id));
   }
 
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the hold once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (!deps.locked && live.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(deps.db, deps.userId).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
   return live.map((m) => {
     const s = signalOf(m)!;
+    const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
@@ -217,13 +236,14 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
+      ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s), deps),
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
-      contacts: (contacts.get(s.id) ?? []).map(contactDto),
+      contacts: (contacts.get(s.id) ?? []).map(contactDto).filter((c): c is ContactDto => c !== null),
       draft: m.draft,
       ai: { note: null },
     };
@@ -240,9 +260,14 @@ export async function readFeedPage(
   userId: string,
   cursor: Cursor | null,
 ): Promise<{ rows: MatchRow[]; nextCursor: Cursor | null; error: boolean }> {
-  let q = db.from('holler_matches').select(MATCH_SELECT).eq('user_id', userId);
-  if (cursor) q = q.or(`created_at.lt."${cursor.createdAt}",and(created_at.eq."${cursor.createdAt}",id.lt.${cursor.id})`);
-  const { data, error } = await q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(FEED_PAGE_SIZE);
+  const read = (cols: string) => {
+    let q = db.from('holler_matches').select(cols).eq('user_id', userId);
+    if (cursor) q = q.or(`created_at.lt."${cursor.createdAt}",and(created_at.eq."${cursor.createdAt}",id.lt.${cursor.id})`);
+    return q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(FEED_PAGE_SIZE);
+  };
+  let { data, error } = await read(MATCH_SELECT);
+  // Before migration 0027 there is no alert_hold column: read again without it.
+  if (error && missingHoldColumn(error)) ({ data, error } = await read(MATCH_SELECT_BEFORE_0027));
   if (error) return { rows: [], nextCursor: null, error: true };
   const rows = (data ?? []) as unknown as MatchRow[];
   const last = rows[rows.length - 1];
@@ -251,7 +276,9 @@ export async function readFeedPage(
 
 /** The member's own match for one signal, or null. */
 export async function readOneMatch(db: Pick<SupabaseClient, 'from'>, userId: string, signalId: number): Promise<{ row: MatchRow | null; error: boolean }> {
-  const { data, error } = await db.from('holler_matches').select(MATCH_SELECT).eq('user_id', userId).eq('signal_id', signalId).limit(1);
+  const read = (cols: string) => db.from('holler_matches').select(cols).eq('user_id', userId).eq('signal_id', signalId).limit(1);
+  let { data, error } = await read(MATCH_SELECT);
+  if (error && missingHoldColumn(error)) ({ data, error } = await read(MATCH_SELECT_BEFORE_0027));
   if (error) return { row: null, error: true };
   const rows = (data ?? []) as unknown as MatchRow[];
   return { row: rows[0] ?? null, error: false };

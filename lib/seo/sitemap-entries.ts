@@ -2,7 +2,7 @@ import { cacheLife } from 'next/cache';
 import { CITIES, STATES, cityPath, citiesInState } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { absoluteUrl } from './canonical';
-import { ES_PAIRS } from '@/lib/i18n/seo';
+import { ES_PAIRS, ES_SITEMAP_PAIRS, type EsPair } from '@/lib/i18n/seo';
 import { loadPlaceCounts, type PlaceCounts } from './data';
 import { selectIndexableCities } from './select';
 import { GUIDES, guidePath } from './guides';
@@ -64,11 +64,12 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; 
   const { slugs } = selectIndexableCities(places);
   const bySlug = new Map(CITIES.map((c) => [c.slug, c]));
 
-  // The two pages that exist in English and Spanish (home, area check): both languages are listed, each with the same hreflang set.
-  const pair = (i: 0 | 1) => ({
-    languages: { en: absoluteUrl(ES_PAIRS[i].en), es: absoluteUrl(ES_PAIRS[i].es), 'x-default': absoluteUrl(ES_PAIRS[i].en) },
+  // The pages that exist in English and Spanish: both languages are listed, each with the same hreflang set (lib/i18n/seo.ts).
+  const pair = (p: EsPair) => ({
+    languages: { en: absoluteUrl(p.en), es: absoluteUrl(p.es), 'x-default': absoluteUrl(p.en) },
   });
-  const withPair = (e: SitemapEntry, i: 0 | 1): SitemapEntry => ({ ...e, alternates: pair(i) });
+  const withPair = (e: SitemapEntry, i: number): SitemapEntry => ({ ...e, alternates: pair(ES_PAIRS[i]) });
+  const pricingPair = ES_PAIRS[2];
 
   const entries: SitemapEntry[] = [
     withPair(entry('/', 'weekly', 1), 0),
@@ -81,10 +82,13 @@ export function buildEntries(input: { places: PlaceCounts; trades: TradeLive[]; 
     entry('/guides', 'monthly', 0.7),
     entry('/faq', 'monthly', 0.6),
     entry('/data', 'daily', 0.6),
-    entry('/pricing', 'monthly', 0.7),
+    { ...entry('/pricing', 'monthly', 0.7), alternates: pair(pricingPair) },
     entry('/request', 'monthly', 0.5),
     entry('/delete-account', 'monthly', 0.1),
   ];
+  // Spanish pricing and account pages (round 18 ES). The English sign-up, log-in and password pages are noindex, so only the Spanish
+  // side is listed; /es/reset is noindex and left out (ES_SITEMAP_PAIRS).
+  for (const p of ES_SITEMAP_PAIRS.filter((x) => x !== ES_PAIRS[0] && x !== ES_PAIRS[1])) entries.push({ ...entry(p.es, 'monthly', p === pricingPair ? 0.6 : 0.3), alternates: pair(p) });
   // A guide's lastmod is its own reviewed date, a constant in the guide data. The other new pages have no stored change time, so none is given.
   for (const g of GUIDES) entries.push(entry(guidePath(g.slug), 'monthly', 0.7, toDate(g.lastReviewed)));
   for (const s of STATES) {

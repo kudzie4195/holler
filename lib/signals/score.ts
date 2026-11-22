@@ -69,9 +69,12 @@ export function scoreOf(i: ScoreInput): Score {
   return { score: parts.contact + parts.value + parts.fresh + parts.tradeFit + parts.lowCompetition, parts };
 }
 
-/** A contact counts for the score only when it names an organisation: a bare job-site address (role 'site', no name) does not. */
+/**
+ * A contact counts for the score only when it names an organisation a member can reach: a bare job-site address (role 'site', no name)
+ * does not, and neither does an owner company on a code violation (round 18 redo, review P3-1: the e-mail and the app never show it).
+ */
 export function hasNamedContact(contacts: readonly { role: string; name?: string | null }[] | null | undefined): boolean {
-  return (contacts ?? []).some((c) => c.role !== 'site' && typeof c.name === 'string' && c.name.trim().length > 0);
+  return (contacts ?? []).some((c) => c.role !== 'site' && c.role !== 'owner' && typeof c.name === 'string' && c.name.trim().length > 0);
 }
 
 const JOB_VALUE_RE = /\$\s*([\d]{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s+job value/i;

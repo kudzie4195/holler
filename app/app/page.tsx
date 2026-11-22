@@ -13,6 +13,7 @@ import { VerifyNotice } from './verify-notice';
 import { computeAccess } from '@/lib/auth/access';
 import { cityPageFor } from '@/lib/auth/city-link';
 import { requireProfile } from '@/lib/auth/session';
+import { repairShortTrial } from '@/lib/auth/trial';
 import { createClient } from '@/lib/supabase/server';
 import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
@@ -37,11 +38,18 @@ import { coverageNotice } from '@/lib/check/coverage-notice';
 import { CoverageNoticeLine } from '@/components/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
-import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
+import { VALUE_SELECT, jobValueOf, parseMoney } from '@/lib/signals/permit-value';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import { STAGE_SELECT } from '@/lib/signals/stage';
-import { langOfProfile, t } from '@/lib/i18n';
+import { langOfProfile, t, type Lang } from '@/lib/i18n';
 import { BuildersPanel } from '@/components/builders/builders-panel';
 import { builderScopeOf } from '@/lib/builders/cached';
+import { buildersPanelEnabled } from '@/lib/builders/switch';
+import { planNameEs, renewalNoteEs } from '@/lib/plan/price-copy-es';
+import { holdOf, missingHoldColumn, shownHold } from '@/lib/signals/alert-gate';
+import { isAlertLabel } from '@/lib/signals/lead-rules';
+import { stormCardLinks } from '@/lib/lists/load';
+import { listLinkFor } from '@/lib/lists/card';
 
 interface SignalRow {
   id: number;
@@ -90,15 +98,21 @@ interface MatchRow {
   distance_mi: number | null;
   draft: string | null;
   created_at: string;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts): shown on the card, never alerted. Absent before 0027. */
+  alert_hold?: string | null;
   signal: SignalRow | SignalRow[] | null;
 }
 
 /** Loads the feed. Kept out of the component so time-dependent values (trial days, "x min ago") are computed per request. */
 async function loadDashboard() {
-  const { user, profile } = await requireProfile();
+  const { user, profile: loaded } = await requireProfile();
   const supabase = await createClient();
 
   const now = Date.now();
+  // Round 18: a never-paid trial row shorter than start + TRIAL_DAYS (an onboarding server step that failed before migration 0028) is
+  // moved there now, with the same guard as onboarding. A row that is already right costs no query. Never throws.
+  const repairedEnd = await repairShortTrial(user, loaded, createAdminClient, new Date(now));
+  const profile = repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
   const lang = langOfProfile(profile);
   const access = computeAccess(profile, now);
   // Source states (lib/signals/source-state.ts): started here so the cached read runs alongside the feed queries below instead of
@@ -106,14 +120,17 @@ async function loadDashboard() {
   const snapshotRead =
     !access.locked && profile.lat !== null && profile.lon !== null ? loadSourceStateSnapshot().catch(() => null) : null;
 
-  const { data, error } = await supabase
+  // alert_hold (migration 0027) is read with the match; before 0027 that read fails on the column and is made again without it.
+  const readFeed = (holdCol: string) => supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100);
+  let { data, error } = await readFeed('alert_hold,');
+  if (error && missingHoldColumn(error)) ({ data, error } = await readFeed(''));
 
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
@@ -149,10 +166,10 @@ async function loadDashboard() {
   // account. The loader checks the match owner again. Any failure means no contacts and the feed renders as before.
   let contactsBySignal = new Map<number, ContactRecord[]>();
   if (!access.locked) {
-    const signalIds = rows
+    const withContacts = rows
       .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
-      .filter((s) => mayHaveContacts(s.source, s.kind))
-      .map((s) => s.id);
+      .filter((s) => mayHaveContacts(s.source, s.kind));
+    const signalIds = withContacts.map((s) => s.id);
     if (signalIds.length > 0) {
       try {
         contactsBySignal = await loadMemberContacts({
@@ -160,6 +177,8 @@ async function loadDashboard() {
           userId: user.id,
           signalIds,
           locked: false,
+          // Round 18: a business's public listing found earlier by the alert run is shown under its name (cache read only, no call).
+          places: new Map(withContacts.map((s) => [s.id, { city: s.city, state: s.state }])),
         });
       } catch {
         contactsBySignal = new Map();
@@ -196,9 +215,21 @@ async function loadDashboard() {
     }
   }
   // Act Now first, then the deterministic score (PLAN-2.0 item 2.7), then the AI ranking or newest-first order the rows already have (a stable sort).
+  // A feed-only card (alert_hold) sorts with the market insights, after every alert. A 'background' card whose text or contacts name a
+  // place or a business shows no hold (shownHold): the feed never says "no site address" next to one.
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the chip once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (rows.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(supabase, user.id).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
+  const holdShown = (m: MatchRow) => {
+    const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+  };
   const ordered = orderByLabelScore(
     ranked,
-    (m) => labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow),
+    (m) => (holdShown(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)),
     (m) => {
       const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
       return feedScoreFor(
@@ -208,6 +239,23 @@ async function loadDashboard() {
       );
     },
   );
+  // Address lists (round 18, unit LISTS): an act_now or coming_soon storm card the member already has may point to the permitted addresses
+  // near its report. No new card, no new alert: only a line on a card that is already here. Never for a locked account; any failure, no line.
+  let stormLinks = new Map<number, { kind: 'hail' | 'wind'; count: number }>();
+  if (!access.locked) {
+    const stormIds = ordered
+      .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
+      .filter((s) => s.source === 'spc' && isAlertLabel(labelOf(s)))
+      .map((s) => s.id);
+    if (stormIds.length > 0) {
+      stormLinks = await stormCardLinks(
+        supabase,
+        { user_id: user.id, categories: profile.categories, lat: profile.lat, lon: profile.lon, state: profile.state, radius_mi: profile.radius_mi, plan: profile.plan ?? null, subscription_status: profile.subscription_status, plan_source: profile.plan_source ?? null, store_expires_at: profile.store_expires_at ?? null, extra_areas: profile.extra_areas, keywords: profile.keywords ?? null },
+        stormIds,
+        new Date(now),
+      );
+    }
+  }
   const items: FeedItem[] = ordered.map((m) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
@@ -232,6 +280,7 @@ async function loadDashboard() {
       zip: s.zip,
       subtype: s.subtype ?? null,
       label: labelOf(s),
+      ...(holdShown(m) ? { hold: holdShown(m) } : {}),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
       trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
       deadline: deadlineOf(s),
@@ -248,6 +297,8 @@ async function loadDashboard() {
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : null,
     };
+    const storm = stormLinks.get(s.id);
+    if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
         const contact: Partial<ContactRecord> = { ...c };
@@ -256,7 +307,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, managerName: null, managerRole: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, managerName: null, managerRole: null, listLink: null }
       : base;
   });
 
@@ -284,12 +335,14 @@ async function loadDashboard() {
     coverage = null;
   }
 
-  return { profile, lang, access, cityPage, items, firstRun, failed: Boolean(error), coverage };
+  // "Who's building near you" ships dark (round 19 integration): rendered only with HOLLER_BUILDERS_PANEL_ENABLED on, never for a locked account.
+  const buildersOn = !access.locked && buildersPanelEnabled();
+  return { profile, lang, access, cityPage, items, firstRun, failed: Boolean(error), coverage, buildersOn };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, lang, access, cityPage, items, firstRun, failed, coverage } = await loadDashboard();
+  const { profile, lang, access, cityPage, items, firstRun, failed, coverage, buildersOn } = await loadDashboard();
 
   return (
     <>
@@ -315,17 +368,23 @@ export default async function AppHome(props: PageProps<'/app'>) {
           </Link>
         ) : null}
       </p>
+      {/* Address lists (round 18, unit LISTS): reachable at every width; the header link shows from 400 px up. */}
+      <p className="mt-1">
+        <Link href="/app/lists" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline md:min-h-9">
+          {t(lang, 'lists.open_from_app')}
+        </Link>
+      </p>
 
       <div className="mt-6 flex flex-col gap-4 empty:hidden">
         {upgraded ? (
           <Notice tone="success" role="status">
-            Thanks. Your payment went through. It can take a few seconds to show up here.
+            {lang === 'en' ? 'Thanks. Your payment went through. It can take a few seconds to show up here.' : t(lang, 'app.upgraded')}
           </Notice>
         ) : null}
-        {profile.email_verified_at ? null : <VerifyNotice />}
-        <TrialBanner access={access} />
+        {profile.email_verified_at ? null : <VerifyNotice lang={lang} />}
+        <TrialBanner access={access} lang={lang} />
         <CoverageNoticeLine line={coverage} />
-        {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
+        {failed ? <Notice tone="danger" role="alert">{lang === 'en' ? "We couldn't load your matches. Refresh in a moment." : t(lang, 'app.load_failed')}</Notice> : null}
       </div>
 
       <div className="mt-6">
@@ -346,6 +405,9 @@ export default async function AppHome(props: PageProps<'/app'>) {
           )
         ) : access.locked ? (
           <LockedFeed items={items} lang={lang}>
+            {lang !== 'en' ? (
+              <LockedCard lang={lang} count={items.length} inTrial={!access.trialEnded} />
+            ) : (
             <Card className="text-center">
               <h2 className="h-plain text-2xl text-ink">Your free trial is over</h2>
               <p className="mt-2 text-muted">
@@ -370,14 +432,15 @@ export default async function AppHome(props: PageProps<'/app'>) {
                 </Link>
               </div>
             </Card>
+            )}
           </LockedFeed>
         ) : (
           <Feed items={items} cityPage={cityPage} firstRun={firstRun} lang={lang} />
         )}
       </div>
       {/* Companies that pulled permits near the member (lib/builders, round 19): cached 15 minutes, in its own Suspense below the feed,
-          never for a locked account. Read only: no card, match or alert. */}
-      {access.locked ? null : (
+          never for a locked account, and only with HOLLER_BUILDERS_PANEL_ENABLED on (lib/builders/switch.ts). Read only: no card, match or alert. */}
+      {access.locked || !buildersOn ? null : (
         <Suspense fallback={null}>
           <BuildersPanel userId={profile.user_id} scope={builderScopeOf(profile)} lang={lang} />
         </Suspense>
@@ -387,7 +450,36 @@ export default async function AppHome(props: PageProps<'/app'>) {
   );
 }
 
-function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
+/** The card over a locked feed, in Spanish (round 18 ES). The English card above is unchanged. Prices from the price table. */
+function LockedCard({ lang, count, inTrial }: { lang: Lang; count: number; inTrial: boolean }) {
+  return (
+    <Card className="text-center">
+      <h2 className="h-plain text-2xl text-ink">{t(lang, 'app.locked.h')}</h2>
+      <p className="mt-2 text-muted">
+        {count > 0 ? `${t(lang, count === 1 ? 'app.locked.waiting_one' : 'app.locked.waiting_many', { n: count })} ` : ''}
+        {t(lang, 'app.locked.prices', { solo: planNameEs('starter'), soloPrice: priceLabel('starter', 'monthly'), pro: planNameEs('pro'), proPrice: priceLabel('pro', 'monthly') })}
+      </p>
+      <div className="mt-5 flex flex-col items-center gap-3">
+        <BillingButton
+          endpoint="/api/stripe/checkout"
+          tier="starter"
+          plan="monthly"
+          lang={lang}
+          unavailableMessage={t(lang, 'app.locked.unavailable')}
+          note={renewalNoteEs('starter', 'monthly', { inTrial })}
+        >
+          {t(lang, 'app.locked.cta', { price: priceLabel('starter', 'monthly') })}
+        </BillingButton>
+        <Link href="/app/settings#billing-h" className="text-sm font-medium text-brand-text underline">
+          {t(lang, 'app.locked.both')}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function TrialBanner({ access, lang = 'en' }: { access: ReturnType<typeof computeAccess>; lang?: Lang }) {
+  if (lang !== 'en') return <TrialBannerLang access={access} lang={lang} />;
   if (access.status === 'past_due') {
     return (
       <Notice tone="warn">
@@ -412,6 +504,38 @@ function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
           </span>
           <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
             Pick a plan
+          </Link>
+        </div>
+      </Notice>
+    );
+  }
+  return null;
+}
+
+/** The trial and payment banner in Spanish (round 18 ES). Same states and links as TrialBanner. */
+function TrialBannerLang({ access, lang }: { access: ReturnType<typeof computeAccess>; lang: Lang }) {
+  if (access.status === 'past_due') {
+    return (
+      <Notice tone="warn">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span>{t(lang, 'app.past_due')}</span>
+          <BillingButton endpoint="/api/stripe/portal" variant="secondary" size="sm" lang={lang}>
+            {t(lang, 'app.manage_billing')}
+          </BillingButton>
+        </div>
+      </Notice>
+    );
+  }
+  if (access.status === 'trialing' && !access.trialEnded) {
+    return (
+      <Notice tone="info">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span>
+            <strong className="font-semibold">{t(lang, access.daysLeft === 1 ? 'app.trial.days_one' : 'app.trial.days_many', { n: access.daysLeft })}</strong>{' '}
+            {t(lang, 'app.trial.rest', { price: priceLabel('starter', 'monthly') })}
+          </span>
+          <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
+            {t(lang, 'app.pick_plan')}
           </Link>
         </div>
       </Notice>

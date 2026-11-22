@@ -20,6 +20,7 @@ import {
   type BriefSource,
   type CardBrief,
   type CardBriefInput,
+  isInteriorDemolitionCard,
 } from './brief';
 import { BID_LIST_LINK_LABEL, BID_PORTAL_LINK_LABEL, bidSourceLinkLabel } from './bid-card';
 import { isResidentialHeatTitle, companyNameOf } from './managed-by';
@@ -116,6 +117,11 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
     const noun = t(lang, NOUN_KEY[routedParts.noun]);
     const homes = routedParts.kind === 'new-build' && trade === 'cleaning' && routedParts.noun === 'A new-home permit';
     return t(lang, key(`brief.route.${routedParts.kind}|${trade}${homes ? '.homes' : ''}`), { permit: noun });
+  }
+  // A junk-removal card for an alteration with interior demolition: say what the record is, never "a demolition permit" (review 2, P2-1).
+  if (isInteriorDemolitionCard(label, family, trade, input.title)) {
+    const typed = ctx.permitType ? t(lang, 'brief.why.permit.interior_demolition_typed', { type: ctx.permitType }) : null;
+    return typed && typed.length <= max ? typed : t(lang, 'brief.why.permit.interior_demolition');
   }
   const override = `brief.override.${label}|${family}|${trade}`;
   if (trade && hasDictKey(override)) return t(lang, key(override));

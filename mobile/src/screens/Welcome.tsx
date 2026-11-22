@@ -30,7 +30,12 @@ export function Welcome() {
   const [busy, setBusy] = useState<SocialProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const buttons = socialButtonsFor(config.flags);
-  const trialDays = app.config?.trialDays;
+  // The server builds the trial wording from its one constant (trialHeadline, the 2-month headline); an older server only sends the day count.
+  const trialLine = app.config?.trialHeadline
+    ? ` ${app.config.trialHeadline}, no card.`
+    : app.config?.trialDays
+      ? ` Free for ${app.config.trialDays} days, no card.`
+      : '';
 
   async function social(provider: SocialProvider) {
     setError(null);
@@ -62,7 +67,7 @@ export function Welcome() {
             <h2 className="title">Find nearby work in public records.</h2>
             <p className="muted">
               Permits, storm reports and local requests near you, sorted for your trade. New ones reach your phone.
-              {trialDays ? ` Free for ${trialDays} days, no card.` : ''}
+              {trialLine}
             </p>
           </div>
           {app.notice ? <Notice tone="warn">{app.notice}</Notice> : null}

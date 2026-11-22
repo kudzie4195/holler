@@ -273,3 +273,197 @@ describe('a construction stage update (round 17, STAGE) for a Spanish member', (
     expect(leaks(html, dataOf(c))).toEqual([]);
   });
 });
+
+/**
+ * Round 18, unit ES: the new Spanish pages (pricing, sign-up, log-in, password, confirm, onboarding), the signed-in app for a Spanish
+ * member (header, feed chrome and banners in every trial and billing state, Settings in every billing state, account deletion, the verify
+ * notice) and every new Spanish email and token page. Same denylist as above (it now also holds the English UI words of the pricing,
+ * account, Settings and email strings, from lib/i18n/en-account.ts). Data allowed: the business name, the place and the email address.
+ */
+describe('round 18: new Spanish pages, the app for a Spanish member, and the Spanish account emails', () => {
+  /** Labels that may still say "(en inglés)": the pages that are English on purpose (privacy, terms, the full FAQ). */
+  const ENGLISH_ON_PURPOSE = ['Privacidad (en inglés)', 'Términos (en inglés)', 'términos (en inglés)', 'Política de privacidad (en inglés)', 'Todas las preguntas (en inglés)'];
+  // "Solo" is also "only": it must always be "Plan Solo", and "Plan Solo" is never the subject of a verb ("El plan Solo cuesta" reads as
+  // "the plan only costs"); the copy writes "Plan Solo: $7.99 al mes" or puts the name after a preposition ("del Plan Solo").
+  const soloAlone = (s: string) => [
+    ...[...s.matchAll(/(?<!\p{L})s[oó]lo(?!\p{L})/giu)].filter((m) => !/plan\s+$/i.test(s.slice(Math.max(0, (m.index ?? 0) - 5), m.index))).map((m) => s.slice(Math.max(0, (m.index ?? 0) - 30), (m.index ?? 0) + 20)),
+    ...[...s.matchAll(/plan solo\s+(?:cuesta|es|incluye|cubre|tiene|da|sirve|vale)(?!\p{L})/giu)].map((m) => m[0]),
+  ];
+
+  it('every surface: no English UI word, no Spanish wording rule broken, "Plan Solo" never "Solo" alone, "(en inglés)" only on English-only pages', async () => {
+    const { renderSpanish } = await import('./r18-spanish');
+    const { spanishProblems } = await import('@/lib/i18n/rules');
+    const all = await renderSpanish();
+    expect(Object.keys(all).length).toBeGreaterThanOrEqual(53);
+    for (const [k, s] of Object.entries(all)) {
+      expect(leaks(s.out, s.data), k).toEqual([]);
+      let plain = without(text(s.out).replace(/https?:\/\/\S+/g, ' '), s.data);
+      expect(soloAlone(plain), k).toEqual([]);
+      for (const ok of ENGLISH_ON_PURPOSE) plain = plain.split(ok).join(' ');
+      expect(plain, k).not.toContain('(en inglés)');
+      expect(spanishProblems(plain), k).toEqual([]);
+    }
+  }, 120_000);
+
+  it('the check is live: an English word or a bare "Solo" in a Spanish page is caught', () => {
+    expect(leaks('<p>Billing questions: Manage billing in Settings</p>', [])).toEqual(expect.arrayContaining(['billing', 'manage', 'settings']));
+    expect(soloAlone('El plan Solo cuesta $7.99')).toHaveLength(1);
+    expect(soloAlone('Plan Solo: $7.99 al mes')).toEqual([]);
+    expect(soloAlone('Solo cuesta $7.99 al mes')).toHaveLength(1);
+    expect(soloAlone('La prueba usa los límites del Plan Solo.')).toEqual([]);
+  });
+});
+
+describe('round 18 integration: the other units\' screens for a Spanish member (lists, door hanger, work profile, lookup lines, holds)', () => {
+  const BIZ = 'Techos Ramírez';
+  const DATA = [BIZ, 'Atlanta, GA', 'Atlanta', 'Smyrna, GA', 'Smyrna', 'Cobb', '1584 ABNER NW', '22 OAK ST', '30318', '30080', '2 N Smyrna, GA', '404-555-0123', 'peachtreeroofing.example', 'Peachtree Roofing LLC'];
+
+  it('lists index, storm list, neighborhood list, door hanger (the print view is the page itself), work profile, lookup lines and hold chips', async () => {
+    const { baseMocks, appMocks } = await import('./r18-harness');
+    const { esMember } = await import('./r18-spanish');
+    const { renderResolved } = await import('./render-tree');
+    const { spanishProblems } = await import('@/lib/i18n/rules');
+    const day = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
+    const report = { id: 9001, kind: 'hail', label: 'act_now', title: '1.75 inch hail reported near 2 N Smyrna, GA', city: 'Smyrna', state: 'GA', county: 'Cobb', occurredAt: day(1), reportDay: day(1).slice(0, 10), url: 'https://www.spc.noaa.gov/climo/reports/', lat: 33.9, lon: -84.51 };
+    const entries = [
+      { address: '1584 ABNER NW', zip: '30318', city: 'Atlanta', state: 'GA', permitType: 'Roof', date: day(3).slice(0, 10), url: 'https://example.org/p/1', distanceMi: 0.8 },
+      { address: '22 OAK ST', zip: '30080', city: 'Smyrna', state: 'GA', permitType: null, date: day(5).slice(0, 10), url: 'https://example.org/p/2', distanceMi: 1.6 },
+    ];
+    const list = { entries, total: 2, capped: false, hasApprox: false, partial: false };
+    const out: Record<string, string> = {};
+    baseMocks({ profile: esMember({ categories: ['roofing', 'landscaping'] }) });
+    appMocks();
+    vi.doMock('@/lib/lists/load', async (orig) => ({
+      ...(await orig<typeof import('@/lib/lists/load')>()),
+      loadStormReports: async () => [report],
+      loadStormReport: async () => report,
+      loadStormList: async () => list,
+      loadAreaCounts: async () => [{ trade: 'landscaping', total: 2, partial: false }],
+      loadAreaList: async () => ({ ...list, entries: entries.map((e) => ({ ...e, distanceMi: null })) }),
+    }));
+    const sp = (q: Record<string, string>) => ({ params: Promise.resolve({}), searchParams: Promise.resolve(q) }) as never;
+    out['lists.index'] = await renderResolved(createElement((await import('@/app/app/lists/page')).default));
+    out['lists.storm'] = await renderResolved((await import('@/app/app/lists/storm/page')).default(sp({ id: '9001' })));
+    out['lists.area'] = await renderResolved((await import('@/app/app/lists/area/page')).default(sp({ trade: 'landscaping' })));
+    out['lists.door-hanger'] = await renderResolved((await import('@/app/app/lists/door-hanger/page')).default(sp({})));
+    out['lists.door-hanger.storm'] = await renderResolved((await import('@/app/app/lists/door-hanger/page')).default(sp({ storm: '1' })));
+    const { DoorHanger } = await import('@/components/lists/door-hanger');
+    out['hanger.storm'] = renderToStaticMarkup(createElement(DoorHanger, { lang: 'es', initialBusiness: BIZ, storm: true }));
+    // Settings "What work do you take?" for a Spanish member (the Settings page itself is in the round 18 ES block above)
+    const { WorkProfileForm } = await import('@/components/work-profile-form');
+    out['settings.work'] = renderToStaticMarkup(createElement(WorkProfileForm, { action: async () => ({}), current: { property: 'both', minValue: 5000, type: 'both' } as never, lang: 'es' }));
+    // the lookup's phone and website lines, on a card
+    const { WhoToContact } = await import('@/components/feed/who-to-contact');
+    out['card.lookup'] = renderToStaticMarkup(
+      createElement(WhoToContact, {
+        item: { source: 'arcgis-atlanta-permits', kind: 'permit', city: 'Atlanta', state: 'GA', summary: 'Roof | 1584 ABNER NW' },
+        contacts: [{ role: 'contractor', name: 'Peachtree Roofing LLC', listing: { phone: '404-555-0123', website: 'https://peachtreeroofing.example/' } } as never],
+        lang: 'es',
+      }),
+    );
+    // the feed notes of the contact gate and the work profile
+    const { OpportunityChip } = await import('@/components/feed/opportunity-chip');
+    out['chip.background'] = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', lang: 'es', hold: 'background' }));
+    out['chip.below_min'] = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', lang: 'es', hold: 'below_min' }));
+
+    // A storm list prints its damage line in English AND Spanish for every member, on purpose (round 18 LISTS criterion 1).
+    const { DAMAGE_LINE } = await import('@/lib/lists/core');
+    for (const [k, html] of Object.entries(out)) {
+      const data = k === 'lists.storm' ? [...DATA, DAMAGE_LINE.en] : DATA;
+      expect(html.length, k).toBeGreaterThan(40);
+      expect(leaks(html, data), k).toEqual([]);
+      expect(spanishProblems(without(text(html).replace(/https?:\/\/\S+/g, ' '), data)), k).toEqual([]);
+    }
+    expect(text(out['lists.storm'])).toContain(DAMAGE_LINE.es);
+    expect(text(out['settings.work'])).toContain(es['settings.work.hint']);
+    expect(text(out['card.lookup'])).toContain(es['listing.note']);
+    expect(text(out['chip.background'])).toContain('Referencia');
+    expect(text(out['chip.below_min'])).toContain('Por debajo de su mínimo');
+    expect(text(out['lists.storm'])).toContain('1584 ABNER NW');
+    expect(text(out['lists.index'])).toContain(es['lists.title']);
+  }, 60_000);
+});
+
+describe('round 19 integration: the strings that came from r19-metros, for a Spanish reader', () => {
+  const DATA = ['Victory Plumbing Company', 'Charge Electrical Services LLC', 'Philadelphia, PA', 'Philadelphia', 'PA', '512-990-7200', 'Austin, TX', 'Austin', 'TX', 'Roof permit in Austin'];
+
+  it('builders panel, waitlist confirm page (all four states) and email, lifecycle chips, the fifth Coming-next feature', async () => {
+    const { spanishProblems } = await import('@/lib/i18n/rules');
+    const out: Record<string, string> = {};
+    const { ActiveBuilders } = await import('@/components/builders/active-builders');
+    out['builders'] = renderToStaticMarkup(
+      createElement(ActiveBuilders, {
+        lang: 'es',
+        windowDays: 30,
+        builders: [
+          { name: 'Victory Plumbing Company', permits: 3, kinds: ['plumbing', 'new home'], newest: NOW.toISOString(), phone: '512-990-7200', relation: 'same-trade' },
+          { name: 'Charge Electrical Services LLC', permits: 1, kinds: ['electrical'], newest: NOW.toISOString(), phone: null, relation: 'other' },
+        ],
+      }),
+    );
+    vi.doMock('@/lib/waitlist/zip-confirm-deps', () => ({ zipWaitlistConfirmDeps: () => ({}) }));
+    const codes = { v: 'confirmed' as string };
+    vi.doMock('@/lib/waitlist/zip-confirm', () => ({ confirmWaitlist: async () => ({ code: codes.v }) }));
+    vi.resetModules();
+    const route = await import('@/app/waitlist/confirm/route');
+    const post = async (code: string) => {
+      codes.v = code;
+      const fd = new FormData();
+      fd.set('token', 'abc.def');
+      fd.set('lang', 'es');
+      return (await route.POST(new Request('https://localholler.com/waitlist/confirm', { method: 'POST', body: fd }))).text();
+    };
+    out['wl.get'] = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=abc.def&lang=es')).text();
+    out['wl.get.bad'] = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=bad&lang=es')).text();
+    out['wl.done'] = await post('confirmed');
+    out['wl.invalid'] = await post('invalid');
+    out['wl.error'] = await post('unavailable');
+    const { renderWaitlistConfirm } = await import('@/lib/email/templates');
+    const mail = renderWaitlistConfirm({ confirmUrl: 'https://localholler.com/waitlist/confirm?token=abc.def&lang=es', place: 'Philadelphia, PA', lang: 'es' });
+    out['wl.email.subject'] = mail.subject;
+    out['wl.email.html'] = mail.html;
+    out['wl.email.text'] = mail.text;
+    const { renderWelcomeMatches } = await import('@/lib/lifecycle/templates');
+    const items = (['act_now', 'coming_soon', 'market_insight'] as const).map((label, i) => ({ title: 'Roof permit in Austin', city: 'Austin', state: 'TX', occurredAt: NOW.toISOString(), kind: 'permit', subtype: 'permit', source: 'socrata-austin-permits', label, severity: i + 1 }));
+    const life = renderWelcomeMatches({ businessName: 'Techos Ramírez', feedUrl: 'https://localholler.com/app', plansUrl: 'https://localholler.com/pricing', unsubscribeUrl: 'https://localholler.com/u', total: 3, items, lang: 'es' });
+    out['life.html'] = life.html;
+    out['life.text'] = life.text;
+    const { ComingNext } = await import('@/components/coming-next');
+    out['coming-next'] = renderToStaticMarkup(createElement(ComingNext, { page: 'pricing', lang: 'es' }));
+
+    for (const [k, html] of Object.entries(out)) {
+      // the support address (email.contact_us) is data, not prose
+      const data = [...DATA, 'Techos Ramírez', ...(html.match(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi) ?? [])];
+      expect(html.length, k).toBeGreaterThan(20);
+      expect(leaks(html, data), k).toEqual([]);
+      expect(spanishProblems(without(text(html).replace(/https?:\/\/\S+/g, ' '), data)), k).toEqual([]);
+    }
+    expect(text(out['builders'])).toContain(es['builders.title']);
+    expect(text(out['wl.get'])).toContain(es['wl.confirm.title']);
+    expect(out['wl.get']).toContain('name="lang" value="es"');
+    expect(out['wl.get']).toContain('<html lang="es">');
+    expect(text(out['wl.done'])).toContain(es['wl.confirm.done.title']);
+    expect(text(out['wl.invalid'])).toContain(es['wl.confirm.inactive.title']);
+    expect(text(out['wl.error'])).toContain(es['wl.confirm.error.title']);
+    expect(text(out['wl.email.html'])).toContain(es['wl.email.h']);
+    for (const chip of ['chip.act_now', 'chip.coming_soon', 'chip.market_insight'] as const) expect(out['life.text'], chip).toContain(es[chip]);
+    expect(text(out['coming-next'])).toContain(es['next.f.more-areas.label']);
+  }, 60_000);
+
+  it('English is unchanged: the confirm page and email without lang read exactly as round 19 wrote them', async () => {
+    vi.resetModules();
+    vi.doUnmock('@/lib/waitlist/zip-confirm');
+    const route = await import('@/app/waitlist/confirm/route');
+    const get = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=abc.def')).text();
+    expect(get).toContain('<html lang="en">');
+    expect(get).toContain('<title>Confirm your email</title>');
+    expect(get).toContain('Press the button and we will send you one email when Holler launches in your area. Nothing else.');
+    expect(get).not.toContain('name="lang"');
+    const bad = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=bad')).text();
+    expect(bad).toContain('It may have expired. Check your ZIP code again to get a new link.');
+    const { renderWaitlistConfirm } = await import('@/lib/email/templates');
+    const m = renderWaitlistConfirm({ confirmUrl: 'https://x.test/c', place: 'Austin, TX' });
+    expect(m.subject).toBe('Confirm: tell me when Holler reaches Austin, TX');
+    expect(m.text.startsWith('One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near Austin, TX are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: https://x.test/c\n\nThe link works for 7 days.')).toBe(true);
+  });
+});

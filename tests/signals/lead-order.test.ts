@@ -367,7 +367,7 @@ describe('trades with no live source yet (review P0-2)', () => {
     expect(tradeNoLiveSource('solar')).toBe(false); // solar gets feed-only permits, so it still has a populated feed
   });
   it('the picker, the save and the mobile config use it', () => {
-    for (const f of ['app/onboarding/page.tsx', 'app/app/settings/page.tsx']) expect(readFileSync(f, 'utf8'), f).toMatch(/noLiveSource: tradeNoLiveSource\(c\.id\)/);
+    for (const f of ['lib/plan/profile-categories.ts', 'app/app/settings/page.tsx']) expect(readFileSync(f, 'utf8'), f).toMatch(/noLiveSource: tradeNoLiveSource\(c\.id\)/);
     expect(readFileSync('components/profile-form.tsx', 'utf8')).toContain('No live source yet');
     expect(readFileSync('lib/auth/profile.ts', 'utf8')).toMatch(/!tradeNoLiveSource\(c\)/);
     expect(readFileSync('lib/mobile/config.ts', 'utf8')).toMatch(/!tradeNoLiveSource\(c\.id\)/);

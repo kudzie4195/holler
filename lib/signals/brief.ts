@@ -494,6 +494,22 @@ export interface Brief {
   uncertain: string;
 }
 
+/**
+ * A junk-removal Coming soon card whose permit title names no demolition (round 18 review 2, P2-1): it reaches the member through
+ * lead-rules.ts soon-interior-demolition-hauling, the demolition inside an alteration (mapping/permit.ts tagOnly). Its sentence says what
+ * the record is, a permit that includes demolition work, never "a demolition permit". A brief built with no title (a locked member) is
+ * not one: the title is the only proof the permit is not a demolition permit.
+ */
+export function isInteriorDemolitionCard(label: string, family: string, trade: string | null | undefined, title: string | null | undefined): boolean {
+  return label === 'coming_soon' && family === 'permit' && trade === 'junk-removal' && typeof title === 'string' && title.trim() !== '' && !/\bdemolition\b/i.test(title);
+}
+
+/** The interior-demolition sentence (English), with the permit's own type when it fits in MAX_WHY. */
+export function interiorDemolitionWhy(permitType: string | null | undefined): string {
+  const typed = permitType ? `A permit that includes demolition work was filed nearby (${permitType}).` : null;
+  return typed && typed.length <= MAX_WHY ? typed : 'A permit that includes demolition work was filed nearby; hauling may follow.';
+}
+
 /** The brief for one record, one label and one trade. Pure, total: any input gives a complete brief. */
 export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): Brief {
   const family = briefFamilyOf(input);
@@ -508,7 +524,8 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
   const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
-  const why = routed ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
+  const interiorDemo = !routed && isInteriorDemolitionCard(label, family, trade, input.title) ? interiorDemolitionWhy(ctx.permitType) : null;
+  const why = routed ?? interiorDemo ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
   // Damage: the brief never says "no damage is reported" (a word list cannot prove a record has no damage). A storm report or quake whose

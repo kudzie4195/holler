@@ -9,7 +9,7 @@ import { BUILDER_WINDOW_DAYS, summarizeBuilders, type ActiveBuilder, type Builde
 /**
  * Ported in round 19 UNIFY from origin/r10-integrate (9de8594, 0cd8361). Adapted to this base: access is lib/contacts/load.ts
  * memberHasAccess (the same "who may see contacts" rule as contactsForMember, re-read here), the area test is this base's
- * lib/signals/match.ts matchArea, names pass this base's organisation check (lib/builders/active.ts builderName). Read only: it writes
+ * lib/signals/match.ts matchArea, names pass the round 18 contractor business-name rule (lib/builders/active.ts builderName). Read only: it writes
  * nothing, creates no card, match or alert.
  *
  * Builders active near one member: permits in the last 30 days inside the member's area, joined to their contractor contacts.

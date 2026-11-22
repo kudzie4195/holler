@@ -48,7 +48,7 @@ export function annualSavingsCents(tier: Tier): number {
 }
 
 /**
- * THE annual saving phrase: "save 16%", computed from the cents and rounded down. Holler's only free offer is the 14-day trial,
+ * THE annual saving phrase: "save 16%", computed from the cents and rounded down. Holler's only free offer is the free trial (TRIAL_DAYS, 60 days),
  * so the yearly saving is only ever stated as a percent. Empty string when the saving is under 1% or a price is missing.
  */
 export function annualSavingLabel(tier: Tier): string {

@@ -1,8 +1,10 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { contactsForMember } from '@/lib/contacts/load';
-import { isOrganisationName } from '@/lib/contacts/org';
-import type { ContactRecord } from '@/lib/contacts/types';
+import { isStoredContactName } from '@/lib/contacts/names';
+import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
+import type { ContactRecord, ContactRole } from '@/lib/contacts/types';
+import { attachCachedListings, type SignalPlaces } from '@/lib/enrich/business-lookup';
 
 /**
  * Server-side glue between the feed or the alert email and the contacts loader owned by lib/contacts (service role only).
@@ -10,7 +12,8 @@ import type { ContactRecord } from '@/lib/contacts/types';
  * Nothing here touches holler_signals, and nothing leaves this function for a signal id the caller did not ask for.
  */
 export type ContactLoader = (db: SupabaseClient, userId: string, signalIds: number[], now?: Date) => Promise<Map<number, ContactRecord[]>>;
-export type OrgCheck = (name: string) => boolean;
+/** Re-check of a stored name. `role` picks the rule (names.ts): contractor trade names, owner companies, strict for the rest. */
+export type OrgCheck = (name: string, role: ContactRole) => boolean;
 
 const MAX_SIGNALS = 100;
 
@@ -18,7 +21,7 @@ const MAX_SIGNALS = 100;
  * Contacts for the signals the member's own matches point at. Pass only signal ids taken from that member's matches.
  * Returns an empty map when the loader is missing, throws, or the caller is locked (`locked: true`: the loader is not even called).
  * Defence in depth on top of the loader: only requested ids come back, each contact must carry the id it is filed under, and a
- * contractor, business or awardee name that the classifier does not accept as an organisation is dropped.
+ * contractor, business, awardee or owner name that its role's rule (lib/contacts/names.ts) does not give back unchanged is dropped.
  */
 export async function loadMemberContacts(opts: {
   db: SupabaseClient;
@@ -27,6 +30,12 @@ export async function loadMemberContacts(opts: {
   locked?: boolean;
   loader?: ContactLoader | null;
   orgCheck?: OrgCheck | null;
+  /**
+   * Round 18: the city and state of each requested signal. When given, a business's public listing found earlier (the
+   * holler_business_lookup cache, migration 0026) is attached to its contact. Read only: no lookup call is ever made here. Absent, or
+   * any failure, or 0026 not applied: the contacts are returned exactly as before.
+   */
+  places?: SignalPlaces | null;
 }): Promise<Map<number, ContactRecord[]>> {
   const out = new Map<number, ContactRecord[]>();
   if (opts.locked || !opts.userId) return out;
@@ -35,22 +44,32 @@ export async function loadMemberContacts(opts: {
   try {
     const loader = opts.loader === undefined ? contactsForMember : opts.loader;
     if (!loader) return out;
-    const orgCheck = opts.orgCheck === undefined ? isOrganisationName : opts.orgCheck;
+    const orgCheck: OrgCheck | null = opts.orgCheck === undefined ? (name, role) => isStoredContactName(role, name) : opts.orgCheck;
     const got = await loader(opts.db, opts.userId, ids);
     if (!(got instanceof Map)) return out;
     const wanted = new Set(ids);
+    // An owner company is shown only while HOLLER_VIOLATION_OWNERS_ENABLED is on (lib/contacts/owner-switch.ts).
+    const ownersOn = violationOwnersEnabled();
     for (const [signalId, list] of got) {
       if (!wanted.has(signalId) || !Array.isArray(list)) continue;
       const kept = list.filter((c) => {
         if (!c || c.signalId !== signalId) return false;
+        if (c.role === 'owner' && !ownersOn) return false;
         if (c.role === 'site' || c.role === 'buyer') return true;
-        return orgCheck ? orgCheck(c.name) : true;
+        return orgCheck ? orgCheck(c.name, c.role) : true;
       });
       if (kept.length > 0) out.set(signalId, kept);
     }
   } catch {
     console.error('contacts: load failed', 'loader', 'exception');
     return new Map();
+  }
+  if (opts.places && out.size > 0) {
+    try {
+      return await attachCachedListings(opts.db, out, opts.places);
+    } catch {
+      return out;
+    }
   }
   return out;
 }

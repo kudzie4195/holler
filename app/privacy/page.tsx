@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { COMPANY } from '@/lib/legal/company';
-import { APP_DELETE_WORD, LEGAL_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
+import { APP_DELETE_WORD, PRIVACY_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
 import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export default function PrivacyPage() {
     <DocPage
       title="Privacy"
       intro="Short version: we keep what we need to run Holler, we do not sell it, and you can delete your account yourself."
-      updated={LEGAL_UPDATED}
+      updated={PRIVACY_UPDATED}
     >
       <DocSection title="The short version">
         <ul>
@@ -199,8 +199,8 @@ export default function PrivacyPage() {
         <ul>
           <li>Alert emails, when email alerts are on. Every alert email has a link to turn alerts off.</li>
           <li>
-            Up to three emails about your free trial: about a day after you sign up, about two days before the trial ends,
-            and about a day after it ends. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
+            Up to three emails about your free trial: about a day after you sign up, about three days before the trial ends,
+            and about a day after it ends. If we extend your trial, the last two can come again for the new end date. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
             button works too. Stopping them does not stop your alerts.
           </li>
           <li>
@@ -260,6 +260,10 @@ export default function PrivacyPage() {
           Holler sets cookies to keep you signed in: our sign-in provider sets them when you sign up or log in, and they
           refresh when you open your account pages. Logging out removes them from that browser. Our city, trade and storm
           pages never read cookies on our servers.
+        </p>
+        <p>
+          Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in
+          this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.
         </p>
         <p>
           The Coming next list on the pricing page and in your feed lets you press I want this on a feature we may build. We save

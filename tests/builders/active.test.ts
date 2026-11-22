@@ -37,9 +37,11 @@ describe('summarizeBuilders', () => {
     expect(builderKey('Smith & Sons Co.')).toBe(builderKey('smith and sons'));
   });
 
-  it('this base: a name the organisation check does not accept exactly is dropped, never shown', () => {
-    const rows = [row('Lakeline Homes LLC', 'New home permit in Austin'), row('JOHN SMITH', 'Roof permit in Austin'), row('Smith, John', 'Roof permit in Austin'), row('Acme Roofing LLC 404-555-0100', 'Roof permit in Austin')];
+  it('round 19 integration: names follow the round 18 contractor rule; a person or a name with a phone in it is dropped, never shown', () => {
+    const rows = [row('JOHN SMITH', 'Roof permit in Austin'), row('Smith, John', 'Roof permit in Austin'), row('Acme Roofing LLC 404-555-0100', 'Roof permit in Austin')];
     expect(summarizeBuilders(rows, [], NOW)).toEqual([]);
+    // The old strict check refused this trade name; the contractor rule (the one cards use) shows it.
+    expect(summarizeBuilders([row('Lakeline Homes LLC', 'New home permit in Austin')], [], NOW).map((b) => b.name)).toEqual(['Lakeline Homes LLC']);
   });
 
   it('drops empty names, people, and non-contractor roles', () => {

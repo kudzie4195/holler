@@ -9,12 +9,13 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import { tradeLabel } from '@/lib/check/trades';
-import { FROM_MONTHLY, TRIAL_DAYS } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, TRIAL_DAYS, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TIER_NAMES } from '@/lib/plan/limits';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[0];
+const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function generateMetadata(): Metadata {
   const title = t(L, 'land.title');
@@ -60,10 +61,10 @@ function faqLd() {
 
 /**
  * Spanish home. Static: no live data, no client JavaScript. Every word comes from lib/i18n (es.ts); the English home is app/page.tsx.
- * Sign-up, pricing, privacy and terms are English pages, and the links say so.
+ * Pricing and sign-up link to their Spanish pages; privacy, terms and the full FAQ are English pages, and the links say so.
  */
 export default function HomeEs() {
-  const trial = t(L, 'land.trial', { days: TRIAL_DAYS });
+  const trial = t(L, 'land.trial', { months: TRIAL_MONTHS });
   return (
     <>
       <TopNavEs englishHref={PAIR.en} />
@@ -122,7 +123,7 @@ export default function HomeEs() {
         </section>
 
         <section aria-labelledby="price-h" className={`${PAGE_BOX} pb-14`}>
-          <h2 id="price-h" className="text-3xl text-ink md:text-4xl">{t(L, 'price.h', { trial: trial.charAt(0).toUpperCase() + trial.slice(1) })}</h2>
+          <h2 id="price-h" className="text-3xl text-ink md:text-4xl">{t(L, 'price.h', { trial: upperFirst(t(L, 'land.trial_precise', { days: TRIAL_DAYS })) })}</h2>
           <p className="mt-3 text-muted">{t(L, 'price.p')}</p>
           <p className="mt-2 max-w-2xl text-ink">
             {t(L, 'price.line', {
@@ -135,7 +136,7 @@ export default function HomeEs() {
             })}
           </p>
           <p className="mt-3">
-            <Link href="/pricing" hrefLang="en" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'price.cta')}</Link>
+            <Link href="/es/pricing" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'price.cta')}</Link>
           </p>
         </section>
 
@@ -159,7 +160,7 @@ export default function HomeEs() {
             <h2 className="m-0 font-display text-4xl text-on-brand md:text-5xl">{t(L, 'close.h')}</h2>
             <ZipForm id="close-zip" lang={L} />
             <div>
-              <ButtonLink href="/signup" variant="outline-signal">{t(L, 'nav.start')}</ButtonLink>
+              <ButtonLink href="/es/signup" variant="outline-signal">{t(L, 'nav.start')}</ButtonLink>
             </div>
           </div>
         </section>

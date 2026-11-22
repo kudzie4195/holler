@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ContactInput } from '@/lib/contacts/types';
-import { hasBlock, mayHaveContacts, outreachPlan, type OrgEntry, type OutreachPlan, type PlanLink } from '@/lib/outreach/plan';
+import { hasBlock, isOrgRecord, outreachPlan, type OrgEntry, type OutreachPlan, type PlanLink } from '@/lib/outreach/plan';
 import { CopyNoteButton } from './copy-note-button';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -25,6 +25,8 @@ export interface ContactSignal {
   zip?: string | null;
   /** The stored public summary: a permit's job-site address is read from it when no site row is stored. */
   summary?: string | null;
+  /** The record's public source page: linked next to an owner company on a code-violation card. */
+  url?: string | null;
 }
 
 const actionClass =
@@ -60,6 +62,20 @@ function Entry({ e, lang }: { e: OrgEntry; lang: Lang }) {
     <li className="min-w-0 rounded-control border border-line bg-surface p-3">
       <p className="break-words text-base font-semibold text-ink">{e.name}</p>
       <p className="text-sm text-muted">{e.role}</p>
+      {e.listing ? (
+        <div className="mt-1">
+          {e.listing.phone ? <p className="break-words text-sm text-ink">{t(lang, 'listing.phone', { value: e.listing.phone })}</p> : null}
+          {e.listing.website ? (
+            <p className="break-all text-sm text-ink">
+              {t(lang, 'listing.website', { value: '' }).trimEnd()}{' '}
+              <a href={e.listing.website.href} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-brand-text underline">
+                {e.listing.website.text}
+              </a>
+            </p>
+          ) : null}
+          <p className="text-xs text-muted">{e.listing.note}</p>
+        </div>
+      ) : null}
       {e.attn ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.attention', { value: e.attn })}</p> : null}
       {e.address ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: e.addressLabel, value: e.address })}</p> : null}
       {e.phone ? <p className="break-words text-sm text-ink">{t(lang, 'who.phone', { value: e.phone })}</p> : null}
@@ -106,6 +122,16 @@ function Body({ plan, lang }: { plan: OutreachPlan; lang: Lang }) {
   }
   return (
     <div className="rounded-control border border-line bg-surface p-3">
+      {plan.owner ? (
+        <div className="mb-3 border-b border-line pb-3" data-testid="owner-record">
+          <p className="break-words text-sm text-ink">{plan.owner.line}</p>
+          {plan.owner.source ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <ActionLink link={plan.owner.source} lang={lang} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <p className="text-base font-semibold text-ink">{t(lang, 'who.reach_area')}</p>
       {plan.place ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: t(lang, /county\b|condado/i.test(plan.place.split(',')[0]) ? 'who.area' : 'who.city'), value: plan.place })}</p> : null}
       {plan.zips.length > 0 ? (
@@ -170,7 +196,7 @@ export function WhoToContactLocked({ item, lang = 'en' }: { item: Pick<ContactSi
     <section className="mt-4 border-t border-line pt-3">
       <h3 className="text-sm font-semibold text-ink">{t(lang, 'who.heading')}</h3>
       <p className="mt-1 text-sm text-muted">
-        {mayHaveContacts(item.source, item.kind)
+        {isOrgRecord(item.source, item.kind)
           ? t(lang, 'who.locked.org')
           : t(lang, 'who.locked.area')}
       </p>

@@ -1,7 +1,8 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
+import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
 import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
-import { buildLink, cleanText, type OutreachLink } from './links';
+import { buildLink, cleanText, safeWebsite, type OutreachLink } from './links';
 import { reminderFor, renderNote, type NoteKind } from './templates';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -31,8 +32,21 @@ export function recordClass(source: string, kind: string): RecordClass {
 
 const ORG_CLASSES: RecordClass[] = ['permit', 'business', 'inspection', 'award', 'bid'];
 
-/** True when contacts may exist for this record, so the loader is worth asking. Area and request records never carry contacts. */
-export function mayHaveContacts(source: string, kind: string): boolean {
+/** A code-violation source: its card may name an owner company (round 18). 311 sources never do. */
+export function isViolationSource(source: string): boolean {
+  return (source ?? '').toLowerCase().endsWith('-violations');
+}
+
+/**
+ * True when contacts may exist for this record, so the loader is worth asking. Organisation records, and code violations (an owner
+ * company on the public record, round 18). Other area records and requests never carry contacts.
+ */
+export function mayHaveContacts(source: string, kind: string, ownersOn: boolean = violationOwnersEnabled()): boolean {
+  return ORG_CLASSES.includes(recordClass(source, kind)) || (ownersOn && recordClass(source, kind) === 'area' && isViolationSource(source));
+}
+
+/** True for records whose block names organisations (permits, licences, inspections, awards, bids): the locked prompt says so. */
+export function isOrgRecord(source: string, kind: string): boolean {
   return ORG_CLASSES.includes(recordClass(source, kind));
 }
 
@@ -90,6 +104,8 @@ export interface PlanSignal {
    * siteAddressFromSummary) stands in for one, so permits stored before the site rows existed still show the job-site block.
    */
   summary?: string | null;
+  /** The record's public source page. Shown next to an owner company on a code-violation card. */
+  url?: string | null;
 }
 
 export type PlanContact = ContactInput;
@@ -111,9 +127,36 @@ export interface OrgEntry {
   /** The contractor's licence number when the permit publishes it. */
   license: string | null;
   website: PlanLink | null;
+  /**
+   * Round 18: phone and website from the business's own public listing (lib/enrich/business-lookup.ts), shown under the name with a
+   * label saying where they come from. Null when the record names no listing. The website is shown with rel="noopener noreferrer nofollow".
+   */
+  listing: ListingLines | null;
   search: PlanLink | null;
   map: PlanLink | null;
   note: string;
+}
+
+export interface ListingLines {
+  phone: string | null;
+  website: { href: string; text: string } | null;
+  /** "From the business's public listing." in the member's language. */
+  note: string;
+}
+
+/** A listing as lines to show: the website parsed again (https, real host) and shown by its host name. Null when nothing is usable. */
+export function listingLines(listing: ContactInput['listing'], lang: Lang = 'en'): ListingLines | null {
+  if (!listing || typeof listing !== 'object') return null;
+  const phone = cleanText(listing.phone) || null;
+  const href = safeWebsite(listing.website ?? null);
+  let website: ListingLines['website'] = null;
+  if (href) {
+    const u = new URL(href);
+    const path = u.pathname === '/' ? '' : u.pathname;
+    website = { href, text: `${u.hostname.replace(/^www\./, '')}${path}`.slice(0, 80) };
+  }
+  if (!phone && !website) return null;
+  return { phone, website, note: t(lang, 'listing.note') };
 }
 
 export type OutreachPlan =
@@ -136,6 +179,11 @@ export type OutreachPlan =
       rules: string;
       guide: PlanLink;
       reminder: string;
+      /**
+       * Code violations only (round 18): the registered company the record names as the property owner, worded so it never accuses:
+       * "Owner on the public record: X", with the public source link. Null when the record names no company.
+       */
+      owner: { name: string; line: string; source: PlanLink | null } | null;
     };
 
 function withLabel(link: OutreachLink | null, label: string): PlanLink | null {
@@ -161,12 +209,28 @@ function siteHeading(c: RecordClass, lang: Lang): string {
   }
 }
 
-function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass, lang: Lang): OutreachPlan | null {
+/** The owner company of a code-violation record, as the area block shows it, or null. */
+function ownerLine(signal: PlanSignal, contacts: PlanContact[], lang: Lang): { name: string; line: string; source: PlanLink | null } | null {
+  // Redo 2 (review P3-4): not gated here. This runs in the client card, where a server-only switch reads as undefined; the server is the
+  // gate (lib/outreach/loader.ts drops every owner row while HOLLER_VIOLATION_OWNERS_ENABLED is off, and sanitize.ts and store.ts never
+  // keep one), so an owner contact can only reach this function while the switch is on.
+  if (!isViolationSource(signal.source)) return null;
+  const c = contacts.find((x) => x.role === 'owner' && cleanText(x.name));
+  if (!c) return null;
+  const name = cleanText(c.name);
+  return {
+    name,
+    line: t(lang, 'who.owner_record', { name }),
+    source: withLabel(buildLink({ type: 'source', url: signal.url ?? '' }), t(lang, 'who.public_source')),
+  };
+}
+
+function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass, lang: Lang, owner: ReturnType<typeof ownerLine> = null): OutreachPlan | null {
   const city = cleanText(signal.city);
   const state = cleanText(signal.state);
   const zips = [...new Set([signal.zip, ...contacts.map((c) => c.zip)].map(cleanText).filter((z) => /^\d{5}(-\d{4})?$/.test(z)).map((z) => z.slice(0, 5)))].slice(0, 6);
   const place = [city, state].filter(Boolean).join(', ') || null;
-  if (!place && zips.length === 0) return null;
+  if (!place && zips.length === 0 && !owner) return null;
   const eddm = withLabel(buildLink({ type: 'eddm' }), t(lang, 'outreach.link.eddm'));
   const storm = cls === 'storm';
   const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), t(lang, storm ? 'outreach.link.guide_storms' : 'outreach.link.guide_respond'));
@@ -181,6 +245,7 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass,
     rules: t(lang, 'outreach.rules'),
     guide,
     reminder: reminderFor(storm, lang),
+    owner,
   };
 }
 
@@ -189,7 +254,8 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass,
  *  - organisation records (permit with a contractor company, new business, failed inspection, federal award, open bid): the named
  *    organisations (at most MAX_CONTACTS_SHOWN) with their role, published details and actions;
  *  - the same records with only a site address: the job-site block;
- *  - weather, storm reports, disasters, quakes, 311 and code violations: the area kit, and any contacts passed in are ignored;
+ *  - weather, storm reports, disasters, quakes, 311 and code violations: the area kit, and any contacts passed in are ignored, except
+ *    that a code violation shows its owner company (role 'owner') as "Owner on the public record: X" with the public source link;
  *  - resident requests, airport delays, events and unknown sources: null (no block).
  * An organisation record with nothing usable falls back to the area kit when the record names a place, else null.
  */
@@ -197,7 +263,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   const cls = recordClass(signal.source, signal.kind);
   if (cls === 'none' || cls === 'request') return null;
   const list = Array.isArray(contacts) ? contacts.filter((c): c is PlanContact => !!c && typeof c === 'object') : [];
-  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang);
+  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang, cls === 'area' ? ownerLine(signal, list, lang) : null);
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
   const sites = list.filter((c) => c.role === 'site');
@@ -232,6 +298,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
       for (const f of ['phone', 'email', 'website', 'license', 'address', 'city', 'state', 'zip'] as const) {
         if (!cleanText(first[f]) && cleanText(c[f])) (first as unknown as Record<string, unknown>)[f] = c[f];
       }
+      if (!first.listing && c.listing) first.listing = c.listing;
     }
     const unique = [...byKey.values()];
     // The job site is one fact about the record, so it is printed on the first entry that has no address of its own, not on every entry.
@@ -256,6 +323,8 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         email: cleanText(c.email) || null,
         license: cleanText(c.license) || null,
         website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), t(lang, 'outreach.link.website')),
+        // Only for an organisation with no phone and no website of its own on the record (the lookup never runs for one that has them).
+        listing: cleanText(c.phone) || cleanText(c.website) ? null : listingLines(c.listing, lang),
         search: withLabel(buildLink({ type: 'search', org: name, city, state }), t(lang, 'outreach.link.search')),
         map: address
           ? withLabel(
@@ -293,12 +362,28 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   return areaPlan(signal, list, cls, lang);
 }
 
-/** The single organisation named for the alert email: name and role in words. No address, phone or email ever. */
-export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): { name: string; role: string } | null {
-  const cls = recordClass(signal.source, signal.kind);
-  const wantRole = ROLE_FOR_CLASS[cls];
-  const role = roleWordsFor(cls, lang);
-  if (!wantRole || !role || !Array.isArray(contacts)) return null;
-  const hit = contacts.find((c) => c && c.role === wantRole && cleanText(c.name));
-  return hit ? { name: cleanText(hit.name), role } : null;
+/** The organisation a card and its email name first: the first contact with the record's organisation role and a name. */
+export function namedContact<C extends PlanContact>(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: C[] | null | undefined): C | null {
+  const wantRole = ROLE_FOR_CLASS[recordClass(signal.source, signal.kind)];
+  if (!wantRole || !Array.isArray(contacts)) return null;
+  return contacts.find((c) => c && c.role === wantRole && cleanText(c.name)) ?? null;
+}
+
+export interface EmailContact {
+  name: string;
+  role: string;
+  /** Round 18: present only when the business's public listing was found (phone and website, labelled as such in the email). */
+  listing?: ListingLines;
+}
+
+/**
+ * The single organisation named for the alert email: name and role in words. The record's own address, phone and email are never in the
+ * email; the one addition (round 18) is the phone and website of the business's public listing, when one was found.
+ */
+export function emailContact(signal: Pick<PlanSignal, 'source' | 'kind'>, contacts: PlanContact[] | null | undefined, lang: Lang = 'en'): EmailContact | null {
+  const role = roleWordsFor(recordClass(signal.source, signal.kind), lang);
+  const hit = namedContact(signal, contacts);
+  if (!hit || !role) return null;
+  const listing = cleanText(hit.phone) || cleanText(hit.website) ? null : listingLines(hit.listing, lang);
+  return listing ? { name: cleanText(hit.name), role, listing } : { name: cleanText(hit.name), role };
 }

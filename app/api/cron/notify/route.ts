@@ -14,7 +14,8 @@ import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
-import { emailContact, mayHaveContacts } from '@/lib/outreach/plan';
+import { emailContact, mayHaveContacts, namedContact } from '@/lib/outreach/plan';
+import { LOOKUP_CALL_TIMEOUT_MS, LOOKUP_START_CUTOFF_MS, lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
@@ -31,6 +32,7 @@ import { isStageUpdate, STAGE_SELECT } from '@/lib/signals/stage';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { parseLang, type Lang } from '@/lib/i18n';
+import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 
 export const maxDuration = 60;
 
@@ -81,6 +83,8 @@ interface MatchRow {
   id: number;
   user_id: string;
   created_at: string;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). Absent before 0027. A held match is never emailed. */
+  alert_hold?: string | null;
   signal: SignalRow | SignalRow[] | null;
 }
 interface ProfileRow extends PlanProfile {
@@ -110,15 +114,22 @@ export async function GET(req: Request) {
 
   // Read every page BEFORE writing anything, so marking rows notified cannot shift the offsets.
   let matches: MatchRow[] = [];
+  // alert_hold (migration 0027) is read with the match; before 0027 the read fails on that column and every page is read without it.
+  let holdCol = 'alert_hold, ';
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await admin
+    const readPage = () => admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+    let { data, error } = await readPage();
+    if (error && holdCol && missingHoldColumn(error)) {
+      holdCol = '';
+      ({ data, error } = await readPage());
+    }
     if (error) return Response.json({ error: 'query_failed', detail: error.message }, { status: 500 });
     const rows = (data ?? []) as unknown as MatchRow[];
     matches.push(...rows);
@@ -194,6 +205,13 @@ export async function GET(req: Request) {
     .map((s) => s.external_id as string);
   const requestText = requestIds.length > 0 ? await requestTextByPublicId(admin, requestIds, now) : new Map<string, string>();
 
+  // Round 18 (lib/enrich/business-lookup.ts): business phone and website from public listings, for cards about to be emailed only.
+  // One budget for the whole run (HOLLER_LOOKUP_MAX_PER_RUN, HOLLER_LOOKUP_MAX_PER_DAY, the DataForSEO monthly cap) and one time budget
+  // (LOOKUP_RUN_BUDGET_MS, 6 s in total; each call at most 3 s; none starts after 30 s into the run). At the deadline the email goes out
+  // without the lookup. Without DataForSEO credentials, without migration 0026 or with HOLLER_LOOKUP_DRY_RUN set there is no call and
+  // every card is as before.
+  const lookupBudget = newBudget(lookupSettings());
+
   for (const p of eligible.slice(0, MAX_USERS_PER_RUN)) {
     if (Date.now() - started > 50_000) break;
     try {
@@ -212,7 +230,7 @@ export async function GET(req: Request) {
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
         demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades), deadlineOf(s), now.getTime());
-      const live = userMatches
+      const current = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the
         // match goes with it (ON DELETE CASCADE).
@@ -220,11 +238,15 @@ export async function GET(req: Request) {
       // Only Act Now and Coming Soon are mailed (items 0.2 and 0.3). A market_insight match is stored for the in-app feed only, and a
       // context match stored before the label rules existed is hidden: both are marked notified without an email, so neither goes out
       // nor is read again on every run.
+      // A feed-only match (alert_hold, migration 0027: a permit with no business or site address, below the member's minimum, or a held
+      // trade family) is not an alert: marked notified with the silent ones below, never emailed.
+      const held = current.filter((r) => !!holdOf(r.m));
+      const live = held.length ? current.filter((r) => !holdOf(r.m)) : current;
       const rows = live.filter((r) => isAlertLabel(labelOf(r.s)));
       // One weather alert stored once per county is one digest item (sendRows). Every duplicate match in `rows` is still marked notified below.
       const sendRows = dedupeByAlert(rows, (r) => r.s);
       const silent = live.filter((r) => !isAlertLabel(labelOf(r.s)));
-      for (const part of chunk(silent.map((r) => r.m.id))) {
+      for (const part of chunk([...silent, ...held].map((r) => r.m.id))) {
         const { error: qErr } = await admin.from('holler_matches').update({ notified: true }).in('id', part);
         if (qErr) counts.failed++;
         else counts.matches_skipped_marked += part.length;
@@ -250,10 +272,12 @@ export async function GET(req: Request) {
       // One "Contact:" line per alert whose record names an organization. Loaded for this member's own matches only (the loader checks
       // the owner and current access, and reads at most 200 ids in one query); any failure just leaves the lines out. Read BEFORE the
       // sort because a named contact is part of the score (PLAN-2.0 item 2.7).
+      const withContacts = ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind));
       const contacts = await loadMemberContacts({
         db: admin,
         userId: p.user_id,
-        signalIds: ranked.filter(({ s }) => typeof s.id === 'number' && mayHaveContacts(s.source ?? '', s.kind)).map(({ s }) => s.id as number),
+        signalIds: withContacts.map(({ s }) => s.id as number),
+        places: new Map(withContacts.map(({ s }) => [s.id as number, { city: s.city, state: s.state }])),
       });
       // Act Now first, then the deterministic score, then the AI ranking or newest-first order (a stable sort), then the digest cap.
       const ordered = orderByLabelScore(
@@ -268,6 +292,24 @@ export async function GET(req: Request) {
       );
       // Stage updates are never cut by the cap of 10: they go first into the cut, and the digest lists them first inside their label.
       const shown = [...ordered.filter((r) => isStageUpdate(r.s)), ...ordered.filter((r) => !isStageUpdate(r.s))].slice(0, MAX_ITEMS_IN_DIGEST);
+      // The cards in this email that name a business: look up its public listing (cache first, then at most the budget's calls). Done
+      // after the sort and the cap so only cards that are really sent are looked up. Any failure leaves the cards as they are.
+      // No email provider means no email goes out (sendEmail skips), so nothing is looked up either.
+      let cardContacts = contacts;
+      if (env.RESEND_API_KEY && env.EMAIL_FROM && lookupBudget.msLeft > 0 && Date.now() - started < LOOKUP_START_CUTOFF_MS) {
+        try {
+          cardContacts = await lookupForCards(
+            contacts,
+            shown
+              .filter(({ s }) => typeof s.id === 'number' && contacts.has(s.id))
+              .map(({ s }) => ({ signalId: s.id as number, city: s.city, state: s.state, source: s.source ?? null, contact: namedContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id as number)) })),
+            lookupBudget,
+            { db: admin, timeoutMs: LOOKUP_CALL_TIMEOUT_MS, deadline: Math.min(Date.now() + lookupBudget.msLeft, started + LOOKUP_START_CUTOFF_MS + LOOKUP_CALL_TIMEOUT_MS) },
+          );
+        } catch {
+          cardContacts = contacts;
+        }
+      }
       const items: DigestItem[] = shown.map(({ s }) => ({
         kind: s.kind,
         source: s.source ?? null,
@@ -279,7 +321,7 @@ export async function GET(req: Request) {
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
-        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id), lang) : null,
+        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, cardContacts.get(s.id), lang) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
@@ -349,5 +391,8 @@ export async function GET(req: Request) {
   // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
   const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
 
-  return Response.json({ ok: true, ...counts, push, ms: Date.now() - started });
+  // `refused` counts why answers were not attached (truncated, ambiguous, closed, address_mismatch ...); `breaker` is the owner line when the
+  // daily circuit breaker stopped lookups ("Business lookups returned no usable match today (N tried). Run the lookup probe.").
+  const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, timedOut: lookupBudget.timedOut, spentUsd: lookupBudget.spentUsd, msLeft: lookupBudget.msLeft, skipped: lookupBudget.skipped, refused: lookupBudget.refused, breaker: lookupBudget.breaker };
+  return Response.json({ ok: true, ...counts, push, lookup, ms: Date.now() - started });
 }

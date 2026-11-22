@@ -34,8 +34,10 @@ describe('FIXED (was FINDING P3 H, defect 6): /waitlist/confirm is a token page'
 });
 
 describe('FIXED (was FINDING P3, defect 8): the dead-link page promises a new link, and the site sends one again', () => {
-  it('the page text stays, and the sign-up path signs and emails a confirm link', () => {
-    expect(readFileSync('app/waitlist/confirm/route.ts', 'utf8')).toContain('Check your ZIP code again to get a new link.');
+  it('the page text stays, and the sign-up path signs and emails a confirm link', async () => {
+    // Round 19 integration: the words moved to lib/i18n (wl.confirm.*); the rendered dead-link page is checked instead of the source.
+    const { GET } = await import('@/app/waitlist/confirm/route');
+    expect(await GET(new Request('https://localholler.com/waitlist/confirm?token=bad')).text()).toContain('Check your ZIP code again to get a new link.');
     expect(readFileSync('lib/waitlist/deps.ts', 'utf8')).toMatch(/signScopedToken/);
     expect(readFileSync('lib/waitlist/deps.ts', 'utf8')).toMatch(/sendEmail/);
     expect(readFileSync('lib/waitlist/service.ts', 'utf8')).toMatch(/sendConfirm/);

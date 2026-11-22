@@ -125,7 +125,8 @@ export function createStore(db: Db): LifecycleStore {
     async loadSends(userIds) {
       const out: SendRow[] = [];
       for (const ids of chunk(userIds)) {
-        const { data, error } = await sends().select('user_id, kind').in('user_id', ids);
+        // sent_at: a trial_ending / trial_ended row written for an earlier trial end is stale (select.ts staleTrialSends).
+        const { data, error } = await sends().select('user_id, kind, sent_at').in('user_id', ids);
         if (error) {
           if (isMissingTable(error)) throw new NotMigrated();
           throw new Error(`sends: ${error.message}`);
@@ -218,7 +219,7 @@ export function createStore(db: Db): LifecycleStore {
       };
       const p = await recentPreviewFor(pp, { db: db as unknown as SupabaseClient, now });
       if (!p || p.total <= 0) return null;
-      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count }));
+      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count, key: t.key }));
       if (lines.length === 0) return null;
       return { lines, total: p.total, capped: p.capped, days: PREVIEW_DAYS };
     },

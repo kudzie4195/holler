@@ -7,6 +7,10 @@
  * Companies are public business names. Person names in the "must not pass" lists are invented (the real sole-proprietor and
  * individual names of those feeds are deliberately NOT copied here), but their shapes are the shapes of the real values.
  *
+ * Round 18 (NAMES): contractor columns now use the trade-name rule on top of this one (lib/contacts/trade-name.ts, tests in
+ * trade-names.test.ts), so "ROBERT JOHNSON PLUMBING" below is named in a contractor column; the strict rule tested here is unchanged
+ * and still decides business-licence, inspection and award names.
+ *
  * The classifier (lib/contacts/org.ts) is strict on purpose: it passes a name only on clear company evidence and drops a name that could be a
  * person's, so some real companies are not named. The REJECTED_COMPANIES list records that cost; it is not a bug list.
  */

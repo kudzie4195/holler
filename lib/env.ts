@@ -27,6 +27,8 @@ export const ENV_KEYS = [
   'HOLLER_BIDS_ENABLED',
   'HOLLER_LOCAL_BIDS_ENABLED',
   'HOLLER_STAGE_UPDATES_ENABLED',
+  'HOLLER_VIOLATION_OWNERS_ENABLED',
+  'HOLLER_BUILDERS_PANEL_ENABLED',
   'FIRECRAWL_API_KEY',
   'FIRECRAWL_RUN_CREDIT_CAP',
   'FIRECRAWL_DAILY_CREDIT_CAP',
@@ -39,6 +41,9 @@ export const ENV_KEYS = [
   'DATAFORSEO_LOGIN',
   'DATAFORSEO_PASSWORD',
   'DATAFORSEO_MONTHLY_CAP_USD',
+  'HOLLER_LOOKUP_MAX_PER_RUN',
+  'HOLLER_LOOKUP_MAX_PER_DAY',
+  'HOLLER_LOOKUP_DRY_RUN',
   'HOLLER_PREVIEW_FIXTURES',
 ] as const;
 
@@ -76,6 +81,10 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_BIDS_ENABLED: process.env.HOLLER_BIDS_ENABLED,
   HOLLER_LOCAL_BIDS_ENABLED: process.env.HOLLER_LOCAL_BIDS_ENABLED,
   HOLLER_STAGE_UPDATES_ENABLED: process.env.HOLLER_STAGE_UPDATES_ENABLED,
+  // Round 18: owner companies on code-violation cards; read at call time in lib/contacts/owner-switch.ts. Off unless 1, true, on or yes.
+  HOLLER_VIOLATION_OWNERS_ENABLED: process.env.HOLLER_VIOLATION_OWNERS_ENABLED,
+  // Round 19 integration: "Who's building near you" on /app; read at call time in lib/builders/switch.ts. Off unless 1, true, on or yes.
+  HOLLER_BUILDERS_PANEL_ENABLED: process.env.HOLLER_BUILDERS_PANEL_ENABLED,
   FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY,
   FIRECRAWL_RUN_CREDIT_CAP: process.env.FIRECRAWL_RUN_CREDIT_CAP,
   FIRECRAWL_DAILY_CREDIT_CAP: process.env.FIRECRAWL_DAILY_CREDIT_CAP,
@@ -89,6 +98,10 @@ export const env: Record<EnvKey, string | undefined> = {
   DATAFORSEO_LOGIN: process.env.DATAFORSEO_LOGIN,
   DATAFORSEO_PASSWORD: process.env.DATAFORSEO_PASSWORD,
   DATAFORSEO_MONTHLY_CAP_USD: process.env.DATAFORSEO_MONTHLY_CAP_USD,
+  // Round 18 business listing lookup (lib/enrich/business-lookup.ts lookupSettings reads them again from process.env).
+  HOLLER_LOOKUP_MAX_PER_RUN: process.env.HOLLER_LOOKUP_MAX_PER_RUN,
+  HOLLER_LOOKUP_MAX_PER_DAY: process.env.HOLLER_LOOKUP_MAX_PER_DAY,
+  HOLLER_LOOKUP_DRY_RUN: process.env.HOLLER_LOOKUP_DRY_RUN,
   // Local only (lib/seo/home-live.ts previewFixturesEnabled): ignored whenever VERCEL is set.
   HOLLER_PREVIEW_FIXTURES: process.env.HOLLER_PREVIEW_FIXTURES,
 };

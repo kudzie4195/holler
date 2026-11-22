@@ -227,7 +227,9 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
         // contractor (or builder, or a licensed professional) is shown as the contractor; a blank or unknown type shows nothing.
         // Anchored (review HSK re-verification): the type must START with the allowed word, so "Non-Contractor", "Not a Contractor",
         // "Landlord Contractor" and "Self Builder" do not match; the deny regex still removes "Contractor/Owner", "Contractor Agent" and so on.
-        acceptType: /^(?:(?:general|sub-?|licensed)\s*)?contractor\b|^builder\b|^licensed\s+professional\b/i,
+        // Redo 1 (review P3-5): the WHOLE type must match, so "Contractor Primary", "Contractor Authorized" and a type with a hidden
+        // character after it ("Contractor\u200B") show nothing.
+        acceptType: /^(?:(?:general|sub-?|licensed)\s*)?contractor(?:\s+-\s+(?:residential|commercial))?$|^builder$|^licensed\s+professional$/i,
         rejectType: /\b(?:owners?|residents?|tenants?|home\s?owners?|individuals?|persons?|occupants?|applicants?|agents?|architects?|engineers?|landlords?|non|not|self)\b/i,
       },
     ],

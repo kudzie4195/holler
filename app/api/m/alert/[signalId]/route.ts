@@ -5,6 +5,8 @@ import { matchScope } from '@/lib/plan/scope';
 import { requireMember } from '@/lib/mobile/auth';
 import { buildAlerts, readOneMatch } from '@/lib/mobile/feed';
 import { fail, ok, preflight } from '@/lib/mobile/http';
+import { repairShortTrial } from '@/lib/auth/trial';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const METHODS = 'GET';
 
@@ -22,7 +24,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ signalId: strin
   if (!m.ok) return m.response;
   const signalId = /^[1-9][0-9]{0,15}$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isSafeInteger(signalId)) return fail(req, METHODS, 'not_found');
-  const { user, db, profile } = m.ctx;
+  const { user, db, profile: loaded } = m.ctx;
+  // Review r3 D3: the same signed-in repair as GET /api/m/me, so a request that arrives before (or beside) /me is not answered locked.
+  const repairedEnd = await repairShortTrial(user, loaded, createAdminClient);
+  const profile = loaded && repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
 
   const now = Date.now();
   const locked = computeAccess(profile!, now).locked;
