@@ -37,13 +37,17 @@ async function loadCounts(admin: Admin, now: Date): Promise<HealthCounts> {
  * a failure comes back as { status: 'error' } and the health report is unaffected.
  */
 /**
- * Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. A probation source
- * with the samples table missing is skipped by the scan, so it is not on (review defect 7).
+ * Sources that are on right now: in the registry, with every env key they need, and not on probation. The monitor judges only these.
+ *  - Round 19 review defect 7: a probation source with the samples table missing is skipped by the scan, so it is not on.
+ *  - Round 19 coverage (review P3-K): an unchecked probation source is judged in the daily report and GET /api/admin/sources, never by
+ *    an owner alert, so monitoredSourceIds leaves every probation source out.
  */
 async function enabledSources(admin: Admin): Promise<Set<string>> {
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
+  const { monitoredSourceIds } = await import('@/lib/signals/probation');
   const list = await withProbationSetup(admin, ALL_ADAPTERS.map((a) => ({ id: a.id, probation: !!a.probation, missingEnv: missingEnvFor(a) })));
-  return new Set(list.filter((a) => a.missingEnv.length === 0).map((a) => a.id));
+  const missing = new Map(list.map((a) => [a.id, a.missingEnv]));
+  return monitoredSourceIds(ALL_ADAPTERS, (a) => missing.get(a.id) ?? []);
 }
 
 async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null): Promise<MonitorResult> {

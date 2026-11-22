@@ -112,8 +112,9 @@ describe('Dallas building permits (e7gq-4sah): one run-together contractor strin
     expect(role(items[1], 'contractor')).toEqual([]);
     notIn([items[1]], ['JAMES CARTER', '214-555-0101', '12 ELM']);
   });
-  it('the dataset stays disabled (text dates, 2018 rows) until the owner re-checks the feed', () => {
-    expect(sds('socrata-dallas-permits').verified).toBe(false);
+  it('the dataset is registered ON PROBATION only (round 19 coverage: text dates parsed in code), never live until the owner promotes it', () => {
+    expect(sds('socrata-dallas-permits').probation).toBe(true);
+    expect(sds('socrata-dallas-permits').queryDateField).toBe(':updated_at');
   });
 });
 

@@ -21,9 +21,9 @@ it('already applied live: 0021 to 0025 and the SQL of 0031 and 0032, said before
   expect(head).toMatch(/migration 0024 .* is already applied on the live database/);
 });
 
-it('the steps in order, each with a reason: 0028 before, 0030 any time, deploy, 0028 again, probe then 0026, DeKalb then 0027, switches, scorecard, samples, store, language', () => {
+it('the steps in order, each with a reason: 0028 before, 0030 any time, deploy, 0028 again, probe then 0026, DeKalb then 0027, switches, scorecard, samples, coverage probes, store, language', () => {
   const steps = [...block.matchAll(/^(\d+)\. (.*)$/gm)].map((m) => [Number(m[1]), m[2]] as const);
-  expect(steps.map(([n]) => n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  expect(steps.map(([n]) => n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   const want = [
     /^Run 0028 .*BEFORE the deploy/,
     /^Run 0030 .*any time/,
@@ -34,6 +34,7 @@ it('the steps in order, each with a reason: 0028 before, 0030 any time, deploy, 
     /^Leave `HOLLER_VIOLATION_OWNERS_ENABLED`, `HOLLER_STAGE_UPDATES_ENABLED` and `HOLLER_BUILDERS_PANEL_ENABLED` unset/,
     /^The per-metro scorecard/,
     /^NEEDS KUDZI, after a few days: read the Philadelphia samples/,
+    /^NEEDS KUDZI, right after the deploy: probe each of the eight coverage sources once: `curl -s -H "Authorization: Bearer <CRON_SECRET>" "<SITE>\/api\/admin\/coverage-probe\?source=<id>"`/,
     /^NEEDS KUDZI: recapture the store price screenshots; the store listing text and the intro offers still say 14 days; read the new privacy sentence/,
     /^Optional, after the deploy: .*holler_language/,
   ];
@@ -65,4 +66,17 @@ it('NEEDS KUDZI keeps every item of both rounds', () => {
     'NYC registration read',
   ]) expect(kudzi, s).toContain(s);
   expect(kudzi).toMatch(/shows 48 of 60/);
+});
+
+it('round 19 coverage (INT step 2): the eight sources are named in the deploy step, the probe step says what a good result is, defers the two promotion steps and needs both flags removed; the coverage checklist is in the one NEEDS KUDZI list', () => {
+  const ids = ['socrata-dallas-permits', 'arcgis-arlington-permits', 'arcgis-miamidade-permits', 'arcgis-miamidade-violations', 'arcgis-miamidade-building-violations', 'arcgis-phoenix-permits', 'arcgis-tempe-permits', 'arcgis-houston-311'];
+  const step3 = block.slice(block.indexOf('\n3. '), block.indexOf('\n4. '));
+  for (const id of ids) expect(step3, id).toContain(`\`${id}\``);
+  const step10 = block.slice(block.indexOf('\n10. '), block.indexOf('\n11. '));
+  expect(step10).toMatch(/A good result: `httpStatus` 200, `rowCount` 5, `schema` "ok"/);
+  expect(step10).toMatch(/Dallas shows `freshness` "stale"/);
+  expect(step10).toMatch(/`rowCapNote`, paging must be added before promotion/);
+  expect(step10).toMatch(/BOTH flags removed .*`probation: true` AND `schemaUnverified: true`/);
+  expect(md).not.toContain('**NEEDS KUDZI: Round 19 coverage');
+  for (const s of ['Round 19 coverage: For each source run', 'Round 19 coverage: A good result', 'Round 19 coverage: Daily,', 'Round 19 coverage: To promote one', 'Round 19 coverage, contractor names']) expect(kudzi, s).toContain(s);
 });

@@ -1,5 +1,6 @@
 import type { InspectionSummaryField, SocrataSubtype } from './socrata-datasets';
 import type { ContactSpec } from '@/lib/contacts/extract';
+import { COVERAGE_ARCGIS_DATASETS, COVERAGE_CONTACT_SPECS, COVERAGE_VALUE_FIELDS } from './coverage-datasets';
 
 /**
  * Config for the generic ArcGIS (FeatureServer / MapServer layer) adapter.
@@ -86,6 +87,26 @@ export interface ArcgisDataset {
   assumedValueFields?: string[];
   /** Permits: the status column, read into a fixed stage code by lib/signals/stage.ts permitStageOf (see socrata-datasets.ts statusField). */
   statusField?: string;
+  /** Round 19 coverage: a composite id (Arlington FOLDERTYPE + FOLDERYEAR + FOLDERSEQUENCE), joined with ':'. idField is then documentation. */
+  idFields?: string[];
+  /**
+   * Round 19 coverage: the column names were NOT read from the layer (research tags [3P] or [A]). The adapter reads the layer's field list
+   * first: a missing id or date column (or a date column that is text) is reported as "schema mismatch: ..." without querying, other
+   * missing columns are left out of outFields (the field stays empty), and the date comparison follows the layer's own date type.
+   */
+  schemaUnverified?: boolean;
+  /**
+   * Round 19 coverage (review P1-B): the address columns are unverified and may hold a name ("4521 MARIA LOPEZ FENCE"). Only what the tree's
+   * shared site-address rule keeps (lib/contacts/sanitize.ts cleanAddress: house number, street words, street suffix, cut there) is stored;
+   * anything else gives no address at all.
+   */
+  strictAddress?: boolean;
+  /**
+   * Round 19 coverage (review P1-A): the column that marks a confidential case (Miami-Dade CONF_FLAG). REQUIRED: it is always asked for, a
+   * layer whose field list lacks it is a schema mismatch, a row without it is dropped, and any truthy value (Y, YES, TRUE, T, 1, any case,
+   * spaces ignored) drops the row (arcgis.ts isConfidential).
+   */
+  confidentialField?: string;
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;
@@ -191,6 +212,8 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     windowForwardDays: 0, cadenceMinutes: 720, verified: false, verifiedUrl: M(ATL_BIZ), checkedOn: '2026-11-17', fieldSource: 'sourced',
     note: 'DISABLED. Business_Licenses_2026_Citywide (Dept. of Revenue), 24 fields, license_issued is esriFieldTypeDate. editingInfo.lastEditDate 2026-10-20 but the newest license_issued is 2026-07-01, so a 14 day window returns nothing. Re-enable if the Revenue export is refreshed. PRIVACY: business_name is never read (can be a person) and the street address is dropped for business rows.',
   },
+  // Round 19 coverage (Dallas-Fort Worth, Houston, Miami, Phoenix): ALL ON PROBATION, schemas unverified. See coverage-datasets.ts.
+  ...COVERAGE_ARCGIS_DATASETS,
 ];
 
 /**
@@ -292,6 +315,9 @@ export const PERMIT_VALUE_FIELDS: Record<string, { fields: string[]; assumed?: s
   'arcgis-dc-permits': { fields: ['ESTIMATED_COST', 'COST_OF_CONSTRUCTION'], assumed: ['ESTIMATED_COST', 'COST_OF_CONSTRUCTION'] },
   'arcgis-mecklenburg-permits': { fields: ['project_cost', 'total_cost'], assumed: ['project_cost', 'total_cost'] },
 };
+
+for (const [id, spec] of Object.entries(COVERAGE_CONTACT_SPECS)) CONTACT_SPECS[id] = spec;
+for (const [id, v] of Object.entries(COVERAGE_VALUE_FIELDS)) PERMIT_VALUE_FIELDS[id] = v;
 
 for (const d of ARCGIS_DATASETS) {
   if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];

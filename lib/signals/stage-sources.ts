@@ -23,4 +23,10 @@ export const PERMIT_STATUS_SOURCES: Readonly<Record<string, { field: string; evi
   'socrata-montgomery-permits': { field: 'status', evidence: 'config', stageDate: ':updated_at' },
   'socrata-chicago-permits': { field: 'permit_status', evidence: 'fixture', stageDate: ':updated_at' },
   'socrata-norfolk-permits': { field: 'status', evidence: 'fixture', stageDate: ':updated_at' },
+  // Round 19 coverage, ON PROBATION (samples only, so no stage is ever stored for them yet). Column names from COVERAGE-research.md:
+  // Arlington and Phoenix [O], Miami-Dade [3P], Tempe [A, BLDS]. No stage query (ArcGIS).
+  'arcgis-arlington-permits': { field: 'STATUSDESC', evidence: 'config', stageDate: null },
+  'arcgis-miamidade-permits': { field: 'BPSTATUS', evidence: 'config', stageDate: null },
+  'arcgis-phoenix-permits': { field: 'STATUS', evidence: 'config', stageDate: null },
+  'arcgis-tempe-permits': { field: 'StatusCurrent', evidence: 'config', stageDate: null },
 };
