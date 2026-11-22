@@ -5,7 +5,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { createElement, type FC } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+vi.mock('next/server', async (orig) => ({ ...(await orig<typeof import('next/server')>()), connection: async () => {} }));
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { Pricing } from '@/components/pricing';
 import { PRICING_FAQ, YEARLY_NOTE, PRICING_DESCRIPTION } from '@/lib/plan/pricing-page';
@@ -14,6 +17,10 @@ import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 import { TRADE_PRICE_LINE } from '@/lib/seo/trade-view';
 import { annualSavingLabel, annualSavingSentence } from '@/lib/stripe/plans';
 import { t } from '@/lib/i18n';
+import { PricingBand } from '@/components/home/pricing-band';
+import { CheckResults } from '@/components/check-results';
+import { watchList } from '@/lib/check/watch';
+import HomeEs from '@/app/es/page';
 
 const root = path.resolve(__dirname, '../..');
 const BANNED = /\bmonths?\s+free\b|\bfree\s+months?\b/i;
@@ -159,11 +166,107 @@ describe('the 60-day trial wording (round 18) comes from TRIAL_DAYS', () => {
     expect(t('en', 'land.description', { from: '$7.99', days: TRIAL_DAYS })).toContain(`a ${TRIAL_PHRASE}`);
   });
 
-  it('pricing fine print uses the precise form and the Solo button the headline', () => {
+  it('pricing fine print and the Solo button use the precise form (the card shows a yearly price)', () => {
     const text = renderToStaticMarkup(createElement(Pricing)).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
     expect(text).toContain('Every plan starts with a 60-day free trial. No card needed.');
-    expect(text).toContain('Try 2 months free');
+    expect(text).toContain('Start your 60-day free trial');
+    expect(text).not.toMatch(BANNED);
     expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
     expect(text).not.toMatch(/\b14[- ]day|\b14 days/);
+  });
+});
+
+// Review r18 TRIAL F2: a button or a line is never judged alone. In any rendered card, CTA box or page section that shows a yearly price,
+// the trial must be in its precise form ("60-day free trial" / "prueba gratis de 60 días"), never the 2-month headline.
+// No \b after "año": ñ is not a word character in JS regexes.
+const YEARLY = /\ba year\b|\/yr\b|\bper year\b|\byearly\b|\bannual\b|\bal año|\/año|\banual\b/i;
+const HEADLINE_ANY = /\bmonths?\s+free\b|\bmes(es)?\s+gratis\b/i;
+const plain = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+/** Whole cards (every <li>) and whole sections or articles: each block with everything nested inside it. */
+function blocks(html: string): string[] {
+  const out: string[] = [];
+  for (const tag of ['li', 'section', 'article']) {
+    const re = new RegExp(`<${tag}[\\s>]`, 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html))) {
+      // the block runs to its own closing tag, counting nested tags of the same name
+      let depth = 0;
+      const tagRe = new RegExp(`<(/?)${tag}[\\s>]`, 'g');
+      tagRe.lastIndex = m.index;
+      let t: RegExpExecArray | null;
+      let end = html.length;
+      while ((t = tagRe.exec(html))) {
+        depth += t[1] ? -1 : 1;
+        if (depth === 0) {
+          end = t.index;
+          break;
+        }
+      }
+      out.push(plain(html.slice(m.index, end)));
+    }
+  }
+  return out.filter(Boolean);
+}
+/** The blocks that show a yearly price and also the 2-month headline: must be none. */
+function offending(html: string): string[] {
+  return blocks(html).filter((b) => YEARLY.test(b) && HEADLINE_ANY.test(b));
+}
+
+describe('never the 2-month headline in a card or block with a yearly price (review F2)', () => {
+  it('the block splitter finds a headline next to a yearly price inside one card (so the check below can fail)', () => {
+    const bad = '<ul><li class="rounded-card"><p>$79.99 a year, save 16%</p><a>Try 2 months free</a></li><li class="rounded-card"><p>$7.99 a month</p><a>2 months free</a></li></ul>';
+    expect(offending(bad)).toEqual(['$79.99 a year, save 16% Try 2 months free']);
+    expect(offending('<main><section><h2>2 meses gratis</h2><p>$7.99 al mes o $79.99 al año</p></section></main>')).toHaveLength(1);
+  });
+
+  it('/pricing cards (full and short): no card holds both', () => {
+    for (const variant of ['full', 'short'] as const) {
+      const html = renderToStaticMarkup(createElement(Pricing as FC<{ variant?: 'short' | 'full' }>, { variant }));
+      const cards = html.split(/<li(?=[^>]*rounded-card)/).slice(1);
+      expect(cards.length, variant).toBe(2);
+      for (const c of cards) if (YEARLY.test(plain('<li' + c))) expect(plain('<li' + c), variant).not.toMatch(HEADLINE_ANY);
+      expect(offending(html), variant).toEqual([]);
+    }
+  });
+
+  it('home pricing band (heading beside the short cards with yearly prices): precise form', () => {
+    const html = renderToStaticMarkup(createElement(PricingBand));
+    expect(plain(html)).toMatch(YEARLY);
+    expect(plain(html)).not.toMatch(HEADLINE_ANY);
+    expect(plain(html)).toContain(`${TRIAL_PHRASE}. Then a flat monthly price.`);
+  });
+
+  it('/check CTA box (button above "Then from ... a year"), English and Spanish: precise form', () => {
+    for (const lang of ['en', 'es'] as const) {
+      for (const mode of ['limited', 'quiet', 'ok'] as const) {
+        const html = renderToStaticMarkup(
+          createElement(CheckResults, {
+            items: [],
+            mode,
+            checkedAt: '2026-11-17T11:55:00.000Z',
+            placeLabel: 'Absarokee, MT',
+            trade: 'roofing',
+            tradeLabel: 'Roofing',
+            citySlug: null,
+            watches: watchList('roofing', null),
+            now: Date.UTC(2026, 10, 17, 12, 0),
+            lang,
+          } as Parameters<typeof CheckResults>[0]),
+        );
+        expect(plain(html), `${lang} ${mode}`).not.toMatch(HEADLINE_ANY);
+        expect(offending(html), `${lang} ${mode}`).toEqual([]);
+      }
+    }
+    const en = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0) } as Parameters<typeof CheckResults>[0]));
+    expect(plain(en)).toContain('Get these by email. 60-day free trial, no card');
+    const es = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0), lang: 'es' } as Parameters<typeof CheckResults>[0]));
+    expect(plain(es)).toContain('Reciba estas alertas por correo. Prueba gratis de 60 días, sin tarjeta');
+  });
+
+  it('/es home: the price section uses "Prueba gratis de 60 días"; the hero (monthly price only) keeps "2 meses gratis"; no section holds both', () => {
+    const html = renderToStaticMarkup(HomeEs());
+    expect(offending(html)).toEqual([]);
+    expect(plain(html)).toContain('Prueba gratis de 60 días. Luego, un precio mensual fijo.');
+    expect(plain(html)).toContain('después de 2 meses gratis');
   });
 });

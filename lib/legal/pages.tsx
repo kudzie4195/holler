@@ -8,7 +8,7 @@
 import { env } from '@/lib/env';
 
 /** "Last updated" date printed on /privacy, /terms and /delete-account. */
-export const LEGAL_UPDATED = 'November 19, 2026';
+export const LEGAL_UPDATED = 'November 22, 2026';
 
 /** The support address when SUPPORT_EMAIL is set, otherwise undefined (pages then point at the contact link in our emails). */
 export function supportAddress(): string | undefined {

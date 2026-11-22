@@ -13,6 +13,7 @@ import { VerifyNotice } from './verify-notice';
 import { computeAccess } from '@/lib/auth/access';
 import { cityPageFor } from '@/lib/auth/city-link';
 import { requireProfile } from '@/lib/auth/session';
+import { repairShortTrial } from '@/lib/auth/trial';
 import { createClient } from '@/lib/supabase/server';
 import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
@@ -93,10 +94,14 @@ interface MatchRow {
 
 /** Loads the feed. Kept out of the component so time-dependent values (trial days, "x min ago") are computed per request. */
 async function loadDashboard() {
-  const { user, profile } = await requireProfile();
+  const { user, profile: loaded } = await requireProfile();
   const supabase = await createClient();
 
   const now = Date.now();
+  // Round 18: a never-paid trial row shorter than start + TRIAL_DAYS (an onboarding server step that failed before migration 0028) is
+  // moved there now, with the same guard as onboarding. A row that is already right costs no query. Never throws.
+  const repairedEnd = await repairShortTrial(user, loaded, createAdminClient, new Date(now));
+  const profile = repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
   const lang = langOfProfile(profile);
   const access = computeAccess(profile, now);
   // Source states (lib/signals/source-state.ts): started here so the cached read runs alongside the feed queries below instead of

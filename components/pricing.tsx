@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PLAN_FEATURES } from '@/lib/plan/copy';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from '@/lib/plan/limits';
 import { annualSavingLabel, priceLabel } from '@/lib/stripe/plans';
-import { TRIAL_HEADLINE, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /** No-break space: a number never sits on a different line from its noun ("5" and "keyword watches"). */
 const NB = '\u00a0';
@@ -111,7 +111,7 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
                 href="/signup"
                 className={`mt-auto flex min-h-[52px] items-center justify-center whitespace-normal! rounded-control px-4 text-center font-semibold transition-[filter,background-color] duration-150 active:translate-y-px ${c.button}`}
               >
-                {full ? (tier === 'starter' ? `Try ${TRIAL_HEADLINE}` : `Start free, pick ${TIER_NAMES.pro} later`) : 'Start free'}
+                {full ? (tier === 'starter' ? `Start your ${TRIAL_PHRASE}` : `Start free, pick ${TIER_NAMES.pro} later`) : 'Start free'}
               </Link>
             </li>
           );

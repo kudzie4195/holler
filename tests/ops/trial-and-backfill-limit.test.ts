@@ -74,9 +74,17 @@ function fakeAdmin(init: { meta?: Record<string, unknown>; profile?: Record<stri
               if (state.profile && !(Date.parse(String(state.profile[k])) < Date.parse(v))) pending.ok = false;
               return u;
             },
-            then: (res: (v: { error: null }) => void) => {
-              if (state.profile && pending.ok) Object.assign(state.profile, pending.patch);
-              res({ error: null });
+            or: (f: string) => {
+              updateFilters.push(`or ${f}`);
+              const ps = state.profile?.plan_source;
+              if (!(ps == null || ps === 'none')) pending.ok = false;
+              return u;
+            },
+            select: () => u,
+            then: (res: (v: { error: null; data: { user_id: string }[] }) => void) => {
+              const hit = !!state.profile && pending.ok;
+              if (hit) Object.assign(state.profile!, pending.patch);
+              res({ error: null, data: hit ? [{ user_id: 'u1' }] : [] });
             },
           };
           return u;
@@ -105,7 +113,7 @@ describe('one free trial per person (review L3), 60 days from the first start (r
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('first');
     expect(f.state.meta.holler_trial_started_at).toBe(iso(0));
     expect(f.state.profile!.trial_ends_at).toBe(iso(60));
-    expect(f.updateFilters).toEqual(['user_id=u1', 'subscription_status=trialing', 'stripe_subscription_id is null', `trial_ends_at<${iso(60)}`]);
+    expect(f.updateFilters).toEqual(['user_id=u1', 'subscription_status=trialing', 'stripe_subscription_id is null', `trial_ends_at<${new Date(Date.parse(iso(60)) - 1000).toISOString()}`]);
     expect(f.calls).toContain('sends.delete');
     // Running it again (re-submitted onboarding) changes nothing.
     f.calls.length = 0;

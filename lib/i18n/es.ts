@@ -498,6 +498,7 @@ export const es: Record<DictKey, string> = {
   'land.title': 'Holler: entérese cuando algo cerca de usted tenga que ver con su oficio',
   'land.description': 'Holler revisa datos públicos y le envía una alerta corta cuando algo cerca encaja con lo que usted hace. Planes desde {from} al mes después de una prueba gratis de {days} días. Sin tarjeta para empezar.',
   'land.trial': '{months} meses gratis',
+  'land.trial_precise': 'prueba gratis de {days} días',
   'nav.home': 'Holler, inicio',
   'nav.skip': 'Saltar al contenido',
   'nav.main': 'Principal',

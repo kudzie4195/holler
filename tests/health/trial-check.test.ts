@@ -24,11 +24,11 @@ describe('loadTrialDbCheck', () => {
     expect((await loadTrialDbCheck(rpc({ default_days: null, stamp_cap_days: 60, guard_cap_days: 60 }))).status).toBe('mismatch');
   });
 
-  it('not_applied when the function is missing (PGRST202 or 42883): the database is still on 14 days', async () => {
+  it('not_applied when the function is missing (PGRST202 or 42883): 0028 missing or a stale schema cache', async () => {
     for (const code of ['PGRST202', '42883']) {
       const c = await loadTrialDbCheck(rpc(null, { code, message: 'function not found' }));
       expect(c.status).toBe('not_applied');
-      expect(trialCheckLine(c)).toContain('migration 0028 is not applied, so the database default is still 14 days');
+      expect(trialCheckLine(c)).toContain('holler_trial_db_check() is missing: migration 0028 is not applied, or the API has not reloaded its schema. Until 0028 is applied the database default is 14 days');
     }
   });
 

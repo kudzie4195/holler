@@ -39,7 +39,8 @@ export function trialParams(trialEndsAt: string | null | undefined, now: number 
   if (!Number.isFinite(end)) return {};
   const left = end - now;
   if (left <= 0) return {};
-  if (left > MAX_TRIAL_MS) return { trial_end: Math.ceil((now + MAX_TRIAL_MS) / 1000) };
+  // The guard allows a row to end up to TRIAL_DAYS plus 5 minutes out (clock skew between the app and the database): that is not cut.
+  if (left > MAX_TRIAL_MS + 5 * 60_000) return { trial_end: Math.ceil((now + MAX_TRIAL_MS) / 1000) };
   if (left >= MIN_TRIAL_END_MS) return { trial_end: Math.ceil(end / 1000) };
   return { trial_period_days: Math.max(1, Math.ceil(left / DAY_MS)) };
 }

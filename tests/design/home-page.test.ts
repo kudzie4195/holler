@@ -134,7 +134,7 @@ describe('home page, Version 3', () => {
     }
     expect(text).toContain(`From ${priceLabel('starter', 'monthly')}/mo after ${TRIAL_HEADLINE}. No card.`);
     expect(text).toContain('after 2 months free. No card.'); // round 18: the headline form of the 60-day trial
-    expect(text).toContain(`${TRIAL_HEADLINE}. Then a flat monthly price.`);
+    expect(text).toContain('60-day free trial. Then a flat monthly price.'); // round 18 review F2: precise form beside the yearly prices
     expect(text).not.toContain('Starter');
     expect(html).toContain('aria-label="Plans"');
     expect(html.match(/data-price="/g)?.length).toBe(4);

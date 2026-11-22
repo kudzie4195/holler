@@ -17,19 +17,25 @@
 --     person's app_metadata.holler_trial_started_at stamp, so a person who deleted their account and came back does NOT get a new trial.
 --     A stamp that cannot be read skips that row (never lengthens on a guess). Never shortens a trial. Never touches a row with a
 --     subscription status other than 'trialing', a Stripe subscription id, a store plan (plan_source other than 'none', migration 0020) or
---     any store billing event (holler_billing_events, migration 0020): those people paid or tried to pay. Subscription state columns
---     (plan, subscription_status, stripe_*, plan_source, store_*) are never written. For every row it extends, the member's
---     trial_ending and trial_ended rows in holler_lifecycle_sends (0016) are deleted, so the reminder and the ended email can be sent
---     again for the new end (their opt-out row, if any, stays). Running it again changes nothing: an extended row already sits at
---     start + 60 days and fails `trial_ends_at < start + 60 days`.
+--     a store grant that was ever applied (holler_billing_events.result = 'applied', migration 0020): those people paid. Subscription
+--     state columns (plan, subscription_status, stripe_*, plan_source, store_*) are never written. An ENDED trial is revived only when
+--     the new end is more than 72 hours away, so the 3-day reminder always comes before the next "trial ended" email (review F1); a
+--     member whose start is 57 to 60 days back stays ended. For every row it extends, the member's trial_ending and trial_ended rows
+--     in holler_lifecycle_sends (0016) are deleted, so the reminder and the ended email can be sent again for the new end (their
+--     opt-out and welcome rows stay). A row the app already moved to start + 60 (whole milliseconds) is left alone, ledger included
+--     (one-second tolerance, review F4). Running it again changes nothing: an extended row already sits at start + 60 days.
+--     Run it again after the code deploy too (LAUNCH.md, Round 18 order): it repairs any row the old code cut back in between.
 --     Exact rule (per row r, v_start = least(r.created_at, stamp), v_end = v_start + interval '60 days'):
 --       r.subscription_status = 'trialing'
 --       and r.stripe_subscription_id is null
 --       and coalesce(r.plan_source, 'none') = 'none'                      (only when the column exists)
---       and no holler_billing_events row for r.user_id                     (only when the table exists)
+--       and no holler_billing_events row with result 'applied' for r.user_id (only when the table exists)
 --       and r.trial_ends_at > now() - interval '46 days'                   (still running, or ended in the last 46 days)
---       and r.trial_ends_at < v_end                                         (only ever later)
+--       and r.trial_ends_at + interval '1 second' < v_end                   (only ever later; the app writes whole milliseconds)
 --       and v_end > now()                                                   (the new end is still ahead)
+--       and (r.trial_ends_at > now() or v_end > now() + interval '72 hours') (an ENDED trial is revived only when the 3-day reminder
+--                                                                            can still come before the new end; otherwise the member
+--                                                                            would get a second "Your alerts are paused" and no reminder)
 
 alter table public.holler_profiles alter column trial_ends_at set default now() + interval '60 days';
 
@@ -172,7 +178,7 @@ begin
         and p.trial_ends_at > now() - interval ''46 days''
         and p.trial_ends_at < p.created_at + interval ''60 days'''
     || case when v_has_source then ' and coalesce(p.plan_source, ''none'') = ''none''' else '' end
-    || case when v_has_events then ' and not exists (select 1 from public.holler_billing_events e where e.user_id = p.user_id)' else '' end
+    || case when v_has_events then ' and not exists (select 1 from public.holler_billing_events e where e.user_id = p.user_id and e.result = ''applied'')' else '' end
   loop
     v_stamp := null;
     v_skip := false;
@@ -187,14 +193,21 @@ begin
     continue when v_skip;
     v_start := least(r.created_at, coalesce(v_stamp, r.created_at));
     v_end := v_start + interval '60 days';
-    continue when v_end <= now() or v_end <= r.trial_ends_at;
-    update public.holler_profiles
-       set trial_ends_at = v_end
-     where user_id = r.user_id
-       and subscription_status = 'trialing'
-       and stripe_subscription_id is null
-       and trial_ends_at > now() - interval '46 days'
-       and trial_ends_at < v_end;
+    -- Already there, to within a second: the app (lib/auth/trial.ts) writes whole milliseconds, Postgres keeps microseconds (review F4).
+    continue when v_end <= now() or v_end <= r.trial_ends_at + interval '1 second';
+    -- An ENDED trial is revived only if the new end is more than 72 hours away, so the 3-day reminder (60 to 84 hours before the end,
+    -- lib/lifecycle/select.ts) always comes before a second "Your alerts are paused" email (review F1). Running trials are always extended.
+    continue when r.trial_ends_at <= now() and v_end <= now() + interval '72 hours';
+    execute
+      'update public.holler_profiles
+          set trial_ends_at = $2
+        where user_id = $1
+          and subscription_status = ''trialing''
+          and stripe_subscription_id is null
+          and trial_ends_at > now() - interval ''46 days''
+          and trial_ends_at < $2 - interval ''1 second'''
+      || case when v_has_source then ' and coalesce(plan_source, ''none'') = ''none''' else '' end
+      using r.user_id, v_end;
     get diagnostics v_n = row_count;
     if v_n > 0 and v_has_sends then
       delete from public.holler_lifecycle_sends where user_id = r.user_id and kind in ('trial_ending', 'trial_ended');

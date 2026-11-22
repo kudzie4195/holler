@@ -307,6 +307,9 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
     blocks.push({ title: 'Free trial length', lines: [trialCheckLine(report.trialCheck)] });
     if ((report.trialCheck.status === 'mismatch' || report.trialCheck.status === 'not_applied') && report.problemCount === 0) {
       subject = 'Holler health: free trial length does not match the database';
+    } else if (report.trialCheck.status === 'error' && report.problemCount === 0) {
+      // A read failure must not hide a real mismatch behind an all-clear subject (review F10).
+      subject = 'Holler health: could not check the free trial length';
     }
   }
   const c = report.counts;

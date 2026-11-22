@@ -360,5 +360,16 @@ for plat in ("ios", "android"):
 ok = M["ios/08-price"]["banner_text"].startswith(f"{_TRIAL_DAYS} days left in your free trial.")
 print(f"   ios/08 ringed trial surface is the Feed banner for a new account: {check(ok, 'trial banner')}")
 
+# Round 18 (free trial 60 days): the committed 08-price shots were captured with the 14-day trial. They cannot be faked; they must be
+# recaptured (build-captures.sh, needs mobile/node_modules). Until then this check stays red ON PURPOSE, with a clear owner task, so a
+# store submission cannot go out with a 14-day screenshot. Nothing in the web gates (npm run build / typecheck / vitest / eslint) runs this
+# script (tests/ops/store-screenshots-owner-task.test.ts checks that).
+_stale = [k for k in ("ios/08-price", "android/08-price") if k in M and any(
+    str(M[k].get(f, "")).startswith(("14 days", "14-day")) or "14-day trial" in str(M[k].get(f, "")) or "14 days" in str(M[k].get(f, ""))
+    for f in ("head", "text", "sub", "banner_text"))]
+if _stale:
+    print("\nKNOWN OWNER TASK (round 18): " + ", ".join(_stale) + " still show the 14-day trial; the server now gives "
+          + f"{_TRIAL_DAYS} days. Recapture the 08-price screenshots before ANY store submission (LAUNCH.md, NEEDS KUDZI): "
+          + "on a machine with mobile/node_modules run `sh store/build-captures.sh` from mobile/, then this check must exit 0.")
 print("\nHARD FAILURES:", fail if fail else "none")
 sys.exit(1 if fail else 0)
