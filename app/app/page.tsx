@@ -203,7 +203,7 @@ async function loadDashboard() {
       subtype: s.subtype ?? null,
       label: labelOf(s),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
-      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, memberTrades),
+      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
       deadline: deadlineOf(s),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,

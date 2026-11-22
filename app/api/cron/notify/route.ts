@@ -245,7 +245,7 @@ export async function GET(req: Request) {
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
-        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, trades),
+        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
         deadline: deadlineOf(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
       }));

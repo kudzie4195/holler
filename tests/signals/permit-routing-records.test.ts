@@ -11,6 +11,9 @@ import path from 'node:path';
 import { downstreamTradesOf, routeKindsOf, routeWhyFor, carriedTrades, summaryParts, type RouteKind } from '@/lib/signals/permit-routing';
 import { classifyPermit } from '@/lib/signals/mapping/permit';
 import { matchOne, type MatchProfile } from '@/lib/signals/match';
+import { briefFor, tradeForRecord } from '@/lib/signals/brief';
+import { labelFor } from '@/lib/signals/lead-rules';
+import type { CategoryId } from '@/lib/signals/categories';
 
 type Row = [number, string, string, string, string, string[]];
 const ROWS = JSON.parse(fs.readFileSync(path.join(__dirname, '__data__/review-f-sample-156.json'), 'utf8')) as Row[];
@@ -200,6 +203,25 @@ describe('the matcher sees the same class (summary reaches the label)', () => {
   it('a house cleaner is matched to a residential remodel and not to a commercial alteration', () => {
     expect(matchOne(sig('Residential Alteration | $30,000 job value | 5 X ST'), cleaner, false)?.label).toBe('coming_soon');
     expect(matchOne(sig('Commercial Alteration | $30,000 job value | 5 X ST'), cleaner, false)).toBeNull();
+  });
+  it('review F P1-2b: tradeForRecord picks janitorial-commercial for an $8.4M commercial alteration, and the card sentence never says cleaning may follow', () => {
+    const rec = { source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', title: 'Remodel permit in Atlanta', summary: 'Commercial Alteration | $8,400,000 job value | 100 PEACHTREE ST NE, ATLANTA, GA 30303' };
+    const cats = ['general-contractor', 'cleaning', 'janitorial-commercial'];
+    const trades = ['cleaning', 'janitorial-commercial'];
+    expect(tradeForRecord(rec, cats, trades)).toBe('janitorial-commercial');
+    // Without the summary (the old call) the card was built for cleaning: this is what the surfaces must not do.
+    expect(tradeForRecord({ ...rec, summary: undefined }, cats, trades)).toBe('cleaning');
+    const t = tradeForRecord(rec, cats, trades)!;
+    const why = briefFor({ ...rec, label: labelFor(rec, t as CategoryId), trade: t }).why;
+    expect(why).not.toMatch(/cleaning may follow/i);
+  });
+  it('every caller of tradeForRecord (web feed, digest, mobile feed) passes the record summary', () => {
+    for (const f of ['app/app/page.tsx', 'app/api/cron/notify/route.ts', 'lib/mobile/feed.ts']) {
+      const src = fs.readFileSync(path.join(__dirname, '../..', f), 'utf8');
+      const calls = src.match(/tradeForRecord\(\{[^}]*\}/g) ?? [];
+      expect(calls.length, f).toBeGreaterThan(0);
+      for (const c of calls) expect(c, `${f}: ${c}`).toMatch(/summary: s\.summary/);
+    }
   });
   it('every caller of labelForMember passes the record summary', () => {
     for (const f of ['app/app/page.tsx', 'app/api/cron/notify/route.ts', 'lib/mobile/feed.ts', 'lib/push/notify.ts', 'lib/signals/score-admin.ts']) {

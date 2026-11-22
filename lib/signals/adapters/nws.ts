@@ -45,8 +45,11 @@ export const NWS_RULES: Rule[] = [
 
 /** A zone alert is placed by county only at this severity or higher (the floor the state-level match always had), so advisories stay quiet. */
 export const COUNTY_MIN_SEVERITY = 2;
-/** Most counties one alert becomes (a statewide winter storm warning names up to about a hundred). */
-export const MAX_COUNTIES_PER_ALERT = 150;
+/**
+ * No cap on the counties one alert becomes. The largest state has 254 counties (Texas), and an alert that lists them all must reach a member in
+ * any of them: a cap silently dropped the counties past the 150th (round 15 re-review). The matcher delivers one alert once per member (alertId), so
+ * the extra rows cost storage only.
+ */
 
 /** Added to a severe thunderstorm alert whose text reports damaging hail. */
 export const NWS_HAIL_EXTRA: CategoryId[] = ['auto-body', 'auto-glass'];
@@ -237,7 +240,7 @@ export function parseNws(raw: unknown): SignalInput[] {
       // No polygon, but the alert names its counties (SAME codes, always present): one point per county at the county centroid, matched
       // by radius like any other alert. The point is a stand-in for a county, so it carries data.loc = 'approx' (reach plus a county's
       // slack, no distance shown) and the same data.alertId, which lets a member who sits between two counties of one alert get it once.
-      for (const c of counties.slice(0, MAX_COUNTIES_PER_ALERT)) {
+      for (const c of counties) {
         out.push({
           ...base,
           externalId: `${id}#${c.fips}`,
