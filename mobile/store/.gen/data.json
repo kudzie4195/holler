@@ -1017,7 +1017,9 @@
   "ok": true,
   "apiVersion": 1,
   "currency": "USD",
-  "trialDays": 14,
+  "trialDays": 60,
+  "trialHeadline": "2 months free",
+  "trialPhrase": "60-day free trial",
   "plans": {
    "solo": {
     "entitlement": "solo",

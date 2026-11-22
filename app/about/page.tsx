@@ -4,7 +4,7 @@ import { DocPage, DocSection } from '@/components/doc-page';
 import { ButtonLink } from '@/components/button';
 import { ClosingBand } from '@/components/page-header';
 import { aboutCopy } from '@/lib/seo/public-copy';
-import { TRIAL_DAYS } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE } from '@/lib/plan/price-copy';
 
 export function generateMetadata(): Metadata {
   return {
@@ -62,9 +62,9 @@ export default function AboutPage() {
         </p>
       </DocSection>
 
-      <ClosingBand line="Try it on your own town." note={`${TRIAL_DAYS} days free. No card to start.`}>
+      <ClosingBand line="Try it on your own town." note={`${TRIAL_HEADLINE}. No card to start.`}>
         <ButtonLink href="/signup" variant="signal" size="lg">
-          Start free for {TRIAL_DAYS} days
+          Start free
         </ButtonLink>
         <ButtonLink href="/check" variant="outline-signal" size="lg">
           Check your area

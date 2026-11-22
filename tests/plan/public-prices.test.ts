@@ -44,11 +44,13 @@ describe('public prices for the apps and stores', () => {
     for (const bad of ['', 'holler_solo_monthly', 'com.localholler.app.gold.monthly', 'com.localholler.app.pro']) expect(entitlementForProduct(bad)).toBeNull();
   });
 
-  it('the trial is 14 days, the same constant the web app uses', () => {
-    expect(TRIAL_DAYS).toBe(14);
+  it('the trial is 60 days (round 18), the same constant the web app uses, with both phrases built from it', () => {
+    expect(TRIAL_DAYS).toBe(60);
     expect(TRIAL_DAYS).toBe(MEMBERSHIP_TRIAL_DAYS);
-    expect(PUBLIC_PRICES.trialDays).toBe(14);
-    expect(PUBLIC_PRICES.trialPeriod).toBe('P14D');
+    expect(PUBLIC_PRICES.trialDays).toBe(60);
+    expect(PUBLIC_PRICES.trialPeriod).toBe('P60D');
+    expect(PUBLIC_PRICES.trialHeadline).toBe('2 months free');
+    expect(PUBLIC_PRICES.trialPhrase).toBe('60-day free trial');
   });
 
   it('display strings and amounts', () => {
@@ -97,6 +99,7 @@ describe('public prices for the apps and stores', () => {
     };
     walk('lib/plan/public-prices.ts');
     // review r2: limits.ts reads the shared paid test from lib/storebilling/source.ts (pure, no imports).
-    expect([...seen].sort()).toEqual(['lib/auth/membership.ts', 'lib/plan/limits.ts', 'lib/plan/public-prices.ts', 'lib/storebilling/source.ts', 'lib/stripe/plans.ts']);
+    // round 18: price-copy.ts builds the trial phrases (relative imports only).
+    expect([...seen].sort()).toEqual(['lib/auth/membership.ts', 'lib/plan/limits.ts', 'lib/plan/price-copy.ts', 'lib/plan/public-prices.ts', 'lib/storebilling/source.ts', 'lib/stripe/plans.ts']);
   });
 });

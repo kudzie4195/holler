@@ -6,11 +6,12 @@ import { FROM_MONTHLY, FROM_YEARLY } from '@/lib/plan/price-copy';
 import { absoluteUrl } from './canonical';
 import { TRADE_FACTS, type TradeFacts, type TradeSignal } from './trade-pages';
 import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive, tradeComingSoon } from './signal-types';
-import { TRIAL_DAYS, TRIAL_DAYS_FREE, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { TIER_NAMES } from '@/lib/plan/limits';
 import { priceDecimal } from '@/lib/stripe/plans';
 
-export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with ${TRIAL_DAYS_FREE} and no card to start.`;
+// Precise trial form here on purpose: the 2-month headline right after a yearly price would read like a yearly saving.
+export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start.`;
 
 export const HOW_IT_WORKS: string[] = [
   'Pick what you do. Add your ZIP and how far you will drive, from 5 to 100 miles.',
@@ -168,8 +169,8 @@ export function serviceLd(t: TradeEntry): Record<string, unknown> {
     areaServed: { '@type': 'Country', name: 'United States' },
     offers: [
       // Offer prices and names from lib/stripe/plans.ts (cheapest plan), never typed.
-      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} monthly`, price: priceDecimal('starter', 'monthly'), priceCurrency: 'USD', description: `Monthly plan, ${TRIAL_DAYS_FREE}` },
-      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} yearly`, price: priceDecimal('starter', 'annual'), priceCurrency: 'USD', description: `Annual plan, ${TRIAL_DAYS_FREE}` },
+      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} monthly`, price: priceDecimal('starter', 'monthly'), priceCurrency: 'USD', description: `Monthly plan, ${TRIAL_PHRASE}` },
+      { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} yearly`, price: priceDecimal('starter', 'annual'), priceCurrency: 'USD', description: `Annual plan, ${TRIAL_PHRASE}` },
     ],
   };
 }

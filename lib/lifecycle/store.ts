@@ -117,7 +117,8 @@ export function createStore(db: Db): LifecycleStore {
     async loadSends(userIds) {
       const out: SendRow[] = [];
       for (const ids of chunk(userIds)) {
-        const { data, error } = await sends().select('user_id, kind').in('user_id', ids);
+        // sent_at: a trial_ending / trial_ended row written for an earlier trial end is stale (select.ts staleTrialSends).
+        const { data, error } = await sends().select('user_id, kind, sent_at').in('user_id', ids);
         if (error) {
           if (isMissingTable(error)) throw new NotMigrated();
           throw new Error(`sends: ${error.message}`);

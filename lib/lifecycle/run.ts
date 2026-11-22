@@ -1,12 +1,14 @@
 import type { SendEmailInput, SendEmailResult } from '../email';
 import { bestAlerts } from './best';
-import { isReturningMember, selectLifecycle, type Candidate, type LifecycleKind } from './select';
+import { isReturningMember, selectLifecycle, staleTrialSends, type Candidate, type LifecycleKind } from './select';
+import { mayExtendTrial, trialStartOf } from '../auth/trial';
 import { NotMigrated, type FullProfile, type LifecycleStore } from './store';
 import {
   plain,
   renderWelcomeMatches,
   renderWelcomeQuiet,
   renderTrialEnding,
+  trialEndingDays,
   renderTrialEnded,
   type AlertItem,
 } from './templates';
@@ -52,6 +54,13 @@ export interface RunDeps {
    * for this member's items, or undefined for the default order. A throw or rejection also means the default order. Wins over `rank`.
    */
   rankFor?: (p: FullProfile, items: (AlertItem & { id: number })[]) => Promise<(<T extends AlertItem>(items: T[]) => T[]) | undefined>;
+  /**
+   * Round 18 (review r2 R2): before a trial_ending or trial_ended email to a member the app would extend (mayExtendTrial: never paid, end
+   * earlier than start + TRIAL_DAYS), this extends the row first (lib/auth/trial.ts repairTrialForCron with the admin client) and returns
+   * the stored new end, or null when nothing moved. When it moved, the email is skipped: the new end gets its own emails. Absent (tests,
+   * or no admin client): the email goes as before.
+   */
+  repairTrial?: (userId: string, now: Date) => Promise<string | null>;
   /** Wall clock for the time budget; tests pass a fake. */
   clock?: () => number;
   budgetMs?: number;
@@ -74,6 +83,10 @@ export interface Summary {
   send_unknown: number;
   /** Ambiguous sends retried once at once with the same idempotency key (verify-v3 P2, commander decision 10). */
   send_retried: number;
+  /** Trial emails skipped because the member's trial was moved to start + TRIAL_DAYS first (round 18, review r2 R2). In dry: would be. */
+  skipped_trial_extended: number;
+  /** Ledger rows sent for an earlier trial end, cleared before selection (review r2 R3). In dry: found, not cleared. */
+  stale_cleared: number;
   failed: number;
   retried: number;
   would_send?: { user_id: string; kind: LifecycleKind; variant: string }[];
@@ -120,7 +133,9 @@ export async function buildMail(
       }
     }
     const items = bestAlerts(m.items, rank);
-    return { ...renderTrialEnding({ ...common, items }), variant: items.length ? 'alerts' : 'no_alerts' };
+    const hoursLeft = (Date.parse(p.trial_ends_at ?? '') - now.getTime()) / 3_600_000;
+    const daysLeft = trialEndingDays(Number.isFinite(hoursLeft) ? hoursLeft : 84);
+    return { ...renderTrialEnding({ ...common, items, daysLeft }), variant: items.length ? 'alerts' : 'no_alerts' };
   }
   const missed = await deps.store.missedSince(p, now);
   return { ...renderTrialEnded({ ...common, missed: missed.count, capped: missed.capped }), variant: missed.count > 0 ? 'missed' : 'paused_only' };
@@ -141,6 +156,8 @@ function emptySummary(dry: boolean): Summary {
     skipped_returning: 0,
     send_unknown: 0,
     send_retried: 0,
+    skipped_trial_extended: 0,
+    stale_cleared: 0,
     failed: 0,
     retried: 0,
   };
@@ -193,8 +210,47 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     throw e;
   }
   const byId = new Map(profiles.map((p) => [p.user_id, p]));
+  // Review r2 R3: a trial_ending / trial_ended row written for an EARLIER end (the extension moved the end; its ledger reset was lost) does
+  // not count as sent (selectLifecycle ignores it) and is cleared here so the claim below can take it. A failed clear is retried next run;
+  // until then the claim finds the row and nothing is sent twice.
+  const stale = staleTrialSends(profiles, sends);
+  for (const r of stale) {
+    if (dry) {
+      s.stale_cleared++;
+      continue;
+    }
+    try {
+      await store.release(r.user_id, r.kind as LifecycleKind);
+      s.stale_cleared++;
+    } catch (e) {
+      console.error('[lifecycle] stale ledger clear failed', r.kind, e instanceof Error ? e.message : e);
+    }
+  }
   const candidates = selectLifecycle(profiles, sends, now).slice(0, limit);
   s.selected = candidates.length;
+
+  /**
+   * Review r2 R2: a trial email to a member the app would extend is wrong ("ends in 3 days" when 48 days are left). Extend first, skip
+   * the email. Only when the repair really moved the row: a failed or refused repair (or a stamp that cannot be read) sends as before.
+   */
+  async function extendedFirst(c: Candidate, p: FullProfile): Promise<boolean> {
+    if (c.kind === 'welcome') return false;
+    let stamp: string | null = null;
+    try {
+      stamp = store.trialStartedAt ? await store.trialStartedAt(c.userId) : null;
+    } catch {
+      stamp = null;
+    }
+    const start = trialStartOf(p.created_at, stamp);
+    if (!start || !mayExtendTrial(p, start, now.getTime())) return false;
+    if (dry) return true;
+    if (!deps.repairTrial) return false;
+    try {
+      return (await deps.repairTrial(c.userId, now)) !== null;
+    } catch {
+      return false;
+    }
+  }
 
   if (dry) {
     s.would_send = [];
@@ -205,6 +261,10 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
       try {
         if (await returningWelcome(store, c, p)) {
           s.skipped_returning++;
+          continue;
+        }
+        if (deps.repairTrial && (await extendedFirst(c, p))) {
+          s.skipped_trial_extended++;
           continue;
         }
         const m = await buildMail(c.kind, p, deps, now);
@@ -224,6 +284,10 @@ export async function runLifecycle(deps: RunDeps): Promise<Summary | { ok: true;
     const p = byId.get(c.userId);
     if (!p) return 'done';
     tries.set(key(c), (tries.get(key(c)) ?? 0) + 1);
+    if (await extendedFirst(c, p)) {
+      s.skipped_trial_extended++;
+      return 'done';
+    }
     let claimed: 'claimed' | 'exists';
     try {
       claimed = await store.claim(c.userId, c.kind);

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PLAN_FEATURES } from '@/lib/plan/copy';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from '@/lib/plan/limits';
 import { annualSavingLabel, priceLabel } from '@/lib/stripe/plans';
-import { TRIAL_DAYS } from '@/lib/auth/membership';
+import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /** No-break space: a number never sits on a different line from its noun ("5" and "keyword watches"). */
 const NB = '\u00a0';
@@ -66,7 +66,7 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
     <div className="flex flex-col gap-4">
       {full ? (
         <p className="font-semibold text-brand-text">
-          Every plan starts with a {TRIAL_DAYS}-day free trial. No card needed.
+          Every plan starts with a {TRIAL_PHRASE}. No card needed.
         </p>
       ) : null}
       <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(250px,100%),1fr))] gap-4" aria-label="Plans">
@@ -111,7 +111,7 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
                 href="/signup"
                 className={`mt-auto flex min-h-[52px] items-center justify-center whitespace-normal! rounded-control px-4 text-center font-semibold transition-[filter,background-color] duration-150 active:translate-y-px ${c.button}`}
               >
-                {full ? (tier === 'starter' ? `Start free for ${TRIAL_DAYS} days` : `Start free, pick ${TIER_NAMES.pro} later`) : 'Start free'}
+                {full ? (tier === 'starter' ? `Start your ${TRIAL_PHRASE}` : `Start free, pick ${TIER_NAMES.pro} later`) : 'Start free'}
               </Link>
             </li>
           );

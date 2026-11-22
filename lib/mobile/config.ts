@@ -33,6 +33,8 @@ export function configBody(siteUrl: string, supportEmail: string | null): Omit<C
     apiVersion: MOBILE_API_VERSION,
     currency: 'USD',
     trialDays: PUBLIC_PRICES.trialDays,
+    trialHeadline: PUBLIC_PRICES.trialHeadline,
+    trialPhrase: PUBLIC_PRICES.trialPhrase,
     plans: { solo: plan(PUBLIC_PRICES.plans.solo), pro: plan(PUBLIC_PRICES.plans.pro) },
     entitlements: ENTITLEMENT_IDS,
     offeringId: OFFERING_ID,

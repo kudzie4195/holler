@@ -5,6 +5,8 @@ import { requireMember } from '@/lib/mobile/auth';
 import { fail, ok, preflight, readBody } from '@/lib/mobile/http';
 import { later } from '@/lib/mobile/later';
 import { meBody, type MeProfileRow } from '@/lib/mobile/me';
+import { repairShortTrial } from '@/lib/auth/trial';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { formMessage, mapFieldErrors, parseProfileInput, profileSaver, targetingChanged, toFormData } from '@/lib/mobile/profile';
 
 const METHODS = 'PATCH';
@@ -61,5 +63,8 @@ export async function PATCH(req: Request) {
 
   const { data, error } = await db.from('holler_profiles').select('*').eq('user_id', user.id).maybeSingle();
   if (error || !data) return fail(req, METHODS, 'server_error');
-  return ok(req, METHODS, meBody(user, data as MeProfileRow, siteUrl, Date.now()));
+  // Round 18 review r2 R1: the app shows trial days and the paywall from this body, so the same signed-in repair as GET /api/m/me runs first.
+  const repairedEnd = await repairShortTrial(user, data as MeProfileRow, createAdminClient);
+  const row = repairedEnd ? { ...(data as MeProfileRow), trial_ends_at: repairedEnd } : (data as MeProfileRow);
+  return ok(req, METHODS, meBody(user, row, siteUrl, Date.now()));
 }

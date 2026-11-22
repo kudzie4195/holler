@@ -28,8 +28,13 @@ export function hasLeftHoller(appMetadata: unknown): boolean {
   return typeof at === 'string' && at.length > 0;
 }
 
-/** Free trial length in days. THE single source: code, copy, emails, JSON-LD and lib/plan/public-prices.ts read it; migration 0019 sets the database to the same 14. */
-export const TRIAL_DAYS = 14;
+/**
+ * Free trial length in days. THE single source: code, copy, emails, JSON-LD, the mobile payloads and lib/plan/public-prices.ts read it,
+ * and lib/plan/price-copy.ts builds every trial phrase from it (TRIAL_HEADLINE, the 2-month headline, and TRIAL_PHRASE, "60-day free trial"). Owner decision (round 18): 60 days
+ * (2 months), no card; it was 14 (migration 0019). Migration 0028 sets the database to the same 60, and lib/auth/trial.ts brings a new
+ * member's row to start + TRIAL_DAYS even before 0028 is applied, so the site never promises more than the database gives.
+ */
+export const TRIAL_DAYS = 60;
 
 /** When this person's one free trial started (ISO), recorded in app_metadata so deleting the account cannot reset it. */
 export function trialStartedAt(appMetadata: unknown): string | null {

@@ -9,12 +9,13 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import { tradeLabel } from '@/lib/check/trades';
-import { FROM_MONTHLY, TRIAL_DAYS } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, TRIAL_DAYS, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TIER_NAMES } from '@/lib/plan/limits';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[0];
+const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function generateMetadata(): Metadata {
   const title = t(L, 'land.title');
@@ -63,7 +64,7 @@ function faqLd() {
  * Sign-up, pricing, privacy and terms are English pages, and the links say so.
  */
 export default function HomeEs() {
-  const trial = t(L, 'land.trial', { days: TRIAL_DAYS });
+  const trial = t(L, 'land.trial', { months: TRIAL_MONTHS });
   return (
     <>
       <TopNavEs englishHref={PAIR.en} />
@@ -122,7 +123,7 @@ export default function HomeEs() {
         </section>
 
         <section aria-labelledby="price-h" className={`${PAGE_BOX} pb-14`}>
-          <h2 id="price-h" className="text-3xl text-ink md:text-4xl">{t(L, 'price.h', { trial: trial.charAt(0).toUpperCase() + trial.slice(1) })}</h2>
+          <h2 id="price-h" className="text-3xl text-ink md:text-4xl">{t(L, 'price.h', { trial: upperFirst(t(L, 'land.trial_precise', { days: TRIAL_DAYS })) })}</h2>
           <p className="mt-3 text-muted">{t(L, 'price.p')}</p>
           <p className="mt-2 max-w-2xl text-ink">
             {t(L, 'price.line', {

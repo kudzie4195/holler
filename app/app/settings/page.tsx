@@ -9,6 +9,7 @@ import { LanguageForm } from '@/components/language-form';
 import { hasLanguageSetting } from '@/lib/auth/language';
 import { langOfProfile, t } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
+import { repairShortTrial } from '@/lib/auth/trial';
 import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
 import { annualSavingSentence, planChangeNote, priceLabel, renewalNote } from '@/lib/stripe/plans';
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const { user, profile } = await requireProfile();
+  const { user, profile: loaded } = await requireProfile();
+  // Round 18: same signed-in repair as /app. The trial emails link here, so this page must not show (or sell against) a short row.
+  const repairedEnd = await repairShortTrial(user, loaded, createAdminClient);
+  const profile = repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
   const access = computeAccess(profile);
   const stripeReady = hasEnv('STRIPE_SECRET_KEY');
   const tier = effectiveTier({

@@ -545,7 +545,10 @@ describe('GET /api/m/config (public)', () => {
     const b = await res.json();
     expect(res.headers.get('access-control-allow-origin')).toBe('capacitor://localhost');
     expect(b.trialDays).toBe(PUBLIC_PRICES.trialDays);
-    expect(b.trialDays).toBe(14);
+    expect(b.trialDays).toBe(60);
+    expect(b.trialHeadline).toBe(PUBLIC_PRICES.trialHeadline);
+    expect(b.trialHeadline).toBe('2 months free');
+    expect(b.trialPhrase).toBe('60-day free trial');
     expect(b.plans.solo.monthly).toMatchObject({ productId: 'com.localholler.app.solo.monthly', cents: PUBLIC_PRICES.plans.solo.monthly.cents, display: PUBLIC_PRICES.plans.solo.monthly.display });
     expect(b.plans.solo.yearly.productId).toBe('com.localholler.app.solo.yearly');
     expect(b.plans.pro.monthly.productId).toBe('com.localholler.app.pro.monthly');

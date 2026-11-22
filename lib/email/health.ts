@@ -7,6 +7,7 @@ import { EMAIL_STYLE, cardClose, wrapOpen, WRAP_CLOSE } from './theme';
 import { isStageNote } from '../signals/stage';
 import { agePhrase, STATE_LABEL, type SourceStateSummary } from '../signals/source-state';
 import { firecrawlLines, type FirecrawlHealth } from '../firecrawl/health';
+import { trialCheckLine, type TrialDbCheck } from '../auth/trial-check';
 
 export interface HealthAdapter {
   id: string;
@@ -73,6 +74,11 @@ export interface HealthReport {
   sourceStates?: SourceStateSummary | null;
   /** Firecrawl credits and per-source state (lib/firecrawl/health.ts). Absent when nothing is configured or the read failed. */
   firecrawl?: FirecrawlHealth | null;
+  /**
+   * Advertised free trial (TRIAL_DAYS) against what the database enforces (lib/auth/trial-check.ts, migration 0028). Attached by the route;
+   * absent when not checked. A mismatch or a missing migration changes the subject only when the run-level checks found nothing.
+   */
+  trialCheck?: TrialDbCheck | null;
 }
 
 const MIN = 60_000;
@@ -297,6 +303,18 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
     }
   }
   if (report.firecrawl) blocks.push({ title: 'Firecrawl (agency bid pages)', lines: firecrawlLines(report.firecrawl) });
+  if (report.trialCheck) {
+    blocks.push({ title: 'Free trial length', lines: [trialCheckLine(report.trialCheck)] });
+    // A mismatch or a read failure (which must not hide a mismatch behind an all-clear, review F10) is ADDED to the subject: it replaces
+    // only the all-clear, never "N sources need attention" or "N sources are behind on data" (review r2 R6).
+    const trialPart =
+      report.trialCheck.status === 'mismatch' || report.trialCheck.status === 'not_applied'
+        ? 'free trial length does not match the database'
+        : report.trialCheck.status === 'error'
+          ? 'could not check the free trial length'
+          : null;
+    if (trialPart) subject = report.problemCount === 0 && subject === report.subject ? `Holler health: ${trialPart}` : `${subject}; ${trialPart}`;
+  }
   const c = report.counts;
   blocks.push({
     title: 'Last 24 hours',

@@ -8,7 +8,6 @@ import { countList } from '@/lib/storms/copy';
 import { loadStormIndex, qualifyingReports } from '@/lib/storms/data';
 import { reportPath } from '@/lib/storms/report';
 import { MIN_INDEX_REPORTS } from '@/lib/storms/threshold';
-import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { stormCtaLabel } from '@/lib/plan/price-copy';
 
 const TITLE = 'Recent storm reports by county | Holler';
@@ -130,7 +129,7 @@ export default async function StormsIndexPage() {
           note="Holler alerts roofers, tree services and other local trades when storm reports come in near them."
         >
           <PrimaryLink href="/signup" onBrand>
-            {stormCtaLabel(TRIAL_DAYS)}
+            {stormCtaLabel()}
           </PrimaryLink>
         </ClosingBand>
       </Aside>

@@ -5,7 +5,7 @@ import { AuthCard, AuthCardSkeleton } from '@/components/auth-card';
 import { SignupForm } from '@/components/auth-forms';
 import { cleanCitySlug } from '@/lib/auth/redirect';
 import { cityBySlug } from '@/lib/geo';
-import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const metadata: Metadata = {
   title: 'Start your free trial',
@@ -30,7 +30,7 @@ async function Signup({ searchParams }: { searchParams: PageProps<'/signup'>['se
       subtitle={
         city
           ? `Alerts for ${city.name}, ${city.state} and the towns around it. No card needed.`
-          : `${TRIAL_DAYS} days, no card. Takes about a minute.`
+          : `${TRIAL_HEADLINE}, no card. Takes about a minute.`
       }
       footer={
         <>
