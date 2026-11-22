@@ -164,9 +164,10 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
     for (const t of ['fencing', 'security', 'pool-spa', 'windows-doors']) expect(label(s, t), t).toBe('context');
   });
 
-  it('a new building is soon for landscaping, cleaning and commercial cleaning', () => {
+  it('a new building is soon for landscaping and cleaning (commercial cleaning comes from fit-out and sign permits)', () => {
     const s = permit('New construction permit in Austin', ['general-contractor']);
-    for (const t of ['landscaping', 'cleaning', 'janitorial-commercial']) expect(label(s, t), t).toBe('soon');
+    for (const t of ['landscaping', 'cleaning']) expect(label(s, t), t).toBe('soon');
+    expect(label(s, 'janitorial-commercial')).toBe('context');
     for (const t of ['concrete-paving', 'fencing', 'security']) expect(label(s, t), t).toBe('context');
   });
 
@@ -407,7 +408,9 @@ describe('inspections and business licences', () => {
 describe('weather alerts', () => {
   it('warnings are soon for the storm trades', () => {
     const tstorm = nws('Severe Thunderstorm Warning: Garfield, CO; Rio Blanco, CO');
-    for (const t of ['roofing', 'tree-service', 'restoration', 'siding-gutters', 'public-adjuster']) expect(opportunityFor(tstorm, t), t).toMatchObject({ label: 'soon', reason: 'storm-warning' });
+    for (const t of ['roofing', 'tree-service', 'restoration', 'siding-gutters']) expect(opportunityFor(tstorm, t), t).toMatchObject({ label: 'soon', reason: 'storm-warning' });
+    // a warning is not a claim: public adjusters wait for damage reports
+    expect(label(tstorm, 'public-adjuster')).toBe('context');
     expect(label(nws('Tornado Warning: Merced, CA'), 'roofing')).toBe('soon');
     expect(opportunityTrades(nws('Flash Flood Warning: Coconino, AZ; Yavapai, AZ'))).toEqual({ restoration: 'soon', plumbing: 'soon' });
     const winter = nws('Winter Storm Warning: Eastern Sierra Slopes of Inyo County');
@@ -447,15 +450,17 @@ describe('storm reports, disasters, quakes', () => {
     expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'soon', restoration: 'soon' });
     expect(opportunityFor(s, 'tree-service').reason).toBe('storm-damage-report');
   });
-  it('wind damage naming a roof or tarp is act for roofing, market insight for tree service, soon for restoration', () => {
+  it('wind damage naming a roof or tarp is act for roofing and restoration, market insight for tree service', () => {
     for (const comments of ['Tarp on roof after wind blew shingles off home. (LOX)', 'Siding and gutter torn loose by wind. (LOX)']) {
       const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments });
-      expect(opportunityTrades(s), comments).toEqual({ 'tree-service': 'intel', roofing: 'act', restoration: 'soon' });
+      expect(opportunityTrades(s), comments).toEqual({ 'tree-service': 'intel', roofing: 'act', restoration: 'act' });
+      expect(opportunityFor(s, 'restoration').uncertain).not.toMatch(/not confirmed/);
     }
   });
   it('wind damage naming both trees and a roof is act for tree service and roofing', () => {
     const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Tree limb fell on roof of home. (LOX)' });
-    expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'act', restoration: 'soon' });
+    expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'act', restoration: 'act' });
+    expect(opportunityFor(s, 'tree-service').why).toMatch(/trees or limbs/);
   });
   it('a gust with no damage is soon for tree service only', () => {
     const s = spc('60 mph wind gust reported near 1 S Allison, NM', { type: 'wind', windMph: 60, comments: 'Peak wind gust from passing thunderstorm. (ABQ)' });
@@ -573,5 +578,21 @@ describe('round 3 grading fixes', () => {
     const s = sig('socrata-chicago-business', 'civic', 'business', 'New business license in Chicago: Mobile Food License', ['janitorial-commercial']);
     expect(label(s, 'janitorial-commercial')).toBe('intel');
     expect(label(s, 'pest-control')).toBe('context');
+  });
+});
+
+describe('round 4 grading fixes', () => {
+  it('a Cincinnati CLOS-NO case is never Act now', () => {
+    const s = { ...sig('socrata-cincinnati-311', 'civic', '311', '311 request in Cincinnati: Tall grass/weeds, private property', ['lawn-care']), summary: 'Tall grass/weeds, private property | CLOS-NO | 100 block of X' };
+    expect(['intel', 'context']).toContain(label(s, 'lawn-care'));
+  });
+  it('wind damage with no trees named is not Act now for tree service', () => {
+    const s = sig('spc', 'report', null, 'Wind damage reported near 1 N Delray, FL', [], { data: { type: 'wind', comments: 'Power lines down. (MFL)' } });
+    expect(label(s, 'tree-service')).toBe('soon');
+  });
+  it('downstream HVAC on an addition says to contact the builder now', () => {
+    const s = permit('Addition permit in Austin', ['general-contractor']);
+    expect(opportunityFor(s, 'hvac').next).toMatch(/now/);
+    expect(opportunityFor(s, 'painting').next).toMatch(/check back/);
   });
 });

@@ -135,7 +135,7 @@ export interface OpportunityAssessment {
   /** Reason given to every trade not in grants. */
   fallback: OpportunityReason;
   /** Facts the copy may repeat (all read from the record). */
-  detail: { kinds?: string[]; event?: string; publicPost?: boolean; residential?: boolean; unit?: boolean; hailInches?: number | null };
+  detail: { kinds?: string[]; event?: string; publicPost?: boolean; residential?: boolean; unit?: boolean; homeDamage?: boolean; trees?: boolean; hailInches?: number | null };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -285,7 +285,7 @@ export const PERMIT_DOWNSTREAM: Record<string, CategoryId[]> = {
   // screen doors or a garage door opener the builder did not fit.
   'new-home': ['real-estate', 'moving', 'landscaping', 'lawn-care', 'cleaning'],
   // Any new building (home or commercial) needs a site finished around it, a post-construction clean and usually an alarm.
-  'new-construction': ['landscaping', 'cleaning', 'janitorial-commercial'],
+  'new-construction': ['landscaping', 'cleaning'],
   // A re-roof is when owners replace gutters and siding trim, add solar on the new roof, and haul off what the tear-off left.
   roof: ['siding-gutters'],
   // Solar often needs a panel or service upgrade, and roof prep or repair before the panels go on.
@@ -634,7 +634,7 @@ function weatherRule(sig: OpportunityInput): OpportunityAssessment {
   if (!hit.trades) return assess('weather', 'minor-weather', {}, { event });
   const g: Partial<Record<CategoryId, Grant>> = {};
   if (hit.intelOnly) grantAll(g, hit.trades, 'intel', hit.intelOnly === 'cold' ? 'cold-weather' : 'weather-watch');
-  else if (/warning|emergency/.test(e)) grantAll(g, hit.trades, 'soon', 'storm-warning');
+  else if (/warning|emergency/.test(e)) grantAll(g, hit.trades.filter((t) => t !== 'public-adjuster'), 'soon', 'storm-warning');
   else grantAll(g, hit.trades, 'intel', 'weather-watch');
   return assess('weather', 'minor-weather', g, { event });
 }
@@ -674,9 +674,11 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
       // Tree service is Act now only when the report names trees or limbs; a roof or tarp report goes to roofers first.
       const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(comments);
       const roof = /roof|shingle|tarp|siding|gutter/.test(comments);
-      grantAll(g, ['tree-service'], trees || !roof ? 'act' : 'intel', 'storm-damage-report');
+      const homeDamage = /home|house|residen|roof|siding|garage|carport|porch|structure|building/.test(comments);
+      grantAll(g, ['tree-service'], trees ? 'act' : roof ? 'intel' : 'soon', 'storm-damage-report');
       grantAll(g, ['roofing'], roof ? 'act' : 'soon', 'storm-damage-report');
-      grantAll(g, ['restoration'], 'soon', 'storm-damage-report');
+      grantAll(g, ['restoration'], homeDamage ? 'act' : 'soon', 'storm-damage-report');
+      return assess('storm-report', 'other-trades', g, { homeDamage, trees });
     } else {
       // A measured gust with no damage in the report: limbs are likely down, roofs are not known to be hit.
       grantAll(g, ['tree-service'], 'soon', 'wind-gust-report');
@@ -750,7 +752,7 @@ export function assessOpportunity(sig: OpportunityInput): OpportunityAssessment 
   return a;
 }
 
-const CLOSED_RE = /(?:^|\|)\s*(?:closed|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
+const CLOSED_RE = /(?:^|\|)\s*(?:closed|clos-[a-z]+|clos|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
 
 function assessRaw(sig: OpportunityInput): OpportunityAssessment {
   const kind = norm(sig.kind);
@@ -800,6 +802,8 @@ function assessRaw(sig: OpportunityInput): OpportunityAssessment {
 interface CopyCtx {
   /** Trade label from categories.ts, or "your trade". */
   trade: string;
+  /** Category id ("hvac"), for trade-specific steps. */
+  tradeId: string;
   label: Opportunity;
   detail: OpportunityAssessment['detail'];
 }
@@ -866,7 +870,9 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     const k = kindsText(c.detail.kinds);
     return {
       why: `The permit office issued ${k ? `${article(k)} ${k}` : 'a'} permit here, and work for ${c.trade} often follows a job like this.`,
-      next: 'Keep the address and check back once the main work is done.',
+      next: ['hvac', 'electrical', 'plumbing'].includes(c.tradeId)
+        ? 'Contact the builder or owner now: this work goes in while the job is open.'
+        : 'Keep the address and check back once the main work is done.',
       uncertain: 'The owner may already have hired someone, or may not need this work.',
     };
   },
@@ -957,12 +963,15 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
     };
   },
   'storm-damage-report': (c) => ({
-    why:
-      c.label === 'act'
-        ? 'Wind damage was reported near here, and reports like this usually involve trees or limbs down.'
+    why: c.detail.trees
+      ? 'Wind damage with trees or limbs down was reported near here.'
+      : c.detail.homeDamage
+        ? `Wind damage to a building was reported near here, work that fits ${c.trade}.`
         : `Wind damage was reported near here, and nearby properties may need ${c.trade}.`,
     next: 'Check the area and offer help to owners on affected streets.',
-    uncertain: 'The report does not say which properties were hit, and damage to homes is not confirmed.',
+    uncertain: c.detail.homeDamage
+      ? 'The report does not say which property was hit or how badly.'
+      : 'The report does not say which properties were hit, and damage to homes is not confirmed.',
   }),
   'hail-report': (c) => ({
     why:
@@ -1060,7 +1069,7 @@ export function opportunityCopy(
   label: Opportunity,
   detail: OpportunityAssessment['detail'] = {},
 ): Copy {
-  return COPY[reason]({ trade: tradeName(trade), label, detail });
+  return COPY[reason]({ trade: tradeName(trade), tradeId: trade, label, detail });
 }
 
 function briefFrom(a: OpportunityAssessment, trade: string): OpportunityBrief {
