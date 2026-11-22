@@ -1,0 +1,24 @@
+{
+ "solicitations": [
+  {
+   "title": "Traffic Signal, Sign and Streetlight Maintenance",
+   "agency": "",
+   "solicitationNumber": "RFP 26-01",
+   "category": "RFP",
+   "dueDate": "2026-03-11T14:00",
+   "postedDate": "2026-02-04",
+   "detailUrl": "",
+   "status": "open"
+  },
+  {
+   "title": "Proposal - Design Professional Services",
+   "agency": "",
+   "solicitationNumber": "RFQ 26-01",
+   "category": "RFQ",
+   "dueDate": "2026-03-02T17:00",
+   "postedDate": "2026-02-02",
+   "detailUrl": "",
+   "status": "open"
+  }
+ ]
+}

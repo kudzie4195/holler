@@ -57,7 +57,7 @@ describe('P1-3: POST /api/draft refuses resident requests', () => {
       }),
     }));
     const { POST } = await import('@/app/api/draft/route');
-    const res = await POST(new Request('https://holler.test/api/draft', { method: 'POST', body: JSON.stringify({ matchId: 7 }) }));
+    const res = await POST(new Request('https://holler.test/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ matchId: 7 }) }));
     return { res, generateDraft, adminUpdate };
   }
 

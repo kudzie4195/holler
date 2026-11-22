@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchOne, type MatchSignal } from '../signals/match';
+import { expandCategoriesForRouting } from '../signals/permit-routing';
 import { matchScope, type ScopeInput } from '../plan';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-location';
@@ -11,11 +12,12 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '../signals/approx-locati
  * does for its 90-day count. Same three queries (a box around each allowed area; state-level rows at severity 2 or more; rows from the
  * approximate-location sources (Cobb County) in a box of radius + 15 miles, the scanner's reach for them), same exclusions
  * (resident requests and kind 'ask' never counted). Columns read: id, source, kind, categories, lat, lon, state, severity, occurred_at,
- * data->>subtype. No titles, no summaries, no contacts.
+ * data->>subtype, data->>projectOf (followers are skipped). No titles, no summaries, no contacts.
  */
 export const MISSED_ROW_CAP = 1000;
 const MI_PER_DEG = 68.5;
-const COLUMNS = 'id,source,kind,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+// projectOf: a follower (a second listing of a project, lib/signals/projects.ts) never makes a card, so it is not counted either.
+const COLUMNS = 'id,source,kind,title,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf';
 
 export interface MissedProfile extends ScopeInput {
   radius_mi: number | null;
@@ -25,6 +27,7 @@ interface Row {
   id: number | string;
   source: string;
   kind: string;
+  title?: string | null;
   state: string | null;
   lat: number | null;
   lon: number | null;
@@ -32,6 +35,7 @@ interface Row {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  projectOf?: string | null;
 }
 
 const isNum = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -62,7 +66,7 @@ export async function missedSince(
       .select(COLUMNS)
       .neq('source', HOLLER_REQUEST_SOURCE)
       .neq('kind', 'ask')
-      .overlaps('categories', scope.categories)
+      .overlaps('categories', expandCategoriesForRouting(scope.categories))
       .gte('occurred_at', since.toISOString())
       .lte('occurred_at', now.toISOString())
       .order('occurred_at', { ascending: false })
@@ -104,7 +108,7 @@ export async function missedSince(
     const id = String(r.id);
     if (seen.has(id)) continue;
     seen.add(id);
-    if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
+    if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || r.projectOf) continue;
     const sig: MatchSignal = {
       id: Number(r.id),
       categories: r.categories ?? [],
@@ -116,6 +120,9 @@ export async function missedSince(
       subtype: r.subtype,
       // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
       source: r.source,
+      // Title and kind feed the opportunity label: a context row is not an alert, so it is not counted as missed.
+      kind: r.kind,
+      title: r.title ?? null,
     };
     if (matchOne(sig, mp)) count++;
   }

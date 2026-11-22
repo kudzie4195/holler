@@ -1,0 +1,54 @@
+[
+  {
+    "permit_number": "2026-104411 BP",
+    "permit_type_desc": "Building Permit",
+    "work_class": "Remodel",
+    "permit_class_mapped": "Residential",
+    "description": "Interior remodel: kitchen and primary bath",
+    "issue_date": "2026-11-19T00:00:00.000",
+    "original_address1": "1204 E 14TH ST",
+    "original_zip": "78702",
+    "total_job_valuation": "46000",
+    "latitude": "30.27312",
+    "longitude": "-97.72964"
+  },
+  {
+    "permit_number": "2026-104412 BP",
+    "permit_type_desc": "Building Permit",
+    "work_class": "Remodel",
+    "permit_class_mapped": "Residential",
+    "description": "Interior remodel: kitchen and primary bath",
+    "issue_date": "2026-11-19T00:00:00.000",
+    "original_address1": "1204 East 14th Street",
+    "original_zip": "78702",
+    "total_job_valuation": "46000",
+    "latitude": "30.27312",
+    "longitude": "-97.72964"
+  },
+  {
+    "permit_number": "2026-104413 EP",
+    "permit_type_desc": "Electrical Permit",
+    "work_class": "Existing",
+    "permit_class_mapped": "Residential",
+    "description": "Rewire kitchen circuits",
+    "issue_date": "2026-11-19T00:00:00.000",
+    "original_address1": "1204 E 14TH ST",
+    "original_zip": "78702",
+    "total_job_valuation": "6000",
+    "latitude": "30.27312",
+    "longitude": "-97.72964"
+  },
+  {
+    "permit_number": "2026-104500 BP",
+    "permit_type_desc": "Building Permit",
+    "work_class": "Remodel",
+    "permit_class_mapped": "Residential",
+    "description": "Interior remodel: kitchen and primary bath",
+    "issue_date": "2026-11-19T00:00:00.000",
+    "original_address1": "1310 E 14TH ST",
+    "original_zip": "78702",
+    "total_job_valuation": "52000",
+    "latitude": "30.27330",
+    "longitude": "-97.72700"
+  }
+]

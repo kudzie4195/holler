@@ -57,7 +57,8 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
           expect(String(s.lon).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(2);
           expect(s.data?.loc).toBe('approx');
           expect(s.data?.approxLocation).toBe(true);
-          expect(s.contacts).toBeUndefined();
+          // Round 15: the only contact a Cobb row can carry is its job site (no owner, applicant or contractor column exists).
+          expect((s.contacts ?? []).every((c) => c.role === 'site')).toBe(true);
         }
       });
 
@@ -100,8 +101,8 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
     const out = addCobbWorkType({ features: [feat('New Tenant'), feat('Vacant Tenant'), feat('Remodel'), feat(' TOWNHOME ')] }) as { features: { attributes: Record<string, unknown> }[] };
     expect(out.features.map((f) => f.attributes[COBB_SYNTH_FIELD])).toEqual(['Tenant fit-out', undefined, undefined, 'New multi-family']);
     const com = parseCobb(fx(FILES['arcgis-cobb-commercial-permits']), ds('arcgis-cobb-commercial-permits'));
-    expect(com.filter((s) => s.title === 'Tenant fit-out permit in Cobb County').length).toBe(4);
-    expect(com.filter((s) => s.title === 'Remodel permit in Cobb County').length).toBe(1);
+    expect(com.filter((s) => s.title === 'Tenant fit-out permit in Cobb County').length).toBe(5); // 4 New Tenant + 1 commercial remodel (a commercial alteration is a fit-out, round 15 Q2)
+    expect(com.filter((s) => s.title === 'Remodel permit in Cobb County').length).toBe(0);
     const mu = parseCobb(fx(FILES['arcgis-cobb-multiunit-permits']), ds('arcgis-cobb-multiunit-permits'));
     expect(mu.map((s) => s.title)).toEqual(Array(4).fill('New home permit in Cobb County'));
     const vacant = parseCobb({ features: [{ attributes: { PermitNo: '2026-000001', PermitType: 'Commercial', PermitSubType: 'Vacant Tenant', DateIssued: 1794441600000, StreetNo: 1000, StreetName: 'EXAMPLE', StreetType: 'RD', VALUE: 1000 } }] }, ds('arcgis-cobb-commercial-permits'));

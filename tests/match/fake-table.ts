@@ -33,6 +33,8 @@ function splitTop(s: string): string[] {
 }
 
 function term(t: string, r: Row): boolean {
+  if (t.startsWith('or(') && t.endsWith(')')) return splitTop(t.slice(3, -1)).some((x) => term(x, r));
+  if (t.startsWith('and(') && t.endsWith(')')) return splitTop(t.slice(4, -1)).every((x) => term(x, r));
   const m = /^([a-z_]+(?:->>[a-zA-Z_]+)?)\.([a-z]+)\.(.*)$/.exec(t);
   if (!m) throw new Error(`fake cannot parse ${t}`);
   const [, col, op, val] = m;
@@ -46,6 +48,10 @@ function term(t: string, r: Row): boolean {
       return v != null && String(v) !== val;
     case 'in':
       return v != null && val.replace(/^\(|\)$/g, '').split(',').includes(String(v));
+    case 'ilike': {
+      const re = new RegExp(`^${val.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`, 'i');
+      return v != null && re.test(String(v));
+    }
     case 'like': {
       const re = new RegExp(`^${val.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
       return v != null && re.test(String(v));

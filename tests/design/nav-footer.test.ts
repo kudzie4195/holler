@@ -93,7 +93,7 @@ describe('footer', () => {
       const start = footer.indexOf(`>${title}</h2>`);
       return hrefs(footer.slice(start, footer.indexOf('</ul>', start)));
     };
-    expect(group('Product')).toEqual(['/check', '/pricing', '/#how', '/storms', '/request']);
+    expect(group('Product')).toEqual(['/check', '/pricing', '/#how', '/storms', '/request', '/es']);
     expect(group('Trades')).toEqual(['/for/roofing', '/for/plumbing', '/for/hvac', '/for/electrical', '/for/tree-service', '/for/restoration', '/for']);
     expect(group('Learn')).toEqual(['/local', '/guides', '/faq', '/data', '/about']);
     expect(group('Company')).toEqual(['mailto:support@localholler.com', '/privacy', '/terms', '/delete-account']);

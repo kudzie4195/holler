@@ -9,7 +9,7 @@ import { matchScope } from '@/lib/plan/scope';
 export const maxDuration = 60;
 
 /**
- * Hourly. Sends the welcome, trial_ending and trial_ended emails (lib/lifecycle). Same bearer-or-?key= protection as the other cron routes.
+ * Hourly. Sends the welcome, trial_ending and trial_ended emails (lib/lifecycle). Same Bearer-only protection as the other cron routes.
  *   ?dry=1  lists who would get what (user id, kind, variant) and sends nothing; no ledger row is written.
  * At most 200 members per run. Overlapping runs send once: the ledger row is inserted first and only the insert that succeeds sends.
  */

@@ -3,6 +3,7 @@ import { Input } from './input';
 import { Select } from './select';
 import { tradeGroups } from '@/lib/check/trades';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { t, type Lang } from '@/lib/i18n';
 
 /** Plain GET form to /check. No client JS needed, so it works in the landing hero too. */
 export function CheckForm({
@@ -10,9 +11,10 @@ export function CheckForm({
   trade = '',
   zipError,
   tradeError,
-  submitLabel = 'See what happened near you',
+  submitLabel,
   idPrefix = 'check',
   prompt,
+  lang = 'en',
 }: {
   zip?: string;
   trade?: string;
@@ -22,10 +24,12 @@ export function CheckForm({
   idPrefix?: string;
   /** A neutral next-step line above the fields (not an error), such as "Now pick your trade" after the home page ZIP form. */
   prompt?: string;
+  /** 'es' writes the labels in Spanish and sends the form to /es/check. English (the default) is unchanged. */
+  lang?: Lang;
 }) {
   // A trade that no record type can reach on this deployment (childcare and beauty without a people-asking key) is left out, as onboarding
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
-  const groups = tradeGroups()
+  const groups = tradeGroups(lang)
     .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
     .filter((g) => g.options.length > 0);
   return (
@@ -41,12 +45,12 @@ export function CheckForm({
       ) : null}
       <form
         aria-describedby={prompt ? `${idPrefix}-prompt` : undefined}
-        action="/check" method="get" noValidate className="grid grid-cols-1 gap-4 @sm:grid-cols-[8rem_minmax(0,1fr)] @3xl:grid-cols-[8rem_minmax(0,1fr)_auto] @3xl:items-start">
+        action={lang === 'es' ? '/es/check' : '/check'} method="get" noValidate className="grid grid-cols-1 gap-4 @sm:grid-cols-[8rem_minmax(0,1fr)] @3xl:grid-cols-[8rem_minmax(0,1fr)_auto] @3xl:items-start">
         <div className="min-w-0">
           <Input
             id={`${idPrefix}-zip`}
             name="zip"
-            label="ZIP code"
+            label={t(lang, 'chk.zip')}
             inputMode="numeric"
             autoComplete="postal-code"
             maxLength={10}
@@ -56,8 +60,8 @@ export function CheckForm({
           />
         </div>
         <div className="min-w-0">
-          <Select id={`${idPrefix}-trade`} name="trade" label="What you do" defaultValue={trade} error={tradeError}>
-            <option value="">Pick a trade</option>
+          <Select id={`${idPrefix}-trade`} name="trade" label={t(lang, 'chk.trade')} defaultValue={trade} error={tradeError}>
+            <option value="">{t(lang, 'chk.pick')}</option>
             {groups.map((g) =>
               g.label ? (
                 <optgroup key={g.label} label={g.label}>
@@ -79,7 +83,7 @@ export function CheckForm({
         </div>
         <div className="@sm:col-span-2 @3xl:col-span-1 @3xl:pt-[1.625rem]">
           <Button type="submit" size="md" full className="@sm:w-auto">
-            {submitLabel}
+            {submitLabel ?? t(lang, 'chk.submit')}
           </Button>
         </div>
       </form>

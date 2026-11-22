@@ -1,0 +1,1710 @@
+{
+ "source": "Round 15 quality gate (Q-grades.md), 50 real cards read read-only from holler_signals, seed r15q-seed-20261121; label = chip the web feed showed before the fixes, pass = the grader verdict",
+ "cards": [
+  {
+   "n": 1,
+   "trade": "roofing",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Real roof/remodel alteration 2.1 mi away; own-trade permit shown as Market insight, wording matches record.",
+   "signal": {
+    "id": 55448,
+    "source": "arcgis-atlanta-permits",
+    "kind": "permit",
+    "title": "Roof and remodel permit in Atlanta",
+    "summary": "Residential Alteration | 771 PALATINE SE, ATLANTA, GA 30316",
+    "state": "GA",
+    "lat": 33.733268935526,
+    "lon": -84.356490056674,
+    "occurred_at": "2026-11-17T00:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "general-contractor"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 2,
+   "trade": "roofing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "act_now",
+   "pass": false,
+   "reason": "FAIL factual: order is REPAIR GUTTER & DOWNSPOUT but card says 'roof repair or install may be needed'; roofing tag comes from the keyword list ('gutter'), not the record.",
+   "signal": {
+    "id": 126143,
+    "source": "socrata-chicago-violations",
+    "kind": "civic",
+    "title": "Code violation in Chicago: REPAIR GUTTER & DOWNSPOUT",
+    "summary": "REPAIR GUTTER & DOWNSPOUT | OPEN | 11800 block of S EGGLESTON AVE",
+    "state": "IL",
+    "lat": 41.679,
+    "lon": -87.634,
+    "occurred_at": "2026-11-19T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "siding-gutters",
+     "general-contractor",
+     "roofing"
+    ],
+    "data": {
+     "subtype": "violation",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 3,
+   "trade": "roofing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Reroofing express permit, $11,981, address given; matches record.",
+   "signal": {
+    "id": 66008,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Reroofing | $11,981 job value | 3404 W 54TH PL",
+    "state": "IL",
+    "lat": 41.7944592627714,
+    "lon": -87.708756717036,
+    "occurred_at": "2026-11-18T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 4,
+   "trade": "roofing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Express permit, roof work per Holler title; summary shows a detached frame garage (likely new garage, roof is part of it). Borderline, not contradicted.",
+   "signal": {
+    "id": 378,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Detached Frame Garage | $22,400 job value | 8504 S PRAIRIE AVE",
+    "state": "IL",
+    "lat": 41.7399009887088,
+    "lon": -87.6179981527611,
+    "occurred_at": "2026-11-11T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 5,
+   "trade": "roofing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Reroofing express permit, $35,000; matches record.",
+   "signal": {
+    "id": 66026,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Roof permit in Chicago",
+    "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Reroofing | $35,000 job value | 3501 N DAMEN AVE",
+    "state": "IL",
+    "lat": 41.9450847335389,
+    "lon": -87.678357773211,
+    "occurred_at": "2026-11-18T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 6,
+   "trade": "roofing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": false,
+   "reason": "Permit type is Protection and Mechanical Methods (a site-safety plan) at 200 Park Ave; card presents it as roof and HVAC work. Not a roofer's market signal.",
+   "signal": {
+    "id": 1128,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Roof and HVAC permit in New York City",
+    "summary": "Protection and Mechanical Methods | $10,000 job value | Manhattan | 200 PARK AVENUE Manhattan",
+    "state": "NY",
+    "lat": 40.754162,
+    "lon": -73.976557,
+    "occurred_at": "2026-11-13T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 7,
+   "trade": "roofing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": false,
+   "reason": "Permit type is Sidewalk Shed (scaffolding); card says '(Roof and window); work is planned'. A shed permit is not roof work.",
+   "signal": {
+    "id": 107318,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Roof and window permit in New York City",
+    "summary": "Sidewalk Shed | $20,000 job value | Brooklyn | 181 MCGUINNESS BOULEVARD",
+    "state": "NY",
+    "lat": 40.728501,
+    "lon": -73.95039,
+    "occurred_at": "2026-11-19T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "windows-doors"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 8,
+   "trade": "roofing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "General Construction, $210,000, Bronx; roof+HVAC read from the job description, not contradicted.",
+   "signal": {
+    "id": 140555,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Roof and HVAC permit in New York City",
+    "summary": "General Construction | $210,000 job value | Bronx | 1775 STORY AVENUE",
+    "state": "NY",
+    "lat": 40.823197,
+    "lon": -73.866405,
+    "occurred_at": "2026-11-20T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 9,
+   "trade": "roofing",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "LA alter/repair permit on a 1-2 family home, roof work; matches record.",
+   "signal": {
+    "id": 2586,
+    "source": "socrata-la-permits",
+    "kind": "permit",
+    "title": "Roof permit in Los Angeles",
+    "summary": "Bldg-Alter/Repair | 1 or 2 Family Dwelling | $6,200 job value | 6900 N KATHERINE AVE",
+    "state": "CA",
+    "lat": 34.19602,
+    "lon": -118.44311,
+    "occurred_at": "2026-11-12T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 10,
+   "trade": "roofing",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "act_now",
+   "pass": false,
+   "reason": "FAIL factual: 'it mentions roof damage' but the record says a tarp was blown off the ground; no roof is named. Relevant: a wind-damage report 5.9 mi away.",
+   "signal": {
+    "id": 90466,
+    "source": "spc",
+    "kind": "report",
+    "title": "Wind damage reported near 3 NE Inglewood, CA",
+    "summary": "The storm survey concluded that a diffuse storm-scale circulation embedded in a convective line caused a permanent tarp to be blown off the ground and tossed to the oth (LOX)",
+    "state": "CA",
+    "lat": 33.98,
+    "lon": -118.3,
+    "occurred_at": "2026-11-20T17:04:00+00:00",
+    "severity": 2,
+    "categories": [
+     "tree-service",
+     "roofing",
+     "restoration",
+     "insurance",
+     "public-adjuster"
+    ],
+    "data": {}
+   }
+  },
+  {
+   "n": 11,
+   "trade": "plumbing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Chicago renovation $79,000 with plumbing; own-trade permit as Market insight.",
+   "signal": {
+    "id": 332,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "HVAC, plumbing and electrical permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $79,000 job value | 6352 S ALBANY AVE",
+    "state": "IL",
+    "lat": 41.7774424556282,
+    "lon": -87.7008094443275,
+    "occurred_at": "2026-11-12T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "hvac",
+     "plumbing",
+     "electrical"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 12,
+   "trade": "plumbing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Chicago renovation $200,000 with plumbing; own-trade permit as Market insight.",
+   "signal": {
+    "id": 132345,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "HVAC, plumbing and electrical permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $200,000 job value | 3649 N MARSHFIELD AVE",
+    "state": "IL",
+    "lat": 41.9484256255068,
+    "lon": -87.6699677888767,
+    "occurred_at": "2026-11-20T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "hvac",
+     "plumbing",
+     "electrical"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 13,
+   "trade": "plumbing",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Express permit for a small temporary structure with plumbing and electrical; borderline value but true and in trade.",
+   "signal": {
+    "id": 65979,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Plumbing and electrical permit in Chicago",
+    "summary": "PERMIT \u2013 EXPRESS PERMIT PROGRAM | Small Temporary Structure | 78 E WASHINGTON ST",
+    "state": "IL",
+    "lat": 41.8833342792939,
+    "lon": -87.6250501351137,
+    "occurred_at": "2026-11-18T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "plumbing",
+     "electrical"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 14,
+   "trade": "plumbing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "NYC no heat/hot water, entire building, Bronx; plumbers service boilers and hot water. Wording hedged, no deadline invented.",
+   "signal": {
+    "id": 21918,
+    "source": "socrata-nyc-311",
+    "kind": "civic",
+    "title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+    "summary": "HEAT/HOT WATER | ENTIRE BUILDING | BRONX",
+    "state": "NY",
+    "lat": 40.8873537725258,
+    "lon": -73.9121415378716,
+    "occurred_at": "2026-11-17T04:57:01+00:00",
+    "severity": 2,
+    "categories": [
+     "hvac",
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "311"
+    }
+   }
+  },
+  {
+   "n": 15,
+   "trade": "plumbing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "NYC heat/hot water, one apartment, Brooklyn; in trade, wording matches record.",
+   "signal": {
+    "id": 54537,
+    "source": "socrata-nyc-311",
+    "kind": "civic",
+    "title": "311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY",
+    "summary": "HEAT/HOT WATER | APARTMENT ONLY | BROOKLYN",
+    "state": "NY",
+    "lat": 40.6573760697873,
+    "lon": -73.9579540112031,
+    "occurred_at": "2026-11-18T01:49:45+00:00",
+    "severity": 2,
+    "categories": [
+     "hvac",
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "311"
+    }
+   }
+  },
+  {
+   "n": 16,
+   "trade": "plumbing",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "NYC heat/hot water, entire building, Brooklyn; in trade, wording matches record.",
+   "signal": {
+    "id": 54435,
+    "source": "socrata-nyc-311",
+    "kind": "civic",
+    "title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+    "summary": "HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN",
+    "state": "NY",
+    "lat": 40.6595755677245,
+    "lon": -73.9605765312001,
+    "occurred_at": "2026-11-18T02:32:53+00:00",
+    "severity": 2,
+    "categories": [
+     "hvac",
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "311"
+    }
+   }
+  },
+  {
+   "n": 17,
+   "trade": "plumbing",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Factual (advisory issued 21 mi away). Not relevant: a 2.5-hour minor flood advisory on a burn scar is restoration work, not plumbing.",
+   "signal": {
+    "id": 64253,
+    "source": "nws",
+    "kind": "alert",
+    "title": "Flood Advisory: Los Angeles, CA",
+    "summary": "Flood Advisory issued November 19 at 9:32AM PST until November 19 at 12:00PM PST by NWS Los Angeles/Oxnard CA. * WHAT...Flooding caused by excessive rainfall is expected. * WHERE...East Central Los Angeles County in southwestern California including the Bridge Burn Scar... * WHEN...Until noon PST. * IMPACTS...Minor fl\u2026",
+    "state": "CA",
+    "lat": 34.0780257569921,
+    "lon": -117.886477599804,
+    "occurred_at": "2026-11-19T17:32:00+00:00",
+    "severity": 1,
+    "categories": [
+     "restoration",
+     "plumbing",
+     "junk-removal",
+     "towing",
+     "auto-repair",
+     "insurance",
+     "public-adjuster"
+    ],
+    "data": {}
+   }
+  },
+  {
+   "n": 18,
+   "trade": "plumbing",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Freeze Warning for Joshua Tree NP West (a zone over 100 mi from LA, no geometry) matched statewide; card says 'issued near you'.",
+   "signal": {
+    "id": 81655,
+    "source": "nws",
+    "kind": "alert",
+    "title": "Freeze Warning: Joshua Tree NP West",
+    "summary": "Freeze Warning issued November 19 at 11:13PM MST until November 21 at 9:00AM MST by NWS Phoenix AZ. * WHAT...Sub-freezing temperatures as low as 29 expected. * WHERE...Western portions of Joshua Tree National Park. * WHEN...From 11 PM Friday to 8 AM PST Saturday. * IMPACTS...Frost and freeze conditions could kill sens\u2026",
+    "state": "CA",
+    "lat": null,
+    "lon": null,
+    "occurred_at": "2026-11-21T07:00:00+00:00",
+    "severity": 2,
+    "categories": [
+     "plumbing",
+     "hvac",
+     "landscaping",
+     "pool-spa",
+     "public-adjuster"
+    ],
+    "data": {}
+   }
+  },
+  {
+   "n": 19,
+   "trade": "plumbing",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "DeKalb water heater permit, issued; own-trade Market insight.",
+   "signal": {
+    "id": 5760,
+    "source": "arcgis-dekalb-permits",
+    "kind": "permit",
+    "title": "Water heater permit in DeKalb County",
+    "summary": "Plumbing Water Heater | Single Family Detached | Issued Status Code",
+    "state": "GA",
+    "lat": 33.8524008469026,
+    "lon": -84.2700896241221,
+    "occurred_at": "2026-11-16T14:57:41+00:00",
+    "severity": 1,
+    "categories": [
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 20,
+   "trade": "plumbing",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "DeKalb combined plumbing permit, apartment; own-trade Market insight.",
+   "signal": {
+    "id": 5791,
+    "source": "arcgis-dekalb-permits",
+    "kind": "permit",
+    "title": "Plumbing permit in DeKalb County",
+    "summary": "General Combined Plumbing | Apartment | Issued Status Code",
+    "state": "GA",
+    "lat": 33.7134301914941,
+    "lon": -84.2693857127365,
+    "occurred_at": "2026-11-12T14:36:42+00:00",
+    "severity": 1,
+    "categories": [
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 21,
+   "trade": "hvac",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "NYC General Construction with roof+HVAC from description; own-trade Market insight.",
+   "signal": {
+    "id": 9401,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Roof and HVAC permit in New York City",
+    "summary": "General Construction | Queens | 103-02 131 STREET Queens",
+    "state": "NY",
+    "lat": 40.690626,
+    "lon": -73.815188,
+    "occurred_at": "2026-11-16T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 22,
+   "trade": "hvac",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "NYC Mechanical Systems $46,250 at 774 Broadway; own-trade Market insight.",
+   "signal": {
+    "id": 107223,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "HVAC permit in New York City",
+    "summary": "Mechanical Systems | $46,250 job value | Manhattan | 774 BROADWAY Manhattan",
+    "state": "NY",
+    "lat": 40.731248,
+    "lon": -73.991842,
+    "occurred_at": "2026-11-19T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 23,
+   "trade": "hvac",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "NYC no heat/hot water, entire building, Manhattan; core HVAC/boiler work, wording hedged.",
+   "signal": {
+    "id": 54264,
+    "source": "socrata-nyc-311",
+    "kind": "civic",
+    "title": "311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING",
+    "summary": "HEAT/HOT WATER | ENTIRE BUILDING | MANHATTAN",
+    "state": "NY",
+    "lat": 40.7981176797163,
+    "lon": -73.9623148153077,
+    "occurred_at": "2026-11-18T04:19:21+00:00",
+    "severity": 2,
+    "categories": [
+     "hvac",
+     "plumbing"
+    ],
+    "data": {
+     "subtype": "311"
+    }
+   }
+  },
+  {
+   "n": 24,
+   "trade": "hvac",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Winter Storm Warning for the Eastern Sierra slopes of Inyo County (over 100 mi away, no geometry) matched statewide; card says 'near you'.",
+   "signal": {
+    "id": 39335,
+    "source": "nws",
+    "kind": "alert",
+    "title": "Winter Storm Warning: Eastern Sierra Slopes of Inyo County",
+    "summary": "Winter Storm Warning issued November 18 at 1:03PM PST until November 20 at 4:00AM PST by NWS Las Vegas NV. * WHAT...Heavy snow expected in the Eastern Sierra. For elevations between 5,000 and 8,000 feet, storm total snow accumulations of 10 to 18 inches expected. For elevations between 8,000 and 9,500 feet, storm tota\u2026",
+    "state": "CA",
+    "lat": null,
+    "lon": null,
+    "occurred_at": "2026-11-18T21:03:00+00:00",
+    "severity": 2,
+    "categories": [
+     "snow-removal",
+     "towing",
+     "hvac",
+     "tree-service",
+     "plumbing"
+    ],
+    "data": {}
+   }
+  },
+  {
+   "n": 25,
+   "trade": "hvac",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Same Inyo County warning as #24 (earlier issue of the same alert): 'near you' is false, and it is a duplicate.",
+   "signal": {
+    "id": 23,
+    "source": "nws",
+    "kind": "alert",
+    "title": "Winter Storm Warning: Eastern Sierra Slopes of Inyo County",
+    "summary": "Winter Storm Warning issued November 16 at 10:05PM PST until November 20 at 4:00AM PST by NWS Las Vegas NV. * WHAT...Heavy snow expected in the Eastern Sierra. For elevations between 5,000 and 8,000 feet, storm total snow accumulations of 10 to 18 inches expected. For elevations between 8,000 and 9,500 feet, storm tot\u2026",
+    "state": "CA",
+    "lat": null,
+    "lon": null,
+    "occurred_at": "2026-11-18T12:00:00+00:00",
+    "severity": 2,
+    "categories": [
+     "snow-removal",
+     "towing",
+     "hvac",
+     "tree-service",
+     "plumbing"
+    ],
+    "data": {}
+   }
+  },
+  {
+   "n": 26,
+   "trade": "hvac",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Mobile Food Services licence (a food truck) told 'it may need heating and cooling'; there is no building. Food keyword rule over-tags.",
+   "signal": {
+    "id": 5136,
+    "source": "socrata-la-business",
+    "kind": "civic",
+    "title": "New business license in Los Angeles: Mobile Food Services",
+    "summary": "Mobile Food Services",
+    "state": "CA",
+    "lat": 33.99,
+    "lon": -118.27,
+    "occurred_at": "2026-11-04T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith",
+     "pest-control",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 27,
+   "trade": "hvac",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "DeKalb residential heating system permit; own-trade Market insight.",
+   "signal": {
+    "id": 110103,
+    "source": "arcgis-dekalb-permits",
+    "kind": "permit",
+    "title": "HVAC permit in DeKalb County",
+    "summary": "Residential Heating System | Single Family Detached | Issued Status Code | Residential - Single Family Home",
+    "state": "GA",
+    "lat": 33.7105156357855,
+    "lon": -84.3002123403437,
+    "occurred_at": "2026-11-20T16:06:52+00:00",
+    "severity": 1,
+    "categories": [
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 28,
+   "trade": "hvac",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Johns Creek mechanical permit, 22 mi; own-trade Market insight.",
+   "signal": {
+    "id": 55597,
+    "source": "arcgis-johnscreek-permits",
+    "kind": "permit",
+    "title": "HVAC permit in Johns Creek",
+    "summary": "Mechanical | 9700 Medlock Crossing",
+    "state": "GA",
+    "lat": 34.01755049696,
+    "lon": -84.1948150553913,
+    "occurred_at": "2026-11-16T00:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "hvac"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 29,
+   "trade": "hvac",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": true,
+   "reason": "New Chicago cafe/food licence with dining; restaurant HVAC service is plausible. Borderline (licence alone, PLAN 3.1).",
+   "signal": {
+    "id": 131010,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Retail Food Establishment",
+    "summary": "Retail Food Establishment | Retail Sales of General Merchandise and Non-Perishable Food | Sale of Food Prepared Onsite With Dining Area | Preparation and Sale of Coffee and/or Drinks",
+    "state": "IL",
+    "lat": 41.95,
+    "lon": -87.7,
+    "occurred_at": "2026-11-20T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith",
+     "pest-control",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "business",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 30,
+   "trade": "hvac",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": true,
+   "reason": "New Chicago restaurant licence with dining; same as #29, borderline.",
+   "signal": {
+    "id": 32367,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Retail Food Establishment",
+    "summary": "Retail Food Establishment | Sale of Food Prepared Onsite With Dining Area",
+    "state": "IL",
+    "lat": 41.94,
+    "lon": -87.73,
+    "occurred_at": "2026-11-17T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith",
+     "pest-control",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 31,
+   "trade": "landscaping",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "LA non-building landscaping permit, 1-2 family home; own-trade Market insight.",
+   "signal": {
+    "id": 2437,
+    "source": "socrata-la-permits",
+    "kind": "permit",
+    "title": "Landscaping permit in Los Angeles",
+    "summary": "Nonbldg-New | 1 or 2 Family Dwelling | $2,501 job value | 447 N ROBINWOOD DR",
+    "state": "CA",
+    "lat": 34.0669,
+    "lon": -118.48339,
+    "occurred_at": "2026-11-13T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 32,
+   "trade": "landscaping",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "LA alter/repair with landscaping and damage repair; own-trade Market insight.",
+   "signal": {
+    "id": 2647,
+    "source": "socrata-la-permits",
+    "kind": "permit",
+    "title": "Landscaping and damage repair permit in Los Angeles",
+    "summary": "Bldg-Alter/Repair | 1 or 2 Family Dwelling | 10501-10503 W BUTTERFIELD ROAD",
+    "state": "CA",
+    "lat": 34.04096,
+    "lon": -118.41589,
+    "occurred_at": "2026-11-12T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "landscaping",
+     "restoration"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 33,
+   "trade": "landscaping",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "New $600,000 home with landscaping; a landscaper wants this (new-home downstream).",
+   "signal": {
+    "id": 2422,
+    "source": "socrata-la-permits",
+    "kind": "permit",
+    "title": "Roof and landscaping permit in Los Angeles",
+    "summary": "Bldg-New | 1 or 2 Family Dwelling | $600,000 job value | 415 N EL MEDIO AVE",
+    "state": "CA",
+    "lat": 34.04067,
+    "lon": -118.5357,
+    "occurred_at": "2026-11-13T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "roofing",
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 34,
+   "trade": "landscaping",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "DeKalb retaining wall permit; hardscape is landscaping work.",
+   "signal": {
+    "id": 5756,
+    "source": "arcgis-dekalb-permits",
+    "kind": "permit",
+    "title": "Retaining wall permit in DeKalb County",
+    "summary": "Building a Retaining Wall | Single Family Detached | Issued Status Code",
+    "state": "GA",
+    "lat": 33.7608338347795,
+    "lon": -84.237090574456,
+    "occurred_at": "2026-11-16T16:33:52+00:00",
+    "severity": 1,
+    "categories": [
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 35,
+   "trade": "landscaping",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "DeKalb violation; landscaping tag comes from the county heading (classifier input, arcgis-datasets.ts:166). Card hides the heading ('property violation').",
+   "signal": {
+    "id": 55555,
+    "source": "arcgis-dekalb-violations",
+    "kind": "civic",
+    "title": "Code violation in DeKalb County: property violation",
+    "summary": "3000 block of ROLLINGWOOD LN",
+    "state": "GA",
+    "lat": 33.699,
+    "lon": -84.318,
+    "occurred_at": "2026-11-16T16:13:17+00:00",
+    "severity": 1,
+    "categories": [
+     "lawn-care",
+     "landscaping",
+     "junk-removal"
+    ],
+    "data": {
+     "subtype": "violation",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 36,
+   "trade": "landscaping",
+   "city": "ATL",
+   "member": {
+    "lat": 33.749,
+    "lon": -84.388,
+    "state": "GA"
+   },
+   "label": "act_now",
+   "pass": true,
+   "reason": "Same as #35: tag from the hidden county heading; hedged wording, no deadline invented.",
+   "signal": {
+    "id": 55574,
+    "source": "arcgis-dekalb-violations",
+    "kind": "civic",
+    "title": "Code violation in DeKalb County: property violation",
+    "summary": "2400 block of GREENWAY DR",
+    "state": "GA",
+    "lat": 33.718,
+    "lon": -84.221,
+    "occurred_at": "2026-11-12T10:01:00+00:00",
+    "severity": 1,
+    "categories": [
+     "lawn-care",
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "violation",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 37,
+   "trade": "landscaping",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Chicago renovation $20,000 with landscaping; own-trade Market insight.",
+   "signal": {
+    "id": 232,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Electrical and landscaping permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $20,000 job value | 1658 W CARROLL AVE",
+    "state": "IL",
+    "lat": 41.8879061216488,
+    "lon": -87.6693729145529,
+    "occurred_at": "2026-11-13T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "electrical",
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 38,
+   "trade": "landscaping",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Chicago renovation with retaining wall, concrete and porch; hardscape in trade.",
+   "signal": {
+    "id": 99517,
+    "source": "socrata-chicago-permits",
+    "kind": "permit",
+    "title": "Retaining wall, concrete and porch permit in Chicago",
+    "summary": "PERMIT - RENOVATION/ALTERATION | $9,500 job value | 2017 N BINGHAM ST",
+    "state": "IL",
+    "lat": 41.9179811260095,
+    "lon": -87.6907836849855,
+    "occurred_at": "2026-11-19T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "landscaping",
+     "concrete-paving",
+     "general-contractor"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 39,
+   "trade": "landscaping",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": true,
+   "reason": "Staten Island General Construction $55,000, pool and landscaping; in trade.",
+   "signal": {
+    "id": 800,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Pool and landscaping permit in New York City",
+    "summary": "General Construction | $55,000 job value | Staten Island | 87 CIRCLE ROAD Staten Island",
+    "state": "NY",
+    "lat": 40.597427,
+    "lon": -74.106742,
+    "occurred_at": "2026-11-13T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "pool-spa",
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 40,
+   "trade": "landscaping",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "market_insight",
+   "pass": false,
+   "reason": "Permit type is Sprinklers ($90,000 at 44 Wall St, a fire-sprinkler job) but card says Landscaping. Wrong trade.",
+   "signal": {
+    "id": 9559,
+    "source": "socrata-nyc-permits",
+    "kind": "permit",
+    "title": "Landscaping permit in New York City",
+    "summary": "Sprinklers | $90,000 job value | Manhattan | 44 WALL STREET Manhattan",
+    "state": "NY",
+    "lat": 40.706556,
+    "lon": -74.009764,
+    "occurred_at": "2026-11-16T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "landscaping"
+    ],
+    "data": {
+     "subtype": "permit",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 41,
+   "trade": "cleaning",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "New restaurant licence sent to House cleaning; a house cleaner does not serve restaurants. Blanket business tag.",
+   "signal": {
+    "id": 4619,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Retail Food Establishment",
+    "summary": "Retail Food Establishment | Preparation of Food and Dining on Premises With Seating",
+    "state": "IL",
+    "lat": 41.88,
+    "lon": -87.63,
+    "occurred_at": "2026-11-16T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith",
+     "pest-control",
+     "hvac"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 42,
+   "trade": "cleaning",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Raffles licence (a not-for-profit selling raffle tickets) told 'it may need cleaning'; no premises, blanket tag.",
+   "signal": {
+    "id": 64943,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Raffles",
+    "summary": "Raffles | Not-For-Profit Selling Raffles for Prizes of $50 or More",
+    "state": "IL",
+    "lat": 41.88,
+    "lon": -87.62,
+    "occurred_at": "2026-11-18T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 43,
+   "trade": "cleaning",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Adult dance instruction licence sent to House cleaning; blanket business tag.",
+   "signal": {
+    "id": 4718,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Limited Business License",
+    "summary": "Limited Business License | Instruction in Dance for Adults",
+    "state": "IL",
+    "lat": 41.97,
+    "lon": -87.74,
+    "occurred_at": "2026-11-09T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 44,
+   "trade": "cleaning",
+   "city": "CHI",
+   "member": {
+    "lat": 41.8781,
+    "lon": -87.6298,
+    "state": "IL"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Home-based real estate developer licence told 'it may need cleaning'; no premises, blanket tag.",
+   "signal": {
+    "id": 4729,
+    "source": "socrata-chicago-business",
+    "kind": "civic",
+    "title": "New business license in Chicago: Regulated Business License",
+    "summary": "Regulated Business License | Residential Real Estate Developer (Home Based Business)",
+    "state": "IL",
+    "lat": 41.83,
+    "lon": -87.66,
+    "occurred_at": "2026-11-06T06:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 45,
+   "trade": "cleaning",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Electronics store licence sent to House cleaning; blanket business tag.",
+   "signal": {
+    "id": 131994,
+    "source": "socrata-nyc-business",
+    "kind": "civic",
+    "title": "New business license in New York City: Electronics",
+    "summary": "Electronics",
+    "state": "NY",
+    "lat": 40.76,
+    "lon": -73.83,
+    "occurred_at": "2026-11-04T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 46,
+   "trade": "cleaning",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Bronx street event shows 'under 1 mi away' from a lower-Manhattan member: the point is the NYC centre stand-in (data.approxLocation) but no approx note is shown. Event cleanup is not house cleaning.",
+   "signal": {
+    "id": 5704,
+    "source": "socrata-nyc-events",
+    "kind": "event",
+    "title": "Permitted event in New York City: Street Event at EAST 144 STREET between CANAL PLACE and RIDER AVENUE",
+    "summary": "Street Event | Bronx | EAST 144 STREET between CANAL PLACE and RIDER AVENUE",
+    "state": "NY",
+    "lat": 40.7128,
+    "lon": -74.006,
+    "occurred_at": "2026-11-25T12:30:00+00:00",
+    "severity": 1,
+    "categories": [
+     "food-truck",
+     "catering",
+     "event-services",
+     "security",
+     "cleaning"
+    ],
+    "data": {
+     "subtype": "event-permit",
+     "approxLocation": true
+    }
+   }
+  },
+  {
+   "n": 47,
+   "trade": "cleaning",
+   "city": "NYC",
+   "member": {
+    "lat": 40.7128,
+    "lon": -74.006,
+    "state": "NY"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Secondhand dealer licence sent to House cleaning; blanket business tag.",
+   "signal": {
+    "id": 131866,
+    "source": "socrata-nyc-business",
+    "kind": "civic",
+    "title": "New business license in New York City: Secondhand Dealer - General",
+    "summary": "Secondhand Dealer - General",
+    "state": "NY",
+    "lat": 40.69,
+    "lon": -73.86,
+    "occurred_at": "2026-11-10T05:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 48,
+   "trade": "cleaning",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Single-family construction company licence sent to House cleaning; a builder's licence is not a home to clean.",
+   "signal": {
+    "id": 5141,
+    "source": "socrata-la-business",
+    "kind": "civic",
+    "title": "New business license in Los Angeles: Single Family Housing Construction (1997 NAICS)",
+    "summary": "Single Family Housing Construction (1997 NAICS)",
+    "state": "CA",
+    "lat": 34.07,
+    "lon": -118.4,
+    "occurred_at": "2026-11-04T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  },
+  {
+   "n": 49,
+   "trade": "cleaning",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Floor covering retailer licence sent to House cleaning; blanket business tag.",
+   "signal": {
+    "id": 65281,
+    "source": "socrata-la-business",
+    "kind": "civic",
+    "title": "New business license in Los Angeles: Floor Covering Retailers",
+    "summary": "Floor Covering Retailers",
+    "state": "CA",
+    "lat": 34.28,
+    "lon": -118.57,
+    "occurred_at": "2026-11-19T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business",
+     "cat_v": 2
+    }
+   }
+  },
+  {
+   "n": 50,
+   "trade": "cleaning",
+   "city": "LA",
+   "member": {
+    "lat": 34.0522,
+    "lon": -118.2437,
+    "state": "CA"
+   },
+   "label": "coming_soon",
+   "pass": false,
+   "reason": "Photo film and toner manufacturing licence sent to House cleaning; blanket business tag.",
+   "signal": {
+    "id": 5123,
+    "source": "socrata-la-business",
+    "kind": "civic",
+    "title": "New business license in Los Angeles: Photographic Film, Paper, Plate, Chemical, and Copy Toner Manufacturing",
+    "summary": "Photographic Film, Paper, Plate, Chemical, and Copy Toner Manufacturing",
+    "state": "CA",
+    "lat": 34.09,
+    "lon": -118.25,
+    "occurred_at": "2026-11-05T08:00:00+00:00",
+    "severity": 1,
+    "categories": [
+     "signs-printing",
+     "business-services",
+     "insurance",
+     "janitorial-commercial",
+     "security",
+     "cleaning",
+     "locksmith"
+    ],
+    "data": {
+     "subtype": "business"
+    }
+   }
+  }
+ ]
+}

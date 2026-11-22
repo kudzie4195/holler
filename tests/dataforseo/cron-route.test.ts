@@ -42,10 +42,11 @@ describe('GET /api/cron/dataforseo', () => {
     expect(h.llm).not.toHaveBeenCalled();
   });
 
-  it('runs the mention check, then the volume refresh, for a Bearer secret or ?key=', async () => {
+  it('runs the mention check, then the volume refresh, for a Bearer secret; ?key= with the right secret is 401', async () => {
     process.env.DATAFORSEO_LOGIN = 'a';
     process.env.DATAFORSEO_PASSWORD = 'b';
-    for (const r of [req('', { authorization: 'Bearer sekret' }), req('?key=sekret')]) {
+    expect((await GET(req('?key=sekret'))).status).toBe(401);
+    for (const r of [req('', { authorization: 'Bearer sekret' }), req('', { authorization: 'Bearer sekret' })]) {
       const res = await GET(r);
       expect(res.status).toBe(200);
       expect(res.headers.get('cache-control')).toBe('no-store');

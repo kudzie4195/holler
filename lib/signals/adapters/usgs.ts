@@ -58,7 +58,9 @@ export function parseUsgs(raw: unknown): SignalInput[] {
       lat,
       lon,
       state,
-      categories: mag >= 4 ? QUAKE_TRADES : [],
+      // M5 and above, or any USGS alert level other than green, reaches the building trades. An M4 with no alert level rarely damages buildings:
+      // insurance only (round 15 re-grade: an M4.2 was told to plumbers).
+      categories: mag >= 5 || (typeof p.alert === 'string' && p.alert !== 'green') ? QUAKE_TRADES : mag >= 4 ? ['insurance'] : [],
       severity,
       occurredAt: new Date(time).toISOString(),
       data: { mag, depthKm: depth ?? null, place, sig: p.sig ?? null, tsunami: p.tsunami ?? null, alert: p.alert ?? null },

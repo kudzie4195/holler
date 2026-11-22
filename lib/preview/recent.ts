@@ -3,10 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { intentOf, type Intent } from '@/lib/signals/intent';
 import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
+import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
 import { matchScope, type ScopeInput } from '@/lib/plan';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
+import { hasKey, t, type Lang } from '@/lib/i18n';
 
 /**
  * "Near you in the last 90 days": how many real records in holler_signals would have matched this member's saved area and trades.
@@ -21,7 +24,8 @@ import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-loc
  * member's feed would have held. Resident requests (source holler-request) and kind 'ask' are left out: both can carry a person's words.
  * Keyword watches are not counted (the preview is about the saved area and trades).
  *
- * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype. Never summary, url,
+ * Columns read: id, source, kind, title, city, state, lat, lon, categories, severity, occurred_at, data->>subtype, data->>projectOf (a
+ * follower, a second listing of a project, never makes a card and is not counted). Never summary, url,
  * zip, county, data or anything from holler_signal_contacts. Titles are the public, already scrubbed titles.
  *
  * Each query returns at most 1000 rows (PostgREST cap). When a query hits the cap, `capped` is true and the counts are a floor, never a
@@ -32,7 +36,7 @@ export const PREVIEW_DAYS = 90;
 export const PREVIEW_ROW_CAP = 1000;
 export const PREVIEW_EXAMPLES = 5;
 export const PREVIEW_COLUMNS =
-  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype';
+  'id,source,kind,title,city,state,lat,lon,categories,severity,occurred_at,subtype:data->>subtype,projectOf:data->>projectOf';
 
 // ---- type labels ------------------------------------------------------------------------------------------------------------
 const TYPE_LABELS: Record<string, { one: string; many: string }> = {
@@ -75,7 +79,11 @@ export function typeKeyOf(s: { kind: string; subtype?: string | null; source?: s
   }
 }
 
-export function typeLabel(key: string, count: number): string {
+export function typeLabel(key: string, count: number, lang: Lang = 'en'): string {
+  if (lang !== 'en') {
+    const k = `recent.type.${TYPE_LABELS[key] ? key : 'other'}.${count === 1 ? 'one' : 'many'}`;
+    if (hasKey(k)) return t(lang, k);
+  }
   const l = TYPE_LABELS[key] ?? TYPE_LABELS.other;
   return count === 1 ? l.one : l.many;
 }
@@ -91,6 +99,8 @@ export interface PreviewExample {
   state: string | null;
   /** ISO date, YYYY-MM-DD */
   date: string;
+  /** The record's source id (a public id such as "spc"), so a Spanish member's example title can be rebuilt in Spanish. Never free text. */
+  source: string | null;
 }
 export interface RecentPreview {
   total: number;
@@ -120,6 +130,7 @@ interface Row {
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  projectOf?: string | null;
 }
 
 const MI_PER_DEG = 68.5; // a little under the true 69.09, so the box is never smaller than the circle
@@ -158,7 +169,7 @@ export async function recentPreviewFor(
         .select(PREVIEW_COLUMNS)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
-        .overlaps('categories', scope.categories)
+        .overlaps('categories', expandCategoriesForRouting(scope.categories))
         .gte('occurred_at', since)
         .lte('occurred_at', now.toISOString())
         .order('occurred_at', { ascending: false })
@@ -200,11 +211,11 @@ export async function recentPreviewFor(
     const types = new Map<string, number>();
     const hits: Row[] = [];
     const seen = new Set<string>();
-    for (const r of [...rowsA, ...rowsB, ...rowsC]) {
+    for (const r of withoutHiddenBids([...rowsA, ...rowsB, ...rowsC], now.getTime())) {
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);
-      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask') continue;
+      if (r.source === HOLLER_REQUEST_SOURCE || r.kind === 'ask' || r.projectOf) continue;
       const sig: MatchSignal = {
         id: Number(r.id),
         categories: r.categories ?? [],
@@ -216,6 +227,9 @@ export async function recentPreviewFor(
         subtype: r.subtype,
         // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
         source: r.source,
+        // Title and kind feed the opportunity label: context rows are not alerts, so the preview does not count them.
+        kind: r.kind,
+        title: r.title ?? null,
       };
       if (!matchOne(sig, mp)) continue;
       const sub = subtypeOf(sig);
@@ -231,7 +245,7 @@ export async function recentPreviewFor(
       if (examples.length >= PREVIEW_EXAMPLES) break;
       const title = (r.title ?? '').replace(/\s+/g, ' ').trim();
       if (!title) continue;
-      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10) });
+      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10), source: r.source ?? null });
     }
 
     return {

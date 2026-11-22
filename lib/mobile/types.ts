@@ -119,7 +119,7 @@ export interface PlanDto {
   name: string;
   monthly: PriceDto;
   yearly: PriceDto;
-  /** "about 2 months free", computed from the prices. Empty string when the math does not support a claim. */
+  /** "save 16%", computed from the prices and rounded down. Empty string when there is no saving to state. */
   yearlySaving: string;
   limits: PlanLimitsDto;
 }
@@ -270,6 +270,30 @@ export interface ContactDto {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  /** The contractor's licence number when the permit publishes it. */
+  license?: string | null;
+}
+
+/**
+ * Brief card v1 (PLAN-2.0 item 0.4), the five parts of an alert card. Part 1 is the alert's own title and summary. Additive: older app
+ * builds ignore it. Deterministic text (lib/signals/brief.ts); the AI note stays in `ai`.
+ */
+export interface BriefDto {
+  /** Part 2: one sentence, written for the member's trade. */
+  why: string;
+  /** Part 3: one concrete action. */
+  next: string;
+  /** Part 4: where it came from. `url` is the record's page when `recordLink` is true, otherwise the dataset's home page. Never null for a known source. */
+  source: { label: string; url: string | null; linkText: string; recordLink: boolean; date: string | null };
+  /** Part 5: "High confidence the inspection failed; whether the owner is hiring is not known." */
+  uncertain: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  /** NYC no-heat alerts only (additive): "Managed by: <Company> (from the city's building registration)". Company names only. Absent otherwise and for a locked member. */
+  managedBy?: string;
+  /** Permits that publish a project value: "Job value on the permit: $12,500". Absent or null otherwise. Additive. */
+  valueLine?: string | null;
+  /** A permit whose stage changed (final inspection, finished, certificate of occupancy): one timing sentence. Absent otherwise and for a locked member. Additive. */
+  stageLine?: string;
 }
 
 export interface AlertDto {
@@ -299,6 +323,17 @@ export interface AlertDto {
   expiresAt: string | null;
   severity: number;
   intent: { key: IntentKey; label: string; line: string };
+  /**
+   * Opportunity label for this member's trades (lib/signals/lead-rules.ts). `context` records are never sent. Additive field: older
+   * app builds ignore it. Show "Act now", "Coming soon" or "Market insight" as a chip; Act Now rows carry the deadline line.
+   */
+  label: 'act_now' | 'coming_soon' | 'market_insight';
+  /** ISO date of a fix-by, due or response date the record publishes. Null means "No deadline published". */
+  deadline: string | null;
+  /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." Null for every other record. Additive: older app builds ignore it. */
+  bidLine: string | null;
+  /** The brief card: why it matters, next step, source and date, what is uncertain. Additive: older app builds ignore it. */
+  brief: BriefDto;
   distanceMi: number | null;
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;

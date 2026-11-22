@@ -1,3 +1,4 @@
+import { alertKeyOf } from './alert-dedupe';
 import { MAX_MATCHES_PER_USER, matchSignals, type MatchProfile, type MatchSignal } from './match';
 import { loadProfiles, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
@@ -6,7 +7,7 @@ import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './q
 /** A signal that happened longer ago than this is matched quietly (notified = true): no email for old news, like the backfill. */
 export const REMATCH_QUIET_AFTER_MS = 3 * 86_400_000;
 const CHUNK = 200;
-const SIGNAL_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype';
+const SIGNAL_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,data';
 
 interface Row extends MatchSignal {
   expires_at: string | null;
@@ -92,7 +93,12 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
     const nowIso = now.toISOString();
     const byId = new Map(signals.map((s) => [s.id, s]));
     for (const p of profiles) {
-      const fresh = existing.size ? signals.filter((s) => !existing.has(`${p.user_id}\u0000${s.id}`)) : signals;
+      let fresh = existing.size ? signals.filter((s) => !existing.has(`${p.user_id}\u0000${s.id}`)) : signals;
+      // A county row of an alert this member already has through another county row is not matched again (one alert, one match).
+      if (existing.size && fresh.length > 0) {
+        const have = new Set(signals.filter((s) => existing.has(`${p.user_id}\u0000${s.id}`)).map((s) => alertKeyOf(s)).filter((k): k is string => !!k));
+        if (have.size) fresh = fresh.filter((s) => !have.has(alertKeyOf(s) ?? ''));
+      }
       if (fresh.length === 0) continue;
       for (const r of matchSignals(fresh, [p], MAX_MATCHES_PER_USER, now)) {
         const s = byId.get(r.signal_id);

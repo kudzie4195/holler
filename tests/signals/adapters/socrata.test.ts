@@ -51,10 +51,11 @@ describe('socrata parsers on fixtures', () => {
     expect(out.every((s) => !/DIVISION/.test(s.summary ?? ''))).toBe(true);
   });
 
-  it('Chicago inspections: only Fail rows, mapped to pest-control + cleaning + janitorial-commercial, severity 2', () => {
+  it('Chicago inspections: only Fail rows, mapped to pest-control + janitorial-commercial (not house cleaning), severity 2', () => {
     const out = parseSocrata(fx('socrata-chicago-inspections.json'), ds('socrata-chicago-inspections'));
     expect(out).toHaveLength(1);
-    expect(out[0].categories).toEqual(expect.arrayContaining(['pest-control', 'cleaning', 'janitorial-commercial']));
+    expect(out[0].categories).toEqual(expect.arrayContaining(['pest-control', 'janitorial-commercial']));
+    expect(out[0].categories).not.toContain('cleaning');
     expect(out[0].severity).toBe(2);
     expect(out[0].externalId).toBe('2612345:2026-11-10');
     // Round 5 FIX-C: "JOES TACO SHACK" fails the strict organisation rule ("Taco" is a listed given name), so the name is hidden.

@@ -21,10 +21,10 @@ export interface Rendered {
 
 const noDash = (s: string) => s.replace(/[–—]/g, '-');
 
-export const FOLLOWUP_SUBJECT = 'Did any of these alerts lead to work?';
+export const FOLLOWUP_SUBJECT = 'Did any of these alerts turn into work?';
 export const FOLLOWUP_INTRO = [
   'About a week ago you marked the alerts below as useful, and we would like to know how they turned out.',
-  'Did any of them lead to work?',
+  'Did any of them turn into work?',
   'Tap Yes or No under each one.',
   'It takes a few seconds per alert, and you do not need to log in or know your password to answer.',
   'Your answers help us learn which kinds of alerts pay off for people in your trade.',

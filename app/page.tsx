@@ -14,12 +14,13 @@ import { ledgerExamples } from '@/components/home/select';
 import { homeCopy } from '@/lib/seo/public-copy';
 import { loadHomeLive } from '@/lib/seo/home-live';
 import { exampleMap } from '@/lib/seo/home-map';
+import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 
 export function generateMetadata(): Metadata {
   return {
     title: { absolute: 'Holler: know when your town needs you' },
     description: homeCopy().metaDescription,
-    alternates: { canonical: '/' },
+    alternates: pairAlternates(ES_PAIRS[0], 'en'),
   };
 }
 

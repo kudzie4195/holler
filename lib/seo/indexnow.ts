@@ -3,6 +3,8 @@ import { env as appEnv } from '@/lib/env';
 import { absoluteUrl } from './canonical';
 import { isIndexable } from './threshold';
 import { isWeekIndexable, mondayOf, isoDay, weekPath } from './week';
+import { excludeBidsInQuery } from '@/lib/signals/bid-sources';
+import { bidCountsByPlace, minusBids } from './bid-counts';
 
 /**
  * IndexNow pings (https://www.indexnow.org/documentation, https://www.indexnow.org/faq).
@@ -182,14 +184,18 @@ async function readCounts(db: IndexNowDb, slugs: string[], now: Date, timeoutMs:
   const view = await db.from('holler_place_counts').select('place_slug, signals_60d').in('place_slug', slugs).abortSignal(signal);
   if (view.error) throw new Error(view.error.message);
   for (const r of (view.data ?? []) as { place_slug: string; signals_60d: number }[]) counts60[r.place_slug] = r.signals_60d;
+  // The view counts stored city bids; while the bids flag is off they are not shown, so they are not counted (review P2-1).
+  Object.assign(counts60, minusBids(counts60, await bidCountsByPlace(db, now.getTime())));
   // One read for this week's rows of the touched places (slug column only). 10 is all that matters, so a 1000 row page is plenty.
   const monday = mondayOf(now.getTime());
-  const week = await db
-    .from('holler_signals')
-    .select('place_slug')
-    .in('place_slug', slugs)
-    .gte('occurred_at', new Date(monday).toISOString())
-    .lt('occurred_at', new Date(now.getTime() + 60_000).toISOString())
+  const week = await excludeBidsInQuery(
+    db
+      .from('holler_signals')
+      .select('place_slug')
+      .in('place_slug', slugs)
+      .gte('occurred_at', new Date(monday).toISOString())
+      .lt('occurred_at', new Date(now.getTime() + 60_000).toISOString()),
+  )
     .limit(1000)
     .abortSignal(signal);
   if (week.error) throw new Error(week.error.message);

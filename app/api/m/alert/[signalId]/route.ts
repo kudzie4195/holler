@@ -1,6 +1,7 @@
 import { siteUrl } from '@/lib/env';
 import { computeAccess } from '@/lib/auth/access';
 import { adminOrNull } from '@/lib/mobile/admin';
+import { matchScope } from '@/lib/plan/scope';
 import { requireMember } from '@/lib/mobile/auth';
 import { buildAlerts, readOneMatch } from '@/lib/mobile/feed';
 import { fail, ok, preflight } from '@/lib/mobile/http';
@@ -28,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ signalId: strin
   const one = await readOneMatch(db, user.id, signalId);
   if (one.error) return fail(req, METHODS, 'server_error');
   if (!one.row) return fail(req, METHODS, 'not_found');
-  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now });
+  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories });
   if (!item || item.signalId !== signalId) return fail(req, METHODS, 'not_found');
   return ok(req, METHODS, { locked, item });
 }

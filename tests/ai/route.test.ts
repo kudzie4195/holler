@@ -47,8 +47,8 @@ describe('GET /api/cron/ai', () => {
     expect((h.db as AiFakeDb).calls).toEqual([]);
   });
 
-  it('accepts ?key= too', async () => {
-    expect((await GET(req('?key=sekret&dry=1'))).status).toBe(200);
+  it('refuses ?key= even with the right secret (Bearer only, review P2-1)', async () => {
+    expect((await GET(req('?key=sekret&dry=1'))).status).toBe(401);
   });
 
   it('no gateway auth: 200 with the reason, nothing spent or written', async () => {

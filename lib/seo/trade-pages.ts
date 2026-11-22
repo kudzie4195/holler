@@ -145,8 +145,8 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   cleaning: {
     noun: 'house cleaners',
     headline: 'New-home and request alerts for house cleaners',
-    lead: 'Most cleaning work comes from people asking a neighbor for a name. Holler shows you who asked, and where new homes are opening.',
-    keyless: { headline: 'New-home and new-business alerts for house cleaners', lead: 'A finished build or a new office needs a first clean. Holler shows you where new homes are opening and who just registered a business.' },
+    lead: 'Most cleaning work comes from people asking a neighbor for a name. Holler shows you who asked, and where new homes are permitted.',
+    keyless: { headline: 'New-home and remodel alerts for house cleaners', lead: 'A finished build or a remodel needs a first clean. Holler shows you the new-home and remodel permits nearby.' },
     signals: [
       { signal: 'People asking for a cleaner', type: 'ask', why: 'Someone posted for a recurring or move-out clean. A good reply in the first hour often wins it.' },
       { signal: 'Building permits for new homes', type: 'permit', why: 'A finished build needs a post-construction clean before the owners move in.' },

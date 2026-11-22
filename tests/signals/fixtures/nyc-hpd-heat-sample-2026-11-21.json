@@ -1,0 +1,1355 @@
+{
+ "_provenance": "Read 2026-11-21 through WebFetch (the shell proxy refuses data.cityofnewyork.us), so the values were relayed by the fetch tool's summarizer and are ESTIMATED, not a machine download. heatRowBbls: the bbl column of the 100 newest NYC 311 HEAT/HOT WATER rows created after 2026-11-19 12:00 local (erm2-nwe9; 99 had a bbl, 1 had none, written as null). registrations: tesw-yqqr rows matching those lots, one query per borough group (rows for other lots that the cross-product query also returned were dropped). contacts: feu5-w2e2 rows for those registration ids, reduced to registrationid, type, corporationname for the types Agent, CorporateOwner and IndividualOwner (a missing corporationname is omitted). Lots 2039387501 and 2039437501 (Co-op City, Bronx) hold dozens of registrations and are listed with none on purpose (the lookup names no company above 6 registrations). Nothing here is a person's name: firstname and lastname were never requested.",
+ "heatRowBbls": [
+  "1018637501",
+  "2027630215",
+  "3037030035",
+  "4006080034",
+  "4035740051",
+  "1002430056",
+  "4052100012",
+  "2028510036",
+  "4098140006",
+  "2039387501",
+  "2039437501",
+  "1020010060",
+  "2033350193",
+  "2031030055",
+  "1002430056",
+  "4092930036",
+  "1002430056",
+  "3061100020",
+  "1007410067",
+  "2032340065",
+  "2032490006",
+  "3077600017",
+  "2029980166",
+  "2025627501",
+  "2043170092",
+  "3014420060",
+  "3016100002",
+  "3016100002",
+  "3016100002",
+  "3016100002",
+  "2031690009",
+  "1010817502",
+  "3016100002",
+  "2032780028",
+  "3016100002",
+  "3016100002",
+  "3051840006",
+  "3016100002",
+  "3016100002",
+  "1021610040",
+  "4001660006",
+  "2033280114",
+  "2037780010",
+  "4006730034",
+  "3049180012",
+  "3012410032",
+  "2039387501",
+  "2032230030",
+  "1019700002",
+  "2031960038",
+  "4021720001",
+  "4013160063",
+  "4098450012",
+  "4098450012",
+  "1020540079",
+  "4006320075",
+  "2024600001",
+  "3063440033",
+  "3052320029",
+  "3042570006",
+  "2033117501",
+  "3052320029",
+  "3087107501",
+  "2048350054",
+  "3052320029",
+  "2057600100",
+  "4030800006",
+  "4021460028",
+  "1021700281",
+  "1021700281",
+  "1004140028",
+  "1011820049",
+  "3053080001",
+  "1015350021",
+  "3050830044",
+  "1011470039",
+  "3067310039",
+  "1011820049",
+  "3050830044",
+  "4079900044",
+  "2029320004",
+  "4098430029",
+  "2025710014",
+  "4080920005",
+  "1009240050",
+  "3050830044",
+  "5000360020",
+  "2028700035",
+  "3050830044",
+  "1020690001",
+  "3051540047",
+  "1009240052",
+  "4051800001",
+  "2032210026",
+  "4030750023",
+  "1021360106",
+  "4097960047",
+  "2032920082",
+  "1020690001",
+  null
+ ],
+ "registrations": [
+  {
+   "registrationid": "104332",
+   "boroid": "1",
+   "block": "741",
+   "lot": "67"
+  },
+  {
+   "registrationid": "138904",
+   "boroid": "1",
+   "block": "243",
+   "lot": "56"
+  },
+  {
+   "registrationid": "138905",
+   "boroid": "1",
+   "block": "243",
+   "lot": "56"
+  },
+  {
+   "registrationid": "103901",
+   "boroid": "1",
+   "block": "414",
+   "lot": "28"
+  },
+  {
+   "registrationid": "109577",
+   "boroid": "1",
+   "block": "924",
+   "lot": "52"
+  },
+  {
+   "registrationid": "142876",
+   "boroid": "1",
+   "block": "1081",
+   "lot": "7502"
+  },
+  {
+   "registrationid": "109576",
+   "boroid": "1",
+   "block": "924",
+   "lot": "50"
+  },
+  {
+   "registrationid": "111934",
+   "boroid": "1",
+   "block": "1182",
+   "lot": "49"
+  },
+  {
+   "registrationid": "119676",
+   "boroid": "1",
+   "block": "1147",
+   "lot": "39"
+  },
+  {
+   "registrationid": "116522",
+   "boroid": "1",
+   "block": "1535",
+   "lot": "21"
+  },
+  {
+   "registrationid": "144937",
+   "boroid": "1",
+   "block": "1863",
+   "lot": "7501"
+  },
+  {
+   "registrationid": "140669",
+   "boroid": "1",
+   "block": "1970",
+   "lot": "2"
+  },
+  {
+   "registrationid": "120334",
+   "boroid": "1",
+   "block": "2001",
+   "lot": "60"
+  },
+  {
+   "registrationid": "128419",
+   "boroid": "1",
+   "block": "2054",
+   "lot": "79"
+  },
+  {
+   "registrationid": "124914",
+   "boroid": "1",
+   "block": "2069",
+   "lot": "1"
+  },
+  {
+   "registrationid": "123849",
+   "boroid": "1",
+   "block": "2136",
+   "lot": "106"
+  },
+  {
+   "registrationid": "120730",
+   "boroid": "1",
+   "block": "2161",
+   "lot": "40"
+  },
+  {
+   "registrationid": "143456",
+   "boroid": "1",
+   "block": "2170",
+   "lot": "281"
+  },
+  {
+   "registrationid": "143457",
+   "boroid": "1",
+   "block": "2170",
+   "lot": "281"
+  },
+  {
+   "registrationid": "205990",
+   "boroid": "2",
+   "block": "2460",
+   "lot": "1"
+  },
+  {
+   "registrationid": "228899",
+   "boroid": "2",
+   "block": "2562",
+   "lot": "7501"
+  },
+  {
+   "registrationid": "211197",
+   "boroid": "2",
+   "block": "2571",
+   "lot": "14"
+  },
+  {
+   "registrationid": "211198",
+   "boroid": "2",
+   "block": "2571",
+   "lot": "14"
+  },
+  {
+   "registrationid": "211196",
+   "boroid": "2",
+   "block": "2571",
+   "lot": "14"
+  },
+  {
+   "registrationid": "211195",
+   "boroid": "2",
+   "block": "2571",
+   "lot": "14"
+  },
+  {
+   "registrationid": "211199",
+   "boroid": "2",
+   "block": "2571",
+   "lot": "14"
+  },
+  {
+   "registrationid": "204271",
+   "boroid": "2",
+   "block": "2870",
+   "lot": "35"
+  },
+  {
+   "registrationid": "208439",
+   "boroid": "2",
+   "block": "2763",
+   "lot": "215"
+  },
+  {
+   "registrationid": "211130",
+   "boroid": "2",
+   "block": "2851",
+   "lot": "36"
+  },
+  {
+   "registrationid": "202645",
+   "boroid": "2",
+   "block": "2932",
+   "lot": "4"
+  },
+  {
+   "registrationid": "207668",
+   "boroid": "2",
+   "block": "2998",
+   "lot": "166"
+  },
+  {
+   "registrationid": "203207",
+   "boroid": "2",
+   "block": "3103",
+   "lot": "55"
+  },
+  {
+   "registrationid": "227640",
+   "boroid": "2",
+   "block": "3169",
+   "lot": "9"
+  },
+  {
+   "registrationid": "206320",
+   "boroid": "2",
+   "block": "3169",
+   "lot": "9"
+  },
+  {
+   "registrationid": "215960",
+   "boroid": "2",
+   "block": "3196",
+   "lot": "38"
+  },
+  {
+   "registrationid": "200905",
+   "boroid": "2",
+   "block": "3221",
+   "lot": "26"
+  },
+  {
+   "registrationid": "201935",
+   "boroid": "2",
+   "block": "3234",
+   "lot": "65"
+  },
+  {
+   "registrationid": "223199",
+   "boroid": "2",
+   "block": "3223",
+   "lot": "30"
+  },
+  {
+   "registrationid": "201594",
+   "boroid": "2",
+   "block": "3249",
+   "lot": "6"
+  },
+  {
+   "registrationid": "203894",
+   "boroid": "2",
+   "block": "3292",
+   "lot": "82"
+  },
+  {
+   "registrationid": "209249",
+   "boroid": "2",
+   "block": "3311",
+   "lot": "7501"
+  },
+  {
+   "registrationid": "213335",
+   "boroid": "2",
+   "block": "3278",
+   "lot": "28"
+  },
+  {
+   "registrationid": "229006",
+   "boroid": "2",
+   "block": "3328",
+   "lot": "114"
+  },
+  {
+   "registrationid": "207501",
+   "boroid": "2",
+   "block": "3335",
+   "lot": "193"
+  },
+  {
+   "registrationid": "221738",
+   "boroid": "2",
+   "block": "3778",
+   "lot": "10"
+  },
+  {
+   "registrationid": "217735",
+   "boroid": "2",
+   "block": "4317",
+   "lot": "92"
+  },
+  {
+   "registrationid": "205031",
+   "boroid": "2",
+   "block": "4835",
+   "lot": "54"
+  },
+  {
+   "registrationid": "211139",
+   "boroid": "2",
+   "block": "5760",
+   "lot": "100"
+  },
+  {
+   "registrationid": "317413",
+   "boroid": "3",
+   "block": "1610",
+   "lot": "2"
+  },
+  {
+   "registrationid": "383553",
+   "boroid": "3",
+   "block": "1442",
+   "lot": "60"
+  },
+  {
+   "registrationid": "308862",
+   "boroid": "3",
+   "block": "1241",
+   "lot": "32"
+  },
+  {
+   "registrationid": "391474",
+   "boroid": "3",
+   "block": "3703",
+   "lot": "35"
+  },
+  {
+   "registrationid": "384866",
+   "boroid": "3",
+   "block": "4257",
+   "lot": "6"
+  },
+  {
+   "registrationid": "325933",
+   "boroid": "3",
+   "block": "4918",
+   "lot": "12"
+  },
+  {
+   "registrationid": "315117",
+   "boroid": "3",
+   "block": "5083",
+   "lot": "44"
+  },
+  {
+   "registrationid": "373975",
+   "boroid": "3",
+   "block": "5154",
+   "lot": "47"
+  },
+  {
+   "registrationid": "338852",
+   "boroid": "3",
+   "block": "5184",
+   "lot": "6"
+  },
+  {
+   "registrationid": "313151",
+   "boroid": "3",
+   "block": "5232",
+   "lot": "29"
+  },
+  {
+   "registrationid": "312169",
+   "boroid": "3",
+   "block": "5308",
+   "lot": "1"
+  },
+  {
+   "registrationid": "306087",
+   "boroid": "3",
+   "block": "6110",
+   "lot": "20"
+  },
+  {
+   "registrationid": "339462",
+   "boroid": "3",
+   "block": "6344",
+   "lot": "33"
+  },
+  {
+   "registrationid": "300096",
+   "boroid": "3",
+   "block": "6731",
+   "lot": "39"
+  },
+  {
+   "registrationid": "300870",
+   "boroid": "3",
+   "block": "8710",
+   "lot": "7501"
+  },
+  {
+   "registrationid": "300869",
+   "boroid": "3",
+   "block": "8710",
+   "lot": "7501"
+  },
+  {
+   "registrationid": "400224",
+   "boroid": "4",
+   "block": "166",
+   "lot": "6"
+  },
+  {
+   "registrationid": "400116",
+   "boroid": "4",
+   "block": "608",
+   "lot": "34"
+  },
+  {
+   "registrationid": "400638",
+   "boroid": "4",
+   "block": "632",
+   "lot": "75"
+  },
+  {
+   "registrationid": "408803",
+   "boroid": "4",
+   "block": "673",
+   "lot": "34"
+  },
+  {
+   "registrationid": "416690",
+   "boroid": "4",
+   "block": "1316",
+   "lot": "63"
+  },
+  {
+   "registrationid": "400012",
+   "boroid": "4",
+   "block": "2146",
+   "lot": "28"
+  },
+  {
+   "registrationid": "404331",
+   "boroid": "4",
+   "block": "2172",
+   "lot": "1"
+  },
+  {
+   "registrationid": "400175",
+   "boroid": "4",
+   "block": "3075",
+   "lot": "23"
+  },
+  {
+   "registrationid": "412013",
+   "boroid": "4",
+   "block": "3080",
+   "lot": "6"
+  },
+  {
+   "registrationid": "400534",
+   "boroid": "4",
+   "block": "3574",
+   "lot": "51"
+  },
+  {
+   "registrationid": "420364",
+   "boroid": "4",
+   "block": "5180",
+   "lot": "1"
+  },
+  {
+   "registrationid": "420479",
+   "boroid": "4",
+   "block": "8092",
+   "lot": "5"
+  },
+  {
+   "registrationid": "405005",
+   "boroid": "4",
+   "block": "9293",
+   "lot": "36"
+  },
+  {
+   "registrationid": "420077",
+   "boroid": "4",
+   "block": "9814",
+   "lot": "6"
+  },
+  {
+   "registrationid": "400428",
+   "boroid": "4",
+   "block": "9843",
+   "lot": "29"
+  },
+  {
+   "registrationid": "406822",
+   "boroid": "4",
+   "block": "9845",
+   "lot": "12"
+  }
+ ],
+ "contacts": [
+  {
+   "registrationid": "103901",
+   "type": "CorporateOwner",
+   "corporationname": "YECO REALTY CORPORATION"
+  },
+  {
+   "registrationid": "103901",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "104332",
+   "type": "CorporateOwner",
+   "corporationname": "SP 364 W 18 LLC"
+  },
+  {
+   "registrationid": "104332",
+   "type": "Agent",
+   "corporationname": "STONEHENGE MANAGEMENT LLC"
+  },
+  {
+   "registrationid": "109577",
+   "type": "CorporateOwner",
+   "corporationname": "VISTA REALTY CORP"
+  },
+  {
+   "registrationid": "109577",
+   "type": "Agent",
+   "corporationname": "VERCO PROPERTIES LLC"
+  },
+  {
+   "registrationid": "138904",
+   "type": "CorporateOwner",
+   "corporationname": "GOUVERNEUR GARDENS HOUSING CORP"
+  },
+  {
+   "registrationid": "138904",
+   "type": "Agent",
+   "corporationname": "PRESTIGE MANAGEMENT INC."
+  },
+  {
+   "registrationid": "138905",
+   "type": "CorporateOwner",
+   "corporationname": "GOUVERNEUR GARDENS HOUSING CORP."
+  },
+  {
+   "registrationid": "138905",
+   "type": "Agent",
+   "corporationname": "PRESTIGE MANAGEMENT INC."
+  },
+  {
+   "registrationid": "142876",
+   "type": "CorporateOwner",
+   "corporationname": "CLINTON GREEN NORTH, LLC"
+  },
+  {
+   "registrationid": "142876",
+   "type": "Agent",
+   "corporationname": "VIVMARK RESIDENTIAL MANAGEMENT LLC"
+  },
+  {
+   "registrationid": "109576",
+   "type": "CorporateOwner",
+   "corporationname": "VISTA REALTY CORP"
+  },
+  {
+   "registrationid": "109576",
+   "type": "Agent",
+   "corporationname": "VERCO PROPERTIES LLC"
+  },
+  {
+   "registrationid": "111934",
+   "type": "CorporateOwner",
+   "corporationname": "342 WEST 71 STREET LLC"
+  },
+  {
+   "registrationid": "111934",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "116522",
+   "type": "CorporateOwner",
+   "corporationname": "DOVERO 2 LLC"
+  },
+  {
+   "registrationid": "116522",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "119676",
+   "type": "CorporateOwner",
+   "corporationname": "RIGHTBANC REALTY LLC"
+  },
+  {
+   "registrationid": "119676",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "140669",
+   "type": "CorporateOwner",
+   "corporationname": "LOGAN PLAZA LLC"
+  },
+  {
+   "registrationid": "140669",
+   "type": "Agent",
+   "corporationname": "PARK MANAGEMENT INC."
+  },
+  {
+   "registrationid": "144937",
+   "type": "CorporateOwner",
+   "corporationname": "WEST 108TH STREET L.P."
+  },
+  {
+   "registrationid": "144937",
+   "type": "Agent",
+   "corporationname": "WEST SIDE FEDERATION FOR SENIOR AND SUPPORTIVE HOU"
+  },
+  {
+   "registrationid": "120334",
+   "type": "CorporateOwner",
+   "corporationname": "575 RIVERHOUSE CORP"
+  },
+  {
+   "registrationid": "120334",
+   "type": "Agent",
+   "corporationname": "HOULIHAN-PARNES PROPERTIES"
+  },
+  {
+   "registrationid": "120730",
+   "type": "CorporateOwner",
+   "corporationname": "560-568 AUDUBON REALTY, LLC"
+  },
+  {
+   "registrationid": "120730",
+   "type": "Agent",
+   "corporationname": "560-568 AUDUBON REALTY LLC"
+  },
+  {
+   "registrationid": "123849",
+   "type": "CorporateOwner",
+   "corporationname": "884 Riverside Drive Partners LLC"
+  },
+  {
+   "registrationid": "123849",
+   "type": "Agent",
+   "corporationname": "884 RIVERSIDE DR PARTNERS LLC"
+  },
+  {
+   "registrationid": "124914",
+   "type": "CorporateOwner",
+   "corporationname": "75 St Nicholas Place Owner LLC"
+  },
+  {
+   "registrationid": "124914",
+   "type": "Agent",
+   "corporationname": "Brookman Management Corp."
+  },
+  {
+   "registrationid": "128419",
+   "type": "CorporateOwner",
+   "corporationname": "76 St Nicholas Place Owner LLC"
+  },
+  {
+   "registrationid": "128419",
+   "type": "Agent",
+   "corporationname": "Brookman Management Corp."
+  },
+  {
+   "registrationid": "143456",
+   "type": "CorporateOwner",
+   "corporationname": "WADSAWORTH AVENUE/WADSWORTH TERRACE LLC"
+  },
+  {
+   "registrationid": "143456",
+   "type": "Agent",
+   "corporationname": "WADSWORTH AVE/WADSWORTH TERRACE"
+  },
+  {
+   "registrationid": "143457",
+   "type": "CorporateOwner",
+   "corporationname": "WADSWORTH AVENUE/WADSWORTH TERRACE LLC"
+  },
+  {
+   "registrationid": "143457",
+   "type": "Agent",
+   "corporationname": "WADSWORTH AVENUE/WADSWORTH TERRACE"
+  },
+  {
+   "registrationid": "205990",
+   "type": "CorporateOwner",
+   "corporationname": "CONCOURSE PLAZA REDEVELOPMENT CO"
+  },
+  {
+   "registrationid": "205990",
+   "type": "Agent",
+   "corporationname": "MID BX HOUSING MGMT"
+  },
+  {
+   "registrationid": "211196",
+   "type": "CorporateOwner",
+   "corporationname": "Diego Beekman Mutual Housing Association, HDFC"
+  },
+  {
+   "registrationid": "211196",
+   "type": "Agent",
+   "corporationname": "WINNRESIDENTAL (NY) LLC"
+  },
+  {
+   "registrationid": "211197",
+   "type": "CorporateOwner",
+   "corporationname": "Diego Beekman Mutual Housing Association, HDFC"
+  },
+  {
+   "registrationid": "211197",
+   "type": "Agent",
+   "corporationname": "WINNRESIDENTAL (NY) LLC"
+  },
+  {
+   "registrationid": "211198",
+   "type": "CorporateOwner",
+   "corporationname": "Diego Beekman Mutual Housing Association, HDFC"
+  },
+  {
+   "registrationid": "211198",
+   "type": "Agent",
+   "corporationname": "WINNRESIDENTAL (NY) LLC"
+  },
+  {
+   "registrationid": "228899",
+   "type": "CorporateOwner",
+   "corporationname": "WILLOW OWNER LLC"
+  },
+  {
+   "registrationid": "228899",
+   "type": "Agent",
+   "corporationname": "WAVECREST MGMT GROUP"
+  },
+  {
+   "registrationid": "202645",
+   "type": "CorporateOwner",
+   "corporationname": "595 E 170TH LLC"
+  },
+  {
+   "registrationid": "202645",
+   "type": "Agent",
+   "corporationname": "595 E 170TH LLC"
+  },
+  {
+   "registrationid": "204271",
+   "type": "CorporateOwner",
+   "corporationname": "DAVIDSON NYC LLC"
+  },
+  {
+   "registrationid": "204271",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "208439",
+   "type": "CorporateOwner",
+   "corporationname": "OAR FAILLE STREET LLC"
+  },
+  {
+   "registrationid": "208439",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "211130",
+   "type": "CorporateOwner",
+   "corporationname": "916 HOLDING CORP"
+  },
+  {
+   "registrationid": "211130",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "211195",
+   "type": "CorporateOwner",
+   "corporationname": "DIEGO BEEKMAN MHA HDFC"
+  },
+  {
+   "registrationid": "211195",
+   "type": "Agent",
+   "corporationname": "WINNRESIDENTAL (NY) LLC"
+  },
+  {
+   "registrationid": "211199",
+   "type": "CorporateOwner",
+   "corporationname": "DIEGO BEEKMAN MHA HDFC"
+  },
+  {
+   "registrationid": "211199",
+   "type": "Agent",
+   "corporationname": "WINNRESIDENTAL (NY) LLC"
+  },
+  {
+   "registrationid": "200905",
+   "type": "CorporateOwner",
+   "corporationname": "150 WESTMAR REALTY LLC"
+  },
+  {
+   "registrationid": "200905",
+   "type": "Agent",
+   "corporationname": "M G ROSE LLC"
+  },
+  {
+   "registrationid": "203207",
+   "type": "CorporateOwner",
+   "corporationname": "NEZ INC"
+  },
+  {
+   "registrationid": "203207",
+   "type": "Agent",
+   "corporationname": "NEZ INC"
+  },
+  {
+   "registrationid": "206320",
+   "type": "CorporateOwner",
+   "corporationname": "2078 MORRIS LLC"
+  },
+  {
+   "registrationid": "206320",
+   "type": "Agent",
+   "corporationname": "GAZIVODA REALTY CO. INC"
+  },
+  {
+   "registrationid": "207668",
+   "type": "CorporateOwner",
+   "corporationname": "985 EAST 174 LLC"
+  },
+  {
+   "registrationid": "207668",
+   "type": "Agent",
+   "corporationname": "NEW YORK CITY MANAGEMENT LLC"
+  },
+  {
+   "registrationid": "215960",
+   "type": "CorporateOwner",
+   "corporationname": "1 WEST LLC"
+  },
+  {
+   "registrationid": "215960",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "227640",
+   "type": "CorporateOwner",
+   "corporationname": "2078 MORRIS LLC"
+  },
+  {
+   "registrationid": "227640",
+   "type": "Agent",
+   "corporationname": "GAZIVODA REALTY CO., INC."
+  },
+  {
+   "registrationid": "201594",
+   "type": "CorporateOwner",
+   "corporationname": "2764-66 Realty LLC"
+  },
+  {
+   "registrationid": "201594",
+   "type": "Agent",
+   "corporationname": "GENYC REALTY LLC"
+  },
+  {
+   "registrationid": "201935",
+   "type": "CorporateOwner",
+   "corporationname": "2293 SEDGWICK AVE REALTY CORP"
+  },
+  {
+   "registrationid": "201935",
+   "type": "Agent",
+   "corporationname": "2293 SEDGWICK AVE REALTY CORP"
+  },
+  {
+   "registrationid": "203894",
+   "type": "CorporateOwner",
+   "corporationname": "RANDY MANAGEMENT INC"
+  },
+  {
+   "registrationid": "203894",
+   "type": "Agent",
+   "corporationname": "DKRE REALTY INc"
+  },
+  {
+   "registrationid": "209249",
+   "type": "CorporateOwner",
+   "corporationname": "3130 GRAND CONCOURSE OWNERS CORP"
+  },
+  {
+   "registrationid": "209249",
+   "type": "Agent",
+   "corporationname": "PRIDE PROPERTY MANAGEMENT"
+  },
+  {
+   "registrationid": "213335",
+   "type": "CorporateOwner",
+   "corporationname": "382 E 197TH STREET"
+  },
+  {
+   "registrationid": "213335",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "223199",
+   "type": "CorporateOwner",
+   "corporationname": "P R V REALTY CORP"
+  },
+  {
+   "registrationid": "223199",
+   "type": "Agent",
+   "corporationname": "P R V REALTY CORP"
+  },
+  {
+   "registrationid": "205031",
+   "type": "CorporateOwner",
+   "corporationname": "V.T.S. PROPERTIES, INC."
+  },
+  {
+   "registrationid": "205031",
+   "type": "Agent",
+   "corporationname": "RHAMCO"
+  },
+  {
+   "registrationid": "207501",
+   "type": "CorporateOwner",
+   "corporationname": "ROBO LLC"
+  },
+  {
+   "registrationid": "207501",
+   "type": "Agent",
+   "corporationname": "ROBO LLC"
+  },
+  {
+   "registrationid": "211139",
+   "type": "CorporateOwner",
+   "corporationname": "FLSGP 3410 Kingsbridge LLC"
+  },
+  {
+   "registrationid": "211139",
+   "type": "Agent",
+   "corporationname": "R.E.M. Residential"
+  },
+  {
+   "registrationid": "217735",
+   "type": "CorporateOwner",
+   "corporationname": "2180 Bolton Street Owner LLC"
+  },
+  {
+   "registrationid": "217735",
+   "type": "Agent",
+   "corporationname": "Progress Property Management LLC"
+  },
+  {
+   "registrationid": "221738",
+   "type": "CorporateOwner",
+   "corporationname": "Morrison Tower, LLC"
+  },
+  {
+   "registrationid": "221738",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "229006",
+   "type": "CorporateOwner",
+   "corporationname": "3537 Bainbridge Realty LLC"
+  },
+  {
+   "registrationid": "229006",
+   "type": "Agent",
+   "corporationname": "Frontgate Management"
+  },
+  {
+   "registrationid": "308862",
+   "type": "IndividualOwner"
+  },
+  {
+   "registrationid": "317413",
+   "type": "CorporateOwner",
+   "corporationname": "Lennon and Green Inc."
+  },
+  {
+   "registrationid": "317413",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "325933",
+   "type": "CorporateOwner",
+   "corporationname": "EAST 34 414 LLC"
+  },
+  {
+   "registrationid": "325933",
+   "type": "Agent",
+   "corporationname": "EAST 34 414 LLC"
+  },
+  {
+   "registrationid": "383553",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "384866",
+   "type": "CorporateOwner",
+   "corporationname": "BELMONT GARDENS LLC"
+  },
+  {
+   "registrationid": "384866",
+   "type": "Agent",
+   "corporationname": "WAVECREST MANAGEMENT TEAM"
+  },
+  {
+   "registrationid": "391474",
+   "type": "CorporateOwner",
+   "corporationname": "180 Pennsylvania LLC"
+  },
+  {
+   "registrationid": "391474",
+   "type": "Agent",
+   "corporationname": "180 Pennsylvania LLC"
+  },
+  {
+   "registrationid": "306087",
+   "type": "CorporateOwner",
+   "corporationname": "159 GELSTON AVENUE LLC"
+  },
+  {
+   "registrationid": "306087",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "312169",
+   "type": "CorporateOwner",
+   "corporationname": "TEHAMA 36 REALTY LLC"
+  },
+  {
+   "registrationid": "312169",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "313151",
+   "type": "CorporateOwner",
+   "corporationname": "1119 FOSTER LLC"
+  },
+  {
+   "registrationid": "313151",
+   "type": "Agent",
+   "corporationname": "ARM CAPITAL RESOURCES"
+  },
+  {
+   "registrationid": "315117",
+   "type": "CorporateOwner",
+   "corporationname": "80 LENOX LLC"
+  },
+  {
+   "registrationid": "315117",
+   "type": "Agent",
+   "corporationname": "80 LENOX LLC"
+  },
+  {
+   "registrationid": "338852",
+   "type": "CorporateOwner",
+   "corporationname": "DITMAS FLATS LLC"
+  },
+  {
+   "registrationid": "338852",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "373975",
+   "type": "CorporateOwner",
+   "corporationname": "THE STRATFORD LLC"
+  },
+  {
+   "registrationid": "373975",
+   "type": "Agent",
+   "corporationname": "STEVEN S. MANAGE, LLC"
+  },
+  {
+   "registrationid": "300096",
+   "type": "CorporateOwner",
+   "corporationname": "FATIMA REALTY, LLC"
+  },
+  {
+   "registrationid": "300096",
+   "type": "Agent",
+   "corporationname": "Fatima Realty LLC"
+  },
+  {
+   "registrationid": "300869",
+   "type": "CorporateOwner",
+   "corporationname": "DELMAN COMPANY & GR 10-40 LLC"
+  },
+  {
+   "registrationid": "300869",
+   "type": "Agent",
+   "corporationname": "DELTA MANAGEMENT LLC"
+  },
+  {
+   "registrationid": "300870",
+   "type": "CorporateOwner",
+   "corporationname": "DELMAN COMPANY+GR 10-40 LLC"
+  },
+  {
+   "registrationid": "300870",
+   "type": "Agent",
+   "corporationname": "DELTA MANAGEMENT LLC"
+  },
+  {
+   "registrationid": "339462",
+   "type": "CorporateOwner",
+   "corporationname": "THE OWNERS OF 1864 INC"
+  },
+  {
+   "registrationid": "339462",
+   "type": "Agent",
+   "corporationname": "1864 CORP"
+  },
+  {
+   "registrationid": "400116",
+   "type": "CorporateOwner",
+   "corporationname": "3420 32ND STREET LLC"
+  },
+  {
+   "registrationid": "400116",
+   "type": "Agent",
+   "corporationname": "PHOENIX MANAGMENT 23 LLC"
+  },
+  {
+   "registrationid": "400224",
+   "type": "CorporateOwner",
+   "corporationname": "FLGSP 45-35 44 ST LLC"
+  },
+  {
+   "registrationid": "400224",
+   "type": "Agent",
+   "corporationname": "R.E.M. Residential"
+  },
+  {
+   "registrationid": "400012",
+   "type": "CorporateOwner",
+   "corporationname": "EARTH LEASING PROPERTIES LLC"
+  },
+  {
+   "registrationid": "400012",
+   "type": "Agent",
+   "corporationname": "ESTATES NY REAL ESTATE SERVICES LLC"
+  },
+  {
+   "registrationid": "400175",
+   "type": "CorporateOwner",
+   "corporationname": "92-40 QUEENS BOULEVARD, LLC"
+  },
+  {
+   "registrationid": "400175",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "400638",
+   "type": "CorporateOwner",
+   "corporationname": "34-05 REALTY ASSOCIATES LLC"
+  },
+  {
+   "registrationid": "400638",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "404331",
+   "type": "CorporateOwner",
+   "corporationname": "65-11 OWNER CORP"
+  },
+  {
+   "registrationid": "404331",
+   "type": "Agent",
+   "corporationname": "Atlantis Properties Management"
+  },
+  {
+   "registrationid": "408803",
+   "type": "CorporateOwner",
+   "corporationname": "VDI Land Corp"
+  },
+  {
+   "registrationid": "408803",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "416690",
+   "type": "CorporateOwner",
+   "corporationname": "L & L HENG LONG LLC"
+  },
+  {
+   "registrationid": "416690",
+   "type": "Agent",
+   "corporationname": "L & L HENG LONG LLC"
+  },
+  {
+   "registrationid": "400534",
+   "type": "CorporateOwner",
+   "corporationname": "HLPG 1819 GEORGE LLC"
+  },
+  {
+   "registrationid": "400534",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "405005",
+   "type": "CorporateOwner",
+   "corporationname": "Meda Realty, LLC"
+  },
+  {
+   "registrationid": "405005",
+   "type": "Agent",
+   "corporationname": "Bronstein Properties LLC"
+  },
+  {
+   "registrationid": "412013",
+   "type": "CorporateOwner",
+   "corporationname": "REGO REALTY LLLC"
+  },
+  {
+   "registrationid": "412013",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "420077",
+   "type": "CorporateOwner",
+   "corporationname": "HORIZON HOUSE CO. LLC"
+  },
+  {
+   "registrationid": "420077",
+   "type": "Agent",
+   "corporationname": "FLAT MGT LLC"
+  },
+  {
+   "registrationid": "420364",
+   "type": "CorporateOwner",
+   "corporationname": "NEWPORT APARTMENTS INC"
+  },
+  {
+   "registrationid": "420364",
+   "type": "Agent",
+   "corporationname": "JOHN B. LOVETT"
+  },
+  {
+   "registrationid": "420479",
+   "type": "CorporateOwner",
+   "corporationname": "FAIRFIELD MANOR AT DOUGLASTON LLC"
+  },
+  {
+   "registrationid": "420479",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "400428",
+   "type": "CorporateOwner",
+   "corporationname": "IRENE REALTY CO LLC"
+  },
+  {
+   "registrationid": "400428",
+   "type": "Agent"
+  },
+  {
+   "registrationid": "406822",
+   "type": "CorporateOwner",
+   "corporationname": "WEXFORD ARMS REALTY LLC"
+  },
+  {
+   "registrationid": "406822",
+   "type": "Agent"
+  }
+ ]
+}

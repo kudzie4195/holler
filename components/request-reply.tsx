@@ -5,6 +5,7 @@ import { StatusBadge } from './badge';
 import { Button } from './button';
 import { controlClasses } from './field';
 import { hardNavigate } from './format';
+import { t, type Lang } from '@/lib/i18n';
 
 /** Same rules as lib/requests/constants.ts, kept literal so this client file imports no server code. */
 const REPLY_MIN = 20;
@@ -20,11 +21,13 @@ export function RequestReply({
   matchId,
   state,
   onReplied,
+  lang = 'en',
 }: {
   matchId: number;
   /** undefined while the feed is still asking the server. */
   state: RequestReplyState | undefined;
   onReplied: (matchId: number) => void;
+  lang?: Lang;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -35,14 +38,14 @@ export function RequestReply({
   if (state === 'replied') {
     return (
       <span className="inline-flex min-h-11 items-center md:min-h-9">
-        <StatusBadge tone="success">Replied</StatusBadge>
+        <StatusBadge tone="success">{t(lang, 'card.reply.replied')}</StatusBadge>
       </span>
     );
   }
   if (state === 'closed' || state === 'full') {
     return (
       <span className="inline-flex min-h-11 items-center text-sm text-muted md:min-h-9">
-        {state === 'closed' ? 'This request is closed.' : 'This request has enough replies.'}
+        {state === 'closed' ? t(lang, 'card.reply.closed') : t(lang, 'card.reply.full')}
       </span>
     );
   }
@@ -50,11 +53,11 @@ export function RequestReply({
   async function send() {
     const message = text.trim();
     if (message.length < REPLY_MIN) {
-      setError(`Write at least ${REPLY_MIN} characters.`);
+      setError(t(lang, 'card.reply.min', { n: REPLY_MIN }));
       return;
     }
     if (message.length > REPLY_MAX) {
-      setError(`Keep it under ${REPLY_MAX} characters.`);
+      setError(t(lang, 'card.reply.max', { n: REPLY_MAX }));
       return;
     }
     setPending(true);
@@ -76,10 +79,10 @@ export function RequestReply({
       } else if (body.code === 'already_replied') {
         onReplied(matchId);
       } else {
-        setError(body.message ?? "We couldn't send that just now. Try again.");
+        setError((lang === 'en' ? body.message : null) ?? t(lang, 'card.reply.error'));
       }
     } catch {
-      setError("We couldn't reach the server. Try again.");
+      setError(t(lang, 'card.draft_err.network'));
     }
     setPending(false);
   }
@@ -87,7 +90,7 @@ export function RequestReply({
   if (!open) {
     return (
       <Button size="sm" variant="primary" onClick={() => setOpen(true)} aria-expanded={false} aria-controls={`${id}-panel`}>
-        Reply
+        {t(lang, 'card.reply.button')}
       </Button>
     );
   }
@@ -95,11 +98,10 @@ export function RequestReply({
   return (
     <div id={`${id}-panel`} className="mt-2 w-full rounded-card border border-line bg-background p-4">
       <label htmlFor={`${id}-text`} className="text-sm font-semibold text-ink">
-        Your reply
+        {t(lang, 'card.reply.label')}
       </label>
       <p id={`${id}-hint`} className="mt-1 text-sm text-muted">
-        We email it to the person who asked. They see your business name, your city and your email address, so they can write back.
-        You can add your phone number.
+        {t(lang, 'card.reply.hint')}
       </p>
       <textarea
         id={`${id}-text`}
@@ -119,10 +121,10 @@ export function RequestReply({
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" variant="primary" onClick={send} disabled={pending}>
-          {pending ? 'Sending...' : 'Send reply'}
+          {pending ? t(lang, 'card.reply.sending') : t(lang, 'card.reply.send')}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
-          Cancel
+          {t(lang, 'card.reply.cancel')}
         </Button>
       </div>
     </div>

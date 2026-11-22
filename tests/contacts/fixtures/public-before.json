@@ -20,7 +20,7 @@
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -43,7 +43,7 @@
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -67,7 +67,7 @@
    "data": {
     "layer": "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -92,7 +92,7 @@
    "data": {
     "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -115,7 +115,7 @@
    "data": {
     "layer": "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -141,7 +141,7 @@
    "data": {
     "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -164,7 +164,7 @@
    "data": {
     "layer": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -190,7 +190,8 @@
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 250000
    }
   },
   {
@@ -215,7 +216,8 @@
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 450000
    }
   },
   {
@@ -239,7 +241,7 @@
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -258,7 +260,6 @@
    "zip": "78704",
    "categories": [
     "pest-control",
-    "cleaning",
     "janitorial-commercial"
    ],
    "severity": 2,
@@ -267,7 +268,7 @@
     "dataset": "ecmv-9xxi",
     "domain": "data.austintexas.gov",
     "subtype": "inspection",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -295,7 +296,7 @@
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -323,7 +324,7 @@
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -348,7 +349,7 @@
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -373,7 +374,7 @@
     "dataset": "6wtj-zbtb",
     "domain": "data.austintexas.gov",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -400,7 +401,8 @@
     "dataset": "9p2d-f3yt",
     "domain": "data.buffalony.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 6500
    }
   },
   {
@@ -424,7 +426,7 @@
     "dataset": "9p2d-f3yt",
     "domain": "data.buffalony.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -450,7 +452,7 @@
     "dataset": "2z9k-mv9g",
     "domain": "data.cambridgema.gov",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -474,7 +476,7 @@
     "dataset": "2z9k-mv9g",
     "domain": "data.cambridgema.gov",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -500,7 +502,7 @@
     "dataset": "3wsm-e5jx",
     "domain": "data.cambridgema.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -524,7 +526,7 @@
     "dataset": "3wsm-e5jx",
     "domain": "data.cambridgema.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -550,7 +552,7 @@
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -575,7 +577,7 @@
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -599,7 +601,7 @@
     "dataset": "v6vf-nfxy",
     "domain": "data.cityofchicago.org",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -622,7 +624,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -631,7 +632,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -652,7 +653,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -661,7 +661,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -682,7 +682,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -691,7 +690,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -714,7 +713,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith",
     "pest-control",
     "hvac"
@@ -725,7 +723,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -746,7 +744,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -755,7 +752,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -776,7 +773,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -785,7 +781,7 @@
     "dataset": "uupf-x98q",
     "domain": "data.cityofchicago.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -806,8 +802,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-21T06:00:00.000Z",
@@ -816,7 +811,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -838,8 +833,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-21T06:00:00.000Z",
@@ -848,7 +842,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   },
@@ -868,8 +862,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-28T06:00:00.000Z",
@@ -878,7 +871,7 @@
     "dataset": "pk66-w54g",
     "domain": "data.cityofchicago.org",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -898,7 +891,6 @@
    "zip": "60624",
    "categories": [
     "pest-control",
-    "cleaning",
     "janitorial-commercial"
    ],
    "severity": 2,
@@ -907,7 +899,7 @@
     "dataset": "4ijn-s7e5",
     "domain": "data.cityofchicago.org",
     "subtype": "inspection",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -933,7 +925,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 14500
    }
   },
   {
@@ -957,7 +950,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 4200
    }
   },
   {
@@ -981,7 +975,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 1250000
    }
   },
   {
@@ -1005,7 +1000,7 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1032,7 +1027,7 @@
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1056,7 +1051,7 @@
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1083,7 +1078,7 @@
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1108,7 +1103,7 @@
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1133,7 +1128,7 @@
     "dataset": "22u3-xenr",
     "domain": "data.cityofchicago.org",
     "subtype": "violation",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1159,7 +1154,7 @@
     "dataset": "thvx-5mem",
     "domain": "data.cincinnati-oh.gov",
     "subtype": "permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -1186,7 +1181,7 @@
     "dataset": "d7e7-envw",
     "domain": "www.dallasopendata.com",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1212,7 +1207,7 @@
     "dataset": "d4px-6rwg",
     "domain": "data.kcmo.org",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1239,7 +1234,7 @@
     "dataset": "d4px-6rwg",
     "domain": "data.kcmo.org",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1262,7 +1257,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1271,7 +1265,7 @@
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1292,7 +1286,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1301,7 +1294,7 @@
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1324,7 +1317,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith",
     "pest-control",
     "hvac"
@@ -1335,7 +1327,7 @@
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1356,7 +1348,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1365,7 +1356,7 @@
     "dataset": "6rrh-rzua",
     "domain": "data.lacity.org",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1392,7 +1383,8 @@
     "dataset": "m88u-pqki",
     "domain": "data.montgomerycountymd.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 22000
    }
   },
   {
@@ -1416,7 +1408,7 @@
     "dataset": "m88u-pqki",
     "domain": "data.montgomerycountymd.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1443,7 +1435,8 @@
     "dataset": "rcm3-fn58",
     "domain": "data.nola.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 22000
    }
   }
  ],
@@ -1470,7 +1463,8 @@
     "dataset": "fahm-yuh4",
     "domain": "data.norfolk.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 12000
    }
   },
   {
@@ -1494,7 +1488,7 @@
     "dataset": "fahm-yuh4",
     "domain": "data.norfolk.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1521,7 +1515,7 @@
     "dataset": "erm2-nwe9",
     "domain": "data.cityofnewyork.us",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1545,7 +1539,7 @@
     "dataset": "erm2-nwe9",
     "domain": "data.cityofnewyork.us",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1568,7 +1562,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1577,7 +1570,7 @@
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1598,7 +1591,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1607,7 +1599,7 @@
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1630,7 +1622,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1639,7 +1630,7 @@
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1660,7 +1651,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1669,7 +1659,7 @@
     "dataset": "w7w3-xahh",
     "domain": "data.cityofnewyork.us",
     "subtype": "business",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -1691,8 +1681,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-21T15:00:00.000Z",
@@ -1701,7 +1690,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -1723,8 +1712,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-21T15:00:00.000Z",
@@ -1733,7 +1721,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   },
@@ -1753,8 +1741,7 @@
     "food-truck",
     "catering",
     "event-services",
-    "security",
-    "cleaning"
+    "security"
    ],
    "severity": 1,
    "occurredAt": "2026-11-22T13:00:00.000Z",
@@ -1763,7 +1750,7 @@
     "dataset": "tvpp-9vvx",
     "domain": "data.cityofnewyork.us",
     "subtype": "event-permit",
-    "cat_v": 2,
+    "cat_v": 3,
     "approxLocation": true
    }
   }
@@ -1783,7 +1770,6 @@
    "zip": "11354",
    "categories": [
     "pest-control",
-    "cleaning",
     "janitorial-commercial"
    ],
    "severity": 2,
@@ -1792,7 +1778,7 @@
     "dataset": "43nn-pn8j",
     "domain": "data.cityofnewyork.us",
     "subtype": "inspection",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1818,7 +1804,7 @@
     "dataset": "quth-gb8e",
     "domain": "data.oaklandca.gov",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1844,7 +1830,7 @@
     "dataset": "quth-gb8e",
     "domain": "data.oaklandca.gov",
     "subtype": "311",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1867,7 +1853,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1876,7 +1861,7 @@
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1897,7 +1882,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1906,7 +1890,7 @@
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1927,7 +1911,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -1936,7 +1919,7 @@
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -1959,7 +1942,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith",
     "pest-control",
     "hvac"
@@ -1970,7 +1952,7 @@
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -1991,7 +1973,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2000,7 +1981,7 @@
     "dataset": "7388-4re5",
     "domain": "data.cityoforlando.net",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -2026,7 +2007,8 @@
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 15000
    }
   },
   {
@@ -2050,7 +2032,7 @@
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2074,7 +2056,7 @@
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -2097,7 +2079,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2106,7 +2087,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2127,7 +2108,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2136,7 +2116,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2157,7 +2137,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2166,7 +2145,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2187,7 +2166,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2196,7 +2174,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2217,7 +2195,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2226,7 +2203,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2247,7 +2224,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2256,7 +2232,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2277,7 +2253,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2286,7 +2261,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2307,7 +2282,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2316,7 +2290,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2337,7 +2311,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2346,7 +2319,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2367,7 +2340,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2376,7 +2348,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2397,7 +2369,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2406,7 +2377,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2427,7 +2398,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2436,7 +2406,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2457,7 +2427,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2466,7 +2435,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2487,7 +2456,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2496,7 +2464,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2517,7 +2485,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2526,7 +2493,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2547,7 +2514,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2556,7 +2522,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2577,7 +2543,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2586,7 +2551,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -2609,7 +2574,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2618,7 +2582,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2639,7 +2603,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2648,7 +2611,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -2671,7 +2634,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith",
     "pest-control",
     "hvac"
@@ -2682,7 +2644,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   },
   {
@@ -2703,7 +2665,6 @@
     "insurance",
     "janitorial-commercial",
     "security",
-    "cleaning",
     "locksmith"
    ],
    "severity": 1,
@@ -2712,7 +2673,7 @@
     "dataset": "g8m3-pdis",
     "domain": "data.sf.gov",
     "subtype": "business",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],
@@ -2738,7 +2699,8 @@
     "dataset": "i98e-djp9",
     "domain": "data.sf.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3,
+    "jobValue": 18000
    }
   },
   {
@@ -2762,7 +2724,7 @@
     "dataset": "i98e-djp9",
     "domain": "data.sf.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 3
    }
   }
  ],

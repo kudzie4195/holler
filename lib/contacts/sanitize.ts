@@ -24,6 +24,7 @@ export const CONTACT_LIMITS = {
   phone: 20,
   email: 254,
   website: 300,
+  license: 40,
 } as const;
 
 const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer']);
@@ -50,6 +51,21 @@ export function usPhone(v: unknown): string | null {
   if (/^(\d)\1{9}$/.test(a + b + c)) return null;
   if (/^[2-9]11$/.test(a) || /^[2-9]11$/.test(b)) return null;
   return `${a}-${b}-${c}`;
+}
+
+/**
+ * A contractor licence number as it may be stored: 3 to 40 characters of letters, digits, space, "-", "/", "." or "#", with at least one
+ * digit and no phone, e-mail or link shape. "Not Applicable", a name or a sentence is null. Licence numbers are public registry ids of
+ * the business; a nine-digit run (SSN shape) is refused outright.
+ */
+export function cleanLicense(v: unknown): string | null {
+  const s = text(v, CONTACT_LIMITS.license + 1);
+  if (!s || s.length > CONTACT_LIMITS.license || s.length < 3) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ./#-]*$/.test(s) || !/\d/.test(s)) return null;
+  // Driver-licence shapes ("D1234567", "DL 1234567", "A1234567B") and a nine-digit run with separators ("1234-56-789") are never a contractor board number.
+  if (/^[A-Za-z]{1,2}[\s-]?\d{7,8}[A-Za-z]?$/.test(s) || (/^[\d\s./-]+$/.test(s) && s.replace(/\D/g, '').length === 9)) return null;
+  if (CONTACT_DETAIL_RE.test(s) || /^\d{3}[- ]?\d{2}[- ]?\d{4}$/.test(s) || /^\d{9}$/.test(s)) return null;
+  return s;
 }
 
 /** A plausible email address in lower case, or null. */
@@ -249,6 +265,7 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
   }
   const cleaned = cleanOrgName(typeof c.name === 'string' ? c.name : '');
   if (!cleaned) return null;
+  const license = cleanLicense(c.license);
   return {
     role: c.role,
     name: cleaned.slice(0, CONTACT_LIMITS.name),
@@ -257,6 +274,7 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     ...base,
     phone: usPhone(c.phone),
     email: plainEmail(c.email),
+    ...(license ? { license } : {}),
     // No adapter supplies a website, and a URL path or query can carry a person: the bids unit must add its own reviewed rules first.
     website: null,
   };

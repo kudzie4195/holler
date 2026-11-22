@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { AreaWaitlist } from '@/components/area-waitlist';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
@@ -11,13 +12,17 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { TopNav } from '@/components/top-nav';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
+import { isServedZip } from '@/lib/check/coverage';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
+import { coverageNotice } from '@/lib/check/coverage-notice';
+import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
+import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 
 // Only /check itself is indexed. Every ?zip=&trade= variant is noindex (tens of thousands of combinations, one canonical).
 export async function generateMetadata(props: PageProps<'/check'>): Promise<Metadata> {
@@ -27,7 +32,7 @@ export async function generateMetadata(props: PageProps<'/check'>): Promise<Meta
     title: 'See what happened near you',
     description:
       'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.',
-    alternates: { canonical: '/check' },
+    alternates: pairAlternates(ES_PAIRS[1], 'en'),
     robots: variant ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
@@ -132,14 +137,18 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     origin: { lat: place.lat, lon: place.lon },
   };
 
-  // Territories and military mail codes have no source rows yet: say so, read nothing.
+  // A ZIP with no local source within reach (isServedZip: territories, military codes, and places with no connected permit or city feed
+  // nearby) gets the "Coming to your area" card: leave an email, hear when Holler covers it. A served ZIP never gets it.
+  const waitlist = isServedZip(place) ? null : <AreaWaitlist zip={params.zip} trade={params.trade} placeLabel={placeLabel} />;
+
+  // Territories and military mail codes have no source rows yet: say so, read nothing. The waitlist card is the answer here.
   if (!scope.covered) {
     return (
       <>
         <FormBand>
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
-        <CheckResults {...common} mode="uncovered" items={[]} checkedAt={new Date(now).toISOString()} />
+        {waitlist}
       </>
     );
   }
@@ -152,6 +161,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <FormBand>
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
+        {waitlist}
         <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
@@ -161,7 +171,12 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const ctx = await eventContext().catch(() => null);
   if (ctx) after(() => trackVisitorStep('area_check', ctx, '/check'));
 
-  const data = await loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade);
+  const [data, snapshot] = await Promise.all([
+    loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
+    // Source states (lib/signals/source-state.ts): when a source covering this ZIP and trade is behind, the results say so.
+    loadSourceStateSnapshot().catch(() => null),
+  ]);
+  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now });
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
 
   return (
@@ -169,7 +184,8 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
       <FormBand>
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} />
+      {waitlist}
+      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

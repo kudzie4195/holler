@@ -3,6 +3,7 @@ import { publicClient } from './client';
 import { SECTIONS, sectionFor, type SectionId } from './sections';
 import { safeUrl, type SectionItem, type SignalRowDb } from './summarize';
 import { WEEK_MS, isCurrentWeek, parseWeek, weekNeighbors } from './week';
+import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const ROW_COLUMNS = 'id,source,kind,title,summary,url,categories,severity,occurred_at,expires_at,subtype:data->>subtype';
@@ -119,18 +120,20 @@ export async function loadWeekData(slug: string, week: string): Promise<WeekData
   }
   try {
     const upper = Math.min(startMs + WEEK_MS - 1, nowMs);
-    const { data, error, count } = await sb
-      .from('holler_signals')
-      .select(ROW_COLUMNS, { count: 'exact' })
-      .eq('place_slug', slug)
-      .gte('occurred_at', new Date(startMs).toISOString())
-      .lte('occurred_at', new Date(upper).toISOString())
-      .or(liveRequestsFilter(nowIso))
+    const { data, error, count } = await excludeBidsInQuery(
+      sb
+        .from('holler_signals')
+        .select(ROW_COLUMNS, { count: 'exact' })
+        .eq('place_slug', slug)
+        .gte('occurred_at', new Date(startMs).toISOString())
+        .lte('occurred_at', new Date(upper).toISOString())
+        .or(liveRequestsFilter(nowIso)),
+    )
       .order('occurred_at', { ascending: false })
       .limit(WEEK_ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
     if (error) throw new Error(error.message);
-    const rows = withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], nowMs);
+    const rows = withoutHiddenBids(withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], nowMs), nowMs);
     // A live resident request in the list: tag the entry and keep it 15 minutes at most (see REQUEST_CACHE_LIFE).
     if (hasRequestRows(rows)) cacheTag(REQUEST_CACHE_TAG);
     cacheLife(

@@ -1,6 +1,7 @@
 import { cleanOrgName } from './org';
 import { cleanAddressPart, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
+import { firstMoney } from '@/lib/signals/permit-value';
 
 /**
  * Contact extraction from one open-data row, driven by a per-dataset ContactSpec. Every column named in a spec was read from the
@@ -33,6 +34,26 @@ export interface OrgSpec {
   zipField?: string;
   /** Only a dedicated business phone column of this organization. */
   phoneField?: string;
+  /** More candidate business phone columns, tried in order after phoneField. Never an owner or homeowner phone. */
+  phoneFields?: string[];
+  /** The contractor's licence number column(s), tried in order. Stored only next to an organization name that passed. */
+  licenseFields?: string[];
+  /**
+   * A column that says what the named party is (DeKalb primaryContactType). When its value matches rejectType (owner, resident ...)
+   * the party is skipped whole: no name, no phone.
+   */
+  typeField?: string;
+  rejectType?: RegExp;
+  /**
+   * Allow-list for typeField: when set, the party is kept only when the type value matches this AND does not match rejectType. A missing
+   * or empty type (the column is not in the layer, or the row leaves it blank) skips the party: it fails closed, never open.
+   */
+  acceptType?: RegExp;
+  /**
+   * Dallas shape: one string holding "NAME STREET, CITY, ST ZIP (phone)". The name is the text before the street address; the phone
+   * is read from the tail; the street, city and ZIP of the string are never stored.
+   */
+  runTogether?: boolean;
 }
 
 /** Name + type column pairs (Chicago's contact_N_type / contact_N_name). */
@@ -60,6 +81,14 @@ export interface ContactSpec {
   site?: SiteSpec;
   orgs?: OrgSpec[];
   typedContractors?: TypedContractorSpec;
+  /**
+   * 'sourced': every column below was read from the portal's own column list. 'assumed': some columns are candidates that could not be
+   * read in the session that wrote the spec. A missing Socrata column is just an absent value; an ArcGIS layer rejects an unknown
+   * outField, so the ArcGIS adapter drops the rejected field and asks again (arcgis.ts), never losing the rest of the row.
+   */
+  fieldStatus?: 'sourced' | 'assumed';
+  /** Which columns of this spec are candidates (only meaningful when fieldStatus is 'assumed'). Everything else is sourced. */
+  assumedFields?: string[];
 }
 
 export type ReadField = (field: string) => string;
@@ -69,7 +98,7 @@ export function contactSpecFields(spec: ContactSpec | undefined): string[] {
   if (!spec) return [];
   const f: (string | undefined)[] = [];
   if (spec.site) f.push(...spec.site.addressFields, spec.site.cityField, spec.site.stateField, spec.site.zipField);
-  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField);
+  for (const o of spec.orgs ?? []) f.push(...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), o.typeField);
   for (const p of spec.typedContractors?.pairs ?? []) f.push(p.typeField, p.nameField, p.cityField, p.stateField, p.zipField);
   return [...new Set(f.filter((x): x is string => Boolean(x)))];
 }
@@ -86,8 +115,35 @@ function join(read: ReadField, fields: string[] | undefined, whole = false): str
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/** A phone at the end of a run-together string: "(817) 969-5050", "469-360-6479" or "/9722431100". */
+const TAIL_PHONE_RE = /(?:\/|\s|^)\(?(\d{3})\)?[\s./-]*(\d{3})[\s.-]*(\d{4})\s*$/;
+/** Where the street address of a run-together string starts: " 7501 US HWY", " \\1201 Main St", " PO BOX 12". */
+const STREET_START_RE = /\s\\?(?:\d{1,6}[A-Za-z]?\s+[A-Za-z#]|p\.?\s?o\.?\s*box\b)/i;
+
+/** Splits "ALL MASTERS PLUMBING 7501 US HWY 287, SuiteC4, ARLINGTON, TX 76001 (817) 969-5050" into the name part and the phone. */
+export function splitRunTogether(value: string): { name: string; phone: string | null } {
+  const v = value.replace(/\s+/g, ' ').trim();
+  const m = STREET_START_RE.exec(v);
+  const name = (m ? v.slice(0, m.index) : '').replace(/[,\\/\s]+$/, '').trim();
+  const p = TAIL_PHONE_RE.exec(v);
+  return { name, phone: p ? `${p[1]}-${p[2]}-${p[3]}` : null };
+}
+
 /** Record kinds that never get a contact or an exact address, whatever spec is configured (code violations, 311 requests). */
 export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['violation', '311']);
+
+/**
+ * The project value a permit row declares: the first plausible amount among the dataset's valueFields (permit-value.ts parseMoney). Separate from
+ * the contacts so a dataset with a value column and no contact spec still gets it. Never throws.
+ */
+export function extractJobValue(read: ReadField, valueFields: readonly string[] | undefined): number | null {
+  if (!valueFields?.length) return null;
+  try {
+    return firstMoney(valueFields.map((f) => read(f)));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Contacts for one row: organizations first in the order the spec lists them, then the site. Sanitised (lib/contacts/sanitize.ts: every
@@ -106,12 +162,41 @@ export function extractContacts(
   try {
     const orgs: ContactInput[] = [];
     for (const o of spec.orgs ?? []) {
+      if (o.typeField) {
+        const t = read(o.typeField);
+        if (o.acceptType && !o.acceptType.test(t)) continue; // allow-list, fails closed on a blank or missing type
+        if (o.rejectType && o.rejectType.test(t)) continue;
+      }
       let name: string | null = null;
+      let runPhone: string | null = null;
       for (const f of o.nameFields) {
-        name = cleanOrgName(read(f));
+        const raw = read(f);
+        if (o.runTogether) {
+          const parts = splitRunTogether(raw);
+          name = cleanOrgName(parts.name);
+          runPhone = parts.phone;
+        } else {
+          name = cleanOrgName(raw);
+        }
         if (name) break;
       }
       if (!name) continue;
+      let phone: string | null = null;
+      for (const f of [o.phoneField, ...(o.phoneFields ?? [])]) {
+        const v = f ? read(f) : '';
+        if (v) {
+          phone = v;
+          break;
+        }
+      }
+      let license: string | null = null;
+      for (const f of o.licenseFields ?? []) {
+        const v = read(f);
+        if (v) {
+          license = v;
+          break;
+        }
+      }
       orgs.push({
         role: o.role,
         name,
@@ -119,7 +204,8 @@ export function extractContacts(
         city: o.cityField ? read(o.cityField) || null : null,
         state: o.stateField ? read(o.stateField) || null : null,
         zip: o.zipField ? read(o.zipField) || null : null,
-        phone: o.phoneField ? read(o.phoneField) || null : null,
+        phone: phone ?? runPhone,
+        ...(license ? { license } : {}),
       });
     }
     const t = spec.typedContractors;

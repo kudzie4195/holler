@@ -1147,3 +1147,89 @@ export function isVocabularyWord(w: string): boolean {
   const k = foldName(w);
   return notName(k) && (BUSINESS.has(k) || PUBLIC.has(k) || KNOWN.has(k));
 }
+
+// ---- structured company fields ---------------------------------------------------------------------------------------------------------
+
+/**
+ * Words that make a registered name a company name (a legal form, or a word that only a business carries). One of them is REQUIRED by
+ * registeredCompanyName. Role words (owner, manager, tenant, agent, trust, estate) are never in this list.
+ */
+const COMPANY_MARKERS = new Set(
+  list(
+    'llc l.l.c inc inc. incorporated corp corp. corporation co co. company ltd limited lp l.p. llp lllp lllc pllc hdfc ' +
+      'management managment mgmt mgt realty properties property associates holdings holding group partners equities enterprises ' +
+      'development housing apartments residential capital services investments ventures builders construction brokerage',
+  ),
+);
+/** Extra person-role and placeholder shapes for structured fields (hasRoleWord already covers owner, tenant, trust, estate, c/o ...). */
+const STRUCTURED_ROLE_RE =
+  /\b(?:agents?|managers?|supers?|superintendents?|lessees?|lessors?|landlords?|occupants?|residents?|self[- ]managed|owner[- ]occupied|same as|see above|as above|n\/?a|none|unknown|individual|tbd|various|multiple)\b/i;
+
+/** Ordinal street numbers ("32ND", "5th"): digits plus a suffix, never read as a digit-for-letter disguise. */
+const ORDINAL_RE = /^\d+(?:st|nd|rd|th)$/i;
+/** Honorifics: a registered company name that starts with or holds one names a person ("DR. PATEL MANAGEMENT INC"). */
+const COMPANY_NAME_HONORIFICS = new Set(['dr', 'mr', 'mrs', 'ms', 'mx', 'miss', 'rev', 'prof']);
+const DIGIT_FOR_LETTER: Record<string, string> = { '0': 'O', '1': 'I', '3': 'E', '4': 'A', '5': 'S' };
+/** A word as the name check reads it: punctuation off, and digit-for-letter disguises undone inside words that mix letters and digits ("J0HN" -> "JOHN"). */
+function nameFormOf(w: string): string {
+  const bare = w.replace(/[^A-Za-z0-9'-]/g, '').replace(/^['-]+|['-]+$/g, '');
+  if (!/[A-Za-z]/.test(bare)) return ''; // "560-568", "45"
+  if (!/\d/.test(bare)) return bare;
+  return bare.replace(/[01345]/g, (d) => DIGIT_FOR_LETTER[d]);
+}
+
+/**
+ * A company name read from a STRUCTURED business field (a registration's CorporationName, a permit's contractor company column), or null.
+ * cleanOrgName stays the gate for free text; it is strict enough to reject real managing agents here ("STONEHENGE MANAGEMENT LLC":
+ * measured, 12 of 111 live agent and owner names pass), so a structured field gets this rule on the same vocabularies. ALL must hold:
+ *  S1. Plain ASCII letters, digits, spaces and & . , ' - / ( ) #; no invisible character; no phone, email or link; at most 70 characters.
+ *  S2. No role word (hasRoleWord: owner, tenant, trust, estate, c/o ...; and agent, manager, super, same as, n/a, self-managed ...).
+ *  S3. A company marker word (COMPANY_MARKERS: LLC, INC, CORP, CO, LP, LLP, HDFC, MANAGEMENT, REALTY, PROPERTIES, ASSOCIATES, HOLDINGS ...).
+ *  S4. The rest of the name (marker words, "the", "and", digits and symbols removed). One word left is fine ("PRESTIGE MANAGEMENT INC").
+ *      Two or more words left must hold no listed given name and must not read as a person (mentionsPersonName: unknown or surname words
+ *      side by side, an initial next to a word): "JOHN SMITH MANAGEMENT LLC" and "J SMITH LLC" fail.
+ *  S5. A name that reads as an address ("159 GELSTON AVENUE LLC", an owner entity named for its building) is allowed because the marker is
+ *      required and street words are not names; "382 E 197TH STREET" has no marker and fails S3.
+ *      The given-name, honorific (DR, MR, MRS, MS, MX, REV ...) and initial checks run on every non-marker word BEFORE street, direction
+ *      and digit words are dropped, after digit-for-letter disguises are undone ("J0HN" is "JOHN"): "JOHN WEST LLC", "MARY NORTH INC",
+ *      "JOHN LANE LLC", "JAMES COURT MANAGEMENT", "J0HN SMITH LLC" and "DR. PATEL MANAGEMENT INC" fail. A listed given name next to any
+ *      other word is a person-named entity, rejected even when the second word is also a street word (privacy first).
+ *  S6. Something besides the marker words: a distinctive word or a number ("1864 CORP" passes, "Corporation" does not).
+ * A single word never passes (S3). Returns the name with whitespace collapsed, otherwise unchanged.
+ */
+export function registeredCompanyName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = collapse(raw);
+  if (t.length < 5 || t.length > 70) return null;
+  if (/[​-‏‪-‮⁠-⁤⁦-⁩﻿­]/.test(t)) return null;
+  if (!/^[A-Za-z0-9 &.,'\-/()#]+$/.test(t)) return null;
+  if (hasContactShape(t) || hasRoleWord(t) || STRUCTURED_ROLE_RE.test(t)) return null;
+  const words = t.split(/[\s,/()]+/).filter(Boolean);
+  const isMarker = (w: string) => COMPANY_MARKERS.has(w.toLowerCase().replace(/\.$/, '')) || COMPANY_MARKERS.has(w.toLowerCase());
+  if (!words.some(isMarker)) return null;
+  const core = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/\d/.test(w) && !STREET_SUFFIX_WORDS.has(w.toLowerCase().replace(/\.$/, '')) && !/^(?:n|s|e|w|north|south|east|west)\.?$/i.test(w))
+    .map((w) => w.replace(/[^A-Za-z.'-]/g, ''))
+    .filter(Boolean);
+  if (/\bdba\b/i.test(t)) return null;
+  // A marker alone ("Corporation", "Property Management LLC") names nobody: one distinctive word or a number is required.
+  if (core.length === 0 && !words.some((w) => /\d/.test(w))) return null;
+  // Person check, run on EVERY non-marker word BEFORE street, direction and digit words are dropped (a surname can be "West", "Lane" or
+  // "Court"; a given name can hide as "J0HN"). A given name next to any other word, an honorific, or an initial next to a word is a
+  // person-named entity ("JOHN WEST LLC", "MARY NORTH INC", "DR. PATEL MANAGEMENT INC", "J SMITH LLC"): privacy first, reject it.
+  const nameWords = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/^\d+$/.test(w) && !ORDINAL_RE.test(w))
+    .map(nameFormOf)
+    .filter(Boolean);
+  // "DR" is also a street word ("OCEAN DR LLC"): it names a person only as the first word.
+  if (nameWords.some((w) => COMPANY_NAME_HONORIFICS.has(w.toLowerCase()) && !(w.toLowerCase() === 'dr' && words[0] && nameFormOf(words[0]).toLowerCase() !== 'dr'))) return null;
+  if (nameWords.length >= 2) {
+    // A compass word is a direction here even where it is also a listed given name ("342 WEST 71 STREET LLC").
+    if (nameWords.some((w) => !/^(?:north|south|east|west)$/i.test(w) && isListedGivenName(w))) return null;
+    if (nameWords.some((w) => w.length === 1 && !/^[nsew]$/i.test(w)) && nameWords.some((w) => w.length > 1)) return null;
+  }
+  // One distinctive word next to the marker ("STONEHENGE MANAGEMENT LLC", "PARK MANAGEMENT INC") is a company, even when the word is also a
+  // first name. Two or more distinctive words read as a person's full name when they look like one together.
+  if (core.length >= 2 && mentionsPersonName(core.join(' '))) return null;
+  return t;
+}

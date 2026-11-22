@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { sessionCookieOptions } from './cookie-options';
 
 const PROTECTED = ['/app', '/onboarding'];
 const GUEST_ONLY = ['/login', '/signup', '/forgot'];
@@ -24,6 +25,7 @@ export async function updateSession(request: NextRequest) {
 
   if (url && anon) {
     const supabase = createServerClient(url, anon, {
+      cookieOptions: sessionCookieOptions(),
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -32,10 +32,13 @@ export function Logo({
   href = '/',
   className = '',
   size = 32,
+  ariaLabel = 'Holler home',
 }: {
   href?: string | null;
   className?: string;
   size?: number;
+  /** The link's accessible name. The Spanish pages pass their own. */
+  ariaLabel?: string;
 }) {
   const inner = (
     <>
@@ -48,7 +51,7 @@ export function Logo({
   const cls = `inline-flex shrink-0 items-center gap-2.5 ${className}`;
   if (href === null) return <span className={cls}>{inner}</span>;
   return (
-    <Link href={href} className={`${cls} min-h-11`} aria-label="Holler home">
+    <Link href={href} className={`${cls} min-h-11`} aria-label={ariaLabel}>
       {inner}
     </Link>
   );

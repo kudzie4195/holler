@@ -5,6 +5,9 @@ import { Card } from '@/components/card';
 import { DeleteAccount } from '@/components/delete-account';
 import { Notice } from '@/components/notice';
 import { ProfileForm } from '@/components/profile-form';
+import { LanguageForm } from '@/components/language-form';
+import { hasLanguageSetting } from '@/lib/auth/language';
+import { langOfProfile, t } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
 import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
@@ -12,10 +15,11 @@ import { annualSavingSentence, planChangeNote, priceLabel, renewalNote } from '@
 import { DOWNGRADE_NOTE, effectiveTier, parseExtraAreas, parseKeywords, planLimitsLine, PLAN_LIMITS, TIER_NAMES, type Tier } from '@/lib/plan';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { readShadowStore } from '@/lib/storebilling/shadow';
 import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { saveSettings } from './actions';
+import { saveLanguageSetting, saveSettings } from './actions';
 
 export const metadata: Metadata = {
   title: 'Settings',
@@ -56,7 +60,7 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
+            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) }))}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,
@@ -73,6 +77,16 @@ export default async function SettingsPage() {
           />
         </Card>
       </section>
+
+      {/* Only when the database has the language column (migration 0024): without it the control is hidden and everything stays English. */}
+      {hasLanguageSetting(profile) ? (
+        <section aria-labelledby="language-h" className="mt-12">
+          <h2 id="language-h" className="h-plain text-2xl text-ink">{t(langOfProfile(profile), 'settings.language.heading')}</h2>
+          <Card className="mt-4">
+            <LanguageForm action={saveLanguageSetting} current={langOfProfile(profile)} />
+          </Card>
+        </section>
+      ) : null}
 
       <section aria-labelledby="billing-h" className="mt-12">
         <h2 id="billing-h" className="h-plain scroll-mt-24 text-2xl text-ink">Billing</h2>

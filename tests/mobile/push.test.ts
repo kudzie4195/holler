@@ -380,9 +380,9 @@ describe('pushNewMatches', () => {
     const reads = m.db.log.filter((q) => q.table === 'holler_push_tokens' && q.op === 'select');
     expect(reads.length).toBe(3);
     expect(reads.every((q) => q.filters.some((f) => f[0] === 'limit' && f[1] === 1000))).toBe(true);
-    // Profile reads are chunked by 200 members.
+    // Profile reads are chunked by 200 members: the member read, then the separate language read (migration 0024, round 17) in the same chunks.
     const prof = m.db.log.filter((q) => q.table === 'holler_profiles' && q.op === 'select');
-    expect(prof.map((q) => (q.filters.find((f) => f[0] === 'in')?.[2] as string[]).length)).toEqual([200, 200, 200, 100]);
+    expect(prof.map((q) => (q.filters.find((f) => f[0] === 'in')?.[2] as string[]).length)).toEqual([200, 200, 200, 100, 200, 200, 200, 100]);
     m.failOn.holler_push_tokens = { code: 'XX000', message: 'boom' };
     expect((await run(at(90))).failed).toBe(1);
   });

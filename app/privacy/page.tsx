@@ -134,7 +134,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           We use your answers and this log to learn which kinds of alerts are worth sending. We also add them up, with no names
-          or account numbers, to describe which kinds of records lead to work. We never sell your answers with your name or
+          or account numbers, to describe which kinds of records turn into work. We never sell your answers with your name or
           account attached.
         </p>
       </DocSection>
@@ -267,6 +267,12 @@ export default function PrivacyPage() {
           holler_picked, that remembers which features you picked, for 180 days. It holds only feature names.
         </p>
         <p>
+          If you check a ZIP code Holler does not cover yet, the Coming to your area card lets you leave your email. We save your
+          email, that ZIP code, the trade you picked and the page you were on, with no account and no name. We use the email only
+          to tell you when we cover that area. We do not set a cookie for it, and we do not share the email or use it for ads.
+          Pressing the button again with the same email and ZIP saves nothing new.
+        </p>
+        <p>
           Holler counts visits and a few steps itself. It uses no outside tracker. To count, a small script sets two first
           party cookies, each kept for 30 days. The first, holler_sid, holds a random ID and the date of your last counted
           visit. The second, holler_src, holds where you came from. It is set only when your link carried a source tag, such as
@@ -366,6 +372,10 @@ export default function PrivacyPage() {
           </li>
           <li>Records of which business replied to which request: until the business deletes its account.</li>
           <li>Feature picks: until you delete your account. A pick made while signed out has no name on it, so we keep it.</li>
+          <li>
+            Coming to your area emails: until we tell you the area is covered, or until you ask us to delete it. It is not tied to an
+            account, so deleting your account does not remove it. Write to us and we will delete it.
+          </li>
           <li>Account steps: about 13 months, and deleted with your account.</li>
           <li>
             Visit and area check counts: about 13 months. They hold no account number, so deleting your account does not

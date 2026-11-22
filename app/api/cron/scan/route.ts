@@ -1,29 +1,17 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { env } from '@/lib/env';
+import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { runScan, SCAN_DEADLINE_MS } from '@/lib/signals/run';
 import { runRequestPurge } from '@/lib/requests/purge-run';
 
 // Cache Components is enabled, so route segment `dynamic` is not available; a handler that reads the request is always dynamic.
 export const maxDuration = 60;
 
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
-function authorized(req: NextRequest, secret: string): boolean {
-  const header = req.headers.get('authorization') ?? '';
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const key = req.nextUrl.searchParams.get('key') ?? '';
-  return (bearer !== '' && safeEqual(bearer, secret)) || (key !== '' && safeEqual(key, secret));
-}
 
 export async function GET(req: NextRequest) {
   const secret = env.CRON_SECRET;
   // Fail closed: with no CRON_SECRET configured nobody can authenticate, so the answer is the same 401 (no config leak).
-  if (!secret || !authorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!secret || !isCronAuthorized(req, secret)) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const params = req.nextUrl.searchParams;
   const dry = params.get('dry') === '1' || params.get('dry') === 'true';

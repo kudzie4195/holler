@@ -127,7 +127,9 @@ describe('cron route', () => {
     expect(res.status).toBe(200);
     expect(h.runArgs.dry).toBe(true);
     expect(await h.runArgs.send({})).toEqual({ skipped: true, reason: 'dry' });
-    await cron.GET(new Request('https://example.test/api/cron/moat?key=cron-secret-test'));
+    await cron.GET(new Request('https://example.test/api/cron/moat', { headers: { authorization: 'Bearer cron-secret-test' } }));
     expect(h.runArgs.dry).toBe(false);
+    // Bearer only (review P2-1): the right secret in ?key= is refused.
+    expect((await cron.GET(new Request('https://example.test/api/cron/moat?key=cron-secret-test'))).status).toBe(401);
   });
 });

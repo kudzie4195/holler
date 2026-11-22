@@ -1,5 +1,7 @@
 import type { SignalKind } from '@/lib/signals/types';
 import { getSourceMeta } from '@/lib/signals/source-meta';
+import { t, type Lang } from '@/lib/i18n';
+import { sourceLabelLang } from '@/lib/signals/source-label-i18n';
 
 /** Plain-language label for each signal kind (shown on badges and filters). */
 export const KIND_LABEL: Record<SignalKind, string> = {
@@ -19,9 +21,9 @@ export const KIND_LABEL: Record<SignalKind, string> = {
  * Source labels come from lib/signals/source-meta.ts, a static client-safe copy of the real
  * ALL_ADAPTERS labels (the registry itself imports server code). Unknown ids fall back to a tidied id.
  */
-export function sourceLabel(source: string): string {
+export function sourceLabel(source: string, lang: Lang = 'en'): string {
   const meta = getSourceMeta(source);
-  if (meta) return meta.label;
+  if (meta) return lang === 'en' ? meta.label : (sourceLabelLang(source, lang) ?? meta.label);
   return source.replace(/[_:-]+/g, ' ');
 }
 
@@ -29,7 +31,8 @@ export function isKnownKind(kind: string): kind is SignalKind {
   return kind in KIND_LABEL;
 }
 
-export function kindLabel(kind: string): string {
+export function kindLabel(kind: string, lang: Lang = 'en'): string {
+  if (lang !== 'en') return isKnownKind(kind) ? t(lang, `kind.${kind}`) : t(lang, 'kind.unknown');
   return isKnownKind(kind) ? KIND_LABEL[kind] : 'Signal';
 }
 

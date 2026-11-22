@@ -31,10 +31,14 @@ const base: FeedItem = {
 const render = (items: FeedItem[]) => renderToStaticMarkup(createElement(Feed, { items, cityPage: null }));
 
 describe('feed card: intent and feedback', () => {
-  it('shows the intent label, its line, and the three buttons', () => {
+  it('shows the brief (not the old intent block) and the three buttons', () => {
+    // Changed deliberately (brief card v1, redo): the intent label and line ("Money being spent", "A new business registered here...")
+    // are no longer drawn on the web card; the brief's Source and What is uncertain lines carry them.
     const html = render([base]);
-    expect(html).toContain('Money being spent');
-    expect(html).toContain('A new business registered here. It may need services as it opens.');
+    expect(html).not.toContain('Money being spent');
+    expect(html).not.toContain('A new business registered here. It may need services as it opens.');
+    expect(html).toContain('data-testid="brief"');
+    expect(html).toContain('What is uncertain:');
     for (const label of ['Useful', 'Not relevant', 'Led to work']) expect(html).toContain(`>${label}</button>`);
     expect(html).not.toContain('About how much was the job?');
     expect(html).not.toContain('aria-pressed="true">Useful');
@@ -59,12 +63,15 @@ describe('feed card: intent and feedback', () => {
 
   it('is shown for every kind of alert, including resident requests', () => {
     const html = render([
-      { ...base, id: 1, signalId: 1, kind: 'ask', source: 'holler-request', subtype: null },
+      { ...base, id: 1, signalId: 1, kind: 'ask', source: 'holler-request', subtype: null, label: 'act_now', trade: 'plumbing' },
       { ...base, id: 2, signalId: 2, kind: 'alert', source: 'nws', subtype: null },
     ]);
     expect(html.match(/Feedback on this alert/g)).toHaveLength(2);
-    expect(html).toContain('A resident asked for this service.');
-    expect(html).toContain('Might need work');
+    // Changed deliberately (brief card v1, redo): no intent block; the brief says the same things once.
+    expect(html).not.toContain('A resident asked for this service.');
+    expect(html).not.toContain('Might need work');
+    expect(html).toContain('A resident asked on Holler for');
+    expect(html.match(/data-testid="brief"/g)).toHaveLength(2);
   });
 
   it('hides the buttons when the item has no signal id, and never shows them on the locked feed', () => {

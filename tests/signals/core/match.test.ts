@@ -47,8 +47,8 @@ describe('matchOne: state-level rule', () => {
   const stateSig = (over: Partial<MatchSignal> = {}) => signal({ lat: null, lon: null, ...over });
   it('matches same-state profiles when severity >= 2 and categories overlap', () => {
     const m = matchOne(stateSig({ severity: 2 }), profile());
-    expect(m).toEqual({ distance_mi: null });
-    expect(matchOne(stateSig({ severity: 3 }), profile({ lat: null, lon: null }))).toEqual({ distance_mi: null });
+    expect(m).toMatchObject({ distance_mi: null });
+    expect(matchOne(stateSig({ severity: 3 }), profile({ lat: null, lon: null }))).toMatchObject({ distance_mi: null });
   });
   it('does not match at severity 1', () => {
     expect(matchOne(stateSig({ severity: 1 }), profile())).toBeNull();

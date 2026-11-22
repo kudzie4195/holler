@@ -19,6 +19,7 @@ interface World {
   matches?: unknown[];
 }
 
+// Titles name damage, hail or a tornado so all three are Act Now (a bare "wind report" is Coming soon): this test is about the AI ranking, not the label order.
 const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
   id,
   source: 'spc',
@@ -35,9 +36,9 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
 });
 // Newest match first, as the route reads them.
 const MATCHES = [
-  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind report near Smyrna', 2) },
+  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind damage reported near Smyrna', 2) },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
-  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
+  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 40) },
 ];
 
 const missing = (t: string) => ({ data: null, error: { code: '42P01', message: `relation "public.${t}" does not exist` } });
@@ -113,7 +114,7 @@ async function runNotify(w: World) {
 }
 
 const order = (text: string) =>
-  ['Wind report near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+  ['Wind damage reported near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
 
 afterEach(() => {
   vi.useRealTimers();
@@ -147,7 +148,11 @@ describe('notify digest: notes and ranking use the plan-limited trades', () => {
 // Integrate3: the cross-file patches from fix-a (Cobb line), fix-b (store columns, fail soft) and fix-c (plan in the select).
 describe('notify digest: integrate3 patches', () => {
   const profileSelects = (w: World) =>
-    w.calls.filter((c) => c.table === 'holler_profiles' && !c.ops.some((o) => o.op === 'update')).map((c) => String(c.ops.find((o) => o.op === 'select')?.args[0]));
+    w.calls
+      .filter((c) => c.table === 'holler_profiles' && !c.ops.some((o) => o.op === 'update'))
+      .map((c) => String(c.ops.find((o) => o.op === 'select')?.args[0]))
+      // The member-language read (migration 0024, r17 ES) is its own select; it is not the profile read these tests count.
+      .filter((cols) => cols !== 'user_id, language');
   it('reads plan and the 0020 store columns in one select', async () => {
     const w: World = { migrated: true, lastNotified: null, ai: [], calls: [] };
     await runNotify(w);

@@ -1,7 +1,8 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { contactSpecFields, extractContacts } from '@/lib/contacts/extract';
-import { civicLabel, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
+import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
+import { permitStageOf } from '@/lib/signals/stage';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
@@ -65,26 +66,89 @@ function dateClause(ds: ArcgisDataset, op: '>=' | '<=', d: Date): string {
   return `${ds.dateField} ${op} timestamp '${toTimestampLiteral(d)}'`;
 }
 
-function outFields(ds: ArcgisDataset): string {
-  const set = new Set<string>([
-    ds.idField, ds.dateField, ds.latField, ds.lonField, ds.nameField, ds.zipField,
-    ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? []), ...contactSpecFields(ds.contacts),
-  ].filter((x): x is string => Boolean(x)));
-  return [...set].join(',');
+/** The project value columns of a permit layer: its own list, else the money columns it already prints. */
+export function valueFieldsOf(ds: ArcgisDataset): string[] {
+  return ds.valueFields ?? moneyFields(ds.summaryFields);
+}
+
+/** Fields that decide whether a row is parsed at all. Everything else (contacts, value columns) is an extra that may be left out. */
+function requiredFields(ds: ArcgisDataset): Set<string> {
+  return new Set<string>(
+    [ds.idField, ds.dateField, ds.latField, ds.lonField, ds.nameField, ds.zipField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.addressFields ?? [])].filter(
+      (x): x is string => Boolean(x),
+    ),
+  );
+}
+
+/** Extras the layer may or may not have: contact columns and value columns that are not required fields. */
+export function optionalFields(ds: ArcgisDataset): string[] {
+  const req = requiredFields(ds);
+  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds)])].filter((f) => !req.has(f));
+}
+
+/**
+ * `allowed` (when given): optional fields are asked for only when they are in this set (the layer's own field list, resolveOptionalFields).
+ * Without it every field is asked for, as before.
+ */
+function outFields(ds: ArcgisDataset, allowed?: ReadonlySet<string>): string {
+  const req = requiredFields(ds);
+  const optional = optionalFields(ds).filter((f) => !allowed || allowed.has(f));
+  // The status column is asked for by name (stage tracking), not left to be there because summaryFields happens to list it.
+  return [...new Set([...req, ...optional, ...(ds.subtype === 'permit' && ds.statusField ? [ds.statusField] : [])])].join(',');
+}
+
+const FIELD_CACHE_MS = 6 * 3_600_000;
+const fieldCache = new Map<string, { at: number; names: Set<string> | null }>();
+
+/** Test hook: forget the layers' field lists. */
+export function resetArcgisFieldCache(): void {
+  fieldCache.clear();
+}
+
+/**
+ * The optional fields (contacts, project value) that this layer really has, read once per 6 hours from `<layer>?f=json`. An ArcGIS
+ * layer answers an unknown outField with an error and no rows, so a wrong candidate column must never reach the data query. Fields
+ * the layer lacks are logged once per read. When the field list cannot be read, no optional field is asked for (the permits still
+ * arrive, without names or values) and that is logged too. Names match exactly (attributes come back under the layer's own spelling).
+ */
+export async function resolveOptionalFields(ds: ArcgisDataset, ctx: AdapterContext, now: Date): Promise<Set<string>> {
+  const wanted = optionalFields(ds);
+  if (wanted.length === 0) return new Set();
+  const hit = fieldCache.get(ds.id);
+  let names = hit && now.getTime() - hit.at < FIELD_CACHE_MS ? hit.names : undefined;
+  if (names === undefined) {
+    names = null;
+    try {
+      const res = await ctx.fetch(`${ds.layerUrl}?f=json`, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const body = (await res.json()) as { fields?: { name?: unknown }[] };
+        if (Array.isArray(body.fields) && body.fields.length > 0) names = new Set(body.fields.map((f) => String(f?.name ?? '')).filter(Boolean));
+      }
+    } catch {
+      names = null;
+    }
+    fieldCache.set(ds.id, { at: now.getTime(), names });
+    if (!names) ctx.log(`${ds.id}: could not read the layer's field list; contact and value columns are skipped this time`);
+    else {
+      const missing = wanted.filter((f) => !names!.has(f));
+      if (missing.length) ctx.log(`${ds.id}: layer has no field ${missing.join(', ')}; skipped`);
+    }
+  }
+  return new Set(wanted.filter((f) => names?.has(f)));
 }
 
 /**
  * Query parameters for `<layer url>/query`. The where clause is a fixed lookback on the date field
  * (so it does not depend on when the last scan ran), newest first, hard row limit, geometry reprojected to WGS84.
  */
-export function buildArcgisQuery(ds: ArcgisDataset, now: Date = new Date()): URLSearchParams {
+export function buildArcgisQuery(ds: ArcgisDataset, now: Date = new Date(), allowed?: ReadonlySet<string>): URLSearchParams {
   const from = new Date(now.getTime() - arcgisLookbackDays(ds) * 86_400_000);
   const clauses = [dateClause(ds, '>=', from)];
   if (ds.windowForwardDays != null) clauses.push(dateClause(ds, '<=', new Date(now.getTime() + ds.windowForwardDays * 86_400_000)));
   if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
   const p = new URLSearchParams();
   p.set('where', clauses.join(' AND '));
-  p.set('outFields', outFields(ds));
+  p.set('outFields', outFields(ds, allowed));
   p.set('orderByFields', `${ds.dateField} DESC`);
   p.set('resultRecordCount', String(LIMIT));
   p.set('returnGeometry', 'true');
@@ -170,8 +234,10 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       if (categories.length === 0) continue;
 
       seen.add(externalId);
-      // Who to contact: private, from the columns the layer's contact spec names only. No layer has one yet (see arcgis-datasets.ts).
+      // Who to contact: private, from the columns the layer's contact spec names only (arcgis-datasets.ts CONTACT_SPECS).
       const contacts = ds.contacts ? extractContacts((x) => str(a, x), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+      // Permits: the project value the layer published, as a number (PLAN-2.0 1.3). The summary prints the same amount where it has one.
+      const jobValue = ds.subtype === 'permit' ? extractJobValue((x) => str(a, x), valueFieldsOf(ds)) : null;
       const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
       let itemTitle: string;
       let summary: string | null;
@@ -189,7 +255,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const summaryBits = ds.summaryFields
           .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
           .map((x) => summaryPart(x, str(a, x)))
-          .filter(Boolean);
+          // DeKalb's statusDescription holds the literal text "Issued Status Code" on live rows: a field label, not a status (final review, Q3 pattern 3).
+          .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).
         const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
         const parts = [...new Set(summaryBits)];
@@ -198,6 +265,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
+      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
       report.items.push({
         source: ds.id,
         externalId,
@@ -218,8 +286,10 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           subtype: ds.subtype,
           cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
+          ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(permitStage ? { permitStage } : {}),
       });
     } catch {
       // skip malformed feature
@@ -249,7 +319,9 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
     sourceUrl: arcgisPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
-        const url = `${ds.layerUrl}/query?${buildArcgisQuery(ds, ctx.now ?? new Date()).toString()}`;
+        const now = ctx.now ?? new Date();
+        const allowed = await resolveOptionalFields(ds, ctx, now);
+        const url = `${ds.layerUrl}/query?${buildArcgisQuery(ds, now, allowed).toString()}`;
         const res = await ctx.fetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(15000) });
         if (!res.ok) {
           ctx.log(`${ds.id}: HTTP ${res.status}`);

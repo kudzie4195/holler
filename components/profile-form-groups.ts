@@ -8,6 +8,8 @@ export interface ChipCategory {
   group?: string;
   /** No record type can reach this trade on this deployment (see tradeComingSoon). Shown last in its group, disabled, never counted. */
   comingSoon?: boolean;
+  /** With comingSoon: the reason is that no live source reaches this trade yet (lib/signals/lead-rules.ts tradeNoLiveSource), not a missing key. */
+  noLiveSource?: boolean;
 }
 
 export interface ChipGroup {

@@ -3,6 +3,7 @@ import { publicClient } from './client';
 import { safeUrl } from './summarize';
 import { WINDOW_DAYS } from './threshold';
 import { UPCOMING_DAYS, orderLatest } from '@/lib/time';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -100,7 +101,7 @@ export async function loadTradeSignals(trade: string): Promise<TradeSignals> {
         .abortSignal(AbortSignal.timeout(10_000)),
     ]);
     if (recent.error) throw new Error(recent.error.message);
-    const rows = withoutEndedRequests([...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])] as unknown as Row[], nowMs);
+    const rows = withoutHiddenBids(withoutEndedRequests([...((upcoming.error ? [] : upcoming.data) ?? []), ...(recent.data ?? [])] as unknown as Row[], nowMs), nowMs);
     // A live resident request in the list: tag the entry and keep it 15 minutes at most (see REQUEST_CACHE_LIFE).
     if (hasRequestRows(rows)) cacheTag(REQUEST_CACHE_TAG);
     cacheLife(
