@@ -393,7 +393,8 @@ describe('the signed-in app for a Spanish member', () => {
     expect(txt('app.locked')).toContain('Su prueba gratis terminó');
     expect(txt('app.locked')).toContain('Plan Solo: $7.99 al mes. Plan Pro: $13.99 al mes');
     const { APP_TITLES_ES } = await import('@/components/app-header');
-    expect(APP_TITLES_ES).toEqual({ '/app': 'Sus coincidencias | Holler', '/app/settings': 'Configuración | Holler' });
+    // Round 18 integration: the four list pages (unit LISTS) are in the map too (tests/integration-r18/trial-es.test.ts).
+    expect(APP_TITLES_ES).toMatchObject({ '/app': 'Sus coincidencias | Holler', '/app/settings': 'Configuración | Holler' });
     expect(txt('settings.trialing')).toContain('Prueba gratis: le quedan 5 días.');
     expect(txt('settings.active.solo')).toContain('Cambiar al Plan Pro');
     expect(txt('settings.active.pro')).toContain('Cambiar al Plan Solo');
