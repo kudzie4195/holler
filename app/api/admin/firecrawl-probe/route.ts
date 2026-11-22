@@ -8,7 +8,7 @@ export const maxDuration = 60;
  * GET /api/admin/firecrawl-probe?source=bids-gwinnett (Authorization: Bearer CRON_SECRET). Owner only, Bearer ONLY like /api/admin/quality:
  * a ?key= secret would land in browser history and logs, so it is refused (401), and so is every caller without the secret.
  * A dry run of ONE agency source (lib/firecrawl/probe.ts): reads the page with Firecrawl (about 5 credits), returns the validated rows,
- * the dropped rows with the reason for each, and the credits used. Writes nothing. Without ?source it lists the known source ids (no call).
+ * the dropped rows with the reason for each, and the credits used. Writes no signal; books its credits as one `_fc:probe:<id>` ledger row in holler_scan_runs. Without ?source it lists the known source ids (no call).
  * The response carries row titles and public links only: never the key, never a Firecrawl response body.
  */
 export async function GET(req: Request) {

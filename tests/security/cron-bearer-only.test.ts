@@ -69,4 +69,12 @@ describe('cron and admin routes: Bearer only (P2-1)', () => {
     expect(cron).toMatch(/'Authorization', 'Bearer '/);
     expect(cron).not.toMatch(/[?&]key=/);
   });
+
+  it('ROUTES lists every cron and admin route', async () => {
+    const { readdirSync, existsSync } = await import('node:fs');
+    const found = ['admin', 'cron']
+      .flatMap((d) => readdirSync(`app/api/${d}`).filter((n) => existsSync(`app/api/${d}/${n}/route.ts`)).map((n) => `${d}/${n}`))
+      .sort();
+    expect(found).toEqual([...ROUTES].sort());
+  });
 });

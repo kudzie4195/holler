@@ -13,7 +13,7 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 
 ## 1. Apply the database migrations (Supabase SQL editor, in this order, each file once)
 
-**Already live? Order for this release**
+**Round 5 order (0006 to 0008)**
 
 1. Run 0006 and 0008 (any time).
 2. Deploy the code.
@@ -38,6 +38,15 @@ Time needed: about 90 minutes, plus DNS waiting time. Do step 2 first thing so t
 5. Run `supabase/cron.sql` again (step 7). It adds `holler-ai`, `holler-monitor`, `holler-lifecycle`, `holler-moat` and `holler-events-prune`, and keeps the four existing jobs.
 6. Run the round 7 dry-run checks (step 7) and the owner report queries below once there is data.
 7. Run 0020 (mobile: push tokens and store billing) after 0019, any time before or after the deploy. It is safe before the code ships. Until it is applied, push sends nothing and the RevenueCat webhook answers 500, so RevenueCat tries again later. The rest of the mobile setup (Firebase, RevenueCat, two env keys) waits for the app release: see "Mobile app" below.
+
+**Round 16 order (already live)**
+
+1. Run 0021, 0022 and 0023, in that order (each is safe before or after the deploy). Run the 0023 check query: it must return no rows.
+2. Deploy the code. Leave `HOLLER_LOCAL_BIDS_ENABLED` empty.
+3. Check the security pass: `curl -sI <SITE>/login` shows `X-Frame-Options: DENY` and `Content-Security-Policy`. Then request `<SITE>/api/admin/sources` with the secret as a query-string parameter named `key` (not the header): it must print 401 (`curl -s -o /dev/null -w '%{http_code}' "<SITE>/api/admin/sources"` with that parameter added). The same URL with no query string and with `-H "Authorization: Bearer <CRON_SECRET>"` prints 200.
+4. Probe each agency source once: `curl -H "Authorization: Bearer <CRON_SECRET>" "<SITE>/api/admin/firecrawl-probe?source=bids-gwinnett"`, then `bids-rockdale`, `bids-tucker`, `bids-dunwoody` (about 5 credits each, 20 in all, inside the 25-a-day probe cap). Expect `ok: true`, kept rows with future due dates and links on the agency's own site, and a robots note.
+5. Only if the probes look right: set `HOLLER_BIDS_ENABLED` and `HOLLER_LOCAL_BIDS_ENABLED` to `1` in Vercel (Production) and redeploy (env changes apply to new deployments only).
+6. Next morning: the health email's "Firecrawl (agency bid pages)" block starts with "On:", and the credits used are within the caps.
 
 - [ ] Run `supabase/migrations/0001_holler.sql`
 - [ ] Run `supabase/migrations/0002_holler_hardening.sql`
@@ -130,6 +139,7 @@ order by intent, alerts_sent desc nulls last, source;
 ```
 
 - [ ] Owner check for source health (read only): `select source, status, consecutive_failures, last_success_at, last_record_at, last_error from public.holler_source_health where status <> 'healthy' order by status, source;`
+
 **Round 7 owner reports** (Supabase SQL editor, service role, all read only; each needs its migration first)
 
 - [ ] Funnel by source (0017): visits, area checks, signups, first alerts, trials and paid, last 7 and 30 days, plus paid members and campaigns by first-touch source. People are counted once per step; `direct` means no source tag was recorded.
@@ -319,8 +329,8 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `BRAVE_SEARCH_API_KEY` or `SERPER_API_KEY` (people asking for a recommendation)
 - [ ] `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`, both or neither (Bluesky search needs a login: make a free Bluesky account and create an app password under Settings > Privacy and security; Bluesky is checked every 6 hours because account logins are limited per day). With only one of the two, or neither, the Bluesky source is skipped. For each matched post Holler keeps the snippet, the link and the author's public handle.
 - [ ] `HOLLER_BIDS_ENABLED` (city open bids; off unless `1`, `true`, `on` or `yes`; leave empty until bids are reviewed)
-- [ ] `HOLLER_LOCAL_BIDS_ENABLED` (Atlanta-area agency bid pages read with Firecrawl; off unless `1`, `true`, `on` or `yes`). Separate from `HOLLER_BIDS_ENABLED` on purpose: turning on the city bids does not start Firecrawl spend. Leave it empty until the probe below looks right.
-- [ ] `FIRECRAWL_API_KEY` (Firecrawl; Production already has it). Firecrawl runs only when `HOLLER_BIDS_ENABLED`, `HOLLER_LOCAL_BIDS_ENABLED` and this key are ALL set; with any one missing there is no Firecrawl call. Before turning it on, check each source with `GET /api/admin/firecrawl-probe?source=bids-gwinnett` and `Authorization: Bearer <CRON_SECRET>` (a dry run, about 5 credits, writes no signals; its spend is counted and capped at `FIRECRAWL_PROBE_DAILY_CAP`, default 25 a day). Optional credit caps: `FIRECRAWL_RUN_CREDIT_CAP` (24), `FIRECRAWL_DAILY_CREDIT_CAP` (30), `FIRECRAWL_MONTHLY_CREDIT_CAP` (500), `FIRECRAWL_MIN_REMAINING` (100), `FIRECRAWL_PROBE_DAILY_CAP` (25).
+- [ ] `HOLLER_LOCAL_BIDS_ENABLED` (Atlanta-area agency bid pages read with Firecrawl; off unless `1`, `true`, `on` or `yes`). Separate from `HOLLER_BIDS_ENABLED` on purpose: turning on the city bids does not start Firecrawl spend. Leave it empty for now; the "Round 16 order" block in step 1 says when to set it (steps 4 and 5: after the deploy and the probes).
+- [ ] `FIRECRAWL_API_KEY` (Firecrawl; Production already has it). Firecrawl runs only when `HOLLER_BIDS_ENABLED`, `HOLLER_LOCAL_BIDS_ENABLED` and this key are ALL set; with any one missing there is no Firecrawl call (the owner probe, `/api/admin/firecrawl-probe`, needs only the key and the Bearer secret). Before turning it on, check each source with `GET /api/admin/firecrawl-probe?source=bids-gwinnett` and `Authorization: Bearer <CRON_SECRET>` (a dry run, about 5 credits, writes no signals; its spend is counted and capped at `FIRECRAWL_PROBE_DAILY_CAP`, default 25 a day). Optional credit caps: `FIRECRAWL_RUN_CREDIT_CAP` (24), `FIRECRAWL_DAILY_CREDIT_CAP` (30), `FIRECRAWL_MONTHLY_CREDIT_CAP` (500), `FIRECRAWL_MIN_REMAINING` (100), `FIRECRAWL_PROBE_DAILY_CAP` (25).
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` (monthly search volume and AI mention check; both or neither: with either missing the job answers `not_configured` and spends nothing). Optional: `DATAFORSEO_MONTHLY_CAP_USD` (spend cap, default 30).
 - [ ] `AI_GATEWAY_API_KEY` (draft replies and the hourly AI sorting step; on Vercel the platform token also works)

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { adapters, buildLocalBidAdapter, logLine, LOCAL_BIDS_CADENCE_MINUTES } from '@/lib/signals/adapters/bids-local';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
-import { missingEnvFor, runScan } from '@/lib/signals/run';
+import { missingEnvFor } from '@/lib/signals/run';
 import { LOCAL_BID_SOURCES, localSourceById } from '@/lib/firecrawl/local-sources';
 import { BID_SOURCE_IDS, BIDS_FLAG, LOCAL_BIDS_FLAG } from '@/lib/signals/bid-sources';
 import { SOURCE_META } from '@/lib/signals/source-meta';
