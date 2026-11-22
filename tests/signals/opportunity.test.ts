@@ -3,6 +3,7 @@ import { CATEGORY_IDS, categoryById } from '@/lib/signals/categories';
 import { PERMIT_KINDS } from '@/lib/signals/mapping/permit';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { NON_ADAPTER_SOURCES } from '@/lib/signals/source-meta';
+import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import {
@@ -528,7 +529,7 @@ describe('asking, federal, events, travel, unknown', () => {
     expect(assessOpportunity(sig('x', 'civic', 'new-thing', 'Thing in Austin: thing')).family).toBe('unknown');
   });
   it('every registered source falls into an explicit rule family', () => {
-    const datasets = new Map<string, string>([...SOCRATA_DATASETS.map((d) => [d.id, d.subtype] as const), ...ARCGIS_DATASETS.map((d) => [d.id, d.subtype] as const)]);
+    const datasets = new Map<string, string>([...SOCRATA_DATASETS.map((d) => [d.id, d.subtype] as const), ...ARCGIS_DATASETS.map((d) => [d.id, d.subtype] as const), ...CARTO_DATASETS.map((d) => [d.id, d.subtype] as const)]);
     for (const a of ALL_ADAPTERS) {
       const subtype = datasets.get(a.id) ?? null;
       expect(assessOpportunity(sig(a.id, a.kind, subtype, '')).family, `${a.id} (${a.kind}/${subtype})`).not.toBe('unknown');

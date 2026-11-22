@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
+import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
 import { NON_ADAPTER_SOURCES } from '@/lib/signals/source-meta';
 import { INTENTS, INTENT_LABEL, INTENT_NOTE, intentLine, intentOf, type Intent } from '@/lib/signals/intent';
 import { IntentNote } from '@/components/feed/intent-note';
@@ -38,6 +39,7 @@ const FIXED: Record<string, Intent> = {
 const datasets = new Map<string, { subtype: string; kind: string }>([
   ...SOCRATA_DATASETS.map((d) => [d.id, d] as const),
   ...ARCGIS_DATASETS.map((d) => [d.id, d] as const),
+  ...CARTO_DATASETS.map((d) => [d.id, d] as const),
 ]);
 
 describe('intentOf: every registered source', () => {
