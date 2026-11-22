@@ -4,7 +4,7 @@ import { bidSourceLinkLabel } from './bid-card';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
-import { jobValueLine } from './permit-value';
+import { jobValueLine, summaryWithoutValue } from './permit-value';
 
 /**
  * Brief card v1 (PLAN-2.0 item 0.4). Every alert card (web feed, email digest, mobile API) renders five parts:
@@ -606,6 +606,17 @@ export interface CardBriefInput extends BriefInput {
   managerRole?: string | null;
   /** data.jobValue of the record (a number, or its text form). Pass null for a locked member. */
   jobValue?: unknown;
+}
+
+/**
+ * The record's summary as a card prints it (part 1): the same summary, minus the "$N job value" part when the card also prints the
+ * "Job value on the permit" line, so a value is shown once. Unchanged when no value was parsed or the record is not a permit. Display only.
+ */
+export function summaryForCard(input: CardBriefInput): string | null {
+  const summary = input.summary ?? null;
+  if (summary === null) return null;
+  const shown = briefFamilyOf(input) === 'permit' && jobValueLine({ jobValue: input.jobValue, summary }) !== null;
+  return shown ? (summaryWithoutValue(summary) ?? null) : summary;
 }
 
 /** All five parts' data for one card. An unset label counts as coming_soon (what a row without a label was before). */

@@ -14,6 +14,7 @@ import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
 import { OpportunityChip } from './feed/opportunity-chip';
 import { BriefBlock } from './feed/brief-block';
+import { summaryForCard } from '@/lib/signals/brief';
 import type { FeedbackState } from '@/lib/feedback/types';
 import type { OpportunityLabel } from '@/lib/signals/lead-rules';
 
@@ -250,6 +251,8 @@ function MatchCard({
   const closed = item.status === 'done' || item.status === 'dismissed';
   // A resident request has no outside source page and is answered through Holler, so it gets Reply instead of the source link and draft.
   const isRequest = item.source === REQUEST_SOURCE;
+  // A permit prints its value once: the brief's "Job value on the permit" line, so the summary's "$N job value" part is left out here (display only).
+  const cardSummary = summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue });
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
@@ -284,7 +287,7 @@ function MatchCard({
         </p>
       ) : null}
       <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
-      {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
+      {cardSummary ? <p className="mt-1 line-clamp-2 text-muted">{cardSummary}</p> : null}
 
       <BriefBlock item={item} />
 

@@ -14,7 +14,7 @@ import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
-import { cardBrief, tradeForRecord } from '@/lib/signals/brief';
+import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
@@ -179,7 +179,12 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
-    const summary = isRequest ? (requestText[m.id] ?? null) : s.summary;
+    // A permit prints its value once: the brief's valueLine, so the summary's "$N job value" part is left out of the alert's summary (display only).
+    const summary = isRequest
+      ? (requestText[m.id] ?? null)
+      : deps.locked
+        ? s.summary
+        : summaryForCard({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, jobValue: s.jobValue });
     const item: AlertDto = {
       matchId: m.id,
       signalId: s.id,

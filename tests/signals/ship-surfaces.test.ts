@@ -202,6 +202,79 @@ describe('mobile DTO carries every additive field', () => {
   });
 });
 
+describe('a permit prints its job value exactly once, on web, mobile and digest', () => {
+  const sumOf = (c: ShipCase) => c.signal.summary ?? '';
+  const mobile = async (list: ShipCase[]) => {
+    const rows = list.map((c, i) => {
+      const d = (c.signal.data ?? {}) as Record<string, unknown>;
+      return {
+        id: i + 1, status: 'new', distance_mi: c.match.distance_mi, draft: null, created_at: iso(-3_600_000),
+        signal: {
+          id: c.signal.id, source: c.signal.source, kind: c.signal.kind, subtype: (d.subtype as string | undefined) ?? null, title: c.signal.title, summary: c.signal.summary ?? null,
+          url: c.signal.url ?? null, city: c.signal.city ?? null, state: c.signal.state ?? null, county: null, zip: null, severity: c.signal.severity, categories: c.signal.categories,
+          occurred_at: c.signal.occurredAt, expires_at: null, jobValue: d.jobValue === undefined ? null : String(d.jobValue),
+        },
+      } as unknown as MatchRow;
+    });
+    return buildAlerts(rows, { userId: 'u1', locked: false, db: {} as never, admin: {} as never, siteUrl: 'https://localholler.com', now: NOW.getTime() });
+  };
+
+  it.each([
+    ['Raleigh permit (data.jobValue)', /Raleigh/, '$12,500'],
+    ['Chicago roof permit (data.jobValue)', /own-trade permit/, '$14,500'],
+  ])('%s: the value is in the brief line only', async (_n, re, money) => {
+    const c = caseNamed(re);
+    expect(sumOf(c)).toContain(`${money} job value`); // the stored summary is untouched
+    // web
+    const { html } = webCards().find((w) => w.c === c)!;
+    const t = text(html);
+    expect(count(t, money), 'web: the amount appears once').toBe(1);
+    expect(count(t, 'Job value on the permit:')).toBe(1);
+    expect(t).not.toContain('job value');
+    // mobile
+    const a = (await mobile([c]))[0];
+    expect(a.brief.valueLine).toBe(`Job value on the permit: ${money}`);
+    expect(a.summary ?? '').not.toContain('job value');
+    expect(count(JSON.stringify(a), money), 'mobile: the whole alert prints the amount once').toBe(1);
+    // digest
+    const { html: dh, text: dt } = renderDigest({ businessName: 'X', items: [shipDigestItem(c)], appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
+    expect(count(text(dh), money)).toBe(1);
+    expect(count(dt, money)).toBe(1);
+  });
+
+  it('the stored summary keeps its other parts (type, class, street) after the value part is left out', () => {
+    const c = caseNamed(/Raleigh/);
+    const { html } = webCards().find((w) => w.c === c)!;
+    expect(text(html)).toContain('Residential Building | Alteration | 100 TEST ST');
+  });
+
+  it('a mobile alert keeps the street and type parts of the summary', async () => {
+    const a = (await mobile([caseNamed(/Raleigh/)]))[0];
+    expect(a.summary).toBe('Residential Building | Alteration | 100 TEST ST');
+  });
+
+  it('a card with no parsed value shows its summary unchanged on web and mobile (new-home permit; a "$1 job value" placeholder; a non-permit)', async () => {
+    const mover = caseNamed(/new-home permit for a mover/);
+    const hail = caseNamed(/hail report/);
+    for (const c of [mover, hail]) {
+      const { html } = webCards().find((w) => w.c === c)!;
+      if (c.signal.summary) expect(html).toContain(c.signal.summary.replace(/&/g, '&amp;'));
+      const a = (await mobile([c]))[0];
+      expect(a.summary).toBe(c.signal.summary ?? null);
+      expect(a.brief.valueLine ?? null).toBeNull();
+    }
+    // a placeholder value is not a job value (below the minimum): no line, and the summary part stays
+    const raleigh = caseNamed(/Raleigh/);
+    const placeholder: ShipCase = { ...raleigh, jobValue: null, signal: { ...raleigh.signal, summary: 'Residential Building | Alteration | $1 job value | 100 TEST ST', data: { ...(raleigh.signal.data ?? {}), jobValue: undefined } } };
+    const items = [placeholder].map(shipFeedItem);
+    const html = renderToStaticMarkup(createElement(Feed, { items, cityPage: null }));
+    expect(text(html)).toContain('Residential Building | Alteration | $1 job value | 100 TEST ST');
+    expect(text(html)).not.toContain('Job value on the permit');
+    const a = (await mobile([placeholder]))[0];
+    expect(a.summary).toBe('Residential Building | Alteration | $1 job value | 100 TEST ST');
+  });
+});
+
 describe('digest html and text carry the same additions, once', () => {
   const d = () => renderDigest({ businessName: 'Fixture members', items: cases.map(shipDigestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
 

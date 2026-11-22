@@ -72,6 +72,20 @@ export function jobValueOf(src: ValueSource | null | undefined): number | null {
   return m ? parseMoney(m[1]) : null;
 }
 
+/**
+ * The summary as a card shows it when the "Job value on the permit" line is also shown: the "$N job value" part is removed so the number
+ * is printed once. Display only: the stored summary and data.jobValue are never changed. Null when nothing else is left. A summary
+ * with no such part comes back unchanged.
+ */
+export function summaryWithoutValue(summary: string | null | undefined): string | null | undefined {
+  if (typeof summary !== 'string') return summary;
+  const parts = summary.split(' | ');
+  const kept = parts.filter((p) => !/^\$[0-9][0-9,]*(?:\.\d+)?\sjob value$/.test(p.trim()));
+  if (kept.length === parts.length) return summary;
+  const out = kept.join(' | ').trim();
+  return out === '' ? null : out;
+}
+
 /** The card line: "Job value on the permit: $12,500". Null when the record has no value. */
 export function jobValueLine(src: ValueSource | null | undefined): string | null {
   const v = jobValueOf(src);
