@@ -62,6 +62,20 @@ function Entry({ e, lang }: { e: OrgEntry; lang: Lang }) {
     <li className="min-w-0 rounded-control border border-line bg-surface p-3">
       <p className="break-words text-base font-semibold text-ink">{e.name}</p>
       <p className="text-sm text-muted">{e.role}</p>
+      {e.listing ? (
+        <div className="mt-1">
+          {e.listing.phone ? <p className="break-words text-sm text-ink">{t(lang, 'listing.phone', { value: e.listing.phone })}</p> : null}
+          {e.listing.website ? (
+            <p className="break-all text-sm text-ink">
+              {t(lang, 'listing.website', { value: '' }).trimEnd()}{' '}
+              <a href={e.listing.website.href} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-brand-text underline">
+                {e.listing.website.text}
+              </a>
+            </p>
+          ) : null}
+          <p className="text-xs text-muted">{e.listing.note}</p>
+        </div>
+      ) : null}
       {e.attn ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.attention', { value: e.attn })}</p> : null}
       {e.address ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: e.addressLabel, value: e.address })}</p> : null}
       {e.phone ? <p className="break-words text-sm text-ink">{t(lang, 'who.phone', { value: e.phone })}</p> : null}

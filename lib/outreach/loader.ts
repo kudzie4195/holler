@@ -4,6 +4,7 @@ import { contactsForMember } from '@/lib/contacts/load';
 import { isStoredContactName } from '@/lib/contacts/names';
 import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
 import type { ContactRecord, ContactRole } from '@/lib/contacts/types';
+import { attachCachedListings, type SignalPlaces } from '@/lib/enrich/business-lookup';
 
 /**
  * Server-side glue between the feed or the alert email and the contacts loader owned by lib/contacts (service role only).
@@ -29,6 +30,12 @@ export async function loadMemberContacts(opts: {
   locked?: boolean;
   loader?: ContactLoader | null;
   orgCheck?: OrgCheck | null;
+  /**
+   * Round 18: the city and state of each requested signal. When given, a business's public listing found earlier (the
+   * holler_business_lookup cache, migration 0026) is attached to its contact. Read only: no lookup call is ever made here. Absent, or
+   * any failure, or 0026 not applied: the contacts are returned exactly as before.
+   */
+  places?: SignalPlaces | null;
 }): Promise<Map<number, ContactRecord[]>> {
   const out = new Map<number, ContactRecord[]>();
   if (opts.locked || !opts.userId) return out;
@@ -56,6 +63,13 @@ export async function loadMemberContacts(opts: {
   } catch {
     console.error('contacts: load failed', 'loader', 'exception');
     return new Map();
+  }
+  if (opts.places && out.size > 0) {
+    try {
+      return await attachCachedListings(opts.db, out, opts.places);
+    } catch {
+      return out;
+    }
   }
   return out;
 }

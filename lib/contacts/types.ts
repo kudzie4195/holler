@@ -27,6 +27,18 @@ export interface ContactInput {
   website?: string | null;
   /** The contractor's licence number when the permit publishes it (a public registry number, never a personal id). Roles contractor and business only. */
   license?: string | null;
+  /**
+   * Round 18 (lib/enrich/business-lookup.ts): the phone and website of the business's own public listing (DataForSEO Business Listings),
+   * attached at read time from the holler_business_lookup cache. Never stored in holler_signal_contacts and never set for a contact whose
+   * name the business classifier rejects, for a public buyer or for a site. Absent when no listing passed the name and place checks.
+   */
+  listing?: ListingInfo | null;
+}
+
+/** A business's public listing as shown on a card: its phone (312-555-0100 form) and website (https URL). At least one is set. */
+export interface ListingInfo {
+  phone: string | null;
+  website: string | null;
 }
 
 export interface ContactRecord extends ContactInput {

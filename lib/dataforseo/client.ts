@@ -20,7 +20,7 @@ export type Db = SupabaseClient;
 export const DFS_BASE = 'https://api.dataforseo.com';
 export const DEFAULT_MONTHLY_CAP_USD = 30;
 
-export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch';
+export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch' | 'businessListingsSearch';
 
 /**
  * The one table of per-task prices (USD), used only to ESTIMATE a call before it is made. The real cost is always the `cost` field
@@ -35,6 +35,11 @@ export type PriceKind = 'searchVolumeLive' | 'llmMentionsSearch';
  *   https://dataforseo.com/pricing/ai-optimization/llm-mentions). The sample responses show cost 0.103 for limit 3
  *   (search_mentions/live) and 0.101 (target_metrics/live), so the model here is 0.10 per task plus 0.001 per item returned.
  *   https://docs.dataforseo.com/v3/ai_optimization/llm_mentions/search_mentions/live/
+ * - businessListingsSearch (round 18, lib/enrich/business-lookup.ts): 0.012 per task plus 0.00036 per item returned. Verified
+ *   2026-11-22 on the pricing page ("Each Live request costs $0.012, plus $0.00036 for each returned item",
+ *   https://dataforseo.com/pricing/business-data/business-listings-api). The sample response on the endpoint page shows cost 0.0109
+ *   for 3 items (an older 0.01 + 0.0003 rate), so the estimate from the current page is the higher, safer figure.
+ *   https://docs.dataforseo.com/v3/business_data/business_listings/search/live/
  */
 export const PRICE_TABLE = {
   searchVolumeLive: {
@@ -58,6 +63,13 @@ export const PRICE_TABLE = {
     verified: false,
     doc: 'https://docs.dataforseo.com/v3/ai_optimization/llm_mentions/search_mentions/live/',
   },
+  businessListingsSearch: {
+    path: '/v3/business_data/business_listings/search/live',
+    perTaskUsd: 0.012,
+    perItemUsd: 0.00036,
+    verified: true,
+    doc: 'https://docs.dataforseo.com/v3/business_data/business_listings/search/live/',
+  },
 } as const;
 
 /** Upper-bound estimate for one call. `items` is the number of keywords or the row limit. */
@@ -66,7 +78,7 @@ export function estimateUsd(kind: PriceKind, items = 0): number {
   return Math.round((p.perTaskUsd + p.perItemUsd * Math.max(0, items)) * 100_000) / 100_000;
 }
 
-export type DfsFailure = 'not_configured' | 'cap_reached' | 'spend_unavailable' | 'http_error' | 'network_error' | 'api_error' | 'bad_shape';
+export type DfsFailure = 'not_configured' | 'cap_reached' | 'admit_refused' | 'spend_unavailable' | 'http_error' | 'network_error' | 'api_error' | 'bad_shape';
 
 export interface DfsTask {
   id?: string;
@@ -89,6 +101,8 @@ export interface DfsDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Per request timeout. Default 30 s. */
   timeoutMs?: number;
+  /** One retry on an HTTP 5xx (default true). The business lookup passes false: one lookup is one request. */
+  retry5xx?: boolean;
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -191,7 +205,16 @@ async function settle(db: Db, id: number | string, patch: { cost_usd: number; st
 export async function dfsCall(
   path: string,
   task: Record<string, unknown>,
-  opts: { kind: PriceKind; items?: number },
+  opts: {
+    kind: PriceKind;
+    items?: number;
+    /**
+     * Optional extra gate, asked AFTER this call's reservation row is booked and the monthly cap passed, with the reservation's id. False
+     * refuses the call (the row is settled as refused, cost 0) with reason 'admit_refused'. The business lookup uses it to hold its daily
+     * cap under overlapping runs: book first, then count the booked rows up to and including this one.
+     */
+    admit?: (db: Db, reservationId: number | string) => Promise<boolean>;
+  },
   deps: DfsDeps = {},
 ): Promise<DfsResult> {
   const env = deps.env ?? process.env;
@@ -232,6 +255,18 @@ export async function dfsCall(
       await settle(db, rid, { cost_usd: 0, status: 'refused', detail: 'cap_reached' });
       return { fail: { ok: false, reason: 'cap_reached', spentUsd: Math.round((total - estimate) * 100_000) / 100_000, capUsd: cap } };
     }
+    if (opts.admit) {
+      let admitted = false;
+      try {
+        admitted = await opts.admit(db, rid);
+      } catch {
+        admitted = false;
+      }
+      if (!admitted) {
+        await settle(db, rid, { cost_usd: 0, status: 'refused', detail: 'admit_refused' });
+        return { fail: { ok: false, reason: 'admit_refused' } };
+      }
+    }
     return { id: rid };
   };
   const first = await reserve();
@@ -270,7 +305,7 @@ export async function dfsCall(
     }
     const reported = plausible(costOf(json), estimate);
 
-    if (res.status >= 500 && attempt === 0) {
+    if (res.status >= 500 && attempt === 0 && deps.retry5xx !== false) {
       // Book what this attempt really cost, then reserve a fresh estimate for the retry so the cap sees both.
       await settle(db, id, { cost_usd: reported ?? 0, status: 'error', detail: `http ${res.status}, retried` });
       await sleep(1000);

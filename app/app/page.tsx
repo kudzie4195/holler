@@ -152,10 +152,10 @@ async function loadDashboard() {
   // account. The loader checks the match owner again. Any failure means no contacts and the feed renders as before.
   let contactsBySignal = new Map<number, ContactRecord[]>();
   if (!access.locked) {
-    const signalIds = rows
+    const withContacts = rows
       .map((m) => (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)
-      .filter((s) => mayHaveContacts(s.source, s.kind))
-      .map((s) => s.id);
+      .filter((s) => mayHaveContacts(s.source, s.kind));
+    const signalIds = withContacts.map((s) => s.id);
     if (signalIds.length > 0) {
       try {
         contactsBySignal = await loadMemberContacts({
@@ -163,6 +163,8 @@ async function loadDashboard() {
           userId: user.id,
           signalIds,
           locked: false,
+          // Round 18: a business's public listing found earlier by the alert run is shown under its name (cache read only, no call).
+          places: new Map(withContacts.map((s) => [s.id, { city: s.city, state: s.state }])),
         });
       } catch {
         contactsBySignal = new Map();
