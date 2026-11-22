@@ -41,6 +41,15 @@ describe('scripts/metro-scorecard.sql', () => {
     expect(rows).toEqual(expected);
   });
 
+  it('compares state upper-cased and trimmed, city by slug, and orders metros like METROS', () => {
+    expect(sql).toMatch(/upper\(btrim\(s\.state\)\) as state/);
+    expect(sql).toMatch(/upper\(mc\.state\) = r\.state/);
+    expect(sql).toMatch(/regexp_replace\(lower\(r\.city\)/);
+    const orders = [...sql.matchAll(/array_position\(array\[([^\]]*)\], metros\.metro\)/g)].map((m) => [...m[1].matchAll(/'([\w-]+)'/g)].map((x) => x[1]));
+    expect(orders.length).toBeGreaterThan(0);
+    for (const o of orders) expect(o).toEqual(METROS.map((m) => m.id));
+  });
+
   it('has no probation column; a second query samples holler_source_samples per source', () => {
     const [first, second] = sql.split('-- QUERY 2 of 2');
     expect(first).not.toMatch(/probation/i);

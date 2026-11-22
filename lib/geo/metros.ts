@@ -12,7 +12,7 @@ export interface Metro {
   states: readonly string[];
   /** core city slugs (lib/geo CITIES) */
   cities: readonly string[];
-  /** extra core city names with no CITIES entry of their own (how a source spells a borough), used only for records without coordinates */
+  /** extra core city names with no CITIES entry of their own (how a source spells a borough), used only for records without coordinates; they belong to states[0] */
   cityNames?: readonly string[];
   center: { lat: number; lon: number };
   radiusMi: number;
@@ -138,15 +138,19 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-/** Metro id for a record without coordinates: its city (any spelling slugify maps to a core city slug) and 2-letter state, else null. */
+/**
+ * Metro id for a record without coordinates: its city (any spelling slugify maps to a core city slug) and 2-letter state (any case), else null.
+ * A core city only counts in its own state: ('New York','NJ') is null. A cityNames entry belongs to the metro's first state (the SQL binds
+ * it the same way). scripts/metro-scorecard.sql applies the same rule.
+ */
 export function metroForCityState(city: string | null | undefined, state: string | null | undefined): string | null {
   if (!city || !state) return null;
-  const slug = `${slugify(city)}-${state.trim().toLowerCase()}`;
-  const name = city.trim().toLowerCase();
+  const citySlug = slugify(city);
   const st = state.trim().toUpperCase();
+  const slug = `${citySlug}-${st.toLowerCase()}`;
   for (const m of METROS) {
     if (m.cities.includes(slug)) return m.id;
-    if (m.states.includes(st) && m.cityNames?.some((n) => n.toLowerCase() === name)) return m.id;
+    if (st === m.states[0] && m.cityNames?.some((n) => slugify(n) === citySlug)) return m.id;
   }
   return null;
 }

@@ -248,6 +248,7 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
     label: `${ds.city} open data: ${suffix[ds.subtype]}`,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
+    ...(ds.probation ? { probation: true } : {}),
     sourceUrl: arcgisPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

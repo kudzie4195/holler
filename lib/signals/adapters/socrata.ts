@@ -518,6 +518,7 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     label,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
+    ...(ds.probation ? { probation: true } : {}),
     sourceUrl: datasetPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

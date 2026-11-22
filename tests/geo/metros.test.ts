@@ -114,4 +114,13 @@ describe('metroForCityState', () => {
     expect(metroForCityState(null, 'TX')).toBeNull();
     expect(metroForCityState('Dallas', null)).toBeNull();
   });
+
+  it('only matches a core city in its own state (same rule as the scorecard SQL)', () => {
+    expect(metroForCityState('New York', 'NJ')).toBeNull();
+    expect(metroForCityState('Bronx', 'NJ')).toBeNull();
+    expect(metroForCityState('Bronx', ' ny ')).toBe('new-york');
+    expect(metroForCityState('Sandy-Springs', 'ga')).toBe('atlanta');
+    expect(metroForCityState('Newark', 'NY')).toBeNull();
+    expect(metroForCityState('Newark', 'nj')).toBe('new-york');
+  });
 });

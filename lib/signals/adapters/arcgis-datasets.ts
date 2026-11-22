@@ -61,6 +61,8 @@ export interface ArcgisDataset {
   windowForwardDays?: number;
   cadenceMinutes: number;
   verified: boolean;
+  /** Probation: the adapter built from this config keeps its rows in holler_source_samples only (Adapter.probation) and is not listed as live anywhere. */
+  probation?: boolean;
   verifiedUrl: string;
   /** Date the layer was checked. */
   checkedOn: string;

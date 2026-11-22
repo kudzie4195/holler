@@ -78,7 +78,7 @@ describe('runScan with a probation adapter', () => {
     expect(rows.filter((s) => s.source === 'fake' && s.external_id !== 'old').length).toBe(SAMPLE_CAP);
     expect(rows.find((s) => s.external_id === 'x0')?.row).toEqual({ kept: true }); // duplicate ignored, not overwritten
     expect(rows.some((s) => s.source === 'fake' && s.external_id === 'old')).toBe(false);
-    expect(rows.some((s) => s.source === 'other')).toBe(true);
+    expect(rows.some((s) => s.source === 'other')).toBe(false); // retention is global: another source's old sample expires too
     expect(r.sources[0].inserted).toBe(SAMPLE_CAP - 1);
   });
 
@@ -107,6 +107,60 @@ describe('runScan with a probation adapter', () => {
     await runScan({ now: NOW, adapters: [adapter({ probation: true })] }, asDb(f));
     await runScan({ now: NOW, adapters: [adapter()], source: 'fake' }, asDb(f));
     expect(f.tables.holler_signals.map((s) => s.external_id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('probation review fixes (redo 2)', () => {
+  it('F1: a matching failure marks the live source failed but not the probation source', async () => {
+    const f = seed();
+    f.failOn['holler_profiles.select'] = 'boom';
+    const live = adapter({ id: 'live', fetch: async () => [sig({ source: 'live', externalId: 'l1' })] });
+    const prob = adapter({ id: 'prob', probation: true });
+    const r = await runScan({ now: NOW, adapters: [live, prob] }, asDb(f));
+    expect(r.error).toMatch(/matching failed: .*boom/);
+    expect(r.sources.find((x) => x.id === 'live')).toMatchObject({ status: 'error', error: expect.stringMatching(/matching failed/) });
+    expect(r.sources.find((x) => x.id === 'prob')).toMatchObject({ status: 'ok', inserted: 2 });
+    const runs = f.tables.holler_scan_runs;
+    expect(runs.find((x) => x.source === 'prob')!.error).toBeNull();
+    expect(runs.find((x) => x.source === 'live')!.error).toMatch(/matching failed/);
+  });
+
+  it('F2: every scan deletes samples older than 14 days for all sources, even with no probation source or no rows', async () => {
+    const f = seed();
+    f.tables.holler_source_samples = [
+      { id: 1, source: 'quiet', external_id: 'a', fetched_at: '2026-10-01T00:00:00Z', row: {} },
+      { id: 2, source: 'promoted', external_id: 'b', fetched_at: '2026-11-01T00:00:00Z', row: {} },
+      { id: 3, source: 'quiet', external_id: 'c', fetched_at: '2026-11-10T00:00:00Z', row: {} },
+    ];
+    await runScan({ now: NOW, adapters: [adapter({ probation: true, fetch: async () => [] }), adapter({ id: 'live2', fetch: async () => [] })] }, asDb(f));
+    expect(f.tables.holler_source_samples.map((x) => x.id)).toEqual([3]);
+    expect(f.calls.filter((c: string) => c === 'holler_source_samples.delete').length).toBe(1);
+  });
+
+  it('F2: a missing samples table is logged once per scan, not once per source', async () => {
+    const f = seed();
+    f.failOn['holler_source_samples.delete'] = 'relation "public.holler_source_samples" does not exist';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const many = ['p1', 'p2', 'p3'].map((id) => adapter({ id, fetch: async () => [] }));
+    await runScan({ now: NOW, adapters: many }, asDb(f));
+    expect(warn.mock.calls.filter((c) => String(c[0]) === SAMPLES_MISSING).length).toBe(1);
+    warn.mockRestore();
+  });
+
+  it('F3: samples get the live path contact clean-up (sanitizeContacts, no contacts on 311/violation)', async () => {
+    const f = seed();
+    const rows = [
+      sig({ externalId: 'v', city: 'Atlanta', data: { subtype: '311' }, contacts: [{ role: 'site', name: 'Jane Doe', phone: '404-555-0123' }] }),
+      sig({ externalId: 'w', city: 'Atlanta', data: { subtype: ' Violation ' }, contacts: [{ role: 'contractor', name: 'Acme Roofing LLC' }] }),
+      sig({ externalId: 'p', city: 'Atlanta', data: { subtype: 'permit' }, contacts: [{ role: 'contractor', name: 'Acme Roofing LLC', phone: 'not a phone' }, { role: 'contractor', name: 'Jane Q Doe' }] }),
+    ];
+    await runScan({ now: NOW, adapters: [adapter({ probation: true, fetch: async () => rows })] }, asDb(f));
+    const by = Object.fromEntries(f.tables.holler_source_samples.map((s) => [s.external_id, s.row as SignalInput]));
+    expect(by.v.contacts).toEqual([]);
+    expect(by.w.contacts).toEqual([]);
+    expect(by.p.contacts?.map((c: { name: string }) => c.name)).toEqual(['Acme Roofing LLC']);
+    expect(by.p.contacts?.[0].phone ?? null).toBeNull();
+    expect(JSON.stringify(f.tables.holler_source_samples)).not.toMatch(/Jane Doe|404-555-0123/);
   });
 });
 

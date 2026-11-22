@@ -88,7 +88,7 @@ metro_cities(metro, city, state) as (
     ('phoenix', 'Glendale', 'AZ')
 ),
 recent as (
-  select s.id, s.kind, s.source, s.lat, s.lon, s.state, s.city,
+  select s.id, s.kind, s.source, s.lat, s.lon, upper(btrim(s.state)) as state, s.city,
          s.data->>'subtype' as subtype,
          exists (select 1 from public.holler_signal_contacts c where c.signal_id = s.id and c.role = 'contractor' and c.name <> '') as has_contractor,
          exists (select 1 from public.holler_signal_contacts c where c.signal_id = s.id and c.name <> '') as has_company
@@ -107,7 +107,7 @@ candidates as (
            )))
          end as dist_mi
   from recent r
-  join (select metros.*, row_number() over () as ord from metros) m on r.state = any (m.states)
+  join (select metros.*, array_position(array['new-york','los-angeles','chicago','dallas-fort-worth','houston','atlanta','washington-dc','philadelphia','miami','phoenix'], metros.metro) as ord from metros) m on r.state = any (m.states)
   where (
     r.lat is not null and r.lon is not null
     and 2 * 3958.76 * asin(least(1, sqrt(
@@ -116,7 +116,8 @@ candidates as (
         ))) <= m.radius_mi
   ) or (
     (r.lat is null or r.lon is null)
-    and exists (select 1 from metro_cities mc where mc.metro = m.metro and mc.state = r.state and lower(mc.city) = lower(r.city))
+    and exists (select 1 from metro_cities mc where mc.metro = m.metro and upper(mc.state) = r.state
+           and trim(both '-' from regexp_replace(lower(mc.city), '[^a-z0-9]+', '-', 'g')) = trim(both '-' from regexp_replace(lower(r.city), '[^a-z0-9]+', '-', 'g')))
   )
 ),
 placed as (
@@ -136,7 +137,7 @@ select m.metro,
          / nullif(count(*) filter (where p.kind not in ('alert', 'report', 'disaster', 'quake')), 0),
          3
        )                                                                        as contact_share
-from (select metros.*, row_number() over () as ord from metros) m
+from (select metros.*, array_position(array['new-york','los-angeles','chicago','dallas-fort-worth','houston','atlanta','washington-dc','philadelphia','miami','phoenix'], metros.metro) as ord from metros) m
 left join placed p on p.metro = m.metro
 group by m.metro, m.ord
 order by m.ord;

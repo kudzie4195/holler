@@ -95,6 +95,8 @@ export interface SocrataDataset {
   isFailure?: (row: Record<string, unknown>) => boolean;
   cadenceMinutes: number;
   verified: boolean;
+  /** Probation: the adapter built from this config keeps its rows in holler_source_samples only (Adapter.probation) and is not listed as live anywhere. */
+  probation?: boolean;
   verifiedUrl: string;
   fieldSource: 'sourced' | 'assumed';
   note?: string;
