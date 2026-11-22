@@ -16,6 +16,7 @@ import {
   type StateReason,
 } from '@/lib/signals/source-state';
 import { expectsRows } from '@/lib/email/health';
+import { coverageNotice } from '@/lib/check/coverage-notice';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readSourceHealthShape } from '../../scripts/source-states-format';
@@ -254,15 +255,24 @@ describe('replaying the real Cobb, LA, Kansas City and Oakland run history', () 
     'socrata-austin-inspections': { kind: 'civic', cadenceMinutes: 720 },
     'socrata-cincinnati-311': { kind: 'civic', cadenceMinutes: 180 },
   };
+  // `now` may be later than the last scan in the fixture (Nov 22 03:30): the source then keeps running every cadence and returns nothing
+  // new, which is exactly what a stalled source does. Runs older than the loader's 14-day lookback are dropped, as the loader does.
   const replay = (id: string, now: Date) => {
-    const all = runs
-      .filter((r) => r.source === id && Date.parse(r.started_at as string) <= now.getTime())
+    const cadenceMs = kinds[id].cadenceMinutes * MIN;
+    const real = runs.filter((r) => r.source === id && Date.parse(r.started_at as string) <= now.getTime());
+    const lastReal = Math.max(...runs.filter((r) => r.source === id).map((r) => Date.parse(r.started_at as string)));
+    const extra: typeof runs = [];
+    for (let t = lastReal + cadenceMs; t <= now.getTime(); t += cadenceMs) extra.push({ source: id, started_at: new Date(t).toISOString(), fetched: 0, error: null });
+    const all = [...real, ...extra]
+      .filter((r) => Date.parse(r.started_at as string) >= now.getTime() - 14 * 24 * H)
       .sort((a, b) => Date.parse(b.started_at as string) - Date.parse(a.started_at as string));
     const h = health.find((x) => x.source === id)!;
     const newest = all.length ? (all[0].started_at as string) : null;
+    // What the scan stores: the newest run with rows (last_rows_seen_at), from every run since the source was tracked.
+    const seen = [...real, ...extra].filter((r) => (r.fetched ?? 0) > 0).sort((a, b) => Date.parse(b.started_at as string) - Date.parse(a.started_at as string))[0];
     const [r] = computeSourceStates({
       adapters: [{ id, ...kinds[id], missingEnv: [] }],
-      health: [{ ...h, last_success_at: newest, last_run_at: newest }],
+      health: [{ ...h, last_success_at: newest, last_run_at: newest, last_rows_seen_at: seen ? (seen.started_at as string) : null }],
       runs: all,
       now,
     });
@@ -324,5 +334,84 @@ describe('replaying the real Cobb, LA, Kansas City and Oakland run history', () 
   });
   it('Cincinnati 311 (three days of zeros, then 70 rows a run) is healthy throughout', () => {
     for (const t of scanTimes('socrata-cincinnati-311')) expect(replay('socrata-cincinnati-311', t).state).toBe('healthy');
+  });
+
+  describe('a long stall stays degraded after the evidence window slides past it', () => {
+    // Kansas City 311: rows on every run until Nov 19 15:30, then nothing; last record Nov 16. On the first redo it read Healthy by
+    // Nov 23 12:00 (its steady stretch left the 96 h window). Clocks: Nov 23 12:00, Nov 30 12:00, Dec 5 12:00, Dec 20 12:00.
+    const clocks = ['2026-11-23T12:00:00Z', '2026-11-30T12:00:00Z', '2026-12-05T12:00:00Z', '2026-12-20T12:00:00Z'];
+    it.each(clocks)('Kansas City 311 stays degraded at %s with no new record since Nov 16', (clock) => {
+      const r = replay('socrata-kansascity-311', at(clock));
+      expect(r).toMatchObject({ state: 'degraded', reason: 'repeated_empty', lastRecordAt: '2026-11-16T16:02:00.000Z' });
+    });
+    it.each(clocks)('LA permits stays degraded at %s (no new record since Nov 14)', (clock) => {
+      const r = replay('socrata-la-permits', at(clock));
+      expect(r).toMatchObject({ state: 'degraded', reason: 'repeated_empty', lastRecordAt: '2026-11-14T08:00:00.000Z' });
+    });
+    it.each(clocks)('Oakland 311 stays degraded at %s (no new record since Nov 16)', (clock) => {
+      const r = replay('socrata-oakland-311', at(clock));
+      expect(r).toMatchObject({ state: 'degraded', reason: 'repeated_empty', lastRecordAt: '2026-11-16T06:30:35.000Z' });
+    });
+    it('the member notice for the stalled source keeps the honest wording at every clock', () => {
+      for (const clock of clocks) {
+        const r = replay('socrata-kansascity-311', at(clock));
+        const n = coverageNotice({
+          lat: 39.1, lon: -94.58, trades: [], now: Date.parse(clock),
+          states: { 'socrata-kansascity-311': { state: r.state, reason: r.reason, lastRecordAt: r.lastRecordAt } },
+        });
+        expect(n?.line ?? '').toContain('no new records since Nov 16');
+      }
+    });
+    it('the persisted rule alone (no run window evidence) keeps a had-rows source degraded past 1.5 normal gaps, and not before', () => {
+      // permits normal gap 7 days: limit 10.5 days since rows were last seen.
+      const stalled = (daysSince: number, lastRows: string | null = ago(daysSince * 24 * H)) =>
+        computeSourceState(
+          input(permits, {
+            success: 1 * H,
+            recentRuns: [empty(1 * H), empty(7 * H), empty(13 * H)],
+            health: { last_success_at: ago(1 * H), last_run_at: ago(1 * H), consecutive_failures: 0, last_rows_seen_at: lastRows, last_record_at: ago((daysSince + 3) * 24 * H) },
+          }),
+        );
+      expect(stalled(10).state).toBe('healthy');
+      expect(stalled(10.5).state).toBe('healthy'); // exactly on the limit is not past it
+      expect(stalled(11)).toMatchObject({ state: 'degraded', reason: 'repeated_empty' });
+      // Before migration 0018 fills last_rows_seen_at, last_record_at stands in.
+      expect(stalled(11, null).state).toBe('degraded');
+      expect(stalled(6, null).state).toBe('healthy');
+      // A source that never had rows is never judged this way.
+      const never = computeSourceState(input(permits, { success: 1 * H, recentRuns: [empty(1 * H), empty(7 * H), empty(13 * H)], health: { last_success_at: ago(1 * H), last_run_at: ago(1 * H), consecutive_failures: 0, last_rows_seen_at: null, last_record_at: null } }));
+      expect(never.state).toBe('healthy');
+    });
+    it('a source that is not judged by rows (storm reports, awards) is never degraded by the persisted rule', () => {
+      const old = ago(40 * 24 * H);
+      for (const src of [spc, awards]) {
+        const r = computeSourceState(input(src, { success: 1 * H, recentRuns: [empty(1 * H), empty(2 * H), empty(3 * H)], health: { last_success_at: ago(1 * H), last_run_at: ago(1 * H), consecutive_failures: 0, last_rows_seen_at: old, last_record_at: old } }));
+        expect(r.state).toBe('healthy');
+      }
+    });
+    it('a recent row clears it: the persisted rule needs the newest runs to be empty or failed', () => {
+      const r = computeSourceState(input(permits, { success: 1 * H, recentRuns: [ok(1 * H, 4), empty(7 * H), empty(13 * H)], health: { last_success_at: ago(1 * H), last_run_at: ago(1 * H), consecutive_failures: 0, last_rows_seen_at: ago(1 * H), last_record_at: ago(20 * 24 * H) } }));
+      expect(r.state).toBe('healthy');
+    });
+    it('Cobb (bursty) never false-alarms on its ordinary quiet stretches, even replayed forward 8 days with nothing new', () => {
+      for (const id of ['arcgis-cobb-residential-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits']) {
+        for (const clock of ['2026-11-23T12:00:00Z', '2026-11-30T12:00:00Z']) {
+          const r = replay(id, at(clock));
+          expect({ id, clock, state: r.state }).toEqual({ id, clock, state: 'healthy' });
+        }
+      }
+    });
+    it('Cobb after 13 days with no rows at all is flagged (no new records since Nov 22): past 1.5 normal gaps is not a quiet stretch', () => {
+      expect(replay('arcgis-cobb-commercial-permits', at('2026-12-05T12:00:00Z'))).toMatchObject({ state: 'degraded', reason: 'repeated_empty' });
+    });
+    it('sources that never returned a row stay healthy and quiet at every clock', () => {
+      for (const id of ['socrata-batonrouge-311', 'socrata-austin-inspections']) {
+        for (const clock of clocks) expect(replay(id, at(clock))).toMatchObject({ state: 'healthy', rowsHistory: 'none' });
+      }
+    });
+    it('Cincinnati 311 (days of zeros, then 70 rows a run, then 8 quiet days) is still healthy: under 1.5 normal gaps', () => {
+      const r = replay('socrata-cincinnati-311', at('2026-11-30T12:00:00Z'));
+      expect(r.state).toBe('healthy');
+    });
   });
 });

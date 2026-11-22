@@ -127,6 +127,27 @@ afterEach(() => {
 });
 const req = (path: string) => new Request(`http://x.test${path}`, { headers: { authorization: 'Bearer s3cret' } });
 
+describe('readStateRuns lookback', () => {
+  it('reads 14 days for slow sources and 96 hours for sources scanned more often than hourly, selects only, only the listed sources', async () => {
+    const { readStateRuns } = await import('@/lib/signals/source-state-load');
+    const day = 24 * H;
+    const row = (id: number, source: string, agoMs: number) => ({ id, source, started_at: ago(agoMs), fetched: 1, inserted: 0, error: null });
+    const db = new FakeDb({
+      holler_scan_runs: [
+        row(1, 'socrata-la-permits', 10 * day), // slow, 10 days old: kept
+        row(2, 'socrata-la-permits', 15 * day), // slow, past 14 days: dropped
+        row(3, 'nws', 2 * day), // fast, inside 96 h: kept
+        row(4, 'nws', 5 * day), // fast, past 96 h: dropped
+        row(5, 'other-source', 1 * H), // not listed: never read
+      ],
+    });
+    const out = await readStateRuns(db as never, NOW, adapters);
+    expect(out.map((r) => r.source).sort()).toEqual(['nws', 'socrata-la-permits']);
+    expect(db.calls.every((c) => c === 'holler_scan_runs.select')).toBe(true);
+    expect(db.calls.length).toBeLessThanOrEqual(4); // two groups, each read until an empty page
+  });
+});
+
 describe('routes and snapshot', () => {
   const fresh = () => {
     const t = Date.now();

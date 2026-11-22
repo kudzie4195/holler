@@ -6,6 +6,7 @@ import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
 import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@/lib/signals/health';
 import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
+import { readStateRuns } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
 
 export const maxDuration = 60;
@@ -118,13 +119,14 @@ export async function GET(req: Request) {
   } catch {
     healthRows = null;
   }
-  // Source states (item 2.4): the same 96 hours of runs the report already read, plus the health rows. Absent when the rows could not be read.
+  // Source states (item 2.4): the health rows plus each source's own run history (14 days for the slow sources, see source-state-load.ts;
+  // the report's 96 hours are too short to tell a long stall from a quiet source). Absent when either read fails.
   let sourceStates: SourceStateSummary | null = null;
   if (healthRows) {
     try {
-      sourceStates = summarizeSourceStates(
-        computeSourceStates({ adapters: adapters.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv })), health: healthRows, runs, now }),
-      );
+      const stateAdapters = adapters.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv }));
+      const stateRuns = await readStateRuns(admin, now, stateAdapters);
+      sourceStates = summarizeSourceStates(computeSourceStates({ adapters: stateAdapters, health: healthRows, runs: stateRuns, now }));
     } catch {
       sourceStates = null;
     }

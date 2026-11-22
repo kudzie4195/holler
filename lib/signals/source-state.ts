@@ -17,8 +17,15 @@
  * module answers the other question members care about: "has Holler been able to read this source lately?" The two are kept apart on
  * purpose; the stored status column and the ingest monitor are unchanged. Both are shown in the owner JSON.
  *
+ * A long stall stays degraded: when the source's own run history no longer shows it (the evidence window slid past the stall), the
+ * stored last_rows_seen_at (or last_record_at before migration 0018 fills it) is compared with the source's normal gap between new
+ * records (lib/signals/health.ts normalGapDays). A source that has had rows, whose newest runs are all empty or failed, and has had no
+ * rows for more than 1.5 normal gaps stays degraded ("no new records since <date>") until rows return. A bursty source (Cobb County)
+ * is not judged by the short window, only by this long limit, so it does not false-alarm on ordinary quiet days.
+ *
  * Thresholds are all "more than": exactly on a limit is not past it.
  */
+import { DELAYED_FACTOR as GAP_DELAYED_FACTOR, normalGapDays } from './health';
 
 export type SourceState = 'healthy' | 'delayed' | 'degraded' | 'unavailable' | 'not_set_up';
 
@@ -53,6 +60,10 @@ export const HISTORY_MIN_SPAN_MS = 24 * HOUR;
 export const HISTORY_MIN_RUNS = 3;
 /** ...of which at least this share returned rows. A source that publishes in bursts (Cobb County) fails this and is never degraded for normal empty runs. */
 export const HISTORY_MIN_ROWS_SHARE = 0.5;
+/** A stall (newest runs empty or failed, no rows seen) longer than this many normal gaps between new records is degraded whatever the run window shows. */
+export const STALL_GAP_FACTOR = GAP_DELAYED_FACTOR;
+const DAY_MS = 86_400_000;
+
 /** Runs kept per source for the history check (newest first). 96 hours of a 15 minute source is 384. */
 export const MAX_HISTORY_RUNS = 500;
 
@@ -95,6 +106,8 @@ export interface HealthSample {
   tracked_since?: string | null;
   /** Newest record date the source has returned (the record's own date, capped at the run time by the scan). */
   last_record_at?: string | null;
+  /** Last successful run that parsed at least one row (migration 0018). Null/absent: no run has seen a row, or 0018 is not applied. */
+  last_rows_seen_at?: string | null;
 }
 
 export interface SourceStateInput {
@@ -238,6 +251,16 @@ export function computeSourceState(i: SourceStateInput): SourceStateResult {
     const reason: StateReason = errors === recent.length ? 'repeated_errors' : errors === 0 ? 'repeated_empty' : 'repeated_trouble';
     const what = reason === 'repeated_errors' ? 'failed' : reason === 'repeated_empty' ? 'returned no rows' : 'failed or returned no rows';
     return done('degraded', reason, lastSuccess, `the last ${DEGRADED_RUNS} runs ${what}`);
+  }
+  // A long stall the run window can no longer show: had rows (stored last_rows_seen_at, or last_record_at before 0018), the newest runs
+  // are all empty or failed, and no rows for more than 1.5 normal gaps between new records. Only for sources judged by rows.
+  if (judged && recent.length >= DEGRADED_RUNS && recent.every((r) => hasError(r) || r.fetched === 0)) {
+    const seen = ms(i.health?.last_rows_seen_at) ?? lastRecord;
+    if (seen !== null && nowMs - seen > STALL_GAP_FACTOR * normalGapDays(i.id) * DAY_MS) {
+      const errors = recent.filter(hasError).length;
+      const reason: StateReason = errors === 0 ? 'repeated_empty' : errors === recent.length ? 'repeated_errors' : 'repeated_trouble';
+      return done('degraded', reason, lastSuccess, `no rows for ${agePhrase(nowMs - seen)}, more than ${STALL_GAP_FACTOR} normal gaps between new records`);
+    }
   }
   // The stored failure count covers the case where the run log is too short or too old to show three runs.
   if ((i.health?.consecutive_failures ?? 0) >= DEGRADED_RUNS) {
