@@ -105,11 +105,11 @@ export function bestLabelOf(a: OpportunityAssessment, trades: readonly string[])
   return best;
 }
 
-/** Copy for a record that matched only a keyword watch (no trade label): shown as a Market insight, never pushed. */
+/** Copy for a record that matched only a keyword watch (no trade label): Coming soon, so it reaches the email, never pushed. */
 export function keywordBrief(keyword: string): Omit<MemberOpportunity, 'trade'> {
   return {
-    label: 'intel',
-    labelText: OPPORTUNITY_LABEL.intel,
+    label: 'soon',
+    labelText: OPPORTUNITY_LABEL.soon,
     reason: 'keyword',
     why: `It mentions "${keyword}", a phrase you watch.`,
     next: 'Open the source to see whether it fits your work.',

@@ -282,13 +282,13 @@ const FINISH_TRADES: CategoryId[] = ['flooring', 'painting', 'cleaning', 'junk-r
 export const PERMIT_DOWNSTREAM: Record<string, CategoryId[]> = {
   // A finished house gets bought or moved into, then a yard, fence, cleaning before move-in, an alarm, sometimes a pool, storm and
   // screen doors or a garage door opener the builder did not fit.
-  'new-home': ['real-estate', 'moving', 'landscaping', 'lawn-care', 'fencing', 'cleaning', 'security', 'pool-spa', 'windows-doors'],
+  'new-home': ['real-estate', 'moving', 'landscaping', 'lawn-care', 'cleaning'],
   // Any new building (home or commercial) needs a site finished around it, a post-construction clean and usually an alarm.
-  'new-construction': ['landscaping', 'concrete-paving', 'fencing', 'cleaning', 'janitorial-commercial', 'security'],
+  'new-construction': ['landscaping', 'cleaning', 'janitorial-commercial'],
   // A re-roof is when owners replace gutters and siding trim, add solar on the new roof, and haul off what the tear-off left.
-  roof: ['siding-gutters', 'solar', 'junk-removal'],
+  roof: ['siding-gutters'],
   // Solar often needs a panel or service upgrade, and roof prep or repair before the panels go on.
-  solar: ['electrical', 'roofing'],
+  solar: [],
   // Pool codes require a barrier fence; a pool also needs a deck or patio, planting around it and power for the pump.
   pool: ['fencing', 'concrete-paving', 'landscaping', 'electrical'],
   // A heater swap is self-contained.
@@ -300,7 +300,7 @@ export const PERMIT_DOWNSTREAM: Record<string, CategoryId[]> = {
   // Electrical work alone names no follow-on trade.
   electrical: [],
   // A cleared lot gets a construction fence and new flatwork (driveway, slab) before or with the next build.
-  demolition: ['fencing', 'concrete-paving'],
+  demolition: [],
   // Where trees come out, owners replant or regrade.
   tree: ['landscaping'],
   // A fence is a finished job.
@@ -320,24 +320,24 @@ export const PERMIT_DOWNSTREAM: Record<string, CategoryId[]> = {
   // Floors are a finished job.
   flooring: [],
   // A new sign usually means a new or changed tenant setting up: cleaning contract, alarm, point of sale and IT.
-  sign: ['janitorial-commercial', 'security', 'business-services'],
+  sign: ['janitorial-commercial'],
   // Painting is a finished job.
   painting: [],
   // After water, fire or storm mitigation comes the rebuild: floors, paint, small repairs, contents and debris haul-away.
-  'damage-repair': ['general-contractor', 'flooring', 'painting', 'handyman', 'junk-removal'],
+  'damage-repair': ['general-contractor', 'flooring', 'painting'],
   // A new deck or porch gets stained or painted.
   deck: ['painting'],
   porch: ['painting'],
   // A shed, garage or barn needs a slab and power.
-  accessory: ['concrete-paving', 'electrical'],
+  accessory: [],
   // An addition is a remodel plus new rooms to heat and cool.
-  addition: [...FINISH_TRADES, 'hvac'],
+  addition: ['flooring', 'painting', 'hvac'],
   // A tenant build-out opens a business: cleaning contract, sign, alarm, pest contract (food uses), POS and IT, floors and paint.
-  'fit-out': ['janitorial-commercial', 'signs-printing', 'security', 'pest-control', 'business-services', 'flooring', 'painting'],
+  'fit-out': ['janitorial-commercial', 'signs-printing', 'security'],
   remodel: FINISH_TRADES,
   structural: FINISH_TRADES,
   // Grading comes before flatwork and planting.
-  'site-work': ['concrete-paving', 'landscaping'],
+  'site-work': [],
   building: FINISH_TRADES,
 };
 
@@ -371,8 +371,16 @@ export function permitTrades(sig: OpportunityInput): { kinds: string[]; own: Cat
     (PERMIT_DOING[k] ?? []).forEach((t) => own.add(t));
     if (!WEAK_DOWNSTREAM_KINDS.has(k)) (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => after.add(t));
   }
-  // Generic building / remodel / structural permits name no finish work: their follow-on trades are market insight, not alerts.
   const weak = new Set<CategoryId>();
+  // A known job value under $5,000, or a trade sub-permit (HVAC, plumbing, electrical on a new build), names no follow-on job:
+  // its downstream trades drop to market insight too.
+  const value = jobValue(sig);
+  const subPermit = kinds.some((k) => SUB_PERMIT_KINDS.has(k));
+  if ((value !== null && value < 5000) || subPermit) {
+    for (const t of after) weak.add(t);
+    after.clear();
+  }
+  // Generic building / remodel / structural permits name no finish work: their follow-on trades are market insight, not alerts.
   for (const k of kinds) if (WEAK_DOWNSTREAM_KINDS.has(k)) (PERMIT_DOWNSTREAM[k] ?? []).forEach((t) => { if (!after.has(t)) weak.add(t); });
   // A tagged trade that is not a documented downstream trade of the title's kinds is treated as doing the work (older rows).
   for (const c of cats) if (!after.has(c) && !weak.has(c)) own.add(c);
@@ -384,6 +392,17 @@ export function permitTrades(sig: OpportunityInput): { kinds: string[]; own: Cat
  * and remodel permits 3x a painter's and 14x a handyman's instant email, almost none of it a job they could act on.
  */
 const WEAK_DOWNSTREAM_KINDS = new Set(['building', 'remodel', 'structural']);
+
+/** Trade permits pulled under a bigger job: the follow-on work is counted on the main permit, not this one. */
+const SUB_PERMIT_KINDS = new Set(['hvac', 'plumbing', 'electrical', 'water-heater']);
+
+/** "$10,225 job value" in the summary (permit adapters print it that way), else null. */
+function jobValue(sig: OpportunityInput): number | null {
+  const m = /\$([\d,]+) job value/.exec(typeof sig.summary === 'string' ? sig.summary : '');
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
 
 function permitRule(sig: OpportunityInput): OpportunityAssessment {
   const { kinds, own, downstream, weakDownstream } = permitTrades(sig);
@@ -407,7 +426,7 @@ const VIOLATION_TRADES: { re: RegExp; trades: CategoryId[]; unless?: RegExp }[] 
   // Not when the wall or stair is only where the paint or the light is ("INT WALL/CEILING PEELING PAINT", "ILLUMINATE PUBLIC STAIR/HALL").
   { re: /exterior wall|\bwalls?\b|ceiling|porch|stair|balcon|structur|building condition|foundation|sidewalk shed|parapet|chimney/, trades: ['handyman', 'general-contractor'], unless: /paint|illuminat|lighting/ },
   { re: /\broof/, trades: ['roofing'] },
-  { re: /smoke detector|carbon monoxide|co detector/, trades: ['electrical', 'handyman'] },
+  { re: /smoke detector|carbon monoxide|co detector/, trades: ['handyman'] },
   { re: /electric|wiring|outlet|breaker|\bjbs?\b|junction box|illuminat|lighting|light fixture|fixtures?\b/, trades: ['electrical'] },
   { re: /plumb|water heater|toilet|\bsinks?\b|floor drain|soil\/waste|vent pipe|\bpipes?\b|\bleak|sewage|hot water|water supply/, trades: ['plumbing'] },
   { re: /\bheat|boiler|furnace|burner|cooling|hvac|ventilat/, trades: ['hvac'] },
@@ -482,10 +501,10 @@ function threeOneOneRule(sig: OpportunityInput): OpportunityAssessment {
 
   if (/heat\s*\/\s*hot water|no heat|inadequate heat|lack of heat|no hot water|no water\b/.test(t) && !CITY_BUILDING_RE.test(t)) {
     // Heat out: HVAC. Hot water or water out: plumbing ("HEAT/HOT WATER" names both).
-    const trades: CategoryId[] = [];
-    if (/heat\b/.test(t)) trades.push('hvac');
-    if (/hot water|no water/.test(t)) trades.push('plumbing');
-    grantAll(g, trades, 'act', 'heat-complaint');
+    // "HEAT/HOT WATER" is one NYC complaint type for both; most are heat. Plumbing is Act now only when water alone is named.
+    const heat = /heat\b/.test(t) && !/no hot water|hot water only|water only/.test(t);
+    if (heat) grantAll(g, ['hvac'], 'act', 'heat-complaint');
+    if (/hot water|no water/.test(t)) grantAll(g, ['plumbing'], heat ? 'intel' : 'act', 'heat-complaint');
     return assess('311', 'other-trades', g, { residential });
   }
   if (/sewage.?back.?up|sewer.?back.?up|sewer maintenance \/ backup|\bbackup\b.*sewer|sewer.*\bbackup\b/.test(t)) {
@@ -494,7 +513,7 @@ function threeOneOneRule(sig: OpportunityInput): OpportunityAssessment {
   }
   if (/graffiti/.test(t)) {
     if (PRIVATE_RE.test(t)) {
-      grantAll(g, ['painting', 'cleaning'], 'act', 'private-graffiti');
+      grantAll(g, ['painting'], 'act', 'private-graffiti');
       return assess('311', 'other-trades', g);
     }
     return assess('311', 'public-graffiti');
@@ -538,7 +557,9 @@ function inspectionRule(sig: OpportunityInput): OpportunityAssessment {
   const t = `${norm(sig.title)} ${norm(sig.summary)}`;
   if (/\bfail/.test(t) && /food|restaurant|establishment|kitchen|retail food|grocery|bakery|caf[eé]/.test(t)) {
     const g: Partial<Record<CategoryId, Grant>> = {};
-    grantAll(g, ['pest-control', 'janitorial-commercial'], 'act', 'failed-inspection');
+    // Vermin named: a pest contract is the fix. Otherwise the failure may be paperwork or temperatures, and kitchens clean in-house.
+    grantAll(g, ['pest-control'], /roach|rodent|\bmice\b|\bmouse\b|\brats?\b|vermin|insect|flies|droppings|pest/.test(t) ? 'act' : 'soon', 'failed-inspection');
+    grantAll(g, ['janitorial-commercial'], 'intel', 'failed-inspection');
     return assess('inspection', 'other-trades', g);
   }
   return assess('inspection', 'inspection-other');
@@ -632,8 +653,12 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
   if (type === 'wind') {
     const comments = norm(d.comments) || norm(sig.summary);
     if (/^wind damage/.test(title) || DAMAGE_WORDS_RE.test(comments)) {
-      grantAll(g, ['tree-service'], 'act', 'storm-damage-report');
-      grantAll(g, ['roofing', 'restoration'], 'soon', 'storm-damage-report');
+      // Tree service is Act now only when the report names trees or limbs; a roof or tarp report goes to roofers first.
+      const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(comments);
+      const roof = /roof|shingle|tarp|siding|gutter/.test(comments);
+      grantAll(g, ['tree-service'], trees || !roof ? 'act' : 'intel', 'storm-damage-report');
+      grantAll(g, ['roofing'], roof ? 'act' : 'soon', 'storm-damage-report');
+      grantAll(g, ['restoration'], 'soon', 'storm-damage-report');
     } else {
       // A measured gust with no damage in the report: limbs are likely down, roofs are not known to be hit.
       grantAll(g, ['tree-service'], 'soon', 'wind-gust-report');
@@ -710,7 +735,9 @@ export function assessOpportunity(sig: OpportunityInput): OpportunityAssessment 
     // Notice type from data.type, or the first summary field ("Solicitation | INTERIOR, ... | NAICS 236220 | responses due ...").
     const type = norm(dataObj(sig).type) || norm(String(sig.summary ?? '').split('|')[0]);
     const g: Partial<Record<CategoryId, Grant>> = {};
-    if (NOT_YET_BID_RE.test(type)) grantAll(g, cats, 'soon', 'bid-notice');
+    // A solicitation with no city of performance (statewide or office-only) is worth a look, not an Act now for one area.
+    const placed = typeof sig.title === 'string' && /^Federal bid in [^,]*[A-Za-z][^,]*, [A-Z]{2}:/.test(sig.title) && !/^Federal bid in 0,/.test(sig.title);
+    if (NOT_YET_BID_RE.test(type) || !placed) grantAll(g, cats, 'soon', 'bid-notice');
     else grantAll(g, cats, 'act', 'open-bid');
     return assess('federal-bid', 'other-trades', g);
   }

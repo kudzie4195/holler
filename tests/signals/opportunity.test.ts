@@ -28,6 +28,7 @@ function sig(source: string, kind: string, subtype: string | null, title: string
   return { source, kind, subtype, title, summary: null, categories, severity: 1, data: subtype ? { subtype } : {}, ...extra };
 }
 const permit = (title: string, categories: string[]) => sig('socrata-austin-permits', 'permit', 'permit', title, categories);
+const permitWith = (title: string, categories: string[], summary: string) => sig('socrata-austin-permits', 'permit', 'permit', title, categories, { summary });
 const v311 = (source: string, title: string, categories: string[] = []) => sig(source, 'civic', '311', title, categories);
 const violation = (title: string, categories: string[] = []) => sig('socrata-chicago-violations', 'civic', 'violation', title, categories);
 const nws = (title: string, categories: string[] = []) =>
@@ -55,14 +56,17 @@ describe('contract', () => {
 
   it('opportunityTrades lists only non-context trades, downstream ones included', () => {
     const t = opportunityTrades(permit('Roof permit in Austin', ['roofing']));
-    expect(t).toEqual({ roofing: 'intel', 'siding-gutters': 'soon', solar: 'soon', 'junk-removal': 'soon' });
+    expect(t).toEqual({ roofing: 'intel', 'siding-gutters': 'soon' });
     expect(Object.values(t)).not.toContain('context');
   });
 
   it('bestOpportunity picks the highest rank, first trade on ties, and null when all are context', () => {
     const roof = permit('Roof permit in Austin', ['roofing']);
-    expect(bestOpportunity(roof, ['roofing', 'solar', 'siding-gutters'])).toMatchObject({ trade: 'solar', brief: { label: 'soon' } });
-    expect(bestOpportunity(roof, ['roofing', 'siding-gutters', 'solar']).trade).toBe('siding-gutters');
+    expect(bestOpportunity(roof, ['roofing', 'solar', 'siding-gutters'])).toMatchObject({ trade: 'siding-gutters', brief: { label: 'soon' } });
+    // two trades tie at soon on a new home: the first one listed wins
+    const home = permit('New home permit in Cobb County', ['general-contractor']);
+    expect(bestOpportunity(home, ['general-contractor', 'moving', 'landscaping'])).toMatchObject({ trade: 'moving', brief: { label: 'soon' } });
+    expect(bestOpportunity(home, ['general-contractor', 'landscaping', 'moving']).trade).toBe('landscaping');
     expect(bestOpportunity(roof, ['roofing', 'hvac'])).toMatchObject({ trade: 'roofing', brief: { label: 'intel' } });
     const none = bestOpportunity(roof, ['hvac', 'beauty']);
     expect(none.trade).toBeNull();
@@ -106,12 +110,12 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
     expect(permitKindsFromTitle('Permit in Austin').kinds).toEqual([]);
   });
 
-  it('a re-roof is intel for roofers and soon for gutters, solar and haul-away', () => {
+  it('a re-roof is intel for roofers and soon for gutters only', () => {
     const s = permit('Roof permit in Chicago', ['roofing']);
     expect(opportunityFor(s, 'roofing')).toMatchObject({ label: 'intel', reason: 'permit-own-trade' });
     expect(opportunityFor(s, 'siding-gutters')).toMatchObject({ label: 'soon', reason: 'permit-downstream' });
-    expect(label(s, 'solar')).toBe('soon');
-    expect(label(s, 'junk-removal')).toBe('soon');
+    expect(label(s, 'solar')).toBe('context');
+    expect(label(s, 'junk-removal')).toBe('context');
     expect(label(s, 'hvac')).toBe('context');
   });
 
@@ -132,7 +136,7 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
     const s = permit('Roof and solar permit in Austin', ['roofing', 'solar']);
     expect(label(s, 'roofing')).toBe('intel');
     expect(label(s, 'solar')).toBe('intel');
-    expect(label(s, 'electrical')).toBe('soon');
+    expect(label(s, 'electrical')).toBe('context'); // solar names no follow-on trade now
     const p = permit('Plumbing and remodel permit in Chicago', ['plumbing', 'general-contractor']);
     expect(label(p, 'plumbing')).toBe('intel');
     expect(label(p, 'general-contractor')).toBe('intel');
@@ -156,20 +160,59 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
   it('a new home is soon for movers, realtors and yard trades; the builder gets intel', () => {
     const s = permit('New home permit in Cobb County', ['general-contractor', 'real-estate', 'moving']);
     expect(label(s, 'general-contractor')).toBe('intel');
-    for (const t of ['moving', 'real-estate', 'landscaping', 'lawn-care', 'fencing', 'cleaning', 'security', 'pool-spa']) expect(label(s, t), t).toBe('soon');
+    for (const t of ['moving', 'real-estate', 'landscaping', 'lawn-care', 'cleaning']) expect(label(s, t), t).toBe('soon');
+    for (const t of ['fencing', 'security', 'pool-spa', 'windows-doors']) expect(label(s, t), t).toBe('context');
+  });
+
+  it('a new building is soon for landscaping, cleaning and commercial cleaning', () => {
+    const s = permit('New construction permit in Austin', ['general-contractor']);
+    for (const t of ['landscaping', 'cleaning', 'janitorial-commercial']) expect(label(s, t), t).toBe('soon');
+    for (const t of ['concrete-paving', 'fencing', 'security']) expect(label(s, t), t).toBe('context');
+  });
+
+  it('a known job value under $5,000 makes every downstream trade intel; $5,000 and over keeps them soon', () => {
+    const small = permitWith('New home permit in Cobb County', ['general-contractor'], 'Single family | $4,999 job value');
+    for (const t of ['moving', 'real-estate', 'landscaping', 'lawn-care', 'cleaning']) expect(label(small, t), `small ${t}`).toBe('intel');
+    expect(label(small, 'general-contractor')).toBe('intel');
+    const big = permitWith('New home permit in Cobb County', ['general-contractor'], 'Single family | $5,000 job value');
+    for (const t of ['moving', 'real-estate', 'landscaping', 'lawn-care', 'cleaning']) expect(label(big, t), `big ${t}`).toBe('soon');
+    const reroof = permitWith('Roof permit in Austin', ['roofing'], '$2,500 job value');
+    expect(label(reroof, 'siding-gutters')).toBe('intel');
+    const addition = permitWith('Addition permit in Austin', ['general-contractor'], '$1,200 job value');
+    for (const t of ['flooring', 'painting', 'hvac']) expect(label(addition, t), t).toBe('intel');
+    // no stated value: the follow-on trades stay soon
+    expect(label(permit('Addition permit in Austin', ['general-contractor']), 'painting')).toBe('soon');
+  });
+
+  it('a trade sub-permit on the record makes every downstream trade intel', () => {
+    const s = permitWith('New home, HVAC and plumbing permit in Cobb County', ['general-contractor'], '$250,000 job value');
+    for (const t of ['moving', 'real-estate', 'landscaping', 'lawn-care', 'cleaning']) expect(label(s, t), t).toBe('intel');
+    for (const k of ['HVAC', 'Plumbing', 'Electrical', 'Water heater']) {
+      const sub = permitWith(`New home and ${k} permit in Cobb County`, ['general-contractor'], '$90,000 job value');
+      expect(label(sub, 'landscaping'), k).toBe('intel');
+    }
+  });
+
+  it('damage repair is soon for general contractors, flooring and painting only', () => {
+    const s = permitWith('Damage repair permit in Austin', ['general-contractor'], '$30,000 job value');
+    for (const t of ['general-contractor', 'flooring', 'painting']) expect(label(s, t), t).toBe('soon');
+    for (const t of ['handyman', 'junk-removal']) expect(label(s, t), t).toBe('context');
   });
 
   it('solar, demolition, tenant fit-out and sign permits reach the trades that follow', () => {
-    expect(opportunityTrades(permit('Solar permit in Austin', ['solar']))).toEqual({ solar: 'intel', electrical: 'soon', roofing: 'soon' });
+    expect(opportunityTrades(permit('Solar permit in Austin', ['solar']))).toEqual({ solar: 'intel' });
     const demo = permit('Demolition permit in Seattle', ['junk-removal']);
     expect(label(demo, 'junk-removal')).toBe('intel');
-    expect(label(demo, 'fencing')).toBe('soon');
-    expect(label(demo, 'concrete-paving')).toBe('soon');
+    expect(opportunityTrades(demo)).toEqual({ 'junk-removal': 'intel' });
     const fit = permit('Tenant fit-out permit in Cobb County', ['general-contractor']);
-    for (const t of ['janitorial-commercial', 'signs-printing', 'security', 'pest-control']) expect(label(fit, t), t).toBe('soon');
+    for (const t of ['janitorial-commercial', 'signs-printing', 'security']) expect(label(fit, t), t).toBe('soon');
+    for (const t of ['pest-control', 'flooring', 'painting', 'business-services']) expect(label(fit, t), t).toBe('context');
     const sign = permit('Sign permit in Austin', ['signs-printing']);
     expect(label(sign, 'signs-printing')).toBe('intel');
     expect(label(sign, 'janitorial-commercial')).toBe('soon');
+    expect(label(sign, 'security')).toBe('context');
+    expect(opportunityTrades(permit('Accessory building permit in Austin', ['general-contractor']))).toEqual({ 'general-contractor': 'intel' });
+    expect(opportunityTrades(permit('Site work permit in Austin', ['general-contractor']))).toEqual({ 'general-contractor': 'intel' });
   });
 
   it('a permit with no parsed label is intel for its tagged trades only', () => {
@@ -191,7 +234,7 @@ describe('code violations: act for the repair trades the notice names', () => {
     ['REPAIR PORCH SYSTEM', ['handyman', 'general-contractor']],
     ['Structure Condition Violation(s)', ['handyman', 'general-contractor']],
     ['REPAIR ROOF', ['roofing']],
-    ['INSTALL SMOKE DETECTORS', ['electrical']],
+    ['INSTALL SMOKE DETECTORS', ['handyman']],
     ['EXPOSED WIRING', ['electrical']],
     ['HEAT UNIT ADEQUATELY', ['hvac']],
     ['SOIL/WASTE,VENT PIPE MATRL', ['plumbing']],
@@ -206,6 +249,13 @@ describe('code violations: act for the repair trades the notice names', () => {
   ])('%s', (title, trades) => {
     const s = violation(`Code violation in Chicago: ${title}`);
     for (const t of trades) expect(opportunityFor(s, t), t).toMatchObject({ label: 'act', reason: 'violation-repair' });
+  });
+
+  it('smoke and CO detector violations are handyman work, not electrical', () => {
+    for (const title of ['INSTALL SMOKE DETECTORS', 'CARBON MONOXIDE DETECTOR MISSING', 'INSTALL CO DETECTOR']) {
+      const s = violation(`Code violation in Chicago: ${title}`);
+      expect(opportunityTrades(s), title).toEqual({ handyman: 'act' });
+    }
   });
 
   it('a water heater is plumbing, not heating', () => {
@@ -236,14 +286,25 @@ describe('code violations: act for the repair trades the notice names', () => {
 });
 
 describe('311: city work is context, with a few private exceptions', () => {
-  it('NYC heat and hot water is act for HVAC and plumbing', () => {
+  it('NYC heat and hot water is act for HVAC and market insight for plumbing', () => {
     for (const title of ['311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', '311 request in New York City: HEAT/HOT WATER / APARTMENT ONLY']) {
       const s = v311('socrata-nyc-311', title, ['hvac', 'plumbing']);
       expect(opportunityFor(s, 'hvac')).toMatchObject({ label: 'act', reason: 'heat-complaint' });
-      expect(label(s, 'plumbing')).toBe('act');
+      expect(opportunityFor(s, 'plumbing')).toMatchObject({ label: 'intel', reason: 'heat-complaint' });
+      expect(opportunityTrades(s)).toEqual({ hvac: 'act', plumbing: 'intel' });
     }
     expect(opportunityTrades(v311('socrata-nyc-311', '311 request in New York City: Non-Residential Heat / Inadequate or No Heat'))).toEqual({ hvac: 'act' });
     expect(label(v311('socrata-cincinnati-311', '311 request in Cincinnati: HEAT, NO HEAT HAZARD'), 'hvac')).toBe('act');
+  });
+
+  it('hot water or water alone out is act for plumbing, with no HVAC', () => {
+    for (const title of ['311 request in New York City: No Hot Water', '311 request in New York City: No Water / ENTIRE BUILDING']) {
+      const s = v311('socrata-nyc-311', title, ['plumbing']);
+      expect(opportunityTrades(s), title).toEqual({ plumbing: 'act' });
+      expect(opportunityFor(s, 'plumbing').reason).toBe('heat-complaint');
+    }
+    // a heat complaint that names no water gives plumbing nothing
+    expect(label(v311('socrata-nyc-311', '311 request in New York City: Non-Residential Heat / Inadequate or No Heat'), 'plumbing')).toBe('context');
   });
 
   it('sewage back-ups are act for plumbing and restoration', () => {
@@ -257,9 +318,9 @@ describe('311: city work is context, with a few private exceptions', () => {
     }
   });
 
-  it('graffiti is act for painting and cleaning only when marked private', () => {
+  it('graffiti is act for painting only when marked private', () => {
     const priv = v311('socrata-sf-311', '311 request in San Francisco: Graffiti Private / not_offensive', ['painting', 'cleaning']);
-    expect(opportunityTrades(priv)).toEqual({ painting: 'act', cleaning: 'act' });
+    expect(opportunityTrades(priv)).toEqual({ painting: 'act' });
     for (const [src, title] of [
       ['socrata-chicago-311', '311 request in Chicago: Graffiti Removal Request'],
       ['socrata-sf-311', '311 request in San Francisco: Graffiti Public / not_offensive'],
@@ -301,12 +362,20 @@ describe('311: city work is context, with a few private exceptions', () => {
 });
 
 describe('inspections and business licences', () => {
-  it('a failed food inspection is act for pest control and commercial cleaning only', () => {
+  it('a failed food inspection is soon for pest control and market insight for commercial cleaning', () => {
     const s = sig('socrata-chicago-inspections', 'civic', 'inspection', 'Failed inspection in Chicago: food establishment', [
       'pest-control', 'cleaning', 'janitorial-commercial', 'plumbing', 'general-contractor',
     ]);
-    expect(opportunityTrades(s)).toEqual({ 'pest-control': 'act', 'janitorial-commercial': 'act' });
+    expect(opportunityTrades(s)).toEqual({ 'pest-control': 'soon', 'janitorial-commercial': 'intel' });
     expect(allContext(sig('socrata-chicago-inspections', 'civic', 'inspection', 'Inspection in Chicago: food establishment (constructed)'))).toBe(true);
+  });
+
+  it('a failed food inspection that names vermin is act for pest control', () => {
+    const cats = ['pest-control', 'cleaning', 'janitorial-commercial', 'plumbing'];
+    for (const text of ['roaches observed', 'evidence of rodent droppings', 'mice in kitchen', 'rats seen', 'flies present']) {
+      const s = sig('socrata-chicago-inspections', 'civic', 'inspection', 'Failed inspection in Chicago: food establishment', cats, { summary: text });
+      expect(opportunityTrades(s), text).toEqual({ 'pest-control': 'act', 'janitorial-commercial': 'intel' });
+    }
   });
 
   it('a new business licence is soon for signs, business services, commercial cleaning and security only', () => {
@@ -356,10 +425,20 @@ describe('weather alerts', () => {
 
 describe('storm reports, disasters, quakes', () => {
   const spc = (title: string, data: Record<string, unknown>) => sig('spc', 'report', null, title, [], { data });
-  it('wind damage is act for tree service and soon for roofing and restoration', () => {
+  it('wind damage naming trees is act for tree service and soon for roofing and restoration', () => {
     const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Tree down blocking entire road in association with convective band. (LOX)' });
     expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'soon', restoration: 'soon' });
     expect(opportunityFor(s, 'tree-service').reason).toBe('storm-damage-report');
+  });
+  it('wind damage naming a roof or tarp is act for roofing, market insight for tree service, soon for restoration', () => {
+    for (const comments of ['Tarp on roof after wind blew shingles off home. (LOX)', 'Siding and gutter torn loose by wind. (LOX)']) {
+      const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments });
+      expect(opportunityTrades(s), comments).toEqual({ 'tree-service': 'intel', roofing: 'act', restoration: 'soon' });
+    }
+  });
+  it('wind damage naming both trees and a roof is act for tree service and roofing', () => {
+    const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Tree limb fell on roof of home. (LOX)' });
+    expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'act', restoration: 'soon' });
   });
   it('a gust with no damage is soon for tree service only', () => {
     const s = spc('60 mph wind gust reported near 1 S Allison, NM', { type: 'wind', windMph: 60, comments: 'Peak wind gust from passing thunderstorm. (ABQ)' });
@@ -395,6 +474,11 @@ describe('asking, federal, events, travel, unknown', () => {
     expect(opportunityFor(bid, 'general-contractor')).toMatchObject({ label: 'act', reason: 'open-bid' });
     const combined = sig('sam-gov', 'contract', null, 'Federal bid in San Diego, CA: H263--ANTI-LIGATURE DOOR ALARM INSTALLATION SERVICES', ['security'], { data: { type: 'Combined Synopsis/Solicitation' } });
     expect(label(combined, 'security')).toBe('act');
+    // no placed city in the title ("Federal bid in <City>, ST:"): worth a look, not Act now
+    const unplaced = sig('sam-gov', 'contract', null, 'Federal bid in OR: Z--Rehab Kiosk Restrooms, NPS-ORCA', ['general-contractor'], { data: { type: 'Solicitation' } });
+    expect(opportunityFor(unplaced, 'general-contractor')).toMatchObject({ label: 'soon', reason: 'bid-notice' });
+    const noPlace = sig('sam-gov', 'contract', null, 'Federal bid: Z--Rehab Kiosk Restrooms', ['general-contractor'], { data: { type: 'Solicitation' } });
+    expect(label(noPlace, 'general-contractor')).toBe('soon');
     const sought = sig('sam-gov', 'contract', null, 'Federal bid in Cleveland, OH: S222--Sources Sought - Hazardous Waste Removal/Disposal', ['junk-removal'], { data: { type: 'Sources Sought' } });
     expect(opportunityFor(sought, 'junk-removal')).toMatchObject({ label: 'soon', reason: 'bid-notice' });
     const award = sig('usaspending', 'contract', null, 'Federal contract ($114K) in Blacksburg, VA: NAICS 561730', ['landscaping', 'lawn-care']);

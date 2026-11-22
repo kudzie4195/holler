@@ -826,6 +826,8 @@ function isCompoundWord(k: string): boolean {
  * initial, honorific, suffix, credential, job title, glued name, or "&" joined to a given name. Needs a marker word that is not a legal
  * form, and two words that are not legal forms. Returns null when it does not hold.
  */
+const GEO_SOFT_WORDS = new Set(['park', 'ridge', 'point', 'hill', 'hills', 'harbor', 'star', 'lake', 'creek', 'river', 'valley', 'summit', 'oak', 'pine', 'cedar', 'blue', 'stone', 'brook', 'glen', 'dale', 'forest', 'meadow', 'bay', 'grove', 'spring', 'springs']);
+
 function rescueMarker(toks: Tok[]): string | null {
   if (toks.length < 2) return null;
   // "City of Marietta", "County of Madison", "State of Georgia": a public body, public by design, even when the place is also a given
@@ -847,6 +849,8 @@ function rescueMarker(toks: Tok[]): string | null {
   let institution = false;
   let surnameWord = false;
   let softGiven = false;
+  let softGivenCount = 0;
+  let nameLike = 0;
   let budget = 0;
   const adjusted: Tok[] = [];
   for (const x of toks) {
@@ -866,7 +870,11 @@ function rescueMarker(toks: Tok[]): string | null {
       continue;
     }
     if (SOFT_NAME_WORDS.has(k) || isCompoundWord(k)) {
-      if (isGiven(k)) softGiven = true;
+      if (isGiven(k)) {
+        softGiven = true;
+        // Landscape and colour words that are also rare given names ("Park", "Ridge", "Blue") do not read as a person's name.
+        if (!GEO_SOFT_WORDS.has(k)) softGivenCount++;
+      }
       adjusted.push({ ...x, kind: 'known', unknown: 0 });
       continue;
     }
@@ -876,6 +884,7 @@ function rescueMarker(toks: Tok[]): string | null {
     }
     if (x.kind === 'unknown' || x.kind === 'surname') {
       budget += x.unknown;
+      nameLike++;
       if (x.kind === 'surname') surnameWord = true;
       adjusted.push(x);
       continue;
@@ -888,6 +897,9 @@ function rescueMarker(toks: Tok[]): string | null {
   // "Queen Bank" stay rejected, "Georgia Tech University" and "Fulton County School District" pass.
   if (institution && (surnameWord || (softGiven && words.length < 3))) return null;
   if (budget > 1) return null;
+  // A given-name word next to another given-name, surname or unknown word reads as a person's full name ("Madison Rose Painting",
+  // "Christian Austin Construction", "Austin Rose Realty"): reject. One given-name word with ordinary words passes ("Madison Electric").
+  if (softGivenCount >= 1 && softGivenCount + nameLike >= 2) return null;
   if (!r10Ok(adjusted)) return null;
   const out = toks.map((x) => x.raw).join(' ');
   return out.length < MIN_LEN || out.length > MAX_LEN ? null : out;

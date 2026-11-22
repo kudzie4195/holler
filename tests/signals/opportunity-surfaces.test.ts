@@ -78,10 +78,17 @@ describe('matching uses the opportunity per trade', () => {
     expect(matchSignals([POTHOLE], [roofer], 25, NOW)).toEqual([]);
   });
 
-  it('a keyword watch (Pro) still matches a record that is context for the trades, and ranks as a Market insight', () => {
+  it('a keyword watch (Pro) still matches a record that is context for the trades, and ranks as Coming soon (emailed, never pushed)', () => {
     const pro = member(['roofing'], { plan: 'pro', subscription_status: 'active', keywords: ['pothole'] });
     expect(matchOne(POTHOLE, pro)).not.toBeNull();
-    expect(hitLabel(POTHOLE, pro)).toBe('intel');
+    expect(hitLabel(POTHOLE, pro)).toBe('soon');
+  });
+
+  it('a keyword-only match outranks a Market insight trade match in the fast path (soon beats intel)', () => {
+    const pro = member(['roofing'], { plan: 'pro', subscription_status: 'active', keywords: ['pothole'] });
+    const intelSevere = rec({ id: 1, severity: 3, occurred_at: ago(1) }); // roof permit: intel for roofing
+    const kwOnly = { ...POTHOLE, id: 2, severity: 1, occurred_at: ago(30) }; // context for roofing, keyword hit
+    expect(matchSignals([intelSevere, kwOnly], [pro], 25, NOW).map((r) => r.signal_id)).toEqual([2, 1]);
   });
 
   it('a row read without its kind throws instead of silently matching nothing', () => {
@@ -110,7 +117,8 @@ describe('matching uses the opportunity per trade', () => {
 
   it('the SQL prefilter categories add the trades whose permitted work this trade follows', () => {
     expect(prefilterCategories(['siding-gutters'])).toEqual(['siding-gutters', 'roofing']);
-    expect(prefilterCategories(['roofing'])).toEqual(['roofing', 'solar']);
+    expect(prefilterCategories(['roofing'])).toEqual(['roofing']); // solar no longer feeds roofing
+    expect(prefilterCategories(['solar'])).toEqual(['solar']);
     expect(prefilterCategories(['flooring'])).toContain('general-contractor');
   });
 });
@@ -133,7 +141,7 @@ describe('memberOpportunity and stored rows', () => {
   it('context for every trade, unless a keyword watch hits', () => {
     expect(memberOpportunity(POTHOLE, ['roofing']).label).toBe('context');
     const kw = memberOpportunity(POTHOLE, ['roofing'], ['pothole']);
-    expect(kw).toMatchObject({ label: 'intel', reason: 'keyword', trade: null });
+    expect(kw).toMatchObject({ label: 'soon', reason: 'keyword', trade: null });
     expect(kw.why).toContain('"pothole"');
   });
 });

@@ -256,7 +256,7 @@ describe('loadCheck query shape', () => {
     const { fake, sc } = await checkZip('10301', 'roofing', []);
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
     expect(rpc).toHaveLength(4);
-    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing', 'solar'], p_limit: 100, p_soonest_first: false, p_min_severity: 1 });
+    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 100, p_soonest_first: false, p_min_severity: 1 });
     expect(Date.parse(rpc[0].args!.p_until) - Date.parse(rpc[0].args!.p_since)).toBe(30 * 86_400_000);
     expect(rpc[1].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_limit: 30, p_min_severity: 1 });
     expect(rpc[2].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_limit: 20, p_min_severity: 2 });

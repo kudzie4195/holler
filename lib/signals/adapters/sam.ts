@@ -201,5 +201,5 @@ export const adapters: Adapter[] = [sam];
 export function isSupplyBuy(naics: string | null | undefined, title: string): boolean {
   const n = (naics ?? '').replace(/\D/g, '');
   if (/^(3[1-3]|42|4[45])/.test(n)) return true;
-  return /^\s*\d{2}--/.test(title);
+  return /^\s*\d{2,4}--/.test(title);
 }

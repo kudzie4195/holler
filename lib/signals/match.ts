@@ -136,12 +136,12 @@ export function bestLabelIn(labels: Partial<Record<string, Opportunity>>, trades
   return best;
 }
 
-/** The label a hit ranks by for this member: their best trade label, or 'intel' for a keyword-only match. */
+/** The label a hit ranks by for this member: their best trade label, or 'soon' for a keyword-only match. */
 export function hitLabel(signal: MatchSignal, profile: MatchProfile): Opportunity {
   const scope = matchScope(profile);
   const l = bestLabelIn(signalTrades(signal), scope.categories);
   if (l !== 'context') return l;
-  return scope.phrases.length > 0 && phraseIndex(searchText(signal), scope.phrases) >= 0 ? 'intel' : 'context';
+  return scope.phrases.length > 0 && phraseIndex(searchText(signal), scope.phrases) >= 0 ? 'soon' : 'context';
 }
 
 function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchScope): { distance_mi: number | null } | null {
@@ -240,7 +240,7 @@ export function matchSignals(signals: MatchSignal[], profiles: MatchProfile[], c
           found = v === 1;
         }
         if (!found) continue;
-        label = 'intel'; // keyword-only match: shown as a Market insight, never pushed
+        label = 'soon'; // keyword-only match: the member asked for this phrase, so it is emailed (never pushed)
       }
       hits.push({ s, distance_mi: where.distance_mi, label });
     }
