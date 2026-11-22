@@ -5,6 +5,7 @@ import { adapters as fema } from './adapters/fema';
 import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
+import { adapters as nycHpdAgents } from './adapters/nyc-hpd-agents';
 import { adapters as arcgis } from './adapters/arcgis';
 import { adapters as arcgisJohnsCreek } from './adapters/arcgis-johnscreek';
 import { adapters as arcgisCobb, COBB_SOURCE_IDS } from './adapters/arcgis-cobb';
@@ -21,6 +22,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...usgs,
   ...faa,
   ...socrata,
+  // PROBATION: NYC heat complaints + HPD managing-agent company; rows go to holler_source_samples only (see the file).
+  ...nycHpdAgents,
   // The Cobb permit layers are built by arcgis-cobb.ts (approximate location marker), so the shared list skips them.
   ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
   ...arcgisCobb,

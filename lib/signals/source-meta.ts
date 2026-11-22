@@ -22,6 +22,7 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "socrata-chicago-inspections": { id: "socrata-chicago-inspections", label: "Chicago open data: food inspections", sourceUrl: "https://data.cityofchicago.org/d/4ijn-s7e5" },
   "socrata-nyc-permits": { id: "socrata-nyc-permits", label: "New York City open data: building permits", sourceUrl: "https://data.cityofnewyork.us/d/rbx6-tga4" },
   "socrata-nyc-311": { id: "socrata-nyc-311", label: "New York City open data: 311 requests", sourceUrl: "https://data.cityofnewyork.us/d/erm2-nwe9" },
+  "nyc-hpd-agents": { id: "nyc-hpd-agents", label: "New York City HPD: managing agents for heat and hot water 311 requests", sourceUrl: "https://data.cityofnewyork.us/d/tesw-yqqr" },
   "socrata-nyc-inspections": { id: "socrata-nyc-inspections", label: "New York City open data: food inspections", sourceUrl: "https://data.cityofnewyork.us/d/43nn-pn8j" },
   "socrata-sf-permits": { id: "socrata-sf-permits", label: "San Francisco open data: building permits", sourceUrl: "https://data.sf.gov/d/i98e-djp9" },
   "socrata-sf-311": { id: "socrata-sf-311", label: "San Francisco open data: 311 requests", sourceUrl: "https://data.sf.gov/d/vw6y-z8j6" },

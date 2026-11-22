@@ -32,6 +32,7 @@ const FIXED: Record<string, Intent> = {
   'websearch-brave': 'asking',
   'websearch-serper': 'asking',
   'holler-request': 'asking',
+  'nyc-hpd-agents': 'demand', // probation: heat complaints joined to the HPD managing agent; never shown to members
   'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
 };
 
