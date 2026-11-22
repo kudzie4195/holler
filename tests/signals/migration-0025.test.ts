@@ -27,4 +27,4 @@ it.skipIf(!hasPglite)('applies twice; RLS on; only service_role has privileges; 
   expect(left).toEqual({ stages: 1, links: 0, orphaned: 1 }); // the history stays, so a permit already updated is never updated again
   await expect(db.exec(`insert into holler_permit_stages (source, permit_id, stage) values ('s','2','final')`)).rejects.toThrow();
   await expect(db.exec(`insert into holler_permit_stages (source, permit_id, stage) values ('s','1','final_inspection')`)).rejects.toThrow(); // one row per (source, permit, stage)
-});
+}, 30_000); // explicit 30 s: booting PGlite and applying 25 migrations took over the default 5 s on a loaded machine (review P2-C)

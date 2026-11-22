@@ -45,11 +45,11 @@ export interface SignalInput {
    */
   permitStage?: PermitStage;
   /**
-   * Permits: when the portal itself says the status last changed (its status date, or a row-update time), ISO, set only on rows that
-   * came from an adapter's stage query (adapters/socrata.ts buildSocrataStageQuery). A recent value counts as a stage CHANGE even for a
-   * permit never seen before (lib/signals/projects.ts). Not stored.
+   * Set only on a row that came from an adapter's STAGE QUERY and was not in the adapter's normal read: a status probe for a permit that
+   * may already be tracked. lib/signals/projects.ts uses it ONLY to move a permit that already has a status history to a new stage; a
+   * probe row of a permit with no history is dropped before anything is stored, carded or logged, and a probe row is never inserted.
    */
-  stageAt?: string;
+  stageProbe?: boolean;
 }
 
 export interface AdapterContext {
@@ -68,6 +68,18 @@ export interface AdapterContext {
    * query makes it only then; absent or false means exactly the fetch an adapter made before 0025.
    */
   stageTracking?: boolean;
+  /** An adapter with a stage query reports how it went (once per fetch). run.ts turns a failure into a note on that source's scan_runs row. */
+  stageOutcome?: (o: StageQueryOutcome) => void;
+}
+
+/** How a stage query went. 'ok' with rows is the normal case; the others are shown to the owner (holler_scan_runs.error, health email). */
+export interface StageQueryOutcome {
+  state: 'ok' | 'rejected' | 'failed' | 'full_page';
+  rows: number;
+  /** The date column the query filtered on. */
+  dateField: string;
+  /** HTTP status when the portal answered. */
+  httpStatus?: number;
 }
 
 export interface Adapter {

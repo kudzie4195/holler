@@ -1,5 +1,5 @@
 import type { Db, SignalRowInput, StoredSignal } from './store';
-import { isTriggerStage, type PermitStage } from './stage';
+import { isTriggerStage, STAGE_RANK, type PermitStage } from './stage';
 import { projectKeyOf, relationOf, sameProject, sourceFamily, type ProjectKey, type ProjectLinkLite, type Relation } from './project';
 
 /**
@@ -16,11 +16,13 @@ import { projectKeyOf, relationOf, sameProject, sourceFamily, type ProjectKey, t
  *               its own (match.ts isFollower). Two permit numbers are two permits: nothing is dropped. A trigger stage (final inspection,
  *               finaled, certificate of occupancy) is written into the data of a row about to be inserted.
  *   record()    after the insert: links the stored rows to their project and logs each follower once (for the quality dashboard).
- *   stages()    after the insert: records each NEW (permit, stage) pair. The first trigger stage of a permit makes ONE update, aimed at the
- *               project's first record: it gets data.permitStage, and is returned so the scan can alert the stage trades (new card for a
- *               member who has none, one re-sent alert for a member who does). The same status read again, or the same row read by the
- *               next scan, finds its pair stored and does nothing. A portal status date inside the stage query's window counts as a
- *               change even for a permit never seen before (SignalInput.stageAt).
+ *   stages()    after the insert: records each NEW (permit, stage) pair (always, so the history builds from normal scans even while the
+ *               stage query is off). Only while HOLLER_STAGE_UPDATES_ENABLED is on, the first trigger stage of a permit makes ONE update,
+ *               aimed at the project's first record: it gets data.permitStage, and is returned so the scan can alert the stage trades (new
+ *               card for a member who has none, one re-sent alert for a member who does). The same status read again, or the same row
+ *               read by the next scan, finds its pair stored and does nothing. A PROBE row (the adapter's stage query, SignalInput.stageProbe)
+ *               is never stored: it counts only for a permit that already has a status history and whose stage is not yet in it; a probe
+ *               of a permit Holler has never tracked creates nothing at all (no row, no card, no history row, no alert).
  * Stored rows are never rewritten in bulk: only the one project row whose stage just changed gets two data keys.
  */
 
@@ -39,8 +41,8 @@ export interface ProjectPlan {
   rows: SignalRowInput[];
   /** External ids of rows stored as followers of an earlier record: they make no card or alert. */
   followers: Set<string>;
-  /** External ids of rows that came only from the stage query (a permit issued before the lookback window): matched to the stage trades only. */
-  stageOnly: Set<string>;
+  /** Probe rows of permits that already have a status history (and a stored row): stage changes only, never inserted. */
+  probes: SignalRowInput[];
   /** One entry per follower, for the quality dashboard. Nothing was dropped. */
   drops: DropRecord[];
   /** Rows to link to their project once their signal ids are known (new rows, and stored rows that were never linked). */
@@ -67,6 +69,7 @@ export function missingTable(e: DbError, table: string): boolean {
 
 const CHUNK = 100;
 const DROP_RETENTION_DAYS = 30;
+export const STAGE_HISTORY_DAYS = 400;
 
 function chunks<T>(arr: readonly T[], n = CHUNK): T[][] {
   const out: T[][] = [];
@@ -74,13 +77,9 @@ function chunks<T>(arr: readonly T[], n = CHUNK): T[][] {
   return out;
 }
 
-/** A row that came only from the stage query: its issue date is kept in data.issuedAt, it is dated at the status change. */
-export const isStageOnly = (r: Pick<SignalRowInput, 'data'>): boolean => typeof r.data?.issuedAt === 'string';
+const linkTimeOf = (r: Pick<SignalRowInput, 'occurredAt'>): string => r.occurredAt;
 
-/** Followers are never compared by the change date: a project is "when it was issued". */
-const linkTimeOf = (r: Pick<SignalRowInput, 'data' | 'occurredAt'>): string => (typeof r.data?.issuedAt === 'string' ? (r.data.issuedAt as string) : r.occurredAt);
-
-const emptyPlan = (rows: SignalRowInput[]): ProjectPlan => ({ rows, followers: new Set(), stageOnly: new Set(), drops: [], toLink: [], rootOf: new Map(), stageHistory: null });
+const emptyPlan = (rows: SignalRowInput[]): ProjectPlan => ({ rows, followers: new Set(), probes: [], drops: [], toLink: [], rootOf: new Map(), stageHistory: null });
 
 export class ProjectStore {
   /** null = not probed yet, true = a read worked, false = off for this scan. */
@@ -90,6 +89,8 @@ export class ProjectStore {
     private readonly db: Db,
     private readonly log: (m: string) => void,
     private readonly now: Date = new Date(),
+    /** HOLLER_STAGE_UPDATES_ENABLED: stage updates (data.permitStage, events, re-sends) happen only while this is true. History is recorded either way. */
+    private readonly updates: boolean = false,
   ) {}
 
   private off(which: keyof typeof TABLES, e: DbError): void {
@@ -104,27 +105,20 @@ export class ProjectStore {
 
   // ---- before the insert ---------------------------------------------------------------------------------------------------------
 
-  async plan(rows: SignalRowInput[]): Promise<ProjectPlan> {
+  async plan(input: SignalRowInput[]): Promise<ProjectPlan> {
+    // Probe rows (the adapter's stage query) are never inserted: they are set apart before anything else.
+    const probesIn = input.filter((r) => r.stageProbe);
+    const rows = input.filter((r) => !r.stageProbe);
     let plan = emptyPlan(rows);
     try {
       await this.planLinks(plan);
-      await this.planStages(plan);
+      await this.planStages(plan, probesIn);
     } catch (e) {
-      // Never fail the scan: hand back the rows exactly as they came (minus stage-only rows, which only make sense with the tables).
+      // Never fail the scan: hand back the rows exactly as they came.
       this.log(`projects: plan skipped: ${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`);
       plan = emptyPlan(rows);
       this.on.stages = false;
     }
-    // A row that came only from the stage query is a permit issued before the lookback window. Without the stage table it must not
-    // become a card: the scan then stores exactly what it stored before 0025.
-    if (this.on.stages !== true) {
-      const keep = (r: SignalRowInput) => !isStageOnly(r);
-      plan.rows = plan.rows.filter(keep);
-      const left = new Set(plan.rows.map((r) => r.externalId));
-      plan.toLink = plan.toLink.filter((k) => left.has(k.row.externalId));
-      plan.drops = plan.drops.filter((d) => left.has(d.externalId));
-    }
-    plan.stageOnly = new Set(plan.rows.filter(isStageOnly).map((r) => r.externalId));
     return plan;
   }
 
@@ -164,6 +158,14 @@ export class ProjectStore {
       }
     }
     this.on.links = true;
+    // A stored link whose first record has no link left (pruned) is its own project again.
+    const linked = new Set(stored.map((l) => `${l.source}\u0000${l.externalId}`));
+    for (const l of stored) {
+      if (l.root && !linked.has(`${l.root.source}\u0000${l.root.externalId}`)) {
+        plan.rootOf.delete(l.externalId);
+        l.root = null;
+      }
+    }
 
     // Rows that already have their own link are settled (a re-read): never compared again, never changed.
     const ownSet = new Set(stored.map((l) => `${l.source}\u0000${l.externalId}`));
@@ -234,12 +236,13 @@ export class ProjectStore {
     }
   }
 
-  private async planStages(plan: ProjectPlan): Promise<void> {
+  private async planStages(plan: ProjectPlan, probesIn: SignalRowInput[]): Promise<void> {
     if (this.on.stages === false) return;
-    const withStage = plan.rows.filter((r) => r.permitStage);
+    const withStage = [...plan.rows.filter((r) => r.permitStage), ...probesIn.filter((r) => r.permitStage)];
     if (withStage.length === 0) return;
     const bySource = new Map<string, string[]>();
     for (const r of withStage) bySource.set(r.source, [...(bySource.get(r.source) ?? []), r.externalId]);
+    // The history is read by permit id whatever its signal_id is (a pruned signal leaves signal_id null: the history stays).
     const history = new Map<string, Set<PermitStage>>();
     for (const [source, ids] of bySource) {
       for (const part of chunks(ids, 200)) {
@@ -253,6 +256,31 @@ export class ProjectStore {
     }
     this.on.stages = true;
     plan.stageHistory = history;
+    if (!this.updates) return; // history only: no stage data on a card, no update, no probe
+    // A probe counts only for a permit that already has a history and whose stage is not in it yet (a normalized status that differs
+    // from what Holler stored). A permit never tracked, or a status already stored (any case, any spacing), creates nothing.
+    plan.probes = probesIn.filter((r) => {
+      const seen = history.get(`${r.source}\u0000${r.externalId}`);
+      return !!r.permitStage && !!seen && seen.size > 0 && !seen.has(r.permitStage);
+    });
+    // A probe of a FOLLOWER permit (stored as another listing of a project) updates the project's first record: read its stored link.
+    if (plan.probes.length && this.on.links !== false) {
+      const bySrc = new Map<string, string[]>();
+      for (const r of plan.probes) bySrc.set(r.source, [...(bySrc.get(r.source) ?? []), r.externalId]);
+      try {
+        for (const [source, ids] of bySrc) {
+          for (const part of chunks(ids, 200)) {
+            const { data, error } = await this.db.from(TABLES.links).select('external_id, root_source, root_external_id').eq('source', source).in('external_id', part);
+            if (error) break;
+            for (const l of (data ?? []) as Array<{ external_id: string; root_source: string | null; root_external_id: string | null }>) {
+              if (l.root_source && l.root_external_id) plan.rootOf.set(l.external_id, { source: l.root_source, externalId: l.root_external_id });
+            }
+          }
+        }
+      } catch {
+        /* without the link the probe updates the permit's own row, which is still a stored record */
+      }
+    }
     // A row about to be inserted that already shows a trigger stage carries it, so its first card says so.
     const at = this.now.toISOString();
     plan.rows = plan.rows.map((r) =>
@@ -321,7 +349,7 @@ export class ProjectStore {
     try {
       if (!plan.stageHistory || this.on.stages !== true) return events;
       const history = plan.stageHistory;
-      const cand = plan.rows.filter((r) => r.permitStage && !history.get(`${r.source}\u0000${r.externalId}`)?.has(r.permitStage));
+      const cand = [...plan.rows, ...plan.probes].filter((r) => r.permitStage && !history.get(`${r.source}\u0000${r.externalId}`)?.has(r.permitStage));
       if (cand.length === 0) return events;
       type Sig = StoredSignal & { data?: Record<string, unknown> | null };
       const insertedBy = new Map<string, Sig>(inserted.filter((s) => s.external_id != null).map((s) => [`${s.source}\u0000${s.external_id}`, s as Sig]));
@@ -354,27 +382,35 @@ export class ProjectStore {
         const k = `${source}\u0000${externalId}`;
         return insertedBy.has(k) ? { sig: insertedBy.get(k), fresh: true } : { sig: existing.get(k), fresh: false };
       };
-      const rows: Array<{ source: string; permit_id: string; stage: PermitStage; signal_id: number; emitted: boolean }> = [];
-      type Meta = { stage: PermitStage; target: Sig; targetFresh: boolean; viaRoot: boolean; emitted: boolean };
+      const rows: Array<{ source: string; permit_id: string; stage: PermitStage; signal_id: number; emitted: boolean; first_seen_at: string }> = [];
+      type Meta = { stage: PermitStage; target: Sig; targetFresh: boolean; viaRoot: boolean; emitted: boolean; orphan: boolean };
       // emitted: the project's ONE update. A later trigger stage of the same permit (final inspection, then finaled) only refreshes the card line.
       const meta = new Map<string, Meta>();
       for (const r of cand) {
         const own = sigOf(r.source, r.externalId);
+        // No stored row (a probe of a permit whose signal was pruned): nothing to update, nothing recorded, nothing announced.
         if (!own.sig || typeof own.sig.id !== 'number') continue;
-        const root = plan.rootOf.get(r.externalId);
-        const t = root ? sigOf(root.source, root.externalId) : own;
+        let root = plan.rootOf.get(r.externalId);
+        let t = root ? sigOf(root.source, root.externalId) : own;
+        // A follower whose first record is gone (pruned) stands on its own: its stage goes to itself and it is no longer a follower.
+        const orphan = !!root && !t.sig;
+        if (orphan) {
+          root = undefined;
+          t = own;
+        }
         const prior = history.get(`${r.source}\u0000${r.externalId}`) ?? new Set<PermitStage>();
         const priorTrigger = [...prior].some((x) => isTriggerStage(x));
         // A permit already stored and never seen before this scan is only a BASELINE (we cannot know when it changed): its stage is
-        // recorded, nothing is updated and nothing is emitted. A change needs an earlier recorded stage, or the portal's own recent
-        // status date (r.stageAt, set by an adapter's stage query).
-        const changed = own.fresh || prior.size > 0 || !!r.stageAt;
+        // recorded, nothing is updated and nothing is emitted. A change needs an earlier recorded stage (probe rows always have one).
+        const changed = own.fresh || prior.size > 0;
         const targetStaged = !!t.sig && !t.fresh && isTriggerStage(t.sig.data?.permitStage);
-        const emitted = isTriggerStage(r.permitStage) && !priorTrigger && changed && !targetStaged;
         const stage = r.permitStage as PermitStage;
-        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: own.sig.id, emitted });
-        const lineOnly = isTriggerStage(r.permitStage) && priorTrigger && !root && !own.fresh;
-        if (t.sig && (emitted || lineOnly)) meta.set(`${r.source}\u0000${r.externalId}\u0000${stage}`, { stage, target: t.sig, targetFresh: t.fresh, viaRoot: !!root, emitted });
+        const emitted = this.updates && isTriggerStage(stage) && !priorTrigger && changed && !targetStaged;
+        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: own.sig.id, emitted, first_seen_at: this.now.toISOString() });
+        // A later trigger stage of an already updated permit only refreshes the card line, and only upward (final inspection never replaces finished).
+        const higher = STAGE_RANK[stage] > (isTriggerStage(t.sig?.data?.permitStage) ? STAGE_RANK[t.sig?.data?.permitStage as PermitStage] : 0);
+        const lineOnly = this.updates && isTriggerStage(stage) && priorTrigger && !root && !own.fresh && higher;
+        if (t.sig && (emitted || lineOnly)) meta.set(`${r.source}\u0000${r.externalId}\u0000${stage}`, { stage, target: t.sig, targetFresh: t.fresh, viaRoot: !!root, emitted, orphan });
       }
       if (rows.length === 0) return events;
       const won = new Set<string>();
@@ -396,7 +432,10 @@ export class ProjectStore {
         // A new card carries its own stage; a project already updated (here or earlier) is not updated again.
         if (!won.has(k) || (m.targetFresh && !m.viaRoot) || done.has(m.target.id)) continue;
         done.add(m.target.id);
-        const data = { ...(m.target.data ?? {}), permitStage: m.stage, permitStageAt: at };
+        const base = { ...(m.target.data ?? {}) };
+        if (m.orphan) delete base.projectOf;
+        // permitStageUpdate marks a stage UPDATE of an already stored project: its email and push are written as updates (lib/signals/stage.ts isStageUpdate).
+        const data = { ...base, permitStage: m.stage, permitStageAt: at, ...(m.emitted ? { permitStageUpdate: true } : {}) };
         const { error } = await this.db.from('holler_signals').update({ data }).eq('id', m.target.id);
         if (error) {
           this.log(`projects: stage update skipped: ${error.message.slice(0, 120)}`);
@@ -418,6 +457,8 @@ export class ProjectStore {
     try {
       const cutoff = new Date(this.now.getTime() - DROP_RETENTION_DAYS * 86_400_000).toISOString();
       await this.db.from(TABLES.drops).delete().lt('dropped_at', cutoff);
+      // The status history keeps 400 days (it must outlive the 120 day signal prune, or a pruned permit could be announced twice).
+      await this.db.from(TABLES.stages).delete().lt('first_seen_at', new Date(this.now.getTime() - STAGE_HISTORY_DAYS * 86_400_000).toISOString());
     } catch {
       /* best effort */
     }
@@ -431,7 +472,7 @@ export class ProjectStore {
  * repeat scan finds nothing to re-send. A card the member already saved or finished is never re-sent: the digest and the push read
  * status = 'new' only. Never throws; returns how many members were re-armed.
  */
-export async function rearmStageAlerts(db: Db, pairs: ReadonlyArray<{ signalId: number; userIds: readonly string[] }>, log: (m: string) => void = () => undefined): Promise<number> {
+export async function rearmStageAlerts(db: Db, pairs: ReadonlyArray<{ signalId: number; userIds: readonly string[] }>, log: (m: string, signalId: number) => void = () => undefined): Promise<number> {
   let n = 0;
   for (const p of pairs) {
     for (const part of chunks([...p.userIds], 200)) {
@@ -439,10 +480,10 @@ export async function rearmStageAlerts(db: Db, pairs: ReadonlyArray<{ signalId: 
         let { error } = await db.from('holler_matches').update({ notified: false, pushed_at: null }).eq('signal_id', p.signalId).in('user_id', part);
         // Before migration 0020 there is no pushed_at column and no push can have been sent.
         if (error && /pushed_at/i.test(error.message ?? '')) ({ error } = await db.from('holler_matches').update({ notified: false }).eq('signal_id', p.signalId).in('user_id', part));
-        if (error) log(`projects: stage alert re-send skipped: ${error.message.slice(0, 120)}`);
+        if (error) log(`projects: stage alert re-send skipped: ${error.message.slice(0, 120)}`, p.signalId);
         else n += part.length;
       } catch (e) {
-        log(`projects: stage alert re-send skipped: ${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`);
+        log(`projects: stage alert re-send skipped: ${e instanceof Error ? e.message.slice(0, 120) : 'unknown'}`, p.signalId);
       }
     }
   }

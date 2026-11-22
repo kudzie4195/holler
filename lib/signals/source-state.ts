@@ -25,6 +25,7 @@
  *
  * Thresholds are all "more than": exactly on a limit is not past it.
  */
+import { isStageNote } from './stage';
 import { DELAYED_FACTOR as GAP_DELAYED_FACTOR, normalGapDays } from './health';
 
 export type SourceState = 'healthy' | 'delayed' | 'degraded' | 'unavailable' | 'not_set_up';
@@ -301,7 +302,7 @@ export function computeSourceStates(input: {
     .sort((a, b) => (ms(b.started_at) as number) - (ms(a.started_at) as number));
   for (const r of sorted) {
     const list = runsBy.get(r.source as string);
-    const sample = { startedAt: r.started_at, fetched: r.fetched, error: r.error };
+    const sample = { startedAt: r.started_at, fetched: r.fetched, error: isStageNote(r.error) ? null : r.error }; // a stage-query note is not a source failure
     if (list) {
       if (list.length < MAX_HISTORY_RUNS) list.push(sample);
     } else runsBy.set(r.source as string, [sample]);

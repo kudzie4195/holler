@@ -26,6 +26,7 @@ import { isAlertLabel, labelForMember } from '@/lib/signals/lead-rules';
 import { matchScope } from '@/lib/plan/scope';
 import type { PushData } from '@/lib/mobile/types';
 import { isFcmConfigured, sendPush, type PushMessage, type SendResult } from './fcm';
+import { isStageUpdate, stageName, STAGE_SELECT } from '@/lib/signals/stage';
 import { allActiveTokens, disableTokens, isMissingTable, type ActiveToken } from './tokens';
 
 type Db = Pick<SupabaseClient, 'from'>;
@@ -41,6 +42,13 @@ export const PUSH_TITLE_MAX = 80;
  * The first guard is pushed_at, set at insert on every history row (lib/signals/quiet-matches.ts).
  */
 export const PUSH_MAX_SIGNAL_AGE_MS = 3 * 86_400_000;
+/**
+ * A stage update is pushed even though its record is old (isNews would refuse a permit filed weeks ago, which is the point of the update),
+ * but only while the stage date itself is this recent. This bypass is for stage updates only; every other match keeps the isNews check.
+ */
+export const PUSH_STAGE_MAX_AGE_MS = 14 * 86_400_000;
+/** A re-sent stage update is an OLD match (created before the push lookback): the second read looks this far back for them. */
+const STAGE_REARM_LOOKBACK_MS = 120 * 86_400_000;
 const CHUNK = 200;
 const PAGE = 1000;
 const MAX_MATCH_PAGES = 10;
@@ -49,7 +57,9 @@ export interface PushEntry {
   /** Matches never pushed to this member (new since the last push). */
   count: number;
   /** The newest of them. `title` is the public signal title. */
-  top: { signalId: number; title: string; city: string | null };
+  top: { signalId: number; title: string; city: string | null; stage?: string | null };
+  /** How many of the counted matches are stage updates (data.permitStageUpdate). */
+  updates?: number;
   /** The matches this notification counts: stamped pushed_at once it is delivered. */
   matchIds: number[];
 }
@@ -97,11 +107,19 @@ export function truncate(text: string, max: number = PUSH_TITLE_MAX): string {
 }
 
 /** The notification for one member: "3 new alerts near Smyrna" (new since the last push), the newest alert's title, and a deep link. Pure. */
-export function buildNotification(entry: Pick<PushEntry, 'count' | 'top'>, memberCity: string | null): { title: string; body: string; data: PushData } {
+export function buildNotification(entry: Pick<PushEntry, 'count' | 'top' | 'updates'>, memberCity: string | null): { title: string; body: string; data: PushData } {
   const count = Math.max(1, Math.floor(entry.count));
   const city = (entry.top.city ?? memberCity ?? '').trim();
   const where = city ? `near ${city}` : 'for you';
-  const title = count === 1 ? `New alert ${where}` : `${count} new alerts ${where}`;
+  const updates = Math.min(count, Math.max(0, Math.floor(entry.updates ?? 0)));
+  // A stage update never says "new": "Update near Smyrna" with the stage in the body.
+  let title = count === 1 ? `New alert ${where}` : `${count} new alerts ${where}`;
+  if (updates === count) title = count === 1 ? `Update ${where}` : `${count} updates ${where}`;
+  else if (updates > 0) title = `${count} alerts ${where}`;
+  if (count === 1 && updates === 1) {
+    const name = stageName(entry.top.stage);
+    return { title, body: truncate(name ? `Stage update, ${name}: ${entry.top.title}` : entry.top.title), data: { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } };
+  }
   const data: PushData =
     count === 1 ? { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } : { type: 'feed', path: '/feed' };
   return { title, body: truncate(entry.top.title), data };
@@ -122,6 +140,10 @@ interface SignalLike {
   categories?: string[] | null;
   /** Multi-county weather alerts: data.alertId (one alert is stored once per county). */
   alertId?: string | null;
+  /** data.permitStage, data.permitStageAt and data.permitStageUpdate (STAGE_SELECT): a stage update bypasses the isNews check. */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
+  permitStageUpdate?: string | boolean | null;
 }
 
 interface MatchLike {
@@ -162,7 +184,8 @@ export function pushEntriesFromMatches(
     // A city bid is never pushed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
     if (bidHidden(s, undefined, now)) continue;
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
-    if (!isNews(s.occurred_at, m.created_at, now)) continue;
+    const stageUpdate = isStageUpdate(s) && now - Date.parse(s.permitStageAt as string) <= PUSH_STAGE_MAX_AGE_MS;
+    if (!stageUpdate && !isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
     if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades))) continue;
     // One weather alert stored once per county is one alert in the count; its other match rows are still stamped with the push.
@@ -174,15 +197,16 @@ export function pushEntriesFromMatches(
     }
     if (alertKey) seenAlerts.set(m.user_id, (seenAlerts.get(m.user_id) ?? new Set<string>()).add(alertKey));
     if (!cur) {
-      out.set(m.user_id, { count: 1, top: { signalId: s.id, title: s.title, city: s.city }, matchIds: [m.id] });
+      out.set(m.user_id, { count: 1, ...(stageUpdate ? { updates: 1 } : {}), top: { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}) }, matchIds: [m.id] });
       newest.set(m.user_id, m.created_at);
       continue;
     }
     if (cur.matchIds.includes(m.id)) continue;
     cur.count++;
+    if (stageUpdate) cur.updates = (cur.updates ?? 0) + 1;
     cur.matchIds.push(m.id);
     if (Date.parse(m.created_at) > Date.parse(newest.get(m.user_id) ?? '')) {
-      cur.top = { signalId: s.id, title: s.title, city: s.city };
+      cur.top = { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}) };
       newest.set(m.user_id, m.created_at);
     }
   }
@@ -200,17 +224,19 @@ export interface NotifyDeps {
 const chunks = <T>(list: T[], n: number): T[][] => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 
 /** Never-pushed new matches of these members since `since`, in pages. 'not_ready' before migration 0020 (no pushed_at column). */
-async function unpushedMatches(db: Db, userIds: string[], since: string): Promise<{ rows: MatchLike[]; error: 'not_ready' | 'failed' | null }> {
+async function unpushedMatches(db: Db, userIds: string[], since: string, before?: string): Promise<{ rows: MatchLike[]; error: 'not_ready' | 'failed' | null }> {
   const rows: MatchLike[] = [];
   for (const ids of chunks(userIds, CHUNK)) {
     for (let page = 0; page < MAX_MATCH_PAGES; page++) {
-      const { data, error } = await db
+      let q = db
         .from('holler_matches')
-        .select('id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId)')
+        .select(`id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
         .in('user_id', ids)
         .eq('status', 'new')
         .is('pushed_at', null)
-        .gte('created_at', since)
+        .gte('created_at', since);
+      if (before) q = q.lt('created_at', before);
+      const { data, error } = await q
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
@@ -295,7 +321,12 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
         matchScope({ categories: p.categories ?? null, lat: null, lon: null, state: null, plan: p.plan ?? null, subscription_status: p.subscription_status, plan_source: p.plan_source ?? null, store_expires_at: p.store_expires_at ?? null }).categories,
       ]),
     );
-    const entries = pushEntriesFromMatches(m.rows, nowMs, tradesByUser);
+    // A re-sent stage update is an old match (created long before the lookback): read those once more, keep ONLY stage updates from them.
+    const sinceMs = nowMs - PUSH_LOOKBACK_MS;
+    const old = await unpushedMatches(db, ready.map((p) => p.user_id), new Date(nowMs - STAGE_REARM_LOOKBACK_MS).toISOString(), new Date(sinceMs).toISOString());
+    if (old.error === 'failed') counts.failed++;
+    const oldUpdates = old.error ? [] : old.rows.filter((r) => isStageUpdate(Array.isArray(r.signal) ? r.signal[0] : r.signal));
+    const entries = pushEntriesFromMatches([...m.rows, ...oldUpdates], nowMs, tradesByUser);
 
     // 4. Claim the hour, send, stamp.
     const dead: string[] = [];

@@ -108,5 +108,57 @@ export function allStageStrings(): string[] {
   return PERMIT_STAGES.map((s) => stageLine(s, '2026-11-22T12:00:00Z')).filter((x): x is string => x !== null);
 }
 
-/** PostgREST select aliases for the two data keys a stage update writes (the pattern of DEADLINE_SELECT and VALUE_SELECT). */
-export const STAGE_SELECT = 'permitStage:data->>permitStage,permitStageAt:data->>permitStageAt';
+/** PostgREST select aliases for the data keys a stage update writes (the pattern of DEADLINE_SELECT and VALUE_SELECT). */
+export const STAGE_SELECT = 'permitStage:data->>permitStage,permitStageAt:data->>permitStageAt,permitStageUpdate:data->>permitStageUpdate';
+
+// ---- the switch -----------------------------------------------------------------------------------------------------------------------
+
+/** Env flag for the stage QUERY and the stage updates it brings. OFF unless "1", "true", "on" or "yes" (any case). Read at call time. */
+export const STAGE_UPDATES_FLAG = 'HOLLER_STAGE_UPDATES_ENABLED';
+const ON = new Set(['1', 'true', 'on', 'yes']);
+export function stageUpdatesEnabled(value: string | undefined = process.env[STAGE_UPDATES_FLAG]): boolean {
+  return ON.has((value ?? '').trim().toLowerCase());
+}
+
+// ---- stage updates as their own kind of message --------------------------------------------------------------------------------
+
+/** Order of the trigger stages: a LOWER stage never rewrites the card line of a higher one. */
+export const STAGE_RANK: Readonly<Record<PermitStage, number>> = { issued: 0, stopped: 0, final_inspection: 1, finaled: 2, certificate_of_occupancy: 3 };
+
+/** Most stage updates one member gets in a UTC day, counted together with the per-scan cap of 25 (lib/signals/match.ts MAX_MATCHES_PER_USER). */
+export const MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY = 5;
+
+/** Short names for the email subject, the digest and the push. */
+const STAGE_NAME: Readonly<Record<PermitStage, string | null>> = { issued: null, stopped: null, final_inspection: 'final inspection', finaled: 'finished', certificate_of_occupancy: 'certificate of occupancy' };
+
+/**
+ * A record row that carries a stage UPDATE (data.permitStageUpdate, written only when a stage change reached an already stored project):
+ * its email and push say "Stage update" and use the date of the change, never "new" and never "N days ago".
+ */
+export function isStageUpdate(row: { permitStage?: unknown; permitStageAt?: unknown; permitStageUpdate?: unknown } | null | undefined): boolean {
+  if (!row) return false;
+  const flag = row.permitStageUpdate === true || row.permitStageUpdate === 'true';
+  return flag && isTriggerStage(row.permitStage) && typeof row.permitStageAt === 'string' && Number.isFinite(Date.parse(row.permitStageAt));
+}
+
+/** "final inspection", "finished" or "certificate of occupancy", or null for a stage that is not a trigger. */
+export function stageName(stage: unknown): string | null {
+  return isPermitStage(stage) ? STAGE_NAME[stage] : null;
+}
+
+/** "Stage update: final inspection, listed by the public source on Nov 22, 2026." (null when this is not a stage update). */
+export function stageUpdateLine(stage: unknown, at: unknown): string | null {
+  const name = stageName(stage);
+  const day = typeof at === 'string' ? dayText(at) : null;
+  return name && day ? `Stage update: ${name}, listed by the public source on ${day}.` : null;
+}
+
+/** Email subject for one stage update: "Update: final inspection on a permit near you". */
+export function stageUpdateSubject(stage: unknown): string | null {
+  const name = stageName(stage);
+  return name ? `Update: ${name} on a permit near you` : null;
+}
+
+/** The scan note written to holler_scan_runs.error when a source's stage query did not work. Not a failure of the source itself. */
+export const STAGE_NOTE_PREFIX = 'stage query:';
+export const isStageNote = (e: unknown): boolean => typeof e === 'string' && e.trim().toLowerCase().startsWith(STAGE_NOTE_PREFIX);

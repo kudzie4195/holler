@@ -161,7 +161,7 @@ describe('2.1 stage tracking: one update, never a new card', () => {
   });
   let current: SignalInput['permitStage'] | undefined;
   const ad = adapterOf('socrata-sf-permits', () => [permit(current)]);
-  const scan = (db: FakeDb, h: number) => runScan({ now: later(h), adapters: [ad], source: ad.id }, asDb(db));
+  const scan = (db: FakeDb, h: number, stageUpdates = true) => runScan({ now: later(h), adapters: [ad], source: ad.id, stageUpdates }, asDb(db));
 
   it('issued, then final inspection (one update to the trades that work on a finished building), then repeats and later stages (none)', async () => {
     const db = new FakeDb({ holler_profiles: [member('landscaper', 'landscaping'), member('roofer', 'roofing')] });
@@ -223,6 +223,20 @@ describe('2.1 stage tracking: one update, never a new card', () => {
     expect(JSON.stringify(signalAt(old, '202611201234'))).toBe(before);
     expect(old.tables.holler_matches).toHaveLength(0);
     expect(old.tables.holler_permit_stages.map((s) => s.stage)).toEqual(['final_inspection']);
+  });
+
+  it('with the flag OFF (the default) the history is still recorded from normal scans, but a stage change updates nobody', async () => {
+    const db = new FakeDb({ holler_profiles: [member('landscaper', 'landscaping')] });
+    current = 'issued';
+    await scan(db, 0, false);
+    db.tables.holler_profiles.push(member('security', 'security'));
+    const before = JSON.stringify(signalAt(db, '202611201234'));
+    const cards = db.tables.holler_matches.length;
+    current = 'final_inspection';
+    await scan(db, 6, false);
+    expect(db.tables.holler_permit_stages.map((x) => x.stage).sort()).toEqual(['final_inspection', 'issued']); // history: still recorded
+    expect(JSON.stringify(signalAt(db, '202611201234'))).toBe(before); // no card line, no marker
+    expect(db.tables.holler_matches).toHaveLength(cards); // no update card, no re-arm
   });
 
   it('a re-roof that reaches final inspection updates nobody (no stage trade is downstream of it)', async () => {

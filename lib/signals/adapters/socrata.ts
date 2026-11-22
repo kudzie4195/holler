@@ -1,5 +1,5 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
-import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
+import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
 import { extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
@@ -516,66 +516,88 @@ export const STAGE_QUERY_DAYS = 3;
 const STAGE_QUERY_TIMEOUT_MS = 8000;
 
 /**
- * The stage query (PLAN-2.0 2.1): permits whose status changed lately, whatever their issue date. One page of LIMIT rows, newest change
- * first. Null for a dataset without a stageQuery, a status column or the permit subtype. With the system column ':updated_at' the row
- * must also have been created before the window (so a re-published or new row never counts as a change) and `$select=:*,*` brings the
- * system columns back.
+ * The stage query (PLAN-2.0 2.1): permits whose status or row changed lately, whatever their issue date. One page of LIMIT rows, newest
+ * change first. Null for a dataset without a stageQuery, a status column or the permit subtype. A row it returns is only a PROBE: it can
+ * move a permit Holler already tracks to a new stage (lib/signals/projects.ts) and it can do nothing else, so a portal that touches
+ * old rows for any reason (a reload, a batch edit) changes nothing. Behind HOLLER_STAGE_UPDATES_ENABLED, and only while 0025 is applied.
  */
 export function buildSocrataStageQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams | null {
   const sq = ds.stageQuery;
   if (!sq || ds.subtype !== 'permit' || !ds.statusField) return null;
   const from = new Date(now.getTime() - STAGE_QUERY_DAYS * 86_400_000);
-  const system = sq.dateField.startsWith(':');
-  const since = system ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
+  const since = sq.dateField.startsWith(':') ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
   const clauses = [`${sq.dateField} > '${since}'`];
-  if (system) clauses.push(`:created_at < '${since}'`);
   if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
   clauses.push(`(${STAGE_STATUS_FRAGMENTS.map((f) => `upper(${ds.statusField}) like '%${f}%'`).join(' OR ')})`);
   const p = new URLSearchParams();
   p.set('$where', clauses.join(' AND '));
   p.set('$order', `${sq.dateField} DESC`);
   p.set('$limit', String(LIMIT));
-  if (system) p.set('$select', ':*, *');
   return p;
 }
 
-/**
- * Parses a stage query response. Keeps only rows that read as final inspection, finished or certificate of occupancy AND carry a
- * change date inside the window. Each row says when the portal changed it (stageAt) and, because it may be a permit issued long ago
- * that Holler never stored (or has pruned), is dated at that change with the issue date kept in data.issuedAt.
- */
-export function parseSocrataStageRows(raw: unknown, ds: SocrataDataset, now: Date = new Date()): SignalInput[] {
-  const sq = ds.stageQuery;
-  if (!sq || !Array.isArray(raw)) return [];
-  const byId = new Map<string, Row>();
-  for (const r of raw) {
-    if (r && typeof r === 'object') byId.set(externalIdFor(r as Row, ds), r as Row);
-  }
-  const system = sq.dateField.startsWith(':');
-  const out: SignalInput[] = [];
-  for (const it of parseSocrataReport(raw, ds).items) {
-    if (!it.permitStage || !isTriggerStage(it.permitStage)) continue;
-    const row = byId.get(it.externalId);
-    const at = row ? toIso(row[sq.dateField], system ? undefined : ds.tz) : null;
-    const t = at ? Date.parse(at) : NaN;
-    if (!at || !Number.isFinite(t) || t > now.getTime() + 86_400_000 || t < now.getTime() - (STAGE_QUERY_DAYS + 1) * 86_400_000) continue;
-    out.push({ ...it, occurredAt: at, stageAt: at, data: { ...(it.data ?? {}), issuedAt: it.occurredAt } });
-  }
-  return out;
+/** Rows of a stage query response that read as final inspection, finished or certificate of occupancy, marked as probes. */
+export function parseSocrataStageRows(raw: unknown, ds: SocrataDataset): SignalInput[] {
+  if (!ds.stageQuery || !Array.isArray(raw)) return [];
+  return parseSocrataReport(raw, ds)
+    .items.filter((it) => it.permitStage && isTriggerStage(it.permitStage))
+    .map((it) => ({ ...it, stageProbe: true }));
 }
 
-/** Main rows plus the stage query's rows: a permit in both keeps its main row and gains the change date; the others are added. */
-export function mergeStageRows(main: SignalInput[], stage: SignalInput[]): SignalInput[] {
-  const byId = new Map(main.map((m) => [m.externalId, m]));
-  const out = [...main];
-  for (const st of stage) {
-    const m = byId.get(st.externalId);
-    if (m) {
-      if (!m.permitStage) m.permitStage = st.permitStage;
-      m.stageAt = st.stageAt;
-    } else out.push(st);
+/** Main rows plus the probe rows of permits the main read did not return. A permit in both keeps its main row. */
+export function mergeStageRows(main: SignalInput[], probes: SignalInput[]): SignalInput[] {
+  const have = new Set(main.map((m) => m.externalId));
+  return [...main, ...probes.filter((p) => !have.has(p.externalId))];
+}
+
+export interface StageQueryRun {
+  outcome: StageQueryOutcome;
+  /** Probe rows (see parseSocrataStageRows). */
+  items: SignalInput[];
+  /** The status text of the first rows, as the portal wrote it (owner dry check only). */
+  sampleStatuses: string[];
+  /** The portal's message when it refused the query (an unknown column), shortened. */
+  message?: string;
+}
+
+/**
+ * Runs the stage query once and says how it went. Never throws. 'rejected' is a portal that answered an error (an unknown date column,
+ * the usual first problem); 'failed' is a timeout or a non-list answer; 'full_page' is a full page of rows (the newest changes are read,
+ * older ones in the same days may not be). Shared by the scan and by the owner's dry check (lib/signals/stage-probe.ts), which writes nothing.
+ */
+export async function runStageQuery(ds: SocrataDataset, doFetch: typeof fetch, headers: Record<string, string>, now: Date): Promise<StageQueryRun> {
+  const dateField = ds.stageQuery?.dateField ?? '';
+  const none = (state: StageQueryOutcome['state'], extra: Partial<StageQueryRun> & { httpStatus?: number } = {}): StageQueryRun => ({
+    outcome: { state, rows: 0, dateField, ...(extra.httpStatus !== undefined ? { httpStatus: extra.httpStatus } : {}) },
+    items: [],
+    sampleStatuses: [],
+    ...(extra.message ? { message: extra.message } : {}),
+  });
+  try {
+    const query = buildSocrataStageQuery(ds, now);
+    if (!query) return none('failed');
+    const res = await doFetch(`https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`, { headers, signal: AbortSignal.timeout(STAGE_QUERY_TIMEOUT_MS) });
+    if (!res.ok) {
+      let message = '';
+      try {
+        const body = (await res.json()) as { message?: unknown; code?: unknown };
+        message = String(body?.message ?? body?.code ?? '').replace(/\s+/g, ' ').slice(0, 120);
+      } catch {
+        /* the body is not JSON: the status code is enough */
+      }
+      return none('rejected', { httpStatus: res.status, message });
+    }
+    const part: unknown = await res.json();
+    if (!Array.isArray(part)) return none('failed', { httpStatus: res.status });
+    const sampleStatuses = part.slice(0, 5).map((r) => trunc(s(r as Row, ds.statusField), 40));
+    return {
+      outcome: { state: part.length >= LIMIT ? 'full_page' : 'ok', rows: part.length, dateField, httpStatus: res.status },
+      items: parseSocrataStageRows(part, ds),
+      sampleStatuses,
+    };
+  } catch (e) {
+    return none('failed', { message: e instanceof Error ? e.message.slice(0, 80) : 'unknown' });
   }
-  return out;
 }
 
 function pages(ds: Pick<SocrataDataset, 'maxPages'>): number {
@@ -648,31 +670,17 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
 }
 
 /**
- * The stage query's rows, or none. Never throws and never costs the main rows: one request, one page, its own short timeout. A portal
- * that answers an error (a status date column that is not there) or a full page of ':updated_at' rows (a column that changes for
- * every row, so it carries no information) gives none, and says so in the log without any error-looking word.
+ * The stage query's probe rows, or none. Never throws and never costs the main rows: one request, one page, its own short timeout. The
+ * outcome goes to ctx.stageOutcome (run.ts writes a failure on that source's scan_runs row); the log line has no error-looking word, so
+ * the source itself is not called broken.
  */
 async function fetchStageRows(ds: SocrataDataset, ctx: AdapterContext, headers: Record<string, string>): Promise<SignalInput[]> {
-  try {
-    const now = ctx.now ?? new Date();
-    const query = buildSocrataStageQuery(ds, now);
-    if (!query) return [];
-    const res = await ctx.fetch(`https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`, { headers, signal: AbortSignal.timeout(STAGE_QUERY_TIMEOUT_MS) });
-    if (!res.ok) {
-      ctx.log(`${ds.id}: stage query not used (code ${res.status}; the date column ${ds.stageQuery?.dateField} needs a live check)`);
-      return [];
-    }
-    const part: unknown = await res.json();
-    if (!Array.isArray(part)) return [];
-    if (ds.stageQuery?.dateField.startsWith(':') && part.length >= LIMIT) {
-      ctx.log(`${ds.id}: stage query not used (a full page of rows changed in ${STAGE_QUERY_DAYS} days, so the update time carries no information)`);
-      return [];
-    }
-    return parseSocrataStageRows(part, ds, now);
-  } catch (e) {
-    ctx.log(`${ds.id}: stage query not used (${e instanceof Error ? e.message.slice(0, 80) : 'unknown'})`);
-    return [];
-  }
+  const run = await runStageQuery(ds, ctx.fetch, headers, ctx.now ?? new Date());
+  ctx.stageOutcome?.(run.outcome);
+  if (run.outcome.state === 'rejected') ctx.log(`${ds.id}: stage query not used (code ${run.outcome.httpStatus}; the date column ${run.outcome.dateField} needs a live check)`);
+  else if (run.outcome.state === 'failed') ctx.log(`${ds.id}: stage query not used (${run.message ?? 'no usable answer'})`);
+  else if (run.outcome.state === 'full_page') ctx.log(`${ds.id}: stage query returned a full page; the newest changes were read`);
+  return run.items;
 }
 
 /** Only verified datasets are enabled by default. */

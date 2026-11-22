@@ -3,10 +3,10 @@ import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
 import { MAX_FUTURE_DAYS } from './run-limits';
-import { matchOne, matchSignals, type MatchRow } from './match';
+import { MAX_MATCHES_PER_USER, matchOne, matchSignals, type MatchRow } from './match';
 import { ProjectStore, rearmStageAlerts } from './projects';
 import { matchScope } from '@/lib/plan';
-import { isStageTrade } from './stage';
+import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
 import {
   getLastRunTimes,
   insertMatches,
@@ -24,7 +24,7 @@ import { remapStoredSignals, type RemapReport } from './mapping/remap';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { normalizeState } from './adapters/usaspending';
 import { pingNewSignals, type PingNewSignalsInput, type PingOutcome } from '@/lib/seo/indexnow';
-import type { Adapter, Severity, SignalInput } from './types';
+import type { StageQueryOutcome, Adapter, Severity, SignalInput } from './types';
 
 export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
 
@@ -41,6 +41,8 @@ export interface SourceResult {
   samples: string[];
   logs: string[];
   error?: string;
+  /** The source's stage query did not work (lib/signals/stage.ts isStageNote). Not a failure of the source: its status stays ok; it is written on the source's scan_runs row. */
+  stageNote?: string;
   /** newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
   latestOccurredAt?: string | null;
   missingEnv?: string[];
@@ -69,6 +71,8 @@ export interface RunOptions {
   now?: Date;
   /** per-adapter timeout in ms (default 40000) */
   adapterTimeoutMs?: number;
+  /** Test hook: stage updates on or off (default: the HOLLER_STAGE_UPDATES_ENABLED flag). */
+  stageUpdates?: boolean;
   /** override adapter list (tests) */
   adapters?: Adapter[];
   fetchImpl?: typeof fetch;
@@ -206,10 +210,11 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   const logs: string[] = [];
   const result: SourceResult = { id: adapter.id, status: 'ok', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs, latestOccurredAt: null, ms: 0 };
   let signals: SignalInput[] = [];
+  let stageOutcome: StageQueryOutcome | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry, stageTracking: !!extra.stageTracking }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry, stageTracking: !!extra.stageTracking, stageOutcome: (o) => { stageOutcome = o; } }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           logs.push(`adapter timeout after ${timeoutMs} ms`);
@@ -218,13 +223,20 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
       }),
     ]);
     const list = Array.isArray(raw) ? raw : [];
-    result.fetched = list.length;
+    // Probe rows (the stage query) are not rows the source published today: they do not count as fetched, parsed or latest.
+    const real = list.filter((x) => !(x && typeof x === 'object' && (x as SignalInput).stageProbe));
+    result.fetched = real.length;
     signals = normalizeSignals(adapter, list, now);
-    result.parsed = signals.length;
-    result.latestOccurredAt = latestOf(signals);
-    result.samples = signals.slice(0, 3).map((s) => s.title);
+    const parsedReal = signals.filter((x) => !x.stageProbe);
+    result.parsed = parsedReal.length;
+    result.latestOccurredAt = latestOf(parsedReal);
+    result.samples = parsedReal.slice(0, 3).map((x) => x.title);
+    if (stageOutcome && (stageOutcome as StageQueryOutcome).state !== 'ok') {
+      const o = stageOutcome as StageQueryOutcome;
+      result.stageNote = `${STAGE_NOTE_PREFIX} ${o.state === 'rejected' ? `date column ${o.dateField} not accepted (code ${o.httpStatus ?? '?'})` : o.state === 'failed' ? 'no usable answer' : 'full page, newest changes only'}`.slice(0, 200);
+    }
     // Adapters swallow errors and return []: an empty result with an error-looking log is a broken source, not a quiet day.
-    if (list.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
+    if (real.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
       result.status = 'error';
       result.error = logs.filter((l) => ERROR_LOG.test(l)).join(' | ').slice(0, 500);
     }
@@ -237,6 +249,34 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   }
   result.ms = Date.now() - t0;
   return { adapter, result, signals, startedAt, health: { ok: result.status !== 'error', error: result.error ?? null } };
+}
+
+/**
+ * Stage updates each member already got in this UTC day: their matches on projects whose stage update was emitted today, not counting
+ * the ones this scan is sending. Never throws; a failed read counts as none (the per-scan room still applies).
+ */
+async function stageUpdatesToday(db: Db, now: Date, exceptSignalIds: readonly number[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const stages = await readAllPages<{ signal_id: number | null }>(
+      (from, to) => db.from('holler_permit_stages').select('signal_id').eq('emitted', true).gte('first_seen_at', dayStart).order('first_seen_at', { ascending: true }).range(from, to),
+      5,
+    );
+    const except = new Set(exceptSignalIds);
+    const ids = [...new Set(stages.map((x) => x.signal_id).filter((x): x is number => typeof x === 'number' && !except.has(x)))];
+    for (let i = 0; i < ids.length; i += 200) {
+      const part = ids.slice(i, i + 200);
+      const matches = await readAllPages<{ user_id: string }>(
+        (from, to) => db.from('holler_matches').select('user_id').in('signal_id', part).order('id', { ascending: true }).range(from, to),
+        10,
+      );
+      for (const m of matches) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
+    }
+  } catch {
+    /* no count: the per-scan room still caps the member */
+  }
+  return out;
 }
 
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
@@ -286,8 +326,10 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   // PLAN-2.0 2.1 and 2.3 (migration 0025). The stage table is probed once, and only when a source in this scan has a stage query: with
   // the table missing no adapter makes that query, so the scan fetches exactly what it fetched before.
   const logsSink: string[] = [];
-  const projects = !dry && db ? new ProjectStore(db, (m) => logsSink.push(m), now) : null;
-  const stageTracking = projects && due.some((a) => a.stageQuery) ? await projects.stageTrackingAvailable() : false;
+  const updatesOn = opts.stageUpdates ?? stageUpdatesEnabled();
+  const projects = !dry && db ? new ProjectStore(db, (m) => logsSink.push(m), now, updatesOn) : null;
+  // The stage query is made only with the flag on AND the stage table there; with either missing the fetch is exactly the pre-0025 one.
+  const stageTracking = projects && updatesOn && due.some((a) => a.stageQuery) ? await projects.stageTrackingAvailable() : false;
   const probeLogs = logsSink.splice(0);
 
   const fetched = await Promise.all(
@@ -331,11 +373,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           await projectStore.record(plan, inserted);
           const events = await projectStore.stages(plan, inserted);
           f.result.logs.push(...logsSink);
-          // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card. A row that
-          // came only from the stage query (a permit issued before the lookback window) goes to the stage trades only, never to everyone.
-          const own = (r: StoredSignal) => (r.external_id != null ? r.external_id : '');
-          storedAll.push(...inserted.filter((r) => !plan.followers.has(own(r)) && !plan.stageOnly.has(own(r))));
-          stageSignals.push(...inserted.filter((r) => plan.stageOnly.has(own(r)) && !plan.followers.has(own(r))));
+          // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card.
+          storedAll.push(...inserted.filter((r) => !(r.external_id != null && plan.followers.has(r.external_id))));
           stageSignals.push(...events);
         } catch (e) {
           f.result.status = 'error';
@@ -352,9 +391,10 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       try {
         const profiles = await loadProfiles(db, now);
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
-        // A stage update (final inspection, finished, certificate of occupancy), or a permit that came only from the stage query: the
-        // project row is matched again, for the stage trades only (a member's own trades, inside the plan's limit). A member with no card
-        // for it gets one new card; a member who already holds the card gets it re-sent once (the stored stage line is already on it).
+        // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
+        // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
+        // holds the card gets it re-sent once as a stage update. Per member: at most MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY a UTC day, and
+        // together with this scan's normal cards inside MAX_MATCHES_PER_USER (a stage update never sits outside the 25).
         const rearm = new Map<number, string[]>();
         if (stageSignals.length) {
           const have = new Set<string>();
@@ -367,20 +407,30 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           } catch {
             /* insertMatches keeps (user, signal) unique anyway */
           }
-          for (const sig of stageSignals) {
-            for (const p of profiles) {
-              // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
-              const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
-              if (mine.length === 0) continue;
+          const usedToday = await stageUpdatesToday(db, now, stageSignals.map((s) => s.id));
+          const normal = new Map<string, number>();
+          for (const r of rows) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
+          for (const p of profiles) {
+            // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
+            const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
+            if (mine.length === 0) continue;
+            const hits: Array<{ sig: StoredSignal; fresh: boolean; distance: number | null; score: number }> = [];
+            for (const sig of stageSignals) {
               const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
               if (!hit || hit.label !== 'coming_soon' || !isStageTrade(hit.trade)) continue;
-              if (have.has(`${p.user_id}\u0000${sig.id}`)) rearm.set(sig.id, [...(rearm.get(sig.id) ?? []), p.user_id]);
-              else rows.push({ user_id: p.user_id, signal_id: sig.id, distance_mi: hit.distance_mi });
+              hits.push({ sig, fresh: !have.has(`${p.user_id}\u0000${sig.id}`), distance: hit.distance_mi, score: hit.score });
+            }
+            if (hits.length === 0) continue;
+            const room = Math.max(0, Math.min(MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY - (usedToday.get(p.user_id) ?? 0), MAX_MATCHES_PER_USER - (normal.get(p.user_id) ?? 0)));
+            hits.sort((x, y) => y.score - x.score || y.sig.id - x.sig.id);
+            for (const h of hits.slice(0, room)) {
+              if (h.fresh) rows.push({ user_id: p.user_id, signal_id: h.sig.id, distance_mi: h.distance });
+              else rearm.set(h.sig.id, [...(rearm.get(h.sig.id) ?? []), p.user_id]);
             }
           }
         }
         await insertMatches(db, rows);
-        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m) => report.sources.find((x) => x.logs)?.logs.push(m));
+        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; report.sources.find((x) => x.id === src)?.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
         await logAlerts(db, alertLogRowsFor(rows, alertSignals, profiles));
@@ -418,7 +468,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             fetched: f.result.fetched,
             inserted: f.result.inserted,
             matched: f.result.matched,
-            error: f.result.error ?? null,
+            error: f.result.error ?? f.result.stageNote ?? null,
           }),
         ),
       );

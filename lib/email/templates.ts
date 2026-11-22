@@ -5,6 +5,7 @@ import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { bidSourceLinkLabel } from '../signals/bid-card';
 import { cardBrief, sourceLine, type CardBrief } from '../signals/brief';
+import { isStageUpdate, stageUpdateLine, stageUpdateSubject } from '../signals/stage';
 import { deadlineLine, OPPORTUNITY_CHIP, orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { TRIAL_DAYS } from '../auth/membership';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
@@ -48,6 +49,8 @@ export interface DigestItem {
   /** Permits: data.permitStage and data.permitStageAt of a stage update (migration 0025 feature). */
   permitStage?: unknown;
   permitStageAt?: string | null;
+  /** Permits: data.permitStageUpdate, true on a record whose stage changed after it was stored. The item then reads "Stage update", never "new". */
+  permitStageUpdate?: unknown;
 }
 
 /** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
@@ -164,6 +167,35 @@ function button(href: string, label: string): string {
   return buttonHtml(escapeHtml(href), escapeHtml(label));
 }
 
+/** True for an item that is a stage update (see lib/signals/stage.ts isStageUpdate). */
+function isUpdateItem(it: DigestItem): boolean {
+  return isStageUpdate({ permitStage: it.permitStage, permitStageAt: it.permitStageAt, permitStageUpdate: it.permitStageUpdate });
+}
+
+/**
+ * The digest subject. One stage update reads "Update: final inspection on a permit near you"; stage updates only read "N permit updates near
+ * you"; a mix says how many are updates. Never "new" for a stage update.
+ */
+export function digestSubject(items: readonly DigestItem[], total: number): string {
+  const updates = items.filter(isUpdateItem);
+  if (updates.length === 0) {
+    return total === 1 ? `1 new thing near you: ${items[0]?.title ?? 'local signal'}`.slice(0, 120) : `${total} new things near you`;
+  }
+  if (total === 1 && updates.length === 1) return stageUpdateSubject(updates[0].permitStage) ?? 'Update on a permit near you';
+  if (updates.length === items.length && total === items.length) return `${total} permit updates near you`;
+  return `${total} things near you, ${updates.length} of them a stage update`;
+}
+
+/** The time part of an item's meta line: a stage update shows the date of the change, never "N days ago" as if the permit were fresh. */
+function metaTime(it: DigestItem, now: Date): string {
+  if (isUpdateItem(it)) {
+    const line = stageUpdateLine(it.permitStage, it.permitStageAt);
+    const m = line?.match(/ on (.+)\.$/);
+    if (m) return `Stage update, ${m[1]}`;
+  }
+  return timeAgo(it.occurredAt, now);
+}
+
 export function renderDigest(opts: {
   businessName: string;
   items: DigestItem[];
@@ -175,18 +207,17 @@ export function renderDigest(opts: {
   const now = opts.now ?? new Date();
   const total = opts.totalCount ?? opts.items.length;
   const more = Math.max(0, total - opts.items.length);
-  const subject = noDash(
-    total === 1
-      ? `1 new thing near you: ${opts.items[0]?.title ?? 'local signal'}`.slice(0, 120)
-      : `${total} new things near you`,
-  );
+  const subject = noDash(digestSubject(opts.items, total));
 
-  // Act Now first (item 0.3); inside a label the order the caller gave is kept.
-  const items = orderByLabel(opts.items, (it) => it.label ?? 'coming_soon');
+  // Act Now first (item 0.3); inside a label stage updates come first, then the order the caller gave (a stable sort).
+  const items = orderByLabel(
+    [...opts.items.filter(isUpdateItem), ...opts.items.filter((it) => !isUpdateItem(it))],
+    (it) => it.label ?? 'coming_soon',
+  );
 
   const htmlItems = items
     .map((it) => {
-      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, metaTime(it, now)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
@@ -200,7 +231,8 @@ export function renderDigest(opts: {
         : '';
       const br = digestBrief(it);
       const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
-      const stageHtml = br.stageLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.stageLine))}</div>` : '';
+      const stageLineText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine;
+      const stageHtml = stageLineText ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(stageLineText))}</div>` : '';
       const briefHtml =
         valueHtml +
         stageHtml +
@@ -230,11 +262,11 @@ export function renderDigest(opts: {
   const textItems = items
     .map((it) => {
       const br = digestBrief(it);
-      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+      const meta = [it.subtype === 'bid' ? 'Open bid' : kindLabel(it.kind), it.place ? noDash(it.place) : null, metaTime(it, now)]
         .filter(Boolean)
         .join(' | ');
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${br.stageLine ? `\n${noDash(br.stageLine)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${(isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine) ? `\n${noDash((isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt) : br.stageLine) as string)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

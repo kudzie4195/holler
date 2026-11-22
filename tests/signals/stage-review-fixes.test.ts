@@ -136,7 +136,7 @@ describe('P2-2: a follower never makes a card, in any matching path', () => {
 describe('P2-1 and P2-2: a stage change reaches the members who hold the card, once, and never makes a second card', () => {
   let stage: SignalInput['permitStage'] = 'issued';
   const a = ad('socrata-sf-permits', () => [newHome('N-1', { permitStage: stage })]);
-  const scan = (db: FakeDb, h: number) => runScan({ now: later(h), adapters: [a], source: a.id }, asDb(db));
+  const scan = (db: FakeDb, h: number) => runScan({ now: later(h), adapters: [a], source: a.id, stageUpdates: true }, asDb(db));
 
   it('re-arms the existing card ONCE (email digest and push), gives a new card to members without one, and never repeats', async () => {
     const db = new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping']), sfMember('roofer', ['roofing'])] });
@@ -176,7 +176,7 @@ describe('P2-1 and P2-2: a stage change reaches the members who hold the card, o
     let s2: SignalInput['permitStage'] = 'issued';
     const b = ad('socrata-sf-permits', () => rows(s2, s1));
     const db = new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping'])] });
-    await runScan({ now: NOW, adapters: [b], source: b.id }, asDb(db));
+    await runScan({ now: NOW, adapters: [b], source: b.id, stageUpdates: true }, asDb(db));
     expect(db.tables.holler_signals).toHaveLength(2);
     expect(signalAt(db, 'A-2')!.data.projectOf).toBe('socrata-sf-permits:A-1');
     expect(db.tables.holler_matches.map((m) => m.signal_id)).toEqual([signalAt(db, 'A-1')!.id]);
@@ -184,7 +184,7 @@ describe('P2-1 and P2-2: a stage change reaches the members who hold the card, o
     db.tables.holler_profiles.push(sfMember('security', ['security']));
 
     s2 = 'final_inspection'; // the follower's permit reaches final inspection first
-    await runScan({ now: later(6), adapters: [b], source: b.id }, asDb(db));
+    await runScan({ now: later(6), adapters: [b], source: b.id, stageUpdates: true }, asDb(db));
     expect(signalAt(db, 'A-1')!.data.permitStage).toBe('final_inspection'); // the project's card carries it
     expect(signalAt(db, 'A-2')!.data.permitStage).toBeUndefined();
     expect(matchesOf(db, 'security').map((m) => m.signal_id)).toEqual([signalAt(db, 'A-1')!.id]); // a card on the first record, none on the follower
@@ -193,7 +193,7 @@ describe('P2-1 and P2-2: a stage change reaches the members who hold the card, o
 
     markSent(db);
     s1 = 'final_inspection'; // the first record's own permit follows: the project is not updated a second time
-    await runScan({ now: later(12), adapters: [b], source: b.id }, asDb(db));
+    await runScan({ now: later(12), adapters: [b], source: b.id, stageUpdates: true }, asDb(db));
     expect(db.tables.holler_matches).toHaveLength(2);
     expect(db.tables.holler_matches.every((m) => m.notified === true)).toBe(true);
     expect(db.tables.holler_permit_stages.filter((s) => s.stage === 'final_inspection')).toHaveLength(2); // each permit keeps its own history
@@ -233,7 +233,7 @@ describe('P3 items', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-describe('P1-2: the stage query (a second, capped read for permits whose status changed lately)', () => {
+describe('P1-2 (redo 2): the stage query is a probe of permits Holler already tracks, never a source of cards', () => {
   const sf = SOCRATA_DATASETS.find((d) => d.id === 'socrata-sf-permits')!;
   const chicago = SOCRATA_DATASETS.find((d) => d.id === 'socrata-chicago-permits')!;
   const austin = SOCRATA_DATASETS.find((d) => d.id === 'socrata-austin-permits')!;
@@ -243,7 +243,7 @@ describe('P1-2: the stage query (a second, capped read for permits whose status 
     location: { type: 'Point', coordinates: [SF.lon, SF.lat] }, ...over,
   });
 
-  it('builds one capped page on the status date (SF) or on the row-update time with a created-before guard (Chicago); none without a status column', () => {
+  it('builds one capped page on the status date (SF) or on the row-update time (Chicago); no created-before guard; none without a status column', () => {
     const q = buildSocrataStageQuery(sf, NOW)!;
     expect(q.get('$where')).toContain("status_date > '2026-11-17T10:00:00'"); // 3 days back, in the portal's own local clock (LA)
     expect(q.get('$where')).toContain("upper(status) like '%FINAL%'");
@@ -253,40 +253,27 @@ describe('P1-2: the stage query (a second, capped read for permits whose status 
     expect(q.get('$select')).toBeNull();
     expect(STAGE_QUERY_DAYS).toBe(3);
     const c = buildSocrataStageQuery(chicago, NOW)!;
-    expect(c.get('$where')).toContain(":updated_at > '2026-11-17T18:00:00'");
-    expect(c.get('$where')).toContain(":created_at < '2026-11-17T18:00:00'");
-    expect(c.get('$select')).toBe(':*, *');
+    expect(c.get('$where')).toContain(":updated_at > '2026-11-17T18:00:00'"); // a Socrata system column is UTC
+    expect(c.get('$where')).not.toContain(':created_at');
+    expect(c.get('$select')).toBeNull();
     expect(buildSocrataStageQuery(austin, NOW)).toBeNull();
     expect(buildSocrataStageQuery({ ...sf, statusField: undefined }, NOW)).toBeNull();
   });
 
-  it('keeps only final-ish rows with a change date in the window; each row is dated at the change, with the issue date kept', () => {
-    const out = parseSocrataStageRows([
-      sfRow('S-1'),
-      sfRow('S-2', { status: 'Final Inspection Failed' }),
-      sfRow('S-3', { status: 'issued' }),
-      sfRow('S-4', { status_date: '2026-10-01T08:00:00.000' }),
-      sfRow('S-5', { status_date: null }),
-    ], sf, NOW);
+  it('keeps only final-ish rows, each marked as a probe (never inserted); the date filter is the portal\'s job', () => {
+    const out = parseSocrataStageRows([sfRow('S-1'), sfRow('S-2', { status: 'Final Inspection Failed' }), sfRow('S-3', { status: 'issued' })], sf);
     expect(out.map((r) => r.externalId)).toEqual(['S-1']);
-    expect(out[0]).toMatchObject({ permitStage: 'finaled', stageAt: '2026-11-20T16:00:00.000Z', occurredAt: '2026-11-20T16:00:00.000Z' });
-    expect(out[0].data).toMatchObject({ issuedAt: '2026-05-01T07:00:00.000Z' });
+    expect(out[0]).toMatchObject({ permitStage: 'finaled', stageProbe: true });
+    expect(out[0]).not.toHaveProperty('stageAt');
   });
 
-  it('a Socrata system column is read as UTC, not as the portal\'s local clock', () => {
-    const row = { ...sfRow('C-1'), permit_: 'C-1', permit_status: 'COMPLETE', ':updated_at': '2026-11-20T03:00:00.000Z' };
-    // Chicago's own columns are not built here: this checks only the date handling, with the SF columns and a system date column
-    const ds = { ...sf, stageQuery: { dateField: ':updated_at' } };
-    const out = parseSocrataStageRows([{ ...row, permit_number: 'C-1' }], ds, NOW);
-    expect(out[0].stageAt).toBe('2026-11-20T03:00:00.000Z');
-  });
-
-  it('merges: a permit in both reads keeps its main row and gains the change date; the others are added', () => {
+  it('merges: a permit in both reads keeps its main row; the others are added as probes', () => {
     const main = [newHome('M-1', { permitStage: 'issued' }), newHome('M-2')];
-    const stage = [newHome('M-1', { permitStage: 'finaled', stageAt: '2026-11-20T16:00:00.000Z' }), newHome('M-3', { permitStage: 'finaled', stageAt: '2026-11-20T16:00:00.000Z' })];
+    const stage = [newHome('M-1', { permitStage: 'finaled', stageProbe: true }), newHome('M-3', { permitStage: 'finaled', stageProbe: true })];
     const merged = mergeStageRows(main, stage);
     expect(merged.map((r) => r.externalId)).toEqual(['M-1', 'M-2', 'M-3']);
-    expect(merged[0]).toMatchObject({ permitStage: 'issued', stageAt: '2026-11-20T16:00:00.000Z', occurredAt: '2026-11-19T06:00:00Z' });
+    expect(merged[0].stageProbe).toBeUndefined();
+    expect(merged[2].stageProbe).toBe(true);
   });
 
   /** A fetch that answers the main query with `main` rows and the stage query with `stage`, and records what was asked. */
@@ -307,10 +294,11 @@ describe('P1-2: the stage query (a second, capped read for permits whose status 
   const sfAdapter = buildSocrataAdapter(sf);
   const ctx = (fetchImpl: typeof fetch, stageTracking?: boolean) => {
     const logs: string[] = [];
-    return { logs, c: { since: NOW, now: NOW, fetch: fetchImpl, env: {}, log: (m: string) => logs.push(m), ...(stageTracking !== undefined ? { stageTracking } : {}) } };
+    const outcomes: Array<{ state: string }> = [];
+    return { logs, outcomes, c: { since: NOW, now: NOW, fetch: fetchImpl, env: {}, log: (m: string) => logs.push(m), stageOutcome: (o: { state: string }) => outcomes.push(o), ...(stageTracking !== undefined ? { stageTracking } : {}) } };
   };
 
-  it('is made only while 0025 is applied: without the flag the adapter fetches exactly one page, as before', async () => {
+  it('is made only while the flag is on and 0025 is applied: without it the adapter fetches exactly one page, as before', async () => {
     const p = portal([sfRow('S-9', { status: 'issued', issued_date: '2026-11-19T00:00:00.000' })], [sfRow('S-1')]);
     expect(sfAdapter.stageQuery).toBe(true);
     const off = ctx(p.fetchImpl);
@@ -321,78 +309,85 @@ describe('P1-2: the stage query (a second, capped read for permits whose status 
     expect(p.asked).toHaveLength(3);
   });
 
-  it('a portal that rejects the date column, or fails, costs nothing: the main rows come back and the log has no error words', async () => {
+  it('a portal that rejects the date column, or fails, costs nothing: the main rows come back, the outcome is reported, the log has no error words', async () => {
     for (const stage of [400, 500, new Error('socket hang up')]) {
       const p = portal([sfRow('S-9', { status: 'issued', issued_date: '2026-11-19T00:00:00.000' })], stage);
-      const { c, logs } = ctx(p.fetchImpl, true);
+      const { c, logs, outcomes } = ctx(p.fetchImpl, true);
       expect((await sfAdapter.fetch(c)).map((r) => r.externalId)).toEqual(['S-9']);
       expect(logs.join(' ')).toMatch(/stage query not used/);
       expect(logs.join(' ')).not.toMatch(/\b(error|failed|failure|timeout|http\s?[45]\d\d|status\s?[45]\d\d)\b/i);
+      expect(outcomes).toHaveLength(1);
+      expect(['rejected', 'failed']).toContain(outcomes[0].state);
     }
   });
 
-  it('a full page of row-update times (a column that changes for every row) is ignored', async () => {
-    const cDs = SOCRATA_DATASETS.find((d) => d.id === 'socrata-norfolk-permits')!;
-    const adapter = buildSocrataAdapter(cDs);
-    const norfolk = (i: number) => ({ permit_number: `NF-${i}`, status: 'Complete', issue_date: '2026-06-01T00:00:00.000', ':updated_at': '2026-11-20T03:00:00.000Z' });
-    const p = portal([], Array.from({ length: 500 }, (_, i) => norfolk(i)));
-    const { c, logs } = ctx(p.fetchImpl, true);
-    expect(await adapter.fetch(c)).toEqual([]);
-    expect(logs.join(' ')).toMatch(/full page/);
-  });
-
   describe('through runScan', () => {
-    const sfAd = (fetchImpl: typeof fetch) => ({ opts: { now: NOW, adapters: [buildSocrataAdapter(sf)], source: 'socrata-sf-permits', fetchImpl } });
+    const history = (id: string, stage: string, signalId: number | null = 7) => ({ source: 'socrata-sf-permits', permit_id: id, stage, signal_id: signalId, emitted: false });
+    const stored = (id: number, ext: string, over: Record<string, unknown> = {}) => ({
+      id, source: 'socrata-sf-permits', external_id: ext, kind: 'permit', title: 'New home permit in San Francisco', summary: 'new construction wood frame | 500 Example Ln',
+      categories: ['general-contractor', 'real-estate', 'moving'], lat: SF.lat, lon: SF.lon, state: 'CA', severity: 1, occurred_at: new Date(NOW.getTime() - 40 * 86_400_000).toISOString(), data: { subtype: 'permit' }, ...over,
+    });
+    const run = (fetchImpl: typeof fetch, h = 0, stageUpdates = true) => ({ now: later(h), adapters: [buildSocrataAdapter(sf)], source: 'socrata-sf-permits', fetchImpl, stageUpdates });
 
-    it('a permit issued months ago (never stored) that is finished now: a new card for the stage trades ONLY, once', async () => {
+    it('DECISION 1: a recently touched permit Holler has never seen creates NOTHING: no row, no card, no history row, no alert', async () => {
       const p = portal([], [sfRow('OLD-1')]);
-      const db = new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping']), sfMember('cleaner', ['cleaning']), sfMember('mover', ['moving']), sfMember('roofer', ['roofing'])] });
-      const r = await runScan(sfAd(p.fetchImpl).opts, asDb(db));
+      const db = new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping']), sfMember('cleaner', ['cleaning']), sfMember('mover', ['moving'])] });
+      const r = await runScan(run(p.fetchImpl), asDb(db));
       expect(r.error).toBeUndefined();
       expect(r.sources[0].status).toBe('ok');
-      const sig = signalAt(db, 'OLD-1')!;
-      expect(sig.occurred_at).toBe('2026-11-20T16:00:00.000Z'); // dated at the change, so it outlives the 120 day prune
-      expect(sig.data).toMatchObject({ permitStage: 'finaled', issuedAt: '2026-05-01T07:00:00.000Z' });
-      expect(db.tables.holler_matches.map((m) => m.user_id).sort()).toEqual(['cleaner', 'landscaper']);
-      expect(db.tables.holler_permit_stages).toEqual([expect.objectContaining({ source: 'socrata-sf-permits', permit_id: 'OLD-1', stage: 'finaled', emitted: true })]);
-      // the next scan reads the same row again: nothing
-      const again = await runScan({ ...sfAd(p.fetchImpl).opts, now: later(6) }, asDb(db));
-      expect(again.sources[0].inserted).toBe(0);
-      expect(db.tables.holler_matches).toHaveLength(2);
-      expect(db.tables.holler_permit_stages).toHaveLength(1);
+      expect(db.tables.holler_signals ?? []).toHaveLength(0);
+      expect(db.tables.holler_matches ?? []).toHaveLength(0);
+      expect(db.tables.holler_permit_stages ?? []).toHaveLength(0);
+      expect(r.sources[0].fetched).toBe(0); // probe rows are not counted as rows the source returned
     });
 
-    it('a stored permit whose status changed: counts as a change even with no earlier history, updates the card, re-arms it once', async () => {
+    it('a stored permit with history whose status changed: updates the card, re-arms it once, new card for a member without one; the repeat does nothing', async () => {
       const p = portal([], [sfRow('OLD-2')]);
-      // the permit was stored 40 days ago (inside the 120 day retention) with its card, and no stage history exists (stored before 0025)
-      const before = new Date(NOW.getTime() - 40 * 86_400_000).toISOString();
       const db = new FakeDb({
         holler_profiles: [sfMember('landscaper', ['landscaping']), sfMember('security', ['security'])],
-        holler_signals: [{ id: 7, source: 'socrata-sf-permits', external_id: 'OLD-2', kind: 'permit', title: 'New home permit in San Francisco', summary: 'new construction wood frame | 500 Example Ln', categories: ['general-contractor', 'real-estate', 'moving'], lat: SF.lat, lon: SF.lon, state: 'CA', severity: 1, occurred_at: before, data: { subtype: 'permit' } }],
+        holler_signals: [stored(7, 'OLD-2')],
+        holler_permit_stages: [history('OLD-2', 'issued')],
         holler_matches: [{ id: 1, user_id: 'landscaper', signal_id: 7, notified: true, pushed_at: 'earlier', status: 'new' }],
       });
-      await runScan(sfAd(p.fetchImpl).opts, asDb(db));
+      await runScan(run(p.fetchImpl), asDb(db));
       expect(db.tables.holler_signals).toHaveLength(1);
-      expect(signalAt(db, 'OLD-2')!.data).toMatchObject({ permitStage: 'finaled' });
+      expect(signalAt(db, 'OLD-2')!.data).toMatchObject({ permitStage: 'finaled', permitStageUpdate: true });
       expect(db.tables.holler_matches.find((m) => m.user_id === 'landscaper')).toMatchObject({ id: 1, notified: false, pushed_at: null });
       expect(matchesOf(db, 'security').map((m) => m.signal_id)).toEqual([7]);
       markSent(db);
-      await runScan({ ...sfAd(p.fetchImpl).opts, now: later(6) }, asDb(db));
-      await runScan({ ...sfAd(p.fetchImpl).opts, now: later(12) }, asDb(db));
+      await runScan(run(p.fetchImpl, 6), asDb(db));
+      await runScan(run(p.fetchImpl, 12), asDb(db));
       expect(db.tables.holler_matches).toHaveLength(2);
       expect(db.tables.holler_matches.every((m) => m.notified === true)).toBe(true);
+    });
+
+    it('a stored permit with NO history (stored before 0025) is not touched by a probe', async () => {
+      const p = portal([], [sfRow('OLD-4')]);
+      const db = new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping'])], holler_signals: [stored(8, 'OLD-4')], holler_matches: [{ id: 1, user_id: 'landscaper', signal_id: 8, notified: true, pushed_at: 'earlier', status: 'new' }] });
+      const before = JSON.stringify(db.tables.holler_signals);
+      await runScan(run(p.fetchImpl), asDb(db));
+      expect(JSON.stringify(db.tables.holler_signals)).toBe(before);
+      expect(db.tables.holler_matches[0].notified).toBe(true);
     });
 
     it('with 0025 NOT applied: no stage query is made, no stage-only card is stored, and the log names the migration', async () => {
       const p = portal([sfRow('MAIN-1', { status: 'issued', issued_date: '2026-11-19T00:00:00.000', status_date: '2026-11-19T00:00:00.000' })], [sfRow('OLD-3')]);
       const db = tablesMissing(new FakeDb({ holler_profiles: [sfMember('landscaper', ['landscaping'])] }));
-      const r = await runScan(sfAd(p.fetchImpl).opts, asDb(db));
+      const r = await runScan(run(p.fetchImpl), asDb(db));
       expect(r.error).toBeUndefined();
       expect(p.asked).toHaveLength(1);
       expect(db.tables.holler_signals.map((s) => s.external_id)).toEqual(['MAIN-1']);
       expect(db.tables.holler_signals[0].data).not.toHaveProperty('permitStage');
       expect(r.sources[0].logs.join(' ')).toMatch(/migration 0025/);
       expect(matchesOf(db, 'landscaper')).toHaveLength(1);
+    });
+
+    it('with the flag OFF: no stage query is made even with 0025 applied', async () => {
+      const p = portal([], [sfRow('OLD-2')]);
+      const db = new FakeDb({ holler_profiles: [], holler_signals: [stored(7, 'OLD-2')], holler_permit_stages: [history('OLD-2', 'issued')] });
+      await runScan(run(p.fetchImpl, 0, false), asDb(db));
+      expect(p.asked).toHaveLength(1);
+      expect(db.tables.holler_permit_stages).toHaveLength(1);
     });
   });
 });
