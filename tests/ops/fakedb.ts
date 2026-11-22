@@ -57,6 +57,8 @@ class Builder implements PromiseLike<{ data: any; error: { message: string } | n
   gte(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] >= v); return this; }
   lt(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] < v); return this; }
   in(c: string, vs: any[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
+  is(c: string, v: null) { this.filters.push((r) => (v === null ? r[c] == null : r[c] === v)); return this; }
+  not(c: string, op: string, v: any) { this.filters.push((r) => (op === 'is' && v === null ? r[c] != null : r[c] !== v)); return this; }
   order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
   range(a: number, b: number) { this.rangeFrom = a; this.rangeTo = b; return this; }
   limit(n: number) { this.limitN = n; return this; }
