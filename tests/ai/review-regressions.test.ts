@@ -429,3 +429,32 @@ describe('review 2: keep rate on the combined realistic set', () => {
     expect((20 - newBad.length) / 20, newBad.join('\n')).toBeGreaterThanOrEqual(0.9);
   });
 });
+
+describe('re-review r17 P2-D: every stored note, version 2 too, is re-checked with today\'s wording rules when read', () => {
+  it('a v2 note stored under an older filter ("a strong lead to pursue") stops showing; clean v1 and v2 notes still show', async () => {
+    const db = new AiFakeDb({
+      holler_signals: [sig(1), sig(2), sig(3), sig(4)],
+      holler_signal_ai: [
+        { signal_id: 1, trades: { roofing: 0.9 }, notes: { roofing: 'This may be a strong lead to pursue for roofers.' }, prompt_v: 2 },
+        { signal_id: 2, trades: { roofing: 0.9 }, notes: { roofing: 'A new build may bring new leads to roofing crews.' }, prompt_v: 2 },
+        { signal_id: 3, trades: { roofing: 0.9 }, notes: { roofing: 'New roofing work may follow this permit.' }, prompt_v: 2 },
+        { signal_id: 4, trades: { roofing: 0.9 }, notes: { roofing: 'Older roofs may have lead flashing to replace.' }, prompt_v: 1 },
+      ],
+    });
+    const m = await notesFor(db as never, [1, 2, 3, 4], ['roofing']);
+    expect([...m.keys()].sort()).toEqual([3, 4]);
+  });
+  it('a v2 note on a contract record keeps the contract exemption (the kind is read for v2 rows too)', async () => {
+    const db = new AiFakeDb({
+      holler_signals: [sig(7, { kind: 'contract' })],
+      holler_signal_ai: [{ signal_id: 7, trades: { roofing: 0.9 }, notes: { roofing: 'The winning contractor may need roofing subs nearby.' }, prompt_v: 2 }],
+    });
+    expect([...(await notesFor(db as never, [7], ['roofing'])).keys()]).toEqual([7]);
+    // Without the kind (another record kind) the same wording is refused: the check really ran for this v2 row.
+    const civic = new AiFakeDb({
+      holler_signals: [sig(8, { kind: 'permit' })],
+      holler_signal_ai: [{ signal_id: 8, trades: { roofing: 0.9 }, notes: { roofing: 'The winning contractor may need roofing subs nearby.' }, prompt_v: 2 }],
+    });
+    expect([...(await notesFor(civic as never, [8], ['roofing'])).keys()]).toEqual([]);
+  });
+});

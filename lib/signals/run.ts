@@ -397,13 +397,13 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         // together with this scan's normal cards inside MAX_MATCHES_PER_USER (a stage update never sits outside the 25).
         const rearm = new Map<number, string[]>();
         if (stageSignals.length) {
-          const have = new Set<string>();
+          const have = new Map<string, string>();
           try {
-            const existing = await readAllPages<{ user_id: string; signal_id: number }>(
-              (from, to) => db.from('holler_matches').select('user_id, signal_id').in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
+            const existing = await readAllPages<{ user_id: string; signal_id: number; status: string | null }>(
+              (from, to) => db.from('holler_matches').select('user_id, signal_id, status').in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
               20,
             );
-            for (const m of existing) have.add(`${m.user_id}\u0000${m.signal_id}`);
+            for (const m of existing) have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
           } catch {
             /* insertMatches keeps (user, signal) unique anyway */
           }
@@ -418,7 +418,10 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             for (const sig of stageSignals) {
               const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
               if (!hit || hit.label !== 'coming_soon' || !isStageTrade(hit.trade)) continue;
-              hits.push({ sig, fresh: !have.has(`${p.user_id}\u0000${sig.id}`), distance: hit.distance_mi, score: hit.score });
+              // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
+              const held = have.get(`${p.user_id}\u0000${sig.id}`);
+              if (held !== undefined && held !== 'new') continue;
+              hits.push({ sig, fresh: held === undefined, distance: hit.distance_mi, score: hit.score });
             }
             if (hits.length === 0) continue;
             const room = Math.max(0, Math.min(MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY - (usedToday.get(p.user_id) ?? 0), MAX_MATCHES_PER_USER - (normal.get(p.user_id) ?? 0)));

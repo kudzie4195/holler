@@ -35,20 +35,21 @@ function conf(v: unknown): number | null {
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1 ? n : null;
 }
 
-/** Last line of defense at read time: the note was checked when it was written; this only refuses anything odd. */
-function safeNote(v: unknown, legacy = false, kind?: string | null): string | null {
+/** Last line of defense at read time: the note was checked when it was written; this refuses anything odd and re-runs the wording rules. */
+function safeNote(v: unknown, kind?: string | null): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   if (!t || t.length > NOTE_MAX_CHARS) return null;
   if (/[\r\n<>@]|https?:|www\.|:\/\/|[\u2013\u2014]/i.test(t)) return null;
-  // Notes written under prompt version 1 were never checked for vendor-chosen, proof, certainty ("you'll win"), "official record" or
-  // damage-verb wording (round 17). Check those now, on read, so they stop showing; version 2 notes were checked when written.
-  if (legacy && wordingViolations(t, { kind }).length > 0) return null;
+  // Every stored note, of any prompt version, is checked again with today's wording rules (banned words, "official record", customer
+  // and lead nouns, certainty, vendor-chosen, proof, damage). Version 1 notes were never checked for most of them, and a note stored
+  // under an older filter stops showing as soon as the filter is tightened (re-review r17 P2-D), without rewriting any row.
+  if (wordingViolations(t, { kind }).length > 0) return null;
   return t;
 }
 
 /**
- * The kind of each signal, for the read-time check of old notes (a civic note may say "a report of a damaged sidewalk", a contract
+ * The kind of each signal, for the read-time check of stored notes (a civic note may say "a report of a damaged sidewalk", a contract
  * award does name its winner). Any error gives an empty map: the check then runs without a kind, which is stricter.
  */
 async function kindsFor(db: Db, ids: number[]): Promise<Map<number, string>> {
@@ -75,13 +76,13 @@ export async function notesFor(db: Db, signalIds: number[], trades: string[]): P
   if (signalIds.length === 0 || trades.length === 0) return out;
   try {
     const rows = await loadRows(db, signalIds);
-    const kinds = await kindsFor(db, rows.filter((r) => (r.prompt_v ?? 1) < 2).map((r) => Number(r.signal_id)));
+    const kinds = await kindsFor(db, rows.map((r) => Number(r.signal_id)));
     for (const r of rows) {
       const notes = r.notes && typeof r.notes === 'object' ? r.notes : {};
       const tr = r.trades && typeof r.trades === 'object' ? r.trades : {};
       let best: { note: string; p: number } | null = null;
       for (const t of trades) {
-        const note = safeNote(notes[t], (r.prompt_v ?? 1) < 2, kinds.get(Number(r.signal_id)));
+        const note = safeNote(notes[t], kinds.get(Number(r.signal_id)));
         if (!note) continue;
         const p = conf(tr[t]) ?? 0;
         if (!best || p > best.p) best = { note, p };

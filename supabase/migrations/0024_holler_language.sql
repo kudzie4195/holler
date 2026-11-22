@@ -8,9 +8,10 @@
 --  3. Column privileges in the model of 0001/0004/0020: RLS decides rows, column grants decide columns. A member may write their own
 --     language (like alert_email and push_alerts). No other column grant changes.
 --
--- Safe before or after the code: with this migration NOT applied, the profile row has no `language` key and the app treats every member
--- as English. The Settings language control is hidden, the alert email, the cards and the drafts render in English exactly as before,
--- and no save ever fails because of the missing column.
+-- Apply at or before the round 17 deploy (LAUNCH.md, "Round 17 order"): /es points readers to the Settings language control, which is
+-- hidden until this runs. Nothing breaks without it: with this migration NOT applied, the profile row has no `language` key and the app
+-- treats every member as English. The Settings language control is hidden, the alert email, the cards and the drafts render in English
+-- exactly as before, and no save ever fails because of the missing column.
 
 alter table public.holler_profiles add column if not exists language text not null default 'en';
 

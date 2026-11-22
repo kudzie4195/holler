@@ -409,7 +409,9 @@ export class ProjectStore {
         // An emitted row names the record that got the update (the project's first record for a follower): the 5-a-day cap
         // (run.ts stageUpdatesToday) counts today's updates through the members' matches on that id, and a follower has none.
         const signalId = emitted && t.sig && typeof t.sig.id === 'number' ? t.sig.id : own.sig.id;
-        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: signalId, emitted, first_seen_at: this.now.toISOString() });
+        // A record inserted in this scan is a NEW card, not an update: its row is not marked emitted, so a project first seen already
+        // final never uses one of the member's 5 updates of the day (re-review P2-C). The history row still blocks a later announcement.
+        rows.push({ source: r.source, permit_id: r.externalId, stage, signal_id: signalId, emitted: emitted && !t.fresh, first_seen_at: this.now.toISOString() });
         // A later trigger stage of an already updated permit only refreshes the card line, and only upward (final inspection never replaces finished).
         const higher = STAGE_RANK[stage] > (isTriggerStage(t.sig?.data?.permitStage) ? STAGE_RANK[t.sig?.data?.permitStage as PermitStage] : 0);
         const lineOnly = this.updates && isTriggerStage(stage) && priorTrigger && !root && !own.fresh && higher;
@@ -438,7 +440,9 @@ export class ProjectStore {
         const base = { ...(m.target.data ?? {}) };
         if (m.orphan) delete base.projectOf;
         // permitStageUpdate marks a stage UPDATE of an already stored project: its email and push are written as updates (lib/signals/stage.ts isStageUpdate).
-        const data = { ...base, permitStage: m.stage, permitStageAt: at, ...(m.emitted ? { permitStageUpdate: true } : {}) };
+        // A first record inserted in this same scan (a new project whose second listing is already final) gets the stage line but no
+        // update mark: it reaches members as a plain new card through normal matching, outside the 5-a-day room (re-review P1-A).
+        const data = { ...base, permitStage: m.stage, permitStageAt: at, ...(m.emitted && !m.targetFresh ? { permitStageUpdate: true } : {}) };
         const { error } = await this.db.from('holler_signals').update({ data }).eq('id', m.target.id);
         if (error) {
           this.log(`projects: stage update skipped: ${error.message.slice(0, 120)}`);

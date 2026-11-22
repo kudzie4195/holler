@@ -69,13 +69,31 @@ function escapeRe(s: string): string {
 
 const NEED_OBJ = new Set(['a', 'an', 'you', 'your', 'help', 'someone', 'service', 'services']);
 /**
- * A claim that someone is a customer or a lead. "lead" counts only as a noun ("new leads", "a lead", "a strong lead", "One lead"),
- * whatever word comes before it: the verb in an honest hedge ("could lead to", "may lead to", "often leads to"), "leading", and the
- * metal and trade terms found on permits and violations ("lead paint", "lead-based paint", "lead pipes", "lead abatement", "lead time")
- * do not (verify-v1 decision 5, final review r17 P1-2). A false hit only drops the note.
+ * A claim that someone is a customer or a lead. "lead" and "leads" count as the noun ("a lead", "a strong lead to pursue", "new leads to
+ * cleaning crews", "Leads ...", "a lead based on this permit", "leadgen"). Kept: the verb in an honest hedge ("could lead to", "may
+ * lead into", "often leads to"), "leading", and the metal and trade terms found on permits and violations ("lead paint", "lead-based
+ * paint", "lead pipe", "lead service line", "lead hazard", "lead abatement", "lead time"). After a determiner or an adjective "lead" is
+ * the noun even before "to" (verify-v1 decision 5, final review r17 P1-2, re-review P2-D). A false hit only drops the note.
  */
-const CUSTOMER =
-  /\b(customers?|clients?|prospects?|buyers?)\b|\bleads\b(?!\s+(?:to|into)\b)|\blead\b(?![\s-]+(?:to|into|paint|pipes?|lines?|service|abatement|based|free|safe|testing|tests?|times?|hazards?|poisoning|exposure|levels?|remediation|inspections?|contamination)\b)/i;
+const LEAD_TERMS =
+  'paint|painted|pipes?|piping|lines?|water|service|abatement|based(?!\\s+on\\b)|free(?!\\s+(?:of|to)\\b)|safe|testing|tests?|times?|hazards?|poisoning|exposure|levels?|remediation|removal|mitigation|inspections?|contamination|contaminated|dust|flashing';
+const LEAD_ADJ = 'new|more|hot|warm|fresh|sales|good|great|strong|solid|real|possible|potential|promising|quality|qualified|your|their|our|the|any|no';
+const CUSTOMER = new RegExp(
+  [
+    '\\b(customers?|clients?|prospects?|buyers?)\\b',
+    // the plural: the noun unless it is the verb ("often leads to"); after a determiner or an adjective it is the noun even before "to"
+    '\\bleads\\b(?!\\s+(?:to|into)\\b)',
+    `\\b(?:${LEAD_ADJ}|some|many|few|several|these|those)\\s+leads\\b`,
+    '^\\s*leads\\b',
+    // the singular after a determiner or an adjective: the noun even before "to" ("a lead to follow", "a strong lead to pursue")
+    `\\b(?:a|an|one|each|every|another|${LEAD_ADJ})\\s+lead\\b(?![\\s-]+(?:${LEAD_TERMS})\\b)`,
+    `\\b(?:a|an)\\s+[a-z]+\\s+lead\\b(?![\\s-]+(?:${LEAD_TERMS})\\b)`,
+    // anywhere else: the noun unless the verb ("could lead to") or a trade term follows; "leadgen" is the noun too
+    `\\blead\\b(?![\\s-]+(?:to|into|${LEAD_TERMS})\\b)`,
+    '\\blead[\\s-]?gen\\b',
+  ].join('|'),
+  'i',
+);
 /** Certainty about work or customers: notes speak of possibilities only ("may", "could"). */
 const CERTAIN =
   /\b(will|won't|wont|guarantee[sd]?|guaranteeing|definitely|certainly|for sure|sure to|bound to)\b|\b(you|they|we|it|this|that|there|who)['\u2019]ll\b|\bgoing\s+to\s+(win|get|land|need|want|hire)\b/i;
