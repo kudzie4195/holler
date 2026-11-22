@@ -73,6 +73,11 @@ export interface SocrataDataset {
   addressFields?: string[];
   /** Overrides the default lookback (days) of the $where window. */
   lookbackOverride?: number;
+  /**
+   * Portals that publish in weekly batches (Los Angeles building permits) put well over 500 rows in one window. With maxPages > 1 the adapter
+   * reads up to this many pages of 500 rows (newest first, id as tie-breaker so pages do not overlap). Default 1 page.
+   */
+  maxPages?: number;
   /** When set, adds `dateField <= now + N days` (0 = never in the future). Needed for upcoming events and for portals that carry future-dated rows. */
   windowForwardDays?: number;
   /** Event permits: column holding the end of the event, used as expiresAt. */
@@ -494,8 +499,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     titleFields: ['restaurant_name'], textFields: ['restaurant_name', 'process_description'], nameField: 'restaurant_name',
     summaryFields: ['process_description', 'score'], addressFields: ['address'], zipField: 'zip_code',
     inspectionSummary: [{ field: 'process_description', kind: 'list', values: AUSTIN_PROCESS_DESCRIPTIONS }, { field: 'score', kind: 'score' }],
-    extraWhere: 'score < 70', isFailure: austinFail, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.austintexas.gov', 'ecmv-9xxi'),
-    fieldSource: 'sourced', note: 'score is a number column (sourced). The < 70 failing threshold is assumed. Dataset last updated 2026-11-01.',
+    extraWhere: 'score < 70', isFailure: austinFail, lookbackOverride: 30, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.austintexas.gov', 'ecmv-9xxi'),
+    fieldSource: 'sourced', note: 'score is a number column (sourced). The < 70 failing threshold is assumed. Dataset last updated 2026-11-01. Round 15 S: never stored a row; no HTTP or shape error was ever recorded (holler_scan_runs.error is null), so the 7 day window on a failing-score-only filter was simply empty while the portal lags weeks behind. Window widened to 30 days (UNVERIFIED live: WebFetch of data.austintexas.gov was denied in that session). If the next run returns rows but stores none, check that inspectionid, lat and lng exist: an old third-party reader of this dataset (rubydoc eaternet) used Address as one location column and no inspection id.',
   },
   // ---- Seattle ----
   {
@@ -518,8 +523,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'permit', subtype: 'permit', idField: 'permit_nbr', dateField: 'issue_date', latField: 'lat', lonField: 'lon',
     titleFields: ['work_desc', 'permit_sub_type'], textFields: ['work_desc', 'permit_type', 'permit_sub_type', 'use_desc'],
     summaryFields: ['permit_type', 'permit_sub_type', 'valuation'], addressFields: ['primary_address'], zipField: 'zip_code',
-    cadenceMinutes: 360, verified: true, verifiedUrl: D('data.lacity.org', 'pi9x-tg5x'), fieldSource: 'sourced',
-    note: 'Last updated 2026-11-08 at time of check. LA 311 and LA inspection datasets: no ID verified, not included.',
+    lookbackOverride: 14, maxPages: 4, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.lacity.org', 'pi9x-tg5x'), fieldSource: 'sourced',
+    note: 'Round 15 S: the portal refreshes WEEKLY (metadata custom field "Refresh rate = Weekly", rowsUpdatedAt 2026-11-16) and issue_date is date-only and runs about 2 days behind the refresh (max issue_date 2026-11-14 on 2026-11-22, 16 rows that day, 225 to 307 on a full day). The old 7 day window went empty 5 days after each refresh, so 3 runs in a row returned 0 rows. 14 days spans one weekly refresh plus its lag; a weekly batch is about 1,500 rows, so up to 4 pages of 500 are read. Repeats are absorbed by unique(source, external_id). LA 311 and LA inspection datasets: no ID verified, not included.',
   },
   // ---- Dallas ----
   {
@@ -565,8 +570,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-batonrouge-311', city: 'Baton Rouge', state: 'LA', tz: 'America/Chicago', domain: 'data.brla.gov', datasetId: '7ixm-mnvx',
     kind: 'civic', subtype: '311', idField: 'id', dateField: 'createdate', latField: 'latitude', lonField: 'longitude',
     titleFields: ['typename'], textFields: ['typename', 'parenttype', 'comments'], summaryFields: ['parenttype', 'typename', 'statusdesc'],
-    typeFilterField: 'typename', cadenceMinutes: 180, verified: true, verifiedUrl: D('data.brla.gov', '7ixm-mnvx'), fieldSource: 'sourced',
-    note: 'Dataset page located via catalog.data.gov (https://catalog.data.gov/dataset/311-citizen-requests-for-service); columns read from metadata. Last updated 2026-10-28.',
+    typeFilterField: 'typename', cadenceMinutes: 180, verified: false, verifiedUrl: D('data.brla.gov', '7ixm-mnvx'), fieldSource: 'sourced',
+    note: 'DISABLED (round 15 S): the feed stopped. Metadata rowsUpdatedAt 2026-10-28 10:26 UTC and max(createdate) = 2026-10-27T22:54 when read on 2026-11-22, although the description says "Updated daily". No other Baton Rouge 311 dataset exists on data.brla.gov (catalog search for "311": only 7ixm-mnvx), and catalog.data.gov shows no retirement or replacement note. The maps.brla.gov ArcGIS service "311_Citizen_Request_for_Service_All_Requests" was not checked (fetch denied) and is not used. Re-enable (verified: true) when max(createdate) is within 3 days of today. Columns read from metadata 2026-11-22: id, statusdesc, createdate, parenttype, typename, comments, latitude, longitude, etc.',
   },
   // ---- Cincinnati ----
   {

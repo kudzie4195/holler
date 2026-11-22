@@ -34,7 +34,6 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "socrata-nola-permits": { id: "socrata-nola-permits", label: "New Orleans open data: building permits", sourceUrl: "https://data.nola.gov/d/rcm3-fn58" },
   "socrata-nola-311": { id: "socrata-nola-311", label: "New Orleans open data: 311 requests", sourceUrl: "https://data.nola.gov/d/2jgv-pqrq" },
   "socrata-batonrouge-permits": { id: "socrata-batonrouge-permits", label: "Baton Rouge open data: building permits", sourceUrl: "https://data.brla.gov/d/7fq7-8j7r" },
-  "socrata-batonrouge-311": { id: "socrata-batonrouge-311", label: "Baton Rouge open data: 311 requests", sourceUrl: "https://data.brla.gov/d/7ixm-mnvx" },
   "socrata-cincinnati-permits": { id: "socrata-cincinnati-permits", label: "Cincinnati open data: building permits", sourceUrl: "https://data.cincinnati-oh.gov/d/thvx-5mem" },
   "socrata-cincinnati-311": { id: "socrata-cincinnati-311", label: "Cincinnati open data: 311 requests", sourceUrl: "https://data.cincinnati-oh.gov/d/gcej-gmiw" },
   "socrata-cambridge-permits": { id: "socrata-cambridge-permits", label: "Cambridge open data: building permits", sourceUrl: "https://data.cambridgema.gov/d/3wsm-e5jx" },

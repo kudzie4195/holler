@@ -1,0 +1,108 @@
+{
+ "_provenance": {
+  "kind": "STORED signal rows (parsed form, public fields), NOT raw SODA rows",
+  "source": "read-only select on holler_signals, project ksctghdtklufgxblueqp",
+  "fetched": "2026-11-22",
+  "note": "WebFetch of data.oaklandca.gov was denied (PROVENANCE_REQUIRED). These are the 8 newest stored rows; newest occurred_at 2026-11-16T06:30:35Z."
+ },
+ "rows": [
+  {
+   "external_id": "1684857",
+   "title": "311 request in Oakland: ILLDUMP / Illegal Dumping - debris, appliances, etc.",
+   "summary": "ILLDUMP | Illegal Dumping - debris, appliances, etc. | PENDING",
+   "occurred_at": "2026-11-16T06:30:35Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94607",
+   "categories": [
+    "junk-removal"
+   ]
+  },
+  {
+   "external_id": "1684853",
+   "title": "311 request in Oakland: ILLDUMP / Illegal Dumping - debris, appliances, etc.",
+   "summary": "ILLDUMP | Illegal Dumping - debris, appliances, etc. | PENDING",
+   "occurred_at": "2026-11-16T05:07:53Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94601",
+   "categories": [
+    "junk-removal"
+   ]
+  },
+  {
+   "external_id": "1684850",
+   "title": "311 request in Oakland: SEWERS / Sewers - Blockage",
+   "summary": "SEWERS | Sewers - Blockage | OPEN",
+   "occurred_at": "2026-11-16T04:38:44Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94605",
+   "categories": [
+    "plumbing"
+   ]
+  },
+  {
+   "external_id": "1684847",
+   "title": "311 request in Oakland: STREETSW / Streets/Sidewalks - Curb & Gutter Repair",
+   "summary": "STREETSW | Streets/Sidewalks - Curb & Gutter Repair | PENDING",
+   "occurred_at": "2026-11-16T04:24:24Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94607",
+   "categories": [
+    "roofing",
+    "siding-gutters"
+   ]
+  },
+  {
+   "external_id": "1684846",
+   "title": "311 request in Oakland: ILLDUMP / Illegal Dumping - debris, appliances, etc.",
+   "summary": "ILLDUMP | Illegal Dumping - debris, appliances, etc. | PENDING",
+   "occurred_at": "2026-11-16T04:05:29Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94619",
+   "categories": [
+    "junk-removal"
+   ]
+  },
+  {
+   "external_id": "1684844",
+   "title": "311 request in Oakland: BLDGMAINT / City Bldg - Structural Issue",
+   "summary": "BLDGMAINT | City Bldg - Structural Issue | PENDING",
+   "occurred_at": "2026-11-16T02:40:48Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94612",
+   "categories": [
+    "general-contractor",
+    "handyman"
+   ]
+  },
+  {
+   "external_id": "1684841",
+   "title": "311 request in Oakland: ILLDUMP / Illegal Dumping - mattress/boxspring",
+   "summary": "ILLDUMP | Illegal Dumping - mattress/boxspring | PENDING",
+   "occurred_at": "2026-11-16T01:00:45Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94601",
+   "categories": [
+    "junk-removal"
+   ]
+  },
+  {
+   "external_id": "1684840",
+   "title": "311 request in Oakland: ILLDUMP / Illegal Dumping - debris, appliances, etc.",
+   "summary": "ILLDUMP | Illegal Dumping - debris, appliances, etc. | PENDING",
+   "occurred_at": "2026-11-16T00:48:53Z",
+   "city": "Oakland",
+   "state": "CA",
+   "zip": "94602",
+   "categories": [
+    "junk-removal"
+   ]
+  }
+ ]
+}

@@ -327,7 +327,6 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'socrata-austin-311': 'coming_soon',
   'socrata-dallas-311': 'coming_soon',
   'socrata-nola-311': 'coming_soon',
-  'socrata-batonrouge-311': 'coming_soon',
   'socrata-cincinnati-311': 'coming_soon',
   'socrata-kansascity-311': 'coming_soon',
   'socrata-cambridge-311': 'coming_soon',
