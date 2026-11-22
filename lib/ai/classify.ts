@@ -97,6 +97,8 @@ Rules for permit and civic records (kind permit or civic, including 311 requests
 - A 311 request, violation or inspection is a report, not a confirmed condition. Say what work it could lead to, not that the problem is real or fixed.
 - Use only what the record says: its type of work, its stage, its kind. Do not add a number, name, place or fact the record does not contain.
 - Weather and storm records never prove damage. If a note mentions damage it must be a possibility.
+- Call a 311 request "this 311 report". Do not use the words request, asked or wants. Describe a reported condition as "reported", for example "a reported broken water main".
+- Do not say a record confirms, proves or verifies anything. Do not say "official record". Do not write numbers as words.
 
 Rules for each note line:
 - At most 140 characters, one plain sentence, US spelling.
@@ -368,10 +370,48 @@ export type RematchFn = (db: Db, signalIds: number[]) => Promise<{ created: numb
  * Unclassified signals whose occurred_at is in the last LOOKBACK_DAYS, newest first (the same window MATCH's remap uses, and it
  * rides the existing holler_signals_occurred_idx). Throws 'not_migrated' when holler_signal_ai cannot be read.
  */
+/** Permit and civic records read by the anti-join, oldest first (PostgREST returns at most 1000 rows per request anyway). */
+export const PRIORITY_READ = 1000;
+
+/**
+ * Permit and civic records that have no holler_signal_ai row yet, OLDEST first, read straight from the database with an anti-join
+ * (holler_signals left join holler_signal_ai, keep the rows where the AI side is null; the foreign key from 0014 makes this a to-one
+ * embed). The newest-first scan below stops after CANDIDATE_WANT rows of any kind, classified ones included, so under a backlog the
+ * oldest unclassified rows would never be seen; this read does not depend on how many other rows there are. Returns [] on any error
+ * (the scan below still runs, as before).
+ */
+export async function loadPriorityBacklog(db: Db, now: Date, limit = PRIORITY_READ): Promise<SignalForAi[]> {
+  const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
+  try {
+    const { data, error } = await db
+      .from('holler_signals')
+      .select('id,source,kind,title,summary,city,state,categories,occurred_at,subtype:data->>subtype,holler_signal_ai(signal_id)')
+      .is('holler_signal_ai', null)
+      .in('kind', ['permit', 'civic'])
+      .gte('occurred_at', since)
+      .order('occurred_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(0, limit - 1);
+    if (error) return [];
+    // The embed column is only there for the filter: drop it, and double-check that no row actually has an AI result.
+    return ((data ?? []) as (SignalForAi & { holler_signal_ai?: unknown })[])
+      .filter((r) => r.holler_signal_ai == null)
+      .map((r) => {
+        const { holler_signal_ai: _drop, ...rest } = r;
+        void _drop;
+        return rest;
+      });
+  } catch {
+    return [];
+  }
+}
+
 export async function loadCandidates(db: Db, now: Date, want: number): Promise<{ signals: SignalForAi[]; scanned: number }> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
-  const out: SignalForAi[] = [];
-  let scanned = 0;
+  const backlog = await loadPriorityBacklog(db, now);
+  const out: SignalForAi[] = [...backlog];
+  const have = new Set(backlog.map((r) => r.id));
+  let scanned = backlog.length;
   for (let page = 0; page < CANDIDATE_MAX_PAGES && out.length < want; page++) {
     const { data, error } = await db
       .from('holler_signals')
@@ -390,7 +430,7 @@ export async function loadCandidates(db: Db, now: Date, want: number): Promise<{
       if (aErr) throw new Error('not_migrated');
       for (const a of (ai ?? []) as { signal_id: number }[]) done.add(Number(a.signal_id));
     }
-    for (const r of rows) if (!done.has(r.id) && out.length < want) out.push(r);
+    for (const r of rows) if (!done.has(r.id) && !have.has(r.id) && out.length < want) out.push(r);
     if (rows.length < CANDIDATE_PAGE) break;
   }
   return { signals: out, scanned };

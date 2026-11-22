@@ -124,3 +124,27 @@ describe('websearch stops early when the key is refused', () => {
     expect(r.calls.length).toBeGreaterThan(2);
   });
 });
+
+// Review P2-6: a partial, differently cased or URL-encoded key echoed by the API must not reach the log.
+describe('review P2-6: partial and encoded keys', () => {
+  const K = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0';
+  const SHORT = 'Ab+Cd/Ef=Gh.Ij~Kl';
+  const cases: Array<[string, string]> = [
+    ['cut-off echo', `{"message":"key ${K.slice(0, 20)} (truncated) invalid"}`],
+    ['split key', `{"message":"bad key ${K.slice(0, 12)} ${K.slice(12)}"}`],
+    ['upper case', `{"message":"x-api-key header was ${K.toUpperCase()}"}`],
+    ['url-encoded short key', `{"message":"key ${encodeURIComponent(SHORT)} invalid"}`],
+    ['raw short key', `{"message":"key ${SHORT} invalid"}`],
+    ['key in a url', `Invalid request GET https://google.serper.dev/search?q=roof&apiKey=${K}`],
+  ];
+  for (const [name, body] of cases) {
+    it(name, async () => {
+      const d = await errorDetail(new Response(body, { status: 401 }), [K, SHORT]);
+      expect(d).toContain('[removed]');
+      for (const piece of [K.slice(0, 8), K.slice(0, 8).toUpperCase(), 'Ab%2BCd', 'Ab+Cd', 'Cd/Ef']) expect(d).not.toContain(piece);
+    });
+  }
+  it('ordinary reasons are not touched', async () => {
+    expect(await errorDetail(new Response('{"message":"Query exceeded credits for this billing period"}', { status: 400 }), [K])).toBe('Query exceeded credits for this billing period');
+  });
+});

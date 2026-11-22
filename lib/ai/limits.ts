@@ -7,7 +7,7 @@ import type { Db } from './budget';
  *
  *  - per run: at most AI_MAX_SIGNALS_PER_RUN records are sent to the model in one cron run (default 200).
  *  - per day: at most AI_MAX_SIGNALS_PER_DAY records are sent to the model in one UTC day (default 1500), counted from the
- *    holler_ai_spend rows of today (every attempt counts, also a failed or timed-out one, because it may have been billed).
+ *    holler_ai_spend rows of today (every attempt that may have been billed counts, a timed-out one too; a call that failed before any response, cost 0, does not).
  *    Reply drafts are not counted.
  *
  * Only records that need a model call count. Skipped sources and cache hits are free and never limited.
@@ -65,15 +65,20 @@ export async function modelSignalsToday(db: Db, now: Date): Promise<number> {
   for (let page = 0; page < 50; page++) {
     const { data, error } = await db
       .from('holler_ai_spend')
-      .select('id,signals')
+      .select('id,kind,signals,cost_usd')
       .in('kind', [...ATTEMPT_KINDS])
       .gte('created_at', since)
       .order('id', { ascending: true })
       .range(offset, offset + 999);
     if (error) throw new Error('day_usage_unreadable');
-    const rows = (data ?? []) as { signals: number | string | null }[];
+    const rows = (data ?? []) as { kind?: string | null; signals: number | string | null; cost_usd?: number | string | null }[];
     if (rows.length === 0) return total;
-    for (const r of rows) total += Math.max(0, Number(r.signals) || 0);
+    for (const r of rows) {
+      // A call that failed before any response (connection refused, bad key) is settled as kind 'error' with cost 0: nothing was
+      // billed and nothing was classified, so it must not use up the day (a gateway outage would otherwise block the rest of the UTC day).
+      if (r.kind === 'error' && Number(r.cost_usd) === 0) continue;
+      total += Math.max(0, Number(r.signals) || 0);
+    }
     offset += rows.length;
   }
   throw new Error('day_usage_too_many_rows');

@@ -99,7 +99,15 @@ class B implements PromiseLike<any> {
     this.filters.push((r) => vs.includes(r[c]));
     return this;
   }
-  is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
+  is(c: string, v: any) {
+    // PostgREST anti-join: .is('holler_signal_ai', null) on holler_signals keeps the rows that have no holler_signal_ai row.
+    if (c === 'holler_signal_ai' && v === null && this.table === 'holler_signals') {
+      this.filters.push((r) => !this.db.tables.holler_signal_ai.some((a) => a.signal_id === r.id));
+      return this;
+    }
+    this.filters.push((r) => (r[c] ?? null) === v);
+    return this;
+  }
   order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
   range(a: number, b: number) { this.from_ = a; this.to_ = b; return this; }
   limit(n: number) { this.lim = n; return this; }

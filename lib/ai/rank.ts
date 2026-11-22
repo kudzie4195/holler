@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { NOTE_MAX_CHARS } from './note-rules';
+import { NOTE_MAX_CHARS, wordingViolations } from './note-rules';
 
 /**
  * Reads for the feed and the digest. No model call: everything comes from holler_signal_ai rows the cron AI step stored.
@@ -15,13 +15,15 @@ interface AiRow {
   signal_id: number;
   trades: Record<string, unknown> | null;
   notes: Record<string, unknown> | null;
+  /** Prompt version the row was written under (0014). A row without one is treated as version 1. */
+  prompt_v?: number | null;
 }
 
 async function loadRows(db: Db, signalIds: number[]): Promise<AiRow[]> {
   const ids = [...new Set(signalIds.filter((n) => Number.isInteger(n)))];
   const out: AiRow[] = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data, error } = await db.from('holler_signal_ai').select('signal_id,trades,notes').in('signal_id', ids.slice(i, i + CHUNK));
+    const { data, error } = await db.from('holler_signal_ai').select('signal_id,trades,notes,prompt_v').in('signal_id', ids.slice(i, i + CHUNK));
     if (error) throw new Error(error.message);
     out.push(...((data ?? []) as AiRow[]));
   }
@@ -34,11 +36,14 @@ function conf(v: unknown): number | null {
 }
 
 /** Last line of defense at read time: the note was checked when it was written; this only refuses anything odd. */
-function safeNote(v: unknown): string | null {
+function safeNote(v: unknown, legacy = false): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   if (!t || t.length > NOTE_MAX_CHARS) return null;
   if (/[\r\n<>@]|https?:|www\.|:\/\/|[\u2013\u2014]/i.test(t)) return null;
+  // Notes written under prompt version 1 were never checked for vendor-chosen, proof, certainty ("you'll win"), "official record" or
+  // damage-verb wording (round 17). Check those now, on read, so they stop showing; version 2 notes were checked when written.
+  if (legacy && wordingViolations(t).length > 0) return null;
   return t;
 }
 
@@ -55,7 +60,7 @@ export async function notesFor(db: Db, signalIds: number[], trades: string[]): P
       const tr = r.trades && typeof r.trades === 'object' ? r.trades : {};
       let best: { note: string; p: number } | null = null;
       for (const t of trades) {
-        const note = safeNote(notes[t]);
+        const note = safeNote(notes[t], (r.prompt_v ?? 1) < 2);
         if (!note) continue;
         const p = conf(tr[t]) ?? 0;
         if (!best || p > best.p) best = { note, p };

@@ -382,6 +382,21 @@ const ERROR_BODY_READ = 2000;
 export function redactSecrets(text: string, knownKeys: Array<string | undefined> = []): string {
   let t = text;
   for (const k of knownKeys) if (k && k.length >= 4) t = t.split(k).join('[removed]');
+  // A part of a key (a cut-off echo, "key abcd1234..."), the key in another case, or the key URL-encoded: any 8+ character run of
+  // key-like characters that, once decoded, is inside a known key (or contains it) goes too.
+  const keys = knownKeys.filter((k): k is string => !!k && k.length >= 8).map((k) => k.toLowerCase());
+  if (keys.length > 0) {
+    t = t.replace(/[A-Za-z0-9_%+/=.~-]{8,}/g, (m) => {
+      let d = m;
+      try {
+        d = decodeURIComponent(m);
+      } catch {
+        // keep the raw run
+      }
+      d = d.toLowerCase();
+      return keys.some((k) => k.includes(d) || d.includes(k)) ? '[removed]' : m;
+    });
+  }
   return t
     .replace(/\b(bearer|basic)\s+[A-Za-z0-9._~+\/=-]{6,}/gi, '$1 [removed]')
     .replace(/((?:api[_-]?key|x-api-key|x-subscription-token|token|secret|authorization|key)["']?\s*[:=]\s*["']?)[^\s"',;&]+/gi, '$1[removed]')
