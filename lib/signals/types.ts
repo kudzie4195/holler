@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
 import type { ContactInput } from '@/lib/contacts/types';
+import type { Db } from './store';
 
 export type SignalKind =
   | 'ask'
@@ -46,6 +47,10 @@ export interface AdapterContext {
   fetch: typeof fetch;
   env: Record<string, string | undefined>;
   log: (m: string) => void;
+  /** Service-role client for the few adapters that keep their own bookkeeping (lib/firecrawl ledger). Absent on a dry run and in unit tests. */
+  db?: Db | null;
+  /** True for a dry scan (?dry=1): fetch and parse only, write nothing anywhere. */
+  dry?: boolean;
 }
 
 export interface Adapter {
@@ -63,5 +68,10 @@ export interface Adapter {
   enabled?: () => boolean;
   /** Name of the env var behind `enabled`, shown when the adapter is switched off (missingEnvFor). Absent: 'feature flag'. City bids: HOLLER_BIDS_ENABLED. */
   flag?: string;
+  /**
+   * More switches that must ALL be on besides `enabled` (the Firecrawl agency feeds need HOLLER_LOCAL_BIDS_ENABLED too). Each off one is
+   * named by missingEnvFor. Absent: none.
+   */
+  extraFlags?: Array<{ name: string; on: () => boolean }>;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

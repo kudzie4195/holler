@@ -87,7 +87,7 @@ interface RunGroup {
 function groupRuns(rows: ScanRunRow[]): RunGroup[] {
   const by = new Map<number, ScanRunRow[]>();
   for (const r of rows) {
-    if (r.source === '_prune') continue;
+    if (r.source === '_prune' || r.source?.startsWith('_')) continue; // markers (_prune, _fc:<source> credit ledger) are not scan sources
     const f = t(r.finished_at);
     if (f === null) continue;
     const list = by.get(f);

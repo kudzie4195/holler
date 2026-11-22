@@ -132,6 +132,13 @@ export async function GET(req: Request) {
     }
   }
   report.sourceStates = sourceStates;
+  // Firecrawl credits and per-source state. Never throws; absent when nothing is configured.
+  try {
+    const { loadFirecrawlHealth } = await import('@/lib/firecrawl/health');
+    report.firecrawl = await loadFirecrawlHealth({ db: admin, now, env: { ...process.env, ...env } });
+  } catch {
+    report.firecrawl = null;
+  }
 
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };

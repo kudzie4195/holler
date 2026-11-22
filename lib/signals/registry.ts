@@ -12,6 +12,7 @@ import { adapters as arcgisCobb, COBB_SOURCE_IDS } from './adapters/arcgis-cobb'
 import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as cityBids } from './adapters/city-bids';
+import { adapters as localBids } from './adapters/bids-local';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
 import { adapters as websearch } from './adapters/websearch';
@@ -32,6 +33,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...sam,
   // City open bids: registered, but off unless HOLLER_BIDS_ENABLED is on (lib/signals/bid-sources.ts).
   ...cityBids,
+  // Atlanta-area county and city bid pages read with Firecrawl: on only with HOLLER_BIDS_ENABLED and FIRECRAWL_API_KEY both set.
+  ...localBids,
   ...ticketmaster,
   ...bluesky,
   ...websearch,

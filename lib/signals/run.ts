@@ -103,6 +103,7 @@ export function missingEnvFor(adapter: Adapter, e: Record<string, string | undef
   // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
   // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
   if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
+  for (const f of adapter.extraFlags ?? []) if (!f.on()) keys.push(f.name);
   return keys;
 }
 
@@ -195,7 +196,7 @@ interface Fetched {
   health?: { ok: boolean; error: string | null };
 }
 
-async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
+async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch, extra: { db?: Db | null; dry?: boolean } = {}): Promise<Fetched> {
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
@@ -204,7 +205,7 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           logs.push(`adapter timeout after ${timeoutMs} ms`);
@@ -282,7 +283,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     due.map((a) => {
       const last = lastRuns[a.id];
       const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, now, timeoutMs, fetchImpl);
+      return fetchOne(a, since, now, timeoutMs, fetchImpl, { db, dry });
     }),
   );
 

@@ -432,6 +432,12 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'bids-sf': 'act_now',
   'bids-la': 'act_now',
   'bids-batonrouge': 'act_now',
+  // Atlanta-area agency pages read with Firecrawl (lib/signals/adapters/bids-local.ts): open solicitations with a due date. Behind the same
+  // flag and FIRECRAWL_API_KEY.
+  'bids-gwinnett': 'act_now',
+  'bids-rockdale': 'act_now',
+  'bids-tucker': 'act_now',
+  'bids-dunwoody': 'act_now',
   'ticketmaster': 'coming_soon',
   // People asking (act_now: someone asked)
   'bluesky': 'act_now',

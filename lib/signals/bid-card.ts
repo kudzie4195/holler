@@ -10,9 +10,17 @@ export const BID_SOURCE_LINK_LABEL = 'Open the source';
 /** Baton Rouge rows link to the City-Parish bid portal, not to a page for that solicitation, so the link says so. */
 export const BID_PORTAL_LINK_LABEL = 'Open the bid portal';
 const PORTAL_LINK_SOURCES = new Set(['bids-batonrouge']);
-/** Text of the source link on a bid card: "Open the bid portal" where the link is a portal, otherwise "Open the source". */
+/**
+ * Rockdale's page has no link per solicitation, so every row links to the county's OWN list page (not a portal): "Open the agency's bid
+ * list". The other Firecrawl agency pages link to a bid document or, when a row has none, to their own list page; "Open the source" fits both.
+ */
+export const BID_LIST_LINK_LABEL = "Open the agency's bid list";
+const LIST_LINK_SOURCES = new Set(['bids-rockdale']);
+/** Text of the source link on a bid card: "Open the bid portal" where the link is a portal, "Open the agency's bid list" where it is the agency's own list page, otherwise "Open the source". */
 export function bidSourceLinkLabel(source: string | null | undefined): string {
-  return source && PORTAL_LINK_SOURCES.has(source) ? BID_PORTAL_LINK_LABEL : BID_SOURCE_LINK_LABEL;
+  if (source && PORTAL_LINK_SOURCES.has(source)) return BID_PORTAL_LINK_LABEL;
+  if (source && LIST_LINK_SOURCES.has(source)) return BID_LIST_LINK_LABEL;
+  return BID_SOURCE_LINK_LABEL;
 }
 export const NO_DUE_DATE_TEXT = 'No due date published';
 
