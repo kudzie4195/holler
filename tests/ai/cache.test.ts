@@ -190,7 +190,9 @@ describe('result cache', () => {
     const { model } = mockModel(() => 'not json');
     await runClassify(opts(db, model));
     expect(db.tables.holler_signal_ai).toHaveLength(0);
-    expect(db.tables.holler_ai_cache).toHaveLength(0);
+    // no result is cached; the only row is the attempt counter of the one record that was sent (lib/ai/poison.ts, model 'poison-attempts')
+    expect(db.tables.holler_ai_cache.filter((r) => r.model !== 'poison-attempts')).toHaveLength(0);
+    expect(db.tables.holler_ai_cache).toHaveLength(1);
   });
 
   it('dry run reports skipped, hits, misses and what would be sent, and writes nothing', async () => {

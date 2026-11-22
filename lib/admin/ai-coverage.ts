@@ -26,6 +26,8 @@ export interface AiCoverage {
   classifiedShare: number | null;
   withNote: number;
   withNoteShare: number | null;
+  /** Records the AI step gave up on after repeated bad model output (holler_signal_ai origin skip, model poison). They keep their rule-based text. */
+  poisonSkipped: number;
   /** New rows dated before the AI step's 14 day window: they can never be classified. */
   outsideWindow: number;
   byKind: Record<(typeof KINDS)[number], { total: number; classified: number }>;
@@ -42,6 +44,7 @@ export function emptyCoverage(status: AiCoverage['status']): AiCoverage {
     classifiedShare: null,
     withNote: 0,
     withNoteShare: null,
+    poisonSkipped: 0,
     outsideWindow: 0,
     byKind: { permit: { total: 0, classified: 0 }, civic: { total: 0, classified: 0 } },
   };
@@ -77,13 +80,17 @@ export async function loadAiCoverage(db: Db, now: Date): Promise<AiCoverage> {
   }
 
   const done = new Map<number, boolean>(); // signal id -> has a note
+  const poison = new Set<number>();
   try {
     for (let i = 0; i < rows.length; i += CHUNK) {
       const ids = rows.slice(i, i + CHUNK).map((r) => r.id);
-      const { data, error } = await db.from('holler_signal_ai').select('signal_id,origin,notes').in('signal_id', ids);
+      const { data, error } = await db.from('holler_signal_ai').select('signal_id,origin,notes,model').in('signal_id', ids);
       if (error) return emptyCoverage('unavailable');
-      for (const a of (data ?? []) as { signal_id: number; origin: string | null; notes: unknown }[]) {
-        if (a.origin === 'skip') continue;
+      for (const a of (data ?? []) as { signal_id: number; origin: string | null; notes: unknown; model?: string | null }[]) {
+        if (a.origin === 'skip') {
+        if (a.model === 'poison') poison.add(Number(a.signal_id));
+        continue;
+      }
         const hasNote = !!a.notes && typeof a.notes === 'object' && Object.keys(a.notes as object).length > 0;
         done.set(Number(a.signal_id), hasNote);
       }
@@ -100,6 +107,7 @@ export async function loadAiCoverage(db: Db, now: Date): Promise<AiCoverage> {
     out.byKind[k].total++;
     const t = r.occurred_at ? Date.parse(r.occurred_at) : NaN;
     if (Number.isFinite(t) && t < windowStart) out.outsideWindow++;
+    if (poison.has(r.id)) out.poisonSkipped++;
     if (done.has(r.id)) {
       out.classified++;
       out.byKind[k].classified++;
@@ -119,6 +127,7 @@ export function aiCoverageLine(c: AiCoverage): string {
   return (
     `AI coverage, last ${c.windowHours} hours: ${c.classified} of ${c.total} new permit and civic rows classified (${p(c.classifiedShare)}), ` +
     `${c.withNote} with a why-it-matters line (${p(c.withNoteShare)}).` +
+    (c.poisonSkipped > 0 ? ` ${c.poisonSkipped} skipped after repeated bad model output.` : '') +
     (c.outsideWindow > 0 ? ` ${c.outsideWindow} are dated before the 14 day window and cannot be classified.` : '') +
     (c.status === 'partial' ? ' Partial: row limit reached, newest rows only.' : '')
   );

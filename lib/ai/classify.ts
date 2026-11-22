@@ -18,6 +18,7 @@ import {
 } from './budget';
 import { cleanNote } from './note-rules';
 import { failedBeforeResponse } from './errors';
+import { MAX_ATTEMPTS, readAttempts, writeAttempt, writeSkipMarkers } from './poison';
 import { dayLimit, modelSignalsToday, pickWithinLimit, runLimit } from './limits';
 
 /**
@@ -643,6 +644,8 @@ export interface RunSummary {
   /** Permit and civic records written this run (any origin): how many, how many changed trades, how many got a note. */
   /** The oldest-first backlog read (anti-join) failed and the plain newest-first scan was used instead: the PostgREST error code, else null. */
   backlogFallback: string | null;
+  /** Records marked skipped this run because they came back with bad output MAX_ATTEMPTS times (lib/ai/poison.ts). They show no AI note. */
+  poisonSkipped: number;
   byKind: Record<'permit' | 'civic', { classified: number; applied: number; withNote: number }>;
   alerts: AlertKind[];
   elapsedMs: number;
@@ -731,6 +734,7 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     worstCaseUsd: 0,
     limits: { perRun: runLimit(env), perDay: dayLimit(env), usedToday: null, allowed: null, deferred: 0 },
     backlogFallback: null,
+    poisonSkipped: 0,
     byKind: { permit: { classified: 0, applied: 0, withNote: 0 }, civic: { classified: 0, applied: 0, withNote: 0 } },
     alerts: [],
     elapsedMs: 0,
@@ -838,8 +842,17 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     s.limits.deferred = deferred;
     if (!s.reason && toSend.length === 0 && allowed === 0 && s.limits.usedToday !== null && s.limits.usedToday >= s.limits.perDay) s.reason = 'day_limit';
   }
+  // Bounded retries (lib/ai/poison.ts): a record that already has attempts goes alone; one at MAX_ATTEMPTS is skipped, not sent.
+  const attempts = new Map<number, number>();
+  const exhausted: (Prepared & { key: string })[] = [];
+  if (toSend.length > 0 && (authOk || o.dry)) {
+    for (const [id, n] of await readAttempts(o.db, toSend.map((p) => p.sig.id))) attempts.set(id, n);
+    for (const p of toSend) if ((attempts.get(p.sig.id) ?? 0) >= MAX_ATTEMPTS) exhausted.push(p);
+    if (exhausted.length > 0) toSend = toSend.filter((p) => !exhausted.includes(p));
+  }
   s.sentToModel = toSend.length;
-  const batches = planBatches(toSend);
+  const solo = toSend.filter((p) => (attempts.get(p.sig.id) ?? 0) > 0);
+  const batches = [...solo.map((p) => [p]), ...planBatches(toSend.filter((p) => !solo.includes(p)))];
   s.batchesPlanned = batches.length;
 
   if (o.dry) {
@@ -867,6 +880,11 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
   };
 
   let stop: StopReason | null = null;
+  /** Mark a record, and the records that share its text, skipped. Counted only when the write went through. */
+  const markPoison = async (p: Prepared & { key: string }): Promise<void> => {
+    const group = [p, ...(followers.get(p.key) ?? [])];
+    if (await writeSkipMarkers(o.db, group.map((g) => g.sig.id), PROMPT_V)) s.poisonSkipped += group.length;
+  };
   const kindOf = new Map<number, string>(prepared.map((p) => [p.sig.id, (p.sig.kind ?? '').toLowerCase()]));
 
   /** One all-or-nothing write, then rematch for the changed ids. False when the write failed. */
@@ -906,6 +924,9 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     }
     return true;
   };
+
+  // 1b. Records that already used up their attempts (an earlier run could not write the marker): mark them now, no model call.
+  for (const p of exhausted) await markPoison(p);
 
   // 2. Free writes first: skipped sources and cache hits. No model, no gateway, no spend.
   const free: { row: ApplyRow; dropped: number }[] = [
@@ -975,6 +996,14 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
         s.batchesFailed++;
         fail(call.reason);
         if (call.reason === 'bad_output') {
+          // One attempt for every record in this call (only a call that answered with bad output counts; an outage never does). Such a
+          // record goes alone next run, and at MAX_ATTEMPTS it is skipped for good.
+          for (const p of batch) {
+            const n = (attempts.get(p.sig.id) ?? 0) + 1;
+            attempts.set(p.sig.id, n);
+            await writeAttempt(o.db, p.sig.id, n, PROMPT_V);
+            if (n >= MAX_ATTEMPTS) await markPoison(p);
+          }
           // The model answered: book its usage (or the worst case when none was reported).
           book(await settle(o.db, res.id, { kind: 'error', inputTokens: call.inputTokens, outputTokens: call.outputTokens, gatewayCostUsd: call.gatewayCostUsd, price, estimateUsd: res.estimateUsd }));
           s.spend.inputTokens += call.inputTokens ?? 0;
