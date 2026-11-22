@@ -301,7 +301,7 @@ describe('P1 Cobb County: matched across the county, labelled as approximate, ne
     expect(html).toContain(note.replace(/'/g, '&#x27;')); // React escapes the apostrophe
     expect(html).not.toContain('2 mi');
     const page = readFileSync('app/app/page.tsx', 'utf8');
-    expect(page).toMatch(/approxNote: hasApproxLocation\(s\) \? approxLocationNote\(s\) : null/);
+    expect(page).toMatch(/approxNote: hasApproxLocation\(s\) \? approxLocationNote\(s, lang\) : null/);
     const mobile = readFileSync('lib/mobile/feed.ts', 'utf8');
     expect(mobile).toMatch(/place: hasApproxLocation\(s\) \? approxLocationNote\(s\)/);
   });

@@ -27,6 +27,7 @@ function groups(contact: string | null): { title: string; links: FooterLink[] }[
         { href: '/#how', label: 'How it works' },
         { href: '/storms', label: 'Storm reports' },
         { href: '/request', label: 'Request a service' },
+        { href: '/es', label: 'Español' },
       ],
     },
     { title: 'Trades', links: FOOTER_TRADES },

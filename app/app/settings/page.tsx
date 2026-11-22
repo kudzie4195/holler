@@ -5,6 +5,9 @@ import { Card } from '@/components/card';
 import { DeleteAccount } from '@/components/delete-account';
 import { Notice } from '@/components/notice';
 import { ProfileForm } from '@/components/profile-form';
+import { LanguageForm } from '@/components/language-form';
+import { hasLanguageSetting } from '@/lib/auth/language';
+import { langOfProfile, t } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
 import { requireProfile } from '@/lib/auth/session';
 import { hasEnv } from '@/lib/env';
@@ -16,7 +19,7 @@ import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { readShadowStore } from '@/lib/storebilling/shadow';
 import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { saveSettings } from './actions';
+import { saveLanguageSetting, saveSettings } from './actions';
 
 export const metadata: Metadata = {
   title: 'Settings',
@@ -74,6 +77,16 @@ export default async function SettingsPage() {
           />
         </Card>
       </section>
+
+      {/* Only when the database has the language column (migration 0024): without it the control is hidden and everything stays English. */}
+      {hasLanguageSetting(profile) ? (
+        <section aria-labelledby="language-h" className="mt-12">
+          <h2 id="language-h" className="h-plain text-2xl text-ink">{t(langOfProfile(profile), 'settings.language.heading')}</h2>
+          <Card className="mt-4">
+            <LanguageForm action={saveLanguageSetting} current={langOfProfile(profile)} />
+          </Card>
+        </section>
+      ) : null}
 
       <section aria-labelledby="billing-h" className="mt-12">
         <h2 id="billing-h" className="h-plain scroll-mt-24 text-2xl text-ink">Billing</h2>

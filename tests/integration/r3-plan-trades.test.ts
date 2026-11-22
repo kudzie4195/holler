@@ -148,7 +148,11 @@ describe('notify digest: notes and ranking use the plan-limited trades', () => {
 // Integrate3: the cross-file patches from fix-a (Cobb line), fix-b (store columns, fail soft) and fix-c (plan in the select).
 describe('notify digest: integrate3 patches', () => {
   const profileSelects = (w: World) =>
-    w.calls.filter((c) => c.table === 'holler_profiles' && !c.ops.some((o) => o.op === 'update')).map((c) => String(c.ops.find((o) => o.op === 'select')?.args[0]));
+    w.calls
+      .filter((c) => c.table === 'holler_profiles' && !c.ops.some((o) => o.op === 'update'))
+      .map((c) => String(c.ops.find((o) => o.op === 'select')?.args[0]))
+      // The member-language read (migration 0024, r17 ES) is its own select; it is not the profile read these tests count.
+      .filter((cols) => cols !== 'user_id, language');
   it('reads plan and the 0020 store columns in one select', async () => {
     const w: World = { migrated: true, lastNotified: null, ai: [], calls: [] };
     await runNotify(w);

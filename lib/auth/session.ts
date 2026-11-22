@@ -31,6 +31,8 @@ export interface Profile {
   store_expires_at?: string | null;
   email_verified_at: string | null;
   created_at: string;
+  /** 'en' | 'es' (migration 0024). Missing before 0024: read it through lib/i18n langOfProfile, and treat the key being absent as "no language setting yet". */
+  language?: string | null;
 }
 
 /** Verified user (asks the Auth server, not just the cookie). Deduped per request. */

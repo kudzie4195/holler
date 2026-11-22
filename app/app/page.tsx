@@ -4,6 +4,7 @@ import { BillingButton } from '@/components/billing-button';
 import { Card } from '@/components/card';
 import { ComingNextForMember } from '@/components/coming-next-member';
 import { EmptyFeed, emptyFeedApplies } from '@/components/feed/empty-feed';
+import { EmptyFeedShort } from '@/components/feed/empty-feed-es';
 import { Feed, LockedFeed, type FeedItem, type MatchStatus } from '@/components/feed';
 import { formatDistance, maskText, timeAgo } from '@/components/format';
 import { Notice } from '@/components/notice';
@@ -36,6 +37,7 @@ import { CoverageNoticeLine } from '@/components/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
+import { langOfProfile, t } from '@/lib/i18n';
 
 interface SignalRow {
   id: number;
@@ -90,6 +92,7 @@ async function loadDashboard() {
   const supabase = await createClient();
 
   const now = Date.now();
+  const lang = langOfProfile(profile);
   const access = computeAccess(profile, now);
   // Source states (lib/signals/source-state.ts): started here so the cached read runs alongside the feed queries below instead of
   // after them. A locked account sees a masked feed and never triggers a service-role read. Any failure is null (no line).
@@ -209,11 +212,11 @@ async function loadDashboard() {
       title: s.title,
       summary: isRequest ? (requestText[m.id] ?? null) : s.summary,
       url: s.url,
-      distance: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
+      distance: hasApproxLocation(s) ? null : formatDistance(m.distance_mi, lang),
       place: [s.city, s.state].filter(Boolean).join(', ') || null,
       // A stand-in position (Cobb County): say so in plain words, never a distance.
-      approxNote: hasApproxLocation(s) ? approxLocationNote(s) : null,
-      ago: timeAgo(s.occurred_at, now),
+      approxNote: hasApproxLocation(s) ? approxLocationNote(s, lang) : null,
+      ago: timeAgo(s.occurred_at, now, lang),
       occurredAt: s.occurred_at,
       draft: m.draft,
       city: s.city,
@@ -228,12 +231,13 @@ async function loadDashboard() {
       jobValue: parseMoney(s.jobValue),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
-      aiNote: aiNotes.get(s.id) ?? null,
+      // The AI note is written in English by the model, so a Spanish member does not get it (no machine translation, no second model call).
+      aiNote: lang === 'en' ? (aiNotes.get(s.id) ?? null) : null,
       // NYC no-heat rows: the registered managing agent or owner company (company names only). Never for a locked account (see below).
       managerName: s.managerName ?? null,
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now)) : null,
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : null,
     };
     const found = access.locked ? undefined : contactsBySignal.get(s.id);
     if (found && found.length > 0) base.contacts = found.map((c) => {
@@ -264,28 +268,41 @@ async function loadDashboard() {
           trades: memberTrades,
           states: snapshot?.states,
           now,
+          lang,
         })?.line ?? null;
     }
   } catch {
     coverage = null;
   }
 
-  return { profile, access, cityPage, items, firstRun, failed: Boolean(error), coverage };
+  return { profile, lang, access, cityPage, items, firstRun, failed: Boolean(error), coverage };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, access, cityPage, items, firstRun, failed, coverage } = await loadDashboard();
+  const { profile, lang, access, cityPage, items, firstRun, failed, coverage } = await loadDashboard();
 
   return (
     <>
-      <h1 className="text-5xl text-ink">Your matches</h1>
+      <h1 className="text-5xl text-ink">{t(lang, 'app.title')}</h1>
       <p className="mt-2 text-muted">
-        {profile.business_name}, within <span className="font-mono tabular-nums">{profile.radius_mi}</span> mi of{' '}
-        {profile.city && profile.state ? `${profile.city}, ${profile.state}` : profile.zip}.{' '}
+        {lang === 'en' ? (
+          <>
+            {profile.business_name}, within <span className="font-mono tabular-nums">{profile.radius_mi}</span> mi of{' '}
+            {profile.city && profile.state ? `${profile.city}, ${profile.state}` : profile.zip}.{' '}
+          </>
+        ) : (
+          <>
+            {t(lang, 'app.within', {
+              name: profile.business_name,
+              radius: profile.radius_mi,
+              place: profile.city && profile.state ? `${profile.city}, ${profile.state}` : (profile.zip ?? ''),
+            })}{' '}
+          </>
+        )}
         {cityPage ? (
           <Link href={cityPage.href} className="font-medium text-brand-text underline">
-            See what&apos;s happening in {cityPage.label}
+            {t(lang, 'card.empty.see_city', { city: cityPage.label })}
           </Link>
         ) : null}
       </p>
@@ -305,11 +322,15 @@ export default async function AppHome(props: PageProps<'/app'>) {
       <div className="mt-6">
         {emptyFeedApplies({ items: items.length, locked: access.locked, failed }) ? (
           // Zero matches: what the area check, the nearby feeds and the last 90 days show, from real rows (components/feed/empty-feed.tsx).
-          <Suspense fallback={<Feed items={[]} cityPage={cityPage} firstRun={firstRun} />}>
-            <EmptyFeed userId={profile.user_id} />
-          </Suspense>
+          lang === 'en' ? (
+            <Suspense fallback={<Feed items={[]} cityPage={cityPage} firstRun={firstRun} lang={lang} />}>
+              <EmptyFeed userId={profile.user_id} />
+            </Suspense>
+          ) : (
+            <EmptyFeedShort lang={lang} zip={profile.zip} trade={profile.categories?.[0] ?? null} />
+          )
         ) : access.locked ? (
-          <LockedFeed items={items}>
+          <LockedFeed items={items} lang={lang}>
             <Card className="text-center">
               <h2 className="h-plain text-2xl text-ink">Your free trial is over</h2>
               <p className="mt-2 text-muted">
@@ -336,7 +357,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
             </Card>
           </LockedFeed>
         ) : (
-          <Feed items={items} cityPage={cityPage} firstRun={firstRun} />
+          <Feed items={items} cityPage={cityPage} firstRun={firstRun} lang={lang} />
         )}
       </div>
       <ComingNextForMember />

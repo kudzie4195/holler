@@ -1,4 +1,6 @@
-import { cardBrief, type CardBrief } from '@/lib/signals/brief';
+import type { CardBrief } from '@/lib/signals/brief';
+import { cardBriefLang } from '@/lib/signals/brief-i18n';
+import { t, type Lang } from '@/lib/i18n';
 import type { OpportunityLabel } from '@/lib/signals/lead-rules';
 
 /** What the block needs from a feed item. Everything is already on FeedItem. */
@@ -20,8 +22,8 @@ export interface BriefBlockItem {
 }
 
 /** The brief for a feed item (parts 2 to 5). Pure; the web card, the tests and the screenshots all call it. */
-export function briefOfItem(item: BriefBlockItem): CardBrief {
-  return cardBrief({
+export function briefOfItem(item: BriefBlockItem, lang: Lang = 'en'): CardBrief {
+  return cardBriefLang({
     source: item.source,
     kind: item.kind,
     subtype: item.subtype,
@@ -34,7 +36,7 @@ export function briefOfItem(item: BriefBlockItem): CardBrief {
     managerName: item.managerName,
     managerRole: item.managerRole,
     jobValue: item.jobValue,
-  });
+  }, lang);
 }
 
 const ROW = 'mt-1 break-words text-sm text-ink';
@@ -44,8 +46,8 @@ const ROW = 'mt-1 break-words text-sm text-ink';
  *   Why it matters, Next step, Source and date (with the link), What is uncertain (with the confidence).
  * Plain text in the card's existing type and colors. Wraps at any width: every row is a block with break-words.
  */
-export function BriefBlock({ item }: { item: BriefBlockItem }) {
-  const b = briefOfItem(item);
+export function BriefBlock({ item, lang = 'en' }: { item: BriefBlockItem; lang?: Lang }) {
+  const b = briefOfItem(item, lang);
   return (
     <div data-testid="brief" className="mt-3 border-t border-line pt-2">
       {b.valueLine ? (
@@ -54,11 +56,11 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
         </p>
       ) : null}
       <p className={ROW} data-testid="brief-why">
-        <span className="font-semibold">Why it matters: </span>
+        <span className="font-semibold">{`${t(lang, 'brief.h.why')}: `}</span>
         {b.why}
       </p>
       <p className={ROW} data-testid="brief-next">
-        <span className="font-semibold">Next step: </span>
+        <span className="font-semibold">{`${t(lang, 'brief.h.next')}: `}</span>
         {b.next}
       </p>
       {b.managedBy ? (
@@ -67,7 +69,7 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
         </p>
       ) : null}
       <p className={ROW} data-testid="brief-source">
-        <span className="font-semibold">Source: </span>
+        <span className="font-semibold">{`${t(lang, 'brief.h.source')}: `}</span>
         {b.source.label}
         {b.source.dateText ? (
           <>
@@ -87,13 +89,13 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
               className="-my-3 inline-block py-3 font-medium text-brand-text underline md:-my-2 md:py-2"
             >
               {b.source.linkText}
-              {b.source.href.startsWith('/') ? null : <span className="sr-only"> (opens in a new tab)</span>}
+              {b.source.href.startsWith('/') ? null : <span className="sr-only">{t(lang, 'brief.sr_new_tab')}</span>}
             </a>
           </>
         ) : null}
       </p>
       <p className={ROW} data-testid="brief-uncertain">
-        <span className="font-semibold">What is uncertain: </span>
+        <span className="font-semibold">{`${t(lang, 'brief.h.uncertain')}: `}</span>
         {b.uncertain}
       </p>
     </div>

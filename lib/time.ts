@@ -4,6 +4,8 @@
  * so a future time never reads as "ago" or as a negative number, and far-future items never pin the top of a "latest" list.
  */
 
+import { localizeDate, t, type Lang } from './i18n';
+
 const MIN = 60_000;
 
 /** Upcoming rows are read from the database only this far ahead. */
@@ -19,24 +21,30 @@ export function isUpcoming(iso: string, now: number = Date.now()): boolean {
   return Number.isFinite(t) && t - now > MIN;
 }
 
-function shortDate(t: number): string {
-  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+function shortDate(ms: number, lang: Lang = 'en'): string {
+  const en = new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return lang === 'en' ? en : (localizeDate(en, lang) ?? en);
 }
 
 /**
  * Past: "just now", "4 min ago", "3 hr ago", "2 days ago", then a short date after `dateAfterDays`.
  * Future: "in 12 min", "in 3 hr", "in 3 days", then a short date after `dateAfterDays`. Never negative, never "ago" for the future.
  * `style` 'email' keeps hours up to 48 and has no date cutoff for the past (the digest is read within hours).
+ * `lang` 'es' gives "hace 4 min", "hace 3 h", "en 3 días" and "5 sep" (lib/i18n); the default 'en' is the wording above.
  */
-export function relativeTime(iso: string, now: number = Date.now(), style: 'app' | 'email' = 'app'): string {
-  const t = toMs(iso);
-  if (!Number.isFinite(t)) return '';
-  const diff = t - now;
+export function relativeTime(iso: string, now: number = Date.now(), style: 'app' | 'email' = 'app', lang: Lang = 'en'): string {
+  const tm = toMs(iso);
+  if (!Number.isFinite(tm)) return '';
+  const diff = tm - now;
   const future = diff > MIN;
   const abs = Math.abs(diff);
-  if (!future && abs < (style === 'email' ? 2 * MIN : MIN)) return 'just now';
+  if (!future && abs < (style === 'email' ? 2 * MIN : MIN)) return t(lang, 'time.just_now');
   const min = Math.round(abs / MIN);
-  const label = (n: number, unit: string) => (future ? `in ${n} ${unit}` : `${n} ${unit} ago`);
+  const label = (n: number, unit: 'min' | 'hr' | 'days' | 'day') => {
+    if (lang === 'en') return future ? `in ${n} ${unit}` : `${n} ${unit} ago`;
+    const keys = { min: ['time.in_min', 'time.min_ago'], hr: ['time.in_hr', 'time.hr_ago'], days: ['time.in_days', 'time.days_ago'], day: ['time.in_day', 'time.day_ago'] } as const;
+    return t(lang, keys[unit][future ? 0 : 1], { n });
+  };
   if (min < 60) return label(min, 'min');
   const hr = Math.round(min / 60);
   if (style === 'email') {
@@ -46,7 +54,7 @@ export function relativeTime(iso: string, now: number = Date.now(), style: 'app'
   if (hr < 24) return label(hr, 'hr');
   const day = Math.round(hr / 24);
   if (day < 14) return label(day, day === 1 ? 'day' : 'days');
-  return shortDate(t);
+  return shortDate(tm, lang);
 }
 
 /**

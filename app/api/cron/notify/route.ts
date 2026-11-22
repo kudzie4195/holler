@@ -29,6 +29,7 @@ import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/so
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
+import { parseLang, type Lang } from '@/lib/i18n';
 
 export const maxDuration = 60;
 
@@ -146,6 +147,21 @@ export async function GET(req: Request) {
     profiles.push(...((r.data ?? []) as unknown as ProfileRow[]));
   }
 
+  // Member language (migration 0024), read on its own so a database without the column changes nothing: the read fails, the map stays
+  // empty and every member is emailed in English, exactly as before. Never throws, never blocks the run.
+  const langById = new Map<string, Lang>();
+  try {
+    for (const ids of chunk(userIds)) {
+      const { data: langRows, error: langErr } = await admin.from('holler_profiles').select('user_id, language').in('user_id', ids);
+      if (langErr) break;
+      for (const r of (langRows ?? []) as unknown as Array<{ user_id?: string; language?: unknown }>) {
+        if (r && typeof r.user_id === 'string') langById.set(r.user_id, parseLang(r.language));
+      }
+    }
+  } catch {
+    langById.clear();
+  }
+
   const plan = planNotify(userIds, profiles, now);
   counts.skipped_throttled = plan.counts.throttled ?? 0;
   counts.skipped_alerts_off = plan.counts.alerts_off ?? 0;
@@ -177,6 +193,7 @@ export async function GET(req: Request) {
     if (Date.now() - started > 50_000) break;
     try {
       const userMatches = byUser.get(p.user_id) ?? [];
+      const lang: Lang = langById.get(p.user_id) ?? 'en';
       // The plan-limited trades (the ones matching uses): the opportunity label of a record depends on the trade that matched it.
       const trades = matchScope({
         categories: p.categories ?? null,
@@ -251,17 +268,17 @@ export async function GET(req: Request) {
         title: s.title,
         summary: s.summary ?? null,
         // A Cobb County row's point is a stand-in for the county, so the line says so instead of naming a town.
-        place: hasApproxLocation(s) ? approxLocationNote(s) : [s.city, s.state].filter(Boolean).join(', ') || null,
+        place: hasApproxLocation(s) ? approxLocationNote(s, lang) : [s.city, s.state].filter(Boolean).join(', ') || null,
         occurredAt: s.occurred_at,
         sourceUrl: s.url,
         detail: s.source === HOLLER_REQUEST_SOURCE && s.external_id ? (requestText.get(s.external_id) ?? null) : null,
-        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id)) : null,
+        contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, contacts.get(s.id), lang) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
         deadline: deadlineOf(s),
         jobValue: s.jobValue ?? null,
-        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : null,
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,
       }));
@@ -275,6 +292,7 @@ export async function GET(req: Request) {
         appUrl: `${siteUrl}/app`,
         unsubscribeUrl,
         now,
+        lang,
       });
       const res = await sendEmail({
         to: email,

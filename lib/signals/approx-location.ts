@@ -1,4 +1,5 @@
 import { BID_SOURCE_IDS } from './bid-sources';
+import { t, type Lang } from '@/lib/i18n';
 
 /**
  * Records whose coordinates are a stand-in for the real site (a county centre, not the address). The matcher still uses the stand-in to
@@ -73,19 +74,19 @@ export const COBB_APPROX_NOTE = `In Cobb County. ${APPROX_LOCATION_REASON}`;
  * Plain wording shown wherever an approximate-location row is shown to a member (feed card, app feed, digest email), in place of a
  * distance. `place` is the record's city field ("Cobb County"); a row without one gets the generic county wording.
  */
-export function approxLocationNote(s: { city?: string | null; source?: string | null; subtype?: string | null } | null | undefined): string {
+export function approxLocationNote(s: { city?: string | null; source?: string | null; subtype?: string | null } | null | undefined, lang: Lang = 'en'): string {
   // A city bid: the row names a buyer and a city, not a site. Never the county wording.
   if (s && (s.subtype === 'bid' || (typeof s.source === 'string' && BID_SOURCE_IDS.includes(s.source)))) {
-    const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';
-    return `Buyer in ${where}. A bid names the buyer, not a job site, so no distance is shown.`;
+    const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : t(lang, 'approx.the_city');
+    return t(lang, 'approx.bid', { where });
   }
   // A county-level weather alert (adapters/nws.ts places it at the county centroid): the alert covers an area, not a point.
-  if (s && s.source === 'nws') return 'This alert covers a county or zone, not a point, so no distance is shown.';
+  if (s && s.source === 'nws') return t(lang, 'approx.nws');
   // A city feed whose rows have no map point (NYC special events: the row is placed at the city centre): city wording, never "the county".
   if (s && typeof s.source === 'string' && !APPROX_LOCATION_SOURCES.has(s.source)) {
-    const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';
-    return `In ${where}. The city's feed has no map point for this record, so no distance is shown.`;
+    const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : t(lang, 'approx.the_city');
+    return t(lang, 'approx.city', { where });
   }
-  const place = typeof s?.city === 'string' && /\bcounty\b/i.test(s.city) ? s.city.trim() : 'the county';
-  return `In ${place}. ${APPROX_LOCATION_REASON}`;
+  const place = typeof s?.city === 'string' && /\bcounty\b/i.test(s.city) ? s.city.trim() : t(lang, 'approx.the_county');
+  return t(lang, 'approx.county', { where: place });
 }
