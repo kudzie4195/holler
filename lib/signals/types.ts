@@ -104,5 +104,14 @@ export interface Adapter {
   extraFlags?: Array<{ name: string; on: () => boolean }>;
   /** True when `fetch` also runs a stage query (a second, capped read for permits whose status changed) while ctx.stageTracking is on. */
   stageQuery?: boolean;
+  /**
+   * Probation: a new source whose live output nobody has checked yet. The scan runs it like any source (same fetch, parsing, privacy
+   * sanitizing and contact extraction) but writes up to 300 rows per run to holler_source_samples (migration 0031, service role only,
+   * kept 14 days) instead of holler_signals / holler_signal_contacts. It is never matched, labelled into a card, notified, AI-classified,
+   * pinged to IndexNow or counted on a public page, and no member or public page can read its rows. scan_runs and source health log it
+   * as usual (inserted = samples written). With migration 0031 not applied the scan skips it (no fetch, no error). To put it live, remove
+   * `probation: true`: the next scan writes to holler_signals normally. Nothing else to clean up or migrate.
+   */
+  probation?: boolean;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

@@ -620,6 +620,7 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     label,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
+    ...(ds.probation ? { probation: true } : {}),
     sourceUrl: datasetPageUrl(ds),
     ...(ds.stageQuery && ds.subtype === 'permit' && ds.statusField ? { stageQuery: true } : {}),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {

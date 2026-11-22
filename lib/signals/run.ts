@@ -3,6 +3,7 @@ import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
 import { MAX_FUTURE_DAYS } from './run-limits';
+import { pruneSourceSamples, SAMPLES_MISSING, SamplesMissingError, samplesTableState, storeSourceSamples } from './samples';
 import { MAX_MATCHES_PER_USER, matchOne, matchSignals, type MatchRow } from './match';
 import { ProjectStore, rearmStageAlerts } from './projects';
 import { matchScope } from '@/lib/plan';
@@ -323,6 +324,21 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     } else due.push(a);
   }
 
+  // Source probation (migration 0031). The samples table is probed once, and only when a probation source is due on a real scan. With
+  // it missing, every probation source is skipped like an unconfigured one: no fetch, no write anywhere, no scan_runs row, no error.
+  let samplesState: 'ok' | 'missing' | 'failed' | 'unknown' = 'unknown';
+  if (!dry && db && due.some((a) => a.probation)) {
+    samplesState = await samplesTableState(db);
+    if (samplesState === 'missing') {
+      for (let i = due.length - 1; i >= 0; i--) {
+        const a = due[i];
+        if (!a.probation) continue;
+        due.splice(i, 1);
+        report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [SAMPLES_MISSING], missingEnv: ['migration 0031 (holler_source_samples)'], ms: 0 });
+      }
+    }
+  }
+
   // PLAN-2.0 2.1 and 2.3 (migration 0025). The stage table is probed once, and only when a source in this scan has a stage query: with
   // the table missing no adapter makes that query, so the scan fetches exactly what it fetched before.
   const logsSink: string[] = [];
@@ -361,6 +377,23 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         skippedForTime.add(f);
         continue;
       }
+      if (f.result.status !== 'error' && f.signals.length && f.adapter.probation) {
+        // Probation: same fetch, parsing and contact clean-up as any source, but the rows go to holler_source_samples (service role
+        // only). Never holler_signals or the project store, so no matching, card, alert, AI note or IndexNow ping can see them (they
+        // stay out of storedAll). A table that went missing since the probe is a skip, not an error.
+        try {
+          f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
+        } catch (e) {
+          if (e instanceof SamplesMissingError) {
+            f.result.logs.push(SAMPLES_MISSING);
+          } else {
+            f.result.status = 'error';
+            f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+            f.health = { ok: false, error: f.result.error };
+          }
+        }
+        continue;
+      }
       if (f.result.status !== 'error' && f.signals.length) {
         try {
           const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
@@ -383,6 +416,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         }
       }
     }
+    // Sample retention, once per scan for every source (a quiet, promoted or removed source's samples expire too). Skipped when the
+    // probe already found the table missing; never throws and never fails the scan.
+    if (samplesState !== 'missing') await pruneSourceSamples(db, now);
     // The report keeps the registry order whatever order the writes happened in.
     for (const f of fetched) report.sources.push(f.result);
 
@@ -449,7 +485,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         report.error = msg;
         // These signals are stored but nobody was matched. Put it on the scan_runs row so the health email shows it.
         for (const f of fetched) {
-          if (f.result.inserted > 0) {
+          // Probation sources are never matched, so a matching failure is not theirs (their inserted count is samples).
+          if (f.result.inserted > 0 && !f.adapter.probation) {
             f.result.status = 'error';
             f.result.error = msg.slice(0, 500);
           }

@@ -121,7 +121,7 @@ export const TRADE_SIGNALS_KEYLESS: Record<CategoryId, SignalTypeId[]> = Object.
 
 // ---- Cities ----------------------------------------------------------------------------------------------------------------
 
-type Dataset = { city: string; state: string; subtype: SignalTypeId; verified: boolean; fallbackCenter?: { lat: number; lon: number }; countyAnchor?: { lat: number; lon: number } };
+type Dataset = { city: string; state: string; subtype: SignalTypeId; verified: boolean; probation?: boolean; fallbackCenter?: { lat: number; lon: number }; countyAnchor?: { lat: number; lon: number } };
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -136,9 +136,9 @@ export function placeSlugOfDataset(ds: Pick<Dataset, 'city' | 'state' | 'fallbac
   return null;
 }
 
-/** Enabled datasets (verified: true) from both the Socrata and ArcGIS configs. */
+/** Enabled datasets (verified: true, not on probation) from both the Socrata and ArcGIS configs. A probation dataset is never advertised as live. */
 export function enabledDatasets(): (Dataset & { id: string })[] {
-  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.verified).map((d) => ({ ...d, subtype: d.subtype as SignalTypeId }));
+  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.verified && !d.probation).map((d) => ({ ...d, subtype: d.subtype as SignalTypeId }));
 }
 
 function buildCityFeeds(): { all: Record<string, SignalTypeId[]>; county: Record<string, SignalTypeId[]> } {

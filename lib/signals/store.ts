@@ -316,7 +316,7 @@ export async function dropDuplicateRecords(
 }
 
 /** data.subtype of a code violation or a 311 request (lib/contacts/extract.ts NO_CONTACT_SUBTYPES). */
-function noContactSubtype(subtype: unknown): boolean {
+export function noContactSubtype(subtype: unknown): boolean {
   return typeof subtype === 'string' && NO_CONTACT_SUBTYPES.has(subtype.trim().toLowerCase());
 }
 

@@ -61,8 +61,9 @@ export const NO_LIVE: HomeLive = { proof: null, map: null, weather: null };
  * "arcgis-*") or weather (kinds 'alert' and 'report': the National Weather Service and the NOAA Storm Prediction Center), and whose
  * required keys are set in this environment (the same test runScan uses, lib/signals/run.ts missingEnvFor). Exact, not a sample.
  */
-export function feedCount(adapters: Pick<Adapter, 'id' | 'kind' | 'requiresEnv'>[], env: Record<string, string | undefined>): number {
+export function feedCount(adapters: Pick<Adapter, 'id' | 'kind' | 'requiresEnv' | 'probation'>[], env: Record<string, string | undefined>): number {
   return adapters.filter((a) => {
+    if (a.probation) return false; // a source on probation is not live
     const cityOrCounty = a.id.startsWith('socrata-') || a.id.startsWith('arcgis-');
     const weather = a.kind === 'alert' || a.kind === 'report';
     return (cityOrCounty || weather) && (a.requiresEnv ?? []).every((k) => !!env[k]);
