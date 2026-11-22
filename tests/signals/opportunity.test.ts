@@ -530,7 +530,8 @@ describe('asking, federal, events, travel, unknown', () => {
   });
   it('every registered source falls into an explicit rule family', () => {
     const datasets = new Map<string, string>([...SOCRATA_DATASETS.map((d) => [d.id, d.subtype] as const), ...ARCGIS_DATASETS.map((d) => [d.id, d.subtype] as const), ...CARTO_DATASETS.map((d) => [d.id, d.subtype] as const)]);
-    for (const a of ALL_ADAPTERS) {
+    // Probation adapters write to holler_source_samples only and are never assessed for a member; Carto datasets still are (by subtype).
+    for (const a of ALL_ADAPTERS.filter((x) => !x.probation || datasets.has(x.id))) {
       const subtype = datasets.get(a.id) ?? null;
       expect(assessOpportunity(sig(a.id, a.kind, subtype, '')).family, `${a.id} (${a.kind}/${subtype})`).not.toBe('unknown');
     }
