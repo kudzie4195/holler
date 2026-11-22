@@ -24,7 +24,7 @@ const trial_ended = (hoursSince: number, over: Partial<LifecycleProfile> = {}) =
 
 describe('windows', () => {
   it('are the ones in the brief', () => {
-    expect(WINDOWS).toEqual({ welcome: { from: 20, to: 44 }, trial_ending: { from: 60, to: 84 }, trial_ended: { from: 18, to: 48 } });
+    expect(WINDOWS).toEqual({ welcome: { from: 20, to: 44 }, trial_ending: { from: 36, to: 84 }, trial_ended: { from: 18, to: 48 } });
   });
 });
 
@@ -50,11 +50,12 @@ describe('day 1: 20 to 44 hours after signup', () => {
   });
 });
 
-describe('about 3 days before the end: 60 to 84 hours before the trial ends (round 18, 60-day trial; was 36 to 60)', () => {
+describe('36 to 84 hours before the trial ends (round 18: sent at about 84 h; the lower edge stays at 36 h, review r2 R2b)', () => {
   it.each([
-    [48, null], // the old 2-day point no longer sends
-    [60 - 1 / 3600, null],
-    [60, 'trial_ending'],
+    [36 - 1 / 3600, null],
+    [36, 'trial_ending'],
+    [48, 'trial_ending'],
+    [60 - 1 / 3600, 'trial_ending'], // the band between the old and the new window is covered
     [72, 'trial_ending'],
     [84, 'trial_ending'],
     [84 + 1 / 3600, null],
@@ -159,7 +160,7 @@ describe('selectLifecycle', () => {
   it('queryRanges covers exactly the three windows', () => {
     const r = queryRanges(NOW);
     expect(r.created).toEqual({ gte: ago(44), lte: ago(20) });
-    expect(r.endsSoon).toEqual({ gte: ahead(60), lte: ahead(84) });
+    expect(r.endsSoon).toEqual({ gte: ahead(36), lte: ahead(84) });
     expect(r.endedRecently).toEqual({ gte: ago(48), lte: ago(18) });
     void ms;
   });

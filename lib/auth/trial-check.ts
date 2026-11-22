@@ -46,7 +46,7 @@ export function trialCheckLine(c: TrialDbCheck): string {
     case 'mismatch':
       return `MISMATCH: the site says ${c.codeDays} days, the database has column default ${d(c.defaultDays)}, one-trial cap ${d(c.stampCapDays)}, member insert cap ${d(c.guardCapDays)}. Apply the newest trial migration (LAUNCH.md, Round 18 order).`;
     case 'not_applied':
-      return `MISMATCH: the site says ${c.codeDays} days but holler_trial_db_check() is missing: migration 0028 is not applied, or the API has not reloaded its schema. Until 0028 is applied the database default is 14 days; new members are moved to ${c.codeDays} days by the app at signup and on their next visit. Apply supabase/migrations/0028_holler_trial_60.sql (LAUNCH.md, Round 18 order).`;
+      return `MISMATCH: the site says ${c.codeDays} days but holler_trial_db_check() is missing: migration 0028 is not applied, or the API has not reloaded its schema. Until 0028 is applied the database default is 14 days; never-paid members are moved to ${c.codeDays} days by the app at signup, before Settings, Checkout or the feed shows their trial, and by the hourly email job. Apply supabase/migrations/0028_holler_trial_60.sql (LAUNCH.md, Round 18 order).`;
     default:
       return 'Free trial: could not read the database trial length (holler_trial_db_check failed), so a mismatch cannot be ruled out. Check it today.';
   }

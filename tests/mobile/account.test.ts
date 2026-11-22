@@ -22,7 +22,7 @@ function mocks(opts: { marker: boolean }) {
       return saveResult;
     },
   }));
-  vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => (steps.push('applyTrialRules'), 'first') }));
+  vi.doMock('@/lib/auth/trial', () => ({ repairShortTrial: async () => null, applyTrialRules: async () => (steps.push('applyTrialRules'), 'first') }));
   vi.doMock('@/lib/analytics/request', () => ({ recordSignup: async () => void steps.push('recordSignup') }));
   vi.doMock('@/lib/signals/backfill-run', () => ({ backfillWithLimit: async () => (steps.push('backfill'), { ran: true }) }));
   vi.doMock('@/lib/auth/verification', () => ({
@@ -139,7 +139,7 @@ describe('POST /api/m/onboarding', () => {
   // so finishing onboarding again is not a new signup. The stamp is read BEFORE applyTrialRules writes anything.
   it('a returning member (trial stamp already set) is not counted as a new signup', async () => {
     mocks({ marker: true });
-    vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => (steps.push('applyTrialRules'), 'unchanged') }));
+    vi.doMock('@/lib/auth/trial', () => ({ repairShortTrial: async () => null, applyTrialRules: async () => (steps.push('applyTrialRules'), 'unchanged') }));
     vi.doMock('@/lib/supabase/admin', () => ({
       createAdminClient: () => ({
         auth: { admin: { getUserById: async () => (steps.push('priorTrial'), { data: { user: { id: UA, app_metadata: { holler_trial_started_at: '2026-10-01T00:00:00Z' } } }, error: null }) } },
@@ -159,7 +159,7 @@ describe('POST /api/m/onboarding', () => {
     vi.resetModules();
     steps = [];
     mocks({ marker: true });
-    vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => (steps.push('applyTrialRules'), 'returning') }));
+    vi.doMock('@/lib/auth/trial', () => ({ repairShortTrial: async () => null, applyTrialRules: async () => (steps.push('applyTrialRules'), 'returning') }));
     vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ auth: { admin: { getUserById: async () => ({ data: null, error: { message: 'down' } }) } } }) }));
     install(w);
     await onboard(body);
@@ -462,7 +462,7 @@ describe('onboarding email and tag on the shared project', () => {
   });
   it('verify-v3 P1: a stamp that cannot be read and a trial that did not start fresh is treated as returning (no trial promise)', async () => {
     stateful({});
-    vi.doMock('@/lib/auth/trial', () => ({ applyTrialRules: async () => 'unchanged' }));
+    vi.doMock('@/lib/auth/trial', () => ({ repairShortTrial: async () => null, applyTrialRules: async () => 'unchanged' }));
     vi.doMock('@/lib/analytics/signup', async (orig) => ({ ...(await orig<typeof import('../../lib/analytics/signup')>()), priorTrial: async () => 'unknown' }));
     try {
       expect((await onboard(body)).status).toBe(200);

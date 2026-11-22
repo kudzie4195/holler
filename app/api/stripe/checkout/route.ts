@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { repairShortTrial, type TrialRow } from '@/lib/auth/trial';
 import { siteUrl } from '@/lib/env';
 import { isPaidNow } from '@/lib/auth/access';
 import { hit } from '@/lib/auth/ratelimit';
@@ -67,6 +68,12 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (error) return Response.json({ error: 'profile_lookup_failed' }, { status: 500 });
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
+  // Round 18: the first charge date comes from trial_ends_at, so a short never-paid row is moved to start + TRIAL_DAYS first (the same
+  // repair as /app; no query when the row is already right). Without this a member who subscribes from Settings before opening /app is
+  // charged at the old 14-day end while migration 0028 is not applied. repairShortTrial returns the end AS STORED by the write (or null
+  // when nothing moved), so Stripe is only ever given a value the row holds.
+  const repairedEnd = await repairShortTrial(user, profile as TrialRow, () => admin);
+  const trialEnd = repairedEnd ?? (profile.trial_ends_at as string | null);
   // Already paying (or in Stripe's retry window): a second checkout would create a second subscription.
   // Moving between Solo and Pro goes through POST /api/stripe/change-plan instead.
   // Same paid test as the feed lock (isPaidNow): a store plan whose period ran out with no EXPIRATION webhook, or with no readable
@@ -121,7 +128,7 @@ export async function POST(req: Request) {
       ],
       // No charge during the free trial that started in the app. Same trial rule for every plan and interval.
       // The webhook reads tier from the subscription's metadata to set holler_profiles.plan.
-      subscription_data: { metadata: { ...hollerMetadata(user.id), plan, tier }, ...trialParams(profile.trial_ends_at as string | null) },
+      subscription_data: { metadata: { ...hollerMetadata(user.id), plan, tier }, ...trialParams(trialEnd) },
       success_url: `${siteUrl}/app?upgraded=1`,
       cancel_url: `${siteUrl}/app/settings`,
     });

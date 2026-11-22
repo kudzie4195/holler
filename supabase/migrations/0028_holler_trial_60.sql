@@ -11,9 +11,9 @@
 --  4. holler_trial_db_check(): SECURITY INVOKER, service role only, read-only. Returns the trial length the database actually uses in
 --     each of the three places above ({"default_days", "stamp_cap_days", "guard_cap_days"}), read from the catalog (the column default
 --     expression and the two function bodies). /api/cron/health (Bearer only) compares them with TRIAL_DAYS and reports a mismatch.
---  5. Extension of members who NEVER PAID and whose trial is still running or ended in the last 46 days (46 = 60 - 14: exactly the
---     members whose original start is less than 60 days ago under the old 14-day trial). Each gets trial_ends_at = trial start + 60 days,
---     the remainder of 60 days from their ORIGINAL start, never a fresh 60. Trial start = the earlier of the row's created_at and the
+--  5. Extension of members who NEVER PAID and whose original start is less than 60 days ago (for a 14-day trial: still running or ended
+--     in the last 46 days; a 7-day-era row from 0001 is judged by its start the same way, as the app does, review r2 R5). Each gets
+--     trial_ends_at = trial start + 60 days, the remainder of 60 days from their ORIGINAL start, never a fresh 60. Trial start = the earlier of the row's created_at and the
 --     person's app_metadata.holler_trial_started_at stamp, so a person who deleted their account and came back does NOT get a new trial.
 --     A stamp that cannot be read skips that row (never lengthens on a guess). Never shortens a trial. Never touches a row with a
 --     subscription status other than 'trialing', a Stripe subscription id, a store plan (plan_source other than 'none', migration 0020) or
@@ -30,7 +30,7 @@
 --       and r.stripe_subscription_id is null
 --       and coalesce(r.plan_source, 'none') = 'none'                      (only when the column exists)
 --       and no holler_billing_events row with result 'applied' for r.user_id (only when the table exists)
---       and r.trial_ends_at > now() - interval '46 days'                   (still running, or ended in the last 46 days)
+--       and r.created_at > now() - interval '60 days'                      (prefilter: the start is at most created_at)
 --       and r.trial_ends_at + interval '1 second' < v_end                   (only ever later; the app writes whole milliseconds)
 --       and v_end > now()                                                   (the new end is still ahead)
 --       and (r.trial_ends_at > now() or v_end > now() + interval '72 hours') (an ENDED trial is revived only when the 3-day reminder
@@ -175,7 +175,7 @@ begin
        from public.holler_profiles p
       where p.subscription_status = ''trialing''
         and p.stripe_subscription_id is null
-        and p.trial_ends_at > now() - interval ''46 days''
+        and p.created_at > now() - interval ''60 days''
         and p.trial_ends_at < p.created_at + interval ''60 days'''
     || case when v_has_source then ' and coalesce(p.plan_source, ''none'') = ''none''' else '' end
     || case when v_has_events then ' and not exists (select 1 from public.holler_billing_events e where e.user_id = p.user_id and e.result = ''applied'')' else '' end
@@ -204,7 +204,6 @@ begin
         where user_id = $1
           and subscription_status = ''trialing''
           and stripe_subscription_id is null
-          and trial_ends_at > now() - interval ''46 days''
           and trial_ends_at < $2 - interval ''1 second'''
       || case when v_has_source then ' and coalesce(plan_source, ''none'') = ''none''' else '' end
       using r.user_id, v_end;

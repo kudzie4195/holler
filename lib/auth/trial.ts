@@ -79,6 +79,22 @@ export function mayExtendTrial(p: TrialRow, start: string, now: number): boolean
  * passes it). Never throws; a failure is logged and the save carries on (repairShortTrial retries on the member's next signed-in load).
  */
 export async function applyTrialRules(admin: Admin, userId: string, now: Date = new Date()): Promise<TrialOutcome> {
+  return (await applyTrialRulesDetailed(admin, userId, now)).outcome;
+}
+
+export interface TrialRulesResult {
+  outcome: TrialOutcome;
+  /** True only when the guarded extension UPDATE really changed the row (it returned the row). */
+  extended: boolean;
+  /**
+   * The trial end AS STORED in the row after this call: the value the write returned, or the value that was read when nothing was
+   * written. Never a computed end the row does not hold (review r2 R4). Null when there is no row or the call failed.
+   */
+  storedEnd: string | null;
+}
+
+/** applyTrialRules, with what the row holds afterwards. Never throws. */
+export async function applyTrialRulesDetailed(admin: Admin, userId: string, now: Date = new Date()): Promise<TrialRulesResult> {
   try {
     const { data: u, error: uErr } = await admin.auth.admin.getUserById(userId);
     if (uErr || !u?.user) throw new Error(uErr?.message ?? 'user not found');
@@ -96,8 +112,9 @@ export async function applyTrialRules(admin: Admin, userId: string, now: Date = 
       stamp = started;
       outcome = 'first';
     }
-    if (!prof) return outcome;
+    if (!prof) return { outcome, extended: false, storedEnd: null };
     const row = prof as TrialRow;
+    const readEnd = typeof row.trial_ends_at === 'string' ? row.trial_ends_at : null;
 
     const start: string = trialStartOf(row.created_at, stamp) ?? stamp ?? now.toISOString();
     const ends = trialEndFromStart(start);
@@ -105,12 +122,13 @@ export async function applyTrialRules(admin: Admin, userId: string, now: Date = 
     const current = parse(row.trial_ends_at);
 
     if (Number.isFinite(current) && current > endMs + SAME_END_MS) {
-      const { error } = await admin.from('holler_profiles').update({ trial_ends_at: ends }).eq('user_id', userId);
+      const { data: cut, error } = await admin.from('holler_profiles').update({ trial_ends_at: ends }).eq('user_id', userId).select('trial_ends_at');
       if (error) throw new Error(error.message);
-      return outcome === 'first' ? 'first' : 'returning';
+      const stored = Array.isArray(cut) && cut.length > 0 ? String((cut[0] as { trial_ends_at: unknown }).trial_ends_at) : readEnd;
+      return { outcome: outcome === 'first' ? 'first' : 'returning', extended: false, storedEnd: stored };
     }
 
-    if (!mayExtendTrial(row, start, now.getTime())) return outcome;
+    if (!mayExtendTrial(row, start, now.getTime())) return { outcome, extended: false, storedEnd: readEnd };
     let q = admin
       .from('holler_profiles')
       .update({ trial_ends_at: ends })
@@ -119,23 +137,33 @@ export async function applyTrialRules(admin: Admin, userId: string, now: Date = 
       .is('stripe_subscription_id', null)
       .lt('trial_ends_at', new Date(endMs - SAME_END_MS).toISOString());
     if ('plan_source' in row) q = q.or('plan_source.is.null,plan_source.eq.none');
-    const { data: moved, error } = await q.select('user_id');
+    const { data: moved, error } = await q.select('user_id, trial_ends_at');
     if (error) throw new Error(error.message);
-    // The guarded UPDATE matched nothing (the member subscribed between the read and the write): no extension, no ledger change (review F9).
-    if (!Array.isArray(moved) || moved.length === 0) return outcome;
+    // The guarded UPDATE matched nothing (the member subscribed between the read and the write): no extension, no ledger change (review F9),
+    // and the caller is told the end that was read, not the one that was not written (review r2 R4).
+    if (!Array.isArray(moved) || moved.length === 0) return { outcome, extended: false, storedEnd: readEnd };
+    // The end as the row holds it: from the write's own returned row, else read back. Never the computed `ends` (review r2 R4).
+    let storedEnd: string | null = typeof (moved[0] as { trial_ends_at?: unknown }).trial_ends_at === 'string' ? String((moved[0] as { trial_ends_at: string }).trial_ends_at) : null;
+    if (storedEnd === null) {
+      const { data: again } = await admin.from('holler_profiles').select('trial_ends_at').eq('user_id', userId).maybeSingle();
+      storedEnd = typeof again?.trial_ends_at === 'string' ? again.trial_ends_at : null;
+    }
+    // If this delete fails, the lifecycle cron clears the rows it finds stale for the new end (lib/lifecycle/select.ts staleTrialSends).
     await resetTrialEndEmails(admin, userId);
-    return outcome === 'first' ? 'first' : 'returning';
+    return { outcome: outcome === 'first' ? 'first' : 'returning', extended: storedEnd !== null, storedEnd };
   } catch (e) {
     console.error('applyTrialRules failed:', e instanceof Error ? e.message : String(e));
-    return 'error';
+    return { outcome: 'error', extended: false, storedEnd: null };
   }
 }
 
 /**
- * Retry for a member whose onboarding server step failed while the database still gave 14 days (review F5): called on the member's
- * signed-in load (/app and GET /api/m/me). Pure check first, with the SAME guard as onboarding (mayExtendTrial, start from the stamp and
- * created_at), so a row that is already right costs no query; only a short never-paid row calls applyTrialRules with the admin client.
- * Returns the new trial end when the row was moved, else null. Never throws.
+ * Retry for a member whose onboarding server step failed while the database still gave 14 days (review F5). Runs BEFORE anything reads
+ * the trial end to show billing or to charge: /app, /app/settings (the trial emails link there), POST /api/stripe/checkout, GET /api/m/me
+ * and PATCH /api/m/profile (review r2 R1); the lifecycle cron uses the same repair before a trial email (repairTrialForCron). Pure check
+ * first, with the SAME guard as onboarding (mayExtendTrial, start from the stamp and created_at), so a row that is already right costs no
+ * query; only a short never-paid row calls the admin client.
+ * Returns the trial end AS STORED after the write when the row was really moved, else null (review r2 R4). Never throws.
  */
 export async function repairShortTrial(
   user: { id: string; app_metadata?: unknown },
@@ -147,20 +175,42 @@ export async function repairShortTrial(
     if (!profile) return null;
     const start = trialStartOf(profile.created_at, trialStartedAt(user.app_metadata));
     if (!start || !mayExtendTrial(profile, start, now.getTime())) return null;
-    const outcome = await applyTrialRules(admin(), user.id, now);
-    return outcome === 'returning' || outcome === 'first' ? trialEndFromStart(start) : null;
+    const r = await applyTrialRulesDetailed(admin(), user.id, now);
+    return r.extended ? r.storedEnd : null;
   } catch (e) {
     console.error('repairShortTrial failed:', e instanceof Error ? e.message : String(e));
     return null;
   }
 }
 
-/** Removes the member's trial_ending / trial_ended ledger rows (migration 0016). A missing table or a failure is logged, never thrown. */
-async function resetTrialEndEmails(admin: Admin, userId: string): Promise<void> {
-  try {
-    const { error } = await admin.from('holler_lifecycle_sends').delete().eq('user_id', userId).in('kind', TRIAL_END_EMAILS);
-    if (error) console.error('applyTrialRules lifecycle reset failed:', error.code ?? error.message);
-  } catch (e) {
-    console.error('applyTrialRules lifecycle reset failed:', e instanceof Error ? e.message : String(e));
+/**
+ * Removes the member's trial_ending / trial_ended ledger rows (migration 0016), up to three attempts. A missing table or a final failure is
+ * logged, never thrown. It is not the only safeguard (review r2 R3): the lifecycle cron treats a trial_ending / trial_ended row that was
+ * sent for an EARLIER end as stale and clears it before it selects (lib/lifecycle/select.ts staleTrialSends), so a lost delete delays
+ * nothing.
+ */
+async function resetTrialEndEmails(admin: Admin, userId: string): Promise<boolean> {
+  let last = '';
+  for (let i = 0; i < 3; i++) {
+    try {
+      const { error } = await admin.from('holler_lifecycle_sends').delete().eq('user_id', userId).in('kind', TRIAL_END_EMAILS);
+      if (!error) return true;
+      last = error.code ?? error.message ?? 'error';
+      if (error.code === 'PGRST205' || error.code === '42P01') break; // table missing: nothing to reset
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
   }
+  console.error('applyTrialRules lifecycle reset failed (the lifecycle cron clears stale rows):', last);
+  return false;
+}
+
+/**
+ * The lifecycle cron's repair (review r2 R2): before a trial_ending or trial_ended email, a member the app would extend is extended first
+ * and the email is skipped (the new end gets its own emails). Same guard as everywhere (mayExtendTrial via applyTrialRulesDetailed).
+ * Returns the stored new end when the row moved, else null (then the email goes as usual). Never throws.
+ */
+export async function repairTrialForCron(admin: Admin, userId: string, now: Date = new Date()): Promise<string | null> {
+  const r = await applyTrialRulesDetailed(admin, userId, now);
+  return r.extended ? r.storedEnd : null;
 }

@@ -202,9 +202,16 @@ export function renderWelcomeQuiet(o: WelcomeQuiet): Rendered {
 }
 
 // ---- trial-ending ----------------------------------------------------------------------------------------------------------------
-/** Whole days the trial-ending email talks about: the middle of its window (60 to 84 hours before the end) is 72 hours. Not a trial length. */
-export const TRIAL_ENDING_DAYS = Math.round((WINDOWS.trial_ending.from + WINDOWS.trial_ending.to) / 2 / 24);
-export const TRIAL_ENDING_SUBJECT = `Your trial ends in ${TRIAL_ENDING_DAYS} days`;
+/** Whole days the trial-ending email normally talks about: it goes at the first hourly run inside its window, 84 to 60 hours out. Not a trial length. */
+export const TRIAL_ENDING_DAYS = 3;
+/** The days the email states for the hours actually left: 3 from 60 hours up, 2 below (a late send after missed runs). */
+export function trialEndingDays(hoursLeft: number): number {
+  return hoursLeft >= 60 ? 3 : 2;
+}
+export const trialEndingSubject = (days: number = TRIAL_ENDING_DAYS) => `Your trial ends in ${days} days`;
+export const TRIAL_ENDING_SUBJECT = trialEndingSubject(TRIAL_ENDING_DAYS);
+// The window this email is sent in (lib/lifecycle/select.ts); kept here so the copy and the window cannot drift apart unnoticed.
+export const TRIAL_ENDING_WINDOW_HOURS = WINDOWS.trial_ending;
 
 export interface PlanLine {
   tier: Tier;
@@ -237,13 +244,16 @@ function planSentence(p: PlanLine): string {
 export interface TrialEnding extends Common {
   /** The member's best alerts, already ranked, at most 3. May be empty. */
   items: AlertItem[];
+  /** Whole days left as stated in the email (trialEndingDays). Default TRIAL_ENDING_DAYS. */
+  daysLeft?: number;
   plans?: PlanLine[];
 }
 
 export function renderTrialEnding(o: TrialEnding): Rendered {
   const items = o.items.slice(0, 3);
   const plans = o.plans ?? planLines();
-  const lead = `Your free trial ends in about ${TRIAL_ENDING_DAYS} days, and after that your alerts stop unless you pick a plan.`;
+  const days = o.daysLeft ?? TRIAL_ENDING_DAYS;
+  const lead = `Your free trial ends in about ${days} days, and after that your alerts stop unless you pick a plan.`;
   const found =
     items.length === 0
       ? 'Holler has not matched anything to your trades and area yet, and it will keep watching until the trial ends.'
@@ -262,7 +272,7 @@ export function renderTrialEnding(o: TrialEnding): Rendered {
     button(o.plansUrl, 'Pick a plan');
   const bodyText =
     `${lead}\n\n${found}\n\n${items.length ? `${itemsText(items)}\n\n` : ''}${plansIntro}\n\n${plans.map(planSentence).join('\n\n')}\n\n${renew}\n\nPick a plan: ${o.plansUrl}\n`;
-  return shell(o, TRIAL_ENDING_SUBJECT, body, bodyText);
+  return shell(o, trialEndingSubject(days), body, bodyText);
 }
 
 // ---- trial-ended ----------------------------------------------------------------------------------------------------------------

@@ -305,12 +305,15 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
   if (report.firecrawl) blocks.push({ title: 'Firecrawl (agency bid pages)', lines: firecrawlLines(report.firecrawl) });
   if (report.trialCheck) {
     blocks.push({ title: 'Free trial length', lines: [trialCheckLine(report.trialCheck)] });
-    if ((report.trialCheck.status === 'mismatch' || report.trialCheck.status === 'not_applied') && report.problemCount === 0) {
-      subject = 'Holler health: free trial length does not match the database';
-    } else if (report.trialCheck.status === 'error' && report.problemCount === 0) {
-      // A read failure must not hide a real mismatch behind an all-clear subject (review F10).
-      subject = 'Holler health: could not check the free trial length';
-    }
+    // A mismatch or a read failure (which must not hide a mismatch behind an all-clear, review F10) is ADDED to the subject: it replaces
+    // only the all-clear, never "N sources need attention" or "N sources are behind on data" (review r2 R6).
+    const trialPart =
+      report.trialCheck.status === 'mismatch' || report.trialCheck.status === 'not_applied'
+        ? 'free trial length does not match the database'
+        : report.trialCheck.status === 'error'
+          ? 'could not check the free trial length'
+          : null;
+    if (trialPart) subject = report.problemCount === 0 && subject === report.subject ? `Holler health: ${trialPart}` : `${subject}; ${trialPart}`;
   }
   const c = report.counts;
   blocks.push({

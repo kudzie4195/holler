@@ -26,7 +26,7 @@ it.skipIf(!hasPglite)('0028: 60 days in all three places, the check function, an
   const rows: [number, number | null | 'bad', number, number, string][] = [
     [1, null, 5, 9, ''], // A running 14-day trial: extend to created + 60 (= +55)
     [2, null, 24, -10, ''], // B ended 10 days ago: extend to created + 60 (= +36), ledger reset
-    [3, null, 64, -50, ''], // C ended 50 days ago (outside 46): untouched
+    [3, null, 64, -50, ''], // C start 64 days back (start + 60 is past): untouched
     [4, null, 54, -40, `, subscription_status = 'active'`], // D paying: untouched
     [5, null, 10, 4, `, stripe_subscription_id = 'sub_5'`], // E has a Stripe subscription: untouched
     [6, null, 10, 4, `, plan_source = 'apple'`], // F store plan: untouched
@@ -46,6 +46,10 @@ it.skipIf(!hasPglite)('0028: 60 days in all three places, the check function, an
     [19, null, 56, -42, ''], // start 56 d back: +96 h: revived, the reminder comes first
     [20, null, 46, -32, ''], // start 46 d back: +14 d: revived, ledger reset
     [21, null, 10, 4, ''], // a sandbox (not applied) store event only: never paid, extended (review F7)
+    // Review r2 R5: 7-day-era rows (0001 default) are judged by their start like the app, not by a 46-day floor.
+    [23, null, 55, -48, ''], // 7-day trial, start 55 d back, ended 48 d ago: revived to +5 d
+    [24, null, 54, -47, ''], // 7-day trial, start 54 d back: +6 d
+    [25, null, 58, -51, ''], // 7-day trial, start 58 d back: only 2 days would be left: stays ended
   ];
   for (const [n, stamp] of rows) {
     const meta = stamp === null ? `'{}'::jsonb` : stamp === 'bad' ? `'{"holler_trial_started_at":"garbage"}'::jsonb` : `jsonb_build_object('holler_trial_started_at', (now() - interval '${stamp} days')::text)`;
@@ -94,6 +98,9 @@ it.skipIf(!hasPglite)('0028: 60 days in all three places, the check function, an
     20: 14, // revived: 14 days left
     21: 50, // sandbox event only: extended
     22: 50, // already at start + 60
+    23: 5,
+    24: 6,
+    25: -51,
   });
   // Review F4: the millisecond row is not touched at all and keeps its ledger.
   expect((await db.query(`select trial_ends_at::text t from holler_profiles where user_id = '${id(22)}'`)).rows[0].t).toBe(endBefore22);
