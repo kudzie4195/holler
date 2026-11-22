@@ -23,6 +23,7 @@ import { bidHidden } from '@/lib/signals/bid-sources';
 import { computeAccess } from '@/lib/auth/access';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { isAlertLabel, labelForMember } from '@/lib/signals/lead-rules';
+import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 import { matchScope } from '@/lib/plan/scope';
 import type { PushData } from '@/lib/mobile/types';
 import { isFcmConfigured, sendPush, type PushMessage, type SendResult } from './fcm';
@@ -154,6 +155,8 @@ interface MatchLike {
   id: number;
   user_id: string;
   created_at: string;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). A held match is never pushed. Absent before 0027. */
+  alert_hold?: string | null;
   signal: SignalLike | SignalLike[] | null;
 }
 
@@ -185,6 +188,8 @@ export function pushEntriesFromMatches(
   for (const m of matches) {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
+    // A feed-only match (no business or site address on a permit, below the member's minimum, a held trade family) is not an alert.
+    if (holdOf(m)) continue;
     // A city bid is never pushed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
     if (bidHidden(s, undefined, now)) continue;
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
@@ -230,20 +235,29 @@ const chunks = <T>(list: T[], n: number): T[][] => Array.from({ length: Math.cei
 /** Never-pushed new matches of these members since `since`, in pages. 'not_ready' before migration 0020 (no pushed_at column). */
 async function unpushedMatches(db: Db, userIds: string[], since: string, before?: string): Promise<{ rows: MatchLike[]; error: 'not_ready' | 'failed' | null }> {
   const rows: MatchLike[] = [];
+  // alert_hold (migration 0027) is read with the match; before 0027 that read fails on the column and is made again without it.
+  let holdCol = 'alert_hold, ';
   for (const ids of chunks(userIds, CHUNK)) {
     for (let page = 0; page < MAX_MATCH_PAGES; page++) {
-      let q = db
-        .from('holler_matches')
-        .select(`id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
-        .in('user_id', ids)
-        .eq('status', 'new')
-        .is('pushed_at', null)
-        .gte('created_at', since);
-      if (before) q = q.lt('created_at', before);
-      const { data, error } = await q
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(page * PAGE, page * PAGE + PAGE - 1);
+      const build = () => {
+        let q = db
+          .from('holler_matches')
+          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
+          .in('user_id', ids)
+          .eq('status', 'new')
+          .is('pushed_at', null)
+          .gte('created_at', since);
+        if (before) q = q.lt('created_at', before);
+        return q
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+      };
+      let { data, error } = await build();
+      if (error && holdCol && missingHoldColumn(error)) {
+        holdCol = '';
+        ({ data, error } = await build());
+      }
       if (error) return { rows, error: isMissingTable(error) ? 'not_ready' : 'failed' };
       const got = (Array.isArray(data) ? data : []) as unknown as MatchLike[];
       rows.push(...got);

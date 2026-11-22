@@ -9,6 +9,8 @@ import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { missingHoldColumn, withoutHold } from './alert-gate';
+import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
 export type Db = SupabaseClient;
 
@@ -482,16 +484,64 @@ export async function loadProfiles(db: Db, now: Date = new Date()): Promise<Matc
   } catch (e) {
     throw new Error(`profiles read failed: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  const out = rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  if (out.length === 0) return out;
+  // Work profiles (migration 0027, holler_work_profiles), read on their own: before 0027 the read fails, nothing is attached and matching
+  // is exactly as before.
+  const work = await loadWorkProfiles(db, out.map((p) => p.user_id));
+  if (work.size === 0) return out;
+  return out.map((p) => {
+    const w = work.get(p.user_id);
+    return w ? { ...p, work_property: w.work_property, work_min_value: w.work_min_value, work_type: w.work_type } : p;
+  });
 }
 
+/**
+ * The table or a column of migration 0027 is missing: Postgres 42P01 (undefined table) or 42703 (undefined column), PostgREST PGRST205
+ * (table not in the schema cache) or PGRST204 (column not in the schema cache), or the same in words.
+ */
+export function missingWorkProfiles(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!e) return false;
+  if (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || e.code === 'PGRST204') return true;
+  const m = e.message ?? '';
+  return /holler_work_profiles|work_(?:property|min_value|type)/.test(m) && /does not exist|could not find|schema cache/i.test(m);
+}
+
+/**
+ * The work settings (migration 0027, holler_work_profiles) of these members, only for members whose settings change matching (not all
+ * defaults). Never throws: a missing table or column is silent, any other failure is logged; both give an empty map, so matching is as
+ * before 0027.
+ */
+export async function loadWorkProfiles(db: Pick<Db, 'from'>, userIds: readonly string[]): Promise<Map<string, WorkColumns>> {
+  const out = new Map<string, WorkColumns>();
+  try {
+    for (const part of chunks([...userIds], CHUNK)) {
+      const { data, error } = await db.from('holler_work_profiles').select(`user_id, ${WORK_PROFILE_COLUMNS}`).in('user_id', part);
+      if (error) {
+        if (!missingWorkProfiles(error)) console.error(`work profiles read failed (matching without them): ${error.message}`);
+        return new Map();
+      }
+      for (const r of (data ?? []) as Array<WorkColumns & { user_id?: unknown }>) {
+        if (typeof r?.user_id === 'string' && workProfileOf(r)) out.set(r.user_id, { work_property: r.work_property, work_min_value: r.work_min_value, work_type: r.work_type });
+      }
+    }
+  } catch (e) {
+    console.error(`work profiles read failed (matching without them): ${e instanceof Error ? e.message : String(e)}`);
+    return new Map();
+  }
+  return out;
+}
+
+/**
+ * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027). Before 0027 the column is missing: the
+ * batch is retried without it, so those cards are stored exactly as before (and go out as alerts as before).
+ */
 export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
   let n = 0;
   for (const part of chunks(rows, 500)) {
-    const { data, error } = await db
-      .from('holler_matches')
-      .upsert(part, { onConflict: 'user_id,signal_id', ignoreDuplicates: true })
-      .select('id');
+    const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
+    let { data, error } = await send(part);
+    if (error && missingHoldColumn(error) && part.some((r) => 'alert_hold' in r)) ({ data, error } = await send(withoutHold(part)));
     if (error) throw new Error(`matches upsert failed: ${error.message}`);
     n += data?.length ?? 0;
   }

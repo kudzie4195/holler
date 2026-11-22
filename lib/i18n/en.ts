@@ -15,6 +15,28 @@ export const en = {
   'settings.language.saved': 'Language saved.',
   'settings.language.error': "We couldn't save that. Try again.",
 
+  // ---- work profile (round 18 ROUTES, migration 0027) and feed-only cards ----
+  'settings.work.heading': 'What work do you take?',
+  'settings.work.hint': 'Alerts leave out work you do not take. When a record does not say, you still get it.',
+  'settings.work.property.label': 'Property type',
+  'settings.work.property.both': 'Residential and commercial',
+  'settings.work.property.residential': 'Residential only',
+  'settings.work.property.commercial': 'Commercial only',
+  'settings.work.type.label': 'Kind of work',
+  'settings.work.type.both': 'Repairs and new installs',
+  'settings.work.type.repairs': 'Repairs and service only',
+  'settings.work.type.installs': 'New installs and builds only',
+  'settings.work.min.label': 'Smallest job you take, in dollars',
+  'settings.work.min.hint': 'Leave it empty for no minimum. A permit below it stays in your feed but is not sent as an alert.',
+  'settings.work.save': 'Save work settings',
+  'settings.work.saved': 'Work settings saved. They apply to new alerts.',
+  'settings.work.error': "We couldn't save that. Check the amount and try again.",
+  'hold.background.chip': 'Background',
+  'hold.below_min.chip': 'Below your minimum',
+  'hold.background.note': 'This permit names no business and no site address, so it was not sent as an alert.',
+  'hold.below_min.note': 'The job value on this permit is below the minimum in your settings, so it was not sent as an alert.',
+  'hold.held.note': 'This kind of record is on hold for your trade while we check its quality, so it was not sent as an alert.',
+
   // ---- opportunity chip, deadlines, bids ----
   'chip.act_now': 'Act now',
   'chip.coming_soon': 'Coming soon',

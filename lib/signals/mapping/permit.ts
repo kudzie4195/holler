@@ -320,6 +320,9 @@ const FREE_JOIN: Record<string, RegExp> = {
 };
 
 const HVAC_KIND = () => PERMIT_KINDS.find((k) => k.id === 'hvac')!;
+const NEW_CONSTRUCTION_KIND = () => PERMIT_KINDS.find((k) => k.id === 'new-construction')!;
+/** A structured value that is only the word "New" (a work class, not a kind of building). */
+const BARE_NEW_RE = /^\s*new\s*$/i;
 
 /**
  * A structured use, class or type that says the building is commercial, not a home: "Commercial", "Commercial Alteration", "(C) Commercial",
@@ -360,7 +363,20 @@ function pickKindsRaw(f: PermitFields): PermitKind[] {
   const fromMixed = strictKindsIn(mixed);
   for (const k of fromMixed) if (!fr.some((x) => x.id === k.id)) fr.push(k);
   fr.sort((a, b) => PERMIT_KINDS.indexOf(a) - PERMIT_KINDS.indexOf(b));
-  const sSpecific = s.filter((k) => !k.generic);
+  let sSpecific = s.filter((k) => !k.generic);
+  // A bare "New" work class next to a named trade's permit type ("Mechanical | New", "Electrical | New", "Driveway / Sidewalks | New") is a
+  // new installation of that trade, not a new building (round 18 ROUTES, item 5: four real rows titled "New construction and HVAC /
+  // electrical / concrete permit", tests/signals/routes-mislabels.test.ts). Unless the description says a new house is being built, the
+  // bare "New" is dropped and the title names the trade alone. A structured "New Construction", "New Building" or a bare "New" with
+  // nothing else beside it keeps New construction.
+  if (
+    sSpecific.length > 1 &&
+    sSpecific.some((k) => k.id === 'new-construction') &&
+    !structured.some((v) => !BARE_NEW_RE.test(v) && NEW_CONSTRUCTION_KIND().test(v)) &&
+    !fr.some((k) => k.id === 'new-home')
+  ) {
+    sSpecific = sSpecific.filter((k) => k.id !== 'new-construction');
+  }
   if (sSpecific.length) {
     // A structured "New" or "New Construction" plus a description of a new house is a new home (the description refines it).
     const newHome = PERMIT_KINDS.find((k) => k.id === 'new-home')!;
@@ -387,6 +403,11 @@ function pickKindsRaw(f: PermitFields): PermitKind[] {
   }
   // A structured "Dumpster" permit is a container, not a demolition, whatever the description says about the debris.
   if (s.some((k) => k.id === 'dumpster')) fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
+  // An alteration permit whose DESCRIPTION mentions demolition is interior demolition inside the alteration, not a demolition permit (round
+  // 18 ROUTES, item 5: three real rows, two San Francisco "otc alterations permit" and one Cincinnati "Alter Commercial", were titled
+  // "Demolition permit"). The demolition kind is dropped; the alteration stays a remodel (or a fit-out when commercial). A structured
+  // demolition type ("Bldg-Demolition", "Commercial Demolition") is untouched.
+  if (s.some((k) => k.id === 'remodel') && !s.some((k) => k.id === 'demolition')) fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
   // With named trades in the description, only a generic word in the description itself joins them ("remodel kitchen, new plumbing"):
   // a city's catch-all type ("Renovation/Alteration", "Building Permit") over a re-roof is not a general contractor lead.
   if (fSpecific.length) {

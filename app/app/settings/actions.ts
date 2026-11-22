@@ -10,6 +10,8 @@ import { getProfile, getUser } from '@/lib/auth/session';
 import { deleteHollerAccount } from '@/lib/mobile/account';
 import { saveProfile } from '@/lib/auth/profile';
 import { saveLanguage, type LanguageState } from '@/lib/auth/language';
+import { saveWorkProfile, type WorkProfileState } from '@/lib/auth/work-profile';
+import { langOfProfile } from '@/lib/i18n';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
@@ -118,5 +120,21 @@ export async function saveLanguageSetting(_prev: LanguageState, formData: FormDa
   const result = await saveLanguage(supabase, user.id, formData.get('language'));
   // The cards, the header and the settings page read the language from the profile on every request.
   if (result.ok && !result.skipped) revalidatePath('/app', 'layout');
+  return result;
+}
+
+/**
+ * Saves "What work do you take?" (migration 0027): property type, kind of work, smallest job. Separate from saveSettings on purpose: a
+ * database without migration 0027 has no work columns, and that must never make "Save changes" fail. Without them this writes nothing and
+ * shows no error. Same auth as every member action here: the signed-in user only, their own row (RLS), through the member's own client.
+ * The settings apply to new scans; nothing a member already has is removed, so no backfill or rematch runs here.
+ */
+export async function saveWorkProfileSetting(_prev: WorkProfileState, formData: FormData): Promise<WorkProfileState> {
+  const user = await getUser();
+  if (!user) redirect('/login?next=/app/settings');
+  const profile = await getProfile(user.id).catch(() => null);
+  const supabase = await createClient();
+  const result = await saveWorkProfile(supabase, user.id, formData, langOfProfile(profile));
+  if (result.ok && !result.skipped) revalidatePath('/app/settings');
   return result;
 }

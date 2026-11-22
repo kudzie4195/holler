@@ -1,3 +1,4 @@
+import { loadWorkProfiles } from './store';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
 import { matchScope, type ScopeArea } from '@/lib/plan';
@@ -298,7 +299,7 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);
-      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade });
+      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade, ...(m.hold ? { hold: m.hold } : {}) });
     }
     // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
     // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.
@@ -311,7 +312,8 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     // History, not news: notified and pushed_at set at insert, so neither the email digest nor a push counts these rows.
     await upsertMatchRows(
       db,
-      picked.map((h) => historyRow({ user_id: profile.user_id, signal_id: h.s.id, distance_mi: h.distance_mi }, now)),
+      // A feed-only card keeps its reason (alert_hold, migration 0027) so the feed can say why; upsertMatchRows drops it before 0027.
+      picked.map((h) => historyRow({ user_id: profile.user_id, signal_id: h.s.id, distance_mi: h.distance_mi, ...(h.hold ? { alert_hold: h.hold } : {}) }, now)),
     );
     return { matched: picked.length, considered: rows.length };
   } catch (e) {
@@ -327,7 +329,9 @@ export async function backfillForUser(db: Db, userId: string, now: Date = new Da
     // '*' so a database without migration 0004 still works (no plan columns means Starter limits).
     const { data, error } = await db.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
     if (error || !data) throw new Error(error?.message ?? 'profile not found');
-    return await backfillMatches(db, data as MatchProfile, now);
+    // The member's work profile (migration 0027), read on its own; before 0027 (or on any failure) there is none and nothing changes.
+    const work = (await loadWorkProfiles(db, [userId])).get(userId);
+    return await backfillMatches(db, (work ? { ...data, ...work } : data) as MatchProfile, now);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('backfillForUser failed:', message);

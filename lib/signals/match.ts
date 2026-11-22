@@ -6,6 +6,8 @@ import { bidsEnabled, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
 import type { CategoryId } from './categories';
+import { alertHoldFor, type AlertHold, type ContactPath, type GateInput } from './alert-gate';
+import { workFilterDrops, workProfileOf, type WorkColumns, type WorkProfile } from './work-profile';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -31,6 +33,13 @@ export interface MatchProfile {
   extra_areas?: unknown;
   /** holler_profiles.keywords. Used only on Pro. */
   keywords?: string[] | null;
+  /**
+   * Work profile (migration 0027, lib/signals/work-profile.ts): property focus, minimum job value, work type. Absent (before 0027, or
+   * left at the defaults) means matching exactly as before.
+   */
+  work_property?: WorkColumns['work_property'];
+  work_min_value?: WorkColumns['work_min_value'];
+  work_type?: WorkColumns['work_type'];
 }
 
 export interface MatchSignal {
@@ -56,12 +65,22 @@ export interface MatchSignal {
   kind?: string | null;
   /** A company or site is on file for this record (holler_signal_contacts). Read by the score (+30) only; absent counts as no contact. */
   hasContact?: boolean | null;
+  /**
+   * How a member can act on this record (lib/signals/alert-gate.ts contactPathOf): a named business, a job-site street address, or null
+   * for neither. Set by the scan for the permits it just stored. undefined = not known: never held by the contact gate.
+   */
+  contactPath?: ContactPath | null;
 }
 
 export interface MatchRow {
   user_id: string;
   signal_id: number;
   distance_mi: number | null;
+  /**
+   * Set only when the card is feed-only (lib/signals/alert-gate.ts): written to holler_matches.alert_hold (migration 0027). Absent on every
+   * card that goes out as before, so those rows are byte-for-byte the rows of earlier rounds.
+   */
+  alert_hold?: AlertHold;
 }
 
 /** What matchOne found: where it is, and the label this member's trades give the record (lib/signals/lead-rules.ts). */
@@ -74,6 +93,8 @@ export interface MatchResult {
   trade: string | null;
   /** Deterministic score v1 (lib/signals/score.ts) without the competition term: this path does not hold the member list. */
   score: number;
+  /** Feed-only reason (lib/signals/alert-gate.ts). Absent: the card goes out as an alert as its label says. */
+  hold?: AlertHold;
 }
 
 const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
@@ -148,14 +169,43 @@ function scoreHit(signal: MatchSignal, trade: string | null, nowMs: number, comp
   }).score;
 }
 
-function resultFor(signal: MatchSignal, where: { distance_mi: number | null }, label: OpportunityLabel, trade: string | null, nowMs: number): MatchResult {
+function resultFor(signal: MatchSignal, where: { distance_mi: number | null }, label: OpportunityLabel, trade: string | null, nowMs: number, hold: AlertHold | null): MatchResult {
   return {
     distance_mi: where.distance_mi,
     label,
     deadline: deadlineOf({ source: signal.source, data: signal.data as Record<string, unknown> | null | undefined }),
     trade,
     score: scoreHit(signal, trade, nowMs, null),
+    ...(hold ? { hold } : {}),
   };
+}
+
+/** What the work profile and the alert gate read from a record. */
+function gateInputOf(signal: MatchSignal): GateInput {
+  return {
+    source: signal.source ?? '',
+    kind: signal.kind ?? null,
+    subtype: subtypeOf(signal),
+    title: signal.title ?? null,
+    summary: signal.summary ?? null,
+    data: (signal.data as { [k: string]: unknown } | null | undefined) ?? null,
+    contactPath: signal.contactPath,
+  };
+}
+
+/** The member's work profile (migration 0027), or null when there is none or it is all defaults. */
+export function workOfProfile(profile: MatchProfile): WorkProfile | null {
+  return workProfileOf(profile);
+}
+
+/** The profile without its work settings: what the stale-match prune reads, so a new setting never removes a card a member already has. */
+export function withoutWorkProfile<P extends MatchProfile>(profile: P): P {
+  if (!('work_property' in profile) && !('work_min_value' in profile) && !('work_type' in profile)) return profile;
+  const copy = { ...profile };
+  delete copy.work_property;
+  delete copy.work_min_value;
+  delete copy.work_type;
+  return copy;
 }
 
 function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
@@ -214,8 +264,12 @@ function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchSc
     if (scope.phrases.length === 0) return null;
     if (phraseIndex(searchText(signal), scope.phrases) < 0) return null;
   }
+  // Work profile (migration 0027): property focus and work type rule a record out only when the record states them.
+  const work = workOfProfile(profile);
+  const gate = gateInputOf(signal);
+  if (workFilterDrops(gate, work)) return null;
   const { label, trade } = labelInScope(signal, cats, scope);
-  return isFeedLabel(label) ? resultFor(signal, where, label, trade, nowMs) : null;
+  return isFeedLabel(label) ? resultFor(signal, where, label, trade, nowMs, alertHoldFor(gate, label, trade, work)) : null;
 }
 
 export function subtypeOf(s: Pick<MatchSignal, 'subtype' | 'data'>): string | null {
@@ -233,9 +287,11 @@ export interface Hit {
   score?: number;
   /** The member trade that gave the label (null: keyword-only match). */
   trade?: string | null;
+  /** Feed-only reason (lib/signals/alert-gate.ts). A held card ranks with the market insights: it is not an alert. Absent: none. */
+  hold?: AlertHold | null;
 }
 
-const labelRank = (h: Hit) => LABEL_RANK[h.label ?? 'coming_soon'];
+const labelRank = (h: Hit) => (h.hold ? LABEL_RANK.market_insight : LABEL_RANK[h.label ?? 'coming_soon']);
 const scoreOfHit = (h: Hit) => h.score ?? 0;
 
 /** A start time in the future ranks as "now": a record dated next year never outranks a fresh one of the same severity. */
@@ -272,7 +328,7 @@ export function pickHits(hitsIn: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USE
     .slice(0, maxBusiness);
   const keep = [...hits.filter((h) => !isBiz(h)), ...biz];
   const byLabel = (a: Hit, b: Hit) => labelRank(a) - labelRank(b) || scoreOfHit(b) - scoreOfHit(a) || b.s.severity - a.s.severity || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs);
-  const severeAlert = (h: Hit) => h.s.severity >= 3 && isAlertLabel(h.label ?? 'coming_soon');
+  const severeAlert = (h: Hit) => h.s.severity >= 3 && !h.hold && isAlertLabel(h.label ?? 'coming_soon');
   const cutOrder = (a: Hit, b: Hit) => Number(severeAlert(b)) - Number(severeAlert(a)) || byLabel(a, b);
   return keep.sort(cutOrder).slice(0, cap).sort(byLabel);
 }
@@ -302,8 +358,10 @@ export function matchSignals(
   const perProfile: { p: MatchProfile; hits: Hit[]; idx: number[] }[] = [];
   /** `${record index}\u0000${trade}` -> members of that trade who see the record (score v1, low competition). */
   const members = new Map<string, number>();
+  const gates: (GateInput | undefined)[] = new Array(n);
   for (const p of profiles) {
     const scope = matchScope(p); // once per profile, not once per record
+    const work = workOfProfile(p);
     const slots: (Uint8Array | undefined)[] = new Array(scope.phrases.length);
     const hits: Hit[] = [];
     const idx: number[] = [];
@@ -336,12 +394,16 @@ export function matchSignals(
         }
         if (!found) continue;
       }
+      const gate = (gates[i] ??= gateInputOf(s));
+      // Work profile (migration 0027): a record that states a class or kind of work the member does not take is not matched.
+      if (work && workFilterDrops(gate, work)) continue;
       // Context records are left out here (item 0.2). market_insight is kept for the feed; the push and the digest drop it (item 1.1).
       const { label, trade } = labelInScope(s, cats, scope);
       if (!isFeedLabel(label)) continue;
       const mine = cats.filter((c) => scope.categories.includes(c));
       for (const t of mine) members.set(`${i}\u0000${t}`, (members.get(`${i}\u0000${t}`) ?? 0) + 1);
-      hits.push({ s, distance_mi: where.distance_mi, label, trade });
+      const hold = alertHoldFor(gate, label, trade, work);
+      hits.push({ s, distance_mi: where.distance_mi, label, trade, ...(hold ? { hold } : {}) });
       idx.push(i);
     }
     perProfile.push({ p, hits, idx });
@@ -352,7 +414,7 @@ export function matchSignals(
       const competitors = h.trade ? (members.get(`${idx[k]}\u0000${h.trade}`) ?? null) : null;
       h.score = scoreHit(h.s, h.trade ?? null, nowMs, competitors);
     }
-    for (const h of pickHits(hits, nowMs, cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi });
+    for (const h of pickHits(hits, nowMs, cap)) out.push({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi, ...(h.hold ? { alert_hold: h.hold } : {}) });
   }
   return out;
 }
@@ -370,6 +432,7 @@ export function membersOfTrade(signal: MatchSignal, trade: string, profiles: rea
     const scope = matchScope(p);
     if (!scope.categories.includes(trade)) continue;
     if (!areaMatch(signal, p, scope, bidsOn)) continue;
+    if (workFilterDrops(gateInputOf(signal), workOfProfile(p))) continue;
     if (isFeedLabel(labelInScope(signal, cats, scope).label)) n++;
   }
   return n;

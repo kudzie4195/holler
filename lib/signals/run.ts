@@ -20,6 +20,9 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
+import { contactPathOf } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
+import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { normalizeState } from './adapters/usaspending';
@@ -279,6 +282,28 @@ async function stageUpdatesToday(db: Db, now: Date, exceptSignalIds: readonly nu
   return out;
 }
 
+/**
+ * Round 18 contact gate (lib/signals/alert-gate.ts): for every building permit this scan just stored, whether it names a business or a
+ * job-site street address (from the contacts the adapter attached, sanitised exactly as they are stored, or from the public summary).
+ * Set on the stored row object (like hasContact) so matchSignals can hold a permit card with neither out of email and push. Rows that are
+ * not permits are left untouched (their contact state stays unknown, and the gate never applies to them).
+ */
+export function markContactPaths(inserted: StoredSignal[], built: readonly SignalInput[]): void {
+  const byKey = new Map<string, SignalInput>();
+  for (const b of built) byKey.set(`${b.source}\u0000${b.externalId}`, b);
+  for (const r of inserted) {
+    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null })) continue;
+    const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+    let contacts: ReturnType<typeof sanitizeContacts> = [];
+    try {
+      contacts = sanitizeContacts(b?.contacts ?? [], { datasetCity: b?.city ?? null });
+    } catch {
+      contacts = [];
+    }
+    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null);
+  }
+}
+
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
   const now = opts.now ?? new Date();
   const clock = opts.clock ?? Date.now;
@@ -373,6 +398,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           await projectStore.record(plan, inserted);
           const events = await projectStore.stages(plan, inserted);
           f.result.logs.push(...logsSink);
+          markContactPaths(inserted, plan.rows);
           // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card.
           storedAll.push(...inserted.filter((r) => !(r.external_id != null && plan.followers.has(r.external_id))));
           stageSignals.push(...events);
@@ -417,7 +443,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             const hits: Array<{ sig: StoredSignal; fresh: boolean; distance: number | null; score: number }> = [];
             for (const sig of stageSignals) {
               const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
-              if (!hit || hit.label !== 'coming_soon' || !isStageTrade(hit.trade)) continue;
+              // A card that is feed-only for this member (below their minimum job value, migration 0027) gets no stage update either.
+              if (!hit || hit.label !== 'coming_soon' || hit.hold || !isStageTrade(hit.trade)) continue;
               // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
               const held = have.get(`${p.user_id}\u0000${sig.id}`);
               if (held !== undefined && held !== 'new') continue;
@@ -436,7 +463,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; report.sources.find((x) => x.id === src)?.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
-        await logAlerts(db, alertLogRowsFor(rows, alertSignals, profiles));
+        // A feed-only card (alert_hold: background, below the member's minimum, or a held trade family) is not an alert: not logged as one.
+        await logAlerts(db, alertLogRowsFor(rows.filter((r) => !r.alert_hold), alertSignals, profiles));
         const sourceById = new Map(alertSignals.map((s) => [s.id, s.source]));
         const bySource = new Map<string, number>();
         for (const r of rows) {

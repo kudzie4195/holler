@@ -1,5 +1,5 @@
 import { alertKeyOf } from './alert-dedupe';
-import { MAX_MATCHES_PER_USER, matchSignals, type MatchProfile, type MatchSignal } from './match';
+import { MAX_MATCHES_PER_USER, matchSignals, withoutWorkProfile, type MatchProfile, type MatchSignal } from './match';
 import { loadProfiles, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
@@ -105,7 +105,7 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
         const t = s ? Date.parse(s.occurred_at) : NaN;
         const quiet = opts.quiet === true || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
-        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null });
+        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
     }
     if (rows.length === 0) return { created: 0 };
@@ -119,7 +119,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       }
     }
     // Outcome log (migration 0015): one coarse row per new pair. Never throws; a repeat pair is ignored by its unique key.
-    await logAlerts(db, alertLogRowsFor(rows, signals, profiles));
+    // A feed-only card (alert_hold) is not an alert, so it is not logged as one.
+    await logAlerts(db, alertLogRowsFor(rows.filter((r) => !r.alert_hold), signals, profiles));
     return { created };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -210,7 +211,8 @@ export async function pruneStaleMatches(db: Db, signalIds: number[], opts: Remat
       const p = byUser.get(m.user_id);
       const s = byId.get(m.signal_id);
       if (!p || !s) continue;
-      if (matchSignals([s], [p], MAX_MATCHES_PER_USER, now).length === 0) stale.push(m.id);
+      // Without the work profile (migration 0027): a new setting applies to new scans only and never removes a card the member already has.
+      if (matchSignals([s], [withoutWorkProfile(p)], MAX_MATCHES_PER_USER, now).length === 0) stale.push(m.id);
     }
     let removed = 0;
     for (const part of chunks(stale)) {

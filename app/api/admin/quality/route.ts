@@ -4,6 +4,7 @@ import { isBearerAuthorized } from '@/lib/email/cron-auth';
 import { loadQualityReport } from '@/lib/admin/quality-load';
 import { renderQualityHtml } from '@/lib/admin/quality-html';
 import { loadAiCoverage } from '@/lib/admin/ai-coverage';
+import { loadContactPathReport } from '@/lib/admin/contact-path';
 
 export const maxDuration = 60;
 
@@ -31,10 +32,12 @@ export async function GET(req: Request) {
     const report = await loadQualityReport(admin, now);
     // AI coverage of new permit and civic rows (PLAN-2.0 item 2.5): counts only. A failed read is blank, never 0%.
     const aiCoverage = await loadAiCoverage(admin, now);
+    // Round 18: share of alerted cards (last 7 days) that named a business or a job-site address, per trade. Never throws; blank on failure.
+    const contactPaths = await loadContactPathReport(admin, now);
     if (new URL(req.url).searchParams.get('format') === 'html') {
-      return new Response(renderQualityHtml(report, aiCoverage), { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response(renderQualityHtml(report, aiCoverage, contactPaths), { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
     }
-    return Response.json({ ...report, aiCoverage }, { headers });
+    return Response.json({ ...report, aiCoverage, contactPaths }, { headers });
   } catch {
     return Response.json({ error: 'quality_read_failed' }, { status: 500, headers });
   }
