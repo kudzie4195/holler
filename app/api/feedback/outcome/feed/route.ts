@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUser } from '@/lib/auth/session';
 import { hasPendingAsk, isFeedAnswer, recordOutcome } from '@/lib/moat/outcome';
+import { originAllowed } from '@/lib/auth/origin';
+import { siteUrl } from '@/lib/env';
 
 /** Is there a follow-up question for this alert? The member's own session (RLS shows own rows only). Fails soft: pending false. */
 export async function GET(req: Request) {
@@ -22,6 +24,8 @@ export async function POST(req: Request) {
   if (!(req.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) {
     return Response.json({ ok: false }, { status: 415 });
   }
+  // SEC-5: same-origin when the browser says where it came from (the feed card's fetch always sends Origin).
+  if (!originAllowed(req, siteUrl)) return Response.json({ ok: false }, { status: 403 });
   const body = (await req.json().catch(() => null)) as { signalId?: unknown; answer?: unknown } | null;
   const signalId = body?.signalId;
   if (typeof signalId !== 'number' || !Number.isSafeInteger(signalId) || signalId <= 0 || !isFeedAnswer(body?.answer)) {

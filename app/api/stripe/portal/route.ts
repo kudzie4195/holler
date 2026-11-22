@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/env';
 import { billingNotConfigured, getStripe } from '@/lib/stripe';
+import { originAllowed } from '@/lib/auth/origin';
 
-
-export async function POST() {
+/** SEC-5: same-origin only when the browser sends an Origin (the billing button's fetch always does). */
+export async function POST(req: Request) {
+  if (!originAllowed(req, siteUrl)) return Response.json({ error: 'forbidden' }, { status: 403 });
   const stripe = getStripe();
   if (!stripe) return billingNotConfigured();
 
