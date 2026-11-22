@@ -125,7 +125,36 @@ describe('loadActiveBuilders', () => {
       holler_signal_contacts: [contact(1, 1, 'Victory Plumbing Company')],
     });
     expect((await load(db)).builders).toHaveLength(1);
-    expect(db.calls.every((c) => /^holler_(profiles|signals|signal_contacts)\.select$/.test(c))).toBe(true);
+    expect(db.calls.every((c) => /^holler_(profiles|signals|signal_contacts|matches)\.select$/.test(c))).toBe(true);
     expect(db.tables.holler_matches ?? []).toEqual([]);
+  });
+
+  it('review defect 3: names for every nearby permit, phones only for permits the member holds a match for', async () => {
+    const db = new FakeDb({
+      holler_profiles: [prof()],
+      holler_matches: [{ id: 1, user_id: 'u1', signal_id: 1 }, { id: 2, user_id: 'someone-else', signal_id: 2 }],
+      holler_signals: [sig(1), sig(2, { title: 'Roof permit in Austin', categories: ['roofing'] })],
+      holler_signal_contacts: [
+        { id: 1, signal_id: 1, role: 'contractor', name: 'Victory Plumbing Company', phone: '512-990-7200', website: null },
+        { id: 2, signal_id: 2, role: 'contractor', name: 'Acme Roofing LLC', phone: '512-555-0142', website: null },
+      ],
+    });
+    const out = await load(db);
+    const by = Object.fromEntries(out.builders.map((b) => [b.name, b.phone]));
+    expect(by).toEqual({ 'Victory Plumbing Company': '512-990-7200', 'Acme Roofing LLC': null });
+  });
+
+  it('review defect 3: a failed match read shows no phone at all, and the names stay', async () => {
+    const db = new FakeDb({
+      holler_profiles: [prof()],
+      holler_matches: [{ id: 1, user_id: 'u1', signal_id: 1 }],
+      holler_signals: [sig(1)],
+      holler_signal_contacts: [{ id: 1, signal_id: 1, role: 'contractor', name: 'Victory Plumbing Company', phone: '512-990-7200', website: null }],
+    });
+    db.failOn['holler_matches.select'] = 'boom';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const out = await load(db);
+    spy.mockRestore();
+    expect(out.builders).toEqual([expect.objectContaining({ name: 'Victory Plumbing Company', phone: null })]);
   });
 });

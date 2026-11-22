@@ -185,11 +185,16 @@ export async function loadActiveBuilders(
       for (const r of results) contacts.push(...r);
       if (contacts.length >= MAX_CONTACT_ROWS) break;
     }
+    // 3. Phone numbers follow this base's second contact rule (lib/contacts/load.ts contactsForMember: only signals this member has a
+    //    match for). The company NAME is shown for any nearby permit (public permit record); its phone only when the member holds a card
+    //    for that permit. Round 19 review, defect 3. A failed read shows no phone at all, never more.
+    const withPhone = [...new Set(contacts.filter((c) => c && typeof c.phone === 'string' && c.phone.trim()).map((c) => c.signal_id))];
+    const matched = await matchedSignalIds(db, userId, withPhone);
     const rows: BuilderRow[] = [];
     for (const c of contacts) {
       const s = c ? bySignal.get(c.signal_id) : undefined;
       if (!s) continue;
-      rows.push({ signal_id: s.id, title: s.title, occurred_at: s.occurred_at, categories: s.categories, role: c.role, name: c.name, phone: c.phone });
+      rows.push({ signal_id: s.id, title: s.title, occurred_at: s.occurred_at, categories: s.categories, role: c.role, name: c.name, phone: matched.has(s.id) ? c.phone : null });
     }
     return { builders: summarizeBuilders(rows, scope.categories, now), windowDays };
   } catch (e) {
@@ -197,4 +202,24 @@ export async function loadActiveBuilders(
     logFailure(step, step === 'contacts' ? (e as { cause?: unknown }).cause : e);
     return EMPTY();
   }
+}
+
+/** Which of these signal ids the member holds a match for (holler_matches, own rows only). Never throws: a failed read is an empty set. */
+async function matchedSignalIds(db: Db, userId: string, ids: readonly number[]): Promise<Set<number>> {
+  const out = new Set<number>();
+  try {
+    for (let i = 0; i < ids.length; i += ID_CHUNK) {
+      const part = ids.slice(i, i + ID_CHUNK);
+      const { data, error } = await db.from('holler_matches').select('signal_id').eq('user_id', userId).in('signal_id', part).limit(part.length);
+      if (error || !Array.isArray(data)) {
+        logFailure('matches', error);
+        return new Set();
+      }
+      for (const r of data as { signal_id: number }[]) out.add(r.signal_id);
+    }
+  } catch (e) {
+    logFailure('matches', e);
+    return new Set();
+  }
+  return out;
 }

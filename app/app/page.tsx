@@ -40,9 +40,8 @@ import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { langOfProfile, t } from '@/lib/i18n';
-import { ActiveBuilders } from '@/components/builders/active-builders';
-import { loadActiveBuilders } from '@/lib/builders/load';
-import { BUILDER_WINDOW_DAYS, type ActiveBuilder } from '@/lib/builders/active';
+import { BuildersPanel } from '@/components/builders/builders-panel';
+import { builderScopeOf } from '@/lib/builders/cached';
 
 interface SignalRow {
   id: number;
@@ -167,21 +166,6 @@ async function loadDashboard() {
       }
     }
   }
-  // Companies that pulled permits near the member in the last 30 days (lib/builders, round 19). Service role, never for a locked account;
-  // the loader re-checks access itself (lib/contacts/load.ts memberHasAccess). Read only: no card, match or alert. It never throws: any
-  // failure is an empty list and the section stays hidden.
-  let builders: ActiveBuilder[] = [];
-  let builderWindowDays = BUILDER_WINDOW_DAYS;
-  if (!access.locked) {
-    try {
-      const res = await loadActiveBuilders(createAdminClient(), user.id, profile, new Date(now));
-      builders = res.builders;
-      builderWindowDays = res.windowDays;
-    } catch {
-      builders = [];
-      builderWindowDays = BUILDER_WINDOW_DAYS;
-    }
-  }
   // The member's own feedback answers (RLS: own rows only). A missing table or any failure just means no answers are shown.
   let feedbackBySignal = new Map<number, FeedbackState>();
   if (!access.locked && rows.length > 0) {
@@ -300,12 +284,12 @@ async function loadDashboard() {
     coverage = null;
   }
 
-  return { profile, lang, access, cityPage, items, firstRun, failed: Boolean(error), coverage, builders, builderWindowDays };
+  return { profile, lang, access, cityPage, items, firstRun, failed: Boolean(error), coverage };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, lang, access, cityPage, items, firstRun, failed, coverage, builders, builderWindowDays } = await loadDashboard();
+  const { profile, lang, access, cityPage, items, firstRun, failed, coverage } = await loadDashboard();
 
   return (
     <>
@@ -343,8 +327,6 @@ export default async function AppHome(props: PageProps<'/app'>) {
         <CoverageNoticeLine line={coverage} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
-
-      <ActiveBuilders builders={builders} windowDays={builderWindowDays} lang={lang} />
 
       <div className="mt-6">
         {emptyFeedApplies({ items: items.length, locked: access.locked, failed }) ? (
@@ -393,6 +375,13 @@ export default async function AppHome(props: PageProps<'/app'>) {
           <Feed items={items} cityPage={cityPage} firstRun={firstRun} lang={lang} />
         )}
       </div>
+      {/* Companies that pulled permits near the member (lib/builders, round 19): cached 15 minutes, in its own Suspense below the feed,
+          never for a locked account. Read only: no card, match or alert. */}
+      {access.locked ? null : (
+        <Suspense fallback={null}>
+          <BuildersPanel userId={profile.user_id} scope={builderScopeOf(profile)} lang={lang} />
+        </Suspense>
+      )}
       <ComingNextForMember />
     </>
   );
