@@ -16,6 +16,9 @@ import {
   type StateReason,
 } from '@/lib/signals/source-state';
 import { expectsRows } from '@/lib/email/health';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { readSourceHealthShape } from '../../scripts/source-states-format';
 
 const NOW = new Date('2026-11-22T12:00:00Z');
 const MIN = 60_000;
@@ -24,6 +27,9 @@ const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
 const ok = (agoMs: number, fetched = 10): RunSample => ({ startedAt: ago(agoMs), fetched, error: null });
 const bad = (agoMs: number): RunSample => ({ startedAt: ago(agoMs), fetched: 0, error: 'HTTP 503' });
 const empty = (agoMs: number): RunSample => ({ startedAt: ago(agoMs), fetched: 0, error: null });
+
+/** A steady source's earlier history: `n` error-free runs with rows every 6 h, newest `fromAgo` before NOW. Spans 42 h with n=8. */
+const steady = (fromAgo: number, n = 8): RunSample[] => Array.from({ length: n }, (_, i) => ok(fromAgo + i * 6 * H, 20));
 
 const nws = { id: 'nws', kind: 'alert', cadenceMinutes: 15 };
 const permits = { id: 'socrata-chicago-permits', kind: 'permit', cadenceMinutes: 360 };
@@ -79,8 +85,11 @@ const rows: Row[] = [
   { name: '12 h source past 36 h is unavailable', in: input(inspections, { success: 36 * H + 1000 }), state: 'unavailable', reason: 'no_success_24h' },
   // degraded: last 3 runs
   { name: '3 errors in a row (success 1 h ago) is degraded', in: input(permits, { success: 1 * H, recentRuns: [bad(10 * MIN), bad(1 * H), bad(2 * H)] }), state: 'degraded', reason: 'repeated_errors' },
-  { name: '3 empty runs from a permit source is degraded (live: socrata-la-permits)', in: input(permits, { recentRuns: [empty(2 * H), empty(8 * H), empty(14 * H)], success: 2 * H }), state: 'degraded', reason: 'repeated_empty' },
-  { name: 'errors mixed with empty runs is degraded (repeated_trouble)', in: input(permits, { success: 2 * H, recentRuns: [bad(2 * H), empty(8 * H), bad(14 * H)] }), state: 'degraded', reason: 'repeated_trouble' },
+  { name: '3 empty runs from a permit source is degraded (live: socrata-la-permits)', in: input(permits, { recentRuns: [empty(2 * H), empty(8 * H), empty(14 * H), ...steady(20 * H)], success: 2 * H }), state: 'degraded', reason: 'repeated_empty' },
+  { name: '3 empty runs from a permit source with NO earlier history is not degraded (no evidence it normally returns rows)', in: input(permits, { recentRuns: [empty(2 * H), empty(8 * H), empty(14 * H)], success: 2 * H }), state: 'healthy', reason: 'ok' },
+  { name: '3 empty runs from a permit source that only ever returned nothing is not degraded (never a row)', in: input(permits, { recentRuns: Array.from({ length: 12 }, (_, i) => empty(2 * H + i * 6 * H)), success: 2 * H }), state: 'healthy', reason: 'ok' },
+  { name: 'bursty source: rows on 2 of 10 earlier runs, then empty, is not degraded (publishes in bursts)', in: input(permits, { recentRuns: [empty(2 * H), empty(8 * H), empty(14 * H), ...[...steady(20 * H, 10)].map((r, i) => (i === 3 || i === 7 ? r : { ...r, fetched: 0 }))], success: 2 * H }), state: 'healthy', reason: 'ok' },
+  { name: 'errors mixed with empty runs is degraded (repeated_trouble)', in: input(permits, { success: 2 * H, recentRuns: [bad(2 * H), empty(8 * H), bad(14 * H), ...steady(20 * H)] }), state: 'degraded', reason: 'repeated_trouble' },
   { name: '2 bad runs and 1 good run is not degraded', in: input(permits, { success: 2 * H, recentRuns: [bad(2 * H), ok(8 * H), bad(14 * H)] }), state: 'healthy', reason: 'ok' },
   { name: 'a good newest run clears it (live: cobb permits, rows 5, 0, 0)', in: input(permits, { success: 2 * H, recentRuns: [ok(2 * H, 5), empty(8 * H), empty(14 * H)] }), state: 'healthy', reason: 'ok' },
   { name: 'only 2 runs on record, both bad, is not degraded', in: input(permits, { success: 2 * H, recentRuns: [bad(2 * H), bad(8 * H)] }), state: 'healthy', reason: 'ok' },
@@ -102,6 +111,19 @@ describe('computeSourceState (table)', () => {
     expect({ state: out.state, reason: out.reason }).toEqual({ state: r.state, reason: r.reason });
   });
 
+  it('reports the newest record date, capped at now, and null when the source never returned one', () => {
+    const withRecord = (last_record_at: string | null) =>
+      computeSourceState(input(permits, { health: { last_success_at: ago(1 * H), last_run_at: ago(1 * H), consecutive_failures: 0, last_record_at } }));
+    expect(withRecord(ago(3 * 24 * H)).lastRecordAt).toBe(ago(3 * 24 * H));
+    expect(withRecord(ago(-5 * H)).lastRecordAt).toBe(NOW.toISOString());
+    expect(withRecord(null).lastRecordAt).toBeNull();
+    expect(computeSourceState(input(permits, { health: null })).lastRecordAt).toBeNull();
+  });
+  it('the record date is independent of the last clean run: a clean run just now does not move it', () => {
+    const out = computeSourceState(input(permits, { success: 5 * MIN, recentRuns: [ok(5 * MIN, 3)], health: { last_success_at: ago(5 * MIN), last_run_at: ago(5 * MIN), consecutive_failures: 0, last_record_at: ago(40 * H) } }));
+    expect(out.lastSuccessAt).toBe(ago(5 * MIN));
+    expect(out.lastRecordAt).toBe(ago(40 * H));
+  });
   it('reports the last success and its age', () => {
     const out = computeSourceState(input(permits, { success: 9 * H }));
     expect(out.lastSuccessAt).toBe(ago(9 * H));
@@ -156,6 +178,7 @@ describe('computeSourceStates', () => {
         { source: 'socrata-la-permits', last_success_at: ago(2 * H), last_run_at: ago(2 * H), consecutive_failures: 0 },
       ],
       runs: [
+        ...steady(20 * H).map((r) => ({ source: 'socrata-la-permits', started_at: r.startedAt, fetched: r.fetched, error: null })),
         { source: 'socrata-la-permits', started_at: ago(14 * H), fetched: 0, error: null },
         { source: '_prune', started_at: ago(1 * MIN), fetched: 0, error: null },
         { source: 'socrata-la-permits', started_at: ago(2 * H), fetched: 0, error: null },
@@ -212,5 +235,94 @@ describe('summary and labels', () => {
     expect(agePhrase(1.2 * H * 1)).toBe('72 minutes');
     expect(agePhrase(60 * H)).toBe('3 days');
     expect(agePhrase(-5)).toBe('1 minute');
+  });
+});
+
+// The real run pattern (sourced: read-only selects on holler_scan_runs, Nov 18 to Nov 22 2026, scripts/fixtures/source-states-live/).
+// Every scan time in the fixture is replayed as "now" (plus 5 minutes): the state the source would have shown at that moment.
+describe('replaying the real Cobb, LA, Kansas City and Oakland run history', () => {
+  const dir = join(__dirname, '..', '..', 'scripts', 'fixtures', 'source-states-live');
+  const { health, runs } = readSourceHealthShape(readFileSync(join(dir, 'health.psv'), 'utf8'), readFileSync(join(dir, 'runs.psv'), 'utf8'));
+  const kinds: Record<string, { kind: string; cadenceMinutes: number }> = {
+    'arcgis-cobb-residential-permits': { kind: 'permit', cadenceMinutes: 360 },
+    'arcgis-cobb-commercial-permits': { kind: 'permit', cadenceMinutes: 360 },
+    'arcgis-cobb-multiunit-permits': { kind: 'permit', cadenceMinutes: 360 },
+    'socrata-la-permits': { kind: 'permit', cadenceMinutes: 360 },
+    'socrata-kansascity-311': { kind: 'civic', cadenceMinutes: 180 },
+    'socrata-oakland-311': { kind: 'civic', cadenceMinutes: 180 },
+    'socrata-batonrouge-311': { kind: 'civic', cadenceMinutes: 180 },
+    'socrata-austin-inspections': { kind: 'civic', cadenceMinutes: 720 },
+    'socrata-cincinnati-311': { kind: 'civic', cadenceMinutes: 180 },
+  };
+  const replay = (id: string, now: Date) => {
+    const all = runs
+      .filter((r) => r.source === id && Date.parse(r.started_at as string) <= now.getTime())
+      .sort((a, b) => Date.parse(b.started_at as string) - Date.parse(a.started_at as string));
+    const h = health.find((x) => x.source === id)!;
+    const newest = all.length ? (all[0].started_at as string) : null;
+    const [r] = computeSourceStates({
+      adapters: [{ id, ...kinds[id], missingEnv: [] }],
+      health: [{ ...h, last_success_at: newest, last_run_at: newest }],
+      runs: all,
+      now,
+    });
+    return r;
+  };
+  const scanTimes = (id: string) => runs.filter((r) => r.source === id).map((r) => new Date(Date.parse(r.started_at as string) + 5 * MIN));
+  const at = (iso: string) => new Date(iso);
+
+  it('the fixture holds the full history for these sources', () => {
+    for (const id of Object.keys(kinds)) expect(runs.filter((r) => r.source === id).length).toBeGreaterThanOrEqual(8);
+    expect(runs.filter((r) => r.source === 'arcgis-cobb-residential-permits')).toHaveLength(12);
+  });
+
+  it('the Cobb layers are never "not updating reliably" at any scan in the history: empty runs are normal for them', () => {
+    for (const id of ['arcgis-cobb-residential-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits']) {
+      for (const t of scanTimes(id)) {
+        const r = replay(id, t);
+        expect({ id, at: t.toISOString(), state: r.state }).toEqual({ id, at: t.toISOString(), state: 'healthy' });
+      }
+    }
+  });
+  it('Cobb at Nov 21 15:35 UTC (seven empty runs in a row on commercial, nine on residential) is healthy, and says its record date', () => {
+    for (const id of ['arcgis-cobb-residential-permits', 'arcgis-cobb-commercial-permits']) {
+      const r = replay(id, at('2026-11-21T15:35:00Z'));
+      expect(r.state).toBe('healthy');
+      expect(r.reason).toBe('ok');
+    }
+    expect(replay('arcgis-cobb-commercial-permits', at('2026-11-21T15:35:00Z')).rowsHistory).toBe('bursty');
+  });
+  it('the Cobb layers are Healthy now (rows on the last two runs) with the record date as their last update', () => {
+    const r = replay('arcgis-cobb-residential-permits', at('2026-11-22T03:35:43Z'));
+    expect(r).toMatchObject({ state: 'healthy', lastRecordAt: '2026-11-18T00:00:00.000Z' });
+  });
+
+  it('LA permits: healthy through the first two empty runs, degraded from the third (Nov 22 00:30), with its record date of Nov 14', () => {
+    expect(replay('socrata-la-permits', at('2026-11-21T12:35:00Z')).state).toBe('healthy'); // 1 empty
+    expect(replay('socrata-la-permits', at('2026-11-21T18:35:00Z')).state).toBe('healthy'); // 2 empty
+    const r = replay('socrata-la-permits', at('2026-11-22T00:35:00Z')); // 3 empty after 13 runs with rows
+    expect(r).toMatchObject({ state: 'degraded', reason: 'repeated_empty', rowsHistory: 'steady', lastRecordAt: '2026-11-14T08:00:00.000Z' });
+  });
+  it('Kansas City 311: steady (16 runs with rows) then empty: degraded from the third empty run (Nov 20 00:30)', () => {
+    expect(replay('socrata-kansascity-311', at('2026-11-19T21:35:00Z')).state).toBe('healthy'); // 2 empty
+    expect(replay('socrata-kansascity-311', at('2026-11-20T00:35:00Z'))).toMatchObject({ state: 'degraded', reason: 'repeated_empty' });
+    expect(replay('socrata-kansascity-311', at('2026-11-22T03:35:43Z'))).toMatchObject({ state: 'degraded', lastRecordAt: '2026-11-16T16:02:00.000Z' });
+  });
+  it('Oakland 311: degraded from the third empty run (Nov 19 15:30) after a steady day of rows', () => {
+    expect(replay('socrata-oakland-311', at('2026-11-19T12:35:00Z')).state).toBe('healthy'); // 2 empty
+    expect(replay('socrata-oakland-311', at('2026-11-19T15:35:00Z'))).toMatchObject({ state: 'degraded', reason: 'repeated_empty', rowsHistory: 'steady' });
+  });
+
+  it('Baton Rouge 311 and Austin inspections never returned a row: healthy, flagged "none" so the owner email can list them as quiet', () => {
+    for (const id of ['socrata-batonrouge-311', 'socrata-austin-inspections']) {
+      const r = replay(id, at('2026-11-22T03:35:43Z'));
+      expect(r).toMatchObject({ state: 'healthy', rowsHistory: 'none', lastRecordAt: null });
+    }
+    const sum = summarizeSourceStates([replay('socrata-batonrouge-311', at('2026-11-22T03:35:43Z')), replay('socrata-kansascity-311', at('2026-11-22T03:35:43Z'))]);
+    expect(sum.quiet.map((q) => q.id)).toEqual(['socrata-batonrouge-311']);
+    expect(sum.counts.degraded).toBe(1);
+  });
+  it('Cincinnati 311 (three days of zeros, then 70 rows a run) is healthy throughout', () => {
+    for (const t of scanTimes('socrata-cincinnati-311')) expect(replay('socrata-cincinnati-311', t).state).toBe('healthy');
   });
 });

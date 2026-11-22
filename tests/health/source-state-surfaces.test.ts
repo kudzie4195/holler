@@ -13,6 +13,8 @@ const adapters = [
   { id: 'socrata-la-permits', label: 'LA permits', kind: 'permit', cadenceMinutes: 360, missingEnv: [] as string[] },
   { id: 'sam-gov', label: 'SAM', kind: 'contract', cadenceMinutes: 720, missingEnv: ['SAM_API_KEY'] },
 ];
+// The LA permits source's earlier history: 8 runs with rows every 6 h before the three empty ones, so empty runs are unusual for it.
+const earlier = Array.from({ length: 8 }, (_, i) => ({ source: 'socrata-la-permits', started_at: ago(20 * H + i * 6 * H), fetched: 16, inserted: 0, error: null as string | null }));
 const runs = Array.from({ length: 12 }, (_, i) => ({ source: 'nws', started_at: ago((i + 1) * 15 * 60_000), fetched: 20, inserted: 0, error: null as string | null }));
 
 function reportWithStates() {
@@ -21,10 +23,11 @@ function reportWithStates() {
     adapters,
     health: [
       { source: 'nws', last_success_at: ago(15 * 60_000), last_run_at: ago(15 * 60_000), consecutive_failures: 0 },
-      { source: 'socrata-la-permits', last_success_at: ago(2 * H), last_run_at: ago(2 * H), consecutive_failures: 0 },
+      { source: 'socrata-la-permits', last_success_at: ago(2 * H), last_run_at: ago(2 * H), consecutive_failures: 0, last_record_at: ago(8 * 24 * H) },
     ],
     runs: [
       ...runs,
+      ...earlier,
       { source: 'socrata-la-permits', started_at: ago(2 * H), fetched: 0, inserted: 0, error: null },
       { source: 'socrata-la-permits', started_at: ago(8 * H), fetched: 0, inserted: 0, error: null },
       { source: 'socrata-la-permits', started_at: ago(14 * H), fetched: 0, inserted: 0, error: null },
@@ -40,7 +43,7 @@ describe('daily health email', () => {
     const mail = renderHealthEmail(reportWithStates());
     expect(mail.text).toContain('Source states');
     expect(mail.text).toContain('1 healthy, 0 delayed, 1 degraded, 0 unavailable, 1 not set up yet (of 3)');
-    expect(mail.text).toContain('socrata-la-permits: degraded, last update 2 hours ago (the last 3 runs returned no rows)');
+    expect(mail.text).toContain('socrata-la-permits: degraded, last successful run 2 hours ago, newest record 8 days ago (the last 3 runs returned no rows)');
     expect(mail.text).not.toContain('sam-gov: not set up');
     expect(mail.html).toContain('Source states');
   });
@@ -58,6 +61,24 @@ describe('daily health email', () => {
     expect(renderHealthEmail(plain).text).not.toContain('Source states');
     const withProblem = { ...reportWithStates(), problemCount: 2, subject: 'Holler health: 2 sources need attention' };
     expect(renderHealthEmail(withProblem).subject).toBe('Holler health: 2 sources need attention');
+  });
+  it('lists healthy sources that have never returned a row as quiet, without changing the subject', () => {
+    const quietAdapter = { id: 'socrata-batonrouge-311', label: 'BR', kind: 'civic', cadenceMinutes: 180, missingEnv: [] as string[] };
+    const quietRuns = Array.from({ length: 12 }, (_, i) => ({ source: quietAdapter.id, started_at: ago((i + 1) * 3 * H), fetched: 0, inserted: 0, error: null as string | null }));
+    const states = summarizeSourceStates(
+      computeSourceStates({
+        adapters: [quietAdapter],
+        health: [{ source: quietAdapter.id, last_success_at: ago(3 * H), last_run_at: ago(3 * H), consecutive_failures: 0, last_record_at: null }],
+        runs: quietRuns,
+        now: NOW,
+      }),
+    );
+    expect(states.quiet.map((q) => q.id)).toEqual([quietAdapter.id]);
+    const report = { ...planHealth({ adapters: [quietAdapter], runs: [], counts, now: NOW }), sourceStates: states, problemCount: 0, subject: 'Holler health: all sources OK' };
+    const mail = renderHealthEmail(report);
+    expect(mail.text).toContain('never returned a row');
+    expect(mail.text).toContain('socrata-batonrouge-311');
+    expect(mail.subject).toBe('Holler health: all sources OK');
   });
   it('an all healthy summary says so and lists nothing', () => {
     const states = summarizeSourceStates(
@@ -117,6 +138,7 @@ describe('routes and snapshot', () => {
         { id: 2, source: 'socrata-la-permits', started_at: a(2 * H), fetched: 0, inserted: 0, error: null },
         { id: 3, source: 'socrata-la-permits', started_at: a(8 * H), fetched: 0, inserted: 0, error: null },
         { id: 4, source: 'socrata-la-permits', started_at: a(14 * H), fetched: 0, inserted: 0, error: null },
+        ...Array.from({ length: 8 }, (_, i) => ({ id: 10 + i, source: 'socrata-la-permits', started_at: a(20 * H + i * 6 * H), fetched: 16, inserted: 0, error: null })),
       ],
     });
   };
@@ -154,7 +176,7 @@ describe('routes and snapshot', () => {
     expect(snap).not.toBeNull();
     expect(Object.keys(snap!.states).sort()).toEqual(['nws', 'sam-gov', 'socrata-la-permits']);
     expect(snap!.states['socrata-la-permits'].state).toBe('degraded');
-    expect(Object.keys(snap!.states.nws).sort()).toEqual(['lastSuccessAt', 'state']);
+    expect(Object.keys(snap!.states.nws).sort()).toEqual(['lastRecordAt', 'reason', 'state']);
     expect(JSON.stringify(snap)).not.toMatch(/secret|555/);
   });
 

@@ -73,7 +73,8 @@ export interface MatchLite {
   created_at: string;
 }
 
-export type SectionStatus = 'ok' | 'unavailable';
+/** ok = fully read. partial = the read hit its page cap, so the figures cover only the newest rows. unavailable = the read failed: blank, not zero. */
+export type SectionStatus = 'ok' | 'partial' | 'unavailable';
 
 export interface QualityInputs {
   now: Date;
@@ -222,7 +223,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   const profileBy = new Map(input.profiles.map((p) => [p.user_id, p]));
   const tradesOf = (p: ProfileLite): string[] =>
     matchScope({ categories: p.categories, lat: null, lon: null, state: null, plan: p.plan, subscription_status: p.subscription_status, plan_source: p.plan_source, store_expires_at: p.store_expires_at }).categories;
-  if (status.members === 'ok') {
+  if (status.members !== 'unavailable') {
     for (const p of input.profiles) {
       const open = !computeAccess(p, nowMs).locked;
       all.members.add(p.user_id);
@@ -235,7 +236,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   }
 
   // Alerts by label.
-  if (status.alerts === 'ok') {
+  if (status.alerts !== 'unavailable') {
     for (const a of input.alerts) {
       const created = ms(a.created_at);
       const emailed = ms(a.emailed_at);
@@ -257,7 +258,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   }
 
   // Feedback: the trade comes from the member's plan trades the signal carries (the first one), as the alert log does.
-  if (status.feedback === 'ok') {
+  if (status.feedback !== 'unavailable') {
     for (const f of input.feedback) {
       const t = ms(f.updated_at);
       if (t === null || t < sinceMs || t > nowMs) continue;
@@ -277,7 +278,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   }
 
   // Time to first useful card, for members who signed up inside the window.
-  if (status.firstCard === 'ok' && status.members === 'ok') {
+  if (status.firstCard !== 'unavailable' && status.members !== 'unavailable') {
     const byUser = new Map<string, MatchLite[]>();
     for (const m of input.matches) {
       const list = byUser.get(m.user_id);
@@ -316,15 +317,21 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   const belowTarget = rows.filter((r) => r.sent.total > 0 && r.sent.meetsTarget === false).map((r) => r.trade);
 
   const notes: string[] = [];
-  if (status.alerts === 'ok' && allRow.sent.total === 0) {
+  if (status.alerts !== 'unavailable' && allRow.sent.total === 0) {
     notes.push(
       allRow.logged.total === 0
         ? 'No alert emails are logged in this window (holler_alert_log is empty here), so sent shares have nothing to show yet.'
         : 'Alerts were matched in this window but none is logged as emailed.',
     );
   }
-  if (status.alerts === 'ok' && allRow.sent.context > 0) notes.push(`${allRow.sent.context} sent alert(s) carry the Context label. Context should never be sent: check the label rules.`);
-  for (const [k, v] of Object.entries(status)) if (v !== 'ok') notes.push(`The ${k} read was unavailable, so that part is blank, not zero.`);
+  if (status.alerts !== 'unavailable' && allRow.sent.context > 0) notes.push(`${allRow.sent.context} sent alert(s) carry the Context label. Context should never be sent: check the label rules.`);
+  for (const [k, v] of Object.entries(status)) {
+    if (v === 'unavailable') notes.push(`The ${k} read was unavailable, so that part is blank, not zero.`);
+    if (v === 'partial') notes.push(`The ${k} read hit its row limit, so that part covers only the newest rows and the true numbers are higher: partial, not complete.`);
+  }
+  // Labels are worked out now, from each record's source, kind, subtype and title, with the label rules in force today. Rules change
+  // (lib/signals/lead-rules.ts), so an older alert may have carried a different label when it was sent.
+  notes.push("Labels are worked out with today's label rules, not the rules in force when each alert was sent. The log stores no label.");
   if (allRow.feedback.answered > 0 && allRow.feedback.lowSample) notes.push(`Only ${allRow.feedback.answered} feedback answers: the false-positive rate is a small sample.`);
 
   return {

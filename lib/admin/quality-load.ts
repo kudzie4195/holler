@@ -1,4 +1,4 @@
-import { readAllPages, type Db } from '@/lib/signals/store';
+import { PAGE_SIZE, type Db } from '@/lib/signals/store';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import {
   buildQualityReport,
@@ -24,12 +24,36 @@ import {
  *   holler_signal_feedback answers updated in the window: ids, verdict, updated_at. job_value_usd is not selected.
  *   holler_matches         matches of members who signed up in the window: ids and created_at.
  *   holler_signals         only the signals those rows point to: id, source, kind, title, subtype, categories (public record fields).
- * A section whose read fails is reported as unavailable (blank, never zero) and the others still run. Error text is never returned.
+ * A section whose read hits the page cap is reported as partial (kept, and said so); one whose read fails is reported as unavailable (blank, never zero) and the others still run. Error text is never returned.
  */
 
 const CHUNK = 150;
-const MAX_PAGES = 30;
+/** Pages (of PAGE_SIZE rows) read per table. A table with more rows than this is reported as partial, never silently cut. */
+export const MAX_PAGES = 30;
 const DAY = 86_400_000;
+
+/**
+ * Like readAllPages, but the cap is not silent: when the last allowed page still had rows and one more page has rows too, the read
+ * is `partial` (the dashboard says so). Newest rows are read first (callers order descending) so a cap loses the oldest.
+ */
+export async function readPagesCapped<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+  maxPages: number,
+): Promise<{ rows: T[]; partial: boolean }> {
+  const rows: T[] = [];
+  let offset = 0;
+  for (let page = 0; page <= maxPages; page++) {
+    const { data, error } = await build(offset, offset + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const got = (data ?? []) as T[];
+    if (got.length === 0) return { rows, partial: false };
+    // Page number maxPages is only a probe: it proves there is more, and its rows are not kept.
+    if (page === maxPages) return { rows, partial: true };
+    rows.push(...got);
+    offset += got.length;
+  }
+  return { rows, partial: false };
+}
 
 function chunks<T>(arr: readonly T[], n = CHUNK): T[][] {
   const out: T[][] = [];
@@ -39,13 +63,13 @@ function chunks<T>(arr: readonly T[], n = CHUNK): T[][] {
 
 const PROFILE_COLUMNS = 'user_id, created_at, categories, plan, subscription_status, trial_ends_at';
 
-async function readProfiles(db: Db): Promise<ProfileLite[]> {
-  const page = (cols: string) => (from: number, to: number) => db.from('holler_profiles').select(cols).order('created_at', { ascending: true }).order('user_id', { ascending: true }).range(from, to);
+async function readProfiles(db: Db, maxPages: number) {
+  const page = (cols: string) => (from: number, to: number) => db.from('holler_profiles').select(cols).order('created_at', { ascending: false }).order('user_id', { ascending: false }).range(from, to);
   try {
-    return await readAllPages<ProfileLite>(page(`${PROFILE_COLUMNS}, ${STORE_PROFILE_COLUMNS}`), MAX_PAGES);
+    return await readPagesCapped<ProfileLite>(page(`${PROFILE_COLUMNS}, ${STORE_PROFILE_COLUMNS}`), maxPages);
   } catch (e) {
     // Before migration 0020 the two store columns do not exist: read without them (no store plan can exist then).
-    if (e instanceof Error && missingStoreColumn(e.message)) return readAllPages<ProfileLite>(page(PROFILE_COLUMNS), MAX_PAGES);
+    if (e instanceof Error && missingStoreColumn(e.message)) return readPagesCapped<ProfileLite>(page(PROFILE_COLUMNS), maxPages);
     throw e;
   }
 }
@@ -63,17 +87,27 @@ async function readSignals(db: Db, ids: readonly number[]): Promise<SignalLite[]
   return out;
 }
 
-export async function loadQualityReport(db: Db, now: Date): Promise<QualityReport> {
+/** `maxPages` is a parameter so a test can prove the cap is reported; production uses MAX_PAGES. */
+export async function loadQualityReport(db: Db, now: Date, maxPages: number = MAX_PAGES): Promise<QualityReport> {
   const since = new Date(now.getTime() - QUALITY_WINDOW_DAYS * DAY).toISOString();
   const status: Required<NonNullable<QualityInputs['status']>> = { alerts: 'ok', feedback: 'ok', members: 'ok', firstCard: 'ok' };
   const fail = (k: keyof typeof status): void => {
     const unavailable: SectionStatus = 'unavailable';
     status[k] = unavailable;
   };
+  // A capped read keeps what it has and says so: the section is 'partial' unless it already failed.
+  const partial = (k: keyof typeof status): void => {
+    if (status[k] === 'ok') status[k] = 'partial';
+  };
 
   let profiles: ProfileLite[] = [];
   try {
-    profiles = await readProfiles(db);
+    const r = await readProfiles(db, maxPages);
+    profiles = r.rows;
+    if (r.partial) {
+      partial('members');
+      partial('firstCard');
+    }
   } catch {
     fail('members');
     fail('firstCard');
@@ -81,17 +115,19 @@ export async function loadQualityReport(db: Db, now: Date): Promise<QualityRepor
 
   let alerts: AlertRow[] = [];
   try {
-    alerts = await readAllPages<AlertRow>(
+    const r = await readPagesCapped<AlertRow>(
       (from, to) =>
         db
           .from('holler_alert_log')
           .select('user_id, signal_id, source, kind, subtype, trade, created_at, emailed_at')
           .gte('created_at', since)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .range(from, to),
-      MAX_PAGES,
+      maxPages,
     );
+    alerts = r.rows;
+    if (r.partial) partial('alerts');
   } catch {
     // A missing table (migration 0015 not applied) lands here too: blank, not zero.
     fail('alerts');
@@ -99,17 +135,19 @@ export async function loadQualityReport(db: Db, now: Date): Promise<QualityRepor
 
   let feedback: FeedbackRow[] = [];
   try {
-    feedback = await readAllPages<FeedbackRow>(
+    const r = await readPagesCapped<FeedbackRow>(
       (from, to) =>
         db
           .from('holler_signal_feedback')
           .select('user_id, signal_id, verdict, updated_at')
           .gte('updated_at', since)
-          .order('updated_at', { ascending: true })
-          .order('signal_id', { ascending: true })
+          .order('updated_at', { ascending: false })
+          .order('signal_id', { ascending: false })
           .range(from, to),
-      MAX_PAGES,
+      maxPages,
     );
+    feedback = r.rows;
+    if (r.partial) partial('feedback');
   } catch {
     fail('feedback');
   }
@@ -120,8 +158,7 @@ export async function loadQualityReport(db: Db, now: Date): Promise<QualityRepor
       const sinceMs = Date.parse(since);
       const newIds = profiles.filter((p) => Date.parse(p.created_at) >= sinceMs).map((p) => p.user_id);
       for (const part of chunks(newIds, 50)) {
-        matches.push(
-          ...(await readAllPages<MatchLite>(
+        const r = await readPagesCapped<MatchLite>(
             (from, to) =>
               db
                 .from('holler_matches')
@@ -130,9 +167,10 @@ export async function loadQualityReport(db: Db, now: Date): Promise<QualityRepor
                 .order('created_at', { ascending: true })
                 .order('id', { ascending: true })
                 .range(from, to),
-            MAX_PAGES,
-          )),
-        );
+            maxPages,
+          );
+        matches.push(...r.rows);
+        if (r.partial) partial('firstCard');
       }
     } catch {
       matches = [];

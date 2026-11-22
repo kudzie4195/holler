@@ -275,8 +275,13 @@ export function renderHealthEmail(report: HealthReport, maxLines = 25): { subjec
       `${c.healthy} healthy, ${c.delayed} delayed, ${c.degraded} degraded, ${c.unavailable} unavailable, ${c.not_set_up} ${STATE_LABEL.not_set_up.toLowerCase()} (of ${states.total})`,
     ];
     for (const r of states.attention.filter((x) => x.state !== 'not_set_up').slice(0, maxLines)) {
-      const last = r.sinceSuccessMs === null ? 'no successful run yet' : `last update ${agePhrase(r.sinceSuccessMs)} ago`;
-      lines.push(`${r.id}: ${STATE_LABEL[r.state].toLowerCase()}, ${last} (${r.detail})`);
+      const run = r.sinceSuccessMs === null ? 'no successful run yet' : `last successful run ${agePhrase(r.sinceSuccessMs)} ago`;
+      const rec = r.lastRecordAt === null ? 'no record received yet' : `newest record ${agePhrase(Math.max(0, Date.parse(report.generatedAt) - Date.parse(r.lastRecordAt)))} ago`;
+      lines.push(`${r.id}: ${STATE_LABEL[r.state].toLowerCase()}, ${run}, ${rec} (${r.detail})`);
+    }
+    // Healthy by the rules (it runs and does not fail) but has never returned a row in its history: worth a look, not an alarm.
+    if (states.quiet.length > 0) {
+      lines.push(`Running but never returned a row in the history we hold (check the source is still right): ${states.quiet.map((q) => q.id).join(', ')}`);
     }
     blocks.push({ title: 'Source states', lines });
     if (states.behind > 0 && report.problemCount === 0) {

@@ -13,6 +13,7 @@ async function renderApp(opts: { locked?: boolean; snapshot?: unknown; throws?: 
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   const snapshotCalls = vi.fn();
+  const order: string[] = [];
   vi.doMock('server-only', () => ({}));
   vi.doMock('@/lib/auth/session', () => ({
     requireProfile: async () => ({
@@ -28,7 +29,10 @@ async function renderApp(opts: { locked?: boolean; snapshot?: unknown; throws?: 
     createClient: async () => {
       const q: any = {};
       for (const m of ['from', 'select', 'eq', 'order']) q[m] = () => q;
-      q.limit = async () => ({ data: [], error: null });
+      q.limit = async () => {
+        order.push('matches');
+        return { data: [], error: null };
+      };
       return q;
     },
   }));
@@ -36,6 +40,7 @@ async function renderApp(opts: { locked?: boolean; snapshot?: unknown; throws?: 
   vi.doMock('@/lib/signals/source-state-snapshot', () => ({
     loadSourceStateSnapshot: async () => {
       snapshotCalls();
+      order.push('snapshot');
       if (opts.throws) throw new Error('down');
       return opts.snapshot ?? null;
     },
@@ -46,7 +51,7 @@ async function renderApp(opts: { locked?: boolean; snapshot?: unknown; throws?: 
   vi.doMock('@/components/billing-button', () => ({ BillingButton: () => null }));
   const AppHome = (await import('@/app/app/page')).default;
   const html = renderToStaticMarkup(await AppHome({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never));
-  return { html, snapshotCalls };
+  return { html, snapshotCalls, order };
 }
 
 afterEach(() => {
@@ -55,20 +60,20 @@ afterEach(() => {
   for (const m of ['server-only', '@/lib/auth/session', '@/lib/supabase/server', '@/lib/supabase/admin', '@/lib/signals/source-state-snapshot', '@/components/feed', '@/components/feed/empty-feed', '@/components/coming-next-member', '@/components/billing-button']) vi.doUnmock(m);
 });
 
-const snap = (over: Record<string, { state: string; lastSuccessAt: string | null }>) => ({
+const snap = (over: Record<string, { state: string; lastRecordAt: string | null }>) => ({
   generatedAt: NOW.toISOString(),
-  states: { nws: { state: 'healthy', lastSuccessAt: iso(-60_000) }, spc: { state: 'healthy', lastSuccessAt: iso(-60_000) }, ...over },
+  states: { nws: { state: 'healthy', lastRecordAt: iso(-60_000) }, spc: { state: 'healthy', lastRecordAt: iso(-60_000) }, ...over },
 });
 
 describe('app feed header coverage line', () => {
   it('shows "Atlanta permits are delayed; last update 9 hours ago" under the title for an Atlanta roofer', async () => {
-    const { html } = await renderApp({ snapshot: snap({ 'arcgis-atlanta-permits': { state: 'delayed', lastSuccessAt: iso(-9 * H) } }) });
+    const { html } = await renderApp({ snapshot: snap({ 'arcgis-atlanta-permits': { state: 'delayed', lastRecordAt: iso(-9 * H) } }) });
     expect(html).toContain('data-testid="coverage-notice"');
     expect(html).toContain('Atlanta permits are delayed; last update 9 hours ago.');
     expect(html.indexOf('Your matches')).toBeLessThan(html.indexOf('coverage-notice'));
   });
   it('shows nothing when all sources near the member are healthy', async () => {
-    const { html } = await renderApp({ snapshot: snap({ 'arcgis-atlanta-permits': { state: 'healthy', lastSuccessAt: iso(-H) } }) });
+    const { html } = await renderApp({ snapshot: snap({ 'arcgis-atlanta-permits': { state: 'healthy', lastRecordAt: iso(-H) } }) });
     expect(html).not.toContain('coverage-notice');
   });
   it('shows nothing, and the page still renders, when the states are unknown or the read throws', async () => {
@@ -79,12 +84,20 @@ describe('app feed header coverage line', () => {
     }
   });
   it('a locked account never triggers the read and sees no line', async () => {
-    const { html, snapshotCalls } = await renderApp({ locked: true, snapshot: snap({ nws: { state: 'unavailable', lastSuccessAt: null } }) });
+    const { html, snapshotCalls } = await renderApp({ locked: true, snapshot: snap({ nws: { state: 'unavailable', lastRecordAt: null } }) });
     expect(snapshotCalls).not.toHaveBeenCalled();
     expect(html).not.toContain('coverage-notice');
   });
+  it('starts the source-state read before the feed query, so the two run side by side', async () => {
+    const { order } = await renderApp({ snapshot: snap({}) });
+    expect(order).toEqual(['snapshot', 'matches']);
+  });
+  it('a locked account never starts the read at all (the feed query is the only call)', async () => {
+    const { order } = await renderApp({ locked: true, snapshot: snap({}) });
+    expect(order).toEqual(['matches']);
+  });
   it('a trade the delayed feed never carries is not mentioned (food inspections for a roofer)', async () => {
-    const { html } = await renderApp({ snapshot: snap({ 'socrata-chicago-inspections': { state: 'unavailable', lastSuccessAt: null } }) });
+    const { html } = await renderApp({ snapshot: snap({ 'socrata-chicago-inspections': { state: 'unavailable', lastRecordAt: null } }) });
     expect(html).not.toContain('coverage-notice');
   });
 });

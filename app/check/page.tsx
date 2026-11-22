@@ -184,7 +184,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} />
+      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

@@ -12,17 +12,22 @@ import { agePhrase, isBehind, STATE_SEVERITY, type SourceState } from '@/lib/sig
  * reports) when the trade receives them. A source that is "not set up yet" is never mentioned: Holler never promised it. A source with
  * no known state (the health read failed, or it is not in the table yet) is not mentioned either: no state, no claim.
  *
+ * "Last update" is the newest record date the source actually returned (lastRecordAt), never the time of its last error-free run: a
+ * source can run cleanly every hour and still have returned nothing new for a week. When the source is running but has returned
+ * nothing for a while (repeated_empty / repeated_trouble) the line says "no new records since Nov 12" instead; a source that has never
+ * returned a record says "no records received yet".
+ *
  * Wording: plain and calm. No "lead". It never says a record is missing, only that some recent ones may be.
  */
 export interface CoverageNotice {
   /** The one line to show. */
   line: string;
   /** The affected sources, worst first, one per name (several layers of one county are one entry). */
-  affected: Array<{ name: string; state: SourceState; lastSuccessAt: string | null }>;
+  affected: Array<{ name: string; state: SourceState; reason: string | null; lastRecordAt: string | null }>;
 }
 
 export interface StateLookup {
-  [sourceId: string]: { state: string; lastSuccessAt: string | null } | undefined;
+  [sourceId: string]: { state: string; reason?: string | null; lastRecordAt: string | null } | undefined;
 }
 
 const TYPE_NOUN: Partial<Record<SignalTypeId, string>> = {
@@ -47,6 +52,11 @@ function receives(type: SignalTypeId, trades: readonly string[]): boolean {
 
 function isState(s: string): s is SourceState {
   return s === 'healthy' || s === 'delayed' || s === 'degraded' || s === 'unavailable' || s === 'not_set_up';
+}
+
+/** "Nov 12", in UTC so the line reads the same on the server and in any test. */
+function shortDate(t: number): string {
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 const VERB: Record<'delayed' | 'degraded' | 'unavailable', string> = {
@@ -83,11 +93,11 @@ export function coverageNotice(input: {
     const s = states[c.id];
     if (!s || !isState(s.state) || !isBehind(s.state)) continue;
     const cur = byName.get(c.name);
-    const next = { name: c.name, state: s.state, lastSuccessAt: s.lastSuccessAt };
+    const next = { name: c.name, state: s.state, reason: s.reason ?? null, lastRecordAt: s.lastRecordAt ?? null };
     const worse =
       !cur ||
       STATE_SEVERITY[next.state] < STATE_SEVERITY[cur.state] ||
-      (next.state === cur.state && (next.lastSuccessAt ?? '') < (cur.lastSuccessAt ?? ''));
+      (next.state === cur.state && (next.lastRecordAt ?? '') < (cur.lastRecordAt ?? ''));
     if (worse) byName.set(c.name, next);
   }
   const affected = [...byName.values()].sort(
@@ -96,8 +106,13 @@ export function coverageNotice(input: {
   if (affected.length === 0) return null;
 
   const [main, ...rest] = affected;
-  const t = main.lastSuccessAt ? Date.parse(main.lastSuccessAt) : NaN;
-  const last = Number.isFinite(t) ? `last update ${agePhrase(input.now - t)} ago` : 'no update yet';
+  const t = main.lastRecordAt ? Date.parse(main.lastRecordAt) : NaN;
+  const quiet = main.reason === 'repeated_empty' || main.reason === 'repeated_trouble';
+  const last = !Number.isFinite(t)
+    ? 'no records received yet'
+    : quiet
+      ? `no new records since ${shortDate(t)}`
+      : `last update ${agePhrase(input.now - t)} ago`;
   const more = rest.length > 0 ? ` ${rest.length} more ${rest.length === 1 ? 'source near you is' : 'sources near you are'} also behind.` : '';
   const verb = VERB[main.state as 'delayed' | 'degraded' | 'unavailable'];
   return { line: `${main.name} ${verb}; ${last}.${more} Some recent records may be missing here.`, affected };

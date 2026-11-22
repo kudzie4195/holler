@@ -230,6 +230,34 @@ describe('loadQualityReport (read only)', () => {
     expect(r.sections).toEqual({ alerts: 'unavailable', feedback: 'unavailable', members: 'ok', firstCard: 'unavailable' });
   });
 
+  it('reports a read that hits the page cap as partial, never silently cut', async () => {
+    const { loadQualityReport, readPagesCapped } = await import('@/lib/admin/quality-load');
+    // 2300 alert rows in the window, page size 1000: a cap of 2 pages keeps 2000 and the probe page proves there is more.
+    const many = Array.from({ length: 2300 }, (_, i) => ({ id: i + 1, ...alert('u2', 1, 'hvac', 1 * D + i, 1 * D + i - H) }));
+    const db = new FakeDb({ holler_profiles: profiles, holler_alert_log: many, holler_signals: signals });
+    const r = await loadQualityReport(db as never, NOW, 2);
+    expect(r.sections).toEqual({ alerts: 'partial', feedback: 'ok', members: 'ok', firstCard: 'ok' });
+    expect(r.all.sent.total).toBe(2000);
+    expect(r.notes.join(' ')).toMatch(/alerts read hit its row limit/);
+    // The same table under a roomy cap is complete.
+    const full = await loadQualityReport(new FakeDb({ holler_profiles: profiles, holler_alert_log: many, holler_signals: signals }) as never, NOW, 5);
+    expect(full.sections.alerts).toBe('ok');
+    expect(full.all.sent.total).toBe(2300);
+    // Exactly at the cap is complete too (the probe page is empty).
+    const exact = await readPagesCapped<{ id: number }>((from, to) => new FakeDb({ t: many.slice(0, 2000) }).from('t').select('id').order('id').range(from, to), 2);
+    expect(exact).toMatchObject({ partial: false });
+    expect(exact.rows).toHaveLength(2000);
+  });
+  it('the newest rows are the ones kept when a cap is hit', async () => {
+    const { loadQualityReport } = await import('@/lib/admin/quality-load');
+    const old = Array.from({ length: 1000 }, (_, i) => ({ id: i + 1, ...alert('u2', 1, 'hvac', 10 * D, 10 * D - H) }));
+    const fresh = Array.from({ length: 1000 }, (_, i) => ({ id: 1001 + i, ...alert('u2', 1, 'hvac', 1 * D, 1 * D - H) }));
+    const db = new FakeDb({ holler_profiles: profiles, holler_alert_log: [...old, ...fresh], holler_signals: signals });
+    const r = await loadQualityReport(db as never, NOW, 1);
+    expect(r.sections.alerts).toBe('partial');
+    expect(r.all.sent.total).toBe(1000);
+    expect(r.all.sent.act_now).toBe(1000);
+  });
   it('works when migration 0015 is not applied (empty or missing log) and with no members', async () => {
     const { loadQualityReport } = await import('@/lib/admin/quality-load');
     const r = await loadQualityReport(new FakeDb() as never, NOW);
@@ -250,6 +278,16 @@ describe('HTML page', () => {
     expect(html).toContain('painting');
     expect(html).toContain('50%');
     expect(html).not.toMatch(/https?:\/\//);
+  });
+  it('says which reads were partial, and that labels use today\'s rules', () => {
+    const r = buildQualityReport({ ...base(), status: { alerts: 'partial' } });
+    const html = renderQualityHtml(r);
+    expect(html).toContain('Partial reads');
+    expect(html).toContain('alerts');
+    expect(html).not.toContain('Unavailable reads');
+    expect(html).toMatch(/today&#39;s label rules|today's label rules/);
+    expect(r.sections.alerts).toBe('partial');
+    expect(r.all.sent.total).toBeGreaterThan(0);
   });
   it('says which reads were unavailable', () => {
     const html = renderQualityHtml(buildQualityReport({ ...base(), status: { feedback: 'unavailable' } }));
@@ -288,17 +326,24 @@ describe('GET /api/admin/quality', () => {
     expect((await GET(req('', 'Bearer '))).status).toBe(401);
     expect((await GET(req('?key=', null))).status).toBe(401);
   });
-  it('returns the JSON report with the secret (bearer or ?key=), no-store and noindex', async () => {
-    const { GET } = await load();
-    for (const r of [req(), req('?key=s3cret', null)]) {
-      const res = await GET(r);
-      expect(res.status).toBe(200);
-      expect(res.headers.get('cache-control')).toBe('no-store');
-      expect(res.headers.get('x-robots-tag')).toContain('noindex');
-      const body = await res.json();
-      expect(body.windowDays).toBe(14);
-      expect(body.all.members).toBe(4);
+  it('refuses the secret in a ?key= query, even the right one: this route has a browser view, so a query secret would leak into history and logs', async () => {
+    const { GET, db } = await load();
+    for (const qs of ['?key=s3cret', '?key=s3cret&format=html']) {
+      const res = await GET(req(qs, null));
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: 'unauthorized' });
     }
+    expect(db.calls).toEqual([]);
+  });
+  it('returns the JSON report with the Bearer secret, no-store and noindex', async () => {
+    const { GET } = await load();
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('x-robots-tag')).toContain('noindex');
+    const body = await res.json();
+    expect(body.windowDays).toBe(14);
+    expect(body.all.members).toBe(4);
   });
   it('returns the HTML page for ?format=html', async () => {
     const { GET } = await load();

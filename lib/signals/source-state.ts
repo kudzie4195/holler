@@ -4,8 +4,8 @@
  * Five states, judged from the SCAN, not from record dates:
  *   healthy      delivering on schedule.
  *   delayed      no successful run for more than 2 cadences ("last update" is old). The source may simply be slow or the scan late.
- *   degraded     the last 3 runs each failed, or each came back with 0 rows from a source that normally returns rows. It is running
- *                but not delivering.
+ *   degraded     the last 3 runs each failed, or each came back with 0 rows from a source whose OWN recent history shows it
+ *                returning rows on most of its runs (see rowsHistory). It is running but not delivering.
  *   unavailable  no successful run for more than 24 hours (more than 3 cadences when the cadence is over 8 hours), or never run.
  *   not_set_up   the source needs an env key or feature flag that is not set. It is off on purpose and is never called broken.
  *                Member screens say nothing about it (they never promised it); the owner's health email counts it.
@@ -47,14 +47,22 @@ export const UNAVAILABLE_CADENCE_FACTOR = 3;
 /** Degraded: this many most recent runs in a row were failures or empty. */
 export const DEGRADED_RUNS = 3;
 
-/** Kinds that return rows on every normal run: weather alerts, permits and city records (311, inspections, licences, violations). */
+/** Degraded-by-empty needs this much history before the source counts as "usually returns rows": runs older than the current empty streak spanning at least this long... */
+export const HISTORY_MIN_SPAN_MS = 24 * HOUR;
+/** ...with at least this many error-free runs... */
+export const HISTORY_MIN_RUNS = 3;
+/** ...of which at least this share returned rows. A source that publishes in bursts (Cobb County) fails this and is never degraded for normal empty runs. */
+export const HISTORY_MIN_ROWS_SHARE = 0.5;
+/** Runs kept per source for the history check (newest first). 96 hours of a 15 minute source is 384. */
+export const MAX_HISTORY_RUNS = 500;
+
+/** Kinds that can return rows on every normal run: weather alerts, permits and city records (311, inspections, licences, violations). Necessary, not sufficient: the history decides. */
 const ROWS_EVERY_RUN_KINDS = new Set(['alert', 'permit', 'civic']);
 
 /**
- * Does this source normally return rows on every run? Decided from the registry kind and cadence, the same idea as
- * lib/email/health.ts expectsRows, minus storm reports ('report': calm days are empty). A `fetched` count is every row inside the
- * dataset's lookback window (days), so 0 from a permit or 311 source is a real break, not a quiet hour. Sources polled less often
- * than daily are too quiet to judge this way.
+ * Could this source be judged by empty runs at all? From the registry kind and cadence, the same idea as lib/email/health.ts
+ * expectsRows, minus storm reports ('report': calm days are empty). Sources polled less often than daily are too quiet to judge this
+ * way. Whether it ACTUALLY usually returns rows is decided from its own run history (rowsHistory), not from its kind.
  */
 export function usuallyReturnsRows(a: { kind: string; cadenceMinutes: number }): boolean {
   return ROWS_EVERY_RUN_KINDS.has(a.kind) && a.cadenceMinutes <= 24 * 60;
@@ -85,6 +93,8 @@ export interface HealthSample {
   last_run_at: string | null;
   consecutive_failures: number;
   tracked_since?: string | null;
+  /** Newest record date the source has returned (the record's own date, capped at the run time by the scan). */
+  last_record_at?: string | null;
 }
 
 export interface SourceStateInput {
@@ -94,7 +104,7 @@ export interface SourceStateInput {
   /** Env keys or feature flags the adapter needs that are not set (missingEnvFor). */
   missingEnv: readonly string[];
   health: HealthSample | null;
-  /** Newest first. Only the first DEGRADED_RUNS matter. */
+  /** Newest first. The first DEGRADED_RUNS decide errors; the whole list (up to MAX_HISTORY_RUNS) is the history for empty runs. */
   recentRuns: readonly RunSample[];
   now: Date;
 }
@@ -107,6 +117,13 @@ export interface SourceStateResult {
   lastSuccessAt: string | null;
   /** now minus lastSuccessAt, clamped at 0. null when there has been no success. */
   sinceSuccessMs: number | null;
+  /**
+   * Newest record date the source actually returned (holler_source_health.last_record_at). This, not the last error-free run, is the
+   * "last update" members are told: a source can run cleanly every hour and return nothing for a week. null = never returned a record.
+   */
+  lastRecordAt: string | null;
+  /** How the source's own history looks for rows. null for kinds that are not judged by empty runs. */
+  rowsHistory: RowsHistory | null;
   /** One plain line for the owner: what the rule saw. No row data. */
   detail: string;
 }
@@ -121,6 +138,47 @@ function hasError(r: RunSample): boolean {
   return typeof r.error === 'string' && r.error.trim() !== '';
 }
 
+/**
+ *   steady   before its current bad streak the source returned rows on at least half of at least 3 runs spanning 24 hours or more:
+ *            an empty run is unusual for it.
+ *   bursty   it has returned rows, but not steadily (publishes in bursts, like Cobb County): empty runs are normal.
+ *   none     it has run for 24 hours or more and never returned a row.
+ *   unknown  not enough history yet.
+ */
+export type RowsHistory = 'steady' | 'bursty' | 'none' | 'unknown';
+
+function spanMs(runs: readonly RunSample[], cadenceMinutes: number): number {
+  const times = runs.map((r) => ms(r.startedAt)).filter((t): t is number => t !== null);
+  if (times.length === 0) return 0;
+  return Math.max(...times) - Math.min(...times) + cadenceMinutes * MIN;
+}
+
+function isBadRun(r: RunSample): boolean {
+  return hasError(r) || r.fetched === 0;
+}
+
+/**
+ * The source's own history of rows, newest run first in `runs`. The current bad streak (the newest runs that failed or came back
+ * empty) is left out: it is what is being judged, so it cannot also be the evidence. Error runs are neither rows nor empty.
+ */
+export function rowsHistoryOf(runs: readonly RunSample[], cadenceMinutes: number): RowsHistory {
+  let i = 0;
+  while (i < runs.length && isBadRun(runs[i])) i++;
+  const older = runs.slice(i).filter((r) => !hasError(r) && r.fetched !== null);
+  const enough = (rs: readonly RunSample[]) => rs.length >= HISTORY_MIN_RUNS && spanMs(rs, cadenceMinutes) >= HISTORY_MIN_SPAN_MS;
+  if (enough(older)) {
+    const withRows = older.filter((r) => (r.fetched ?? 0) > 0).length;
+    if (withRows / older.length >= HISTORY_MIN_ROWS_SHARE) return 'steady';
+    return 'bursty';
+  }
+  // Too little before the streak. Over the whole history, if that is long enough: never a row is "none", some rows is "bursty" (rows
+  // arrived, then stopped, but not steadily enough to call empty runs a fault). Too short to say: unknown. Neither is ever degraded
+  // for empty runs: no evidence, no alarm.
+  const all = runs.filter((r) => !hasError(r) && r.fetched !== null);
+  if (enough(all)) return all.some((r) => (r.fetched ?? 0) > 0) ? 'bursty' : 'none';
+  return 'unknown';
+}
+
 /** "9 hours", "35 minutes", "3 days". Rounded; never negative. */
 export function agePhrase(ageMs: number): string {
   const mins = Math.max(0, Math.round(ageMs / MIN));
@@ -133,12 +191,17 @@ export function agePhrase(ageMs: number): string {
 
 export function computeSourceState(i: SourceStateInput): SourceStateResult {
   const nowMs = i.now.getTime();
+  const lastRecord = ms(i.health?.last_record_at);
+  const judged = usuallyReturnsRows(i);
+  const history: RowsHistory | null = judged ? rowsHistoryOf(i.recentRuns, i.cadenceMinutes) : null;
   const done = (state: SourceState, reason: StateReason, lastSuccess: number | null, detail: string): SourceStateResult => ({
     id: i.id,
     state,
     reason,
     lastSuccessAt: lastSuccess === null ? null : new Date(lastSuccess).toISOString(),
     sinceSuccessMs: lastSuccess === null ? null : Math.max(0, nowMs - lastSuccess),
+    lastRecordAt: lastRecord === null ? null : new Date(Math.min(lastRecord, nowMs)).toISOString(),
+    rowsHistory: history,
     detail,
   });
 
@@ -166,8 +229,9 @@ export function computeSourceState(i: SourceStateInput): SourceStateResult {
   const since = Math.max(0, nowMs - lastSuccess);
   if (since > limitUnavailable) return done('unavailable', 'no_success_24h', lastSuccess, `no successful run for ${agePhrase(since)}`);
 
-  // Degraded: the last 3 runs were each a failure, or empty from a source that normally returns rows.
-  const emptyCounts = usuallyReturnsRows(i);
+  // Degraded: the last 3 runs were each a failure, or empty from a source whose own history shows it returning rows steadily. A
+  // source that publishes in bursts (or has never returned a row) is not degraded for empty runs.
+  const emptyCounts = history === 'steady';
   const isBad = (r: RunSample) => hasError(r) || (emptyCounts && r.fetched === 0);
   if (recent.length >= DEGRADED_RUNS && recent.every(isBad)) {
     const errors = recent.filter(hasError).length;
@@ -216,7 +280,7 @@ export function computeSourceStates(input: {
     const list = runsBy.get(r.source as string);
     const sample = { startedAt: r.started_at, fetched: r.fetched, error: r.error };
     if (list) {
-      if (list.length < DEGRADED_RUNS + 2) list.push(sample);
+      if (list.length < MAX_HISTORY_RUNS) list.push(sample);
     } else runsBy.set(r.source as string, [sample]);
   }
   return input.adapters.map((a) =>
@@ -254,6 +318,8 @@ export interface SourceStateSummary {
   behind: number;
   /** Non-healthy results, worst first (not_set_up included, last). */
   attention: SourceStateResult[];
+  /** Healthy sources that have run for a day or more and never returned a row (rowsHistory 'none'). Not a fault state; the owner should look. */
+  quiet: SourceStateResult[];
   total: number;
 }
 
@@ -263,5 +329,6 @@ export function summarizeSourceStates(results: readonly SourceStateResult[]): So
   const attention = results
     .filter((r) => r.state !== 'healthy')
     .sort((a, b) => STATE_SEVERITY[a.state] - STATE_SEVERITY[b.state] || a.id.localeCompare(b.id));
-  return { counts, behind: counts.delayed + counts.degraded + counts.unavailable, attention, total: results.length };
+  const quiet = results.filter((r) => r.state === 'healthy' && r.rowsHistory === 'none').sort((a, b) => a.id.localeCompare(b.id));
+  return { counts, behind: counts.delayed + counts.degraded + counts.unavailable, attention, quiet, total: results.length };
 }

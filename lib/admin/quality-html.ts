@@ -32,7 +32,9 @@ export function renderQualityHtml(r: QualityReport): string {
     Object.values(NAMES).map((n) => `<th>${esc(n)}</th>`).join('') +
     '<th>Act now + Coming soon</th><th>Feedback answers</th><th>Not relevant</th>' +
     '<th>New members</th><th>With a useful card</th><th>Within 24 h</th><th>Median to first card</th><th>90th percentile</th></tr>';
-  const unavailable = (Object.entries(r.sections) as Array<[string, string]>).filter(([, v]) => v !== 'ok').map(([k]) => esc(k));
+  const sectionsWith = (status: string) => (Object.entries(r.sections) as Array<[string, string]>).filter(([, v]) => v === status).map(([k]) => esc(k));
+  const unavailable = sectionsWith('unavailable');
+  const partial = sectionsWith('partial');
   return (
     '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Holler alert quality</title>' +
@@ -41,6 +43,7 @@ export function renderQualityHtml(r: QualityReport): string {
     'thead th{background:#f3f3f3;position:sticky;top:0}tr.bad{background:#fdecea}ul{padding-left:20px}</style></head><body>' +
     `<h1>Holler alert quality</h1><p>Last ${r.windowDays} days, since ${esc(r.since)}. Generated ${esc(r.generatedAt)}. Target: at least ${Math.round(r.target * 100)}% of sent alerts are Act now or Coming soon, per trade.</p>` +
     (unavailable.length ? `<p><strong>Unavailable reads:</strong> ${unavailable.join(', ')} (blank, not zero).</p>` : '') +
+    (partial.length ? `<p><strong>Partial reads:</strong> ${partial.join(', ')} (row limit reached: only the newest rows are counted).</p>` : '') +
     (r.belowTarget.length ? `<p><strong>Below target:</strong> ${r.belowTarget.map(esc).join(', ')}</p>` : '') +
     `<table><thead>${head}</thead><tbody>${row(r.all, r.target)}${r.trades.map((t) => row(t, r.target)).join('')}</tbody></table>` +
     '<p>* fewer than 10 answers: small sample. "Sent" = emailed (holler_alert_log.emailed_at). "Not relevant" is what members told us, not proof the record was wrong. Time to first card counts any card in the feed that is Act now or Coming soon for one of the member&#39;s trades.</p>' +

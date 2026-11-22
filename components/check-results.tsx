@@ -34,6 +34,7 @@ export function CheckResults({
   now,
   origin,
   coverage = null,
+  coverageKnown = true,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -49,6 +50,8 @@ export function CheckResults({
   origin?: { lat: number; lon: number };
   /** One line when a source covering this place and trade is delayed, degraded or unavailable (lib/check/coverage-notice.ts). Never shown as full coverage. */
   coverage?: string | null;
+  /** false when the source states could not be read: an empty result is then worded as "what Holler has read so far", never as full coverage. */
+  coverageKnown?: boolean;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
@@ -57,7 +60,7 @@ export function CheckResults({
     const trade = tradeLabel.toLowerCase();
     const intro: Record<CheckMode, string> = {
       // With a source behind, an empty list is not "nothing happened": say it is nothing in what Holler has read so far.
-      results: coverage
+      results: coverage || !coverageKnown
         ? `In the records Holler has read so far, nothing within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`
         : `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',

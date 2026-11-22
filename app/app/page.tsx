@@ -75,6 +75,13 @@ async function loadDashboard() {
   const { user, profile } = await requireProfile();
   const supabase = await createClient();
 
+  const now = Date.now();
+  const access = computeAccess(profile, now);
+  // Source states (lib/signals/source-state.ts): started here so the cached read runs alongside the feed queries below instead of
+  // after them. A locked account sees a masked feed and never triggers a service-role read. Any failure is null (no line).
+  const snapshotRead =
+    !access.locked && profile.lat !== null && profile.lon !== null ? loadSourceStateSnapshot().catch(() => null) : null;
+
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
@@ -84,8 +91,6 @@ async function loadDashboard() {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  const now = Date.now();
-  const access = computeAccess(profile, now);
   const cityPage = cityPageFor(profile.lat, profile.lon);
 
   // The member's trades under their plan: the opportunity label of a record depends on the trade that matched it.
@@ -220,9 +225,8 @@ async function loadDashboard() {
   // unavailable, the header says so in one line, so a quiet feed is never read as full coverage. Any failure means no line.
   let coverage: string | null = null;
   try {
-    // A locked account sees a masked feed and never triggers a service-role read here.
-    if (!access.locked && profile.lat !== null && profile.lon !== null) {
-      const snapshot = await loadSourceStateSnapshot();
+    if (snapshotRead && profile.lat !== null && profile.lon !== null) {
+      const snapshot = await snapshotRead;
       coverage =
         coverageNotice({
           lat: profile.lat,

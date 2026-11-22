@@ -48,9 +48,9 @@ async function render(sp: Record<string, string>) {
   return { html, text: html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, ' ') };
 }
 const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
-const states = (over: Record<string, { state: string; lastSuccessAt: string | null }>) => ({
+const states = (over: Record<string, { state: string; lastRecordAt: string | null }>) => ({
   generatedAt: new Date().toISOString(),
-  states: { nws: { state: 'healthy', lastSuccessAt: ago(0.1) }, spc: { state: 'healthy', lastSuccessAt: ago(0.1) }, ...over },
+  states: { nws: { state: 'healthy', lastRecordAt: ago(0.1) }, spc: { state: 'healthy', lastRecordAt: ago(0.1) }, ...over },
 });
 
 beforeEach(() => {
@@ -61,7 +61,7 @@ beforeEach(() => {
 
 describe('/check coverage notice', () => {
   it('shows "Chicago permits are delayed; last update 9 hours ago" above the records for a Chicago ZIP and roofing', async () => {
-    snapshot = states({ 'socrata-chicago-permits': { state: 'delayed', lastSuccessAt: ago(9) } });
+    snapshot = states({ 'socrata-chicago-permits': { state: 'delayed', lastRecordAt: ago(9) } });
     const { html, text } = await render({ zip: '60614', trade: 'roofing' });
     expect(text).toContain('Chicago permits are delayed; last update 9 hours ago.');
     expect(html.indexOf('data-testid="coverage-notice"')).toBeGreaterThan(html.indexOf('id="check-heading"'));
@@ -69,14 +69,14 @@ describe('/check coverage notice', () => {
   });
   it('on an empty result it does not claim "nothing in the public record"', async () => {
     items = [];
-    snapshot = states({ 'socrata-chicago-permits': { state: 'degraded', lastSuccessAt: ago(3) } });
+    snapshot = states({ 'socrata-chicago-permits': { state: 'degraded', lastRecordAt: ago(3) } });
     const { text } = await render({ zip: '60614', trade: 'roofing' });
     expect(text).toContain('Chicago permits are not updating reliably');
     expect(text).toContain('In the records Holler has read so far, nothing');
     expect(text).not.toContain('Nothing in the public record');
   });
   it('shows nothing when every source is healthy', async () => {
-    snapshot = states({ 'socrata-chicago-permits': { state: 'healthy', lastSuccessAt: ago(1) } });
+    snapshot = states({ 'socrata-chicago-permits': { state: 'healthy', lastRecordAt: ago(1) } });
     const { html } = await render({ zip: '60614', trade: 'roofing' });
     expect(html).not.toContain('coverage-notice');
   });
@@ -90,13 +90,36 @@ describe('/check coverage notice', () => {
     expect(b.html).not.toContain('coverage-notice');
     expect(b.text).toContain('Re-roof permit on Oak St');
   });
+  it('on an empty result with unknown states it words the result as "read so far", never as full coverage', async () => {
+    items = [];
+    snapshot = null;
+    const a = await render({ zip: '60614', trade: 'roofing' });
+    expect(a.html).not.toContain('coverage-notice');
+    expect(a.text).toContain('In the records Holler has read so far, nothing');
+    expect(a.text).not.toContain('Nothing in the public record');
+    snapshotThrows = true;
+    const b = await render({ zip: '60614', trade: 'roofing' });
+    expect(b.text).toContain('In the records Holler has read so far, nothing');
+    expect(b.text).not.toContain('Nothing in the public record');
+  });
+  it('on an empty result with known healthy states the plain wording stays', async () => {
+    items = [];
+    snapshot = states({});
+    const { text } = await render({ zip: '60614', trade: 'roofing' });
+    expect(text).toContain('Nothing in the public record');
+  });
+  it('a quiet source says "no new records since" its newest record date', async () => {
+    snapshot = states({ 'socrata-chicago-permits': { state: 'degraded', reason: 'repeated_empty', lastRecordAt: '2026-11-14T08:00:00.000Z' } as never });
+    const { text } = await render({ zip: '60614', trade: 'roofing' });
+    expect(text).toContain('Chicago permits are not updating reliably; no new records since Nov 14.');
+  });
   it('a behind source in another city is not mentioned', async () => {
-    snapshot = states({ 'socrata-la-permits': { state: 'degraded', lastSuccessAt: ago(2) } });
+    snapshot = states({ 'socrata-la-permits': { state: 'degraded', lastRecordAt: ago(2) } });
     const { html } = await render({ zip: '60614', trade: 'roofing' });
     expect(html).not.toContain('coverage-notice');
   });
   it('a delayed national weather feed is named for every ZIP', async () => {
-    snapshot = states({ nws: { state: 'delayed', lastSuccessAt: ago(2) } });
+    snapshot = states({ nws: { state: 'delayed', lastRecordAt: ago(2) } });
     const { text } = await render({ zip: '60614', trade: 'roofing' });
     expect(text).toContain('Weather alerts are delayed; last update 2 hours ago.');
   });

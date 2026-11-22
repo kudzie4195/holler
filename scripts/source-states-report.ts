@@ -1,8 +1,8 @@
 /**
  * Read-only snapshot of every source's state (PLAN-2.0 item 2.4, round 15 unit H).
  *
- * Input: scripts/fixtures/source-states-live/ (health.psv, runs.psv, now.txt): the holler_source_health rows and the 3 newest
- * holler_scan_runs rows per source, copied from READ-ONLY `select` results on the live database (Nov 22 2026 02:36 UTC).
+ * Input: scripts/fixtures/source-states-live/ (health.psv, runs.psv, now.txt): the holler_source_health rows and the
+ * holler_scan_runs rows (full 96 h for nine sources, 3 newest for the rest), copied from READ-ONLY `select` results on the live database (Nov 22 2026 03:35 UTC).
  * Adapters, kinds, cadences and the env each one needs come from the real registry (lib/signals/registry.ts) in THIS process: the
  * environment here has none of the optional keys, so those sources are "not set up yet". The live data agrees: none of those eight has
  * a health row or a single run in holler_scan_runs.

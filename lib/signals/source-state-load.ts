@@ -9,12 +9,13 @@ import {
 } from './source-state';
 
 /**
- * Reads what computeSourceStates needs (holler_source_health and the last 48 hours of holler_scan_runs) and returns every adapter's
- * state. Read only: two selects, no writes. 48 hours holds at least 3 runs of any source scanned every 12 hours or faster; a slower
- * source falls back on the stored failure count.
+ * Reads what computeSourceStates needs (holler_source_health and the last 96 hours of holler_scan_runs) and returns every adapter's
+ * state. Read only: two selects, no writes. 96 hours is the history each source is judged against (does it usually return rows? see
+ * rowsHistoryOf) and holds at least 3 runs of any source scanned every 24 hours or faster; a slower source falls back on the stored
+ * failure count.
  * Throws when a read fails: callers decide what a failure means (member screens show nothing, the owner JSON says so).
  */
-export const STATE_RUN_LOOKBACK_MS = 48 * 3_600_000;
+export const STATE_RUN_LOOKBACK_MS = 96 * 3_600_000;
 
 export async function loadSourceStates(db: Db, now: Date, adapters?: StateAdapter[]): Promise<SourceStateResult[]> {
   const list = adapters ?? (await defaultAdapters());
