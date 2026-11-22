@@ -39,7 +39,7 @@ const TITLES: { source: string; title: string; es: string }[] = [
   { source: 'usaspending', title: `Federal contract (${formatUsd(310_000)}) in Cincinnati, OH: ${awardLabel(['plumbing'], '238220')}`, es: 'Contrato federal ($310K) en Cincinnati, OH: Plomería (NAICS 238220)' },
   { source: 'usaspending', title: `Federal contract in Cincinnati, OH: ${awardLabel([], '238220')}`, es: 'Contrato federal en Cincinnati, OH: NAICS 238220' },
   { source: 'usaspending', title: `Federal contract in Cincinnati, OH: ${awardLabel([], '')}`, es: 'Contrato federal en Cincinnati, OH: adjudicación federal' },
-  { source: 'bids-la', title: 'Open bid in Los Angeles area: REPLACE COOLING TOWERS & CHILLER (PSA)', es: 'Licitación abierta en área de Los Angeles: REPLACE COOLING TOWERS & CHILLER (PSA)' },
+  { source: 'bids-la', title: 'Open bid in Los Angeles area: REPLACE COOLING TOWERS & CHILLER (PSA)', es: 'Licitación abierta en el área de Los Angeles: REPLACE COOLING TOWERS & CHILLER (PSA)' },
   { source: 'bids-batonrouge', title: 'Open bid in Baton Rouge: A26-91082 Window Washing Library Sites', es: 'Licitación abierta en Baton Rouge: A26-91082 Window Washing Library Sites' },
   { source: 'socrata-chicago-inspections', title: inspectionTitle('Chicago'), es: 'Inspección reprobada en Chicago: local de comida' },
   { source: 'socrata-nyc-311', title: '311 request in New York City: Rodent / Rat Sighting', es: 'Solicitud al 311 en New York City: Rodent / Rat Sighting' },

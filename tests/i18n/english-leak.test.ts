@@ -129,7 +129,7 @@ describe('summaries and the recent block', () => {
   });
   it('the 90-day recent block for a Spanish member: counts, titles, dates and notes have no English UI words', async () => {
     const cases = await shipCases();
-    const examples = cases.slice(0, 5).map((c, i) => ({ title: c.signal.title, city: 'Atlanta', state: 'GA', date: `2026-11-${String(10 + i).padStart(2, '0')}` }));
+    const examples = cases.slice(0, 5).map((c, i) => ({ title: c.signal.title, source: c.signal.source, city: 'Atlanta', state: 'GA', date: `2026-11-${String(10 + i).padStart(2, '0')}` }));
     const types = ['storm-report', 'weather-alert', 'disaster', 'quake', 'airport', 'permit', '311', 'inspection', 'business', 'violation', 'event', 'event-permit', 'contract', 'federal-bid', 'other'];
     const preview = { total: 40, byIntent: { demand: 0, spending: 0, asking: 0 }, capped: true, byType: types.map((key, i) => ({ key, count: i + 1 })), examples };
     const data = cases.slice(0, 5).flatMap(dataOf);

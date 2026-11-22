@@ -51,7 +51,7 @@ export function RecentActivityView({ preview, lang = 'en' }: { preview: RecentPr
             <ul className="mt-4 space-y-2 border-t border-line pt-4 text-sm text-muted">
               {preview.examples.map((e, i) => (
                 <li key={`${e.date}-${i}`}>
-                  <span className="text-ink">{lang === 'en' ? e.title : localizeTitle(e.title, lang)}</span>
+                  <span className="text-ink">{lang === 'en' ? e.title : localizeTitle(e.title, lang, e.source)}</span>
                   {e.city ? `, ${e.city}${e.state ? `, ${e.state}` : ''}` : ''} ({fmtDate(e.date, lang)})
                 </li>
               ))}

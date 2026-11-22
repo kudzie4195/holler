@@ -13,7 +13,7 @@ import { en } from '@/lib/i18n/en';
 import { bannedDraftWordsIn, spanishProblems, ES_BANNED, foldEs } from '@/lib/i18n/rules';
 import { violatesDraftRules, fallbackDraft } from '@/lib/ai/fallback';
 import { renderNote } from '@/lib/outreach/templates';
-import { renderDigest } from '@/lib/email/templates';
+import { renderDigest, contactLine } from '@/lib/email/templates';
 import { Footer } from '@/components/footer';
 import { TopNavEs } from '@/components/es/top-nav';
 import { FooterEs } from '@/components/es/footer';
@@ -182,5 +182,57 @@ describe('P3-3 and P3-4: links to pages in another language say so', () => {
     expect(link).toMatch(/hrefLang="es"/i);
     // no other English footer link got a language attribute
     expect((html.match(/ lang="/g) ?? []).length).toBe(1);
+  });
+});
+
+// ---- Redo 3 (regrade-ES.md): 16 more dictionary keys, exactly as the grader wrote them ----
+const REGRADE_CORRECTED: Record<string, string> = {
+  "title.area": "el área de {place}",
+  "title.nws_other": "Alerta del Servicio Meteorológico: {event} ({area})",
+  "title.nws_other_plain": "Alerta del Servicio Meteorológico: {event}",
+  "nws.hazard.special-weather": "condiciones meteorológicas especiales",
+  "nws.hazard.small-craft": "peligro para embarcaciones pequeñas",
+  "sum.fema_head_typed": "FEMA hizo una declaración por {incident} ({code}) para {state}",
+  "sum.fema_head": "FEMA hizo una declaración por {incident} para {state}",
+  "sum.fema_head_other_typed": "FEMA hizo una declaración ({code}), tipo de incidente: {incident}, para {state}",
+  "sum.fema_head_other": "FEMA hizo una declaración, tipo de incidente: {incident}, para {state}",
+  "sum.faa.end": "Hora prevista de fin: {when}",
+  "naics.retail": "Comercio al por menor",
+  "recent.type.weather-alert.one": "alerta del clima",
+  "recent.type.weather-alert.many": "alertas del clima",
+  "civic.water_fire": "problemas por agua o incendio",
+  "brief.why.public-post.act_now": "Alguien publicó que busca ayuda con {work} cerca.",
+  "who.copied_hint": "Copiado al portapapeles. Cambie las partes [entre corchetes] antes de enviarlo.",
+};
+
+describe('regrade corrections (regrade-ES.md, 16 keys)', () => {
+  for (const [k, v] of Object.entries(REGRADE_CORRECTED)) {
+    it(k, () => {
+      expect(es[k as keyof typeof es]).toBe(v);
+      expect(spanishProblems(v)).toEqual([]);
+      const holes = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+      expect(holes(es[k as keyof typeof es])).toEqual(holes(en[k as keyof typeof en]));
+    });
+  }
+  it('"Aviso" is kept for a real Warning: other NWS products take "Alerta"', async () => {
+    const { localizeTitle } = await import('@/lib/signals/title-i18n');
+    expect(localizeTitle('Tornado Warning: Cobb, GA', 'es', 'nws')).toMatch(/^Aviso de tornado/);
+    expect(localizeTitle('Hazardous Weather Outlook: Cobb, GA', 'es', 'nws')).toBe('Alerta del Servicio Meteorológico: Hazardous Weather Outlook (Cobb, GA)');
+    expect(localizeTitle('Special Weather Statement: Cobb, GA', 'es', 'nws')).toBe('Declaración de condiciones meteorológicas especiales: Cobb, GA');
+    expect(localizeTitle('Small Craft Advisory: Lake Lanier', 'es', 'nws')).toBe('Advertencia de peligro para embarcaciones pequeñas: Lake Lanier');
+  });
+  it('"Licitación abierta en el área de Los Angeles" reads right', async () => {
+    const { localizeTitle } = await import('@/lib/signals/title-i18n');
+    expect(localizeTitle('Open bid in Los Angeles area: REPLACE COOLING TOWERS', 'es', 'bids-la')).toBe('Licitación abierta en el área de Los Angeles: REPLACE COOLING TOWERS');
+  });
+  it('the "Done" button has its own key; the status badge stays "Terminada"', () => {
+    expect(es['card.mark_done']).toBe('Marcar como terminada');
+    expect(es['card.done']).toBe('Terminada');
+    expect(en['card.mark_done']).toBe(en['card.done']);
+  });
+  it('the contact role is lower case inside the parentheses in Spanish and unchanged in English', () => {
+    expect(contactLine({ name: 'SUMMIT ROOFING & SIDING INC', role: 'Aparece en este permiso' }, 'es')).toBe('Contacto: SUMMIT ROOFING & SIDING INC (aparece en este permiso)');
+    expect(contactLine({ name: 'Acme Roofing LLC', role: 'General contractor on this permit' })).toBe('Contact: Acme Roofing LLC (General contractor on this permit)');
+    expect(contactLine({ name: 'Acme Roofing LLC', role: 'General contractor on this permit' }, 'en')).toBe('Contact: Acme Roofing LLC (General contractor on this permit)');
   });
 });

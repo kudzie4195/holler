@@ -98,6 +98,8 @@ export interface PreviewExample {
   state: string | null;
   /** ISO date, YYYY-MM-DD */
   date: string;
+  /** The record's source id (a public id such as "spc"), so a Spanish member's example title can be rebuilt in Spanish. Never free text. */
+  source: string | null;
 }
 export interface RecentPreview {
   total: number;
@@ -241,7 +243,7 @@ export async function recentPreviewFor(
       if (examples.length >= PREVIEW_EXAMPLES) break;
       const title = (r.title ?? '').replace(/\s+/g, ' ').trim();
       if (!title) continue;
-      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10) });
+      examples.push({ title, city: r.city?.trim() || null, state: r.state?.trim() || null, date: r.occurred_at.slice(0, 10), source: r.source ?? null });
     }
 
     return {

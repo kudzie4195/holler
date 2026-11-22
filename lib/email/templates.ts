@@ -6,7 +6,7 @@ import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { bidSourceLinkLabel } from '../signals/bid-card';
 import { sourceLine, type CardBrief } from '../signals/brief';
 import { bidSourceLinkLabelLang, cardBriefLang, sourceLineLang } from '../signals/brief-i18n';
-import { t, type Lang } from '../i18n';
+import { lowerFirst, t, type Lang } from '../i18n';
 import { localizeTitle } from '../signals/title-i18n';
 import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
@@ -131,7 +131,8 @@ export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'):
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
 export function contactLine(c: { name: string; role: string }, lang: Lang = 'en'): string {
-  return noDash(t(lang, 'email.contact', { name: c.name, role: c.role }));
+  // The role is a capitalised label ("Aparece en este permiso"); inside the parentheses Spanish writes it in lower case.
+  return noDash(t(lang, 'email.contact', { name: c.name, role: lang === 'en' ? c.role : lowerFirst(c.role) }));
 }
 
 // Look comes from lib/email/theme.ts (one place for every color and font).

@@ -340,6 +340,7 @@ export const en = {
   'card.new_matches': 'New matches show up here as soon as a scan finds them.',
   'card.saved': 'Saved',
   'card.done': 'Done',
+  'card.mark_done': 'Done',
   'card.dismissed': 'Dismissed',
   'card.save': 'Save',
   'card.dismiss': 'Dismiss',

@@ -79,20 +79,20 @@ describe('summaries Holler composes: English unchanged, Spanish from the same fi
       expect(spanishProblems(out), out).toEqual([]);
     }
     const fema = rows.find((r) => r.source === 'fema')!;
-    expect(localizeSummary(fema.summary, 'es', 'fema')).toMatch(/^FEMA (declaró|hizo una declaración) /);
+    expect(localizeSummary(fema.summary, 'es', 'fema')).toMatch(/^FEMA hizo una declaración /);
   });
   it('exact Spanish for each template shape', () => {
-    expect(localizeSummary('FEMA declared hurricane (DR-4000) for FL: 3 areas designated (Lee, Collier, Charlotte).', 'es', 'fema')).toBe('FEMA declaró un huracán (DR-4000) para FL: 3 zonas designadas (Lee, Collier, Charlotte).');
-    expect(localizeSummary('FEMA declared severe storm(s) (DR-4123) for GA: 1 area designated (Cobb).', 'es', 'fema')).toBe('FEMA declaró tormentas severas (DR-4123) para GA: 1 zona designada (Cobb).');
-    expect(localizeSummary('FEMA declared flood for TX (statewide).', 'es', 'fema')).toBe('FEMA declaró una inundación para TX (todo el estado).');
-    expect(localizeSummary('FEMA declared flood for TX: 8 areas designated (A, B, C, D, E, F, and more).', 'es', 'fema')).toBe('FEMA declaró una inundación para TX: 8 zonas designadas (A, B, C, D, E, F y más).');
-    expect(localizeSummary('FEMA declared toxic substances (EM-3001) for OH (statewide).', 'es', 'fema')).toBe('FEMA hizo una declaración (EM-3001) para OH, tipo de incidente: toxic substances (todo el estado).');
+    expect(localizeSummary('FEMA declared hurricane (DR-4000) for FL: 3 areas designated (Lee, Collier, Charlotte).', 'es', 'fema')).toBe('FEMA hizo una declaración por un huracán (DR-4000) para FL: 3 zonas designadas (Lee, Collier, Charlotte).');
+    expect(localizeSummary('FEMA declared severe storm(s) (DR-4123) for GA: 1 area designated (Cobb).', 'es', 'fema')).toBe('FEMA hizo una declaración por tormentas severas (DR-4123) para GA: 1 zona designada (Cobb).');
+    expect(localizeSummary('FEMA declared flood for TX (statewide).', 'es', 'fema')).toBe('FEMA hizo una declaración por una inundación para TX (todo el estado).');
+    expect(localizeSummary('FEMA declared flood for TX: 8 areas designated (A, B, C, D, E, F, and more).', 'es', 'fema')).toBe('FEMA hizo una declaración por una inundación para TX: 8 zonas designadas (A, B, C, D, E, F y más).');
+    expect(localizeSummary('FEMA declared toxic substances (EM-3001) for OH (statewide).', 'es', 'fema')).toBe('FEMA hizo una declaración (EM-3001), tipo de incidente: toxic substances, para OH (todo el estado).');
     expect(localizeSummary('Magnitude 5.2 earthquake 9 km SW of Ridgecrest, CA, depth 8 km.', 'es', 'usgs')).toBe('Sismo de magnitud 5.2: 9 km SW of Ridgecrest, CA, a 8 km de profundidad.');
     expect(localizeSummary('Magnitude 4.1 earthquake 3 km N of Town, OK.', 'es', 'usgs')).toBe('Sismo de magnitud 4.1: 3 km N of Town, OK.');
     expect(localizeSummary('Flight delays at ATL, Atlanta: WEATHER / THUNDERSTORMS. Delays up to 1 hour and 15 minutes.', 'es', 'faa')).toBe('Retrasos de vuelos en ATL, Atlanta: WEATHER / THUNDERSTORMS. Demoras de hasta 1 hora y 15 minutos.');
     expect(localizeSummary('Ground delay program at EWR, Newark: WEATHER. Average delay 52 minutes, up to 2 hours.', 'es', 'faa')).toBe('Programa de demoras en tierra en EWR, Newark: WEATHER. Demora promedio: 52 minutos, hasta 2 horas.');
     expect(localizeSummary('Airport closure at JFK, New York: airport closed per NOTAM.', 'es', 'faa')).toBe('Cierre de aeropuerto en JFK, New York: aeropuerto cerrado según NOTAM.');
-    expect(localizeSummary('Ground stop at ORD, Chicago: unspecified. Expected to end 2026-11-21T22:00Z.', 'es', 'faa')).toBe('Suspensión de salidas en ORD, Chicago: sin especificar. Se espera que termine 2026-11-21T22:00Z.');
+    expect(localizeSummary('Ground stop at ORD, Chicago: unspecified. Expected to end 2026-11-21T22:00Z.', 'es', 'faa')).toBe('Suspensión de salidas en ORD, Chicago: sin especificar. Hora prevista de fin: 2026-11-21T22:00Z.');
   });
   it('the fixed parts: job value, due dates, agency, start time, segment', () => {
     expect(localizeSummary(summaryPart('estimated_cost', '14500'), 'es', 'socrata-chicago-permits')).toBe('valor del trabajo: $14,500');
@@ -130,7 +130,7 @@ describe('summaries Holler composes: English unchanged, Spanish from the same fi
   it('FEMA incident types in Spanish all follow the wording rules', () => {
     for (const inc of knownFemaIncidents()) {
       const out = localizeSummary(`FEMA declared ${inc} (DR-1) for GA (statewide).`, 'es', 'fema')!;
-      expect(out, inc).toMatch(/^FEMA declaró /);
+      expect(out, inc).toMatch(/^FEMA hizo una declaración por /);
       expect(spanishProblems(out), out).toEqual([]);
     }
   });
@@ -158,7 +158,7 @@ describe('NWS event names', () => {
       expect(out, ev).not.toMatch(new RegExp(`^${ev.split(' ')[0]}\\b`));
       expect(out.endsWith(': Cobb, GA; Fulton, GA') || out.endsWith('(Cobb, GA; Fulton, GA)'), ev).toBe(true);
       expect(spanishProblems(out), out).toEqual([]);
-      if (/^Aviso del Servicio/.test(out)) unnamed.push(ev);
+      if (/^Alerta del Servicio/.test(out)) unnamed.push(ev);
     }
     // the only events that take the generic frame are ones NWS words in a way the table does not have a Spanish name for
     expect(unnamed).toEqual([]);
@@ -173,9 +173,9 @@ describe('NWS event names', () => {
     }
   });
   it('an event not in the table takes the generic Spanish frame; a Spanish sentence never starts with English', () => {
-    expect(localizeTitle('Volcano Warning: Hawaii County', 'es', 'nws')).toBe('Aviso del Servicio Meteorológico: Volcano Warning (Hawaii County)');
-    expect(localizeTitle('Tree Emergency', 'es', 'nws')).toBe('Aviso del Servicio Meteorológico: Tree Emergency');
-    expect(localizeTitle('Hurricane Local Statement: Coastal Counties', 'es', 'nws')).toBe('Aviso del Servicio Meteorológico: Hurricane Local Statement (Coastal Counties)');
+    expect(localizeTitle('Volcano Warning: Hawaii County', 'es', 'nws')).toBe('Alerta del Servicio Meteorológico: Volcano Warning (Hawaii County)');
+    expect(localizeTitle('Tree Emergency', 'es', 'nws')).toBe('Alerta del Servicio Meteorológico: Tree Emergency');
+    expect(localizeTitle('Hurricane Local Statement: Coastal Counties', 'es', 'nws')).toBe('Alerta del Servicio Meteorológico: Hurricane Local Statement (Coastal Counties)');
     // without a source it is not assumed to be an NWS title, so a post is not rewritten
     expect(localizeTitle('Volcano Warning: Hawaii County', 'es')).toBe('Volcano Warning: Hawaii County');
     expect(localizeTitle('Volcano Warning: Hawaii County', 'en', 'nws')).toBe('Volcano Warning: Hawaii County');
@@ -200,10 +200,10 @@ describe('the 90-day recent block for a Spanish member', () => {
       capped: true,
       byType: [{ key: 'permit', count: 3 }, { key: 'storm-report', count: 1 }],
       examples: [
-        { title: '1.50 inch hail reported near 2 ESE Atlanta, GA', city: 'Atlanta', state: 'GA', date: '2026-11-05' },
-        { title: 'Roof permit in Atlanta', city: 'Atlanta', state: 'GA', date: '2026-11-02' },
-        { title: 'Wind damage reported near 4 E Marietta, GA', city: 'Marietta', state: 'GA', date: '2026-10-28' },
-        { title: 'Anyone know a good roofer?', city: null, state: null, date: '2026-10-20' },
+        { title: '1.50 inch hail reported near 2 ESE Atlanta, GA', source: 'spc', city: 'Atlanta', state: 'GA', date: '2026-11-05' },
+        { title: 'Roof permit in Atlanta', source: 'socrata-chicago-permits', city: 'Atlanta', state: 'GA', date: '2026-11-02' },
+        { title: 'Wind damage reported near 4 E Marietta, GA', source: 'spc', city: 'Marietta', state: 'GA', date: '2026-10-28' },
+        { title: 'Anyone know a good roofer?', source: 'bluesky', city: null, state: null, date: '2026-10-20' },
       ],
     };
     const t = text(renderToStaticMarkup(createElement(RecentActivityView, { preview, lang: 'es' })));
@@ -220,6 +220,25 @@ describe('the 90-day recent block for a Spanish member', () => {
     expect(english).toBe(text(renderToStaticMarkup(createElement(RecentActivityView, { preview, lang: 'en' }))));
     expect(english).toContain('At least 3 building permits');
     expect(english).toContain('Roof permit in Atlanta , Atlanta, GA (Nov 2)');
+  });
+  it('an example keeps its source, so Holler templates that need one are rebuilt (regrade)', () => {
+    const preview = {
+      ...base,
+      total: 3,
+      byType: [{ key: 'permit', count: 3 }],
+      examples: [
+        { title: 'Residential Alteration permit in Marietta', source: 'arcgis-marietta-permits', city: 'Marietta', state: 'GA', date: '2026-11-05' },
+        { title: 'Hazardous Weather Outlook: Cobb, GA; Fulton, GA', source: 'nws', city: null, state: null, date: '2026-11-04' },
+        { title: 'Need a roofing permit in Atlanta', source: 'bluesky', city: null, state: null, date: '2026-11-03' },
+      ],
+    };
+    const t = text(renderToStaticMarkup(createElement(RecentActivityView, { preview, lang: 'es' })));
+    expect(t).toContain('Permiso en Marietta: Residential Alteration');
+    expect(t).toContain('Alerta del Servicio Meteorológico: Hazardous Weather Outlook (Cobb, GA; Fulton, GA)');
+    expect(t).toContain('Need a roofing permit in Atlanta');
+    expect(t).not.toMatch(/Residential Alteration permit in/);
+    const en = text(renderToStaticMarkup(createElement(RecentActivityView, { preview })));
+    expect(en).toContain('Residential Alteration permit in Marietta');
   });
   it('empty block and every record type have Spanish labels', () => {
     const t = text(renderToStaticMarkup(createElement(RecentActivityView, { preview: { ...base, total: 0, byType: [] }, lang: 'es' })));

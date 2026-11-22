@@ -310,13 +310,13 @@ function MatchCard({
         {item.status === 'new' ? (
           <>
             <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>{t(lang, 'card.save')}</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
             <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
           </>
         ) : null}
         {item.status === 'saved' ? (
           <>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
             <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
             <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>{t(lang, 'card.unsave')}</Button>
           </>
