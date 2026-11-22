@@ -15,6 +15,8 @@ export interface BriefBlockItem {
   /** NYC no-heat cards: the stored company name and role (lib/signals/managed-by.ts). */
   managerName?: string | null;
   managerRole?: string | null;
+  /** data.jobValue of a permit (whole dollars). The summary's "$N job value" is the fallback. */
+  jobValue?: number | null;
 }
 
 /** The brief for a feed item (parts 2 to 5). Pure; the web card, the tests and the screenshots all call it. */
@@ -31,6 +33,7 @@ export function briefOfItem(item: BriefBlockItem): CardBrief {
     occurredAt: item.occurredAt,
     managerName: item.managerName,
     managerRole: item.managerRole,
+    jobValue: item.jobValue,
   });
 }
 
@@ -45,6 +48,11 @@ export function BriefBlock({ item }: { item: BriefBlockItem }) {
   const b = briefOfItem(item);
   return (
     <div data-testid="brief" className="mt-3 border-t border-line pt-2">
+      {b.valueLine ? (
+        <p className={ROW} data-testid="brief-value">
+          {b.valueLine}
+        </p>
+      ) : null}
       <p className={ROW} data-testid="brief-why">
         <span className="font-semibold">Why it matters: </span>
         {b.why}

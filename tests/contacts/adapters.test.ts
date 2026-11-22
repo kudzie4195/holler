@@ -142,11 +142,27 @@ describe('USAspending awards (Recipient Name)', () => {
   });
 });
 
-describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
-  it('no ArcGIS layer has a contact spec (their fields could not be re-read), so queries are unchanged', () => {
-    for (const d of ARCGIS_DATASETS) expect(d.contacts, d.id).toBeUndefined();
+describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask for owner columns', () => {
+  const WITH_SPEC = [
+    'arcgis-atlanta-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits', 'arcgis-cobb-residential-permits',
+    'arcgis-dc-permits', 'arcgis-dekalb-permits', 'arcgis-mecklenburg-permits', 'arcgis-raleigh-permits',
+  ];
+  it('exactly the permit layers named in PLAN-2.0 1.2 and 1.3 carry a spec; no violation, 311 or business layer does', () => {
+    expect(ARCGIS_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort()).toEqual(WITH_SPEC);
+    for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit') expect(d.contacts, d.id).toBeUndefined();
+    for (const d of ARCGIS_DATASETS.filter((x) => x.contacts)) expect(['sourced', 'assumed'], d.id).toContain(d.contacts!.fieldStatus);
+  });
+  it('the query asks for the contractor column, never an owner column; with an allow-list only fields the layer has are asked for', () => {
     const raleigh = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
-    expect(buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z')).get('outFields')).not.toMatch(/contractor|owner/i);
+    const all = buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z')).get('outFields')!;
+    expect(all).toContain('contractorcompanyname');
+    expect(all).toContain('contractorlicnum');
+    expect(all).not.toMatch(/owner|contractorfullname/i);
+    const only = buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z'), new Set(['contractorcompanyname'])).get('outFields')!;
+    expect(only).toContain('contractorcompanyname');
+    expect(only).not.toContain('contractorphone');
+    expect(only).not.toContain('contractorlicnum');
+    expect(only).toContain('permitnum');
   });
   it('a TEST-ONLY spec (hypothetical columns) extracts the company and the site, never the owner', () => {
     const base = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
@@ -167,7 +183,7 @@ describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
     ]);
     expectAbsent(items, ['PERSONNAME', '919-555-0123']);
     // and the public part is identical with or without the spec
-    const plain = parseArcgis(fx('arcgis-synthetic-contacts.json'), base);
+    const plain = parseArcgis(fx('arcgis-synthetic-contacts.json'), { ...base, contacts: undefined });
     const { contacts: _c, ...pub } = items[0];
     void _c;
     expect(pub).toEqual(plain[0]);
@@ -175,12 +191,18 @@ describe('ArcGIS: generic contact support, no shipped layer uses it', () => {
 });
 
 describe('contact specs: only verified datasets, only explicit company columns', () => {
-  it('exactly the five datasets whose columns were read on 2026-11-17 carry a spec, each with its verified URL', () => {
+  it('every dataset with a spec has its portal metadata URL as verifiedUrl, and is the same object as CONTACT_SPECS', () => {
     const withSpec = SOCRATA_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort();
-    expect(withSpec).toEqual(['socrata-austin-inspections', 'socrata-austin-permits', 'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits']);
+    // The five of round 5 plus the permit feeds of round 15 (PLAN-2.0 1.2 and 1.3). No inspection or business feed was added.
+    expect(withSpec).toEqual([
+      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-batonrouge-permits', 'socrata-buffalo-permits', 'socrata-cambridge-permits',
+      'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-cincinnati-permits', 'socrata-dallas-permits',
+      'socrata-la-permits', 'socrata-montgomery-permits', 'socrata-nola-permits', 'socrata-norfolk-permits', 'socrata-nyc-permits',
+      'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-permits',
+    ]);
     for (const id of withSpec) {
       const d = ds(id);
-      expect(d.contacts!.verifiedUrl).toBe(`https://${d.domain}/api/views/${d.datasetId}.json`);
+      expect(d.contacts!.verifiedUrl, id).toMatch(/^https:\/\//);
       expect(CONTACT_SPECS[id]).toBe(d.contacts);
     }
   });

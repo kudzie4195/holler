@@ -4,6 +4,7 @@ import { bidSourceLinkLabel } from './bid-card';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
+import { jobValueLine } from './permit-value';
 
 /**
  * Brief card v1 (PLAN-2.0 item 0.4). Every alert card (web feed, email digest, mobile API) renders five parts:
@@ -587,6 +588,11 @@ export interface CardBrief extends Brief {
    * built from data.managerName / data.managerRole after the name is checked again (lib/signals/managed-by.ts). Null for every other record.
    */
   managedBy: string | null;
+  /**
+   * "Job value on the permit: $12,500" for a permit whose record publishes a project value (data.jobValue, else the "$N job value" part
+   * of its summary), else null. It is the number the city printed on the permit, not a quote and not proof that work is planned.
+   */
+  valueLine: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -598,6 +604,8 @@ export interface CardBriefInput extends BriefInput {
   /** data.managerName and data.managerRole of the signal (written at ingest for NYC heat rows). Ignored for any other record. */
   managerName?: string | null;
   managerRole?: string | null;
+  /** data.jobValue of the record (a number, or its text form). Pass null for a locked member. */
+  jobValue?: unknown;
 }
 
 /** All five parts' data for one card. An unset label counts as coming_soon (what a row without a label was before). */
@@ -606,6 +614,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
     ...briefFor({ ...input, label: input.label ?? 'coming_soon' }),
     source: briefSource(input),
     managedBy: briefFamilyOf(input) === '311' && isResidentialHeatTitle(input.title) ? managedByLineFrom(input.managerName, input.managerRole) : null,
+    valueLine: briefFamilyOf(input) === 'permit' ? jobValueLine({ jobValue: input.jobValue, summary: input.summary }) : null,
   };
 }
 

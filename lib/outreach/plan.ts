@@ -1,4 +1,5 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
+import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, type OutreachLink } from './links';
 import { OUTREACH_REMINDER, STORM_REMINDER, renderNote, type NoteKind } from './templates';
 
@@ -77,6 +78,11 @@ export interface PlanSignal {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
+  /**
+   * The record's stored public summary. For a permit with no stored site row, the job-site address printed in it (permit-value.ts
+   * siteAddressFromSummary) stands in for one, so permits stored before the site rows existed still show the job-site block.
+   */
+  summary?: string | null;
 }
 
 export type PlanContact = ContactInput;
@@ -95,6 +101,8 @@ export interface OrgEntry {
   addressLabel: 'Address' | 'Job site';
   phone: string | null;
   email: string | null;
+  /** The contractor's licence number when the permit publishes it. */
+  license: string | null;
   website: PlanLink | null;
   search: PlanLink | null;
   map: PlanLink | null;
@@ -186,8 +194,18 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
   const sites = list.filter((c) => c.role === 'site');
-  const siteAddress = sites.map((c) => formatAddress(c, signal.city, signal.state)).find((a): a is string => !!a) ?? null;
-  const siteRaw = sites.find((c) => cleanText(c.address));
+  let siteAddress = sites.map((c) => formatAddress(c, signal.city, signal.state)).find((a): a is string => !!a) ?? null;
+  let siteRaw = sites.find((c) => cleanText(c.address));
+  if (!siteAddress && cls === 'permit') {
+    // A permit stored before site rows existed: the address its public summary already prints.
+    const fromSummary = siteAddressFromSummary(signal.summary);
+    if (fromSummary) {
+      const zip = /(\d{5})(?:-\d{4})?$/.exec(fromSummary.tail ?? '')?.[1] ?? signal.zip ?? null;
+      const derived: PlanContact = { role: 'site', name: '', address: fromSummary.address, city: signal.city ?? null, state: signal.state ?? null, zip };
+      siteAddress = formatAddress(derived, signal.city, signal.state);
+      siteRaw = derived;
+    }
+  }
   const orgs = list.filter((c) => c.role === wantRole && cleanText(c.name));
   const role = ROLE_WORDS[cls]!;
   const noteKind = NOTE_FOR_CLASS[cls]!;
@@ -216,6 +234,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         addressLabel: own || cls !== 'permit' ? 'Address' : 'Job site',
         phone: cleanText(c.phone) || null,
         email: cleanText(c.email) || null,
+        license: cleanText(c.license) || null,
         website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), 'Website'),
         search: withLabel(buildLink({ type: 'search', org: name, city, state }), 'Search this business'),
         map: address

@@ -270,6 +270,8 @@ export interface ContactDto {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  /** The contractor's licence number when the permit publishes it. */
+  license?: string | null;
 }
 
 /**
@@ -288,6 +290,8 @@ export interface BriefDto {
   confidence: 'High' | 'Medium' | 'Low';
   /** NYC no-heat alerts only (additive): "Managed by: <Company> (from the city's building registration)". Company names only. Absent otherwise and for a locked member. */
   managedBy?: string;
+  /** Permits that publish a project value: "Job value on the permit: $12,500". Absent or null otherwise. Additive. */
+  valueLine?: string | null;
 }
 
 export interface AlertDto {

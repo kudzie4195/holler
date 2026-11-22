@@ -22,6 +22,8 @@ export interface ContactSignal {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
+  /** The stored public summary: a permit's job-site address is read from it when no site row is stored. */
+  summary?: string | null;
 }
 
 const actionClass =
@@ -60,6 +62,7 @@ function Entry({ e }: { e: OrgEntry }) {
       {e.attn ? <p className="mt-1 break-words text-sm text-ink">Attention: {e.attn}</p> : null}
       {e.address ? <p className="mt-1 break-words text-sm text-ink">{e.addressLabel}: {e.address}</p> : null}
       {e.phone ? <p className="break-words text-sm text-ink">Phone: {e.phone}</p> : null}
+      {e.license ? <p className="break-words text-sm text-ink">Contractor license number: {e.license}</p> : null}
       {e.email ? <p className="break-all text-sm text-ink">Email: {e.email}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {e.search ? <ActionLink link={e.search} /> : null}

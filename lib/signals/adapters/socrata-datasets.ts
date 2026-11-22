@@ -108,6 +108,11 @@ export interface SocrataDataset {
    * column list (contacts.verifiedUrl) appear here. Datasets without it carry no contacts.
    */
   contacts?: ContactSpec;
+  /**
+   * Permits: columns that hold the project value the city published, tried in order (lib/signals/permit-value.ts parseMoney: the first
+   * plausible amount wins). Stored as data.jobValue (a number). Without it the money columns of summaryFields are used.
+   */
+  valueFields?: string[];
 }
 
 // --- Category rules ---------------------------------------------------------------------------
@@ -351,6 +356,19 @@ const CHICAGO_PERMIT_PAIRS = Array.from({ length: 15 }, (_, i) => ({
 export const CHICAGO_CONTRACTOR_TYPE = /CONTRACT|ARCHITECT|ENGINEER|\bMASON\b|SIGN INSTALLER|DESIGN PROFESSIONAL/i;
 export const CHICAGO_REJECT_TYPE = /OWNER|APPLICANT|TENANT|EXPEDIT|OCCUP|RESIDEN|PRIMARY|CONSCNT/i;
 
+/**
+ * ROUND 15 (PLAN-2.0 1.2, 1.3). Permit contacts and project value for the other permit feeds.
+ *
+ * Sourcing label per spec (fieldStatus):
+ *  - sourced: every column was read from a page fetched in the round 15 session (named in the comment) or from an earlier round's
+ *    verified column list.
+ *  - assumed: the contractor columns are candidates (the dataset's metadata endpoint could not be fetched from the build shell, and
+ *    the portal pages render their columns with JavaScript). A Socrata row simply lacks a column that does not exist, so a wrong
+ *    candidate gives no value and never an error. scripts/check-contact-columns.ts (run by the owner, needs network) reads each portal's
+ *    column list and prints which candidates exist.
+ * The owner of a property, a homeowner's phone and an applicant's personal name are never named in any spec. A person named in a
+ * contractor column is dropped by the organisation classifier (lib/contacts/org.ts), not by a list here.
+ */
 export const CONTACT_SPECS: Record<string, ContactSpec> = {
   'socrata-chicago-permits': {
     verifiedUrl: 'https://data.cityofchicago.org/api/views/ydr8-5enu.json',
@@ -374,6 +392,124 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
         phoneField: 'contractor_phone',
       },
     ],
+  },
+  // ---- Round 15 permit feeds ----
+  // NYC DOB NOW Build Approved Permits (rbx6-tga4). The permittee is the licence holder who pulled the permit; the business name column
+  // is the contractor company. permittee_s_license_type was read from the portal's column list in round 5 (it is in textFields above);
+  // the business name and licence number columns are assumed from the same `permittee_s_` naming, and from the dataset's published
+  // field list as mirrored by a third party (apify.com/jserle/nyc-dob-permits-feed, fetched 2026-11-21: permitteeBusinessName,
+  // permitteeLicenseNumber, ownerBusinessName). NO phone column exists on the permittee. The owner columns (owner_s_business_name is the
+  // building owner, the buyer of the work, and "Not Applicable" for individuals) are never read: a permit's contractor is the only role
+  // the outreach block shows for a permit (lib/outreach/plan.ts).
+  'socrata-nyc-permits': {
+    verifiedUrl: 'https://data.cityofnewyork.us/api/views/rbx6-tga4.json',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'assumed',
+    assumedFields: ['permittee_s_business_name'],
+    site: { addressFields: ['house_no', 'street_name'], zipField: 'zip_code' },
+    // Review HSK G-P1-2: DOB NOW licences belong to individual licensees (they resolve to a named person), so the licence number is NOT read.
+    orgs: [{ role: 'contractor', nameFields: ['permittee_s_business_name'] }],
+  },
+  // Orlando Permit Applications (ryhf-m453). The repo's earlier note says the dataset has contractor columns; their names could not be
+  // read. A sibling Orlando dataset (Right of Way permits, 6sbc-v4b9, fetched 2026-11-21) names its contractor column `contractor`
+  // with values shaped "FIRST LAST (COMPANY INC)" and keeps `primary_contact_phone` for the applicant contact, so the candidates cover
+  // those shapes. The company part of "PERSON (COMPANY)" is kept and the person part dropped by cleanOrgName (R8).
+  'socrata-orlando-permits': {
+    verifiedUrl: 'https://data.cityoforlando.net/api/views/ryhf-m453.json',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'assumed',
+    assumedFields: ['contractor_company_name', 'contractor_name', 'contractor', 'contractor_phone_number', 'contractor_phone'],
+    site: { addressFields: ['permit_address'] },
+    orgs: [
+      {
+        role: 'contractor',
+        nameFields: ['contractor_company_name', 'contractor_name', 'contractor'],
+        phoneFields: ['contractor_phone_number', 'contractor_phone'],
+      },
+    ],
+  },
+  // Seattle Building Permits (76t5-zqzr). contractorcompanyname, estprojectcost, originaladdress1/city/state/zip: seen as raw column
+  // names in a third-party mirror's example record (fetched 2026-11-21) and, for estprojectcost, originaladdress1 and originalzip, already
+  // in this file from round 2. The mirror's normalized `contractors` array also names a phone and licence per contractor, but their raw
+  // column names were not shown, so none is read.
+  'socrata-seattle-permits': {
+    verifiedUrl: 'https://data.seattle.gov/api/views/76t5-zqzr.json',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['originaladdress1'], cityField: 'originalcity', stateField: 'originalstate', zipField: 'originalzip' },
+    orgs: [{ role: 'contractor', nameFields: ['contractorcompanyname'] }],
+  },
+  // Dallas Building Permits (e7gq-4sah), read 2026-11-21 from https://www.dallasopendata.com/resource/e7gq-4sah.csv: columns permit_number,
+  // permit_type, issued_date, mapsco, contractor, value, area, work_description, land_use, street_address, zip_code. `contractor` is ONE
+  // string, "COMPANY STREET, CITY, ST ZIP (phone)" (runTogether). The rows seen were issued in January 2018 and issued_date is text
+  // (MM/DD/YY), which is why the dataset stays disabled; the spec is ready for a current Dallas permit feed with the same columns.
+  'socrata-dallas-permits': {
+    verifiedUrl: 'https://www.dallasopendata.com/resource/e7gq-4sah.csv',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['street_address'], zipField: 'zip_code' },
+    orgs: [{ role: 'contractor', nameFields: ['contractor'], runTogether: true }],
+  },
+  // New Orleans Permits (rcm3-fn58) and Baton Rouge Building Permits (7fq7-8j7r): contractor column names could not be read; candidates only.
+  'socrata-nola-permits': {
+    verifiedUrl: 'https://data.nola.gov/api/views/rcm3-fn58.json',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'assumed',
+    assumedFields: ['contractors', 'contractor', 'contractor_name'],
+    site: { addressFields: ['address'] },
+    orgs: [{ role: 'contractor', nameFields: ['contractors', 'contractor', 'contractor_name'] }],
+  },
+  'socrata-batonrouge-permits': {
+    verifiedUrl: 'https://data.brla.gov/api/views/7fq7-8j7r.json',
+    checkedOn: '2026-11-21',
+    fieldStatus: 'assumed',
+    assumedFields: ['contractor', 'contractorname', 'contractor_name', 'contractorcompany'],
+    site: { addressFields: ['streetaddress'], zipField: 'zip' },
+    orgs: [{ role: 'contractor', nameFields: ['contractor', 'contractorname', 'contractor_name', 'contractorcompany'] }],
+  },
+  // Site address only (no contractor column is known for these feeds). Buffalo publishes the street name with the house number in
+  // one column (stname, "216 WOODBRIDGE"); Cincinnati's `location` is a text address.
+  'socrata-buffalo-permits': {
+    verifiedUrl: 'https://data.buffalony.gov/api/views/9p2d-f3yt.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['stname'], zipField: 'zip' },
+  },
+  'socrata-sf-permits': {
+    verifiedUrl: 'https://data.sf.gov/api/views/i98e-djp9.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['street_number', 'street_name', 'street_suffix'], zipField: 'zipcode' },
+  },
+  'socrata-la-permits': {
+    verifiedUrl: 'https://data.lacity.org/api/views/pi9x-tg5x.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['primary_address'], zipField: 'zip_code' },
+  },
+  'socrata-cambridge-permits': {
+    verifiedUrl: 'https://data.cambridgema.gov/api/views/3wsm-e5jx.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['full_address'] },
+  },
+  'socrata-norfolk-permits': {
+    verifiedUrl: 'https://data.norfolk.gov/api/views/fahm-yuh4.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['address'] },
+  },
+  'socrata-montgomery-permits': {
+    verifiedUrl: 'https://data.montgomerycountymd.gov/api/views/m88u-pqki.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['stno', 'predir', 'stname', 'suffix', 'postdir'], zipField: 'zip' },
+  },
+  'socrata-cincinnati-permits': {
+    verifiedUrl: 'https://data.cincinnati-oh.gov/api/views/thvx-5mem.json',
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['location'] },
   },
   // Chicago Food Inspections (4ijn-s7e5): dba_name ("Doing Business As"), address, city, state, zip. No phone column.
   'socrata-chicago-inspections': {
@@ -755,6 +891,30 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
 ];
 
 for (const d of SOCRATA_DATASETS) if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];
+
+/**
+ * Project value columns per permit feed (round 15, PLAN-2.0 1.3). Sourced: the column is already a summaryField (round 2 and 4 column
+ * lists) or was read from the Dallas CSV. Austin adds the trade valuations after total_job_valuation (a trade permit often leaves the
+ * total at 0): candidate columns, harmless when absent.
+ */
+export const PERMIT_VALUE_FIELDS: Record<string, string[]> = {
+  'socrata-chicago-permits': ['reported_cost'],
+  'socrata-nyc-permits': ['estimated_job_costs'],
+  'socrata-sf-permits': ['estimated_cost', 'revised_cost'],
+  // Review HSK G-P2-4: only the total shows as "Job value on the permit"; a trade sub-valuation is not the job value.
+  'socrata-austin-permits': ['total_job_valuation'],
+  'socrata-seattle-permits': ['estprojectcost'],
+  'socrata-la-permits': ['valuation'],
+  'socrata-dallas-permits': ['value'],
+  'socrata-nola-permits': ['constrval'],
+  'socrata-batonrouge-permits': ['projectvalue'],
+  'socrata-norfolk-permits': ['project_cost'],
+  'socrata-buffalo-permits': ['value'],
+  'socrata-montgomery-permits': ['declaredvaluation'],
+  'socrata-orlando-permits': ['estimated_cost'],
+  'socrata-cambridge-permits': ['total_cost'],
+};
+for (const d of SOCRATA_DATASETS) if (PERMIT_VALUE_FIELDS[d.id]) d.valueFields = PERMIT_VALUE_FIELDS[d.id];
 
 /**
  * Atlanta has no Socrata portal. Its ArcGIS layers are handled in arcgis-datasets.ts (see the Atlanta notes there).

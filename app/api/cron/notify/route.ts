@@ -25,6 +25,7 @@ import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 
@@ -60,6 +61,8 @@ interface SignalRow {
   /** NYC no-heat rows only: data.managerName and data.managerRole (company names only). */
   managerName?: string | null;
   managerRole?: string | null;
+  /** Permits: data.jobValue (text form). */
+  jobValue?: string | null;
   dueDate?: string | null;
   fixBy?: string | null;
   responseDeadline?: string | null;
@@ -100,7 +103,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, ${DEADLINE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, ${DEADLINE_SELECT}, ${VALUE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -251,6 +254,7 @@ export async function GET(req: Request) {
         label: labelOf(s),
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
         deadline: deadlineOf(s),
+        jobValue: s.jobValue ?? null,
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,

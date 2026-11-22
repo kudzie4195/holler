@@ -45,6 +45,8 @@ export interface FeedItem {
   deadline?: string | null;
   /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes the "Why it matters" line trade-specific. */
   trade?: string | null;
+  /** Permits: the project value the city published, in whole dollars (data.jobValue). Never for a locked member. */
+  jobValue?: number | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */

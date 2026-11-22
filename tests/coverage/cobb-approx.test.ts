@@ -57,7 +57,8 @@ describe('Cobb County permits (no geometry, approximate location)', () => {
           expect(String(s.lon).split('.')[1]?.length ?? 0).toBeLessThanOrEqual(2);
           expect(s.data?.loc).toBe('approx');
           expect(s.data?.approxLocation).toBe(true);
-          expect(s.contacts).toBeUndefined();
+          // Round 15: the only contact a Cobb row can carry is its job site (no owner, applicant or contractor column exists).
+          expect((s.contacts ?? []).every((c) => c.role === 'site')).toBe(true);
         }
       });
 
