@@ -530,6 +530,14 @@ function sharesWithOwner(nameWords: string[], ctx: LicenceContext): boolean {
 }
 
 /**
+ * Round 19 integration (review COVERAGE finding 5, review UNIFY defect 5): US state names that the given-name list holds but that are not
+ * used as given names. In a licence name WITH a legal form they read as the place they are ("TEXAS ROOFING LLC"). Every other listed
+ * place word that is also a real given name (Georgia, Virginia, Carolina, Dakota, Montana, Indiana, Nevada, Tennessee, Dallas, Phoenix, Austin,
+ * Houston, Denver, Orlando, Memphis, Arlington, Washington, York) is left as it was. Exactly these two words; nothing else changed.
+ */
+export const PLACE_NOT_PERSON: ReadonlySet<string> = new Set(['texas', 'florida']);
+
+/**
  * The name a BUSINESS-LICENCE or inspection column may show (role 'business'), or null. A licence site can be a home, so the business is
  * shown (with its address) only when the name is clearly not a person and not a home-based activity. Every name passes C1 to C3, C6
  * and C7, and holds no initial, no possessive or glued person form and no listed given name. Then one of:
@@ -557,6 +565,12 @@ export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): strin
   if (out.length < 3 || out.length > 120) return null;
   const plainGiven = (k: string) => PLAIN_ENGLISH_GIVEN.has(k);
   let usedPlainGiven = false;
+  // The state-name exemption (PLACE_NOT_PERSON) holds only with a legal form and when EVERY other word is a trade or business word or
+  // plain vocabulary that is no person-name word: "SOUTH FLORIDA ROOFING INC" passes, "Florida Garcia Inc" and "TEXAS SMITH LLC" do not.
+  const plainWord = (k: string) =>
+    k === '&' || k === 'and' || k === 'the' || /\d/.test(k) || LEGAL.has(k) ||
+    ((isFirm(k) || marker(k) || isVocabularyWord(k)) && !personWord(k) && !isListedSurname(k) && !isListedGivenName(k));
+  const placeWord = (k: string) => a.legal > 0 && PLACE_NOT_PERSON.has(k) && a.ts.some((o) => o.k !== k && !LEGAL.has(o.k)) && a.ts.every((o) => o.k === k || plainWord(o.k));
   // Every licence name, legal form or not: no listed given name, no glued or possessive person form, no initial ("REGINALD JACKSON HOME
   // IMPROVEMENT LLC", "Danny Smith LLC", "JT Smith LLC" give nothing: the site of a licence can be the person's home).
   for (const t of a.ts) {
@@ -566,6 +580,9 @@ export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): strin
     const parts = t.k.includes('-') ? t.k.split('-').filter(Boolean) : [];
     if (parts.some((p) => possessivePerson(p) || (isListedGivenName(p) && !isFirm(p) && !plainGiven(p)))) return null;
     if (a.legal === 0 && parts.some((p) => isListedSurname(p) && !isFirm(p) && !plainGiven(p))) return null;
+    // Round 19 integration: a US state name that is not used as a given name (PLACE_NOT_PERSON) is a place in a registered name
+    // ("NORTH TEXAS ROOFING LLC", "SOUTH FLORIDA ROOFING INC"), only with a legal form; without one it is still refused.
+    if (placeWord(t.k)) continue;
     if (isListedGivenName(t.k.replace(/'s$/, '')) && !isFirm(t.k)) {
       if (!plainGiven(t.k) || a.legal > 0) return null;
       usedPlainGiven = true; // only rule L3 may accept it
