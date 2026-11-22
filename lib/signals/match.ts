@@ -158,6 +158,15 @@ function resultFor(signal: MatchSignal, where: { distance_mi: number | null }, l
   };
 }
 
+/**
+ * The area test alone (no trade, no label): is this record inside one of the member's areas, by the feed's own rules (radius, stand-in
+ * reach, the state-level rule for records without coordinates). Read-only helpers use it (lib/builders/load.ts); matching itself
+ * calls areaMatch through matchInScope.
+ */
+export function matchArea(signal: MatchSignal, profile: MatchProfile, bidsOn: boolean = bidsEnabled()): { distance_mi: number | null } | null {
+  return areaMatch(signal, profile, matchScope(profile), bidsOn);
+}
+
 function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
   // City bids (HOLLER_BIDS_ENABLED, lib/signals/bid-sources.ts): with the flag off no bid row matches anyone, whether it was just fetched
   // or stored earlier. First test, before any area or text work.

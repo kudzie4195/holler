@@ -98,7 +98,7 @@ export const KIND_DOERS: Readonly<Record<string, readonly CategoryId[]>> = {
 };
 
 /** Labels that name no particular trade (the "generic" kinds of mapping/permit.ts). A bare "New construction" next to one still reads as a new building. */
-const GENERIC_LABELS: ReadonlySet<string> = new Set(['deck', 'porch', 'accessory building', 'addition', 'tenant fit-out', 'remodel', 'structural', 'site work', 'building', 'masonry', 'dumpster', 'repair']);
+export const GENERIC_LABELS: ReadonlySet<string> = new Set(['deck', 'porch', 'accessory building', 'addition', 'tenant fit-out', 'remodel', 'structural', 'site work', 'building', 'masonry', 'dumpster', 'repair']);
 
 /** Title label to route kind, for the labels that start a route. */
 const LABEL_ROUTE: Readonly<Record<string, RouteKind>> = {

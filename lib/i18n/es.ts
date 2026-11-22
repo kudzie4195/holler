@@ -951,4 +951,11 @@ export const es: Record<DictKey, string> = {
   'push.title.update_many': '{n} actualizaciones {where}',
   'push.title.mixed': '{n} alertas {where}',
   'push.body.stage': 'Actualización de etapa, {name}: {title}',
+  'builders.title': 'Quién está construyendo cerca de usted',
+  'builders.note': 'Según registros públicos de permisos. Solo empresas.',
+  'builders.permit_one': '{n} permiso',
+  'builders.permit_many': '{n} permisos',
+  'builders.window_day': 'en el último día',
+  'builders.window_days': 'en los últimos {n} días',
+  'builders.same_trade': 'Trabaja en su mismo oficio',
 };

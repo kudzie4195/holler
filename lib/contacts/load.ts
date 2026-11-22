@@ -31,6 +31,28 @@ function logFailure(step: string, err: unknown): void {
   console.error('contacts: load failed', step, code);
 }
 
+/**
+ * The "who may see contacts" rule alone, for one member: current access read from their own holler_profiles row on every call (no
+ * caller-supplied hint), true only when statusGrantsAccess says so. A missing profile or a read error (logged as step 'profile') gives
+ * false; a thrown error propagates to the caller's own try. contactsForMember uses it as its step 1, and lib/builders/load.ts uses it
+ * before it reads a single permit contact.
+ */
+export async function memberHasAccess(db: Db, userId: string, now: Date = new Date()): Promise<boolean> {
+  if (!db || typeof userId !== 'string' || !userId) return false;
+  const { data: prof, error: pErr } = await db
+    .from('holler_profiles')
+    .select('subscription_status, trial_ends_at')
+    .eq('user_id', userId)
+    .limit(1);
+  if (pErr) {
+    logFailure('profile', pErr);
+    return false;
+  }
+  if (!Array.isArray(prof) || prof.length !== 1) return false;
+  const p = prof[0] as { subscription_status: unknown; trial_ends_at: unknown };
+  return statusGrantsAccess(p.subscription_status, p.trial_ends_at, now.getTime());
+}
+
 interface ContactRow {
   signal_id: number;
   role: string;
@@ -58,18 +80,7 @@ export async function contactsForMember(
   if (ids.length === 0) return out;
   try {
     // 1. Current access, always read here from the member's own profile row. No caller-supplied value can influence it.
-    const { data: prof, error: pErr } = await db
-      .from('holler_profiles')
-      .select('subscription_status, trial_ends_at')
-      .eq('user_id', userId)
-      .limit(1);
-    if (pErr) {
-      logFailure('profile', pErr);
-      return new Map();
-    }
-    if (!Array.isArray(prof) || prof.length !== 1) return new Map();
-    const p = prof[0] as { subscription_status: unknown; trial_ends_at: unknown };
-    if (!statusGrantsAccess(p.subscription_status, p.trial_ends_at, now.getTime())) return new Map();
+    if (!(await memberHasAccess(db, userId, now))) return new Map();
 
     // 2. Only signals this member has a match for.
     const { data: matches, error: mErr } = await db

@@ -973,6 +973,14 @@ export const en = {
   'push.title.update_many': '{n} updates {where}',
   'push.title.mixed': '{n} alerts {where}',
   'push.body.stage': 'Stage update, {name}: {title}',
+  // Round 19: "Who's building near you" on /app (components/builders/active-builders.tsx). Companies from public permit records.
+  'builders.title': "Who's building near you",
+  'builders.note': 'From public permit records. Companies only.',
+  'builders.permit_one': '{n} permit',
+  'builders.permit_many': '{n} permits',
+  'builders.window_day': 'in the last day',
+  'builders.window_days': 'in the last {n} days',
+  'builders.same_trade': 'Works in your trade',
 } as const;
 
 export type DictKey = keyof typeof en;
