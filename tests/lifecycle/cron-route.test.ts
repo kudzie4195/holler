@@ -44,7 +44,7 @@ describe('GET /api/cron/lifecycle', () => {
     const a = await GET(req('', { authorization: 'Bearer cron-secret-not-real' }));
     expect(a.status).toBe(200);
     expect(h.run.mock.calls[0][0]).toMatchObject({ dry: false, siteUrl: 'https://localholler.com', secret: 'cron-secret-not-real' });
-    const b = await GET(req('', { authorization: 'Bearer cron-secret-not-real' }));
+    const b = await GET(req('?key=cron-secret-not-real'));
     expect(b.status).toBe(401);
     expect(h.run).toHaveBeenCalledTimes(1);
   });
