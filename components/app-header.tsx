@@ -3,6 +3,8 @@ import { Button } from '@/components/button';
 import { AppNavLinks } from '@/components/app-nav';
 import { InlineScript } from '@/components/inline-script';
 import { MemberDocument } from '@/components/member-document';
+import { HintDocLang, HintText } from '@/components/hint-text';
+import { cookies } from 'next/headers';
 import { memberLang } from '@/lib/auth/member-lang';
 import { t, type Lang } from '@/lib/i18n';
 import { LANG_COOKIE } from '@/lib/auth/lang-cookie';
@@ -28,12 +30,15 @@ export const APP_TITLES_ES: Record<string, string> = {
   '/app/settings': `${t(ES, 'set.h1')} | Holler`,
 };
 
+/** The static English titles of the same pages (app/app/layout.tsx and app/app/settings/page.tsx metadata), for putting them back. */
+export const APP_TITLES_EN: Record<string, string> = { '/app': 'Your matches | Holler', '/app/settings': 'Settings | Holler' };
+
 /**
  * Runs once while the static shell is parsed. Reads only the hint cookie; touches only the header placeholders, <html lang> and the tab
  * title. React's hydration of the head writes the static English title back, so for 15 s (or until the member leaves the page) a
  * MutationObserver on <head> puts the Spanish title back; after that MemberDocument keeps it.
  */
-export const APP_LANG_SCRIPT = `(function(){try{if(!/(?:^|;\\s*)${LANG_COOKIE}=es(?:;|$)/.test(document.cookie))return;var d=document;d.documentElement.lang="es";d.querySelectorAll("[data-es]").forEach(function(e){e.textContent=e.getAttribute("data-es")});d.querySelectorAll("[data-es-label]").forEach(function(e){e.setAttribute("aria-label",e.getAttribute("data-es-label"))});var l=d.querySelector('header a[aria-label="Holler home"]');if(l)l.setAttribute("aria-label",${JSON.stringify(t(ES, 'nav.home'))});var m=${JSON.stringify(APP_TITLES_ES)},p=location.pathname,w=m[p];if(w){d.title=w;var o=new MutationObserver(function(){if(location.pathname===p&&d.title!==w)d.title=w});o.observe(d.head,{childList:true,characterData:true,subtree:true});setTimeout(function(){o.disconnect()},15000)}}catch(e){}})()`;
+export const APP_LANG_SCRIPT = `(function(){try{var r=/(?:^|;\\s*)${LANG_COOKIE}=es(?:;|$)/,d=document;if(!r.test(d.cookie))return;d.documentElement.lang="es";d.querySelectorAll("[data-es]").forEach(function(e){e.textContent=e.getAttribute("data-es")});d.querySelectorAll("[data-es-label]").forEach(function(e){e.setAttribute("aria-label",e.getAttribute("data-es-label"))});var l=d.querySelector('header a[aria-label="Holler home"]');if(l)l.setAttribute("aria-label",${JSON.stringify(t(ES, 'nav.home'))});var m=${JSON.stringify(APP_TITLES_ES)},p=location.pathname,w=m[p];if(w){d.title=w;var o=new MutationObserver(function(){if(!r.test(d.cookie)){o.disconnect();return}if(location.pathname===p&&d.title!==w)d.title=w});o.observe(d.head,{childList:true,characterData:true,subtree:true});setTimeout(function(){o.disconnect()},15000)}}catch(e){}})()`;
 
 export function AppSkipLink({ lang, hint = false }: { lang: Lang; hint?: boolean }) {
   return (
@@ -42,7 +47,7 @@ export function AppSkipLink({ lang, hint = false }: { lang: Lang; hint?: boolean
       className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-signal focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink"
       {...(hint ? { 'data-es': t(ES, 'nav.skip'), suppressHydrationWarning: true } : {})}
     >
-      {lang === 'en' ? 'Skip to content' : t(lang, 'nav.skip')}
+      {lang !== 'en' ? t(lang, 'nav.skip') : hint ? <HintText en="Skip to content" es={t(ES, 'nav.skip')} /> : 'Skip to content'}
     </a>
   );
 }
@@ -56,9 +61,9 @@ export function AppHeaderBar({ lang, hint = false }: { lang: Lang; hint?: boolea
       {en ? <Logo href="/app" className="max-[479px]:[&>span]:hidden" /> : <Logo href="/app" ariaLabel={t(lang, 'nav.home')} className="max-[479px]:[&>span]:hidden" />}
       <nav aria-label={en ? 'App' : t(lang, 'app.nav.aria')} className="flex items-center gap-0.5 sm:gap-1" {...(hint ? { 'data-es-label': t(ES, 'app.nav.aria') } : {})}>
         {en ? (
-          <AppNavLinks {...(hint ? { hints: [t(ES, 'app.nav.matches'), t(ES, 'app.nav.settings_short')] as const } : {})} />
+          <AppNavLinks {...(hint ? { hints: { '/app': t(ES, 'app.nav.matches'), '/app/settings': t(ES, 'app.nav.settings_short') } } : {})} />
         ) : (
-          <AppNavLinks labels={[t(lang, 'app.nav.matches'), t(lang, 'app.nav.settings_short')]} />
+          <AppNavLinks labels={{ '/app': t(lang, 'app.nav.matches'), '/app/settings': t(lang, 'app.nav.settings_short') }} />
         )}
         <form action="/api/auth/signout" method="post">
           {en ? (
@@ -69,7 +74,7 @@ export function AppHeaderBar({ lang, hint = false }: { lang: Lang; hint?: boolea
               className="text-muted max-[399px]:px-2.5"
               {...(hint ? { 'data-es': t(ES, 'app.signout_short'), 'data-es-label': t(ES, 'app.signout'), suppressHydrationWarning: true } : {})}
             >
-              Sign out
+              {hint ? <HintText en="Sign out" es={t(ES, 'app.signout_short')} /> : 'Sign out'}
             </Button>
           ) : (
             <Button type="submit" variant="ghost" size="sm" className="text-muted max-[399px]:px-2.5" aria-label={t(lang, 'app.signout')}>
@@ -78,6 +83,7 @@ export function AppHeaderBar({ lang, hint = false }: { lang: Lang; hint?: boolea
           )}
         </form>
       </nav>
+      {hint ? <HintDocLang /> : null}
     </>
   );
 }
@@ -98,11 +104,13 @@ export async function MemberSkipLink() {
  */
 export async function MemberHeaderBar() {
   const lang = await memberLang();
-  if (lang === 'en') return <AppHeaderBar lang={lang} />;
+  // An English member's markup is unchanged, unless this browser's hint wrongly says Spanish (changed language elsewhere, a forged
+  // cookie): then MemberDocument puts <html lang>, the title and the hint back to English.
+  if (lang === 'en' && (await cookies()).get(LANG_COOKIE)?.value !== 'es') return <AppHeaderBar lang={lang} />;
   return (
     <>
       <AppHeaderBar lang={lang} />
-      <MemberDocument lang={lang} titles={APP_TITLES_ES} />
+      <MemberDocument lang={lang} es={APP_TITLES_ES} en={APP_TITLES_EN} />
     </>
   );
 }

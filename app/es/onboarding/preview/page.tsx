@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
-import { ButtonLink } from '@/components/button';
+import { buttonClasses } from '@/components/button';
 import { Logo } from '@/components/logo';
 import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
 import { RecentActivity } from '@/components/feed/recent-activity';
@@ -32,9 +32,10 @@ export default function OnboardingPreviewPageEs() {
           <Suspense fallback={<div aria-hidden="true" className="skeleton mt-8 h-40 w-full" />}>
             <Preview />
           </Suspense>
-          <ButtonLink href="/app" size="lg" className="mt-8">
+          {/* A plain link on purpose: a full page load, so the language script in the /app shell runs (no English header first). */}
+          <a href="/app" className={buttonClasses({ size: 'lg', className: 'mt-8' })}>
             {t(L, 'onb.preview.cta')}
-          </ButtonLink>
+          </a>
         </div>
       </main>
     </>

@@ -34,7 +34,9 @@ export function setLangCookie(res: CookieSink, lang: Lang): void {
 }
 
 export function clearLangCookie(res: CookieSink): void {
-  res.cookies.set(LANG_COOKIE, '', { ...langCookieOptions(), maxAge: 0 });
+  // `expires` as well as maxAge 0: when the handler also set a cookie through next/headers (the Supabase sign-out), Next re-parses this
+  // header and drops a zero Max-Age (request-cookies.js appendMutableCookies -> compact()); the date survives.
+  res.cookies.set(LANG_COOKIE, '', { ...langCookieOptions(), maxAge: 0, expires: new Date(0) });
 }
 
 /**
@@ -46,5 +48,15 @@ export async function setLangCookieFromAction(lang: Lang): Promise<void> {
     (await cookies()).set(LANG_COOKIE, lang, langCookieOptions());
   } catch {
     // not in a request: nothing to set
+  }
+}
+
+/** From a server action (account deletion): removes the hint. Never throws. */
+export async function clearLangCookieFromAction(): Promise<void> {
+  try {
+    const { cookies } = await import('next/headers');
+    (await cookies()).set(LANG_COOKIE, '', { ...langCookieOptions(), maxAge: 0, expires: new Date(0) });
+  } catch {
+    // not in a request
   }
 }

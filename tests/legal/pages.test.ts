@@ -58,7 +58,8 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
     expect(metadata.title).toBe(page === 'terms' ? 'Terms' : 'Privacy');
     expect(metadata.alternates?.canonical).toBe(`/${page}`);
     // Round 7: both pages moved to November 19, 2026 (app, store billing, AI, analytics, outcomes, archive).
-    expect(html).toContain('Last updated November 19, 2026');
+    // Round 18 ES: privacy moved to November 22, 2026 (the holler_lang cookie sentence); terms did not change.
+    expect(html).toContain(page === 'privacy' ? 'Last updated November 22, 2026' : 'Last updated November 19, 2026');
   });
 
   it('names the operator and postal address from COMPANY', async () => {

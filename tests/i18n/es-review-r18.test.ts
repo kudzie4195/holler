@@ -14,6 +14,7 @@ afterEach(() => {
   vi.resetModules();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 // ---- P2-1: the proxy gate --------------------------------------------------------------------------------------------------------
@@ -64,7 +65,7 @@ describe('P2-4: the holler_lang hint cookie', () => {
     clearLangCookie(res);
     expect(set).toEqual([
       ['holler_lang', 'es', langCookieOptions()],
-      ['holler_lang', '', { ...langCookieOptions(), maxAge: 0 }],
+      ['holler_lang', '', { ...langCookieOptions(), maxAge: 0, expires: new Date(0) }],
     ]);
     for (const v of ['es']) expect(langFromCookieValue(v)).toBe('es');
     for (const v of ['ES', 'fr', '', null, undefined, 'es;x=1']) expect(langFromCookieValue(v as string)).toBe('en');
@@ -75,19 +76,45 @@ describe('P2-4: the holler_lang hint cookie', () => {
     vi.doMock('@/lib/auth/ratelimit', async (orig) => ({ ...(await orig<typeof import('@/lib/auth/ratelimit')>()), hit: async () => 'allowed' }));
     vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => ({ auth: { signInWithPassword: async () => ({ data: { user: { id: 'u1', app_metadata: { products: ['holler'], ...appMeta } } }, error: null }) } }) }));
     vi.doMock('@/lib/supabase/admin', () => ({
-      createAdminClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (profileLanguage === 'missing' ? { data: null, error: { code: '42703' } } : { data: { language: profileLanguage }, error: null }) }) }) }) }),
+      // select('*'): a row with the column, a row without it (migration 0024 not applied), no row yet, or a failed read
+      createAdminClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (profileLanguage === 'no-column' ? { data: { user_id: 'u1' }, error: null } : profileLanguage === 'no-row' ? { data: null, error: null } : profileLanguage === 'error' ? { data: null, error: { code: '500' } } : { data: { user_id: 'u1', language: profileLanguage }, error: null }) }) }) }) }),
     }));
     const { POST } = await import('@/app/api/auth/login/route');
     return POST(new Request('https://x.test/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@b.com', password: 'pw' }) }));
   }
-  it('sign-in sets it from the saved language, else the language parked at sign-up; the answer body is unchanged', async () => {
+  // Review 2 P2-1: the hint follows the same rule as the pages (lib/auth/member-lang.ts memberLang). A profile row decides, and a row
+  // without the language column (migration 0024 not applied) is English even for a Spanish-page sign-up; the parked sign-up language
+  // counts only while there is no row; a failed read is English.
+  it('sign-in sets it exactly as the pages read the language; the answer body is unchanged', async () => {
     const es = await login('es');
     expect(await es.json()).toEqual({ ok: true });
     expect(es.headers.get('set-cookie')).toMatch(/^holler_lang=es; Path=\/; Expires=[^;]+; Max-Age=31536000; Secure; SameSite=lax$/i);
-    expect((await login('en')).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
-    expect((await login('missing', { holler_language: 'es' })).headers.get('set-cookie')).toMatch(/^holler_lang=es;/);
-    expect((await login('missing')).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
+    expect((await login('en', { holler_language: 'es' })).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
+    expect((await login('no-column', { holler_language: 'es' })).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
+    expect((await login('no-row', { holler_language: 'es' })).headers.get('set-cookie')).toMatch(/^holler_lang=es;/);
+    expect((await login('no-row')).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
+    expect((await login('error', { holler_language: 'es' })).headers.get('set-cookie')).toMatch(/^holler_lang=en;/);
     expect((await login('es')).headers.get('set-cookie')).not.toMatch(/HttpOnly/i);
+  });
+
+  it('sign-out really deletes it, also when Next merges the Set-Cookie headers of a handler that set a cookie through next/headers', async () => {
+    // What Next does (next/dist/server/web/spec-extension/adapters/request-cookies.js appendMutableCookies): re-parse every Set-Cookie
+    // of the returned response and write it again. A bare Max-Age=0 does not survive that; the expired date does.
+    const { ResponseCookies } = (await import('next/dist/compiled/@edge-runtime/cookies')) as { ResponseCookies: new (h: Headers) => any };
+    const { clearLangCookie } = await import('@/lib/auth/lang-cookie');
+    const h = new Headers();
+    clearLangCookie({ cookies: new ResponseCookies(h) });
+    const rc = new ResponseCookies(h);
+    const returned = rc.getAll();
+    rc.set({ name: 'sb-x-auth-token', value: '', path: '/', maxAge: 0 });
+    for (const c of returned) rc.set(c);
+    const after = h.getSetCookie().find((x) => x.startsWith('holler_lang='))!;
+    expect(after).toMatch(/^holler_lang=; Path=\/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;/);
+  });
+
+  it('account deletion deletes it too', () => {
+    const src = readFileSync('app/app/settings/actions.ts', 'utf8');
+    expect(src).toMatch(/await clearLangCookieFromAction\(\);\s*redirect\(lang === 'en' \? '\/' : '\/es'\);/);
   });
 
   it('sign-out clears it, and a Spanish member lands on /es (P3-3)', async () => {
@@ -170,8 +197,8 @@ describe('P2-3 and P2-4: the script in the static /app header', () => {
   });
   it('a Spanish member\'s streamed header also sets <html lang> and the title after hydration (MemberDocument); an English one does not', async () => {
     const src = readFileSync('components/app-header.tsx', 'utf8');
-    expect(src).toContain('<MemberDocument lang={lang} titles={APP_TITLES_ES} />');
-    expect(src).toMatch(/if \(lang === 'en'\) return <AppHeaderBar lang=\{lang\} \/>;/);
+    expect(src).toContain('<MemberDocument lang={lang} es={APP_TITLES_ES} en={APP_TITLES_EN} />');
+    expect(src).toMatch(/if \(lang === 'en' && \(await cookies\(\)\)\.get\(LANG_COOKIE\)\?\.value !== 'es'\) return <AppHeaderBar lang=\{lang\} \/>;/);
   });
 });
 
@@ -187,5 +214,75 @@ describe('P1-1: the Spanish header labels are short', () => {
     // A longer word here must be measured again; this budget is the one measured.
     const words = [es['app.nav.matches'], es['app.nav.settings_short'], es['app.signout_short']];
     expect(words.join('').length).toBeLessThanOrEqual(25);
+  });
+});
+
+// ---- review 2 P2-1: the page brings the hint back in line with the saved language ------------------------------------------------
+describe('review 2 P2-1: a wrong hint lasts one page load', () => {
+  async function effectOf(props: { lang: 'en' | 'es' }, doc: { cookie: string; title: string; lang: string }, path = '/app/settings') {
+    vi.resetModules();
+    let effect: (() => void | (() => void)) | undefined;
+    vi.doMock('react', async (orig) => ({ ...(await orig<typeof import('react')>()), useEffect: (fn: () => void | (() => void)) => void (effect = fn) }));
+    vi.doMock('next/navigation', async (orig) => ({ ...(await orig<typeof import('next/navigation')>()), usePathname: () => path }));
+    const writes: string[] = [];
+    const document = {
+      get cookie() {
+        return doc.cookie;
+      },
+      set cookie(v: string) {
+        writes.push(v);
+        doc.cookie = v.split(';')[0];
+      },
+      get title() {
+        return doc.title;
+      },
+      set title(v: string) {
+        doc.title = v;
+      },
+      documentElement: {
+        get lang() {
+          return doc.lang;
+        },
+        set lang(v: string) {
+          doc.lang = v;
+        },
+      },
+    };
+    vi.stubGlobal('document', document);
+    const { MemberDocument } = await import('@/components/member-document');
+    const { APP_TITLES_ES, APP_TITLES_EN } = { APP_TITLES_ES: { '/app': 'Sus coincidencias | Holler', '/app/settings': 'Configuración | Holler' }, APP_TITLES_EN: { '/app': 'Your matches | Holler', '/app/settings': 'Settings | Holler' } };
+    MemberDocument({ lang: props.lang, es: APP_TITLES_ES, en: APP_TITLES_EN });
+    const cleanup = effect!() as () => void;
+    vi.doUnmock('react');
+    vi.doUnmock('next/navigation');
+    return { writes, doc, cleanup };
+  }
+  it('an English account whose browser says "es": the hint is rewritten to "en", lang and title go back to English', async () => {
+    const r = await effectOf({ lang: 'en' }, { cookie: 'holler_lang=es', title: 'Configuración | Holler', lang: 'es' });
+    expect(r.writes).toEqual(['holler_lang=en; Path=/; Max-Age=31536000; Secure; SameSite=Lax']);
+    expect(r.doc).toEqual({ cookie: 'holler_lang=en', title: 'Settings | Holler', lang: 'en' });
+  });
+  it('a Spanish account with no hint gets "es" written; a right hint is left alone', async () => {
+    const r = await effectOf({ lang: 'es' }, { cookie: '', title: 'Settings | Holler', lang: 'en' });
+    expect(r.writes).toEqual(['holler_lang=es; Path=/; Max-Age=31536000; Secure; SameSite=Lax']);
+    expect(r.doc).toEqual({ cookie: 'holler_lang=es', title: 'Configuración | Holler', lang: 'es' });
+    const ok = await effectOf({ lang: 'es' }, { cookie: 'holler_lang=es', title: 'Configuración | Holler', lang: 'es' });
+    expect(ok.writes).toEqual([]);
+  });
+  it('switching to English in Settings: leaving the Spanish document puts lang and the title back to English', async () => {
+    const r = await effectOf({ lang: 'es' }, { cookie: 'holler_lang=es', title: 'Configuración | Holler', lang: 'es' });
+    r.cleanup();
+    expect(r.doc.lang).toBe('en');
+    expect(r.doc.title).toBe('Settings | Holler');
+  });
+  it('MemberHeaderBar: an English member gets MemberDocument only when the request\'s hint wrongly says Spanish', async () => {
+    const { baseMocks, member } = await import('./r18-harness');
+    for (const [hint, extra] of [[undefined, false], ['en', false], ['es', true]] as const) {
+      baseMocks({ profile: member(), hint });
+      const { MemberHeaderBar } = await import('@/components/app-header');
+      const out = (await MemberHeaderBar()) as { props: { children?: unknown } };
+      expect(Array.isArray(out.props.children), String(hint)).toBe(extra);
+    }
+    vi.useRealTimers();
   });
 });

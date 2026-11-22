@@ -8,11 +8,17 @@ import { createElement } from 'react';
 import { vi } from 'vitest';
 import { NOW, iso } from '../signals/brief-fixtures';
 
-export function baseMocks(over: { profile?: Record<string, unknown> | null; user?: Record<string, unknown> | null; stripe?: boolean; shadow?: string | null; pathname?: string } = {}) {
+export function baseMocks(over: { profile?: Record<string, unknown> | null; user?: Record<string, unknown> | null; stripe?: boolean; shadow?: string | null; pathname?: string; hint?: string } = {}) {
   vi.resetModules();
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.doMock('server-only', () => ({}));
+  // The request's cookies: only the holler_lang hint matters to these renders (components/app-header.tsx MemberHeaderBar).
+  vi.doMock('next/headers', async (orig) => ({
+    ...(await orig<typeof import('next/headers')>()),
+    cookies: async () => ({ get: (n: string) => (n === 'holler_lang' && over.hint !== undefined ? { name: n, value: over.hint } : undefined), getAll: () => [], set: () => {} }),
+    headers: async () => new Headers(),
+  }));
   vi.doMock('next/navigation', async (orig) => ({
     ...(await orig<typeof import('next/navigation')>()),
     usePathname: () => over.pathname ?? '/app',

@@ -76,5 +76,6 @@ describe('review probe: forgot-password language matrix', () => {
     rows.push('', 'What a third party can do: ask on the Spanish page for someone else\'s address. With a saved profile language the page language is ignored.', 'With NO profile yet, or with migration 0024 not applied (42703 / PGRST204), or with the read failing, the page language decides, so the', 'caller picks the language of the reset email the member receives. Nothing about the account comes back to the caller.');
     if (process.env.REV_ES_MATRIX) writeFileSync(process.env.REV_ES_MATRIX, rows.join('\n') + '\n');
     expect(answers.size).toBe(1);
-  });
+    // 56 route imports in one test: 2.6 to 4.3 s alone, more on a busy machine (review 2 P3-4).
+  }, 20_000);
 });

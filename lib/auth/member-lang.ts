@@ -49,6 +49,22 @@ export async function loadMemberLangs(db: Pick<SupabaseClient, 'from'>, userIds:
 }
 
 /**
+ * The language hint for the browser at sign-in (lib/auth/lang-cookie.ts): exactly what memberLang() says for this user. A profile row
+ * decides (English when the row has no language column, migration 0024 not applied); the language parked at sign-up counts only while
+ * there is no row; any error is English. `select('*')` on purpose: it never fails on a missing column. Never throws.
+ */
+export async function hintLang(db: Pick<SupabaseClient, 'from'>, user: { id: string; app_metadata?: unknown }): Promise<Lang> {
+  try {
+    const { data, error } = await db.from('holler_profiles').select('*').eq('user_id', user.id).maybeSingle();
+    if (error) return 'en';
+    if (data) return parseLang((data as { language?: unknown }).language);
+    return signupLang(user.app_metadata as Parameters<typeof signupLang>[0]);
+  } catch {
+    return 'en';
+  }
+}
+
+/**
  * One member's saved language, read with the service role for an email sent outside a page (verify resend, password reset, lifecycle).
  * null when there is no profile row, no language column (migration 0024 not applied: Postgres 42703, PostgREST PGRST204), or any error,
  * so the caller falls back to what it already knows (the sign-up language, then the page). Never throws.

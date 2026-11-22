@@ -24,6 +24,7 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * The intended changes to English markup, applied to the base render before the comparison. Each must occur exactly once in the base,
  * so a change cannot slip in elsewhere under cover of one of these.
  *  - /pricing: the footer's "Español" link goes to /es/pricing (the Spanish twin of the page) instead of /es.
+ *  - /privacy (redo 2): one new sentence on the holler_lang cookie, and the "Last updated" date.
  *  - /app layout (redo 1, review P2-4): the language-hint script after the header (components/app-header.tsx APP_LANG_SCRIPT). The static
  *    fallback header also carries data-es attributes; that is checked in "the static /app header" below.
  * (The other intended change, the "Español" link in the footer of /signup, /login, /forgot and /reset, depends on the path and is tested in
@@ -31,6 +32,14 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  */
 const INTENDED: Record<string, [string, string][]> = {
   'pricing.html': [['href="/es">Español</a>', 'href="/es/pricing">Español</a>']],
+  // Redo 2 (review 2 P2-2): the privacy page names the holler_lang cookie, and its date moves to November 22, 2026. NEEDS KUDZI.
+  'privacy.html': [
+    ['Last updated November 19, 2026', 'Last updated November 22, 2026'],
+    [
+      'Our city, trade and storm pages never read cookies on our servers.</p>',
+      'Our city, trade and storm pages never read cookies on our servers.</p><p>Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.</p>',
+    ],
+  ],
 };
 
 function stripMeta(m: Record<string, unknown>): Record<string, unknown> {
@@ -68,6 +77,13 @@ async function renderEnglish(): Promise<Record<string, string>> {
     const layout = await import('@/app/(auth)/layout');
     out['auth-layout.html'] = await renderResolved(layout.default({ children: createElement('p', null, 'CHILD') }));
     out['auth-layout.meta'] = meta(layout.metadata);
+  }
+  // The privacy page (redo 2: the holler_lang sentence and the date are its only intended changes).
+  baseMocks({ user: null });
+  {
+    const privacy = await import('@/app/privacy/page');
+    out['privacy.html'] = await renderResolved(createElement(privacy.default as never));
+    out['privacy.meta'] = meta((privacy as { metadata?: unknown }).metadata);
   }
   baseMocks({});
   {

@@ -3,23 +3,28 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
+type Titles = Record<string, string>;
+const hintSaysSpanish = () => /(?:^|;\s*)holler_lang=es(?:;|$)/.test(document.cookie);
+
 /**
- * For a Spanish member in /app (round 18 ES, review P2-2 and P2-3): sets <html lang> and the tab title in the member's language after
- * hydration and on every client navigation. The first paint is already right: the inline script in the static header (APP_LANG_SCRIPT,
- * components/app-header.tsx) does the same from the language hint cookie. The page metadata itself stays static English in the <head>,
- * exactly as before, so nothing streams in the body and noindex is in the first bytes. Rendered only for a Spanish member.
+ * Keeps the document in step with the member's SAVED language (the profile), after hydration and on every client navigation:
+ * <html lang>, the tab title, and the holler_lang hint cookie itself. The hint is only a guess for the first paint
+ * (components/app-header.tsx APP_LANG_SCRIPT); when it disagrees with the profile this rewrites it, so a wrong hint lasts one page load.
+ * Rendered for every Spanish member, and for an English member only when the request's hint wrongly said Spanish.
  */
-export function MemberDocument({ lang, titles }: { lang: string; titles: Record<string, string> }) {
+export function MemberDocument({ lang, es, en }: { lang: 'en' | 'es'; es: Titles; en: Titles }) {
   const pathname = usePathname();
   useEffect(() => {
+    if ((lang === 'es') !== hintSaysSpanish()) document.cookie = `holler_lang=${lang}; Path=/; Max-Age=31536000; Secure; SameSite=Lax`;
     const root = document.documentElement;
-    const before = root.lang;
     root.lang = lang;
-    const title = titles[pathname];
-    if (title) document.title = title;
+    const title = (lang === 'es' ? es : en)[pathname];
+    if (title && document.title !== title) document.title = title;
     return () => {
-      root.lang = before && before !== lang ? before : 'en';
+      // the member left /app or switched to English in Settings: back to the static English document
+      root.lang = 'en';
+      if (en[pathname] && document.title === es[pathname]) document.title = en[pathname];
     };
-  }, [lang, pathname, titles]);
+  }, [lang, pathname, es, en]);
   return null;
 }

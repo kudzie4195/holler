@@ -15,7 +15,7 @@ import { applyTrialRules } from '@/lib/auth/trial';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { cleanKeyword, parseExtraAreas, parseKeywords } from '@/lib/plan';
 import { langOfProfile, parseLang, t, type Lang } from '@/lib/i18n';
-import { setLangCookieFromAction } from '@/lib/auth/lang-cookie';
+import { clearLangCookieFromAction, setLangCookieFromAction } from '@/lib/auth/lang-cookie';
 
 export async function saveSettings(_prev: ProfileFormState, formData: FormData): Promise<ProfileFormState> {
   const user = await getUser();
@@ -114,6 +114,7 @@ export async function deleteAccount(_prev?: DeleteState, formData?: FormData): P
   } catch {
     // The stale cookie is harmless and fails verification.
   }
+  await clearLangCookieFromAction();
   redirect(lang === 'en' ? '/' : '/es');
 }
 
