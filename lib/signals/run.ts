@@ -98,7 +98,13 @@ export function isDue(adapter: Adapter, lastRunMs: number | undefined, nowMs: nu
 }
 
 export function missingEnvFor(adapter: Adapter, e: Record<string, string | undefined> = env): string[] {
-  return (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  const keys = (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  // A feature-flagged adapter (city bids) that is switched off counts as not configured, naming the flag. The scan, the health
+  // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
+  // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
+  if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
+  for (const f of adapter.extraFlags ?? []) if (!f.on()) keys.push(f.name);
+  return keys;
 }
 
 function safeHttpUrl(u: unknown): string | null {
@@ -157,7 +163,8 @@ function slugify(s: string): string {
  * on a city page.
  */
 export function placeSlugFor(s: SignalInput): string | null {
-  if (hasApproxLocation({ source: s.source, data: s.data as { loc?: unknown } | null | undefined })) return null;
+  // Only data.loc counts here: a row placed at its city's centre (data.approxLocation) still belongs on that city's page.
+  if (hasApproxLocation({ source: s.source, data: { loc: (s.data as { loc?: unknown } | null | undefined)?.loc } })) return null;
   try {
     if (typeof s.lat === 'number' && typeof s.lon === 'number') return nearestCity(s.lat, s.lon, 40)?.slug ?? null;
     if (s.city && s.state) return cityBySlug(`${slugify(s.city)}-${s.state.toLowerCase()}`)?.slug ?? null;
@@ -189,7 +196,7 @@ interface Fetched {
   health?: { ok: boolean; error: string | null };
 }
 
-async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
+async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch, extra: { db?: Db | null; dry?: boolean } = {}): Promise<Fetched> {
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
@@ -198,7 +205,7 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           logs.push(`adapter timeout after ${timeoutMs} ms`);
@@ -264,6 +271,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   const due: Adapter[] = [];
   for (const a of selected) {
     const missing = missingEnvFor(a);
+    // missingEnvFor also names the flag when a feature-flagged adapter (city bids) is switched off.
     if (missing.length) {
       report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
     } else if (!dry && !opts.source && !isDue(a, lastRuns[a.id], now.getTime())) {
@@ -275,7 +283,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     due.map((a) => {
       const last = lastRuns[a.id];
       const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, now, timeoutMs, fetchImpl);
+      return fetchOne(a, since, now, timeoutMs, fetchImpl, { db, dry });
     }),
   );
 

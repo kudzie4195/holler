@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { createClient } from '@/lib/supabase/server';
 import {
   cleanKeyword,
@@ -140,8 +141,8 @@ export async function saveProfile(
   const limits = PLAN_LIMITS[tier];
 
   const valid = new Set<string>(CATEGORIES.map((c) => c.id));
-  // Trades with no live data source in this configuration ("coming soon") are dropped from a submission, never saved.
-  let categories = [...new Set(parsed.data.categories)].filter((c) => valid.has(c) && !tradeComingSoon(c));
+  // Trades with no live data source in this configuration ("coming soon", or no source yet: locksmith, business-services) are dropped from a submission, never saved.
+  let categories = [...new Set(parsed.data.categories)].filter((c) => valid.has(c) && !tradeComingSoon(c) && !tradeNoLiveSource(c));
   if (categories.length === 0) {
     return { error: FIX, fieldErrors: { categories: 'Pick at least one thing you do.' } };
   }

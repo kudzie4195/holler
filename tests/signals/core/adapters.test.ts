@@ -115,15 +115,19 @@ describe('parseNws', () => {
     expect(s.severity).toBe(2);
   });
 
-  it('emits one state-level signal per state for geometry-less multi-state alerts', () => {
+  it('places a geometry-less zone alert at the centroid of each county it names (SAME codes), one row per county', () => {
     const w = out.filter((x) => /Winter Storm Warning/.test(x.title));
-    expect(w.map((x) => x.state).sort()).toEqual(['NC', 'TN']);
+    expect(w.length).toBeGreaterThanOrEqual(2);
+    expect(w.map((x) => x.state)).toEqual(expect.arrayContaining(['NC', 'TN']));
     for (const s of w) {
-      expect(s.lat ?? null).toBeNull();
+      expect(typeof s.lat).toBe('number');
+      expect(typeof s.lon).toBe('number');
       expect(s.categories).toContain('snow-removal');
       expect(s.severity).toBeGreaterThanOrEqual(2);
+      expect((s.data as { loc?: unknown }).loc).toBe('approx');
+      expect(typeof (s.data as { alertId?: unknown }).alertId).toBe('string');
     }
-    expect(new Set(w.map((x) => x.externalId)).size).toBe(2);
+    expect(new Set(w.map((x) => x.externalId)).size).toBe(w.length);
   });
 
   it('maps flash flood and heat', () => {
@@ -243,13 +247,23 @@ describe('parseUsgs', () => {
     expect(q.lon).toBeCloseTo(-117.7, 2);
     expect(q.state).toBe('CA');
     expect(q.severity).toBe(2);
-    expect(q.categories).toContain('general-contractor');
+    // An M4 with no USGS alert level goes to insurance only (round 15 re-grade: an M4.2 reached plumbers).
+    expect(q.categories).toEqual(['insurance']);
     expect(q.kind).toBe('quake');
     const small = out.find((s) => s.externalId === 'ak00000002')!;
     expect(small.severity).toBe(1);
     expect(small.state).toBe('AK');
     expect(small.categories).toEqual([]);
     expect(out.find((s) => s.externalId === 'us00000005')!.severity).toBe(3);
+    // M5 and above keep the building trades.
+    expect(out.find((s) => s.externalId === 'us00000005')!.categories).toEqual(expect.arrayContaining(['general-contractor', 'plumbing', 'restoration']));
+  });
+  it('an M4 with a USGS alert level other than green keeps the building trades; green does not', () => {
+    const feat = (id: string, mag: number, alert: string | null) => ({ id, geometry: { coordinates: [-117.7, 35.55, 8] }, properties: { mag, place: '5 km SW of Town, CA', time: 1794441600000, alert } });
+    const [yellow, green, none] = parseUsgs({ features: [feat('a', 4.2, 'yellow'), feat('b', 4.2, 'green'), feat('c', 4.2, null)] });
+    expect(yellow.categories).toEqual(expect.arrayContaining(['plumbing', 'electrical', 'general-contractor', 'restoration']));
+    expect(green.categories).toEqual(['insurance']);
+    expect(none.categories).toEqual(['insurance']);
   });
   it('stateFromPlace', () => {
     expect(stateFromPlace('10 km SW of Ridgecrest, CA')).toBe('CA');
@@ -310,7 +324,8 @@ describe('parseNws against the documented shape', () => {
     expect(out).toHaveLength(1);
     expect(out[0].occurredAt).toBe('2026-11-16T20:02:00.000Z');
     expect(out[0].expiresAt).toBe('2026-11-16T23:00:00.000Z');
-    expect(out[0].externalId).toBe('urn:oid:x.1');
+    expect(out[0].externalId).toBe('urn:oid:x.1#13121');
+    expect((out[0].data as { alertId?: string }).alertId).toBe('urn:oid:x.1');
     expect(out[0].url).toBe('https://api.weather.gov/alerts/urn:oid:x.1');
   });
   it('fixture keeps the "@id" and feature id as https URLs and properties.id as the urn', () => {

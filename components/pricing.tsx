@@ -84,7 +84,7 @@ export function Pricing({ variant = 'full' }: { variant?: 'short' | 'full' } = {
                 <span className={`text-[0.9375rem] font-medium ${c.muted}`}>{full ? 'a month' : '/ month'}</span>
               </p>
               <p className={`text-[0.9375rem] ${c.muted}`}>
-                or <span data-price>{priceLabel(tier, 'annual')}</span> a year{full ? `, ${annualSavingLabel(tier)}` : ''}
+                or <span data-price>{priceLabel(tier, 'annual')}</span> a year{full && annualSavingLabel(tier) ? `, ${annualSavingLabel(tier)}` : ''}
               </p>
               {full ? (
                 <ul className="mt-2 flex flex-col gap-2.5">

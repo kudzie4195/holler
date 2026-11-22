@@ -55,6 +55,8 @@ const EXACT_GAP_DAYS: Record<string, number> = {
 export function normalGapDays(source: string): number {
   const exact = EXACT_GAP_DAYS[source];
   if (exact !== undefined) return exact;
+  // Agency bid pages read with Firecrawl (a few new solicitations a month, and an unchanged page returns no rows by design).
+  if (/^bids-(gwinnett|rockdale|tucker|dunwoody)$/.test(source)) return NORMAL_GAP_DAYS.inspections;
   if (/-(inspections|business|violations)$/.test(source)) return NORMAL_GAP_DAYS.inspections;
   if (/-(permits|311|events|filmpermits)$/.test(source)) return NORMAL_GAP_DAYS.permits311;
   return NORMAL_GAP_DAYS.permits311;

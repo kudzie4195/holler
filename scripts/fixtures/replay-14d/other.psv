@@ -1,0 +1,142 @@
+arcgis-dekalb-violations|violation|civic|Code violation|concrete-paving|1
+arcgis-dekalb-violations|violation|civic|Code violation|electrical|1
+arcgis-dekalb-violations|violation|civic|Code violation|fencing,general-contractor|1
+arcgis-dekalb-violations|violation|civic|Code violation|general-contractor,handyman|2
+arcgis-dekalb-violations|violation|civic|Code violation|hvac|1
+arcgis-dekalb-violations|violation|civic|Code violation|junk-removal|28
+arcgis-dekalb-violations|violation|civic|Code violation|landscaping|1
+arcgis-dekalb-violations|violation|civic|Code violation|lawn-care,landscaping|10
+arcgis-dekalb-violations|violation|civic|Code violation|lawn-care,landscaping,junk-removal|2
+arcgis-dekalb-violations|violation|civic|Code violation|plumbing|2
+arcgis-dekalb-violations|violation|civic|Code violation|security|4
+arcgis-dekalb-violations|violation|civic|Code violation|towing,junk-removal|2
+faa||travel|Flight delays|rideshare-delivery|25
+faa||travel|Ground delay program|rideshare-delivery|16
+faa||travel|Ground stop|rideshare-delivery|14
+nws||alert|Brisk Wind Advisory|tree-service,roofing,restoration,electrical|15
+nws||alert|Coastal Flood Advisory|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|33
+nws||alert|Coastal Flood Statement|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|4
+nws||alert|Coastal Flood Warning|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|5
+nws||alert|Coastal Flood Watch|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|14
+nws||alert|Cold Weather Advisory|hvac,plumbing,towing,snow-removal|6
+nws||alert|Fire Weather Watch|restoration,tree-service,landscaping,insurance|4
+nws||alert|Flash Flood Warning|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|40
+nws||alert|Flash Flood Watch|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|3
+nws||alert|Flood Advisory|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|123
+nws||alert|Flood Warning|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|23
+nws||alert|Flood Watch|restoration,plumbing,junk-removal,towing,auto-repair,insurance,public-adjuster|11
+nws||alert|Freeze Warning|plumbing,hvac,landscaping,pool-spa,public-adjuster|7
+nws||alert|Freeze Watch|plumbing,hvac,landscaping,pool-spa,public-adjuster|3
+nws||alert|Frost Advisory|plumbing,hvac,landscaping,pool-spa,public-adjuster|3
+nws||alert|High Wind Warning|tree-service,roofing,restoration,electrical|23
+nws||alert|High Wind Watch|tree-service,roofing,restoration,electrical|8
+nws||alert|Lake Wind Advisory|tree-service,roofing,restoration,electrical|2
+nws||alert|Red Flag Warning|restoration,tree-service,landscaping,insurance|12
+nws||alert|Severe Thunderstorm Warning|roofing,tree-service,restoration,insurance,public-adjuster|4
+nws||alert|Severe Thunderstorm Warning|roofing,tree-service,restoration,insurance,public-adjuster,auto-body,auto-glass|4
+nws||alert|Snow Squall Warning|snow-removal,towing,hvac,tree-service,plumbing|1
+nws||alert|Tornado Warning|roofing,restoration,tree-service,general-contractor,insurance,public-adjuster,auto-body,electrical,junk-removal|3
+nws||alert|Wind Advisory|tree-service,roofing,restoration,electrical|55
+nws||alert|Winter Storm Warning|snow-removal,towing,hvac,tree-service,plumbing|11
+nws||alert|Winter Weather Advisory|snow-removal,towing,hvac,tree-service,plumbing|64
+socrata-austin-violations|violation|civic|Code violation|general-contractor,handyman|215
+socrata-austin-violations|violation|civic|Code violation|junk-removal,lawn-care,landscaping|221
+socrata-chicago-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith|109
+socrata-chicago-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith,pest-control,hvac|81
+socrata-chicago-events|event-permit|event|Permitted event in X: Permit - Event 1 Cluster 3|food-truck,catering,event-services,security,cleaning|5
+socrata-chicago-events|event-permit|event|Permitted event in X: Permit - Event 2 Cluster 3|food-truck,catering,event-services,security,cleaning|1
+socrata-chicago-events|event-permit|event|Permitted event in X: Permit - Event 3 Cluster 3|food-truck,catering,event-services,security,cleaning|1
+socrata-chicago-events|event-permit|event|Permitted event in X: Permit - Event 4 Cluster 3|food-truck,catering,event-services,security,cleaning|1
+socrata-chicago-events|event-permit|event|Permitted event in X: Venue Rental - Civic|food-truck,catering,event-services,security,cleaning|1
+socrata-chicago-events|event-permit|event|Permitted event in X: Venue Rental - Social|food-truck,catering,event-services,security,cleaning|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial|4
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,childcare|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor|9
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor,childcare|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor,junk-removal|2
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor,painting|2
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor,signs-printing|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,general-contractor,windows-doors|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,childcare|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,general-contractor|8
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,general-contractor,childcare|2
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,general-contractor,junk-removal|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,general-contractor,junk-removal,signs-printing|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,general-contractor,painting,business-services|1
+socrata-chicago-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing,landscaping,general-contractor,signs-printing|1
+socrata-chicago-violations|violation|civic|Code violation|concrete-paving|2
+socrata-chicago-violations|violation|civic|Code violation|electrical|47
+socrata-chicago-violations|violation|civic|Code violation|fencing,general-contractor|13
+socrata-chicago-violations|violation|civic|Code violation|flooring|6
+socrata-chicago-violations|violation|civic|Code violation|general-contractor|22
+socrata-chicago-violations|violation|civic|Code violation|general-contractor,handyman|104
+socrata-chicago-violations|violation|civic|Code violation|general-contractor,handyman,hvac|1
+socrata-chicago-violations|violation|civic|Code violation|general-contractor,handyman,windows-doors|2
+socrata-chicago-violations|violation|civic|Code violation|hvac|39
+socrata-chicago-violations|violation|civic|Code violation|junk-removal|6
+socrata-chicago-violations|violation|civic|Code violation|lawn-care,landscaping|4
+socrata-chicago-violations|violation|civic|Code violation|painting|9
+socrata-chicago-violations|violation|civic|Code violation|pest-control|17
+socrata-chicago-violations|violation|civic|Code violation|pest-control,flooring|1
+socrata-chicago-violations|violation|civic|Code violation|plumbing|3
+socrata-chicago-violations|violation|civic|Code violation|plumbing,hvac|3
+socrata-chicago-violations|violation|civic|Code violation|roofing,general-contractor|6
+socrata-chicago-violations|violation|civic|Code violation|siding-gutters|3
+socrata-chicago-violations|violation|civic|Code violation|siding-gutters,general-contractor,roofing|3
+socrata-chicago-violations|violation|civic|Code violation|windows-doors,handyman|84
+socrata-la-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith|103
+socrata-la-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith,pest-control,hvac|6
+socrata-nyc-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith|434
+socrata-nyc-events|event-permit|event|Permitted event in X: Athletic Race / Tour|food-truck,catering,event-services,security,cleaning|3
+socrata-nyc-events|event-permit|event|Permitted event in X: Farmers Market|food-truck,catering,event-services,security,cleaning|19
+socrata-nyc-events|event-permit|event|Permitted event in X: Miscellaneous|food-truck,catering,event-services,security,cleaning|1
+socrata-nyc-events|event-permit|event|Permitted event in X: Open Street Partner Event|food-truck,catering,event-services,security,cleaning|2
+socrata-nyc-events|event-permit|event|Permitted event in X: Parade|food-truck,catering,event-services,security,cleaning|4
+socrata-nyc-events|event-permit|event|Permitted event in X: Plaza Event|food-truck,catering,event-services,security,cleaning|6
+socrata-nyc-events|event-permit|event|Permitted event in X: Plaza Partner Event|food-truck,catering,event-services,security,cleaning|4
+socrata-nyc-events|event-permit|event|Permitted event in X: Production Event|food-truck,catering,event-services,security,cleaning|9
+socrata-nyc-events|event-permit|event|Permitted event in X: Religious Event|food-truck,catering,event-services,security,cleaning|4
+socrata-nyc-events|event-permit|event|Permitted event in X: Sidewalk Sale|food-truck,catering,event-services,security,cleaning|2
+socrata-nyc-events|event-permit|event|Permitted event in X: Special Event|food-truck,catering,event-services,security,cleaning|271
+socrata-nyc-events|event-permit|event|Permitted event in X: Street Event|food-truck,catering,event-services,security,cleaning|22
+socrata-nyc-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial|87
+socrata-nyc-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,catering|2
+socrata-nyc-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,food-truck|11
+socrata-nyc-inspections|inspection|civic|Failed inspection|pest-control,cleaning,janitorial-commercial,plumbing|6
+socrata-orlando-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith|32
+socrata-orlando-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith,pest-control,hvac|7
+socrata-sf-business|business|civic|New business license|signs-printing,business-services,insurance,janitorial-commercial,security,cleaning,locksmith|206
+spc||report|60 mph wind gust reported|tree-service,roofing,restoration,insurance,public-adjuster|2
+spc||report|61 mph wind gust reported|tree-service,roofing,restoration,insurance,public-adjuster|4
+spc||report|62 mph wind gust reported|tree-service,roofing,restoration,insurance,public-adjuster|4
+spc||report|68 mph wind gust reported|tree-service,roofing,restoration,insurance,public-adjuster|2
+spc||report|69 mph wind gust reported|tree-service,roofing,restoration,insurance,public-adjuster|2
+spc||report|Wind damage reported|tree-service,roofing,restoration,insurance,public-adjuster|24
+spc||report|hail reported|roofing,auto-glass,auto-body,restoration,insurance,public-adjuster|4
+usaspending||contract|Federal contract|food-truck,catering|1
+usaspending||contract|Federal contract|junk-removal|7
+usaspending||contract|Federal contract|landscaping,lawn-care|1
+usaspending||contract|Federal contract|plumbing,hvac|2
+usaspending||contract|Federal contract|security|1
+usgs||quake|M2.5 earthquake||17
+usgs||quake|M2.6 earthquake||14
+usgs||quake|M2.7 earthquake||9
+usgs||quake|M2.8 earthquake||14
+usgs||quake|M2.9 earthquake||11
+usgs||quake|M3.0 earthquake||9
+usgs||quake|M3.1 earthquake||3
+usgs||quake|M3.2 earthquake||3
+usgs||quake|M3.3 earthquake||7
+usgs||quake|M3.4 earthquake||6
+usgs||quake|M3.5 earthquake||2
+usgs||quake|M3.6 earthquake||2
+usgs||quake|M3.7 earthquake||1
+usgs||quake|M3.8 earthquake||2
+usgs||quake|M3.9 earthquake||1
+usgs||quake|M4.0 earthquake|general-contractor,restoration,insurance,plumbing,electrical|2
+usgs||quake|M4.1 earthquake|general-contractor,restoration,insurance,plumbing,electrical|2
+usgs||quake|M4.2 earthquake off the coast|general-contractor,restoration,insurance,plumbing,electrical|1
+usgs||quake|M4.2 earthquake|general-contractor,restoration,insurance,plumbing,electrical|2
+usgs||quake|M4.9 earthquake|general-contractor,restoration,insurance,plumbing,electrical|1
+usgs||quake|M5.1 earthquake|general-contractor,restoration,insurance,plumbing,electrical|2

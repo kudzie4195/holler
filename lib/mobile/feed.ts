@@ -7,11 +7,18 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { loadMemberContacts } from '@/lib/outreach/loader';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { requestTextForMember } from '@/lib/requests/details';
-import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals/intent';
+import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from './types';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
+import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
+import { MANAGER_SELECT } from '@/lib/signals/managed-by';
+import { VALUE_SELECT } from '@/lib/signals/permit-value';
+import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
  * The member's alerts for the app, built the way the web feed (app/app/page.tsx) builds them: the member's own matches read with
@@ -21,7 +28,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from
  */
 
 export const MATCH_SELECT =
-  'id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,occurred_at,expires_at,subtype:data->>subtype)';
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
 export interface SignalRow {
   id: number;
@@ -38,6 +45,24 @@ export interface SignalRow {
   occurred_at: string;
   expires_at: string | null;
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
+  /** The record's trades and any published fix-by or due date, for the opportunity label and deadline. */
+  categories?: string[] | null;
+  deadline?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
+  dueDate?: string | null;
+  /** City open bids only: data.buyer. */
+  bidBuyer?: string | null;
+  /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; a page shows it once). */
+  loc?: string | null;
+  alertId?: string | null;
+  /** NYC no-heat rows only (data.managerName, data.managerRole), read with MANAGER_SELECT. */
+  managerName?: string | null;
+  managerRole?: string | null;
+  /** Permits: data.jobValue (text form), the project value the city published. */
+  jobValue?: string | null;
 }
 
 export interface MatchRow {
@@ -85,7 +110,7 @@ function absolute(url: string | null | undefined, siteUrl: string): string | nul
 
 function contactDto(c: ContactRecord): ContactDto {
   const out: ContactDto = { role: c.role, name: c.name };
-  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website'] as const) {
+  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website', 'license'] as const) {
     if (c[k] !== undefined) out[k] = c[k] ?? null;
   }
   return out;
@@ -100,13 +125,37 @@ export interface BuildDeps {
   admin: SupabaseClient | null;
   siteUrl: string;
   now: number;
+  /** The member's trades under their plan (matchScope(profile).categories). Without it a record is labelled with the trade unknown. */
+  trades?: readonly string[];
 }
 
-/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests are dropped. */
+/**
+ * Brief card v1 for the app (additive field). Same five parts as the web card: the record's own title and summary are the alert's
+ * title and summary (part 1); a locked member's brief is built WITHOUT the record's text (the alert's own title and summary are masked for them, and the brief must not leak a permit type, a contract's work or storm remarks). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
+ */
+function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
+  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue });
+  return {
+    why: b.why,
+    next: b.next,
+    source: { label: b.source.label, url: b.source.href, linkText: b.source.linkText, recordLink: b.source.recordLink, date: b.source.dateText },
+    uncertain: b.uncertain,
+    confidence: b.confidence,
+    ...(b.managedBy ? { managedBy: b.managedBy } : {}),
+    valueLine: b.valueLine,
+  };
+}
+
+/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
-  const live = rows.filter((m) => {
+  const labelOf = (s: SignalRow) =>
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
+  // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
+  const live = dedupeByAlert(rows, (m) => signalOf(m)).filter((m) => {
     const s = signalOf(m);
-    return !!s && !isEndedRequest(s, deps.now);
+    // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s) !== 'context';
   });
   if (live.length === 0) return [];
 
@@ -134,7 +183,12 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
-    const summary = isRequest ? (requestText[m.id] ?? null) : s.summary;
+    // A permit prints its value once: the brief's valueLine, so the summary's "$N job value" part is left out of the alert's summary (display only).
+    const summary = isRequest
+      ? (requestText[m.id] ?? null)
+      : deps.locked
+        ? s.summary
+        : summaryForCard({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, jobValue: s.jobValue });
     const item: AlertDto = {
       matchId: m.id,
       signalId: s.id,
@@ -156,7 +210,11 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       occurredAt: s.occurred_at,
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
-      intent: { key: intentLineKey(intentIn), label: INTENT_LABEL[intentOf(intentIn)], line: intentLine(intentIn) },
+      intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
+      label: labelOf(s) as AlertDto['label'],
+      deadline: deadlineOf(s),
+      brief: briefDto(s, labelOf(s), deps),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
@@ -166,7 +224,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     };
     // Locked: placeholders only, never the real text, link, draft or contacts (the web's LockedFeed rule).
     return deps.locked
-      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [] }
+      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [], bidLine: null }
       : item;
   });
 }

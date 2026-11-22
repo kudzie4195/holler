@@ -4,6 +4,8 @@ import { WINDOW_DAYS } from './threshold';
 import { emptyPlaceData, summarize, DEFAULT_ITEM_LIMIT, type PlaceData, type SignalRowDb } from './summarize';
 import type { SectionId } from './sections';
 import { UPCOMING_DAYS, newestPast } from '../time';
+import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
+import { bidCountsByPlace, minusBids } from './bid-counts';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 const DAY = 86_400_000;
@@ -31,18 +33,21 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
     const until = new Date(now.getTime() + UPCOMING_DAYS * DAY).toISOString();
-    const { data, error, count } = await sb
-      .from('holler_signals')
-      .select(ROW_COLUMNS, { count: 'exact' })
-      .eq('place_slug', slug)
-      .gte('occurred_at', since)
-      .lte('occurred_at', until)
-      .or(liveRequestsFilter(nowIso))
+    const { data, error, count } = await excludeBidsInQuery(
+      sb
+        .from('holler_signals')
+        .select(ROW_COLUMNS, { count: 'exact' })
+        .eq('place_slug', slug)
+        .gte('occurred_at', since)
+        .lte('occurred_at', until)
+        .or(liveRequestsFilter(nowIso)),
+    )
       .order('occurred_at', { ascending: false })
       .limit(ROW_CAP)
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
     if (error) throw new Error(error.message);
-    const rows = withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], now.getTime());
+    // City bids are left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
+    const rows = withoutHiddenBids(withoutEndedRequests((data ?? []) as unknown as SignalRowDb[], now.getTime()), now.getTime());
 
     const exactSectionCounts: Partial<Record<SectionId, number>> = {};
     if (typeof count === 'number' && count > rows.length) {
@@ -53,14 +58,16 @@ export async function loadPlaceData(slug: string): Promise<PlaceData> {
       ];
       const results = await Promise.all(
         kinds.map(async ([kind, section]) => {
-          const r = await sb
-            .from('holler_signals')
-            .select('id', { count: 'exact', head: true })
-            .eq('place_slug', slug)
-            .eq('kind', kind)
-            .gte('occurred_at', since)
-            .lte('occurred_at', until)
-            .or(liveRequestsFilter(nowIso))
+          const r = await excludeBidsInQuery(
+            sb
+              .from('holler_signals')
+              .select('id', { count: 'exact', head: true })
+              .eq('place_slug', slug)
+              .eq('kind', kind)
+              .gte('occurred_at', since)
+              .lte('occurred_at', until)
+              .or(liveRequestsFilter(nowIso)),
+          )
             .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
           return { section, n: r.error ? 0 : (r.count ?? 0) };
         }),
@@ -128,7 +135,7 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
     }
     if (res.error) throw new Error(res.error.message);
     const rows = (res.data ?? []) as unknown as { place_slug: string; signals_60d: number; latest_at?: string | null }[];
-    const counts: Record<string, number> = {};
+    let counts: Record<string, number> = {};
     const latest: Record<string, string> = {};
     const loadedAt = Date.now();
     for (const r of rows) {
@@ -137,6 +144,8 @@ export async function loadPlaceCounts(): Promise<PlaceCounts> {
       const past = newestPast([r.latest_at], loadedAt);
       if (past) latest[r.place_slug] = past;
     }
+    // The view counts stored city bids; while the bids flag is off they are not shown, so they are not counted (review P2-1).
+    counts = minusBids(counts, await bidCountsByPlace(sb, loadedAt));
     cacheLife({ stale: 300, revalidate: 21600, expire: 86400 });
     // One row per place, so the cap is only hit if there are more than 1000 distinct places.
     return { ok: true, counts, latest, partial: rows.length >= VIEW_ROW_CAP };

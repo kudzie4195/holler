@@ -3,7 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { intentOf, type Intent } from '@/lib/signals/intent';
 import { matchOne, subtypeOf, type MatchSignal } from '@/lib/signals/match';
+import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
 import { matchScope, type ScopeInput } from '@/lib/plan';
+import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
 import { RETENTION_DAYS } from '@/lib/signals/store';
 import { APPROX_LOCATION_SOURCES, approxReachMi } from '@/lib/signals/approx-location';
@@ -158,7 +160,7 @@ export async function recentPreviewFor(
         .select(PREVIEW_COLUMNS)
         .neq('source', HOLLER_REQUEST_SOURCE)
         .neq('kind', 'ask')
-        .overlaps('categories', scope.categories)
+        .overlaps('categories', expandCategoriesForRouting(scope.categories))
         .gte('occurred_at', since)
         .lte('occurred_at', now.toISOString())
         .order('occurred_at', { ascending: false })
@@ -200,7 +202,7 @@ export async function recentPreviewFor(
     const types = new Map<string, number>();
     const hits: Row[] = [];
     const seen = new Set<string>();
-    for (const r of [...rowsA, ...rowsB, ...rowsC]) {
+    for (const r of withoutHiddenBids([...rowsA, ...rowsB, ...rowsC], now.getTime())) {
       const id = String(r.id);
       if (seen.has(id)) continue;
       seen.add(id);
@@ -216,6 +218,9 @@ export async function recentPreviewFor(
         subtype: r.subtype,
         // The source tells matchOne a Cobb row's point is a stand-in (radius + 15 miles, as the scanner).
         source: r.source,
+        // Title and kind feed the opportunity label: context rows are not alerts, so the preview does not count them.
+        kind: r.kind,
+        title: r.title ?? null,
       };
       if (!matchOne(sig, mp)) continue;
       const sub = subtypeOf(sig);

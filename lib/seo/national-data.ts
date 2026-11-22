@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { cityBySlug, cityPath } from '@/lib/geo';
 import { publicClient } from './client';
 import { tradeLabel } from './trades';
+import { excludeBidsInQuery, withoutHiddenBids } from '@/lib/signals/bid-sources';
+import { bidCountsByPlace } from './bid-counts';
 import { liveRequestsFilter, withoutEndedRequests } from '@/lib/signals/request-visibility';
 
 /**
@@ -97,12 +99,14 @@ type Window = { since: string; until: string };
 
 /** Every read here leaves out resident requests that have ended (w.until is "now"), so /data never counts a closed request. */
 async function count(sb: SupabaseClient, w: Window, filter?: { kind?: string; place?: string }): Promise<number> {
-  let q = sb
-    .from('holler_signals')
-    .select('id', { count: 'exact', head: true })
-    .gte('occurred_at', w.since)
-    .lte('occurred_at', w.until)
-    .or(liveRequestsFilter(w.until));
+  let q = excludeBidsInQuery(
+    sb
+      .from('holler_signals')
+      .select('id', { count: 'exact', head: true })
+      .gte('occurred_at', w.since)
+      .lte('occurred_at', w.until)
+      .or(liveRequestsFilter(w.until)),
+  );
   if (filter?.kind) q = q.eq('kind', filter.kind);
   if (filter?.place) q = q.eq('place_slug', filter.place);
   const r = await q.abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
@@ -135,7 +139,10 @@ async function readPlaces(sb: SupabaseClient): Promise<{ rows: ViewRow[]; hasLat
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
   }
   if (res.error) throw new Error(res.error.message);
-  return { rows: (res.data ?? []) as unknown as ViewRow[], hasLatest };
+  // The view counts stored city bids; while the bids flag is off they are not shown, so they are not counted (review P2-1).
+  const bids = await bidCountsByPlace(sb);
+  const rows = ((res.data ?? []) as unknown as ViewRow[]).map((r) => (r.place_slug in bids ? { ...r, signals_60d: Math.max(0, r.signals_60d - bids[r.place_slug]) } : r));
+  return { rows, hasLatest };
 }
 
 function prettySlug(slug: string): string {
@@ -182,18 +189,23 @@ export async function buildNationalStats(sb: SupabaseClient | null, now: Date): 
       ),
       readPlaces(sb),
       (async () => {
-        const r = await sb
-          .from('holler_signals')
-          .select('source, categories, occurred_at, expires_at')
-          .gte('occurred_at', w30.since)
-          .lte('occurred_at', w30.until)
-          .or(liveRequestsFilter(w30.until))
+        const r = await excludeBidsInQuery(
+          sb
+            .from('holler_signals')
+            .select('source, categories, occurred_at, expires_at')
+            .gte('occurred_at', w30.since)
+            .lte('occurred_at', w30.until)
+            .or(liveRequestsFilter(w30.until)),
+        )
           .order('occurred_at', { ascending: false })
           .limit(SAMPLE_SIZE)
           .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
         if (r.error) throw new Error(r.error.message);
-        return withoutEndedRequests(
-          (r.data ?? []) as unknown as { source: string | null; categories: string[] | null; occurred_at: string; expires_at?: string | null }[],
+        return withoutHiddenBids(
+          withoutEndedRequests(
+            (r.data ?? []) as unknown as { source: string | null; categories: string[] | null; occurred_at: string; expires_at?: string | null }[],
+            now.getTime(),
+          ),
           now.getTime(),
         );
       })(),

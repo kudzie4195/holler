@@ -37,7 +37,7 @@ export default function PricingPage() {
               Plans
             </h2>
             <Pricing />
-            <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p>
+            {YEARLY_NOTE ? <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p> : null}
           </div>
         </section>
 

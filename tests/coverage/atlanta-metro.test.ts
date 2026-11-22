@@ -54,7 +54,7 @@ describe('Atlanta building permit applications', () => {
     expect(byId('BB-202610011')).toBeUndefined();
     expect(byId('BB-202610038').categories).toEqual(['general-contractor']);
     expect(byId('BB-202610045').categories).toEqual(['general-contractor']);
-    expect(byId('BB-202610043').title).toBe('Remodel permit in Atlanta');
+    expect(byId('BB-202610043').title).toBe('Tenant fit-out permit in Atlanta'); // a commercial alteration is a tenant fit-out (round 15 Q2)
   });
 
   it('never copies the free-text Name column into any public field', () => {

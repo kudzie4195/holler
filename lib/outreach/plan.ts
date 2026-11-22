@@ -1,4 +1,6 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
+import { companyKey } from '@/lib/signals/managed-by';
+import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, type OutreachLink } from './links';
 import { OUTREACH_REMINDER, STORM_REMINDER, renderNote, type NoteKind } from './templates';
 
@@ -77,6 +79,11 @@ export interface PlanSignal {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
+  /**
+   * The record's stored public summary. For a permit with no stored site row, the job-site address printed in it (permit-value.ts
+   * siteAddressFromSummary) stands in for one, so permits stored before the site rows existed still show the job-site block.
+   */
+  summary?: string | null;
 }
 
 export type PlanContact = ContactInput;
@@ -95,6 +102,8 @@ export interface OrgEntry {
   addressLabel: 'Address' | 'Job site';
   phone: string | null;
   email: string | null;
+  /** The contractor's licence number when the permit publishes it. */
+  license: string | null;
   website: PlanLink | null;
   search: PlanLink | null;
   map: PlanLink | null;
@@ -154,7 +163,7 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass)
   if (!place && zips.length === 0) return null;
   const eddm = withLabel(buildLink({ type: 'eddm' }), 'Plan a mailing (USPS Every Door Direct Mail)');
   const storm = cls === 'storm';
-  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), storm ? 'Read the guide on storm damage leads' : 'Read the guide on answering leads fast');
+  const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), storm ? 'Read the guide on storm damage work' : 'Read the guide on replying fast');
   if (!eddm || !guide) return null;
   return {
     type: 'area',
@@ -186,24 +195,47 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
   const sites = list.filter((c) => c.role === 'site');
-  const siteAddress = sites.map((c) => formatAddress(c, signal.city, signal.state)).find((a): a is string => !!a) ?? null;
-  const siteRaw = sites.find((c) => cleanText(c.address));
+  let siteAddress = sites.map((c) => formatAddress(c, signal.city, signal.state)).find((a): a is string => !!a) ?? null;
+  let siteRaw = sites.find((c) => cleanText(c.address));
+  if (!siteAddress && cls === 'permit') {
+    // A permit stored before site rows existed: the address its public summary already prints.
+    const fromSummary = siteAddressFromSummary(signal.summary);
+    if (fromSummary) {
+      const zip = /(\d{5})(?:-\d{4})?$/.exec(fromSummary.tail ?? '')?.[1] ?? signal.zip ?? null;
+      const derived: PlanContact = { role: 'site', name: '', address: fromSummary.address, city: signal.city ?? null, state: signal.state ?? null, zip };
+      siteAddress = formatAddress(derived, signal.city, signal.state);
+      siteRaw = derived;
+    }
+  }
   const orgs = list.filter((c) => c.role === wantRole && cleanText(c.name));
   const role = ROLE_WORDS[cls]!;
   const noteKind = NOTE_FOR_CLASS[cls]!;
 
   if (orgs.length > 0) {
-    const seen = new Set<string>();
-    const unique = orgs.filter((c) => {
-      const k = cleanText(c.name).toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+    // The same company written two ways ("SUNRUN INSTALLATION SERVICES" and "SUNRUN INSTALLATION SERVICES INC") is one entry: the first
+    // spelling is kept and fills in any phone, e-mail, website, licence or address only the other row has (final review P2-2).
+    const byKey = new Map<string, PlanContact>();
+    for (const c of orgs) {
+      const name = cleanText(c.name);
+      const k = companyKey(name) || name.toLowerCase();
+      const first = byKey.get(k);
+      if (!first) {
+        byKey.set(k, { ...c });
+        continue;
+      }
+      for (const f of ['phone', 'email', 'website', 'license', 'address', 'city', 'state', 'zip'] as const) {
+        if (!cleanText(first[f]) && cleanText(c[f])) (first as unknown as Record<string, unknown>)[f] = c[f];
+      }
+    }
+    const unique = [...byKey.values()];
+    // The job site is one fact about the record, so it is printed on the first entry that has no address of its own, not on every entry.
+    let siteLinePrinted = false;
     const entries: OrgEntry[] = unique.slice(0, MAX_CONTACTS_SHOWN).map((c, i) => {
       const name = cleanText(c.name);
       const own = formatAddress(c, signal.city, signal.state);
       const address = own ?? siteAddress;
+      const printAddress = own ? true : !siteLinePrinted;
+      if (!own && address) siteLinePrinted = true;
       const mapSrc = own ? c : (siteRaw ?? c);
       const city = cleanText(c.city) || cleanText(signal.city);
       const state = cleanText(c.state) || cleanText(signal.state);
@@ -212,10 +244,11 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
         name,
         role,
         attn: cls === 'bid' ? cleanText(c.attn) || null : null,
-        address,
+        address: printAddress ? address : null,
         addressLabel: own || cls !== 'permit' ? 'Address' : 'Job site',
         phone: cleanText(c.phone) || null,
         email: cleanText(c.email) || null,
+        license: cleanText(c.license) || null,
         website: withLabel(buildLink({ type: 'website', url: c.website ?? '' }), 'Website'),
         search: withLabel(buildLink({ type: 'search', org: name, city, state }), 'Search this business'),
         map: address

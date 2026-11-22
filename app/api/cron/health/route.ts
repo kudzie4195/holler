@@ -4,7 +4,9 @@ import { HEALTH_LOOKBACK_HOURS, planHealth, renderHealthEmail, sendEmail, type H
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
-import { readSourceHealth, summarizeSourceHealth } from '@/lib/signals/health';
+import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@/lib/signals/health';
+import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
+import { readStateRuns } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
 
 export const maxDuration = 60;
@@ -60,7 +62,7 @@ async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null)
 }
 
 /**
- * GET /api/cron/health (Authorization: Bearer CRON_SECRET, or ?key=). Builds the daily health report from
+ * GET /api/cron/health (Authorization: Bearer CRON_SECRET only). Builds the daily health report from
  * holler_scan_runs, returns it as JSON, and emails it to ADMIN_EMAIL (falling back to SUPPORT_EMAIL).
  * The ingest monitor's conditions are also reported here (under `monitor`, read only), so the daily report stays ONE email and the
  * daily run never stores alert state. The deduped alert email is sent only by the hourly job.
@@ -109,6 +111,35 @@ export async function GET(req: Request) {
   const counts = await loadCounts(admin, now);
   const report = planHealth({ adapters, runs, counts, now });
 
+  // Per-source delivery health (holler_source_health), read once for both the email's state block and the JSON below. A read failure
+  // leaves both null and never changes the rest of the report.
+  let healthRows: SourceHealthRow[] | null = null;
+  try {
+    healthRows = await readSourceHealth(admin);
+  } catch {
+    healthRows = null;
+  }
+  // Source states (item 2.4): the health rows plus each source's own run history (14 days for the slow sources, see source-state-load.ts;
+  // the report's 96 hours are too short to tell a long stall from a quiet source). Absent when either read fails.
+  let sourceStates: SourceStateSummary | null = null;
+  if (healthRows) {
+    try {
+      const stateAdapters = adapters.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv }));
+      const stateRuns = await readStateRuns(admin, now, stateAdapters);
+      sourceStates = summarizeSourceStates(computeSourceStates({ adapters: stateAdapters, health: healthRows, runs: stateRuns, now }));
+    } catch {
+      sourceStates = null;
+    }
+  }
+  report.sourceStates = sourceStates;
+  // Firecrawl credits and per-source state. Never throws; absent when nothing is configured.
+  try {
+    const { loadFirecrawlHealth } = await import('@/lib/firecrawl/health');
+    report.firecrawl = await loadFirecrawlHealth({ db: admin, now, env: { ...process.env, ...env } });
+  } catch {
+    report.firecrawl = null;
+  }
+
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
   else if (!to) email = { status: 'no_recipient', detail: 'Set ADMIN_EMAIL or SUPPORT_EMAIL to receive the health email.' };
@@ -120,13 +151,7 @@ export async function GET(req: Request) {
     else email = { status: 'failed', to, detail: 'error' in res ? res.error : 'send failed' };
   }
 
-  // Per-source delivery health (holler_source_health). A read failure leaves this null and never changes the rest of the report.
-  let sourceHealth: ReturnType<typeof summarizeSourceHealth> | null = null;
-  try {
-    sourceHealth = summarizeSourceHealth(await readSourceHealth(admin), now);
-  } catch {
-    sourceHealth = null;
-  }
+  const sourceHealth: ReturnType<typeof summarizeSourceHealth> | null = healthRows ? summarizeSourceHealth(healthRows, now) : null;
 
   // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
   const monitorResult = await monitor(admin, now, true, to);

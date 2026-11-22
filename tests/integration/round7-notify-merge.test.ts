@@ -15,6 +15,7 @@ interface World {
   calls: { table: string; ops: Op[] }[];
 }
 
+// Titles name damage, hail or a tornado so all three are Act Now (a bare "wind report" is Coming soon): this test is about the AI ranking, not the label order.
 const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
   id,
   source: 'spc',
@@ -31,9 +32,9 @@ const sig = (id: number, title: string, hoursAgo: number, severity = 1) => ({
 });
 // Newest match first, as the route reads them.
 const MATCHES = [
-  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind report near Smyrna', 2) },
+  { id: 101, user_id: UID, created_at: new Date(NOW - 1 * H).toISOString(), signal: sig(1, 'Wind damage reported near Smyrna', 2) },
   { id: 102, user_id: UID, created_at: new Date(NOW - 2 * H).toISOString(), signal: sig(2, 'Tornado warning for Cobb County', 30, 3) },
-  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 60) },
+  { id: 103, user_id: UID, created_at: new Date(NOW - 3 * H).toISOString(), signal: sig(3, 'Hail report near Marietta', 40) },
 ];
 
 const missing = (t: string) => ({ data: null, error: { code: '42P01', message: `relation "public.${t}" does not exist` } });
@@ -106,7 +107,7 @@ async function runNotify(w: World) {
 }
 
 const order = (text: string) =>
-  ['Wind report near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+  ['Wind damage reported near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta'].map((t) => [t, text.indexOf(t)] as const).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
 const ops = (w: World, table: string) => w.calls.filter((c) => c.table === table).map((c) => c.ops);
 
 afterEach(() => {
@@ -122,7 +123,7 @@ describe('notify cron after the round 7 merge', () => {
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ ok: true, emailed: 1, matches_marked: 3, failed: 0 });
     expect(r.sent).toHaveLength(1);
-    expect(order(r.sent[0].text)).toEqual(['Wind report near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta']);
+    expect(order(r.sent[0].text)).toEqual(['Wind damage reported near Smyrna', 'Tornado warning for Cobb County', 'Hail report near Marietta']);
     expect(r.sent[0].text).not.toContain('Why it may matter');
     expect(r.sent[0].html).not.toContain('Why it may matter');
     // The log and funnel writes were attempted and failed quietly against the missing tables.
@@ -143,7 +144,7 @@ describe('notify cron after the round 7 merge', () => {
     const r = await runNotify(w);
     expect(r.body).toMatchObject({ ok: true, emailed: 1, matches_marked: 3 });
     // Hail (0.95 for roofing) first, then the unscored tornado warning (0.5, severe), then the wind report (0.1 for roofing).
-    expect(order(r.sent[0].text)).toEqual(['Hail report near Marietta', 'Tornado warning for Cobb County', 'Wind report near Smyrna']);
+    expect(order(r.sent[0].text)).toEqual(['Hail report near Marietta', 'Tornado warning for Cobb County', 'Wind damage reported near Smyrna']);
     expect(r.sent[0].text).toContain('Why it may matter: A roof inspection may follow this hail report.');
     expect(r.sent[0].html).toContain('<strong>Why it may matter:</strong> A roof inspection may follow this hail report.');
     // The note of a trade the member did not pick is never shown.

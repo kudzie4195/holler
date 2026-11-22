@@ -5,6 +5,8 @@ import { generateDraft } from '@/lib/ai/draft';
 import { computeAccess } from '@/lib/auth/access';
 import { hit, LIMITS } from '@/lib/auth/ratelimit';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
+import { originAllowed } from '@/lib/auth/origin';
+import { siteUrl } from '@/lib/env';
 
 // Reply drafts: the model is called only when a signed-in member with access (trial or plan, computeAccess) asks for a draft of an
 // "ask" record matched to them, under the same monthly AI cap as the cron classification step (lib/ai/draft.ts). Classification
@@ -22,6 +24,12 @@ interface SignalRow {
 }
 
 export async function POST(req: Request) {
+  // SEC-5: JSON only (a cross-site form or a no-cors text/plain fetch cannot send it) and same-origin when the browser says where it
+  // came from. Before this the route parsed any body type and leaned on SameSite=Lax alone to stop cross-site calls on the AI budget.
+  if (!(req.headers.get('content-type') ?? '').toLowerCase().includes('application/json')) {
+    return Response.json({ error: 'unsupported' }, { status: 415 });
+  }
+  if (!originAllowed(req, siteUrl)) return Response.json({ error: 'forbidden' }, { status: 403 });
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;

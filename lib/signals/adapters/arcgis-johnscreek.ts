@@ -30,9 +30,12 @@ export const JC_SYNTH_FIELD = 'JobWorkType';
 
 export const JOHNS_CREEK_PERMITS: ArcgisDataset = {
   id: 'arcgis-johnscreek-permits', city: 'Johns Creek', state: 'GA', tz: 'America/New_York', layerUrl: JC_LAYER,
-  kind: 'permit', subtype: 'permit', idField: 'JobID', dateField: 'ISSUE_DATE', dateType: 'date',
+  kind: 'permit', subtype: 'permit', idField: 'JobID', dateField: 'ISSUE_DATE', dateType: 'date', dateOnly: true,
   titleFields: ['JobTypeDescription'], textFields: ['JobTypeDescription', JC_SYNTH_FIELD], summaryFields: [JC_SYNTH_FIELD],
   addressFields: ['JobAddress'],
+  // Round 15: the job-site address as a private site row (no owner, applicant or contractor column exists). No value column either.
+  contacts: { verifiedUrl: `${JC_LAYER}?f=json`, checkedOn: '2026-11-19', fieldStatus: 'sourced', site: { addressFields: ['JobAddress'] } },
+  valueFields: [],
   extraWhere: `(${Object.keys(JOHNS_CREEK_PREFIX_TYPES).map((p) => `JobID LIKE '${p}-%'`).join(' OR ')})`,
   windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: `${JC_LAYER}?f=json`, checkedOn: '2026-11-19', fieldSource: 'sourced',
   note: 'City of Johns Creek building permits issued, layer Building_Permits_Issued/0, 11 fields (JobID, JobTypeDescription, JobAddress, JobSquareFootage, JobStatus, ISSUE_DATE and others). Live checks 2026-11-19: editingInfo.dataLastEditDate 2026-11-18, newest ISSUE_DATE 2026-11-17, 282 rows issued in the last 30 days, 20584 rows in all. No owner, applicant or contractor column. The trade comes from the JobID prefix (see JOHNS_CREEK_PREFIX_TYPES). Sibling layers Code_Compliance_Cases (last edit 2022-10), Citizen_Requests_and_Issues (2022-04), Citizen_Requests_and_Calls (2019-08) and Utility_Permits (2022-08) are stale and not used.',

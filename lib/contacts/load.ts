@@ -43,6 +43,7 @@ interface ContactRow {
   phone: string | null;
   email: string | null;
   website: string | null;
+  license?: string | null;
 }
 
 export async function contactsForMember(
@@ -86,12 +87,14 @@ export async function contactsForMember(
     if (owned.length === 0) return out;
 
     // 3. Their contacts.
-    const { data: rows, error: cErr } = await db
-      .from('holler_signal_contacts')
-      .select('signal_id, role, name, attn, address, city, state, zip, phone, email, website')
-      .in('signal_id', owned)
-      .order('id', { ascending: true })
-      .limit(owned.length * 6);
+    const read = (cols: string) =>
+      db.from('holler_signal_contacts').select(cols).in('signal_id', owned).order('id', { ascending: true }).limit(owned.length * 6);
+    const BASE = 'signal_id, role, name, attn, address, city, state, zip, phone, email, website';
+    let res = await read(`${BASE}, license`);
+    // Before migration 0022 the license column does not exist: read again without it (everything else shows as before).
+    if (res.error && /\blicense\b/i.test(res.error.message ?? '')) res = await read(BASE);
+    const rows = res.data as unknown;
+    const cErr = res.error;
     if (cErr) {
       logFailure('contacts', cErr);
       return new Map();
@@ -112,6 +115,7 @@ export async function contactsForMember(
         phone: r.phone ?? null,
         email: r.email ?? null,
         website: r.website ?? null,
+        ...(r.license ? { license: r.license } : {}),
       };
       const list = out.get(r.signal_id) ?? [];
       if (list.length < 6) list.push(rec);
@@ -122,4 +126,31 @@ export async function contactsForMember(
     logFailure('exception', e);
     return new Map();
   }
+}
+
+/**
+ * ADMIN ONLY (the owner score report, lib/signals/score-admin.ts behind the CRON_SECRET route). Which of these signal ids have a named
+ * organisation on file (any role but a bare 'site' address, with a name). Returns ids only: no name, phone, e-mail or address leaves
+ * this function. It is not for a member-facing path: those use contactsForMember, which checks the member's own match and access.
+ * Reads in chunks of 200 ids; a read error stops early and the ids found so far are returned (the score then simply lacks +30).
+ */
+export async function signalIdsWithNamedContact(db: Db, signalIds: number[]): Promise<{ ids: Set<number>; reads: number }> {
+  const ids = [...new Set(signalIds.filter((n) => Number.isSafeInteger(n) && n > 0))];
+  const found = new Set<number>();
+  let reads = 0;
+  for (let i = 0; i < ids.length; i += MAX_SIGNAL_IDS) {
+    reads++;
+    const { data, error } = await db
+      .from('holler_signal_contacts')
+      .select('signal_id')
+      .neq('role', 'site')
+      .neq('name', '')
+      .in('signal_id', ids.slice(i, i + MAX_SIGNAL_IDS));
+    if (error) {
+      logFailure('named-contact-ids', error);
+      break;
+    }
+    for (const r of (data ?? []) as { signal_id: number }[]) found.add(r.signal_id);
+  }
+  return { ids: found, reads };
 }

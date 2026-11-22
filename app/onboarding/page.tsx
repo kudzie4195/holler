@@ -9,6 +9,7 @@ import { getProfile, requireUser } from '@/lib/auth/session';
 import { cleanCitySlug } from '@/lib/auth/redirect';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { cityBySlug } from '@/lib/geo';
 import { completeOnboarding } from './actions';
 
@@ -54,7 +55,7 @@ async function Onboarding({ searchParams }: { searchParams: PageProps<'/onboardi
     <Card className="mt-8">
       <ProfileForm
         action={completeOnboarding}
-        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) }))}
+        categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) }))}
         defaults={{ business_name: '', categories: [], zip: '', radius: 25, alert_email: true }}
         submitLabel="Start my free trial"
         // The free trial uses Solo (`starter`) limits; the Pro fields show locked with a link to the plans.

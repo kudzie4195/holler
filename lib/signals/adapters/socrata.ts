@@ -1,9 +1,9 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { extractContacts } from '@/lib/contacts/extract';
+import { extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import {
@@ -126,8 +126,9 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
       if (rule.severity && rule.severity > severity) severity = rule.severity;
     }
   }
-  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone.
-  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit') classifyText(text).forEach((c) => set.add(c));
+  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone. Code violations decide alone too
+  // (round 15 quality gate: "REPAIR GUTTER & DOWNSPOUT" was tagged roofing by the keyword list; VIOLATION_RULES already routes gutters).
+  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit' && ds.subtype !== 'violation') classifyText(text).forEach((c) => set.add(c));
   return { categories: [...set], severity };
 }
 
@@ -440,6 +441,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
 
       const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
+      // Permits: the project value the city published, as a number (PLAN-2.0 1.3). Public already: the summary prints the same amount.
+      const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       out.push({
         source: ds.id,
@@ -463,6 +466,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           subtype: ds.subtype,
           cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
+          ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
       });
@@ -497,9 +501,14 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   }
   const p = new URLSearchParams();
   p.set('$where', clauses.join(' AND '));
-  p.set('$order', `${ds.dateField} DESC`);
+  // Paged datasets order by the id too: many rows share one date-only timestamp, and an unstable order would repeat or skip rows across pages.
+  p.set('$order', pages(ds) > 1 ? `${ds.dateField} DESC, ${ds.idField}` : `${ds.dateField} DESC`);
   p.set('$limit', String(LIMIT));
   return p;
+}
+
+function pages(ds: Pick<SocrataDataset, 'maxPages'>): number {
+  return Math.max(1, Math.min(ds.maxPages ?? 1, 6));
 }
 
 const LABEL_SUFFIX: Record<SocrataDataset['subtype'], string> = {
@@ -521,19 +530,28 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     sourceUrl: datasetPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
-        const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${buildSocrataQuery(ds, ctx.now ?? new Date()).toString()}`;
+        const query = buildSocrataQuery(ds, ctx.now ?? new Date());
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         if (token) headers['X-App-Token'] = token;
-        const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-        if (!res.ok) {
-          ctx.log(`${ds.id}: HTTP ${res.status}`);
-          return [];
-        }
-        const body: unknown = await res.json();
-        if (!Array.isArray(body)) {
-          ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
-          return [];
+        const body: unknown[] = [];
+        for (let page = 0; page < pages(ds); page++) {
+          if (page > 0) query.set('$offset', String(page * LIMIT));
+          const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`;
+          const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+          if (!res.ok) {
+            ctx.log(`${ds.id}: HTTP ${res.status}`);
+            if (page === 0) return [];
+            break; // keep the pages already read
+          }
+          const part: unknown = await res.json();
+          if (!Array.isArray(part)) {
+            ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
+            if (page === 0) return [];
+            break;
+          }
+          body.push(...part);
+          if (part.length < LIMIT) break;
         }
         const report = parseSocrataReport(body, ds);
         if (report.rows > 0 && report.items.length === 0) {
