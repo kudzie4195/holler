@@ -164,9 +164,10 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
     for (const t of ['fencing', 'security', 'pool-spa', 'windows-doors']) expect(label(s, t), t).toBe('context');
   });
 
-  it('a new building is soon for landscaping and cleaning (commercial cleaning comes from fit-out and sign permits)', () => {
+  it('a new building is soon for landscaping only (house cleaning follows new homes; commercial cleaning follows fit-out and sign permits)', () => {
     const s = permit('New construction permit in Austin', ['general-contractor']);
-    for (const t of ['landscaping', 'cleaning']) expect(label(s, t), t).toBe('soon');
+    expect(label(s, 'landscaping')).toBe('soon');
+    expect(label(s, 'cleaning')).toBe('context');
     expect(label(s, 'janitorial-commercial')).toBe('context');
     for (const t of ['concrete-paving', 'fencing', 'security']) expect(label(s, t), t).toBe('context');
   });
@@ -232,8 +233,6 @@ describe('permits: own trade is intel, downstream trades are soon', () => {
 describe('code violations: act for the repair trades the notice names', () => {
   it.each([
     ['REPAIR EXTERIOR WALL', ['handyman', 'general-contractor']],
-    ['REPAIR PORCH SYSTEM', ['handyman', 'general-contractor']],
-    ['Structure Condition Violation(s)', ['handyman', 'general-contractor']],
     ['REPAIR ROOF', ['roofing']],
     ['INSTALL SMOKE DETECTORS', ['handyman']],
     ['EXPOSED WIRING', ['electrical']],
@@ -272,12 +271,12 @@ describe('code violations: act for the repair trades the notice names', () => {
     expect(label(violation('Code violation in Chicago: ILLUMINATE PUBLIC STAIR/HALL'), 'electrical')).toBe('act');
   });
 
-  it('unrecognised text is soon for handyman and general contractor (plus repair trades the record is tagged with)', () => {
+  it('unrecognised text is soon for handyman (plus tagged repair trades) and market insight for general contractors', () => {
     const s = violation('Code violation in Austin: Work Without Permit', ['general-contractor', 'handyman']);
-    expect(opportunityTrades(s)).toEqual({ handyman: 'soon', 'general-contractor': 'soon' });
+    expect(opportunityTrades(s)).toEqual({ handyman: 'soon', 'general-contractor': 'intel' });
     expect(opportunityFor(s, 'handyman').reason).toBe('violation-general');
     const dekalb = sig('arcgis-dekalb-violations', 'civic', 'violation', 'Code violation in DeKalb County: property violation', ['junk-removal']);
-    expect(opportunityTrades(dekalb)).toEqual({ handyman: 'soon', 'general-contractor': 'soon', 'junk-removal': 'soon' });
+    expect(opportunityTrades(dekalb)).toEqual({ handyman: 'soon', 'general-contractor': 'intel', 'junk-removal': 'soon' });
   });
 
   it('property abatement is soon for cleanup trades', () => {
@@ -445,8 +444,10 @@ describe('weather alerts', () => {
 
 describe('storm reports, disasters, quakes', () => {
   const spc = (title: string, data: Record<string, unknown>) => sig('spc', 'report', null, title, [], { data });
-  it('wind damage naming trees is act for tree service and soon for roofing and restoration', () => {
-    const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Tree down blocking entire road in association with convective band. (LOX)' });
+  it('wind damage naming trees in a yard is act for tree service; a tree across a road is not', () => {
+    const road = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Tree down blocking entire road in association with convective band. (LOX)' });
+    expect(label(road, 'tree-service')).toBe('soon');
+    const s = spc('Wind damage reported near 11 NE Nipomo, CA', { type: 'wind', comments: 'Large tree uprooted in a yard. (LOX)' });
     expect(opportunityTrades(s)).toEqual({ 'tree-service': 'act', roofing: 'soon', restoration: 'soon' });
     expect(opportunityFor(s, 'tree-service').reason).toBe('storm-damage-report');
   });
@@ -594,5 +595,18 @@ describe('round 4 grading fixes', () => {
     const s = permit('Addition permit in Austin', ['general-contractor']);
     expect(opportunityFor(s, 'hvac').next).toMatch(/now/);
     expect(opportunityFor(s, 'painting').next).toMatch(/check back/);
+  });
+});
+
+describe('round 5 grading fixes', () => {
+  it('a category-only Austin violation is never Act now and says the repair is not named', () => {
+    const s = sig('socrata-austin-violations', 'civic', 'violation', 'Code violation in Austin: Structure Condition Violation(s)', ['handyman', 'general-contractor']);
+    expect(opportunityFor(s, 'handyman')).toMatchObject({ label: 'soon', reason: 'violation-general' });
+    expect(label(s, 'general-contractor')).toBe('intel');
+  });
+  it('a fire sprinkler permit is not landscaping work', async () => {
+    const { classifyText } = await import('@/lib/signals/categories');
+    expect(classifyText('Sprinklers permit at 40 Wall St')).not.toContain('landscaping');
+    expect(classifyText('lawn sprinkler repair')).toContain('landscaping');
   });
 });

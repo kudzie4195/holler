@@ -285,7 +285,7 @@ export const PERMIT_DOWNSTREAM: Record<string, CategoryId[]> = {
   // screen doors or a garage door opener the builder did not fit.
   'new-home': ['real-estate', 'moving', 'landscaping', 'lawn-care', 'cleaning'],
   // Any new building (home or commercial) needs a site finished around it, a post-construction clean and usually an alarm.
-  'new-construction': ['landscaping', 'cleaning'],
+  'new-construction': ['landscaping'],
   // A re-roof is when owners replace gutters and siding trim, add solar on the new roof, and haul off what the tear-off left.
   roof: ['siding-gutters'],
   // Solar often needs a panel or service upgrade, and roof prep or repair before the panels go on.
@@ -427,7 +427,8 @@ function permitRule(sig: OpportunityInput): OpportunityAssessment {
  */
 const VIOLATION_TRADES: { re: RegExp; trades: CategoryId[]; unless?: RegExp }[] = [
   // Not when the wall or stair is only where the paint or the light is ("INT WALL/CEILING PEELING PAINT", "ILLUMINATE PUBLIC STAIR/HALL").
-  { re: /exterior wall|\bwalls?\b|ceiling|porch|stair|balcon|structur|building condition|foundation|sidewalk shed|parapet|chimney/, trades: ['handyman', 'general-contractor'], unless: /paint|illuminat|lighting/ },
+  // "Structure Condition Violation(s)" and "building condition" are categories, not a named repair: they go to violation-general.
+  { re: /exterior wall|\bwalls?\b|ceiling|porch|stair|balcon|foundation|sidewalk shed|parapet|chimney/, trades: ['handyman', 'general-contractor'], unless: /paint|illuminat|lighting/ },
   { re: /\broof/, trades: ['roofing'] },
   { re: /smoke detector|carbon monoxide|co detector/, trades: ['handyman'] },
   { re: /electric|wiring|outlet|breaker|\bjbs?\b|junction box|illuminat|lighting|light fixture|fixtures?\b/, trades: ['electrical'] },
@@ -472,7 +473,8 @@ function violationRule(sig: OpportunityInput): OpportunityAssessment {
   } else {
     // The notice names no repair ("property violation", "Work Without Permit", "OR LICENSED CONTRACTOR").
     const tagged = validCats(sig.categories ?? []).filter((c) => VIOLATION_TAG_TRADES.has(c));
-    grantAll(g, ['handyman', 'general-contractor', ...tagged], 'soon', 'violation-general');
+    grantAll(g, ['handyman', ...tagged.filter((t) => t !== 'general-contractor')], 'soon', 'violation-general');
+    grantAll(g, ['general-contractor'], 'intel', 'violation-general');
   }
   return assess('violation', 'other-trades', g);
 }
@@ -672,7 +674,9 @@ function stormReportRule(sig: OpportunityInput): OpportunityAssessment {
     const comments = norm(d.comments) || norm(sig.summary);
     if (/^wind damage/.test(title) || DAMAGE_WORDS_RE.test(comments)) {
       // Tree service is Act now only when the report names trees or limbs; a roof or tarp report goes to roofers first.
-      const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(comments);
+      // A tree across a highway, ramp or road is a road crew's job, not a homeowner's.
+      const road = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(comments);
+      const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(comments) && !(road && !/home|house|yard|residen/.test(comments));
       const roof = /roof|shingle|tarp|siding|gutter/.test(comments);
       const homeDamage = /home|house|residen|roof|siding|garage|carport|porch|structure|building/.test(comments);
       grantAll(g, ['tree-service'], trees ? 'act' : roof ? 'intel' : 'soon', 'storm-damage-report');
@@ -905,7 +909,7 @@ const COPY: Record<OpportunityReason, (c: CopyCtx) => Copy> = {
       : c.detail.unit
         ? 'Someone reported no heat or hot water in one apartment through 311, and landlords must restore heat and hot water.'
         : 'Someone reported a heat or hot water outage in this building through 311, and landlords must restore heat and hot water.',
-    next: "Contact the building's owner or managing agent today.",
+    next: c.detail.unit ? "Contact the building's owner or managing agent; the super may handle it first." : "Contact the building's owner or managing agent today.",
     uncertain: "The building's own staff or contractor may already be fixing it.",
   }),
   'sewage-backup': () => ({
