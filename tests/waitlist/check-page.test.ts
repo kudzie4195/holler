@@ -10,6 +10,7 @@ vi.mock('@/lib/analytics/request', () => ({ eventContext: async () => null, trac
 vi.mock('@/lib/auth/ratelimit', () => ({ hit: async () => 'allowed', clientIp: () => '203.0.113.5' }));
 const loadCheck = vi.fn(async () => ({ ok: true, items: [], checkedAt: new Date(0).toISOString() }));
 vi.mock('@/lib/check/load', () => ({ loadCheck: (...a: unknown[]) => loadCheck(...(a as [])) }));
+vi.mock('@/lib/signals/source-state-snapshot', () => ({ loadSourceStateSnapshot: async () => null }));
 vi.mock('@/components/top-nav', () => ({ TopNav: () => null }));
 vi.mock('@/components/footer', () => ({ Footer: () => null }));
 

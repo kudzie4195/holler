@@ -173,7 +173,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const [data, snapshot] = await Promise.all([
     loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
     // Source states (lib/signals/source-state.ts): when a source covering this ZIP and trade is behind, the results say so.
-    loadSourceStateSnapshot(),
+    loadSourceStateSnapshot().catch(() => null),
   ]);
   const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now });
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).

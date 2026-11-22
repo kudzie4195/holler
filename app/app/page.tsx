@@ -220,7 +220,8 @@ async function loadDashboard() {
   // unavailable, the header says so in one line, so a quiet feed is never read as full coverage. Any failure means no line.
   let coverage: string | null = null;
   try {
-    if (profile.lat !== null && profile.lon !== null) {
+    // A locked account sees a masked feed and never triggers a service-role read here.
+    if (!access.locked && profile.lat !== null && profile.lon !== null) {
       const snapshot = await loadSourceStateSnapshot();
       coverage =
         coverageNotice({
