@@ -92,6 +92,9 @@ it('dumps English output', async () => {
   expect(shown).toBeGreaterThan(300);
   // Redo 1: pinned. Round 18 ROUTES changed none of these 3,171 outputs against the base commit 8bee203 (reviewer's diff, and a re-run of
   // this probe on 3d01b54 and on the redo: 0 differ). A change here is a change of English output: check it, then update the snapshot.
+  // Round 18 integration: snapshot regenerated once. 163 card renders changed only in React useId values (aria-labelledby "_R_4s_" ->
+  // "_R_5c_"), because the lists unit added an optional listLink slot before WhoToContact in components/feed.tsx; with the ids normalised
+  // all 3,171 outputs and the match rows are identical to r18-routes fe723dc.
   const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
   expect({ shown, outputs: Object.keys(out).length, out: sha(out), matchRows: sha(matchRows) }).toMatchSnapshot();
 });
