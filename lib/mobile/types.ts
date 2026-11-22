@@ -286,6 +286,8 @@ export interface BriefDto {
   /** Part 5: "High confidence the inspection failed; whether the owner is hiring is not known." */
   uncertain: string;
   confidence: 'High' | 'Medium' | 'Low';
+  /** NYC no-heat alerts only (additive): "Managed by: <Company> (from the city's building registration)". Company names only. Absent otherwise and for a locked member. */
+  managedBy?: string;
 }
 
 export interface AlertDto {

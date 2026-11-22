@@ -5,6 +5,7 @@ import { adapters as fema } from './adapters/fema';
 import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
+import { adapters as nycHeat } from './adapters/nyc-hpd';
 import { adapters as arcgis } from './adapters/arcgis';
 import { adapters as arcgisJohnsCreek } from './adapters/arcgis-johnscreek';
 import { adapters as arcgisCobb, COBB_SOURCE_IDS } from './adapters/arcgis-cobb';
@@ -21,7 +22,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...fema,
   ...usgs,
   ...faa,
-  ...socrata,
+  // NYC 311 is built by nyc-hpd.ts (same scan, plus the HPD managing-agent company on heat rows), so it replaces the shared one in place.
+  ...socrata.map((a) => nycHeat.find((n) => n.id === a.id) ?? a),
   // The Cobb permit layers are built by arcgis-cobb.ts (approximate location marker), so the shared list skips them.
   ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
   ...arcgisCobb,

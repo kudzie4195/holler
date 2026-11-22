@@ -58,6 +58,9 @@ export interface FeedItem {
   approxNote?: string | null;
   /** Open city bids only: "Buyer: X. Due Dec 10, 2026, 19 days left." Worked out on the server. Never says the member can win or bid. */
   bidLine?: string | null;
+  /** NYC no-heat cards: data.managerName / data.managerRole (company names only, checked again when the card is built). Never for a locked account. */
+  managerName?: string | null;
+  managerRole?: string | null;
   /**
    * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
    * Absent for records without contacts and always absent for a locked member.

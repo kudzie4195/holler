@@ -2,6 +2,7 @@ import type { CategoryId } from './categories';
 import { formatDeadlineDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidSourceLinkLabel } from './bid-card';
 import { getSourceMeta } from './source-meta';
+import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
 
 /**
  * Brief card v1 (PLAN-2.0 item 0.4). Every alert card (web feed, email digest, mobile API) renders five parts:
@@ -560,6 +561,11 @@ export function sourceLine(s: Pick<BriefSource, 'label' | 'dateText'>): string {
 
 export interface CardBrief extends Brief {
   source: BriefSource;
+  /**
+   * NYC no-heat cards only (PLAN-2.0 2.6): "Managed by: <Company> (from the city's building registration)", or null. Company names only;
+   * built from data.managerName / data.managerRole after the name is checked again (lib/signals/managed-by.ts). Null for every other record.
+   */
+  managedBy: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -568,6 +574,9 @@ export interface CardBriefInput extends BriefInput {
   url?: string | null;
   occurredAt?: string | null;
   base?: string | null;
+  /** data.managerName and data.managerRole of the signal (written at ingest for NYC heat rows). Ignored for any other record. */
+  managerName?: string | null;
+  managerRole?: string | null;
 }
 
 /** All five parts' data for one card. An unset label counts as coming_soon (what a row without a label was before). */
@@ -575,6 +584,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
   return {
     ...briefFor({ ...input, label: input.label ?? 'coming_soon' }),
     source: briefSource(input),
+    managedBy: briefFamilyOf(input) === '311' && isResidentialHeatTitle(input.title) ? managedByLineFrom(input.managerName, input.managerRole) : null,
   };
 }
 

@@ -20,6 +20,7 @@ import { matchScope } from '@/lib/plan/scope';
 import { markAlertsEmailed } from '@/lib/moat/log';
 import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
@@ -53,6 +54,9 @@ interface SignalRow {
   deadline?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** NYC no-heat rows only: data.managerName and data.managerRole (company names only). */
+  managerName?: string | null;
+  managerRole?: string | null;
   dueDate?: string | null;
   fixBy?: string | null;
   responseDeadline?: string | null;
@@ -93,7 +97,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const { data, error } = await admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer)`)
+      .select(`id, user_id, created_at, signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, occurred_at, severity, categories, subtype:data->>subtype, ${DEADLINE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -235,6 +239,8 @@ export async function GET(req: Request) {
         trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, trades),
         deadline: deadlineOf(s),
         bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now) : null,
+        managerName: s.managerName ?? null,
+        managerRole: s.managerRole ?? null,
       }));
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),

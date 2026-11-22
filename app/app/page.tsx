@@ -14,6 +14,7 @@ import { requireProfile } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
 import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { matchScope } from '@/lib/plan/scope';
@@ -55,6 +56,9 @@ interface SignalRow {
   dueDate?: string | null;
   /** City open bids only (data.buyer): the buyer. The due day comes from dueDate above. */
   bidBuyer?: string | null;
+  /** NYC no-heat rows only (data.managerName, data.managerRole): the company the city's building registration names. */
+  managerName?: string | null;
+  managerRole?: string | null;
 }
 
 interface MatchRow {
@@ -74,7 +78,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`,
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -194,6 +198,9 @@ async function loadDashboard() {
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,
+      // NYC no-heat rows: the registered managing agent or owner company (company names only). Never for a locked account (see below).
+      managerName: s.managerName ?? null,
+      managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now)) : null,
     };
@@ -205,7 +212,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, managerName: null, managerRole: null }
       : base;
   });
 
