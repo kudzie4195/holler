@@ -190,14 +190,14 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
  * (44 fields). Contact columns: primaryContactName, primaryContactPhone, primaryContactType, primaryContactEMailAddress, primaryContactId,
  * primaryIdentityId. There is NO applicant, contractor or company column: primaryContact* is the person or business that filed the
  * application, so a homeowner appears there too. Only a name the organisation classifier accepts is kept, only when primaryContactType
- * does not say owner, resident or tenant, and its phone is kept only with such a name. The e-mail column is never read. Value columns:
+ * is on the contractor allow-list (blank or unknown types show nothing), and its phone is kept only with such a name. The e-mail column is never read. Value columns:
  * declaredValuation and calculatedValuation (both text). Address: location, locationLine1 (no separate city, state or ZIP).
  *
  * Raleigh: contractorcompanyname and contractorlicnum named by https://www.openpermitdata.com/raleigh/methodology (fetched 2026-11-21,
  * "approximately 92% of all permits" carry the company name). contractorphone is a candidate. contractorfullname (a person) is never read.
  *
- * DC: PERMIT_APPLICANT and OWNER_NAME exist (round 4 note). Only the applicant is read, as the party that filed the permit; a person is
- * rejected by the classifier. No contractor column or value column is known; the value names below are candidates.
+ * DC: PERMIT_APPLICANT and OWNER_NAME exist (round 4 note). Neither is read: the applicant is often the owner or the owner's company and
+ * is never labelled the contractor (review HSK G-P1-1). No contractor column is known; the value names below are candidates.
  *
  * Mecklenburg, Atlanta, Johns Creek, Cobb: address (and, where the summary has it, value) only. owner_* columns are never read.
  */
@@ -213,7 +213,10 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
         nameFields: ['primaryContactName'],
         phoneField: 'primaryContactPhone',
         typeField: 'primaryContactType',
-        rejectType: /owner|resident|tenant|home\s?owner|individual|person|occupant/i,
+        // Review HSK G-P1-1: the filer of a DeKalb application is often the owner or the owner's company. Only a filer whose type says
+        // contractor (or builder, or a licensed professional) is shown as the contractor; a blank or unknown type shows nothing.
+        acceptType: /contractor|builder|licensed\s+professional/i,
+        rejectType: /owner|resident|tenant|home\s?owner|individual|person|occupant|applicant|agent|architect|engineer/i,
       },
     ],
   },
@@ -230,7 +233,7 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
     checkedOn: '2026-11-21',
     fieldStatus: 'sourced',
     site: { addressFields: ['FULL_ADDRESS'], zipField: 'ZIPCODE' },
-    orgs: [{ role: 'contractor', nameFields: ['PERMIT_APPLICANT'] }],
+    // Review HSK G-P1-1: PERMIT_APPLICANT is the applicant, often the owner or the owner's LLC, never labelled the contractor. Not read.
   },
   'arcgis-mecklenburg-permits': {
     verifiedUrl: M(MECK),

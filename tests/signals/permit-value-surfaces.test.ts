@@ -37,8 +37,9 @@ describe('parseMoney / firstMoney / formatMoney', () => {
     ['18500.4', 18500],
     [MIN_JOB_VALUE, MIN_JOB_VALUE],
     [MAX_JOB_VALUE, MAX_JOB_VALUE],
+    ['$499,999,999', 499999999],
   ])('reads %j as %s', (raw, want) => expect(parseMoney(raw)).toBe(want));
-  it.each([[0], ['0'], [''], [null], [undefined], ['n/a'], ['12abc'], [-500], ['-500'], [9], [MAX_JOB_VALUE + 1], [NaN], [Infinity], ['5551234567890'], [{}], [[]]])('rejects %j', (raw) => expect(parseMoney(raw)).toBeNull());
+  it.each([[0], ['0'], [''], [null], [undefined], ['n/a'], ['12abc'], [-500], ['-500'], [9], [MAX_JOB_VALUE + 1], ['$4,045,551,212'], ['4045551212'], [4045551212], ['2125551212'], ['$500,000,001'], ['404-555-1212'], ['(404) 555-1212'], [NaN], [Infinity], ['5551234567890'], [{}], [[]]])('rejects %j', (raw) => expect(parseMoney(raw)).toBeNull());
   it('firstMoney takes the first plausible value in order (a 0 total falls through to the trade valuation)', () => {
     expect(firstMoney(['0', '', '7000', '9000'])).toBe(7000);
     expect(firstMoney([null, 'x'])).toBeNull();
@@ -86,6 +87,12 @@ describe('siteAddressFromSummary (read path, stored summaries)', () => {
     ['Roof | 1500 sq ft'],
     ['Roof | $14,500 job value'],
     ['Roof | 4 units'],
+    ['Roof | 2 units | 10 stories'],
+    ['2 units | 10 stories'],
+    ['Roof | 10 floors'],
+    ['Roof | 3 bedrooms'],
+    ['Roof | 12 months'],
+    ['Roof | 2500 square'],
     ['Roof | 4000 block of W MADISON ST'],
     ['Roof | 12 Main St call 404-555-0100'],
     [''],
@@ -156,15 +163,32 @@ describe('the value line on the three surfaces', () => {
 });
 
 describe('who to contact: the licence number of a contractor company', () => {
-  it('is printed as "License number: N" under the company, and nothing is printed without one', async () => {
+  it('is printed as "Contractor license number: N" under the company, and nothing is printed without one', async () => {
     const { WhoToContact } = await import('@/components/feed/who-to-contact');
     const item = { source: 'socrata-nyc-permits', kind: 'permit', city: 'New York City', state: 'NY', title: 'Permit', summary: 'General Construction | $125,000 job value | BROOKLYN', url: 'https://data.cityofnewyork.us/d/rbx6-tga4' };
     const co = { role: 'contractor' as const, name: 'METRO BUILDING SERVICES LLC', phone: '718-555-0140', license: '626543' };
     const html = renderToStaticMarkup(createElement(WhoToContact, { item: item as never, contacts: [co] }));
     expect(html).toContain('METRO BUILDING SERVICES LLC');
-    expect(html).toContain('License number: 626543');
+    expect(html).toContain('Contractor license number: 626543');
     const plain = renderToStaticMarkup(createElement(WhoToContact, { item: item as never, contacts: [{ ...co, license: undefined }] }));
-    expect(plain).not.toContain('License number');
+    expect(plain).not.toContain('license number');
     for (const re of BANNED) expect(html, String(re)).not.toMatch(re);
+  });
+});
+
+describe('review HSK G-P2: a value or a site that merely looks like one', () => {
+  it('a phone number typed into the cost column is never a value, from the ingest or from a stored summary', () => {
+    expect(jobValueOf({ jobValue: '$4,045,551,212' })).toBeNull();
+    expect(jobValueOf({ summary: 'PERMIT | $4,045,551,212 job value | 2150 N DAMEN' })).toBeNull();
+    expect(jobValueLine({ jobValue: 4045551212 })).toBeNull();
+  });
+  it('a count in a summary part is not a job site', () => {
+    expect(siteAddressFromSummary('Office | 10 stories')).toBeNull();
+    expect(siteAddressFromSummary('Office | 10 stories | 2150 N DAMEN')?.address).toBe('2150 N DAMEN');
+    expect(siteAddressFromSummary('2 units | 10 stories')).toBeNull();
+  });
+  it('the plan never prints a non-address as the job site', () => {
+    const plan = outreachPlan({ source: 'socrata-chicago-permits', kind: 'permit', city: 'Chicago', state: 'IL', summary: 'PERMIT | 10 stories' }, []);
+    expect(JSON.stringify(plan ?? {})).not.toContain('10 stories');
   });
 });

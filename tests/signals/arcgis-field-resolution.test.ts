@@ -34,15 +34,15 @@ describe('resolveOptionalFields', () => {
   beforeEach(() => resetArcgisFieldCache());
 
   it('returns only the optional fields the layer really has, and logs the rest once', async () => {
-    const { c, logs } = ctx(['PERMIT_ID', 'ISSUE_DATE', 'PERMIT_APPLICANT', 'ESTIMATED_COST', 'FULL_ADDRESS']);
+    const { c, logs } = ctx(['PERMIT_ID', 'ISSUE_DATE', 'ESTIMATED_COST', 'FULL_ADDRESS']);
     const got = await resolveOptionalFields(dc, c, NOW);
-    expect([...got].sort()).toEqual(['ESTIMATED_COST', 'PERMIT_APPLICANT']);
+    expect([...got].sort()).toEqual(['ESTIMATED_COST']);
     expect(logs).toHaveLength(1);
     expect(logs[0]).toContain('COST_OF_CONSTRUCTION');
   });
 
   it('caches the field list for 6 hours (one metadata request), and reads it again afterwards', async () => {
-    const { c, urls } = ctx(['PERMIT_APPLICANT']);
+    const { c, urls } = ctx(['ESTIMATED_COST']);
     await resolveOptionalFields(dc, c, NOW);
     await resolveOptionalFields(dc, c, new Date(NOW.getTime() + 5 * 3_600_000));
     expect(urls.filter((u) => u.endsWith('?f=json'))).toHaveLength(1);
@@ -68,10 +68,9 @@ describe('the adapter asks the data query only for fields the layer has', () => 
   beforeEach(() => resetArcgisFieldCache());
 
   it('a candidate the layer lacks never reaches outFields; the required fields always do', async () => {
-    const { c, urls } = ctx(['PERMIT_APPLICANT', 'ESTIMATED_COST'], [{ attributes: { PERMIT_ID: 'P1', ISSUE_DATE: NOW.getTime() - 86_400_000, DESC_OF_WORK: 'Interior alteration', PERMIT_TYPE_NAME: 'CONSTRUCTION', PERMIT_SUBTYPE_NAME: 'ALTERATION', FULL_ADDRESS: '1600 K ST NW', ZIPCODE: '20006', LATITUDE: 38.9, LONGITUDE: -77.04, PERMIT_APPLICANT: 'PREMIER ROOFING SERVICES LLC', ESTIMATED_COST: 64000 }, geometry: { x: -77.04, y: 38.9 } }]);
+    const { c, urls } = ctx(['ESTIMATED_COST'], [{ attributes: { PERMIT_ID: 'P1', ISSUE_DATE: NOW.getTime() - 86_400_000, DESC_OF_WORK: 'Interior alteration', PERMIT_TYPE_NAME: 'CONSTRUCTION', PERMIT_SUBTYPE_NAME: 'ALTERATION', FULL_ADDRESS: '1600 K ST NW', ZIPCODE: '20006', LATITUDE: 38.9, LONGITUDE: -77.04, ESTIMATED_COST: 64000 }, geometry: { x: -77.04, y: 38.9 } }]);
     const items = await buildArcgisAdapter(dc).fetch(c);
     const q = urls.find((u) => u.includes('/query?'))!;
-    expect(asked(q)).toContain('PERMIT_APPLICANT');
     expect(asked(q)).toContain('ESTIMATED_COST');
     expect(asked(q)).not.toContain('COST_OF_CONSTRUCTION');
     expect(asked(q)).toContain('PERMIT_ID');
@@ -83,12 +82,12 @@ describe('the adapter asks the data query only for fields the layer has', () => 
     const { c, urls } = ctx('down', [{ attributes: { PERMIT_ID: 'P1', ISSUE_DATE: NOW.getTime() - 86_400_000, DESC_OF_WORK: 'Interior alteration', PERMIT_TYPE_NAME: 'CONSTRUCTION', PERMIT_SUBTYPE_NAME: 'ALTERATION', FULL_ADDRESS: '1600 K ST NW', ZIPCODE: '20006', LATITUDE: 38.9, LONGITUDE: -77.04 }, geometry: { x: -77.04, y: 38.9 } }]);
     const items = await buildArcgisAdapter(dc).fetch(c);
     const q = urls.find((u) => u.includes('/query?'))!;
-    expect(asked(q)).not.toContain('PERMIT_APPLICANT');
+    expect(asked(q)).not.toContain('ESTIMATED_COST');
     expect(items).toHaveLength(1);
   });
 
   it('buildArcgisQuery without an allow-list asks for everything (the old behaviour), with one it asks only for the intersection', () => {
     expect(asked(`https://x.test/q?${buildArcgisQuery(dc, NOW)}`)).toEqual(expect.arrayContaining(optionalFields(dc)));
-    expect(asked(`https://x.test/q?${buildArcgisQuery(dc, NOW, new Set())}`)).not.toContain('PERMIT_APPLICANT');
+    expect(asked(`https://x.test/q?${buildArcgisQuery(dc, NOW, new Set())}`)).not.toContain('ESTIMATED_COST');
   });
 });

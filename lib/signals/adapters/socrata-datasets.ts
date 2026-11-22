@@ -396,9 +396,10 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
     verifiedUrl: 'https://data.cityofnewyork.us/api/views/rbx6-tga4.json',
     checkedOn: '2026-11-21',
     fieldStatus: 'assumed',
-    assumedFields: ['permittee_s_business_name', 'permittee_s_license_number'],
+    assumedFields: ['permittee_s_business_name'],
     site: { addressFields: ['house_no', 'street_name'], zipField: 'zip_code' },
-    orgs: [{ role: 'contractor', nameFields: ['permittee_s_business_name'], licenseFields: ['permittee_s_license_number'] }],
+    // Review HSK G-P1-2: DOB NOW licences belong to individual licensees (they resolve to a named person), so the licence number is NOT read.
+    orgs: [{ role: 'contractor', nameFields: ['permittee_s_business_name'] }],
   },
   // Orlando Permit Applications (ryhf-m453). The repo's earlier note says the dataset has contractor columns; their names could not be
   // read. A sibling Orlando dataset (Right of Way permits, 6sbc-v4b9, fetched 2026-11-21) names its contractor column `contractor`
@@ -408,14 +409,13 @@ export const CONTACT_SPECS: Record<string, ContactSpec> = {
     verifiedUrl: 'https://data.cityoforlando.net/api/views/ryhf-m453.json',
     checkedOn: '2026-11-21',
     fieldStatus: 'assumed',
-    assumedFields: ['contractor_company_name', 'contractor_name', 'contractor', 'contractor_phone_number', 'contractor_phone', 'contractor_license_number', 'contractor_license'],
+    assumedFields: ['contractor_company_name', 'contractor_name', 'contractor', 'contractor_phone_number', 'contractor_phone'],
     site: { addressFields: ['permit_address'] },
     orgs: [
       {
         role: 'contractor',
         nameFields: ['contractor_company_name', 'contractor_name', 'contractor'],
         phoneFields: ['contractor_phone_number', 'contractor_phone'],
-        licenseFields: ['contractor_license_number', 'contractor_license'],
       },
     ],
   },
@@ -892,7 +892,8 @@ export const PERMIT_VALUE_FIELDS: Record<string, string[]> = {
   'socrata-chicago-permits': ['reported_cost'],
   'socrata-nyc-permits': ['estimated_job_costs'],
   'socrata-sf-permits': ['estimated_cost', 'revised_cost'],
-  'socrata-austin-permits': ['total_job_valuation', 'total_valuation_remodel', 'building_valuation', 'electrical_valuation', 'mechanical_valuation', 'plumbing_valuation'],
+  // Review HSK G-P2-4: only the total shows as "Job value on the permit"; a trade sub-valuation is not the job value.
+  'socrata-austin-permits': ['total_job_valuation'],
   'socrata-seattle-permits': ['estprojectcost'],
   'socrata-la-permits': ['valuation'],
   'socrata-dallas-permits': ['value'],

@@ -41,7 +41,7 @@ describe('cleanLicense', () => {
     ['  GC-12345 ', 'GC-12345'],
     ['2020-0045', '2020-0045'],
   ])('keeps %s', (raw, want) => expect(cleanLicense(raw)).toBe(want));
-  it.each([['', 'empty'], ['ab', 'too short'], ['LICENSED', 'no digit'], ['404-555-0140', 'a phone'], ['a@b.co1', 'an email'], ['123-45-6789', 'an SSN shape'], ['9'.repeat(41), 'too long']])(
+  it.each([['', 'empty'], ['ab', 'too short'], ['LICENSED', 'no digit'], ['404-555-0140', 'a phone'], ['a@b.co1', 'an email'], ['123-45-6789', 'an SSN shape'], ['9'.repeat(41), 'too long'], ['D1234567', 'a driver-licence shape']])(
     'drops %j (%s)',
     (raw) => expect(cleanLicense(raw)).toBeNull(),
   );

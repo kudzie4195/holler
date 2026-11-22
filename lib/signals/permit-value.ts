@@ -12,8 +12,11 @@
 
 /** Below this a declared value is a placeholder ("$1" on a counter permit), not a job value. */
 export const MIN_JOB_VALUE = 10;
-/** Above this a value is a data-entry error (a phone number or an id typed into the cost column). */
-export const MAX_JOB_VALUE = 5_000_000_000;
+/**
+ * Above this a value is a data-entry error: a US phone number typed into the cost column is 2,000,000,000 or more ("$4,045,551,212"), and no
+ * single permit in these feeds is a real $500M job. Review HSK G-P2-1.
+ */
+export const MAX_JOB_VALUE = 500_000_000;
 
 /**
  * A money amount from a portal column: a number, "12500", "12,500.00", "$12,500", " $ 12 500 ". Returns whole dollars, or null for
@@ -79,7 +82,15 @@ export function jobValueLine(src: ValueSource | null | undefined): string | null
 
 const HOUSE_START_RE = /^\d{1,6}[A-Za-z]?(?:\s*-\s*\d{1,6}[A-Za-z]?)?\s+\S/;
 /** A summary part that is not an address even though it starts with a number. */
-const NOT_ADDRESS_RE = /\bjob value\b|\bblock of\b|^\d+(?:\.\d+)?$|\bsq\.?\s?ft\b|\bunits?\b\s*$/i;
+const NOT_ADDRESS_RE =
+  /\bjob value\b|\bblock of\b|^\d+(?:\.\d+)?$|\bsq\.?\s?ft\b|\b(?:stories|story|floors?|levels?|units?|bed(?:room)?s?|baths?|rooms?|buildings?|acres?|lots?|sf|sqft|feet|ft|years?|months?|days?|hours?|permits?|stalls?|spaces?|seats?|dwellings?)\b\s*$/i;
+/** A street word: a suffix (ST, AVE, BLVD, BV ...) or a direction (N, NW, SOUTH ...). Review HSK G-P2-2: "10 stories" has neither. */
+const STREET_WORD_RE =
+  /^(?:st|street|ave|avenue|av|blvd|boulevard|bv|rd|road|dr|drive|ln|lane|ct|court|pl|place|way|pkwy|parkway|pky|hwy|highway|cir|circle|ter|terrace|trl|trail|sq|square|pk|park|loop|run|row|aly|alley|xing|crossing|pass|path|walk|cv|cove|pt|point|ridge|bnd|bend|expy|fwy|plz|plaza|n|s|e|w|ne|nw|se|sw|north|south|east|west)\.?,?$/i;
+function hasStreetWord(part: string): boolean {
+  const words = part.split(/\s+/).slice(1); // after the house number
+  return words.length >= 2 && words.some((w) => STREET_WORD_RE.test(w));
+}
 const PHONE_OR_MAIL_RE = /@|(?<!\d)\(?\d{3}\)?[\s.-]*\d{3}[\s.-]*\d{4}(?!\d)/;
 
 export interface SiteFromSummary {
@@ -99,7 +110,7 @@ export function siteAddressFromSummary(summary: string | null | undefined): Site
   if (typeof summary !== 'string' || !summary.trim()) return null;
   for (const raw of summary.split(' | ')) {
     const part = raw.replace(/\s+/g, ' ').trim();
-    if (!part || NOT_ADDRESS_RE.test(part) || PHONE_OR_MAIL_RE.test(part) || !HOUSE_START_RE.test(part)) continue;
+    if (!part || NOT_ADDRESS_RE.test(part) || PHONE_OR_MAIL_RE.test(part) || !HOUSE_START_RE.test(part) || !hasStreetWord(part)) continue;
     // "1431 SHARON NW, ATLANTA, GA 30314" or "245 First St, Cambridge, MA 02142" or "9541 SOUTH BV CHARLOTTE NC 28273".
     // With a comma the city may have several words; without one the city is the single word before the state ("9541 SOUTH BV CHARLOTTE NC 28273").
     const tailMatch =

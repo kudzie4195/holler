@@ -45,6 +45,11 @@ export interface OrgSpec {
   typeField?: string;
   rejectType?: RegExp;
   /**
+   * Allow-list for typeField: when set, the party is kept only when the type value matches this AND does not match rejectType. A missing
+   * or empty type (the column is not in the layer, or the row leaves it blank) skips the party: it fails closed, never open.
+   */
+  acceptType?: RegExp;
+  /**
    * Dallas shape: one string holding "NAME STREET, CITY, ST ZIP (phone)". The name is the text before the street address; the phone
    * is read from the tail; the street, city and ZIP of the string are never stored.
    */
@@ -157,7 +162,11 @@ export function extractContacts(
   try {
     const orgs: ContactInput[] = [];
     for (const o of spec.orgs ?? []) {
-      if (o.typeField && o.rejectType && o.rejectType.test(read(o.typeField))) continue;
+      if (o.typeField) {
+        const t = read(o.typeField);
+        if (o.acceptType && !o.acceptType.test(t)) continue; // allow-list, fails closed on a blank or missing type
+        if (o.rejectType && o.rejectType.test(t)) continue;
+      }
       let name: string | null = null;
       let runPhone: string | null = null;
       for (const f of o.nameFields) {

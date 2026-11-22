@@ -62,6 +62,7 @@ export function cleanLicense(v: unknown): string | null {
   const s = text(v, CONTACT_LIMITS.license + 1);
   if (!s || s.length > CONTACT_LIMITS.license || s.length < 3) return null;
   if (!/^[A-Za-z0-9][A-Za-z0-9 ./#-]*$/.test(s) || !/\d/.test(s)) return null;
+  if (/^[A-Za-z]\d{7,8}$/.test(s)) return null; // a driver-licence shape ("D1234567"), never a contractor board number
   if (CONTACT_DETAIL_RE.test(s) || /^\d{3}[- ]?\d{2}[- ]?\d{4}$/.test(s) || /^\d{9}$/.test(s)) return null;
   return s;
 }

@@ -36,11 +36,12 @@ describe('NYC DOB NOW approved permits (rbx6-tga4): permittee business and licen
     },
   ];
   const items = parseSocrata(rows, sds('socrata-nyc-permits'));
-  it('company, licence, value and site for a business permittee; owner and phone never read', () => {
+  it('company, value and site for a business permittee (no licence number); owner and phone never read', () => {
     expect(items).toHaveLength(2);
-    expect(role(items[0], 'contractor')).toEqual([
-      expect.objectContaining({ name: 'METRO BUILDING SERVICES LLC', license: '626543', phone: null }),
-    ]);
+    // Review HSK G-P1-2: the DOB NOW licence number belongs to an individual licensee, so it is not read at all.
+    expect(role(items[0], 'contractor')).toEqual([expect.objectContaining({ name: 'METRO BUILDING SERVICES LLC', phone: null })]);
+    expect(role(items[0], 'contractor')[0]).not.toHaveProperty('license');
+    notIn([items[0]], ['626543']);
     expect(role(items[0], 'site')[0]).toMatchObject({ address: '742 EVERGREEN TERRACE', zip: '11201' });
     expect(jobValue(items[0])).toBe(125000);
     notIn(items, ['OWNERSON', '718-555-0188', '7185550188']);
@@ -61,8 +62,9 @@ describe('Orlando permit applications (ryhf-m453): contractor company, phone, li
     { ...base, permit_number: 'BLD2026-03', contractor_name: 'JAMES CARTER', contractor_phone_number: '407-555-0100', applicant_phone: '407-555-0111' },
   ];
   const items = parseSocrata(rows, sds('socrata-orlando-permits'));
-  it('company with its business phone and licence; value parsed from "$18,500.00"', () => {
-    expect(role(items[0], 'contractor')).toEqual([expect.objectContaining({ name: 'PRESTO PROPERTY SERVICES INC', phone: '407-555-0142', license: 'CBC1234567' })]);
+  it('company with its business phone, no licence; value parsed from "$18,500.00"', () => {
+    expect(role(items[0], 'contractor')).toEqual([expect.objectContaining({ name: 'PRESTO PROPERTY SERVICES INC', phone: '407-555-0142' })]);
+    notIn([items[0]], ['CBC1234567']); // Florida contractor licences are issued to the individual licensee: not read
     expect(jobValue(items[0])).toBe(18500);
   });
   it('the "PERSON (COMPANY)" shape keeps only the company; no value gives no jobValue', () => {
@@ -171,9 +173,9 @@ describe('Raleigh permits (FeatureServer): company, phone and licence number', (
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-describe('DeKalb County permit applications: the primary contact is read only when its type is not an owner, and only as a company', () => {
-  const mk = (n: string, name: string, type: string, phone: string, declared: unknown, calc: unknown = null) => ({
-    attributes: { applicationNumber: n, issuedDateTime: 1762905600000, WorkTypeDescription: 'Alteration', OccupancyTypeDescription: 'Single Family', statusDescription: 'Issued', location: '1 TEST RD', locationLine1: '1 TEST RD', primaryContactName: name, primaryContactType: type, primaryContactPhone: phone, declaredValuation: declared, calculatedValuation: calc },
+describe('DeKalb County permit applications: the primary contact is shown only when its type is on a contractor allow-list', () => {
+  const mk = (n: string, name: string, type: string | undefined, phone: string, declared: unknown, calc: unknown = null) => ({
+    attributes: { applicationNumber: n, issuedDateTime: 1762905600000, WorkTypeDescription: 'Alteration', OccupancyTypeDescription: 'Single Family', statusDescription: 'Issued', location: '1 TEST RD', locationLine1: '1 TEST RD', primaryContactName: name, ...(type === undefined ? {} : { primaryContactType: type }), primaryContactPhone: phone, declaredValuation: declared, calculatedValuation: calc },
     geometry: { x: -84.3, y: 33.77 },
   });
   const rows = {
@@ -182,29 +184,51 @@ describe('DeKalb County permit applications: the primary contact is read only wh
       mk('D2', 'METRO BUILDING SERVICES LLC', 'Owner', '404-555-0141', 0, 22000),
       mk('D3', 'METRO BUILDING SERVICES LLC', 'Property Owner/Resident', '404-555-0142', null),
       mk('D4', 'JAMES CARTER', 'Contractor', '404-555-0143', 800),
+      mk('D5', 'METRO BUILDING SERVICES LLC', 'Applicant', '404-555-0144', 5000),
+      mk('D6', 'METRO BUILDING SERVICES LLC', 'Agent', '404-555-0145', 5000),
+      mk('D7', 'METRO BUILDING SERVICES LLC', 'Owner/Builder', '404-555-0146', 5000),
+      mk('D8', 'METRO BUILDING SERVICES LLC', 'Licensed Professional', '404-555-0147', 5000),
+      mk('D9', 'METRO BUILDING SERVICES LLC', 'General Contractor', '404-555-0148', 5000),
+      mk('D10', 'METRO BUILDING SERVICES LLC', '', '404-555-0149', 5000),
+      mk('D11', 'METRO BUILDING SERVICES LLC', 'Something New', '404-555-0150', 5000),
     ],
   };
   const items = parseArcgis(rows, ads('arcgis-dekalb-permits'));
+  const names = (i: number) => role(items[i], 'contractor').map((c) => c.name);
   it('a contractor-typed company gives name and business phone; declared value is read first, calculated when declared is 0', () => {
-    expect(items).toHaveLength(4);
-    expect(role(items[0], 'contractor')[0]).toMatchObject({ phone: '404-555-0140' });
+    expect(items).toHaveLength(11);
+    expect(role(items[0], 'contractor')[0]).toMatchObject({ name: 'SOUTHERN ROOFING & SIDING INC', phone: '404-555-0140' });
     expect(jobValue(items[0])).toBe(15000);
     expect(jobValue(items[1])).toBe(22000);
   });
-  it('an owner or resident type skips the party whole (no name, no phone) even when the name looks like a company', () => {
-    expect(role(items[1], 'contractor')).toEqual([]);
-    expect(role(items[2], 'contractor')).toEqual([]);
-    notIn([items[1], items[2]], ['404-555-0141', '404-555-0142', 'METRO BUILDING']);
+  it('an owner, resident, applicant, agent or owner-builder type shows nothing even when the name looks like a company', () => {
+    for (const i of [1, 2, 4, 5, 6]) expect(names(i), `row ${i}`).toEqual([]);
+    notIn([items[1], items[2], items[4], items[5], items[6]], ['404-555-0141', '404-555-0142', '404-555-0144', '404-555-0145', '404-555-0146']);
+  });
+  it('contractor, general contractor and licensed professional types are on the allow-list', () => {
+    expect(names(7)).toEqual(['METRO BUILDING SERVICES LLC']);
+    expect(names(8)).toEqual(['METRO BUILDING SERVICES LLC']);
+  });
+  it('a blank or unknown type shows nothing (fail closed)', () => {
+    expect(names(9)).toEqual([]);
+    expect(names(10)).toEqual([]);
+    notIn([items[9], items[10]], ['404-555-0149', '404-555-0150']);
+  });
+  it('when the layer has no primaryContactType at all, no contact is stored', () => {
+    const noType = parseArcgis({ features: [mk('D20', 'METRO BUILDING SERVICES LLC', undefined, '404-555-0151', 7000)] }, ads('arcgis-dekalb-permits'));
+    expect(role(noType[0], 'contractor')).toEqual([]);
+    notIn(noType, ['404-555-0151', 'METRO BUILDING']);
+    expect(jobValue(noType[0])).toBe(7000);
   });
   it('a person name gives nothing; a row with no value has no jobValue', () => {
-    expect(role(items[3], 'contractor')).toEqual([]);
+    expect(names(3)).toEqual([]);
     notIn([items[3]], ['JAMES CARTER', '404-555-0143']);
     expect(jobValue(items[2])).toBeUndefined();
   });
 });
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-describe('Washington DC permits: the applicant column goes through the organisation classifier (judgement call, see the report)', () => {
+describe('Washington DC permits: the applicant is never stored as the contractor (review HSK G-P1-1)', () => {
   const rows = {
     features: [
       { attributes: { PERMIT_ID: 'P1', ISSUE_DATE: 1762905600000, DESC_OF_WORK: 'Interior alteration', PERMIT_TYPE_NAME: 'CONSTRUCTION', PERMIT_SUBTYPE_NAME: 'ALTERATION', FULL_ADDRESS: '1600 K ST NW', ZIPCODE: '20006', LATITUDE: 38.9, LONGITUDE: -77.04, PERMIT_APPLICANT: 'PREMIER ROOFING SERVICES LLC', ESTIMATED_COST: 64000 }, geometry: { x: -77.04, y: 38.9 } },
@@ -212,10 +236,10 @@ describe('Washington DC permits: the applicant column goes through the organisat
     ],
   };
   const items = parseArcgis(rows, ads('arcgis-dc-permits'));
-  it('a company applicant is named, a person applicant is not', () => {
-    expect(role(items[0], 'contractor')[0]).toMatchObject({ name: 'PREMIER ROOFING SERVICES LLC' });
-    expect(role(items[1], 'contractor')).toEqual([]);
-    notIn([items[1]], ['GARCIA']);
+  it('a company applicant is not a contractor and not stored; the site stays', () => {
+    expect(ads('arcgis-dc-permits').contacts?.orgs).toBeUndefined();
+    for (const s of items) expect(s.contacts?.map((c) => c.role)).toEqual(['site']);
+    notIn(items, ['PREMIER ROOFING', 'GARCIA']);
   });
   it('value from the first plausible candidate column', () => {
     expect(jobValue(items[0])).toBe(64000);
@@ -258,15 +282,24 @@ describe('every permit source: the privacy sweep', () => {
       if (c.role === 'site') expect(c.name).toBe('');
     }
   });
-  it('every spec that names a contractor column reads it through the classifier only (no spec lists a *_full_name, owner or applicant name column except the DC applicant label)', () => {
+  it('every spec that names a contractor column reads it through the classifier only (no spec lists a *_full_name, owner or applicant name column; the DeKalb filer column only behind a type allow-list)', () => {
     for (const d of [...SOCRATA_DATASETS, ...ARCGIS_DATASETS]) {
       for (const o of d.contacts?.orgs ?? []) {
         for (const f of o.nameFields) {
-          if (d.id === 'arcgis-dc-permits' && f === 'PERMIT_APPLICANT') continue;
-          if (d.id === 'arcgis-dekalb-permits' && f === 'primaryContactName') continue;
+          if (d.id === 'arcgis-dekalb-permits' && f === 'primaryContactName') {
+            expect(o.acceptType, 'DeKalb needs the allow-list').toBeInstanceOf(RegExp); // the one filer column, gated by an allow-list
+            continue;
+          }
           expect(f, `${d.id}:${f}`).not.toMatch(/owner|applicant|tenant|full_?name|first|last/i);
         }
       }
     }
+  });
+});
+
+describe('licence numbers: only where the record says it is a contractor licence', () => {
+  it('only the Raleigh contractor licence column is read (NYC and DOB NOW licences belong to individuals; Orlando columns are unconfirmed)', () => {
+    const withLicense = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.contacts?.orgs?.some((o) => o.licenseFields?.length)).map((d) => d.id);
+    expect(withLicense).toEqual(['arcgis-raleigh-permits']);
   });
 });
