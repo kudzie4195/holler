@@ -190,7 +190,8 @@
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 250000
    }
   },
   {
@@ -215,7 +216,8 @@
    "data": {
     "layer": "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 450000
    }
   },
   {
@@ -400,7 +402,8 @@
     "dataset": "9p2d-f3yt",
     "domain": "data.buffalony.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 6500
    }
   },
   {
@@ -933,7 +936,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 14500
    }
   },
   {
@@ -957,7 +961,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 4200
    }
   },
   {
@@ -981,7 +986,8 @@
     "dataset": "ydr8-5enu",
     "domain": "data.cityofchicago.org",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 1250000
    }
   },
   {
@@ -1392,7 +1398,8 @@
     "dataset": "m88u-pqki",
     "domain": "data.montgomerycountymd.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 22000
    }
   },
   {
@@ -1443,7 +1450,8 @@
     "dataset": "rcm3-fn58",
     "domain": "data.nola.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 22000
    }
   }
  ],
@@ -1470,7 +1478,8 @@
     "dataset": "fahm-yuh4",
     "domain": "data.norfolk.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 12000
    }
   },
   {
@@ -2026,7 +2035,8 @@
     "dataset": "ryhf-m453",
     "domain": "data.cityoforlando.net",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 15000
    }
   },
   {
@@ -2738,7 +2748,8 @@
     "dataset": "i98e-djp9",
     "domain": "data.sf.gov",
     "subtype": "permit",
-    "cat_v": 2
+    "cat_v": 2,
+    "jobValue": 18000
    }
   },
   {

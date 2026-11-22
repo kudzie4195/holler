@@ -28,6 +28,7 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, orderByLabel } from '@/lib/signals/lead-rules';
 import { tradeForRecord } from '@/lib/signals/brief';
+import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
 
 interface SignalRow {
   id: number;
@@ -55,6 +56,8 @@ interface SignalRow {
   dueDate?: string | null;
   /** City open bids only (data.buyer): the buyer. The due day comes from dueDate above. */
   bidBuyer?: string | null;
+  /** Permits: data.jobValue (text form, VALUE_SELECT), the project value the city published. */
+  jobValue?: string | null;
 }
 
 interface MatchRow {
@@ -74,7 +77,7 @@ async function loadDashboard() {
   const { data, error } = await supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`,
+      `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,occurred_at,expires_at,severity,categories,subtype:data->>subtype,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer)`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -191,6 +194,7 @@ async function loadDashboard() {
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
       trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, memberTrades),
       deadline: deadlineOf(s),
+      jobValue: parseMoney(s.jobValue),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       aiNote: aiNotes.get(s.id) ?? null,
@@ -205,7 +209,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null }
       : base;
   });
 

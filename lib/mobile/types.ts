@@ -270,6 +270,8 @@ export interface ContactDto {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  /** The contractor's licence number when the permit publishes it. */
+  license?: string | null;
 }
 
 /**
@@ -286,6 +288,8 @@ export interface BriefDto {
   /** Part 5: "High confidence the inspection failed; whether the owner is hiring is not known." */
   uncertain: string;
   confidence: 'High' | 'Medium' | 'Low';
+  /** Permits that publish a project value: "Job value on the permit: $12,500". Absent or null otherwise. Additive. */
+  valueLine?: string | null;
 }
 
 export interface AlertDto {

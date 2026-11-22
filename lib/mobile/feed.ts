@@ -15,6 +15,7 @@ import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-vis
 import { getSourceMeta } from '@/lib/signals/source-meta';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, labelForMember, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { cardBrief, tradeForRecord } from '@/lib/signals/brief';
+import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -25,7 +26,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT},bidBuyer:data->>buyer)`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer)`;
 
 export interface SignalRow {
   id: number;
@@ -50,6 +51,8 @@ export interface SignalRow {
   dueDate?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** Permits: data.jobValue (text form), the project value the city published. */
+  jobValue?: string | null;
 }
 
 export interface MatchRow {
@@ -97,7 +100,7 @@ function absolute(url: string | null | undefined, siteUrl: string): string | nul
 
 function contactDto(c: ContactRecord): ContactDto {
   const out: ContactDto = { role: c.role, name: c.name };
-  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website'] as const) {
+  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website', 'license'] as const) {
     if (c[k] !== undefined) out[k] = c[k] ?? null;
   }
   return out;
@@ -122,13 +125,14 @@ export interface BuildDeps {
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
   const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, jobValue: deps.locked ? null : s.jobValue });
   return {
     why: b.why,
     next: b.next,
     source: { label: b.source.label, url: b.source.href, linkText: b.source.linkText, recordLink: b.source.recordLink, date: b.source.dateText },
     uncertain: b.uncertain,
     confidence: b.confidence,
+    valueLine: b.valueLine,
   };
 }
 

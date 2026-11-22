@@ -2,6 +2,7 @@ import type { CategoryId } from './categories';
 import { formatDeadlineDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidSourceLinkLabel } from './bid-card';
 import { getSourceMeta } from './source-meta';
+import { jobValueLine } from './permit-value';
 
 /**
  * Brief card v1 (PLAN-2.0 item 0.4). Every alert card (web feed, email digest, mobile API) renders five parts:
@@ -560,6 +561,11 @@ export function sourceLine(s: Pick<BriefSource, 'label' | 'dateText'>): string {
 
 export interface CardBrief extends Brief {
   source: BriefSource;
+  /**
+   * "Job value on the permit: $12,500" for a permit whose record publishes a project value (data.jobValue, else the "$N job value" part
+   * of its summary), else null. It is the number the city printed on the permit, not a quote and not proof that work is planned.
+   */
+  valueLine: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -568,6 +574,8 @@ export interface CardBriefInput extends BriefInput {
   url?: string | null;
   occurredAt?: string | null;
   base?: string | null;
+  /** data.jobValue of the record (a number, or its text form). Pass null for a locked member. */
+  jobValue?: unknown;
 }
 
 /** All five parts' data for one card. An unset label counts as coming_soon (what a row without a label was before). */
@@ -575,6 +583,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
   return {
     ...briefFor({ ...input, label: input.label ?? 'coming_soon' }),
     source: briefSource(input),
+    valueLine: briefFamilyOf(input) === 'permit' ? jobValueLine({ jobValue: input.jobValue, summary: input.summary }) : null,
   };
 }
 

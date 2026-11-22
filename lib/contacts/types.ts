@@ -24,6 +24,8 @@ export interface ContactInput {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  /** The contractor's licence number when the permit publishes it (a public registry number, never a personal id). Roles contractor and business only. */
+  license?: string | null;
 }
 
 export interface ContactRecord extends ContactInput {

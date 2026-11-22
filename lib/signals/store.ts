@@ -325,6 +325,12 @@ function missingContactsTable(e: { message?: string; code?: string } | null | un
   return e?.code === '42P01' || e?.code === 'PGRST205' || (/holler_signal_contacts/.test(m) && /does not exist|could not find|schema cache/i.test(m));
 }
 
+/** The license column of migration 0022 is not there yet (PostgREST PGRST204 or Postgres 42703). */
+export function missingLicenseColumn(e: { message?: string; code?: string } | null | undefined): boolean {
+  const m = e?.message ?? '';
+  return (e?.code === 'PGRST204' || e?.code === '42703' || /does not exist|could not find|schema cache/i.test(m)) && /\blicense\b/i.test(m);
+}
+
 /**
  * Write contacts for newly inserted signals into holler_signal_contacts (service role only; migration 0006). Each contact is sanitised
  * again here (organization check, address cut, US state code, the signal's own city or place words, length limits, plausible phone and
@@ -356,17 +362,26 @@ export async function writeSignalContacts(
         phone: c.phone ?? null,
         email: c.email ?? null,
         website: c.website ?? null,
+        license: c.license ?? null,
       });
       if (rows.length >= cap) break;
     }
     if (rows.length >= cap) break;
   }
   let sent = 0;
+  // Migration 0022 adds the license column. Before it exists the write retries without that key, so names, phones and sites still land.
+  let withLicense = true;
   for (const part of chunks(rows, CONTACT_BATCH)) {
     try {
-      const { error } = await db
-        .from('holler_signal_contacts')
-        .upsert(part, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
+      const send = (batch: Record<string, unknown>[]) =>
+        db.from('holler_signal_contacts').upsert(batch, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
+      const strip = (batch: Record<string, unknown>[]) => batch.map(({ license: _l, ...rest }) => rest);
+      let { error } = await send(withLicense ? part : strip(part));
+      if (error && withLicense && missingLicenseColumn(error)) {
+        withLicense = false;
+        log('contacts: license column is missing (apply migration 0022); contacts are written without licence numbers');
+        ({ error } = await send(strip(part)));
+      }
       if (error) {
         if (missingContactsTable(error)) {
           log('contacts: holler_signal_contacts is missing (apply migration 0006); contacts for this scan are skipped');

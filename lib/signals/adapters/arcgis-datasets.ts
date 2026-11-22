@@ -67,11 +67,15 @@ export interface ArcgisDataset {
   fieldSource: 'sourced' | 'assumed';
   note?: string;
   /**
-   * Who to contact (private: holler_signal_contacts only). None of the layers below has one: their field lists could not be re-read on
-   * 2026-11-17 (the WebFetch of each `?f=json` URL was refused), and no column is added unread. Add one only after reading the layer's
-   * fields, with the URL in contacts.verifiedUrl.
+   * Who to contact (private: holler_signal_contacts only). Round 15 adds specs (CONTACT_SPECS below). A spec marked fieldStatus
+   * 'assumed' names candidate columns: an ArcGIS layer rejects an unknown outField, so the adapter reads the layer's own field list
+   * first and asks only for the fields that exist (arcgis.ts resolveOptionalFields). Sourced specs are asked for as before.
    */
   contacts?: ContactSpec;
+  /** Permits: project value columns, tried in order (permit-value.ts parseMoney). Stored as data.jobValue. Same candidate rule as contacts. */
+  valueFields?: string[];
+  /** Fields of valueFields that were not read from the layer's field list (candidates). */
+  assumedValueFields?: string[];
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;
@@ -178,6 +182,108 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
     note: 'DISABLED. Business_Licenses_2026_Citywide (Dept. of Revenue), 24 fields, license_issued is esriFieldTypeDate. editingInfo.lastEditDate 2026-10-20 but the newest license_issued is 2026-07-01, so a 14 day window returns nothing. Re-enable if the Revenue export is refreshed. PRIVACY: business_name is never read (can be a person) and the street address is dropped for business rows.',
   },
 ];
+
+/**
+ * ROUND 15 (PLAN-2.0 1.2, 1.3): contacts and project value per permit layer.
+ *
+ * DeKalb: read 2026-11-21 from https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/layers
+ * (44 fields). Contact columns: primaryContactName, primaryContactPhone, primaryContactType, primaryContactEMailAddress, primaryContactId,
+ * primaryIdentityId. There is NO applicant, contractor or company column: primaryContact* is the person or business that filed the
+ * application, so a homeowner appears there too. Only a name the organisation classifier accepts is kept, only when primaryContactType
+ * does not say owner, resident or tenant, and its phone is kept only with such a name. The e-mail column is never read. Value columns:
+ * declaredValuation and calculatedValuation (both text). Address: location, locationLine1 (no separate city, state or ZIP).
+ *
+ * Raleigh: contractorcompanyname and contractorlicnum named by https://www.openpermitdata.com/raleigh/methodology (fetched 2026-11-21,
+ * "approximately 92% of all permits" carry the company name). contractorphone is a candidate. contractorfullname (a person) is never read.
+ *
+ * DC: PERMIT_APPLICANT and OWNER_NAME exist (round 4 note). Only the applicant is read, as the party that filed the permit; a person is
+ * rejected by the classifier. No contractor column or value column is known; the value names below are candidates.
+ *
+ * Mecklenburg, Atlanta, Johns Creek, Cobb: address (and, where the summary has it, value) only. owner_* columns are never read.
+ */
+export const CONTACT_SPECS: Record<string, ContactSpec> = {
+  'arcgis-dekalb-permits': {
+    verifiedUrl: M(DEKALB),
+    checkedOn: '2026-11-21',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['locationLine1'] },
+    orgs: [
+      {
+        role: 'contractor',
+        nameFields: ['primaryContactName'],
+        phoneField: 'primaryContactPhone',
+        typeField: 'primaryContactType',
+        rejectType: /owner|resident|tenant|home\s?owner|individual|person|occupant/i,
+      },
+    ],
+  },
+  'arcgis-raleigh-permits': {
+    verifiedUrl: M(RALEIGH),
+    checkedOn: '2026-11-21',
+    fieldStatus: 'assumed',
+    assumedFields: ['contractorphone'],
+    site: { addressFields: ['originaladdress1'], zipField: 'originalzip' },
+    orgs: [{ role: 'contractor', nameFields: ['contractorcompanyname'], phoneField: 'contractorphone', licenseFields: ['contractorlicnum'] }],
+  },
+  'arcgis-dc-permits': {
+    verifiedUrl: M(DC),
+    checkedOn: '2026-11-21',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['FULL_ADDRESS'], zipField: 'ZIPCODE' },
+    orgs: [{ role: 'contractor', nameFields: ['PERMIT_APPLICANT'] }],
+  },
+  'arcgis-mecklenburg-permits': {
+    verifiedUrl: M(MECK),
+    checkedOn: '2026-11-17',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['project_address'], zipField: 'zip_code' },
+  },
+  'arcgis-atlanta-permits': {
+    verifiedUrl: M(ATL_PERMITS),
+    checkedOn: '2026-11-19',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['Address'] },
+  },
+  'arcgis-cobb-residential-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/4`),
+    checkedOn: '2026-11-19',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+  'arcgis-cobb-commercial-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/1`),
+    checkedOn: '2026-11-19',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+  'arcgis-cobb-multiunit-permits': {
+    verifiedUrl: M(`${COBB_PERMITS}/3`),
+    checkedOn: '2026-11-19',
+    fieldStatus: 'sourced',
+    site: { addressFields: ['StreetNo', 'StreetName', 'StreetType'] },
+  },
+};
+
+/** Value columns per layer. Sourced ones are summaryFields already (or the DeKalb field list); the rest are candidates. */
+export const PERMIT_VALUE_FIELDS: Record<string, { fields: string[]; assumed?: string[] }> = {
+  'arcgis-dekalb-permits': { fields: ['declaredValuation', 'calculatedValuation'] },
+  'arcgis-raleigh-permits': { fields: ['estprojectcost'] },
+  'arcgis-atlanta-permits': { fields: ['JOB_VALUE'] },
+  'arcgis-cobb-residential-permits': { fields: ['JobValueCalc'] },
+  'arcgis-cobb-commercial-permits': { fields: ['VALUE'] },
+  'arcgis-cobb-multiunit-permits': { fields: ['VALUE'] },
+  'arcgis-dc-permits': { fields: ['ESTIMATED_COST', 'COST_OF_CONSTRUCTION'], assumed: ['ESTIMATED_COST', 'COST_OF_CONSTRUCTION'] },
+  'arcgis-mecklenburg-permits': { fields: ['project_cost', 'total_cost'], assumed: ['project_cost', 'total_cost'] },
+};
+
+for (const d of ARCGIS_DATASETS) {
+  if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];
+  const v = PERMIT_VALUE_FIELDS[d.id];
+  if (v) {
+    d.valueFields = v.fields;
+    if (v.assumed) d.assumedValueFields = v.assumed;
+  }
+}
 
 /** Default lookback (days) for the where clause. */
 export function arcgisLookbackDays(ds: ArcgisDataset): number {

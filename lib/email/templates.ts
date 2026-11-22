@@ -40,6 +40,8 @@ export interface DigestItem {
   bidLine?: string | null;
   /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes "Why it matters" trade-specific. */
   trade?: string | null;
+  /** Permits: data.jobValue, the project value the city published (a number or its text form). The summary's "$N job value" is the fallback. */
+  jobValue?: unknown;
 }
 
 /** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
@@ -103,7 +105,7 @@ export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, ba
 
 /** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
 export function digestBrief(it: DigestItem, base: string = siteUrl): CardBrief & { href: string | null; linkText: string } {
-  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base });
+  const b = cardBrief({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, jobValue: it.jobValue });
   const own = safeUrl(it.sourceUrl);
   // The link label keeps the digest's own rule: "Open the request form" for a resident request (known by source or by its /request link).
   return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base) : b.source.linkText };
@@ -191,7 +193,9 @@ export function renderDigest(opts: {
         ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
         : '';
       const br = digestBrief(it);
+      const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
       const briefHtml =
+        valueHtml +
         `<div style="font-size:14px;margin:6px 0 2px 0"><strong>Why it matters:</strong> ${escapeHtml(noDash(br.why))}</div>` +
         `<div style="font-size:14px;margin:2px 0"><strong>Next step:</strong> ${escapeHtml(noDash(br.next))}</div>` +
         `<div style="font-size:14px;margin:2px 0"><strong>Source:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
@@ -221,7 +225,7 @@ export function renderDigest(opts: {
         .filter(Boolean)
         .join(' | ');
       const chip = chipText(it);
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(it.title)}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}\nWhy it matters: ${noDash(br.why)}\nNext step: ${noDash(br.next)}\n${noDash(sourceLine(br.source))}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\nWhat is uncertain: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =

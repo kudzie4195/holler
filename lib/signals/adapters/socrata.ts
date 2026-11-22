@@ -1,9 +1,9 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { extractContacts } from '@/lib/contacts/extract';
+import { extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import {
@@ -440,6 +440,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
 
       const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
+      // Permits: the project value the city published, as a number (PLAN-2.0 1.3). Public already: the summary prints the same amount.
+      const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       out.push({
         source: ds.id,
@@ -463,6 +465,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           subtype: ds.subtype,
           cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
+          ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
       });
