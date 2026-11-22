@@ -314,6 +314,39 @@ describe('mobile API: the alert carries the brief as additive fields', () => {
   });
 });
 
+describe('mobile, locked member: the brief carries no record text (review R2-2)', () => {
+  const deps = (over: Record<string, unknown> = {}) => ({ userId: 'u1', locked: false, db: new FakeDb() as never, admin: null, siteUrl: 'https://localholler.com', now: NOW.getTime(), trades: [...new Set(FIXTURES.map((f) => f.trade).filter((t): t is string => !!t))], ...over });
+  const byName = (n: string) => FIXTURES.find((c) => c.name === n)!;
+
+  it('a locked permit, award and storm card are the generic lines: no permit type, no contract work, no storm remarks', async () => {
+    vi.stubEnv('HOLLER_BIDS_ENABLED', '1');
+    const storm = mobileRow(byName('wind gust'), 0) as unknown as { signal: { summary: string | null } };
+    storm.signal.summary = 'Several trees down on homes and power lines down. (FFC)';
+    const rows = [mobileRow(byName('own-trade permit'), 1), mobileRow(byName('federal award'), 2), storm as never];
+    const unlocked = await buildAlerts(rows, deps());
+    const locked = await buildAlerts(rows, deps({ locked: true }));
+    vi.unstubAllEnvs();
+    expect(unlocked).toHaveLength(3);
+    expect(locked).toHaveLength(3);
+    // unlocked members do get the record's own words
+    expect(unlocked.map((a) => a.brief.why + ' ' + a.brief.uncertain).join(' ')).toMatch(/\(Roof\)/);
+    expect(unlocked.map((a) => a.brief.why + ' ' + a.brief.uncertain).join(' ')).toMatch(/awarded for Plumbing/);
+    expect(unlocked.map((a) => a.brief.uncertain).join(' ')).toMatch(/it mentions trees down/);
+    for (const a of locked) {
+      const text = `${a.brief.why} ${a.brief.uncertain}`;
+      expect(text, a.source).not.toMatch(/\(Roof\)|Plumbing|trees down|power lines|NAICS|Roof permit/);
+      expect(text, a.source).not.toContain('mentions');
+    }
+    // and the locked text is exactly the table's text for a record with no title and no summary
+    const lockedPermit = locked.find((a) => a.source === 'socrata-chicago-permits')!;
+    expect(lockedPermit.brief.why).toBe(briefFor({ source: 'socrata-chicago-permits', subtype: 'permit', label: 'market_insight', trade: 'roofing' }).why);
+    const lockedAward = locked.find((a) => a.source === 'usaspending')!;
+    expect(lockedAward.brief.why).toBe(briefFor({ source: 'usaspending', label: 'market_insight', trade: 'plumbing' }).why);
+    const lockedStorm = locked.find((a) => a.source === 'spc')!;
+    expect(lockedStorm.brief.uncertain).toBe('High confidence a gust was reported; damage is not confirmed.');
+  });
+});
+
 describe('the brief strings the cards print come from the table (no free text)', () => {
   it('every card sentence is in the table, so the banned-word test over the table covers it', () => {
     const table = new Set(allBriefStrings());

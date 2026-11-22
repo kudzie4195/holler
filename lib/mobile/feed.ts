@@ -118,11 +118,11 @@ export interface BuildDeps {
 
 /**
  * Brief card v1 for the app (additive field). Same five parts as the web card: the record's own title and summary are the alert's
- * title and summary (part 1). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
+ * title and summary (part 1); a locked member's brief is built WITHOUT the record's text (the alert's own title and summary are masked for them, and the brief must not leak a permit type, a contract's work or storm remarks). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
   const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl });
   return {
     why: b.why,
     next: b.next,

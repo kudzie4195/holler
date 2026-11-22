@@ -37,7 +37,7 @@ describe('place counts leave stored city bids out while the flag is off (P2-1)',
     from: () => ({
       select: () => {
         const q: Record<string, unknown> = {};
-        if (!opts.noLike) q.like = () => ({ gte: () => ({ limit: async () => (opts.error ? { data: null, error: { message: 'x' } } : { data: rows, error: null }) }) });
+        if (!opts.noLike) q.like = () => ({ gt: () => ({ lte: () => ({ limit: async () => (opts.error ? { data: null, error: { message: 'x' } } : { data: rows, error: null }) }) }) });
         return q;
       },
     }),

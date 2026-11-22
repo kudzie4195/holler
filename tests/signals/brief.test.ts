@@ -19,7 +19,6 @@ import {
   briefSource,
   awardWorkOf,
   cardBrief,
-  damagePhraseOf,
   permitTypeOf,
   sourceLine,
   tradeForRecord,
@@ -125,21 +124,15 @@ describe('trade-specific, and honest about what the record does not show', () =>
     for (const t of CATEGORY_IDS) expect(TRADE_WORK[t].length, t).toBeLessThanOrEqual(22);
     expect(Object.keys(TRADE_WORK).sort()).toEqual([...CATEGORY_IDS].sort());
   });
-  it('a weather event never proves damage, and never denies it either: "no damage is reported" only when the record text has no damage words', () => {
+  it('no weather, storm or quake brief ever says "no damage is reported" (a word list cannot prove a record has none)', () => {
+    for (const str of allBriefStrings()) expect(str).not.toMatch(/no damage|no reports? of damage|without damage/i);
     for (const t of TRADES) {
       for (const src of ['nws', 'usgs', 'spc']) {
         for (const label of ['act_now', 'coming_soon'] as const) {
-          // text not passed: only "not confirmed"
-          const bare = briefFor({ source: src, label, trade: t });
-          expect(bare.uncertain, `${src} ${label} ${t}`).toMatch(/damage is not confirmed/);
-          expect(bare.uncertain).not.toMatch(/no damage/);
-          // text passed and clean: the table's line (may say no damage is reported)
-          const clean = briefFor({ source: src, label, trade: t, title: 'A report', summary: 'Winds from the west.' });
-          expect(clean.uncertain).toMatch(/no damage is reported|damage is not confirmed/);
-          // text with damage words: says what the record says, never "no damage"
-          const dmg = briefFor({ source: src, label, trade: t, title: '60 mph wind gust reported near 3 N Smyrna, GA', summary: 'Several trees down on homes and power lines down. (FFC)' });
-          expect(dmg.uncertain).toMatch(/it mentions trees down, not confirmed/);
-          expect(dmg.uncertain).not.toMatch(/no damage/);
+          for (const summary of [undefined, 'Measured by ASOS. No damage reported.', 'Peak gust at mesonet site.', 'Several trees down on homes.']) {
+            const b = briefFor({ source: src, label, trade: t, title: 'A report', summary });
+            expect(b.uncertain, `${src} ${label} ${t} ${summary}`).not.toMatch(/no damage/i);
+          }
         }
         expect(briefFor({ source: src, label: 'coming_soon', trade: t, title: 'x' }).why, `${src} ${t}`).not.toMatch(/was damaged|caused damage|has damage|is damaged|measured/i);
       }
@@ -152,11 +145,50 @@ describe('trade-specific, and honest about what the record does not show', () =>
       expect(b.why).toMatch(/A wind gust was reported nearby/);
     }
   });
-  it('the damage phrase is the record\'s own words, one of a fixed list', () => {
-    for (const [text, phrase] of [['Trees down across the road', 'trees down'], ['Power lines down.', 'power lines down'], ['roof damage to a barn', 'roof damage'], ['Damaging winds', 'damage'], ['Flooding on Main St', 'flooding'], ['Injuries reported', 'injuries']] as const) {
-      expect(damagePhraseOf(text), text).toBe(phrase);
+  // A curated table of real-style SPC remarks and the exact uncertainty line each must give. The expected lines are written by hand from the
+  // record's wording, not computed with damagePhraseOf, so the table also catches damage wording that is missing from the phrase list.
+  const GUST = 'High confidence a gust was reported; ';
+  const NONE = 'damage is not confirmed.';
+  const SPC_REMARKS: [string, string][] = [
+    ['Several trees down on homes and power lines down. (FFC)', 'it mentions trees down, not confirmed.'],
+    ['Large tree limbs snapped. (FFC)', 'it mentions trees down, not confirmed.'],
+    ['Several trees uprooted. (FFC)', 'it mentions trees down, not confirmed.'],
+    ['Power poles snapped along Highway 41. (FFC)', 'it mentions power poles down, not confirmed.'],
+    ['Shingles torn from roof of home. (FFC)', 'it mentions roof damage, not confirmed.'],
+    ['Trees blown over onto cars. (FFC)', 'it mentions trees down, not confirmed.'],
+    ['Tree fell on a house. (FFC)', 'it mentions trees down, not confirmed.'],
+    // negation: the record says there was none, so the card must not say it mentions damage (and must not deny it either)
+    ['Measured by ASOS. No damage reported. (FFC)', NONE],
+    ['No reports of damage.', NONE],
+    ['Damage not reported.', NONE],
+    ['No trees down.', NONE],
+    ['Trees were not blown down.', NONE],
+    ['Peak gust at mesonet site. (FFC)', NONE],
+    // forecast wording is not a report
+    ['Damaging winds could blow down trees.', NONE],
+    ['Damaging winds are expected.', NONE],
+    // both directions in one record
+    ['No damage reported, but trees down on homes.', 'it mentions trees down, not confirmed.'],
+    ['Trees down. No injuries reported.', 'it mentions trees down, not confirmed.'],
+    ['Wind damage reported to a barn.', 'it mentions damage, not confirmed.'],
+    ['Estimated gust. Roof peeled off a shed.', 'it mentions roof damage, not confirmed.'],
+  ];
+  for (const [remark, want] of SPC_REMARKS) {
+    it(`SPC remark "${remark}"`, () => {
+      const b = briefFor({ source: 'spc', label: 'coming_soon', trade: 'roofing', title: '60 mph wind gust reported near 3 N Smyrna, GA', summary: remark });
+      expect(b.uncertain).toBe(GUST + want);
+    });
+  }
+  it('a weather alert never prints a damage mention (its text is a forecast): always "damage is not confirmed"', () => {
+    for (const summary of ['IMPACTS...Damaging winds could blow down trees.', 'Trees down on roads. Flooding expected.', 'Hail up to the size of quarters.', null, 'No damage reported.']) {
+      expect(briefFor({ source: 'nws', label: 'coming_soon', trade: 'roofing', title: 'High Wind Warning: Cobb, GA', summary }).uncertain).toBe('High confidence the alert was issued; ' + NONE);
     }
-    expect(damagePhraseOf('Winds from the west at 60 mph')).toBeNull();
+  });
+  it('a quake says what a record reports, and never denies damage', () => {
+    const q = (summary: string) => briefFor({ source: 'usgs', label: 'coming_soon', trade: 'plumbing', title: 'M4.3 earthquake 9 km SW of Ridgecrest, CA', summary }).uncertain;
+    expect(q('Felt by many. No damage reported.')).toBe('High confidence it was recorded; ' + NONE);
+    expect(q('Some damage to chimneys reported.')).toBe('High confidence it was recorded; it mentions damage, not confirmed.');
+    expect(q('')).toBe('High confidence it was recorded; ' + NONE);
   });
   it('a permit never proves a vendor is chosen', () => {
     for (const t of TRADES) {
@@ -290,6 +322,10 @@ describe('permit and federal-award briefs describe the record from the record, n
   });
   it('permitTypeOf and awardWorkOf read the title only', () => {
     expect(permitTypeOf('Roof permit in Chicago')).toBe('Roof');
+    expect(permitTypeOf('HVAC, plumbing, electrical and demolition permit in Chicago')).toBe('HVAC, plumbing, electrical and demolition');
+    expect(permitTypeOf('1234 Main St permit in Atlanta')).toBeUndefined();
+    expect(permitTypeOf('2024-0012345 permit in Atlanta')).toBeUndefined();
+    expect(permitTypeOf('xxxx xxxxxx xx xxxxxxxx')).toBeUndefined();
     expect(permitTypeOf('Permit in Chicago')).toBeNull();
     expect(permitTypeOf(undefined)).toBeUndefined();
     expect(awardWorkOf('Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)')).toBe('Plumbing');
@@ -345,5 +381,32 @@ describe('hedged wording (review P2)', () => {
   });
   it('cleaning reads "cleaning", not "house cleaning", on a business-license card', () => {
     expect(briefFor({ source: 'socrata-sf-business', label: 'coming_soon', trade: 'cleaning' }).why).toBe('A new business license was filed nearby; it may need cleaning.');
+  });
+});
+
+describe('a permit is typeless only when its title starts with "Permit in" (review R2-3)', () => {
+  // the 4 long-title live cases (review E round 2): each names its types, so the card must NOT say the permit does not say what the work is
+  const LONG = [
+    'HVAC, plumbing, electrical and demolition permit in Chicago',
+    'Plumbing, fence, landscaping and concrete permit in Chicago',
+    'HVAC, plumbing, electrical and addition permit in Chicago',
+    'Roof, HVAC, plumbing and electrical permit in Chicago',
+  ];
+  for (const title of LONG) {
+    for (const label of ['coming_soon', 'market_insight'] as const) {
+      it(`${title} (${label}) never says the permit does not say what the work is`, () => {
+        for (const t of ['hvac', 'general-contractor', null]) {
+          const b = briefFor({ source: 'socrata-chicago-permits', label, trade: t, title });
+          expect(b.why).not.toMatch(/does not say what the work is/);
+          expect(b.uncertain).not.toMatch(/does not say what the work is/);
+          expect(b.why.length).toBeLessThanOrEqual(MAX_WHY);
+        }
+      });
+    }
+  }
+  it('a long type falls back to the generic permit sentence; "Permit in X" and only that is typeless', () => {
+    expect(briefFor({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'hvac', title: LONG[0] }).why).toBe('A permit was filed nearby; work is planned.');
+    expect(briefFor({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'hvac', title: 'Permit in Chicago' }).why).toBe('A permit was filed nearby; the permit does not say what the work is.');
+    expect(briefFor({ source: 'socrata-chicago-permits', label: 'market_insight', trade: 'hvac', title: '1234 Main St permit in Atlanta' }).why).toBe('A permit was filed nearby; work is planned.');
   });
 });

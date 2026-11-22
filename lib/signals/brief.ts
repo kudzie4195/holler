@@ -210,11 +210,18 @@ interface WhyCtx {
 }
 type WhyFn = (work: string, c: WhyCtx) => string;
 
-/** "HVAC permit in Montgomery County" gives "HVAC". "Permit in X" gives null. No title gives undefined. A type is the record's words, not a trade tag. */
+/**
+ * "HVAC permit in Montgomery County" gives "HVAC". Only a title that starts with "Permit in" (the generator's title for a permit with no
+ * type) gives null, meaning the record does not say what the work is. Any other shape, including a very long type, a type with a digit
+ * (an address or a permit number) or a masked title, gives undefined: the generic sentence, no claim about the type. No title gives undefined.
+ */
 export function permitTypeOf(title: string | null | undefined): string | null | undefined {
   if (typeof title !== 'string' || !title.trim()) return undefined;
-  const m = title.trim().match(/^(.{2,40}?)\s+permit\s+in\s+/i);
-  return m ? m[1].trim() : null;
+  const t = title.trim();
+  if (/^permit\s+in\s+/i.test(t)) return null;
+  const m = t.match(/^(.{2,120}?)\s+permit\s+in\s+/i);
+  if (!m || /\d/.test(m[1])) return undefined;
+  return m[1].trim();
 }
 
 /** "Federal contract ($310K) in Cincinnati, OH: Plumbing (NAICS 238220)" gives "Plumbing". A title with only a NAICS code gives null. */
@@ -227,20 +234,54 @@ export function awardWorkOf(title: string | null | undefined): string | null | u
   return work.length <= 26 ? work : null;
 }
 
+/**
+ * Damage words a record's own text can use, each with the short phrase the card prints ("it mentions trees down"). The list only decides
+ * when the card MENTIONS damage; nothing here ever denies it (the brief never prints "no damage is reported"). A miss therefore falls
+ * back to "damage is not confirmed", which is true of every record.
+ */
 const DAMAGE_PHRASES: [RegExp, string][] = [
-  [/\btrees?\s+(?:and\s+\w+\s+)?down\b|\bdowned\s+trees?\b|\btrees?\s+on\s+\w+/i, 'trees down'],
-  [/\bpower\s+lines?\s+down\b|\bdowned\s+(?:power\s+)?lines?\b|\blines?\s+down\b/i, 'power lines down'],
-  [/\broofs?\s+(?:off|torn|blown|damage\w*)|\bblown\s+(?:off|down)\b/i, 'roof damage'],
-  [/\bdamag(?:e|es|ed|ing)\b/i, 'damage'],
-  [/\bdestr(?:oy|oyed|oys|uction)\b|\bcollaps\w*/i, 'destruction'],
-  [/\bflood\w*/i, 'flooding'],
-  [/\binjur\w*|\bfatal\w*|\bdeaths?\b/i, 'injuries'],
-  [/\bdebris\b/i, 'debris'],
+  [/\btrees?\b[^.;]{0,25}?\b(?:down|uprooted|snapped|fell|fallen|toppled|broken|split|blown\s+(?:over|down))\b|\b(?:downed|uprooted|snapped|fallen)\s+(?:\w+\s+){0,2}trees?\b|\blimbs?\s+(?:\w+\s+)?(?:down|snapped|broken)\b|\btrees?\s+on\s+\w+/gi, 'trees down'],
+  [/\bpower\s+lines?\b[^.;]{0,20}?\b(?:down|snapped|broken)\b|\bdowned\s+(?:power\s+)?lines?\b|\blines?\s+down\b/gi, 'power lines down'],
+  [/\bpower\s+poles?\b[^.;]{0,20}?\b(?:down|snapped|broken)\b|\b(?:downed|snapped)\s+(?:power\s+)?poles?\b/gi, 'power poles down'],
+  [/\broofs?\b[^.;]{0,20}?\b(?:off|torn|blown|peeled|damage\w*)\b|\bshingles?\b[^.;]{0,20}?\b(?:torn|blown|off)\b|\bblown\s+(?:off|down)\b/gi, 'roof damage'],
+  [/\bdamag(?:e|es|ed|ing)\b/gi, 'damage'],
+  [/\bdestr(?:oy|oyed|oys|uction)\b|\bcollaps\w*/gi, 'destruction'],
+  [/\bflood\w*/gi, 'flooding'],
+  [/\binjur\w*|\bfatal\w*|\bdeaths?\b/gi, 'injuries'],
+  [/\bdebris\b/gi, 'debris'],
 ];
 
-/** The damage words the record's own text uses ("trees down"), or null when it has none. */
+const NEGATORS = /\b(?:no|not|nor|without|neither|none|zero|never)\b|n't\b/i;
+/** Wording that forecasts or conditions ("Damaging winds could blow down trees") rather than reports. */
+const FORECAST = /\b(?:could|may|might|can|possible|possibly|potential|potentially|expected|likely|will|would|should|threat|capable|impacts?|hazards?|if|forecast|anticipated|expect)\b/i;
+
+/** True when the match at [start, end) is negated ("No damage reported", "no reports of damage", "damage not reported") or forecast. */
+function notAReport(text: string, start: number, end: number): boolean {
+  // the sentence around the match
+  const before = text.slice(0, start);
+  const after = text.slice(end);
+  const sStart = Math.max(before.lastIndexOf('.'), before.lastIndexOf(';'), before.lastIndexOf('!'), before.lastIndexOf('?'), before.lastIndexOf('\n')) + 1;
+  const aEnd = after.search(/[.;!?\n]/);
+  const sentence = text.slice(sStart, aEnd === -1 ? text.length : end + aEnd);
+  if (FORECAST.test(sentence)) return true;
+  // a negator inside the match itself ("trees were not blown down")
+  if (NEGATORS.test(text.slice(start, end))) return true;
+  // the clause before the match (cut at a comma or "but"), last five words: a negator there negates it
+  const clauseBefore = text.slice(sStart, start).split(/,|\bbut\b/i).pop() ?? '';
+  if (NEGATORS.test(clauseBefore.trim().split(/\s+/).slice(-5).join(' '))) return true;
+  // the three words after it: "damage not reported", "damage was not reported"
+  const clauseAfter = (aEnd === -1 ? after : after.slice(0, aEnd)).split(/,|\bbut\b/i)[0] ?? '';
+  return NEGATORS.test(clauseAfter.trim().split(/\s+/).slice(0, 3).join(' '));
+}
+
+/** The first damage phrase the record's own text reports (not negated, not a forecast), or null. */
 export function damagePhraseOf(text: string): string | null {
-  for (const [re, phrase] of DAMAGE_PHRASES) if (re.test(text)) return phrase;
+  for (const [re, phrase] of DAMAGE_PHRASES) {
+    re.lastIndex = 0;
+    for (const m of text.matchAll(re)) {
+      if (!notAReport(text, m.index ?? 0, (m.index ?? 0) + m[0].length)) return phrase;
+    }
+  }
   return null;
 }
 
@@ -369,13 +410,13 @@ interface Uncertainty {
  * data are Medium, public posts are Low. It is confidence that the record says what it says, never that work exists.
  */
 const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Record<BriefLabel, Partial<Uncertainty>>> }> = {
-  'weather-alert': { base: { confidence: 'High', known: 'the alert was issued', unknown: 'no damage is reported' } },
+  'weather-alert': { base: { confidence: 'High', known: 'the alert was issued', unknown: 'damage is not confirmed' } },
   'storm-report': {
     base: { confidence: 'High', known: 'a storm report was filed', unknown: 'damage is not confirmed' },
-    byLabel: { coming_soon: { known: 'a gust was reported', unknown: 'no damage is reported' } },
+    byLabel: { coming_soon: { known: 'a gust was reported' } },
   },
   disaster: { base: { confidence: 'High', known: 'the declaration exists', unknown: 'local work is not known' } },
-  quake: { base: { confidence: 'High', known: 'it was recorded', unknown: 'no damage is reported' } },
+  quake: { base: { confidence: 'High', known: 'it was recorded', unknown: 'damage is not confirmed' } },
   airport: { base: { confidence: 'High', known: 'the delay is listed', unknown: 'its length is not known' } },
   permit: {
     base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' },
@@ -433,8 +474,6 @@ export interface Brief {
   uncertain: string;
 }
 
-const DAMAGE_FAMILIES: ReadonlySet<BriefFamily> = new Set<BriefFamily>(['weather-alert', 'storm-report', 'quake']);
-
 /** The brief for one record, one label and one trade. Pure, total: any input gives a complete brief. */
 export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string | null }): Brief {
   const family = briefFamilyOf(input);
@@ -448,15 +487,12 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   const why = WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
-  // Damage: a weather, storm or quake record never gets "no damage is reported" unless its own text has no damage words. Text not
-  // passed: say only that damage is not confirmed. Damage words present: say what the record says, as an unconfirmed mention.
-  if (DAMAGE_FAMILIES.has(family)) {
-    const text = [input.title, input.summary].filter((t): t is string => typeof t === 'string' && !!t.trim()).join(' ');
-    if (!text) merged.unknown = 'damage is not confirmed';
-    else {
-      const phrase = damagePhraseOf(text);
-      if (phrase) merged.unknown = `it mentions ${phrase}, not confirmed`;
-    }
+  // Damage: the brief never says "no damage is reported" (a word list cannot prove a record has no damage). A storm report or quake whose
+  // own text reports damage says what it mentions, as unconfirmed. A weather alert is a forecast, so it never prints a mention.
+  if (family === 'storm-report' || family === 'quake') {
+    const text = [input.title, input.summary].filter((t): t is string => typeof t === 'string' && !!t.trim()).join('. ');
+    const phrase = text ? damagePhraseOf(text) : null;
+    if (phrase) merged.unknown = `it mentions ${phrase}, not confirmed`;
   }
   if (family === 'permit' && ctx.permitType === null) merged.unknown = 'it does not say what the work is';
   return {

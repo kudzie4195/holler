@@ -23,7 +23,7 @@ vi.mock('@/app/app/actions', () => ({
 import { Feed, type FeedItem } from '@/components/feed';
 import { renderDigest, type DigestItem } from '@/lib/email/templates';
 import { buildAlerts, type MatchRow } from '@/lib/mobile/feed';
-import { MAX_WHY, briefFamilyOf, briefFor, damagePhraseOf, permitTypeOf, tradeForRecord, workFor } from '@/lib/signals/brief';
+import { MAX_WHY, briefFamilyOf, briefFor, permitTypeOf, tradeForRecord, workFor } from '@/lib/signals/brief';
 import { BANNED } from './banned';
 import { matchOne } from '@/lib/signals/match';
 import { matchScope } from '@/lib/plan/scope';
@@ -167,9 +167,15 @@ describe('brief cards over 243 real stored rows', () => {
       if (fam === 'permit') {
         seen.permit++;
         const type = permitTypeOf(c.row.title);
-        if (type && `A permit was filed nearby (${type}); work is planned.`.length <= MAX_WHY) expect(why, c.row.title).toContain(`(${type})`);
-        else if (type) expect(why, c.row.title).toBe('A permit was filed nearby; work is planned.');
-        else { seen.noType++; expect(why, c.row.title).toContain('does not say what the work is'); }
+        const uncertain = briefOf(c).uncertain;
+        if (type === null) { seen.noType++; expect(why, c.row.title).toContain('does not say what the work is'); }
+        else {
+          // a title that does name a type (even a long one) never gets "does not say what the work is"
+          expect(why, c.row.title).not.toContain('does not say what the work is');
+          expect(uncertain, c.row.title).not.toContain('does not say what the work is');
+          if (type && `A permit was filed nearby (${type}); work is planned.`.length <= MAX_WHY) expect(why, c.row.title).toContain(`(${type})`);
+          else expect(why, c.row.title).toBe('A permit was filed nearby; work is planned.');
+        }
       } else {
         seen.award++;
         expect(why, c.row.title).not.toMatch(/for junk hauling|for childcare|for buying or selling help/);
@@ -191,19 +197,19 @@ describe('brief cards over 243 real stored rows', () => {
     expect(n).toBeGreaterThan(5);
   });
 
-  it('no weather, storm or quake card denies damage when the record text mentions it (remarks, or the title)', () => {
+  it('no weather, storm or quake card ever says "no damage", whatever the record remarks say (independent of the phrase list)', () => {
+    // the remarks of the review's 7 realistic SPC wind reports, a negation and a forecast; none may produce a denial
+    const REMARKS = [
+      'Several trees down on homes and power lines down. (FFC)', 'Large tree limbs snapped. (FFC)', 'Several trees uprooted. (FFC)',
+      'Power poles snapped along Highway 41. (FFC)', 'Shingles torn from roof of home. (FFC)', 'Trees blown over onto cars. (FFC)', 'Tree fell on a house. (FFC)',
+      'Measured by ASOS. No damage reported. (FFC)', 'IMPACTS...Damaging winds could blow down trees.', 'Peak gust at mesonet site. (FFC)',
+    ];
     let n = 0;
     for (const c of CASES) {
       const fam = briefFamilyOf({ source: c.row.source, kind: c.row.kind, subtype: c.row.sub });
       if (!['weather-alert', 'storm-report', 'quake'].includes(fam)) continue;
       n++;
-      // the remarks the real SPC feed carries ("Several trees down on homes and power lines down.")
-      const withRemarks = briefOf(c, 'Several trees down on homes and power lines down. (FFC)').uncertain;
-      expect(withRemarks, `${c.row.source} #${c.row.id}`).toMatch(/it mentions trees down, not confirmed/);
-      expect(withRemarks).not.toMatch(/no damage/i);
-      // a title that itself has damage words
-      if (damagePhraseOf(c.row.title)) expect(briefOf(c).uncertain).not.toMatch(/no damage/i);
-      // no text at all: never a denial
+      for (const r of [null, ...REMARKS]) expect(briefOf(c, r).uncertain, `${c.row.source} #${c.row.id} ${r}`).not.toMatch(/no damage/i);
       expect(briefFor({ source: c.row.source, label: c.label as never, trade: c.trade }).uncertain).not.toMatch(/no damage/i);
     }
     expect(n).toBeGreaterThan(10);

@@ -1,5 +1,6 @@
 import { BID_SOURCE_PREFIX, bidsEnabled } from '@/lib/signals/bid-sources';
 import { WINDOW_DAYS } from './threshold';
+import { UPCOMING_DAYS } from '../time';
 
 /**
  * The holler_place_counts view (migrations 0001 and 0003) counts every stored signal, city bids included, so while HOLLER_BIDS_ENABLED
@@ -15,10 +16,12 @@ export async function bidCountsByPlace(
 ): Promise<Record<string, number>> {
   if (on) return {};
   try {
+    // The view's own window: occurred_at after now - 60 days and up to 14 days ahead.
     const since = new Date(nowMs - WINDOW_DAYS * 86_400_000).toISOString();
+    const until = new Date(nowMs + UPCOMING_DAYS * 86_400_000).toISOString();
     const q = sb.from('holler_signals').select('place_slug');
     if (typeof q?.like !== 'function') return {};
-    const r = await q.like('source', `${BID_SOURCE_PREFIX}%`).gte('occurred_at', since).limit(1000);
+    const r = await q.like('source', `${BID_SOURCE_PREFIX}%`).gt('occurred_at', since).lte('occurred_at', until).limit(1000);
     if (!r || r.error) return {};
     const out: Record<string, number> = {};
     for (const row of (r.data ?? []) as { place_slug?: string | null }[]) {
