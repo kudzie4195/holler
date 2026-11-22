@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cacheKey, DEFAULT_CLASSIFY_MODEL, normalizeForKey, runClassify, SKIP_SOURCES, type RunOptions } from '../../lib/ai/classify';
+import { cacheKey, DEFAULT_CLASSIFY_MODEL, normalizeForKey, PROMPT_V, runClassify, SKIP_SOURCES, type RunOptions } from '../../lib/ai/classify';
 import { scoresFor } from '../../lib/ai';
 import { AiFakeDb, NOW, sig } from './fake-db';
 import { goodAnswer, mockModel } from './mock-model';
@@ -37,7 +37,7 @@ describe('cache key', () => {
     expect(cacheKey({ ...a, title: 'Residential solar install' }, M)).not.toBe(k);
     expect(cacheKey({ ...a, summary: 'New construction' }, M)).not.toBe(k);
     expect(cacheKey(a, 'anthropic/other-model')).not.toBe(k);
-    expect(cacheKey(a, M, 2)).not.toBe(k);
+    expect(cacheKey(a, M, PROMPT_V + 1)).not.toBe(k);
   });
 });
 
@@ -128,7 +128,7 @@ describe('result cache', () => {
     await runClassify(opts(db, model));
     expect(calls).toHaveLength(1);
     expect(db.tables.holler_ai_cache.map((c) => c.key).sort()).toEqual([keyOf(sig(1)), keyOf(sig(2))].sort());
-    expect(db.tables.holler_ai_cache[0]).toMatchObject({ trades: { roofing: 0.9, 'auto-body': 0.5 }, model: M, prompt_v: 1 });
+    expect(db.tables.holler_ai_cache[0]).toMatchObject({ trades: { roofing: 0.9, 'auto-body': 0.5 }, model: M, prompt_v: 2 });
     // a new record with the same text, in other case and spacing (another address or number would be a new key)
     db.tables.holler_signals.push(sig(3, { title: sig(1).title.toUpperCase(), summary: `  ${sig(1).summary}  ` }));
     const s = await runClassify(opts(db, model));
@@ -141,7 +141,7 @@ describe('result cache', () => {
     // Followers have the same text in other case and spacing, so the same numbers: the rep's note passes their own check too.
     const kinds = ['alpha', 'bravo', 'charlie'];
     const rows = Array.from({ length: 30 }, (_, i) =>
-      sig(i + 1, { title: i < 3 ? `Reroof permit ${kinds[i % 3]} at Main St` : `REROOF permit  ${kinds[i % 3].toUpperCase()} at main st`, summary: i < 3 ? `Replace roof, ${i + 2} squares.` : `replace roof,  ${(i % 3) + 2} squares.` }),
+      sig(i + 1, { occurred_at: new Date(NOW.getTime() - (30 - i) * 60_000).toISOString(), title: i < 3 ? `Reroof permit ${kinds[i % 3]} at Main St` : `REROOF permit  ${kinds[i % 3].toUpperCase()} at main st`, summary: i < 3 ? `Replace roof, ${i + 2} squares.` : `replace roof,  ${(i % 3) + 2} squares.` }),
     );
     const db = new AiFakeDb({ holler_signals: rows });
     const { model, calls } = mockModel((ids) => ({
@@ -165,7 +165,8 @@ describe('result cache', () => {
   });
 
   it('a record the model skipped is stored empty, never cached, and its followers wait', async () => {
-    const rows = [sig(1, { title: 'Same text' , summary: 'x' }), sig(2, { title: 'Same text', summary: 'x' })];
+    // permits go oldest first, so id 1 is made the oldest and is the representative
+    const rows = [sig(1, { title: 'Same text', summary: 'x', occurred_at: new Date(NOW.getTime() - 120_000).toISOString() }), sig(2, { title: 'Same text', summary: 'x' })];
     const db = new AiFakeDb({ holler_signals: rows });
     const { model } = mockModel(() => ({ results: [] }));
     const s = await runClassify(opts(db, model));
@@ -189,7 +190,9 @@ describe('result cache', () => {
     const { model } = mockModel(() => 'not json');
     await runClassify(opts(db, model));
     expect(db.tables.holler_signal_ai).toHaveLength(0);
-    expect(db.tables.holler_ai_cache).toHaveLength(0);
+    // no result is cached; the only row is the attempt counter of the one record that was sent (lib/ai/poison.ts, model 'poison-attempts')
+    expect(db.tables.holler_ai_cache.filter((r) => r.model !== 'poison-attempts')).toHaveLength(0);
+    expect(db.tables.holler_ai_cache).toHaveLength(1);
   });
 
   it('dry run reports skipped, hits, misses and what would be sent, and writes nothing', async () => {

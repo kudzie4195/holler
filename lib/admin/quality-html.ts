@@ -1,4 +1,5 @@
 import type { QualityReport, TradeQuality } from './quality';
+import { aiCoverageLine, type AiCoverage } from './ai-coverage';
 
 /**
  * The alert-quality report as one self-contained HTML page for the owner. No script, no external file, no cookie, no form: a table
@@ -26,7 +27,7 @@ function row(t: TradeQuality, target: number): string {
   );
 }
 
-export function renderQualityHtml(r: QualityReport): string {
+export function renderQualityHtml(r: QualityReport, ai?: AiCoverage): string {
   const head =
     '<tr><th>Trade</th><th>Members (with access)</th><th>Sent</th>' +
     Object.values(NAMES).map((n) => `<th>${esc(n)}</th>`).join('') +
@@ -42,6 +43,7 @@ export function renderQualityHtml(r: QualityReport): string {
     'th,td{border:1px solid #ccc;padding:4px 8px;text-align:right}th:first-child,thead th{text-align:left}' +
     'thead th{background:#f3f3f3;position:sticky;top:0}tr.bad{background:#fdecea}ul{padding-left:20px}</style></head><body>' +
     `<h1>Holler alert quality</h1><p>Last ${r.windowDays} days, since ${esc(r.since)}. Generated ${esc(r.generatedAt)}. Target: at least ${Math.round(r.target * 100)}% of sent alerts are Act now or Coming soon, per trade.</p>` +
+    (ai ? `<p>${esc(aiCoverageLine(ai))}</p>` : '') +
     (unavailable.length ? `<p><strong>Unavailable reads:</strong> ${unavailable.join(', ')} (blank, not zero).</p>` : '') +
     (partial.length ? `<p><strong>Partial reads:</strong> ${partial.join(', ')} (row limit reached: only the newest rows are counted).</p>` : '') +
     (r.belowTarget.length ? `<p><strong>Below target:</strong> ${r.belowTarget.map(esc).join(', ')}</p>` : '') +

@@ -133,11 +133,12 @@ describe('r3 P1: the cache key never joins records that differ in a word', () =>
 describe('r3 P1: a call that reports no usage is booked at its worst case', () => {
   it('480 signals, cap of 3.5 worst-case batches, usage missing: stops at the cap', async () => {
     const db = new AiFakeDb({ holler_signals: Array.from({ length: 480 }, (_, i) => sig(i + 1)) });
-    const first = Array.from({ length: 24 }, (_, i) => toRecord(sig(i + 1) as never));
+    // permits go oldest first: the first batch is the 24 oldest (ids 480 down to 457)
+    const first = Array.from({ length: 24 }, (_, i) => toRecord(sig(480 - i) as never));
     const wc = worstCaseUsd(SYSTEM_PROMPT.length + buildPrompt(first).length, maxOutputTokensFor(24));
     const cap = Math.round(wc * 3.5 * 1_000_000) / 1_000_000;
     const { model, calls } = mockModel(goodAnswer, { usage: null });
-    const s = await runClassify(opts(db, model, { env: { AI_MONTHLY_CAP_USD: String(cap) } }));
+    const s = await runClassify(opts(db, model, { env: { AI_MONTHLY_CAP_USD: String(cap), AI_MAX_SIGNALS_PER_RUN: '5000', AI_MAX_SIGNALS_PER_DAY: '50000' } }));
     expect(s.reason).toBe('cap_reached');
     expect(calls).toHaveLength(3);
     expect(s.alerts).toContain('alert_100');

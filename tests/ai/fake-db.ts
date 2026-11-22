@@ -82,6 +82,7 @@ class B implements PromiseLike<any> {
   private lim: number | null = null;
   private payload: any;
   private returning = false;
+  private antiJoin = false;
   constructor(private db: AiFakeDb, private table: string) {}
   select() {
     if (this.op === 'select') this.db.calls.push(`${this.table}.select`);
@@ -99,7 +100,16 @@ class B implements PromiseLike<any> {
     this.filters.push((r) => vs.includes(r[c]));
     return this;
   }
-  is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
+  is(c: string, v: any) {
+    // PostgREST anti-join: .is('holler_signal_ai', null) on holler_signals keeps the rows that have no holler_signal_ai row.
+    if (c === 'holler_signal_ai' && v === null && this.table === 'holler_signals') {
+      this.filters.push((r) => !this.db.tables.holler_signal_ai.some((a) => a.signal_id === r.id));
+      this.antiJoin = true;
+      return this;
+    }
+    this.filters.push((r) => (r[c] ?? null) === v);
+    return this;
+  }
   order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
   range(a: number, b: number) { this.from_ = a; this.to_ = b; return this; }
   limit(n: number) { this.lim = n; return this; }
@@ -107,6 +117,8 @@ class B implements PromiseLike<any> {
     return Promise.resolve().then(() => this.run()).then(f, r);
   }
   private run() {
+    // A test can make just the anti-join read fail (an old PostgREST, a stale schema cache) with failOn['holler_signals.antijoin'] = code.
+    if (this.antiJoin && this.db.failOn['holler_signals.antijoin']) return { data: null, error: { message: 'Could not find a relationship', code: this.db.failOn['holler_signals.antijoin'] } };
     const fk = `${this.table}.${this.op}`;
     if (this.db.failOn[fk]) return { data: null, error: { message: this.db.failOn[fk] } };
     const t = this.db.tables[this.table];

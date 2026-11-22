@@ -29,7 +29,7 @@ describe('verify-v1 P2 #5: the reservation scale is the largest settled ratio, n
 
     const db = new AiFakeDb({ holler_signals: Array.from({ length: 960 }, (_, i) => sig(i + 1)) });
     const { model, calls } = mockModel(goodAnswer, { gatewayCost: 2 * estimate });
-    const s = await runClassify(opts(db, model, { concurrency: 10, env: { AI_MONTHLY_CAP_USD: '10' } }));
+    const s = await runClassify(opts(db, model, { concurrency: 10, env: { AI_MONTHLY_CAP_USD: '10', AI_MAX_SIGNALS_PER_RUN: '5000', AI_MAX_SIGNALS_PER_DAY: '50000' } }));
     expect(s.batchesPlanned).toBe(40);
     expect(calls).toHaveLength(40);
     expect(s.reason).toBeNull();
