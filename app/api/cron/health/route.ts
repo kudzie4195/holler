@@ -9,6 +9,7 @@ import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } f
 import { readStateRuns } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
 import { countShortTrials, loadTrialDbCheck } from '@/lib/auth/trial-check';
+import { loadHeldPermitReport } from '@/lib/admin/held-permits';
 
 export const maxDuration = 60;
 
@@ -172,6 +173,13 @@ export async function GET(req: Request) {
     lookup = null;
   }
 
+  // Round 18 integration: a source whose permit cards were mostly held as Background by the contact gate (more than 80% of at least 10 in
+  // the last 7 days) gets one Watch line ("DeKalb County permits: 92% held for no contact path, check the site-address field"). Silent
+  // when the gate is off (migration 0027 not applied) or on any read failure. Never throws.
+  const heldPermits = await loadHeldPermitReport(admin, now);
+  // At the front: the email shows the first 10 Watch lines.
+  report.watch.unshift(...heldPermits.lines);
+
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
   else if (!to) email = { status: 'no_recipient', detail: 'Set ADMIN_EMAIL or SUPPORT_EMAIL to receive the health email.' };
@@ -188,5 +196,5 @@ export async function GET(req: Request) {
   // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
   const monitorResult = await monitor(admin, now, true, to);
 
-  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult, lookup }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult, lookup, heldPermits }, { headers: { 'Cache-Control': 'no-store' } });
 }

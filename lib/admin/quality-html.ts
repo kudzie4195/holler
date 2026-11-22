@@ -2,6 +2,7 @@ import type { QualityReport, TradeQuality } from './quality';
 import { aiCoverageLine, type AiCoverage } from './ai-coverage';
 import type { DuplicateReport } from '@/lib/signals/dedupe-metrics';
 import type { ContactPathReport } from './contact-path';
+import { HELD_MIN_CARDS, HELD_SHARE_FLAG, type HeldPermitReport } from './held-permits';
 
 /**
  * The alert-quality report as one self-contained HTML page for the owner. No script, no external file, no cookie, no form: a table
@@ -56,7 +57,26 @@ function contactPathBlock(c: (ContactPathReport & { partial?: boolean }) | undef
   );
 }
 
-export function renderQualityHtml(r: QualityReport, ai?: AiCoverage, contactPaths?: ContactPathReport & { partial?: boolean }): string {
+/**
+ * Round 18 integration: permit cards held as Background by the contact gate, per source (last 7 days). A source over 80% with at least 10
+ * cards is flagged with the owner line. Nothing at all when the gate is off (migration 0027 not applied).
+ */
+export function heldPermitsBlock(h: (HeldPermitReport & { partial?: boolean }) | undefined): string {
+  if (!h || h.status === 'off') return '';
+  const head = `<h2>Permit cards held for no contact path (last ${h.windowDays} days)</h2>`;
+  if (h.status === 'unavailable') return `${head}<p>Unavailable (blank, not zero).</p>`;
+  if (h.sources.length === 0) return `${head}<p>No alert-eligible permit cards since ${esc(h.since)}.</p>`;
+  const flagged = h.lines.length ? `<ul>${h.lines.map((l) => `<li><strong>${esc(l)}</strong></li>`).join('')}</ul>` : '<p>No source over the line.</p>';
+  const line = (x: HeldPermitReport['sources'][number]) =>
+    `<tr${x.cards >= HELD_MIN_CARDS && x.share > HELD_SHARE_FLAG ? ' class="bad"' : ''}><th scope="row">${esc(x.source)}</th><td>${x.cards}</td><td>${x.held}</td><td>${pct(x.share)}</td></tr>`;
+  return (
+    `${head}<p>A permit card with no named business and no job-site street address stays in the feed as Background. A source is flagged when more than ${Math.round(HELD_SHARE_FLAG * 100)}% of at least ${HELD_MIN_CARDS} cards were held: its site-address field is probably empty or no longer read.${h.partial ? ' Partial: the row limit was reached.' : ''}</p>` +
+    flagged +
+    `<table><thead><tr><th>Source</th><th>Permit cards</th><th>Held as Background</th><th>Share held</th></tr></thead><tbody>${h.sources.map(line).join('')}</tbody></table>`
+  );
+}
+
+export function renderQualityHtml(r: QualityReport, ai?: AiCoverage, contactPaths?: ContactPathReport & { partial?: boolean }, heldPermits?: HeldPermitReport & { partial?: boolean }): string {
   const head =
     '<tr><th>Trade</th><th>Members (with access)</th><th>Sent</th>' +
     Object.values(NAMES).map((n) => `<th>${esc(n)}</th>`).join('') +
@@ -80,6 +100,7 @@ export function renderQualityHtml(r: QualityReport, ai?: AiCoverage, contactPath
     '<p>* fewer than 10 answers: small sample. "Sent" = emailed (holler_alert_log.emailed_at). "Not relevant" is what members told us, not proof the record was wrong. Time to first card counts any card in the feed that is Act now or Coming soon for one of the member&#39;s trades.</p>' +
     duplicatesBlock(r.duplicates) +
     contactPathBlock(contactPaths) +
+    heldPermitsBlock(heldPermits) +
     (r.notes.length ? `<h2>Notes</h2><ul>${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : '') +
     '</body></html>'
   );
