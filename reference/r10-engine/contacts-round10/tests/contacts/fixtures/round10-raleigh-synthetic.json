@@ -1,0 +1,46 @@
+{
+ "features": [
+  {
+   "attributes": {
+    "permitnum": "BLDR-2026-0001",
+    "issueddate": 1762905600000,
+    "description": "Re-roof",
+    "permittype": "Residential Building",
+    "workclass": "Repair",
+    "estprojectcost": 15000,
+    "originaladdress1": "3401 Hillsborough St",
+    "originalzip": "27607",
+    "contractorcompanyname": "Metro Roofing & Restoration Inc",
+    "contractordba": "",
+    "contractorphone": "919-555-0150",
+    "contractorlicnum": "12345",
+    "statelicnum": "L-998",
+    "parcelownername": "Lakeview Investments LLC"
+   },
+   "geometry": {
+    "x": -78.64,
+    "y": 35.78
+   }
+  },
+  {
+   "attributes": {
+    "permitnum": "BLDR-2026-0002",
+    "issueddate": 1762905600000,
+    "description": "Re-roof",
+    "permittype": "Residential Building",
+    "workclass": "Repair",
+    "estprojectcost": 6000,
+    "originaladdress1": "812 Wake Forest Rd",
+    "originalzip": "27604",
+    "contractorcompanyname": "Thomas Greene",
+    "contractordba": "Greene Roofing",
+    "contractorphone": "919-555-0123",
+    "parcelownername": "GREENE THOMAS"
+   },
+   "geometry": {
+    "x": -78.64,
+    "y": 35.78
+   }
+  }
+ ]
+}

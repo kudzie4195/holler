@@ -11,13 +11,14 @@ const html = renderToStaticMarkup(createElement(ComingNext, { page: 'pricing' })
 const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, ' ');
 
 describe('feature list', () => {
-  it('is exactly the four features, in order, with the agreed ids', () => {
-    expect(FEATURES.map((f) => f.id)).toEqual(['gov-bids', 'spanish', 'asking-online', 'city-weekly']);
-    expect(FEATURES.map((f) => f.label)).toEqual(['Local government bids', 'Holler in Spanish', 'People asking online', 'Free weekly city email']);
-    expect(FEATURE_IDS).toEqual(['gov-bids', 'spanish', 'asking-online', 'city-weekly']);
+  it('is exactly the five features, in order, with the agreed ids', () => {
+    expect(FEATURES.map((f) => f.id)).toEqual(['gov-bids', 'spanish', 'asking-online', 'city-weekly', 'more-areas']);
+    expect(FEATURES.map((f) => f.label)).toEqual(['Local government bids', 'Holler in Spanish', 'People asking online', 'Free weekly city email', 'More ZIP codes']);
+    expect(FEATURE_IDS).toEqual(['gov-bids', 'spanish', 'asking-online', 'city-weekly', 'more-areas']);
   });
-  it('the migration check constraint lists the same ids', () => {
-    const sql = readFileSync('supabase/migrations/0008_holler_feature_interest.sql', 'utf8');
+  it('the newest migration check constraint lists the same ids', () => {
+    // 0031 (the other branch's 0021, renamed) widened the constraint 0008 created; the newest definition is the one in force.
+    const sql = readFileSync('supabase/migrations/0031_holler_zip_waitlist.sql', 'utf8');
     const m = sql.match(/check \(feature in \(([^)]*)\)\)/)!;
     expect(m[1].split(',').map((s) => s.trim().replace(/'/g, ''))).toEqual([...FEATURE_IDS]);
   });
@@ -25,8 +26,8 @@ describe('feature list', () => {
 
 describe('server render', () => {
   it('shows every button as "I want this" and none disabled or picked', () => {
-    expect(html.match(/<button/g)).toHaveLength(4);
-    expect(html.match(/>I want this</g)).toHaveLength(4);
+    expect(html.match(/<button/g)).toHaveLength(5);
+    expect(html.match(/>I want this</g)).toHaveLength(5);
     expect(html).not.toContain('>Picked<');
     expect(html).not.toMatch(/<button[^>]*\sdisabled(="")?[\s>]/);
   });

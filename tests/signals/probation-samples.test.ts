@@ -1,4 +1,4 @@
-// Ported from origin/r10-integrate tests/signals/probation-samples.test.ts (round 19 UNIFY), adapted: migration 0031, and a missing
+// Ported from origin/r10-integrate tests/signals/probation-samples.test.ts (round 19 UNIFY), adapted: migration 0032, and a missing
 // table is a skip with no error (this base's rule). Source probation: a probation adapter's rows go to holler_source_samples (service role only), never to holler_signals,
 // holler_signal_contacts, matching, notification or IndexNow. Rows and fakes are hand-written; the in-memory db is tests/ops/fakedb.ts.
 import { readFileSync } from 'node:fs';
@@ -202,8 +202,8 @@ describe('probation review fixes (redo 2)', () => {
   });
 });
 
-describe('migration 0031_holler_source_samples.sql', () => {
-  const sql = readFileSync(join(__dirname, '..', '..', 'supabase', 'migrations', '0031_holler_source_samples.sql'), 'utf8');
+describe('migration 0032_holler_source_samples.sql', () => {
+  const sql = readFileSync(join(__dirname, '..', '..', 'supabase', 'migrations', '0032_holler_source_samples.sql'), 'utf8');
   it('enables RLS with no policies and revokes anon and authenticated', () => {
     expect(sql).toMatch(/alter table public\.holler_source_samples enable row level security/i);
     expect(sql).not.toMatch(/create\s+policy/i);
@@ -219,7 +219,7 @@ describe('migration 0031_holler_source_samples.sql', () => {
     expect(sql).toMatch(/never in holler_signals/i);
   });
   it('reproduces the statements of the parallel branch 0022_holler_source_samples.sql exactly (the table the live database has)', () => {
-    // The SQL of origin/r10-integrate supabase/migrations/0022_holler_source_samples.sql, comments and blank lines removed.
+    // The SQL of the other branch's supabase/migrations/0022_holler_source_samples.sql (origin/main 61727f3), comments and blank lines removed.
     const THEIRS = `create table if not exists public.holler_source_samples (
   id bigserial primary key,
   source text not null,

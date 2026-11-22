@@ -1,0 +1,32 @@
+[
+ {
+  "permitnumber": "BR-2026-0001",
+  "issueddate": "2026-11-12T00:00:00.000",
+  "permittype": "Roofing",
+  "designation": "Residential",
+  "projectdescription": "Re-roof",
+  "projectvalue": "16000",
+  "streetaddress": "2100 Perkins Rd",
+  "zip": "70808",
+  "lat": "30.4",
+  "long": "-91.1",
+  "contractorname": "Capital Area Roofing LLC",
+  "ownername": "Westside Partners LLC",
+  "applicantname": "Capital Area Roofing LLC"
+ },
+ {
+  "permitnumber": "BR-2026-0002",
+  "issueddate": "2026-11-12T00:00:00.000",
+  "permittype": "Roofing",
+  "designation": "Residential",
+  "projectdescription": "Re-roof",
+  "projectvalue": "7000",
+  "streetaddress": "455 Highland Rd",
+  "zip": "70802",
+  "lat": "30.4",
+  "long": "-91.1",
+  "contractorname": "Robert Landry",
+  "ownername": "Landry Robert",
+  "applicantname": "Robert Landry"
+ }
+]

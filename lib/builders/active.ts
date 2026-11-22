@@ -9,7 +9,7 @@ import { GENERIC_LABELS, KIND_DOERS, permitLabelsOf } from '@/lib/signals/permit
  * passes this base's organisation check exactly (lib/contacts/org.ts isOrganisationName, the same rule lib/outreach/loader.ts applies to
  * every contractor name a member sees) and cleanOrgName leaves a printable name. No address, no person, no website is ever returned.
  *
- * Adapted from the other branch: their permit kinds came from lib/signals/opportunity.ts (PERMIT_KIND_LABELS, PERMIT_DOING,
+ * Adapted from the other branch: their permit kinds came from their engine (reference/r10-engine/lib/signals/opportunity.ts: PERMIT_KIND_LABELS, PERMIT_DOING,
  * permitKindsFromTitle). This base reads the same thing from lib/signals/permit-routing.ts: permitLabelsOf (the work-kind labels a typed
  * permit title names, lowercased English: 'roof', 'hvac', 'new home') and KIND_DOERS (the trades that do that work). `kinds` are returned
  * as those label keys; the component prints them through lib/signals/title-i18n.ts permitLabelLang in the member's language.

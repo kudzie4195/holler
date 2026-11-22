@@ -118,7 +118,7 @@ describe('parseSam', () => {
   });
   it('maps janitorial and roofing NAICS, resolves city coordinates, sets deadline as expiresAt', () => {
     const j = out.find((s) => s.title.includes('Janitorial'))!;
-    expect(j.categories).toEqual(['janitorial-commercial', 'cleaning']);
+    expect(j.categories).toEqual(['janitorial-commercial']);
     expect(j.city).toBe('Atlanta');
     expect(j.lat).not.toBeNull();
     expect(j.expiresAt).toBe('2026-12-01T22:00:00.000Z');
@@ -247,5 +247,36 @@ describe('SAM failure modes and paging', () => {
     expect(u.searchParams.get('postedFrom')).toBe('11/09/2026');
     expect(u.searchParams.get('postedTo')).toBe('11/16/2026');
     expect(u.searchParams.get('offset')).toBe('0');
+  });
+});
+
+import { isSupplyBuy } from '@/lib/signals/adapters/sam';
+describe('SAM supply buys are dropped', () => {
+  it('goods NAICS and numeric supply classes are supply buys', () => {
+    expect(isSupplyBuy('333995', '36--GENERATOR,OXYGEN-NITRO')).toBe(true);
+    expect(isSupplyBuy('335931', 'REPAIR KIT,ELECTRICAL')).toBe(true);
+    expect(isSupplyBuy(null, '16--GENERATOR CONTROL U, IN REPAIR/MO')).toBe(true);
+    expect(isSupplyBuy('423610', 'Wire and cable')).toBe(true);
+  });
+  it('service and construction notices are kept', () => {
+    expect(isSupplyBuy('238220', 'Z1DA--NRM CONST - Replace Boiler')).toBe(false);
+    expect(isSupplyBuy('561720', 'S--BGNDRF CUSTODIAL SERVICES')).toBe(false);
+    expect(isSupplyBuy('811310', 'Repair HVAC Seedling Cooler')).toBe(false);
+    expect(isSupplyBuy(null, 'J026--Pneumatic Tube System Preventive Maintenance')).toBe(false);
+  });
+});
+
+describe('SAM location and snow (final review)', () => {
+  const base = { noticeId: 'n1', type: 'Solicitation', naicsCode: '561730', postedDate: '2026-11-20', fullParentPathName: 'DEFENSE.AIR FORCE' };
+  it('never places a bid at the contracting office', () => {
+    const rows = parseSam({ opportunitiesData: [{ ...base, title: 'Grounds maintenance', officeAddress: { city: 'MOBILE', state: 'AL' }, placeOfPerformance: {} }] });
+    expect(rows).toHaveLength(0);
+    const fl = parseSam({ opportunitiesData: [{ ...base, title: 'Grounds maintenance', officeAddress: { city: 'MOBILE', state: 'AL' }, placeOfPerformance: { state: { code: 'FL' } } }] });
+    expect(fl[0].state).toBe('FL');
+    expect(fl[0].title).toMatch(/^Federal bid in FL:/);
+  });
+  it('a snow removal title goes to snow removal whatever the NAICS', () => {
+    const rows = parseSam({ opportunitiesData: [{ ...base, title: 'DOI-NPS Snow Removal Services', placeOfPerformance: { state: { code: 'VA' } } }] });
+    expect(rows[0].categories).toEqual(['snow-removal']);
   });
 });

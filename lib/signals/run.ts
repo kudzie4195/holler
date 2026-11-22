@@ -306,7 +306,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   let lastRuns: Record<string, number> = {};
   if (!dry && db && !opts.source) {
     try {
-      lastRuns = await getLastRunTimes(db);
+      lastRuns = await getLastRunTimes(db, now.getTime());
     } catch (e) {
       report.error = e instanceof Error ? e.message : String(e);
       return report;
@@ -324,7 +324,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     } else due.push(a);
   }
 
-  // Source probation (migration 0031). The samples table is probed once, and only when a probation source is due on a real scan. With
+  // Source probation (migration 0032). The samples table is probed once, and only when a probation source is due on a real scan. With
   // it missing, every probation source is skipped like an unconfigured one: no fetch, no write anywhere, no scan_runs row, no error.
   let samplesState: 'ok' | 'missing' | 'failed' | 'unknown' = 'unknown';
   if (!dry && db && due.some((a) => a.probation)) {
@@ -334,7 +334,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         const a = due[i];
         if (!a.probation) continue;
         due.splice(i, 1);
-        report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [SAMPLES_MISSING], missingEnv: ['migration 0031 (holler_source_samples)'], ms: 0 });
+        report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [SAMPLES_MISSING], missingEnv: ['migration 0032 (holler_source_samples)'], ms: 0 });
       }
     }
   }

@@ -72,9 +72,11 @@ export async function readAllPages<T>(
  * Latest started_at per source from holler_scan_runs (last 3 days).
  * Paged: 40 sources at 15 to 720 minute cadences write about 350 rows a day, so one 1000-row page can drop a slow
  * source off the end, which would make it look "never run" and re-run it on every tick.
+ * `nowMs` is the scan's own clock (runScan's `now`), so a scan simulated or replayed at another time reads the right window (from the
+ * other branch, 19cb25b).
  */
-export async function getLastRunTimes(db: Db): Promise<Record<string, number>> {
-  const since = new Date(Date.now() - 3 * 86400_000).toISOString();
+export async function getLastRunTimes(db: Db, nowMs: number = Date.now()): Promise<Record<string, number>> {
+  const since = new Date(nowMs - 3 * 86400_000).toISOString();
   let rows: { source: string | null; started_at: string | null }[];
   try {
     rows = await readAllPages(

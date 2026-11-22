@@ -4,12 +4,12 @@ import type { SignalInput } from './types';
 
 /**
  * Source probation storage (ported from the parallel branch's lib/signals/samples.ts, round 19 UNIFY). A source with `Adapter.probation`
- * keeps its rows in holler_source_samples (migration 0031, service role only: RLS on, no policy, nothing granted to anon or authenticated),
+ * keeps its rows in holler_source_samples (migration 0032, service role only: RLS on, no policy, nothing granted to anon or authenticated),
  * never in holler_signals. Nothing in that table can reach a member, a feed card, an alert, an email, a push, an SEO page, a public count,
  * matching or the anon API.
  *
  * Differences from the other branch (this base's rules):
- *  - the migration is 0031 here (theirs was 0022; this base's 0022 is the contact licence column);
+ *  - the migration is 0032 here (theirs was numbered 0022 and is renamed in the merge; this base's 0022 is the contact licence column);
  *  - with the table missing a probation source is SKIPPED with no error (theirs logged an error on scan_runs): run.ts asks
  *    samplesTableState() once per scan before fetching, and a SamplesMissingError at write time is treated the same way.
  */
@@ -19,7 +19,7 @@ export const SAMPLE_CAP = 300;
 /** Samples older than this are deleted by every scan (pruneSourceSamples), for every source. */
 export const SAMPLE_KEEP_DAYS = 14;
 /** What a skipped probation source says in the scan report (never an error, never on scan_runs). */
-export const SAMPLES_MISSING = 'holler_source_samples missing: apply migration 0031';
+export const SAMPLES_MISSING = 'holler_source_samples missing: apply migration 0032';
 
 export class SamplesMissingError extends Error {
   constructor() {

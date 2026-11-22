@@ -83,7 +83,7 @@ export const bblKey = (b: Bbl): string => `${b.boro}-${b.block}-${b.lot}`;
 export function registrationsQuery(bbls: readonly Bbl[]): URLSearchParams {
   const where = bbls.map((b) => `(boroid='${b.boro}' AND block='${b.block}' AND lot='${b.lot}')`).join(' OR ');
   const p = new URLSearchParams();
-  p.set('$select', 'registrationid,boroid,block,lot');
+  p.set('$select', 'registrationid,boroid,block,lot,registrationenddate');
   p.set('$where', where);
   p.set('$limit', '2000');
   return p;
@@ -104,14 +104,29 @@ interface RegRow {
   boroid?: unknown;
   block?: unknown;
   lot?: unknown;
+  registrationenddate?: unknown;
 }
 
-/** Registration rows to BBL key -> registration ids. Rows whose key is not in `wanted` are ignored (the server filter is trusted, not relied on). */
-export function groupRegistrations(rows: unknown, wanted: ReadonlySet<string>): Map<string, string[]> {
+/**
+ * True when the row has a readable registrationenddate before `nowMs`: an expired registration names no current manager. A missing or
+ * unreadable date is not expired. Round 19 UNIFY: taken from the other branch's isExpiredRegistration (kept unchanged in reference/r10-engine/nyc-agents/lib/contacts/nyc-agents.ts)
+ * (their recon of 2026-11-22 saw a registration that ended 2026-09-01 still listed on its lot).
+ */
+export function isExpiredRegistration(r: { registrationenddate?: unknown }, nowMs: number): boolean {
+  const t = typeof r.registrationenddate === 'string' ? Date.parse(r.registrationenddate.trim()) : NaN;
+  return Number.isFinite(t) && t < nowMs;
+}
+
+/**
+ * Registration rows to BBL key -> registration ids. Rows whose key is not in `wanted` are ignored (the server filter is trusted, not
+ * relied on). With `nowMs`, an expired registration (isExpiredRegistration) is left out before the lot's majority is taken.
+ */
+export function groupRegistrations(rows: unknown, wanted: ReadonlySet<string>, nowMs?: number): Map<string, string[]> {
   const out = new Map<string, string[]>();
   if (!Array.isArray(rows)) return out;
   for (const r of rows as RegRow[]) {
     if (!r || typeof r !== 'object') continue;
+    if (nowMs !== undefined && isExpiredRegistration(r, nowMs)) continue;
     const id = typeof r.registrationid === 'string' || typeof r.registrationid === 'number' ? String(r.registrationid) : '';
     if (!/^\d{1,9}$/.test(id)) continue;
     const b = parseBbl(`${String(r.boroid ?? '')}${String(r.block ?? '').padStart(5, '0')}${String(r.lot ?? '').padStart(4, '0')}`);
@@ -259,7 +274,7 @@ export async function lookupManagers(bblValues: readonly unknown[], o: LookupOpt
         for (const b of part) failedKeys.add(bblKey(b));
         return;
       }
-      for (const [k, ids] of groupRegistrations(body, new Set(part.map(bblKey)))) lots.set(k, ids);
+      for (const [k, ids] of groupRegistrations(body, new Set(part.map(bblKey)), now)) lots.set(k, ids);
     }),
     size,
   );

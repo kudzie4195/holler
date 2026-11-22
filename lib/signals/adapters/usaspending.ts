@@ -49,11 +49,14 @@ export const NAICS_RULES: [string, CategoryId[]][] = [
   ['238220', ['plumbing', 'hvac']],
   ['238210', ['electrical']],
   ['238320', ['painting']],
+  ['238330', ['flooring']],
+  ['238290', []],
   ['238910', ['general-contractor', 'landscaping']],
   ['238', ['general-contractor']],
   ['236', ['general-contractor']],
   ['237', ['general-contractor']],
   ['562910', ['restoration']],
+  ['562991', []], // septic pumping and portable toilets: not junk removal
   ['562', ['junk-removal']],
   ['722', ['food-truck', 'catering']],
 ];

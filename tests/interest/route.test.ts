@@ -198,7 +198,7 @@ describe('signed-out visitor', () => {
     expect(c).not.toMatch(/HttpOnly/i);
     expect(c).not.toMatch(/Domain=/i);
     const value = decodeURIComponent(c.split(';')[0].split('=')[1]);
-    expect(value.split(',').every((id) => ['gov-bids', 'spanish', 'asking-online', 'city-weekly'].includes(id))).toBe(true);
+    expect(value.split(',').every((id) => ['gov-bids', 'spanish', 'asking-online', 'city-weekly', 'more-areas'].includes(id))).toBe(true);
   });
 
   it('a second pick adds to the cookie list, in feature order, with no duplicates', async () => {
