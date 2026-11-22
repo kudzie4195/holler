@@ -14,6 +14,8 @@ export const NOTE_BANNED = [
   ...new Set([
     'delve', 'robust', 'seamless', 'elevate', 'unlock', 'empower', 'journey', 'landscape', 'leverage', 'not only', 'more than just',
     "it's worth noting", 'it is worth noting', "whether you're", 'whether you are',
+    // Round 17 (item 2.5): a link says "public source", never "official record"; no hype promises.
+    'official record', 'official records', 'official source', 'you will win', 'they need you',
     ...BANNED_WORDS.map((w) => w.toLowerCase()),
   ]),
 ];
@@ -37,6 +39,9 @@ export type NoteViolation =
   | 'claims_customer'
   | 'claims_request'
   | 'claims_certain'
+  | 'claims_vendor'
+  | 'claims_proof'
+  | 'claims_cause'
   | 'unknown_name'
   | 'markup'
   | 'colon'
@@ -70,6 +75,30 @@ const CUSTOMER =
 const CERTAIN = /\b(will|won't|wont|guarantee[sd]?|guaranteeing|definitely|certainly|for sure|sure to|bound to)\b/i;
 const REQUEST =
   /\b(ask(s|ed|ing)?|request(s|ed|ing)?|looking for|seeking|hiring|hired?|wants?|wanted|waiting for|booked|called for|reached out|quote request|job for you|work for you)\b/i;
+/**
+ * A permit never proves that a vendor was chosen, and a 311 or violation record never proves who is doing the work: a note must not
+ * say a contractor, roofer or crew already has, was given or pulled the job. "Hired", "booked", "awarded" and similar are also in
+ * REQUEST/this list. Matching is deliberately broad: a false hit only drops the note, the trades stay.
+ */
+const VENDOR = new RegExp(
+  [
+    '\\b(already|has|have|had|got|gets|using|uses)\\s+(a|an|the|their|its|one|some)?\\s*(contractors?|roofers?|vendors?|installers?|crews?|plumbers?|electricians?|builders?|painters?|handymen|company|companies|providers?|firms?)\\b',
+    '\\b(selected|chosen|awarded|awarding|retained|contracted|signed|secured|lined up|locked in|spoken for|taken care of|already handled|in good hands|picked|named)\\b',
+    '\\balready\\s+(has|have|had|got|handled|hired|booked|taken)\\b',
+    '\\b(contractors?|vendors?|roofers?|installers?|crews?|builders?|plumbers?|electricians?)\\s+(already|has|have|had|got)\\b',
+    '\\bwinning\\s+(bid|bidder|contractor|vendor)\\b',
+    '\\b(contractors?|vendors?|roofers?|builders?)\\b.{0,30}\\b(pulled|filed|applied|obtained|submitted|took out|is doing|are doing|will do)\\b',
+    '\\b(pulled|filed|applied for|obtained|submitted|taken out)\\s+(by|the permit)\\b',
+    '\\b(permit\\s+holder|permit\\s+applicant|applicant|licensed\\s+contractor\\s+on)\\b',
+  ].join('|'),
+  'i',
+);
+/** Proof words: nothing in a public record confirms, proves or verifies damage, a condition or demand. */
+const PROOF = /\b(confirm(s|ed|ing)?|proof|prov(es|ed|en|ing)|verif(y|ies|ied|ying)|evidence of|shows? that|certified)\b/i;
+/** Weather and storm records: a cause-and-effect verb next to a damage word turns a possibility into a claim. */
+const CAUSAL = /\b(caused|causes|causing|resulted|resulting|result of|led to|leads to|left behind|brought down|knocked)\b/i;
+const WEATHER_KINDS = new Set(['alert', 'report', 'disaster', 'quake']);
+
 const PHONE = /(\+?\d[\s.()-]*){7,}/;
 const EMAIL = /@|\bat\s+\w+\s+dot\s+\w+/i;
 const URL_SCHEME = /https?:|ftp:|mailto:|www\.|:\/\//i;
@@ -106,7 +135,7 @@ const STEERING = new RegExp(
  * Every rule the note breaks. `input` is the exact public text the model was shown for this signal (title, summary, kind, subtype,
  * source, categories, city, state), used for the digit rule: a number may appear in the note only if it appears in the input.
  */
-export function noteViolations(note: string, input: string): NoteViolation[] {
+export function noteViolations(note: string, input: string, ctx: { kind?: string | null } = {}): NoteViolation[] {
   const out: NoteViolation[] = [];
   if (typeof note !== 'string' || note.trim() === '') return ['empty'];
   if (/[\r\n\u2028\u2029]/.test(note)) out.push('multiline');
@@ -139,6 +168,10 @@ export function noteViolations(note: string, input: string): NoteViolation[] {
   }
   if (CUSTOMER.test(t)) out.push('claims_customer');
   if (CERTAIN.test(t)) out.push('claims_certain');
+  if (VENDOR.test(t)) out.push('claims_vendor');
+  if (PROOF.test(t)) out.push('claims_proof');
+  // Weather never proves damage: for weather records a causal verb is refused even when a hedge is nearby.
+  if (WEATHER_KINDS.has((ctx.kind ?? '').toLowerCase()) && CAUSAL.test(t)) out.push('claims_cause');
   if (REQUEST.test(t)) out.push('claims_request');
   else {
     // "needs a roofer" is a claim; "may need a look" is not. "need" counts only without a hedge in the 2 words before it.
@@ -172,8 +205,8 @@ function unknownNames(note: string, input: string): string[] {
 }
 
 /** The note, trimmed and with runs of spaces collapsed, or null when it breaks any rule. */
-export function cleanNote(note: unknown, input: string): string | null {
+export function cleanNote(note: unknown, input: string, ctx: { kind?: string | null } = {}): string | null {
   if (typeof note !== 'string') return null;
   const t = note.replace(/[ \t]+/g, ' ').trim();
-  return noteViolations(t, input).length === 0 ? t : null;
+  return noteViolations(t, input, ctx).length === 0 ? t : null;
 }

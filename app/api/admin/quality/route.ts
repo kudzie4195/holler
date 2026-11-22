@@ -3,6 +3,7 @@ import { env } from '@/lib/env';
 import { isBearerAuthorized } from '@/lib/email/cron-auth';
 import { loadQualityReport } from '@/lib/admin/quality-load';
 import { renderQualityHtml } from '@/lib/admin/quality-html';
+import { loadAiCoverage } from '@/lib/admin/ai-coverage';
 
 export const maxDuration = 60;
 
@@ -26,11 +27,14 @@ export async function GET(req: Request) {
   }
   const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' };
   try {
-    const report = await loadQualityReport(admin, new Date());
+    const now = new Date();
+    const report = await loadQualityReport(admin, now);
+    // AI coverage of new permit and civic rows (PLAN-2.0 item 2.5): counts only. A failed read is blank, never 0%.
+    const aiCoverage = await loadAiCoverage(admin, now);
     if (new URL(req.url).searchParams.get('format') === 'html') {
-      return new Response(renderQualityHtml(report), { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response(renderQualityHtml(report, aiCoverage), { headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' } });
     }
-    return Response.json(report, { headers });
+    return Response.json({ ...report, aiCoverage }, { headers });
   } catch {
     return Response.json({ error: 'quality_read_failed' }, { status: 500, headers });
   }

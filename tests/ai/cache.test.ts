@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cacheKey, DEFAULT_CLASSIFY_MODEL, normalizeForKey, runClassify, SKIP_SOURCES, type RunOptions } from '../../lib/ai/classify';
+import { cacheKey, DEFAULT_CLASSIFY_MODEL, normalizeForKey, PROMPT_V, runClassify, SKIP_SOURCES, type RunOptions } from '../../lib/ai/classify';
 import { scoresFor } from '../../lib/ai';
 import { AiFakeDb, NOW, sig } from './fake-db';
 import { goodAnswer, mockModel } from './mock-model';
@@ -37,7 +37,7 @@ describe('cache key', () => {
     expect(cacheKey({ ...a, title: 'Residential solar install' }, M)).not.toBe(k);
     expect(cacheKey({ ...a, summary: 'New construction' }, M)).not.toBe(k);
     expect(cacheKey(a, 'anthropic/other-model')).not.toBe(k);
-    expect(cacheKey(a, M, 2)).not.toBe(k);
+    expect(cacheKey(a, M, PROMPT_V + 1)).not.toBe(k);
   });
 });
 
@@ -128,7 +128,7 @@ describe('result cache', () => {
     await runClassify(opts(db, model));
     expect(calls).toHaveLength(1);
     expect(db.tables.holler_ai_cache.map((c) => c.key).sort()).toEqual([keyOf(sig(1)), keyOf(sig(2))].sort());
-    expect(db.tables.holler_ai_cache[0]).toMatchObject({ trades: { roofing: 0.9, 'auto-body': 0.5 }, model: M, prompt_v: 1 });
+    expect(db.tables.holler_ai_cache[0]).toMatchObject({ trades: { roofing: 0.9, 'auto-body': 0.5 }, model: M, prompt_v: 2 });
     // a new record with the same text, in other case and spacing (another address or number would be a new key)
     db.tables.holler_signals.push(sig(3, { title: sig(1).title.toUpperCase(), summary: `  ${sig(1).summary}  ` }));
     const s = await runClassify(opts(db, model));

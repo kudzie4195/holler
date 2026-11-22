@@ -36,7 +36,7 @@ describe('runClassify', () => {
     const s6 = db.tables.holler_signals.find((x) => x.id === 6)!;
     expect(s6.categories).toEqual(['roofing']);
     expect(s6.data.cat_src).toBe('ai');
-    expect(db.tables.holler_signal_ai.find((x) => x.signal_id === 6)).toMatchObject({ applied: true, prev_categories: ['roofing', 'auto-body'], prompt_v: 1, model: 'anthropic/claude-haiku-5.5' });
+    expect(db.tables.holler_signal_ai.find((x) => x.signal_id === 6)).toMatchObject({ applied: true, prev_categories: ['roofing', 'auto-body'], prompt_v: 2, model: 'anthropic/claude-haiku-5.5' });
     expect(db.tables.holler_signal_ai.find((x) => x.signal_id === 6)!.rematched_at).toBeTruthy();
     expect(db.tables.holler_signals.find((x) => x.id === 1)!.data.cat_src).toBeUndefined();
     expect(db.tables.holler_signal_ai.find((x) => x.signal_id === 1)!.notes).toEqual({ roofing: 'Hail this size may leave roofs in need of an inspection soon.' });
@@ -61,12 +61,12 @@ describe('runClassify', () => {
     expect(db.tables.holler_signal_ai.every((x) => x.applied === false && x.trades.hvac === 0.79)).toBe(true);
   });
 
-  it('only the last 14 days, newest first', async () => {
+  it('only the last 14 days; permits go oldest first (round 17, item 2.5)', async () => {
     const db = seed(3);
     db.tables.holler_signals.push(sig(50, { occurred_at: new Date(NOW.getTime() - 15 * 86_400_000).toISOString() }));
     const { model, calls } = mockModel(goodAnswer);
     await runClassify(opts(db, model));
-    expect(calls[0].ids).toEqual([1, 2, 3]);
+    expect(calls[0].ids).toEqual([3, 2, 1]);
   });
 
   it('an injected record cannot add a trade outside the list, a link or an over-long note', async () => {
