@@ -55,6 +55,9 @@ export const LIMITS = {
   planChangeUser: (userId: string): Limit => ({ key: rateKey('plan-change', 'user', userId), max: 6, windowSeconds: 3600 }),
   /** "Coming next" picks (POST /api/interest): per IP per hour for a signed-out visitor. Same keyed-hash counter as the request form. */
   interestIp: (ip: string): Limit => ({ key: rateKey('interest', 'ip', ip), max: 20, windowSeconds: 3600 }),
+  /** "Coming to your area" waitlist (POST /api/waitlist): per IP per hour, and per mailbox per day so one address is not flooded. */
+  waitlistIp: (ip: string): Limit => ({ key: rateKey('waitlist', 'ip', ip), max: 10, windowSeconds: 3600 }),
+  waitlistEmail: (email: string): Limit => ({ key: rateKey('waitlist', 'email', email), max: 3, windowSeconds: 86_400 }),
   /** "Coming next" picks per signed-in member per hour. */
   interestUser: (userId: string): Limit => ({ key: rateKey('interest', 'user', userId), max: 20, windowSeconds: 3600 }),
 } as const;

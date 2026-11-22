@@ -24,6 +24,11 @@ export const FEATURES = [
     label: 'Free weekly city email',
     description: 'One email a week with what changed in your city.',
   },
+  {
+    id: 'more-areas',
+    label: 'More ZIP codes',
+    description: 'Permits and city requests in more places. Check your ZIP code to get one email when we reach it.',
+  },
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number]['id'];
