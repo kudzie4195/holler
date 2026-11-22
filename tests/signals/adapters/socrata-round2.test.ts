@@ -49,7 +49,11 @@ describe('business parsers', () => {
     const la = run('socrata-la-business');
     expect(la).toHaveLength(2);
     expect(la[0].title).toMatch(/^New business license in Los Angeles: /);
-    expect(JSON.stringify(la)).not.toMatch(/SUNSET PIZZA/);
+    // Round 18: the business on the licence is the private contact (never the public title, summary or data).
+    const { contacts: _laContacts, ...laPublic } = la[0];
+    void _laContacts;
+    expect(JSON.stringify(laPublic)).not.toMatch(/SUNSET PIZZA/);
+    expect(la[0].contacts?.find((c) => c.role === 'business')?.name).toBe('SUNSET PIZZA');
     expect(la[1].title).toMatch(/^New business license in Los Angeles: Administrative/);
     const nyc = run('socrata-nyc-business');
     expect(nyc).toHaveLength(2);

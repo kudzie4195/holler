@@ -1,0 +1,1087 @@
+{
+ "source": "Contacts extracted from every fixture at r17-ship 8bee203 (before round 18 NAMES), by the same parse as tests/contacts/r18-fixture-diff.test.ts. Regenerate only for an intended change.",
+ "files": {
+  "tests/fixtures/arcgis-dc-permits.json": [
+   {
+    "id": "B2700462",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1200 EXAMPLE ST",
+      "city": "Washington",
+      "state": "DC",
+      "zip": "20003",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "B2700489",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "600 EXAMPLE AVE",
+      "city": "Washington",
+      "state": "DC",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "B2603377",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "300 SAMPLE PL",
+      "city": "Washington",
+      "state": "DC",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/arcgis-dekalb-permits.json": [
+   {
+    "id": "MC-2026-2002",
+    "contacts": []
+   },
+   {
+    "id": "BC-2026-3003",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/arcgis-mecklenburg-permits.json": [
+   {
+    "id": "COM-UPF-25-000303",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "100 N Tryon St",
+      "city": "Mecklenburg County",
+      "state": "NC",
+      "zip": "28202",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "COM-NEW-25-000090",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "9000 Example Pkwy",
+      "city": "Mecklenburg County",
+      "state": "NC",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/arcgis-raleigh-permits.json": [
+   {
+    "id": "BLDNR-009646-2026",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "7320 Example Rd",
+      "city": "Raleigh",
+      "state": "NC",
+      "zip": "27616",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "BLDR-020627-2026",
+    "contacts": []
+   },
+   {
+    "id": "BLDNR-033823-2025",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-austin-inspections.json": [
+   {
+    "id": "2026-10-30-10012345:2026-10-30",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-austin-violations-people.json": [
+   {
+    "id": "2026-501001",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-austin-violations.json": [
+   {
+    "id": "2026-401001",
+    "contacts": []
+   },
+   {
+    "id": "2026-401002",
+    "contacts": []
+   },
+   {
+    "id": "2026-401004",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-buffalo-permits.json": [
+   {
+    "id": "BF-26-7001",
+    "contacts": []
+   },
+   {
+    "id": "BF-26-7002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-cambridge-311.json": [
+   {
+    "id": "7001",
+    "contacts": []
+   },
+   {
+    "id": "7002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-cambridge-permits.json": [
+   {
+    "id": "501",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "10 Sample St",
+      "city": "Cambridge",
+      "state": "MA",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "502",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "20 Example Ave",
+      "city": "Cambridge",
+      "state": "MA",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-chicago-311.json": [
+   {
+    "id": "SR26-00811111",
+    "contacts": []
+   },
+   {
+    "id": "SR26-00811112",
+    "contacts": []
+   },
+   {
+    "id": "SR26-00811113",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-business-people.json": [
+   {
+    "id": "4100001-20261112",
+    "contacts": []
+   },
+   {
+    "id": "4100002-20261112",
+    "contacts": []
+   },
+   {
+    "id": "4100003-20261113",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-business.json": [
+   {
+    "id": "3011111-20261112",
+    "contacts": []
+   },
+   {
+    "id": "3011112-20261113",
+    "contacts": []
+   },
+   {
+    "id": "3011113-20261113",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-events-people.json": [
+   {
+    "id": "1050:2026-11-21T00:00:00.000:Permit - Event 1 Cluster 3",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-events.json": [
+   {
+    "id": "1042:2026-11-21T00:00:00.000:Permit - Event 1 Cluster 3",
+    "contacts": []
+   },
+   {
+    "id": "1043:2026-11-28T00:00:00.000:Venue Rental - Wedding",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-inspections.json": [
+   {
+    "id": "2612345:2026-11-10",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-permits.json": [
+   {
+    "id": "101234567",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "2150 N DAMEN",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "101234568",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "55 E MONROE",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "101234569",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "3300 S WENTWORTH",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "101234570",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "10 W RANDOLPH",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-chicago-violations-people.json": [
+   {
+    "id": "14001",
+    "contacts": []
+   },
+   {
+    "id": "14002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-chicago-violations.json": [
+   {
+    "id": "13001",
+    "contacts": []
+   },
+   {
+    "id": "13003",
+    "contacts": []
+   },
+   {
+    "id": "13005",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-cincinnati-permits.json": [
+   {
+    "id": "26BLD-04512",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "2219 Madison Rd",
+      "city": "Cincinnati",
+      "state": "OH",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-dallas-311.json": [
+   {
+    "id": "2026-0011223",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-kansascity-311.json": [
+   {
+    "id": "WO-5001",
+    "contacts": []
+   },
+   {
+    "id": "WO-5002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-la-business-people.json": [
+   {
+    "id": "0000900001-0001-0",
+    "contacts": []
+   },
+   {
+    "id": "0000900002-0001-0",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-la-business.json": [
+   {
+    "id": "0000123456-0001-0",
+    "contacts": []
+   },
+   {
+    "id": "0000123457-0001-0",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-montgomery-permits.json": [
+   {
+    "id": "1001234",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "4500 MAIN ST",
+      "city": "Montgomery County",
+      "state": "MD",
+      "zip": "20814",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "1001235",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "12 ELM AVE",
+      "city": "Montgomery County",
+      "state": "MD",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-nola-permits.json": [
+   {
+    "id": "26-12345-RNVN",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "3500 Prytania St",
+      "city": "New Orleans",
+      "state": "LA",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-norfolk-permits.json": [
+   {
+    "id": "BLD-26-1001",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "100 Granby St",
+      "city": "Norfolk",
+      "state": "VA",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "MEC-26-2002",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "200 Colley Ave",
+      "city": "Norfolk",
+      "state": "VA",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-nyc-311.json": [
+   {
+    "id": "65432101",
+    "contacts": []
+   },
+   {
+    "id": "65432102",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-nyc-business-people.json": [
+   {
+    "id": "2099101-DCA",
+    "contacts": []
+   },
+   {
+    "id": "2099102-DCA",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-nyc-business.json": [
+   {
+    "id": "2099001-DCA",
+    "contacts": []
+   },
+   {
+    "id": "2099002-DCA",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-nyc-events-people.json": [
+   {
+    "id": "910001",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-nyc-events.json": [
+   {
+    "id": "900001",
+    "contacts": []
+   },
+   {
+    "id": "900002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-nyc-inspections.json": [
+   {
+    "id": "50012345:2026-11-09",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-oakland-311.json": [
+   {
+    "id": "600001",
+    "contacts": []
+   },
+   {
+    "id": "600002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-orlando-business-people.json": [
+   {
+    "id": "BTR-2026-9101",
+    "contacts": []
+   },
+   {
+    "id": "BTR-2026-9102",
+    "contacts": []
+   },
+   {
+    "id": "BTR-2026-9103",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-orlando-business.json": [
+   {
+    "id": "BTR-2026-9001",
+    "contacts": []
+   },
+   {
+    "id": "BTR-2026-9002",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-orlando-permits.json": [
+   {
+    "id": "BLD2026-10001",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "123 E Jackson St",
+      "city": "Orlando",
+      "state": "FL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "BLD2026-10002",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "55 W Colonial Dr",
+      "city": "Orlando",
+      "state": "FL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "ENG2026-10003",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "9 Pine St",
+      "city": "Orlando",
+      "state": "FL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/socrata-sf-business-live-2026-11-16.json": [
+   {
+    "id": "1437465-11-261-1190780",
+    "contacts": []
+   },
+   {
+    "id": "1437470-11-261-1190782",
+    "contacts": []
+   },
+   {
+    "id": "1437462-11-261-1145457",
+    "contacts": []
+   },
+   {
+    "id": "1437452-11-261-1190738",
+    "contacts": []
+   },
+   {
+    "id": "1437479-11-261-1190789",
+    "contacts": []
+   },
+   {
+    "id": "1437439-11-261-1190770",
+    "contacts": []
+   },
+   {
+    "id": "1437457-11-261-1190777",
+    "contacts": []
+   },
+   {
+    "id": "1437496-11-261-1190796",
+    "contacts": []
+   },
+   {
+    "id": "1437499-11-261-1190797",
+    "contacts": []
+   },
+   {
+    "id": "1437354-11-261-1190731",
+    "contacts": []
+   },
+   {
+    "id": "1437367-11-261-1190738",
+    "contacts": []
+   },
+   {
+    "id": "1437373-11-261-1190741",
+    "contacts": []
+   },
+   {
+    "id": "1437332-11-261-1190721",
+    "contacts": []
+   },
+   {
+    "id": "1437342-11-261-1190725",
+    "contacts": []
+   },
+   {
+    "id": "1437320-11-261-1190715",
+    "contacts": []
+   },
+   {
+    "id": "1437298-11-261-1190486",
+    "contacts": []
+   },
+   {
+    "id": "1437415-11-261-1190760",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-sf-business-people.json": [
+   {
+    "id": "9100001-02-001",
+    "contacts": []
+   },
+   {
+    "id": "9100002-02-001",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-sf-business.json": [
+   {
+    "id": "1234567-02-001",
+    "contacts": []
+   },
+   {
+    "id": "1234568-02-001",
+    "contacts": []
+   }
+  ],
+  "tests/fixtures/socrata-sf-permits.json": [
+   {
+    "id": "202611123456",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1450 Lombard St",
+      "city": "San Francisco",
+      "state": "CA",
+      "zip": "94123",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "202611123457",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "88 Dolores St",
+      "city": "San Francisco",
+      "state": "CA",
+      "zip": "94110",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/fixtures/usaspending-awards.json": [
+   {
+    "id": "CONT_AWD_W912EF26P0042_9700_-NONE-_-NONE-",
+    "contacts": [
+     {
+      "role": "awardee",
+      "name": "ACME FACILITY SERVICES LLC",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "CONT_AWD_47PA0126F0007_4740_-NONE-_-NONE-",
+    "contacts": []
+   },
+   {
+    "id": "CONT_AWD_36C25726P0099_3600_-NONE-_-NONE-",
+    "contacts": []
+   }
+  ],
+  "tests/contacts/fixtures/socrata-austin-inspections-contacts.json": [
+   {
+    "id": "2026-10-30-10099901:2026-10-30",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1107 E 7th St",
+      "city": "Austin",
+      "state": "TX",
+      "zip": "78702",
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "business",
+      "name": "Taqueria Lopez",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "2026-10-30-10099902:2026-10-30",
+    "contacts": []
+   }
+  ],
+  "tests/contacts/fixtures/socrata-austin-permits-contacts.json": [
+   {
+    "id": "2026-123456 BP",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "4812 AVENUE H",
+      "city": "AUSTIN",
+      "state": "TX",
+      "zip": "78751",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "2026-123457 MP",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "907 E 46TH ST",
+      "city": "AUSTIN",
+      "state": "TX",
+      "zip": "78751",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "2026-123458 BP",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1500 E RIVERSIDE DR",
+      "city": "AUSTIN",
+      "state": "TX",
+      "zip": "78741",
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "contractor",
+      "name": "Lone Oak Roofing LLC",
+      "attn": null,
+      "address": "1200 W Ben White Blvd",
+      "city": "AUSTIN",
+      "state": null,
+      "zip": "78704",
+      "phone": "512-555-0142",
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/contacts/fixtures/socrata-chicago-business-contacts.json": [
+   {
+    "id": "3099001-20261112",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1840 W DIVISION ST",
+      "city": "CHICAGO",
+      "state": "IL",
+      "zip": "60622",
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "business",
+      "name": "SUMMIT CITY CAFE",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "3099002-20261112",
+    "contacts": []
+   },
+   {
+    "id": "3099003-20261112",
+    "contacts": []
+   },
+   {
+    "id": "3099004-20261112",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "6420 N CLARK ST",
+      "city": "CHICAGO",
+      "state": "IL",
+      "zip": "60626",
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "business",
+      "name": "APEX HOME REMODELING LLC",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/contacts/fixtures/socrata-chicago-inspections-contacts.json": [
+   {
+    "id": "2700001:2026-11-10",
+    "contacts": []
+   },
+   {
+    "id": "2700002:2026-11-10",
+    "contacts": []
+   },
+   {
+    "id": "2700003:2026-11-10",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "1550 N HALSTED ST",
+      "city": "CHICAGO",
+      "state": "IL",
+      "zip": "60642",
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "business",
+      "name": "SUMMIT STREET PIZZERIA",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/contacts/fixtures/socrata-chicago-permits-contacts.json": [
+   {
+    "id": "101300001",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "2150 N DAMEN",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     },
+     {
+      "role": "contractor",
+      "name": "LAKEFRONT ROOFING & SIDING INC",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": "IL",
+      "zip": "60076",
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "101300002",
+    "contacts": [
+     {
+      "role": "site",
+      "name": "",
+      "attn": null,
+      "address": "4410 W ADDISON",
+      "city": "Chicago",
+      "state": "IL",
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   }
+  ],
+  "tests/contacts/fixtures/usaspending-awards-contacts.json": [
+   {
+    "id": "CONT_AWD_A",
+    "contacts": [
+     {
+      "role": "awardee",
+      "name": "ACME FACILITY SERVICES LLC",
+      "attn": null,
+      "address": null,
+      "city": null,
+      "state": null,
+      "zip": null,
+      "phone": null,
+      "email": null,
+      "website": null
+     }
+    ]
+   },
+   {
+    "id": "CONT_AWD_B",
+    "contacts": []
+   }
+  ]
+ }
+}

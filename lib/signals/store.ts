@@ -3,7 +3,7 @@ import type { MatchProfile, MatchRow, MatchSignal } from './match';
 import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
-import { NO_CONTACT_SUBTYPES } from '@/lib/contacts/extract';
+import { contactsAllowedFor } from '@/lib/contacts/extract';
 import type { ContactInput } from '@/lib/contacts/types';
 import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
@@ -162,17 +162,20 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);
     const byKey = new Map<string, { contacts: ContactInput[]; city: string | null }>();
-    // Code violations and 311 requests never get a contact, whatever an adapter attached (review2 P2-5).
+    // 311 requests never get a contact, and a code violation only an owner company, whatever an adapter attached (review2 P2-5; round 18).
     for (const s of part) {
-      if (s.contacts?.length && !noContactSubtype(s.data?.subtype)) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: s.contacts, city: s.city ?? null });
+      const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
+      if (allowed.length) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: allowed, city: s.city ?? null });
     }
     if (!byKey.size || contactBudget <= 0) continue;
     const pending: { signalId: number; contacts: ContactInput[]; city?: string | null }[] = [];
     for (const r of rows) {
-      const c = r.external_id != null && !noContactSubtype(r.subtype) ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
-      if (c && typeof r.id === 'number') {
-        pending.push({ signalId: r.id, contacts: c.contacts, city: c.city });
-        r.hasContact = hasNamedContact(c.contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
+      const c = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+      // The stored row's own subtype, when the select returns it, decides again (the input and the stored row must agree).
+      const contacts = c ? (typeof r.subtype === 'string' ? contactsAllowedFor(r.subtype, c.contacts) : c.contacts) : [];
+      if (c && contacts.length && typeof r.id === 'number') {
+        pending.push({ signalId: r.id, contacts, city: c.city });
+        r.hasContact = hasNamedContact(contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
       }
     }
     if (pending.length) contactBudget -= await writeSignalContacts(db, pending, opts.log, contactBudget);
@@ -315,11 +318,6 @@ export async function dropDuplicateRecords(
   return out;
 }
 
-/** data.subtype of a code violation or a 311 request (lib/contacts/extract.ts NO_CONTACT_SUBTYPES). */
-function noContactSubtype(subtype: unknown): boolean {
-  return typeof subtype === 'string' && NO_CONTACT_SUBTYPES.has(subtype.trim().toLowerCase());
-}
-
 const CONTACT_BATCH = 500;
 /** Most contact rows written in one scan call (at most 6 per signal). */
 const MAX_CONTACT_ROWS = 6000;
@@ -327,6 +325,15 @@ const MAX_CONTACT_ROWS = 6000;
 function missingContactsTable(e: { message?: string; code?: string } | null | undefined): boolean {
   const m = e?.message ?? '';
   return e?.code === '42P01' || e?.code === 'PGRST205' || (/holler_signal_contacts/.test(m) && /does not exist|could not find|schema cache/i.test(m));
+}
+
+/**
+ * Migration 0030 is not applied yet: the role check constraint of migration 0006 refuses role 'owner' (Postgres 23514, check_violation,
+ * on holler_signal_contacts_role_check). The writer then drops the owner rows and writes the rest.
+ */
+export function ownerRoleRefused(e: { message?: string; code?: string } | null | undefined): boolean {
+  const m = e?.message ?? '';
+  return (e?.code === '23514' || /check constraint/i.test(m)) && /holler_signal_contacts_role_check/i.test(m);
 }
 
 /** The license column of migration 0022 is not there yet (PostgREST PGRST204 or Postgres 42703). */
@@ -375,16 +382,32 @@ export async function writeSignalContacts(
   let sent = 0;
   // Migration 0022 adds the license column. Before it exists the write retries without that key, so names, phones and sites still land.
   let withLicense = true;
+  // Migration 0030 allows role 'owner'. Before it is applied the write retries without owner rows, so every other contact still lands.
+  let withOwner = true;
   for (const part of chunks(rows, CONTACT_BATCH)) {
     try {
       const send = (batch: Record<string, unknown>[]) =>
         db.from('holler_signal_contacts').upsert(batch, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
       const strip = (batch: Record<string, unknown>[]) => batch.map(({ license: _l, ...rest }) => rest);
-      let { error } = await send(withLicense ? part : strip(part));
+      const noOwner = (batch: Record<string, unknown>[]) => batch.filter((r) => r.role !== 'owner');
+      let batch = withOwner ? part : noOwner(part);
+      if (batch.length === 0) continue;
+      let { error } = await send(withLicense ? batch : strip(batch));
       if (error && withLicense && missingLicenseColumn(error)) {
         withLicense = false;
         log('contacts: license column is missing (apply migration 0022); contacts are written without licence numbers');
-        ({ error } = await send(strip(part)));
+        ({ error } = await send(strip(batch)));
+      }
+      if (error && withOwner && ownerRoleRefused(error)) {
+        withOwner = false;
+        log('contacts: role owner is not allowed yet (apply migration 0030); owner companies are skipped, other contacts are written');
+        batch = noOwner(part);
+        if (batch.length === 0) continue;
+        ({ error } = await send(withLicense ? batch : strip(batch)));
+        if (error && withLicense && missingLicenseColumn(error)) {
+          withLicense = false;
+          ({ error } = await send(strip(batch)));
+        }
       }
       if (error) {
         if (missingContactsTable(error)) {
@@ -394,7 +417,7 @@ export async function writeSignalContacts(
         log(`contacts: write failed, ${part.length} rows skipped: ${error.message}`);
         continue;
       }
-      sent += part.length;
+      sent += batch.length;
     } catch (e) {
       log(`contacts: write failed, ${part.length} rows skipped: ${e instanceof Error ? e.message : String(e)}`);
     }

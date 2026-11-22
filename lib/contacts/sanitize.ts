@@ -1,6 +1,6 @@
+import { contactNameFor } from './names';
 import {
   STREET_SUFFIX_WORDS,
-  cleanOrgName,
   foldName,
   givenNameThenWord,
   hasContactShape,
@@ -27,7 +27,7 @@ export const CONTACT_LIMITS = {
   license: 40,
 } as const;
 
-const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer']);
+const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer', 'owner']);
 
 function text(v: unknown, max: number): string {
   if (typeof v !== 'string' && typeof v !== 'number') return '';
@@ -243,7 +243,9 @@ export interface SanitizeOptions {
 /**
  * One contact, trimmed and limited to the column sizes, or null when it must not be stored:
  *  - an unknown role, or role 'buyer' (no adapter produces buyers yet: the bids unit must add its own reviewed rules first);
- *  - a business, contractor or awardee whose name the classifier does not accept as an organization (lib/contacts/org.ts);
+ *  - a business, contractor, awardee or owner whose name the role's rule does not accept (names.ts contactNameFor: contractor ->
+ *    trade-name rule, owner -> registered-company rule, the others -> the strict organization rule of org.ts);
+ *  - an owner company keeps its name only: address, city, state, zip, phone, email and licence are always null;
  *  - a site whose address does not pass cleanAddress. A site never carries a name, a phone, an email or a website: it is a place.
  * Every role: `address` through cleanAddress (house number or PO BOX first, cut after the street suffix and one unit), `state` a US code
  * (cleanState), `city` through cleanCity (the dataset's own city or place words only), `zip` 5 digits or ZIP+4, `attn` and `website`
@@ -263,8 +265,11 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }
-  const cleaned = cleanOrgName(typeof c.name === 'string' ? c.name : '');
+  const cleaned = contactNameFor(c.role, typeof c.name === 'string' ? c.name : '');
   if (!cleaned) return null;
+  if (c.role === 'owner') {
+    return { role: 'owner', name: cleaned.slice(0, CONTACT_LIMITS.name), attn: null, address: null, city: null, state: null, zip: null, phone: null, email: null, website: null };
+  }
   const license = cleanLicense(c.license);
   return {
     role: c.role,

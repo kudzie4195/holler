@@ -15,7 +15,7 @@ type Db = SupabaseClient;
 
 export const MAX_SIGNAL_IDS = 200;
 const ACCESS_STATUSES = new Set(['trialing', 'active', 'past_due']);
-const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer']);
+const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer', 'owner']);
 
 /** The access rule: exact allow-list on status, plus the trial date for trialing. */
 export function statusGrantsAccess(status: unknown, trialEndsAt: unknown, nowMs: number): boolean {

@@ -8,7 +8,8 @@ export type ContactRole =
   | 'business' // a business named in the record (new license, inspected establishment)
   | 'contractor' // a contractor company named on a permit
   | 'awardee' // company that won a public award
-  | 'buyer'; // public agency or office buying something (bids); attn may hold the named public official
+  | 'buyer' // public agency or office buying something (bids); attn may hold the named public official
+  | 'owner'; // round 18: the registered company a code-violation record names as the property owner (never a person; no phone, email or address)
 
 export interface ContactInput {
   role: ContactRole;

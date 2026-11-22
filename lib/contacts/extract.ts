@@ -1,4 +1,4 @@
-import { cleanOrgName } from './org';
+import { contactNameFor } from './names';
 import { cleanAddressPart, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
 import { firstMoney } from '@/lib/signals/permit-value';
@@ -23,10 +23,13 @@ export interface SiteSpec {
   onlyWithOrganisation?: boolean;
 }
 
-/** A column that is explicitly a business or contractor company name. */
+/**
+ * A column that is explicitly a business, contractor company or (code violations only) property-owner name. The name rule follows the
+ * role (names.ts contactNameFor): contractor -> trade-name rule, owner -> registered-company rule, business -> strict rule.
+ */
 export interface OrgSpec {
-  role: 'business' | 'contractor';
-  /** Tried in order; the first value that passes cleanOrgName is used. */
+  role: 'business' | 'contractor' | 'owner';
+  /** Tried in order; the first value that passes the role's name rule is used. */
   nameFields: string[];
   addressFields?: string[];
   cityField?: string;
@@ -129,8 +132,26 @@ export function splitRunTogether(value: string): { name: string; phone: string |
   return { name, phone: p ? `${p[1]}-${p[2]}-${p[3]}` : null };
 }
 
-/** Record kinds that never get a contact or an exact address, whatever spec is configured (code violations, 311 requests). */
-export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['violation', '311']);
+/** Record kinds that never get a contact or an exact address, whatever spec is configured (311 requests). */
+export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['311']);
+
+/**
+ * Record kinds whose only possible contact is an owner company (round 18): a code violation may name the registered company that owns
+ * the property ("Owner on the public record"), never a person, never a phone, an email, an address or a site.
+ */
+export const OWNER_ONLY_SUBTYPES: ReadonlySet<string> = new Set(['violation']);
+
+/**
+ * The contacts a record of this kind may keep: none for a 311 request, only role 'owner' for a code violation, and never role 'owner'
+ * for anything else. Used at extraction and again before any write (lib/signals/store.ts). `subtype` is matched trimmed, any case.
+ */
+export function contactsAllowedFor<T extends { role: string }>(subtype: unknown, contacts: readonly T[] | null | undefined): T[] {
+  const list = Array.isArray(contacts) ? contacts : [];
+  const k = typeof subtype === 'string' ? subtype.trim().toLowerCase() : '';
+  if (NO_CONTACT_SUBTYPES.has(k)) return [];
+  if (OWNER_ONLY_SUBTYPES.has(k)) return list.filter((c) => c?.role === 'owner');
+  return list.filter((c) => c?.role !== 'owner');
+}
 
 /**
  * The project value a permit row declares: the first plausible amount among the dataset's valueFields (permit-value.ts parseMoney). Separate from
@@ -148,8 +169,8 @@ export function extractJobValue(read: ReadField, valueFields: readonly string[] 
 /**
  * Contacts for one row: organizations first in the order the spec lists them, then the site. Sanitised (lib/contacts/sanitize.ts: every
  * address cut after the street suffix and one unit, state a US code, city only the dataset's own city or place words), de-duplicated and
- * capped at 6. Never throws. `subtype` is the dataset's record kind: a code violation or a 311 request gets no
- * contact at all, even when a spec is configured for it by mistake.
+ * capped at 6. Never throws. `subtype` is the dataset's record kind: a 311 request gets no contact at all, and a code violation gets
+ * only an owner company (role 'owner', registered-company rule, name only), even when a spec is configured for it by mistake.
  */
 export function extractContacts(
   read: ReadField,
@@ -159,9 +180,12 @@ export function extractContacts(
 ): ContactInput[] {
   if (!spec) return [];
   if (subtype !== undefined && NO_CONTACT_SUBTYPES.has(subtype)) return [];
+  const ownerOnly = subtype !== undefined && OWNER_ONLY_SUBTYPES.has(subtype);
   try {
     const orgs: ContactInput[] = [];
     for (const o of spec.orgs ?? []) {
+      // An owner company only on a code violation, and a code violation carries nothing else (no site, no business, no contractor).
+      if ((o.role === 'owner') !== ownerOnly) continue;
       if (o.typeField) {
         const t = read(o.typeField);
         if (o.acceptType && !o.acceptType.test(t)) continue; // allow-list, fails closed on a blank or missing type
@@ -173,14 +197,19 @@ export function extractContacts(
         const raw = read(f);
         if (o.runTogether) {
           const parts = splitRunTogether(raw);
-          name = cleanOrgName(parts.name);
+          name = contactNameFor(o.role, parts.name);
           runPhone = parts.phone;
         } else {
-          name = cleanOrgName(raw);
+          name = contactNameFor(o.role, raw);
         }
         if (name) break;
       }
       if (!name) continue;
+      if (o.role === 'owner') {
+        // The owner on the public record: the company name only. Owner phones, emails, addresses and ids are never read.
+        orgs.push({ role: 'owner', name, address: null, city: null, state: null, zip: null, phone: null });
+        continue;
+      }
       let phone: string | null = null;
       for (const f of [o.phoneField, ...(o.phoneFields ?? [])]) {
         const v = f ? read(f) : '';
@@ -208,12 +237,12 @@ export function extractContacts(
         ...(license ? { license } : {}),
       });
     }
-    const t = spec.typedContractors;
+    const t = ownerOnly ? undefined : spec.typedContractors;
     if (t) {
       for (const p of t.pairs) {
         const type = read(p.typeField);
         if (!type || !t.acceptType.test(type) || t.rejectType.test(type)) continue;
-        const name = cleanOrgName(read(p.nameField));
+        const name = contactNameFor('contractor', read(p.nameField));
         if (!name) continue;
         orgs.push({
           role: 'contractor',
@@ -227,7 +256,7 @@ export function extractContacts(
     }
     const out = [...orgs];
     const s = spec.site;
-    if (s && (!s.onlyWithOrganisation || orgs.some((c) => c.role === 'business'))) {
+    if (s && !ownerOnly && (!s.onlyWithOrganisation || orgs.some((c) => c.role === 'business'))) {
       const address = join(read, s.addressFields, true);
       if (address) {
         out.push({

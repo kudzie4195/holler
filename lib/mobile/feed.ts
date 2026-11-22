@@ -112,7 +112,12 @@ function absolute(url: string | null | undefined, siteUrl: string): string | nul
   return /^https?:\/\//i.test(url) ? url : null;
 }
 
-function contactDto(c: ContactRecord): ContactDto {
+/**
+ * One contact for the app. An owner company on a code violation (round 18, role 'owner') is not sent: the app has no "Owner on the
+ * public record" wording or source link yet, and older app builds would print it under a bare role label.
+ */
+function contactDto(c: ContactRecord): ContactDto | null {
+  if (c.role === 'owner') return null;
   const out: ContactDto = { role: c.role, name: c.name };
   for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website', 'license'] as const) {
     if (c[k] !== undefined) out[k] = c[k] ?? null;
@@ -223,7 +228,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
-      contacts: (contacts.get(s.id) ?? []).map(contactDto),
+      contacts: (contacts.get(s.id) ?? []).map(contactDto).filter((c): c is ContactDto => c !== null),
       draft: m.draft,
       ai: { note: null },
     };
