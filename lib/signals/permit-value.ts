@@ -101,7 +101,10 @@ export function siteAddressFromSummary(summary: string | null | undefined): Site
     const part = raw.replace(/\s+/g, ' ').trim();
     if (!part || NOT_ADDRESS_RE.test(part) || PHONE_OR_MAIL_RE.test(part) || !HOUSE_START_RE.test(part)) continue;
     // "1431 SHARON NW, ATLANTA, GA 30314" or "245 First St, Cambridge, MA 02142" or "9541 SOUTH BV CHARLOTTE NC 28273".
-    const tailMatch = /^(.*?)(?:,\s*|\s+)((?:[A-Za-z][A-Za-z .'-]{1,30}),?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/.exec(part);
+    // With a comma the city may have several words; without one the city is the single word before the state ("9541 SOUTH BV CHARLOTTE NC 28273").
+    const tailMatch =
+      /^(.*?),\s*((?:[A-Za-z][A-Za-z .'-]{1,30}),?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/.exec(part) ??
+      /^(.*\S)\s+([A-Za-z][A-Za-z'-]{1,24},?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?)$/.exec(part);
     if (tailMatch && /^\d/.test(tailMatch[1]) && tailMatch[1].split(' ').length >= 2) return { address: tailMatch[1].replace(/,$/, '').trim(), tail: tailMatch[2].trim() };
     if (part.length > 90 || part.split(' ').length > 9) continue;
     return { address: part.replace(/,$/, '').trim(), tail: null };
