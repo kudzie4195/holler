@@ -1,7 +1,7 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
 import { joinNycComplaints, type NycComplaint } from '@/lib/contacts/nyc-agents-fetch';
-import type { NycJoinStatus } from '@/lib/contacts/nyc-agents';
+import { formatBbl, parseBbl, type NycJoinStatus } from '@/lib/contacts/nyc-agents';
 import { buildSocrataQuery, parseSocrataReport } from './socrata';
 import { SOCRATA_DATASETS, datasetPageUrl, type SocrataDataset } from './socrata-datasets';
 
@@ -18,6 +18,15 @@ export const NYC_HPD_AGENTS_ID = 'nyc-hpd-agents';
 export const HEAT_COMPLAINT_TYPE = 'HEAT/HOT WATER';
 /** Complaints joined per run: samples keep SAMPLE_CAP (300, lib/signals/samples.ts) rows anyway. */
 export const MAX_COMPLAINTS = 300;
+
+/**
+ * The runner aborts an adapter after 40 s (DEFAULT_ADAPTER_TIMEOUT_MS in lib/signals/run.ts; a test pins the relation). No new request is
+ * issued after RUN_BUDGET_MS from the start, and no request may run past HARD_LIMIT_MS, so a slow portal gives partial samples instead
+ * of a timeout with none. Complaints not reached are emitted with joinStatus 'not-attempted'.
+ */
+export const ADAPTER_TIMEOUT_MS = 40_000;
+export const RUN_BUDGET_MS = ADAPTER_TIMEOUT_MS - 10_000;
+export const HARD_LIMIT_MS = ADAPTER_TIMEOUT_MS - 2_000;
 
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
 
@@ -38,7 +47,7 @@ type Row = Record<string, unknown>;
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v));
 
 export function countJoinStatuses(items: readonly SignalInput[]): Record<NycJoinStatus, number> {
-  const out: Record<NycJoinStatus, number> = { matched: 0, ambiguous: 0, 'no-registration': 0, 'agent-individual': 0, 'no-agent': 0 };
+  const out: Record<NycJoinStatus, number> = { matched: 0, ambiguous: 0, 'no-registration': 0, 'no-bbl': 0, 'agent-individual': 0, 'no-agent': 0, 'not-attempted': 0 };
   for (const i of items) {
     const s = i.data?.joinStatus as NycJoinStatus | undefined;
     if (s && s in out) out[s] += 1;
@@ -56,6 +65,7 @@ export function buildNycHpdAgentsAdapter(): Adapter {
     probation: true,
     sourceUrl: 'https://data.cityofnewyork.us/d/tesw-yqqr',
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
+      const started = Date.now();
       try {
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
@@ -76,16 +86,33 @@ export function buildNycHpdAgentsAdapter(): Adapter {
         // Same parser as the live 311 adapter: same rows kept, same title, summary, position, categories.
         const parsed = parseSocrataReport(body, ds).items.filter((i) => text(raw.get(i.externalId)?.complaint_type) === HEAT_COMPLAINT_TYPE).slice(0, MAX_COMPLAINTS);
         const complaints: NycComplaint[] = parsed.map((i) => ({ key: i.externalId, bbl: raw.get(i.externalId)?.bbl, incidentAddress: raw.get(i.externalId)?.incident_address }));
-        const joined = await joinNycComplaints(complaints, { fetch: ctx.fetch, appToken: token, log: ctx.log });
+        const joined = await joinNycComplaints(complaints, {
+          fetch: ctx.fetch, appToken: token, log: ctx.log, now: ctx.now ?? new Date(),
+          deadlineAt: started + RUN_BUDGET_MS, hardDeadlineAt: started + HARD_LIMIT_MS,
+        });
+        const notAttempted = new Set(joined.notAttempted);
         const out: SignalInput[] = [];
         for (const item of parsed) {
+          if (notAttempted.has(item.externalId)) {
+            const b = parseBbl(raw.get(item.externalId)?.bbl);
+            out.push({
+              ...item,
+              source: NYC_HPD_AGENTS_ID,
+              url: datasetPageUrl(ds),
+              data: { ...item.data, subtype: 'hpd-agent', baseSubtype: '311', joinStatus: 'not-attempted', bbl: b ? formatBbl(b) : null, registrationId: null, registrationCandidates: null, registrationsExpired: null, matchStep: null, agentNamesRejected: null },
+            });
+            continue;
+          }
           const j = joined.byKey.get(item.externalId);
-          if (!j) continue; // lookup not made or failed: not counted as a miss
+          if (!j) continue; // lookup refused by the cap or failed: not counted as a miss
           out.push({
             ...item,
             source: NYC_HPD_AGENTS_ID,
             url: datasetPageUrl(ds),
-            data: { ...item.data, subtype: 'hpd-agent', baseSubtype: '311', joinStatus: j.status, registrationCandidates: j.candidates, matchStep: j.step, agentNamesRejected: j.rejectedNames },
+            data: {
+              ...item.data, subtype: 'hpd-agent', baseSubtype: '311', joinStatus: j.status, bbl: j.bbl, registrationId: j.registrationId,
+              registrationCandidates: j.candidates, registrationsExpired: j.expired, matchStep: j.step, agentNamesRejected: j.rejectedNames,
+            },
             ...(j.agent
               ? {
                   contacts: [
@@ -96,7 +123,7 @@ export function buildNycHpdAgentsAdapter(): Adapter {
           });
         }
         const c = countJoinStatuses(out);
-        ctx.log(`${NYC_HPD_AGENTS_ID}: ${out.length} of ${parsed.length} joined in ${joined.calls} calls; matched ${c.matched}, ambiguous ${c.ambiguous}, no-registration ${c['no-registration']}, agent-individual ${c['agent-individual']}, no-agent ${c['no-agent']}`);
+        ctx.log(`${NYC_HPD_AGENTS_ID}: ${out.length} of ${parsed.length} joined in ${joined.calls} calls; matched ${c.matched}, ambiguous ${c.ambiguous}, no-registration ${c['no-registration']}, agent-individual ${c['agent-individual']}, no-agent ${c['no-agent']}, no-bbl ${c['no-bbl']}, not-attempted ${c['not-attempted']}`);
         return out;
       } catch (e) {
         ctx.log(`${NYC_HPD_AGENTS_ID}: ${e instanceof Error ? e.message : String(e)}`);

@@ -15,7 +15,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CARTO_DATASETS, type CartoDataset } from '@/lib/signals/adapters/carto-datasets';
+import { CARTO_DATASETS, PHL_BUSINESS_EXCLUDED_LICENSE_TYPES, phlBusinessTypeFilter, type CartoDataset } from '@/lib/signals/adapters/carto-datasets';
 import { adapters, buildCartoAdapter, buildCartoSql, buildCartoUrl, normalizeCartoDate, parseCarto, windowStart } from '@/lib/signals/adapters/carto';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
@@ -85,8 +85,16 @@ describe('Carto SQL and URL', () => {
 
   it('adds the status filters of violations and licences', () => {
     expect(buildCartoSql(VIOLATIONS, SINCE, NOW)).toContain("(violationstatus = 'OPEN')");
-    expect(buildCartoSql(BUSINESS, SINCE, NOW)).toContain("(licensestatus = 'Active')");
+    expect(buildCartoSql(BUSINESS, SINCE, NOW)).toContain("licensestatus = 'Active'");
     expect(buildCartoSql(PERMITS, SINCE, NOW)).not.toContain('status');
+  });
+
+  it('keeps rental-type licences out of the business dataset (review r13 P2-4), from a small list; other types and null stay', () => {
+    expect(PHL_BUSINESS_EXCLUDED_LICENSE_TYPES).toEqual(['Rental', 'Limited Lodging Operator']);
+    expect(buildCartoSql(BUSINESS, SINCE, NOW)).toContain("(licensetype IS NULL OR licensetype NOT IN ('Rental', 'Limited Lodging Operator'))");
+    expect(phlBusinessTypeFilter(["O'Brien Rental"])).toBe("(licensetype IS NULL OR licensetype NOT IN ('O''Brien Rental'))");
+    expect(buildCartoSql(PERMITS, SINCE, NOW)).not.toContain('licensetype');
+    expect(buildCartoSql(VIOLATIONS, SINCE, NOW)).not.toContain('licensetype');
   });
 
   it('uses `since`, but never a window shorter than minLookbackDays (publication lag)', () => {

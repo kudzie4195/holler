@@ -27,12 +27,21 @@
  */
 import { cleanOrgName } from './org';
 
-export type NycJoinStatus = 'matched' | 'ambiguous' | 'no-registration' | 'agent-individual' | 'no-agent';
+/**
+ * 'no-bbl' = the complaint has no valid bbl (nothing was looked up); 'no-registration' = a valid bbl with no (live, same-address) registration;
+ * 'not-attempted' = the run budget ended before this complaint's lookups were made (set by the adapter, never by joinComplaint).
+ */
+export type NycJoinStatus = 'matched' | 'ambiguous' | 'no-registration' | 'no-bbl' | 'agent-individual' | 'no-agent' | 'not-attempted';
 
 export interface Bbl {
   boroid: string;
   block: string;
   lot: string;
+}
+
+/** The canonical 10-digit text of a parsed Bbl (boro + 5-digit block + 4-digit lot). */
+export function formatBbl(b: Bbl): string {
+  return `${b.boroid}${b.block.padStart(5, '0')}${b.lot.padStart(4, '0')}`;
 }
 
 /**
@@ -150,6 +159,8 @@ export interface HpdRegistration {
   highhousenumber?: string;
   streetname?: string;
   zip?: string;
+  /** ISO text from tesw-yqqr ("2027-09-01T00:00:00.000"); a registration whose end is before `now` is ignored (recon 2026-11-22: 131179 ended 2026-09-01) */
+  registrationenddate?: string;
 }
 
 export interface RegistrationChoice {
@@ -157,8 +168,16 @@ export interface RegistrationChoice {
   status: 'matched' | 'ambiguous' | 'none';
   /** which rule decided: exact house number, or inside the low..high range; null when none */
   step: 'exact' | 'range' | null;
-  /** rows offered (all registrations of the BBL) */
+  /** live (not expired) registrations of the BBL that were offered */
   candidates: number;
+  /** registrations of the BBL ignored because their registrationenddate is before `now` */
+  expired: number;
+}
+
+/** True when the row has a readable registrationenddate that is before `now`. A missing or unreadable date is not expired. */
+export function isExpiredRegistration(r: HpdRegistration, now: Date): boolean {
+  const t = typeof r.registrationenddate === 'string' ? Date.parse(r.registrationenddate.trim()) : NaN;
+  return Number.isFinite(t) && t < now.getTime();
 }
 
 const distinctIds = (rows: HpdRegistration[]) => [...new Set(rows.map((r) => String(r.registrationid ?? '')))];
@@ -168,12 +187,16 @@ const distinctIds = (rows: HpdRegistration[]) => [...new Set(rows.map((r) => Str
  *  1. keep rows whose street (normalizeStreet) equals the complaint's;
  *  2. exact: housenumber equals the complaint's house number; else
  *  3. range: low <= number <= high with the same odd/even side (Queens hyphenated numbers compare as pairs).
+ * A letter suffix is part of the number: "12" is not "12A" in either step, and a suffixed number matches a range only when it equals
+ * an endpoint's text. Registrations whose registrationenddate is before `now` are ignored first.
  * Exactly one distinct registrationid at a step -> matched. More than one -> ambiguous (null). None, or an unreadable address -> none.
  * Never falls back to "the only registration on the lot": a different street is a different building.
  */
-export function chooseRegistration(incidentAddress: unknown, regs: readonly HpdRegistration[]): RegistrationChoice {
+export function chooseRegistration(incidentAddress: unknown, allRegs: readonly HpdRegistration[], now: Date = new Date()): RegistrationChoice {
+  const regs = allRegs.filter((r) => !isExpiredRegistration(r, now));
+  const expired = allRegs.length - regs.length;
   const candidates = regs.length;
-  const none: RegistrationChoice = { registration: null, status: 'none', step: null, candidates };
+  const none: RegistrationChoice = { registration: null, status: 'none', step: null, candidates, expired };
   const addr = parseIncidentAddress(incidentAddress);
   if (!addr || !regs.length) return none;
   const sameStreet = regs.filter((r) => normalizeStreet(r.streetname) === addr.street);
@@ -181,8 +204,8 @@ export function chooseRegistration(incidentAddress: unknown, regs: readonly HpdR
   const decide = (rows: HpdRegistration[], step: 'exact' | 'range'): RegistrationChoice | null => {
     if (!rows.length) return null;
     const ids = distinctIds(rows);
-    if (ids.length > 1) return { registration: null, status: 'ambiguous', step, candidates };
-    return { registration: rows[0], status: 'matched', step, candidates };
+    if (ids.length > 1) return { registration: null, status: 'ambiguous', step, candidates, expired };
+    return { registration: rows[0], status: 'matched', step, candidates, expired };
   };
   const key = normalizeHouseNumber(`${addr.house.n}${addr.house.sub != null ? `-${addr.house.sub}` : ''}${addr.house.letter}`);
   const exact = sameStreet.filter((r) => normalizeHouseNumber(r.housenumber) === key);
@@ -192,7 +215,10 @@ export function chooseRegistration(incidentAddress: unknown, regs: readonly HpdR
     const lo = parseHouseNumber(r.lowhousenumber ?? r.housenumber);
     const hi = parseHouseNumber(r.highhousenumber ?? r.housenumber);
     if (!lo || !hi) return false;
-    return cmpHouse(lo, addr.house) <= 0 && cmpHouse(addr.house, hi) <= 0 && parity(lo) === parity(addr.house);
+    if (parity(lo) !== parity(addr.house)) return false;
+    const atEnd = key === normalizeHouseNumber(r.lowhousenumber ?? r.housenumber) || key === normalizeHouseNumber(r.highhousenumber ?? r.housenumber);
+    const inside = !addr.house.letter && cmpHouse(lo, addr.house) < 0 && cmpHouse(addr.house, hi) < 0;
+    return atEnd || inside;
   });
   return decide(inRange, 'range') ?? none;
 }
@@ -219,9 +245,12 @@ export interface NycAgent {
   businessZip: string | null;
 }
 
-const cityOk = (v: unknown): string | null => {
+const NYC_NAMES = new Set(['new york', 'new york city', 'manhattan', 'brooklyn', 'bronx', 'the bronx', 'queens', 'staten island']);
+/** A plausible city; the five boroughs and 'New York' (any case) become 'New York' so the sample sanitizer can keep it for the NYC dataset. */
+export const cityOk = (v: unknown): string | null => {
   const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '';
-  return t && t.length <= 40 && /^[A-Za-z][A-Za-z .'-]*$/.test(t) ? t : null;
+  if (!t || t.length > 40 || !/^[A-Za-z][A-Za-z .'-]*$/.test(t)) return null;
+  return NYC_NAMES.has(t.toLowerCase()) ? 'New York' : t;
 };
 const stateOk = (v: unknown): string | null => {
   const t = typeof v === 'string' ? v.trim().toUpperCase() : '';
@@ -285,8 +314,14 @@ export function pickAgent(contacts: readonly HpdContact[]): NycAgent | null {
 export interface NycJoin {
   status: NycJoinStatus;
   agent: NycAgent | null;
-  /** registrations on the BBL, and the rule that picked one */
+  /** the complaint's bbl as parsed (10 digits), null when missing or invalid */
+  bbl: string | null;
+  /** the chosen registration, null when none was chosen (no match, ambiguous, no bbl) */
+  registrationId: string | null;
+  /** live registrations on the BBL, and the rule that picked one */
   candidates: number;
+  /** registrations of the BBL ignored as expired */
+  expired: number;
   step: 'exact' | 'range' | null;
   /** Agent rows whose corporationname cleanOrgName refused (count only; ALL CAPS company names are often refused) */
   rejectedNames: number;
@@ -297,13 +332,18 @@ export function joinComplaint(
   incidentAddress: unknown,
   regsFor: (b: Bbl) => readonly HpdRegistration[],
   contactsFor: (registrationId: string) => readonly HpdContact[],
+  now: Date = new Date(),
 ): NycJoin {
   const b = parseBbl(bbl);
-  const regs = b ? regsFor(b) : [];
-  if (!b || !regs.length) return { status: 'no-registration', agent: null, candidates: regs.length, step: null, rejectedNames: 0 };
-  const choice = chooseRegistration(incidentAddress, regs);
-  if (choice.status === 'ambiguous') return { status: 'ambiguous', agent: null, candidates: choice.candidates, step: choice.step, rejectedNames: 0 };
-  if (choice.status === 'none' || !choice.registration) return { status: 'no-registration', agent: null, candidates: choice.candidates, step: null, rejectedNames: 0 };
-  const picked = classifyAgents(contactsFor(String(choice.registration.registrationid ?? '')));
-  return { status: picked.status, agent: picked.agent, candidates: choice.candidates, step: choice.step, rejectedNames: picked.rejectedNames };
+  const base = { bbl: b ? formatBbl(b) : null, registrationId: null, agent: null, expired: 0, step: null, rejectedNames: 0 };
+  if (!b) return { ...base, status: 'no-bbl', candidates: 0 };
+  const regs = regsFor(b);
+  if (!regs.length) return { ...base, status: 'no-registration', candidates: 0 };
+  const choice = chooseRegistration(incidentAddress, regs, now);
+  const withChoice = { ...base, candidates: choice.candidates, expired: choice.expired };
+  if (choice.status === 'ambiguous') return { ...withChoice, status: 'ambiguous', step: choice.step };
+  if (choice.status === 'none' || !choice.registration) return { ...withChoice, status: 'no-registration' };
+  const registrationId = String(choice.registration.registrationid ?? '') || null;
+  const picked = classifyAgents(contactsFor(registrationId ?? ''));
+  return { ...withChoice, registrationId, status: picked.status, agent: picked.agent, step: choice.step, rejectedNames: picked.rejectedNames };
 }

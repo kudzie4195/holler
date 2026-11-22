@@ -58,6 +58,20 @@ export function phlBusinessPrepare(row: Record<string, unknown>): Record<string,
   return { ...row, legalname: '', business_name: '' };
 }
 
+/**
+ * Licence types kept OUT of the business dataset: landlord / lodging licences are not new local businesses (all 3 newest recon rows were of these types).
+ * 'Rental' and 'Limited Lodging Operator' are SOURCED (recon, business_licenses rows 1 to 3, licensetype);
+ * the full licensetype vocabulary was not enumerated, so other landlord types (for example short-term rental licences) are ASSUMED absent
+ * until the probation samples show them. Add values here, nothing else changes.
+ */
+export const PHL_BUSINESS_EXCLUDED_LICENSE_TYPES: readonly string[] = ['Rental', 'Limited Lodging Operator'];
+
+/** SQL for the exclusion: a null licensetype is kept, an excluded one is not. Values are single-quote escaped. */
+export function phlBusinessTypeFilter(types: readonly string[] = PHL_BUSINESS_EXCLUDED_LICENSE_TYPES): string {
+  const list = types.map((t) => `'${t.replace(/'/g, "''")}'`).join(', ');
+  return `(licensetype IS NULL OR licensetype NOT IN (${list}))`;
+}
+
 export const CARTO_DATASETS: CartoDataset[] = [
   {
     id: 'carto-phl-permits', city: 'Philadelphia', state: 'PA', table: 'permits', kind: 'permit', subtype: 'permit',
@@ -100,9 +114,9 @@ export const CARTO_DATASETS: CartoDataset[] = [
     id: 'carto-phl-business', city: 'Philadelphia', state: 'PA', table: 'business_licenses', kind: 'civic', subtype: 'business',
     idField: 'licensenum', dateField: 'initialissuedate',
     columns: ['licensenum', 'licensetype', 'rentalcategory', 'initialissuedate', 'licensestatus', 'legalentitytype', 'legalname', 'business_name', 'address', 'zip'],
-    extraWhere: "licensestatus = 'Active'", minLookbackDays: 7, cadenceMinutes: 360,
+    extraWhere: `licensestatus = 'Active' AND ${phlBusinessTypeFilter()}`, minLookbackDays: 7, cadenceMinutes: 360,
     sourceUrl: 'https://opendataphilly.org/datasets/licenses-and-inspections-business-licenses/', probation: true, fieldSource: 'sourced',
-    note: 'L&I business licences, initialissuedate = first issue (new licences only). legalentitytype Company / Individual seen in the recon. legalfirstname, legallastname, opa_owner and ownercontact*name are never selected. legalname and business_name survive prepareRow only for Company rows and then only through cleanOrgName. No licence type is excluded: the recon rows were Rental and Limited Lodging Operator, so the probation samples must show whether landlord licences belong in the feed.',
+    note: 'L&I business licences, initialissuedate = first issue (new licences only). legalentitytype Company / Individual seen in the recon. legalfirstname, legallastname, opa_owner and ownercontact*name are never selected. legalname and business_name survive prepareRow only for Company rows and then only through cleanOrgName. Rental and Limited Lodging Operator licences are excluded in SQL (PHL_BUSINESS_EXCLUDED_LICENSE_TYPES; review r13 P2-4); other licence types are kept.',
     prepareRow: phlBusinessPrepare,
     parse: {
       titleFields: [],

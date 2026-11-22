@@ -216,7 +216,10 @@ export function cleanCity(v: unknown, datasetCity?: string | null): string | nul
   const s = text(v, CONTACT_LIMITS.city);
   if (!s || !datasetCity) return null;
   const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
-  return norm(s) === norm(datasetCity) ? s : null;
+  const a = norm(s);
+  const b = norm(datasetCity);
+  // NYC data names the city "New York City" while the registered business city is "New York": the same place.
+  return a === b || (b === 'new york city' && a === 'new york') ? s : null;
 }
 
 export interface SanitizeOptions {

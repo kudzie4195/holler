@@ -179,7 +179,7 @@ describe('joinComplaint', () => {
     expect(r.rejectedNames).toBe(1);
   });
   it('statuses: no bbl, no rows, other building, no agent rows', () => {
-    expect(joinComplaint(undefined, '1 MAIN ST', regsFor, () => []).status).toBe('no-registration');
+    expect(joinComplaint(undefined, '1 MAIN ST', regsFor, () => []).status).toBe('no-bbl');
     expect(joinComplaint('4000010001', '1 MAIN ST', regsFor, () => []).status).toBe('no-registration');
     expect(j({ bbl: '3013020001', incident_address: '79 SULLIVAN PLACE' }).status).toBe('no-registration');
     expect(joinComplaint(F.COMPLAINT_175_W87.bbl, F.COMPLAINT_175_W87.incident_address, regsFor, () => []).status).toBe('no-agent');
@@ -309,8 +309,8 @@ describe('nyc-hpd-agents adapter', () => {
     expect(by['71198289'].data?.joinStatus).toBe('agent-individual'); // FIELDBRIDGE in ALL CAPS is refused by cleanOrgName
     expect(by['71198289'].contacts).toBeUndefined();
     expect(by['71199768'].data?.joinStatus).toBe('no-registration');
-    expect(by['71199999'].data?.joinStatus).toBe('no-registration');
-    expect(countJoinStatuses(out)).toEqual({ matched: 1, ambiguous: 0, 'no-registration': 2, 'agent-individual': 1, 'no-agent': 0 });
+    expect(by['71199999'].data?.joinStatus).toBe('no-bbl');
+    expect(countJoinStatuses(out)).toEqual({ matched: 1, ambiguous: 0, 'no-registration': 1, 'no-bbl': 1, 'agent-individual': 1, 'no-agent': 0, 'not-attempted': 0 });
   });
   it('the contact survives the sample sanitizer (a 311 subtype would lose it)', async () => {
     const out = await buildNycHpdAgentsAdapter().fetch(ctxFor().ctx);
@@ -330,5 +330,200 @@ describe('nyc-hpd-agents adapter', () => {
     const all = [F.AGENT_MAXWELL, F.AGENT_PROVIDENT, F.AGENT_INDIVIDUAL, F.AGENT_FIELDBRIDGE, F.AGENT_139274];
     const picked = JSON.stringify(all.map((c) => ({ c: classifyAgents([c]), p: pickAgent([c]) })));
     for (const n of F.PERSON_NAMES) expect(picked, n).not.toMatch(new RegExp(`\\b${n}\\b`, 'i'));
+  });
+});
+
+// ---- review r13 fixes (P2-1, -2, -3, -7, -8, -10, -11) ------------------------------------------------------------------------------
+describe('review r13 fixes', () => {
+  const reg = (id: string, house: string, lo = house, hi = house, extra: Record<string, string> = {}) => ({ registrationid: id, boroid: '1', block: '10', lot: '1', streetname: 'MAIN STREET', housenumber: house, lowhousenumber: lo, highhousenumber: hi, ...extra });
+  const json = (rows: unknown[]) => ({ ok: true, status: 200, json: async () => rows }) as Response;
+
+  it('P2-2: a letter suffix is part of the house number in the exact and the range step', () => {
+    expect(chooseRegistration('12 MAIN STREET', [reg('A', '12A')]).status).toBe('none');
+    expect(chooseRegistration('12A MAIN STREET', [reg('A', '12')]).status).toBe('none');
+    expect(chooseRegistration('12A MAIN STREET', [reg('A', '12A')])).toMatchObject({ status: 'matched', step: 'exact' });
+    // range with a lettered endpoint
+    expect(chooseRegistration('12 MAIN STREET', [reg('A', '10', '12A', '12A')]).status).toBe('none');
+    expect(chooseRegistration('12 MAIN STREET', [reg('A', '10', '10', '12A')]).status).toBe('none');
+    expect(chooseRegistration('12A MAIN STREET', [reg('A', '10', '10', '14')]).status).toBe('none'); // suffixed: endpoint strings only
+    expect(chooseRegistration('12A MAIN STREET', [reg('A', '10', '10', '12A')])).toMatchObject({ status: 'matched', step: 'range' });
+    expect(chooseRegistration('12 MAIN STREET', [reg('A', '10', '10', '14')])).toMatchObject({ status: 'matched', step: 'range' });
+    expect(chooseRegistration('10 MAIN STREET', [reg('A', '10', '10', '14')]).status).toBe('matched'); // plain endpoint
+  });
+
+  it('P2-7: the registration dataset has registrationenddate (recon): expired registrations are ignored, and counted', () => {
+    const now = new Date('2026-11-22T12:00:00Z');
+    const old = reg('OLD', '5', '5', '5', { registrationenddate: '2026-09-01T00:00:00.000' });
+    const live = reg('LIVE', '5', '5', '5', { registrationenddate: '2027-09-01T00:00:00.000' });
+    expect(chooseRegistration('5 MAIN STREET', [old], now)).toMatchObject({ status: 'none', candidates: 0, expired: 1 });
+    expect(chooseRegistration('5 MAIN STREET', [old, live], now)).toMatchObject({ status: 'matched', candidates: 1, expired: 1 });
+    expect(chooseRegistration('5 MAIN STREET', [reg('X', '5', '5', '5', { registrationenddate: 'garbage' })], now).status).toBe('matched');
+    expect(buildRegistrationsQuery([{ boroid: '1', block: '10', lot: '1' }]).get('$select')).toContain('registrationenddate');
+    const j = joinComplaint('1000100001', '5 MAIN STREET', () => [old], () => [], now);
+    expect(j).toMatchObject({ status: 'no-registration', expired: 1, registrationId: null });
+  });
+
+  it('P2-1: joinComplaint records the parsed bbl, the chosen registration id and the candidate count; no bbl is its own status', () => {
+    const r = joinComplaint('1000100001', '5 MAIN STREET', () => [reg('77', '5'), reg('78', '7')], () => [{ registrationid: '77', type: 'Agent', corporationname: 'Skyline Associates LLC' }]);
+    expect(r).toMatchObject({ status: 'matched', bbl: '1000100001', registrationId: '77', candidates: 2 });
+    expect(joinComplaint('1000100001', '9 MAIN STREET', () => [reg('77', '5')], () => [])).toMatchObject({ status: 'no-registration', bbl: '1000100001', registrationId: null, candidates: 1 });
+    for (const bad of [undefined, '', '123', '6000100001', '1000000001']) expect(joinComplaint(bad, '5 MAIN STREET', () => [reg('77', '5')], () => [])).toMatchObject({ status: 'no-bbl', bbl: null, registrationId: null });
+  });
+
+  it('P2-1: sample rows carry bbl, registrationId, candidates and a distinct no-bbl status', async () => {
+    const heat = (o: Record<string, string>) => ({ complaint_type: 'HEAT/HOT WATER', descriptor: 'ENTIRE BUILDING', created_date: new Date().toISOString().slice(0, 19), latitude: '40.78', longitude: '-73.97', borough: 'MANHATTAN', ...o });
+    const rows = [
+      heat({ unique_key: '1', incident_address: '175 WEST 87 STREET', incident_zip: '10024', bbl: '1012180001' }),
+      heat({ unique_key: '2', incident_address: '5 NOWHERE STREET', incident_zip: '10001', bbl: 'abc' }),
+      heat({ unique_key: '3', incident_address: '9 OTHER STREET', incident_zip: '10001', bbl: '1000990001' }),
+    ];
+    const f = (async (url: string) => {
+      const u = decodeURIComponent(String(url));
+      if (u.includes('/erm2-nwe9.json')) return json(rows);
+      if (u.includes('/tesw-yqqr.json')) return json([F.REG_175_W87, { ...reg('9', '1'), block: '99', lot: '1' }]);
+      return json([F.AGENT_139274]);
+    }) as unknown as typeof fetch;
+    const out = await buildNycHpdAgentsAdapter().fetch({ since: new Date(0), now: new Date(), fetch: f, env: {}, log: () => {} });
+    const by = Object.fromEntries(out.map((o) => [o.externalId, o.data]));
+    expect(by['1']).toMatchObject({ joinStatus: 'matched', bbl: '1012180001', registrationId: '139274', registrationCandidates: 1 });
+    expect(by['2']).toMatchObject({ joinStatus: 'no-bbl', bbl: null, registrationId: null, registrationCandidates: 0 });
+    expect(by['3']).toMatchObject({ joinStatus: 'no-registration', bbl: '1000990001', registrationId: null, registrationCandidates: 1 });
+  });
+
+  it('P2-3: agent rows are fetched only for the chosen registration of each complaint, counted against the cap', async () => {
+    const lotRegs = Array.from({ length: 40 }, (_, i) => reg(String(500 + i), String(i * 2 + 1), String(i * 2 + 1), String(i * 2 + 1)));
+    const urls: string[] = [];
+    const f = (async (url: string) => {
+      const u = decodeURIComponent(String(url));
+      urls.push(u);
+      return json(u.includes('/tesw-yqqr.json') ? lotRegs : []);
+    }) as unknown as typeof fetch;
+    const r = await joinNycComplaints([{ key: 'a', bbl: '1000100001', incidentAddress: '5 MAIN STREET' }], { fetch: f });
+    const agentUrls = urls.filter((u) => u.includes('/feu5-w2e2.json'));
+    expect(agentUrls).toHaveLength(1);
+    expect(agentUrls[0].replace(/\+/g, ' ')).toContain("registrationid IN ('502')");
+    expect(r.calls).toBe(2);
+    // a complaint that matches nothing makes no agent call at all
+    urls.length = 0;
+    await joinNycComplaints([{ key: 'b', bbl: '1000100001', incidentAddress: '6 MAIN STREET' }], { fetch: f });
+    expect(urls.filter((u) => u.includes('/feu5-w2e2.json'))).toHaveLength(0);
+    // 300 complaints on distinct 40-registration lots no longer exhaust the cap on irrelevant agent rows
+    const fm = (async (url: string) => {
+      const u = decodeURIComponent(String(url).replace(/\+/g, ' '));
+      if (u.includes('/tesw-yqqr.json')) {
+        const tuples = [...u.matchAll(/boroid='1' AND block='(\d+)' AND lot='1'/g)].map((m) => m[1]);
+        return json(tuples.flatMap((b) => [{ ...reg(`${b}1`, '5'), block: b }, ...Array.from({ length: 39 }, (_, i) => ({ ...reg(`${b}x${i}`, String(1001 + i * 2)), block: b }))].map((x, i) => ({ ...x, registrationid: `${b}${String(i).padStart(2, '0')}` }))));
+      }
+      return json([]);
+    }) as unknown as typeof fetch;
+    const many = Array.from({ length: 300 }, (_, i) => ({ key: `k${i}`, bbl: String(1_000_000_000 + (i + 1) * 10_000 + 1), incidentAddress: '5 MAIN STREET' }));
+    const rm = await joinNycComplaints(many, { fetch: fm });
+    expect(rm.skipped).toHaveLength(0);
+    expect(rm.calls).toBeLessThanOrEqual(24);
+    expect(rm.byKey.size).toBe(300);
+    expect([...rm.byKey.values()].every((v) => v.status === 'no-agent' && v.candidates === 40)).toBe(true);
+  });
+
+  it('P2-8: the run budget stops new requests, the rest are notAttempted, and the adapter emits them as not-attempted', async () => {
+    let t = 0;
+    const f = (async (url: string) => {
+      const u = decodeURIComponent(String(url));
+      t += 6_000; // each call "takes" 6 s
+      return json(u.includes('/tesw-yqqr.json') ? [reg('9', '5')] : []);
+    }) as unknown as typeof fetch;
+    const cs = Array.from({ length: 6 }, (_, i) => ({ key: `k${i}`, bbl: String(1_000_000_000 + (i + 1) * 10_000 + 1), incidentAddress: '5 MAIN STREET' }));
+    // 3 BBLs per query, so 2 registration calls; the deadline passes after the first (t = 6000 >= 5000)
+    const r = await joinNycComplaints(cs, { fetch: f, chunkSize: 3, deadlineAt: 5_000, clock: () => t });
+    expect(r.calls).toBe(1);
+    expect(r.notAttempted.length).toBeGreaterThan(0);
+    expect(r.byKey.size + r.notAttempted.length + r.skipped.length).toBe(6);
+  });
+
+  it('P2-8: the adapter budget is below the runner timeout, with room for a call to finish', async () => {
+    const { DEFAULT_ADAPTER_TIMEOUT_MS } = await import('@/lib/signals/run');
+    const m = await import('@/lib/signals/adapters/nyc-hpd-agents');
+    expect(m.ADAPTER_TIMEOUT_MS).toBe(DEFAULT_ADAPTER_TIMEOUT_MS);
+    expect(m.RUN_BUDGET_MS).toBeLessThanOrEqual(DEFAULT_ADAPTER_TIMEOUT_MS - 10_000);
+    expect(m.HARD_LIMIT_MS).toBeLessThan(DEFAULT_ADAPTER_TIMEOUT_MS);
+  });
+
+  it('P2-8: an adapter run that passes its budget keeps the joined rows and marks the rest not-attempted', async () => {
+    const real = Date.now;
+    let t = 1_000_000;
+    Date.now = () => t;
+    try {
+      const heat = (k: string, bbl: string) => ({ complaint_type: 'HEAT/HOT WATER', descriptor: 'ENTIRE BUILDING', created_date: new Date(real()).toISOString().slice(0, 19), latitude: '40.7', longitude: '-73.9', borough: 'MANHATTAN', unique_key: k, incident_address: '5 MAIN STREET', incident_zip: '10001', bbl });
+      const rows = [heat('1', '1000100001'), heat('2', '1000200001')];
+      const f = (async (url: string) => {
+        const u = decodeURIComponent(String(url));
+        if (u.includes('/erm2-nwe9.json')) return json(rows);
+        t += 31_000; // the first lookup blows the budget
+        return json(u.includes('/tesw-yqqr.json') ? [reg('9', '5')] : []);
+      }) as unknown as typeof fetch;
+      const out = await buildNycHpdAgentsAdapter().fetch({ since: new Date(0), now: new Date(real()), fetch: f, env: {}, log: () => {} });
+      expect(out).toHaveLength(2);
+      expect(out.every((o) => o.data?.joinStatus === 'not-attempted' || o.data?.joinStatus === 'no-registration' || o.data?.joinStatus === 'no-agent' || o.data?.joinStatus === 'matched')).toBe(true);
+      expect(out.some((o) => o.data?.joinStatus === 'not-attempted')).toBe(true);
+    } finally {
+      Date.now = real;
+    }
+  });
+
+  it('P2-11: queries are ordered, and the same input in any order makes the same queries', async () => {
+    expect(buildRegistrationsQuery([{ boroid: '1', block: '10', lot: '1' }]).get('$order')).toBe('registrationid');
+    expect(buildAgentsQuery(['1']).get('$order')).toBe('registrationcontactid');
+    const run = async (cs: { key: string; bbl: string; incidentAddress: string }[]) => {
+      const urls: string[] = [];
+      const f = (async (u: string) => (urls.push(decodeURIComponent(String(u))), json([]))) as unknown as typeof fetch;
+      await joinNycComplaints(cs, { fetch: f, chunkSize: 2 });
+      return urls;
+    };
+    const cs = Array.from({ length: 5 }, (_, i) => ({ key: `k${i}`, bbl: String(1_000_000_000 + (5 - i) * 10_000 + 1), incidentAddress: '5 MAIN STREET' }));
+    expect(await run(cs)).toEqual(await run([...cs].reverse()));
+  });
+
+  it('P2-11: a batch that returns the row limit is split and re-queried, never used truncated', async () => {
+    const urls: string[] = [];
+    const f = (async (url: string) => {
+      const u = decodeURIComponent(String(url));
+      urls.push(u);
+      const blocks = [...u.matchAll(/block='(\d+)'/g)].map((m) => m[1]);
+      // limit 2: a query for more than one BBL "returns" 2 rows (a full page); a single-BBL query returns its one row
+      return json(blocks.length > 1 ? blocks.slice(0, 2).map((b) => ({ ...reg(`R${b}`, '5'), block: b })) : blocks.map((b) => ({ ...reg(`R${b}`, '5'), block: b })));
+    }) as unknown as typeof fetch;
+    const cs = [10, 11, 12, 13].map((b) => ({ key: `k${b}`, bbl: `1${String(b).padStart(5, '0')}0001`, incidentAddress: '5 MAIN STREET' }));
+    const r = await joinNycComplaints(cs, { fetch: f, rowLimit: 2, maxCalls: 24 });
+    const regCalls = urls.filter((u) => u.includes('/tesw-yqqr.json'));
+    expect(regCalls.length).toBeGreaterThan(1); // the 4-BBL batch was split
+    expect(r.byKey.size).toBe(4);
+    expect(r.skipped).toHaveLength(0);
+    for (const v of r.byKey.values()) expect(v.candidates).toBe(1);
+  });
+
+  it('P2-11: a single item that still fills a page is skipped, not mislabelled no-registration', async () => {
+    const f = (async () => json([{ ...reg('1', '5') }, { ...reg('2', '7') }])) as unknown as typeof fetch;
+    const r = await joinNycComplaints([{ key: 'a', bbl: '1000100001', incidentAddress: '5 MAIN STREET' }], { fetch: f, rowLimit: 2 });
+    expect(r.byKey.size).toBe(0);
+    expect(r.skipped).toEqual(['a']);
+  });
+
+  it('P2-10: a borough or New York (any case) becomes New York, and the sample keeps it for the NYC dataset', async () => {
+    for (const c of ['New York', 'NEW YORK', 'new york', 'Brooklyn', 'BRONX', 'Queens', 'Staten Island', 'The Bronx']) {
+      expect(pickAgent([{ type: 'Agent', corporationname: 'Skyline Associates LLC', businesscity: c, businessstate: 'NY', businesszip: '10019' }])?.businessCity, c).toBe('New York');
+    }
+    expect(pickAgent([{ type: 'Agent', corporationname: 'Skyline Associates LLC', businesscity: 'Scarsdale' }])?.businessCity).toBe('Scarsdale');
+    const out = await buildNycHpdAgentsAdapter().fetch(
+      (() => {
+        const f = (async (url: string) => {
+          const u = decodeURIComponent(String(url));
+          if (u.includes('/erm2-nwe9.json')) return json([{ complaint_type: 'HEAT/HOT WATER', descriptor: 'ENTIRE BUILDING', created_date: new Date().toISOString().slice(0, 19), latitude: '40.7', longitude: '-73.9', borough: 'MANHATTAN', unique_key: '1', incident_address: '175 WEST 87 STREET', incident_zip: '10024', bbl: '1012180001' }]);
+          if (u.includes('/tesw-yqqr.json')) return json([F.REG_175_W87]);
+          return json([{ ...F.AGENT_139274, businesscity: 'BROOKLYN' }]);
+        }) as unknown as typeof fetch;
+        return { since: new Date(0), now: new Date(), fetch: f, env: {}, log: () => {} };
+      })(),
+    );
+    const kept = sanitizeSample(out[0]);
+    expect(kept.contacts?.[0]).toMatchObject({ name: 'Skyline Associates LLC', city: 'New York', state: 'NY', zip: '10019' });
   });
 });
