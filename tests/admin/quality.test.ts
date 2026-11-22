@@ -199,10 +199,13 @@ describe('loadQualityReport (read only)', () => {
     const { loadQualityReport } = await import('@/lib/admin/quality-load');
     const db = seeded();
     const r = await loadQualityReport(db as never, NOW);
-    expect(r).toEqual(buildQualityReport(base()));
+    // The duplicates line (round 17, PLAN-2.0 2.3) is added by the loader; everything else is the pure builder's report.
+    const { duplicates, ...rest } = r;
+    expect(rest).toEqual(buildQualityReport(base()));
+    expect(duplicates).toMatchObject({ status: 'ok', bySource: [], windowDays: 7 });
     expect(db.calls.length).toBeGreaterThan(0);
     expect(db.calls.every((c) => c.endsWith('.select'))).toBe(true);
-    expect([...new Set(db.calls)].sort()).toEqual(['holler_alert_log.select', 'holler_matches.select', 'holler_profiles.select', 'holler_signal_feedback.select', 'holler_signals.select']);
+    expect([...new Set(db.calls)].sort()).toEqual(['holler_alert_log.select', 'holler_dedupe_drops.select', 'holler_matches.select', 'holler_profiles.select', 'holler_signal_feedback.select', 'holler_signals.select']);
   });
 
   it('reads only holler_ tables', async () => {

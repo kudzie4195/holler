@@ -2,6 +2,7 @@ import type { CategoryId } from '@/lib/signals/categories';
 import { isAlertLabel, labelFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { computeAccess } from '@/lib/auth/access';
 import { matchScope } from '@/lib/plan/scope';
+import type { DuplicateReport } from '@/lib/signals/dedupe-metrics';
 
 /**
  * Alert-quality dashboard numbers (PLAN-2.0 item 3.4). Pure: rows in, report out. lib/admin/quality-load.ts reads the rows (read-only
@@ -111,6 +112,8 @@ export interface QualityReport {
   /** Trades whose sent alerts are below the target (only trades with at least one sent alert). */
   belowTarget: string[];
   notes: string[];
+  /** Duplicates dropped per source in the last 7 days (PLAN-2.0 2.3). Added by loadQualityReport; absent from the pure builder's output. */
+  duplicates?: DuplicateReport;
 }
 
 const emptyLabels = (): LabelCounts => ({ act_now: 0, coming_soon: 0, market_insight: 0, context: 0 });

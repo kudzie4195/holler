@@ -113,6 +113,12 @@ export interface SocrataDataset {
    * plausible amount wins). Stored as data.jobValue (a number). Without it the money columns of summaryFields are used.
    */
   valueFields?: string[];
+  /**
+   * Permits: the column that holds the permit's status. Read by lib/signals/stage.ts permitStageOf into one of five fixed stage codes
+   * (the status text itself is never stored). Only datasets whose code or fixture shows such a column carry it; see the list in
+   * lib/signals/stage-sources.ts.
+   */
+  statusField?: string;
 }
 
 // --- Category rules ---------------------------------------------------------------------------
@@ -541,7 +547,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   // ---- Chicago ----
   {
     id: 'socrata-chicago-permits', city: 'Chicago', state: 'IL', tz: 'America/Chicago', domain: 'data.cityofchicago.org', datasetId: 'ydr8-5enu',
-    kind: 'permit', subtype: 'permit', idField: 'permit_', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
+    statusField: 'permit_status', kind: 'permit', subtype: 'permit', idField: 'permit_', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['work_description', 'permit_type'], textFields: ['work_description', 'permit_type', 'work_type'],
     summaryFields: ['permit_type', 'work_type', 'reported_cost'], addressFields: ['street_number', 'street_direction', 'street_name'],
     cadenceMinutes: 360, verified: true, verifiedUrl: D('data.cityofchicago.org', 'ydr8-5enu'), fieldSource: 'sourced',
@@ -596,7 +602,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   // ---- San Francisco ----
   {
     id: 'socrata-sf-permits', city: 'San Francisco', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.sf.gov', datasetId: 'i98e-djp9',
-    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issued_date', locationField: 'location',
+    statusField: 'status', kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issued_date', locationField: 'location',
     titleFields: ['description', 'permit_type_definition'], textFields: ['description', 'permit_type_definition', 'proposed_use'],
     summaryFields: ['permit_type_definition', 'estimated_cost', 'status'], addressFields: ['street_number', 'street_name', 'street_suffix'], zipField: 'zipcode',
     cadenceMinutes: 360, verified: true, verifiedUrl: D('data.sf.gov', 'i98e-djp9'), fieldSource: 'sourced',
@@ -686,7 +692,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   // ---- New Orleans ----
   {
     id: 'socrata-nola-permits', city: 'New Orleans', state: 'LA', tz: 'America/Chicago', domain: 'data.nola.gov', datasetId: 'rcm3-fn58',
-    kind: 'permit', subtype: 'permit', idField: 'numstring', dateField: 'issuedate', locationField: 'location_1',
+    statusField: 'currentstatus', kind: 'permit', subtype: 'permit', idField: 'numstring', dateField: 'issuedate', locationField: 'location_1',
     titleFields: ['description', 'type'], textFields: ['description', 'type', 'projectname'],
     summaryFields: ['type', 'currentstatus', 'constrval'], addressFields: ['address'], cadenceMinutes: 360,
     verified: true, verifiedUrl: D('data.nola.gov', 'rcm3-fn58'), fieldSource: 'sourced',
@@ -735,14 +741,14 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   // ---- More permit cities ----
   {
     id: 'socrata-cambridge-permits', city: 'Cambridge', state: 'MA', tz: 'America/New_York', domain: 'data.cambridgema.gov', datasetId: '3wsm-e5jx',
-    kind: 'permit', subtype: 'permit', idField: 'id', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
+    statusField: 'status', kind: 'permit', subtype: 'permit', idField: 'id', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['permit_type'], textFields: ['permit_type'], summaryFields: ['permit_type', 'status'], addressFields: ['full_address'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.cambridgema.gov', '3wsm-e5jx'), fieldSource: 'sourced',
     note: 'Cambridge Permit Finder. Updated 2026-11-17, max issue_date 2026-11-13, 559 rows since Nov 1. The set has only permit_type (Electrical, Plumbing, Mechanical, Roof, Tree Removal, Dumpster...) so only trade-like types map.',
   },
   {
     id: 'socrata-norfolk-permits', city: 'Norfolk', state: 'VA', tz: 'America/New_York', domain: 'data.norfolk.gov', datasetId: 'fahm-yuh4',
-    kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
+    statusField: 'status', kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['work_type', 'type'], textFields: ['type', 'work_type', 'use_type'], summaryFields: ['type', 'work_type', 'project_cost'], addressFields: ['address'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: D('data.norfolk.gov', 'fahm-yuh4'), fieldSource: 'sourced',
     note: 'Updated 2026-11-16. issue_date holds future dates (max 2026-12-24), so the query caps it at now (windowForwardDays 0).',
@@ -756,7 +762,7 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
   },
   {
     id: 'socrata-montgomery-permits', city: 'Montgomery County', state: 'MD', countyAnchor: { lat: 39.084, lon: -77.1528 }, tz: 'America/New_York', domain: 'data.montgomerycountymd.gov', datasetId: 'm88u-pqki',
-    kind: 'permit', subtype: 'permit', idField: 'permitno', dateField: 'issueddate', locationField: 'location',
+    statusField: 'status', kind: 'permit', subtype: 'permit', idField: 'permitno', dateField: 'issueddate', locationField: 'location',
     titleFields: ['description', 'worktype'], textFields: ['description', 'worktype', 'applicationtype'], summaryFields: ['worktype', 'declaredvaluation', 'status'],
     addressFields: ['stno', 'predir', 'stname', 'suffix', 'postdir'], zipField: 'zip',
     lookbackOverride: 30, windowForwardDays: 0, cadenceMinutes: 720, verified: true, verifiedUrl: D('data.montgomerycountymd.gov', 'm88u-pqki'), fieldSource: 'sourced',

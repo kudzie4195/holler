@@ -272,6 +272,6 @@ describe('insert-time de-duplication (round 7 fix-a: only identical records from
 
   it('the scan turns de-duplication on for every source write', async () => {
     const src = (await import('node:fs')).readFileSync('lib/signals/run.ts', 'utf8');
-    expect(src).toMatch(/insertNewSignals\(db, rows, \{[^}]*dedupe: true/);
+    expect(src).toMatch(/insertNewSignals\(db, plan\.rows, \{[^}]*dedupe: true/);
   });
 });

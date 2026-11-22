@@ -82,6 +82,8 @@ export interface ArcgisDataset {
   valueFields?: string[];
   /** Fields of valueFields that were not read from the layer's field list (candidates). */
   assumedValueFields?: string[];
+  /** Permits: the status column, read into a fixed stage code by lib/signals/stage.ts permitStageOf (see socrata-datasets.ts statusField). */
+  statusField?: string;
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;
@@ -100,7 +102,7 @@ const ATL_BIZ = 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/servi
 export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-dekalb-permits', city: 'DeKalb County', state: 'GA', tz: 'America/New_York', layerUrl: DEKALB, countyAnchor: { lat: 33.7748, lon: -84.2963 },
-    kind: 'permit', subtype: 'permit', idField: 'applicationNumber', dateField: 'issuedDateTime', dateType: 'date',
+    statusField: 'statusDescription', kind: 'permit', subtype: 'permit', idField: 'applicationNumber', dateField: 'issuedDateTime', dateType: 'date',
     titleFields: ['WorkTypeDescription'], textFields: ['WorkTypeDescription', 'OccupancyTypeDescription'],
     summaryFields: ['WorkTypeDescription', 'OccupancyTypeDescription', 'statusDescription'], addressFields: ['location'],
     windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(DEKALB), checkedOn: '2026-11-17', fieldSource: 'sourced',

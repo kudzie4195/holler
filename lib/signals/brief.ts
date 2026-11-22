@@ -5,6 +5,7 @@ import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-ro
 import { getSourceMeta } from './source-meta';
 import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
 import { jobValueLine, summaryWithoutValue } from './permit-value';
+import { stageLine } from './stage';
 
 /**
  * Brief card v1 (PLAN-2.0 item 0.4). Every alert card (web feed, email digest, mobile API) renders five parts:
@@ -593,6 +594,11 @@ export interface CardBrief extends Brief {
    * of its summary), else null. It is the number the city printed on the permit, not a quote and not proof that work is planned.
    */
   valueLine: string | null;
+  /**
+   * A permit whose stage changed (PLAN-2.0 2.1): "The public source lists this permit at final inspection (seen Nov 22, 2026). The
+   * building may be ready soon." Timing only. Null for every other record, and for a stage that is not a trigger. Needs migration 0025.
+   */
+  stageLine: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -606,6 +612,9 @@ export interface CardBriefInput extends BriefInput {
   managerRole?: string | null;
   /** data.jobValue of the record (a number, or its text form). Pass null for a locked member. */
   jobValue?: unknown;
+  /** data.permitStage and data.permitStageAt of the record (migration 0025 feature). Pass null for a locked member. */
+  permitStage?: unknown;
+  permitStageAt?: string | null;
 }
 
 /**
@@ -632,6 +641,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
     source: briefSource(input),
     managedBy: briefFamilyOf(input) === '311' && isResidentialHeatTitle(input.title) ? managedByLineFrom(input.managerName, input.managerRole) : null,
     valueLine: briefFamilyOf(input) === 'permit' ? jobValueLine({ jobValue: input.jobValue, summary: input.summary }) : null,
+    stageLine: briefFamilyOf(input) === 'permit' ? stageLine(input.permitStage, input.permitStageAt) : null,
   };
 }
 

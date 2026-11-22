@@ -1,4 +1,5 @@
 import { PAGE_SIZE, type Db } from '@/lib/signals/store';
+import { loadDuplicateRates } from '@/lib/signals/dedupe-metrics';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import {
   buildQualityReport,
@@ -193,5 +194,7 @@ export async function loadQualityReport(db: Db, now: Date, maxPages: number = MA
     fail('firstCard');
   }
 
-  return buildQualityReport({ now, alerts, signals, feedback, profiles, matches, status });
+  const report = buildQualityReport({ now, alerts, signals, feedback, profiles, matches, status });
+  // Duplicates dropped per source, last 7 days (read only; a missing table or a failed read is 'unavailable', never zero).
+  return { ...report, duplicates: await loadDuplicateRates(db, now) };
 }

@@ -6,6 +6,7 @@ import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
+import { permitStageOf } from '@/lib/signals/stage';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -444,6 +445,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       // Permits: the project value the city published, as a number (PLAN-2.0 1.3). Public already: the summary prints the same amount.
       const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
+      // Permits: the stage the status column shows, as a fixed code (lib/signals/stage.ts). The scan decides whether to store it.
+      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(s(row, ds.statusField)) : null;
       out.push({
         source: ds.id,
         externalId,
@@ -469,6 +472,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(permitStage ? { permitStage } : {}),
       });
     } catch {
       // skip malformed row

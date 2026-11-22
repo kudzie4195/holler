@@ -1,6 +1,7 @@
 import type { CategoryId } from './categories';
 import type { ContactInput } from '@/lib/contacts/types';
 import type { Db } from './store';
+import type { PermitStage } from './stage';
 
 export type SignalKind =
   | 'ask'
@@ -38,6 +39,11 @@ export interface SignalInput {
    * these to holler_signal_contacts (service role only) for newly inserted signals and never copies them into title, summary or data.
    */
   contacts?: ContactInput[];
+  /**
+   * Permits: the stage the portal's status column shows, as one of the fixed codes (lib/signals/stage.ts). NOT stored by the plain upsert:
+   * lib/signals/projects.ts reads it when migration 0025 is applied and ignores it otherwise.
+   */
+  permitStage?: PermitStage;
 }
 
 export interface AdapterContext {

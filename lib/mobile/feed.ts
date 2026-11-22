@@ -18,6 +18,7 @@ import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
+import { STAGE_SELECT } from '@/lib/signals/stage';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -28,7 +29,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
 export interface SignalRow {
   id: number;
@@ -63,6 +64,9 @@ export interface SignalRow {
   managerRole?: string | null;
   /** Permits: data.jobValue (text form), the project value the city published. */
   jobValue?: string | null;
+  /** Permits: data.permitStage and data.permitStageAt (STAGE_SELECT, migration 0025 feature). Absent before it and on rows with no stage update. */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
 }
 
 export interface MatchRow {
@@ -135,7 +139,7 @@ export interface BuildDeps {
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
   const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue });
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue, permitStage: deps.locked ? null : s.permitStage, permitStageAt: deps.locked ? null : s.permitStageAt });
   return {
     why: b.why,
     next: b.next,
@@ -144,6 +148,7 @@ function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): Brief
     confidence: b.confidence,
     ...(b.managedBy ? { managedBy: b.managedBy } : {}),
     valueLine: b.valueLine,
+    ...(b.stageLine ? { stageLine: b.stageLine } : {}),
   };
 }
 
