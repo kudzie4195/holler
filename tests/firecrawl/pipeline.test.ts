@@ -56,6 +56,8 @@ describe('first run: check, then extract', () => {
     expect(r.rowsExtracted).toBe(28);
     expect(c.calls[0].formats).toEqual(['markdown', { type: 'changeTracking', tag: 'holler-bids-gwinnett' }]);
     expect(c.calls[0].url).toBe(GW.listUrl);
+    expect(c.calls[0].maxAgeMs).toBe(0); // the 2-day default cache must not hide today's page from the daily check
+    expect(c.calls[1].maxAgeMs).toBe(600_000);
     const f1 = c.calls[1].formats;
     expect(f1[0]).toBe('markdown');
     expect(f1[1]).toMatchObject({ type: 'json' });

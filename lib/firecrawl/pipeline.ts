@@ -154,6 +154,9 @@ export async function runLocalBidSource(src: LocalBidSource, deps: PipelineDeps)
         url: src.listUrl,
         formats: ['markdown', { type: 'changeTracking', tag: changeTag(src) }],
         timeoutMs: Math.min(15_000, left),
+        // docs.firecrawl.dev/features/scrape: maxAge defaults to 2 days (a cached copy is returned if newer than that). A daily check must
+        // see today's page, so the cache is bypassed (maxAge 0).
+        maxAgeMs: 0,
         deadlineMs: deadline,
       });
     } catch (e) {
