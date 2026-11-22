@@ -143,15 +143,28 @@ export async function GET(req: Request) {
   // Advertised trial length against the database's (migration 0028). Read-only; never throws.
   report.trialCheck = await loadTrialDbCheck(admin);
 
-  // Round 18 business lookups: the daily circuit breaker (lib/enrich/business-lookup.ts). When the first 5 answers of the UTC day held no
-  // usable match, one Watch line tells the owner to run the lookup probe. Read only, and only with DataForSEO credentials; never throws.
+  // Round 18 business lookups (lib/enrich/business-lookup.ts): the daily circuit breaker (the first 5 answers of a UTC day held no usable
+  // match) and the outage stop (3 calls in a row with no answer: login, balance or the service). This email goes out once a day (13:03 UTC),
+  // so a stop later in the day is reported by the next day's email ("yesterday"). One Watch line each. Read only, and only with DataForSEO
+  // credentials; never throws.
   let lookup: { tripped: boolean; tried: number; message: string | null } | null = null;
   try {
     const { credentials } = await import('@/lib/dataforseo/client');
     if (credentials(process.env)) {
-      const { lookupBreaker } = await import('@/lib/enrich/business-lookup');
+      const { lookupBreaker, lookupOutage, breakerMessage, outageMessage } = await import('@/lib/enrich/business-lookup');
+      const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1);
       lookup = await lookupBreaker(admin, now);
       if (lookup?.tripped && lookup.message) report.watch.unshift(lookup.message);
+      else {
+        const prev = await lookupBreaker(admin, yesterday);
+        if (prev?.tripped) report.watch.unshift(breakerMessage(prev.tried, 'yesterday'));
+      }
+      const outage = await lookupOutage(admin, now);
+      if (outage?.stopped && outage.message) report.watch.unshift(outage.message);
+      else {
+        const prev = await lookupOutage(admin, yesterday);
+        if (prev?.stopped) report.watch.unshift(outageMessage(prev.failed, 'yesterday'));
+      }
     }
   } catch {
     lookup = null;

@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { credentials, dfsCall, estimateUsd, monthKey, monthlyCapUsd, monthSpendUsd, PRICE_TABLE, type DfsDeps } from '@/lib/dataforseo/client';
 import { foldName, isOrganisationName } from '@/lib/contacts/org';
+import { isStoredContactName } from '@/lib/contacts/names';
 import { usPhone } from '@/lib/contacts/sanitize';
 import type { ContactRecord, ListingInfo } from '@/lib/contacts/types';
 import { safeWebsite } from '@/lib/outreach/links';
@@ -33,7 +34,8 @@ import { CITIES, haversineMi, lookupZip, stateByCode } from '@/lib/geo';
  * accepted only with the same ZIP and the same street address (house number and normalised street words).
  *
  * Accepting a listing (on any doubt nothing: a wrong phone number is worse than none):
- *  - name: never a person (lib/contacts/org.ts isOrganisationName), never a placeholder ("TBD", "Owner", "Self", "N/A"...) and never generic
+ *  - name: never a person (lib/contacts/org.ts isOrganisationName AND, for a card's contact, its role's business-name rule,
+ *    lib/contacts/names.ts isStoredContactName: round 18 integration), never a placeholder ("TBD", "Owner", "Self", "N/A"...) and never generic
  *    (every word a trade, shop or descriptor word or a place word: "General Contractor", "Home Daycare", "Coin Laundry", "Currency
  *    Exchange", "Atlanta Roofing"). A listing matches only when its word set EQUALS the query's after trailing legal forms are removed;
  *  - closed (temporarily or for good) listings never count as a match;
@@ -274,6 +276,12 @@ const STREET_SUFFIX: Record<string, string> = {
   plaza: 'plz', plz: 'plz', expressway: 'expy', expy: 'expy', freeway: 'fwy', fwy: 'fwy', pike: 'pike', alley: 'aly', aly: 'aly',
 };
 const DIRECTION: Record<string, string> = { north: 'n', n: 'n', south: 's', s: 's', east: 'e', e: 'e', west: 'w', w: 'w', northeast: 'ne', ne: 'ne', northwest: 'nw', nw: 'nw', southeast: 'se', se: 'se', southwest: 'sw', sw: 'sw' };
+const ORDINAL_WORD: Record<string, string> = { first: '1st', second: '2nd', third: '3rd', fourth: '4th', fifth: '5th', sixth: '6th', seventh: '7th', eighth: '8th', ninth: '9th', tenth: '10th', eleventh: '11th', twelfth: '12th' };
+const ordinalOf = (n: string): string => {
+  const v = Number(n) % 100;
+  const u = v % 10;
+  return `${Number(n)}${v >= 11 && v <= 13 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th'}`;
+};
 const UNIT_WORD = /^(?:ste|suite|unit|apt|apartment|fl|floor|bldg|building|rm|room|#.*|no)$/;
 
 /**
@@ -288,11 +296,65 @@ export function parseStreet(raw: string | null | undefined): { number: string; s
   const m = toks.length > 1 && /^\d{1,6}[a-z]?$/.test(toks[0]) ? toks[0] : null;
   if (!m) return null;
   const rest: string[] = [];
-  for (const t of toks.slice(1)) {
+  const tail = toks.slice(1);
+  for (let i = 0; i < tail.length; i++) {
+    const t = tail[i];
+    const next = tail[i + 1];
     if (UNIT_WORD.test(t)) break;
-    rest.push(DIRECTION[t] ?? STREET_SUFFIX[t] ?? t);
+    // "Fifth" is "5th"; a bare number before a street type takes its ordinal ending ("E 53 St" is "E 53rd St"), never before a highway
+    // number; "Saint" is "St" when a name follows it.
+    if (ORDINAL_WORD[t]) rest.push(ORDINAL_WORD[t]);
+    else if (/^\d{1,3}$/.test(t) && next && STREET_SUFFIX[next] && STREET_SUFFIX[next] !== 'hwy') rest.push(ordinalOf(t));
+    else if (t === 'saint' && next) rest.push('st');
+    else rest.push(DIRECTION[t] ?? STREET_SUFFIX[t] ?? t);
   }
-  return rest.length ? { number: m, street: rest.join(' ') } : null;
+  const street = cutBareUnit(routeAsHighway(rest));
+  return street.length ? { number: m, street: street.join(' ') } : null;
+}
+
+/** Two-letter state codes that open a state route ("GA-120", "TX 71"). The four that are also directions (NE ...) are left out on purpose. */
+const STATE_ROUTE = new Set(
+  'al ak az ar ca co ct de fl ga hi id il in ia ks ky la me md ma mi mn ms mo mt nv nh nj nm ny nc nd oh ok or pa ri sc sd tn tx ut vt va wa wv wi wy'.split(' '),
+);
+const ROUTE_NUMBER = /^\d{1,4}[a-z]?$/;
+/**
+ * Round 18 integration (review 3 P3-5): one state highway written three ways. "Hwy 120", "Highway 120", "GA-120", "SR 120" and "State Route
+ * 120", "GA Hwy 120" all read "hwy 120" when they open the street. "US 41", "I-75" and "CR 12" are other roads and are left as written (a US route and a
+ * state route can share a number), so they never match a "Hwy".
+ */
+function routeAsHighway(rest: string[]): string[] {
+  const [a, b, c] = rest;
+  if ((STATE_ROUTE.has(a) || a === 'sr') && b && ROUTE_NUMBER.test(b)) return ['hwy', b, ...rest.slice(2)];
+  if (STATE_ROUTE.has(a) && b === 'hwy' && c && ROUTE_NUMBER.test(c)) return ['hwy', c, ...rest.slice(3)];
+  if (a === 'state' && (b === 'route' || b === 'rte' || b === 'rd' || b === 'hwy') && c && ROUTE_NUMBER.test(c)) return ['hwy', c, ...rest.slice(3)];
+  return rest;
+}
+
+/** Street types after which a trailing bare number is a unit; a highway, freeway, expressway or pike number is the road's own number. */
+const UNIT_AFTER = new Set(['st', 'ave', 'rd', 'blvd', 'dr', 'ln', 'ct', 'pl', 'pkwy', 'ter', 'cir', 'sq', 'trl', 'way', 'plz', 'aly']);
+/** Words that make "X Road 12" a numbered road ("County Road 12", "Farm to Market Road 1960"), never a street with a unit. */
+const NUMBERED_ROAD_WORDS = new Set(['county', 'state', 'farm', 'market', 'forest', 'ranch', 'township', 'twp', 'route', 'rte', 'interstate', 'us', 'sr', 'cr', 'fm']);
+const DIRECTION_CODES = new Set(Object.values(DIRECTION));
+const BARE_UNIT = /^(?:\d{1,5}[a-z]?|\d{1,3}(?:st|nd|rd|th)|[a-z])$/;
+/**
+ * Round 18 integration (review 3 P3-5): a floor or suite written with no unit word ("3714 S HALSTED ST 1ST", "233 S WACKER DR 4500",
+ * "200 W Addison St B") is cut,
+ * like "Ste 4500". Only after a street type that follows a name word, and only a bare number or a floor ordinal; a direction after the type is
+ * kept ("Peachtree St NE"). The unit itself is never compared (same as a unit written with a unit word).
+ */
+function cutBareUnit(rest: string[]): string[] {
+  let k = -1;
+  for (let i = rest.length - 1; i >= 1; i--) {
+    if (UNIT_AFTER.has(rest[i])) {
+      k = i;
+      break;
+    }
+  }
+  // The word before the type must be a name word: "County Road 12" is a numbered road and "E Ave B" is the street "Avenue B".
+  if (k < 1 || NUMBERED_ROAD_WORDS.has(rest[k - 1]) || DIRECTION_CODES.has(rest[k - 1])) return rest;
+  let j = k + 1;
+  while (j < rest.length && DIRECTION_CODES.has(rest[j])) j++;
+  return j < rest.length && BARE_UNIT.test(rest[j]) ? rest.slice(0, j) : rest;
 }
 
 /** Same house number and the same normalised street words. */
@@ -460,7 +522,8 @@ export function placeMatches(item: ListingItem, place: LookupPlace): boolean {
 
 /** "temporarily_closed" and "closed_forever" (sourced values of work_time.work_hours.current_status). "close" only means outside hours. */
 export function isClosed(item: Pick<ListingItem, 'status'>): boolean {
-  return item.status === 'closed_forever' || item.status === 'temporarily_closed';
+  // Only the two documented open values count as open. Any other string (a new value, another spelling) is doubt: closed.
+  return item.status !== null && !['open', 'close'].includes(item.status.toLowerCase());
 }
 
 export interface ListingChoice {
@@ -500,9 +563,15 @@ export function chooseListing(
   if (totalCount === null ? items.length >= LOOKUP_LIMIT : totalCount > items.length) return { choice: null, reason: 'truncated' };
   const sameName = items.filter((it) => namesMatch(name, it.title));
   if (sameName.length === 0) return { choice: null, reason: items.length === 0 ? 'no_listing' : 'no_match' };
-  const named = sameName.filter((it) => !isClosed(it));
+  // Closed for good: the business is gone and does not count. Any other closed state (temporarily closed, an unknown status): the business
+  // still exists, so it is never attached and it still makes a second same-named listing ambiguous.
+  const named = sameName.filter((it) => it.status?.toLowerCase() !== 'closed_forever');
   if (named.length === 0) return { choice: null, reason: 'closed' };
-  const cleaned = named.map((it) => ({ it, phone: usPhone(it.phone), website: listingWebsite(it.url ?? it.domain) }));
+  // A business at its site: the street address says which same-named listing is meant, so another branch elsewhere is not a doubt.
+  const atPlace = place.strict ? named.filter((it) => placeRefusal(it, place) === null) : named;
+  if (atPlace.length === 0) return { choice: null, reason: placeRefusal(named[0], place) ?? 'address_mismatch' };
+  if (atPlace.some(isClosed)) return { choice: null, reason: atPlace.length > 1 ? 'ambiguous' : 'closed' };
+  const cleaned = atPlace.map((it) => ({ it, phone: usPhone(it.phone), website: listingWebsite(it.url ?? it.domain) }));
   if (cleaned.length > 1) {
     const phones = new Set(cleaned.map((c) => c.phone));
     const hosts = new Set(cleaned.map((c) => hostOf(c.website)));
@@ -664,8 +733,8 @@ export interface BreakerState {
   message: string | null;
 }
 
-export function breakerMessage(tried: number): string {
-  return `Business lookups returned no usable match today (${tried} tried). Run the lookup probe.`;
+export function breakerMessage(tried: number, day: 'today' | 'yesterday' = 'today'): string {
+  return `Business lookups returned no usable match ${day} (${tried} tried). Run the lookup probe.`;
 }
 
 /**
@@ -674,19 +743,66 @@ export function breakerMessage(tried: number): string {
  */
 export async function lookupBreaker(db: Db, now: Date): Promise<BreakerState | null> {
   try {
-    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const startMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     const { data, error } = await db
       .from(LOOKUP_TABLE)
       .select('status, checked_at')
-      .gte('checked_at', dayStart)
+      .gte('checked_at', new Date(startMs).toISOString())
+      .lt('checked_at', new Date(startMs + DAY_MS).toISOString())
       .in('status', ['found', 'not_found', 'truncated'])
       .order('checked_at', { ascending: true })
+      .order('name_key', { ascending: true })
+      .order('city_key', { ascending: true })
       .limit(100);
     if (error || !Array.isArray(data)) return null;
     const rows = data as { status: string }[];
     const first = rows.slice(0, BREAKER_SAMPLE);
     const tripped = first.length >= BREAKER_SAMPLE && first.every((r) => r.status !== 'found');
     return { tripped, tried: rows.length, message: tripped ? breakerMessage(rows.length) : null };
+  } catch {
+    return null;
+  }
+}
+
+/** Outage stop (round 18 integration, review 3 P3-1): this many lookup calls in a row with no answer stop lookups for the rest of the UTC day. */
+export const OUTAGE_STOP = 3;
+
+export interface OutageState {
+  /** True when the latest OUTAGE_STOP settled lookup calls of the UTC day all got no answer (HTTP error, API error, timeout). */
+  stopped: boolean;
+  /** Calls in a row with no answer, counted back from the latest settled call of that day. */
+  failed: number;
+  /** The owner line for the health email and the notify JSON, when stopped. */
+  message: string | null;
+}
+
+export function outageMessage(failed: number, day: 'today' | 'yesterday' = 'today'): string {
+  return `Business lookups got no answer ${failed} times in a row ${day}, so they stopped for the day. Check the DataForSEO login and balance.`;
+}
+
+/**
+ * The outage stop. A wrong login (401), an empty balance, an API that is down (503) or timeouts never reach the circuit breaker, which reads
+ * answers only: without this, every run would spend its calls until the day cap (25 failed calls a day). Reads the ledger of the UTC day of
+ * `now` (holler_dataforseo_spend, settled rows of the lookup endpoint: ok, error, unknown), newest first. Null on a read error.
+ */
+export async function lookupOutage(db: Db, now: Date): Promise<OutageState | null> {
+  try {
+    const startMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const { data, error } = await db
+      .from('holler_dataforseo_spend')
+      .select('id, status')
+      .eq('endpoint', LOOKUP_PATH)
+      .gte('created_at', new Date(startMs).toISOString())
+      .lt('created_at', new Date(startMs + DAY_MS).toISOString())
+      .in('status', ['ok', 'error', 'unknown'])
+      .order('id', { ascending: false })
+      .limit(50);
+    if (error || !Array.isArray(data)) return null;
+    const rows = data as { status: string }[];
+    let failed = 0;
+    while (failed < rows.length && rows[failed].status !== 'ok') failed++;
+    const stopped = failed >= OUTAGE_STOP;
+    return { stopped, failed, message: stopped ? outageMessage(failed) : null };
   } catch {
     return null;
   }
@@ -734,7 +850,7 @@ export interface LookupBudget {
   skipped: Record<string, number>;
   /** Why answers from the API were not attached, per reason (truncated, ambiguous, closed, address_mismatch ...). */
   refused: Record<string, number>;
-  /** The circuit breaker's line when it stopped lookups this run (decision 4b), else null. */
+  /** The circuit breaker's line (decision 4b) or the outage stop's line when either stopped lookups this run, else null. */
   breaker: string | null;
 }
 
@@ -783,6 +899,7 @@ export type SkipReason =
   | 'run_cap'
   | 'day_cap'
   | 'breaker'
+  | 'outage'
   | 'spend_unavailable'
   | 'cap_reached'
   | 'deadline'
@@ -804,6 +921,12 @@ export interface LookupInput {
   street?: string | null;
   /** The record's job city: a place word for the generic-name rule. */
   jobCity?: string | null;
+  /**
+   * The contact's role (round 18 integration). When given, the name must also pass that role's business-name rule (lib/contacts/names.ts
+   * isStoredContactName: the contractor trade-name rule, the licence rule): the lookup never sees a name the card would not show. The
+   * owner probe gives no role (a name only, Bearer only, nothing cached).
+   */
+  role?: 'business' | 'contractor';
 }
 
 export interface LookupDeps {
@@ -856,6 +979,7 @@ export function nameRefusal(name: string, place?: NamePlace): SkipReason | null 
 /** The name, the place and the cache key of one lookup input, or the reason it is not looked up. */
 function prepare(input: LookupInput): { name: string; place: LookupPlace; key: CacheKey } | { refusal: SkipReason } {
   const name = typeof input.name === 'string' ? input.name.replace(/\s+/g, ' ').trim() : '';
+  if (input.role !== undefined && (!LOOKUP_ROLES.has(input.role) || !isStoredContactName(input.role, name))) return { refusal: 'not_business' };
   const refusal = nameRefusal(name, { city: input.city, state: input.state, zip: input.zip, jobCity: input.jobCity });
   if (refusal) return { refusal };
   const nk = nameKey(name);
@@ -929,6 +1053,16 @@ export async function lookupBusiness(input: LookupInput, deps: LookupDeps, opts:
       return giveBack('breaker', { message: breaker.message ?? undefined });
     }
   }
+  // The outage stop. Not for the owner probe: after fixing the login or the balance the owner probes, and one answered probe call (ledger
+  // status ok) is the newest settled row, which reopens lookups for the alert run the same day.
+  if (!opts.probe) {
+    const outage = await lookupOutage(db, now);
+    if (!outage) return giveBack('spend_unavailable');
+    if (outage.stopped) {
+      if (budget) budget.breaker = outage.message;
+      return giveBack('outage', { message: outage.message ?? undefined });
+    }
+  }
   try {
     const spent = await monthSpendUsd(db, monthKey(now));
     if (spent + ESTIMATE_PER_LOOKUP_USD > monthlyCapUsd(env) + 1e-9) return giveBack('cap_reached');
@@ -989,6 +1123,9 @@ const clean = (v: unknown): string => (typeof v === 'string' ? v.replace(/\s+/g,
 export function mayLookUp(c: Pick<ContactRecord, 'role' | 'name' | 'phone' | 'website'> | null | undefined): boolean {
   if (!c || !LOOKUP_ROLES.has(c.role)) return false;
   if (clean(c.phone) || clean(c.website)) return false;
+  // Round 18 integration: the role's business-name rule (lib/contacts/names.ts) as well as the strict classifier. A contractor name the
+  // trade-name rule refuses, or a licence name the licence rule refuses, is never looked up and never gets a cached listing.
+  if (!isStoredContactName(c.role, clean(c.name))) return false;
   return nameRefusal(clean(c.name)) === null;
 }
 
@@ -1016,18 +1153,18 @@ export function lookupInputFor(c: ContactRecord, list: readonly ContactRecord[] 
     const z = at ? zip5(at.zip) : null;
     const st = at ? (stateCode(clean(at.state)) ?? (z ? (lookupZip(z)?.state ?? null) : null)) : null;
     if (!at || !z || !st || !clean(at.address)) return null;
-    return { name, city: clean(at.city) || jobCity, state: st, zip: z, strict: true, street: clean(at.address), jobCity };
+    return { name, city: clean(at.city) || jobCity, state: st, zip: z, strict: true, street: clean(at.address), jobCity, role: 'business' };
   }
   const z = zip5(c.zip);
   if (z) {
     // The business's own ZIP: search there, wherever the job is.
     const st = cs ?? lookupZip(z)?.state ?? null;
-    return st ? { name, city: clean(c.city) || null, state: st, zip: z, jobCity } : null;
+    return st ? { name, city: clean(c.city) || null, state: st, zip: z, jobCity, role: 'contractor' } : null;
   }
   if (clean(c.zip)) return null; // a ZIP we cannot read: doubt
-  if (clean(c.city) && cs) return { name, city: clean(c.city), state: cs, zip: null, jobCity };
+  if (clean(c.city) && cs) return { name, city: clean(c.city), state: cs, zip: null, jobCity, role: 'contractor' };
   if (cs && ss && cs !== ss) return null; // another state and no city or ZIP for it
-  return { name, city: jobCity, state: ss, zip: null, jobCity };
+  return { name, city: jobCity, state: ss, zip: null, jobCity, role: 'contractor' };
 }
 
 /** The cache key a contact's lookup uses, or null when it is not looked up. */
@@ -1100,7 +1237,7 @@ export interface CardForLookup {
 }
 
 /** Reasons that stop every further lookup in the run. */
-const STOP_REASONS = new Set<string>(['cache_missing', 'cache_error', 'day_cap', 'breaker', 'cap_reached', 'spend_unavailable', 'api_error', 'not_configured', 'deadline']);
+const STOP_REASONS = new Set<string>(['cache_missing', 'cache_error', 'day_cap', 'breaker', 'outage', 'cap_reached', 'spend_unavailable', 'api_error', 'not_configured', 'deadline']);
 
 /**
  * Notify side: for the cards about to be emailed, looks up the named contact when it may be looked up and the cache has nothing for it

@@ -149,7 +149,7 @@ describe('1. wrong-number matrix (review criterion 1)', () => {
 
   it('1o (was DEFECT) the Indiana contractor (ZIP 46320) on a Chicago permit is looked up in Hammond, IN, and a Chicago listing is not attached', async () => {
     const c = contractor(7, 'Summit Roofing LLC', { state: 'IN', zip: '46320' });
-    expect(lookupInputFor(c, [c], { city: 'Chicago', state: 'IL' })).toEqual({ name: 'Summit Roofing LLC', city: null, state: 'IN', zip: '46320', jobCity: 'Chicago' });
+    expect(lookupInputFor(c, [c], { city: 'Chicago', state: 'IL' })).toEqual({ name: 'Summit Roofing LLC', city: null, state: 'IN', zip: '46320', jobCity: 'Chicago', role: 'contractor' });
     const chicago = item({ title: 'Summit Roofing', phone: '+13125550166', latitude: 41.88, longitude: -87.63, address: '1 W Wacker Dr, Chicago, IL 60601' }, { city: 'Chicago', zip: '60601' });
     const fetch = fakeFetch([chicago]);
     const got = await lookupForCards(new Map([[7, [c]]]), [{ signalId: 7, city: 'Chicago', state: 'IL', contact: c }], newBudget(lookupSettings(ENV)), deps(newDb(), fetch));
