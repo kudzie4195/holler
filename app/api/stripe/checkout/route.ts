@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { siteUrl } from '@/lib/env';
 import { isPaidNow } from '@/lib/auth/access';
+import { hit } from '@/lib/auth/ratelimit';
+import { LIMITS } from '@/lib/auth/limits';
 import {
   billingNotConfigured,
   ensureProduct,
@@ -51,6 +53,12 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const admin = createAdminClient();
+  // Review P2-4d: 10 checkout starts an hour per member (each creates a Stripe session). Fails closed like change-plan: no limiter, no
+  // new Stripe session.
+  const limited = await hit([LIMITS.checkoutUser(user.id)], admin);
+  if (limited === 'limited') return Response.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } });
+  if (limited === 'error') return Response.json({ error: 'unavailable' }, { status: 503 });
+
   const { data: profile, error } = await admin
     .from('holler_profiles')
     // '*' so the store columns (migration 0020) come along when they exist; a database without them still answers.

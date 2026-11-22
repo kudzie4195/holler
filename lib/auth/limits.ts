@@ -53,6 +53,10 @@ export const LIMITS = {
   requestReplyUser: (userId: string): Limit => ({ key: rateKey('reply', 'user', userId), max: 30, windowSeconds: 3600 }),
   /** Plan switches (POST /api/stripe/change-plan) per member per hour. Each real switch creates a Stripe price and invoice lines. */
   planChangeUser: (userId: string): Limit => ({ key: rateKey('plan-change', 'user', userId), max: 6, windowSeconds: 3600 }),
+  /** Checkout starts (POST /api/stripe/checkout) per member per hour. Each one creates a Stripe Checkout Session (review P2-4d). */
+  checkoutUser: (userId: string): Limit => ({ key: rateKey('checkout', 'user', userId), max: 10, windowSeconds: 3600 }),
+  /** Billing portal opens (POST /api/stripe/portal) per member per hour. Each one creates a Stripe portal session (review P2-4d). */
+  portalUser: (userId: string): Limit => ({ key: rateKey('portal', 'user', userId), max: 20, windowSeconds: 3600 }),
   /** "Coming next" picks (POST /api/interest): per IP per hour for a signed-out visitor. Same keyed-hash counter as the request form. */
   interestIp: (ip: string): Limit => ({ key: rateKey('interest', 'ip', ip), max: 20, windowSeconds: 3600 }),
   /** "Coming next" picks per signed-in member per hour. */

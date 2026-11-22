@@ -44,6 +44,8 @@ async function load() {
   vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test');
   vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => ({ auth: { getUser: async () => ({ data: { user: { id: 'user-1', email: 'a@x.com' } } }) } }) }));
   vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminMock() }));
+  // The checkout and portal limiters (review P2-4d) are tested in tests/security/billing-limits.test.ts.
+  vi.doMock('@/lib/auth/ratelimit', () => ({ hit: async () => 'allowed' }));
   vi.doMock('@/lib/stripe', async (orig) => {
     const actual = await orig<typeof import('../../lib/stripe')>();
     return {
