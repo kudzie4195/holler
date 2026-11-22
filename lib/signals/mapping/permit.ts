@@ -55,7 +55,10 @@ export const ADMIN_ONLY_RE =
  * not this permit's (round 15 quality gate: a sidewalk shed read "Roof and window", a fire-sprinkler job at a bank read "Landscaping").
  */
 export const NO_TRADE_WORK_TYPES = ['sidewalk shed', 'supported scaffold', 'construction fence', 'protection and mechanical methods', 'sprinkler', 'standpipe', 'curb cut'] as const;
-export const NO_TRADE_WORK_TYPE_RE = /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|sprinklers?|standpipe|curb cut)$/i;
+// Round 19 RULES (review line 64): a fire-protection type written as a pair or a system ("Sprinkler and Standpipe", Cambridge row 3174; "Fire
+// Sprinkler System") is the same no-trade work; before, only a bare "Sprinkler(s)" or "Standpipe" matched and row 3174 stayed "Landscaping".
+export const NO_TRADE_WORK_TYPE_RE =
+  /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|(?:fire\s+)?sprinklers?(?:\s+(?:systems?|and\s+standpipes?))?|(?:fire\s+)?standpipes?(?:\s+systems?)?|curb cut)$/i;
 
 /** Street suffixes and business words: a trade noun right before one of these names a street or a company, not work. */
 const NOT_WORK_AHEAD =

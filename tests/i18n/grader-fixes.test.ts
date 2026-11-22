@@ -40,8 +40,6 @@ const CORRECTED: Record<string, string> = {
   "brief.override.act_now|storm-report|restoration": "Se presentó un reporte de tormenta cerca; después puede hacer falta restauración.",
   "brief.override.act_now|storm-report|insurance": "Se presentó un reporte de tormenta cerca; después pueden venir reclamos al seguro.",
   "brief.override.act_now|storm-report|public-adjuster": "Se presentó un reporte de tormenta cerca; después pueden venir reclamos al seguro.",
-  "brief.override.act_now|inspection|pest-control": "Un local de comida cercano no pasó la inspección; muchas veces hay problemas de plagas.",
-  "brief.override.act_now|inspection|janitorial-commercial": "Un local de comida cercano no pasó la inspección; muchas veces hay fallas de limpieza.",
   "brief.route.re-roof|siding-gutters": "Se presentó {permit} cerca; con un techo nuevo suelen cambiarse canaletas y revestimiento.",
   "brief.route.new-build|landscaping": "Se presentó {permit} cerca; los patios nuevos suelen necesitar jardinería.",
   "emptyfeed.settings_link": "Cambiar sus oficios o su zona en la configuración de su cuenta",
@@ -75,7 +73,9 @@ const CORRECTED: Record<string, string> = {
   "draft.trade_fallback": "servicios locales",
 };
 
-describe('grader corrections (grade-ES.md, 50 dictionary keys)', () => {
+// Round 19 RULES removed the two failed-inspection overrides ("failures often involve ..." was a guess, review section 6), so their corrections
+// are no longer in the dictionary.
+describe('grader corrections (grade-ES.md, 50 dictionary keys, 2 retired in round 19)', () => {
   for (const [k, v] of Object.entries(CORRECTED)) {
     it(k, () => {
       expect(es[k as keyof typeof es]).toBe(v);

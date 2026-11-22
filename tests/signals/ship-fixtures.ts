@@ -6,6 +6,7 @@
  * ArcGIS parser (company, phone, licence number, project value, site), the deadline card is the real federal bid parser, and the routed card is
  * the real permit classifier. Each record is run through the real matcher (buildCase), so no card is shown to a trade the rules do not give it.
  */
+import { withHeatMark } from '@/lib/signals/repeat-marks';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FeedItem } from '@/components/feed';
@@ -55,7 +56,8 @@ async function heatWithManager(): Promise<FixtureCase> {
   }
   if (!manager) throw new Error('no sample BBL resolves to a company');
   const heat = parseSocrata(fx('socrata-nyc-311.json'), SOCRATA_DATASETS.find((d) => d.id === 'socrata-nyc-311')!).find((s) => /HEAT/.test(s.title))!;
-  const signal: SignalInput = { ...heat, data: { ...(heat.data ?? {}), managerName: manager.name, managerRole: manager.role } };
+  // Round 19 RULES (owner call 1): the building's third complaint in 48 hours carries the scan's mark (lib/signals/repeat-marks.ts).
+  const signal: SignalInput = { ...heat, summary: withHeatMark(heat.summary), data: { ...(heat.data ?? {}), managerName: manager.name, managerRole: manager.role } };
   return buildCase('no-heat 311 with the registered company', signal, ['hvac'], 'Harbor Heating');
 }
 

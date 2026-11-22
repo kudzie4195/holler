@@ -191,7 +191,7 @@ export function pushEntriesFromMatches(
     const stageUpdate = isStageUpdate(s) && now - Date.parse(s.permitStageAt as string) <= PUSH_STAGE_MAX_AGE_MS;
     if (!stageUpdate && !isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
-    if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades))) continue;
+    if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, permitStage: s.permitStage, categories: s.categories }, trades))) continue;
     // One weather alert stored once per county is one alert in the count; its other match rows are still stamped with the push.
     const alertKey = alertKeyOf({ source: s.source, alertId: s.alertId });
     const cur = out.get(m.user_id);

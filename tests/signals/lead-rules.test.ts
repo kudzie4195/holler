@@ -22,6 +22,7 @@ import {
   type OpportunityLabel,
 } from '@/lib/signals/lead-rules';
 import type { CategoryId } from '@/lib/signals/categories';
+import { AUDIT_CASES, inputOf, liveRow } from './rules-audit-cases';
 
 const REGISTERED = [...ALL_ADAPTERS.map((a) => a.id), ...NON_ADAPTER_SOURCES];
 
@@ -113,72 +114,85 @@ const CASES: Case[] = [
   { name: 'blanket business license for business services', sig: { source: 'socrata-la-business', kind: 'civic', subtype: 'business', title: 'New business license' }, trade: 'business-services', want: 'context' },
 
   // act_now: someone has to fix something or has asked (item 0.3)
-  { name: 'NYC heat and hot water, entire building', sig: c311('socrata-nyc-311', 'HEAT/HOT WATER / ENTIRE BUILDING'), trade: 'plumbing', want: 'act_now' },
-  { name: 'NYC heat, apartment only', sig: c311('socrata-nyc-311', 'HEAT/HOT WATER / APARTMENT ONLY'), trade: 'hvac', want: 'act_now' },
+  // round 19 RULES (audited list, lines 1 to 3): heat is feed only for plumbing, one apartment is feed only for HVAC, and a whole building is
+  // HVAC act now only at its third complaint in 48 hours (tests/signals/rules-audit.test.ts).
+  { name: 'NYC heat and hot water, entire building, for plumbing (line 2)', sig: c311('socrata-nyc-311', 'HEAT/HOT WATER / ENTIRE BUILDING'), trade: 'plumbing', want: 'market_insight' },
+  { name: 'NYC heat, apartment only (line 1)', sig: c311('socrata-nyc-311', 'HEAT/HOT WATER / APARTMENT ONLY'), trade: 'hvac', want: 'market_insight' },
   { name: 'NYC non-residential heat', sig: c311('socrata-nyc-311', 'Non-Residential Heat / Inadequate or No Heat'), trade: 'hvac', want: 'act_now' },
   { name: 'Cincinnati no-heat hazard', sig: c311('socrata-cincinnati-311', 'HEAT, NO HEAT HAZARD'), trade: 'hvac', want: 'act_now' },
-  { name: 'Chicago code violation', sig: { source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'general-contractor', want: 'act_now' },
-  { name: 'Austin code violation', sig: { source: 'socrata-austin-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'junk-removal', want: 'act_now' },
-  { name: 'DeKalb code violation', sig: { source: 'arcgis-dekalb-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'lawn-care', want: 'act_now' },
-  { name: 'failed food inspection for pest control', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'pest-control', want: 'act_now' },
+  // round 19 line 16: an order that names no repair is a heads-up for the tagged trades and feed only for the general contractor
+  { name: 'Chicago code violation naming no repair (line 16)', sig: { source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'general-contractor', want: 'market_insight' },
+  { name: 'Chicago order naming a repair (line 13)', sig: { source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation in Chicago: REPAIR EXTERIOR WALL' }, trade: 'general-contractor', want: 'act_now' },
+  { name: 'Austin code violation naming no repair (line 16)', sig: { source: 'socrata-austin-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'junk-removal', want: 'coming_soon' },
+  { name: 'DeKalb code violation naming no repair (line 16)', sig: { source: 'arcgis-dekalb-violations', kind: 'civic', subtype: 'violation', title: 'Code violation' }, trade: 'lawn-care', want: 'coming_soon' },
+  { name: 'failed food inspection for pest control (line 19)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'pest-control', want: 'coming_soon' },
   // Round 15 quality gate: a failed inspection is no house-cleaning job (stored rows still tagged cleaning are context)
   { name: 'failed food inspection for a house cleaner (context)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'cleaning', want: 'context' },
-  { name: 'failed food inspection for commercial cleaning', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'janitorial-commercial', want: 'act_now' },
+  { name: 'failed food inspection for commercial cleaning (line 20, owner call 6)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'janitorial-commercial', want: 'coming_soon' },
   // Round 15 quality gate (Q-grades #41-#50, #26): event permits and mobile-food licences are not building work
   { name: 'NYC street event for house cleaning (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Street Event at 5 AVENUE' }, trade: 'cleaning', want: 'context' },
   { name: 'NYC farmers market for security (event-permit blanket tag)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Farmers Market' }, trade: 'security', want: 'context' },
   { name: 'Mobile Food Services licence for HVAC', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Mobile Food Services' }, trade: 'hvac', want: 'context' },
   { name: 'Outdoor patio liquor licence for HVAC (final review P2-6)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Outdoor Patio, Sale of Liquor' }, trade: 'hvac', want: 'context' },
   { name: 'Consumption on premises licence for HVAC', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Consumption on Premises - Incidental Activity' }, trade: 'hvac', want: 'context' },
-  { name: 'A restaurant that also sells liquor keeps its HVAC card', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment, Sale of Liquor' }, trade: 'hvac', want: 'coming_soon' },
+  { name: 'A restaurant that also sells liquor is no HVAC card (line 25)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment, Sale of Liquor' }, trade: 'hvac', want: 'context' },
   { name: 'Mobile food licence for pest control', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Mobile Food Dispenser' }, trade: 'pest-control', want: 'context' },
-  { name: 'Retail food licence for HVAC keeps its alert (a building with a kitchen)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment' }, trade: 'hvac', want: 'coming_soon' },
+  { name: 'Retail food licence for HVAC (line 25: the licence says nothing about heating)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment' }, trade: 'hvac', want: 'context' },
+  { name: 'Retail food licence for pest control (line 24)', sig: { source: 'socrata-chicago-business', kind: 'civic', subtype: 'business', title: 'New business license in Chicago: Retail Food Establishment' }, trade: 'pest-control', want: 'coming_soon' },
   { name: 'new business licence for house cleaning (blanket tag)', sig: { source: 'socrata-sf-business', kind: 'civic', subtype: 'business', title: 'New business license in San Francisco: Retail' }, trade: 'cleaning', want: 'context' },
   { name: 'new business licence for commercial cleaning keeps its alert', sig: { source: 'socrata-sf-business', kind: 'civic', subtype: 'business', title: 'New business license in San Francisco: Retail' }, trade: 'janitorial-commercial', want: 'coming_soon' },
   { name: 'failed food inspection for plumbing (a repair trade: only possibly needed)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'plumbing', want: 'coming_soon' },
-  { name: 'failed food inspection for a general contractor (a repair trade)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'general-contractor', want: 'coming_soon' },
-  { name: 'failed food inspection for a food truck (not a fixer)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'food-truck', want: 'coming_soon' },
+  { name: 'failed food inspection for a general contractor (line 21)', sig: { source: 'socrata-chicago-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'general-contractor', want: 'context' },
+  { name: 'failed food inspection for a food truck (line 21)', sig: { source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection' }, trade: 'food-truck', want: 'context' },
   { name: 'SF sewage back-up', sig: c311('socrata-sf-311', 'Sewer / sewage_back-up_discharge'), trade: 'plumbing', want: 'act_now' },
   { name: 'NYC sewer back-up', sig: c311('socrata-nyc-311', 'Sewer Maintenance / Backup'), trade: 'plumbing', want: 'act_now' },
   { name: 'Kansas City sewer backup', sig: c311('socrata-kansascity-311', 'Sewer and Stormwater / Sewer Backup'), trade: 'plumbing', want: 'act_now' },
   { name: 'SF graffiti on PRIVATE property', sig: c311('socrata-sf-311', 'Graffiti Private / not_offensive'), trade: 'painting', want: 'act_now' },
-  { name: 'Kansas City property violation', sig: c311('socrata-kansascity-311', 'Property Violations / Weeds'), trade: 'lawn-care', want: 'act_now' },
-  { name: 'SPC wind damage report', sig: { source: 'spc', kind: 'report', title: 'Wind damage reported' }, trade: 'tree-service', want: 'act_now' },
+  { name: 'Kansas City property violation (line 9)', sig: c311('socrata-kansascity-311', 'Property Violations / Weeds'), trade: 'lawn-care', want: 'coming_soon' },
+  { name: 'SPC wind damage report naming trees (line 39)', sig: { source: 'spc', kind: 'report', title: 'Wind damage reported', summary: 'Several trees and tree limbs down in the yard.' }, trade: 'tree-service', want: 'act_now' },
+  { name: 'SPC wind damage report naming no trees (line 39)', sig: { source: 'spc', kind: 'report', title: 'Wind damage reported' }, trade: 'tree-service', want: 'coming_soon' },
   { name: 'SPC tornado report', sig: { source: 'spc', kind: 'report', title: 'Tornado reported near Marietta' }, trade: 'roofing', want: 'act_now' },
   { name: 'SPC hail report', sig: { source: 'spc', kind: 'report', title: 'hail reported' }, trade: 'roofing', want: 'act_now' },
   { name: 'a resident request on Holler', sig: { source: 'holler-request', kind: 'ask', title: 'Looking for a roofer' }, trade: 'roofing', want: 'act_now' },
-  { name: 'an open federal bid', sig: { source: 'sam-gov', kind: 'contract', title: 'Janitorial services' }, trade: 'janitorial-commercial', want: 'act_now' },
+  { name: 'an open federal bid placed in a city', sig: { source: 'sam-gov', kind: 'contract', title: 'Federal bid in Denver, CO: Janitorial services', summary: 'Solicitation | GSA | NAICS 561720' }, trade: 'janitorial-commercial', want: 'act_now' },
+  { name: 'a federal notice that is not open yet (line 44)', sig: { source: 'sam-gov', kind: 'contract', title: 'Federal bid in Denver, CO: Janitorial services', summary: 'Sources Sought | GSA | NAICS 561720' }, trade: 'janitorial-commercial', want: 'coming_soon' },
+  { name: 'a federal bid naming a state and no city (UNIFY review defect 2)', sig: { source: 'sam-gov', kind: 'contract', title: 'Federal bid in GA: Grounds maintenance services' }, trade: 'landscaping', want: 'market_insight' },
   { name: 'a public post asking for a plumber', sig: { source: 'bluesky', kind: 'ask', title: 'anyone know a plumber' }, trade: 'plumbing', want: 'act_now' },
 
   // a measured gust is not a damage report (review P1-1): coming_soon, never act_now
-  ...['60', '61', '62', '68', '69'].map((mph): Case => ({ name: `SPC ${mph} mph wind gust (no damage reported)`, sig: { source: 'spc', kind: 'report', title: `${mph} mph wind gust reported` }, trade: 'insurance', want: 'coming_soon' })),
-  { name: 'SPC measured gust for roofing', sig: { source: 'spc', kind: 'report', title: '62 mph wind gust reported near Smyrna' }, trade: 'roofing', want: 'coming_soon' },
+  ...['60', '61', '62', '68', '69'].map((mph): Case => ({ name: `SPC ${mph} mph wind gust (no damage reported) for a tree service`, sig: { source: 'spc', kind: 'report', title: `${mph} mph wind gust reported` }, trade: 'tree-service', want: 'coming_soon' })),
+  { name: 'SPC measured gust for insurance (line 38)', sig: { source: 'spc', kind: 'report', title: '62 mph wind gust reported near Smyrna' }, trade: 'insurance', want: 'context' },
+  { name: 'SPC measured gust for roofing (line 40)', sig: { source: 'spc', kind: 'report', title: '62 mph wind gust reported near Smyrna' }, trade: 'roofing', want: 'market_insight' },
+  { name: 'SPC 1.75 inch hail for auto body (line 41)', sig: { source: 'spc', kind: 'report', title: '1.75 inch hail reported near Smyrna' }, trade: 'auto-body', want: 'act_now' },
 
   // disputed groups decided from sample rows (round 13 review): see A-report.md "Disputed context groups"
-  { name: 'SF sewer flooding for restoration (same evidence as a flood advisory)', sig: c311('socrata-sf-311', 'Sewer / flooding'), trade: 'restoration', want: 'coming_soon' },
-  { name: 'NYC special event for a caterer (a named organiser)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event at Central Park: Dene Lawn' }, trade: 'catering', want: 'coming_soon' },
-  { name: 'NYC special event for event services', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event' }, trade: 'event-services', want: 'coming_soon' },
-  { name: 'NYC special event for a food truck', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event' }, trade: 'food-truck', want: 'coming_soon' },
+  { name: 'SF sewer flooding for restoration, not on a property (line 7)', sig: c311('socrata-sf-311', 'Sewer / flooding'), trade: 'restoration', want: 'context' },
+  { name: 'SF sewer flooding on_property for restoration (line 7)', sig: { ...c311('socrata-sf-311', 'Sewer / flooding'), summary: 'Sewer | flooding | on_property' }, trade: 'restoration', want: 'coming_soon' },
+  // round 19 line 27: an event permit is a heads-up only when it names an event people are hired for
+  { name: 'NYC special event at a park for a caterer (line 27: no named event)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event at Central Park: Dene Lawn' }, trade: 'catering', want: 'market_insight' },
+  { name: 'NYC special event for event services (line 27)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Special Event' }, trade: 'event-services', want: 'market_insight' },
+  { name: 'NYC farmers market for a food truck (line 27: a named event)', sig: { source: 'socrata-nyc-events', kind: 'event', subtype: 'event-permit', title: 'Permitted event in New York City: Farmers Market' }, trade: 'food-truck', want: 'coming_soon' },
   { name: 'Cambridge sewer pipe boundary (private side is the owner\'s)', sig: c311('socrata-cambridge-311', 'Sewer pipe boundary'), trade: 'plumbing', want: 'coming_soon' },
   { name: 'rodent baiting stays city work (free city service)', sig: c311('socrata-chicago-311', 'Rodent Baiting/Rat Complaint'), trade: 'pest-control', want: 'context' },
 
   // a city name never fires a title pattern: only the part after ": " is tested (review P2-4)
-  { name: '"Park Ridge" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Park Ridge: Mold complaint in a building' }, trade: 'cleaning', want: 'coming_soon' },
-  { name: '"Oak Park" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Oak Park: Mold complaint in a building' }, trade: 'cleaning', want: 'coming_soon' },
+  { name: '"Park Ridge" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Park Ridge: Mold complaint in a building' }, trade: 'restoration', want: 'coming_soon' },
+  { name: '"Oak Park" in the city part is not a park', sig: { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Oak Park: Mold complaint in a building' }, trade: 'restoration', want: 'coming_soon' },
 
   // private property: the owner pays, so not context even when the words look like city work
   { name: 'Cincinnati dead tree on PRIVATE property', sig: c311('socrata-cincinnati-311', 'TREE, DEAD ON PRIV PROP STNDRD'), trade: 'tree-service', want: 'coming_soon' },
   { name: 'Cincinnati dumping on PRIVATE property', sig: c311('socrata-cincinnati-311', 'DUMPING, PRV PROP <2500 SQ FT'), trade: 'junk-removal', want: 'coming_soon' },
 
   // coming_soon: evidence of likely future demand
-  { name: 'NWS flood advisory for restoration', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory' }, trade: 'restoration', want: 'coming_soon' },
-  { name: 'NWS wind advisory for a tree service', sig: { source: 'nws', kind: 'alert', title: 'Wind Advisory' }, trade: 'tree-service', want: 'coming_soon' },
+  { name: 'NWS flood advisory for restoration (line 32: feed only)', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory' }, trade: 'restoration', want: 'market_insight' },
+  { name: 'NWS wind advisory for a tree service (line 34: feed only)', sig: { source: 'nws', kind: 'alert', title: 'Wind Advisory' }, trade: 'tree-service', want: 'market_insight' },
+  { name: 'NWS high wind warning for a tree service', sig: { source: 'nws', kind: 'alert', title: 'High Wind Warning: Laramie' }, trade: 'tree-service', want: 'coming_soon' },
   { name: 'a new home permit for a mover (downstream)', sig: permit('New home permit in X'), trade: 'moving', want: 'coming_soon' },
   { name: 'a new home permit for real estate (downstream)', sig: permit('New home permit in X'), trade: 'real-estate', want: 'coming_soon' },
-  { name: 'a demolition permit for junk removal (downstream)', sig: permit('Demolition permit in X'), trade: 'junk-removal', want: 'coming_soon' },
+  { name: 'a demolition permit for junk removal (line 53: the demolition contractor hauls)', sig: permit('Demolition permit in X'), trade: 'junk-removal', want: 'market_insight' },
   { name: 'a re-roof permit for a gutter company (downstream, item 1.1)', sig: permit('Roof permit in X'), trade: 'siding-gutters', want: 'coming_soon' },
-  { name: 'FAA ground stop for rideshare', sig: { source: 'faa', kind: 'travel', title: 'Ground stop' }, trade: 'rideshare-delivery', want: 'coming_soon' },
-  { name: 'NYC rodent sighting (a pest-control job, not city baiting)', sig: c311('socrata-nyc-311', 'Rodent / Rat Sighting'), trade: 'pest-control', want: 'coming_soon' },
+  { name: 'FAA ground stop for rideshare (line 43)', sig: { source: 'faa', kind: 'travel', title: 'Ground stop' }, trade: 'rideshare-delivery', want: 'market_insight' },
+  { name: 'NYC rodent sighting (line 11, owner call 5: feed only)', sig: c311('socrata-nyc-311', 'Rodent / Rat Sighting'), trade: 'pest-control', want: 'market_insight' },
 
   // market_insight: a permit in the member's OWN trade, an awarded contract
   { name: 'roof permit for a roofer', sig: permit('Roof permit in X'), trade: 'roofing', want: 'market_insight' },
@@ -191,12 +205,16 @@ const CASES: Case[] = [
   // round 15 re-grade (Q2): stored rows from before the ingest changes
   { name: 'stored M4.2 quake for a plumber', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'plumbing', want: 'context' },
   { name: 'stored M4.2 quake for restoration', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'restoration', want: 'context' },
-  { name: 'M4.2 quake for insurance keeps the source default', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'insurance', want: 'coming_soon' },
-  { name: 'M5.1 quake for a plumber keeps the source default', sig: { source: 'usgs', kind: 'quake', title: 'M5.1 earthquake 5 km SW of Town, CA' }, trade: 'plumbing', want: 'coming_soon' },
+  { name: 'M4.2 quake for insurance (line 42)', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'insurance', want: 'context' },
+  { name: 'M5.1 quake for a plumber (line 42)', sig: { source: 'usgs', kind: 'quake', title: 'M5.1 earthquake 5 km SW of Town, CA' }, trade: 'plumbing', want: 'context' },
+  { name: 'M5.1 quake for restoration (line 42)', sig: { source: 'usgs', kind: 'quake', title: 'M5.1 earthquake 5 km SW of Town, CA' }, trade: 'restoration', want: 'coming_soon' },
   { name: 'stored flood advisory for a plumber', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory: Los Angeles, CA' }, trade: 'plumbing', want: 'context' },
   { name: 'stored flood statement for a plumber', sig: { source: 'nws', kind: 'alert', title: 'Flood Statement: Fulton, GA' }, trade: 'plumbing', want: 'context' },
-  { name: 'flood advisory for restoration keeps the source default', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory: Los Angeles, CA' }, trade: 'restoration', want: 'coming_soon' },
-  { name: 'flash flood warning for a plumber keeps the source default', sig: { source: 'nws', kind: 'alert', title: 'Flash Flood Warning: Los Angeles, CA' }, trade: 'plumbing', want: 'coming_soon' },
+  { name: 'flood advisory for restoration (line 32)', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory: Los Angeles, CA' }, trade: 'restoration', want: 'market_insight' },
+  { name: 'flash flood warning for a plumber (line 31)', sig: { source: 'nws', kind: 'alert', title: 'Flash Flood Warning: Los Angeles, CA' }, trade: 'plumbing', want: 'context' },
+  { name: 'flash flood warning for restoration (line 32)', sig: { source: 'nws', kind: 'alert', title: 'Flash Flood Warning: Los Angeles, CA' }, trade: 'restoration', want: 'coming_soon' },
+  // a keyword-only match has no trade: a code violation keeps act now (the trade rules need a trade)
+  { name: 'code violation seen through a keyword watch', sig: { source: 'socrata-chicago-violations', kind: 'civic', subtype: 'violation', title: 'Code violation in Chicago: REPAIR PORCH SYSTEM' }, trade: null, want: 'act_now' },
   // a keyword-only match has no trade: the permit keeps its source default and is not silently dropped
   { name: 'permit seen through a keyword watch', sig: permit('Roof permit in X'), trade: null, want: 'coming_soon' },
 ];
@@ -210,12 +228,19 @@ describe('label audit cases (table-driven)', () => {
     expect(new Set(CASES.map((c) => c.want))).toEqual(new Set(OPPORTUNITY_LABELS));
   });
 
-  it('every rule in RULES is exercised by at least one audit case', () => {
+  it('every rule in RULES is exercised by at least one audit case (here or in the round 19 cases on live rows)', () => {
     const used = new Set<string>();
     for (const c of CASES) {
       const r = ruleFor(c.sig, c.trade);
       if (r) used.add(r.id);
     }
+    for (const c of AUDIT_CASES) {
+      if (c.want === 'none') continue;
+      const r = ruleFor(inputOf(liveRow(c.row), { noLocation: c.noLocation }), c.trade);
+      if (r) used.add(r.id);
+    }
+    // decided by an ingest mark or a location, tested in tests/signals/rules-audit.test.ts
+    for (const id of ['ctx-undeliverable', 'closed-case', 'heat-per-building', 'stage-finished-downstream']) used.add(id);
     const unused = RULES.map((r) => r.id).filter((id) => !used.has(id));
     expect(unused).toEqual([]);
   });
@@ -229,11 +254,11 @@ describe('same-trade permits become market_insight; no trade is added to permits
   });
 
   it('the best label across the trades a record carries wins; a member sees the record once', () => {
-    const sig = permit('Roof and demolition permit in X');
-    expect(labelForTrades(sig, ['roofing', 'junk-removal'])).toBe('coming_soon');
+    const sig = permit('Roof permit in X');
+    expect(labelForTrades(sig, ['roofing', 'siding-gutters'])).toBe('coming_soon');
     expect(labelForTrades(sig, ['roofing'])).toBe('market_insight');
-    expect(labelForMember({ ...sig, categories: ['roofing', 'junk-removal'] }, ['junk-removal', 'plumbing'])).toBe('coming_soon');
-    expect(labelForMember({ ...sig, categories: ['roofing', 'junk-removal'] }, ['plumbing'])).toBe('coming_soon'); // none shared: trade unknown
+    expect(labelForMember({ ...sig, categories: ['roofing'] }, ['siding-gutters', 'plumbing'])).toBe('coming_soon');
+    expect(labelForMember({ ...sig, categories: ['roofing'] }, ['plumbing'])).toBe('coming_soon'); // none shared: trade unknown
   });
 });
 
@@ -249,14 +274,14 @@ describe('the label is pure and deterministic', () => {
   it('does not mutate its input and does not read the clock', () => {
     const sig: LabelInput = { source: 'nws', kind: 'alert', title: 'Flash Flood Warning' };
     const copy = JSON.stringify(sig);
-    labelFor(sig, 'plumbing');
+    labelFor(sig, 'restoration');
     expect(JSON.stringify(sig)).toBe(copy);
     const realNow = Date.now;
     Date.now = () => {
       throw new Error('clock read');
     };
     try {
-      expect(labelFor(sig, 'plumbing')).toBe('coming_soon');
+      expect(labelFor(sig, 'restoration')).toBe('coming_soon');
     } finally {
       Date.now = realNow;
     }
@@ -264,14 +289,20 @@ describe('the label is pure and deterministic', () => {
 
   it('case and spacing of source and subtype do not change the label', () => {
     expect(labelFor({ source: ' SPC ', kind: 'report', title: 'hail reported' }, 'roofing')).toBe('act_now');
-    expect(labelFor({ source: 'socrata-chicago-violations', subtype: ' Violation ' }, 'plumbing')).toBe('act_now');
+    expect(labelFor({ source: 'socrata-chicago-violations', subtype: ' Violation ', title: 'Code violation in Chicago: LEAKING PIPE' }, 'plumbing')).toBe('act_now');
   });
 
   it('is client-safe: the module imports nothing from the server', async () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync('lib/signals/lead-rules.ts', 'utf8');
-    const imports = [...src.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1]);
-    expect(imports).toEqual(['./categories', './permit-routing']); // permit-routing.ts is pure too (tests/signals/permit-routing.test.ts)
+    const imports = [...src.matchAll(/^import [^;]*? from '([^']+)'/gm)].map((m) => m[1]);
+    // each of these is pure too: no server import, no clock (permit-routing.ts: tests/signals/permit-routing.test.ts; the others below)
+    expect(imports).toEqual(['./categories', './carry', './permit-routing', './permit-value', './rule-choices']);
+    for (const f of ['carry', 'rule-choices', 'permit-value']) {
+      const dep = readFileSync(`lib/signals/${f}.ts`, 'utf8');
+      expect([...dep.matchAll(/^import (?!type ).* from '([^']+)'/gm)].map((m) => m[1]).filter((m) => !m.startsWith('./')), f).toEqual([]);
+      expect(dep, f).not.toMatch(/server-only|Date\.now|new Date\(\)|Math\.random/);
+    }
     expect(src).not.toMatch(/server-only|Date\.now|new Date\(\)|Math\.random/);
   });
 });

@@ -10,6 +10,7 @@ import {
   cardBrief,
   damagePhraseOf,
   permitTypeOf,
+  reasonCopyFor,
   violationOrderOf,
   MAX_WHY,
   TRADE_WORK,
@@ -64,6 +65,10 @@ const NOUN_KEY: Record<string, DictKey> = {
   'A tenant fit-out permit': 'brief.noun.fit_out',
   'A commercial permit': 'brief.noun.commercial',
   'An apartment permit': 'brief.noun.apartment',
+  'A pool permit': 'brief.noun.pool',
+  'A damage repair permit': 'brief.noun.damage_repair',
+  'A deck permit': 'brief.noun.deck',
+  'A porch permit': 'brief.noun.porch',
 };
 
 function key(k: string): DictKey {
@@ -116,6 +121,12 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
     const noun = t(lang, NOUN_KEY[routedParts.noun]);
     const homes = routedParts.kind === 'new-build' && trade === 'cleaning' && routedParts.noun === 'A new-home permit';
     return t(lang, key(`brief.route.${routedParts.kind}|${trade}${homes ? '.homes' : ''}`), { permit: noun });
+  }
+  const reason = reasonCopyFor(input);
+  if (reason?.copy.why) {
+    const k = key(`brief.reason.${reason.id}.why`);
+    const typed = ctx.permitType ? t(lang, k, { work, type: ctx.permitType }) : null;
+    return typed && typed.length <= max ? typed : t(lang, k, { work, type: '' }).replace(' ()', '');
   }
   const override = `brief.override.${label}|${family}|${trade}`;
   if (trade && hasDictKey(override)) return t(lang, key(override));
@@ -185,10 +196,17 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
     if (phrase && DAMAGE_KEY[phrase]) unknown = t(lang, 'brief.uncertain.mention', { phrase: t(lang, DAMAGE_KEY[phrase]) });
   }
   if (family === 'permit' && ctx.permitType === null) unknown = t(lang, 'brief.uncertain.no_work');
+  const reason = reasonCopyFor(input);
+  if (reason?.copy.unknown) unknown = t(lang, key(`brief.reason.${reason.id}.unknown`));
+  const next = reason?.copy.next
+    ? t(lang, key(`brief.reason.${reason.id}.next`))
+    : family === 'weather-alert' && label === 'coming_soon' && input.title
+      ? t(lang, 'brief.next.weather-alert.soon_titled')
+      : t(lang, key(`brief.next.${family}`));
   return {
     ...base,
     why: whyFromDict(input, family, ctx, lang),
-    next: t(lang, key(`brief.next.${family}`)),
+    next,
     uncertain: t(lang, 'brief.uncertain.format', { confidence: t(lang, key(`brief.confidence.${base.confidence}`)), known, unknown }),
   };
 }

@@ -327,7 +327,9 @@ describe('GET /api/m/feed', () => {
     const item = b.items[0];
     expect(item.signalId).toBe(301);
     expect(JSON.stringify(item.brief)).not.toMatch(/cleaning may follow/i);
-    expect(item.brief.why).toMatch(/^A commercial permit was filed nearby/);
+    // round 19 RULES line 59: a commercial alteration is feed only for commercial cleaning (no routed heads-up sentence)
+    expect(item.label).toBe('market_insight');
+    expect(item.brief.why).toMatch(/^A permit was filed nearby/);
     expect(item.brief.why).not.toMatch(/(?<!commercial )\bcleaning may follow/i);
   });
   it('locked: masked titles, no url, draft, contacts or feedback, and the contacts loader is never called', async () => {

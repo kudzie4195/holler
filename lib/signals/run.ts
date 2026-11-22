@@ -6,6 +6,7 @@ import { MAX_FUTURE_DAYS } from './run-limits';
 import { pruneSourceSamples, SAMPLES_MISSING, SamplesMissingError, samplesTableState, storeSourceSamples } from './samples';
 import { MAX_MATCHES_PER_USER, matchOne, matchSignals, type MatchRow } from './match';
 import { ProjectStore, rearmStageAlerts } from './projects';
+import { markRepeats } from './repeat-marks';
 import { matchScope } from '@/lib/plan';
 import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
 import {
@@ -396,7 +397,11 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       }
       if (f.result.status !== 'error' && f.signals.length) {
         try {
-          const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
+          // Round 19 RULES: the per-building heat count and repeated NWS alerts are decided once, here, and written into the rows
+          // (lib/signals/repeat-marks.ts). Never throws; a failed read leaves the rows as they came.
+          const marks = await markRepeats(db, f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) })));
+          f.result.logs.push(...marks.logs);
+          const rows: SignalRowInput[] = marks.rows;
           // PLAN-2.0 2.1 and 2.3 (migration 0025). Off, and silent, while the tables are missing: the rows then go in exactly as built.
           logsSink.length = 0;
           if (f.adapter.stageQuery) logsSink.push(...probeLogs);

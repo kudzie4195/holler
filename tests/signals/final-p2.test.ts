@@ -99,8 +99,9 @@ describe('liquor licences do not reach HVAC', () => {
   it.each(['Outdoor Patio, Sale of Liquor', 'Consumption on Premises - Incidental Activity', 'Sale of Liquor'])('%s -> context for HVAC', (what) => {
     expect(labelForMember(lic(what, ['hvac', 'pest-control']), ['hvac'])).toBe('context');
   });
-  it('a food premises that sells liquor still reaches HVAC, and other trades are unchanged', () => {
-    expect(labelForMember(lic('Retail Food Establishment, Sale of Liquor', ['hvac', 'pest-control']), ['hvac'])).toBe('coming_soon');
-    expect(labelForMember(lic('Outdoor Patio, Sale of Liquor', ['hvac', 'pest-control']), ['pest-control'])).not.toBe('context');
+  it('round 19 RULES (review lines 24, 25): no licence reaches HVAC, and only a food premises reaches pest control', () => {
+    expect(labelForMember(lic('Retail Food Establishment, Sale of Liquor', ['hvac', 'pest-control']), ['hvac'])).toBe('context');
+    expect(labelForMember(lic('Retail Food Establishment', ['hvac', 'pest-control']), ['pest-control'])).toBe('coming_soon');
+    expect(labelForMember(lic('Outdoor Patio, Sale of Liquor', ['hvac', 'pest-control']), ['pest-control'])).toBe('context');
   });
 });

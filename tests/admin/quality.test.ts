@@ -1,5 +1,6 @@
 // Alert-quality dashboard (PLAN-2.0 3.4): the aggregation against fixtures, the read-only loader, the route's auth and the HTML page.
 // Inputs are hand-written (assumed); each expected number is derived in the comment beside it.
+import { HEAT_MARK } from '@/lib/signals/carry';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FakeDb } from '../ops/fakedb';
 import { buildQualityReport, KEYWORD_TRADE, percentile, type QualityInputs } from '@/lib/admin/quality';
@@ -14,12 +15,13 @@ const ahead = (ms: number) => new Date(NOW.getTime() + ms).toISOString();
 
 // Signals: one of each label for the trade it is used with below.
 const S = {
-  heat1: { id: 1, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York: HEAT/HOT WATER / ENTIRE BUILDING', categories: ['hvac', 'plumbing'] },
+  // round 19 RULES: an HVAC card on a whole-building complaint exists only for the building's third complaint, which carries the scan's mark
+  heat1: { id: 1, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York: HEAT/HOT WATER / ENTIRE BUILDING', summary: `HEAT/HOT WATER | ENTIRE BUILDING | BRONX | ${HEAT_MARK}`, categories: ['hvac', 'plumbing'] },
   inspect: { id: 2, source: 'socrata-nyc-inspections', kind: 'civic', subtype: 'inspection', title: 'Failed inspection', categories: ['plumbing'] },
   graffiti: { id: 3, source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in Chicago: Graffiti Removal Request', categories: ['painting'] },
   roofPermit: { id: 4, source: 'socrata-chicago-permits', kind: 'permit', subtype: 'permit', title: 'Chicago permit: Re-roof', categories: ['roofing'] },
   hail: { id: 5, source: 'spc', kind: 'report', subtype: null, title: 'hail reported', categories: ['roofing'] },
-  heat2: { id: 6, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York: HEAT/HOT WATER / APARTMENT ONLY', categories: ['hvac'] },
+  heat2: { id: 6, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York: Non-Residential Heat / Inadequate or No Heat', categories: ['hvac'] },
   orphan: { id: 7, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: 'gone', categories: ['hvac'] },
 };
 const signals = Object.values(S);
@@ -67,7 +69,7 @@ const byTrade = (r: ReturnType<typeof buildQualityReport>, t: string) => r.trade
 
 describe('fixture sanity: the labels the cases rely on', () => {
   it('has one of each label', () => {
-    const l = (s: (typeof signals)[number], t: string | null) => labelFor({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title }, t as never);
+    const l = (s: (typeof signals)[number], t: string | null) => labelFor({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: (s as { summary?: string }).summary }, t as never);
     expect(l(S.heat1, 'hvac')).toBe('act_now');
     expect(l(S.heat2, 'hvac')).toBe('act_now');
     expect(l(S.inspect, 'plumbing')).toBe('coming_soon');

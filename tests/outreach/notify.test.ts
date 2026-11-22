@@ -130,7 +130,8 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     const res = await run(
       [
         sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
-        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Mold complaint in a building' }),
+        // round 19 RULES line 10: a 311 request alerts only through a named rule (a Cambridge-style pipe-boundary question is one)
+        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Sewer pipe boundary question' }),
         sig(3, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }), // context: never mailed
       ],
       async () => new Map(),
@@ -142,7 +143,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(html).not.toContain('Money being spent');
     expect(text).not.toContain('Money being spent');
     expect(html).not.toContain('Might need work');
-    expect(html).toContain('Mold complaint in a building');
+    expect(html).toContain('Sewer pipe boundary question');
     expect(html).not.toContain('Pothole request');
     // the licence's brief names a new business license, the 311's brief names the request
     expect(text).toContain('A new business license was filed nearby');

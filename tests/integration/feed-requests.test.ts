@@ -47,7 +47,8 @@ describe('/app feed and ended resident requests', () => {
     h.rows = [
       row(1, { source: 'holler-request', title: 'CLOSED request', expires_at: iso(-60_000) }),
       row(2, { source: 'holler-request', title: 'LIVE request', expires_at: iso(86_400_000) }),
-      row(3, { source: 'nws', kind: 'alert', title: 'Old warning', expires_at: iso(-86_400_000) }),
+      // round 19 RULES: an NWS row reaches a trade only through the event table, so the title names a real event
+      row(3, { source: 'nws', kind: 'alert', title: 'Severe Thunderstorm Warning: Old warning', expires_at: iso(-86_400_000) }),
       row(4, { source: 'holler-request', title: 'EXPIRED request', expires_at: iso(-3 * 86_400_000) }),
     ];
     const el = await AppHome({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never);
@@ -56,7 +57,7 @@ describe('/app feed and ended resident requests', () => {
     expect(html).toContain('Old warning');
     expect(html).not.toContain('CLOSED request');
     expect(html).not.toContain('EXPIRED request');
-    expect(h.seen.map((i) => i.title).sort()).toEqual(['LIVE request', 'Old warning']);
+    expect(h.seen.map((i) => i.title).sort()).toEqual(['LIVE request', 'Severe Thunderstorm Warning: Old warning']);
     vi.useRealTimers();
   });
 });

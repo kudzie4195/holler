@@ -49,6 +49,8 @@ export interface SignalLite {
   source: string;
   kind: string;
   title: string | null;
+  /** The record's summary: labels read it (a permit's class, a closed status, the NYC heat mark of round 19). Optional for older callers. */
+  summary?: string | null;
   subtype: string | null;
   categories: string[] | null;
 }
@@ -217,7 +219,7 @@ export function buildQualityReport(input: QualityInputs): QualityReport {
   ): OpportunityLabel => {
     const s = ref.signalId === null ? undefined : sigBy.get(ref.signalId);
     return labelFor(
-      { source: s?.source ?? ref.source ?? '', kind: s?.kind ?? ref.kind, subtype: s?.subtype ?? ref.subtype, title: s?.title ?? null },
+      { source: s?.source ?? ref.source ?? '', kind: s?.kind ?? ref.kind, subtype: s?.subtype ?? ref.subtype, title: s?.title ?? null, summary: s?.summary ?? null },
       trade as CategoryId | null,
     );
   };

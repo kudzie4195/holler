@@ -1,5 +1,28 @@
 import type { CategoryId } from './categories';
-import { carriedTrades, routeFor } from './permit-routing';
+import {
+  ABATEMENT_RE,
+  FINISHED_STAGES,
+  FINISHED_STAGE_TRADES,
+  HEATING_ENCLOSURE_RE,
+  hasHeatMark,
+  SEWAGE_BACKUP_RE,
+  hailInchesOf,
+  isHailReport,
+  isPaperworkOrder,
+  isTornadoReport,
+  isWindDamageReport,
+  kcPropertyTrades,
+  nwsEventOf,
+  orderText,
+  titleBodyOf,
+  violationTradeRoles,
+  violationTrades,
+  weatherRowFor,
+  windDamageLevel,
+} from './carry';
+import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, type RouteKind } from './permit-routing';
+import { jobValueOf } from './permit-value';
+import { ruleChoice, type RuleChoices } from './rule-choices';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -83,6 +106,19 @@ export interface LabelInput {
   title?: string | null;
   /** The record's summary. A permit's holds its structured type and class, which routing reads (permit-routing.ts). Optional. */
   summary?: string | null;
+  /**
+   * Where the record is, for the one question a label must agree with delivery on: can ANY member ever receive it (cannotBeDelivered)?
+   * Pass all four from a stored row (the replay, the matcher). Leave them out (undefined) when the caller already holds a delivered match:
+   * the check is then skipped, because a delivered record was deliverable.
+   */
+  lat?: number | null;
+  lon?: number | null;
+  state?: string | null;
+  severity?: number | null;  /**
+   * data.permitStage of a permit (lib/signals/stage.ts, migration 0025 feature): every surface that labels a stored match passes it from
+   * STAGE_SELECT, so a stage update keeps the label it had before round 19 (rule stage-finished-downstream). Absent: no stage known.
+   */
+  permitStage?: unknown;
 }
 
 export interface LabelRule {
@@ -109,28 +145,258 @@ export interface LabelRule {
    * for gutters, a new building for landscaping). Never reads a trade tag.
    */
   routed?: boolean;
+  /** Fires only when the trade is downstream of the permit through one of these route kinds (implies `routed`). */
+  routes?: readonly RouteKind[];
   /**
    * The label comes from another trade's permit, not from the member's own trade's work. Read by the deterministic score
    * (lib/signals/score.ts): a downstream pair is not an exact trade fit.
    */
   downstream?: boolean;
+  /** Any other test on the record's own fields. All the tests above must pass first. */
+  when?: (sig: LabelInput, trade: CategoryId | null) => boolean;
+  /** A label read from the record (a table cell, a size). Returning null means the rule does not fire. Overrides `label`. */
+  pick?: (sig: LabelInput, trade: CategoryId | null) => OpportunityLabel | null;
+  /** The line(s) of the round 19 audit list this rule implements (review-ENGINE-compare.md section 5). Report and tests only. */
+  line?: number | readonly number[];
+  /** The owner's call this rule reads (lib/signals/rule-choices.ts). Report and tests only. */
+  choice?: keyof RuleChoices;
 }
 
 const PUBLIC_POSTS = ['bluesky', 'websearch-brave', 'websearch-serper'] as const;
 
-/**
- * Trades that act on a failed food inspection: the ones whose job is the thing that failed (pests, dirt). A repair trade (plumbing,
- * HVAC, electrical, general contractor) is only possibly needed, so it gets the source default, coming_soon (review: weak evidence).
- * House cleaning is NOT listed: a failed restaurant is commercial cleaning (round 15 quality gate).
- */
-const INSPECTION_TRADES: readonly CategoryId[] = ['pest-control', 'janitorial-commercial'];
+// ---- record facts the rules read ------------------------------------------------------------------------------------------------
+
+const lc = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
 
 /**
- * Seeded from the 14-day audit (PLAN-2.0 section 1, live data of Nov 19 to 21 2026). ORDER MATTERS: the first rule that fits wins, so
- * the specific "act now" requests come before the "context" patterns, which come before the permit rules.
+ * Line 5 (engine B's CLOSED_RE): a summary part that is a closing status. Read from the live rows: "Healthy Homes | Closed", Austin
+ * "CLOS-*" case statuses, DeKalb "Complied". Matches a whole " | " part only, so "Closed Captioning" in a name never fires.
+ */
+const CLOSED_RE = /(?:^|\|)\s*(?:closed|clos-[a-z]+|clos|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
+export const isClosedCase = (sig: LabelInput) => CLOSED_RE.test(sig.summary ?? '');
+
+/** Line 2: the body names hot water alone. No live row does; tests/signals/rules-audit.test.ts has a fixture. */
+const HOT_WATER_ONLY_RE = /no hot water|hot water only|water only/i;
+const NYC_HEAT_RE = /^heat\/hot water\b/i;
+
+/** Line 64: a fire-protection work type in the permit's structured summary (live rows 764, 817, 9559 "Sprinklers", 3174 "Sprinkler and Standpipe"). */
+export const FIRE_PROTECTION_PART_RE = /^(?:fire\s+)?sprinklers?(?:\s+(?:system|and\s+standpipes?))?$|^(?:fire\s+)?standpipes?(?:\s+system)?$|^fire\s+(?:suppression|protection)(?:\s+system)?$/i;
+
+const sumParts = (summary: string | null | undefined) => (summary ?? '').split(' | ').map((p) => p.trim()).filter(Boolean);
+export const isFireProtectionPermit = (sig: LabelInput) => sumParts(sig.summary).some((p) => FIRE_PROTECTION_PART_RE.test(p));
+
+/** Trade sub-permits under a bigger job (lines 50, 57, 61): the follow-on work is on the main permit, not this one. */
+const SUB_PERMIT_LABELS = ['hvac', 'plumbing', 'electrical', 'water heater'];
+/** Line 56: a summary that states a residential class. */
+const RESIDENTIAL_CLASS_RE = /\bresidential\b|single[\s-]?family|\bduplex\b|\btownho(?:me|use)s?\b|\bdwelling\b|\(r\)/i;
+/** Line 61: a pool permit whose structured type is site grading is not a pool build (live row 2482, a $92 grading permit). */
+const NOT_A_POOL_PART_RE = /^(?:grading|engineering|earth\s?work|site\s?work)$/i;
+
+interface PermitFacts {
+  labels: string[];
+  kinds: RouteKind[];
+  value: number | null;
+  subPermit: boolean;
+}
+
+function permitFacts(sig: LabelInput): PermitFacts {
+  const labels = permitLabelsOf(sig.title) ?? [];
+  return {
+    labels,
+    kinds: routeKindsOf(sig.title, { summary: sig.summary, source: sig.source }),
+    value: jobValueOf({ summary: sig.summary }),
+    subPermit: labels.some((l) => SUB_PERMIT_LABELS.includes(l)),
+  };
+}
+
+const routeOf = (sig: LabelInput, trade: CategoryId | null) => routeFor(sig.title, trade, { summary: sig.summary, source: sig.source });
+/** The trade is downstream of this permit and the permit's route kinds include `kind` (a trade can be downstream of two kinds in one title). */
+const downstreamVia = (sig: LabelInput, trade: CategoryId | null, kind: RouteKind) => !!routeOf(sig, trade) && permitFacts(sig).kinds.includes(kind);
+const isAdditionOnly = (f: PermitFacts) => f.labels.includes('addition') && !f.labels.includes('remodel');
+const isNewBuildTitle = (f: PermitFacts) => f.labels.includes('new home') || f.labels.includes('new construction');
+
+/**
+ * Line 23 and owner call 4: new licences whose NAME is a storefront where customers come in, per source, exact names from the live rows.
+ * Every other licence (a contractor, a home office, a vendor, a consultant, "Limited Business License") names no premises: feed only for
+ * signs, security and commercial cleaning. `kind` says which owner call decides it.
+ */
+export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: RegExp; kind: 'shop' | 'food' | 'parking' }>>> = {
+  'socrata-nyc-business': [
+    { re: /^electronics(?: store)?$/i, kind: 'shop' },
+    { re: /^secondhand dealer\b/i, kind: 'shop' },
+    { re: /^pawnbroker$/i, kind: 'shop' },
+    { re: /^dealer in products for the disabled$/i, kind: 'shop' },
+    { re: /^(?:tobacco retail dealer|electronic cigarette dealer)$/i, kind: 'shop' },
+    { re: /^(?:laundries|laundry|laundry jobber)$/i, kind: 'shop' },
+    { re: /^garage(?: & parking lot)?$|^parking lot$/i, kind: 'parking' },
+  ],
+  'socrata-chicago-business': [
+    { re: /^retail food establishment$/i, kind: 'food' },
+    { re: /^tobacco$/i, kind: 'shop' },
+    { re: /^motor vehicle services license$/i, kind: 'shop' },
+    { re: /^(?:commercial garage|public garage)$/i, kind: 'parking' },
+  ],
+  'socrata-sf-business': [
+    { re: /^retail(?: trade)?$/i, kind: 'shop' },
+    { re: /^food service(?: and lodging)?$/i, kind: 'food' },
+  ],
+  'socrata-la-business': [
+    { re: /\b(?:stores?|retailers?)\b/i, kind: 'shop' },
+    { re: /^(?:beauty salons|barber shops|nail salons|dry ?cleaning and laundry services.*)$/i, kind: 'shop' },
+    { re: /\brestaurants?\b|^drinking places\b|^bakeries\b/i, kind: 'food' },
+    { re: /^parking lots (?:&|and) garages$/i, kind: 'parking' },
+  ],
+  'socrata-orlando-business': [
+    { re: /^(?:beauty parlor|health spa|barber shop|retail variety|retail \w+)$/i, kind: 'shop' },
+    { re: /^(?:restaurant|take out restau\w*)$/i, kind: 'food' },
+    { re: /^parking (?:lot|garage)$/i, kind: 'parking' },
+  ],
+  'carto-phl-business': [],
+};
+
+/** The licence name a business row carries: the title body ("New business license in Chicago: Tobacco" gives "Tobacco"). */
+const licenceName = (sig: LabelInput) => titleBodyOf(sig.title).trim();
+
+export function storefrontKindOf(sig: LabelInput): 'shop' | 'food' | 'parking' | null {
+  const list = STOREFRONT_LICENCES[lc(sig.source)] ?? [];
+  const name = licenceName(sig);
+  return list.find((e) => e.re.test(name))?.kind ?? null;
+}
+
+/** Line 24: a food premises a pest-control company can serve. Shared kitchens, liquor-only, event liquor and mobile licences are not. */
+const isFoodPremises = (sig: LabelInput) => storefrontKindOf(sig) === 'food';
+const MOBILE_LICENCE_RE = /mobile food|food truck|peddl|\bcarts?\b|vending|stoop line stand|general vendor/i;
+
+/** Line 27: an event permit that names an event people are hired for (engine B's list). */
+const NAMED_EVENT_RE = /festival|fair\b|market|concert|parade|\brace\b|marathon|\b5k\b|wedding|block party|street fair|carnival|expo|tournament/i;
+const VENUE_EVENT_RE = /^(?:plaza event|plaza partner event|open street partner event|permit - event \d|venue rental|event \d+ cluster)/i;
+
+/** "M4.6 earthquake ..." gives 4.6 (line 42). */
+const quakeMagnitude = (title: string | null | undefined) => {
+  const m = /\bM\s?(\d+(?:\.\d+)?)/.exec(title ?? '');
+  return m ? parseFloat(m[1]) : NaN;
+};
+
+/** Line 44: SAM.gov notices that are not yet a solicitation (the notice type is the summary's first part). */
+const NOT_YET_BID_RE = /presolicitation|sources?\s+sought|special\s+notice|intent\s+to\s+bundle/i;
+/** A bid whose place of performance has a real city name before the state ("Federal bid in Denver, CO: ..."). "0, MI" is not a city. */
+const PLACED_BID_RE = /^Federal bid in (?!0,)[^,:]*[A-Za-z][^,:]*, [A-Z]{2}:/;
+/** Round 19 UNIFY review, defect 2: a notice that names a state and no city ("Federal bid in GA: ..."). */
+const STATEWIDE_BID_RE = /^Federal bid in [A-Z]{2}: /;
+
+// ---- undeliverable rows (criterion 4) -----------------------------------------------------------------------------------------------
+
+/** Records without coordinates match only by state and only at this severity or more (lib/signals/match.ts reads it from here). */
+export const STATE_LEVEL_MIN_SEVERITY = 2;
+
+const hasPoint = (lat: unknown, lon: unknown) => typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon);
+
+/**
+ * A record no member can ever receive, by the matcher's own area rules (lib/signals/match.ts areaMatch uses this same test): no point, and
+ * either an NWS zone alert (never matched by state), or below the state-level severity, or no state. On the live rows: 1,555 NWS zone rows'
+ * pairs, every Orlando permit (774 rows) and 587 Austin permits. Its label is context, so a pair on it is never counted as an alert by the
+ * replay, the scorecard or the quality dashboard (those two count delivered cards, which such a row never makes).
+ */
+export function cannotBeDelivered(sig: { source?: string | null; lat?: number | null; lon?: number | null; state?: string | null; severity?: number | null }): boolean {
+  if (hasPoint(sig.lat, sig.lon)) return false;
+  if (lc(sig.source) === 'nws') return true;
+  if (!(typeof sig.severity === 'number' && sig.severity >= STATE_LEVEL_MIN_SEVERITY)) return true;
+  return !(typeof sig.state === 'string' && sig.state.trim());
+}
+
+/** The caller passed where the record is (any of the four fields). */
+const locationGiven = (sig: LabelInput) => sig.lat !== undefined || sig.lon !== undefined;
+
+/**
+ * Round 19 RULES: the audited rule list (review-ENGINE-compare.md section 5, 65 lines; `line` on each rule). ORDER MATTERS: the first rule
+ * that fits wins. Undeliverable and closed records come first, then each source family's specific rules, then the general ones.
  */
 export const RULES: readonly LabelRule[] = [
-  // ---- act_now: required repairs and people asking (item 0.3) -----------------------------------------------------------------
+  // ---- never an alert ------------------------------------------------------------------------------------------------------------
+  {
+    id: 'ctx-undeliverable',
+    label: 'context',
+    when: (s) => locationGiven(s) && cannotBeDelivered(s),
+    why: 'No member can ever receive this record (no point, and an NWS zone alert, below the state-level severity, or no state), so it is not counted as an alert anywhere.',
+  },
+  {
+    id: 'closed-case',
+    label: 'context',
+    subtypes: ['311', 'violation', 'inspection'],
+    when: (s) => isClosedCase(s),
+    pick: () => (ruleChoice('closedCaseHidden') ? 'context' : 'market_insight'),
+    line: 5,
+    choice: 'closedCaseHidden',
+    why: 'The case is closed, complied, resolved, cancelled or a duplicate: no job is left. Owner call 8: it disappears, feed included.',
+  },
+
+  // ---- federal bids (line 44 and the UNIFY review) ---------------------------------------------------------------------------------
+  {
+    id: 'mi-bid-statewide',
+    label: 'market_insight',
+    sources: ['sam-gov'],
+    title: STATEWIDE_BID_RE,
+    wholeTitle: true,
+    why: 'Out for bid, but the notice names a state and no city, so it cannot be placed near the member.',
+  },
+  {
+    id: 'soon-bid-not-open',
+    label: 'coming_soon',
+    sources: ['sam-gov'],
+    when: (s) => NOT_YET_BID_RE.test(sumParts(s.summary)[0] ?? '') || !PLACED_BID_RE.test(s.title ?? ''),
+    line: 44,
+    why: 'A presolicitation, sources sought, special notice or intent to bundle is not yet open for offers, and a bid with no city of performance cannot be placed: a heads-up, not act now.',
+  },
+  { id: 'act-open-bid', label: 'act_now', sources: ['sam-gov'], why: 'Out for bid with a response date. Nothing is awarded.' },
+
+  // ---- storm reports (lines 38 to 41) ---------------------------------------------------------------------------------------------
+  {
+    id: 'spc-insurance',
+    label: 'market_insight',
+    sources: ['spc'],
+    trades: ['insurance', 'public-adjuster'],
+    pick: (s) => {
+      if (isWindDamageReport(s.title) || isTornadoReport(s.title)) return 'market_insight';
+      const inches = isHailReport(s.title) ? hailInchesOf(s.title) : null;
+      return inches !== null && inches >= 1 ? 'market_insight' : 'context';
+    },
+    line: 38,
+    why: 'Insurance agents and adjusters see claims after real damage; a storm report is worth knowing, never act now. A measured gust or small hail is nothing for them.',
+  },
+  {
+    id: 'spc-hail',
+    label: 'act_now',
+    sources: ['spc'],
+    trades: ['auto-body', 'auto-glass', 'restoration', 'siding-gutters'],
+    when: (s) => isHailReport(s.title),
+    pick: (s, t) => {
+      const inches = hailInchesOf(s.title) ?? 0;
+      if (t === 'restoration') return 'context';
+      if (t === 'siding-gutters') return inches >= 1 ? 'act_now' : null;
+      return inches >= 1.75 ? 'act_now' : 'market_insight';
+    },
+    line: 41,
+    why: 'Hail: cars are dented by golf-ball size (1.75 inches) and up; siding and gutters from 1 inch; hail is not water or fire damage for restoration.',
+  },
+  {
+    id: 'spc-gust',
+    label: 'market_insight',
+    sources: ['spc'],
+    trades: ['roofing', 'restoration'],
+    when: (s) => /wind gust/i.test(s.title ?? ''),
+    line: 40,
+    why: 'A measured wind gust names no damage: roofs and buildings are not known to be hit. Feed only.',
+  },
+  {
+    id: 'spc-wind-damage',
+    label: 'act_now',
+    sources: ['spc'],
+    trades: ['roofing', 'restoration', 'tree-service'],
+    when: (s) => isWindDamageReport(s.title),
+    pick: (s, t) => windDamageLevel(s.summary, t as 'roofing' | 'restoration' | 'tree-service'),
+    line: 39,
+    why: 'A wind damage report is act now for a trade only when its remark names that trade\'s work (trees, a roof, a home); a tree on a road is the road crew\'s.',
+  },
   {
     id: 'act-storm-report',
     label: 'act_now',
@@ -139,30 +405,71 @@ export const RULES: readonly LabelRule[] = [
     why: 'A storm report that names damage, hail or a tornado is on record. Damage to a specific property is not confirmed.',
   },
   { id: 'soon-storm-gust', label: 'coming_soon', sources: ['spc'], why: 'A measured wind gust. No damage is reported (a gust never proves damage).' },
+
+  // ---- people asking ---------------------------------------------------------------------------------------------------------------
   { id: 'act-resident-request', label: 'act_now', sources: ['holler-request'], why: 'A resident asked for this service on Holler.' },
   { id: 'act-public-post', label: 'act_now', sources: PUBLIC_POSTS, why: 'A public post asked for this service. Who wrote it is not checked.' },
-  { id: 'act-open-bid', label: 'act_now', sources: ['sam-gov'], why: 'Out for bid with a response date. Nothing is awarded.' },
+
+  // ---- 311: heat (lines 1 to 4) ---------------------------------------------------------------------------------------------------
+  {
+    id: 'ctx-no-heat-plumbing',
+    label: 'context',
+    subtypes: ['311'],
+    title: /non-residential heat|heat, no heat|\bno heat\b/i,
+    trades: ['plumbing'],
+    when: (s) => !/hot water/i.test(titleBodyOf(s.title)),
+    line: 4,
+    why: 'A no-heat complaint that names no hot water (NYC "Non-Residential Heat", Cincinnati "HEAT, NO HEAT HAZARD") is heating work, not plumbing.',
+  },
+  {
+    id: 'heat-per-building',
+    label: 'act_now',
+    sources: ['socrata-nyc-311'],
+    subtypes: ['311'],
+    title: /^heat\/hot water \/ entire building/i,
+    trades: ['hvac'],
+    when: () => ruleChoice('heatPerBuilding'),
+    pick: (s) => (hasHeatMark(s.summary) ? 'act_now' : 'context'),
+    line: 3,
+    choice: 'heatPerBuilding',
+    why: 'NYC whole-building heat: one card per building, at the third complaint there within 48 hours (marked at ingest, lib/signals/repeat-marks.ts). Earlier and later complaints make no card.',
+  },
+  {
+    id: 'mi-heat-apartment',
+    label: 'market_insight',
+    subtypes: ['311'],
+    title: /^heat\/hot water \/ apartment only/i,
+    trades: ['hvac'],
+    line: 1,
+    why: 'One apartment without heat means the building\'s plant runs; the super usually fixes it. Feed only.',
+  },
+  {
+    id: 'heat-plumbing',
+    label: 'market_insight',
+    subtypes: ['311'],
+    title: NYC_HEAT_RE,
+    trades: ['plumbing'],
+    pick: (s) => (HOT_WATER_ONLY_RE.test(titleBodyOf(s.title)) ? 'act_now' : 'market_insight'),
+    line: 2,
+    why: '"HEAT/HOT WATER" is one NYC complaint type for both; most are heat. Plumbing is act now only when the complaint names hot water alone.',
+  },
   {
     id: 'act-no-heat',
     label: 'act_now',
     subtypes: ['311'],
     title: /heat\/hot water|non-residential heat|\bhot water\b|\bno heat\b/i,
-    why: 'A heat or hot water complaint in a building (NYC, Cincinnati): the landlord has to repair it.',
+    why: 'A heat or hot water complaint in a building (NYC non-residential, Cincinnati). The record does not show who is responsible for the repair.',
   },
-  { id: 'act-code-violation', label: 'act_now', subtypes: ['violation'], why: 'A code violation: the owner has been told to fix something.' },
+
+  // ---- 311: named requests (lines 6 to 12). Every other 311 request is city work: the 311 sources default to context (line 10). ---------
   {
-    id: 'act-failed-inspection',
-    label: 'act_now',
-    subtypes: ['inspection'],
-    trades: INSPECTION_TRADES,
-    why: 'A failed food inspection: the business has to fix what failed.',
-  },
-  {
-    id: 'act-sewage-backup',
-    label: 'act_now',
+    id: 'ctx-graffiti-cleaning',
+    label: 'context',
     subtypes: ['311'],
-    title: /sew(?:er|age).*back-?\s?up/i,
-    why: 'A sewage back-up was reported (SF "sewage_back-up_discharge", NYC "Sewer Maintenance / Backup", KC "Sewer Backup").',
+    title: /graffiti.*private|private.*graffiti/i,
+    trades: ['cleaning'],
+    line: 6,
+    why: 'Graffiti removal is painting work, not house cleaning.',
   },
   {
     id: 'act-private-graffiti',
@@ -172,26 +479,82 @@ export const RULES: readonly LabelRule[] = [
     why: 'Graffiti on private property: the owner pays for the clean-up.',
   },
   {
-    id: 'act-property-violation-311',
+    id: 'soon-sewage-restoration',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: SEWAGE_BACKUP_RE,
+    trades: ['restoration'],
+    line: 8,
+    why: 'A sewage back-up is water damage inside a building: restoration may be called after the line is cleared.',
+  },
+  {
+    id: 'act-sewage-backup',
     label: 'act_now',
     subtypes: ['311'],
-    title: /property violations?/i,
-    why: 'A property violation reported through 311: the owner has to fix it.',
+    title: SEWAGE_BACKUP_RE,
+    why: 'A sewage back-up was reported (SF "sewage_back-up_discharge", NYC "Sewer Maintenance / Backup", KC "Sewer Backup").',
   },
-
+  {
+    id: 'property-violation-311',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: /^property violations?\b/i,
+    pick: (s, t) => (t && (kcPropertyTrades('socrata-kansascity-311', s.title) ?? []).includes(t) ? 'coming_soon' : 'context'),
+    line: 9,
+    why: 'A property violation reported through 311 (Kansas City): the trades its subtype names (weeds, trash, open to entry, upkeep) get a heads-up; any other tag is context.',
+  },
+  {
+    id: 'rodent-311',
+    label: 'context',
+    subtypes: ['311'],
+    title: /rodent|\brats?\b|\bmice\b|\bmouse\b|mosquito|termite|possum|\bpests?\b/i,
+    trades: ['pest-control'],
+    when: (s) => !/(?:bldg|building|apartment)/i.test(titleBodyOf(s.title)),
+    pick: (s) => (lc(s.source) === 'socrata-nyc-311' && /^rodent\b/i.test(titleBodyOf(s.title)) ? (ruleChoice('ratSightingAlerts') ? 'coming_soon' : 'market_insight') : 'context'),
+    line: 11,
+    choice: 'ratSightingAlerts',
+    why: 'A rodent sighting names no building and is the city\'s to inspect (NYC: feed only, owner call 5). Mosquito, possum and trash-can requests are city tasks.',
+  },
+  {
+    id: 'soon-building-pests',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: /(?:roach|mice|\bmouse\b|rodent|bed ?bug|pests?\b).*(?:bldg|building|apartment)|(?:bldg|building|apartment).*(?:roach|mice|rodent|bed ?bug)|building has mice/i,
+    trades: ['pest-control'],
+    line: 10,
+    why: 'Mice or roaches inside a building (Cincinnati): the owner or tenant hires pest control.',
+  },
+  {
+    id: 'soon-building-mold',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: /\bmold\b.*(?:building|apartment|bldg|location|residen|unit)|(?:building|apartment|bldg).*\bmold\b/i,
+    trades: ['restoration'],
+    line: 10,
+    why: 'Mold in a building or apartment: remediation is private work.',
+  },
+  {
+    id: 'soon-healthy-homes',
+    label: 'coming_soon',
+    subtypes: ['311'],
+    title: /healthy homes/i,
+    trades: ['handyman', 'general-contractor'],
+    line: 10,
+    why: 'A New Orleans Healthy Homes complaint is about a home\'s condition: repairs are private work.',
+  },
   {
     id: 'soon-private-property-311',
     label: 'coming_soon',
     subtypes: ['311'],
     title: /\bpriv(?:ate)?\b|\bprv\b/i,
-    why: 'A 311 request on PRIVATE property (a dead tree, dumping, tall weeds): the owner pays, not the city. Kept ahead of the city-work patterns below.',
+    why: 'A 311 request on PRIVATE property (a dead tree, dumping, tall weeds): the owner pays, not the city.',
   },
-
   {
     id: 'soon-sewer-boundary',
     label: 'coming_soon',
     subtypes: ['311'],
     title: /pipe boundary/i,
+    line: 12,
     why: 'A question about where the city sewer ends and the private pipe begins: the private side is the owner\'s (Cambridge, 1 row in 14 days).',
   },
   {
@@ -201,95 +564,123 @@ export const RULES: readonly LabelRule[] = [
     sources: ['socrata-sf-311'],
     title: /^sewer \/ flooding/i,
     trades: ['restoration'],
-    why: 'A flooding report. For restoration it is the same evidence as a flood advisory (coming_soon); for plumbing it stays public sewer work.',
-  },
-  {
-    id: 'soon-event-organiser',
-    label: 'coming_soon',
-    subtypes: ['event-permit'],
-    title: /^special event/i,
-    trades: ['catering', 'event-services', 'food-truck'],
-    why: 'A named organiser holds a Special Event permit (weddings, picnics, races in a park). Whether they hire is unknown. Security and cleaning stay context.',
+    pick: (s) => (sumParts(s.summary).some((p) => /^on_property$/i.test(p)) ? 'coming_soon' : 'context'),
+    line: 7,
+    why: 'SF flooding: only a report marked on_property is the owner\'s; a street or unplaced report is city sewer work.',
   },
 
-  // ---- context: city work and public property (item 0.2) ----------------------------------------------------------------------
+  // ---- code violations (lines 13 to 18) ------------------------------------------------------------------------------------------
   {
-    id: 'ctx-graffiti',
+    id: 'ctx-heating-enclosure',
     label: 'context',
-    subtypes: ['311'],
-    title: /graffiti/i,
-    why: 'Graffiti removal on public property, done by the city. Private-property graffiti is act-private-graffiti above.',
+    subtypes: ['violation'],
+    trades: ['hvac'],
+    when: (s) => HEATING_ENCLOSURE_RE.test(orderText(s.title)) && !violationTrades(s.title, s.summary).includes('hvac'),
+    line: 18,
+    why: 'A heating plant ENCLOSURE order is a fire-separation repair, not heating work.',
   },
   {
-    id: 'ctx-tree-311',
-    label: 'context',
-    subtypes: ['311'],
-    title: /\btrees?\b|\bstump/i,
-    why: 'A request to the city about a city tree (trim, planting, removal, debris). The city does the work.',
+    id: 'violation-abatement',
+    label: 'coming_soon',
+    subtypes: ['violation'],
+    needsTrade: true,
+    when: (s) => ABATEMENT_RE.test(orderText(s.title)),
+    pick: (_s, t) => (t === 'junk-removal' || t === 'lawn-care' ? 'coming_soon' : 'context'),
+    line: 17,
+    why: 'Austin Property Abatement: the city may clean up itself if the owner does not, and the record does not say weeds or trash. A heads-up for hauling and lawn care only.',
   },
   {
-    id: 'ctx-sewer-public',
-    label: 'context',
-    subtypes: ['311'],
-    title: /\bsewers?\b|manhole|catch.?basin|storm drain|stormwater/i,
-    why: 'Public sewer, manhole, catch-basin and storm-drain work. The city utility does it. A back-up is act-sewage-backup above.',
+    id: 'act-violation-named',
+    label: 'act_now',
+    subtypes: ['violation'],
+    needsTrade: true,
+    when: (s, t) => !!t && violationTrades(s.title, s.summary).includes(t),
+    pick: (s, t) => (violationTradeRoles(s.title, s.summary).get(t as CategoryId) === 'secondary' ? 'coming_soon' : 'act_now'),
+    line: 13,
+    why: 'The order names a repair this trade does (engine B\'s violation vocabulary): the owner has been told to fix it. A handyman named next to the specialist for the repair (a general contractor, windows and doors, flooring) gets a heads-up.',
   },
   {
-    id: 'ctx-rodent-baiting',
+    id: 'ctx-violation-other-trade',
     label: 'context',
-    subtypes: ['311'],
-    title: /rodent baiting|rat complaint/i,
-    why: 'City rodent baiting on public land.',
+    subtypes: ['violation'],
+    needsTrade: true,
+    when: (s) => violationTrades(s.title, s.summary).length > 0,
+    line: 14,
+    why: 'The order names a repair, and not this trade\'s: the tag came from elsewhere.',
   },
   {
-    id: 'ctx-city-debris',
-    label: 'context',
-    subtypes: ['311'],
-    title: /fly dump|illegal dump|illdump|(?:right.of.way|\brow\b).*(?:dump|trash|junk|furniture|tire)|(?:dump|trash|junk).*(?:right.of.way|\brow\b)|tire dumping|debris|bulk|missed trash|trash recycling|spillage|litter|abandon|\baban\b|vacant lot|bike lane|community bag/i,
-    why: 'Debris, dumping, bulk pick-up and vacant-lot clean-up in the street, alley or right of way. The city does it. Private-property requests are soon-private-property-311 above.',
+    id: 'violation-paperwork',
+    label: 'coming_soon',
+    subtypes: ['violation'],
+    needsTrade: true,
+    when: (s) => isPaperworkOrder(s.title, s.summary),
+    pick: (_s, t) => (t === 'general-contractor' ? 'coming_soon' : 'context'),
+    line: 15,
+    why: 'A paperwork-only order (licensed contractor, work without a permit): a contractor may be hired to pull the permit; it names no repair for anyone else.',
   },
   {
-    id: 'ctx-streets-signs',
-    label: 'context',
-    subtypes: ['311'],
-    title: /street ?light|flood light|street and traffic signs|traffic sign|signage|blocked street|street condition|street and sidewalk|streets?\/sidewalks|roads and streets|paving|curb|pothole|sidewalk/i,
-    why: 'Streets, sidewalks, lighting and signs: public works.',
+    id: 'violation-unnamed',
+    label: 'coming_soon',
+    subtypes: ['violation'],
+    needsTrade: true,
+    pick: (_s, t) => (t === 'general-contractor' ? 'market_insight' : 'coming_soon'),
+    line: 16,
+    why: 'The order names no repair (Austin "Structure Condition Violation(s)", DeKalb "property violation"): the tagged trades get a heads-up, the general contractor the feed. Nothing is carried onto untagged trades.',
   },
-  {
-    id: 'ctx-city-building',
-    label: 'context',
-    subtypes: ['311'],
-    title: /bldgmaint|city bldg|\bpark\b/i,
-    why: 'City-owned buildings and parks (Oakland BLDGMAINT): city facilities staff do it.',
-  },
-  {
-    id: 'ctx-park-events',
-    label: 'context',
-    subtypes: ['event-permit'],
-    title: /^(?:special event|plaza event|plaza partner event|open street partner event|permit - event \d|venue rental)/i,
-    why: 'A permitted park, plaza or city-venue event (a plaza or partner event, a sports-field permit, a venue rental). For catering, event services and food trucks a Special Event is soon-event-organiser above.',
-  },
+  { id: 'act-code-violation', label: 'act_now', subtypes: ['violation'], why: 'A code violation: the owner has been told to fix something.' },
+
+  // ---- failed food inspections (lines 19 to 22) ------------------------------------------------------------------------------------
   {
     id: 'ctx-inspection-house-cleaning',
     label: 'context',
     subtypes: ['inspection'],
     trades: ['cleaning'],
-    why: 'A failed restaurant or food inspection is not a house-cleaning job (round 15 quality gate). Rows stored before the tag was dropped still carry it, so the rule keeps them out of the feed. Commercial cleaning and pest control keep the alert.',
+    why: 'A failed restaurant or food inspection is not a house-cleaning job (round 15 quality gate).',
   },
   {
-    id: 'ctx-event-blanket',
+    id: 'ctx-inspection-other-trades',
     label: 'context',
-    subtypes: ['event-permit'],
-    trades: ['cleaning', 'security'],
-    why: 'Every event permit (a street event, a farmers market) was tagged to these trades with no evidence of need. Special Event permits for catering, event services and food trucks are soon-event-organiser above.',
+    subtypes: ['inspection'],
+    trades: ['food-truck', 'childcare', 'catering', 'signs-printing', 'painting', 'landscaping', 'windows-doors', 'junk-removal', 'business-services', 'general-contractor'],
+    line: 21,
+    why: 'These tags come from the establishment type or the hidden violation text; a failed inspection is not their job.',
   },
+  {
+    id: 'soon-inspection-pests',
+    label: 'coming_soon',
+    subtypes: ['inspection'],
+    trades: ['pest-control'],
+    line: 19,
+    why: 'A failed food inspection: the public record does not say pests were cited, so a heads-up, not act now.',
+  },
+  {
+    id: 'inspection-commercial-cleaning',
+    label: 'coming_soon',
+    subtypes: ['inspection'],
+    trades: ['janitorial-commercial'],
+    pick: () => (ruleChoice('failedInspectionAlertsCommercialCleaners') ? 'coming_soon' : 'market_insight'),
+    line: 20,
+    choice: 'failedInspectionAlertsCommercialCleaners',
+    why: 'A failed food inspection may mean a deep clean. Owner call 6: a heads-up for commercial cleaners.',
+  },
+  {
+    id: 'soon-inspection-plumbing',
+    label: 'coming_soon',
+    subtypes: ['inspection'],
+    trades: ['plumbing'],
+    line: 22,
+    why: 'The plumbing tag is set from the violation text at ingest: a plumbing defect is cited, though the card cannot print it.',
+  },
+
+  // ---- business licences and event permits (lines 23 to 28) ------------------------------------------------------------------------
   {
     id: 'ctx-mobile-business',
     label: 'context',
     subtypes: ['business'],
     title: /mobile food|food truck|peddl|\bcarts?\b|vending/i,
-    trades: ['hvac', 'pest-control', 'cleaning', 'janitorial-commercial', 'security'],
-    why: 'A mobile food, cart, peddler or vending licence has no building to heat, clean or guard (round 15 quality gate: "Mobile Food Services" told an HVAC company it may need heating and cooling).',
+    trades: ['hvac', 'pest-control', 'cleaning', 'janitorial-commercial', 'security', 'signs-printing'],
+    line: 26,
+    why: 'A mobile food, cart, peddler or vending licence has no building to heat, clean, guard or put a sign on.',
   },
   {
     id: 'ctx-liquor-licence',
@@ -298,36 +689,351 @@ export const RULES: readonly LabelRule[] = [
     // a liquor, patio or on-premises consumption licence with no food-premises word in it (a restaurant that also sells liquor keeps its cards)
     title: /^(?!.*\b(?:restau|cafe|bakery|kitchen|food|deli|pizza|diner|bistro|grill))(?=.*(?:liquor|consumption on premises|outdoor patio))/i,
     trades: ['hvac'],
-    why: 'A liquor, patio or on-premises consumption licence is an activity of an existing business, not a space to heat or cool (final review P2-6: "Outdoor Patio, Sale of Liquor" told an HVAC company it may need heating and cooling).',
-  },
-  {
-    id: 'ctx-minor-quake',
-    label: 'context',
-    sources: ['usgs'],
-    title: /^M4\.\d/,
-    wholeTitle: true,
-    trades: ['plumbing', 'electrical', 'general-contractor', 'restoration'],
-    why: 'An M4 quake with no USGS alert level rarely damages buildings (round 15 re-grade: an M4.2 reached plumbers). Rows stored before the ingest change still carry these trades. M5 and above, and any quake with a USGS alert level, keep them.',
-  },
-  {
-    id: 'ctx-flood-advisory-plumbing',
-    label: 'context',
-    sources: ['nws'],
-    title: /^(?:flood advisory|flood statement)\b/i,
-    wholeTitle: true,
-    trades: ['plumbing'],
-    why: 'A flood advisory is not plumbing work. Rows stored before the nws.ts tag change still carry plumbing. Flood warnings keep it.',
+    why: 'A liquor, patio or on-premises consumption licence is an activity of an existing business, not a space to heat or cool.',
   },
   {
     id: 'ctx-business-blanket',
     label: 'context',
     subtypes: ['business'],
     trades: ['locksmith', 'insurance', 'business-services', 'cleaning'],
-    why: 'New business licenses are tagged to these trades with no evidence of need (house cleaning added by the round 15 quality gate: 10 of 10 graded cards were licences a house cleaner does not serve). Phase 3 (business-opening playbook) fixes this properly. Commercial cleaning keeps its licence alerts.',
+    why: 'New business licenses are tagged to these trades with no evidence of need. Commercial cleaning keeps its storefront licence alerts.',
+  },
+  {
+    id: 'ctx-licence-hvac',
+    label: 'context',
+    subtypes: ['business'],
+    trades: ['hvac'],
+    line: 25,
+    why: 'A new licence (a restaurant, a bar, or any other business) opens in an existing space: the licence says nothing about heating or cooling. Line 25 names food premises; the same reason holds for every licence (the audit\'s corrected volume, Chicago HVAC 40+0, assumes it).',
+  },
+  {
+    id: 'business-pests',
+    label: 'coming_soon',
+    subtypes: ['business'],
+    trades: ['pest-control'],
+    pick: (s) => (isFoodPremises(s) && !MOBILE_LICENCE_RE.test(licenceName(s)) ? 'coming_soon' : 'context'),
+    line: 24,
+    why: 'A food premises opening may set up a pest contract. Shared kitchens, liquor-only, event liquor and mobile licences, and every other licence, are not pest work.',
+  },
+  {
+    id: 'business-storefront',
+    label: 'coming_soon',
+    subtypes: ['business'],
+    trades: ['janitorial-commercial', 'security', 'signs-printing'],
+    pick: (s) => {
+      const kind = storefrontKindOf(s);
+      if (kind === 'food') return 'coming_soon';
+      if (kind === 'shop') return ruleChoice('shopLicenceAlerts') ? 'coming_soon' : 'market_insight';
+      if (kind === 'parking') return ruleChoice('parkingLicenceAlerts') ? 'coming_soon' : 'market_insight';
+      return 'market_insight';
+    },
+    line: 23,
+    choice: 'shopLicenceAlerts',
+    why: 'A licence whose name is a storefront (a shop, a restaurant: STOREFRONT_LICENCES) is a heads-up for signs, security and commercial cleaning; any other licence names no premises and is feed only. Owner call 4.',
+  },
+  {
+    id: 'ctx-venue-events',
+    label: 'context',
+    subtypes: ['event-permit'],
+    title: VENUE_EVENT_RE,
+    why: 'A plaza, partner, cluster or city-venue event: the venue runs its own services.',
+  },
+  {
+    id: 'ctx-event-blanket',
+    label: 'context',
+    subtypes: ['event-permit'],
+    trades: ['cleaning', 'security'],
+    line: 28,
+    why: 'Event permits were tagged to cleaning and security with no evidence of need; a park event hires no guards.',
+  },
+  {
+    id: 'event-organiser',
+    label: 'coming_soon',
+    subtypes: ['event-permit'],
+    trades: ['catering', 'event-services', 'food-truck'],
+    pick: (s) => (NAMED_EVENT_RE.test(`${s.title ?? ''} ${s.summary ?? ''}`) ? 'coming_soon' : 'market_insight'),
+    line: 27,
+    why: 'Only an event permit that names a festival, fair, market, concert, parade, race, wedding or similar is a heads-up; a bare "Special Event at <park>" names no organiser or size, so it is feed only.',
   },
 
-  // ---- market_insight / coming_soon for permits and awards (item 1.1, first half) -------------------------------------------------
+  // ---- weather, quakes, travel (lines 29 to 37, 42, 43) ----------------------------------------------------------------------------
+  {
+    id: 'weather-table',
+    label: 'context',
+    sources: ['nws'],
+    pick: (s, t) => {
+      const row = weatherRowFor(s.title);
+      if (!row) return 'context';
+      // A keyword-watch match (no trade): the strongest cell the event has, so a watch for "flood" still sees a Flood Warning.
+      if (!t) return Object.values(row.cells).includes('coming_soon') ? 'coming_soon' : Object.values(row.cells).length ? 'market_insight' : 'context';
+      if (t === 'towing' && row.id === 'flood-warning' && /flash flood warning/i.test(nwsEventOf(s.title))) return ruleChoice('towingOnFlashFloodWarning') ? 'coming_soon' : 'context';
+      return row.cells[t] ?? 'context';
+    },
+    line: [29, 30, 31, 32, 33, 34, 35, 36, 37],
+    choice: 'towingOnFlashFloodWarning',
+    why: 'The NWS event-to-trades table (lib/signals/carry.ts WEATHER_EVENTS): an event and trade not in it alert nobody.',
+  },
+  {
+    id: 'quake',
+    label: 'context',
+    sources: ['usgs'],
+    wholeTitle: true,
+    pick: (s, t) => (t === 'restoration' && quakeMagnitude(s.title) >= 5 ? 'coming_soon' : 'context'),
+    line: 42,
+    why: 'A quake under magnitude 5 rarely damages buildings; at 5 or more, restoration gets a heads-up and no one else.',
+  },
+  {
+    id: 'mi-airport-delay',
+    label: 'market_insight',
+    sources: ['faa'],
+    trades: ['rideshare-delivery'],
+    line: 43,
+    why: 'An airport delay or ground stop shifts ride demand for hours; worth knowing, not a job.',
+  },
+
+  // ---- federal awards -------------------------------------------------------------------------------------------------------------
   { id: 'mi-awarded-contract', label: 'market_insight', sources: ['usaspending'], why: 'An awarded federal contract: it shows who is winning, it cannot be bid on.' },
+
+  // ---- building permits (lines 45 to 65) -------------------------------------------------------------------------------------------
+  {
+    id: 'stage-finished-downstream',
+    label: 'coming_soon',
+    permit: true,
+    trades: FINISHED_STAGE_TRADES,
+    routed: true,
+    when: (s) => typeof s.permitStage === 'string' && FINISHED_STAGES.includes(s.permitStage),
+    downstream: true,
+    why: 'A permit at final inspection, finished or with a certificate of occupancy: the building is ready, so the trades that work on a finished building get the stage update as a heads-up (unchanged by round 19; the feed-only demotions of new builds are about the time before this).',
+  },
+  {
+    id: 'ctx-fire-sprinkler-yard',
+    label: 'context',
+    permit: true,
+    trades: ['landscaping', 'lawn-care'],
+    when: (s) => isFireProtectionPermit(s),
+    line: 64,
+    why: 'A fire sprinkler or standpipe job is not landscaping or lawn care (rows stored before the mapping fix still carry the landscaping tag).',
+  },
+  {
+    id: 'mi-demolition-junk',
+    label: 'market_insight',
+    permit: true,
+    trades: ['junk-removal'],
+    when: (s) => permitFacts(s).labels.includes('demolition'),
+    downstream: true,
+    line: [53, 47],
+    why: 'The demolition contractor hauls its own debris: the permit is market insight for junk removal (clears engine B\'s I1).',
+  },
+  {
+    id: 'ctx-demolition-site',
+    label: 'context',
+    permit: true,
+    trades: ['fencing', 'concrete-paving'],
+    routes: ['demolition'],
+    downstream: true,
+    line: 52,
+    why: 'A demolition permit, often interior, names no fence or flatwork.',
+  },
+  {
+    id: 'remodel-finish',
+    label: 'market_insight',
+    permit: true,
+    trades: ['flooring', 'painting', 'cleaning', 'junk-removal', 'handyman'],
+    routes: ['remodel'],
+    when: (s) => !isAdditionOnly(permitFacts(s)),
+    pick: () => (ruleChoice('remodelFeedOnly') ? 'market_insight' : 'coming_soon'),
+    downstream: true,
+    line: [45, 47],
+    choice: 'remodelFeedOnly',
+    why: 'A remodel permit names no finish work and the general contractor usually carries the finishes. Owner call 2: feed only, no value exception.',
+  },
+  {
+    id: 'addition-follow-on',
+    label: 'context',
+    permit: true,
+    trades: ['cleaning', 'junk-removal', 'handyman', 'painting', 'flooring', 'hvac'],
+    routes: ['remodel'],
+    when: (s) => isAdditionOnly(permitFacts(s)),
+    pick: (_s, t) => {
+      if (t === 'cleaning' || t === 'junk-removal' || t === 'handyman') return 'context';
+      return ruleChoice('additionAlertsFollowOnTrades') ? 'coming_soon' : t === 'hvac' ? 'context' : 'market_insight';
+    },
+    downstream: true,
+    line: [46, 62],
+    choice: 'additionAlertsFollowOnTrades',
+    why: 'An addition: cleaning, hauling and odd jobs are the builder\'s. Owner call 3 (NO): painting and flooring are feed only, as on a remodel, and HVAC gets nothing.',
+  },
+  {
+    id: 'ctx-roof-junk',
+    label: 'context',
+    permit: true,
+    trades: ['junk-removal'],
+    routes: ['re-roof'],
+    downstream: true,
+    line: 47,
+    why: 'Roofers haul their own tear-off.',
+  },
+  {
+    id: 'mi-roof-solar',
+    label: 'market_insight',
+    permit: true,
+    trades: ['solar'],
+    routes: ['re-roof'],
+    downstream: true,
+    line: 48,
+    why: 'A new roof is a solar sales angle, not a request: feed only.',
+  },
+  {
+    id: 'roof-siding',
+    label: 'coming_soon',
+    permit: true,
+    trades: ['siding-gutters'],
+    routes: ['re-roof'],
+    pick: (s) => {
+      const f = permitFacts(s);
+      if (f.labels.includes('solar')) return 'context';
+      if (f.subPermit || (f.value !== null && f.value < 5000)) return 'market_insight';
+      return null;
+    },
+    downstream: true,
+    line: [49, 50],
+    why: 'A roof permit with solar is a rooftop install (nothing for gutters); a roof permit under $5,000 or with a trade sub-permit (a rooftop unit) is feed only.',
+  },
+  {
+    id: 'ctx-solar-trades',
+    label: 'context',
+    permit: true,
+    trades: ['electrical', 'roofing'],
+    routes: ['solar'],
+    downstream: true,
+    line: 51,
+    why: 'The solar installer holds the job, wiring and roof work included.',
+  },
+  {
+    id: 'ctx-new-build-windows-pool',
+    label: 'context',
+    permit: true,
+    trades: ['windows-doors', 'pool-spa'],
+    routes: ['new-build'],
+    downstream: true,
+    line: 54,
+    why: 'Windows and doors come with the build; a pool is not on the permit.',
+  },
+  {
+    id: 'mi-new-build-security',
+    label: 'market_insight',
+    permit: true,
+    trades: ['security'],
+    routes: ['new-build'],
+    downstream: true,
+    line: 55,
+    why: 'A house 6 to 12 months from finished: security is worth knowing, not a heads-up.',
+  },
+  {
+    id: 'new-build-fencing',
+    label: 'market_insight',
+    permit: true,
+    trades: ['fencing'],
+    routes: ['new-build'],
+    when: () => !ruleChoice('newHomeAlertsFencing'),
+    downstream: true,
+    line: 57,
+    choice: 'newHomeAlertsFencing',
+    why: 'Owner call 7: a new-home permit is feed only for fence companies; the final-inspection stage update covers the timing.',
+  },
+  {
+    id: 'mi-new-build-small',
+    label: 'market_insight',
+    permit: true,
+    trades: ['real-estate', 'moving', 'landscaping', 'cleaning', 'fencing', 'lawn-care'],
+    when: (s) => {
+      const f = permitFacts(s);
+      return isNewBuildTitle(f) && (f.subPermit || (f.value !== null && f.value < 5000));
+    },
+    downstream: true,
+    line: 57,
+    why: 'A new build with a trade sub-permit, or under $5,000, names no new building being finished: feed only (lawn care too, the same guard engine B applies to every new-home trade).',
+  },
+  {
+    id: 'mi-new-construction-unclassed',
+    label: 'market_insight',
+    permit: true,
+    trades: ['fencing', 'cleaning', 'moving'],
+    routes: ['new-build'],
+    when: (s) => {
+      const f = permitFacts(s);
+      return f.labels.includes('new construction') && !f.labels.includes('new home') && !RESIDENTIAL_CLASS_RE.test(s.summary ?? '');
+    },
+    downstream: true,
+    line: 56,
+    why: '"New construction" with no residential class stated may be anything from a garage to a warehouse: feed only. A stated residential class is treated as a new home.',
+  },
+  {
+    id: 'new-home-lawn',
+    label: 'coming_soon',
+    permit: true,
+    trades: ['lawn-care'],
+    routes: ['new-build'],
+    pick: (s) => (permitFacts(s).labels.includes('new home') ? 'coming_soon' : 'context'),
+    downstream: true,
+    line: 58,
+    why: 'A new home gets a new lawn to keep up.',
+  },
+  {
+    id: 'fit-out-class',
+    label: 'market_insight',
+    permit: true,
+    trades: ['janitorial-commercial', 'signs-printing', 'security', 'pest-control', 'business-services'],
+    routes: ['fit-out'],
+    pick: (s, t) => {
+      const titled = permitFacts(s).labels.includes('tenant fit-out');
+      if (t === 'pest-control' || t === 'business-services') return 'context';
+      return titled ? null : 'market_insight';
+    },
+    downstream: true,
+    line: [59, 60],
+    why: 'A commercial or apartment addition, remodel or new build is not a new tenant: feed only for cleaning, signs and security. Pest control and IT are no one\'s follow-on work, fit-out or not.',
+  },
+  {
+    id: 'pool-follow-on',
+    label: 'market_insight',
+    permit: true,
+    trades: ['fencing', 'concrete-paving', 'landscaping', 'electrical'],
+    routes: ['pool'],
+    pick: (s, t) => {
+      if (t !== 'fencing') return 'market_insight';
+      const f = permitFacts(s);
+      const isPool = !sumParts(s.summary).some((p) => NOT_A_POOL_PART_RE.test(p));
+      return (f.value === null || f.value >= 5000) && !f.subPermit && isPool ? 'coming_soon' : 'market_insight';
+    },
+    downstream: true,
+    line: 61,
+    why: 'Pool codes require a barrier fence: a heads-up for fencing on a real pool build ($5,000 or more, or no value, no trade sub-permit, not a grading permit). The deck, planting and pump power are feed only.',
+  },
+  {
+    id: 'mi-damage-repair',
+    label: 'market_insight',
+    permit: true,
+    trades: ['general-contractor', 'flooring', 'painting'],
+    routes: ['damage-repair'],
+    downstream: true,
+    line: 63,
+    why: 'A damage repair permit is usually pulled by the contractor doing the rebuild: feed only for the rebuild trades.',
+  },
+  {
+    id: 'deck-painting',
+    label: 'coming_soon',
+    permit: true,
+    trades: ['painting'],
+    routes: ['deck'],
+    pick: (s) => {
+      const v = permitFacts(s).value;
+      return v === null || v >= 5000 ? 'coming_soon' : 'market_insight';
+    },
+    downstream: true,
+    line: 65,
+    why: 'A new deck or porch gets stained or painted: a heads-up at $5,000 or more (or no value stated), feed only below.',
+  },
   {
     id: 'soon-new-home-downstream',
     label: 'coming_soon',
@@ -338,35 +1044,27 @@ export const RULES: readonly LabelRule[] = [
     why: 'A new home is coming: sale and moving work follow. These trades do not do the permitted work.',
   },
   {
-    id: 'soon-demolition-downstream',
-    label: 'coming_soon',
-    permit: true,
-    title: /\bdemolition\b/i,
-    trades: ['junk-removal'],
-    downstream: true,
-    why: 'A demolition permit: hauling follows. Junk removal does not do the permitted work.',
-  },
-  {
     id: 'soon-permit-downstream',
     label: 'coming_soon',
     permit: true,
     routed: true,
     downstream: true,
-    why: 'PLAN-2.0 item 1.1: the permit type in the title (re-roof, new building, remodel or addition, solar, demolition, tenant fit-out) is followed by work for other trades (permit-routing.ts DOWNSTREAM). The trade that does the permitted work keeps the market insight below.',
+    why: 'PLAN-2.0 item 1.1: the permit type in the title is followed by work for other trades (permit-routing.ts DOWNSTREAM). The trade that does the permitted work keeps the market insight below.',
   },
   {
     id: 'mi-permit-own-trade',
     label: 'market_insight',
     permit: true,
     needsTrade: true,
-    why: 'A permit is tagged to the trade that does the permitted work, so that trade is usually already hired. Other trades get it as coming_soon through soon-permit-downstream above.',
+    why: 'A permit is tagged to the trade that does the permitted work, so that trade is usually already hired. Other trades get it through the downstream rules above.',
   },
 ];
 
 /** One explicit entry per registered source (lib/signals/registry.ts ALL_ADAPTERS plus holler-request). */
 export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
-  // Weather, hazards and travel (coming_soon: the event is on record, work is not confirmed)
-  'nws': 'coming_soon',
+  // Weather alerts: context (line 29). An alert reaches a trade only through the event-to-trades table (rule weather-table).
+  'nws': 'context',
+  // Hazards and travel (coming_soon: the event is on record, work is not confirmed)
   'fema': 'coming_soon',
   'usgs': 'coming_soon',
   'faa': 'coming_soon',
@@ -396,22 +1094,23 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'arcgis-cobb-residential-permits': 'coming_soon',
   'arcgis-cobb-commercial-permits': 'coming_soon',
   'arcgis-cobb-multiunit-permits': 'coming_soon',
-  // 311 requests (coming_soon unless a rule above names the request)
-  'socrata-chicago-311': 'coming_soon',
-  'socrata-nyc-311': 'coming_soon',
-  'socrata-sf-311': 'coming_soon',
-  'socrata-austin-311': 'coming_soon',
-  'socrata-dallas-311': 'coming_soon',
-  'socrata-nola-311': 'coming_soon',
-  'socrata-cincinnati-311': 'coming_soon',
-  'socrata-kansascity-311': 'coming_soon',
-  'socrata-cambridge-311': 'coming_soon',
-  'socrata-oakland-311': 'coming_soon',
+  // 311 requests: context (line 10). A 311 request is city work unless a named rule above says otherwise (heat, sewage back-up, private
+  // graffiti, private property, property violations, pests or mold in a building, Healthy Homes, the pipe boundary, SF on-property flooding).
+  'socrata-chicago-311': 'context',
+  'socrata-nyc-311': 'context',
+  'socrata-sf-311': 'context',
+  'socrata-austin-311': 'context',
+  'socrata-dallas-311': 'context',
+  'socrata-nola-311': 'context',
+  'socrata-cincinnati-311': 'context',
+  'socrata-kansascity-311': 'context',
+  'socrata-cambridge-311': 'context',
+  'socrata-oakland-311': 'context',
   // Code violations (act_now: an owner has been told to fix something)
   'socrata-chicago-violations': 'act_now',
   'socrata-austin-violations': 'act_now',
   'arcgis-dekalb-violations': 'act_now',
-  // Failed food inspections (coming_soon for trades the act-failed-inspection rule does not list)
+  // Failed food inspections (coming_soon for trades the inspection rules do not list)
   'socrata-chicago-inspections': 'coming_soon',
   'socrata-nyc-inspections': 'coming_soon',
   'socrata-austin-inspections': 'coming_soon',
@@ -462,9 +1161,7 @@ const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim()
 
 /** The part of a title a rule pattern is tested against: after the first ": ", so "311 request in Oak Park: ..." never fires on "Park". */
 function titleBody(title: string | null | undefined): string {
-  const t = title ?? '';
-  const at = t.indexOf(': ');
-  return at >= 0 ? t.slice(at + 2) : t;
+  return titleBodyOf(title);
 }
 
 function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boolean {
@@ -475,14 +1172,25 @@ function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boole
   if (rule.title && !rule.title.test(rule.wholeTitle ? (sig.title ?? '') : titleBody(sig.title))) return false;
   if (rule.trades && (trade === null || !rule.trades.includes(trade))) return false;
   if (rule.needsTrade && trade === null) return false;
-  if (rule.routed && !routeFor(sig.title, trade, { summary: sig.summary, source: sig.source })) return false;
+  if (rule.routed && !routeOf(sig, trade)) return false;
+  if (rule.routes && !rule.routes.some((k) => downstreamVia(sig, trade, k))) return false;
+  if (rule.when && !rule.when(sig, trade)) return false;
   return true;
+}
+
+/** The rule that decides this pair and its label, or null when only the source default applies. */
+function decide(sig: LabelInput, trade: CategoryId | null): { rule: LabelRule; label: OpportunityLabel } | null {
+  for (const r of RULES) {
+    if (!fits(r, sig, trade)) continue;
+    const label = r.pick ? r.pick(sig, trade) : r.label;
+    if (label) return { rule: r, label };
+  }
+  return null;
 }
 
 /** The rule that decides this pair, or null when only the source default applies. */
 export function ruleFor(sig: LabelInput, trade: CategoryId | null): LabelRule | null {
-  for (const r of RULES) if (fits(r, sig, trade)) return r;
-  return null;
+  return decide(sig, trade)?.rule ?? null;
 }
 
 /**
@@ -490,8 +1198,8 @@ export function ruleFor(sig: LabelInput, trade: CategoryId | null): LabelRule | 
  * rules that name trades are skipped, and a permit then keeps its source default (coming_soon) instead of the own-trade rule.
  */
 export function labelFor(sig: LabelInput, trade: CategoryId | null): OpportunityLabel {
-  const rule = ruleFor(sig, trade);
-  if (rule) return rule.label;
+  const d = decide(sig, trade);
+  if (d) return d.label;
   return SOURCE_DEFAULTS[norm(sig.source)] ?? FALLBACK_LABEL;
 }
 

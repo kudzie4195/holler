@@ -10,6 +10,7 @@
  * (assumed) or copied from live portals (see the provenance headers of the adapter tests); the members are hand-written.
  * Clock: 2026-11-21T22:00:00Z.
  */
+import { isWholeBuildingHeat, withHeatMark } from '@/lib/signals/repeat-marks';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FeedItem } from '@/components/feed';
@@ -115,6 +116,7 @@ const request = (): SignalInput => {
 };
 
 const NWS = parseNws(j('nws-alerts.json'));
+const heatMarked = (s: SignalInput): SignalInput => (isWholeBuildingHeat(s) ? { ...s, summary: withHeatMark(s.summary) } : s);
 const SPC_HAIL = parseSpc({ csv: fx('spc-hail.csv'), type: 'hail', day: '2026-11-20' });
 const SPC_WIND = parseSpc({ csv: fx('spc-wind.csv'), type: 'wind', day: '2026-11-20' });
 const FEMA = parseFema(j('fema-declarations.json'));
@@ -132,13 +134,16 @@ const sx = (id: string, file: string) => parseSocrata(j(file), social(id));
 const CASES: (() => FixtureCase)[] = [
   () => buildCase('failed food inspection', sx('socrata-chicago-inspections', 'socrata-chicago-inspections.json')[0], ['pest-control'], 'Lakeview Pest Control'),
   () => buildCase('code violation', pick(sx('socrata-chicago-violations', 'socrata-chicago-violations.json'), (s) => /EXTERIOR WALL/.test(s.title), 'exterior wall'), ['general-contractor'], 'Prairie Builders'),
-  () => buildCase('no-heat 311', pick(sx('socrata-nyc-311', 'socrata-nyc-311.json'), (s) => /HEAT/.test(s.title), 'heat'), ['hvac'], 'Harbor Heating'),
+  // Round 19 RULES (owner call 1): a whole-building heat complaint reaches HVAC only as the building's third complaint in 48 hours, which the
+  // scan marks in the summary (lib/signals/repeat-marks.ts); the fixture row carries that mark, as the stored row would.
+  () => buildCase('no-heat 311', heatMarked(pick(sx('socrata-nyc-311', 'socrata-nyc-311.json'), (s) => /HEAT/.test(s.title), 'heat')), ['hvac'], 'Harbor Heating'),
   () => buildCase('other 311', pick(sx('socrata-nyc-311', 'socrata-nyc-311.json'), (s) => /Rodent/.test(s.title), 'rodent'), ['pest-control'], 'Bronx Pest Control'),
   () => buildCase('hail report', SPC_HAIL.find((s) => /1\.50 inch/.test(s.title))!, ['roofing'], 'Longview Roofing'),
   () => buildCase('wind gust', SPC_WIND.find((s) => /68 mph/.test(s.title))!, ['tree-service'], 'Celina Tree Service'),
   () => buildCase('weather alert', pick(NWS, (s) => /Severe Thunderstorm/.test(s.title), 'thunderstorm'), ['roofing'], 'Cobb Roofing'),
   () => buildCase('disaster declaration', pick(FEMA, (s) => /TORNADOES \(GA\)/.test(s.title), 'ga declaration'), ['restoration'], 'Peach State Restoration'),
-  () => buildCase('earthquake', pick(USGS, (s) => /Ridgecrest/.test(s.title), 'ridgecrest'), ['plumbing'], 'Kern Plumbing'),
+  // Round 19 RULES line 42: a quake of magnitude 5 or more reaches restoration only (it reached plumbers before).
+  () => buildCase('earthquake', pick(USGS, (s) => /Ridgecrest/.test(s.title), 'ridgecrest'), ['restoration'], 'Kern Restoration'),
   () => buildCase('airport delay', pick(FAA, (s) => /\(ATL\)/.test(s.title), 'ATL'), ['rideshare-delivery'], 'Peachtree Rides'),
   () => buildCase('new-home permit for a mover', newHomePermit(), ['moving'], 'Midtown Movers'),
   () => buildCase('own-trade permit', pick(sx('socrata-chicago-permits', 'socrata-chicago-permits.json'), (s) => /Roof/.test(s.title), 'roof permit'), ['roofing'], 'Logan Roofing'),

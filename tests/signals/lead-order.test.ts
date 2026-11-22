@@ -121,17 +121,17 @@ describe('pickHits and matchSignals: Act Now first in the feed order', () => {
 
   it('matchSignals returns Act Now first, keeps market_insight for the feed (last) and leaves out context', () => {
     const signals: MatchSignal[] = [
-      sig(1, { severity: 3 }), // NWS flash flood warning: coming_soon
-      sig(2, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: HEAT/HOT WATER / ENTIRE BUILDING', severity: 1 }), // act_now
+      sig(1, { severity: 3, title: 'Winter Storm Warning: X' }), // NWS winter storm warning: coming_soon for plumbing (round 19: the NWS event table)
+      sig(2, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: Sewer Maintenance / Backup', severity: 1 }), // act_now
       sig(3, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: Sewer Maintenance / Catch Basin Clogged' }), // context
       sig(4, { source: 'socrata-chicago-permits', kind: 'permit', data: { subtype: 'permit' }, title: 'Plumbing permit in X' }), // own trade: market_insight
     ];
     const out = matchSignals(signals, [profile()], 25, new Date(NOW));
-    expect(out.map((m) => m.signal_id)).toEqual([2, 1, 4]); // heat (act_now), flash flood warning (coming_soon), own-trade permit (market_insight); the catch basin (context) is not matched
+    expect(out.map((m) => m.signal_id)).toEqual([2, 1, 4]); // sewage back-up (act_now), flash flood warning (coming_soon), own-trade permit (market_insight); the catch basin (context) is not matched
   });
 
   it('matchOne reports the label and the deadline, and returns null for context', () => {
-    const heat = matchOne(sig(2, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: HEAT/HOT WATER / APARTMENT ONLY' }), profile());
+    const heat = matchOne(sig(2, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: Sewer Maintenance / Backup' }), profile());
     expect(heat?.label).toBe('act_now');
     expect(heat?.deadline).toBeNull();
     const ctx = matchOne(sig(3, { source: 'socrata-chicago-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: Tree Trim Request' }), profile({ categories: ['tree-service'] }));
@@ -210,8 +210,8 @@ describe('buildAlerts (mobile): context is not shown, label and deadline are car
   it('drops a stored context match and labels the rest', async () => {
     const rows = [
       row(1, { source: 'socrata-chicago-311', kind: 'civic', subtype: '311', title: '311 request in X: Tree Trim Request', categories: ['tree-service'] }),
-      row(2, { source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in X: HEAT/HOT WATER / ENTIRE BUILDING' }),
-      row(3, { source: 'sam-gov', kind: 'contract', title: 'Bid', expires_at: '2026-12-05T17:00:00Z', categories: ['plumbing'] }),
+      row(2, { source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in X: Sewer Maintenance / Backup' }),
+      row(3, { source: 'sam-gov', kind: 'contract', title: 'Federal bid in Denver, CO: Bid', expires_at: '2026-12-05T17:00:00Z', categories: ['plumbing'] }),
     ];
     const out = await buildAlerts(rows, { userId: 'u1', locked: true, db: {} as any, admin: null, siteUrl: 'https://holler.example', now: NOW, trades: ['plumbing', 'tree-service'] });
     expect(out.map((a) => a.signalId)).toEqual([2, 3]);

@@ -216,7 +216,9 @@ describe('trade-specific, and honest about what the record does not show', () =>
   });
   it('an override reaches the card: a roofer after a hail report, a pest-control company after a failed inspection', () => {
     expect(briefFor({ source: 'spc', label: 'act_now', trade: 'roofing' }).why).toMatch(/roofs are often checked/);
-    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' }).why).toMatch(/often involve pests/);
+    // round 19 RULES (audit section 6): "failures often involve pests" was a guess not on the record; the sentence is the neutral one
+    expect(briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' }).why).toBe('A food inspection nearby failed; check if what failed fits what you do.');
+    expect(briefFor({ source: 'socrata-chicago-inspections', subtype: 'inspection', title: 'Failed inspection in Chicago: food establishment', label: 'coming_soon', trade: 'pest-control' }).why).toBe('A food business here failed a health inspection.');
   });
   it('the next step is one concrete action per family, as in the plan', () => {
     expect(briefFor({ source: 'sam-gov', label: 'act_now', trade: 'roofing' }).next).toBe("Check the due date and the buyer's bid page.");
@@ -293,8 +295,8 @@ describe('source and date (part 4): a card never has no link', () => {
 describe('tradeForRecord', () => {
   const sig = { source: 'socrata-chicago-inspections', subtype: 'inspection', title: 'Failed food inspection' };
   it('picks the member trade that gives the strongest label', () => {
-    // pest-control is act_now for a failed inspection; plumbing is coming_soon
-    expect(tradeForRecord(sig, ['plumbing', 'pest-control'], ['plumbing', 'pest-control'])).toBe('pest-control');
+    // round 19: pest-control is coming_soon for a failed inspection; a general contractor is context (review line 21)
+    expect(tradeForRecord(sig, ['general-contractor', 'pest-control'], ['general-contractor', 'pest-control'])).toBe('pest-control');
   });
   it('ignores trades the record is not tagged with, and gives null for a keyword-only match', () => {
     expect(tradeForRecord(sig, ['plumbing'], ['pest-control'])).toBeNull();

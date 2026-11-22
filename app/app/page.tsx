@@ -122,7 +122,7 @@ async function loadDashboard() {
   const memberTrades = matchScope(profile).categories;
   // An Act Now whose published deadline has passed is shown as Coming soon (demoteExpired).
   const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, memberTrades), deadlineOf(s), now);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, permitStage: s.permitStage, categories: s.categories }, memberTrades), deadlineOf(s), now);
 
   // Resident requests that have ended (closed, removed, past 14 days) leave the feed at once, before the cron deletes them.
   // Context records (public graffiti, city tree trims, sewer and catch-basin work, park events, blanket licenses) are never shown,

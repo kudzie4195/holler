@@ -80,7 +80,7 @@ async function readSignals(db: Db, ids: readonly number[]): Promise<SignalLite[]
   for (const part of chunks([...new Set(ids)])) {
     const { data, error } = await db
       .from('holler_signals')
-      .select('id, source, kind, title, categories, subtype:data->>subtype')
+      .select('id, source, kind, title, summary, categories, subtype:data->>subtype')
       .in('id', part);
     if (error) throw new Error('signals read failed');
     out.push(...((data ?? []) as unknown as SignalLite[]));
