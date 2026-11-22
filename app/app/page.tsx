@@ -23,6 +23,9 @@ import { loadFeedback } from '@/lib/feedback/service';
 import type { FeedbackState } from '@/lib/feedback/types';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import type { ContactRecord } from '@/lib/contacts/types';
+import { ActiveBuilders } from '@/components/builders/active-builders';
+import { loadActiveBuilders } from '@/lib/builders/load';
+import type { ActiveBuilder } from '@/lib/builders/active';
 import { notesFor, rankSignals, scoresFor } from '@/lib/ai';
 import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, opportunityDto, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
 
@@ -121,6 +124,16 @@ async function loadDashboard() {
       }
     }
   }
+  // Companies that pulled permits near the member in the last 30 days (lib/builders). Service role, never for a locked account.
+  // The loader never throws: any failure is an empty list and the section stays hidden.
+  let builders: ActiveBuilder[] = [];
+  if (!access.locked) {
+    try {
+      builders = await loadActiveBuilders(createAdminClient(), profile, new Date(now));
+    } catch {
+      builders = [];
+    }
+  }
   // The member's own feedback answers (RLS: own rows only). A missing table or any failure just means no answers are shown.
   let feedbackBySignal = new Map<number, FeedbackState>();
   if (!access.locked && rows.length > 0) {
@@ -193,12 +206,12 @@ async function loadDashboard() {
   // Accounts under 3 days old were filled from the 14-day backfill at signup.
   const firstRun = now - new Date(profile.created_at).getTime() < 3 * 86_400_000;
 
-  return { profile, access, cityPage, items, firstRun, failed: Boolean(error) };
+  return { profile, access, cityPage, items, firstRun, builders, failed: Boolean(error) };
 }
 
 export default async function AppHome(props: PageProps<'/app'>) {
   const upgraded = (await props.searchParams).upgraded === '1';
-  const { profile, access, cityPage, items, firstRun, failed } = await loadDashboard();
+  const { profile, access, cityPage, items, firstRun, builders, failed } = await loadDashboard();
 
   return (
     <>
@@ -223,6 +236,8 @@ export default async function AppHome(props: PageProps<'/app'>) {
         <TrialBanner access={access} />
         {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
       </div>
+
+      <ActiveBuilders builders={builders} />
 
       <div className="mt-6">
         {emptyFeedApplies({ items: items.length, locked: access.locked, failed }) ? (
