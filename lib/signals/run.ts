@@ -11,6 +11,7 @@ import {
   getLastRunTimes,
   insertMatches,
   insertNewSignals,
+  markStoredContactPaths,
   loadProfiles,
   logRun,
   pruneOldSignals,
@@ -20,7 +21,7 @@ import {
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
-import { contactPathOf } from './alert-gate';
+import { contactPathOf, holdOf, missingHoldColumn } from './alert-gate';
 import { isPermitRecord } from './permit-routing';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
@@ -270,11 +271,20 @@ async function stageUpdatesToday(db: Db, now: Date, exceptSignalIds: readonly nu
     const ids = [...new Set(stages.map((x) => x.signal_id).filter((x): x is number => typeof x === 'number' && !except.has(x)))];
     for (let i = 0; i < ids.length; i += 200) {
       const part = ids.slice(i, i + 200);
-      const matches = await readAllPages<{ user_id: string }>(
-        (from, to) => db.from('holler_matches').select('user_id').in('signal_id', part).order('id', { ascending: true }).range(from, to),
-        10,
-      );
-      for (const m of matches) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
+      const read = (cols: string) =>
+        readAllPages<{ user_id: string; alert_hold?: string | null }>(
+          (from, to) => db.from('holler_matches').select(cols).in('signal_id', part).order('id', { ascending: true }).range(from, to),
+          10,
+        );
+      let matches: Array<{ user_id: string; alert_hold?: string | null }>;
+      try {
+        matches = await read('user_id, alert_hold');
+      } catch (e) {
+        if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+        matches = await read('user_id');
+      }
+      // A feed-only card never got its update (it is never sent), so it does not use one of the member's 5 places.
+      for (const m of matches) if (!holdOf(m)) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
     }
   } catch {
     /* no count: the per-scan room still caps the member */
@@ -296,11 +306,11 @@ export function markContactPaths(inserted: StoredSignal[], built: readonly Signa
     const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
     let contacts: ReturnType<typeof sanitizeContacts> = [];
     try {
-      contacts = sanitizeContacts(b?.contacts ?? [], { datasetCity: b?.city ?? null });
+      contacts = sanitizeContacts((b?.contacts ?? []).filter((c) => !c.gateOnly), { datasetCity: b?.city ?? null });
     } catch {
       contacts = [];
     }
-    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null);
+    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null, (b?.contacts ?? []).some((c) => c.gateOnly === true));
   }
 }
 
@@ -424,18 +434,35 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         const rearm = new Map<number, string[]>();
         if (stageSignals.length) {
           const have = new Map<string, string>();
+          /** Pairs whose card is feed-only (alert_hold): a re-sent card would still be held, so it gets no update and takes no place. */
+          const heldPairs = new Set<string>();
+          // A member with no card yet gets a fresh one: the contact gate reads the stored contacts for it, as the scan did for the others.
+          await markStoredContactPaths(db, stageSignals);
           try {
-            const existing = await readAllPages<{ user_id: string; signal_id: number; status: string | null }>(
-              (from, to) => db.from('holler_matches').select('user_id, signal_id, status').in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
-              20,
-            );
-            for (const m of existing) have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
+            type Existing = { user_id: string; signal_id: number; status: string | null; alert_hold?: string | null };
+            const read = (cols: string) =>
+              readAllPages<Existing>(
+                (from, to) => db.from('holler_matches').select(cols).in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
+                20,
+              );
+            let existing: Existing[];
+            try {
+              existing = await read('user_id, signal_id, status, alert_hold');
+            } catch (e) {
+              if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+              existing = await read('user_id, signal_id, status');
+            }
+            for (const m of existing) {
+              have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
+              if (holdOf(m)) heldPairs.add(`${m.user_id}\u0000${m.signal_id}`);
+            }
           } catch {
             /* insertMatches keeps (user, signal) unique anyway */
           }
           const usedToday = await stageUpdatesToday(db, now, stageSignals.map((s) => s.id));
           const normal = new Map<string, number>();
-          for (const r of rows) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
+          // Only cards that go out count against the room: a feed-only card of this scan gives way to a stage update (trimmed below).
+          for (const r of rows) if (!r.alert_hold) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
           for (const p of profiles) {
             // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
             const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
@@ -448,6 +475,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
               // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
               const held = have.get(`${p.user_id}\u0000${sig.id}`);
               if (held !== undefined && held !== 'new') continue;
+              if (heldPairs.has(`${p.user_id}\u0000${sig.id}`)) continue;
               hits.push({ sig, fresh: held === undefined, distance: hit.distance_mi, score: hit.score });
             }
             if (hits.length === 0) continue;
@@ -456,6 +484,18 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             for (const h of hits.slice(0, room)) {
               if (h.fresh) rows.push({ user_id: p.user_id, signal_id: h.sig.id, distance_mi: h.distance });
               else rearm.set(h.sig.id, [...(rearm.get(h.sig.id) ?? []), p.user_id]);
+            }
+          }
+        }
+        // Still at most MAX_MATCHES_PER_USER new rows per member: a fresh stage card takes the place of this scan's last feed-only card.
+        if (stageSignals.length) {
+          const count = new Map<string, number>();
+          for (const r of rows) count.set(r.user_id, (count.get(r.user_id) ?? 0) + 1);
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            if (r.alert_hold && (count.get(r.user_id) ?? 0) > MAX_MATCHES_PER_USER) {
+              rows.splice(i, 1);
+              count.set(r.user_id, (count.get(r.user_id) ?? 0) - 1);
             }
           }
         }

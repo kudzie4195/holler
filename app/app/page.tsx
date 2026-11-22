@@ -37,10 +37,11 @@ import { coverageNotice } from '@/lib/check/coverage-notice';
 import { CoverageNoticeLine } from '@/components/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
-import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
+import { VALUE_SELECT, jobValueOf, parseMoney } from '@/lib/signals/permit-value';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import { STAGE_SELECT } from '@/lib/signals/stage';
 import { langOfProfile, t } from '@/lib/i18n';
-import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
+import { holdOf, missingHoldColumn, shownHold } from '@/lib/signals/alert-gate';
 
 interface SignalRow {
   id: number;
@@ -200,10 +201,21 @@ async function loadDashboard() {
     }
   }
   // Act Now first, then the deterministic score (PLAN-2.0 item 2.7), then the AI ranking or newest-first order the rows already have (a stable sort).
-  // A feed-only card (alert_hold) sorts with the market insights, after every alert.
+  // A feed-only card (alert_hold) sorts with the market insights, after every alert. A 'background' card whose text or contacts name a
+  // place or a business shows no hold (shownHold): the feed never says "no site address" next to one.
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the chip once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (rows.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(supabase, user.id).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
+  const holdShown = (m: MatchRow) => {
+    const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
+    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+  };
   const ordered = orderByLabelScore(
     ranked,
-    (m) => (holdOf(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)),
+    (m) => (holdShown(m) ? 'market_insight' : labelOf((Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow)),
     (m) => {
       const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
       return feedScoreFor(
@@ -237,7 +249,7 @@ async function loadDashboard() {
       zip: s.zip,
       subtype: s.subtype ?? null,
       label: labelOf(s),
-      ...(holdOf(m) ? { hold: holdOf(m) } : {}),
+      ...(holdShown(m) ? { hold: holdShown(m) } : {}),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
       trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
       deadline: deadlineOf(s),

@@ -109,6 +109,11 @@ const RESIDENTIAL_PART_RE =
  * "Warehouse"). Seen in: arcgis-atlanta, arcgis-dekalb ("Business"), arcgis-mecklenburg, socrata-batonrouge, socrata-cincinnati,
  * socrata-seattle.
  */
+/** "Non-Residential", "Non Residential", "Nonresidential": a business property, never a home. */
+const NON_RESIDENTIAL_RE = /\bnon[-\s]?residential\b/i;
+const NON_RESIDENTIAL_ALL_RE = /\bnon[-\s]?residential\b/gi;
+/** Multi-family housing and apartments: neither class (a house cleaner and an office cleaner may both want them). */
+const MULTI_RE = /\bmulti[\s-]?family\b|\bmultifamily\b|\bapartments?\b/i;
 const COMMERCIAL_PART_RE = /\bcommercial\b|\(c\)|^com\s|\bindustrial\b|^(?:business|office|mercantile|retail|warehouse)$/i;
 
 /**
@@ -122,8 +127,10 @@ export function recordPropertyOf(r: WorkRecord): Exclude<PropertyFocus, 'both'> 
   // The structured parts, plus LA's use class "1 or 2 Family Dwelling" (summaryParts drops every part that starts with a number, as an
   // address would).
   const parts = [...summaryParts(r.summary), ...(r.summary ?? '').split(' | ').filter((p) => /^\s*1 or 2 family\b/i.test(p))];
-  const res = parts.some((p) => RESIDENTIAL_PART_RE.test(p));
-  const com = parts.some((p) => COMMERCIAL_PART_RE.test(p.trim()));
+  // "Non-Residential" is a business property; "Multi-Family Residential" and apartments are neither class (never filtered).
+  if (parts.some((p) => MULTI_RE.test(p))) return null;
+  const res = parts.some((p) => RESIDENTIAL_PART_RE.test(p.replace(NON_RESIDENTIAL_ALL_RE, ' ')));
+  const com = parts.some((p) => COMMERCIAL_PART_RE.test(p.trim()) || NON_RESIDENTIAL_RE.test(p));
   if (res === com) return null;
   return res ? 'residential' : 'commercial';
 }
@@ -157,21 +164,27 @@ export function recordWorkTypeOf(r: WorkRecord): Exclude<WorkType, 'both'> | nul
   return null;
 }
 
+/** True when the member's property focus rules this record out (the record states the other class). Never true when it does not say. */
+export function propertyDrops(r: WorkRecord, w: WorkProfile | null | undefined): boolean {
+  if (!w || w.property === 'both') return false;
+  const p = recordPropertyOf(r);
+  return p !== null && p !== w.property;
+}
+
 /**
- * True when the member's property focus or work type rules this record out. Never true when the record does not say, or when the
- * member takes both.
+ * True when the member's work type rules this record out (its kind is clear and is the other kind). The caller applies it ONLY when the
+ * member's trade does the permitted work (score.ts isExactTradeFit): a cleaner, landscaper or mover who gets a card because of work that
+ * FOLLOWS a build is never filtered by the builder's kind of work (round 18 review P2-3).
  */
+export function workTypeDrops(r: WorkRecord, w: WorkProfile | null | undefined): boolean {
+  if (!w || w.workType === 'both') return false;
+  const k = recordWorkTypeOf(r);
+  return k !== null && k !== w.workType;
+}
+
+/** Both filters, for a member whose trade does the work (kept for callers and tests that judge one record and one doing trade). */
 export function workFilterDrops(r: WorkRecord, w: WorkProfile | null | undefined): boolean {
-  if (!w) return false;
-  if (w.property !== 'both') {
-    const p = recordPropertyOf(r);
-    if (p !== null && p !== w.property) return true;
-  }
-  if (w.workType !== 'both') {
-    const k = recordWorkTypeOf(r);
-    if (k !== null && k !== w.workType) return true;
-  }
-  return false;
+  return propertyDrops(r, w) || workTypeDrops(r, w);
 }
 
 /** The job value a permit states, in whole dollars, or null (data.jobValue, else the "$N job value" part of its summary). */

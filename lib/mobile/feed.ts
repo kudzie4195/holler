@@ -1,5 +1,5 @@
 import 'server-only';
-import { holdOf, missingHoldColumn, type AlertHold } from '@/lib/signals/alert-gate';
+import { holdOf, missingHoldColumn, shownHold, type AlertHold } from '@/lib/signals/alert-gate';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDistance, maskText } from '@/components/format';
 import type { ContactRecord } from '@/lib/contacts/types';
@@ -223,7 +223,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       severity: typeof s.severity === 'number' ? s.severity : 1,
       intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
       label: labelOf(s) as AlertDto['label'],
-      ...(holdOf(m) ? { hold: holdOf(m) as AlertHold } : {}),
+      ...(shownHold(holdOf(m), contacts.get(s.id), s.summary) ? { hold: shownHold(holdOf(m), contacts.get(s.id), s.summary) as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s), deps),
       bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,

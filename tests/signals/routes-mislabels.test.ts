@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { classifyPermit } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
-import { summaryParts } from '@/lib/signals/permit-routing';
+import { carriedTrades, summaryParts } from '@/lib/signals/permit-routing';
+import { labelFor, ruleFor } from '@/lib/signals/lead-rules';
 import { parseSocrata } from '@/lib/signals/adapters/socrata';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 
@@ -65,11 +66,27 @@ describe('pattern H: an alteration permit titled "Demolition" because its descri
     [133169, 'otc alterations permit'], // San Francisco, $600,000
     [134445, 'Alter Commercial'], // Cincinnati
   ];
-  it.each(cases)('row %i (%s) was a "Demolition permit"; with a demolition word in its description it is now a remodel', (id) => {
+  it.each(cases)('row %i (%s) was a "Demolition permit"; it is now titled by the alteration and keeps junk-removal as a downstream trade', (id) => {
     expect(row(id).title.startsWith('Demolition permit')).toBe(true);
     const c = classifyPermit({ structured: structured(id), free: ['interior demolition of kitchen and bath'] }, 'X');
     expect(c.label).toBe('Remodel');
-    expect(c.categories).not.toContain('junk-removal');
+    expect(c.kinds).toEqual(['remodel']);
+    expect(c.categories).toEqual(['general-contractor', 'junk-removal']);
+    // Junk removal still gets the card as Coming soon (the debris needs hauling), never the own-trade market insight.
+    const sig = { source: (row(id) as { source: string }).source, kind: 'permit', subtype: 'permit', title: 'Remodel permit in X', summary: row(id).summary };
+    expect(carriedTrades(sig, c.categories)).toContain('junk-removal');
+    expect(labelFor(sig, 'junk-removal')).toBe('coming_soon');
+    expect(ruleFor(sig, 'junk-removal')?.downstream).toBe(true);
+  });
+  it('a commercial alteration with demolition (fit-out route) still reaches junk-removal as Coming soon', () => {
+    const c = classifyPermit({ structured: ['Commercial Alteration'], free: ['interior demo'] }, 'X');
+    expect(c.label).toBe('Tenant fit-out');
+    expect(c.categories).toContain('junk-removal');
+    const sig = { source: 'arcgis-atlanta-permits', kind: 'permit', subtype: 'permit', title: 'Tenant fit-out permit in Atlanta', summary: 'Commercial Alteration | 9 PEACHTREE ST NE' };
+    expect(labelFor(sig, 'junk-removal')).toBe('coming_soon');
+  });
+  it('a title cut that drops every named kind drops the tag too (title and trades always agree)', () => {
+    expect(classifyPermit({ structured: ['otc alterations permit'], free: [] }, 'X').categories).toEqual(['general-contractor']);
   });
   it('a real demolition permit stays a demolition: "Bldg-Demolition", "Commercial Demolition", "Demolition Permit (R)"', () => {
     for (const id of [2577, 72177, 92520, 3192]) expect(classifyPermit({ structured: structured(id), free: ['demolish structure'] }, 'X').label).toBe('Demolition');

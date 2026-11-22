@@ -41,4 +41,12 @@ describe(FILE, () => {
     for (const m of c.matchAll(/public\.(\w+)/g)) expect(m[1]).toMatch(/^holler_/);
     expect(c).not.toMatch(/\b(drop table|drop column|delete from|truncate)\b/);
   });
+  it('redo 1: the holler_matches check is added NOT VALID and validated in its own statement, with a lock timeout', () => {
+    const c = code();
+    expect(c).toContain("check (alert_hold is null or alert_hold in ('background', 'below_min', 'held')) not valid;");
+    expect(c).toContain('alter table public.holler_matches validate constraint holler_matches_alert_hold_check;');
+    expect(c.indexOf('validate constraint')).toBeGreaterThan(c.indexOf('not valid;'));
+    expect(c).toContain("set lock_timeout = '5s';");
+    expect(c).toContain('reset lock_timeout;');
+  });
 });

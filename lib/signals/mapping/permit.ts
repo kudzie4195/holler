@@ -27,6 +27,11 @@ export interface PermitKind {
   cats: CategoryId[];
   /** Generic kinds name no particular trade (building, remodel, addition): they map to general-contractor only. */
   generic?: boolean;
+  /**
+   * Tags its trades but is left out of the title (round 18 review P2-4): the interior demolition inside an alteration. The permit is titled
+   * by its other kinds ("Remodel permit"); its hauling trade (junk-removal) still sees the card.
+   */
+  tagOnly?: boolean;
   /** Tested against each field value on its own. */
   test: (value: string) => boolean;
 }
@@ -373,7 +378,9 @@ function pickKindsRaw(f: PermitFields): PermitKind[] {
     sSpecific.length > 1 &&
     sSpecific.some((k) => k.id === 'new-construction') &&
     !structured.some((v) => !BARE_NEW_RE.test(v) && NEW_CONSTRUCTION_KIND().test(v)) &&
-    !fr.some((k) => k.id === 'new-home')
+    !fr.some((k) => k.id === 'new-home') &&
+    // A combined type that names a building ("Building, Electrical, Mechanical, Plumbing | New") is a new building (review P3-9).
+    !s.some((k) => k.id === 'building')
   ) {
     sSpecific = sSpecific.filter((k) => k.id !== 'new-construction');
   }
@@ -407,7 +414,21 @@ function pickKindsRaw(f: PermitFields): PermitKind[] {
   // 18 ROUTES, item 5: three real rows, two San Francisco "otc alterations permit" and one Cincinnati "Alter Commercial", were titled
   // "Demolition permit"). The demolition kind is dropped; the alteration stays a remodel (or a fit-out when commercial). A structured
   // demolition type ("Bldg-Demolition", "Commercial Demolition") is untouched.
-  if (s.some((k) => k.id === 'remodel') && !s.some((k) => k.id === 'demolition')) fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
+  // The demolition stays as a TAG (junk-removal still gets the card: the debris needs hauling) but is left out of the title.
+  let interiorDemo = false;
+  if (s.some((k) => k.id === 'remodel') && !s.some((k) => k.id === 'demolition') && fSpecific.some((k) => k.id === 'demolition')) {
+    fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
+    interiorDemo = true;
+  }
+  if (interiorDemo) {
+    const rest = pickRest(s, fr, free, fromMixed, fSpecific);
+    return [...rest, INTERIOR_DEMOLITION];
+  }
+  return pickRest(s, fr, free, fromMixed, fSpecific);
+}
+
+/** The last step of pickKindsRaw: description trades with the generic kind that joins them, or the first generic kind. */
+function pickRest(s: PermitKind[], fr: PermitKind[], free: string[], fromMixed: PermitKind[], fSpecific: PermitKind[]): PermitKind[] {
   // With named trades in the description, only a generic word in the description itself joins them ("remodel kitchen, new plumbing"):
   // a city's catch-all type ("Renovation/Alteration", "Building Permit") over a re-roof is not a general contractor lead.
   if (fSpecific.length) {
@@ -422,6 +443,9 @@ function pickKindsRaw(f: PermitFields): PermitKind[] {
   return generic ? [generic] : [];
 }
 
+/** Interior demolition inside an alteration: tags junk-removal, never named in the title (PermitKind.tagOnly). */
+const INTERIOR_DEMOLITION: PermitKind = { id: 'interior-demolition', label: '', cats: ['junk-removal'], tagOnly: true, test: () => false };
+
 /** De-duplicates by trade, fits the title (at most 4 kinds and MAX_TITLE_CHARS, lowest priority dropped first with its trades). */
 function finish(ordered: PermitKind[], city: string): PermitClass {
   // Skip a kind whose trades an earlier kind already covers (Water heater then Plumbing reads "Water heater").
@@ -432,11 +456,14 @@ function finish(ordered: PermitKind[], city: string): PermitClass {
     chosen.push(k);
     k.cats.forEach((c) => covered.add(c));
   }
-  let n = Math.min(chosen.length, MAX_KINDS_IN_TITLE);
-  while (n > 1 && `${joinLabels(chosen.slice(0, n).map((k) => k.label))} permit in ${city}`.length > MAX_TITLE_CHARS) n--;
-  const used = chosen.slice(0, n);
+  // A tag-only kind is never in the title; it keeps its trades only while the title names something.
+  const tags = chosen.filter((k) => k.tagOnly);
+  const titled = chosen.filter((k) => !k.tagOnly);
+  let n = Math.min(titled.length, MAX_KINDS_IN_TITLE);
+  while (n > 1 && `${joinLabels(titled.slice(0, n).map((k) => k.label))} permit in ${city}`.length > MAX_TITLE_CHARS) n--;
+  const used = titled.slice(0, n);
   const categories: CategoryId[] = [];
-  for (const k of used) for (const c of k.cats) if (!categories.includes(c)) categories.push(c);
+  for (const k of [...used, ...(used.length ? tags : [])]) for (const c of k.cats) if (!categories.includes(c)) categories.push(c);
   return { categories, kinds: used.map((k) => k.id), label: used.length ? joinLabels(used.map((k) => k.label)) : null };
 }
 

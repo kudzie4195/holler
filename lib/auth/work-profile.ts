@@ -65,8 +65,9 @@ export function parseWorkProfileForm(form: { get(name: string): unknown }): Work
   if (minText === null) return null;
   let min: number | null = null;
   if (minText !== '') {
-    if (!/^\d{1,9}$/.test(minText)) return null;
-    const n = Number(minText);
+    // Whole dollars; a trailing ".00" or ".0" is accepted ("$5,000.00"), any other cents are refused.
+    if (!/^\d{1,9}(?:\.0{1,2})?$/.test(minText)) return null;
+    const n = Number(minText.replace(/\.0+$/, ''));
     if (n > MAX_MIN_JOB_VALUE) return null;
     min = n === 0 ? null : n;
   }

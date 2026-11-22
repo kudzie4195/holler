@@ -60,7 +60,7 @@ export function buildContactPathReport(input: {
     if (!Number.isFinite(t) || t < sinceMs || t > nowMs || typeof a.signal_id !== 'number') continue;
     const s = sig.get(a.signal_id);
     if (!s) continue;
-    const label = labelFor({ source: s.source, kind: s.kind, subtype: s.subtype ?? a.subtype, title: s.title }, (a.trade ?? null) as CategoryId | null);
+    const label = labelFor({ source: s.source, kind: s.kind, subtype: s.subtype ?? a.subtype, title: s.title, summary: s.summary }, (a.trade ?? null) as CategoryId | null);
     if (!isAlertLabel(label)) continue;
     const has = contactPathOf(bySignal.get(s.id), s.summary) !== null;
     const trade = a.trade ?? KEYWORD_TRADE;

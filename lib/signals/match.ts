@@ -7,7 +7,7 @@ import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
 import type { CategoryId } from './categories';
 import { alertHoldFor, type AlertHold, type ContactPath, type GateInput } from './alert-gate';
-import { workFilterDrops, workProfileOf, type WorkColumns, type WorkProfile } from './work-profile';
+import { propertyDrops, workTypeDrops, workProfileOf, type WorkColumns, type WorkProfile } from './work-profile';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -193,6 +193,16 @@ function gateInputOf(signal: MatchSignal): GateInput {
   };
 }
 
+/**
+ * The work-type filter (migration 0027) for this card: only when the member's trade does the permitted work (the record carries the trade
+ * as its own tag and the label rule is not a downstream route, score.ts isExactTradeFit). Downstream trades and keyword matches are never
+ * filtered by the kind of work on the record.
+ */
+function workTypeFilters(signal: MatchSignal, trade: string | null, gate: GateInput, work: WorkProfile | null): boolean {
+  if (!work || work.workType === 'both') return false;
+  return isExactTradeFit(labelInputOf(signal), signal.categories, trade) && workTypeDrops(gate, work);
+}
+
 /** The member's work profile (migration 0027), or null when there is none or it is all defaults. */
 export function workOfProfile(profile: MatchProfile): WorkProfile | null {
   return workProfileOf(profile);
@@ -267,8 +277,9 @@ function matchInScope(signal: MatchSignal, profile: MatchProfile, scope: MatchSc
   // Work profile (migration 0027): property focus and work type rule a record out only when the record states them.
   const work = workOfProfile(profile);
   const gate = gateInputOf(signal);
-  if (workFilterDrops(gate, work)) return null;
+  if (propertyDrops(gate, work)) return null;
   const { label, trade } = labelInScope(signal, cats, scope);
+  if (workTypeFilters(signal, trade, gate, work)) return null;
   return isFeedLabel(label) ? resultFor(signal, where, label, trade, nowMs, alertHoldFor(gate, label, trade, work)) : null;
 }
 
@@ -395,11 +406,12 @@ export function matchSignals(
         if (!found) continue;
       }
       const gate = (gates[i] ??= gateInputOf(s));
-      // Work profile (migration 0027): a record that states a class or kind of work the member does not take is not matched.
-      if (work && workFilterDrops(gate, work)) continue;
+      // Work profile (migration 0027): a record that states a class the member does not take is not matched.
+      if (work && propertyDrops(gate, work)) continue;
       // Context records are left out here (item 0.2). market_insight is kept for the feed; the push and the digest drop it (item 1.1).
       const { label, trade } = labelInScope(s, cats, scope);
       if (!isFeedLabel(label)) continue;
+      if (work && workTypeFilters(s, trade, gate, work)) continue;
       const mine = cats.filter((c) => scope.categories.includes(c));
       for (const t of mine) members.set(`${i}\u0000${t}`, (members.get(`${i}\u0000${t}`) ?? 0) + 1);
       const hold = alertHoldFor(gate, label, trade, work);
@@ -432,8 +444,11 @@ export function membersOfTrade(signal: MatchSignal, trade: string, profiles: rea
     const scope = matchScope(p);
     if (!scope.categories.includes(trade)) continue;
     if (!areaMatch(signal, p, scope, bidsOn)) continue;
-    if (workFilterDrops(gateInputOf(signal), workOfProfile(p))) continue;
-    if (isFeedLabel(labelInScope(signal, cats, scope).label)) n++;
+    const work = workOfProfile(p);
+    const gate = gateInputOf(signal);
+    if (propertyDrops(gate, work)) continue;
+    const { label, trade: t } = labelInScope(signal, cats, scope);
+    if (isFeedLabel(label) && !workTypeFilters(signal, t, gate, work)) n++;
   }
   return n;
 }

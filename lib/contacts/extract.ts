@@ -115,6 +115,28 @@ function join(read: ReadField, fields: string[] | undefined, whole = false): str
   return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * The raw text of the site-address columns a spec names (joined with spaces), before any cleaning, or '' when there is none. For the alert
+ * gate's yes-or-no "is there a place to go" ONLY (lib/signals/alert-gate.ts textShowsPlace): it is never stored, shown or logged. The
+ * display path (extractContacts, cleanAddress) still cuts the street safely and may refuse shapes the gate accepts.
+ */
+export function siteSpecText(read: ReadField, spec: ContactSpec | undefined): string {
+  const fields = spec?.site?.addressFields ?? [];
+  return fields.map((f) => read(f)).filter((v) => typeof v === 'string' && v.trim()).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/** The gate-only site entry (ContactInput.gateOnly): never stored, never shown. */
+export const GATE_ONLY_SITE: ContactInput = Object.freeze({ role: 'site', name: '', address: null, gateOnly: true }) as ContactInput;
+
+/**
+ * The contacts of a permit for the adapter's output: the extracted ones, plus GATE_ONLY_SITE when the record has no stored site contact
+ * but its own site-address columns name a place to go (`siteShowsPlace`, alert-gate.ts textShowsPlace on siteSpecText).
+ */
+export function withGateSite(contacts: ContactInput[], siteShowsPlace: boolean): ContactInput[] {
+  if (!siteShowsPlace || contacts.some((c) => c.role === 'site')) return contacts;
+  return [...contacts, { ...GATE_ONLY_SITE }];
+}
+
 /** A phone at the end of a run-together string: "(817) 969-5050", "469-360-6479" or "/9722431100". */
 const TAIL_PHONE_RE = /(?:\/|\s|^)\(?(\d{3})\)?[\s./-]*(\d{3})[\s.-]*(\d{4})\s*$/;
 /** Where the street address of a run-together string starts: " 7501 US HWY", " \\1201 Main St", " PO BOX 12". */

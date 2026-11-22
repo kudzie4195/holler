@@ -9,7 +9,8 @@ import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
-import { missingHoldColumn, withoutHold } from './alert-gate';
+import { contactPathOf, missingHoldColumn, type ContactLike } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
 import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
 export type Db = SupabaseClient;
@@ -355,7 +356,8 @@ export async function writeSignalContacts(
   const rows: Record<string, unknown>[] = [];
   for (const it of items) {
     if (!Number.isSafeInteger(it.signalId) || it.signalId <= 0) continue;
-    for (const c of sanitizeContacts(it.contacts, { datasetCity: it.city ?? null })) {
+    // A gate-only entry (ContactInput.gateOnly, round 18) is never stored.
+    for (const c of sanitizeContacts(it.contacts.filter((x) => !x.gateOnly), { datasetCity: it.city ?? null })) {
       rows.push({
         signal_id: it.signalId,
         role: c.role,
@@ -533,6 +535,27 @@ export async function loadWorkProfiles(db: Pick<Db, 'from'>, userIds: readonly s
 }
 
 /**
+ * Contact paths for permit rows READ BACK from the database (the rematch, a stage update): the stored contacts (holler_signal_contacts)
+ * and the public summary, by the same rule as the scan (alert-gate.ts contactPathOf). Sets `contactPath` on each permit row. Never
+ * throws: on any failed read the rows stay "not known" and are never held.
+ */
+export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Array<MatchSignal & { id: number }>): Promise<void> {
+  const permits = signals.filter((s) => s.contactPath === undefined && isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
+  if (permits.length === 0) return;
+  try {
+    const by = new Map<number, ContactLike[]>();
+    for (const part of chunks(permits.map((s) => s.id), 150)) {
+      const { data, error } = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);
+      if (error) return;
+      for (const c of (data ?? []) as Array<ContactLike & { signal_id: number }>) by.set(c.signal_id, [...(by.get(c.signal_id) ?? []), c]);
+    }
+    for (const s of permits) s.contactPath = contactPathOf(by.get(s.id), s.summary ?? null);
+  } catch {
+    /* not known: never held */
+  }
+}
+
+/**
  * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027). Before 0027 the column is missing: the
  * batch is retried without it, so those cards are stored exactly as before (and go out as alerts as before).
  */
@@ -541,7 +564,11 @@ export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
   for (const part of chunks(rows, 500)) {
     const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
     let { data, error } = await send(part);
-    if (error && missingHoldColumn(error) && part.some((r) => 'alert_hold' in r)) ({ data, error } = await send(withoutHold(part)));
+    if (error && missingHoldColumn(error) && part.some((r) => 'alert_hold' in r)) {
+      // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
+      for (const r of part) delete r.alert_hold;
+      ({ data, error } = await send(part));
+    }
     if (error) throw new Error(`matches upsert failed: ${error.message}`);
     n += data?.length ?? 0;
   }

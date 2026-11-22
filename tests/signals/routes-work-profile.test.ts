@@ -177,16 +177,30 @@ describe('matching uses the work profile', () => {
     expect(matchOne(commercial, member({ categories: ['janitorial-commercial'] }), false, NOW.getTime())).not.toBeNull();
     expect(matchOne(unsaid, resOnly, false, NOW.getTime())).not.toBeNull();
   });
-  it('work type removes only records whose kind is clear', () => {
-    const repairsOnly = member({ work_type: 'repairs' });
-    expect(matchOne(permit(), repairsOnly, false, NOW.getTime())).toBeNull(); // a new home is an install
+  it('work type removes only records whose kind is clear, and only for the trade that does the permitted work', () => {
+    // The general contractor does the new home: "repairs and service only" removes it.
+    const gcRepairs = member({ categories: ['general-contractor'], work_type: 'repairs' });
+    expect(matchOne(permit(), gcRepairs, false, NOW.getTime())).toBeNull();
+    expect(matchOne(permit(), member({ categories: ['general-contractor'] }), false, NOW.getTime())?.label).toBe('market_insight');
     const installsOnly = member({ categories: ['hvac'], work_type: 'installs' });
     const noHeat: MatchSignal = { id: nextId++, source: 'socrata-nyc-311', kind: 'civic', subtype: '311', title: '311 request in New York City: HEAT/HOT WATER / ENTIRE BUILDING', categories: ['hvac'], lat: LOC.lat, lon: LOC.lon, state: 'GA', severity: 1, occurred_at: '2026-11-19T00:00:00Z' };
     expect(matchOne(noHeat, installsOnly, false, NOW.getTime())).toBeNull();
     expect(matchOne(noHeat, member({ categories: ['hvac'] }), false, NOW.getTime())?.label).toBe('act_now');
   });
+  it('review P2-3: downstream trades are never filtered by the builder\'s kind of work', () => {
+    // A house cleaner on "repairs and service only" still gets the post-construction card of a new-build permit.
+    const cleanerRepairs = member({ categories: ['cleaning'], work_type: 'repairs' });
+    const newBuild = permit({ title: 'New construction permit in Atlanta', summary: 'New Construction | 100 MAIN ST NE, ATLANTA, GA 30303', categories: ['general-contractor'] });
+    expect(matchOne(newBuild, cleanerRepairs, false, NOW.getTime())).toMatchObject({ label: 'coming_soon', trade: 'cleaning' });
+    expect(matchSignals([newBuild], [cleanerRepairs], undefined, NOW, false)).toHaveLength(1);
+    // Landscapers and movers on a new home, the same.
+    for (const t of ['landscaping', 'moving']) expect(matchOne(permit(), member({ categories: [t], work_type: 'repairs' }), false, NOW.getTime())?.label).toBe('coming_soon');
+    // An "installs only" cleaner is not filtered by a repair-only permit either.
+    const repairPermit = permit({ title: 'Remodel permit in Atlanta', summary: 'Alteration | 9 PEACHTREE ST NE', categories: ['general-contractor'] });
+    expect(matchOne(repairPermit, member({ categories: ['cleaning'], work_type: 'installs' }), false, NOW.getTime())).not.toBeNull();
+  });
   it('the stale-match prune reads the profile without its work settings, so nothing a member holds is removed by a new setting', () => {
-    const p = member({ work_type: 'repairs', work_min_value: 5000, work_property: 'commercial' });
+    const p = member({ categories: ['general-contractor'], work_type: 'repairs', work_min_value: 5000, work_property: 'commercial' });
     const bare = withoutWorkProfile(p);
     expect(bare).not.toHaveProperty('work_type');
     expect(bare).not.toHaveProperty('work_property');

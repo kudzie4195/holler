@@ -51,7 +51,11 @@ export async function upsertMatchRows(db: Db, rows: MatchInsertRow[], opts: { co
   // A missing column is retried without it, each at most once: alert_hold before migration 0027 (the card is then stored as before),
   // pushed_at before 0020. The database may name either first.
   for (let i = 0; i < 2 && r.error; i++) {
-    if (missingHoldColumn(r.error) && list.some((x) => 'alert_hold' in x)) list = withoutHold(list);
+    if (missingHoldColumn(r.error) && list.some((x) => 'alert_hold' in x)) {
+      // The caller's rows lose the hold too: before 0027 the card is stored, and logged, as the plain match it is.
+      for (const x of rows) delete x.alert_hold;
+      list = withoutHold(list);
+    }
     else if (missingPushedAtColumn(r.error.message) && list.some((x) => 'pushed_at' in x)) list = list.map(({ pushed_at: _p, ...rest }) => (void _p, rest));
     else break;
     r = await send(list);

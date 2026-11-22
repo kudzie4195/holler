@@ -1,5 +1,6 @@
+import { summaryNamesSite, textShowsPlace } from '@/lib/signals/alert-gate';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
+import { contactSpecFields, extractContacts, extractJobValue, siteSpecText, withGateSite as withGate } from '@/lib/contacts/extract';
 import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
 import { permitStageOf } from '@/lib/signals/stage';
@@ -266,6 +267,9 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
       const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
+      // Round 18 alert gate: a gate-only site entry (never stored, never shown) when the record's own site-address columns name a place
+      // that the display cutter refused and the public summary does not print one either.
+      const outContacts = withGate(contacts, ds.subtype === 'permit' && !summaryNamesSite(summary) && textShowsPlace(siteSpecText((x) => str(a, x), ds.contacts)));
       report.items.push({
         source: ds.id,
         externalId,
@@ -288,7 +292,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(contacts.length ? { contacts } : {}),
+        ...(outContacts.length ? { contacts: outContacts } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {

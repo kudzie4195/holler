@@ -83,19 +83,31 @@ grant insert (user_id, work_property, work_min_value, work_type) on table public
 grant update (user_id, work_property, work_min_value, work_type) on table public.holler_work_profiles to authenticated;
 grant select, insert, update, delete on table public.holler_work_profiles to service_role;
 
--- holler_matches.alert_hold (RLS on since 0001, unchanged).
+-- holler_matches.alert_hold (RLS on since 0001, unchanged). holler_matches is the busiest table: every statement on it waits at most 5 s
+-- for its lock and then fails (re-run the file; it converges) instead of queueing every reader and writer behind it.
+set lock_timeout = '5s';
+
+-- A nullable column with no default: a catalog change only, no table rewrite.
 alter table public.holler_matches add column if not exists alert_hold text;
 
+-- The check is added NOT VALID: Postgres then checks only rows written from now on and does not scan the table under an exclusive lock.
 do $$
 begin
   if not exists (
     select 1 from pg_constraint where conname = 'holler_matches_alert_hold_check' and conrelid = 'public.holler_matches'::regclass
   ) then
     alter table public.holler_matches
-      add constraint holler_matches_alert_hold_check check (alert_hold is null or alert_hold in ('background', 'below_min', 'held'));
+      add constraint holler_matches_alert_hold_check check (alert_hold is null or alert_hold in ('background', 'below_min', 'held')) not valid;
   end if;
 end
 $$;
+
+-- Separate statement: validates the existing rows (every one is null, the column is new) under a SHARE UPDATE EXCLUSIVE lock, which does
+-- not block reads or writes. The owner can run this one statement again at any time, on its own; on a constraint that is already valid
+-- it does nothing.
+alter table public.holler_matches validate constraint holler_matches_alert_hold_check;
+
+reset lock_timeout;
 
 -- Only the scan (service role) writes alert_hold.
 revoke insert (alert_hold), update (alert_hold) on table public.holler_matches from anon, authenticated;

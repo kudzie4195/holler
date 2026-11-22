@@ -1,6 +1,6 @@
 import { alertKeyOf } from './alert-dedupe';
 import { MAX_MATCHES_PER_USER, matchSignals, withoutWorkProfile, type MatchProfile, type MatchSignal } from './match';
-import { loadProfiles, readAllPages, type Db } from './store';
+import { loadProfiles, markStoredContactPaths, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
 
@@ -69,6 +69,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       }
     }
     if (signals.length === 0) return { created: 0 };
+    // The contact gate applies here too: a permit with no business and no site address is feed-only whoever it is matched to, and whenever.
+    await markStoredContactPaths(db, signals);
 
     const profiles =
       typeof opts.profiles === 'function' ? await opts.profiles() : (opts.profiles ?? (await loadProfiles(db, now)));

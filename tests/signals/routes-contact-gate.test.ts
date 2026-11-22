@@ -13,6 +13,9 @@ import { upsertMatchRows } from '@/lib/signals/quiet-matches';
 import { markContactPaths, runScan } from '@/lib/signals/run';
 import { pushEntriesFromMatches } from '@/lib/push/notify';
 import type { Adapter, SignalInput } from '@/lib/signals/types';
+import { parseArcgis } from '@/lib/signals/adapters/arcgis';
+import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
+import { shownHold, textShowsPlace } from '@/lib/signals/alert-gate';
 
 const NOW = new Date('2026-11-20T12:00:00Z');
 const LOC = { lat: 33.75, lon: -84.39 };
@@ -224,5 +227,53 @@ describe('precision holds', () => {
     expect(alertHoldFor(s, 'coming_soon', 'landscaping', null, holds)).toBe('held');
     expect(alertHoldFor(s, 'coming_soon', 'fencing', null, holds)).toBeNull();
     expect(alertHoldFor(s, 'market_insight', 'landscaping', null, holds)).toBeNull();
+  });
+});
+
+describe('redo 1: the contact path is read from what Holler holds, in order (business, site field or site contact, then the summary)', () => {
+  const dekalb = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-dekalb-permits')!;
+  const feature = (locationLine1: string) => ({
+    features: [{ attributes: { applicationNumber: 'MC-1', issuedDateTime: 1794588029000, workType: 'M-RAC', WorkTypeDescription: 'Residential Air Conditioning', OccupancyTypeDescription: 'Single Family Dwelling', statusDescription: 'Issued', locationLine1 }, geometry: { x: -84.23, y: 33.79 } }],
+  });
+  it("DeKalb: the summary prints no address, but the site spec's locationLine1 does: the permit alerts", () => {
+    // A street the stored-contact cleaner accepts becomes a real site contact.
+    const [plain] = parseArcgis(feature('4415 CANDLER RD'), dekalb);
+    expect(plain.contacts?.map((c) => [c.role, c.address])).toEqual([['site', '4415 CANDLER RD']]);
+    // A real Atlanta-area shape the cleaner refuses (two street words, no suffix): a gate-only entry, so the card still alerts.
+    const [s] = parseArcgis(feature('2300 NANCY CREEK NW'), dekalb);
+    expect(s.summary ?? '').not.toMatch(/NANCY/);
+    // The gate-only site entry: role site, no name, no address, never stored.
+    expect(s.contacts).toEqual([{ role: 'site', name: '', address: null, gateOnly: true }]);
+    const stored = [{ id: 1, source: s.source, external_id: s.externalId, kind: 'permit', title: s.title, summary: s.summary, categories: s.categories, lat: 0, lon: 0, state: 'GA', severity: 1, occurred_at: '' }] as StoredSignal[];
+    markContactPaths(stored, [s]);
+    expect(stored[0].contactPath).toBe('site');
+  });
+  it('a site field that is not a place ("0 PEACHTREE", "LOT 5 OAK SUBDIVISION", empty) gives no path', () => {
+    for (const v of ['0 PEACHTREE', 'LOT 5 OAK SUBDIVISION', '']) {
+      const [s] = parseArcgis(feature(v), dekalb);
+      expect((s.contacts ?? []).some((c) => c.gateOnly), v).toBe(false);
+    }
+  });
+  it('the gate-only entry is never written to holler_signal_contacts', async () => {
+    const { writeSignalContacts } = await import('@/lib/signals/store');
+    const db = new FakeDb();
+    await writeSignalContacts(db as unknown as Db, [{ signalId: 1, contacts: [{ role: 'site', name: '', address: null, gateOnly: true }] }], () => {});
+    expect(db.tables.holler_signal_contacts ?? []).toEqual([]);
+  });
+  it('the order holds: a business first, then a site, then the summary', () => {
+    expect(contactPathOf([{ role: 'contractor', name: 'Peach Builders LLC' }, { role: 'site', name: '', address: '12 OAK ST' }], '1 MAIN ST')).toBe('business');
+    expect(contactPathOf([{ role: 'site', name: '', address: '1584 ABNER NW' }], null)).toBe('site');
+    expect(contactPathOf([], null, true)).toBe('site');
+    expect(contactPathOf([], 'Residential Alteration | 5600 LA SALLE SW, ATLANTA, GA 30331')).toBe('site');
+    expect(contactPathOf([{ role: 'site', name: '', address: '0 PEACHTREE' }], 'Issued Status Code', false)).toBeNull();
+    expect(textShowsPlace('Main St & 3rd Ave')).toBe(true);
+  });
+  it('the feed never says "no site address" next to one: a stored Background hold is not shown when the card prints a place', () => {
+    expect(shownHold('background', [], 'Residential Alteration | 5600 LA SALLE SW, ATLANTA, GA 30331')).toBeNull();
+    expect(shownHold('background', [], 'New Construction | Single Family Dwelling | Issued')).toBe('background');
+    expect(shownHold('below_min', [], null, { minValue: null, jobValue: 1200 })).toBeNull();
+    expect(shownHold('below_min', [], null, { minValue: 1000, jobValue: 1200 })).toBeNull();
+    expect(shownHold('below_min', [], null, { minValue: 5000, jobValue: 1200 })).toBe('below_min');
+    expect(shownHold('below_min', [], null, { minValue: undefined, jobValue: 1200 })).toBe('below_min');
   });
 });

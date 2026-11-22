@@ -176,6 +176,7 @@ const CASES: Case[] = [
   { name: 'a new home permit for a mover (downstream)', sig: permit('New home permit in X'), trade: 'moving', want: 'coming_soon' },
   { name: 'a new home permit for real estate (downstream)', sig: permit('New home permit in X'), trade: 'real-estate', want: 'coming_soon' },
   { name: 'a demolition permit for junk removal (downstream)', sig: permit('Demolition permit in X'), trade: 'junk-removal', want: 'coming_soon' },
+  { name: 'round 18 review: an alteration with interior demolition (tagged junk-removal, titled by the alteration) for junk removal', sig: permit('Tenant fit-out permit in X'), trade: 'junk-removal', want: 'coming_soon' },
   { name: 'a re-roof permit for a gutter company (downstream, item 1.1)', sig: permit('Roof permit in X'), trade: 'siding-gutters', want: 'coming_soon' },
   { name: 'FAA ground stop for rideshare', sig: { source: 'faa', kind: 'travel', title: 'Ground stop' }, trade: 'rideshare-delivery', want: 'coming_soon' },
   { name: 'NYC rodent sighting (a pest-control job, not city baiting)', sig: c311('socrata-nyc-311', 'Rodent / Rat Sighting'), trade: 'pest-control', want: 'coming_soon' },
