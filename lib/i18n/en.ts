@@ -4,6 +4,8 @@
  * Most of these are the words code in lib/signals, lib/email, lib/outreach and components already printed; the code now reads them from
  * here, and the existing tests prove the English output did not change by a byte.
  */
+import { EN_ACCOUNT } from './en-account';
+
 export const en = {
   // ---- language names (shown in the Settings picker, always in their own language) ----
   'lang.en': 'English',
@@ -973,6 +975,8 @@ export const en = {
   'push.title.update_many': '{n} updates {where}',
   'push.title.mixed': '{n} alerts {where}',
   'push.body.stage': 'Stage update, {name}: {title}',
+  // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
+  ...EN_ACCOUNT,
 } as const;
 
 export type DictKey = keyof typeof en;

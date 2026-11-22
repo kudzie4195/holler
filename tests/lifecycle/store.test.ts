@@ -237,7 +237,8 @@ describe('quietPreview (day 1 with no matches)', () => {
   }
   it('gives labelled real counts from the 90-day preview', async () => {
     const q = await createStore(stub([row(1), row(2), row(3, { kind: 'permit', subtype: 'permit', source: 'x' })])).quietPreview(profile, now);
-    expect(q).toEqual({ lines: [{ label: 'storm reports', count: 2 }, { label: 'building permit', count: 1 }], total: 3, capped: false, days: 90 });
+    // Round 18 ES: each line also carries its record type, so a Spanish email can name it in Spanish.
+    expect(q).toEqual({ lines: [{ label: 'storm reports', count: 2, key: 'storm-report' }, { label: 'building permit', count: 1, key: 'permit' }], total: 3, capped: false, days: 90 });
   });
   it('is null when nothing matched (so day 1 is not sent), and null when the records cannot be read', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

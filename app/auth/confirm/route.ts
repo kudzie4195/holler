@@ -14,8 +14,15 @@ import { RECOVERY_COOKIE, recoveryCookieOptions, signRecoveryProof } from '@/lib
  */
 export function GET(request: NextRequest) {
   const url = request.nextUrl.clone();
-  url.pathname = '/auth/confirm/continue';
+  // A link from a Spanish email (its next is an /es page, round 18 ES) gets the Spanish button page; the query is kept as it is.
+  url.pathname = isSpanishNext(request.nextUrl.searchParams.get('next')) ? '/es/confirm' : '/auth/confirm/continue';
   return NextResponse.redirect(url, 307);
+}
+
+/** True when `next` is a Spanish page (/es/reset): the pages around the link are then the Spanish ones. */
+function isSpanishNext(next: string | null): boolean {
+  const safe = safeNext(next, '/app');
+  return safe === '/es' || safe.startsWith('/es/');
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const fail = () => {
     const url = request.nextUrl.clone();
-    url.pathname = '/forgot';
+    url.pathname = isSpanishNext(field('next')) ? '/es/forgot' : '/forgot';
     url.search = '';
     url.searchParams.set('error', 'link');
     return NextResponse.redirect(url, 303);

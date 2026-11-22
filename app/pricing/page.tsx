@@ -11,11 +11,15 @@ import { jsonLdString } from '@/lib/seo/serialize';
 import { socialMeta } from '@/lib/seo/social';
 import { TIER_NAMES } from '@/lib/plan/limits';
 import { COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_INTRO, PRICING_TITLE, YEARLY_NOTE, pricingLd } from '@/lib/plan/pricing-page';
+import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+
+const PAIR = ES_PAIRS[2];
 
 export const metadata: Metadata = {
   title: { absolute: PRICING_TITLE },
   description: PRICING_DESCRIPTION,
-  alternates: { canonical: '/pricing' },
+  // Its own canonical, as before, plus the hreflang pair with /es/pricing (round 18 ES).
+  alternates: pairAlternates(PAIR, 'en'),
   ...socialMeta({ title: PRICING_TITLE, description: PRICING_DESCRIPTION, path: '/pricing' }),
 };
 
@@ -105,7 +109,7 @@ export default function PricingPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer spanishHref={PAIR.es} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString([pricingLd(), faqLd(PRICING_FAQ)]) }} />
     </>
   );

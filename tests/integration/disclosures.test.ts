@@ -52,15 +52,16 @@ describe('(a) auto-renewal sentence next to every subscribe and change-plan butt
       for (const m of src.matchAll(/<BillingButton[\s\S]*?>/g)) {
         if (!m[0].includes('/api/stripe/checkout')) continue;
         checkout++;
-        expect(m[0], f).toMatch(/note=\{renewalNote\(/);
+        expect(m[0], f).toMatch(/note=\{renewalNote(?:Es)?\(/);
       }
       for (const m of src.matchAll(/<PlanChangeButton[\s\S]*?>/g)) {
         change++;
-        expect(m[0], f).toMatch(/note=\{planChangeNote\(/);
+        expect(m[0], f).toMatch(/note=\{planChangeNote(?:Es)?\(/);
       }
     }
     expect(checkout).toBeGreaterThanOrEqual(3);
-    expect(change).toBe(2);
+    // Round 18 ES: Settings has the same two plan-change buttons in Spanish (planChangeNoteEs).
+    expect(change).toBe(4);
   });
 
   it('the plan cards have no subscribe button (they link to sign-up, no card), so they need no renewal sentence', () => {

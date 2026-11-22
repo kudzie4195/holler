@@ -8,11 +8,15 @@ const links = [
   { href: '/app/settings', label: 'Settings' },
 ];
 
-export function AppNavLinks() {
+/**
+ * The two app links. `labels` (round 18 ES) gives their words in the member's language, in the order of `links`; without it they are
+ * the English words they always were.
+ */
+export function AppNavLinks({ labels }: { labels?: readonly [string, string] } = {}) {
   const pathname = usePathname();
   return (
     <>
-      {links.map((l) => {
+      {links.map((l, i) => {
         const active = l.href === '/app' ? pathname === '/app' : pathname.startsWith(l.href);
         return (
           <Link
@@ -23,7 +27,7 @@ export function AppNavLinks() {
               active ? 'bg-sand text-ink underline decoration-2 underline-offset-[6px]' : 'text-muted hover:bg-sand hover:text-ink'
             }`}
           >
-            {l.label}
+            {labels?.[i] ?? l.label}
           </Link>
         );
       })}

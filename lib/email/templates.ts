@@ -12,6 +12,7 @@ import { localizeTitle } from '../signals/title-i18n';
 import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
+import { trialPhraseEs } from '../plan/price-copy-es';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
 export interface DigestItem {
@@ -292,7 +293,41 @@ export function renderDigest(opts: {
   return { subject, html, text };
 }
 
-export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
+/** How long a verify link works (lib/email/token.ts signs it for 7 days). Said in the verify emails. */
+export const VERIFY_LINK_DAYS = 7;
+
+/**
+ * The account emails in a language other than English (round 18 ES): password reset, welcome, and welcome plus verify. Same layout,
+ * buttons and footer as the English ones below, which are left exactly as they were. Every word comes from the dictionary; the trial
+ * length from TRIAL_DAYS through lib/plan/price-copy-es.ts trialPhraseEs.
+ */
+function accountMail(lang: Lang, o: { subject: string; heading: string; paras: string[]; button: { href: string; label: string }; note: string; noteText?: string; textLink?: string }): Rendered {
+  const html =
+    wrapOpen(560, lang) +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(o.heading)}</h1>` +
+    o.paras.map((p) => `<p>${escapeHtml(p)}</p>`).join('') +
+    button(o.button.href, o.button.label) +
+    `<p style="${S.muted}">${o.note}${contactHtml(lang)}</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text = `${o.heading}\n\n${o.paras.join('\n\n')}\n\n${o.textLink ?? `${o.button.label}: ${o.button.href}`}\n\n${o.noteText ?? o.note}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+  return { subject: o.subject, html, text };
+}
+
+export function renderPasswordReset(opts: { resetUrl: string; lang?: Lang }): Rendered {
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    return accountMail(lang, {
+      subject: t(lang, 'mail.reset.subject'),
+      heading: t(lang, 'mail.reset.h'),
+      paras: [t(lang, 'mail.reset.p')],
+      button: { href: opts.resetUrl, label: t(lang, 'mail.reset.button') },
+      note: escapeHtml(t(lang, 'mail.reset.ignore')),
+      noteText: t(lang, 'mail.reset.ignore'),
+      textLink: opts.resetUrl,
+    });
+  }
   const subject = 'Reset your Holler password';
   const html =
     WRAP_OPEN +
@@ -307,8 +342,24 @@ export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
   return { subject, html, text };
 }
 
-export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const a = contactAddress();
+    const html =
+      wrapOpen(560, lang) +
+      `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) }))}</h1>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') }))}</p>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) }))}</p>` +
+      button(opts.appUrl, t(lang, 'email.open_feed')) +
+      (a ? `<p style="${S.muted}">${contactHtml(lang).trim()}</p>` : '') +
+      cardClose() +
+      postalFooterHtml(lang) +
+      WRAP_CLOSE;
+    const text = `${t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) })}\n\n${t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') })}\n\n${t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) })}\n\n${t(lang, 'email.open_feed')}: ${opts.appUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+    return { subject: t(lang, 'mail.welcome.subject'), html, text };
+  }
   const subject = 'Welcome to Holler';
   const html =
     WRAP_OPEN +
@@ -325,8 +376,21 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
 }
 
 /** Welcome plus the email-confirmation link sent right after signup (and on resend). */
-export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const url = escapeHtml(opts.appUrl);
+    return accountMail(lang, {
+      subject: t(lang, 'mail.verify.subject'),
+      heading: t(lang, 'mail.verify.h'),
+      paras: [t(lang, 'mail.verify.p1', { trial: trialPhraseEs(days) }), t(lang, 'mail.verify.p2', { days: VERIFY_LINK_DAYS })],
+      button: { href: opts.verifyUrl, label: t(lang, 'mail.verify.button') },
+      note: `${escapeHtml(t(lang, 'mail.verify.setup'))} <a href="${url}" style="${S.mutedLink}">${url}</a>. ${escapeHtml(t(lang, 'mail.verify.ignore'))}`,
+      noteText: `${t(lang, 'mail.verify.setup')} ${opts.appUrl}\n\n${t(lang, 'mail.verify.ignore')}`,
+      textLink: opts.verifyUrl,
+    });
+  }
   const subject = 'Welcome to Holler: confirm your email';
   const html =
     WRAP_OPEN +

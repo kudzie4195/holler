@@ -11,6 +11,7 @@ import {
   type AlertItem,
 } from './templates';
 import { lifecycleUnsubUrl } from './unsub';
+import type { Lang } from '../i18n';
 
 export const MAX_MEMBERS_PER_RUN = 200;
 export const MAX_TRIES = 3;
@@ -52,6 +53,11 @@ export interface RunDeps {
    * for this member's items, or undefined for the default order. A throw or rejection also means the default order. Wins over `rank`.
    */
   rankFor?: (p: FullProfile, items: (AlertItem & { id: number })[]) => Promise<(<T extends AlertItem>(items: T[]) => T[]) | undefined>;
+  /**
+   * The member's language (round 18 ES): the cron passes a read of the profile's language column. Absent, a throw, or anything but
+   * 'es' means the English email, exactly as before.
+   */
+  langFor?: (userId: string) => Promise<Lang>;
   /** Wall clock for the time budget; tests pass a fake. */
   clock?: () => number;
   budgetMs?: number;
@@ -90,15 +96,25 @@ interface Built {
 export async function buildMail(
   kind: LifecycleKind,
   p: FullProfile,
-  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor'>,
+  deps: Pick<RunDeps, 'store' | 'siteUrl' | 'secret' | 'rank' | 'rankFor' | 'langFor'>,
   now: Date,
 ): Promise<Built | null> {
   const base = deps.siteUrl.replace(/\/$/, '');
+  let lang: Lang = 'en';
+  if (deps.langFor) {
+    try {
+      lang = (await deps.langFor(p.user_id)) === 'es' ? 'es' : 'en';
+    } catch {
+      lang = 'en';
+    }
+  }
   const common = {
-    businessName: plain(p.business_name || 'your business'),
+    businessName: plain(p.business_name || (lang === 'en' ? 'your business' : 'su negocio')),
     feedUrl: `${base}/app`,
     plansUrl: `${base}/app/settings#billing-h`,
     unsubscribeUrl: lifecycleUnsubUrl(base, p.user_id, deps.secret, now.getTime()),
+    // Only a Spanish member's emails carry the field: an English render is called exactly as before.
+    ...(lang === 'en' ? {} : { lang }),
   };
   if (kind === 'welcome') {
     const m = await deps.store.matchesOf(p.user_id);

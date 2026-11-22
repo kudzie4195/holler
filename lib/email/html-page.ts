@@ -6,6 +6,8 @@ interface PageOptions {
   form?: { action: string; button: string; fields?: Record<string, string> };
   links?: { href: string; label: string }[];
   status?: number;
+  /** Language of the page (round 18 ES). Only sets <html lang>; English pages are unchanged. */
+  lang?: 'en' | 'es';
 }
 
 /** Minimal standalone HTML page for token links (unsubscribe, verify). Every dynamic string is escaped. */
@@ -18,7 +20,7 @@ export function htmlPage(title: string, body: string, opts: PageOptions = {}): R
   const links = (opts.links ?? [])
     .map((l) => `<p><a href="${escapeHtml(l.href)}" style="${S.link};display:inline-flex;align-items:center;min-height:44px">${escapeHtml(l.label)}</a></p>`)
     .join('');
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escapeHtml(title)}</title></head><body style="font-family:${F.body};background:${C.paper};color:${C.ink};margin:0;padding:48px 16px"><main style="max-width:480px;margin:0 auto">${emailHeader()}<div style="background:${C.surface};border:1px solid ${C.line};border-top:0;border-radius:0 0 10px 10px;padding:24px 20px"><h1 style="${S.h1};font-size:28px;margin:0 0 12px 0">${escapeHtml(title)}</h1><p style="color:${C.muted};line-height:1.5">${escapeHtml(body)}</p>${form}${links}</div></main></body></html>`;
+  const html = `<!doctype html><html lang="${opts.lang ?? 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escapeHtml(title)}</title></head><body style="font-family:${F.body};background:${C.paper};color:${C.ink};margin:0;padding:48px 16px"><main style="max-width:480px;margin:0 auto">${emailHeader()}<div style="background:${C.surface};border:1px solid ${C.line};border-top:0;border-radius:0 0 10px 10px;padding:24px 20px"><h1 style="${S.h1};font-size:28px;margin:0 0 12px 0">${escapeHtml(title)}</h1><p style="color:${C.muted};line-height:1.5">${escapeHtml(body)}</p>${form}${links}</div></main></body></html>`;
   return new Response(html, {
     status: opts.status ?? 200,
     headers: {

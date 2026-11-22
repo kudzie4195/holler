@@ -1,4 +1,5 @@
 import type { DictKey } from './en';
+import { ES_ACCOUNT } from './es-account';
 
 /**
  * Latin American business Spanish: "usted", short sentences, plain words. The brand name stays "Holler". Wording rules are in
@@ -9,7 +10,7 @@ export const es: Record<DictKey, string> = {
   'lang.en': 'English',
   'lang.es': 'Español',
   'settings.language.label': 'Idioma',
-  'settings.language.hint': 'Los correos de alertas, las tarjetas de alertas y los borradores de respuesta usan este idioma.',
+  'settings.language.hint': 'Su cuenta en la web, los correos, las tarjetas de alertas y los borradores de respuesta usan este idioma.',
   'settings.language.heading': 'Idioma',
   'settings.language.save': 'Guardar idioma',
   'settings.language.saved': 'Idioma guardado.',
@@ -335,7 +336,7 @@ export const es: Record<DictKey, string> = {
   'card.draft': 'Borrador de respuesta',
   'card.redraft': 'Escribir otro borrador',
   'card.writing': 'Escribiendo...',
-  'card.draft_err.not_ask': 'Los borradores solo funcionan con personas que piden ayuda.',
+  'card.draft_err.not_ask': 'Los borradores funcionan únicamente con personas que piden ayuda.',
   'card.draft_err.generic': 'No pudimos escribir un borrador ahora. Intente de nuevo.',
   'card.draft_err.network': 'No pudimos conectar con el servidor. Intente de nuevo.',
   'card.draft_panel': 'Su borrador. Edítelo y luego publíquelo usted mismo.',
@@ -503,9 +504,9 @@ export const es: Record<DictKey, string> = {
   'nav.main': 'Principal',
   'nav.check': 'Revise su zona',
   'nav.how': 'Cómo funciona',
-  'nav.pricing': 'Precios (en inglés)',
-  'nav.login': 'Iniciar sesión (en inglés)',
-  'nav.start': 'Empezar gratis (en inglés)',
+  'nav.pricing': 'Precios',
+  'nav.login': 'Iniciar sesión',
+  'nav.start': 'Empezar gratis',
   'nav.other_language': 'English',
   'hero.h1': 'Registros públicos cerca de usted, filtrados para su oficio.',
   'hero.sub': 'Alertas cuando una granizada, un permiso o una solicitud al 311 cerca de usted encaja con su oficio. Cada alerta enlaza a su fuente pública.',
@@ -518,7 +519,7 @@ export const es: Record<DictKey, string> = {
   'how.s1.t': 'Qué pasó',
   'how.s1.b': 'En palabras sencillas, según los oficios que usted eligió.',
   'how.s2.t': 'A qué distancia',
-  'how.s2.b': 'Solo registros dentro del radio en el que usted maneja.',
+  'how.s2.b': 'Únicamente registros dentro del radio en el que usted trabaja.',
   'how.s3.t': 'La fuente pública',
   'how.s3.b': 'Un toque para ir a la página de la ciudad o del servicio del clima de donde salió.',
   'five.h': 'Cada alerta tiene cinco partes',
@@ -535,11 +536,11 @@ export const es: Record<DictKey, string> = {
   'fam.civic.from': 'Árboles caídos, basura tirada, ratas y órdenes de reparación.',
   'fam.good_for': 'Sirve para: {list}',
   'lang.band.h': 'Alertas en español',
-  'lang.band.p': 'Elija Español en Settings (los ajustes de su cuenta) y sus correos de alertas, sus tarjetas de alertas y sus borradores de respuesta se escriben en español. Las páginas para crear la cuenta todavía están en inglés.',
+  'lang.band.p': 'Si crea su cuenta desde estas páginas, todo le llega en español: los correos de alertas, las tarjetas, los borradores de respuesta y su cuenta en la web. Puede cambiar el idioma cuando quiera en Configuración.',
   'price.h': '{trial}. Luego, un precio mensual fijo.',
   'price.p': 'Sin tarjeta para empezar. Cancele cuando quiera.',
-  'price.line': 'El plan "{starter}" cuesta {a} al mes o {b} al año. El plan "{pro}" cuesta {c} al mes o {d} al año.',
-  'price.cta': 'Ver los planes (en inglés)',
+  'price.line': 'Plan {starter}: {a} al mes o {b} al año. Plan {pro}: {c} al mes o {d} al año.',
+  'price.cta': 'Ver los planes',
   'faq.h': 'Respuestas directas',
   'faq.q1': '¿Es una lista de personas a las que hay que llamar?',
   'faq.a1': 'No. Holler muestra registros públicos que apuntan a trabajo. No promete un trabajo ni un cliente.',
@@ -951,4 +952,6 @@ export const es: Record<DictKey, string> = {
   'push.title.update_many': '{n} actualizaciones {where}',
   'push.title.mixed': '{n} alertas {where}',
   'push.body.stage': 'Actualización de etapa, {name}: {title}',
+  // Ronda 18, unidad ES: precios, registro, la aplicación web, Configuración, pagos y los correos de la cuenta (lib/i18n/es-account.ts).
+  ...ES_ACCOUNT,
 };

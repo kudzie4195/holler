@@ -8,15 +8,15 @@ const L = 'es' as const;
 const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[0.9375rem] font-medium text-on-brand';
 
 /**
- * Header of the Spanish public pages (/es and /es/check). Same bar as components/top-nav.tsx, with its words from the dictionary.
- * The sign-up, log-in and pricing pages are in English, so they are linked as they are; the language link goes to the English
- * counterpart of the page the visitor is on (`englishHref`).
+ * Header of the Spanish public pages. Same bar as components/top-nav.tsx, with its words from the dictionary. Pricing, log-in and
+ * sign-up link to their Spanish pages (round 18); the language link goes to the English counterpart of the page the visitor is on
+ * (`englishHref`).
  */
 export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
   const links = [
     { href: '/es/check', label: t(L, 'nav.check'), english: false },
     { href: '/es#how', label: t(L, 'nav.how'), english: false },
-    { href: '/pricing', label: t(L, 'nav.pricing'), english: true },
+    { href: '/es/pricing', label: t(L, 'nav.pricing'), english: false },
   ];
   return (
     <>
@@ -44,10 +44,10 @@ export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
             <a href={englishHref} hrefLang="en" lang="en" className={linkCls}>
               {t(L, 'nav.other_language')}
             </a>
-            <Link href="/login" hrefLang="en" className={`${linkCls} hidden min-[28rem]:inline-flex`}>
+            <Link href="/es/login" className={`${linkCls} hidden min-[28rem]:inline-flex`}>
               {t(L, 'nav.login')}
             </Link>
-            <ButtonLink href="/signup" hrefLang="en" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
+            <ButtonLink href="/es/signup" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
               {t(L, 'nav.start')}
             </ButtonLink>
           </div>

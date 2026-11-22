@@ -39,7 +39,19 @@ import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { VALUE_SELECT, parseMoney } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
-import { langOfProfile, t } from '@/lib/i18n';
+import { langOfProfile, t, type Lang } from '@/lib/i18n';
+import { memberLang } from '@/lib/auth/member-lang';
+import { planNameEs, renewalNoteEs } from '@/lib/plan/price-copy-es';
+import type { Metadata } from 'next';
+
+/**
+ * The tab title in the member's language (round 18 ES). An English member gets no page title of its own, exactly as before (the layout's
+ * default, "Your matches"); a Spanish member gets the Spanish one. The page already reads the session, so this adds no dynamic access.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await memberLang();
+  return lang === 'en' ? {} : { title: { absolute: t(lang, 'app.title') } };
+}
 
 interface SignalRow {
   id: number;
@@ -317,13 +329,13 @@ export default async function AppHome(props: PageProps<'/app'>) {
       <div className="mt-6 flex flex-col gap-4 empty:hidden">
         {upgraded ? (
           <Notice tone="success" role="status">
-            Thanks. Your payment went through. It can take a few seconds to show up here.
+            {lang === 'en' ? 'Thanks. Your payment went through. It can take a few seconds to show up here.' : t(lang, 'app.upgraded')}
           </Notice>
         ) : null}
-        {profile.email_verified_at ? null : <VerifyNotice />}
-        <TrialBanner access={access} />
+        {profile.email_verified_at ? null : <VerifyNotice lang={lang} />}
+        <TrialBanner access={access} lang={lang} />
         <CoverageNoticeLine line={coverage} />
-        {failed ? <Notice tone="danger" role="alert">We couldn&apos;t load your matches. Refresh in a moment.</Notice> : null}
+        {failed ? <Notice tone="danger" role="alert">{lang === 'en' ? "We couldn't load your matches. Refresh in a moment." : t(lang, 'app.load_failed')}</Notice> : null}
       </div>
 
       <div className="mt-6">
@@ -344,6 +356,9 @@ export default async function AppHome(props: PageProps<'/app'>) {
           )
         ) : access.locked ? (
           <LockedFeed items={items} lang={lang}>
+            {lang !== 'en' ? (
+              <LockedCard lang={lang} count={items.length} inTrial={!access.trialEnded} />
+            ) : (
             <Card className="text-center">
               <h2 className="h-plain text-2xl text-ink">Your free trial is over</h2>
               <p className="mt-2 text-muted">
@@ -368,6 +383,7 @@ export default async function AppHome(props: PageProps<'/app'>) {
                 </Link>
               </div>
             </Card>
+            )}
           </LockedFeed>
         ) : (
           <Feed items={items} cityPage={cityPage} firstRun={firstRun} lang={lang} />
@@ -378,7 +394,36 @@ export default async function AppHome(props: PageProps<'/app'>) {
   );
 }
 
-function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
+/** The card over a locked feed, in Spanish (round 18 ES). The English card above is unchanged. Prices from the price table. */
+function LockedCard({ lang, count, inTrial }: { lang: Lang; count: number; inTrial: boolean }) {
+  return (
+    <Card className="text-center">
+      <h2 className="h-plain text-2xl text-ink">{t(lang, 'app.locked.h')}</h2>
+      <p className="mt-2 text-muted">
+        {count > 0 ? `${t(lang, count === 1 ? 'app.locked.waiting_one' : 'app.locked.waiting_many', { n: count })} ` : ''}
+        {t(lang, 'app.locked.prices', { solo: planNameEs('starter'), soloPrice: priceLabel('starter', 'monthly'), pro: planNameEs('pro'), proPrice: priceLabel('pro', 'monthly') })}
+      </p>
+      <div className="mt-5 flex flex-col items-center gap-3">
+        <BillingButton
+          endpoint="/api/stripe/checkout"
+          tier="starter"
+          plan="monthly"
+          lang={lang}
+          unavailableMessage={t(lang, 'app.locked.unavailable')}
+          note={renewalNoteEs('starter', 'monthly', { inTrial })}
+        >
+          {t(lang, 'app.locked.cta', { price: priceLabel('starter', 'monthly') })}
+        </BillingButton>
+        <Link href="/app/settings#billing-h" className="text-sm font-medium text-brand-text underline">
+          {t(lang, 'app.locked.both')}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function TrialBanner({ access, lang = 'en' }: { access: ReturnType<typeof computeAccess>; lang?: Lang }) {
+  if (lang !== 'en') return <TrialBannerLang access={access} lang={lang} />;
   if (access.status === 'past_due') {
     return (
       <Notice tone="warn">
@@ -403,6 +448,38 @@ function TrialBanner({ access }: { access: ReturnType<typeof computeAccess> }) {
           </span>
           <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
             Pick a plan
+          </Link>
+        </div>
+      </Notice>
+    );
+  }
+  return null;
+}
+
+/** The trial and payment banner in Spanish (round 18 ES). Same states and links as TrialBanner. */
+function TrialBannerLang({ access, lang }: { access: ReturnType<typeof computeAccess>; lang: Lang }) {
+  if (access.status === 'past_due') {
+    return (
+      <Notice tone="warn">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span>{t(lang, 'app.past_due')}</span>
+          <BillingButton endpoint="/api/stripe/portal" variant="secondary" size="sm" lang={lang}>
+            {t(lang, 'app.manage_billing')}
+          </BillingButton>
+        </div>
+      </Notice>
+    );
+  }
+  if (access.status === 'trialing' && !access.trialEnded) {
+    return (
+      <Notice tone="info">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span>
+            <strong className="font-semibold">{t(lang, access.daysLeft === 1 ? 'app.trial.days_one' : 'app.trial.days_many', { n: access.daysLeft })}</strong>{' '}
+            {t(lang, 'app.trial.rest', { price: priceLabel('starter', 'monthly') })}
+          </span>
+          <Link href="/app/settings#billing-h" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-text underline md:min-h-9">
+            {t(lang, 'app.pick_plan')}
           </Link>
         </div>
       </Notice>
