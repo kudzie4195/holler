@@ -1,7 +1,7 @@
 import type { CategoryId } from './categories';
 import { formatDeadlineDate, labelFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidSourceLinkLabel } from './bid-card';
-import { carriedTrades, NEW_BUILD_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
+import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 
 /**
@@ -504,7 +504,7 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
   };
   // A trade downstream of the permit's type (permit-routing.ts, PLAN-2.0 item 1.1) gets one fixed sentence per (permit kind, trade). It reads
   // the record's own title, so a locked member's brief (built without the title) falls back to the generic sentence.
-  const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade) : null;
+  const routed = family === 'permit' && label === 'coming_soon' ? routeWhyFor(input.title, trade, { summary: input.summary, source: input.source }) : null;
   const why = routed ?? WHY_OVERRIDES[`${label}|${family}|${trade}`] ?? (WHY[family][label] ? WHY[family][label]!(workFor(trade), ctx) : FALLBACK_WHY[label](workFor(trade)));
   const u = UNCERTAIN[family];
   const merged: Uncertainty = { ...u.base, ...(u.byLabel?.[label] ?? {}) };
@@ -634,7 +634,7 @@ export function allBriefStrings(): string[] {
       }
     }
   }
-  out.push(...Object.values(WHY_OVERRIDES), ...Object.values(ROUTE_WHY).flatMap((t) => NEW_BUILD_NOUNS.map((n) => t.replace('{permit}', n))), ...Object.values(TRADE_WORK), GENERIC_WORK);
+  out.push(...Object.values(WHY_OVERRIDES), ...Object.entries(ROUTE_WHY).flatMap(([key, t]) => PERMIT_NOUNS[key.split('|')[0] as keyof typeof PERMIT_NOUNS].map((n) => t.replace('{Permit}', n))), ...Object.values(TRADE_WORK), GENERIC_WORK);
   return out;
 }
 

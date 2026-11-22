@@ -178,7 +178,7 @@ export async function GET(req: Request) {
         store_expires_at: p.store_expires_at ?? null,
       }).categories;
       const labelOf = (s: SignalRow): OpportunityLabel =>
-        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades), deadlineOf(s), now.getTime());
+        demoteExpired(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades), deadlineOf(s), now.getTime());
       const live = userMatches
         .map((m) => ({ m, s: Array.isArray(m.signal) ? m.signal[0] : m.signal }))
         // A resident request that has ended is never mailed. Its match is left unmarked: the scan cron deletes the record and the

@@ -11,7 +11,7 @@ import { PERMIT_KINDS } from '@/lib/signals/mapping/permit';
 import {
   DOWNSTREAM,
   KIND_DOERS,
-  NEW_BUILD_NOUNS,
+  PERMIT_NOUNS,
   ROUTE_KINDS,
   ROUTE_WHY,
   carriedTrades,
@@ -223,7 +223,7 @@ describe('the downstream matrix', () => {
       it(`${k}: ${trade} is downstream, labelled coming_soon, and has one sentence`, () => {
         expect(routeFor(TITLE_OF[k], trade)).toBe(k);
         expect(labelFor(permit(TITLE_OF[k]), trade as CategoryId)).toBe('coming_soon');
-        expect(routeWhyFor(TITLE_OF[k], trade)).toBe(ROUTE_WHY[`${k}|${trade}`]?.replace('{permit}', 'new-home permit'));
+        expect(routeWhyFor(TITLE_OF[k], trade)).toBe(ROUTE_WHY[`${k}|${trade}`]?.replace('{Permit}', PERMIT_NOUNS[k][0]));
         expect(routeWhyFor(TITLE_OF[k], trade)).toBeTruthy();
       });
     }
@@ -293,7 +293,7 @@ describe('carried trades and the widened read', () => {
 
 describe('the one sentence per (permit kind, trade)', () => {
   const cells = Object.entries(ROUTE_WHY).flatMap(([key, text]) =>
-    text.includes('{permit}') ? NEW_BUILD_NOUNS.map((n) => [key, text.replace('{permit}', n)] as const) : [[key, text] as const],
+    PERMIT_NOUNS[key.split('|')[0] as RouteKind].map((n) => [`${key} / ${n}`, text.replace('{Permit}', n)] as const),
   );
   it('has 25 cells', () => expect(Object.keys(ROUTE_WHY)).toHaveLength(25));
   it.each(cells)('%s: short, hedged, no banned words, no claim of a hire', (_key, text) => {
@@ -302,6 +302,17 @@ describe('the one sentence per (permit kind, trade)', () => {
     expect(text).not.toMatch(/\b(?:hired|chosen|choosing|picked|selected|awarded|won|will)\b/i);
     expect(text).toMatch(/was filed nearby/);
     expect(text).toMatch(/\b(?:may|often|some|are part of)\b/);
+  });
+  it('names the permit the title names: an addition is not a "remodel permit", a roof permit is not a "re-roof permit"', () => {
+    expect(routeWhyFor('Addition permit in Atlanta', 'cleaning')).toMatch(/^An addition permit was filed nearby/);
+    expect(routeWhyFor('Remodel permit in Atlanta', 'cleaning')).toMatch(/^A remodel permit was filed nearby/);
+    expect(routeWhyFor('Addition permit in Atlanta', 'flooring')).not.toMatch(/remodel/i);
+    expect(routeWhyFor('Roof permit in Atlanta', 'siding-gutters')).toMatch(/^A roof permit was filed nearby/);
+    expect(routeWhyFor('Roof permit in Atlanta', 'siding-gutters')).not.toMatch(/re-roof/i);
+    expect(routeWhyFor('Remodel and addition permit in Atlanta', 'cleaning')).toMatch(/^A remodel permit/);
+    expect(routeWhyFor('Tenant fit-out permit in Cobb County', 'security')).toMatch(/^A tenant fit-out permit/);
+    // a commercial remodel reached through the record's own class is not called a tenant fit-out
+    expect(routeWhyFor('Remodel permit in Atlanta', 'janitorial-commercial', { summary: 'Commercial Alteration | $40,000 job value | 740 LAMBERT NE' })).toMatch(/^A commercial permit/);
   });
   it('a new-construction title says "new-construction permit", a new-home title says "new-home permit"', () => {
     expect(routeWhyFor('New construction permit in Atlanta', 'moving')).toContain('new-construction permit');

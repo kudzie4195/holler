@@ -185,6 +185,15 @@ const CASES: Case[] = [
   { name: 'awarded federal contract', sig: { source: 'usaspending', kind: 'contract', title: 'Federal contract' }, trade: 'plumbing', want: 'market_insight' },
   { name: 'awarded federal contract with no trade', sig: { source: 'usaspending', kind: 'contract', title: 'Federal contract' }, trade: null, want: 'market_insight' },
 
+  // round 15 re-grade (Q2): stored rows from before the ingest changes
+  { name: 'stored M4.2 quake for a plumber', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'plumbing', want: 'context' },
+  { name: 'stored M4.2 quake for restoration', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'restoration', want: 'context' },
+  { name: 'M4.2 quake for insurance keeps the source default', sig: { source: 'usgs', kind: 'quake', title: 'M4.2 earthquake 5 km SW of Town, CA' }, trade: 'insurance', want: 'coming_soon' },
+  { name: 'M5.1 quake for a plumber keeps the source default', sig: { source: 'usgs', kind: 'quake', title: 'M5.1 earthquake 5 km SW of Town, CA' }, trade: 'plumbing', want: 'coming_soon' },
+  { name: 'stored flood advisory for a plumber', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory: Los Angeles, CA' }, trade: 'plumbing', want: 'context' },
+  { name: 'stored flood statement for a plumber', sig: { source: 'nws', kind: 'alert', title: 'Flood Statement: Fulton, GA' }, trade: 'plumbing', want: 'context' },
+  { name: 'flood advisory for restoration keeps the source default', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory: Los Angeles, CA' }, trade: 'restoration', want: 'coming_soon' },
+  { name: 'flash flood warning for a plumber keeps the source default', sig: { source: 'nws', kind: 'alert', title: 'Flash Flood Warning: Los Angeles, CA' }, trade: 'plumbing', want: 'coming_soon' },
   // a keyword-only match has no trade: the permit keeps its source default and is not silently dropped
   { name: 'permit seen through a keyword watch', sig: permit('Roof permit in X'), trade: null, want: 'coming_soon' },
 ];
@@ -235,7 +244,7 @@ describe('the label is pure and deterministic', () => {
   });
 
   it('does not mutate its input and does not read the clock', () => {
-    const sig: LabelInput = { source: 'nws', kind: 'alert', title: 'Flood Advisory' };
+    const sig: LabelInput = { source: 'nws', kind: 'alert', title: 'Flash Flood Warning' };
     const copy = JSON.stringify(sig);
     labelFor(sig, 'plumbing');
     expect(JSON.stringify(sig)).toBe(copy);

@@ -116,6 +116,8 @@ interface SignalLike {
   /** For the opportunity label (lib/signals/lead-rules.ts). */
   kind?: string | null;
   subtype?: string | null;
+  /** A permit's summary holds its structured type and class, which downstream routing reads (permit-routing.ts). */
+  summary?: string | null;
   categories?: string[] | null;
 }
 
@@ -158,7 +160,7 @@ export function pushEntriesFromMatches(
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
     if (!isNews(s.occurred_at, m.created_at, now)) continue;
     const trades = tradesByUser?.get(m.user_id);
-    if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, trades))) continue;
+    if (trades && !isAlertLabel(labelForMember({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, trades))) continue;
     const cur = out.get(m.user_id);
     if (!cur) {
       out.set(m.user_id, { count: 1, top: { signalId: s.id, title: s.title, city: s.city }, matchIds: [m.id] });
@@ -193,7 +195,7 @@ async function unpushedMatches(db: Db, userIds: string[], since: string): Promis
     for (let page = 0; page < MAX_MATCH_PAGES; page++) {
       const { data, error } = await db
         .from('holler_matches')
-        .select('id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, categories, subtype:data->>subtype)')
+        .select('id, user_id, created_at, signal:holler_signals(id, title, city, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype)')
         .in('user_id', ids)
         .eq('status', 'new')
         .is('pushed_at', null)

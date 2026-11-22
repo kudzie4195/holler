@@ -1,6 +1,7 @@
 import { siteUrl } from '@/lib/env';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
+import { countiesFromSame } from '@/lib/geo/county';
 
 /**
  * National Weather Service active alerts.
@@ -41,6 +42,11 @@ export const NWS_RULES: Rule[] = [
   { re: /high wind|extreme wind|wind advisory|^wind/i, categories: ['tree-service', 'roofing', 'restoration', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /red flag|fire weather|wildfire|fire warning/i, categories: ['restoration', 'tree-service', 'landscaping', 'insurance'], sev: { warning: 2, watch: 1, advisory: 1 } },
 ];
+
+/** A zone alert is placed by county only at this severity or higher (the floor the state-level match always had), so advisories stay quiet. */
+export const COUNTY_MIN_SEVERITY = 2;
+/** Most counties one alert becomes (a statewide winter storm warning names up to about a hundred). */
+export const MAX_COUNTIES_PER_ALERT = 150;
 
 /** Added to a severe thunderstorm alert whose text reports damaging hail. */
 export const NWS_HAIL_EXTRA: CategoryId[] = ['auto-body', 'auto-glass'];
@@ -197,6 +203,7 @@ export function parseNws(raw: unknown): SignalInput[] {
     let states = statesFromUgc(geoCode);
     if (!states.length) states = statesFromAreaDesc(areaDesc);
     const centroid = geometryCentroid(feat.geometry);
+    const counties = centroid ? [] : countiesFromSame((p.geocode as { SAME?: unknown } | undefined)?.SAME);
 
     const occurredAt = iso(p.onset) ?? iso(p.effective) ?? iso(p.sent) ?? new Date().toISOString();
     const expiresAt = iso(p.ends) ?? iso(p.expires);
@@ -226,8 +233,23 @@ export function parseNws(raw: unknown): SignalInput[] {
 
     if (centroid) {
       out.push({ ...base, externalId: id, lat: centroid.lat, lon: centroid.lon, state: states[0] ?? null, data });
+    } else if (counties.length && severity >= COUNTY_MIN_SEVERITY) {
+      // No polygon, but the alert names its counties (SAME codes, always present): one point per county at the county centroid, matched
+      // by radius like any other alert. The point is a stand-in for a county, so it carries data.loc = 'approx' (reach plus a county's
+      // slack, no distance shown) and the same data.alertId, which lets a member who sits between two counties of one alert get it once.
+      for (const c of counties.slice(0, MAX_COUNTIES_PER_ALERT)) {
+        out.push({
+          ...base,
+          externalId: `${id}#${c.fips}`,
+          lat: c.lat,
+          lon: c.lon,
+          state: c.state,
+          data: { ...data, loc: 'approx', countyFips: c.fips, alertId: id },
+        });
+      }
     } else if (states.length) {
-      // No geometry: one state-level signal per state so state matching is exact.
+      // No geometry and no county (or a minor alert): one state-level signal per state. The matcher never matches these by state (a
+      // zone alert is not statewide), so they are kept as history only.
       for (const st of states.slice(0, 8)) {
         out.push({ ...base, externalId: states.length > 1 ? `${id}#${st}` : id, state: st, data });
       }

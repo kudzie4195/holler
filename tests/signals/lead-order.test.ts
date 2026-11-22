@@ -69,7 +69,7 @@ const sig = (id: number, over: Partial<MatchSignal> = {}): MatchSignal => ({
   occurred_at: T(1),
   source: 'nws',
   kind: 'alert',
-  title: 'Flood Advisory',
+  title: 'Flash Flood Warning',
   ...over,
 });
 const profile = (over: Partial<MatchProfile> = {}): MatchProfile => ({ user_id: 'u1', categories: ['plumbing'], lat: 40.7, lon: -74, state: 'NY', radius_mi: 25, ...over });
@@ -121,13 +121,13 @@ describe('pickHits and matchSignals: Act Now first in the feed order', () => {
 
   it('matchSignals returns Act Now first, keeps market_insight for the feed (last) and leaves out context', () => {
     const signals: MatchSignal[] = [
-      sig(1, { severity: 3 }), // NWS flood advisory: coming_soon
+      sig(1, { severity: 3 }), // NWS flash flood warning: coming_soon
       sig(2, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: HEAT/HOT WATER / ENTIRE BUILDING', severity: 1 }), // act_now
       sig(3, { source: 'socrata-nyc-311', kind: 'civic', data: { subtype: '311' }, title: '311 request in X: Sewer Maintenance / Catch Basin Clogged' }), // context
       sig(4, { source: 'socrata-chicago-permits', kind: 'permit', data: { subtype: 'permit' }, title: 'Plumbing permit in X' }), // own trade: market_insight
     ];
     const out = matchSignals(signals, [profile()], 25, new Date(NOW));
-    expect(out.map((m) => m.signal_id)).toEqual([2, 1, 4]); // heat (act_now), flood advisory (coming_soon), own-trade permit (market_insight); the catch basin (context) is not matched
+    expect(out.map((m) => m.signal_id)).toEqual([2, 1, 4]); // heat (act_now), flash flood warning (coming_soon), own-trade permit (market_insight); the catch basin (context) is not matched
   });
 
   it('matchOne reports the label and the deadline, and returns null for context', () => {
@@ -142,7 +142,7 @@ describe('pickHits and matchSignals: Act Now first in the feed order', () => {
 // ---- the digest ------------------------------------------------------------------------------------------------------------------
 describe('renderDigest: Act Now first, with its deadline line', () => {
   const items: DigestItem[] = [
-    { kind: 'alert', source: 'nws', title: 'Flood Advisory', occurredAt: T(1), label: 'coming_soon' },
+    { kind: 'alert', source: 'nws', title: 'Flash Flood Warning', occurredAt: T(1), label: 'coming_soon' },
     { kind: 'civic', source: 'socrata-nyc-311', subtype: '311', title: 'No heat in a building', occurredAt: T(5), label: 'act_now', deadline: null },
     { kind: 'contract', source: 'sam-gov', title: 'Janitorial services bid', occurredAt: T(9), label: 'act_now', deadline: '2026-12-05T17:00:00Z' },
   ];
@@ -152,8 +152,8 @@ describe('renderDigest: Act Now first, with its deadline line', () => {
     const at = (s: string, t: string) => s.indexOf(t);
     for (const body of [out.html, out.text]) {
       expect(at(body, 'No heat in a building')).toBeGreaterThan(-1);
-      expect(at(body, 'No heat in a building')).toBeLessThan(at(body, 'Flood Advisory'));
-      expect(at(body, 'Janitorial services bid')).toBeLessThan(at(body, 'Flood Advisory'));
+      expect(at(body, 'No heat in a building')).toBeLessThan(at(body, 'Flash Flood Warning'));
+      expect(at(body, 'Janitorial services bid')).toBeLessThan(at(body, 'Flash Flood Warning'));
     }
   });
   it('keeps the caller order inside a label', () => {
@@ -163,7 +163,7 @@ describe('renderDigest: Act Now first, with its deadline line', () => {
     expect(out.text).toContain('Act now. Deadline: Dec 5, 2026');
     expect(out.text).toContain('Act now. No deadline published');
     expect(out.text).toContain('Coming soon');
-    const coming = out.text.split('\n\n').find((b) => b.includes('Flood Advisory'))!;
+    const coming = out.text.split('\n\n').find((b) => b.includes('Flash Flood Warning'))!;
     expect(coming).not.toContain('Deadline');
     expect(coming).not.toContain(NO_DEADLINE_TEXT);
     expect(out.html).toContain('No deadline published');

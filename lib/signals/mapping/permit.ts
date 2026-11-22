@@ -54,6 +54,7 @@ export const ADMIN_ONLY_RE =
  * them the row gets no trade and is dropped (as an admin-only value is), because the description then names the building's other work,
  * not this permit's (round 15 quality gate: a sidewalk shed read "Roof and window", a fire-sprinkler job at a bank read "Landscaping").
  */
+export const NO_TRADE_WORK_TYPES = ['sidewalk shed', 'supported scaffold', 'construction fence', 'protection and mechanical methods', 'sprinkler', 'standpipe', 'curb cut'] as const;
 export const NO_TRADE_WORK_TYPE_RE = /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|sprinklers?|standpipe|curb cut)$/i;
 
 /** Street suffixes and business words: a trade noun right before one of these names a street or a company, not work. */
@@ -181,7 +182,13 @@ export const PERMIT_KINDS: PermitKind[] = [
     generic: true,
     test: re(/\btenant\s?(?:fit\s?out|finish|improvement|build\s?out|up\s?fit)s?\b|\bbuild\s?outs?\b|\bfit\s?outs?\b|\bup\s?fits?\b|\bwhite\s?box\b/i),
   },
-  { id: 'remodel', label: 'Remodel', cats: ['general-contractor'], generic: true, test: re(/\bremodel\w*|\brenovat\w*|\balteration\w*|\balter\b|\brepairs?\b|\brehab\w*/i) },
+  // Masonry and dumpster permits are neither a home remodel nor a demolition (round 15 review: a Chicago "Masonry Work" express permit read as
+  // Remodel, a Cambridge "Dumpster" permit read as Demolition). They stay general-contractor, generic, and route nowhere.
+  { id: 'masonry', label: 'Masonry', cats: ['general-contractor'], generic: true, test: re(/\bmasonry\b|\btuck\s?point\w*|\bbrick\s?work\b/i) },
+  { id: 'dumpster', label: 'Dumpster', cats: ['general-contractor'], generic: true, test: re(/\bdumpsters?\b|\broll\s?off\b/i) },
+  { id: 'remodel', label: 'Remodel', cats: ['general-contractor'], generic: true, test: re(/\bremodel\w*|\brenovat\w*|\balteration\w*|\balter\b|\brehab\w*/i) },
+  // A bare repair is not a remodel (round 15 review: Orlando "Building Permit | Repair" $2,907 read as Remodel). It routes nowhere.
+  { id: 'repair', label: 'Repair', cats: ['general-contractor'], generic: true, test: re(/\brepairs?\b/i) },
   { id: 'structural', label: 'Structural', cats: ['general-contractor'], generic: true, test: re(/\bstructural\b|\bfoundations?\b|\bunderpinning\b/i) },
   { id: 'site-work', label: 'Site work', cats: ['general-contractor'], generic: true, test: re(/\bearth\s?work\b|\bgrading\b|\bexcavat\w*|\bsite\s?work\b|\bland\s?disturb\w*/i) },
   { id: 'building', label: 'Building', cats: ['general-contractor'], generic: true, test: re(/\bbuilding\b|\bbldg\b|\bconstruction\b|\bcontractor\b/i) },
@@ -314,8 +321,34 @@ const FREE_JOIN: Record<string, RegExp> = {
 
 const HVAC_KIND = () => PERMIT_KINDS.find((k) => k.id === 'hvac')!;
 
+/**
+ * A structured use, class or type that says the building is commercial, not a home: "Commercial", "Commercial Alteration", "(C) Commercial",
+ * "Business", "Office", "Mercantile", "Industrial", "Retail", "Warehouse". Exact values only (a column such as "Commercial Kitchen Hood" is
+ * not a use), so a residential permit is never reclassified by a stray word.
+ */
+export const COMMERCIAL_USE_RE =
+  /^(?:\(c\)\s*)?(?:commercial(?:\s+(?:alteration|addition|interior|remodel|renovation|building|bldg))?|business|office|mercantile|industrial|retail|warehouse)$/i;
+
+/**
+ * A commercial alteration or addition is a tenant fit-out, not a home remodel (round 15 re-grade #42, #43: Atlanta "Commercial Alteration"
+ * and LA "Bldg-Alter/Repair | Commercial" sent a house cleaner an office job). Fit-out routes to commercial cleaning, signs, security and
+ * pest control, never to house cleaning. Only the generic remodel and addition kinds are replaced; a named trade stays as it is.
+ */
+function commercialFitOut(kinds: PermitKind[], structured: string[]): PermitKind[] {
+  if (!structured.some((v) => COMMERCIAL_USE_RE.test(v))) return kinds;
+  if (!kinds.some((k) => k.id === 'remodel' || k.id === 'addition')) return kinds;
+  const fit = PERMIT_KINDS.find((k) => k.id === 'fit-out')!;
+  const out = kinds.filter((k) => k.id !== 'remodel' && k.id !== 'addition');
+  return out.some((k) => k.id === 'fit-out') ? out : [...out, fit];
+}
+
 /** Picks the kinds by the precedence above, before the title-length cut. */
 function pickKinds(f: PermitFields): PermitKind[] {
+  const structured = (f.structured ?? []).map((v) => normalizeWorkText(String(v ?? ''))).filter(Boolean);
+  return commercialFitOut(pickKindsRaw(f), structured);
+}
+
+function pickKindsRaw(f: PermitFields): PermitKind[] {
   const clean = (vs: string[] | undefined) => (vs ?? []).map((v) => normalizeWorkText(String(v ?? ''))).filter(Boolean);
   const structured = clean(f.structured);
   const free = clean(f.free);
@@ -346,7 +379,14 @@ function pickKinds(f: PermitFields): PermitKind[] {
     }
     return sSpecific;
   }
-  const fSpecific = fr.filter((k) => !k.generic);
+  let fSpecific = fr.filter((k) => !k.generic);
+  // An addition to or alteration of an existing building is not a new building, and an accessory structure is not a new home (round 15
+  // re-grade #32: a $15,000 "Bldg-Addition" read "New home" from its description; review: a NOLA "Accessory Structure" read "New home").
+  if (s.some((k) => k.id === 'addition' || k.id === 'remodel' || k.id === 'accessory')) {
+    fSpecific = fSpecific.filter((k) => k.id !== 'new-home' && k.id !== 'new-construction');
+  }
+  // A structured "Dumpster" permit is a container, not a demolition, whatever the description says about the debris.
+  if (s.some((k) => k.id === 'dumpster')) fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
   // With named trades in the description, only a generic word in the description itself joins them ("remodel kitchen, new plumbing"):
   // a city's catch-all type ("Renovation/Alteration", "Building Permit") over a re-roof is not a general contractor lead.
   if (fSpecific.length) {

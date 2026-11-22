@@ -3,9 +3,9 @@ import type { CategoryId } from '@/lib/signals/categories';
 import { isCategoryId } from '@/lib/signals/categories';
 import { categorize } from '@/lib/signals/adapters/socrata';
 import { civicLabel } from '@/lib/signals/adapters/permit-privacy';
-import { CAT_V, OLDER_VERSIONS, REMAP_SUBTYPES } from './version';
+import { CAT_V, REMAP_SUBTYPES } from './version';
 import { normalizeWorkText } from './permit';
-import { KIND_FOR_CATEGORY, NO_TRADE_WORK_TYPE_RE, PERMIT_KINDS, classFromKinds, classifyPermit, permitTitleFor } from './permit';
+import { KIND_FOR_CATEGORY, NO_TRADE_WORK_TYPES, NO_TRADE_WORK_TYPE_RE, PERMIT_KINDS, classFromKinds, classifyPermit, permitTitleFor } from './permit';
 import { pruneStaleMatches, rematchSignals, type PruneResult, type RematchResult } from '@/lib/signals/rematch';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
@@ -78,7 +78,8 @@ export function remapPermitRow(row: StoredRuleRow): { categories: CategoryId[]; 
     const k = KIND_FOR_CATEGORY[c];
     if (k) kinds.add(k);
   }
-  if (old.includes('real-estate') && old.includes('moving')) kinds.add('new-home');
+  // An addition or alteration is not a new building: the old real-estate and moving tags came from a description read as a new dwelling.
+  if (old.includes('real-estate') && old.includes('moving') && !fromSummary.kinds.some((id) => id === 'addition' || id === 'remodel')) kinds.add('new-home');
   // A generic word from the summary names the general contractor work better than "Building".
   const genericFromSummary = fromSummary.kinds[0];
   if (kinds.has('building') && genericFromSummary) {
@@ -140,6 +141,50 @@ export function violationIngestText(row: Pick<StoredRuleRow, 'source' | 'title' 
   return text;
 }
 
+/**
+ * The version 3 delta for a row stored at version 2, and nothing else:
+ *  - permit: a structured work type that is paperwork or temporary protection (NO_TRADE_WORK_TYPES: sidewalk shed, scaffold, site-safety
+ *    plan, fire sprinklers, curb cut) holds no trade work. The row loses its trades and its title becomes the typeless "Permit in <city>".
+ *    These rows were tagged from a description of the building's other work (a fire-sprinkler job titled "Landscaping"). The proof is the
+ *    work type text still stored in the summary. Every other permit keeps its title and trades exactly.
+ *  - violation: the keyword classifier no longer tags code violations (a gutter order is not roofing). Where the stored title holds all
+ *    of the text the ingest classified, the explicit violation rules decide, as at ingest; elsewhere the trades stay as stored.
+ * Anything this changes is recorded in data.cat_prev ({ v, title, categories }) first.
+ */
+function remapFromV2(row: StoredRuleRow, data: Record<string, unknown>, subtype: string, old: CategoryId[]): Remapped | null {
+  let categories = old;
+  let title = row.title;
+  if (subtype === 'permit') {
+    const parts = (row.summary ?? '').split(' | ').map((p) => p.trim()).filter((p) => p && !isNoisePart(p));
+    if (parts.some((p) => NO_TRADE_WORK_TYPE_RE.test(normalizeWorkText(p)))) {
+      categories = [];
+      title = permitTitleFor(row.city ?? '', null);
+    }
+  } else if (subtype === 'violation') {
+    const text = violationIngestText(row);
+    if (text) {
+      const r = categorize({ subtype: 'violation' }, text);
+      if (r.categories.length) categories = r.categories;
+    }
+  } else {
+    return null;
+  }
+  const gained = categories.filter((c) => !old.includes(c));
+  const lost = old.filter((c) => !categories.includes(c));
+  const changed = !sameSet(categories, old) || title !== row.title;
+  const prev = changed && !data.cat_prev ? { cat_prev: { v: 2, title: row.title, categories: old } } : {};
+  return { categories, title, data: { ...data, ...prev, cat_v: CAT_V }, changed, gained, lost };
+}
+
+/**
+ * The PostgREST filter for the rows the re-map reads: no version, version 1 (full re-map), or version 2 and only when the version 3 delta can
+ * apply (a violation, or a permit whose summary names a no-trade work type). The other version 2 rows are never read or written.
+ */
+export function remapVersionFilter(): string {
+  const words = NO_TRADE_WORK_TYPES.map((w) => `summary.ilike.*${w}*`).join(',');
+  return `data->>cat_v.is.null,data->>cat_v.eq.1,and(data->>cat_v.eq.2,or(data->>subtype.eq.violation,${words}))`;
+}
+
 /** Re-map one stored rule-based row. Returns null when it is not a row this pass handles (AI-set, other subtype, newer version). */
 export function remapRow(row: StoredRuleRow): Remapped | null {
   const data = (row.data && typeof row.data === 'object' ? row.data : {}) as Record<string, unknown>;
@@ -148,6 +193,10 @@ export function remapRow(row: StoredRuleRow): Remapped | null {
   if (Number.isFinite(v) && v >= CAT_V) return null;
   const subtype = typeof data.subtype === 'string' ? data.subtype : '';
   const old = (row.categories ?? []).filter(isCategoryId) as CategoryId[];
+  // A row written at version 2 already went through the full mapping at ingest, from description fields the database does not keep. The
+  // summary-only re-derivation below was written for version 1 rows and would degrade it (round 15 review P0: 11.5% of titles). A v2 row
+  // gets ONLY the specific changes version 3 made, and the row it replaces is kept in data.cat_prev so the write can be undone.
+  if (v === 2) return remapFromV2(row, data, subtype, old);
   let categories = old;
   let title = row.title;
   if (subtype === 'permit') {
@@ -170,7 +219,9 @@ export function remapRow(row: StoredRuleRow): Remapped | null {
   const gained = categories.filter((c) => !old.includes(c));
   const lost = old.filter((c) => !categories.includes(c));
   const changed = !sameSet(categories, old) || title !== row.title;
-  return { categories, title, data: { ...data, cat_v: CAT_V }, changed, gained, lost };
+  // What the row held before is kept, so the write can be undone (round 15 review P0: titles were rewritten with no copy of the original).
+  const prev = changed && !data.cat_prev ? { cat_prev: { v: Number.isFinite(v) ? v : 1, title: row.title, categories: old } } : {};
+  return { categories, title, data: { ...data, ...prev, cat_v: CAT_V }, changed, gained, lost };
 }
 
 export interface RemapReport {
@@ -220,9 +271,7 @@ export async function remapStoredSignals(db: Db, opts: RemapOptions = {}): Promi
     opts.rematch ??
     ((ids: number[]) => rematchSignals(db as never, ids, { now, profiles: loadOnce, log: opts.log, quiet: true }));
   const prune = opts.prune ?? ((ids: number[]) => pruneStaleMatches(db as never, ids, { now, profiles: loadOnce, log: opts.log }));
-  const versionFilter = OLDER_VERSIONS.length
-    ? `data->>cat_v.is.null,data->>cat_v.in.(${OLDER_VERSIONS.join(',')})`
-    : 'data->>cat_v.is.null';
+  const versionFilter = remapVersionFilter();
   let afterId = 0;
   try {
     while (report.batches < maxBatches && shouldContinue()) {

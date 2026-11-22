@@ -137,7 +137,7 @@ function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): Brief
 /** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
   const labelOf = (s: SignalRow) =>
-    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
+    demoteExpired(labelForMember({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now);
   // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
   const live = rows.filter((m) => {
     const s = signalOf(m);

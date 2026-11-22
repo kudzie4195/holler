@@ -101,7 +101,7 @@ export async function buildScoreReport(db: Db, now: Date, opts: { days?: number;
     const p = byUser.get(m.user_id);
     if (!p) continue;
     const trades = matchScope(p).categories;
-    const input = { source: s.source, kind: s.kind, subtype: s.subtype, title: s.title };
+    const input = { source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary };
     const label = demoteExpired(labelForMember({ ...input, categories: s.categories }, trades), deadlineOf(s), nowMs);
     if (label === 'context') continue;
     const trade = tradeForRecord(input, s.categories, trades);

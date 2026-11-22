@@ -30,6 +30,17 @@ export function hasApproxLocation(
 }
 
 /**
+ * True when the stand-in can be up to a county from the real site, so the matcher widens its reach: data.loc = 'approx' (Cobb, county-level
+ * weather alerts), or a source in APPROX_LOCATION_SOURCES or BID_SOURCE_IDS. A row flagged only with data.approxLocation (a Socrata row placed at
+ * the city centre) shows no distance but is matched by the member's own radius.
+ */
+export function hasApproxReach(s: { source?: string | null; data?: { loc?: unknown } | null } | null | undefined): boolean {
+  if (!s) return false;
+  if (s.data && s.data.loc === 'approx') return true;
+  return typeof s.source === 'string' && (APPROX_LOCATION_SOURCES.has(s.source) || BID_SOURCE_IDS.includes(s.source));
+}
+
+/**
  * How far the real site of an approximate-location record can be from its stand-in point. Cobb County rows sit at the county seat
  * (lib/signals/adapters/arcgis-datasets.ts COBB_CENTER) and the county reaches about 15 miles from it (coverage report). The matcher
  * lets such a record match a member whose point is within (member radius + this) of the stand-in, so a member anywhere in or near the
@@ -66,6 +77,8 @@ export function approxLocationNote(s: { city?: string | null; source?: string | 
     const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';
     return `Buyer in ${where}. A bid names the buyer, not a job site, so no distance is shown.`;
   }
+  // A county-level weather alert (adapters/nws.ts places it at the county centroid): the alert covers an area, not a point.
+  if (s && s.source === 'nws') return 'This alert covers a county or zone, not a point, so no distance is shown.';
   // A city feed whose rows have no map point (NYC special events: the row is placed at the city centre): city wording, never "the county".
   if (s && typeof s.source === 'string' && !APPROX_LOCATION_SOURCES.has(s.source)) {
     const where = typeof s.city === 'string' && s.city.trim() ? s.city.trim() : 'the city';

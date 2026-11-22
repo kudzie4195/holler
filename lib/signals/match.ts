@@ -1,6 +1,6 @@
 import { haversineMi } from '@/lib/geo';
 import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan';
-import { approxReachMi, hasApproxLocation } from './approx-location';
+import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { bidsEnabled, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
@@ -43,7 +43,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -104,14 +104,14 @@ export function matchOne(signal: MatchSignal, profile: MatchProfile, bidsOn: boo
   return matchInScope(signal, profile, matchScope(profile), bidsOn, nowMs);
 }
 
-const labelInputOf = (signal: MatchSignal): LabelInput => ({ source: signal.source ?? '', kind: signal.kind ?? null, subtype: subtypeOf(signal), title: signal.title ?? null });
+const labelInputOf = (signal: MatchSignal): LabelInput => ({ source: signal.source ?? '', kind: signal.kind ?? null, subtype: subtypeOf(signal), title: signal.title ?? null, summary: signal.summary ?? null });
 
 /**
  * The trades that see a record: its own tags plus, for a building permit, the trades downstream of the permit type read from its TITLE
  * (lib/signals/permit-routing.ts, PLAN-2.0 item 1.1). Computed once per record per scan.
  */
 function seenBy(signal: MatchSignal): readonly string[] {
-  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title }, signal.categories);
+  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title, summary: signal.summary }, signal.categories);
 }
 
 /**
@@ -166,7 +166,9 @@ function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope
     // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
     // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.
     const approx = hasApproxLocation(signal);
-    const radius = approx ? approxReachMi(profile.radius_mi) : profile.radius_mi;
+    // The reach slack is for a stand-in that can be up to a county away from the real site (data.loc = 'approx', the Cobb feeds, city bids). A city-centre
+    // row flagged only data.approxLocation keeps the member's own radius: it hides the distance, it does not widen the match (round 15 review P2-4).
+    const radius = approx && hasApproxReach(signal) ? approxReachMi(profile.radius_mi) : profile.radius_mi;
     let best = Infinity;
     for (const a of scope.areas) {
       if (!hasCoords(a.lat, a.lon)) continue;
@@ -237,7 +239,18 @@ function rankTime(iso: string, nowMs: number): number {
  * dates clamped to now). What is KEPT is returned Act Now first (item 0.3), then Coming soon, Market insight, score, most severe, newest. So 25 heat complaints never push a
  * severity-3 warning out of the cap, and market_insight rows are the first to go.
  */
-export function pickHits(hits: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER, maxBusiness = MAX_BUSINESS_PER_USER): Hit[] {
+export function pickHits(hitsIn: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USER, maxBusiness = MAX_BUSINESS_PER_USER): Hit[] {
+  // One alert that covers several counties is stored as one row per county (adapters/nws.ts data.alertId). A member near two of them gets the
+  // alert once: the first county row that matched.
+  const alerts = new Set<string>();
+  const hits = hitsIn.filter((h) => {
+    const id = h.s.data?.alertId;
+    if (typeof id !== 'string' || !id) return true;
+    const key = `${h.s.source ?? ''}|${id}`;
+    if (alerts.has(key)) return false;
+    alerts.add(key);
+    return true;
+  });
   const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
   const biz = hits
     .filter(isBiz)

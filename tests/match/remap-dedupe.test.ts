@@ -128,7 +128,8 @@ describe('remapStoredSignals: scan-time pass', () => {
     // the query carries every guard
     const sel = db.log.find((l: string) => l.startsWith('holler_signals:select'))!;
     expect(sel).toContain('or:data->>cat_src.is.null,data->>cat_src.neq.ai');
-    expect(sel).toContain('or:data->>cat_v.is.null,data->>cat_v.in.(1,2)');
+    // version 3 re-reads: no version, version 1 (full re-map), and version 2 only where the v3 delta can apply (a violation or a no-trade work type)
+    expect(sel).toContain('or:data->>cat_v.is.null,data->>cat_v.eq.1,and(data->>cat_v.eq.2,or(data->>subtype.eq.violation,summary.ilike.*sidewalk shed*');
     expect(sel).toContain('in:data->>subtype=permit|violation');
     expect(sel).toContain('or:source.like.socrata-*,source.like.arcgis-*');
     // a second pass finds nothing left

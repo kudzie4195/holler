@@ -81,6 +81,8 @@ export interface LabelInput {
   /** data.subtype of the record ('permit', '311', 'violation', ...). */
   subtype?: string | null;
   title?: string | null;
+  /** The record's summary. A permit's holds its structured type and class, which routing reads (permit-routing.ts). Optional. */
+  summary?: string | null;
 }
 
 export interface LabelRule {
@@ -94,8 +96,10 @@ export interface LabelRule {
   permit?: boolean;
   /** data.subtype values this rule is for. Absent means any. */
   subtypes?: readonly string[];
-  /** Tested against the record's public title. */
+  /** Tested against the record's public title (the part after "Place: ", see titleBody). */
   title?: RegExp;
+  /** Test `title` against the whole title instead: for sources whose title starts with the event name ("Flood Advisory: Los Angeles, CA"). */
+  wholeTitle?: boolean;
   /** Trades this rule is for. A rule with trades never fires when no trade is known (a keyword-only match). */
   trades?: readonly CategoryId[];
   /** Fires only when the member's trade is known. */
@@ -288,6 +292,24 @@ export const RULES: readonly LabelRule[] = [
     why: 'A mobile food, cart, peddler or vending licence has no building to heat, clean or guard (round 15 quality gate: "Mobile Food Services" told an HVAC company it may need heating and cooling).',
   },
   {
+    id: 'ctx-minor-quake',
+    label: 'context',
+    sources: ['usgs'],
+    title: /^M4\.\d/,
+    wholeTitle: true,
+    trades: ['plumbing', 'electrical', 'general-contractor', 'restoration'],
+    why: 'An M4 quake with no USGS alert level rarely damages buildings (round 15 re-grade: an M4.2 reached plumbers). Rows stored before the ingest change still carry these trades. M5 and above, and any quake with a USGS alert level, keep them.',
+  },
+  {
+    id: 'ctx-flood-advisory-plumbing',
+    label: 'context',
+    sources: ['nws'],
+    title: /^(?:flood advisory|flood statement)\b/i,
+    wholeTitle: true,
+    trades: ['plumbing'],
+    why: 'A flood advisory is not plumbing work. Rows stored before the nws.ts tag change still carry plumbing. Flood warnings keep it.',
+  },
+  {
     id: 'ctx-business-blanket',
     label: 'context',
     subtypes: ['business'],
@@ -430,10 +452,10 @@ function fits(rule: LabelRule, sig: LabelInput, trade: CategoryId | null): boole
   const subtype = norm(sig.subtype);
   if (rule.permit && subtype !== 'permit' && norm(sig.kind) !== 'permit') return false;
   if (rule.subtypes && !rule.subtypes.includes(subtype)) return false;
-  if (rule.title && !rule.title.test(titleBody(sig.title))) return false;
+  if (rule.title && !rule.title.test(rule.wholeTitle ? (sig.title ?? '') : titleBody(sig.title))) return false;
   if (rule.trades && (trade === null || !rule.trades.includes(trade))) return false;
   if (rule.needsTrade && trade === null) return false;
-  if (rule.routed && !routeFor(sig.title, trade)) return false;
+  if (rule.routed && !routeFor(sig.title, trade, { summary: sig.summary, source: sig.source })) return false;
   return true;
 }
 
