@@ -255,6 +255,21 @@ export interface SanitizeOptions {
  * (cleanState), `city` through cleanCity (the dataset's own city or place words only), `zip` 5 digits or ZIP+4, `attn` and `website`
  * always null. A phone that is not a plausible US number and an email that is not a plausible address are dropped (the rest stays).
  */
+/** A block-level address as the block rules write it (socrata.ts blockAddress, nyc-address.ts nycBlockAddress). */
+export const BLOCK_ADDRESS_RE = /^(?:0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of [A-Z0-9]/i;
+
+/**
+ * A block-level address and nothing else: the block prefix, then 1 to 6 street words of letters or digits (no unit, no phone, no role word,
+ * no "#"). Exported for the 311 contact rule (lib/contacts/extract.ts contactsAllowedFor).
+ */
+export function isBlockForm(text: string): boolean {
+  const t = text.replace(/\s+/g, ' ').trim();
+  const m = /^(?:0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of ((?:[A-Za-z0-9.'-]+ ?){1,6})$/i.exec(t);
+  if (!m) return false;
+  if (/\b(?:apt|apartment|unit|suite|ste|fl|floor|rm|room|ph|bsmt|basement|rear|front|c\/o|attn|owner)\b/i.test(m[1])) return false;
+  return cleanAddressPart(t) === t;
+}
+
 export function sanitizeContact(c: ContactInput | null | undefined, opts: SanitizeOptions = {}): ContactInput | null {
   if (!c || typeof c !== 'object' || !ROLES.has(c.role)) return null;
   // No adapter produces buyers today; the bids unit must add its own reviewed rules before any buyer is stored.
@@ -265,7 +280,11 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     zip: zip5(c.zip),
   };
   if (c.role === 'site') {
-    const address = cleanAddress(typeof c.address === 'string' ? c.address : '');
+    const raw = typeof c.address === 'string' ? c.address.replace(/\s+/g, ' ').trim() : '';
+    // Round 20: a BLOCK-level site ("0-99 block of EAST 130 STREET", "41-00 block of BOWNE STREET", "300 block of PARK AVENUE SOUTH") is
+    // kept as written when it is nothing but the block form with street words (lib/signals/adapters/nyc-address.ts writes it); cleanAddress
+    // would drop the 0-99 and Queens forms and cut a direction off the street. Anything else goes through cleanAddress as before.
+    const address = isBlockForm(raw) ? raw : cleanAddress(raw);
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }

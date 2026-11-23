@@ -1,5 +1,6 @@
 import type { ContactInput, ContactRole } from '@/lib/contacts/types';
 import { violationOwnersEnabled } from '@/lib/contacts/owner-switch';
+import { isBlockForm } from '@/lib/contacts/sanitize';
 import { companyKey } from '@/lib/signals/managed-by';
 import { siteAddressFromSummary } from '@/lib/signals/permit-value';
 import { buildLink, cleanText, safeWebsite, type OutreachLink } from './links';
@@ -42,8 +43,14 @@ export function isViolationSource(source: string): boolean {
  * company on the public record, round 18). Other area records and requests never carry contacts.
  */
 export function mayHaveContacts(source: string, kind: string, ownersOn: boolean = violationOwnersEnabled()): boolean {
-  return ORG_CLASSES.includes(recordClass(source, kind)) || (ownersOn && recordClass(source, kind) === 'area' && isViolationSource(source));
+  return ORG_CLASSES.includes(recordClass(source, kind)) || (ownersOn && recordClass(source, kind) === 'area' && isViolationSource(source)) || BUILDING_BLOCK_SOURCES.has((source ?? '').toLowerCase());
 }
+
+/**
+ * Round 20 (review P1-1): 311 sources whose whole-building requests keep a PRIVATE block-level site contact (NYC whole-building heat). The
+ * card's area block shows that block to a member with access; nothing finer is ever stored (lib/contacts/extract.ts contactsAllowedFor).
+ */
+export const BUILDING_BLOCK_SOURCES: ReadonlySet<string> = new Set(['socrata-nyc-311']);
 
 /** True for records whose block names organisations (permits, licences, inspections, awards, bids): the locked prompt says so. */
 export function isOrgRecord(source: string, kind: string): boolean {
@@ -184,6 +191,11 @@ export type OutreachPlan =
        * "Owner on the public record: X", with the public source link. Null when the record names no company.
        */
       owner: { name: string; line: string; source: PlanLink | null } | null;
+      /**
+       * Round 20: a whole-building 311 request (NYC heat) names its building's BLOCK, never the house number: "Building: 6800 block of
+       * 4 AVENUE (exact address not published)". Null otherwise.
+       */
+      building?: string | null;
     };
 
 function withLabel(link: OutreachLink | null, label: string): PlanLink | null {
@@ -225,12 +237,22 @@ function ownerLine(signal: PlanSignal, contacts: PlanContact[], lang: Lang): { n
   };
 }
 
-function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass, lang: Lang, owner: ReturnType<typeof ownerLine> = null): OutreachPlan | null {
+/** The block a whole-building 311 request names (round 20), in the member's language, or null. Only a block-form site contact counts. */
+export function buildingBlockLine(signal: Pick<PlanSignal, 'source'>, contacts: PlanContact[], lang: Lang): string | null {
+  if (!BUILDING_BLOCK_SOURCES.has((signal.source ?? '').toLowerCase())) return null;
+  const c = contacts.find((x) => x.role === 'site' && !cleanText(x.name) && isBlockForm(cleanText(x.address)));
+  if (!c) return null;
+  const m = /^(0-99|\d{1,3}-00|\d+) block of (.+)$/i.exec(cleanText(c.address));
+  if (!m) return null;
+  return t(lang, 'who.building_block', { block: m[1], street: m[2] });
+}
+
+function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass, lang: Lang, owner: ReturnType<typeof ownerLine> = null, building: string | null = null): OutreachPlan | null {
   const city = cleanText(signal.city);
   const state = cleanText(signal.state);
   const zips = [...new Set([signal.zip, ...contacts.map((c) => c.zip)].map(cleanText).filter((z) => /^\d{5}(-\d{4})?$/.test(z)).map((z) => z.slice(0, 5)))].slice(0, 6);
   const place = [city, state].filter(Boolean).join(', ') || null;
-  if (!place && zips.length === 0 && !owner) return null;
+  if (!place && zips.length === 0 && !owner && !building) return null;
   const eddm = withLabel(buildLink({ type: 'eddm' }), t(lang, 'outreach.link.eddm'));
   const storm = cls === 'storm';
   const guide = withLabel(buildLink({ type: 'guide', guide: storm ? 'storms' : 'respond' }), t(lang, storm ? 'outreach.link.guide_storms' : 'outreach.link.guide_respond'));
@@ -246,6 +268,7 @@ function areaPlan(signal: PlanSignal, contacts: PlanContact[], cls: RecordClass,
     guide,
     reminder: reminderFor(storm, lang),
     owner,
+    building,
   };
 }
 
@@ -263,7 +286,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   const cls = recordClass(signal.source, signal.kind);
   if (cls === 'none' || cls === 'request') return null;
   const list = Array.isArray(contacts) ? contacts.filter((c): c is PlanContact => !!c && typeof c === 'object') : [];
-  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang, cls === 'area' ? ownerLine(signal, list, lang) : null);
+  if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang, cls === 'area' ? ownerLine(signal, list, lang) : null, cls === 'area' ? buildingBlockLine(signal, list, lang) : null);
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
   const sites = list.filter((c) => c.role === 'site');

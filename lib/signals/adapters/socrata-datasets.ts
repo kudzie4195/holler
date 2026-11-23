@@ -147,11 +147,15 @@ export interface SocrataDataset {
    */
   zipCentroid?: { near: { lat: number; lon: number }; maxMi: number };
   /**
-   * 311 only (round 20, NYC 311 call path). A 311 summary carries no street address, because most requests are about a street or one
-   * apartment. When `when` says the request is about a WHOLE BUILDING, the building's address from `fields` is added to the summary, only as
-   * lib/contacts cleanAddress keeps it and never with a unit (socrata.ts wholeBuildingAddress). `when` reads the row's own type columns.
+   * 311 only (round 20, NYC 311 call path; review P1-1). A 311 summary carries no street address, because most requests are about a street
+   * or one apartment, and a resident made the request. When `when` says the request is about a WHOLE BUILDING, the building's BLOCK (New York
+   * rule, nyc-address.ts nycBlockAddress, never a house number or a unit) is stored as a PRIVATE site contact (holler_signal_contacts), shown
+   * only to a member with access. It never enters the title, summary or data, which public pages print. The exact address would be given to
+   * members only for a building with 3 or more residential units, and no feed read here carries a unit count, so it is never given.
    */
   buildingAddress?: { fields: string[]; when: (get: (field: string) => string) => boolean };
+  /** Round 20: 'nyc' reads the address columns by the New York rule (nyc-address.ts nycBlockAddress) instead of the shared one. */
+  addressRule?: 'nyc';
   /** Round 19 coverage (review P1-B): the address is stored only as lib/contacts cleanAddress keeps it, else not at all. */
   strictAddress?: boolean;
   /**
@@ -710,9 +714,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     zipField: 'incident_zip', typeFilterField: 'complaint_type', cadenceMinutes: 180, verified: true,
     verifiedUrl: D('data.cityofnewyork.us', 'erm2-nwe9'), fieldSource: 'sourced',
     // Round 20: whole-building heat (HPD "HEAT/HOT WATER" with descriptor "ENTIRE BUILDING") and non-residential heat (a business premises)
-    // name the building, so the summary carries its street address (incident_address, a column of the 311 dataset [S: socrata-nyc-311
-    // stored rows have no address today; the column is in the NYC 311 data dictionary, assumed live]). Apartment-only heat and every other
-    // request keep no address.
+    // name the building: its BLOCK (from incident_address, a column of the 311 dataset [A]) is kept as a private site contact for members.
+    // The public row is unchanged. Apartment-only heat and every other request keep no address at all.
     buildingAddress: { fields: ['incident_address'], when: (get) => isWholeBuildingNyc311(get('complaint_type'), get('descriptor')) },
   },
   {

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // Round 20 VIOL: violation and building-problem 311 feeds, ALL ON PROBATION and schema-unverified (lib/signals/adapters/viol-datasets.ts).
 // Every row below is HAND-WRITTEN. Order texts and code values are the real-looking ones quoted in /home/claude/gates/r20/VIOL-research.md
 // with their tags ([3P] third-party page, [A] assumed); no row was ever pulled from a portal. These tests prove the fail-safe behaviour, the
@@ -368,6 +369,7 @@ describe('privacy: planted names never reach a stored record (per feed)', () => 
 // ------------------------------------------------------------------------------------------------------------------------------------
 describe('mapping to trades and the proposed labels (real parser, real rules)', () => {
   type Case = { ds: SocrataDataset; row: Record<string, unknown>; want: Partial<Record<CategoryId, OpportunityLabel>> };
+  const CAPPED = new Set(['socrata-nyc-hpd-violations', 'socrata-nyc-rodent-violations']);
   const CASES: Record<string, Case> = {
     'HPD outlet [3P]': { ds: HPD, row: hpdRow(HPD_TEXT.outlet), want: { electrical: 'act_now' } },
     'HPD plaster and paint [3P]': { ds: HPD, row: hpdRow(HPD_TEXT.plaster), want: { painting: 'act_now' } },
@@ -397,8 +399,39 @@ describe('mapping to trades and the proposed labels (real parser, real rules)', 
       if (l !== 'context') got[t] = l;
     }
     expect(got).toEqual(c.want);
-    // And PROPOSED_LABELS says the same for each trade.
-    for (const [t, l] of Object.entries(c.want)) expect(proposedLabelOf(PROPOSED_LABELS[item.source].labels[t as CategoryId])?.label, `${item.source} ${t}`).toBe(l);
+    // And PROPOSED_LABELS says the same for each trade, except NYC HPD and rodent, whose proposals are capped per building (review P2-3;
+    // their own test below).
+    if (!CAPPED.has(item.source)) {
+      for (const [t, l] of Object.entries(c.want)) expect(proposedLabelOf(PROPOSED_LABELS[item.source].labels[t as CategoryId])?.label, `${item.source} ${t}`).toBe(l);
+    }
+  });
+
+  it('review P2-3: NYC HPD and rodent proposals stay under 10 urgent and 25 heads-up a day per trade on their own volume estimates', () => {
+    const perDay: Record<string, { urgent: number; headsUp: number }> = {};
+    for (const id of CAPPED) {
+      const p = PROPOSED_LABELS[id];
+      for (const [t, e] of Object.entries(p.labels)) {
+        const { label, share } = proposedLabelOf(e)!;
+        const day = (p.expectedRowsPerWeekPerMetro * share) / 7;
+        const cell = (perDay[t] ??= { urgent: 0, headsUp: 0 });
+        if (label === 'act_now') cell.urgent += day;
+        if (label === 'coming_soon') cell.headsUp += day;
+      }
+    }
+    for (const [t, c] of Object.entries(perDay)) {
+      expect(c.urgent, `${t} urgent a day`).toBeLessThanOrEqual(10);
+      expect(c.headsUp, `${t} heads-up a day`).toBeLessThanOrEqual(25);
+    }
+    const r = (x: number) => Math.round(x * 10) / 10;
+    expect(Object.fromEntries(Object.entries(perDay).map(([t, c]) => [t, [r(c.urgent), r(c.headsUp)]]))).toEqual({
+      plumbing: [9, 0], 'windows-doors': [9, 0], electrical: [6, 0], 'pest-control': [6, 21.4], painting: [0, 15], handyman: [0, 9], hvac: [0, 8],
+      restoration: [0, 3], flooring: [0, 2.2], 'general-contractor': [0, 0],
+    });
+    // HPD heat is a heads-up (one per building per heating season), never urgent; the rodent feed is never urgent.
+    expect(proposedLabelOf(PROPOSED_LABELS['socrata-nyc-hpd-violations'].labels.hvac)?.label).toBe('coming_soon');
+    expect(proposedLabelOf(PROPOSED_LABELS['socrata-nyc-rodent-violations'].labels['pest-control'])?.label).toBe('coming_soon');
+    // Review P3-4: no Philadelphia security cell.
+    expect(PROPOSED_LABELS['carto-phl-violations'].labels.security).toBeUndefined();
   });
 
   it('PROPOSED_LABELS lists only labels some case proves, per source', () => {
@@ -409,10 +442,24 @@ describe('mapping to trades and the proposed labels (real parser, real rules)', 
     }
   });
 
-  it('a street number of three digits or more drops the address (existing block-address rule): no address rather than a wrong one', () => {
-    const items = parseSoc(HPD, [hpdRow(HPD_TEXT.outlet, { housenumber: '20', streetname: 'EAST 130 STREET' })]);
-    expect(items).toHaveLength(1);
-    expect(items[0].summary ?? '').not.toMatch(/130/);
+  it('review P2-4: New York block addresses on HPD rows: 100+ streets, Queens numbers, named streets, a direction after the type', () => {
+    const cases: Array<[string, string, string]> = [
+      ['20', 'EAST 130 STREET', '0-99 block of EAST 130 STREET'],
+      ['500', 'WEST 148 STREET', '500 block of WEST 148 STREET'],
+      ['655', 'EAST 230 STREET', '600 block of EAST 230 STREET'],
+      ['89-15', '148 STREET', '89-00 block of 148 STREET'],
+      ['41-20', 'BOWNE STREET', '41-00 block of BOWNE STREET'],
+      ['104-40', 'QUEENS BOULEVARD', '104-00 block of QUEENS BOULEVARD'],
+      ['165-10', '89 AVENUE', '165-00 block of 89 AVENUE'],
+      ['1234', 'GRAND CONCOURSE', '1200 block of GRAND CONCOURSE'],
+      ['55', 'CENTRAL PARK WEST', '0-99 block of CENTRAL PARK WEST'],
+      ['1500', 'ADAM CLAYTON POWELL JR BOULEVARD', '1500 block of ADAM CLAYTON POWELL JR BOULEVARD'],
+      ['300', 'PARK AVENUE SOUTH', '300 block of PARK AVENUE SOUTH'],
+    ];
+    for (const [house, street, want] of cases) {
+      const items = parseSoc(HPD, [hpdRow(HPD_TEXT.outlet, { housenumber: house, streetname: street })]);
+      expect(items[0].summary, `${house} ${street}`).toBe(`NOV SENT OUT | ${want}`);
+    }
   });
 
   it('rows that name no repair or are paperwork are dropped: HPD buzzer, rodent "Passed", Montgomery "Address Numbers"', () => {
@@ -489,12 +536,13 @@ describe('Phoenix NSD property maintenance (scorecard priority; every column nam
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------
-describe('NYC 311 call path: whole-building requests carry the building address (round 20)', () => {
+describe('NYC 311 call path (review P1-1): a whole-building request keeps a PRIVATE block-level site; public rows are unchanged', () => {
   const NYC311 = soc('socrata-nyc-311');
   const row = (complaint_type: string, descriptor: string, incident_address: string | undefined, over: Record<string, unknown> = {}) => ({
     unique_key: String(66000000 + ++n), created_date: '2026-11-21T03:12:00.000', agency: 'HPD', complaint_type, descriptor, incident_zip: '11220',
     borough: 'BROOKLYN', status: 'Open', latitude: '40.6430', longitude: '-74.0100', ...(incident_address === undefined ? {} : { incident_address }), ...over,
   });
+  const HOUSE = /\b6801\b|\b41-20\b|\b2318\b|\b123\b/;
 
   it('isWholeBuildingNyc311: entire-building heat and non-residential heat only', async () => {
     const { isWholeBuildingNyc311 } = await import('@/lib/signals/adapters/socrata-datasets');
@@ -505,31 +553,147 @@ describe('NYC 311 call path: whole-building requests carry the building address 
     expect(isWholeBuildingNyc311('Rodent', 'Rat Sighting')).toBe(false);
   });
 
-  it('before/after on fixture rows: entire-building heat gains the street address (call path); apartment-only and street requests do not; never a unit', async () => {
+  it('parser: summary, title and data are exactly as before (no address); the block goes to a site contact only for whole-building requests', async () => {
     const { contactPathOf } = await import('@/lib/signals/alert-gate');
     const items = parseSocrataReport([
       row('HEAT/HOT WATER', 'ENTIRE BUILDING', '6801 4 AVENUE'),
       row('HEAT/HOT WATER', 'ENTIRE BUILDING', '41-20 BOWNE STREET APT 4B'),
       row('HEAT/HOT WATER', 'APARTMENT ONLY', '6801 4 AVENUE'),
       row('Sewer Maintenance', 'Backup', '120 72 STREET'),
-      row('HEAT/HOT WATER', 'ENTIRE BUILDING', undefined), // a row without the column: unchanged (no address)
-      row('HEAT/HOT WATER', 'ENTIRE BUILDING', 'BAY RIDGE PARKWAY and 4 AVENUE'), // an intersection is not a building
+      row('HEAT/HOT WATER', 'ENTIRE BUILDING', undefined),
+      row('HEAT/HOT WATER', 'ENTIRE BUILDING', 'BAY RIDGE PARKWAY and 4 AVENUE'),
+      row('Non-Residential Heat', 'Inadequate or No Heat', '300 PARK AVENUE SOUTH'),
     ], NYC311).items;
     expect(items.map((i) => i.summary)).toEqual([
-      'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN | 6801 4 AVENUE',
-      'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN | 41-20 BOWNE STREET',
-      'HEAT/HOT WATER | APARTMENT ONLY | BROOKLYN',
-      'Sewer Maintenance | Backup | BROOKLYN',
-      'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN',
-      'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN',
+      'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN', 'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN', 'HEAT/HOT WATER | APARTMENT ONLY | BROOKLYN',
+      'Sewer Maintenance | Backup | BROOKLYN', 'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN', 'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN',
+      'Non-Residential Heat | Inadequate or No Heat | BROOKLYN',
     ]);
-    expect(items.map((i) => contactPathOf(null, i.summary))).toEqual(['site', 'site', null, null, null, null]);
-    expect(JSON.stringify(items)).not.toMatch(/APT 4B|\b4B\b/);
+    expect(items.map((i) => (i.contacts ?? []).map((c) => c.address))).toEqual([
+      ['6800 block of 4 AVENUE'], ['41-00 block of BOWNE STREET'], [], [], [], [], ['300 block of PARK AVENUE SOUTH'],
+    ]);
+    for (const it0 of items) {
+      const pub = JSON.stringify({ title: it0.title, summary: it0.summary, data: it0.data, url: it0.url });
+      expect(pub).not.toMatch(HOUSE);
+      expect(pub).not.toMatch(/block of/);
+    }
+    expect(items.map((i) => contactPathOf(i.contacts ?? null, i.summary))).toEqual(['site', 'site', null, null, null, null, 'site']);
+    expect(JSON.stringify(items)).not.toMatch(/APT|4B/);
   });
 
-  it('the old fixture (no incident_address column) parses exactly as before', async () => {
+  it('the old fixture (no incident_address column) parses exactly as before, with no contact', async () => {
     const fixture = (await import('../fixtures/socrata-nyc-311.json')).default as unknown[];
     const items = parseSocrataReport(fixture, NYC311).items;
-    for (const it0 of items) expect(it0.summary ?? '').not.toMatch(/\d+ [A-Z]/);
+    for (const it0 of items) {
+      expect(it0.summary ?? '').not.toMatch(/\d+ [A-Z]/);
+      expect(it0.contacts).toBeUndefined();
+    }
+  });
+
+  it('store path: holler_signals (public) has no address; holler_signal_contacts (service role) has the block only', async () => {
+    const f = new FakeDb({ holler_profiles: PROFILES });
+    const body = [row('HEAT/HOT WATER', 'ENTIRE BUILDING', '2318 WEST 52 STREET APT 4B'), row('HEAT/HOT WATER', 'APARTMENT ONLY', '2318 WEST 52 STREET')];
+    const doFetch = (async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes('/resource/erm2-nwe9.json')) return new Response(JSON.stringify(body), { status: 200 });
+      return new Response('[]', { status: 200 });
+    }) as typeof fetch;
+    await runScan({ now: NOW, adapters: [adapterOf('socrata-nyc-311')], fetchImpl: doFetch }, asDb(f));
+    const signals = f.tables.holler_signals ?? [];
+    expect(signals.length).toBe(2);
+    expect(JSON.stringify(signals)).not.toMatch(/2318|2300 block|APT|4B/);
+    const contacts = f.tables.holler_signal_contacts ?? [];
+    expect(contacts.map((c) => [c.role, c.address])).toEqual([['site', '2300 block of WEST 52 STREET']]);
+  });
+
+  it('contact rules: a 311 row keeps only a nameless block-level site; an exact address, a unit or a business is dropped before any write', async () => {
+    const { contactsAllowedFor } = await import('@/lib/contacts/extract');
+    const { sanitizeContacts } = await import('@/lib/contacts/sanitize');
+    const site = (address: string, name = '') => ({ role: 'site' as const, name, address });
+    expect(contactsAllowedFor('311', [site('2318 WEST 52 STREET'), site('2300 block of WEST 52 STREET APT 4B'), site('2300 block of WEST 52 STREET', 'ACME LLC'), { role: 'business' as const, name: 'ACME LLC' }, site('2300 block of WEST 52 STREET')]))
+      .toEqual([site('2300 block of WEST 52 STREET')]);
+    for (const b of ['0-99 block of EAST 130 STREET', '41-00 block of BOWNE STREET', '1200 block of GRAND CONCOURSE', '300 block of PARK AVENUE SOUTH']) {
+      expect(sanitizeContacts([{ ...site(b), city: 'New York City', state: 'NY', zip: '11220' }], { datasetCity: 'New York City' }).map((c) => c.address), b).toEqual([b]);
+    }
+  });
+
+  it('member path: the area block names the building block (English and Spanish); an exact-address contact is never shown; other 311 sources show nothing', async () => {
+    const { outreachPlan, mayHaveContacts } = await import('@/lib/outreach/plan');
+    expect(mayHaveContacts('socrata-nyc-311', 'civic')).toBe(true);
+    expect(mayHaveContacts('socrata-chicago-311', 'civic')).toBe(false);
+    const sig = { source: 'socrata-nyc-311', kind: 'civic', city: 'New York City', state: 'NY', zip: '11220', summary: 'HEAT/HOT WATER | ENTIRE BUILDING | BROOKLYN' };
+    const block = [{ role: 'site' as const, name: '', address: '6800 block of 4 AVENUE', city: 'New York City', state: 'NY', zip: '11220' }];
+    const en = outreachPlan(sig, block, 'en');
+    const es = outreachPlan(sig, block, 'es');
+    expect(en && en.type === 'area' ? en.building : null).toBe('Building: the 6800 block of 4 AVENUE (the exact address is not published)');
+    expect(es && es.type === 'area' ? es.building : null).toBe('Edificio: la cuadra 6800 de 4 AVENUE (no se publica la dirección exacta)');
+    const exact = outreachPlan(sig, [{ ...block[0], address: '6801 4 AVENUE' }], 'en');
+    expect(exact && exact.type === 'area' ? exact.building : 'x').toBeNull();
+    const other = outreachPlan({ ...sig, source: 'socrata-chicago-311' }, block, 'en');
+    expect(other && other.type === 'area' ? other.building : 'x').toBeNull();
+    expect(JSON.stringify(exact)).not.toMatch(/6801/);
+  });
+
+  it('public paths read holler_signals only: the city and weekly page loaders and the preview never select contacts', () => {
+    for (const f of ['lib/seo/data.ts', 'lib/seo/week-data.ts', 'lib/preview/recent.ts', 'app/local/_components/records.tsx']) {
+      const src = readFileSync(f, 'utf8');
+      expect(src, f).not.toMatch(/from\(\s*['"]holler_signal_contacts/);
+    }
+  });
+});
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+describe('review P2-1, P2-2: New York building addresses (internal step) and blocks: units in every spelling, a direction after the type', () => {
+  const CASES: Array<[string, string, string]> = [
+    ['123 EAST 10 STREET', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET APT 4B', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET # 4B', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET #4B', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET 4B', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET UNIT 4', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET FL 2', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET 4TH FL', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET PH', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET PH A', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET BSMT', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET REAR', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['10 WEST STREET 4B', '10 WEST STREET', '0-99 block of WEST STREET'],
+    ['2 SOUTH ROAD 2F', '2 SOUTH ROAD', '0-99 block of SOUTH ROAD'],
+    ['300 PARK AVENUE SOUTH', '300 PARK AVENUE SOUTH', '300 block of PARK AVENUE SOUTH'],
+    ['100 PARK AVENUE SOUTH 4B', '100 PARK AVENUE SOUTH', '100 block of PARK AVENUE SOUTH'],
+    ['70 PARK TERRACE EAST', '70 PARK TERRACE EAST', '0-99 block of PARK TERRACE EAST'],
+    ['10 PLAZA STREET EAST', '10 PLAZA STREET EAST', '0-99 block of PLAZA STREET EAST'],
+    ['665 PELHAM PARKWAY NORTH', '665 PELHAM PARKWAY NORTH', '600 block of PELHAM PARKWAY NORTH'],
+    ['33 UNION SQUARE WEST', '33 UNION SQUARE WEST', '0-99 block of UNION SQUARE WEST'],
+    ['41-20 BOWNE STREET APT 4B', '41-20 BOWNE STREET', '41-00 block of BOWNE STREET'],
+    ['88-11 34 AVENUE 4D', '88-11 34 AVENUE', '88-00 block of 34 AVENUE'],
+    ['3215 AVENUE H', '3215 AVENUE H', '3200 block of AVENUE H'],
+    ['123 AVENUE B 4B', '123 AVENUE B', '100 block of AVENUE B'],
+    ['2150 BROADWAY 4B', '2150 BROADWAY', '2100 block of BROADWAY'],
+    ['1 ST MARKS PLACE APT 4', '1 ST MARKS PLACE', '0-99 block of ST MARKS PLACE'],
+    ['45 EAST END AVENUE 4B', '45 EAST END AVENUE', '0-99 block of EAST END AVENUE'],
+    ['1234 GRAND CONCOURSE 5F', '1234 GRAND CONCOURSE', '1200 block of GRAND CONCOURSE'],
+    ['55 CENTRAL PARK WEST 12A', '55 CENTRAL PARK WEST', '0-99 block of CENTRAL PARK WEST'],
+    ['3000 BRONX PARK EAST', '3000 BRONX PARK EAST', '3000 block of BRONX PARK EAST'],
+    ['500 WEST 148 STREET', '500 WEST 148 STREET', '500 block of WEST 148 STREET'],
+    ['123 1/2 EAST 10 STREET', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123-125 EAST 10 STREET', '123-125 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET JOHN SMITH', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    ['123 EAST 10 STREET 212-555-0199', '123 EAST 10 STREET', '100 block of EAST 10 STREET'],
+    // No address at all rather than a wrong one:
+    ['0 MAIN STREET', '', ''],
+    ['123 REAR EAST 10 STREET', '', ''],
+    ['JOHN SMITH 123 MAIN ST', '', ''],
+    ['EAST 10 STREET AND 1 AVENUE', '', ''],
+    ['PO BOX 12', '', ''],
+  ];
+  it.each(CASES)('%s', async (raw, exact, block) => {
+    const { nycBuildingAddress, nycBlockAddress } = await import('@/lib/signals/adapters/nyc-address');
+    expect(nycBuildingAddress(raw)).toBe(exact);
+    expect(nycBlockAddress(raw)).toBe(block);
+  });
+  it('no unit word or "#" ever survives, on every case', async () => {
+    const { nycBlockAddress } = await import('@/lib/signals/adapters/nyc-address');
+    for (const [raw] of CASES) expect(nycBlockAddress(raw), raw).not.toMatch(/#|\b(?:APT|UNIT|FL|PH|BSMT|REAR|4B|2F|4D|5F|12A)\b/);
   });
 });

@@ -41,7 +41,8 @@ const CHECKED = '2026-11-22';
  * socrata-datasets.ts CIVIC_TYPE_KEYWORDS, re-checked client side by CIVIC_RULES). Literal ArcGIS SQL, no user input.
  */
 export const DC_311_TYPE_WHERE = [
-  'RODENT', 'RAT', 'PEST', 'TREE', 'GRAFFITI', 'DUMP', 'JUNK', 'DEBRIS', 'HEAT', 'SEWER', 'MOLD', 'BULK', 'HOUSING', 'BLDG', 'WEED', 'GRASS', 'VACANT',
+  // Review P3-8: no 'RAT' (it matches ADMINISTRATION, REGISTRATION) and no 'TREE' (it matches STREET); rodent types say RODENT.
+  'RODENT', 'PEST', 'GRAFFITI', 'DUMP', 'JUNK', 'DEBRIS', 'HEAT', 'SEWER', 'MOLD', 'BULK', 'HOUSING', 'BLDG', 'WEED', 'GRASS', 'VACANT',
 ]
   .map((k) => `UPPER(SERVICECODEDESCRIPTION) LIKE '%${k}%'`)
   .join(' OR ');
@@ -52,7 +53,7 @@ export const VIOL_SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-nyc-hpd-violations', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: NYC, datasetId: 'wvxf-dwi5',
     kind: 'civic', subtype: 'violation', idField: 'violationid', dateField: 'novissueddate', latField: 'latitude', lonField: 'longitude',
     titleFields: ['novdescription'], textFields: ['novdescription'], freeTextFields: ['novdescription'], summaryFields: ['currentstatus'],
-    addressFields: ['housenumber', 'streetname'], zipField: 'zip', strictAddress: true,
+    addressFields: ['housenumber', 'streetname'], zipField: 'zip', strictAddress: true, addressRule: 'nyc',
     extraWhere: "violationstatus = 'Open' AND class IN ('B','C')",
     lookbackOverride: 2, maxPages: 6, windowForwardDays: 0, cadenceMinutes: 360, verified: true, probation: true, schemaUnverified: true,
     verifiedUrl: D(NYC, 'wvxf-dwi5'), fieldSource: 'assumed',
@@ -62,7 +63,7 @@ export const VIOL_SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-nyc-rodent-violations', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: NYC, datasetId: 'p937-wjvj',
     kind: 'civic', subtype: 'violation', idField: 'job_ticket_or_work_order_id', dateField: 'inspection_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['result'], textFields: ['result'], summaryFields: ['inspection_type'],
-    addressFields: ['house_number', 'street_name'], zipField: 'zip_code', strictAddress: true,
+    addressFields: ['house_number', 'street_name'], zipField: 'zip_code', strictAddress: true, addressRule: 'nyc',
     extraWhere: "upper(result) like '%RAT%'",
     lookbackOverride: 7, maxPages: 2, windowForwardDays: 0, cadenceMinutes: 720, verified: true, probation: true, schemaUnverified: true,
     verifiedUrl: D(NYC, 'p937-wjvj'), fieldSource: 'assumed',
@@ -100,7 +101,7 @@ export const VIOL_ARCGIS_DATASETS: ArcgisDataset[] = [
     summaryFields: ['SERVICECODEDESCRIPTION', 'SERVICEORDERSTATUS'], zipField: 'ZIPCODE',
     extraWhere: DC_311_TYPE_WHERE,
     lookbackOverride: 2, windowForwardDays: 0, cadenceMinutes: 180, verified: true, probation: true, schemaUnverified: true,
-    verifiedUrl: M(DC_311_LAYER), checkedOn: CHECKED, fieldSource: 'sourced',
+    verifiedUrl: M(DC_311_LAYER), checkedOn: CHECKED, fieldSource: 'assumed',
     note: 'ON PROBATION (round 20 VIOL). DC 311 "All Service Requests - Last 90 Days", MapServer layer 13 (a rolling layer: no yearly swap). Field names [O] from the 2026 layer (21) of the same service; that layer 13 has the same names is [A] (the service says it matches the current fiscal year layer). INSPECTORNAME (staff) and DETAILS (resident free text) are never requested. Request types were not read [A]: most are city work (rodent baiting, bulk pickup, dumping), which the current 311 rules leave as context; only types that name a building problem reach a member. 311 summaries carry no address.',
   },
 ];

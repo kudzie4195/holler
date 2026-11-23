@@ -68,38 +68,56 @@ export interface ProposedSource {
 /** Source id -> proposed labels. Empty until this round's source units fill it. */
 export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
   // ==== Round 20 VIOL (lib/signals/adapters/viol-datasets.ts; research /home/claude/gates/r20/VIOL-research.md) ======================
-  // Labels follow the reviewed rules (lead-rules.ts RULES): a violation order that names a repair is act_now for the trade it names
+  // Labels follow the reviewed rules (lead-rules.ts RULES), except where a per-building cap is proposed (NYC HPD and rodent, below): a
+  // violation order that names a repair is act_now for the trade it names
   // (act-violation-named); a handyman named next to a specialist is coming_soon (owner call 12); an order that names no repair is
   // coming_soon for its tagged trades and market_insight for the general contractor (violation-unnamed); 311 city work is context.
   // tests/signals/viol-r20.test.ts parses a hand-written row per trade through the real parser and checks labelFor() gives these labels.
   // Every `share` is the ASSUMED part of the source's rows that names that trade (no live row was read); the volume tags say how sure the
   // row count is. callPath: violations carry a block-level street address ("2300 block of W 52 STREET"), which the live gate counts as a
   // place; HPD streets numbered 100 and up lose their address under the block-address rule (see the why on each HPD trade).
+  // ---- NYC HPD and rodent (review P2-3): NOT to be promoted on an act_now default. Rule proposed for review with two weeks of samples:
+  //   - heat (§ 27-2029 and the like): ONE card per building (HPD building id or BBL) per heating season (Oct 1 to May 31), HEADS-UP; a
+  //     building that got a 311 heat card in the last 7 days gets a follow-up line on that card instead; "PROVIDE READY ACCESS TO BUILDINGS
+  //     HEATING SYSTEM" (§ 27-2033) is paperwork (feed only);
+  //   - APARTMENT-LEVEL orders (an apartment is named): FEED ONLY (market_insight), as 311 "apartment only" heat (line 1);
+  //   - BUILDING-WIDE orders (public hall, entire building, cellar, roof, boiler room): class C keeps the reviewed violation logic (a named
+  //     repair is urgent, a handyman next to a specialist and an unnamed order a heads-up, the general contractor feed only), with at most one
+  //     card per building per trade per day; class B building-wide is feed only; painting is capped at a heads-up (the commonest order);
+  //   - promote only if `npm run replay:rules` on the samples keeps every NYC trade at or under 10 urgent and 25 heads-up a day.
+  // Shares below = (assumed share of B/C rows naming the trade) x 0.25 building-wide [A] x 0.3 class C among those [A]; heat x 0.4 (60% of
+  // heat violations repeat a building within the season [A]). Projected a day on 7,000 rows a week: plumbing 9.0 urgent, windows-doors
+  // 9.0 urgent, electrical 6.0 urgent, pest-control 6.0 urgent, painting 15.0 heads-up, handyman 9.0 heads-up, hvac 8.0 heads-up,
+  // restoration 3.0 heads-up, flooring 2.2 heads-up (tests/signals/viol-r20.test.ts recomputes them against the 10 / 25 ceilings).
   'socrata-nyc-hpd-violations': {
     metros: ['new-york'],
     recordKind: 'code-violation',
     expectedRowsPerWeekPerMetro: 7000,
     volumeEvidence: { tag: 'A', note: 'HPD class B and C violations, open, by NOV issue date: about 10,000 a week issued citywide, about 70% B or C (estimate; dataset wvxf-dwi5 holds 11.4M rows [3P], updated daily [O]). Not measured.' },
     labels: {
-      painting: { label: 'act_now', share: 0.2, why: 'paint and plaster orders, the most common HPD order (assumed share); about a third of rows lose the address on 100+ streets' },
-      plumbing: { label: 'act_now', share: 0.12, why: 'leaks, water supply, fixtures (assumed share)' },
-      'windows-doors': { label: 'act_now', share: 0.12, why: 'self-closing doors, window guards, broken windows (assumed share)' },
-      electrical: { label: 'act_now', share: 0.08, why: 'outlets, fixtures, wiring (assumed share)' },
-      'pest-control': { label: 'act_now', share: 0.08, why: 'mice, roaches, bed bugs (assumed share)' },
-      hvac: { label: 'act_now', share: 0.02, why: 'heat orders (assumed share)' },
-      handyman: { label: 'coming_soon', share: 0.12, why: 'named next to windows and doors (owner call 12), or unnamed structure orders' },
-      restoration: { label: 'coming_soon', share: 0.04, why: 'mold: the title words do not name a repair, so violation-unnamed applies' },
-      flooring: { label: 'coming_soon', share: 0.03, why: 'floor orders: unnamed in the title words, so a heads-up' },
-      'general-contractor': { label: 'market_insight', share: 0.05, why: 'unnamed structure orders: feed only' },
+      plumbing: { label: 'act_now', share: 0.009, why: 'building-wide class C plumbing orders only (0.12 x 0.25 x 0.3); apartment-level orders are feed only' },
+      'windows-doors': { label: 'act_now', share: 0.009, why: 'building-wide class C door and window orders (self-closing public-hall doors): 0.12 x 0.25 x 0.3' },
+      electrical: { label: 'act_now', share: 0.006, why: 'building-wide class C electrical orders: 0.08 x 0.25 x 0.3' },
+      'pest-control': { label: 'act_now', share: 0.006, why: 'building-wide class C pest orders: 0.08 x 0.25 x 0.3' },
+      painting: { label: 'coming_soon', share: 0.015, why: 'building-wide class C paint orders, capped at a heads-up: 0.2 x 0.25 x 0.3' },
+      handyman: { label: 'coming_soon', share: 0.009, why: 'named next to a specialist, or unnamed building-wide class C orders: 0.12 x 0.25 x 0.3' },
+      hvac: { label: 'coming_soon', share: 0.008, why: 'heat: one card per building per heating season, heads-up: 0.02 x 0.4 first-in-season' },
+      restoration: { label: 'coming_soon', share: 0.003, why: 'mold, building-wide class C (unnamed in the title words): 0.04 x 0.25 x 0.3' },
+      flooring: { label: 'coming_soon', share: 0.00225, why: 'floor orders, building-wide class C: 0.03 x 0.25 x 0.3' },
+      'general-contractor': { label: 'market_insight', share: 0.0225, why: 'unnamed structure orders: feed only' },
     },
+    // Block-level address under the New York block rule (nyc-address.ts): 100+ streets, Queens numbers and named streets now place.
     callPath: true,
   },
+  // Rodent (review P2-3): a first finding of rats is FEED ONLY; a failed compliance re-inspection (rats still there) is a HEADS-UP, at most
+  // one card per property per 30 days. Share: 0.25 of rat findings are compliance failures [A]: 600 x 0.25 = 150 a week = 21.4 a day,
+  // under the 25 heads-up ceiling (HPD pest-control urgent cards count against the separate urgent ceiling).
   'socrata-nyc-rodent-violations': {
     metros: ['new-york'],
     recordKind: 'code-violation',
     expectedRowsPerWeekPerMetro: 600,
     volumeEvidence: { tag: 'A', note: 'DOHMH rodent inspections whose result names rats (dataset p937-wjvj, last modified 2026-11-17 [O]); count not measured.' },
-    labels: { 'pest-control': { label: 'act_now', share: 1, why: 'active rat signs found at a named property: the owner is ordered to abate' } },
+    labels: { 'pest-control': { label: 'coming_soon', share: 0.25, why: 'failed compliance re-inspection only, one card per property per 30 days; a first finding is feed only' } },
     callPath: true,
   },
   'socrata-montgomery-violations': {
@@ -155,9 +173,8 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       landscaping: { label: 'act_now', share: 0.1, why: 'weeds titles (assumed share)' },
       'junk-removal': { label: 'act_now', share: 0.1, why: 'rubbish and debris titles (assumed share)' },
       plumbing: { label: 'act_now', share: 0.05, why: 'ALTER EXISTING PLUMBING and similar (assumed share)' },
-      handyman: { label: 'coming_soon', share: 0.15, why: 'vacant structure, exterior walls (assumed share)' },
-      'general-contractor': { label: 'act_now', share: 0.1, why: 'exterior wall, porch, structure titles (assumed share)' },
-      security: { label: 'act_now', share: 0.05, why: 'VACANT STRUCTURE & LAND: secure the building (assumed share)' },
+      handyman: { label: 'coming_soon', share: 0.15, why: 'exterior walls next to the general contractor, vacant structure titles (assumed share)' },
+      'general-contractor': { label: 'act_now', share: 0.05, why: 'exterior wall and porch titles only; vacant and unsafe titles are feed only (assumed share)' },
     },
     callPath: true,
   },
@@ -180,7 +197,7 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     volumeEvidence: { tag: 'A', note: 'Miami-Dade building violation cases (case type only); count not measured.' },
     labels: {
       roofing: { label: 'act_now', share: 0.1, why: 'roof case types (assumed share)' },
-      'general-contractor': { label: 'coming_soon', share: 0.3, why: 'unsafe structure or work without permit case types (assumed share)' },
+      'general-contractor': { label: 'coming_soon', share: 0.15, why: 'work-without-permit case types only (paperwork rule, line 15); unsafe structure is feed only (assumed share)' },
     },
     callPath: true,
   },

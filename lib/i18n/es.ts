@@ -509,6 +509,7 @@ export const es: Record<DictKey, string> = {
   'who.copied_hint': 'Copiado al portapapeles. Cambie las partes [entre corchetes] antes de enviarlo.',
   'who.copy_failed': 'No se pudo copiar aquí. Seleccione la nota de abajo y cópiela a mano.',
   'who.note_text': '{label}: texto de la nota',
+  'who.building_block': 'Edificio: la cuadra {block} de {street} (no se publica la dirección exacta)',
   'who.owner_record': 'Propietario según el registro público: {name}',
   'who.public_source': 'Fuente pública',
   'outreach.role.permit': 'Aparece en este permiso',

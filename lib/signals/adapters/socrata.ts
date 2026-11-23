@@ -11,6 +11,7 @@ import { haversineMi, lookupZip } from '@/lib/geo';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
+import { nycBlockAddress } from './nyc-address';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -239,18 +240,6 @@ export function blockAddress(raw: string): string {
   if (!street || /^\d+$/.test(street) || /\d{3,}/.test(street.replace(/\b\d+(?:ST|ND|RD|TH)\b/gi, ''))) return '';
   const hundred = Math.floor(Number(m[1]) / 100) * 100;
   return hundred === 0 ? `0-99 block of ${street}` : `${hundred} block of ${street}`;
-}
-
-/**
- * Round 20 (NYC 311 call path): the street address of a WHOLE BUILDING named by a 311 request, or ''. Only what the shared site-address rule
- * keeps (lib/contacts cleanAddress: house number, street words, suffix, cut there), and never a unit: a trailing "#4B", "APT 4B", "UNIT 2"
- * and so on is removed. A building with heating plant trouble is a building, not a person; apartment-level requests never reach this.
- */
-export function wholeBuildingAddress(raw: string): string {
-  const kept = cleanAddress(raw);
-  if (!kept || /^PO BOX/i.test(kept)) return '';
-  const out = kept.replace(/\s+(?:#\S+|(?:apt|apartment|unit|ste|suite|fl|floor|rm|room|bldg|ph)\.?\s+\S+)$/i, '').trim();
-  return /^\d/.test(out) && /\s\S/.test(out) ? out : '';
 }
 
 /** Violation rows store a block-level address; every other subtype keeps what the config asks for. */
@@ -501,7 +490,12 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       // Review P1-B: an unverified address column is used only as the shared site-address rule keeps it (lib/contacts cleanAddress).
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, ds.strictAddress ? (cleanAddress(rawAddress) ?? '') : rawAddress);
+      // Round 20 (review P2-4): New York addresses are read by the New York rule (numbered streets, Queens house numbers, named streets).
+      const address = ds.subtype === 'business'
+        ? ''
+        : ds.addressRule === 'nyc'
+          ? nycBlockAddress(rawAddress)
+          : publicAddress(ds.subtype, ds.strictAddress ? (cleanAddress(rawAddress) ?? '') : rawAddress);
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
       const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
@@ -515,12 +509,13 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
-      // Round 20: a 311 request about a whole building (NYC "HEAT/HOT WATER / ENTIRE BUILDING") names the building's street address, so the
-      // card has a call path. Apartment-level and street requests keep the old behaviour (no address).
-      if (ds.subtype === '311' && ds.buildingAddress?.when((f) => s(row, f))) {
-        const building = wholeBuildingAddress(ds.buildingAddress.fields.map((f) => s(row, f)).filter(Boolean).join(' '));
-        if (building) summaryParts.push(building);
-      }
+      // Round 20 (review P1-1): a 311 request about a whole building (NYC "HEAT/HOT WATER / ENTIRE BUILDING") gives a PRIVATE site contact
+      // at BLOCK level (holler_signal_contacts, service role only, shown to a member with access on the card's "Who to contact" block). The
+      // public row (title, summary, data) never carries it. No feed carries a residential unit count, so no member ever gets the exact
+      // address (see buildingAddress in socrata-datasets.ts).
+      const buildingSite = ds.subtype === '311' && ds.buildingAddress?.when((f) => s(row, f))
+        ? nycBlockAddress(ds.buildingAddress.fields.map((f) => s(row, f)).filter(Boolean).join(' '))
+        : '';
       const summary = ds.subtype === 'business'
         ? trunc(summaryParts.join(' | '), 280) || null
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
@@ -556,7 +551,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(contacts.length ? { contacts } : {}),
+        ...(contacts.length ? { contacts } : buildingSite ? { contacts: [{ role: 'site' as const, name: '', address: buildingSite, city: ds.city, state: ds.state, zip }] } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {

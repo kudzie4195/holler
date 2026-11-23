@@ -34,7 +34,9 @@ describe('recordClass: every source and kind the feed can show', () => {
   }
   it('helpers agree', () => {
     expect(mayHaveContacts('nws', 'alert')).toBe(false);
-    expect(mayHaveContacts('socrata-nyc-311', 'civic')).toBe(false);
+    // Round 20 (review P1-1): NYC whole-building heat requests keep a private block-level site, so the loader is asked for NYC 311.
+    expect(mayHaveContacts('socrata-nyc-311', 'civic')).toBe(true);
+    expect(mayHaveContacts('socrata-chicago-311', 'civic')).toBe(false);
     expect(mayHaveContacts('holler-request', 'ask')).toBe(false);
     expect(mayHaveContacts('usaspending', 'contract')).toBe(true);
     expect(hasBlock('faa', 'travel')).toBe(false);
