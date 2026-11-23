@@ -1,4 +1,5 @@
 import { siteUrl } from '@/lib/env';
+import { langOfProfile } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
 import { adminOrNull } from '@/lib/mobile/admin';
 import { matchScope } from '@/lib/plan/scope';
@@ -34,7 +35,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ signalId: strin
   const one = await readOneMatch(db, user.id, signalId);
   if (one.error) return fail(req, METHODS, 'server_error');
   if (!one.row) return fail(req, METHODS, 'not_found');
-  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories });
+  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories, lang: langOfProfile(profile) });
   if (!item || item.signalId !== signalId) return fail(req, METHODS, 'not_found');
   return ok(req, METHODS, { locked, item });
 }

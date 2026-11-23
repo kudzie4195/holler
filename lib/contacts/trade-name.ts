@@ -11,6 +11,7 @@ import {
   isVocabularyWord,
   type WordClass,
 } from './org';
+import { knownCompanyName, knownFormHasLegalEnd } from './known-companies';
 
 /**
  * Round 18 (NAMES, redo 1 after the privacy review): the names a CONTRACTOR column and a BUSINESS-LICENCE column may show.
@@ -453,12 +454,62 @@ function contractorOne(raw: string): string | null {
 /** The name a CONTRACTOR column may show, or null (C1 to C8). Never used for owner, applicant, tenant or resident columns. Stable. */
 export function cleanContractorName(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
+  // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts; never a string that only shares a word).
+  const known = knownCompanyName(raw);
+  if (known) return known;
+  // Final review P3-4: a name that is only a listed place and a legal form ("TEXAS LLC", "CALIFORNIA LLC") is the tail of "X HOMES OF TEXAS
+  // LLC" as rows stored before the round 20 fix kept it. Never a firm's name on its own: not shown (display reads this rule too).
+  if (placeWithLegal(raw)) return null;
   if (isPlaceholderName(raw)) return null;
   // C2: "PERSON of FIRM" / "PERSON c/o FIRM": the firm alone, or nothing. "FIRM of PLACE" keeps the firm.
   const parts = raw.normalize('NFKC').split(PERSON_FIRM_SPLIT_RE);
   if (parts.length > 2) return null;
-  if (parts.length === 2) return contractorOne(parts[0]) ?? contractorOne(parts[1]);
+  if (parts.length === 2) {
+    // Round 20 (review LIC P3, a live bug): "FIRM of PLACE LEGAL" ("LENNAR HOMES OF CALIFORNIA LLC") used to show "CALIFORNIA LLC", the
+    // place alone. A right part that is only a place plus a legal form is never shown on its own; the whole name is kept when the left
+    // part ends in a firm word and "<left part> <legal form>" passes this rule by itself, else the left part alone, else nothing.
+    const place = placeWithLegal(parts[1]);
+    if (place) return firmOfPlace(raw, parts[0], place);
+    return contractorOne(parts[0]) ?? contractorOne(parts[1]);
+  }
   return contractorOne(raw);
+}
+
+/** US states and the metro labels builders use in subsidiary names ("OF DFW", "OF NORTH TEXAS"), lower case. */
+const PLACE_NAMES = new Set(
+  [
+    'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 'delaware', 'florida', 'georgia', 'hawaii', 'idaho',
+    'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 'minnesota',
+    'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire', 'new jersey', 'new mexico', 'new york', 'north carolina',
+    'north dakota', 'ohio', 'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 'tennessee', 'texas',
+    'utah', 'vermont', 'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming', 'the carolinas', 'carolinas', 'dfw', 'dallas',
+    'houston', 'austin', 'san antonio', 'phoenix', 'atlanta', 'chicago', 'miami', 'tampa', 'orlando', 'jacksonville', 'philadelphia',
+    'los angeles', 'southern california', 'northern california', 'central california', 'inland empire', 'las vegas', 'denver', 'charlotte',
+    'raleigh', 'nashville', 'dc', 'washington dc', 'south florida', 'north florida', 'central florida', 'southwest florida', 'north texas',
+    'central texas', 'south texas', 'east texas', 'west texas', 'north georgia', 'arizona central',
+  ],
+);
+const PLACE_LEGAL_RE = /^(.+?)[\s,]+(l\.?\s?l\.?\s?c\.?|inc\.?|incorporated|corp\.?|corporation|ltd\.?|limited|l\.?\s?p\.?|l\.?\s?l\.?\s?p\.?)\s*$/i;
+/** Left-part endings that make "<left> of <place>" a firm's subsidiary name. */
+const FIRM_OF_PLACE_END = new Set(list('homes home homebuilders communities builders building construction contractors residential companies company bros brothers group development developers'));
+
+/** "CALIFORNIA LLC", "North Texas, Inc." -> the legal form when the text is only a listed place plus a legal form, else null. */
+function placeWithLegal(text: string): string | null {
+  const m = collapse(text).match(PLACE_LEGAL_RE);
+  if (!m) return null;
+  const place = collapse(foldName(m[1]).replace(/[.,]/g, ' '));
+  return PLACE_NAMES.has(place) ? m[2] : null;
+}
+
+function firmOfPlace(raw: string, left: string, legal: string): string | null {
+  const ws = collapse(left).split(' ');
+  const last = foldName(ws[ws.length - 1] ?? '').replace(/[^a-z]/g, '');
+  if (FIRM_OF_PLACE_END.has(last) && contractorOne(`${collapse(left)} ${legal}`)) {
+    // The left part with the legal form passed every check of this rule; the rest is " of ", a listed place and that legal form.
+    const whole = collapse(raw.normalize('NFKC'));
+    if (/^[A-Za-z0-9 &.,'/-]+$/.test(whole) && whole.length <= 120 && !hasRoleWord(whole) && !hasContactShape(whole)) return whole;
+  }
+  return contractorOne(left);
 }
 
 /** True only when cleanContractorName returns the same string (after whitespace normalization). */
@@ -491,6 +542,16 @@ const LICENCE_EXTRA_WORDS: ReadonlySet<string> = new Set(list('print prints ship
  * RESTAURANT", "LUCKY NAILS"). Allowed only inside rule L3, where no word of the name may be a listed surname and the owner check holds.
  */
 const PLAIN_ENGLISH_GIVEN: ReadonlySet<string> = new Set(list('windy golden blue star bay king queen lucky happy sunny royal grand silver magic'));
+/**
+ * REVIEW PROPOSAL (round 20, rule L1b): only with a STRONG legal form at the end (LLC, INC, CORP, LTD ...), and only as a second try after
+ * the rule above refused the name. ESTABLISHMENT_NOUNS: shop and restaurant nouns the name lists also carry as surnames or glued forms
+ * ("Kit Chen" in "kitchen"). DUAL_ADJECTIVES: dictionary adjectives and nouns that are also rare given names. SHOP_NOUNS: plain shop
+ * words the vocabularies lack (used only when they are on no name list).
+ */
+const ESTABLISHMENT_NOUNS: ReadonlySet<string> = new Set(list('kitchen bar spa studio salon coffee house market shack hardware burgers grill cafe tavern diner deli pizza').filter((w) => !isListedGivenName(w)));
+const DUAL_ADJECTIVES: ReadonlySet<string> = new Set(list('red green urban river magnolia velvet bliss serenity beauty lantern capitol'));
+const SHOP_NOUNS: ReadonlySet<string> = new Set(list('agave grind bayou goods pixel phone paw cactus gifts wine sneakers polished nail lash braids massage brow room taste tacos'));
+
 /** Rule L3: activities that are mostly run from a home, a car or a phone. With one of these the trade-name rule gives nothing. */
 export const HOME_PRONE_RE =
   /\b(?:tutor\w*|lessons?|sitting|sitters?|walking|walkers?|housekeep\w*|house ?clean\w*|maids?|home ?(?:health|care|made|maker|makers)|homecare|freelanc\w*|ride ?share|notary|doulas?|midwi\w*|caregiv\w*|personal (?:train\w*|chef|care|assistant|shopper)|life coach\w*|coaching|etsy|ebay|online|vacation rentals?|airbnb|room rentals?|mobile|handmade|crafts?|sewing|cottage|apartment|spare room|basement|living room|kitchen table|residential|home|homes|home-?based|homebased)\b/i;
@@ -552,7 +613,57 @@ export const PLACE_NOT_PERSON: ReadonlySet<string> = new Set(['texas', 'florida'
  * In L2 and L3 a home-based activity in the name (HOME_BASED_RE) gives nothing; extract.ts checks the category columns.
  */
 export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): string | null {
+  return cleanBusinessNameBase(raw, ctx) ?? legalPlusBusinessWord(raw, ctx);
+}
+
+/**
+ * Rule L1b (review proposal): "a legal form plus a non-person word". A name the base rule refused passes only when ALL hold:
+ *  - the base shape guards (placeholder, shapeOk, personGuardsOk, the owner comparison, no home-based or home-prone activity word);
+ *  - a strong legal form ends it, and 2 to 6 words stand before it;
+ *  - EVERY word is one of: E an establishment noun (closed list), D a dictionary adjective (closed list), P a plain vocabulary or
+ *    business word that is on no name list, is not glued from names, is no initial and no possessive. Anything else refuses the name:
+ *    one listed given name or surname outside the two closed lists, or one unknown word, is enough;
+ *  - at least one business word (an E, or a P that is a trade or business word);
+ *  - at most one D, never last, in a name of three words or more, with a P right after it ("GOLDEN DRAGON RESTAURANT LLC" passes;
+ *    "ROSE KITCHEN LLC", "GOLDEN KITCHEN LLC", "GREEN SMITH BAKERY LLC" do not).
+ */
+function legalPlusBusinessWord(raw: unknown, ctx: LicenceContext): string | null {
+  if (typeof raw !== 'string' || !raw.trim() || isPlaceholderName(raw)) return null;
+  const cand = shapeOk(raw);
+  if (!cand || isPlaceholderName(cand)) return null;
+  const ts = toks(cand);
+  if (!strongLegalEnd(ts) || /[a-z][A-Z]/.test(cand)) return null;
+  if (HOME_BASED_RE.test(cand) || HOME_PRONE_RE.test(cand)) return null;
+  const listed = (k: string) => isListedGivenName(k) || isListedSurname(k);
+  const shop = (k: string) => SHOP_NOUNS.has(k) && !listed(k);
+  const marker = (k: string) => LICENCE_WORDS.has(k) || LICENCE_EXTRA_WORDS.has(k) || classifyWord(k) === 'business' || shop(k) || ESTABLISHMENT_NOUNS.has(k);
+  if (!personGuardsOk(cand, marker)) return null;
+  const words = ts.filter((t) => t.k !== '&' && t.k !== 'and' && t.k !== 'the' && !LEGAL.has(t.k));
+  if (words.length < 2 || words.length > 6) return null;
+  const estab = (k: string) => ESTABLISHMENT_NOUNS.has(k);
+  const dual = (k: string) => !estab(k) && (PLAIN_ENGLISH_GIVEN.has(k) || DUAL_ADJECTIVES.has(k));
+  const business = (k: string) => (isFirm(k) || LICENCE_WORDS.has(k) || LICENCE_EXTRA_WORDS.has(k) || classifyWord(k) === 'business' || shop(k)) && !listed(k);
+  const plain = (k: string) => /^[a-z][a-z-]*$/.test(k) && k.length >= 2 && !k.includes("'") && !listed(k) && !gluedPersonWord(k) && (isVocabularyWord(k) || business(k)) && (!possessivePerson(k) || isVocabularyWord(k) || shop(k));
+  const cls = words.map((o) => (estab(o.k) ? 'E' : dual(o.k) ? 'D' : plain(o.k) ? 'P' : 'X'));
+  if (cls.includes('X')) return null;
+  const d = cls.indexOf('D');
+  if (cls.filter((c) => c === 'D').length > 1) return null;
+  if (d >= 0 && (words.length < 3 || cls[d + 1] !== 'P')) return null;
+  if (!words.some((o, i) => cls[i] === 'E' || (cls[i] === 'P' && business(o.k)))) return null;
+  const all = words.map((o) => o.k.replace(/[^a-z]/g, '')).filter((w) => w.length >= 2);
+  if (!ctx.shapeOnly && sharesWithOwner(all, ctx)) return null;
+  const out = cand.normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+  return out.length >= 3 && out.length <= 120 ? out : null;
+}
+
+function cleanBusinessNameBase(raw: unknown, ctx: LicenceContext = {}): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
+  // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts). The owner check still applies: a row whose
+  // owner column names a PERSON who shares a word with the name gives nothing ("Toll Brothers" owned by "Mary Toll").
+  // Review LIC P2-6: only a listed name that ENDS with a legal form (LLC, Inc, Corp, Co, LP, LLP, PLLC, Ltd); any other listed name goes
+  // through the normal licence rule below, as before round 20.
+  const known = knownFormHasLegalEnd(raw) ? knownCompanyName(raw) : null;
+  if (known) return !ctx.shapeOnly && sharesWithOwner(nameTokens(known), ctx) ? null : known;
   if (isPlaceholderName(raw)) return null;
   const strict = cleanOrgName(raw);
   const cand = strict ?? shapeOk(raw);

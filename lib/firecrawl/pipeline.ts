@@ -3,7 +3,7 @@ import type { SignalInput } from '@/lib/signals/types';
 import { bidsEnabled, BIDS_FLAG, localBidsEnabled, LOCAL_BIDS_FLAG } from '@/lib/signals/bid-sources';
 import { createFirecrawlClient, firecrawlApiKey, FirecrawlError, type FirecrawlClient, type ScrapeResult } from './client';
 import { checkBudget, readBudgetConfig, runSpendFor, type BudgetSnapshot } from './budget';
-import { checkRobots } from './robots';
+import { checkRobots, crawlDelayWaitMs, noteFetch } from './robots';
 import { lastScanRun, PROBE_PREFIX, readLedger, rowsWereStored, writeLedger, type LedgerState, type LedgerSummary } from './ledger';
 import { changeTag, EXTRACT_SCHEMA, extractionPrompt, rowsFromJson, validateRows, type DroppedRow } from './extract';
 import type { LocalBidSource } from './local-sources';
@@ -41,7 +41,7 @@ export interface PipelineDeps {
 }
 
 export type PipelineStatus = 'ok' | 'unchanged' | 'skipped' | 'error';
-export type SkipReason = 'flag_off' | 'local_flag_off' | 'dry_run' | 'probe_cap' | 'no_key' | 'robots_disallowed' | 'robots_unreachable' | 'ledger_unreadable' | 'run_cap' | 'day_cap' | 'month_cap' | 'low_balance' | 'no_time';
+export type SkipReason = 'flag_off' | 'local_flag_off' | 'dry_run' | 'probe_cap' | 'no_key' | 'robots_disallowed' | 'robots_unreachable' | 'crawl_delay' | 'ledger_unreadable' | 'run_cap' | 'day_cap' | 'month_cap' | 'low_balance' | 'no_time';
 
 export interface PipelineReport {
   source: string;
@@ -88,7 +88,10 @@ export async function runLocalBidSource(src: LocalBidSource, deps: PipelineDeps)
   // 2. robots.txt of the agency.
   const robots = await checkRobots(src.listUrl, deps.fetch, deps.now.getTime());
   if (!robots.allowed) return { ...rep, reason: robots.reason === 'disallowed' ? 'robots_disallowed' : 'robots_unreachable' };
-  rep.notes.push(robots.checked ? 'robots.txt allows the page' : 'no robots.txt (HTTP 4xx): everything is allowed');
+  rep.notes.push(robots.checked ? 'robots.txt allows the page' : 'no robots.txt (HTTP 404/410): everything is allowed');
+  // Crawl-delay (round 20 review): the run is skipped when the agency asked for more time since the last page read of this origin.
+  const wait = crawlDelayWaitMs(src.listUrl, robots.crawlDelaySec, clock());
+  if (wait > 0) return { ...rep, reason: 'crawl_delay', notes: [...rep.notes, `Crawl-delay ${robots.crawlDelaySec} s not met (${Math.ceil(wait / 1000)} s left)`] };
 
   const client = (deps.makeClient ?? ((k: string) => createFirecrawlClient({ apiKey: k })))(apiKey);
   const cfg = readBudgetConfig(deps.env);
@@ -183,6 +186,7 @@ export async function runLocalBidSource(src: LocalBidSource, deps: PipelineDeps)
     if (left < 6000) return { ...rep, reason: 'no_time' };
     let a: ScrapeResult;
     try {
+      noteFetch(src.listUrl, clock());
       a = await client.scrape({
         url: src.listUrl,
         formats: ['markdown', { type: 'changeTracking', tag: changeTag(src) }],
@@ -223,6 +227,7 @@ export async function runLocalBidSource(src: LocalBidSource, deps: PipelineDeps)
   }
   let x: ScrapeResult;
   try {
+    noteFetch(src.listUrl, clock());
     x = await client.scrape({
       url: src.listUrl,
       formats: ['markdown', { type: 'json', schema: EXTRACT_SCHEMA as unknown as Record<string, unknown>, prompt: extractionPrompt(src) }],

@@ -51,6 +51,7 @@ export type BriefFamily =
   | 'city-bid'
   | 'public-post'
   | 'resident-request'
+  | 'sale'
   | 'other';
 
 export const BRIEF_FAMILIES: readonly BriefFamily[] = [
@@ -71,6 +72,7 @@ export const BRIEF_FAMILIES: readonly BriefFamily[] = [
   'city-bid',
   'public-post',
   'resident-request',
+  'sale',
   'other',
 ];
 
@@ -105,6 +107,8 @@ const SOURCE_FAMILY: Record<string, BriefFamily> = {
   'websearch-brave': 'public-post',
   'websearch-serper': 'public-post',
   'holler-request': 'resident-request',
+  // Round 20 NEXT: the Houston permit report page (not a dataset id with a suffix the pattern below reads).
+  'html-houston-permits': 'permit',
 };
 
 const SUBTYPE_FAMILY: Record<string, BriefFamily> = {
@@ -115,6 +119,8 @@ const SUBTYPE_FAMILY: Record<string, BriefFamily> = {
   'business': 'business',
   'event-permit': 'event-permit',
   'bid': 'city-bid',
+  // Round 20 SALES: a recorded property sale (lib/signals/adapters/sales.ts).
+  'sale': 'sale',
 };
 
 /** Which family a record belongs to: its source first, then its data.subtype, then its kind. Unknown records are 'other'. */
@@ -123,7 +129,7 @@ export function briefFamilyOf(sig: BriefInput): BriefFamily {
   if (SOURCE_FAMILY[source]) return SOURCE_FAMILY[source];
   if (source.startsWith('bids-')) return 'city-bid';
   // Socrata, ArcGIS and Carto ids end in what the dataset is: socrata-chicago-311, arcgis-dekalb-violations, carto-phl-business ...
-  const tail = source.replace(/^(?:socrata|arcgis|carto)-.*?-(permits|311|violations|inspections|business|events)$/, '$1');
+  const tail = source.replace(/^(?:socrata|arcgis|carto)-.*?-(permits|311|violations|inspections|business|events|sales)$/, '$1');
   const byTail: Record<string, BriefFamily> = {
     permits: 'permit',
     '311': '311',
@@ -131,6 +137,7 @@ export function briefFamilyOf(sig: BriefInput): BriefFamily {
     inspections: 'inspection',
     business: 'business',
     events: 'event-permit',
+    sales: 'sale',
   };
   if (tail !== source && byTail[tail]) return byTail[tail];
   const subtype = norm(sig.subtype);
@@ -396,6 +403,9 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'resident-request': {
     act_now: (w) => `A resident asked on Holler for ${w} nearby.`,
   },
+  sale: {
+    coming_soon: (w) => `A property sold nearby; ${w} may follow.`,
+  },
   other: {},
 };
 
@@ -594,6 +604,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'who may respond is not known' } },
   'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'the author is unchecked' } },
   'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'details are unchecked' } },
+  sale: { base: { confidence: 'High', known: 'the sale was recorded', unknown: 'the need is not known' } },
   other: { base: { confidence: 'Low', known: 'a public record exists', unknown: 'the need is not known' } },
 };
 
@@ -619,8 +630,18 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'city-bid': "Check the due date and the buyer's bid page.",
   'public-post': 'Read the whole post before you reply.',
   'resident-request': 'Reply through Holler if it fits what you do.',
+  // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.
+  sale: 'A home on this block sold; homes often need work in the first months.',
   other: 'Check the address.',
 };
+
+/** A commercial sale's next step (the residential one is NEXT_STEP.sale). */
+export const SALE_COMMERCIAL_NEXT = 'A commercial property here sold; cleaning and security often follow.';
+
+/** "Commercial property sold in ..." (lib/signals/adapters/sales.ts saleTitle). Same test as lib/outreach/plan.ts. */
+export function isCommercialSaleTitle(title: string | null | undefined): boolean {
+  return typeof title === 'string' && /^Commercial property sold in /.test(title);
+}
 
 export interface Brief {
   family: BriefFamily;
@@ -691,7 +712,7 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     label,
     trade,
     why,
-    next: reason?.copy.next ?? (family === 'weather-alert' && label === 'coming_soon' && input.title ? WEATHER_SOON_NEXT : NEXT_STEP[family]),
+    next: reason?.copy.next ?? (family === 'weather-alert' && label === 'coming_soon' && input.title ? WEATHER_SOON_NEXT : family === 'sale' && isCommercialSaleTitle(input.title) ? SALE_COMMERCIAL_NEXT : NEXT_STEP[family]),
     confidence: merged.confidence,
     uncertain: `${merged.confidence} confidence ${merged.known}; ${merged.unknown}.`,
   };

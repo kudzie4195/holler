@@ -8,6 +8,7 @@ import { ruleChoice } from './rule-choices';
 
 export { HEAT_MARK, hasHeatMark, withHeatMark };
 import type { SignalRowInput } from './store';
+import { BUILDING_REF_RE, HEAT_SOURCE, buildingRefOf, isWholeBuildingHeat, onPrivacyGrid } from './building-ref';
 
 /**
  * Two counts across records that a single record cannot see, decided ONCE when a row is stored (lib/signals/run.ts calls markRepeats right
@@ -41,7 +42,7 @@ import type { SignalRowInput } from './store';
 
 type Db = Pick<SupabaseClient, 'from'>;
 
-export const HEAT_SOURCE = 'socrata-nyc-311';
+export { HEAT_SOURCE, isWholeBuildingHeat } from './building-ref';
 export const HEAT_COMPLAINTS_FOR_CARD = 3;
 export const HEAT_WINDOW_HOURS = 48;
 /** After a building's card, further complaints there make no new card for this long. */
@@ -49,18 +50,20 @@ export const HEAT_QUIET_DAYS = 7;
 export const NWS_REPEAT_HOURS = 24;
 
 const HOUR = 3_600_000;
-const WHOLE_BUILDING_RE = /heat\/hot water \/ entire building/i;
-
-/** A NYC "HEAT/HOT WATER / ENTIRE BUILDING" 311 row. */
-export function isWholeBuildingHeat(sig: { source?: string | null; title?: string | null }): boolean {
-  return sig.source === HEAT_SOURCE && WHOLE_BUILDING_RE.test(sig.title ?? '');
-}
-
-/** The building a heat row is about: its point rounded to 4 decimals. Null without a point. */
-export function buildingKeyOf(sig: { lat?: number | null; lon?: number | null }): string | null {
+/**
+ * The building a heat row is about. Final review P2-1: a row stored since 311 points are rounded carries `data.bref` (building-ref.ts, a
+ * keyed hash of its exact point at 4 decimals): that is the key. A row stored before (exact point, no ref) gets the same keyed hash of its
+ * point, so old and new complaints of one building still join. Without the secret (tests, offline replays) an exact point keys by itself
+ * at 4 decimals, as before. A point on the 3-decimal privacy grid with no ref (a rounded point) is a whole block, not a building: null.
+ */
+export function buildingKeyOf(sig: { lat?: number | null; lon?: number | null; data?: Record<string, unknown> | null }): string | null {
+  const ref = sig.data?.bref;
+  if (typeof ref === 'string' && BUILDING_REF_RE.test(ref)) return `ref:${ref}`;
   const { lat, lon } = sig;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  if (onPrivacyGrid(lat, lon)) return null;
+  const keyed = buildingRefOf(lat, lon);
+  return keyed ? `ref:${keyed}` : `${lat.toFixed(4)},${lon.toFixed(4)}`;
 }
 
 export interface TimelineRow {
@@ -189,9 +192,12 @@ export const MAX_ORDERS_PER_CARD = 12;
 const CLOSED_PART_RE = /(?:^|\|)\s*(?:closed|clos-[a-z]+|clos|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
 
 /** "socrata-chicago-violations|41.903,-87.700|2026-11-12" for a violation row with a point and a date; null otherwise. */
-export function visitKeyOf(sig: { source?: string | null; lat?: number | null; lon?: number | null; occurredAt?: string | null; occurred_at?: string | null; data?: Record<string, unknown> | null; subtype?: string | null }): string | null {
+export function visitKeyOf(sig: { source?: string | null; lat?: number | null; lon?: number | null; occurredAt?: string | null; occurred_at?: string | null; data?: Record<string, unknown> | null; subtype?: string | null; visitKey?: string | null }): string | null {
   const subtype = typeof sig.subtype === 'string' ? sig.subtype : typeof sig.data?.subtype === 'string' ? (sig.data.subtype as string) : '';
   if (subtype !== 'violation') return null;
+  // Round 20 (review P3-11): a New York violation row arrives with its building's key (socrata.ts visitKeyFor, a salted hash held in memory
+  // only). Stored rows never carry one, so a New York row joins only rows of its own building in the same scan, never a stored card by point.
+  if (typeof sig.visitKey === 'string' && sig.visitKey) return sig.visitKey;
   const { lat, lon } = sig;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const day = String(sig.occurredAt ?? sig.occurred_at ?? '').slice(0, 10);
@@ -382,10 +388,10 @@ export async function markRepeats(db: Db, rowsIn: SignalRowInput[]): Promise<Mar
       const from = new Date(Math.min(...times) - (HEAT_QUIET_DAYS * 24 + HEAT_WINDOW_HOURS) * HOUR).toISOString();
       const to = new Date(Math.max(...times) + HEAT_QUIET_DAYS * 24 * HOUR).toISOString();
       // Newest first (review P2-5): if the cap is reached, what is left unread is the oldest complaints, which matter least.
-      const read = await readPages<{ external_id: string; lat: number | null; lon: number | null; occurred_at: string; summary: string | null }>((a, b) =>
+      const read = await readPages<{ external_id: string; lat: number | null; lon: number | null; occurred_at: string; summary: string | null; bref: string | null }>((a, b) =>
         db
           .from('holler_signals')
-          .select('external_id, lat, lon, occurred_at, summary')
+          .select('external_id, lat, lon, occurred_at, summary, bref:data->>bref')
           .eq('source', HEAT_SOURCE)
           .ilike('title', '%HEAT/HOT WATER / ENTIRE BUILDING%')
           .gte('occurred_at', from)
@@ -401,7 +407,7 @@ export async function markRepeats(db: Db, rowsIn: SignalRowInput[]): Promise<Mar
       }
       const timeline: TimelineRow[] = [
         ...stored.flatMap((r) => {
-          const key = buildingKeyOf(r);
+          const key = buildingKeyOf({ lat: r.lat, lon: r.lon, data: { bref: r.bref } });
           return key ? [{ key, t: ms(r.occurred_at), id: r.external_id, stored: true, marked: hasHeatMark(r.summary) }] : [];
         }),
         ...heatRows.map((r) => ({ key: buildingKeyOf(r) as string, t: ms(r.occurredAt), id: r.externalId, stored: false })),

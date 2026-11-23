@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { classifyText } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
@@ -22,7 +23,7 @@ import { findCity, naicsToCategories, normalizeState } from './usaspending';
  */
 
 const ENDPOINT = 'https://api.sam.gov/opportunities/v2/search';
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 const PAGE = 1000;
 const MAX_PAGES = 3;
 

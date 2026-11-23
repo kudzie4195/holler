@@ -10,6 +10,7 @@ import { markRepeats } from './repeat-marks';
 import { matchScope } from '@/lib/plan';
 import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
 import { isProbationNote } from './probation-note';
+import { PROBATION_FETCH_FLAG, probationFetchOn } from './probation-fetch';
 import {
   getLastRunTimes,
   insertMatches,
@@ -129,6 +130,8 @@ export function missingEnvFor(adapter: Adapter, e: Record<string, string | undef
   // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
   if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
   for (const f of adapter.extraFlags ?? []) if (!f.on()) keys.push(f.name);
+  // Round 21 final review P1-1: the one off switch for every probation request (default on).
+  if (adapter.probation && !probationFetchOn(e[PROBATION_FETCH_FLAG] ?? process.env[PROBATION_FETCH_FLAG])) keys.push(PROBATION_FETCH_FLAG);
   return keys;
 }
 

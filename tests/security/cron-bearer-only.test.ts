@@ -13,6 +13,7 @@ const SECRET = 'right-secret-for-tests-0123456789';
 const ROUTES = [
   'admin/coverage-probe',
   'admin/firecrawl-probe',
+  'admin/license-probe',
   'admin/lookup-probe',
   'admin/metros',
   'admin/quality',
@@ -23,6 +24,7 @@ const ROUTES = [
   'cron/dataforseo',
   'cron/health',
   'cron/indexnow',
+  'cron/license-sync',
   'cron/lifecycle',
   'cron/moat',
   'cron/notify',

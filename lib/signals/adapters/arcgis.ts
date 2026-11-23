@@ -1,17 +1,19 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
-import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { contactSpecFields, extractContacts, extractJobValue, extractLicenseRefs } from '@/lib/contacts/extract';
+import { civicLabel, moneyFields, publicSummary, scrubText, stripActor, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
 import { permitStageOf } from '@/lib/signals/stage';
 import { CAT_V } from '@/lib/signals/mapping/version';
-import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
+import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress, strictSiteAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
-import { cleanAddress } from '@/lib/contacts/sanitize';
+import { site311Contact } from '@/lib/signals/site-311';
+import { OCCUPANCY_TRADES, businessSummary, occupancyAddress, occupancyClassOf, occupancyTitle, occupancyTypeText, premisesAddressOf, quadrantAfter } from './next-rules';
 
 const LIMIT = 500;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 type Attrs = Record<string, unknown>;
 
@@ -86,7 +88,14 @@ function requiredFields(ds: ArcgisDataset): Set<string> {
 /** Extras the layer may or may not have: contact columns and value columns that are not required fields. */
 export function optionalFields(ds: ArcgisDataset): string[] {
   const req = requiredFields(ds);
-  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds)])].filter((f) => !req.has(f));
+  // Round 20 (NEXT): the premises, 311 site, occupancy type and keep-row columns are extras too (absent: the rule gives nothing).
+  const next = [
+    ...contactSpecFields(ds.premises),
+    ...(ds.site311 ? [...ds.site311.addressFields, ...ds.site311.typeFields] : []),
+    ...(ds.occupancy?.typeFields ?? []),
+    ...(ds.keepFields ?? []),
+  ];
+  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds), ...next])].filter((f) => !req.has(f));
 }
 
 /**
@@ -232,18 +241,26 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       if (seen.has(externalId)) continue;
       // Round 19 coverage (review P1-A): a confidential case is dropped whole, and so is a row that does not carry the flag at all.
       if (ds.confidentialField && (!(ds.confidentialField in a) || isConfidential(a[ds.confidentialField]))) continue;
+      // Round 20 (NEXT): a row the dataset does not keep is dropped before anything is built from it.
+      if (ds.keepRow && !ds.keepRow((x) => str(a, x))) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (x) => str(a, x)) : null;
-      const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
+      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
+      // Round 20 (NEXT): a certificate of occupancy carries the occupancy trades (next-rules.ts OCCUPANCY_TRADES).
+      const categories = ds.occupancy && ds.subtype === 'permit' ? [...new Set([...classified.categories, ...OCCUPANCY_TRADES])] : classified.categories;
+      const severity = classified.severity;
       if (categories.length === 0) continue;
 
       seen.add(externalId);
       // Who to contact: private, from the columns the layer's contact spec names only (arcgis-datasets.ts CONTACT_SPECS).
       const contacts = ds.contacts ? extractContacts((x) => str(a, x), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+      // Round 20 (LIC): a contractor licence number for the insert-time lookup (only where the spec names a licence state).
+      const licenseRefs = ds.contacts ? extractLicenseRefs((x) => str(a, x), ds.contacts, ds.subtype) : [];
       // Permits: the project value the layer published, as a number (PLAN-2.0 1.3). The summary prints the same amount where it has one.
       const jobValue = ds.subtype === 'permit' ? extractJobValue((x) => str(a, x), valueFieldsOf(ds)) : null;
       const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
       let itemTitle: string;
+      let dropSite = false;
       let summary: string | null;
       let zip: string | null;
       if (ds.subtype === 'inspection') {
@@ -257,21 +274,40 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const titleBits = titlePrint.values;
         const joined = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
         // Review P1-B: an unverified address column may hold a name. Only what the shared site-address rule keeps is used, else nothing.
-        const rawAddress = ds.strictAddress ? (cleanAddress(joined) ?? '') : joined;
+        const rawAddress = ds.strictAddress ? strictSiteAddress(joined) : joined;
         const summaryBits = ds.summaryFields
           .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
-          .map((x) => summaryPart(x, str(a, x)))
+          // Review P3-7: who acted on a 311 or violation row is never printed.
+          .map((x) => summaryPart(x, ds.subtype === '311' || ds.subtype === 'violation' ? stripActor(str(a, x)) : str(a, x)))
           // DeKalb's statusDescription holds the literal text "Issued Status Code" on live rows: a field label, not a status (final review, Q3 pattern 3).
           .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).
-        const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
+        // Round 20 (NEXT): a business with a `premises` rule prints its premises address only when its name passed.
+        const baseAddress = ds.subtype === 'business'
+          ? (ds.premises ? premisesAddressOf((x) => str(a, x), ds.premises, { city: ds.city, state: ds.state }, ds.premisesWhen) : '')
+          : publicAddress(ds.subtype, rawAddress);
+        // Review fix P2-3: a certificate of occupancy at a home prints its block (residential) or nothing (home occupation); DC keeps its quadrant.
+        const occ = ds.occupancy && ds.subtype === 'permit'
+          ? occupancyAddress(joined, baseAddress, occupancyClassOf(ds.occupancy.typeFields.map((x) => str(a, x)), ds.occupancy.unknownType), ds.keepQuadrant)
+          : null;
+        if (occ?.dropSite) dropSite = true;
+        const address = occ ? occ.address : ds.keepQuadrant && baseAddress && quadrantAfter(joined) ? `${baseAddress} ${quadrantAfter(joined)}` : baseAddress;
         const parts = [...new Set(summaryBits)];
         if (address && ds.subtype !== '311') parts.push(address);
-        itemTitle = permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
-        summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
+        itemTitle = ds.occupancy && ds.subtype === 'permit'
+          ? occupancyTitle(ds.city, occupancyTypeText(printableValues(ds, ds.occupancy.typeFields, (x) => str(a, x)).values))
+          : permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
+        summary = ds.subtype === 'business' ? businessSummary(parts, address) : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
-      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
+      const permitStage = ds.occupancy && ds.subtype === 'permit'
+        ? ('certificate_of_occupancy' as const)
+        : ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
+      // Round 20 (NEXT): a 311 request about a property gives at most a PRIVATE block-level site (lib/signals/site-311.ts).
+      const site311 = ds.subtype === '311' && ds.site311 ? site311Contact((x) => str(a, x), ds.site311, { city: ds.city, state: ds.state, zip }) : null;
+      // Review fix P2-3: a residential or home certificate keeps no exact private site either.
+      const kept = dropSite ? contacts.filter((c) => c.role !== 'site') : contacts;
+      const allContacts = site311 ? [...kept, site311] : kept;
       report.items.push({
         source: ds.id,
         externalId,
@@ -294,7 +330,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(contacts.length ? { contacts } : {}),
+        ...(allContacts.length ? { contacts: allContacts } : {}),
+        ...(licenseRefs.length ? { licenseRefs } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {
@@ -399,10 +436,12 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
   };
   return {
     id: ds.id,
-    label: `${ds.city} open data: ${suffix[ds.subtype]}`,
+    label: ds.label ?? `${ds.city} open data: ${suffix[ds.subtype]}`,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),
+    access: 'open-data-api',
+    apiEndpoint: ds.layerUrl,
     sourceUrl: arcgisPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

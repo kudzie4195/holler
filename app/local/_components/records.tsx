@@ -4,6 +4,23 @@ import type { SectionDef } from '@/lib/seo/sections';
 import type { SectionItem } from '@/lib/seo/summarize';
 import { fmtItemTime } from '@/lib/seo/view';
 import { FamilyMark, H2, Ledger, linkClass, type Family } from './ui';
+import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
+import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
+
+/**
+ * Round 21 final review P3: business sources whose summary ends with the premises address (round 20 NEXT `premises`). The two-line clamp
+ * cut that address off on a narrow screen, so it gets its own line, never clamped.
+ */
+const PREMISES_SOURCES: ReadonlySet<string> = new Set([...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.premises).map((d) => d.id));
+const HOUSE_START = /^\d{1,6}[A-Za-z]?(?:-\d{1,6})?\s+\S/;
+
+/** The summary split into the clamped part and a trailing premises address (business sources with a premises rule only). */
+export function summaryParts(source: string, summary: string): { body: string; address: string | null } {
+  if (!PREMISES_SOURCES.has(source)) return { body: summary, address: null };
+  const at = summary.lastIndexOf(' | ');
+  const last = at >= 0 ? summary.slice(at + 3).trim() : '';
+  return at >= 0 && HOUSE_START.test(last) ? { body: summary.slice(0, at), address: last } : { body: summary, address: null };
+}
 
 /** Record family of a city-page section, same mapping as the --color-kind-* tokens. */
 export function sectionFamily(id: string): Family {
@@ -29,7 +46,15 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
         )}
       </p>
       {/* Holler's own notes (the heat count, "Also cited") are member-feed wording, never printed on a public page (round 19 review P3 item 11). */}
-      {!ask && stripNotes(item.summary) ? <p className="mt-1 line-clamp-2 text-[0.9375rem] text-muted">{stripNotes(item.summary)}</p> : null}
+      {!ask && stripNotes(item.summary) ? (() => {
+        const parts = summaryParts(item.source, stripNotes(item.summary) as string);
+        return (
+          <>
+            <p className="mt-1 line-clamp-2 text-[0.9375rem] text-muted">{parts.body}</p>
+            {parts.address ? <p className="text-[0.9375rem] text-muted">{parts.address}</p> : null}
+          </>
+        );
+      })() : null}
       <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
         <time dateTime={item.occurredAt} className="font-mono text-xs uppercase tracking-[0.04em] text-ink">
           {fmtItemTime(item.occurredAt, asOf)}

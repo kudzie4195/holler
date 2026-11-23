@@ -19,9 +19,13 @@ import { createStore } from '@/lib/lifecycle/store';
 import { buildAlerts } from '@/lib/mobile/feed';
 import { matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { labelFor, keptMatchLabel, SOURCE_DEFAULTS } from '@/lib/signals/lead-rules';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, NEXT_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, SALE_SOURCE_IDS } from '@/lib/signals/probation';
 import { createsWorkFor, stormListLabel } from '@/lib/lists/core';
 import { OpportunityChip } from '@/components/feed/opportunity-chip';
+import { PAGE_WATCH_DATASETS, PAGE_WATCH_IDS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 const NOW = new Date('2026-11-20T12:00:00Z');
 const read = (f: string) => readFileSync(f, 'utf8');
@@ -134,10 +138,17 @@ describe('2. the contact gate and the new rules agree', () => {
 
 describe('3. probation and the label exemption', () => {
   it('the eight coverage ids have no SOURCE_DEFAULTS entry and are exempt only while on probation; the Philadelphia three have had entries since r19-metros', () => {
-    expect(PROBATION_SOURCE_IDS.size).toBe(11);
+    // 11 from round 19, plus round 20 VIOL's probation feeds, the four round 20 property sale sources (proposed labels only) and the 10 of round 20 NEXT;
+    // round 20 page watch adds its page-watch pages (PW_REGISTERED, exact ids) (all on probation, labels proposed in proposed-labels.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !PW_REGISTERED.has(id))).toHaveLength(11 + VIOL_R20_SOURCES.length + SALE_SOURCE_IDS.length + NEXT_R20_SOURCES.length);
+    expect([...PROBATION_SOURCE_IDS].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
+    for (const id of PW_REGISTERED) expect(PAGE_WATCH_IDS).toContain(id);
+    for (const id of SALE_SOURCE_IDS) expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
     for (const s of COVERAGE_R19_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
+    for (const s of NEXT_R20_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
     for (const id of ['carto-phl-permits', 'carto-phl-violations', 'carto-phl-business']) expect(SOURCE_DEFAULTS[id], id).toBeDefined();
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual([...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES, ...NEXT_R20_SOURCES].map((s) => s.id).sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
     const t = read('tests/signals/lead-rules.test.ts');
     expect(t).toMatch(/a\.probation && LABEL_PENDING_INTEGRATION\.includes\(a\.id\) && !\(a\.id in SOURCE_DEFAULTS\)/);
   });

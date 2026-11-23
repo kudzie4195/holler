@@ -6,6 +6,7 @@ import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
 import { adapters as carto } from './adapters/carto';
+import { adapters as sales } from './adapters/sales';
 import { adapters as nycHeat } from './adapters/nyc-hpd';
 import { adapters as arcgis } from './adapters/arcgis';
 import { adapters as arcgisJohnsCreek } from './adapters/arcgis-johnscreek';
@@ -14,9 +15,11 @@ import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as cityBids } from './adapters/city-bids';
 import { adapters as localBids } from './adapters/bids-local';
+import { adapters as pageWatch } from './adapters/page-watch';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
 import { adapters as websearch } from './adapters/websearch';
+import { adapters as houstonPermits } from './adapters/houston-permits';
 
 export const ALL_ADAPTERS: Adapter[] = [
   ...nws,
@@ -28,16 +31,22 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...socrata.map((a) => nycHeat.find((n) => n.id === a.id) ?? a),
   // Philadelphia (Carto SQL API): every adapter here is on probation (samples only in holler_source_samples, never members).
   ...carto,
+  // Round 20 SALES: recorded property sales (NYC, Cook County, Philadelphia, Miami-Dade), every one on probation.
+  ...sales,
   // The Cobb permit layers are built by arcgis-cobb.ts (approximate location marker), so the shared list skips them.
   ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
   ...arcgisCobb,
   ...arcgisJohnsCreek,
+  // Round 20 NEXT: the Houston weekly permit activity report (HTML table), on probation.
+  ...houstonPermits,
   ...usaspending,
   ...sam,
   // City open bids: registered, but off unless HOLLER_BIDS_ENABLED is on (lib/signals/bid-sources.ts).
   ...cityBids,
   // Atlanta-area county and city bid pages read with Firecrawl: on only with HOLLER_BIDS_ENABLED and FIRECRAWL_API_KEY both set.
   ...localBids,
+  // Round 20 page watch: public bid pages read with a plain fetch (Firecrawl only where a page needs a browser). All on probation.
+  ...pageWatch,
   ...ticketmaster,
   ...bluesky,
   ...websearch,

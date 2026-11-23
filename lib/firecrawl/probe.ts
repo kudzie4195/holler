@@ -1,7 +1,21 @@
+import { probationFetchOn } from '@/lib/signals/probation-fetch';
 import type { Db } from '@/lib/signals/store';
 import { createFirecrawlClient, firecrawlApiKey, type FirecrawlClient } from './client';
 import { runLocalBidSource, type PipelineReport } from './pipeline';
 import { LOCAL_BID_SOURCES, localSourceById } from './local-sources';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+import { asLocalBidSource, pageWatchGate } from '@/lib/signals/adapters/page-watch';
+
+/**
+ * Round 20 page watch: the pages read through Firecrawl (`firecrawl: 'only'` or 'fallback') are probed here too, with the same caps, but
+ * ONLY once the owner recorded their terms check and the page-watch switch is on (round 20 review P0): until then no Firecrawl call is made
+ * for them. Read at call time.
+ */
+function pageWatchFirecrawl(e: Record<string, string | undefined>) {
+  // Round 21 final review P1-1: page-watch pages are probation sources; the one off switch hides them from this probe too.
+  if (!probationFetchOn()) return [];
+  return PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off' && !pageWatchGate(d, e));
+}
 
 /**
  * The owner probe behind GET /api/admin/firecrawl-probe?source=<id>. A dry run of one source: it reads the page once with the
@@ -36,9 +50,11 @@ export async function runProbe(opts: {
   db?: Db | null;
   makeClient?: (apiKey: string) => FirecrawlClient;
 }): Promise<ProbeResult> {
-  const known = LOCAL_BID_SOURCES.map((s) => s.id);
+  const PAGE_WATCH_FIRECRAWL = pageWatchFirecrawl(opts.env);
+  const known = [...LOCAL_BID_SOURCES.map((s) => s.id), ...PAGE_WATCH_FIRECRAWL.map((d) => d.id)];
   const base = { ok: false, page: '', reason: null, error: null, changeStatus: null, rowsExtracted: 0, kept: [], dropped: [], notes: [], knownSources: known, credits: { calls: 0, estimated: 0, reported: null, measured: null, remainingBefore: null, remainingAfter: null, planCredits: null } };
-  const src = opts.source ? localSourceById(opts.source) : undefined;
+  const pw = opts.source ? PAGE_WATCH_FIRECRAWL.find((d) => d.id === opts.source) : undefined;
+  const src = opts.source ? localSourceById(opts.source) ?? (pw ? asLocalBidSource(pw) : undefined) : undefined;
   if (!src) return { ...base, source: opts.source ?? '', status: 'unknown_source', reason: 'unknown_source' };
   const key = firecrawlApiKey(opts.env);
   if (!key) return { ...base, source: src.id, page: src.listUrl, status: 'no_key', reason: 'no_key' };

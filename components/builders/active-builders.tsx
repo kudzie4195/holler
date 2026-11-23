@@ -32,7 +32,7 @@ export function ActiveBuilders({ builders, windowDays, lang = 'en' }: { builders
           return (
             <li key={b.name} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3">
               <div className="min-w-0">
-                <p className="font-medium text-ink">{b.name}</p>
+                <p className="break-words font-medium text-ink">{b.name}</p>
                 <p className="text-sm text-muted">{builderCountLine(b, windowDays, lang)}</p>
                 {b.relation === 'same-trade' ? <p className="mt-1 text-xs font-medium text-brand-text">{t(lang, 'builders.same_trade')}</p> : null}
               </div>

@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
 import type { ContactInput } from '@/lib/contacts/types';
+import type { LicenseRef } from '@/lib/licenses/attach';
 import type { Db } from './store';
 import type { PermitStage } from './stage';
 
@@ -40,6 +41,11 @@ export interface SignalInput {
    */
   contacts?: ContactInput[];
   /**
+   * Round 20 (LIC): contractor licence numbers the permit row carries, for the insert-time lookup in holler_contractor_licenses
+   * (lib/licenses/attach.ts). PRIVATE and transient: never copied into the row, a sample, a log or data.
+   */
+  licenseRefs?: LicenseRef[];
+  /**
    * Permits: the stage the portal's status column shows, as one of the fixed codes (lib/signals/stage.ts). NOT stored by the plain upsert:
    * lib/signals/projects.ts reads it when migration 0025 is applied and ignores it otherwise.
    */
@@ -50,6 +56,11 @@ export interface SignalInput {
    * probe row of a permit with no history is dropped before anything is stored, carded or logged, and a probe row is never inserted.
    */
   stageProbe?: boolean;
+  /**
+   * Round 20 (review P3-11): the visit a New York violation row belongs to (its building and day), as a salted hash. In memory for the scan
+   * only: never written to holler_signals (store.ts toRow) or to a sample (samples.ts sanitizeSample).
+   */
+  visitKey?: string;
 }
 
 export interface AdapterContext {
@@ -113,5 +124,15 @@ export interface Adapter {
    * `probation: true`: the next scan writes to holler_signals normally. Nothing else to clean up or migrate.
    */
   probation?: boolean;
+  /**
+   * Round 21 final review P1-1 (owner decision, reversible; LAUNCH.md "Round 21 order"): how a probation source is reached.
+   * 'open-data-api': a data API published for machine access (Socrata /resource/, ArcGIS REST /rest/services/, Carto /sql, CKAN /api/3/):
+   *   fetched on probation like the live portals, so its samples and probe work; `apiEndpoint` names the endpoint it calls.
+   * 'page': a web page that is not an API (page watch, the Houston permit report): nothing is requested before the owner's terms record.
+   * Every probation adapter declares one (tests/integration/r21-int-interactions.test.ts). HOLLER_PROBATION_FETCH=0 stops both kinds.
+   */
+  access?: 'open-data-api' | 'page';
+  /** With access 'open-data-api': the API endpoint the adapter calls (no query string). */
+  apiEndpoint?: string;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

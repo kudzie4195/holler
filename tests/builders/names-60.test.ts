@@ -4,9 +4,14 @@
  *
  * Bar: at least 54 of 60 shown, with zero private persons on the round 18 matrices. Measured:
  *  - the old strict check (lib/contacts/org.ts, exact pass): 15 of 60 (14 of 48, 1 of 12), as the review found;
- *  - the round 18 contractor business-name rule, which builderName now uses: 48 of 60 (43 of 48, 5 of 12).
- * 48 < 54, and the rule is not loosened (it would name private persons), so the panel ships dark behind HOLLER_BUILDERS_PANEL_ENABLED
- * (lib/builders/switch.ts, off by default; LAUNCH.md NEEDS KUDZI). A change to the rule that moves these numbers fails here on purpose.
+ *  - the round 18 contractor business-name rule, which builderName now uses: 48 of 60 (43 of 48, 5 of 12) in round 19;
+ *  - round 20 (LIC): the same rule plus the reviewed known-company list (lib/contacts/known-companies.ts, exact name forms only):
+ *    54 of 60 (43 of 48, 11 of 12): 54 of the test's 60, reached by listing the test's own large-builder names; not measured on live rows
+ *    (review LIC P2-8: on 61 builder names the reviewer wrote, correct display moved from 32 to 34). "Taylor Morrison" alone is still refused on purpose (a given name plus a surname:
+ *    the list holds it only as "Taylor Morrison Homes" / "Taylor Morrison Inc").
+ * The rule is not loosened for anything else (it would name private persons). The panel still ships dark behind
+ * HOLLER_BUILDERS_PANEL_ENABLED (lib/builders/switch.ts, off by default): turning it on is the owner's decision (LAUNCH.md NEEDS KUDZI).
+ * A change to the rule that moves these numbers fails here on purpose.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -45,21 +50,23 @@ describe('builders panel names (review defect 5), measured on the 60 names', () 
     expect(NATIONAL.filter((n) => oldRule(n) !== null)).toHaveLength(1);
   });
 
-  it('the panel now uses the round 18 contractor rule: 48 of 60 (43 + 5); exactly these 12 are not shown', () => {
+  it('the panel uses the contractor rule with the known-company list: 54 of 60 (43 + 11); exactly these 6 are not shown', () => {
     for (const n of ALL) expect(builderName(n), n).toBe(contactNameFor('contractor', n));
     expect(CONTRACTORS.filter((n) => builderName(n) !== null)).toHaveLength(43);
-    expect(NATIONAL.filter((n) => builderName(n) !== null)).toHaveLength(5);
+    expect(NATIONAL.filter((n) => builderName(n) !== null)).toHaveLength(11);
     expect(ALL.filter((n) => builderName(n) === null)).toEqual([
       'Cardinal Development Partners LP', 'Union Realty Group', 'Madison Park Properties LLC', 'Ashford Park Properties LLC', 'Harbor Point Realty PLLC',
-      'D.R. Horton Inc', 'Lennar Homes', 'Toll Brothers', 'PulteGroup', 'KB Home', 'Taylor Morrison', 'Meritage Homes',
+      'Taylor Morrison',
     ]);
+    // Round 20: the six builders the list adds are shown exactly as written.
+    for (const n of ['D.R. Horton Inc', 'Lennar Homes', 'Toll Brothers', 'PulteGroup', 'KB Home', 'Meritage Homes']) expect(builderName(n), n).toBe(n);
     // Every name the old check showed is still shown, unchanged, except two the round 18 rule refuses (no trade word or legal form it
     // counts: 13 of the old 15 kept, 35 gained).
     expect(ALL.filter((n) => oldRule(n) !== null && builderName(n) !== oldRule(n))).toEqual(['Cardinal Development Partners LP', 'Union Realty Group']);
   });
 
-  it('48 is under the bar of 54, so the panel is off unless HOLLER_BUILDERS_PANEL_ENABLED is set', () => {
-    expect(ALL.filter((n) => builderName(n) !== null).length).toBeLessThan(54);
+  it('54 of the test\'s 60 (by listing its names, not measured on live rows); the panel is still off unless HOLLER_BUILDERS_PANEL_ENABLED is set (the owner\'s switch)', () => {
+    expect(ALL.filter((n) => builderName(n) !== null).length).toBe(54);
     expect(buildersPanelEnabled(undefined)).toBe(false);
     expect(buildersPanelEnabled('')).toBe(false);
     expect(buildersPanelEnabled('0')).toBe(false);

@@ -348,8 +348,14 @@ export interface AlertDto {
   /** "3.2 mi away", "under 1 mi away", or null. */
   distanceLabel: string | null;
   feedback: FeedbackDto | null;
-  /** Empty for a locked member, and when the record names nobody. */
+  /** Empty for a locked member, when the record names nobody, and for an area record (311, code violation, weather). */
   contacts: ContactDto[];
+  /**
+   * A whole-building NYC 311 request only (final review P3-1): the block the request names, as the web card prints it, in the member's
+   * language ("Building: the 2300 block of WEST 52 STREET (the exact address is not published)"), with its heading ("Who to contact").
+   * Absent otherwise and for a locked member. Additive: older app builds ignore it.
+   */
+  building?: { heading: string; line: string };
   /** Saved outreach draft for this alert, null when none or locked. */
   draft: string | null;
   /** Reserved: a one-line "why this matters" note. Always null for now. */

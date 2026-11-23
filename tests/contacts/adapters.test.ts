@@ -130,8 +130,16 @@ describe('Chicago new business licences (doing_business_as_name, then legal_name
     ]);
     expect(JSON.stringify(items[3].contacts)).not.toMatch(/DARNELL|SPARKS/);
   });
-  it('business titles and summaries still carry no name and no street address', () => {
-    for (const s of items) expect(`${s.title} ${s.summary ?? ''} ${JSON.stringify(s.data)}`).not.toMatch(/SUMMIT|TORRES|Olga|REGINALD|DIVISION|47TH|CHAPPEL|APEX|DARNELL|SPARKS|CLARK/i);
+  it('business titles and summaries still carry no name; round 20 NEXT: only a business whose name passed prints its premises address', () => {
+    for (const s of items) expect(`${s.title} ${s.summary ?? ''} ${JSON.stringify(s.data)}`).not.toMatch(/SUMMIT|TORRES|Olga|REGINALD|47TH|CHAPPEL|APEX|DARNELL|SPARKS/i);
+    // Owner decision (round 20): a business premises is a place to go. The same rows that store a private site print it; the others print none.
+    expect(items.map((s) => s.summary)).toEqual([
+      'Retail Food Establishment | Retail sales of prepared food | 1840 W DIVISION ST',
+      'Limited Business License | Instructional services',
+      'Home Repair | Home repair services',
+      // Review fix P0-1: "Home Repair" reads as a home-prone activity, so no address is printed whatever the legal form (the private site stays).
+      'Home Repair | Home repair services',
+    ]);
   });
 });
 
@@ -152,10 +160,14 @@ describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask 
     'arcgis-dc-permits', 'arcgis-dekalb-permits', 'arcgis-mecklenburg-permits', 'arcgis-raleigh-permits',
     // Round 19 coverage, on probation (lib/signals/adapters/coverage-datasets.ts).
     'arcgis-arlington-permits', 'arcgis-miamidade-permits', 'arcgis-phoenix-permits', 'arcgis-tempe-permits',
+    // Round 20 NEXT, on probation (lib/signals/adapters/next-datasets.ts): the two new-business layers (the DC certificate layer has no spec
+    // since the review: its occupant columns are never requested).
+    'arcgis-miamidade-business', 'arcgis-phoenix-liquor-business',
   ].sort();
   it('exactly the permit layers named in PLAN-2.0 1.2 and 1.3 carry a spec; no violation, 311 or business layer does', () => {
     expect(ARCGIS_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort()).toEqual(WITH_SPEC);
-    for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit') expect(d.contacts, d.id).toBeUndefined();
+    // Round 20 NEXT: the two new-business layers carry a business spec (licence name rule, premises only with a name that passed).
+    for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit' && !['arcgis-miamidade-business', 'arcgis-phoenix-liquor-business'].includes(d.id)) expect(d.contacts, d.id).toBeUndefined();
     for (const d of ARCGIS_DATASETS.filter((x) => x.contacts)) expect(['sourced', 'assumed'], d.id).toContain(d.contacts!.fieldStatus);
   });
   it('the query asks for the contractor column, never an owner column; with an allow-list only fields the layer has are asked for', () => {
@@ -207,7 +219,10 @@ describe('contact specs: only verified datasets, only explicit company columns',
       'socrata-cincinnati-permits', 'socrata-dallas-permits', 'socrata-la-business', 'socrata-la-permits', 'socrata-montgomery-permits',
       'socrata-nola-permits', 'socrata-norfolk-permits', 'socrata-nyc-business', 'socrata-nyc-permits', 'socrata-orlando-business',
       'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-business', 'socrata-sf-permits',
-    ]);
+      // Round 20 NEXT, on probation (lib/signals/adapters/next-datasets.ts).
+      'socrata-la-occupancy-permits', 'socrata-nyc-occupancy-permits', 'socrata-tabc-dallas-business', 'socrata-tabc-houston-business',
+      'socrata-txsales-dallas-business', 'socrata-txsales-houston-business',
+    ].sort());
     for (const id of withSpec) {
       const d = ds(id);
       expect(d.contacts!.verifiedUrl, id).toMatch(/^https:\/\//);

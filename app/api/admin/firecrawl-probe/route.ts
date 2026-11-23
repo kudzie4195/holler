@@ -17,7 +17,11 @@ export async function GET(req: Request) {
   const source = new URL(req.url).searchParams.get('source');
   if (!source) {
     const { LOCAL_BID_SOURCE_IDS } = await import('@/lib/firecrawl/local-sources');
-    return Response.json({ error: 'source_required', knownSources: LOCAL_BID_SOURCE_IDS }, { status: 400, headers });
+    const { PAGE_WATCH_DATASETS } = await import('@/lib/signals/adapters/page-watch-datasets');
+    const { pageWatchGate } = await import('@/lib/signals/adapters/page-watch');
+    // Round 20 page watch: listed only once their terms are recorded and the page-watch switch is on.
+    const pageWatch = PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off' && !pageWatchGate(d, { ...process.env, ...env })).map((d) => d.id);
+    return Response.json({ error: 'source_required', knownSources: [...LOCAL_BID_SOURCE_IDS, ...pageWatch] }, { status: 400, headers });
   }
   let db = null;
   try {

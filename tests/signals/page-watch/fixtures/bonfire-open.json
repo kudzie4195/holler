@@ -1,0 +1,8 @@
+{"success":1,"message":"","payload":{"projects":{
+"149219":{"ProjectID":"149219","ReferenceID":"IFB 2027000041","ProjectName":"Roof Replacement at Kashmere Bus Operating Facility","DateClose":"2026-12-10 20:00:00","ProjectStatus":"Open","DepartmentName":"Facilities Maintenance"},
+"149220":{"ProjectID":"149220","ReferenceID":"IFB 2027000009","ProjectName":"Hybrid Battery Disposal","DateClose":"2026-12-02 20:00:00","ProjectStatus":"Open"},
+"149221":{"ProjectID":"149221","ReferenceID":"Q-2098101","ProjectName":"Elbow, Dual Port 1/2 x 1/4 - Parts Purchase","DateClose":"2026-12-04 18:00:00","ProjectStatus":"Open"},
+"149222":{"ProjectID":"149222","ReferenceID":"RFP 2026000777","ProjectName":"Janitorial Services for Administrative Buildings","DateClose":"2026-11-23 18:00:00","ProjectStatus":"Open"},
+"149223":{"ProjectID":"149223","ReferenceID":"IFB 2026000500","ProjectName":"Parking Lot Asphalt Resurfacing","DateClose":"2026-10-01 18:00:00","ProjectStatus":"Open"},
+"149224":{"ProjectID":"149224","ReferenceID":"RFP 2026000600","ProjectName":"Landscape Maintenance of Transit Centers","DateClose":"2026-12-15 18:00:00","ProjectStatus":"Awarded"}
+}}}

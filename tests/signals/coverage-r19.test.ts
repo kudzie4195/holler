@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { FakeDb } from '../ops/fakedb';
+import { NEXT_SOURCE_IDS } from '@/lib/signals/adapters/next-datasets';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { runScan } from '@/lib/signals/run';
 import { SAMPLES_MISSING } from '@/lib/signals/samples';
@@ -11,7 +12,7 @@ import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS, type ArcgisDataset } from '@/lib/signals/adapters/arcgis-datasets';
 import { buildSocrataAdapter, buildSocrataQuery, mdyToFloating, parseSocrataReport, recordDateIso } from '@/lib/signals/adapters/socrata';
 import { buildArcgisAdapter, buildArcgisQuery, isConfidential, layerSchemaCheck, parseArcgisReport, requestTimeoutMs, resetArcgisFieldCache } from '@/lib/signals/adapters/arcgis';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, NEXT_R20_SOURCES, LABEL_PENDING_INTEGRATION, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
 import { isProbationNote, isRunNote } from '@/lib/signals/probation-note';
 import { computeSourceStates } from '@/lib/signals/source-state';
 import { PROBATION_TIMEOUT_MS } from '@/lib/signals/run';
@@ -26,6 +27,10 @@ import { buildMetroReport, sourcePlaces } from '@/lib/admin/metros';
 import { METROS } from '@/lib/geo/metros';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 vi.mock('server-only', () => ({}));
 
@@ -33,6 +38,7 @@ const NOW = new Date('2026-11-22T12:00:00Z');
 const MS = (iso: string) => Date.parse(iso);
 const asDb = (f: FakeDb) => f as unknown as Db;
 const IDS = COVERAGE_R19_SOURCES.map((s) => s.id);
+const NEXT_IDS: readonly string[] = NEXT_R20_SOURCES.map((s) => s.id);
 const adapterOf = (id: string) => ALL_ADAPTERS.find((a) => a.id === id)!;
 const arc = (id: string) => ARCGIS_DATASETS.find((d) => d.id === id)!;
 const dallas = SOCRATA_DATASETS.find((d) => d.id === 'socrata-dallas-permits')!;
@@ -161,13 +167,16 @@ describe('the new sources are declared on probation, like Philadelphia', () => {
       expect(d.probation, id).toBe(true);
       expect(d.schemaUnverified, id).toBe(true);
     }
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(IDS);
+    // Round 20 VIOL and NEXT add their own probation sources to the same exemption (lib/signals/probation.ts VIOL_R20_SOURCES, NEXT_R20_SOURCES);
+    // round 20 page watch adds its own probation ids (tests/signals/page-watch).
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_IDS].sort());
   });
 
-  it('no Fort Worth source and no Houston permit source was added (no usable endpoint without a page scraper)', () => {
+  it('no Fort Worth source was added; Houston: 311 of round 19, then round 20 NEXT added the permit report page reader and two Texas feeds', () => {
     const ids = ALL_ADAPTERS.map((a) => a.id);
     expect(ids.some((id) => /fortworth|fort-worth/.test(id))).toBe(false);
-    expect(ids.filter((id) => /houston/.test(id))).toEqual(['arcgis-houston-311']);
+    // Round 20 page watch adds Houston BID pages (PW_REGISTERED, exact ids), not permit sources.
+    expect(ids.filter((id) => /houston/.test(id) && !PW_REGISTERED.has(id)).sort()).toEqual(['arcgis-houston-311', 'html-houston-permits', 'socrata-tabc-houston-business', 'socrata-txsales-houston-business']);
   });
 
   it('metros: every coverage source sits in its metro (Arlington in Dallas-Fort Worth, Tempe in Phoenix, Miami-Dade County in Miami)', () => {
@@ -422,7 +431,9 @@ describe('ArcGIS coverage layers: unverified schemas fail safe', () => {
     const q = buildArcgisQuery(arc(id), NOW);
     expect(q.get('outSR')).toBe('4326');
     expect(q.get('returnGeometry')).toBe('true');
-    expect(q.get('outFields')).not.toMatch(/OWNER|APPLICANT|CONTACT\b|VIOL_NAME|CONF_BY|LGLDESC|CONTRNUM|ResolutionNotes|IncidentAddress|PROPX|PROPY|X_COORD|Y_COORD|PERMIT_NAME|PROJECT\b/i);
+    expect(q.get('outFields')).not.toMatch(/OWNER|APPLICANT|CONTACT\b|VIOL_NAME|CONF_BY|LGLDESC|CONTRNUM|ResolutionNotes|PROPX|PROPY|X_COORD|Y_COORD|PERMIT_NAME|PROJECT\b/i);
+    // Round 20 NEXT (owner decision): Houston 311 reads IncidentAddress ONLY for its block-level site rule (lib/signals/site-311.ts); no other layer does.
+    if (id !== 'arcgis-houston-311') expect(q.get('outFields')).not.toMatch(/IncidentAddress/i);
   });
 
   it.each(ARC_IDS)('%s: a good row parses into a record placed by its geometry', async (id) => {
@@ -927,7 +938,8 @@ describe('review P3 items', () => {
 
   it('L: every schema-unverified dataset is on probation (removing the flag alone cannot make an unchecked source live)', () => {
     const unverified = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.schemaUnverified);
-    expect(unverified.length).toBe(IDS.length);
+    // Round 20 VIOL (tests/signals/viol-r20.test.ts) and NEXT add their own schema-unverified datasets (all on probation too).
+    expect(unverified.length).toBe(IDS.length + VIOL_R20_SOURCES.length + NEXT_SOURCE_IDS.length);
     for (const d of unverified) expect(d.probation, d.id).toBe(true);
   });
 

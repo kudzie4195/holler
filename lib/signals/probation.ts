@@ -3,6 +3,11 @@ import { isProbationNote } from './probation-note';
 import { SOCRATA_DATASETS } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { CARTO_DATASETS } from './adapters/carto-datasets';
+import { SALES_DATASETS } from './adapters/sales-datasets';
+import { HOUSTON_PERMITS_DS } from './adapters/houston-permits-config';
+import { PAGE_WATCH_DATASETS } from './adapters/page-watch-datasets';
+
+const PAGE_WATCH_IDS: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.map((d) => d.id));
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -11,12 +16,12 @@ import { CARTO_DATASETS } from './adapters/carto-datasets';
  * owner instead of silently storing nothing. Pure: rows in, rows out.
  */
 
-export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto';
+export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto' | 'html' | 'page-watch';
 
 /** One source added by round 19 COVERAGE: where it is, what it can carry, and how sure the schema is (COVERAGE-research.md tags). */
 export interface CoverageSource {
   id: string;
-  metro: 'dallas-fort-worth' | 'houston' | 'miami' | 'phoenix';
+  metro: 'dallas-fort-worth' | 'houston' | 'miami' | 'phoenix' | 'new-york' | 'los-angeles' | 'washington-dc';
   platform: ProbationPlatform;
   endpoint: string;
   offers: { contractor: boolean; value: boolean; coordinates: 'geometry' | 'lat/lon columns' | 'zip centroid'; status: boolean };
@@ -65,11 +70,94 @@ export const COVERAGE_R19_SOURCES: readonly CoverageSource[] = [
 ];
 
 /**
+ * Round 20 VIOL: violation and building-problem 311 feeds, all on probation and schema-unverified (lib/signals/adapters/viol-datasets.ts).
+ * Their intended label per trade, expected rows a week and call path are in lib/signals/proposed-labels.ts (PROPOSED_LABELS), which the
+ * SCORE unit imports; they get NO SOURCE_DEFAULTS entry this round. Same probe and promotion path as round 19 coverage.
+ */
+export interface ViolSource {
+  id: string;
+  metro: 'new-york' | 'washington-dc' | 'phoenix';
+  platform: 'socrata' | 'arcgis';
+  endpoint: string;
+  /** Research tag of the column names (VIOL-research.md): O opened, 3P third party, A assumed. */
+  schemaTag: 'O' | '3P' | 'A';
+}
+
+export const VIOL_R20_SOURCES: readonly ViolSource[] = [
+  { id: 'socrata-nyc-hpd-violations', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/wvxf-dwi5.json', schemaTag: 'O' },
+  { id: 'socrata-nyc-rodent-violations', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/p937-wjvj.json', schemaTag: '3P' },
+  { id: 'socrata-montgomery-violations', metro: 'washington-dc', platform: 'socrata', endpoint: 'https://data.montgomerycountymd.gov/resource/k9nj-z35d.json', schemaTag: '3P' },
+  { id: 'arcgis-phoenix-violations', metro: 'phoenix', platform: 'arcgis', endpoint: 'https://maps.phoenix.gov/pub/rest/services/Public/NSD_Property_Maintenance/MapServer/0', schemaTag: 'A' },
+  { id: 'arcgis-dc-311', metro: 'washington-dc', platform: 'arcgis', endpoint: 'https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/ServiceRequests/MapServer/13', schemaTag: 'O' },
+];
+
+/**
+ * Round 20 NEXT: the new-business, Houston permit and certificate-of-occupancy sources (lib/signals/adapters/next-datasets.ts and
+ * houston-permits.ts), with the label each should get in SOURCE_DEFAULTS at promotion: a new business coming_soon (like the live business
+ * feeds), a permit or a certificate of occupancy coming_soon. The per-trade proposal is lib/signals/proposed-labels.ts.
+ */
+export const NEXT_R20_SOURCES: readonly CoverageSource[] = [
+  {
+    id: 'socrata-txsales-dallas-business', metro: 'dallas-fort-worth', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/jrea-zgmq.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-txsales-houston-business', metro: 'houston', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/jrea-zgmq.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-tabc-dallas-business', metro: 'dallas-fort-worth', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/mxm5-tdpj.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-tabc-houston-business', metro: 'houston', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/mxm5-tdpj.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'html-houston-permits', metro: 'houston', platform: 'html', endpoint: 'https://www.houstontx.gov/planning/Publications/listsrv/WebeReport.html',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-miamidade-business', metro: 'miami', platform: 'arcgis', endpoint: 'https://gisweb.miamidade.gov/arcgis/rest/services/BusinessTracker/MapServer/0',
+    offers: { contractor: false, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-phoenix-liquor-business', metro: 'phoenix', platform: 'arcgis', endpoint: 'https://maps.phoenix.gov/pub/rest/services/public/LIQUOR_RACMap/MapServer/11',
+    offers: { contractor: false, value: false, coordinates: 'geometry', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-la-occupancy-permits', metro: 'los-angeles', platform: 'socrata', endpoint: 'https://data.lacity.org/resource/3f9m-afei.json',
+    offers: { contractor: true, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: '3P', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-nyc-occupancy-permits', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/pkdm-hqz6.json',
+    offers: { contractor: false, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: '3P', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-dc-occupancy-permits', metro: 'washington-dc', platform: 'arcgis', endpoint: 'https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/Business_Licensing_and_Grants_WebMercator/FeatureServer/46',
+    offers: { contractor: false, value: false, coordinates: 'geometry', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+];
+
+/**
  * Sources that are registered but have no SOURCE_DEFAULTS entry yet, because lib/signals/lead-rules.ts belongs to another unit this round.
  * tests/signals/lead-rules.test.ts lets ONLY these ids, and only while they are on probation, go without an entry (they reach no member,
  * so no label is ever computed for them). At integration: add each id with COVERAGE_R19_SOURCES[].label to SOURCE_DEFAULTS.
  */
-export const LABEL_PENDING_INTEGRATION: readonly string[] = COVERAGE_R19_SOURCES.map((s) => s.id);
+export const LABEL_PENDING_INTEGRATION: readonly string[] = [
+  ...COVERAGE_R19_SOURCES.map((s) => s.id),
+  ...VIOL_R20_SOURCES.map((s) => s.id),
+  ...NEXT_R20_SOURCES.map((s) => s.id),
+  // Round 20 page watch: proposed labels in lib/signals/proposed-labels.ts (urgent when due 3+ days out, else heads-up), not yet in lead-rules.ts.
+  ...PAGE_WATCH_DATASETS.filter((d) => d.verified && d.probation).map((d) => d.id),
+];
+
+/**
+ * Round 20 SALES: the property sale sources (lib/signals/adapters/sales-datasets.ts), all on probation and schema-unverified. Their
+ * proposed labels are in lib/signals/proposed-labels-sales.ts (never in SOURCE_DEFAULTS until promotion), and the owner probes each with
+ * /api/admin/coverage-probe like a coverage source.
+ */
+export const SALE_SOURCE_IDS: readonly string[] = SALES_DATASETS.map((d) => d.id);
 
 /** The owner's probe for a coverage source (Bearer CRON_SECRET only). */
 export function coverageProbePath(id: string): string {
@@ -103,15 +191,33 @@ export interface ProbationRow {
   /**
    * Review P2-C/D/F: a broken source never reads "ok".
    *   not_run          no scan has recorded it yet (or the samples table is missing, which skips it)
+   *   timeout          the last run was cut off by the scan's time limit (round 20: shown apart from other errors)
    *   schema_mismatch  the expected id, date or flag column is missing, or the date is unreadable (lastError says which)
    *   not_json         the portal answered 200 with an HTML page or an empty body
    *   no_recent_rows   rows came back, but none in the age window (lastError names the newest date)
-   *   error            any other failure (HTTP status, timeout, unreadable field list ...)
+   *   error            any other failure (HTTP status, unreadable field list ...)
    *   no_rows          ran without error but has never returned a row
    *   row_cap          worked, but the last run read a full page: older rows in the window were not read (note says so)
    *   ok               the last run worked and the source has returned rows
    */
-  check: 'not_run' | 'ok' | 'schema_mismatch' | 'not_json' | 'no_recent_rows' | 'error' | 'no_rows' | 'row_cap';
+  check:
+    | 'not_run'
+    | 'ok'
+    | 'schema_mismatch'
+    | 'not_json'
+    | 'no_recent_rows'
+    | 'error'
+    | 'no_rows'
+    | 'row_cap'
+    // Round 20 page watch (lib/signals/adapters/page-watch.ts): the page's robots.txt forbids the path, the answer was not an HTML page,
+    // the parser read zero rows from a page that has a table or list, the fetch timed out (any probation source since round 20), or the
+    // listing is the same as last stored.
+    | 'robots_disallowed'
+    | 'not_html'
+    | 'parser_mismatch'
+    | 'parse_timeout'
+    | 'timeout'
+    | 'unchanged';
   /** The latest run's probation note (row cap), when there is one. */
   note?: string;
   /** Coverage sources only: the probe to run before promoting it. */
@@ -122,14 +228,21 @@ export interface ProbationRow {
 
 const PROMOTE_FILE: Record<ProbationPlatform, string> = {
   socrata: 'lib/signals/adapters/socrata-datasets.ts',
+  'page-watch': 'lib/signals/adapters/page-watch-datasets.ts',
   arcgis: 'lib/signals/adapters/coverage-datasets.ts',
   carto: 'lib/signals/adapters/carto-datasets.ts and buildCartoAdapter (lib/signals/adapters/carto.ts)',
+  html: 'lib/signals/adapters/houston-permits.ts (HOUSTON_PERMITS_DS and buildHoustonPermitsAdapter)',
 };
 
+/** Round 20 NEXT: where a NEXT_R20_SOURCES entry is promoted. */
+const NEXT_PROMOTE_FILE: Record<ProbationPlatform, string> = { ...PROMOTE_FILE, socrata: 'lib/signals/adapters/next-datasets.ts', arcgis: 'lib/signals/adapters/next-datasets.ts' };
+
 function platformOf(id: string): ProbationPlatform | null {
+  if (PAGE_WATCH_IDS.has(id)) return 'page-watch';
   if (id.startsWith('socrata-')) return 'socrata';
   if (id.startsWith('arcgis-')) return 'arcgis';
   if (id.startsWith('carto-')) return 'carto';
+  if (id.startsWith('html-')) return 'html';
   return null;
 }
 
@@ -140,12 +253,25 @@ export function probationCheck(h: ProbationHealthLite | undefined, lastRun?: Pro
   const e = h.last_error;
   if (e) {
     if (isSchemaMismatch(e)) return 'schema_mismatch';
+    // Round 20 page watch: its own check states (the other probation sources keep their round-19 states).
+    if (PAGE_WATCH_IDS.has(h.source)) {
+      if (/\brobots_disallowed\b/.test(e)) return 'robots_disallowed';
+      if (/\bnot_html\b/.test(e)) return 'not_html';
+      if (/\bparser_mismatch\b/.test(e)) return 'parser_mismatch';
+      if (/\bparse_timeout\b/.test(e)) return 'parse_timeout';
+      if (/\bnot_json\b/.test(e)) return 'not_json';
+      if (e.trim() === 'timeout' || /: timeout\b/.test(e)) return 'timeout';
+    }
     if (/empty response body|response was not JSON/.test(e)) return 'not_json';
     if (/no rows in the last \d+ days/.test(e)) return 'no_recent_rows';
+    // Round 20: the scan writes exactly "timeout" when a source runs past its limit (run.ts TimeoutError); a sale source that cut a
+    // request off itself writes "error: <id>: timeout".
+    if (/(^|: )timeout$/.test(e.trim())) return 'timeout';
     return 'error';
   }
   if (!h.last_record_at) return 'no_rows';
   if (lastRun && isProbationNote(lastRun.error) && /row cap reached/.test(lastRun.error ?? '')) return 'row_cap';
+  if (lastRun && PAGE_WATCH_IDS.has(h.source) && isProbationNote(lastRun.error) && /\bunchanged\b/.test(lastRun.error ?? '')) return 'unchanged';
   return 'ok';
 }
 
@@ -161,7 +287,9 @@ export function probationOverview(
     const prev = runBy.get(r.source);
     if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
   }
-  const coverage = new Set(COVERAGE_R19_SOURCES.map((s) => s.id));
+  const viol = new Set(VIOL_R20_SOURCES.map((s) => s.id));
+  const next = new Set(NEXT_R20_SOURCES.map((s) => s.id));
+  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...viol, ...SALE_SOURCE_IDS, ...next, ...PAGE_WATCH_IDS]);
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
@@ -169,7 +297,13 @@ export function probationOverview(
       const run = runBy.get(a.id);
       const check = probationCheck(h, run);
       const platform = platformOf(a.id);
-      const file = platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
+      const file = viol.has(a.id)
+        ? 'lib/signals/adapters/viol-datasets.ts'
+        : SALE_SOURCE_IDS.includes(a.id)
+        ? 'lib/signals/adapters/sales-datasets.ts'
+        : next.has(a.id) && platform
+        ? NEXT_PROMOTE_FILE[platform]
+        : platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
       return {
         id: a.id,
         probation: true as const,
@@ -180,7 +314,9 @@ export function probationOverview(
         check,
         ...(run && isProbationNote(run.error) ? { note: run.error as string } : {}),
         ...(coverage.has(a.id) ? { probe: coverageProbePath(a.id) } : {}),
-        promote: `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
+        promote: PAGE_WATCH_IDS.has(a.id)
+          ? `remove probation: true and schemaUnverified: true from its entry in ${file}, move its label from lib/signals/proposed-labels.ts to lib/signals/lead-rules.ts SOURCE_DEFAULTS (or a due-date rule), then deploy; members see it only while HOLLER_BIDS_ENABLED is on`
+          : `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ` and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts${viol.has(a.id) ? ' (proposed in lib/signals/proposed-labels.ts)' : ''}` : ''}, then deploy`,
       };
     })
     .sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
@@ -208,7 +344,7 @@ export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probati
  * paid lookup. It is independent of the contact gate (alert_hold): neither rule reads or relaxes the other.
  */
 export const PROBATION_SOURCE_IDS: ReadonlySet<string> = new Set(
-  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
+  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...SALES_DATASETS, HOUSTON_PERMITS_DS, ...PAGE_WATCH_DATASETS.filter((d) => d.verified)].filter((d) => d.probation === true).map((d) => d.id),
 );
 
 /** True when the record's source is on probation. Source ids are exact (no case folding). */

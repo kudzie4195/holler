@@ -7,7 +7,8 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import { loadFeedback } from '@/lib/feedback/service';
 import type { FeedbackState } from '@/lib/feedback/types';
 import { loadMemberContacts } from '@/lib/outreach/loader';
-import { mayHaveContacts } from '@/lib/outreach/plan';
+import { buildingBlockLine, mayHaveContacts, recordClass, type PlanContact } from '@/lib/outreach/plan';
+import { t, type Lang } from '@/lib/i18n';
 import { requestTextForMember } from '@/lib/requests/details';
 import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
@@ -147,6 +148,20 @@ export interface BuildDeps {
   now: number;
   /** The member's trades under their plan (matchScope(profile).categories). Without it a record is labelled with the trade unknown. */
   trades?: readonly string[];
+  /** The member's saved language (langOfProfile). Used for the building line only; the rest of the app API is English. Default 'en'. */
+  lang?: Lang;
+}
+
+/**
+ * Final review P3-1: an area record (311, code violation, weather) shows no contact row in the app, as on the web card (lib/outreach/plan.ts
+ * outreachPlan ignores an area record's contacts). A whole-building NYC 311 request's block-level site is sent as `building` instead: the
+ * web card's own line ("Building: the 2300 block of ... (the exact address is not published)"), in the member's language, under the
+ * "Who to contact" heading, never under "Organizations and public offices only".
+ */
+export function areaContactParts(s: { source: string; kind: string }, list: ContactRecord[], lang: Lang): { contacts: ContactDto[]; building: { heading: string; line: string } | null } {
+  if (recordClass(s.source, s.kind) !== 'area') return { contacts: list.map(contactDto).filter((c): c is ContactDto => c !== null), building: null };
+  const line = buildingBlockLine(s, list as unknown as PlanContact[], lang);
+  return { contacts: [], building: line ? { heading: t(lang, 'who.heading'), line } : null };
 }
 
 /**
@@ -248,7 +263,10 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
-      contacts: (contacts.get(s.id) ?? []).map(contactDto).filter((c): c is ContactDto => c !== null),
+      ...(() => {
+        const parts = areaContactParts(s, contacts.get(s.id) ?? [], deps.lang ?? 'en');
+        return { contacts: parts.contacts, ...(parts.building ? { building: parts.building } : {}) };
+      })(),
       draft: m.draft,
       ai: { note: null },
     };

@@ -11,6 +11,8 @@ import {
   looksLikeFullPersonName,
 } from './org';
 import type { ContactInput, ContactRole } from './types';
+// Runtime-only use inside isBlockForm (nyc-address.ts imports cleanAddress from here; neither file uses the other at load time).
+import { nycBuildingAddress } from '@/lib/signals/adapters/nyc-address';
 
 /** Most contacts kept for one record (site first, then organizations in the order the record lists them). */
 export const MAX_CONTACTS_PER_SIGNAL = 6;
@@ -193,6 +195,47 @@ export function cleanAddress(raw: unknown): string | null {
 }
 
 /**
+ * Words that name a part of a building, a pad, a side of a lot or a role, never part of a street a block form may carry. Round 21: the
+ * union of the two round 20 lists (NEXT's 311 rule and r20-ship's whole-building heat rule), so the shared rule is the stricter of both.
+ */
+const BLOCK_UNIT_RE = /#|\bc\/o\b|\b(?:apt|apartment|unit|ste|suite|fl|flr|floor|rm|room|bldg|lot|space|spc|trailer|trlr|ph|penthouse|bsmt|basement|rear|front|attn|owner)\b/i;
+
+/**
+ * THE block-level address rule (round 21: one rule for every writer and every gate). Round 20 had two: NEXT's 311 rule (blockSiteAddress)
+ * and r20-ship's New York whole-building heat rule (isBlockForm, with the final review P3-2 street check). A block passes only when it
+ * passes EVERY check either rule made:
+ *   - the form "<hundred> block of <street>": 0-99, a hundred of 100 to 99900, or the Queens hyphen form "41-00" (written by
+ *     nyc-address.ts nycBlockAddress); then 1 to 6 street words of letters, digits, ".", "'" or "-" and nothing else;
+ *   - no unit, pad, building-part, side, care-of or role word and no "#" (BLOCK_UNIT_RE, the union of both lists);
+ *   - the whole line is exactly what cleanAddressPart keeps (its phone, e-mail, role and person-name checks);
+ *   - the street is exactly what the New York street rule keeps behind a house number (nycBuildingAddress: any trailing text or a name in
+ *     place of a street is refused; final review P3-2);
+ *   - the street is exactly what cleanAddress keeps behind a house number ("100 <street>"), when it can read one: its street-word and
+ *     person-name checks apply. A New York street cleanAddress does not read at all (a numbered street such as "EAST 130 STREET", "GRAND
+ *     CONCOURSE") is judged by the New York rule alone, which already refused anything after the street.
+ * Returns the block form as written (spaces folded), or null.
+ */
+export function blockSiteAddress(raw: unknown): string | null {
+  const t = text(raw, CONTACT_LIMITS.address).replace(/\s+/g, ' ').trim();
+  const m = /^(0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of ((?:[A-Za-z0-9.'-]+ ?){1,6})$/i.exec(t);
+  if (!m) return null;
+  const street = m[2].trim();
+  if (!street || BLOCK_UNIT_RE.test(street)) return null;
+  if (cleanAddressPart(t) !== t) return null;
+  const upper = street.toUpperCase();
+  if (nycBuildingAddress(`1 ${upper}`) !== `1 ${upper}`) return null;
+  const probe = `100 ${street}`;
+  const kept = cleanAddress(probe);
+  // cleanAddress cuts a direction AFTER the suffix ("100 PARK AVENUE SOUTH" -> "100 PARK AVENUE"); that one trailing direction word is a
+  // street name part, never a person or a unit, so it is the only difference allowed.
+  if (kept !== null && kept !== probe && !(probe.startsWith(`${kept} `) && TRAILING_DIRECTION_RE.test(probe.slice(kept.length + 1)))) return null;
+  return t;
+}
+
+/** One trailing direction word, the only text cleanAddress may cut from a block's street (blockSiteAddress). */
+const TRAILING_DIRECTION_RE = /^(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST)$/i;
+
+/**
  * One address part before parts are joined (extract.ts), so a bad second line cannot ride on a good first line: '' when it holds a phone,
  * an email, a link or a role word. With `names` (an organization's address lines), a part with no digit must not read as a personal name
  * either ("JOHN SMITH"). The joined line then goes through cleanAddress, which cuts it after the street suffix and unit.
@@ -255,6 +298,21 @@ export interface SanitizeOptions {
  * (cleanState), `city` through cleanCity (the dataset's own city or place words only), `zip` 5 digits or ZIP+4, `attn` and `website`
  * always null. A phone that is not a plausible US number and an email that is not a plausible address are dropped (the rest stays).
  */
+/** A block-level address as the block rules write it (socrata.ts blockAddress, nyc-address.ts nycBlockAddress). */
+export const BLOCK_ADDRESS_RE = /^(?:0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of [A-Z0-9]/i;
+
+/**
+ * A block-level address and nothing else: the block prefix, then 1 to 6 street words of letters or digits (no unit, no phone, no role word,
+ * no "#"). Exported for the 311 contact rule (lib/contacts/extract.ts contactsAllowedFor).
+ * Final review P3-2: the street part must also be exactly what the New York street rule keeps (nycBuildingAddress, which runs the shared
+ * person-name and phone checks), so ANY trailing text after the street ("2300 block of WEST 52 STREET JOHN SMITH") or a name in place of
+ * the street ("200 block of JOHN SMITH") is refused. Every block nycBlockAddress writes passes (tests/contacts/final-review-fixes).
+ */
+export function isBlockForm(text: string): boolean {
+  // Round 21: the one shared rule (blockSiteAddress above).
+  return blockSiteAddress(text) !== null;
+}
+
 export function sanitizeContact(c: ContactInput | null | undefined, opts: SanitizeOptions = {}): ContactInput | null {
   if (!c || typeof c !== 'object' || !ROLES.has(c.role)) return null;
   // No adapter produces buyers today; the bids unit must add its own reviewed rules before any buyer is stored.
@@ -265,7 +323,11 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     zip: zip5(c.zip),
   };
   if (c.role === 'site') {
-    const address = cleanAddress(typeof c.address === 'string' ? c.address : '');
+    // Round 20/21: a BLOCK-level site ("0-99 block of EAST 130 STREET", "41-00 block of BOWNE STREET", "2300 block of W 47TH ST") is kept as
+    // written when it passes the one block rule (blockSiteAddress); cleanAddress would drop the 0-99 and Queens forms and read "block of"
+    // as street words. Anything else goes through cleanAddress as before.
+    const raw = typeof c.address === 'string' ? c.address.replace(/\s+/g, ' ').trim() : '';
+    const address = blockSiteAddress(raw) ?? cleanAddress(raw);
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }

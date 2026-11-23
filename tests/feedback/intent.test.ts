@@ -1,3 +1,4 @@
+import { PAGE_WATCH_IDS } from '@/lib/signals/adapters/page-watch-datasets';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -35,12 +36,20 @@ const FIXED: Record<string, Intent> = {
   'bids-rockdale': 'spending',
   'bids-tucker': 'spending',
   'bids-dunwoody': 'spending',
+  // Round 20 page watch: public bid pages (kind contract, subtype bid), like every bid source.
+  ...Object.fromEntries(PAGE_WATCH_IDS.map((id) => [id, 'spending'])),
   ticketmaster: 'demand',
   bluesky: 'asking',
   'websearch-brave': 'asking',
   'websearch-serper': 'asking',
   'holler-request': 'asking',
   'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
+  // Round 20 SALES: a recorded property sale (kind civic, data.subtype 'sale'): a home changing hands may create a need, the most cautious reading.
+  'socrata-nyc-acris-sales': 'demand',
+  'socrata-cook-sales': 'demand',
+  'carto-phl-sales': 'demand',
+  'arcgis-miamidade-sales': 'demand',
+  'html-houston-permits': 'spending', // Round 20 NEXT: the Houston permit report page reader (kind permit), not in the dataset tables
 };
 
 const datasets = new Map<string, { subtype: string; kind: string }>([
@@ -65,6 +74,8 @@ describe('intentOf: every registered source', () => {
       expect(intentOf({ kind: a.kind, subtype, source: a.id }), `${a.id} (${a.kind}/${subtype})`).toBe(expected);
     }
     for (const id of NON_ADAPTER_SOURCES) expect(intentOf({ kind: 'ask', source: id })).toBe(FIXED[id]);
+    // the subtype a sale record actually carries reads the same
+    expect(intentOf({ kind: 'civic', subtype: 'sale', source: 'carto-phl-sales' })).toBe('demand');
   });
 
   it('covers every subtype the Socrata and ArcGIS datasets use', () => {

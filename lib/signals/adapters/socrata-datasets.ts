@@ -1,5 +1,8 @@
 import type { CategoryId } from '@/lib/signals/categories';
 import type { ContactSpec } from '@/lib/contacts/extract';
+import { VIOL_SOCRATA_DATASETS } from './viol-datasets';
+import { PROPERTY_CONDITION_311_RE, type Site311Rule } from '@/lib/signals/site-311';
+import { NEXT_SOCRATA_DATASETS } from './next-datasets';
 
 /**
  * Config for the Socrata (SODA) adapters. Every dataset id and field name below was read from the
@@ -145,8 +148,79 @@ export interface SocrataDataset {
    * review P3-H), flagged approxLocation.
    */
   zipCentroid?: { near: { lat: number; lon: number }; maxMi: number };
+  /**
+   * 311 only (round 20, NYC 311 call path; review P1-1). A 311 summary carries no street address, because most requests are about a street
+   * or one apartment, and a resident made the request. When `when` says the request is about a WHOLE BUILDING, the building's BLOCK (New York
+   * rule, nyc-address.ts nycBlockAddress, never a house number or a unit) is stored as a PRIVATE site contact (holler_signal_contacts), shown
+   * only to a member with access. It never enters the title, summary or data, which public pages print. The exact address would be given to
+   * members only for a building with 3 or more residential units, and no feed read here carries a unit count, so it is never given.
+   */
+  buildingAddress?: { fields: string[]; when: (get: (field: string) => string) => boolean };
+  /**
+   * Round 20 (review P3-3): the classifier text built from the row instead of joining textFields (textFields are still the columns asked
+   * for). Montgomery reads its condition "Inoperable" only with a vehicle item, so a water heater or a door never gets towing tags.
+   */
+  textOf?: (get: (field: string) => string) => string;
+  /**
+   * Round 20 (VIOL review P3-2, and NEXT): extra category rules for this dataset only, applied after the subtype's rules (socrata.ts
+   * categorize; also read by the ArcGIS adapter). NYC HPD order wording; a liquor licence layer that is all restaurants.
+   */
+  extraRules?: CategoryRule[];
+  /** Round 20: 'nyc' reads the address columns by the New York rule (nyc-address.ts nycBlockAddress) instead of the shared one. */
+  addressRule?: 'nyc';
   /** Round 19 coverage (review P1-B): the address is stored only as lib/contacts cleanAddress keeps it, else not at all. */
   strictAddress?: boolean;
+  /**
+   * Round 20 (NEXT), business rows only: the business PREMISES address is printed in the public summary (owner decision: a business
+   * premises is a place to go). The rule is this spec, run apart from `contacts` (switching the private contact spec off changes nothing
+   * public): its site address is printed only when its business name passes the licence name rule (lib/contacts trade-name.ts
+   * cleanBusinessName through extractContacts, with homeFields and ownerNameFields), the site has onlyWithOrganisation, and the address
+   * passes lib/contacts cleanAddress. A home business under a person's name, or a home-based activity, prints no address at all. Without
+   * this field a business row never carries a street address (unchanged).
+   */
+  premises?: ContactSpec;
+  /** Review fix P2-2: the premises address is printed only when this also says so (a commercial-premises NAICS class); absent: always. */
+  premisesWhen?: (get: (field: string) => string) => boolean;
+  /** Review fix P2-3: a trailing quadrant (NW, NE, SW, SE) of the address is kept (Washington DC: without it one address is four places). */
+  keepQuadrant?: boolean;
+  /** Round 20 (NEXT), 311 only: the block-level site rule (lib/signals/site-311.ts). A private site contact at block level, never public. */
+  site311?: Site311Rule;
+  /**
+   * Round 20 (NEXT), permit rows only: the feed lists CERTIFICATES OF OCCUPANCY. Each row gets the permit stage 'certificate_of_occupancy'
+   * (lib/signals/stage.ts, the stage the reviewed rule 'stage-finished-downstream' reads), the occupancy trades (OCCUPANCY_TRADES) and the
+   * title "Certificate of occupancy in <city>: <building type>" from `typeFields` (fixed-safe printing: printableValues + scrubText). No
+   * applicant, owner or permittee column is ever named.
+   */
+  occupancy?: { typeFields: string[]; /** Review fix P2-3: no building-type column (New York): every row is treated as residential. */ unknownType?: boolean };
+  /**
+   * Round 20 (NEXT): a row is dropped before ANYTHING is built from it (title, id, contacts, sample) unless this says keep. Used for the
+   * Texas feeds: organisation type must be a company form (sole proprietors are never stored) and the NAICS code a storefront sector. Reads
+   * only the columns it names; fails closed on a blank or unknown value.
+   */
+  keepRow?: (get: (field: string) => string) => boolean;
+  /**
+   * Round 20 (NEXT): the external id is a KEYED hash of the id columns (review fix P2-1: HMAC-SHA256 with a server secret,
+   * lib/signals/id-key.ts), never their raw value. For ids that embed a taxpayer number (Texas Comptroller). Without the secret the adapter
+   * sends no request.
+   */
+  hashId?: boolean;
+  /**
+   * Review fix P1-1: the columns `keepRow` reads. They are asked for in $select (and listed by the probe), so the keep rule sees them.
+   */
+  keepFields?: string[];
+  /**
+   * Review fix P1-2: send the column allow-list ($select, socrataSelectColumns) on EVERY request, whatever `schemaUnverified` says, so
+   * promotion (removing schemaUnverified) never switches the source to select-all. Set on every round 20 NEXT Socrata dataset: a portal
+   * column this config does not read (Texas taxpayer name and address, the TABC owner, applicant or owner columns) is never requested.
+   */
+  selectOnly?: boolean;
+  /**
+   * Round 20 (NEXT), with naicsField: the classifier text also gets the NAICS sector words (NAICS_SECTORS, "Food service and lodging"), so a
+   * code-only feed can be told food from retail. Off for the existing feeds (San Francisco is unchanged).
+   */
+  naicsText?: boolean;
+  /** Round 20 (NEXT): the source label, when "<city> open data: <subtype words>" would misname it (lib/signals/source-meta.ts; Spanish in source-label-i18n.ts). */
+  label?: string;
   /**
    * Round 19 coverage: the column names were NOT read from the portal (research tags [3P] or [A]). The adapter then reports a source
    * whose rows match none of the expected id or date columns as "schema mismatch: expected <col>" (an error the sources report shows).
@@ -163,7 +237,8 @@ export interface SocrataDataset {
  */
 export const NAME_LIKE_COLUMN =
   /(dba|owner|applicant|contact|licensee|requestor|requester|inspector|complainant|legal|business_name|ownership|permittee|contractor|host|organization|trade_name|first_name|last_name|full_name|restaurant_name|(^|_)name$)/i;
-export const NAME_COLUMN_OK = ['park_facility_name'];
+// street_name: a street, not a person (round 20 VIOL, NYC rodent inspections; still cut to block level by publicAddress).
+export const NAME_COLUMN_OK = ['park_facility_name', 'street_name'];
 /** Subtypes whose records can describe a private individual (sole proprietors, home addresses, private hosts). */
 export const PERSON_RISK_SUBTYPES: SocrataSubtype[] = ['business', 'violation', 'event-permit'];
 
@@ -350,6 +425,13 @@ const nycFail = (r: Record<string, unknown>) =>
 const austinFail = (r: Record<string, unknown>) => Number(r.score) < 70;
 
 const D = (domain: string, id: string) => `https://${domain}/api/views/${id}.json`;
+
+/** NYC 311: a request about a whole building (round 20 call path). Exported for tests. */
+export function isWholeBuildingNyc311(complaintType: string, descriptor: string): boolean {
+  const t = complaintType.trim().toUpperCase();
+  const d = descriptor.trim().toUpperCase();
+  return (t === 'HEAT/HOT WATER' && d === 'ENTIRE BUILDING') || t === 'NON-RESIDENTIAL HEAT';
+}
 
 // --- Inspection summary vocabularies (round 5 FIX-E) ---------------------------------------------------------------------------
 // Known values of each portal's categorical columns, from the portals' public field documentation (assumed, not re-read live). A value
@@ -694,6 +776,10 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     titleFields: ['complaint_type', 'descriptor'], textFields: ['complaint_type', 'descriptor'], summaryFields: ['complaint_type', 'descriptor', 'borough'],
     zipField: 'incident_zip', typeFilterField: 'complaint_type', cadenceMinutes: 180, verified: true,
     verifiedUrl: D('data.cityofnewyork.us', 'erm2-nwe9'), fieldSource: 'sourced',
+    // Round 20: whole-building heat (HPD "HEAT/HOT WATER" with descriptor "ENTIRE BUILDING") and non-residential heat (a business premises)
+    // name the building: its BLOCK (from incident_address, a column of the 311 dataset [A]) is kept as a private site contact for members.
+    // The public row is unchanged. Apartment-only heat and every other request keep no address at all.
+    buildingAddress: { fields: ['incident_address'], when: (get) => isWholeBuildingNyc311(get('complaint_type'), get('descriptor')) },
   },
   {
     id: 'socrata-nyc-inspections', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: '43nn-pn8j',
@@ -784,7 +870,10 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     fallbackCenter: { lat: 32.7767, lon: -96.797 },
     titleFields: ['service_request_type'], textFields: ['service_request_type', 'department'], summaryFields: ['service_request_type', 'department', 'status'],
     typeFilterField: 'service_request_type', cadenceMinutes: 180, verified: true, verifiedUrl: D('www.dallasopendata.com', 'd7e7-envw'),
-    fieldSource: 'sourced', note: 'lat_location is a text column; its string format is assumed (parsed as two decimals), else falls back to city centre.',
+    // Round 20 (NEXT, owner decision): a request about the condition of a property gives a PRIVATE block-level site (lib/signals/site-311.ts).
+    // The address column name `address` is ASSUMED (scout [A]); this live dataset sends no $select, so a missing column only leaves the site out.
+    site311: { addressFields: ['address'], typeFields: ['service_request_type'], propertyTypes: PROPERTY_CONDITION_311_RE },
+    fieldSource: 'sourced', note: 'lat_location is a text column; its string format is assumed (parsed as two decimals), else falls back to city centre. Round 20: property-condition requests keep a private block-level site from the address column (assumed name; the public row is unchanged).',
   },
   {
     id: 'socrata-dallas-permits', city: 'Dallas', state: 'TX', tz: 'America/Chicago', domain: 'www.dallasopendata.com', datasetId: 'e7gq-4sah',
@@ -935,6 +1024,9 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     kind: 'civic', subtype: 'business', idField: 'id', dateField: 'date_issued', latField: 'latitude', lonField: 'longitude',
     titleFields: [], textFields: ['license_description', 'business_activity'],
     summaryFields: ['license_description', 'business_activity'], zipField: 'zip_code',
+    // Round 20 (NEXT, owner decision: a business premises is a place to go): the summary also prints the premises address, by the SAME rule
+    // that already stores the private site contact (a name that passed, not a home-based activity, cleanAddress). Nothing else changes.
+    premises: CONTACT_SPECS['socrata-chicago-business'],
     extraWhere: "application_type = 'ISSUE' AND license_description NOT IN ('Pop-Up Retail User','Peddler License','Pharmaceutical Representative','Shared Housing Unit Operator','Pop-Up Food Est. User - Tier I')", windowForwardDays: 0, cadenceMinutes: 720, verified: true,
     verifiedUrl: D('data.cityofchicago.org', 'uupf-x98q'), fieldSource: 'sourced',
     note: "Business Licenses - Current Active, updated 2026-11-13. application_type = 'ISSUE' (new license; RENEW rows are 80% of the set and excluded), max date_issued for ISSUE 2026-11-16. PRIVACY: the public parser reads no name column: the title is the license type only, the summary holds no street address, and individual license types are excluded (live group-by of license_description for ISSUE rows, 2026-11-17). Only the contact spec (CONTACT_SPECS['socrata-chicago-business']) reads names: doing_business_as_name, then legal_name, and each value goes through the licence name rule (lib/contacts/trade-name.ts cleanBusinessName, round 18) and, when it passes, only into the private contacts table (migration 0006, service role only), never into title, summary or data. 12 of 60 live DBA values were bare personal names and fail the classifier; the site address (address, city, state, zip_code) is stored only when a name passed. Account fields are never read. Shared Housing Unit Operator rows (home addresses) are excluded by the query.",
@@ -1002,8 +1094,14 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     lookbackOverride: 1, windowForwardDays: 14, cadenceMinutes: 720, verified: false, verifiedUrl: D('data.cityofnewyork.us', 'tg4x-b46p'), fieldSource: 'sourced',
     note: 'DISABLED: columns verified, but max(enteredon) is 2026-08-14 and max(startdatetime) 2026-08-17 (rowsUpdatedAt 2026-10-27 is a re-publish of old rows). NYC Permitted Event Information above carries film shoots as "Production Event".',
   },
+  // Round 20 VIOL (New York HPD and rodent findings, Montgomery County MD housing code): ALL ON PROBATION, schemas unverified. See viol-datasets.ts.
+  ...VIOL_SOCRATA_DATASETS,
+  // Round 20 NEXT (Texas new outlets and liquor applications, LA and NYC certificates of occupancy): ALL ON PROBATION. See next-datasets.ts.
+  ...NEXT_SOCRATA_DATASETS,
 ];
 
+// Round 20 NEXT: the probation feeds carry their spec in next-datasets.ts; it is listed here too (one object, as for every other feed).
+for (const d of NEXT_SOCRATA_DATASETS) if (d.contacts) CONTACT_SPECS[d.id] = d.contacts;
 for (const d of SOCRATA_DATASETS) if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];
 
 /**

@@ -20,7 +20,7 @@ import { runScan } from '@/lib/signals/run';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, NEXT_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
 import { matchArea, matchOne, matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { isListablePermit } from '@/lib/lists/core';
 import { lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
@@ -35,6 +35,10 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { ENV, fakeFetch, item, newDb, NOW as LNOW } from '../enrich/helpers';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 const NOW = new Date('2026-11-22T12:00:00Z');
 const IDS = COVERAGE_R19_SOURCES.map((s) => s.id);
@@ -227,7 +231,7 @@ describe('5. check states: owner views only, never a member-facing or public lin
     ['schema_mismatch', 'schema mismatch: expected ISSUEDATE', null, 'arcgis-tempe-permits'],
     ['not_json', 'arcgis-miamidade-permits: response was not JSON (HTTP 200)', null, 'arcgis-miamidade-permits'],
     ['no_recent_rows', 'socrata-dallas-permits: no rows in the last 30 days: newest is 2018-03-15 (500 rows read)', null, 'socrata-dallas-permits'],
-    ['error', 'timeout', null, 'arcgis-houston-311'],
+    ['timeout', 'timeout', null, 'arcgis-houston-311'], // round 20: a timeout is its own check state
     ['no_rows', null, null, 'arcgis-phoenix-permits'],
     ['row_cap', null, '2026-11-21T00:00:00Z', 'arcgis-arlington-permits'],
   ];
@@ -274,13 +278,24 @@ describe('7. metros and the label exemption', () => {
       'socrata-dallas-permits': 'dallas-fort-worth', 'arcgis-arlington-permits': 'dallas-fort-worth', 'arcgis-houston-311': 'houston',
       'arcgis-miamidade-permits': 'miami', 'arcgis-miamidade-violations': 'miami', 'arcgis-miamidade-building-violations': 'miami',
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
+      // Round 20 VIOL (lib/signals/adapters/viol-datasets.ts)
+      ...Object.fromEntries(VIOL_R20_SOURCES.map((s) => [s.id, s.metro])),
+      // round 20 SALES (tests/signals/sales-r20.test.ts)
+      'socrata-nyc-acris-sales': 'new-york', 'socrata-cook-sales': 'chicago', 'carto-phl-sales': 'philadelphia', 'arcgis-miamidade-sales': 'miami',
+      // Round 20 NEXT (lib/signals/probation.ts NEXT_R20_SOURCES).
+      ...Object.fromEntries(NEXT_R20_SOURCES.map((s) => [s.id, s.metro])),
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
-    expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
+    // Round 20 page watch: its own probation ids (PW_REGISTERED, exact ids) sit under their metros too (tests/signals/page-watch/adapter.test.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual(Object.keys(want).sort());
+    expect([...PROBATION_SOURCE_IDS].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS].sort());
+    // Round 20 VIOL and NEXT add their probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts);
+    // round 20 page watch adds its registered pages (PW_REGISTERED, exact ids).
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_R20_SOURCES.map((s) => s.id)].sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);
@@ -309,9 +324,11 @@ describe('9. the coverage feeds\' real-shaped company strings under the merged r
     expect(tempe('Phoenix Plumbing LLC')).toEqual(['contractor:Phoenix Plumbing LLC']);
     expect(dal('NORTH TEXAS ROOFING LLC 7501 US HWY 287, ARLINGTON, TX 76001 (214) 555-0100')).toEqual(['contractor:NORTH TEXAS ROOFING LLC']);
     expect(dal('MILESTONE ELECTRIC 7501 US HWY 287, Suite C4, ARLINGTON, TX 76001 (817) 969-5050')).toEqual(['contractor:MILESTONE ELECTRIC']);
-    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Lone Star" and "Dallas" are still refused.
+    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Dallas" is still refused.
     expect(arlington('North Texas Roofing LLC')).toEqual(['business:North Texas Roofing LLC']);
-    expect(arlington('Lone Star Roofing LLC')).toEqual([]);
+    // Round 20 NEXT review fix P1-4 / P2-6, decided explicitly: "Lone Star Roofing LLC" is a company (a Texas nickname, a trade word and a legal
+    // form, no person named); the licence rule's second try (lib/contacts/trade-name.ts) accepts it.
+    expect(arlington('Lone Star Roofing LLC')).toEqual(['business:Lone Star Roofing LLC']);
     expect(arlington('Dallas Roofing LLC')).toEqual([]);
     // never a person, in any of them
     for (const p of ['Maria Lopez', 'JOHN A SMITH', 'Smith, John', 'Florida Garcia Inc', 'TEXAS SMITH LLC']) {
@@ -325,14 +342,14 @@ describe('9. the coverage feeds\' real-shaped company strings under the merged r
 });
 
 describe('4. /api/admin/coverage-probe', () => {
-  it('Bearer-only, no ?key=, and in the cron-bearer-only list, which now names 16 routes (equal to the disk, checked there)', () => {
+  it('Bearer-only, no ?key=, and in the cron-bearer-only list, which now names 18 routes (round 20 LIC added admin/license-probe and cron/license-sync; equal to the disk, checked there)', () => {
     const route = readFileSync('app/api/admin/coverage-probe/route.ts', 'utf8');
     expect(route).toMatch(/isCronAuthorized|isBearerAuthorized/);
     expect(route).not.toMatch(/searchParams\.get\(['"]key['"]\)/);
     const list = readFileSync('tests/security/cron-bearer-only.test.ts', 'utf8');
     const routes = [...list.slice(list.indexOf('const ROUTES = ['), list.indexOf('] as const;')).matchAll(/'([a-z-]+\/[a-z-]+)'/g)].map((m) => m[1]);
     expect(routes).toContain('admin/coverage-probe');
-    expect(routes).toHaveLength(16);
+    expect(routes).toHaveLength(18);
   });
 });
 

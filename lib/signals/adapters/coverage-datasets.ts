@@ -1,5 +1,6 @@
 import type { ContactSpec } from '@/lib/contacts/extract';
 import type { ArcgisDataset } from './arcgis-datasets';
+import { PROPERTY_CONDITION_311_RE } from '@/lib/signals/site-311';
 
 /**
  * ROUND 19 COVERAGE: ArcGIS feeds for the four metros that had no local permit or code-enforcement feed (Dallas-Fort Worth, Houston, Miami,
@@ -20,8 +21,8 @@ import type { ArcgisDataset } from './arcgis-datasets';
  *
  * PRIVACY. Owner, applicant, legal-description, free-text note and "responsible party" columns are never named here, so they are never
  * fetched: Arlington none known; Miami-Dade LGLDESC1/2, CONTRNUM (a Florida contractor licence belongs to a person, the qualifier),
- * CONF_BY, VIOL_NAME; Phoenix OWNER_NAME, CONTACT (company or person unknown), PROJECT, PERMIT_NAME; Houston ResolutionNotes and
- * IncidentAddress. Contractor and business name columns go through the existing organisation check (lib/contacts/extract.ts
+ * CONF_BY, VIOL_NAME; Phoenix OWNER_NAME, CONTACT (company or person unknown), PROJECT, PERMIT_NAME; Houston ResolutionNotes (round 20: IncidentAddress
+ * only through the block-level 311 site rule, lib/signals/site-311.ts). Contractor and business name columns go through the existing organisation check (lib/contacts/extract.ts
  * extractContacts -> cleanOrgName) and, for samples, sanitizeContacts (lib/signals/samples.ts sanitizeSample).
  *
  * NOT ADDED (see the coverage report): Fort Worth (no public FeatureServer URL was found, only a test server), City of Miami permits (no
@@ -110,9 +111,12 @@ export const COVERAGE_ARCGIS_DATASETS: ArcgisDataset[] = [
     kind: 'civic', subtype: '311', idField: 'CaseNumber', dateField: 'CreatedDate', dateType: 'date', latField: 'Latitude', lonField: 'Longitude',
     titleFields: ['CaseType'], textFields: ['CaseType', 'Title', 'Department', 'Division'], freeTextFields: ['Title'],
     summaryFields: ['CaseType', 'Department', 'Status'],
+    // Round 20 (NEXT, owner decision): a property-condition request gives a PRIVATE block-level site from IncidentAddress (lib/signals/site-311.ts):
+    // never an exact house number, never on the public row, never for a request about a home or unit from the inside.
+    site311: { addressFields: ['IncidentAddress'], typeFields: ['CaseType'], propertyTypes: PROPERTY_CONDITION_311_RE },
     windowForwardDays: 0, cadenceMinutes: 180, verified: true, probation: true, schemaUnverified: true,
     verifiedUrl: M(HOUSTON_311), checkedOn: CHECKED, fieldSource: 'sourced',
-    note: 'ON PROBATION. City of Houston 311 (Dynamics 365), MapServer layer 0 SR311_NEW [O]. Columns [O]: CaseNumber, CreatedDate, CaseType, Title, Department, Division, Status, Latitude, Longitude. The code-related CaseType and Department values were not seen; rows that name no trade are dropped by the 311 rules. Title is classified but never printed (free text). ResolutionNotes (staff free text) and IncidentAddress are never read. Freshness not confirmed. Houston has NO permit feed in this unit: the only fresh permit list is an HTML report that needs a page scraper.',
+    note: 'ON PROBATION. City of Houston 311 (Dynamics 365), MapServer layer 0 SR311_NEW [O]. Columns [O]: CaseNumber, CreatedDate, CaseType, Title, Department, Division, Status, Latitude, Longitude. The code-related CaseType and Department values were not seen; rows that name no trade are dropped by the 311 rules. Title is classified but never printed (free text). ResolutionNotes (staff free text) is never read. Round 20: IncidentAddress is read ONLY into the block-level site rule (lib/signals/site-311.ts) and never printed. Freshness not confirmed. Houston has NO permit feed in this unit: the only fresh permit list is an HTML report that needs a page scraper.',
   },
 ];
 

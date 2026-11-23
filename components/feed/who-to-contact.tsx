@@ -27,6 +27,8 @@ export interface ContactSignal {
   summary?: string | null;
   /** The record's public source page: linked next to an owner company on a code-violation card. */
   url?: string | null;
+  /** The stored public title: a sale's block needs it (lib/outreach/plan.ts saleSitePlan shows a site for a commercial sale only). */
+  title?: string | null;
 }
 
 const actionClass =
@@ -131,6 +133,11 @@ function Body({ plan, lang }: { plan: OutreachPlan; lang: Lang }) {
             </div>
           ) : null}
         </div>
+      ) : null}
+      {plan.building ? (
+        <p className="mb-3 break-words border-b border-line pb-3 text-sm text-ink" data-testid="building-block">
+          {plan.building}
+        </p>
       ) : null}
       <p className="text-base font-semibold text-ink">{t(lang, 'who.reach_area')}</p>
       {plan.place ? <p className="mt-1 break-words text-sm text-ink">{t(lang, 'who.labelled', { label: t(lang, /county\b|condado/i.test(plan.place.split(',')[0]) ? 'who.area' : 'who.city'), value: plan.place })}</p> : null}

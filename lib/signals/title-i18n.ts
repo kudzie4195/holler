@@ -1,3 +1,4 @@
+import { PAGE_WATCH_DATASETS } from './adapters/page-watch-datasets';
 import { t, hasKey, type DictKey, type Lang } from '@/lib/i18n';
 import { CATEGORIES } from '@/lib/signals/categories';
 
@@ -213,6 +214,13 @@ export function knownNaicsSectors(): string[] {
   return Object.keys(NAICS_SECTOR_KEYS);
 }
 
+const SALE_TITLE_KEYS: Record<string, DictKey> = {
+  Home: 'title.sale_home',
+  Condo: 'title.sale_condo',
+  'Multi-family building': 'title.sale_multi',
+  'Commercial property': 'title.sale_commercial',
+};
+
 interface Parsed {
   key: DictKey;
   vars: Fields;
@@ -224,6 +232,9 @@ const FREE_TEXT_SOURCES = /^(?:bluesky|websearch)/i;
 const lc = (s: string) => s.toLowerCase();
 
 /** The template a title was built from, with its fields. `lang` decides only how Holler's own words inside the fields are said. */
+/** Agencies of the page-watch sources, longest first (their names may hold brackets). */
+const PAGE_WATCH_AGENCIES: readonly string[] = [...new Set(PAGE_WATCH_DATASETS.map((d) => d.agency))].sort((a, b) => b.length - a.length);
+
 function parse(title: string, lang: Lang, source: string | null | undefined): Parsed | null {
   let m: RegExpExecArray | null;
 
@@ -240,6 +251,13 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   }
   if ((m = /^Federal bid in (.+?): (.*)$/.exec(title))) return { key: 'title.fed_bid', vars: { place: m[1], text: m[2] } };
   if ((m = /^Open bid in (.+?): (.*)$/.exec(title))) return { key: 'title.open_bid', vars: { place: placeLang(m[1], lang), text: m[2] } };
+  // Round 20 page watch: "Bid: <title> (<agency>)". The title and the agency's name are the agency's own words and stay as printed.
+  if (title.startsWith('Bid: ') && title.endsWith(')')) {
+    // The agency's name may hold brackets of its own ("Dallas Area Rapid Transit (DART)"): match a known page-watch agency first.
+    const known = PAGE_WATCH_AGENCIES.find((a) => title.endsWith(` (${a})`) && title.length > a.length + 8);
+    if (known) return { key: 'title.page_watch_bid', vars: { text: title.slice(5, title.length - known.length - 3), agency: known } };
+    if ((m = /^Bid: (.+) \(([^()]+)\)$/.exec(title))) return { key: 'title.page_watch_bid', vars: { text: m[1], agency: m[2] } };
+  }
 
   // City records
   if ((m = /^Failed inspection in (.+?): (.*)$/.exec(title))) return { key: 'title.inspection', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
@@ -247,6 +265,9 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   if ((m = /^New business license in (.+?): (.*)$/.exec(title))) return { key: 'title.business_license', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
   if ((m = /^New business license in ([^:]+)$/.exec(title))) return { key: 'title.business_license_plain', vars: { city: m[1] } };
   if ((m = /^New business in (.+?): (.*)$/.exec(title))) return { key: 'title.business', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
+  // Round 20 NEXT: certificates of occupancy (lib/signals/adapters/next-rules.ts occupancyTitle). The building type is the city's own text.
+  if ((m = /^Certificate of occupancy in (.+?): (.*)$/.exec(title))) return { key: 'title.occupancy', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
+  if ((m = /^Certificate of occupancy in ([^:]+)$/.exec(title))) return { key: 'title.occupancy_plain', vars: { city: m[1] } };
   if ((m = /^Code violation in (.+?): (.*)$/.exec(title))) return { key: 'title.violation', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
   if ((m = /^Permitted event in (.+?): (.*)$/.exec(title))) {
     const rest = m[2];
@@ -254,6 +275,9 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
     if (at > 0) return { key: 'title.event_at', vars: { city: m[1], text: fixedTextLang(rest.slice(0, at), lang), address: rest.slice(at + 4) } };
     return { key: 'title.event', vars: { city: m[1], text: fixedTextLang(rest, lang) } };
   }
+
+  // Round 20 SALES: "Home sold in Brooklyn, NY" (lib/signals/adapters/sales.ts saleTitle). The place is the record's own data.
+  if ((m = /^(Home|Condo|Multi-family building|Commercial property) sold in (.+)$/.exec(title))) return { key: SALE_TITLE_KEYS[m[1]], vars: { place: m[2] } };
 
   // A resident's request through Holler: "Service request in Atlanta: Roofing"
   if ((m = /^Service request in (.+?): (.*)$/.exec(title))) {
