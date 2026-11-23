@@ -83,8 +83,10 @@ export async function storeSourceSamples(db: Db, source: string, signals: Signal
  */
 export function sanitizeSample(input: SignalInput): SignalInput {
   // Round 20 (review P3-11): the in-memory visit key is never stored.
-  const { visitKey: _visitKey, ...s } = input;
+  // Round 20 (LIC): licence numbers read for the insert-time lookup never reach a sample (the holder may be a person).
+  const { visitKey: _visitKey, licenseRefs: _refs, ...s } = input;
   void _visitKey;
+  void _refs;
   if (!s.contacts?.length) return s;
   const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
   if (!allowed.length) return { ...s, contacts: [] };

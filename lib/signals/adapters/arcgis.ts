@@ -1,5 +1,5 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
-import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
+import { contactSpecFields, extractContacts, extractJobValue, extractLicenseRefs } from '@/lib/contacts/extract';
 import { civicLabel, moneyFields, publicSummary, scrubText, stripActor, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
 import { permitStageOf } from '@/lib/signals/stage';
@@ -239,6 +239,8 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       seen.add(externalId);
       // Who to contact: private, from the columns the layer's contact spec names only (arcgis-datasets.ts CONTACT_SPECS).
       const contacts = ds.contacts ? extractContacts((x) => str(a, x), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+      // Round 20 (LIC): a contractor licence number for the insert-time lookup (only where the spec names a licence state).
+      const licenseRefs = ds.contacts ? extractLicenseRefs((x) => str(a, x), ds.contacts, ds.subtype) : [];
       // Permits: the project value the layer published, as a number (PLAN-2.0 1.3). The summary prints the same amount where it has one.
       const jobValue = ds.subtype === 'permit' ? extractJobValue((x) => str(a, x), valueFieldsOf(ds)) : null;
       const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
@@ -295,6 +297,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(licenseRefs.length ? { licenseRefs } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {

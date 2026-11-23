@@ -4,6 +4,7 @@ import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { contactsAllowedFor } from '@/lib/contacts/extract';
+import { attachLicensedContacts, type LicenseRef } from '@/lib/licenses/attach';
 import type { ContactInput } from '@/lib/contacts/types';
 import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
@@ -166,22 +167,38 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);
-    const byKey = new Map<string, { contacts: ContactInput[]; city: string | null }>();
+    const byKey = new Map<string, { contacts: ContactInput[]; city: string | null; refs: LicenseRef[] }>();
     // 311 requests never get a contact, and a code violation only an owner company, whatever an adapter attached (review2 P2-5; round 18).
     for (const s of part) {
       const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
-      if (allowed.length) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: allowed, city: s.city ?? null });
+      // Round 20 (LIC): licence numbers are looked up for permits only.
+      const refs = s.data?.subtype === 'permit' ? (s.licenseRefs ?? []) : [];
+      if (allowed.length || refs.length) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: allowed, city: s.city ?? null, refs });
     }
     if (!byKey.size || contactBudget <= 0) continue;
-    const pending: { signalId: number; contacts: ContactInput[]; city?: string | null }[] = [];
+    const candidates: { row: StoredSignal; contacts: ContactInput[]; city: string | null; refs: LicenseRef[] }[] = [];
     for (const r of rows) {
       const c = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+      if (!c || typeof r.id !== 'number') continue;
       // The stored row's own subtype, when the select returns it, decides again (the input and the stored row must agree).
-      const contacts = c ? (typeof r.subtype === 'string' ? contactsAllowedFor(r.subtype, c.contacts) : c.contacts) : [];
-      if (c && contacts.length && typeof r.id === 'number') {
-        pending.push({ signalId: r.id, contacts, city: c.city });
-        r.hasContact = hasNamedContact(contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
+      const contacts = typeof r.subtype === 'string' ? contactsAllowedFor(r.subtype, c.contacts) : c.contacts;
+      const refs = typeof r.subtype === 'string' && r.subtype !== 'permit' ? [] : c.refs;
+      if (contacts.length || refs.length) candidates.push({ row: r, contacts: [...contacts], city: c.city, refs });
+    }
+    // Round 20 (LIC): a permit's contractor licence number, looked up in holler_contractor_licenses (company licensees only), adds the
+    // business name and business phone. Without migration 0036 nothing is attached and nothing fails.
+    if (candidates.some((x) => x.refs.length)) {
+      try {
+        await attachLicensedContacts(db, candidates.filter((x) => x.refs.length), opts.log);
+      } catch {
+        // never blocks the insert
       }
+    }
+    const pending: { signalId: number; contacts: ContactInput[]; city?: string | null }[] = [];
+    for (const x of candidates) {
+      if (!x.contacts.length) continue;
+      pending.push({ signalId: x.row.id as number, contacts: x.contacts, city: x.city });
+      x.row.hasContact = hasNamedContact(x.contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
     }
     if (pending.length) contactBudget -= await writeSignalContacts(db, pending, opts.log, contactBudget);
   }
