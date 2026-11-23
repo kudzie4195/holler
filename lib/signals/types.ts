@@ -1,5 +1,6 @@
 import type { CategoryId } from './categories';
 import type { ContactInput } from '@/lib/contacts/types';
+import type { LicenseRef } from '@/lib/licenses/attach';
 import type { Db } from './store';
 import type { PermitStage } from './stage';
 
@@ -39,6 +40,11 @@ export interface SignalInput {
    * these to holler_signal_contacts (service role only) for newly inserted signals and never copies them into title, summary or data.
    */
   contacts?: ContactInput[];
+  /**
+   * Round 20 (LIC): contractor licence numbers the permit row carries, for the insert-time lookup in holler_contractor_licenses
+   * (lib/licenses/attach.ts). PRIVATE and transient: never copied into the row, a sample, a log or data.
+   */
+  licenseRefs?: LicenseRef[];
   /**
    * Permits: the stage the portal's status column shows, as one of the fixed codes (lib/signals/stage.ts). NOT stored by the plain upsert:
    * lib/signals/projects.ts reads it when migration 0025 is applied and ignores it otherwise.

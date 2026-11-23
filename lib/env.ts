@@ -29,6 +29,7 @@ export const ENV_KEYS = [
   'HOLLER_STAGE_UPDATES_ENABLED',
   'HOLLER_VIOLATION_OWNERS_ENABLED',
   'HOLLER_BUILDERS_PANEL_ENABLED',
+  'HOLLER_LICENSE_SYNC_ENABLED',
   'FIRECRAWL_API_KEY',
   'FIRECRAWL_RUN_CREDIT_CAP',
   'FIRECRAWL_DAILY_CREDIT_CAP',
@@ -85,6 +86,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_VIOLATION_OWNERS_ENABLED: process.env.HOLLER_VIOLATION_OWNERS_ENABLED,
   // Round 19 integration: "Who's building near you" on /app; read at call time in lib/builders/switch.ts. Off unless 1, true, on or yes.
   HOLLER_BUILDERS_PANEL_ENABLED: process.env.HOLLER_BUILDERS_PANEL_ENABLED,
+  // Round 20 licence files (lib/licenses/switch.ts reads it again from process.env).
+  HOLLER_LICENSE_SYNC_ENABLED: process.env.HOLLER_LICENSE_SYNC_ENABLED,
   FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY,
   FIRECRAWL_RUN_CREDIT_CAP: process.env.FIRECRAWL_RUN_CREDIT_CAP,
   FIRECRAWL_DAILY_CREDIT_CAP: process.env.FIRECRAWL_DAILY_CREDIT_CAP,

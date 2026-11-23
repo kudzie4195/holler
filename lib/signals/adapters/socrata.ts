@@ -1,7 +1,7 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
+import { contactSpecFields, extractContacts, extractJobValue, extractLicenseRefs } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
@@ -458,6 +458,8 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       seen.add(externalId);
       // Who to contact: private, from the columns the dataset's contact spec names only. Never part of title, summary or data.
       const contacts = ds.contacts ? extractContacts((f) => s(row, f), ds.contacts, { city: ds.city, state: ds.state }, ds.subtype) : [];
+      // Round 20 (LIC): a contractor licence number for the insert-time lookup (only where the spec names a licence state).
+      const licenseRefs = ds.contacts ? extractLicenseRefs((f) => s(row, f), ds.contacts, ds.subtype) : [];
 
       if (ds.subtype === 'inspection') {
         // Public output by construction: no name column, no title field, no free text (inspectionPublicText).
@@ -480,6 +482,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           occurredAt,
           data: { dataset: ds.datasetId, domain: ds.domain, subtype: ds.subtype, cat_v: CAT_V, ...(pos?.approx ? { approxLocation: true } : {}) },
           ...(contacts.length ? { contacts } : {}),
+          ...(licenseRefs.length ? { licenseRefs } : {}),
         });
         continue;
       }
@@ -539,6 +542,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(licenseRefs.length ? { licenseRefs } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {

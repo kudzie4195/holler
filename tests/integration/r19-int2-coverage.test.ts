@@ -325,14 +325,14 @@ describe('9. the coverage feeds\' real-shaped company strings under the merged r
 });
 
 describe('4. /api/admin/coverage-probe', () => {
-  it('Bearer-only, no ?key=, and in the cron-bearer-only list, which now names 16 routes (equal to the disk, checked there)', () => {
+  it('Bearer-only, no ?key=, and in the cron-bearer-only list, which now names 18 routes (round 20 LIC added admin/license-probe and cron/license-sync; equal to the disk, checked there)', () => {
     const route = readFileSync('app/api/admin/coverage-probe/route.ts', 'utf8');
     expect(route).toMatch(/isCronAuthorized|isBearerAuthorized/);
     expect(route).not.toMatch(/searchParams\.get\(['"]key['"]\)/);
     const list = readFileSync('tests/security/cron-bearer-only.test.ts', 'utf8');
     const routes = [...list.slice(list.indexOf('const ROUTES = ['), list.indexOf('] as const;')).matchAll(/'([a-z-]+\/[a-z-]+)'/g)].map((m) => m[1]);
     expect(routes).toContain('admin/coverage-probe');
-    expect(routes).toHaveLength(16);
+    expect(routes).toHaveLength(18);
   });
 });
 

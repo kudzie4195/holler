@@ -81,7 +81,10 @@ export async function storeSourceSamples(db: Db, source: string, signals: Signal
  * HOLLER_VIOLATION_OWNERS_ENABLED is on, no other record an owner row), then every kept contact goes through sanitizeContacts with the
  * signal's own city.
  */
-export function sanitizeSample(s: SignalInput): SignalInput {
+export function sanitizeSample(input: SignalInput): SignalInput {
+  // Round 20 (LIC): licence numbers read for the insert-time lookup never reach a sample (the holder may be a person).
+  const { licenseRefs: _refs, ...s } = input;
+  void _refs;
   if (!s.contacts?.length) return s;
   const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
   if (!allowed.length) return { ...s, contacts: [] };

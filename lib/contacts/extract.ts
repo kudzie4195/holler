@@ -1,3 +1,5 @@
+import { licenseKey } from '@/lib/licenses/company-row';
+import type { LicenseRef } from '@/lib/licenses/attach';
 import { contactNameFor } from './names';
 import { violationOwnersEnabled } from './owner-switch';
 import { hasLegalSuffix, HOME_BASED_RE, HOME_PRONE_RE } from './trade-name';
@@ -44,6 +46,14 @@ export interface OrgSpec {
   phoneFields?: string[];
   /** The contractor's licence number column(s), tried in order. Stored only next to an organization name that passed. */
   licenseFields?: string[];
+  /**
+   * Round 20 (LIC): the two-letter state whose contractor licence file (lib/licenses/sources.ts) the numbers in licenseFields belong to.
+   * When set, extractLicenseRefs reads the number even when the name column gives nothing, and the store looks it up in
+   * holler_contractor_licenses at insert time (company licensees only). The number is never stored unless a company is found for it.
+   * No spec sets it today: the only 10-metro permit feed with a licence column is Miami-Dade CONTRNUM, which round 19 keeps unfetched (a
+   * Florida contractor licence belongs to the qualifier, a person). See the round 20 LIC report.
+   */
+  licenseState?: string;
   /**
    * A column that says what the named party is (DeKalb primaryContactType). When its value matches rejectType (owner, resident ...)
    * the party is skipped whole: no name, no phone.
@@ -250,7 +260,9 @@ export function extractContacts(
         }
       }
       let license: string | null = null;
-      for (const f of o.licenseFields ?? []) {
+      // Round 20 (LIC): with a licence state the number is a LOOKUP KEY only (extractLicenseRefs): it is never stored on the contact as
+      // read, because the licence may belong to a person (a qualifier). A company found for it in the licence file brings it back.
+      for (const f of o.licenseState ? [] : (o.licenseFields ?? [])) {
         const v = read(f);
         if (v) {
           license = v;
@@ -304,4 +316,34 @@ export function extractContacts(
   } catch {
     return [];
   }
+}
+
+/**
+ * Round 20 (LIC): the contractor licence numbers a PERMIT row carries for a state with a licence file (OrgSpec.licenseState), for the
+ * insert-time lookup (lib/licenses/attach.ts). Transient: never stored, never written to a sample, never logged. Only role 'contractor',
+ * only record kind 'permit'. Never throws.
+ */
+export function extractLicenseRefs(read: ReadField, spec: ContactSpec | undefined, subtype?: string): LicenseRef[] {
+  if (!spec || subtype !== 'permit') return [];
+  const out: LicenseRef[] = [];
+  try {
+    for (const o of spec.orgs ?? []) {
+      if (o.role !== 'contractor' || !o.licenseState || !/^[A-Z]{2}$/.test(o.licenseState)) continue;
+      if (o.typeField) {
+        const t = read(o.typeField);
+        if (o.acceptType && !o.acceptType.test(t)) continue;
+        if (o.rejectType && o.rejectType.test(t)) continue;
+      }
+      for (const f of o.licenseFields ?? []) {
+        const k = licenseKey(read(f));
+        if (k) {
+          out.push({ state: o.licenseState, number: k });
+          break;
+        }
+      }
+    }
+  } catch {
+    return [];
+  }
+  return out.slice(0, 3);
 }

@@ -11,6 +11,7 @@ import {
   isVocabularyWord,
   type WordClass,
 } from './org';
+import { knownCompanyName } from './known-companies';
 
 /**
  * Round 18 (NAMES, redo 1 after the privacy review): the names a CONTRACTOR column and a BUSINESS-LICENCE column may show.
@@ -453,6 +454,9 @@ function contractorOne(raw: string): string | null {
 /** The name a CONTRACTOR column may show, or null (C1 to C8). Never used for owner, applicant, tenant or resident columns. Stable. */
 export function cleanContractorName(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
+  // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts; never a string that only shares a word).
+  const known = knownCompanyName(raw);
+  if (known) return known;
   if (isPlaceholderName(raw)) return null;
   // C2: "PERSON of FIRM" / "PERSON c/o FIRM": the firm alone, or nothing. "FIRM of PLACE" keeps the firm.
   const parts = raw.normalize('NFKC').split(PERSON_FIRM_SPLIT_RE);
@@ -553,6 +557,10 @@ export const PLACE_NOT_PERSON: ReadonlySet<string> = new Set(['texas', 'florida'
  */
 export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
+  // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts). The owner check still applies: a row whose
+  // owner column names a PERSON who shares a word with the name gives nothing ("Toll Brothers" owned by "Mary Toll").
+  const known = knownCompanyName(raw);
+  if (known) return !ctx.shapeOnly && sharesWithOwner(nameTokens(known), ctx) ? null : known;
   if (isPlaceholderName(raw)) return null;
   const strict = cleanOrgName(raw);
   const cand = strict ?? shapeOk(raw);
