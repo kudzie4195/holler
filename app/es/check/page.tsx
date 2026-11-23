@@ -49,6 +49,9 @@ export async function generateMetadata(props: PageProps<'/es/check'>): Promise<M
       url: PAIR.es,
       images: [{ url: '/og.png', width: 1200, height: 630, alt: title }],
     },
+    // Round 24: its own card text. Without it the page inherited the root layout's English twitter description, which names a price,
+    // onto every /es/check answer, the waitlist ones included.
+    twitter: { card: 'summary_large_image', title, description, images: ['/og.png'] },
     robots: variant ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
