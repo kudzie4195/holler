@@ -464,7 +464,7 @@ describe('round 19 integration: the strings that came from r19-metros, for a Spa
     expect(bad).toContain('It may have expired. Check your ZIP code again to get a new link.');
     const { renderWaitlistConfirm } = await import('@/lib/email/templates');
     const m = renderWaitlistConfirm({ confirmUrl: 'https://x.test/c', place: 'Austin, TX' });
-    expect(m.subject).toBe('Confirm: tell me when Holler is ready for me near Austin, TX');
+    expect(m.subject).toBe('Confirm: tell me when Holler reaches Austin, TX');
     expect(m.text.startsWith('One click and you are on the list\n\nYou asked Holler to tell you when it has enough permits and city requests near Austin, TX for you. Confirm this address and we will send you one email when it does. Nothing else.\n\nConfirm my email: https://x.test/c\n\nThe link works for 7 days.')).toBe(true);
   });
 });

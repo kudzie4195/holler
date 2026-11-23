@@ -17,7 +17,7 @@ import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
 import { trialPhraseEs } from '../plan/price-copy-es';
 import { expandTradeIds } from '../plan/composite-trades';
-import type { CoverageState } from '../check/cells';
+import { tradeSignupClosed, type CoverageState } from '../check/cells';
 import {
   EMAIL_COLORS,
   EMAIL_FONTS,
@@ -901,7 +901,11 @@ export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string;
   const trade = opts.trade ? tradeWords(opts.trade, lang) : null;
   const subject = trade ? t(lang, 'wl.email.subject_trade', { trade, place }) : t(lang, 'wl.email.subject', { place });
   const h = t(lang, 'wl.email.h');
-  const body = trade ? t(lang, 'wl.email.body_trade', { trade, place }) : t(lang, 'wl.email.body', { place });
+  // A trade sign-up does not take yet ("coming soon", lib/check/cells.ts tradeSignupClosed) is on the list because it is closed, not
+  // because the records near this place had none of it: its email says that instead of "lately none of them has been {trade} work".
+  const body = trade
+    ? t(lang, opts.trade && tradeSignupClosed(opts.trade) ? 'wl.email.body_closed' : 'wl.email.body_trade', { trade, place })
+    : t(lang, 'wl.email.body', { place });
   const note = t(lang, 'wl.email.note');
   const button1 = t(lang, 'wl.confirm.button');
   const html =

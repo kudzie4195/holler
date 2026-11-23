@@ -485,6 +485,8 @@ export const es: Record<DictKey, string> = {
   'wl.email.subject_trade': 'Confirme: avísenme cuando Holler tenga trabajo de {trade} cerca de {place}',
   'wl.email.body_trade':
     'Usted pidió que Holler le avise cuando tenga trabajo de {trade} cerca de {place}. Holler ya lee los registros públicos de esa zona, pero últimamente ninguno ha sido trabajo de {trade}. Confirme esta dirección y le enviaremos un único correo cuando eso cambie. Nada más.',
+  'wl.email.body_closed':
+    'Usted pidió que Holler le avise cuando tenga trabajo de {trade} cerca de {place}. Holler ya lee los registros públicos de esa zona, pero todavía no acepta inscripciones para {trade}. Confirme esta dirección y le enviaremos un único correo cuando se abran. Nada más.',
   'unsub.settings': 'Configuración del correo',
   'unsub.alerts.invalid_p': 'Este enlace para darse de baja no es válido. Puede desactivar las alertas por correo en su configuración.',
   'unsub.alerts.confirm_h': '¿Desactivar las alertas por correo?',
@@ -1210,7 +1212,7 @@ export const es: Record<DictKey, string> = {
   'wl.confirm.done.link': 'Consultar otro código postal',
   'wl.confirm.error.title': 'Algo salió mal',
   'wl.confirm.error.body': 'No pudimos guardarlo. Vuelva a abrir el enlace en un momento.',
-  'wl.email.subject': 'Confirme: avísenme cuando Holler esté listo para mí cerca de {place}',
+  'wl.email.subject': 'Confirme: avísenme cuando Holler llegue a {place}',
   'wl.email.h': 'Un clic y queda en la lista',
   'wl.email.body': 'Usted pidió que Holler le avise cuando tenga suficientes permisos y solicitudes a la ciudad cerca de {place} para usted. Confirme esta dirección y le enviaremos un único correo cuando los tenga. Nada más.',
   'wl.email.note': 'El enlace funciona durante 7 días. Si usted no lo pidió, ignore este correo y no sabrá más de nosotros.',

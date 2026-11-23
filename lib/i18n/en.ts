@@ -503,6 +503,8 @@ export const en = {
   'wl.email.subject_trade': 'Confirm: tell me when Holler has {trade} work near {place}',
   'wl.email.body_trade':
     'You asked Holler to tell you when it has {trade} work near {place}. Holler already reads public records there, but lately none of them has been {trade} work. Confirm this address and we will send you one email when that changes. Nothing else.',
+  'wl.email.body_closed':
+    'You asked Holler to tell you when it has {trade} work near {place}. Holler already reads public records there, but it is not taking sign-ups for {trade} yet. Confirm this address and we will send you one email when it opens. Nothing else.',
   'unsub.settings': 'Email settings',
   'unsub.alerts.invalid_p': 'This unsubscribe link is not valid. You can turn off email alerts in your settings.',
   'unsub.alerts.confirm_h': 'Turn off email alerts?',
@@ -1243,7 +1245,7 @@ export const en = {
   'wl.confirm.done.link': 'Check another ZIP code',
   'wl.confirm.error.title': 'Something went wrong',
   'wl.confirm.error.body': 'We could not save that. Try the link again in a moment.',
-  'wl.email.subject': 'Confirm: tell me when Holler is ready for me near {place}',
+  'wl.email.subject': 'Confirm: tell me when Holler reaches {place}',
   'wl.email.h': 'One click and you are on the list',
   'wl.email.body': 'You asked Holler to tell you when it has enough permits and city requests near {place} for you. Confirm this address and we will send you one email when it does. Nothing else.',
   'wl.email.note': 'The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.',
