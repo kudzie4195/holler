@@ -41,6 +41,7 @@ const FIXED: Record<string, Intent> = {
   'websearch-serper': 'asking',
   'holler-request': 'asking',
   'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
+  'html-houston-permits': 'spending', // Round 20 NEXT: the Houston permit report page reader (kind permit), not in the dataset tables
 };
 
 const datasets = new Map<string, { subtype: string; kind: string }>([

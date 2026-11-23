@@ -1,7 +1,7 @@
 import { contactNameFor } from './names';
 import { violationOwnersEnabled } from './owner-switch';
 import { hasLegalSuffix, HOME_BASED_RE, HOME_PRONE_RE } from './trade-name';
-import { cleanAddressPart, sanitizeContacts } from './sanitize';
+import { blockSiteAddress, cleanAddressPart, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
 import { firstMoney } from '@/lib/signals/permit-value';
 
@@ -149,7 +149,7 @@ export function splitRunTogether(value: string): { name: string; phone: string |
   return { name, phone: p ? `${p[1]}-${p[2]}-${p[3]}` : null };
 }
 
-/** Record kinds that never get a contact or an exact address, whatever spec is configured (311 requests). */
+/** Record kinds that never get a contact or an exact address, whatever spec is configured (311 requests): at most a block-level site (round 20). */
 export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['311']);
 
 /**
@@ -160,14 +160,25 @@ export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['311']);
 export const OWNER_ONLY_SUBTYPES: ReadonlySet<string> = new Set(['violation']);
 
 /**
- * The contacts a record of this kind may keep: none for a 311 request, only role 'owner' for a code violation (and none at all while the
- * owner switch is off), and never role 'owner' for anything else. Used at extraction and again before any write (lib/signals/store.ts).
+ * Round 20 (NEXT): the one contact a 311 request may keep, a BLOCK-level site with no name ("2300 block of W 47TH ST", written by
+ * lib/signals/site-311.ts site311Contact). Anything else on a 311 row (an exact address, a name, a phone) fails this test.
+ */
+export function isBlockSiteContact(c: { role?: unknown; name?: unknown; address?: unknown; phone?: unknown; email?: unknown } | null | undefined): boolean {
+  if (!c || c.role !== 'site') return false;
+  const named = typeof c.name === 'string' && c.name.trim().length > 0;
+  return !named && !c.phone && !c.email && blockSiteAddress(c.address) !== null;
+}
+
+/**
+ * The contacts a record of this kind may keep: for a 311 request only a block-level site (round 20 owner decision: at most a block, never a
+ * house number; isBlockSiteContact), only role 'owner' for a code violation (and none at all while the owner switch is off), and never role
+ * 'owner' for anything else. Used at extraction and again before any write (lib/signals/store.ts).
  * `subtype` is matched trimmed, any case. `ownersOn` defaults to the HOLLER_VIOLATION_OWNERS_ENABLED switch.
  */
 export function contactsAllowedFor<T extends { role: string }>(subtype: unknown, contacts: readonly T[] | null | undefined, ownersOn: boolean = violationOwnersEnabled()): T[] {
   const list = Array.isArray(contacts) ? contacts : [];
   const k = typeof subtype === 'string' ? subtype.trim().toLowerCase() : '';
-  if (NO_CONTACT_SUBTYPES.has(k)) return [];
+  if (NO_CONTACT_SUBTYPES.has(k)) return list.filter((c) => isBlockSiteContact(c as unknown as Parameters<typeof isBlockSiteContact>[0]));
   if (OWNER_ONLY_SUBTYPES.has(k)) return ownersOn ? list.filter((c) => c?.role === 'owner') : [];
   return list.filter((c) => c?.role !== 'owner');
 }

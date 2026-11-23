@@ -259,8 +259,20 @@ function socrataGuardRow(d: SocrataDataset): Record<string, unknown> {
   // a name column it is overwritten with the person, so a config that reads it fails below.
   for (const k of NAME_KEYS) row[k] = PERSON;
   for (const f of Object.keys(row)) if (NAME_LIKE_COLUMN.test(f) && !NAME_COLUMN_OK.includes(f)) row[f] = PERSON;
+  // Round 20 NEXT: the keep-row columns (organisation type, NAICS, new-business flag) are TYPE columns that are never stored; they get a
+  // passing value so the row reaches the parser. A person in them drops the row whole (tests/signals/next-r20.test.ts).
+  Object.assign(row, KEEP_PASS[d.id] ?? {});
   return row;
 }
+
+/** Round 20 NEXT: values that pass each dataset's keepRow (lib/signals/adapters/next-datasets.ts). */
+const KEEP_PASS: Record<string, Record<string, unknown>> = {
+  'socrata-txsales-dallas-business': { taxpayer_organizational_type: 'Texas Limited Liability Company', outlet_naics_code: '722511' },
+  'socrata-txsales-houston-business': { taxpayer_organizational_type: 'Texas Limited Liability Company', outlet_naics_code: '722511' },
+  'socrata-tabc-dallas-business': { ownership_type: 'Corporation' },
+  'socrata-tabc-houston-business': { ownership_type: 'Corporation' },
+  'arcgis-miamidade-business': { NEWBUS: 'Y' },
+};
 
 function arcgisGuardRow(d: ArcgisDataset) {
   const a: Record<string, unknown> = {};
@@ -274,6 +286,7 @@ function arcgisGuardRow(d: ArcgisDataset) {
   if (d.confidentialField) a[d.confidentialField] = 'N';
   for (const k of NAME_KEYS) a[k] = PERSON;
   for (const f of Object.keys(a)) if (NAME_LIKE_COLUMN.test(f) && !NAME_COLUMN_OK.includes(f)) a[f] = PERSON;
+  Object.assign(a, KEEP_PASS[d.id] ?? {});
   return { features: [{ attributes: a, geometry: { x: -84.3902, y: 33.7491 } }] };
 }
 

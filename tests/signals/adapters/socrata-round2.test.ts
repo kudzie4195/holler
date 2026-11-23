@@ -180,7 +180,8 @@ describe('silent-empty rule and config', () => {
     for (const d of SOCRATA_DATASETS) {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: d.tz })).not.toThrow();
       expect(d.verifiedUrl).toMatch(/^https:\/\/.+\/api\/views\/[a-z0-9]{4}-[a-z0-9]{4}\.json$/);
-      if (d.verified) expect(d.fieldSource).toBe('sourced');
+      // Round 20 NEXT: a probation dataset whose schema is unverified may say 'assumed' (it reaches no member until probed and promoted).
+      if (d.verified && !(d.probation && d.schemaUnverified)) expect(d.fieldSource).toBe('sourced');
     }
     expect(new Set(SOCRATA_DATASETS.map((d) => d.id)).size).toBe(SOCRATA_DATASETS.length);
     for (const sub of ['business', 'violation', 'event-permit'] as const) expect(SOCRATA_DATASETS.some((d) => d.subtype === sub && d.verified)).toBe(true);

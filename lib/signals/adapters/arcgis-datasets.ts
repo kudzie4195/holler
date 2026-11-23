@@ -1,6 +1,8 @@
-import type { InspectionSummaryField, SocrataSubtype } from './socrata-datasets';
+import type { CategoryRule, InspectionSummaryField, SocrataSubtype } from './socrata-datasets';
 import type { ContactSpec } from '@/lib/contacts/extract';
+import type { Site311Rule } from '@/lib/signals/site-311';
 import { COVERAGE_ARCGIS_DATASETS, COVERAGE_CONTACT_SPECS, COVERAGE_VALUE_FIELDS } from './coverage-datasets';
+import { NEXT_ARCGIS_DATASETS } from './next-datasets';
 
 /**
  * Config for the generic ArcGIS (FeatureServer / MapServer layer) adapter.
@@ -107,6 +109,20 @@ export interface ArcgisDataset {
    * spaces ignored) drops the row (arcgis.ts isConfidential).
    */
   confidentialField?: string;
+  /** Round 20 (NEXT), business rows only: the premises address rule (see socrata-datasets.ts `premises`). */
+  premises?: ContactSpec;
+  /** Round 20 (NEXT), 311 only: the block-level site rule (lib/signals/site-311.ts). */
+  site311?: Site311Rule;
+  /** Round 20 (NEXT), permit rows only: a certificate-of-occupancy feed (see socrata-datasets.ts `occupancy`). */
+  occupancy?: { typeFields: string[] };
+  /** Round 20 (NEXT): drop a row before anything is built from it unless this says keep (see socrata-datasets.ts `keepRow`). */
+  keepRow?: (get: (field: string) => string) => boolean;
+  /** Round 20 (NEXT): columns `keepRow` reads (asked for in outFields like the other optional columns). */
+  keepFields?: string[];
+  /** Round 20 (NEXT): extra category rules for this layer only, applied after the subtype's rules (socrata.ts categorize). */
+  extraRules?: CategoryRule[];
+  /** Round 20 (NEXT): the source label, when "<city> open data: <subtype words>" would misname it. */
+  label?: string;
 }
 
 const M = (layerUrl: string) => `${layerUrl}?f=json`;
@@ -214,6 +230,8 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   },
   // Round 19 coverage (Dallas-Fort Worth, Houston, Miami, Phoenix): ALL ON PROBATION, schemas unverified. See coverage-datasets.ts.
   ...COVERAGE_ARCGIS_DATASETS,
+  // Round 20 NEXT (Miami-Dade business tax, Phoenix liquor licences, DC certificates of occupancy): ALL ON PROBATION. See next-datasets.ts.
+  ...NEXT_ARCGIS_DATASETS,
 ];
 
 /**

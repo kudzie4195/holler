@@ -9,6 +9,8 @@ import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset 
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
+import { site311Contact } from '@/lib/signals/site-311';
+import { OCCUPANCY_TRADES, occupancyTitle, occupancyTypeText, premisesAddressOf } from './next-rules';
 
 const LIMIT = 500;
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
@@ -86,7 +88,14 @@ function requiredFields(ds: ArcgisDataset): Set<string> {
 /** Extras the layer may or may not have: contact columns and value columns that are not required fields. */
 export function optionalFields(ds: ArcgisDataset): string[] {
   const req = requiredFields(ds);
-  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds)])].filter((f) => !req.has(f));
+  // Round 20 (NEXT): the premises, 311 site, occupancy type and keep-row columns are extras too (absent: the rule gives nothing).
+  const next = [
+    ...contactSpecFields(ds.premises),
+    ...(ds.site311 ? [...ds.site311.addressFields, ...ds.site311.typeFields] : []),
+    ...(ds.occupancy?.typeFields ?? []),
+    ...(ds.keepFields ?? []),
+  ];
+  return [...new Set([...contactSpecFields(ds.contacts), ...valueFieldsOf(ds), ...next])].filter((f) => !req.has(f));
 }
 
 /**
@@ -232,9 +241,14 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       if (seen.has(externalId)) continue;
       // Round 19 coverage (review P1-A): a confidential case is dropped whole, and so is a row that does not carry the flag at all.
       if (ds.confidentialField && (!(ds.confidentialField in a) || isConfidential(a[ds.confidentialField]))) continue;
+      // Round 20 (NEXT): a row the dataset does not keep is dropped before anything is built from it.
+      if (ds.keepRow && !ds.keepRow((x) => str(a, x))) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (x) => str(a, x)) : null;
-      const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
+      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as const } : categorize(ds, text);
+      // Round 20 (NEXT): a certificate of occupancy carries the occupancy trades (next-rules.ts OCCUPANCY_TRADES).
+      const categories = ds.occupancy && ds.subtype === 'permit' ? [...new Set([...classified.categories, ...OCCUPANCY_TRADES])] : classified.categories;
+      const severity = classified.severity;
       if (categories.length === 0) continue;
 
       seen.add(externalId);
@@ -264,14 +278,24 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           // DeKalb's statusDescription holds the literal text "Issued Status Code" on live rows: a field label, not a status (final review, Q3 pattern 3).
           .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).
-        const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
+        // Round 20 (NEXT): a business with a `premises` rule prints its premises address only when its name passed.
+        const address = ds.subtype === 'business'
+          ? (ds.premises ? premisesAddressOf((x) => str(a, x), ds.premises, { city: ds.city, state: ds.state }) : '')
+          : publicAddress(ds.subtype, rawAddress);
         const parts = [...new Set(summaryBits)];
         if (address && ds.subtype !== '311') parts.push(address);
-        itemTitle = permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
+        itemTitle = ds.occupancy && ds.subtype === 'permit'
+          ? occupancyTitle(ds.city, occupancyTypeText(printableValues(ds, ds.occupancy.typeFields, (x) => str(a, x)).values))
+          : permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
         summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
-      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
+      const permitStage = ds.occupancy && ds.subtype === 'permit'
+        ? ('certificate_of_occupancy' as const)
+        : ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
+      // Round 20 (NEXT): a 311 request about a property gives at most a PRIVATE block-level site (lib/signals/site-311.ts).
+      const site311 = ds.subtype === '311' && ds.site311 ? site311Contact((x) => str(a, x), ds.site311, { city: ds.city, state: ds.state, zip }) : null;
+      const allContacts = site311 ? [...contacts, site311] : contacts;
       report.items.push({
         source: ds.id,
         externalId,
@@ -294,7 +318,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(contacts.length ? { contacts } : {}),
+        ...(allContacts.length ? { contacts: allContacts } : {}),
         ...(permitStage ? { permitStage } : {}),
       });
     } catch {
@@ -399,7 +423,7 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
   };
   return {
     id: ds.id,
-    label: `${ds.city} open data: ${suffix[ds.subtype]}`,
+    label: ds.label ?? `${ds.city} open data: ${suffix[ds.subtype]}`,
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),

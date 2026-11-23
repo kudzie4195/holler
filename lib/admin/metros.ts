@@ -8,6 +8,7 @@ import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
 import { BID_DATASETS } from '@/lib/signals/adapters/city-bids';
 import { JOHNS_CREEK_PERMITS } from '@/lib/signals/adapters/arcgis-johnscreek';
+import { HOUSTON_PERMITS_DS } from '@/lib/signals/adapters/houston-permits-config';
 import { LOCAL_BID_SOURCES } from '@/lib/firecrawl/local-sources';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { isResidentialHeatTitle, managedByLineFrom } from '@/lib/signals/managed-by';
@@ -201,6 +202,7 @@ export function sourcePlaces(): Map<string, string | null> {
     ...SOCRATA_DATASETS,
     ...ARCGIS_DATASETS,
     JOHNS_CREEK_PERMITS,
+    HOUSTON_PERMITS_DS,
     ...CARTO_DATASETS,
     ...BID_DATASETS,
     ...LOCAL_BID_SOURCES,

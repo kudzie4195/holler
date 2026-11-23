@@ -192,6 +192,26 @@ export function cleanAddress(raw: unknown): string | null {
   return cleanAddressPart(kept) === kept ? kept : null;
 }
 
+/** Words that name a part of a building or a pad, never part of a street a block form may carry. */
+const BLOCK_UNIT_RE = /#|\b(?:apt|apartment|unit|ste|suite|fl|flr|floor|rm|room|bldg|lot|space|spc|trailer|trlr|ph|penthouse|bsmt|basement)\b/i;
+
+/**
+ * Round 20 (NEXT, owner decision: a 311 request gives at most a block-level site). A BLOCK-level address and nothing else: "2300 block of
+ * W 47TH ST", "0-99 block of MAIN ST". The street after "block of" must be exactly what cleanAddress keeps when a house number is put in
+ * front of it ("100 W 47TH ST"), so its street-word, phone, role and person-name checks apply and nothing typed into a street column
+ * rides along; no unit, pad or building-part word is allowed. Returns the block form as written (spaces folded), or null.
+ */
+export function blockSiteAddress(raw: unknown): string | null {
+  const t = text(raw, CONTACT_LIMITS.address).replace(/\s+/g, ' ').trim();
+  const m = /^(0-99|[1-9]\d{0,4}00) block of (\S.*)$/i.exec(t);
+  if (!m) return null;
+  const street = m[2];
+  if (BLOCK_UNIT_RE.test(street)) return null;
+  const probe = `100 ${street}`;
+  if (cleanAddress(probe) !== probe) return null;
+  return `${m[1]} block of ${street}`;
+}
+
 /**
  * One address part before parts are joined (extract.ts), so a bad second line cannot ride on a good first line: '' when it holds a phone,
  * an email, a link or a role word. With `names` (an organization's address lines), a part with no digit must not read as a personal name
@@ -265,7 +285,10 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     zip: zip5(c.zip),
   };
   if (c.role === 'site') {
-    const address = cleanAddress(typeof c.address === 'string' ? c.address : '');
+    // Round 20 (NEXT): a block-level site ("2300 block of W 47TH ST", a 311 request) is kept as written when it is nothing but the block
+    // form (blockSiteAddress); cleanAddress reads "block of" as street words and would drop most of them. Anything else as before.
+    const raw = typeof c.address === 'string' ? c.address : '';
+    const address = blockSiteAddress(raw) ?? cleanAddress(raw);
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }

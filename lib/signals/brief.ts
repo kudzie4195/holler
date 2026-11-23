@@ -105,6 +105,8 @@ const SOURCE_FAMILY: Record<string, BriefFamily> = {
   'websearch-brave': 'public-post',
   'websearch-serper': 'public-post',
   'holler-request': 'resident-request',
+  // Round 20 NEXT: the Houston permit report page (not a dataset id with a suffix the pattern below reads).
+  'html-houston-permits': 'permit',
 };
 
 const SUBTYPE_FAMILY: Record<string, BriefFamily> = {
