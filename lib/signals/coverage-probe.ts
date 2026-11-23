@@ -5,11 +5,13 @@ import { sanitizeSample } from './samples';
 import { columnsSeen, missingColumns, readJsonBody } from './schema-check';
 import { SOCRATA_DATASETS, lookbackDays, type SocrataDataset } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS, arcgisLookbackDays, type ArcgisDataset } from './adapters/arcgis-datasets';
-import { buildSocrataQuery, parseSocrataReport, recordDateIso, socrataSchemaProblem, socrataSelectColumns } from './adapters/socrata';
+import { buildSocrataQuery, parseSocrataReport, recordDateIso, sendsSelect, socrataSchemaProblem, socrataSelectColumns } from './adapters/socrata';
 import { arcgisDateToIso, arcgisSchemaProblem, buildArcgisQuery, layerSchemaCheck, parseArcgisReport, valueFieldsOf } from './adapters/arcgis';
 import type { SignalInput } from './types';
 import { SALES_DATASETS, PHL_CARTO, type SaleDataset } from './adapters/sales-datasets';
 import { SALE_MAX_PAGES, SALE_PAGE, arcgisSaleWhere, cartoSaleWhere, cartoUrl, fetchSaleRows, parseSaleRows, saleRecordDate, saleSchemaProblem, socrataWhere } from './adapters/sales';
+import { idKeySecret } from './id-key';
+import { HOUSTON_ACCESS, HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_ROW_CAP, HOUSTON_USER_AGENT, houstonAccess, parseHoustonPermits, readBoundedText, readPermitTable } from './adapters/houston-permits';
 
 /**
  * GET /api/admin/coverage-probe?source=<id> (round 19 COVERAGE). The owner's check of ONE probation source's schema before promoting it,
@@ -30,9 +32,9 @@ const SCAN_PAGE = 500;
 
 type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset };
 
-/** Probation datasets the probe accepts (Socrata and ArcGIS, and the round 20 property sale sources), sorted. */
+/** Probation datasets the probe accepts (Socrata and ArcGIS, the round 20 property sale sources, and the Houston permit report page), sorted. */
 export function coverageProbeSourceIds(): string[] {
-  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...SALES_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id).sort();
+  return [...[...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...SALES_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id), HOUSTON_PERMITS_ID].sort();
 }
 
 function find(id: string): Probed | null {
@@ -51,9 +53,11 @@ export function expectedColumns(p: Probed): string[] {
     ...(d.idFields?.length ? d.idFields : [d.idField]),
     d.dateField, ...d.titleFields, ...d.textFields, ...d.summaryFields, ...(d.addressFields ?? []), d.zipField, d.latField, d.lonField,
     d.statusField, ...contactSpecFields(d.contacts),
+    // Round 20 NEXT: the premises, 311 site and occupancy type columns.
+    ...contactSpecFields(d.premises), ...(d.site311 ? [...d.site311.addressFields, ...d.site311.typeFields] : []), ...(d.occupancy?.typeFields ?? []),
   ];
-  if (p.platform === 'socrata') return uniq([...common, p.ds.locationField, p.ds.latLonTextField, ...(p.ds.valueFields ?? [])]);
-  return uniq([...common, ...valueFieldsOf(p.ds), p.ds.confidentialField]);
+  if (p.platform === 'socrata') return uniq([...common, p.ds.locationField, p.ds.latLonTextField, ...(p.ds.valueFields ?? []), p.ds.naicsField, ...(p.ds.keepFields ?? [])]);
+  return uniq([...common, ...valueFieldsOf(p.ds), p.ds.confidentialField, ...(p.ds.keepFields ?? [])]);
 }
 
 export interface MappedRow {
@@ -74,7 +78,7 @@ export interface MappedRow {
 export interface CoverageProbeResult {
   status: 'ok' | 'unknown_source';
   source: string;
-  platform: 'socrata' | 'arcgis' | 'carto' | null;
+  platform: 'socrata' | 'arcgis' | 'carto' | 'html' | null;
   /** The endpoint, without any query string. */
   endpoint: string | null;
   /** HTTP status of the rows request (null when it was not sent or got no answer). */
@@ -186,6 +190,8 @@ async function probeSocrata(ds: SocrataDataset, doFetch: typeof fetch, now: Date
   const endpoint = `https://${ds.domain}/resource/${ds.datasetId}.json`;
   const rowCap = SCAN_PAGE * Math.max(1, Math.min(ds.maxPages ?? 1, 6));
   const base = empty(ds.id, { platform: 'socrata', endpoint, expectedColumns: expectedColumns({ platform: 'socrata', ds }), rowCap });
+  // Review fix P2-1: a keyed-id source without its key sends nothing, as the scan does.
+  if (ds.hashId && !idKeySecret()) return { ...base, schema: 'unreachable', message: 'no id key (HOLLER_BUILDING_REF_SECRET or SUPABASE_SERVICE_ROLE_KEY); no request sent' };
   const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
   const token = process.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
   if (token) headers['X-App-Token'] = token;
@@ -214,7 +220,8 @@ async function probeSocrata(ds: SocrataDataset, doFetch: typeof fetch, now: Date
     /* count unknown */
   }
   const q = new URLSearchParams();
-  if (ds.schemaUnverified) q.set('$select', socrataSelectColumns(ds).join(','));
+  // Review fix P1-2: the same allow-list as the scan.
+  if (sendsSelect(ds)) q.set('$select', socrataSelectColumns(ds).join(','));
   q.set('$order', `${ds.queryDateField ?? ds.dateField} DESC`);
   q.set('$limit', String(PROBE_ROWS));
   try {
@@ -395,6 +402,43 @@ async function probeSale(ds: SaleDataset, doFetch: typeof fetch, now: Date): Pro
   return finish(base, got.rows, report.items, report.shapeOk, problem);
 }
 
+/**
+ * Round 20 NEXT: the Houston permit report page. One request; the table's header keys stand for the column names; rows are the table rows
+ * (capped like the scan) and the mapped rows are the scan's own output after the sample clean-up. No raw cell is returned.
+ */
+export async function probeHoustonReport(doFetch: typeof fetch, now: Date, access: typeof HOUSTON_ACCESS = HOUSTON_ACCESS): Promise<CoverageProbeResult> {
+  const base = empty(HOUSTON_PERMITS_ID, {
+    platform: 'html', endpoint: HOUSTON_REPORT_URL, expectedColumns: Object.keys(HOUSTON_HEADERS), rowCap: HOUSTON_ROW_CAP,
+  });
+  try {
+    // Review fix P1-3: the same access gate as the scan (terms record, then robots.txt); nothing is requested until it passes.
+    const gate = await houstonAccess(doFetch, now, access);
+    if (!gate.ok) return { ...base, schema: 'unreachable', message: gate.reason };
+    const res = await doFetch(HOUSTON_REPORT_URL, { headers: { Accept: 'text/html', 'User-Agent': HOUSTON_USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    base.httpStatus = res.status;
+    if (!res.ok) return { ...base, schema: 'unreachable', message: `HTTP ${res.status}` };
+    const table = readPermitTable(await readBoundedText(res));
+    base.columns = [...table.headers].sort();
+    base.columnsFrom = table.headers.length ? 'column list' : null;
+    base.missingExpected = base.expectedColumns.filter((c) => !table.headers.includes(c));
+    base.windowCount = table.seen;
+    if (table.seen > HOUSTON_ROW_CAP) base.rowCapNote = rowCapNote(table.seen, HOUSTON_ROW_CAP);
+    if (table.problem) return { ...base, schema: table.problem.startsWith('schema mismatch') ? 'mismatch' : 'unreachable', schemaProblem: table.problem };
+    const parsed = parseHoustonPermits(table.rows, now);
+    base.rowCount = table.rows.length;
+    base.shapeOk = parsed.shapeOk;
+    base.parsedRows = parsed.items.length;
+    base.mapped = parsed.items.slice(0, PROBE_MAPPED).map(mappedRow);
+    base.newestDate = newest(table.rows.map((r) => recordDateIso(r.permit_date, HOUSTON_PERMITS_DS)));
+    Object.assign(base, freshness(base.newestDate, HOUSTON_PERMITS_DS.maxRecordAgeDays ?? 21, now));
+    if (!table.rows.length) return { ...base, schema: 'no_rows' };
+    if (parsed.shapeOk === 0) return { ...base, schema: 'mismatch', schemaProblem: 'no row has a project number, a readable permit date and a type' };
+    return { ...base, schema: 'ok' };
+  } catch (e) {
+    return { ...base, schema: 'unreachable', message: msgOf(e) };
+  }
+}
+
 /** Runs the probe for one source. `doFetch` is passed in so a test can answer without a network. Never throws. */
 export async function runCoverageProbe(source: string, doFetch: typeof fetch, now: Date = new Date()): Promise<CoverageProbeResult> {
   const sale = SALES_DATASETS.find((d) => d.id === source && d.verified && d.probation);
@@ -405,6 +449,7 @@ export async function runCoverageProbe(source: string, doFetch: typeof fetch, no
       return empty(source, { platform: sale.platform, message: msgOf(e) });
     }
   }
+  if (source === HOUSTON_PERMITS_ID) return probeHoustonReport(doFetch, now);
   const p = find(source);
   if (!p) return { ...empty(source), status: 'unknown_source', schema: 'unreachable' };
   try {

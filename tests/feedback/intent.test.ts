@@ -46,6 +46,7 @@ const FIXED: Record<string, Intent> = {
   'socrata-cook-sales': 'demand',
   'carto-phl-sales': 'demand',
   'arcgis-miamidade-sales': 'demand',
+  'html-houston-permits': 'spending', // Round 20 NEXT: the Houston permit report page reader (kind permit), not in the dataset tables
 };
 
 const datasets = new Map<string, { subtype: string; kind: string }>([

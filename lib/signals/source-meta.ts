@@ -99,6 +99,17 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "websearch-brave": { id: "websearch-brave", label: "People asking for recommendations (web search)", sourceUrl: "https://search.brave.com/" },
   "websearch-serper": { id: "websearch-serper", label: "People asking for recommendations (web search)", sourceUrl: "https://serper.dev/" },
   "holler-request": { id: "holler-request", label: "Requests made on Holler", sourceUrl: "/request" },
+  // Round 20 NEXT (on probation): new-business feeds, Houston permit report, certificates of occupancy.
+  "socrata-txsales-dallas-business": { id: "socrata-txsales-dallas-business", label: "Texas open data: new sales tax permits", sourceUrl: "https://data.texas.gov/d/jrea-zgmq" },
+  "socrata-txsales-houston-business": { id: "socrata-txsales-houston-business", label: "Texas open data: new sales tax permits", sourceUrl: "https://data.texas.gov/d/jrea-zgmq" },
+  "socrata-tabc-dallas-business": { id: "socrata-tabc-dallas-business", label: "Texas open data: pending liquor license applications", sourceUrl: "https://data.texas.gov/d/mxm5-tdpj" },
+  "socrata-tabc-houston-business": { id: "socrata-tabc-houston-business", label: "Texas open data: pending liquor license applications", sourceUrl: "https://data.texas.gov/d/mxm5-tdpj" },
+  "socrata-la-occupancy-permits": { id: "socrata-la-occupancy-permits", label: "Los Angeles open data: certificates of occupancy", sourceUrl: "https://data.lacity.org/d/3f9m-afei" },
+  "socrata-nyc-occupancy-permits": { id: "socrata-nyc-occupancy-permits", label: "New York City open data: certificates of occupancy", sourceUrl: "https://data.cityofnewyork.us/d/pkdm-hqz6" },
+  "arcgis-miamidade-business": { id: "arcgis-miamidade-business", label: "Miami-Dade County open data: new business licenses", sourceUrl: "https://gisweb.miamidade.gov/arcgis/rest/services/BusinessTracker/MapServer/0" },
+  "arcgis-phoenix-liquor-business": { id: "arcgis-phoenix-liquor-business", label: "Phoenix open data: restaurant liquor licenses", sourceUrl: "https://maps.phoenix.gov/pub/rest/services/public/LIQUOR_RACMap/MapServer/11" },
+  "arcgis-dc-occupancy-permits": { id: "arcgis-dc-occupancy-permits", label: "Washington open data: certificates of occupancy", sourceUrl: "https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/Business_Licensing_and_Grants_WebMercator/FeatureServer/46" },
+  "html-houston-permits": { id: "html-houston-permits", label: "City of Houston: weekly permit activity report", sourceUrl: "https://www.houstontx.gov/planning/Publications/listsrv/WebeReport.html" },
 };
 
 /** Source ids in SOURCE_META that are not adapters (Holler's own records). */

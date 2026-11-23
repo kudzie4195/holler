@@ -15,8 +15,8 @@ import { FakeDb } from '../ops/fakedb';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { runScan } from '@/lib/signals/run';
 import { sanitizeSample } from '@/lib/signals/samples';
-import { PROBATION_SOURCE_IDS, SALE_SOURCE_IDS, VIOL_R20_SOURCES, COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION } from '@/lib/signals/probation';
-import { PROPOSED_LABELS } from '@/lib/signals/proposed-labels';
+import { PROBATION_SOURCE_IDS, SALE_SOURCE_IDS, VIOL_R20_SOURCES, COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, NEXT_R20_SOURCES } from '@/lib/signals/probation';
+import { NEXT_PROPOSED_LABELS, PROPOSED_LABELS } from '@/lib/signals/proposed-labels';
 import { SALES_PROPOSED_LABELS } from '@/lib/signals/proposed-labels-sales';
 import { SOURCE_DEFAULTS } from '@/lib/signals/lead-rules';
 import { SALES_DATASETS } from '@/lib/signals/adapters/sales-datasets';
@@ -70,9 +70,9 @@ describe('1. probation holds for every new id of every round 20 branch', () => {
       expect(PROBATION_SOURCE_IDS.has(id), id).toBe(true);
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
     }
-    // The union, exactly: round 19's eleven, VIOL's five, SALES' four.
-    expect(PROBATION_SOURCE_IDS.size).toBe(11 + VIOL_R20_SOURCES.length + SALE_SOURCE_IDS.length);
-    expect(new Set(LABEL_PENDING_INTEGRATION)).toEqual(new Set([...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES].map((s) => s.id)));
+    // The union, exactly: round 19's eleven, VIOL's five, SALES' four; round 21 adds NEXT's ten (tests/integration/r21-int-interactions.test.ts).
+    expect(PROBATION_SOURCE_IDS.size).toBe(11 + VIOL_R20_SOURCES.length + SALE_SOURCE_IDS.length + NEXT_R20_SOURCES.length);
+    expect(new Set(LABEL_PENDING_INTEGRATION)).toEqual(new Set([...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES, ...NEXT_R20_SOURCES].map((s) => s.id)));
   });
 
   it('samples table present: one scan of all nine writes samples only (real ids and probation flags, records with an address and a business)', async () => {
@@ -132,8 +132,8 @@ describe('2. the NYC whole-building heat block contact never reaches a public ro
     expect(signals).toHaveLength(2);
     expect(JSON.stringify(signals)).not.toMatch(/2318|451|block of|APT|4B/);
     // The block is in the service-role table only, never with a licence number (the attach step is permit-only).
+    // Round 21 (one 311 rule, the stricter of both): the "APT 4B" address names a unit, so that whole-building row keeps no block at all.
     expect((f.tables.holler_signal_contacts ?? []).map((c) => [c.role, c.address, c.license ?? null])).toEqual([
-      ['site', '2300 block of WEST 52 STREET', null],
       ['site', '400 block of WEST 52 STREET', null],
     ]);
     for (const s of signals) expect(sectionFor(s.kind, s.source, s.title, s.data?.subtype ?? null), s.title).not.toBeNull();
@@ -268,7 +268,8 @@ describe('5. the merged lists are the union of every branch', () => {
     for (const s of VIOL_R20_SOURCES) expect(PROPOSED_LABELS[s.id], s.id).toBeDefined();
     for (const id of ['carto-phl-violations', 'arcgis-miamidade-violations', 'arcgis-miamidade-building-violations']) expect(PROPOSED_LABELS[id], id).toBeDefined();
     for (const id of SALE_SOURCE_IDS) for (const k of [id, `${id}:commercial`]) expect(PROPOSED_LABELS[k], k).toBeDefined();
-    expect(Object.keys(PROPOSED_LABELS)).toHaveLength(VIOL_R20_SOURCES.length + 3 + 2 * SALE_SOURCE_IDS.length);
+    // Round 21: plus NEXT's eleven (its ten sources and the live Chicago address change).
+    expect(Object.keys(PROPOSED_LABELS)).toHaveLength(VIOL_R20_SOURCES.length + 3 + 2 * SALE_SOURCE_IDS.length + Object.keys(NEXT_PROPOSED_LABELS).length);
   });
 
   it('the scorecard reads a sale as property-sale (SALES\' line in SCORE\'s trade-needs table)', async () => {

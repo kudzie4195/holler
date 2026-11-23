@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { keyedHex, serverKeySecret } from './server-key';
 
 /**
  * Final review P2-1: a 311 row's stored point is rounded to 3 decimals (about 100 m, socrata.ts privatePosition), like violation and
@@ -8,7 +8,7 @@ import { createHmac } from 'node:crypto';
  * cannot be matched to a point, so the public row no longer pins the building.
  *
  * The secret is HOLLER_BUILDING_REF_SECRET, else the service role key the scan already holds (it never leaves the server and is never
- * logged). Without either (tests, offline replays) no ref is written, and a rounded point gives no building key (the row makes no heat
+ * logged; round 21: read through the one helper shared with the keyed source id, lib/signals/server-key.ts). Without either (tests, offline replays) no ref is written, and a rounded point gives no building key (the row makes no heat
  * card: fails closed, never one card for a whole block).
  */
 
@@ -23,8 +23,7 @@ export function isWholeBuildingHeat(sig: { source?: string | null; title?: strin
 export const BUILDING_REF_RE = /^[0-9a-f]{20}$/;
 
 export function buildingRefSecret(): string | null {
-  const s = process.env.HOLLER_BUILDING_REF_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  return s ? s : null;
+  return serverKeySecret();
 }
 
 const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
@@ -32,7 +31,7 @@ const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFi
 /** The keyed building reference of an exact point (4 decimals, as the old key). Null without a point or without a secret. */
 export function buildingRefOf(lat: unknown, lon: unknown, secret: string | null = buildingRefSecret()): string | null {
   if (!finite(lat) || !finite(lon) || !secret) return null;
-  return createHmac('sha256', `holler-building-ref|${secret}`).update(`${lat.toFixed(4)},${lon.toFixed(4)}`).digest('hex').slice(0, 20);
+  return keyedHex('holler-building-ref', `${lat.toFixed(4)},${lon.toFixed(4)}`, 20, secret);
 }
 
 /** A point on the 3-decimal privacy grid: a stored, rounded point that cannot tell two buildings apart. */

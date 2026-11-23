@@ -20,7 +20,7 @@ import { runScan } from '@/lib/signals/run';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
-import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, NEXT_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
 import { matchArea, matchOne, matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { isListablePermit } from '@/lib/lists/core';
 import { lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
@@ -278,14 +278,16 @@ describe('7. metros and the label exemption', () => {
       ...Object.fromEntries(VIOL_R20_SOURCES.map((s) => [s.id, s.metro])),
       // round 20 SALES (tests/signals/sales-r20.test.ts)
       'socrata-nyc-acris-sales': 'new-york', 'socrata-cook-sales': 'chicago', 'carto-phl-sales': 'philadelphia', 'arcgis-miamidade-sales': 'miami',
+      // Round 20 NEXT (lib/signals/probation.ts NEXT_R20_SOURCES).
+      ...Object.fromEntries(NEXT_R20_SOURCES.map((s) => [s.id, s.metro])),
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
     expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    // Round 20 VIOL adds its probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts).
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id)].sort());
+    // Round 20 VIOL and NEXT add their probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts).
+    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_R20_SOURCES.map((s) => s.id)].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);
@@ -314,9 +316,11 @@ describe('9. the coverage feeds\' real-shaped company strings under the merged r
     expect(tempe('Phoenix Plumbing LLC')).toEqual(['contractor:Phoenix Plumbing LLC']);
     expect(dal('NORTH TEXAS ROOFING LLC 7501 US HWY 287, ARLINGTON, TX 76001 (214) 555-0100')).toEqual(['contractor:NORTH TEXAS ROOFING LLC']);
     expect(dal('MILESTONE ELECTRIC 7501 US HWY 287, Suite C4, ARLINGTON, TX 76001 (817) 969-5050')).toEqual(['contractor:MILESTONE ELECTRIC']);
-    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Lone Star" and "Dallas" are still refused.
+    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Dallas" is still refused.
     expect(arlington('North Texas Roofing LLC')).toEqual(['business:North Texas Roofing LLC']);
-    expect(arlington('Lone Star Roofing LLC')).toEqual([]);
+    // Round 20 NEXT review fix P1-4 / P2-6, decided explicitly: "Lone Star Roofing LLC" is a company (a Texas nickname, a trade word and a legal
+    // form, no person named); the licence rule's second try (lib/contacts/trade-name.ts) accepts it.
+    expect(arlington('Lone Star Roofing LLC')).toEqual(['business:Lone Star Roofing LLC']);
     expect(arlington('Dallas Roofing LLC')).toEqual([]);
     // never a person, in any of them
     for (const p of ['Maria Lopez', 'JOHN A SMITH', 'Smith, John', 'Florida Garcia Inc', 'TEXAS SMITH LLC']) {

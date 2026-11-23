@@ -4,6 +4,7 @@ import { SOCRATA_DATASETS } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { CARTO_DATASETS } from './adapters/carto-datasets';
 import { SALES_DATASETS } from './adapters/sales-datasets';
+import { HOUSTON_PERMITS_DS } from './adapters/houston-permits-config';
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -12,12 +13,12 @@ import { SALES_DATASETS } from './adapters/sales-datasets';
  * owner instead of silently storing nothing. Pure: rows in, rows out.
  */
 
-export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto';
+export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto' | 'html';
 
 /** One source added by round 19 COVERAGE: where it is, what it can carry, and how sure the schema is (COVERAGE-research.md tags). */
 export interface CoverageSource {
   id: string;
-  metro: 'dallas-fort-worth' | 'houston' | 'miami' | 'phoenix';
+  metro: 'dallas-fort-worth' | 'houston' | 'miami' | 'phoenix' | 'new-york' | 'los-angeles' | 'washington-dc';
   platform: ProbationPlatform;
   endpoint: string;
   offers: { contractor: boolean; value: boolean; coordinates: 'geometry' | 'lat/lon columns' | 'zip centroid'; status: boolean };
@@ -88,11 +89,59 @@ export const VIOL_R20_SOURCES: readonly ViolSource[] = [
 ];
 
 /**
+ * Round 20 NEXT: the new-business, Houston permit and certificate-of-occupancy sources (lib/signals/adapters/next-datasets.ts and
+ * houston-permits.ts), with the label each should get in SOURCE_DEFAULTS at promotion: a new business coming_soon (like the live business
+ * feeds), a permit or a certificate of occupancy coming_soon. The per-trade proposal is lib/signals/proposed-labels.ts.
+ */
+export const NEXT_R20_SOURCES: readonly CoverageSource[] = [
+  {
+    id: 'socrata-txsales-dallas-business', metro: 'dallas-fort-worth', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/jrea-zgmq.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-txsales-houston-business', metro: 'houston', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/jrea-zgmq.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-tabc-dallas-business', metro: 'dallas-fort-worth', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/mxm5-tdpj.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-tabc-houston-business', metro: 'houston', platform: 'socrata', endpoint: 'https://data.texas.gov/resource/mxm5-tdpj.json',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'html-houston-permits', metro: 'houston', platform: 'html', endpoint: 'https://www.houstontx.gov/planning/Publications/listsrv/WebeReport.html',
+    offers: { contractor: false, value: false, coordinates: 'zip centroid', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-miamidade-business', metro: 'miami', platform: 'arcgis', endpoint: 'https://gisweb.miamidade.gov/arcgis/rest/services/BusinessTracker/MapServer/0',
+    offers: { contractor: false, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-phoenix-liquor-business', metro: 'phoenix', platform: 'arcgis', endpoint: 'https://maps.phoenix.gov/pub/rest/services/public/LIQUOR_RACMap/MapServer/11',
+    offers: { contractor: false, value: false, coordinates: 'geometry', status: false }, schemaTag: 'A', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-la-occupancy-permits', metro: 'los-angeles', platform: 'socrata', endpoint: 'https://data.lacity.org/resource/3f9m-afei.json',
+    offers: { contractor: true, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: '3P', label: 'coming_soon',
+  },
+  {
+    id: 'socrata-nyc-occupancy-permits', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/pkdm-hqz6.json',
+    offers: { contractor: false, value: false, coordinates: 'lat/lon columns', status: false }, schemaTag: '3P', label: 'coming_soon',
+  },
+  {
+    id: 'arcgis-dc-occupancy-permits', metro: 'washington-dc', platform: 'arcgis', endpoint: 'https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/Business_Licensing_and_Grants_WebMercator/FeatureServer/46',
+    offers: { contractor: false, value: false, coordinates: 'geometry', status: false }, schemaTag: 'O', label: 'coming_soon',
+  },
+];
+
+/**
  * Sources that are registered but have no SOURCE_DEFAULTS entry yet, because lib/signals/lead-rules.ts belongs to another unit this round.
  * tests/signals/lead-rules.test.ts lets ONLY these ids, and only while they are on probation, go without an entry (they reach no member,
  * so no label is ever computed for them). At integration: add each id with COVERAGE_R19_SOURCES[].label to SOURCE_DEFAULTS.
  */
-export const LABEL_PENDING_INTEGRATION: readonly string[] = [...COVERAGE_R19_SOURCES.map((s) => s.id), ...VIOL_R20_SOURCES.map((s) => s.id)];
+export const LABEL_PENDING_INTEGRATION: readonly string[] = [...COVERAGE_R19_SOURCES.map((s) => s.id), ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_R20_SOURCES.map((s) => s.id)];
 
 /**
  * Round 20 SALES: the property sale sources (lib/signals/adapters/sales-datasets.ts), all on probation and schema-unverified. Their
@@ -155,12 +204,17 @@ const PROMOTE_FILE: Record<ProbationPlatform, string> = {
   socrata: 'lib/signals/adapters/socrata-datasets.ts',
   arcgis: 'lib/signals/adapters/coverage-datasets.ts',
   carto: 'lib/signals/adapters/carto-datasets.ts and buildCartoAdapter (lib/signals/adapters/carto.ts)',
+  html: 'lib/signals/adapters/houston-permits.ts (HOUSTON_PERMITS_DS and buildHoustonPermitsAdapter)',
 };
+
+/** Round 20 NEXT: where a NEXT_R20_SOURCES entry is promoted. */
+const NEXT_PROMOTE_FILE: Record<ProbationPlatform, string> = { ...PROMOTE_FILE, socrata: 'lib/signals/adapters/next-datasets.ts', arcgis: 'lib/signals/adapters/next-datasets.ts' };
 
 function platformOf(id: string): ProbationPlatform | null {
   if (id.startsWith('socrata-')) return 'socrata';
   if (id.startsWith('arcgis-')) return 'arcgis';
   if (id.startsWith('carto-')) return 'carto';
+  if (id.startsWith('html-')) return 'html';
   return null;
 }
 
@@ -196,7 +250,8 @@ export function probationOverview(
     if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
   }
   const viol = new Set(VIOL_R20_SOURCES.map((s) => s.id));
-  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...viol, ...SALE_SOURCE_IDS]);
+  const next = new Set(NEXT_R20_SOURCES.map((s) => s.id));
+  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...viol, ...SALE_SOURCE_IDS, ...next]);
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
@@ -208,6 +263,8 @@ export function probationOverview(
         ? 'lib/signals/adapters/viol-datasets.ts'
         : SALE_SOURCE_IDS.includes(a.id)
         ? 'lib/signals/adapters/sales-datasets.ts'
+        : next.has(a.id) && platform
+        ? NEXT_PROMOTE_FILE[platform]
         : platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
       return {
         id: a.id,
@@ -247,7 +304,7 @@ export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probati
  * paid lookup. It is independent of the contact gate (alert_hold): neither rule reads or relaxes the other.
  */
 export const PROBATION_SOURCE_IDS: ReadonlySet<string> = new Set(
-  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...SALES_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
+  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...SALES_DATASETS, HOUSTON_PERMITS_DS].filter((d) => d.probation === true).map((d) => d.id),
 );
 
 /** True when the record's source is on probation. Source ids are exact (no case folding). */

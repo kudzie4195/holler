@@ -542,6 +542,16 @@ const LICENCE_EXTRA_WORDS: ReadonlySet<string> = new Set(list('print prints ship
  * RESTAURANT", "LUCKY NAILS"). Allowed only inside rule L3, where no word of the name may be a listed surname and the owner check holds.
  */
 const PLAIN_ENGLISH_GIVEN: ReadonlySet<string> = new Set(list('windy golden blue star bay king queen lucky happy sunny royal grand silver magic'));
+/**
+ * REVIEW PROPOSAL (round 20, rule L1b): only with a STRONG legal form at the end (LLC, INC, CORP, LTD ...), and only as a second try after
+ * the rule above refused the name. ESTABLISHMENT_NOUNS: shop and restaurant nouns the name lists also carry as surnames or glued forms
+ * ("Kit Chen" in "kitchen"). DUAL_ADJECTIVES: dictionary adjectives and nouns that are also rare given names. SHOP_NOUNS: plain shop
+ * words the vocabularies lack (used only when they are on no name list).
+ */
+const ESTABLISHMENT_NOUNS: ReadonlySet<string> = new Set(list('kitchen bar spa studio salon coffee house market shack hardware burgers grill cafe tavern diner deli pizza').filter((w) => !isListedGivenName(w)));
+const DUAL_ADJECTIVES: ReadonlySet<string> = new Set(list('red green urban river magnolia velvet bliss serenity beauty lantern capitol'));
+const SHOP_NOUNS: ReadonlySet<string> = new Set(list('agave grind bayou goods pixel phone paw cactus gifts wine sneakers polished nail lash braids massage brow room taste tacos'));
+
 /** Rule L3: activities that are mostly run from a home, a car or a phone. With one of these the trade-name rule gives nothing. */
 export const HOME_PRONE_RE =
   /\b(?:tutor\w*|lessons?|sitting|sitters?|walking|walkers?|housekeep\w*|house ?clean\w*|maids?|home ?(?:health|care|made|maker|makers)|homecare|freelanc\w*|ride ?share|notary|doulas?|midwi\w*|caregiv\w*|personal (?:train\w*|chef|care|assistant|shopper)|life coach\w*|coaching|etsy|ebay|online|vacation rentals?|airbnb|room rentals?|mobile|handmade|crafts?|sewing|cottage|apartment|spare room|basement|living room|kitchen table|residential|home|homes|home-?based|homebased)\b/i;
@@ -603,6 +613,50 @@ export const PLACE_NOT_PERSON: ReadonlySet<string> = new Set(['texas', 'florida'
  * In L2 and L3 a home-based activity in the name (HOME_BASED_RE) gives nothing; extract.ts checks the category columns.
  */
 export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): string | null {
+  return cleanBusinessNameBase(raw, ctx) ?? legalPlusBusinessWord(raw, ctx);
+}
+
+/**
+ * Rule L1b (review proposal): "a legal form plus a non-person word". A name the base rule refused passes only when ALL hold:
+ *  - the base shape guards (placeholder, shapeOk, personGuardsOk, the owner comparison, no home-based or home-prone activity word);
+ *  - a strong legal form ends it, and 2 to 6 words stand before it;
+ *  - EVERY word is one of: E an establishment noun (closed list), D a dictionary adjective (closed list), P a plain vocabulary or
+ *    business word that is on no name list, is not glued from names, is no initial and no possessive. Anything else refuses the name:
+ *    one listed given name or surname outside the two closed lists, or one unknown word, is enough;
+ *  - at least one business word (an E, or a P that is a trade or business word);
+ *  - at most one D, never last, in a name of three words or more, with a P right after it ("GOLDEN DRAGON RESTAURANT LLC" passes;
+ *    "ROSE KITCHEN LLC", "GOLDEN KITCHEN LLC", "GREEN SMITH BAKERY LLC" do not).
+ */
+function legalPlusBusinessWord(raw: unknown, ctx: LicenceContext): string | null {
+  if (typeof raw !== 'string' || !raw.trim() || isPlaceholderName(raw)) return null;
+  const cand = shapeOk(raw);
+  if (!cand || isPlaceholderName(cand)) return null;
+  const ts = toks(cand);
+  if (!strongLegalEnd(ts) || /[a-z][A-Z]/.test(cand)) return null;
+  if (HOME_BASED_RE.test(cand) || HOME_PRONE_RE.test(cand)) return null;
+  const listed = (k: string) => isListedGivenName(k) || isListedSurname(k);
+  const shop = (k: string) => SHOP_NOUNS.has(k) && !listed(k);
+  const marker = (k: string) => LICENCE_WORDS.has(k) || LICENCE_EXTRA_WORDS.has(k) || classifyWord(k) === 'business' || shop(k) || ESTABLISHMENT_NOUNS.has(k);
+  if (!personGuardsOk(cand, marker)) return null;
+  const words = ts.filter((t) => t.k !== '&' && t.k !== 'and' && t.k !== 'the' && !LEGAL.has(t.k));
+  if (words.length < 2 || words.length > 6) return null;
+  const estab = (k: string) => ESTABLISHMENT_NOUNS.has(k);
+  const dual = (k: string) => !estab(k) && (PLAIN_ENGLISH_GIVEN.has(k) || DUAL_ADJECTIVES.has(k));
+  const business = (k: string) => (isFirm(k) || LICENCE_WORDS.has(k) || LICENCE_EXTRA_WORDS.has(k) || classifyWord(k) === 'business' || shop(k)) && !listed(k);
+  const plain = (k: string) => /^[a-z][a-z-]*$/.test(k) && k.length >= 2 && !k.includes("'") && !listed(k) && !gluedPersonWord(k) && (isVocabularyWord(k) || business(k)) && (!possessivePerson(k) || isVocabularyWord(k) || shop(k));
+  const cls = words.map((o) => (estab(o.k) ? 'E' : dual(o.k) ? 'D' : plain(o.k) ? 'P' : 'X'));
+  if (cls.includes('X')) return null;
+  const d = cls.indexOf('D');
+  if (cls.filter((c) => c === 'D').length > 1) return null;
+  if (d >= 0 && (words.length < 3 || cls[d + 1] !== 'P')) return null;
+  if (!words.some((o, i) => cls[i] === 'E' || (cls[i] === 'P' && business(o.k)))) return null;
+  const all = words.map((o) => o.k.replace(/[^a-z]/g, '')).filter((w) => w.length >= 2);
+  if (!ctx.shapeOnly && sharesWithOwner(all, ctx)) return null;
+  const out = cand.normalize('NFD').replace(/[\u0300-\u036F]/g, '');
+  return out.length >= 3 && out.length <= 120 ? out : null;
+}
+
+function cleanBusinessNameBase(raw: unknown, ctx: LicenceContext = {}): string | null {
   if (typeof raw !== 'string' || !raw.trim()) return null;
   // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts). The owner check still applies: a row whose
   // owner column names a PERSON who shares a word with the name gives nothing ("Toll Brothers" owned by "Mary Toll").

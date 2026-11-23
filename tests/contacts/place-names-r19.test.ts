@@ -33,8 +33,11 @@ describe('review COVERAGE: 57 company names under the merged round 18 rules', ()
     expect(rejected((s) => contactNameFor('contractor', s))).toEqual(["ROOFING LLC", "A-1 PLUMBING CO", "3D ELECTRIC INC", "ON TIME EXPERTS", "DR HORTON"]);
   });
 
-  it('licence rule with the round 20 known-company list (legal forms only): 32 accepted; exactly these 25 rejected (round 19: 31 and 26)', () => {
-    expect(rejected((s) => contactNameFor('business', s))).toEqual(["LONE STAR ROOFING LLC", "Lone Star Roofing LLC", "ROOFING LLC", "ALL MASTERS PLUMBING", "A-1 PLUMBING CO", "3D ELECTRIC INC", "SUNSHINE ROOFING INC", "NORTH TEXAS ROOFING", "DALLAS ROOFING LLC", "BAKER BROTHERS PLUMBING", "BAKER BROTHERS PLUMBING LLC", "TRINITY ROOFING LLC", "STAR ROOFING LLC", "ARS RESCUE ROOTER", "ON TIME EXPERTS", "LENNAR HOMES OF TEXAS", "DR HORTON", "TOLL BROTHERS", "FIRST TEXAS HOMES", "A & B PLUMBING INC", "PHOENIX PLUMBING LLC", "NORTH DALLAS ROOFING LLC", "WEST TEXAS ROOFING LLC", "ALL STAR ROOFING LLC", "ACE ROOFING LLC"]);
+  // Round 21 integration: LIC's known-company list (r20-ship) and NEXT's second try for legal-form names (review fix P1-4 / P2-6, decided
+  // explicitly: "Lone Star Roofing LLC" is a company) together.
+  // Exactly the intersection of both branches' rejected lists: r20-ship's 25 less the two Lone Star spellings, NEXT's 24 less "D R HORTON TEXAS LTD".
+  it('licence rule with the round 20 known-company list and the round 20 second try: 34 accepted; exactly these 23 rejected', () => {
+    expect(rejected((s) => contactNameFor('business', s))).toEqual(["ROOFING LLC", "ALL MASTERS PLUMBING", "A-1 PLUMBING CO", "3D ELECTRIC INC", "SUNSHINE ROOFING INC", "NORTH TEXAS ROOFING", "DALLAS ROOFING LLC", "BAKER BROTHERS PLUMBING", "BAKER BROTHERS PLUMBING LLC", "TRINITY ROOFING LLC", "STAR ROOFING LLC", "ARS RESCUE ROOTER", "ON TIME EXPERTS", "LENNAR HOMES OF TEXAS", "DR HORTON", "TOLL BROTHERS", "FIRST TEXAS HOMES", "A & B PLUMBING INC", "PHOENIX PLUMBING LLC", "NORTH DALLAS ROOFING LLC", "WEST TEXAS ROOFING LLC", "ALL STAR ROOFING LLC", "ACE ROOFING LLC"]);
   });
 
   it('the change is exactly two words, and a state name never carries a person\'s name through', () => {

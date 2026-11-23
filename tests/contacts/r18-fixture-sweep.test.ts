@@ -6,6 +6,7 @@
  * EXPECTED_REMOVED (redo 1: "Taqueria Lopez" holds a listed surname, so the inspection names nobody and stores no address). The public
  * title, summary and data are pinned separately (public-output.test.ts).
  */
+import { NEXT_SOURCE_IDS } from '@/lib/signals/adapters/next-datasets';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -127,7 +128,8 @@ describe('business licences: the business on the licence is the contact on every
     ['socrata-sf-business', { uniqueid: 'X2', ownership_name: 'SAMPLE OWNER PERSON', dba_name: 'Mission Street Taqueria', full_business_address: '2100 Mission St San Francisco CA 94110', business_zip: '94110', location_start_date: '2026-11-02T00:00:00.000', lic_code_description: 'Food Service', location: { type: 'Point', coordinates: ['-122.4194', '37.7599'] } }, 'Mission Street Taqueria'],
   ];
   it('covers every enabled business-licence dataset', () => {
-    const enabled = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.subtype === 'business' && d.verified).map((d) => d.id).sort();
+    // Round 20 NEXT's probation business feeds have their own name and premises proofs (tests/signals/next-r20.test.ts).
+    const enabled = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.subtype === 'business' && d.verified && !NEXT_SOURCE_IDS.includes(d.id)).map((d) => d.id).sort();
     expect([...new Set([...cases.map((c) => c[0]), ...inline.map((c) => c[0])])].sort()).toEqual(enabled);
   });
   it.each(inline)('%s (inline row) names the business with its site; the owner column never appears', (id, row, name) => {

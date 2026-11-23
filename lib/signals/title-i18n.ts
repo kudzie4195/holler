@@ -254,6 +254,9 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   if ((m = /^New business license in (.+?): (.*)$/.exec(title))) return { key: 'title.business_license', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
   if ((m = /^New business license in ([^:]+)$/.exec(title))) return { key: 'title.business_license_plain', vars: { city: m[1] } };
   if ((m = /^New business in (.+?): (.*)$/.exec(title))) return { key: 'title.business', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
+  // Round 20 NEXT: certificates of occupancy (lib/signals/adapters/next-rules.ts occupancyTitle). The building type is the city's own text.
+  if ((m = /^Certificate of occupancy in (.+?): (.*)$/.exec(title))) return { key: 'title.occupancy', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
+  if ((m = /^Certificate of occupancy in ([^:]+)$/.exec(title))) return { key: 'title.occupancy_plain', vars: { city: m[1] } };
   if ((m = /^Code violation in (.+?): (.*)$/.exec(title))) return { key: 'title.violation', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };
   if ((m = /^Permitted event in (.+?): (.*)$/.exec(title))) {
     const rest = m[2];

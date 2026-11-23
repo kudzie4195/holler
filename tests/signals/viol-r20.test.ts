@@ -13,7 +13,7 @@ import { VIOL_SOCRATA_DATASETS, VIOL_ARCGIS_DATASETS } from '@/lib/signals/adapt
 import { buildSocrataQuery, parseSocrataReport, socrataSelectColumns } from '@/lib/signals/adapters/socrata';
 import { buildArcgisQuery, parseArcgisReport, requestTimeoutMs, resetArcgisFieldCache } from '@/lib/signals/adapters/arcgis';
 import { LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, VIOL_R20_SOURCES, probationCheck, probationOverview } from '@/lib/signals/probation';
-import { PROPOSED_LABELS, proposedLabelOf } from '@/lib/signals/proposed-labels';
+import { NEXT_PROPOSED_LABELS, PROPOSED_LABELS, proposedLabelOf } from '@/lib/signals/proposed-labels';
 import { RECORD_TYPES } from '@/lib/signals/trade-needs';
 import { METROS } from '@/lib/geo/metros';
 import { SOURCE_DEFAULTS, labelFor, ruleFor, type OpportunityLabel } from '@/lib/signals/lead-rules';
@@ -486,6 +486,8 @@ describe('mapping to trades and the proposed labels (real parser, real rules)', 
     const metroIds = new Set(METROS.map((m) => m.id));
     const types = new Set(RECORD_TYPES.map((r) => r.id));
     for (const [id, p] of Object.entries(PROPOSED_LABELS)) {
+      // Round 21 integration: NEXT's entries (one of them the LIVE Chicago business feed) are checked in tests/signals/next-r20.test.ts.
+      if (id in NEXT_PROPOSED_LABELS) continue;
       // Integration: round 20 SALES adds `<id>:commercial` entries (the commercial part of a sale source); the adapter is `<id>`.
       expect(adapterOf(id.replace(/:commercial$/, ''))?.probation, id).toBe(true);
       for (const m of p.metros) expect(metroIds.has(m), `${id} ${m}`).toBe(true);
@@ -578,14 +580,16 @@ describe('NYC 311 call path (review P1-1): a whole-building request keeps a PRIV
       'Non-Residential Heat | Inadequate or No Heat | BROOKLYN',
     ]);
     expect(items.map((i) => (i.contacts ?? []).map((c) => c.address))).toEqual([
-      ['6800 block of 4 AVENUE'], ['41-00 block of BOWNE STREET'], [], [], [], [], ['300 block of PARK AVENUE SOUTH'],
+      // Round 21 integration (one 311 rule, the stricter of both; NEXT review fix P2-4): an address that names a unit ("APT 4B") gives no
+      // block at all, also for a whole-building request (round 20 dropped the unit and kept the block).
+      ['6800 block of 4 AVENUE'], [], [], [], [], [], ['300 block of PARK AVENUE SOUTH'],
     ]);
     for (const it0 of items) {
       const pub = JSON.stringify({ title: it0.title, summary: it0.summary, data: it0.data, url: it0.url });
       expect(pub).not.toMatch(HOUSE);
       expect(pub).not.toMatch(/block of/);
     }
-    expect(items.map((i) => contactPathOf(i.contacts ?? null, i.summary))).toEqual(['site', 'site', null, null, null, null, 'site']);
+    expect(items.map((i) => contactPathOf(i.contacts ?? null, i.summary))).toEqual(['site', null, null, null, null, null, 'site']);
     expect(JSON.stringify(items)).not.toMatch(/APT|4B/);
   });
 
@@ -600,7 +604,9 @@ describe('NYC 311 call path (review P1-1): a whole-building request keeps a PRIV
 
   it('store path: holler_signals (public) has no address; holler_signal_contacts (service role) has the block only', async () => {
     const f = new FakeDb({ holler_profiles: PROFILES });
-    const body = [row('HEAT/HOT WATER', 'ENTIRE BUILDING', '2318 WEST 52 STREET APT 4B'), row('HEAT/HOT WATER', 'APARTMENT ONLY', '2318 WEST 52 STREET')];
+    // Round 21 integration: the whole-building row's address carries no unit (an address with "APT 4B" gives no block since the one 311
+    // rule; tests/integration/r21-int-interactions.test.ts proves that case through the store).
+    const body = [row('HEAT/HOT WATER', 'ENTIRE BUILDING', '2318 WEST 52 STREET'), row('HEAT/HOT WATER', 'APARTMENT ONLY', '2318 WEST 52 STREET')];
     const doFetch = (async (input: string | URL) => {
       const url = String(input);
       if (url.includes('/resource/erm2-nwe9.json')) return new Response(JSON.stringify(body), { status: 200 });

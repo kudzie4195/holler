@@ -14,6 +14,9 @@ import { cleanAddress } from '@/lib/contacts/sanitize';
 import { nycBlockAddress, nycBuildingAddress, nameBeforeStreet } from './nyc-address';
 import { createHash, randomUUID } from 'node:crypto';
 import { buildingRefOf, isWholeBuildingHeat } from '@/lib/signals/building-ref';
+import { nycWholeBuildingContact, site311Contact } from '@/lib/signals/site-311';
+import { idKeySecret } from '@/lib/signals/id-key';
+import { OCCUPANCY_TRADES, businessSummary, hashedId, occupancyAddress, occupancyClassOf, occupancyTitle, occupancyTypeText, premisesAddressOf } from './next-rules';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -178,6 +181,7 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'> & { extraRules?: 
   if (ds.subtype === 'permit') return { categories: classifyPermit({ structured: [], free: text.split(' | ') }).categories, severity: 1 };
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
+  // Round 20 (NEXT): a dataset's own extra rules run after the subtype's (a liquor licence layer that is all restaurants; NYC HPD order wording).
   for (const rule of [...RULES_BY_SUBTYPE[ds.subtype], ...(ds.extraRules ?? [])]) {
     if (rule.re.test(text) && !rule.unless?.test(text)) {
       rule.add.forEach((c) => set.add(c));
@@ -409,14 +413,23 @@ export interface ParseReport {
   tooOld?: number;
   /** The newest record date among those rows. */
   newestTooOld?: string | null;
+  /** Review fix P1-1: rows of the expected shape dropped by the dataset's keep rule (keepRow). */
+  keptOut?: number;
+}
+
+/** Review fix P1-2: the dataset sends its column allow-list ($select) on this request. */
+export function sendsSelect(ds: Pick<SocrataDataset, 'schemaUnverified' | 'selectOnly'>): boolean {
+  return Boolean(ds.schemaUnverified || ds.selectOnly);
 }
 
 function externalIdFor(row: Row, ds: SocrataDataset): string {
+  let raw: string;
   if (ds.idFields?.length) {
     const parts = ds.idFields.map((f) => s(row, f));
-    return parts.every(Boolean) ? parts.join(':') : '';
-  }
-  return s(row, ds.idField);
+    raw = parts.every(Boolean) ? parts.join(':') : '';
+  } else raw = s(row, ds.idField);
+  // Round 20 (NEXT): an id that embeds a taxpayer number is stored as a hash only.
+  return ds.hashId ? hashedId(raw) : raw;
 }
 
 function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: string[], address: string, categories: readonly string[] = [], withheld = false): string {
@@ -467,12 +480,20 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       const row = item as Row;
       const occurredAt = recordDateIso(row[ds.dateField], ds);
       const rawId = externalIdFor(row, ds);
-      const text = ds.textOf ? ds.textOf((f) => s(row, f)) : ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
+      const baseText = ds.textOf ? ds.textOf((f) => s(row, f)) : ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
+      // Round 20 (NEXT): a code-only feed adds its NAICS sector words to the classifier text (never printed beyond the summary's sector).
+      const sectorWords = ds.naicsText && ds.naicsField ? NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)] ?? '' : '';
+      const text = sectorWords && baseText ? `${baseText} | ${sectorWords}` : baseText;
       if (!occurredAt || !rawId || !text) continue;
       report.shapeOk += 1;
       if (oldest !== null && Date.parse(occurredAt) < oldest) {
         report.tooOld = (report.tooOld ?? 0) + 1;
         if (!report.newestTooOld || occurredAt > report.newestTooOld) report.newestTooOld = occurredAt;
+        continue;
+      }
+      // Round 20 (NEXT): a row the dataset does not keep (a sole proprietor, a non-storefront NAICS) is dropped before anything is built.
+      if (ds.keepRow && !ds.keepRow((f) => s(row, f))) {
+        report.keptOut = (report.keptOut ?? 0) + 1;
         continue;
       }
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
@@ -483,7 +504,10 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       if (seen.has(externalId)) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (f) => s(row, f)) : null;
-      const { categories, severity } = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text);
+      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text);
+      // Round 20 (NEXT): a certificate of occupancy is a heads-up for the trades that work on a finished, newly occupied building.
+      const categories = ds.occupancy && ds.subtype === 'permit' ? [...new Set([...classified.categories, ...OCCUPANCY_TRADES])] : classified.categories;
+      const severity = classified.severity;
       if (categories.length === 0) continue;
 
       seen.add(externalId);
@@ -523,12 +547,18 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       // Review P1-B: an unverified address column is used only as the shared site-address rule keeps it (lib/contacts cleanAddress).
+      // Round 20 (NEXT): a business with a `premises` rule prints its premises address only when its name passed (premisesAddressOf).
       // Round 20 (review P2-4): New York addresses are read by the New York rule (numbered streets, Queens house numbers, named streets).
-      const address = ds.subtype === 'business'
-        ? ''
+      const baseAddress = ds.subtype === 'business'
+        ? (ds.premises ? premisesAddressOf((f) => s(row, f), ds.premises, { city: ds.city, state: ds.state }, ds.premisesWhen) : '')
         : ds.addressRule === 'nyc'
           ? nycBlockAddress(rawAddress)
           : publicAddress(ds.subtype, ds.strictAddress ? strictSiteAddress(rawAddress) : rawAddress);
+      // Review fix P2-3: a certificate of occupancy at a home prints its block (residential) or nothing (home occupation); DC keeps its quadrant.
+      const occ = ds.occupancy && ds.subtype === 'permit'
+        ? occupancyAddress(rawAddress, baseAddress, occupancyClassOf(ds.occupancy.typeFields.map((f) => s(row, f)), ds.occupancy.unknownType), ds.keepQuadrant)
+        : null;
+      const address = occ ? occ.address : baseAddress;
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
       // Review P3-7: a printed status or type value of a 311 or violation row never carries who acted on it.
       const civicRow = ds.subtype === '311' || ds.subtype === 'violation';
@@ -538,21 +568,16 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
         if (sector) summaryBits.push(sector);
       }
-      const title = permitClass ? permitTitleFor(ds.city, permitClass.label) : buildTitle(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
+      const title = ds.occupancy && ds.subtype === 'permit'
+        ? occupancyTitle(ds.city, occupancyTypeText(printableValues(ds, ds.occupancy.typeFields, (f) => s(row, f)).values))
+        : permitClass ? permitTitleFor(ds.city, permitClass.label) : buildTitle(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
 
       // 311 summaries leave the street address out; permits, businesses, violations and events are business/property records. Only the
       // configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
-      // Round 20 (review P1-1): a 311 request about a whole building (NYC "HEAT/HOT WATER / ENTIRE BUILDING") gives a PRIVATE site contact
-      // at BLOCK level (holler_signal_contacts, service role only, shown to a member with access on the card's "Who to contact" block). The
-      // public row (title, summary, data) never carries it. No feed carries a residential unit count, so no member ever gets the exact
-      // address (see buildingAddress in socrata-datasets.ts).
-      const buildingSite = ds.subtype === '311' && ds.buildingAddress?.when((f) => s(row, f))
-        ? nycBlockAddress(ds.buildingAddress.fields.map((f) => s(row, f)).filter(Boolean).join(' '))
-        : '';
       const summary = ds.subtype === 'business'
-        ? trunc(summaryParts.join(' | '), 280) || null
+        ? businessSummary(summaryParts, address)
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
 
       const exactPos = extractLatLon(row, ds);
@@ -564,7 +589,18 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
       // Permits: the stage the status column shows, as a fixed code (lib/signals/stage.ts). The scan decides whether to store it.
-      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(s(row, ds.statusField)) : null;
+      const permitStage = ds.occupancy && ds.subtype === 'permit'
+        ? ('certificate_of_occupancy' as const)
+        : ds.subtype === 'permit' && ds.statusField ? permitStageOf(s(row, ds.statusField)) : null;
+      // Round 20 (NEXT; review P1-1 of r20-ship): a 311 request about a property, or a NYC request about a whole building ("HEAT/HOT
+      // WATER / ENTIRE BUILDING"), gives at most a PRIVATE block-level site (holler_signal_contacts, service role only, shown to a member with
+      // access on the card's "Who to contact" block). One rule for both (lib/signals/site-311.ts). The public row never carries it.
+      const place311 = { city: ds.city, state: ds.state, zip };
+      const site311 = ds.subtype === '311' && ds.site311 ? site311Contact((f) => s(row, f), ds.site311, place311) : null;
+      const building311 = ds.subtype === '311' && ds.buildingAddress ? nycWholeBuildingContact((f) => s(row, f), ds.buildingAddress, place311) : null;
+      // Review fix P2-3: a residential or home certificate keeps no exact private site either.
+      const kept = occ?.dropSite ? contacts.filter((c) => c.role !== 'site') : contacts;
+      const allContacts = [...kept, ...(site311 ? [site311] : []), ...(building311 ? [building311] : [])];
       out.push({
         source: ds.id,
         externalId,
@@ -590,7 +626,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           ...(jobValue !== null ? { jobValue } : {}),
           ...(bref ? { bref } : {}),
         },
-        ...(contacts.length ? { contacts } : buildingSite ? { contacts: [{ role: 'site' as const, name: '', address: buildingSite, city: ds.city, state: ds.state, zip }] } : {}),
+        ...(allContacts.length ? { contacts: allContacts } : {}),
         ...(licenseRefs.length ? { licenseRefs } : {}),
         ...(permitStage ? { permitStage } : {}),
         ...(ds.addressRule === 'nyc' && ds.subtype === 'violation' ? visitKeyFor(ds.id, rawAddress, occurredAt) : {}),
@@ -737,7 +773,7 @@ const LABEL_SUFFIX: Record<SocrataDataset['subtype'], string> = {
 };
 
 export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
-  const label = `${ds.city} open data: ${LABEL_SUFFIX[ds.subtype]}`;
+  const label = ds.label ?? `${ds.city} open data: ${LABEL_SUFFIX[ds.subtype]}`;
   return {
     id: ds.id,
     label,
@@ -750,7 +786,13 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
       try {
         const query = buildSocrataQuery(ds, ctx.now ?? new Date());
         // Review P3-M: a schema-unverified dataset asks only for the columns it reads ($select), so nothing else is downloaded.
-        if (ds.schemaUnverified) query.set('$select', socrataSelectColumns(ds).join(','));
+        // Review fix P1-2: a selectOnly dataset keeps its allow-list after promotion too (sendsSelect).
+        if (sendsSelect(ds)) query.set('$select', socrataSelectColumns(ds).join(','));
+        // Review fix P2-1: an id that must be keyed and no key: no request at all.
+        if (ds.hashId && !idKeySecret()) {
+          ctx.log(`error: ${ds.id}: no id key (HOLLER_BUILDING_REF_SECRET or SUPABASE_SERVICE_ROLE_KEY); no request sent`);
+          return [];
+        }
         const timeoutMs = ds.schemaUnverified ? UNVERIFIED_REQUEST_TIMEOUT_MS : 15000;
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
@@ -802,6 +844,9 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
             ctx.log(schemaMismatchLog(ds.id, problem, body));
           } else if (report.shapeOk === 0) {
             ctx.log(`error: parsed 0 of ${report.rows} rows, shape may have changed (${ds.id})`);
+          } else if (report.keptOut && report.keptOut === report.shapeOk) {
+            // Review fix P1-1: every row was dropped by the keep rule (organisation type, NAICS, new-business flag): said as such.
+            ctx.log(`${ds.id}: ${report.rows} rows read, all dropped by the keep rule`);
           } else if (report.tooOld && report.tooOld === report.shapeOk) {
             // Review P2-D: every row is older than the age limit (a republished dataset, or a feed that stopped): broken, not quiet.
             ctx.log(`error: ${ds.id}: no rows in the last ${ds.maxRecordAgeDays} days: newest is ${(report.newestTooOld ?? '').slice(0, 10)} (${report.rows} rows read)`);
@@ -833,6 +878,9 @@ export function socrataSelectColumns(ds: SocrataDataset): string[] {
         ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.buildingAddress?.fields ?? []),
         ...(ds.addressFields ?? []), ds.zipField, ds.latField, ds.lonField, ds.locationField, ds.latLonTextField, ds.statusField,
         ...contactSpecFields(ds.contacts), ...(ds.valueFields ?? []),
+        // Round 20 (NEXT): the premises, 311 site and occupancy type columns, and the NAICS column.
+        ...contactSpecFields(ds.premises), ...(ds.site311 ? [...ds.site311.addressFields, ...ds.site311.typeFields] : []),
+        ...(ds.occupancy?.typeFields ?? []), ds.naicsField, ...(ds.keepFields ?? []),
       ].filter((x): x is string => Boolean(x)),
     ),
   ];

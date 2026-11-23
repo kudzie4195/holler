@@ -18,6 +18,7 @@ import { adapters as localBids } from './adapters/bids-local';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
 import { adapters as websearch } from './adapters/websearch';
+import { adapters as houstonPermits } from './adapters/houston-permits';
 
 export const ALL_ADAPTERS: Adapter[] = [
   ...nws,
@@ -35,6 +36,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
   ...arcgisCobb,
   ...arcgisJohnsCreek,
+  // Round 20 NEXT: the Houston weekly permit activity report (HTML table), on probation.
+  ...houstonPermits,
   ...usaspending,
   ...sam,
   // City open bids: registered, but off unless HOLLER_BIDS_ENABLED is on (lib/signals/bid-sources.ts).
