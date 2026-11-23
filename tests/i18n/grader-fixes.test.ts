@@ -70,15 +70,19 @@ const CORRECTED: Record<string, string> = {
   "chk.preview.civic.t": "Solicitudes al 311 e infracciones de código",
   "chk.h.watching": "Holler busca trabajo de {trade} cerca de {place}",
   "chk.quiet": "Hay temporadas tranquilas, y algunos lugares publican más que otros. Según la fuente, Holler la revisa desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
-  // Round 19 review fix (defect 1): the waitlist is double opt-in again, so the line now says to confirm the emailed link (grader wording kept).
-  "chk.uncovered.cta": "Deje su correo en la página en inglés y confirme con el enlace del correo que le enviaremos. Así le avisaremos cuando Holler cubra su zona.",
   "srcl.fixed.bids-gwinnett": "Compras del condado de Gwinnett: licitaciones abiertas",
   "draft.trade_fallback": "servicios locales",
 };
 
 // Round 19 RULES removed the two failed-inspection overrides ("failures often involve ..." was a guess, review section 6), so their corrections
 // are no longer in the dictionary.
-describe('grader corrections (grade-ES.md, 50 dictionary keys, 2 retired in round 19)', () => {
+// Round 24 INT2 retired a third: chk.uncovered.cta sent Spanish visitors to the English waitlist page; /es/check now has the card itself
+// (wl.card.*, checked in tests/int2/waitlist-es.test.ts), so the key is gone and the test below makes sure it stays gone.
+describe('grader corrections (grade-ES.md, 50 dictionary keys, 3 retired in rounds 19 and 24)', () => {
+  it('the retired English-page waitlist line is not in the dictionary', () => {
+    expect('chk.uncovered.cta' in es).toBe(false);
+    expect(Object.values(es).join('\n')).not.toContain('en la página en inglés');
+  });
   for (const [k, v] of Object.entries(CORRECTED)) {
     it(k, () => {
       expect(es[k as keyof typeof es]).toBe(v);

@@ -23,6 +23,14 @@ export function applySignupClosed(chips: ChipCategory[], keep: readonly string[]
 }
 
 /**
+ * Round 24 INT2: true when a NEW profile may pick this trade: it has a live source on this deployment and sign-up takes it
+ * (lib/check/cells.ts tradeSignupClosed). The one rule behind the web form's pickable chips and the mobile config's trade list.
+ */
+export function tradeSignupPickable(id: string): boolean {
+  return !tradeComingSoon(id) && !tradeNoLiveSource(id) && !tradeSignupClosed(id);
+}
+
+/**
  * Round 23. Holler is marketed for four kinds of work: landscaping (with lawn care), gutters and pressure washing. Those chips come
  * first, in their own group at the top of the form, so an owner-operator arriving from a video finds his trade without reading 37
  * others. Everything else is unchanged and still pickable, under "More trades".

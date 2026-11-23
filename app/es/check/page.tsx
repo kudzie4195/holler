@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { AreaWaitlist } from '@/components/area-waitlist';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { FooterEs } from '@/components/es/footer';
@@ -26,6 +26,8 @@ import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import type { WaitlistCardWords } from '@/lib/waitlist/copy';
+import { waitlistTradeGroups } from '@/lib/waitlist/trades';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[1];
@@ -163,15 +165,25 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   };
 
   // Round 23: coverage is per city AND per trade (lib/check/cells.ts), as on the English page. 'waitlist' means this trade has nothing
-  // here an owner could act on: say so, and point to the English waitlist card (the waitlist form is English only). The results block
-  // then shows no trial offer and no "Holler is watching near X" list.
+  // here an owner could act on: say so, and show the waitlist card. Round 24 INT2: the card is on this page, in Spanish, and posts lang
+  // 'es', so the confirmation email and the confirm page are Spanish too (it used to send Spanish visitors to the English page). The
+  // results block then shows no trial offer and no "Holler is watching near X" list.
   const served = isServedZip(place);
   const answer = coverageFor(place, params.trade, served);
   const coverageState = answer.state;
   const gate = { coverageState, measured: answer.measured, storm: answer.storm };
   // Round 24 (review P2-6): a ZIP Holler reads gets the per-trade wording, as in English; only an unserved ZIP hears "not covered".
   const uncoveredNote =
-    coverageState === 'waitlist' ? <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} tradeWord={served ? lowerFirst(tradeLabel(params.trade, L)) : null} /> : null;
+    coverageState === 'waitlist' ? (
+      <AreaWaitlist
+        zip={params.zip}
+        trade={params.trade}
+        placeLabel={placeLabel}
+        groups={waitlistTradeGroups(place, served, L)}
+        tradeLabel={served ? tradeLabel(params.trade, L) : null}
+        words={waitlistWordsEs(placeLabel, served ? lowerFirst(tradeLabel(params.trade, L)) : null)}
+      />
+    ) : null;
 
   if (!scope.covered) {
     return (
@@ -219,21 +231,29 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   );
 }
 
-/** "Holler does not cover X yet", and a link to the English page that has the waitlist form. */
-function Waitlist({ placeLabel, zip, trade, tradeWord }: { placeLabel: string; zip: string; trade: string; tradeWord: string | null }) {
-  const href = `/check?zip=${encodeURIComponent(zip)}&trade=${encodeURIComponent(trade)}`;
-  return (
-    <section aria-labelledby="es-waitlist-h" className="mt-10">
-      <h2 id="es-waitlist-h" className="text-3xl text-ink md:text-4xl">
-        {tradeWord ? t(L, 'chk.h.trade_wait', { trade: tradeWord, place: placeLabel }) : t(L, 'chk.h.uncovered', { place: placeLabel })}
-      </h2>
-      <p className="mt-3 max-w-2xl text-muted">{tradeWord ? t(L, 'chk.empty.trade_wait') : t(L, 'chk.empty.uncovered', { place: placeLabel })}</p>
-      <p className="mt-3 max-w-2xl text-muted">{tradeWord ? t(L, 'chk.trade_wait.cta') : t(L, 'chk.uncovered.cta')}</p>
-      <p className="mt-2">
-        <Link href={href} hrefLang="en" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'chk.uncovered.link')}</Link>
-      </p>
-    </section>
-  );
+/** The waitlist card's words in Spanish, finished on the server (the place and the trade filled in). */
+function waitlistWordsEs(placeLabel: string, tradeWord: string | null): WaitlistCardWords {
+  return {
+    eyebrow: t(L, 'wl.card.eyebrow'),
+    heading: tradeWord ? `${t(L, 'chk.h.trade_wait', { trade: tradeWord, place: placeLabel })}.` : t(L, 'wl.card.heading', { place: placeLabel }),
+    intro: t(L, 'wl.card.intro'),
+    note: tradeWord ? t(L, 'chk.empty.trade_wait') : t(L, 'wl.card.note'),
+    emailLabel: t(L, 'wl.card.email'),
+    tradeLabel: t(L, 'wl.card.trade'),
+    button: t(L, 'wl.card.button'),
+    sending: t(L, 'wl.card.sending'),
+    privacy: t(L, 'wl.card.privacy'),
+    thanks: t(L, 'wl.card.thanks', { place: placeLabel }),
+    errors: {
+      email: t(L, 'wl.err.email'),
+      invalid: t(L, 'wl.err.invalid'),
+      trade: t(L, 'wl.err.trade'),
+      zip: t(L, 'wl.err.zip'),
+      limited: t(L, 'wl.err.limited'),
+      unavailable: t(L, 'wl.err.unavailable'),
+      network: t(L, 'wl.err.network'),
+    },
+  };
 }
 
 function FormBand({ children }: { children: ReactNode }) {

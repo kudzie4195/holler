@@ -50,7 +50,7 @@ export interface WaitlistDeps {
    * True when the email was handed to the provider. `trade` (round 24) is set only when the ZIP is one Holler already serves, so the
    * sign-up is for that one trade there: the email then names the trade instead of "when Holler reaches {place}".
    */
-  sendConfirm: (msg: { to: string; confirmUrl: string; place: string; trade?: string | null }) => Promise<boolean>;
+  sendConfirm: (msg: { to: string; confirmUrl: string; place: string; trade?: string | null; lang?: 'es' }) => Promise<boolean>;
   siteUrl: string;
 }
 
@@ -70,6 +70,11 @@ export interface WaitlistInput {
   page: unknown;
   /** The hidden honeypot field. Any text in it means a bot. */
   [WAITLIST_HONEYPOT]?: unknown;
+  /**
+   * Round 24 INT2: the page language. Only 'es' changes anything: the confirmation email is Spanish and its link opens the Spanish
+   * confirm page. Anything else (and no value, which is what the English card sends) is English, exactly as before. Not stored.
+   */
+  lang?: unknown;
   /** Used only in memory by the rate limiter (stored as a keyed hash in the counter). Never stored with the signup. */
   ip: string;
 }
@@ -136,8 +141,9 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
   // Already confirmed, or unsubscribed: the same answer as a new sign-up, and nothing is sent.
   if (found.data.confirmed_at || found.data.unsubscribed_at) return { code: 'ok' };
 
-  const confirmUrl = `${deps.siteUrl.replace(/\/$/, '')}/waitlist/confirm?token=${encodeURIComponent(deps.signToken(found.data.id))}`;
-  const sent = await deps.sendConfirm({ to: address, confirmUrl, place: `${place.city}, ${place.state}`, trade: served ? trade : null });
+  const es = input.lang === 'es';
+  const confirmUrl = `${deps.siteUrl.replace(/\/$/, '')}/waitlist/confirm?token=${encodeURIComponent(deps.signToken(found.data.id))}${es ? '&lang=es' : ''}`;
+  const sent = await deps.sendConfirm({ to: address, confirmUrl, place: `${place.city}, ${place.state}`, trade: served ? trade : null, ...(es ? { lang: 'es' as const } : {}) });
   if (!sent) {
     console.error('[waitlist] confirm email not sent');
     return { code: 'unavailable' };

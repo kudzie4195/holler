@@ -169,10 +169,14 @@ describe('/es/check', () => {
     loadCheck.mockResolvedValue({ ok: false, items: [], checkedAt: new Date().toISOString() });
     expect(text((await renderCheck({ zip: '30303', trade: 'roofing' })).html)).toContain(es['chk.empty.unreadable']);
   });
-  it('a ZIP Holler does not cover: says so in Spanish and links to the English page that has the waitlist form', async () => {
+  // Round 24 INT2: the waitlist card is on the Spanish page itself (it posts lang 'es'); nothing sends the visitor to the English page.
+  it('a ZIP Holler does not cover: says so in Spanish and shows the Spanish waitlist form on this page', async () => {
     const { html } = await renderCheck({ zip: '00601', trade: 'roofing' });
-    expect(html).toContain('href="/check?zip=00601&amp;trade=roofing"');
-    expect(text(html)).toContain(es['chk.uncovered.link']);
+    expect(html).not.toContain('href="/check?zip=00601');
+    expect(html).not.toMatch(/hrefLang="en"[^>]*>[^<]*lista de espera/i);
+    expect(text(html)).toContain(es['wl.card.button']);
+    expect(text(html)).toContain(es['wl.card.email']);
+    expect(html).toMatch(/<input[^>]*type="email"/);
   });
   it('metadata: only the bare page is indexed, every ?zip= variant is noindex, canonical and hreflang pairs are the same either way', async () => {
     const bare = await checkMeta({ searchParams: Promise.resolve({}) } as never);

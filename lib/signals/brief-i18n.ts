@@ -1,5 +1,5 @@
 import { sourceLabelLang } from './source-label-i18n';
-import { permitLabelLang, tradeIdFromEnglishLabel } from './title-i18n';
+import { fixedTextLang, permitLabelLang, tradeIdFromEnglishLabel } from './title-i18n';
 import { hasKey, t, localizeDate, type Lang, type DictKey } from '@/lib/i18n';
 import {
   BRIEF_FAMILIES,
@@ -153,7 +153,9 @@ function whyFromDict(input: BriefInput & { label: BriefLabel; trade?: string | n
       }
       break;
     case 'violation':
-      if (label === 'act_now') return ctx.violation ? t(lang, 'brief.why.violation.act_now_quoted', { order: ctx.violation }) : t(lang, 'brief.why.violation.act_now', v);
+      // Review P2-10 (round 24): an order in Holler's own words ("trash or debris and overgrown yard") is said in the card's language, as
+      // the card title already is (title-i18n fixedTextLang). A city's own text is quoted as the city wrote it. English is unchanged.
+      if (label === 'act_now') return ctx.violation ? t(lang, 'brief.why.violation.act_now_quoted', { order: lang === 'en' ? ctx.violation : fixedTextLang(ctx.violation, lang) }) : t(lang, 'brief.why.violation.act_now', v);
       break;
     case 'inspection': {
       const repairs = !!trade && INSPECTION_REPAIR_TRADES.has(trade);

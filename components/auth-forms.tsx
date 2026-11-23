@@ -65,6 +65,17 @@ function ErrorNotice({ error, children }: { error: { message: string; status: nu
   );
 }
 
+/**
+ * Where a successful sign-up answer goes (round 24, review P3-2): onboarding when signed in, else the log-in page, except when the
+ * statistics box was ticked and the account was not signed in: then the form stays and shows the note (an address that already had a
+ * sign-in is not changed, so its box was not saved). Pure, so tests can check it without a browser.
+ */
+export function signupNext(body: { signedIn?: boolean }, statsConsent: boolean, lang: Lang, city?: string | null): string {
+  if (body.signedIn) return `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}`;
+  if (statsConsent) return 'consent-note';
+  return pathFor(lang, '/login');
+}
+
 export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
   const w = wordsFor(lang);
@@ -76,6 +87,7 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
    * (lib/auth/stats-consent.ts). Leaving it alone sends nothing and stores nothing. Settings can turn it off again later.
    */
   const [statsConsent, setStatsConsent] = useState(false);
+  const [existingNote, setExistingNote] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -83,8 +95,16 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
     setPending(true);
     const { status, body } = await post('/api/auth/signup', withLang(lang, statsConsent ? { email, password, statsConsent: true } : { email, password }), lang);
     if (body.ok) {
-      const target = body.signedIn ? `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}` : pathFor(lang, '/login');
-      hardNavigate(target);
+      // Round 24 (review P3-2): an address that already has a sign-in (the shared sign-in with the owner's other products) is not
+      // changed, so a ticked box is not saved for it. Say so before sending them to log in, in words that are true either way and do
+      // not reveal whether the address was registered; Settings has the same box.
+      const next = signupNext(body, statsConsent, lang, city);
+      if (next === 'consent-note') {
+        setExistingNote(true);
+        setPending(false);
+        return;
+      }
+      hardNavigate(next);
       return;
     }
     setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
@@ -124,8 +144,18 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
           onChange={(e) => setStatsConsent(e.target.checked)}
           className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
         />
-        <span>{w('consent.stats', STATS_CONSENT_TEXT)}</span>
+        {/* Round 24 (review P3-1): the box is optional, so the label says so first, as Settings does. The consent wording itself
+            (STATS_CONSENT_TEXT and its version) is unchanged. */}
+        <span>
+          <span className="font-semibold text-ink">{w('consent.optional', 'Optional.')}</span> {w('consent.stats', STATS_CONSENT_TEXT)}
+        </span>
       </label>
+      {existingNote ? (
+        <Notice tone="info" role="status">
+          {w('consent.signup.existing', 'If this email already had an account, its choice about combined statistics did not change. You can set it in Settings after you log in.')}{' '}
+          <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link>
+        </Notice>
+      ) : null}
       <ErrorNotice error={error}>
         {error?.status === 409 ? <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link> : null}
       </ErrorNotice>

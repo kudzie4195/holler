@@ -14,8 +14,8 @@ type L = 'en' | 'es';
 
 /**
  * The page language: English unless the link or the form says lang=es (round 19 integration). Never read from a cookie (the holler_lang
- * hint never decides a server page, lib/auth/lang-cookie.ts). Sign-ups are made on the English /check page today, so every link sent is
- * English; the Spanish words are ready for a Spanish sign-up and are covered by tests/i18n.
+ * hint never decides a server page, lib/auth/lang-cookie.ts). Round 24 INT2: a sign-up on /es/check sends a link with lang=es, so the
+ * Spanish visitor stays on Spanish pages from the card to the confirm page and back to /es/check.
  */
 function langOf(v: unknown): L {
   return v === 'es' ? 'es' : 'en';
@@ -23,7 +23,7 @@ function langOf(v: unknown): L {
 
 const NOT_ACTIVE = (lang: L) =>
   htmlPage(t(lang, 'wl.confirm.inactive.title'), t(lang, 'wl.confirm.inactive.body'), {
-    links: [{ href: '/check', label: t(lang, 'wl.confirm.inactive.link') }],
+    links: [{ href: lang === 'es' ? '/es/check' : '/check', label: t(lang, 'wl.confirm.inactive.link') }],
     ...(lang === 'es' ? { lang } : {}),
   });
 

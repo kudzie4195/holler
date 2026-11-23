@@ -6,7 +6,8 @@ import { waitlistDeps } from '@/lib/waitlist/deps';
 import { joinWaitlist } from '@/lib/waitlist/service';
 
 /**
- * POST /api/waitlist { email, zip, trade, page, leave_blank }: someone left an email on /check for a ZIP Holler does not serve yet.
+ * POST /api/waitlist { email, zip, trade, page, leave_blank, lang? }: someone left an email on /check or /es/check (which sends lang 'es')
+ * for a ZIP or a trade Holler does not serve yet.
  * JSON only (a cross-site HTML form cannot send it) and same-origin when the browser says where it came from.
  * The answer is { ok: true } or { ok: false, error, field? }. It never says whether an address was already on the list, and never
  * returns counts. No account is needed. If the database or the table (migration 0021) is not there yet, the answer is a 503 with
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
       trade: body.trade,
       page: body.page,
       [WAITLIST_HONEYPOT]: body[WAITLIST_HONEYPOT],
+      lang: body.lang,
       ip: clientIp(req),
     });
     switch (result.code) {
