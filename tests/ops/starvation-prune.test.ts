@@ -1,7 +1,7 @@
 // Verify P2-5 (a source can be starved forever by the scan deadline) and P2-3 (rate-limit table growth).
 // Rows and adapters are hand written (assumed). The simulation mirrors /tmp/r2-verify/starve.vt.ts from the review: the fetch phase ends
 // at 40 s and each signals write costs 4 s, with the real 48 s deadline.
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeDb } from './fakedb';
 import { SCAN_DEADLINE_MS, runScan } from '../../lib/signals/run';
 import { pruneOldSignals, type Db } from '../../lib/signals/store';
@@ -22,6 +22,18 @@ const mk = (id: string, cadenceMinutes: number): Adapter => ({
 });
 
 describe('scan deadline: nobody starves (P2-5)', () => {
+  // getLastRunTimes (lib/signals/store.ts) reads only the last 3 days of holler_scan_runs, measured from the real Date.now(), while these
+  // tests use the fixed simulated date BASE. Once BASE is more than 3 days in the past the simulated run logs fall out of that window,
+  // every source looks never-run, and the write order silently falls back to registry order (the 2026-11-17 date aged out on 2026-11-20).
+  // Pin Date (only Date: the adapter timeout still uses real timers) to the simulated time so the tests do not depend on today's date.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(BASE);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   async function simulate(ticks: number, adapters: Adapter[]) {
     const db = new FakeDb({ holler_profiles: [] });
     const written: string[][] = [];
@@ -55,6 +67,7 @@ describe('scan deadline: nobody starves (P2-5)', () => {
       started = false;
       sim = 0;
       const now = new Date(BASE + tick * 15 * 60_000);
+      vi.setSystemTime(now);
       const before = new Set((db.tables.holler_scan_runs ?? []).map((r) => r.id));
       const signalsBefore = (db.tables.holler_signals ?? []).length;
       const r = await runScan({ now, adapters, clock, deadlineMs: SCAN_DEADLINE_MS }, asDb(db));

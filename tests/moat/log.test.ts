@@ -23,12 +23,10 @@ describe('log rows', () => {
     expect(toLogRecord({ user_id: 'u', signal_id: 0 })).toBeNull();
     expect(toLogRecord(null as any)).toBeNull();
   });
-  // u2: was "picks the first allowed trade" (first shared category). The trade is now the member's allowed trade with the best
-  // opportunity label for the record, so the alert needs its event (title) to be labelled at all.
-  it('alertLogRowsFor picks the allowed trade with the best label, the plan in force and the signal facts', () => {
+  it('alertLogRowsFor picks the first allowed trade, the plan in force and the signal facts', () => {
     const rows = alertLogRowsFor(
       [{ user_id: 'u1', signal_id: 1, distance_mi: 12 }, { user_id: 'u2', signal_id: 1, distance_mi: null }, { user_id: 'u1', signal_id: 99, distance_mi: 1 }],
-      [{ id: 1, source: 'nws', kind: 'alert', title: 'Excessive Heat Warning: Fulton, GA', subtype: null, categories: ['roofing', 'hvac'], severity: 3 }],
+      [{ id: 1, source: 'nws', kind: 'alert', subtype: null, categories: ['roofing', 'hvac'], severity: 3 }],
       [
         { user_id: 'u1', categories: ['hvac'], lat: 1, lon: 1, state: 'GA', plan: 'pro', subscription_status: 'active' },
         { user_id: 'u2', categories: ['plumbing'], lat: 1, lon: 1, state: 'GA', plan: 'pro', subscription_status: 'trialing' },
@@ -37,15 +35,6 @@ describe('log rows', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ user_id: 'u1', trade: 'hvac', plan: 'pro', distance_mi: 12, severity: 3 });
     expect(rows[1]).toMatchObject({ user_id: 'u2', trade: null, plan: 'starter' });
-  });
-  it('alertLogRowsFor logs a downstream trade that is not in the record categories (a re-roof permit for a gutter company)', () => {
-    const rows = alertLogRowsFor(
-      [{ user_id: 'g', signal_id: 5, distance_mi: 3 }],
-      [{ id: 5, source: 'socrata-austin-permits', kind: 'permit', title: 'Roof permit in Austin', subtype: 'permit', categories: ['roofing'], severity: 1 }],
-      [{ user_id: 'g', categories: ['siding-gutters', 'roofing'], lat: 1, lon: 1, state: 'TX', plan: 'pro', subscription_status: 'active' }],
-    );
-    // Coming soon for siding-gutters outranks Market insight for roofing.
-    expect(rows[0]).toMatchObject({ user_id: 'g', trade: 'siding-gutters' });
   });
 });
 

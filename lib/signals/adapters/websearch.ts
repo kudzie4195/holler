@@ -370,6 +370,86 @@ export function websearchProvider(e: Record<string, string | undefined>): WebSea
   return 'skipped(env)';
 }
 
+/** Longest reason text kept from an error response body. */
+export const ERROR_DETAIL_MAX = 200;
+/** Bytes read from an error body before the reason is picked out (the rest is never read). */
+const ERROR_BODY_READ = 2000;
+
+/**
+ * Anything that looks like a key or token is removed from an error reason before it is logged: the exact key in use (when known),
+ * "key=...", "api_key": "...", "Bearer ...", "sk-..." style prefixes and any long unbroken token (24+ letters, digits, "_" or "-").
+ */
+export function redactSecrets(text: string, knownKeys: Array<string | undefined> = []): string {
+  let t = text;
+  for (const k of knownKeys) if (k && k.length >= 4) t = t.split(k).join('[removed]');
+  // A part of a key (a cut-off echo, "key abcd1234..."), the key in another case, or the key URL-encoded: any 8+ character run of
+  // key-like characters that, once decoded, is inside a known key (or contains it) goes too.
+  const keys = knownKeys.filter((k): k is string => !!k && k.length >= 8).map((k) => k.toLowerCase());
+  if (keys.length > 0) {
+    t = t.replace(/[A-Za-z0-9_%+/=.~-]{8,}/g, (m) => {
+      let d = m;
+      try {
+        d = decodeURIComponent(m);
+      } catch {
+        // keep the raw run
+      }
+      d = d.toLowerCase();
+      // Test the whole run and each letter/digit piece of it: a trailing "." or "..." must not hide a key prefix.
+      const parts = [d, ...d.split(/[^a-z0-9]+/)].filter((p) => p.length >= 8);
+      return parts.some((p) => keys.some((k) => k.includes(p) || p.includes(k))) ? '[removed]' : m;
+    });
+  }
+  return t
+    .replace(/\b(bearer|basic)\s+[A-Za-z0-9._~+\/=-]{6,}/gi, '$1 [removed]')
+    .replace(/((?:api[_-]?key|x-api-key|x-subscription-token|token|secret|authorization|key)["']?\s*[:=]\s*["']?)[^\s"',;&]+/gi, '$1[removed]')
+    .replace(/\b(?:sk|pk|rk|key|tok|brave|ser)[-_][A-Za-z0-9_-]{8,}/gi, '[removed]')
+    .replace(/[A-Za-z0-9_-]{24,}/g, '[removed]');
+}
+
+/**
+ * The reason an API gave for a non-2xx answer, at most ERROR_DETAIL_MAX characters, or '' when there is none. Reads only the first
+ * ERROR_BODY_READ bytes of the body. A JSON body gives its message / error / detail field ("Not enough credits"); anything else
+ * gives its first text with whitespace collapsed; an HTML page gives nothing. Secrets are stripped (redactSecrets). Never throws.
+ */
+export async function errorDetail(res: Response, knownKeys: Array<string | undefined> = []): Promise<string> {
+  let raw = '';
+  try {
+    const reader = res.body?.getReader();
+    if (reader) {
+      const dec = new TextDecoder();
+      let bytes = 0;
+      while (bytes < ERROR_BODY_READ) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        bytes += value.length;
+        raw += dec.decode(value, { stream: true });
+      }
+      reader.cancel().catch(() => {});
+    } else {
+      raw = (await res.text()).slice(0, ERROR_BODY_READ);
+    }
+  } catch {
+    return '';
+  }
+  raw = raw.slice(0, ERROR_BODY_READ).trim();
+  if (!raw || /^</.test(raw)) return '';
+  let reason = raw;
+  try {
+    const j: unknown = JSON.parse(raw);
+    const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined);
+    if (isObj(j)) {
+      const err = isObj(j.error) ? j.error : undefined;
+      reason = str(j.message) ?? str(j.error) ?? str(j.detail) ?? str(j.description) ?? str(err?.detail) ?? str(err?.message) ?? str(err?.code) ?? str(j.code) ?? raw;
+    }
+  } catch {
+    // not JSON: the raw text is the reason
+  }
+  return redactSecrets(reason.replace(/\s+/g, ' ').trim(), knownKeys).slice(0, ERROR_DETAIL_MAX).trim();
+}
+
+/** Statuses that mean "this key or request is refused": two of them in the first two queries end the run. */
+const REFUSED = new Set([400, 401, 403]);
+
 /**
  * Runs queries in small parallel batches (rate limits), stops on 401/403/429 or when the run deadline passes.
  * Every failure mode logs an "error:" line (run.ts turns error-like logs into status error when nothing was parsed).
@@ -395,7 +475,13 @@ async function runQueries(
   let withResults = 0;
   let rows = 0;
   let usable = 0;
-  for (let i = 0; i < queries.length; i += BATCH) {
+  /** Status of each of the first two queries (by position): both 400, 401 or 403 means the key or plan is refused, so the run stops. */
+  const firstTwo: Array<number | undefined> = [undefined, undefined];
+  const knownKey = ctx.env[keyName];
+  let step = BATCH;
+  for (let i = 0; i < queries.length; i += step) {
+    // The first batch is a probe of two queries, so a refused key costs two requests, not a full batch.
+    step = i === 0 ? Math.min(BATCH, 2) : BATCH;
     if (pace && i > 0) {
       // Start-to-start spacing: wait out whatever is left of the gap since the previous request began.
       const wait = lastStart + pace.spacingMs - Date.now();
@@ -405,22 +491,26 @@ async function runQueries(
       ctx.log(`${id}: deadline reached after ${i} of ${queries.length} queries`);
       break;
     }
-    const batch = queries.slice(i, i + BATCH);
+    const batch = queries.slice(i, i + step);
     lastStart = Date.now();
     const settled = await Promise.all(
-      batch.map(async (q) => {
+      batch.map(async (q, bi) => {
         try {
           const res = await call(q);
+          if (i + bi < 2) firstTwo[i + bi] = res.status;
           if (res.status === 429) {
-            ctx.log(`error: ${id} rate limited (HTTP 429), quota or per-second limit reached`);
+            const why = await errorDetail(res, [knownKey]);
+            ctx.log(`error: ${id} rate limited (HTTP 429${why ? `: ${why}` : ''}), quota or per-second limit reached`);
             return { stop: true, signals: [] as SignalInput[] };
           }
           if (res.status === 401 || res.status === 403) {
-            ctx.log(`error: ${id} HTTP ${res.status}, check ${keyName}`);
+            const why = await errorDetail(res, [knownKey]);
+            ctx.log(`error: ${id} HTTP ${res.status}${why ? `: ${why}` : ''}, check ${keyName}`);
             return { stop: true, signals: [] as SignalInput[] };
           }
           if (!res.ok) {
-            ctx.log(`error: ${id} HTTP ${res.status}`);
+            const why = await errorDetail(res, [knownKey]);
+            ctx.log(`error: ${id} HTTP ${res.status}${why ? `: ${why}` : ''}`);
             return { stop: false, signals: [] as SignalInput[] };
           }
           const text = await res.text();
@@ -453,6 +543,11 @@ async function runQueries(
       }
     }
     if (settled.some((r) => r.stop)) break;
+    // The first two queries both refused (400, 401 or 403): the rest would fail the same way and cost credits. Stop and say so once.
+    if (firstTwo.every((c) => c !== undefined && REFUSED.has(c)) && queries.length > 2) {
+      ctx.log(`error: ${id} first 2 queries both refused (HTTP ${firstTwo.join(' and ')}), stopped the run, ${queries.length - 2} queries not sent`);
+      break;
+    }
   }
   if (responses >= 3 && withResults === 0) {
     ctx.log(`error: ${id} none of ${responses} responses contained the results array, wrapper key may have changed`);

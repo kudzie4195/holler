@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`REV-ROUTES 06 dump > writes labels 1`] = `
+{
+  "entries": 1200,
+  "nRaw": 62,
+  "nStored": 180,
+  "sha": "6ebf4ffd6d8116a46a5bc72c6883d92272a7b17bc662e65833735608c8b459d6",
+}
+`;

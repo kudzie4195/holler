@@ -128,7 +128,8 @@ describe('remapStoredSignals: scan-time pass', () => {
     // the query carries every guard
     const sel = db.log.find((l: string) => l.startsWith('holler_signals:select'))!;
     expect(sel).toContain('or:data->>cat_src.is.null,data->>cat_src.neq.ai');
-    expect(sel).toContain('or:data->>cat_v.is.null,data->>cat_v.in.(1)');
+    // version 3 re-reads: no version, version 1 (full re-map), and version 2 only where the v3 delta can apply (a violation or a no-trade work type)
+    expect(sel).toContain('or:data->>cat_v.is.null,data->>cat_v.eq.1,and(data->>cat_v.eq.2,or(data->>subtype.eq.violation,summary.ilike.*sidewalk shed*');
     expect(sel).toContain('in:data->>subtype=permit|violation');
     expect(sel).toContain('or:source.like.socrata-*,source.like.arcgis-*');
     // a second pass finds nothing left
@@ -167,7 +168,7 @@ describe('remapStoredSignals: scan-time pass', () => {
 });
 
 describe('rematchSignals', () => {
-  const sig = (id: number, cats: string[], daysAgo: number) => ({ id, kind: 'permit', source: 'arcgis-dekalb-permits', categories: cats, lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(daysAgo), expires_at: null, title: 't', summary: null, data: { subtype: 'permit' } });
+  const sig = (id: number, cats: string[], daysAgo: number) => ({ id, source: 'arcgis-dekalb-permits', categories: cats, lat: 33.85, lon: -84.35, state: 'GA', severity: 1, occurred_at: ago(daysAgo), expires_at: null, title: 't', summary: null, data: { subtype: 'permit' } });
 
   it('creates the missing matches with the scan rules, skips existing pairs, quiet for old records', async () => {
     const db = fakeTables({
@@ -271,6 +272,6 @@ describe('insert-time de-duplication (round 7 fix-a: only identical records from
 
   it('the scan turns de-duplication on for every source write', async () => {
     const src = (await import('node:fs')).readFileSync('lib/signals/run.ts', 'utf8');
-    expect(src).toMatch(/insertNewSignals\(db, rows, \{[^}]*dedupe: true/);
+    expect(src).toMatch(/insertNewSignals\(db, plan\.rows, \{[^}]*dedupe: true/);
   });
 });

@@ -28,10 +28,15 @@ export function priceCents(tier: Tier, plan: Plan): number {
   return PRICES_CENTS[tier][plan];
 }
 
-/** Whole-percent saving of the yearly price against twelve monthly payments, computed from PRICES_CENTS. */
+/**
+ * Whole-percent saving of the yearly price against twelve monthly payments, computed from PRICES_CENTS and rounded DOWN
+ * (Solo and Pro both save 16.6%, shown as 16). Integer math, so no float edge cases. 0 when a price is missing or the yearly price is not lower.
+ */
 export function annualSavingsPercent(tier: Tier): number {
-  const m = PRICES_CENTS[tier].monthly * 12;
-  return Math.round(((m - PRICES_CENTS[tier].annual) / m) * 100);
+  const m = (PRICES_CENTS[tier]?.monthly ?? 0) * 12;
+  const y = PRICES_CENTS[tier]?.annual ?? 0;
+  if (!(m > 0) || !(y > 0) || y >= m) return 0;
+  return Math.floor(((m - y) * 100) / m);
 }
 
 /** Solo's saving, kept for existing imports. */
@@ -42,34 +47,19 @@ export function annualSavingsCents(tier: Tier): number {
   return PRICES_CENTS[tier].monthly * 12 - PRICES_CENTS[tier].annual;
 }
 
-/** The yearly saving counted in monthly payments (Solo: 1589 / 799 = 1.99; Pro: 2789 / 1399 = 1.99). */
-export function annualMonthsSaved(tier: Tier): number {
-  return annualSavingsCents(tier) / PRICES_CENTS[tier].monthly;
-}
-
-/** How close the saving must be to a whole number of monthly payments before the copy may say "about N months free". */
-export const MONTHS_FREE_TOLERANCE = 0.05;
-
 /**
- * THE annual saving phrase. "about 2 months free" only when the yearly saving is within MONTHS_FREE_TOLERANCE of a whole number
- * (at least 1) of monthly payments. Otherwise "save N%", with N computed from the cents. Never a hand-typed number.
+ * THE annual saving phrase: "save 16%", computed from the cents and rounded down. Holler's only free offer is the free trial (TRIAL_DAYS, 60 days),
+ * so the yearly saving is only ever stated as a percent. Empty string when the saving is under 1% or a price is missing.
  */
 export function annualSavingLabel(tier: Tier): string {
-  const whole = annualMonthsFree(tier);
-  if (whole !== null) return `about ${whole} ${whole === 1 ? 'month' : 'months'} free`;
-  return `save ${annualSavingsPercent(tier)}%`;
+  const pct = annualSavingsPercent(tier);
+  return pct >= 1 ? `save ${pct}%` : '';
 }
 
-/** One sentence for next to a plan: "Paying yearly gets you about 2 months free." or "Paying yearly saves 17%." (both computed). */
+/** One sentence for next to a plan: "Paying yearly saves 16%." (computed). Empty string when there is no saving to state. */
 export function annualSavingSentence(tier: Tier): string {
-  return annualMonthsFree(tier) !== null ? `Paying yearly gets you ${annualSavingLabel(tier)}.` : `Paying yearly saves ${annualSavingsPercent(tier)}%.`;
-}
-
-/** The whole number of free months the yearly price is worth, or null when the math does not support "about N months free". */
-export function annualMonthsFree(tier: Tier): number | null {
-  const months = annualMonthsSaved(tier);
-  const whole = Math.round(months);
-  return whole >= 1 && Math.abs(months - whole) <= MONTHS_FREE_TOLERANCE ? whole : null;
+  const pct = annualSavingsPercent(tier);
+  return pct >= 1 ? `Paying yearly saves ${pct}%.` : '';
 }
 
 /** "$7.99", "$79.99", "$13.99", "$139.99": whole dollars drop the cents ("$10"). */

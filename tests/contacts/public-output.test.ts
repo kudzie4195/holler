@@ -1,7 +1,8 @@
 /**
  * Public output unchanged. fixtures/public-before.json is a committed snapshot: parseAllFixtures() over every fixture in tests/fixtures,
  * first taken from the adapters before any contact code existed, and regenerated only for intended public changes (round 7: the permit
- * mapping and data.cat_v, listed in the MATCH hand-back). The test reads that file only; it never runs git, so it works in any checkout,
+ * mapping and data.cat_v, listed in the MATCH hand-back; round 15: data.jobValue, the project value a permit published, the same number its
+ * summary already prints). The test reads that file only; it never runs git, so it works in any checkout,
  * a copy without .git, or a worktree. Now: the same projection (every SignalInput field except `contacts`) must be byte-for-byte equal,
  * and contacts must never leak into title, summary or data.
  */
@@ -47,7 +48,8 @@ describe('contacts are added beside the public fields, never into them', () => {
         const off = parseSocrata(raw, { ...d, contacts: undefined });
         expect(on.map(publicProjection)).toEqual(off.map(publicProjection));
       }
-      expect(on.some((s) => s.contacts?.length)).toBe(true);
+      // Round 18 redo: the only Austin inspection names are "Taqueria Lopez #3" and "Kelly Lewis", both refused by the licence rule.
+      expect(on.some((s) => s.contacts?.length)).toBe(f !== 'socrata-austin-inspections-contacts.json');
     });
     it(`${f}: no contact phone, email, contractor name or org address appears in title, summary or data; data has no contact keys`, () => {
       for (const s of parse(raw)) {

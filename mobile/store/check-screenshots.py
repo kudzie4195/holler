@@ -15,17 +15,19 @@ M = json.loads((HERE / ".gen/metrics.json").read_text())["shots"]
 DATA = json.loads((HERE / ".gen/data.json").read_text())
 FIX = {r["id"]: r for r in json.loads((HERE / "fixtures/real-signals.json").read_text())["rows"]}
 NAMES = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "05-source-link", "06-trade-radius", "07-push", "08-price"]
+_TRIAL_DAYS = int(DATA["config"]["trialDays"])
+_TRIAL_HEADLINE = DATA["config"]["trialHeadline"]  # built by the server from TRIAL_DAYS (lib/plan/price-copy.ts)
 HEADS = {
     "01-know-when": "Storms, permits, 311 near you", "02-storm-hail": "Storm & hail alerts", "03-permits": "New permits near you",
     "04-311": "311 & city requests", "05-source-link": "See the official source", "06-trade-radius": "Your trades, your radius",
-    "07-push": "Alerts that fit. No spam.", "08-price": "14 days free. Then $7.99/mo.", "android/08-price": "Flat monthly plans",
+    "07-push": "Alerts that fit. No spam.", "08-price": f"{_TRIAL_HEADLINE[0].upper()}{_TRIAL_HEADLINE[1:]}. Then $7.99/mo.", "android/08-price": "Flat monthly plans",
 }
 SUBS = {
     "01-know-when": "Alerts for roofers, plumbers, HVAC and more", "02-storm-hail": "Hail reports and storm warnings near you",
     "03-permits": "Plumbing, HVAC, windows and more", "04-311": "Tree emergencies and code requests",
     "05-source-link": "Every alert links to where it came from", "06-trade-radius": "Set trades and how far you drive",
     "07-push": "At most one push an hour", "08-price": "Free account first. No card. Subscribe later.",
-    "android/08-price": "No per-lead fees. 14-day trial, no card.",
+    "android/08-price": f"No per-lead fees. {_TRIAL_DAYS}-day trial, no card.",
 }
 FEED_SHOTS = ["01-know-when", "02-storm-hail", "03-permits", "04-311", "07-push"]
 SIZE = {"ios": (1320, 2868), "android": (1080, 1920)}
@@ -355,8 +357,19 @@ for plat in ("ios", "android"):
     m = M[key(plat, "08-price")]
     ok = "$7.99 a month" in m["plan_text"] and "Subscribe to Solo" in m["plan_text"] and "free trial" not in m["plan_text"].lower() and m["pro_shown"] in ("labelled", "cropped out")
     print(f"   {plat}/08 Solo card: {m['plan_text']!r}; Pro card {m['pro_shown']}; banner: {m.get('banner_text')!r} {check(ok, f'plans {plat}')}")
-ok = M["ios/08-price"]["banner_text"].startswith("14 days left in your free trial.")
+ok = M["ios/08-price"]["banner_text"].startswith(f"{_TRIAL_DAYS} days left in your free trial.")
 print(f"   ios/08 ringed trial surface is the Feed banner for a new account: {check(ok, 'trial banner')}")
 
+# Round 18 (free trial 60 days): the committed 08-price shots were captured with the 14-day trial. They cannot be faked; they must be
+# recaptured (build-captures.sh, needs mobile/node_modules). Until then this check stays red ON PURPOSE, with a clear owner task, so a
+# store submission cannot go out with a 14-day screenshot. Nothing in the web gates (npm run build / typecheck / vitest / eslint) runs this
+# script (tests/ops/store-screenshots-owner-task.test.ts checks that).
+_stale = [k for k in ("ios/08-price", "android/08-price") if k in M and any(
+    str(M[k].get(f, "")).startswith(("14 days", "14-day")) or "14-day trial" in str(M[k].get(f, "")) or "14 days" in str(M[k].get(f, ""))
+    for f in ("head", "text", "sub", "banner_text"))]
+if _stale:
+    print("\nKNOWN OWNER TASK (round 18): " + ", ".join(_stale) + " still show the 14-day trial; the server now gives "
+          + f"{_TRIAL_DAYS} days. Recapture the 08-price screenshots before ANY store submission (LAUNCH.md, NEEDS KUDZI): "
+          + "on a machine with mobile/node_modules run `sh store/build-captures.sh` from mobile/, then this check must exit 0.")
 print("\nHARD FAILURES:", fail if fail else "none")
 sys.exit(1 if fail else 0)

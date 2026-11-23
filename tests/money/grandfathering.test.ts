@@ -249,7 +249,7 @@ describe('isUpgrade judges a legacy member on what they pay now', () => {
 describe('billing portal and checkout', () => {
   it('portal: one session create, return to Settings, nothing else', async () => {
     const { portal } = await load();
-    const res = await portal();
+    const res = await portal(new Request('https://localholler.com/api/stripe/portal', { method: 'POST' }));
     expect(res.status).toBe(200);
     expect(w.calls).toEqual(['billingPortal.sessions.create']);
     expect(amount()).toBe(OLD_SOLO_MONTHLY);

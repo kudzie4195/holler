@@ -48,8 +48,7 @@ describe('privacy: the mobile app', () => {
     expect(deps).toContain('@capacitor-firebase/messaging');
     // Push content: count and city in the title, the public signal title in the body.
     expect(text).toContain('A push shows the city and the title of a public record');
-    // u2: the body leads with the opportunity label of the act item ("Act now: <public title>"); still only the public title.
-    expect(src('lib/push/notify.ts')).toContain('return { title, body: truncate(`${OPPORTUNITY_LABEL.act}: ${entry.top.title}`), data };');
+    expect(src('lib/push/notify.ts')).toContain('return { title, body: truncate(topTitle), data };');
     expect(text).toContain("Turn pushes off with the switch in the app's Settings, or in your phone's settings.");
     expect(src('mobile/src/screens/Settings.tsx')).toContain('label="Push notifications"');
     expect(text).toContain("Signing out removes that phone's token.");
@@ -114,6 +113,16 @@ describe('privacy: AI processing', () => {
       .filter(Boolean)
       .filter((f) => !f.startsWith('lib/ai/'));
     expect(importers).toEqual(['app/api/cron/ai/route.ts']);
+  });
+});
+
+describe('privacy: the language cookie (round 18 ES)', () => {
+  it('names holler_lang, says it holds only en or es, one year, not for tracking, and that logging out or deleting the account removes it', async () => {
+    const { text } = await renderLegal('privacy');
+    const { LANG_COOKIE, LANG_COOKIE_MAX_AGE } = await import('@/lib/auth/lang-cookie');
+    expect(LANG_COOKIE).toBe('holler_lang');
+    expect(LANG_COOKIE_MAX_AGE).toBe(365 * 24 * 60 * 60);
+    expect(text).toContain('Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.');
   });
 });
 
@@ -210,11 +219,11 @@ describe('privacy: outcomes, archive and deletion', () => {
 describe('privacy: emails', () => {
   it('three trial emails with a no-login stop link, the weekly follow-up tied to alert emails', async () => {
     const { text } = await renderLegal('privacy');
-    expect(text).toContain('Up to three emails about your free trial: about a day after you sign up, about two days before the trial ends, and about a day after it ends.');
-    // lib/lifecycle/select.ts windows: welcome 20 to 44 h after signup, trial_ending 36 to 60 h before the end, trial_ended 18 to 48 h after.
+    expect(text).toContain('Up to three emails about your free trial: about a day after you sign up, about three days before the trial ends, and about a day after it ends. If we extend your trial, the last two can come again for the new end date.');
+    // lib/lifecycle/select.ts windows: welcome 20 to 44 h after signup, trial_ending 36 to 84 h before the end, sent at about 84 h (round 18; was 36 to 60), trial_ended 18 to 48 h after.
     const sel = src('lib/lifecycle/select.ts');
     expect(sel).toContain('welcome: { from: 20, to: 44 }');
-    expect(sel).toContain('trial_ending: { from: 36, to: 60 }');
+    expect(sel).toContain('trial_ending: { from: 36, to: 84 }');
     expect(sel).toContain('trial_ended: { from: 18, to: 48 }');
     expect(MIG('0016_holler_lifecycle.sql')).toContain("check (kind in ('welcome', 'trial_ending', 'trial_ended', 'optout'))");
     expect(text).toContain("Each has a link to stop them that needs no login, and your mail app's unsubscribe button works too.");

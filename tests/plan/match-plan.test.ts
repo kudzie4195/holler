@@ -20,7 +20,6 @@ const base = (over: Partial<MatchProfile> = {}): MatchProfile => ({
 const pro = (over: Partial<MatchProfile> = {}) => base({ plan: 'pro', subscription_status: 'active', ...over });
 const sig = (over: Partial<MatchSignal> = {}): MatchSignal => ({
   id: 1,
-  kind: 'permit',
   categories: ['roofing'],
   lat: 33.95,
   lon: -83.39, // next to Athens
@@ -102,7 +101,7 @@ describe('matchOne with plan limits', () => {
 
   it('state-level records match on any allowed area state', () => {
     const st = sig({ lat: null, lon: null, state: 'NC', severity: 2 });
-    expect(matchOne(st, pro({ extra_areas: [CHARLOTTE] }))).toEqual({ distance_mi: null });
+    expect(matchOne(st, pro({ extra_areas: [CHARLOTTE] }))).toMatchObject({ distance_mi: null });
     expect(matchOne(st, base({ extra_areas: [CHARLOTTE] }))).toBeNull(); // starter: Charlotte not used
     expect(matchOne({ ...st, severity: 1 }, pro({ extra_areas: [CHARLOTTE] }))).toBeNull(); // severity rule still applies
   });
@@ -120,7 +119,7 @@ describe('matchOne with plan limits', () => {
   it('keyword on a state-level record needs an allowed area in that state and severity 2+', () => {
     const p = pro({ keywords: ['boil water'] });
     const s = sig({ categories: ['plumbing'], lat: null, lon: null, state: 'GA', severity: 2, title: 'Boil water notice' });
-    expect(matchOne(s, p)).toEqual({ distance_mi: null });
+    expect(matchOne(s, p)).toMatchObject({ distance_mi: null });
     expect(matchOne({ ...s, state: 'FL' }, p)).toBeNull();
     expect(matchOne({ ...s, severity: 1 }, p)).toBeNull();
   });
@@ -133,15 +132,14 @@ describe('matchOne with plan limits', () => {
   });
 
   it('starter with more than 5 saved trades uses the first 5 only', () => {
-    // u2: real trade ids (matching reads the record's opportunity per trade, and an unknown id such as 't4' never gets a label).
-    const cats = ['plumbing', 'hvac', 'electrical', 'painting', 'pest-control', 'roofing'];
+    const cats = ['t0', 't1', 't2', 't3', 't4', 'roofing'];
     expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), base({ categories: cats }))).toBeNull();
     expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), pro({ categories: cats }))).not.toBeNull();
-    expect(matchOne(sig({ lat: 33.75, lon: -84.39, categories: ['pest-control'] }), base({ categories: cats }))).not.toBeNull();
+    expect(matchOne(sig({ lat: 33.75, lon: -84.39, categories: ['t4'] }), base({ categories: cats }))).not.toBeNull();
   });
 
   it('a profile without plan fields behaves as before for up to 5 trades (existing callers keep working)', () => {
-    expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), base())).toEqual({ distance_mi: expect.any(Number) });
+    expect(matchOne(sig({ lat: 33.75, lon: -84.39 }), base())).toMatchObject({ distance_mi: expect.any(Number) });
   });
 });
 

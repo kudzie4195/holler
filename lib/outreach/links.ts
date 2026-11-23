@@ -18,6 +18,8 @@ export type LinkSpec =
   | { type: 'map'; address: string; city?: string | null; state?: string | null; zip?: string | null }
   | { type: 'eddm' }
   | { type: 'website'; url: string }
+  /** The record's own public source page (its stored url): parsed and forced to https like a website. */
+  | { type: 'source'; url: string }
   | { type: 'guide'; guide: 'storms' | 'respond' };
 
 export interface OutreachLink {
@@ -82,7 +84,8 @@ export function buildLink(spec: LinkSpec): OutreachLink | null {
     }
     case 'eddm':
       return external(USPS_EDDM_TOOL_URL);
-    case 'website': {
+    case 'website':
+    case 'source': {
       const url = safeWebsite(spec.url);
       return url ? external(url) : null;
     }

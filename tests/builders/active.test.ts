@@ -1,3 +1,8 @@
+// Ported from origin/r10-integrate tests/builders/active.test.ts (round 19 UNIFY). Adapted to this base:
+//  - kinds are this base's permit label keys (lib/signals/permit-routing.ts permitLabelsOf: 'solar', 'roof'), printed by the component;
+//  - names must pass this base's organisation check (isOrganisationName, exact). This base does not have the other branch's entity-marker
+//    change to the classifier (ed621e9, not ported by instruction), so 'Lakeline Homes LLC' and some one-word '<X> Construction' names
+//    are rejected here: the fixtures use names this base accepts ('Lakeline Construction LLC', the 12 accepted first words below).
 import { describe, expect, it, vi } from 'vitest';
 import { builderKey, summarizeBuilders, telHref, type BuilderRow } from '@/lib/builders/active';
 import anchor from '../builders/austin-builders.json';
@@ -23,13 +28,20 @@ describe('summarizeBuilders', () => {
     expect(out[0].name).toBe('Sunrun Installation Services');
     expect(out[0].permits).toBe(3);
     expect(out[0].phone).toBe('512-555-0100');
-    expect(out[0].kinds).toEqual(['Solar', 'Roof']);
+    expect(out[0].kinds).toEqual(['solar', 'roof']);
     expect(out[0].newest).toBe(daysAgo(2));
   });
 
   it('ignores case, punctuation, spacing and trailing legal forms in the key', () => {
     expect(builderKey('Acme  Roofing, L.L.C.')).toBe(builderKey('ACME ROOFING'));
     expect(builderKey('Smith & Sons Co.')).toBe(builderKey('smith and sons'));
+  });
+
+  it('round 19 integration: names follow the round 18 contractor rule; a person or a name with a phone in it is dropped, never shown', () => {
+    const rows = [row('JOHN SMITH', 'Roof permit in Austin'), row('Smith, John', 'Roof permit in Austin'), row('Acme Roofing LLC 404-555-0100', 'Roof permit in Austin')];
+    expect(summarizeBuilders(rows, [], NOW)).toEqual([]);
+    // The old strict check refused this trade name; the contractor rule (the one cards use) shows it.
+    expect(summarizeBuilders([row('Lakeline Homes LLC', 'New home permit in Austin')], [], NOW).map((b) => b.name)).toEqual(['Lakeline Homes LLC']);
   });
 
   it('drops empty names, people, and non-contractor roles', () => {
@@ -51,7 +63,7 @@ describe('summarizeBuilders', () => {
   });
 
   it('never labels a general-only company as builder: relation is same-trade or other', () => {
-    const rows = [1, 2, 3].map((i) => row('Lakeline Homes LLC', 'New home permit in Austin', i));
+    const rows = [1, 2, 3].map((i) => row('Lakeline Construction LLC', 'New home permit in Austin', i));
     expect(summarizeBuilders(rows, ['painting'], NOW)[0].relation).toBe('other');
     expect(summarizeBuilders(rows, ['general-contractor'], NOW)[0].relation).toBe('other');
     expect(JSON.stringify(summarizeBuilders(rows, ['general-contractor'], NOW))).not.toContain('builder');
@@ -64,7 +76,7 @@ describe('summarizeBuilders', () => {
   });
 
   it('F4: tagged categories and unparsed kinds grant nothing', () => {
-    expect(summarizeBuilders([row('Lakeline Homes LLC', 'New home permit in Austin', 2, { categories: ['general-contractor', 'plumbing'] })], ['plumbing'], NOW)[0].relation).toBe('other');
+    expect(summarizeBuilders([row('Lakeline Construction LLC', 'New home permit in Austin', 2, { categories: ['general-contractor', 'plumbing'] })], ['plumbing'], NOW)[0].relation).toBe('other');
     expect(summarizeBuilders([row('Acme Plumbing LLC', 'Home Occupation permit in Austin')], ['plumbing'], NOW)[0].relation).toBe('other');
     expect(summarizeBuilders([row('Acme Plumbing LLC', 'Mechanical permit in Austin')], ['plumbing'], NOW)[0].relation).toBe('other');
   });
@@ -106,8 +118,10 @@ describe('summarizeBuilders', () => {
 
   it('caps at 15 and sorts by permit count, newest, name', () => {
     const rows: BuilderRow[] = [];
-    const names = ['Alpine', 'Beacon', 'Cedar', 'Delta', 'Everest', 'Falcon', 'Granite', 'Harbor', 'Ironwood', 'Juniper', 'Keystone', 'Lakeline', 'Meridian', 'Northstar', 'Oakridge', 'Pinnacle', 'Quarry', 'Ridgeline', 'Summit', 'Timberline'];
-    for (const n of names) rows.push(row(`${n} Construction`, 'Roof permit in Austin', 5));
+    const words = ['Alpine', 'Falcon', 'Granite', 'Harbor', 'Keystone', 'Lakeline', 'Meridian', 'Northstar', 'Oakridge', 'Pinnacle'];
+    const names = words.flatMap((w) => [`${w} Construction`, `${w} Roofing LLC`]);
+    expect(names).toHaveLength(20);
+    for (const n of names) rows.push(row(n, 'Roof permit in Austin', 5));
     rows.push(row('Zenith Construction', 'Roof permit in Austin', 6), row('Zenith Construction', 'Roof permit in Austin', 7));
     const out = summarizeBuilders(rows, [], NOW);
     expect(out).toHaveLength(15);

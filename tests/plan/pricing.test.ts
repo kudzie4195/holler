@@ -64,13 +64,13 @@ describe('prices: one source of truth in cents', () => {
     expect(priceDecimal('pro', 'monthly')).toBe('13.99');
     expect(priceDecimal('pro', 'annual')).toBe('139.99');
   });
-  it('yearly saving: "about 2 months free" on both plans, computed (1.99 monthly payments each); percent is 17', () => {
-    expect(annualSavingLabel('starter')).toBe('about 2 months free');
-    expect(annualSavingLabel('pro')).toBe('about 2 months free');
-    expect(annualSavingsPercent('starter')).toBe(17); // (95.88 - 79.99) / 95.88 = 16.6
-    expect(annualSavingsPercent('pro')).toBe(17); // (167.88 - 139.99) / 167.88 = 16.6
-    expect(ANNUAL_SAVINGS_PERCENT).toBe(17);
-    expect(YEARLY_NOTE).toBe('Pay yearly on either plan and you get about 2 months free.');
+  it('yearly saving: a percent phrase on both plans, computed and rounded down (16.6% each)', () => {
+    expect(annualSavingLabel('starter')).toBe('save 16%');
+    expect(annualSavingLabel('pro')).toBe('save 16%');
+    expect(annualSavingsPercent('starter')).toBe(16); // (95.88 - 79.99) / 95.88 = 16.6
+    expect(annualSavingsPercent('pro')).toBe(16); // (167.88 - 139.99) / 167.88 = 16.6
+    expect(ANNUAL_SAVINGS_PERCENT).toBe(16);
+    expect(YEARLY_NOTE).toBe('Pay yearly on either plan and you save 16%.');
   });
 });
 
@@ -78,14 +78,14 @@ describe('Pricing component', () => {
   const html = renderToStaticMarkup(createElement(Pricing));
   const text = textOf(html);
   it('renders both plans with monthly and yearly prices', () => {
-    for (const s of ['Solo', 'Pro', '$7.99', '$79.99', '$13.99', '$139.99', 'a month', 'a year', 'about 2 months free']) expect(text).toContain(s);
+    for (const s of ['Solo', 'Pro', '$7.99', '$79.99', '$13.99', '$139.99', 'a month', 'a year', 'save 16%']) expect(text).toContain(s);
     expect(text).not.toContain('Starter');
-    expect(text).not.toMatch(/saves? \d+%/);
   });
   it('lists what each plan includes and the free trial line', () => {
     for (const f of [...PLAN_FEATURES.starter, ...PLAN_FEATURES.pro]) expect(text).toContain(f);
     expect(text).toContain(`Every plan starts with a ${TRIAL_DAYS}-day free trial. No card needed.`);
-    expect(TRIAL_DAYS).toBe(14);
+    expect(TRIAL_DAYS).toBe(60);
+    expect(text).toContain('Every plan starts with a 60-day free trial. No card needed.');
     expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
   });
   it('links to /signup', () => {

@@ -4,6 +4,28 @@ import { useId, useState, useSyncExternalStore } from 'react';
 import { Button } from './button';
 import { pickedFromCookieString } from '@/lib/interest/cookie';
 import { COMING_NEXT, FEATURES, type FeatureId } from '@/lib/interest/features';
+import { t, type Lang } from '@/lib/i18n';
+
+/** The words of the list in a language. English is COMING_NEXT and FEATURES exactly as they were. */
+function copyFor(lang: Lang) {
+  if (lang === 'en') return { text: COMING_NEXT as { [K in keyof typeof COMING_NEXT]: string }, features: FEATURES.map((f) => ({ id: f.id as FeatureId, label: f.label as string, description: f.description as string })) };
+  return {
+    text: {
+      heading: t(lang, 'next.heading'),
+      intro: t(lang, 'next.intro'),
+      button: t(lang, 'next.button'),
+      picked: t(lang, 'next.picked'),
+      thanks: t(lang, 'next.thanks'),
+      error: t(lang, 'next.error'),
+    },
+    // "Holler in Spanish" is not offered on a Spanish page: it is what the reader is using.
+    features: FEATURES.filter((f) => f.id !== 'spanish').map((f) => ({
+      id: f.id as FeatureId,
+      label: t(lang, `next.f.${f.id as Exclude<FeatureId, 'spanish'>}.label`),
+      description: t(lang, `next.f.${f.id as Exclude<FeatureId, 'spanish'>}.desc`),
+    })),
+  };
+}
 
 const noop = () => () => {};
 /** The raw cookie string, read after mount. The server and the first client render both see '' so nothing mismatches. */
@@ -21,14 +43,18 @@ export function ComingNext({
   initialPicked = [],
   className = '',
   split = false,
+  lang = 'en',
 }: {
   page: string;
+  /** The reader's language. English is the default and unchanged. */
+  lang?: Lang;
   initialPicked?: readonly FeatureId[];
   className?: string;
   /** From md up: heading in the left third, intro and list in the right two thirds (the /pricing lower sections). */
   split?: boolean;
 }) {
   const headingId = useId();
+  const { text: COPY, features } = copyFor(lang);
   const cookie = useSyncExternalStore(noop, readCookie, serverCookie);
   const [local, setLocal] = useState<FeatureId[]>([]);
   const [busy, setBusy] = useState<FeatureId | null>(null);
@@ -49,12 +75,12 @@ export function ComingNext({
       const data = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (data?.ok || data?.error === 'already') {
         setLocal((l) => [...l, feature]);
-        setMessage({ text: `${COMING_NEXT.thanks} ${label}`, error: false });
+        setMessage({ text: `${COPY.thanks} ${label}`, error: false });
       } else {
-        setMessage({ text: COMING_NEXT.error, error: true });
+        setMessage({ text: COPY.error, error: true });
       }
     } catch {
-      setMessage({ text: COMING_NEXT.error, error: true });
+      setMessage({ text: COPY.error, error: true });
     } finally {
       setBusy(null);
     }
@@ -66,12 +92,12 @@ export function ComingNext({
       className={`${split ? 'md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-12' : ''} ${className}`.trim() || undefined}
     >
       <h2 id={headingId} className="text-3xl text-ink md:text-4xl">
-        {COMING_NEXT.heading}
+        {COPY.heading}
       </h2>
       <div className="min-w-0">
-        <p className={`mt-2 text-muted ${split ? 'md:mt-0' : ''}`}>{COMING_NEXT.intro}</p>
+        <p className={`mt-2 text-muted ${split ? 'md:mt-0' : ''}`}>{COPY.intro}</p>
         <ul className="mt-6 border-t-2 border-ink">
-          {FEATURES.map((f) => {
+          {features.map((f) => {
             const isPicked = picked.has(f.id);
             return (
               <li key={f.id} className="flex flex-col gap-3 border-b border-line py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
@@ -84,10 +110,10 @@ export function ComingNext({
                   size="md"
                   className="w-full shrink-0 sm:w-36"
                   disabled={isPicked || busy !== null}
-                  aria-label={`${isPicked ? COMING_NEXT.picked : COMING_NEXT.button}: ${f.label}`}
+                  aria-label={`${isPicked ? COPY.picked : COPY.button}: ${f.label}`}
                   onClick={() => pick(f.id, f.label)}
                 >
-                  {isPicked ? COMING_NEXT.picked : COMING_NEXT.button}
+                  {isPicked ? COPY.picked : COPY.button}
                 </Button>
               </li>
             );

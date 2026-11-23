@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage, DocSection } from '@/components/doc-page';
 import { COMPANY } from '@/lib/legal/company';
-import { APP_DELETE_WORD, LEGAL_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
+import { APP_DELETE_WORD, PRIVACY_UPDATED, Support, supportAddress } from '@/lib/legal/pages';
 import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export default function PrivacyPage() {
     <DocPage
       title="Privacy"
       intro="Short version: we keep what we need to run Holler, we do not sell it, and you can delete your account yourself."
-      updated={LEGAL_UPDATED}
+      updated={PRIVACY_UPDATED}
     >
       <DocSection title="The short version">
         <ul>
@@ -134,7 +134,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           We use your answers and this log to learn which kinds of alerts are worth sending. We also add them up, with no names
-          or account numbers, to describe which kinds of records lead to work. We never sell your answers with your name or
+          or account numbers, to describe which kinds of records turn into work. We never sell your answers with your name or
           account attached.
         </p>
       </DocSection>
@@ -199,8 +199,8 @@ export default function PrivacyPage() {
         <ul>
           <li>Alert emails, when email alerts are on. Every alert email has a link to turn alerts off.</li>
           <li>
-            Up to three emails about your free trial: about a day after you sign up, about two days before the trial ends,
-            and about a day after it ends. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
+            Up to three emails about your free trial: about a day after you sign up, about three days before the trial ends,
+            and about a day after it ends. If we extend your trial, the last two can come again for the new end date. Each has a link to stop them that needs no login, and your mail app&apos;s unsubscribe
             button works too. Stopping them does not stop your alerts.
           </li>
           <li>
@@ -262,9 +262,21 @@ export default function PrivacyPage() {
           pages never read cookies on our servers.
         </p>
         <p>
+          Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in
+          this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.
+        </p>
+        <p>
           The Coming next list on the pricing page and in your feed lets you press I want this on a feature we may build. We save
           the pick: with your account if you are signed in, and with no name or ID if you are not. Your browser also gets a cookie,
           holler_picked, that remembers which features you picked, for 180 days. It holds only feature names.
+        </p>
+        <p>
+          If you check a ZIP code Holler does not cover yet, the Coming to your area card lets you leave your email. We save your
+          email, that ZIP code, the rough center of that ZIP code, the trade you picked and which version of the card&apos;s wording
+          you saw, with no account and no name. We send one email with a link to confirm the address; you are on the list only once
+          you press it. We use the email only to confirm it and to tell you when we cover that area. We do not set a cookie for it,
+          and we do not share the email or use it for ads. Pressing the button again with the same email and ZIP saves nothing new,
+          and once the address is confirmed it sends nothing new either.
         </p>
         <p>
           Holler counts visits and a few steps itself. It uses no outside tracker. To count, a small script sets two first
@@ -366,6 +378,10 @@ export default function PrivacyPage() {
           </li>
           <li>Records of which business replied to which request: until the business deletes its account.</li>
           <li>Feature picks: until you delete your account. A pick made while signed out has no name on it, so we keep it.</li>
+          <li>
+            Coming to your area emails: until we tell you the area is covered, or until you ask us to delete it. It is not tied to an
+            account, so deleting your account does not remove it. Write to us and we will delete it.
+          </li>
           <li>Account steps: about 13 months, and deleted with your account.</li>
           <li>
             Visit and area check counts: about 13 months. They hold no account number, so deleting your account does not

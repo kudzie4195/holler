@@ -3,25 +3,36 @@ import { cityBySlug, nearestCity } from '@/lib/geo';
 import { env } from '@/lib/env';
 import { isCategoryId } from './categories';
 import { MAX_FUTURE_DAYS } from './run-limits';
-import { pruneSourceSamples, SAMPLES_MISSING, SamplesMissingError, storeSourceSamples } from './samples';
-import { matchSignals, type MatchRow } from './match';
+import { pruneSourceSamples, SAMPLES_MISSING, SamplesMissingError, samplesTableState, storeSourceSamples } from './samples';
+import { MAX_MATCHES_PER_USER, matchOne, matchSignals, type MatchRow } from './match';
+import { ProjectStore, rearmStageAlerts } from './projects';
+import { markRepeats } from './repeat-marks';
+import { matchScope } from '@/lib/plan';
+import { isStageTrade, MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY, STAGE_NOTE_PREFIX, stageUpdatesEnabled } from './stage';
+import { isProbationNote } from './probation-note';
 import {
   getLastRunTimes,
   insertMatches,
   insertNewSignals,
+  markStoredContactPaths,
+  contactGateOn,
   loadProfiles,
   logRun,
   pruneOldSignals,
+  readAllPages,
   type Db,
   type SignalRowInput,
   type StoredSignal,
 } from './store';
 import { recordSourceHealth, type RunOutcome } from './health';
+import { contactPathOf, holdOf, missingHoldColumn } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
+import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import { remapStoredSignals, type RemapReport } from './mapping/remap';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { normalizeState } from './adapters/usaspending';
 import { pingNewSignals, type PingNewSignalsInput, type PingOutcome } from '@/lib/seo/indexnow';
-import type { Adapter, Severity, SignalInput } from './types';
+import type { StageQueryOutcome, Adapter, Severity, SignalInput } from './types';
 
 export type SourceStatus = 'ok' | 'error' | 'skipped(env)' | 'skipped(cadence)';
 
@@ -38,6 +49,10 @@ export interface SourceResult {
   samples: string[];
   logs: string[];
   error?: string;
+  /** The source's stage query did not work (lib/signals/stage.ts isStageNote). Not a failure of the source: its status stays ok; it is written on the source's scan_runs row. */
+  stageNote?: string;
+  /** A probation source's note (lib/signals/probation-note.ts, e.g. "row cap reached"). Not a failure; written on its scan_runs row. */
+  note?: string;
   /** newest occurredAt among parsed items (null when none), to tell a quiet source from a stale one */
   latestOccurredAt?: string | null;
   missingEnv?: string[];
@@ -66,6 +81,10 @@ export interface RunOptions {
   now?: Date;
   /** per-adapter timeout in ms (default 40000) */
   adapterTimeoutMs?: number;
+  /** per-adapter timeout of a probation source in ms (default PROBATION_TIMEOUT_MS; never above adapterTimeoutMs) */
+  probationTimeoutMs?: number;
+  /** Test hook: stage updates on or off (default: the HOLLER_STAGE_UPDATES_ENABLED flag). */
+  stageUpdates?: boolean;
   /** override adapter list (tests) */
   adapters?: Adapter[];
   fetchImpl?: typeof fetch;
@@ -81,6 +100,11 @@ export interface RunOptions {
 }
 
 export const DEFAULT_ADAPTER_TIMEOUT_MS = 40_000;
+/**
+ * Round 19 coverage (review P2-E): a probation source is an unchecked portal. It gets at most 12 s in all, and the scan writes and matches
+ * every live source WITHOUT waiting for it (its samples are written after matching), so a hanging probation portal never delays live rows.
+ */
+export const PROBATION_TIMEOUT_MS = 12_000;
 /** The scan route has maxDuration = 60 s. Fetching takes up to 40 s, so new writes stop at 48 s and leave 12 s for matching, logging and the response. */
 export const SCAN_DEADLINE_MS = 48_000;
 /**
@@ -99,7 +123,13 @@ export function isDue(adapter: Adapter, lastRunMs: number | undefined, nowMs: nu
 }
 
 export function missingEnvFor(adapter: Adapter, e: Record<string, string | undefined> = env): string[] {
-  return (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  const keys = (adapter.requiresEnv ?? []).filter((k) => !e[k]);
+  // A feature-flagged adapter (city bids) that is switched off counts as not configured, naming the flag. The scan, the health
+  // email and the ingest monitor all read this, so a deliberately-off source is never reported as "never ran".
+  // Each flagged adapter names ITS flag (Adapter.flag); one that does not says so generically instead of naming another adapter's flag.
+  if (adapter.enabled && !adapter.enabled()) keys.push(adapter.flag ?? 'feature flag');
+  for (const f of adapter.extraFlags ?? []) if (!f.on()) keys.push(f.name);
+  return keys;
 }
 
 function safeHttpUrl(u: unknown): string | null {
@@ -158,7 +188,8 @@ function slugify(s: string): string {
  * on a city page.
  */
 export function placeSlugFor(s: SignalInput): string | null {
-  if (hasApproxLocation({ source: s.source, data: s.data as { loc?: unknown } | null | undefined })) return null;
+  // Only data.loc counts here: a row placed at its city's centre (data.approxLocation) still belongs on that city's page.
+  if (hasApproxLocation({ source: s.source, data: { loc: (s.data as { loc?: unknown } | null | undefined)?.loc } })) return null;
   try {
     if (typeof s.lat === 'number' && typeof s.lon === 'number') return nearestCity(s.lat, s.lon, 40)?.slug ?? null;
     if (s.city && s.state) return cityBySlug(`${slugify(s.city)}-${s.state.toLowerCase()}`)?.slug ?? null;
@@ -190,16 +221,17 @@ interface Fetched {
   health?: { ok: boolean; error: string | null };
 }
 
-async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch): Promise<Fetched> {
+async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: number, fetchImpl: typeof fetch, extra: { db?: Db | null; dry?: boolean; stageTracking?: boolean } = {}): Promise<Fetched> {
   const t0 = Date.now();
   const startedAt = new Date(t0).toISOString();
   const logs: string[] = [];
   const result: SourceResult = { id: adapter.id, status: 'ok', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs, latestOccurredAt: null, ms: 0 };
   let signals: SignalInput[] = [];
+  let stageOutcome: StageQueryOutcome | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const raw = await Promise.race([
-      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)) }),
+      adapter.fetch({ since, now, fetch: fetchImpl, env, log: (m) => logs.push(String(m).slice(0, 300)), db: extra.db ?? null, dry: !!extra.dry, stageTracking: !!extra.stageTracking, stageOutcome: (o) => { stageOutcome = o; } }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           logs.push(`adapter timeout after ${timeoutMs} ms`);
@@ -208,15 +240,27 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
       }),
     ]);
     const list = Array.isArray(raw) ? raw : [];
-    result.fetched = list.length;
+    // Probe rows (the stage query) are not rows the source published today: they do not count as fetched, parsed or latest.
+    const real = list.filter((x) => !(x && typeof x === 'object' && (x as SignalInput).stageProbe));
+    result.fetched = real.length;
     signals = normalizeSignals(adapter, list, now);
-    result.parsed = signals.length;
-    result.latestOccurredAt = latestOf(signals);
-    result.samples = signals.slice(0, 3).map((s) => s.title);
+    const parsedReal = signals.filter((x) => !x.stageProbe);
+    result.parsed = parsedReal.length;
+    result.latestOccurredAt = latestOf(parsedReal);
+    result.samples = parsedReal.slice(0, 3).map((x) => x.title);
+    if (stageOutcome && (stageOutcome as StageQueryOutcome).state !== 'ok') {
+      const o = stageOutcome as StageQueryOutcome;
+      result.stageNote = `${STAGE_NOTE_PREFIX} ${o.state === 'rejected' ? `date column ${o.dateField} not accepted (code ${o.httpStatus ?? '?'})` : o.state === 'failed' ? 'no usable answer' : 'full page, newest changes only'}`.slice(0, 200);
+    }
     // Adapters swallow errors and return []: an empty result with an error-looking log is a broken source, not a quiet day.
-    if (list.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
+    if (real.length === 0 && logs.some((l) => ERROR_LOG.test(l))) {
       result.status = 'error';
       result.error = logs.filter((l) => ERROR_LOG.test(l)).join(' | ').slice(0, 500);
+    }
+    // A probation source that worked but left a note (row cap reached): kept for its scan_runs row and the owner's sources report.
+    if (adapter.probation && result.status !== 'error') {
+      const note = logs.find((l) => isProbationNote(l));
+      if (note) result.note = note.slice(0, 200);
     }
   } catch (e) {
     result.status = 'error';
@@ -227,6 +271,65 @@ async function fetchOne(adapter: Adapter, since: Date, now: Date, timeoutMs: num
   }
   result.ms = Date.now() - t0;
   return { adapter, result, signals, startedAt, health: { ok: result.status !== 'error', error: result.error ?? null } };
+}
+
+/**
+ * Stage updates each member already got in this UTC day: their matches on projects whose stage update was emitted today, not counting
+ * the ones this scan is sending. Never throws; a failed read counts as none (the per-scan room still applies).
+ */
+async function stageUpdatesToday(db: Db, now: Date, exceptSignalIds: readonly number[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const stages = await readAllPages<{ signal_id: number | null }>(
+      (from, to) => db.from('holler_permit_stages').select('signal_id').eq('emitted', true).gte('first_seen_at', dayStart).order('first_seen_at', { ascending: true }).range(from, to),
+      5,
+    );
+    const except = new Set(exceptSignalIds);
+    const ids = [...new Set(stages.map((x) => x.signal_id).filter((x): x is number => typeof x === 'number' && !except.has(x)))];
+    for (let i = 0; i < ids.length; i += 200) {
+      const part = ids.slice(i, i + 200);
+      const read = (cols: string) =>
+        readAllPages<{ user_id: string; alert_hold?: string | null }>(
+          (from, to) => db.from('holler_matches').select(cols).in('signal_id', part).order('id', { ascending: true }).range(from, to),
+          10,
+        );
+      let matches: Array<{ user_id: string; alert_hold?: string | null }>;
+      try {
+        matches = await read('user_id, alert_hold');
+      } catch (e) {
+        if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+        matches = await read('user_id');
+      }
+      // A feed-only card never got its update (it is never sent), so it does not use one of the member's 5 places.
+      for (const m of matches) if (!holdOf(m)) out.set(m.user_id, (out.get(m.user_id) ?? 0) + 1);
+    }
+  } catch {
+    /* no count: the per-scan room still caps the member */
+  }
+  return out;
+}
+
+/**
+ * Round 18 contact gate (lib/signals/alert-gate.ts): for every building permit this scan just stored, whether it names a business or a
+ * job-site street address (from the contacts the adapter attached, sanitised exactly as they are stored, or from the public summary).
+ * Set on the stored row object (like hasContact) so matchSignals can hold a permit card with neither out of email and push. Rows that are
+ * not permits are left untouched (their contact state stays unknown, and the gate never applies to them).
+ */
+export function markContactPaths(inserted: StoredSignal[], built: readonly SignalInput[]): void {
+  const byKey = new Map<string, SignalInput>();
+  for (const b of built) byKey.set(`${b.source}\u0000${b.externalId}`, b);
+  for (const r of inserted) {
+    if (!isPermitRecord({ kind: r.kind, subtype: r.subtype ?? null })) continue;
+    const b = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+    let contacts: ReturnType<typeof sanitizeContacts> = [];
+    try {
+      contacts = sanitizeContacts(b?.contacts ?? [], { datasetCity: b?.city ?? null });
+    } catch {
+      contacts = [];
+    }
+    r.contactPath = contactPathOf(contacts, r.summary ?? b?.summary ?? null);
+  }
 }
 
 export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<ScanReport> {
@@ -265,6 +368,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
   const due: Adapter[] = [];
   for (const a of selected) {
     const missing = missingEnvFor(a);
+    // missingEnvFor also names the flag when a feature-flagged adapter (city bids) is switched off.
     if (missing.length) {
       report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [], missingEnv: missing, ms: 0 });
     } else if (!dry && !opts.source && !isDue(a, lastRuns[a.id], now.getTime())) {
@@ -272,24 +376,61 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     } else due.push(a);
   }
 
-  const fetched = await Promise.all(
-    due.map((a) => {
-      const last = lastRuns[a.id];
-      const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
-      return fetchOne(a, since, now, timeoutMs, fetchImpl);
-    }),
-  );
+  // Source probation (migration 0032). The samples table is probed once, and only when a probation source is due on a real scan. With
+  // it missing, every probation source is skipped like an unconfigured one: no fetch, no write anywhere, no scan_runs row, no error.
+  let samplesState: 'ok' | 'missing' | 'failed' | 'unknown' = 'unknown';
+  if (!dry && db && due.some((a) => a.probation)) {
+    samplesState = await samplesTableState(db);
+    if (samplesState === 'missing') {
+      for (let i = due.length - 1; i >= 0; i--) {
+        const a = due[i];
+        if (!a.probation) continue;
+        due.splice(i, 1);
+        report.sources.push({ id: a.id, status: 'skipped(env)', fetched: 0, parsed: 0, inserted: 0, matched: 0, samples: [], logs: [SAMPLES_MISSING], missingEnv: ['migration 0032 (holler_source_samples)'], ms: 0 });
+      }
+    }
+  }
+
+  // PLAN-2.0 2.1 and 2.3 (migration 0025). The stage table is probed once, and only when a source in this scan has a stage query: with
+  // the table missing no adapter makes that query, so the scan fetches exactly what it fetched before.
+  const logsSink: string[] = [];
+  const updatesOn = opts.stageUpdates ?? stageUpdatesEnabled();
+  const projects = !dry && db ? new ProjectStore(db, (m) => logsSink.push(m), now, updatesOn) : null;
+  // The stage query is made only with the flag on AND the stage table there; with either missing the fetch is exactly the pre-0025 one.
+  // Round 19 integration: a probation source never makes the stage query (its rows go to samples only, so a stage could never be used).
+  const stageTracking = projects && updatesOn && due.some((a) => a.stageQuery && !a.probation) ? await projects.stageTrackingAvailable() : false;
+  const probeLogs = logsSink.splice(0);
+
+  // Every fetch starts now, together. A probation source gets the short limit and is awaited only after the live sources are written and
+  // matched (review P2-E), so it can never hold them up.
+  const probationTimeoutMs = Math.min(timeoutMs, opts.probationTimeoutMs ?? PROBATION_TIMEOUT_MS);
+  const started = due.map((a) => {
+    const last = lastRuns[a.id];
+    const since = last ? new Date(last - 10 * 60_000) : new Date(now.getTime() - FIRST_RUN_LOOKBACK_MS);
+    return { a, p: fetchOne(a, since, now, a.probation ? probationTimeoutMs : timeoutMs, fetchImpl, { db, dry, stageTracking: stageTracking && !a.probation }) };
+  });
+  const liveFetched = await Promise.all(started.filter((x) => !x.a.probation).map((x) => x.p));
+  const probationPending = Promise.all(started.filter((x) => x.a.probation).map((x) => x.p));
+  /** Live and probation results together, in the registry order (the report and the run log keep that order). */
+  const inOrder = (list: Fetched[]): Fetched[] => due.map((a) => list.find((f) => f.adapter === a)).filter((f): f is Fetched => Boolean(f));
+  let fetched: Fetched[] = liveFetched;
 
   if (dry || !db) {
+    fetched = inOrder([...liveFetched, ...(await probationPending)]);
     for (const f of fetched) report.sources.push(f.result);
   } else {
     // Phase 1: persist new signals per source.
     const storedAll: StoredSignal[] = [];
+    // Round 19 RULES review P2-5: the heat check's own source-health line (lib/signals/repeat-marks.ts HEAT_CHECK_SOURCE).
+    const markChecks: RunOutcome[] = [];
+    /** Existing project rows whose permit just moved to a final stage: matched to the stage trades only (lib/signals/projects.ts). */
+    const stageSignals: StoredSignal[] = [];
+    const projectStore = projects as ProjectStore; // db is set on this branch
     const skippedForTime = new Set<Fetched>();
     // Oldest last successful run first (never run = first), so a source the deadline skipped is the first one written on the next tick.
     // In a fixed order the same late sources were skipped on every tick and a 6 hour feed could starve forever. Array.sort is stable,
     // so sources with equal ages keep their registry order.
-    const writeOrder = [...fetched].sort((a, b) => (lastRuns[a.adapter.id] ?? 0) - (lastRuns[b.adapter.id] ?? 0));
+    const writeOrder = [...liveFetched].sort((a, b) => (lastRuns[a.adapter.id] ?? 0) - (lastRuns[b.adapter.id] ?? 0));
     for (const f of writeOrder) {
       if (clock() - t0 > deadlineMs && f.result.status !== 'error' && f.signals.length) {
         // Out of time for new writes. Not logged below, so this source is due again on the next tick and nothing is silently lost.
@@ -299,23 +440,26 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         continue;
       }
       if (f.result.status !== 'error' && f.signals.length) {
-        if (f.adapter.probation) {
-          // Probation: same fetch, parsing and sanitizing as any source, but the rows go to holler_source_samples (service role only).
-          // Never holler_signals, so no matching, notification, AI classification or IndexNow can see them (they stay out of storedAll).
-          try {
-            f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
-          } catch (e) {
-            f.result.status = 'error';
-            f.result.error = e instanceof SamplesMissingError ? e.message : (e instanceof Error ? e.message : String(e)).slice(0, 500);
-            f.health = { ok: false, error: f.result.error };
-          }
-          continue;
-        }
         try {
-          const rows: SignalRowInput[] = f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) }));
-          const inserted = await insertNewSignals(db, rows, { log: (m) => f.result.logs.push(m), dedupe: true });
+          // Round 19 RULES: the per-building heat count and repeated NWS alerts are decided once, here, and written into the rows
+          // (lib/signals/repeat-marks.ts). Never throws; a failed read leaves the rows as they came.
+          const marks = await markRepeats(db, f.signals.map((s) => ({ ...s, placeSlug: placeSlugFor(s) })));
+          f.result.logs.push(...marks.logs);
+          markChecks.push(...marks.checks);
+          const rows: SignalRowInput[] = marks.rows;
+          // PLAN-2.0 2.1 and 2.3 (migration 0025). Off, and silent, while the tables are missing: the rows then go in exactly as built.
+          logsSink.length = 0;
+          if (f.adapter.stageQuery) logsSink.push(...probeLogs);
+          const plan = await projectStore.plan(rows);
+          const inserted = await insertNewSignals(db, plan.rows, { log: (m) => f.result.logs.push(m), dedupe: true });
           f.result.inserted = inserted.length;
-          storedAll.push(...inserted);
+          await projectStore.record(plan, inserted);
+          const events = await projectStore.stages(plan, inserted);
+          f.result.logs.push(...logsSink);
+          markContactPaths(inserted, plan.rows);
+          // A row stored as a follower (another listing of a project, same or another source) is evidence, not a second card.
+          storedAll.push(...inserted.filter((r) => !(r.external_id != null && plan.followers.has(r.external_id))));
+          stageSignals.push(...events);
         } catch (e) {
           f.result.status = 'error';
           f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
@@ -323,21 +467,102 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         }
       }
     }
-    // Sample retention, once per scan for every source (not only probation sources that returned rows). A missing table (migration 0022
-    // not applied) is logged once here, unless a probation source already reported it on its own scan_runs row.
-    if ((await pruneSourceSamples(db, now)) === 'missing' && !fetched.some((f) => f.result.error === SAMPLES_MISSING)) console.warn(SAMPLES_MISSING);
-    // The report keeps the registry order whatever order the writes happened in.
-    for (const f of fetched) report.sources.push(f.result);
 
     // Phase 2: match all new signals at once so the per-user cap applies per scan.
-    if (storedAll.length) {
+    if (storedAll.length || stageSignals.length) {
       try {
         const profiles = await loadProfiles(db, now);
+        // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
+        const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
+        if (!gateOn) for (const s of storedAll) s.contactPath = undefined;
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
+        // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
+        // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
+        // holds the card gets it re-sent once as a stage update. Per member: at most MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY a UTC day, and
+        // together with this scan's normal cards inside MAX_MATCHES_PER_USER (a stage update never sits outside the 25).
+        const rearm = new Map<number, string[]>();
+        if (stageSignals.length) {
+          const have = new Map<string, string>();
+          /** Pairs whose card is feed-only (alert_hold): a re-sent card would still be held, so it gets no update and takes no place. */
+          const heldPairs = new Set<string>();
+          // A member with no card yet gets a fresh one: the contact gate reads the stored contacts for it, as the scan did for the others.
+          if (gateOn) await markStoredContactPaths(db, stageSignals);
+          else for (const sig of stageSignals) sig.contactPath = undefined;
+          try {
+            type Existing = { user_id: string; signal_id: number; status: string | null; alert_hold?: string | null };
+            const read = (cols: string) =>
+              readAllPages<Existing>(
+                (from, to) => db.from('holler_matches').select(cols).in('signal_id', stageSignals.map((s) => s.id)).order('id', { ascending: true }).range(from, to),
+                20,
+              );
+            let existing: Existing[];
+            try {
+              existing = await read('user_id, signal_id, status, alert_hold');
+            } catch (e) {
+              if (!missingHoldColumn(e instanceof Error ? e.message : String(e))) throw e;
+              existing = await read('user_id, signal_id, status');
+              // Migration 0027 is not applied after all: no card is feed-only. Every card of this scan is stored as a plain alert (insertMatches
+              // drops the hold too) and every stage update goes out exactly as before round 18.
+              for (const r of rows) delete r.alert_hold;
+              for (const sig of stageSignals) sig.contactPath = undefined;
+            }
+            for (const m of existing) {
+              have.set(`${m.user_id}\u0000${m.signal_id}`, m.status ?? 'new');
+              if (holdOf(m)) heldPairs.add(`${m.user_id}\u0000${m.signal_id}`);
+            }
+          } catch {
+            /* insertMatches keeps (user, signal) unique anyway */
+          }
+          const usedToday = await stageUpdatesToday(db, now, stageSignals.map((s) => s.id));
+          const normal = new Map<string, number>();
+          // Only cards that go out count against the room: a feed-only card of this scan gives way to a stage update (trimmed below).
+          for (const r of rows) if (!r.alert_hold) normal.set(r.user_id, (normal.get(r.user_id) ?? 0) + 1);
+          for (const p of profiles) {
+            // Only the member's stage trades are asked: a member of ['moving', 'landscaping'] must not be answered with "moving" alone.
+            const mine = matchScope(p).categories.filter((c) => isStageTrade(c));
+            if (mine.length === 0) continue;
+            const hits: Array<{ sig: StoredSignal; fresh: boolean; distance: number | null; score: number }> = [];
+            for (const sig of stageSignals) {
+              const hit = matchOne(sig, { ...p, categories: mine, keywords: [] }, undefined, now.getTime());
+              // A card that is feed-only for this member (below their minimum job value, migration 0027) gets no stage update either.
+              if (!hit || hit.label !== 'coming_soon' || hit.hold || !isStageTrade(hit.trade)) continue;
+              // A card the member saved, finished or dismissed is never re-sent (rearmStageAlerts), so it must not take one of the 5 places.
+              const held = have.get(`${p.user_id}\u0000${sig.id}`);
+              if (held !== undefined && held !== 'new') continue;
+              if (heldPairs.has(`${p.user_id}\u0000${sig.id}`)) continue;
+              hits.push({ sig, fresh: held === undefined, distance: hit.distance_mi, score: hit.score });
+            }
+            if (hits.length === 0) continue;
+            const room = Math.max(0, Math.min(MAX_STAGE_UPDATES_PER_MEMBER_PER_DAY - (usedToday.get(p.user_id) ?? 0), MAX_MATCHES_PER_USER - (normal.get(p.user_id) ?? 0)));
+            hits.sort((x, y) => y.score - x.score || y.sig.id - x.sig.id);
+            for (const h of hits.slice(0, room)) {
+              if (h.fresh) rows.push({ user_id: p.user_id, signal_id: h.sig.id, distance_mi: h.distance });
+              else rearm.set(h.sig.id, [...(rearm.get(h.sig.id) ?? []), p.user_id]);
+            }
+          }
+        }
+        // Still at most MAX_MATCHES_PER_USER new rows per member: a fresh stage card takes the place of this scan's last feed-only card.
+        if (stageSignals.length) {
+          const count = new Map<string, number>();
+          for (const r of rows) count.set(r.user_id, (count.get(r.user_id) ?? 0) + 1);
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            if (r.alert_hold && (count.get(r.user_id) ?? 0) > MAX_MATCHES_PER_USER) {
+              rows.splice(i, 1);
+              count.set(r.user_id, (count.get(r.user_id) ?? 0) - 1);
+            }
+          }
+        }
+        // A held row is stored as already handled (notified, pushed_at): the email and push runs never read it again (review P3-4). If
+        // 0027 turns out to be missing, insertMatches drops all three keys and the card is stored exactly as before round 18.
+        for (const r of rows) if (r.alert_hold) Object.assign(r, { notified: true, pushed_at: now.toISOString() });
         await insertMatches(db, rows);
+        if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; liveFetched.find((x) => x.adapter.id === src)?.result.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
-        await logAlerts(db, alertLogRowsFor(rows, storedAll, profiles));
-        const sourceById = new Map(storedAll.map((s) => [s.id, s.source]));
+        const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;
+        // A feed-only card (alert_hold: background, below the member's minimum, or a held trade family) is not an alert: not logged as one.
+        await logAlerts(db, alertLogRowsFor(rows.filter((r) => !r.alert_hold), alertSignals, profiles));
+        const sourceById = new Map(alertSignals.map((s) => [s.id, s.source]));
         const bySource = new Map<string, number>();
         for (const r of rows) {
           const src = sourceById.get(r.signal_id);
@@ -358,6 +583,37 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
       }
     }
 
+    // Probation sources, after the live ones are written and matched (review P2-E). Same fetch, parsing and contact clean-up as any
+    // source, but the rows go to holler_source_samples (service role only). Never holler_signals or the project store, so no matching,
+    // card, alert, AI note or IndexNow ping can see them (they stay out of storedAll). A table that went missing since the probe is a skip.
+    const probationFetched = await probationPending;
+    for (const f of probationFetched) {
+      if (f.result.status === 'error' || !f.signals.length) continue;
+      if (clock() - t0 > deadlineMs) {
+        f.result.status = 'error';
+        f.result.error = `deadline: scan passed ${Math.round(deadlineMs / 1000)} s before this source was written; it will retry next tick`;
+        skippedForTime.add(f);
+        continue;
+      }
+      try {
+        f.result.inserted = await storeSourceSamples(db, f.adapter.id, f.signals, now);
+      } catch (e) {
+        if (e instanceof SamplesMissingError) {
+          f.result.logs.push(SAMPLES_MISSING);
+        } else {
+          f.result.status = 'error';
+          f.result.error = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+          f.health = { ok: false, error: f.result.error };
+        }
+      }
+    }
+    // Sample retention, once per scan for every source (a quiet, promoted or removed source's samples expire too). Skipped when the
+    // probe already found the table missing; never throws and never fails the scan.
+    if (samplesState !== 'missing') await pruneSourceSamples(db, now);
+    fetched = inOrder([...liveFetched, ...probationFetched]);
+    // The report keeps the registry order whatever order the writes happened in.
+    for (const f of fetched) report.sources.push(f.result);
+
     // Phase 3: log one scan_runs row per adapter that ran.
     // Always runs (even past the deadline), concurrently in small batches: 45 sequential inserts would eat the time that is left.
     const finishedAt = new Date().toISOString();
@@ -372,7 +628,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
             fetched: f.result.fetched,
             inserted: f.result.inserted,
             matched: f.result.matched,
-            error: f.result.error ?? null,
+            error: f.result.error ?? f.result.stageNote ?? f.result.note ?? null,
           }),
         ),
       );
@@ -397,6 +653,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
           rowsNew: f.result.inserted,
           latestRecordAt: f.result.latestOccurredAt ?? null,
         }));
+      outcomes.push(...markChecks);
       const healthError = await recordSourceHealth(db, outcomes, now);
       if (healthError) console.warn(healthError);
     } catch (e) {
@@ -426,6 +683,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
     if (clock() - t0 <= deadlineMs + 4_000) {
       try {
         report.pruned = await pruneOldSignals(db, now);
+        if (report.pruned) await projectStore.pruneOld();
       } catch (e) {
         report.error = `${report.error ? report.error + '; ' : ''}prune: ${e instanceof Error ? e.message : String(e)}`;
       }

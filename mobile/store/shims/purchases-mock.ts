@@ -2,8 +2,8 @@
 // (Solo $7.99 / $79.99, Pro $13.99 / $139.99). These are SIMULATED store prices; no store is contacted.
 // LAUNCH STATE: the store products carry NO introductory free trial (STORE-SETUP.md, App Store step 2.5 option (a)), so no package has
 // an intro price or a Play free phase, and the eligibility check reports "not eligible". The paywall therefore shows the price and
-// "Subscribe to <plan>", never a store "free trial" button. The 14 days free in the store images is the server's account trial
-// (no card), which the app states in its own words on Welcome ("Free for 14 days, no card.").
+// "Subscribe to <plan>", never a store "free trial" button. The trial in the store images is the server's account trial
+// (TRIAL_DAYS, no card), which the app states in its own words on Welcome (the config's trialHeadline, then "no card.").
 import { platform } from '../../src/lib/platform';
 
 const PRODUCTS = [

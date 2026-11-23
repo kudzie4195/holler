@@ -1,0 +1,4952 @@
+{
+ "source": "Round 18 review 2 of NAMES (/home/claude/gates/r18/review/review-NAMES-2.md): the fresh matrices, copied by script from /home/claude/gates/r18/logs/REV2-NAMES-probe-tests/*-fresh-judged.tsv with the label (P private person, B business, X placeholder or holding, Q borderline, H home-prone activity, I institutional owner) and the reviewer's judgement of each string that passed at e42cbb8. Every string is synthetic. The *Pass lists are what redo 2 names.",
+ "contractor": [
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Nguyen Thi Hoa",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Oluwaseun Adeyemi",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Siddharth Venkataraman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Katarzyna Wisniewska",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Hyun-woo Park",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Xochitl Ramirez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Abdirahman Warsame",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Tevita Fifita",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Anahera Tamihana",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Bjorn Sigurdsson",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Giuseppe Esposito",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Dmitri Volkov",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Yevgenia Kuznetsova",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Mai Xiong",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Pa Houa Vang",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Jean-Baptiste Pierre-Louis",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Gurpreet Singh Dhillon",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Farhad Tehrani",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Eitan Ben-David",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Kofi Boateng",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "VANG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "XIONG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "LEE PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "YANG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "HER PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "THAO PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "TRAN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "NGUYEN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "LIM CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "TAN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Maria Co",
+   "judgement": "PRIVATE PERSON (surname Co / given name Pa read as a legal form) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Lucio Co",
+   "judgement": "PRIVATE PERSON (surname Co / given name Pa read as a legal form) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Jennifer Co",
+   "judgement": "PRIVATE PERSON (surname Co / given name Pa read as a legal form) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "J Co",
+   "judgement": "PRIVATE PERSON (surname Co / given name Pa read as a legal form) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Sok Pa",
+   "judgement": "PRIVATE PERSON (surname Co / given name Pa read as a legal form) -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Kim Lp",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Chen Pc",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Mary Limited",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "John Company",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Anna Corp",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "legal-word-surname",
+   "input": "Wei Ltd",
+   "judgement": "business under the rules as written (a first name plus a legal form that is not a name); names no full person"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "John Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Mary Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Joyce Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Deontay Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "J Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Milton Bros",
+   "judgement": "business under the rules (family or firm form that is not a surname)"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "BROTHERS JOHN",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Ana Sons",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Dale Associates",
+   "judgement": "business under the rules (family or firm form that is not a surname)"
+  },
+  {
+   "label": "P",
+   "group": "holding-word-surname",
+   "input": "Deontay Holding",
+   "judgement": "PRIVATE PERSON possible (\"Holding\" is a surname) -> P3"
+  },
+  {
+   "label": "P",
+   "group": "holding-word-surname",
+   "input": "Truong Holding",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "holding-word-surname",
+   "input": "Saoirse Partners",
+   "judgement": "business form, not a surname; names no full person"
+  },
+  {
+   "label": "P",
+   "group": "holding-word-surname",
+   "input": "Bashir Capital",
+   "judgement": "business form, not a surname; names no full person"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Deontay Cooling",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Saoirse Heating",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Bashir Painters",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Truong Builders",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Ifeoma Energy",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Kwesi Welding",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Lachlan Fencing",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Fergus Paving",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Imogen Flooring",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Dafydd Concrete",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Thinh Electric",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "trade-surname-fresh",
+   "input": "Abdulkadir Roofing",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Deontay Rooter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Saoirse Chimney",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Bashir Lumber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Truong Gutter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Ifeoma Storage",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Kwesi Security",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Lachlan Moving",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Fergus Design",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Imogen Repair",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Hamish Drilling",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Gareth Supply",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Roisin Alarm",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Nnamdi Pest",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Chiyo Fiber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Takumi Iron",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Yuma Transport",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Liban Equipment",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Sefo Rentals",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Tavita Controls",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "ambig-fresh",
+   "input": "Vasil Doors",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Deontay Sewer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Saoirse Carpet",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Bashir Brick",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Truong Pipe",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Ifeoma Paint",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Kwesi Stucco",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Lachlan Asphalt",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Fergus Drywall",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Imogen Shingle",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Hamish Boiler",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "John Sewer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Mary Carpet",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Robert Paving",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Linda Electric",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Tom Heating",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "not-on-lists-trade-surname",
+   "input": "Sue Plumbing",
+   "judgement": "business under the owner's rule (a name plus an unambiguous trade form that is not a surname, like \"Carter Electric\")"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Maria Garcia-Lopez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Juan de la Cruz",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Anne-Marie St. Pierre",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Vincent van der Berg",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Abdul Rahman bin Yusuf",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Mary O'Connor-Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Jose Luis Rodriguez Zapatero",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Carmen Perez de Cuellar",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Ludwig von Mises",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Fatima Al-Sayed",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Ahmed El Masri",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Pierre Du Pont",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Sinead Ni Bhriain",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Rhys ap Gwilym",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Catherine Zeta-Jones",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Daniel Day-Lewis",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Olivia Newton-John",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Garcia-Lopez Maria",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "DE LA CRUZ JUAN",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "VAN DER BERG, VINCENT",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Smith-Jones Glass",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Maria Garcia-Lopez Pool",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Juan de la Cruz Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Mary St. John Tile",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-multipart",
+   "input": "Jean-Luc Picard Power",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Robert Downey Jr",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Martin Luther King III",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Sr",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "JOHN SMITH JR.",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith II",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith IV",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Smith John Jr",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "SMITH JR JOHN",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith 3rd",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith 2nd",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Junior",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Senior",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Esq",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Jr Glass",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "William Mason III",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Henry Wood IV",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Earl Stone Sr.",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Cal Ripken Jr.",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Ken Griffey Jr",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Sammy Davis Jr.",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.R. Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JR Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J R Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "A.J. Foyt",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "T.J. Hooker",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "CJ Perez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "C.J. Stroud",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J. K. Rowling",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JK Rowling",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.D. Vance",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "B.J. Novak",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "M Jones",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "M. Jones",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "Jones M",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "Jones, M.",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "R L Stine",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "E E Cummings",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "H. Ross Perot",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J. Edgar Hoover",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "John F. Kennedy",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.R. Glass",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "T.J. Mason",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "D.J. Pool",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "A.J. Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JD Power",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J B Hunt",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.B. Hunt",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "P.J. Carpenter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Bubba Watson",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Big Mike",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Skip Bayless",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Buddy Holly",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Junior Garcia",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Chuy Hernandez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Pepe Lopez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Mike \"Mickey\" Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Bobby Ray",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Billy Bob Thornton",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Butch Cassidy",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Tex Ritter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Slim Pickens",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Red Adair",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Doc Rivers",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Smokey Robinson",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Dusty Baker",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Rusty Staub",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Sonny Bono",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Chip Gaines",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Bubba Glass",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Buddy Pool",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Tex Mason",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Red Wood",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Sonny Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Tito Painter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Paco Carpenter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Lalo Gardner",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Electrician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mary Jones Plumber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Bob the Builder",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Ana Garcia Roofer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Luis Hernandez Painter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Tom Baker Carpenter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Jose Ramirez Albanil",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Carlos Mendoza Plomero",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Miguel Torres Electricista",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Contractor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mike Welder",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Jim Mechanic",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Joe Handyman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Joe the Plumber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Pat Installer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Dan Landscaper",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Sam Tiler",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Kim Cleaner",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Tom Technician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith HVAC Tech",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Master Plumber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Journeyman Electrician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Apprentice",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Foreman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Superintendent",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Estimator",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Project Manager",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Engineer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Architect",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Surveyor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith PE",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith AIA",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Builder",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Remodeler",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Deontay Okafor Electrician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Truong Phuoc Plumber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Saoirse Brennan Roofer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Bashir Qasim Handyman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Zdzislaw Wojtek Welder",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Thinh Vuong Installer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Electrician John Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Plumber Mary Jones",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Master Electrician John Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Licensed Plumber Mary Jones",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Roofer Deontay Okafor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Sole Proprietor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Independent Contractor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Subcontractor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Laborer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Tradesman",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Maria Lopez Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Deontay Okafor Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "J Smith Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Maria Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Services John Smith",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Lawn Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Cleaning Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Tax Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Notary Services",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Handyman Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Mary Jones Babysitting Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Mary Jones Nursing Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Mary Jones Hair Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Delivery Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Freelance Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Professional Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith IT Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Solutions",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Group",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Enterprises",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Consulting",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Associates",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Development",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Systems",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Mary Jones Technologies",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith and Mary Jones Services",
+   "judgement": "trade name with a generic firm word (Services, Group, Solutions ...): no trade form and no legal suffix, so outside the letter of the owner's rule -> owner decision, P2"
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "John Smith Jr Services",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "person-services",
+   "input": "Mr John Smith Services",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Paris Hilton",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Dallas Green",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Austin Butler",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Jackson Pollock",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Orlando Bloom",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Charlotte Bronte",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Savannah Guthrie",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Brooklyn Decker",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Phoenix Wright",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Chelsea Clinton",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Sydney Sweeney",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Florence Pugh",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Lincoln Riley",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Houston Stewart",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Denver Pyle",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Georgia O'Keeffe",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Carolina Herrera",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Dakota Fanning",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Montana Jordan",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "India Arie",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Israel Adesanya",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Kenya Moore",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Ireland Baldwin",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Troy Aikman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Dallas Pool",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Austin Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Houston Glass",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Jackson Wood",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Madison Tile",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Troy Mason",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Lincoln Power",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Raleigh Drain",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Sydney Painter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Paris Carpenter",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Dallas Gardner",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Austin Mason",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Jackson Barber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Devon Service",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Kent Market",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Lorraine Kitchen",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Virginia Woods",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Georgia Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Carolina Wood",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Chelsea Homes",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Brooklyn Fence",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Orlando Garage",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Savannah Lawn",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Florence Tree",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Dallas Roofing",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Austin Electric",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Paris Plumbing",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Jackson Heating",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Charlotte Painting",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Savannah Cleaning",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Georgia Power",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Phoenix Solar",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Carolina Homes",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Florida Pool",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Atlanta Glass",
+   "judgement": ""
+  },
+  {
+   "label": "Q",
+   "group": "place-first-firm",
+   "input": "Chicago Tile",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "OWNER/CONTRACTOR",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Owner Acting As Contractor",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "HOMEOWNER AS BUILDER",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Home Owner Acting as GC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Property Owner Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Lot Owner Builders",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "OWNR/BLDR CONSTRUCTION",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "O/B CONSTRUCTION",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "HO Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "H O Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Mine Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Ourselves Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Himself Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Herself Painting",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Yourself Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Resident Roofing",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Occupant Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Tenant Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Landlord Services",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Lessee Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Applicant Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Permit Holder Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Exempt Builders",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Not Required Roofing",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Undecided Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Undetermined Contractors",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "To Be Selected Contractors",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "To Be Hired Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Bid Pending Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Out To Bid Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Awaiting Bids Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Per Owner Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "See Plans Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "See Permit Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Cash Job Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Family Member Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Brother In Law Roofing",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Son Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Uncle Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Neighbor Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Church Volunteers Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "DIY Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Do It Yourself Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Weekend Warrior Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Sweat Equity Builders",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "XXXX Construction",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "ZZZ Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Test Test Roofing",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "ABC Construction",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "placeholder-fresh",
+   "input": "Sample Roofing",
+   "judgement": "NO PERSON NAMED; owner-builder or placeholder value (the row's phone would ride along) -> P3"
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "GARCIA FAMILY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "THE NGUYEN FAMILY LP",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Okafor Family Holdings LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Deontay Okafor Properties",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Saoirse Brennan Holdings",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Truong Investments",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Bashir & Fatima Qasim Properties",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Kowalczyk Living Trust LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Patel Family Partnership",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Kim Family Limited Partnership",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Smith Revocable LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Jones Legacy Holdings LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Lopez Heirs LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Maria Lopez Rentals",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "John Smith Rental Properties",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "John Smith Real Estate",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "J&M Smith Holdings LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "JM Smith Properties LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Smith Kids LLC",
+   "judgement": "FAMILY HOLDING shape with a legal form -> P2"
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Smith Children LLC",
+   "judgement": "FAMILY HOLDING shape with a legal form -> P2"
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Smith Siblings LLC",
+   "judgement": "FAMILY HOLDING shape with a legal form -> P2"
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Mom And Dad LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Grandpa Joe LLC",
+   "judgement": "FAMILY HOLDING shape with a legal form -> P2"
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "My House LLC",
+   "judgement": ""
+  },
+  {
+   "label": "X",
+   "group": "holding-fresh",
+   "input": "Our Home LLC",
+   "judgement": ""
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Smith Roofing",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "John Smith Roofing LLC",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Carter Electric",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Mary Jones Plumbing LLC",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Okafor Electric",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Nguyen Brothers Construction",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control-business",
+   "input": "Garcia & Sons Roofing",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "P",
+   "group": "family-word-surname",
+   "input": "Anne-Marie Brothers",
+   "judgement": "PRIVATE PERSON (\"Brothers\" is a listed surname) -> P1-B"
+  },
+  {
+   "label": "Q",
+   "group": "hyphen-listed",
+   "input": "Mary-Ann Smith-Jones LLC",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  },
+  {
+   "label": "Q",
+   "group": "hyphen-listed",
+   "input": "Jose-Luis Garcia-Lopez Landscaping",
+   "judgement": "business under the owner's rule (trade form or legal suffix)"
+  }
+ ],
+ "licence": [
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Nguyen Thi Hoa",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Oluwaseun Adeyemi",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Siddharth Venkataraman",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Katarzyna Wisniewska",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Abdirahman Warsame",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Tevita Fifita",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Giuseppe Esposito",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Yevgenia Kuznetsova",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Gurpreet Singh Dhillon",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-bare",
+   "input": "Farhad Tehrani",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "VANG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "XIONG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "YANG PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "HER PA",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "TRAN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "NGUYEN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "TAN CO",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "LIM CO",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "KOWALCZYK ZDZISLAW",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "ADEYEMI OLUWASEUN",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-lastfirst",
+   "input": "WARSAME, ABDIRAHMAN",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "legal-word",
+   "input": "Sok Pa",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word",
+   "input": "Chen Pc",
+   "judgement": "business under the rules (a legal form that is not a name)"
+  },
+  {
+   "label": "P",
+   "group": "legal-word",
+   "input": "Okafor Co",
+   "judgement": "PRIVATE PERSON (a name whose last word is also a legal form: Co, Pa), stored with the licence site address -> P1-A"
+  },
+  {
+   "label": "P",
+   "group": "legal-word",
+   "input": "Phuoc Inc",
+   "judgement": "business under the rules (a legal form that is not a name)"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Bashir Qasim Tutoring",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Ifeoma Chukwudi Nursing",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Ifeoma Chukwudi Catering",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Zdzislaw Wojtek Tax",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Thinh Vuong Detailing",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Thinh Vuong Accounting",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Noelani Kainoa Photography",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Noelani Kainoa Grooming",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Bashir Qasim Maintenance",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Saoirse Aisling Bookkeeping",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Dafydd Emrys Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Chiyo Ayumi Cleaning",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Lakhwinder Tejinder Trucking",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Abdulkadir Guled Transportation",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Hermenegildo Crescencio Landscaping",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Kainoa Makoa Fitness",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Fionnuala Roisin Counseling",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Yuleisy Itzayana Cosmetics",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Slobodan Miodrag Painting",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Vihaan Reyansh Technologies",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Xiaohong Zhiwei Trading",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Sokha Bopha Alterations",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Kongmeng Pheng Insurance",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus an activity), stored with the licence site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "three-word-unlisted",
+   "input": "Tavita Sefo Security",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Qasim Tutoring",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Ifeoma Catering",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Thinh Detailing",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Noelani Photography",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Saoirse Bookkeeping",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-word-unlisted",
+   "input": "Dafydd Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Deontay's Barbershop",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Saoirses Bakery",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Ifeomas Kitchen",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Truongs Nails",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Bashir's Auto Repair",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Noelanis Flowers",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Mama Rosa's Kitchen",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Abuela Carmen Tamales",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "possessive",
+   "input": "Tia Lupe Tacos",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Notary",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mary Jones CPA",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Maria Lopez Esthetician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Ana Ruiz Hair Stylist",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Kim Tran Nail Tech",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Consultant",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mary Jones Realtor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Jane Doe Attorney",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith Photographer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mary Jones Tutor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "John Smith DJ",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Mary Jones Massage Therapist",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Maria Lopez Housekeeper",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Deontay Okafor Barber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Saoirse Aisling Photographer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Bashir Qasim Driver",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Ifeoma Chukwudi Braider",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Thinh Vuong Electrician",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Zdzislaw Wojtek Handyman",
+   "judgement": "PRIVATE PERSON plus a job word -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Noelani Kainoa Tutor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Chiyo Ayumi Translator",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Lakhwinder Tejinder Trucker",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "jobtitle",
+   "input": "Dafydd Emrys Writer",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "John Smith Services",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Deontay Okafor Services",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Bashir Qasim Services",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus a firm word), with the site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Saoirse Aisling Enterprises",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus a firm word), with the site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Thinh Vuong Group",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus a firm word), with the site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Ifeoma Chukwudi Solutions",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus a firm word), with the site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "person-services",
+   "input": "Noelani Kainoa Consulting",
+   "judgement": "PRIVATE PERSON (first and last name missing from the lists, plus a firm word), with the site address -> P1-C"
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Paris Hilton",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Dallas Green",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Austin Butler",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Brooklyn Decker",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Chelsea Clinton",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Florence Pugh",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Georgia Stone",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Kent Market",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Lorraine Kitchen",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Jackson Barber",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Devon Salon",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Troy Deli",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Madison Coffee",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Camden Tailor",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first",
+   "input": "Sydney Spa",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.R. Smith",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JR Smith Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J. Smith Bookkeeping",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "A.J. Okafor Catering",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "T Vuong Detailing",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "B Qasim Tutoring",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Jr",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "John Smith Jr Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Bashir Qasim Sr Trucking",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "Deontay Okafor III Enterprises",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Bubba Watson",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Big Mike Catering",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Chuy Hernandez Tacos",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Pepe Lopez Landscaping",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "Tito Qasim Trucking",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Maria Garcia-Lopez",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Maria Garcia-Lopez Cleaning",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Fatima Al-Sayed Catering",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Jean-Baptiste Pierre-Louis Transportation",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Juan de la Cruz Landscaping",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen",
+   "input": "Sinead Ni Bhriain Tutoring",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "Mary-Ann Smith-Jones Catering",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "Mary-Ann Smith-Jones LLC",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "Maria-Elena Tutoring Services",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "John-Paul Okafor-Smith Consulting",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "Jose-Luis Garcia-Lopez Landscaping",
+   "judgement": "PRIVATE PERSON (hyphenated names skip the name lists), with the site address -> P1-D"
+  },
+  {
+   "label": "P",
+   "group": "hyphen-listed",
+   "input": "Anne-Marie Dubois-Laurent Photography",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Little Stars Family Daycare",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Sunny Days Childcare",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Grandma's House Child Care",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Tiny Tots Day Care",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Bright Beginnings Preschool",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Rainbow Learning Academy",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Kitchen Table Bookkeeping",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Home Office Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Garage Gym Fitness",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Basement Studios",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Living Room Yoga",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Spare Room Studios",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "My Home Salon",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "In Home Pet Sitting",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Home Sweet Home Bakery",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Cottage Kitchen Bakery",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Cottage Food Bakery",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Mobile Notary Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Mobile Detailing Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Residential Cleaning Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "House Cleaning Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Housekeeping Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Pet Sitting Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Dog Walking Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Tutoring Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Piano Lessons Studio",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Private Chef Catering",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Personal Training Fitness",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Life Coaching Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Freelance Writing Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Independent Consulting Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Rideshare Transportation",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Vacation Rental Properties",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Airbnb Rental Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Room Rental Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Home Health Care Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Elder Care Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Adult Foster Care Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Sewing And Alterations",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Online Sales Enterprises",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Etsy Shop Crafts",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Handmade Crafts Boutique",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Home Based Business Services",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Homebased Bookkeeping",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Work From Home Consulting",
+   "judgement": ""
+  },
+  {
+   "label": "H",
+   "group": "home",
+   "input": "Apartment Cleaning Services",
+   "judgement": "NO PERSON NAMED; home-prone activity, the site may be a home -> P2"
+  },
+  {
+   "label": "B",
+   "group": "control",
+   "input": "SUNSET PIZZA",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control",
+   "input": "Acme Roofing LLC",
+   "judgement": "business (control)"
+  },
+  {
+   "label": "B",
+   "group": "control",
+   "input": "Downtown Deli",
+   "judgement": "business (control)"
+  }
+ ],
+ "owner": [
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "NGUYEN THI HOA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "OKAFOR DEONTAY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "ZDZISLAW WOJTEK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "ABDIRAHMAN WARSAME INC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "SIDDHARTH VENKATARAMAN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "TEVITA FIFITA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "YEVGENIA KUZNETSOVA CORP",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "GURPREET DHILLON PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "FARHAD TEHRANI HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "KATARZYNA WISNIEWSKA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "BASHIR QASIM LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "IFEOMA CHUKWUDI PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "THINH VUONG INVESTMENTS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "NOELANI KAINOA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "lang-person-llc",
+   "input": "SAOIRSE AISLING HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "KOWALCZYK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "QASIM PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "VUONG HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "CHUKWUDI REALTY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "BASHIR LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "DEONTAY PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "TEHRANI INVESTMENTS INC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "WISNIEWSKA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "FIFITA GROUP LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "single-unlisted",
+   "input": "SAOIRSE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JRS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J.R. SMITH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JR SMITH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "J R S LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "JMS PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "AJ HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "TJK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "BQ PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "D OKAFOR LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "initials",
+   "input": "KZW HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "BUBBA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "BIG MIKE PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "CHUY PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "PEPE LOPEZ LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "TITO HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "SONNY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "BUDDY PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "nickname",
+   "input": "DOC HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "JOHN SMITH JR LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "SMITH III LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "SMITH JR PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "QASIM SR HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "OKAFOR II LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "suffix",
+   "input": "VUONG JUNIOR LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "PARIS HILTON LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "DALLAS GREEN PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "AUSTIN STONE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "JACKSON WOOD LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "GEORGIA STONE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "VIRGINIA WOODS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "FLORENCE HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "CHELSEA LAKE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "BROOKLYN PARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "SYDNEY PRICE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "KENT BROOKS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "DEVON BANKS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "TROY LONG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "LORRAINE WEST LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "place-first-person",
+   "input": "CAROLINA YOUNG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "YOUNG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "LONG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "WEST LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "PARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "LAKE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "RIVERS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "FIELDS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BROOKS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BANKS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "LANE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "KING LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BISHOP LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "KNIGHT LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "PRICE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "LITTLE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "WHITE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BROWN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "GREEN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BLACK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "GRAY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "DAY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "LOVE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BELL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "COOK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BAKER LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "HUNTER LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "FISHER LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "PORTER LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "MARSH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "FORD LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "CHURCH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "TEMPLE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "NOBLE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "SHARP LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "STRONG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "SWIFT LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "WISE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "GOOD LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "BEST LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "MAJOR LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "FRENCH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "ENGLISH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "HOLLAND LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "vocab-surname",
+   "input": "IRELAND LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "YOUNG PARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "WEST LONG LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "LONG LAKE PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "PARK YOUNG HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "PRICE HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "STONE BROOK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "RICH HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "MAJOR WEST LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "NOBLE PARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "KING PRICE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "FOREST HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "SUMMER FIELDS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "CRYSTAL LAKE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "APRIL SHOWERS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "HOLLY HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "HEATHER GLEN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "ROBIN WOOD LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "SANDY BEACH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "PEARL RIVER LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "IVY LANE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "BROOK LANE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "CLAY HILL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "GLEN PARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "DALE RIDGE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "CLIFF LAKE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "RIVER STONE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "SKY BLUE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "two-vocab-person",
+   "input": "WINTER GREEN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC % JOHN SMITH",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ATTN: JOHN SMITH ABC LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "SMITH JOHN ET UX LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "SMITH JOHN W & MARY L LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC / JOHN SMITH",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC; JOHN SMITH",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC (JOHN SMITH MGR)",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "JOHN SMITH, MEMBER, ABC LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC BY JOHN SMITH",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC FBO JOHN SMITH",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "ABC LLC ATTN OKAFOR",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "QASIM BASHIR 401K LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "OKAFOR IRA LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "SMITH RETIREMENT LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "SMITH LEGACY LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "OKAFOR KIDS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "VUONG CHILDREN LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "separator",
+   "input": "GRANDMA ROSE LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "ACME HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "MIDTOWN APARTMENTS LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "LAKESIDE VILLAGE APARTMENTS LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "RIVERSIDE PROPERTIES INC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "EQUITY RESIDENTIAL PROPERTIES LP",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "CITY VIEW HOLDINGS LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "1450 N CLARK LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "CHICAGO HOUSING AUTHORITY",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "HOUSING AUTHORITY OF THE CITY OF AUSTIN",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "INVITATION HOMES LP",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "AMERICAN HOMES 4 RENT LP",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "PROGRESS RESIDENTIAL BORROWER 12 LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "BLACKSTONE REAL ESTATE PARTNERS LP",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "GREYSTAR MANAGEMENT SERVICES LP",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "WELLS FARGO BANK NA",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "US BANK NATIONAL ASSOCIATION",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "FANNIE MAE",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "SECRETARY OF HOUSING AND URBAN DEVELOPMENT",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "CITY OF CHICAGO",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "COOK COUNTY LAND BANK AUTHORITY",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "NORTH SHORE COMMUNITY BANK TRUST COMPANY",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "SOUTH SIDE COMMUNITY INVESTMENT CORPORATION",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "WOODLAWN COMMUNITY DEVELOPMENT CORP",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "EAST AUSTIN CONSERVANCY INC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "MAIN STREET PROPERTIES LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "SUNSET RIDGE APARTMENTS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "OAK PARK RESIDENTIAL LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "2318 W 47TH ST LLC",
+   "judgement": ""
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "FIRST AVENUE HOLDINGS LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "I",
+   "group": "institutional",
+   "input": "CAPITAL CITY RENTALS LLC",
+   "judgement": "institutional owner (place or descriptive words plus a company word)"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "GOLD LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "BRIGHT LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "HAWK PROPERTIES LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "ROCK HAWK LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "BULL HOLDINGS LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "GREY LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "NORTH LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "EAST PROPERTIES LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "STREET LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "COURT HOLDINGS LLC",
+   "judgement": ""
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "LEAF LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "BEAR PROPERTIES LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "RAIN LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "GOLD NORTH LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "BRIGHT STREET LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  },
+  {
+   "label": "P",
+   "group": "unlisted-vocab-surname",
+   "input": "ROCK GOLD PROPERTIES LLC",
+   "judgement": "ONE PERSON'S COMPANY possible (Gold, Bright, Hawk, Bull, Rock, Grey, Leaf, Bear, Rain, North, Street are surnames missing from the lists) -> P2, behind the switch"
+  }
+ ],
+ "contractorPass": [
+  "Mary Limited",
+  "Anna Corp",
+  "Wei Ltd",
+  "Saoirse Partners",
+  "Bashir Capital",
+  "Saoirse Heating",
+  "Bashir Painters",
+  "Truong Builders",
+  "Ifeoma Energy",
+  "Kwesi Welding",
+  "Lachlan Fencing",
+  "Fergus Paving",
+  "Imogen Flooring",
+  "Dafydd Concrete",
+  "Thinh Electric",
+  "Abdulkadir Roofing",
+  "Kwesi Stucco",
+  "Lachlan Asphalt",
+  "Fergus Drywall",
+  "Robert Paving",
+  "Linda Electric",
+  "Tom Heating",
+  "Sue Plumbing",
+  "John Smith Lawn Services",
+  "John Smith Cleaning Services",
+  "Dallas Roofing",
+  "Austin Electric",
+  "Paris Plumbing",
+  "Jackson Heating",
+  "Charlotte Painting",
+  "Savannah Cleaning",
+  "Smith Roofing",
+  "John Smith Roofing LLC",
+  "Carter Electric",
+  "Mary Jones Plumbing LLC",
+  "Okafor Electric",
+  "Nguyen Brothers Construction",
+  "Garcia & Sons Roofing",
+  "Mary-Ann Smith-Jones LLC",
+  "Jose-Luis Garcia-Lopez Landscaping"
+ ],
+ "licencePass": [
+  "Phuoc Inc",
+  "SUNSET PIZZA",
+  "Acme Roofing LLC",
+  "Downtown Deli"
+ ],
+ "ownerPass": [
+  "MIDTOWN APARTMENTS LLC",
+  "LAKESIDE VILLAGE APARTMENTS LLC",
+  "RIVERSIDE PROPERTIES INC",
+  "CITY VIEW HOLDINGS LLC",
+  "CHICAGO HOUSING AUTHORITY",
+  "MAIN STREET PROPERTIES LLC",
+  "2318 W 47TH ST LLC",
+  "FIRST AVENUE HOLDINGS LLC",
+  "CAPITAL CITY RENTALS LLC"
+ ]
+}

@@ -1,4 +1,4 @@
-import { opportunityRankOf, type AlertItem } from './templates';
+import type { AlertItem } from './templates';
 
 export type Ranker = <T extends AlertItem & { id?: number }>(items: T[]) => T[];
 
@@ -9,11 +9,9 @@ const ts = (iso: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/** Best opportunity label first (Act now, Coming soon, Market insight), then highest severity, then newest. Ties keep their input order. */
+/** Highest severity first, then newest. Ties keep their input order (the sort is stable). */
 export function defaultRank<T extends AlertItem>(items: readonly T[]): T[] {
-  return [...items].sort(
-    (a, b) => opportunityRankOf(b) - opportunityRankOf(a) || (b.severity ?? 1) - (a.severity ?? 1) || ts(b.occurredAt) - ts(a.occurredAt),
-  );
+  return [...items].sort((a, b) => (b.severity ?? 1) - (a.severity ?? 1) || ts(b.occurredAt) - ts(a.occurredAt));
 }
 
 /**

@@ -18,6 +18,8 @@ const CA = 'Commercial Alteration';
 const RD = 'Residential Addition';
 const GC: CategoryId[] = ['general-contractor'];
 const REMODEL = 'Remodel permit in Atlanta';
+// Round 15 re-grade #42, #43: a commercial alteration is a tenant fit-out (it routes to commercial cleaning, not house cleaning).
+const FIT_OUT = 'Tenant fit-out permit in Atlanta';
 
 function run(name: string, type: string, i: number) {
   const [r] = parseArcgis(
@@ -40,35 +42,35 @@ type Case = [string, string, CategoryId[], string];
 /** The verifier's inputs (verify-v1 r1-5, finding 2 and finding 7), with the answers decision 1 calls right. */
 const VERIFIER: Case[] = [
   // finding 2: traps that picked a trade (each also dropped the general contractor)
-  ['REPLACE ROOF TOP UNIT (RTU)', CA, GC, REMODEL],
+  ['REPLACE ROOF TOP UNIT (RTU)', CA, GC, FIT_OUT],
   ['INSTALL ROOF MOUNTED SOLAR ARRAY', RA, ['solar', 'general-contractor'], 'Solar and remodel permit in Atlanta'],
   ['NEW ROOF DECK AND PERGOLA', RA, GC, REMODEL],
-  ['INSTALL NEW ROOF HATCH LADDER', CA, GC, REMODEL],
+  ['INSTALL NEW ROOF HATCH LADDER', CA, GC, FIT_OUT],
   ['Water service replacement', RA, GC, REMODEL],
-  ['NEW FLOOR & DECOR STORE #231', CA, GC, REMODEL],
-  ['NEW SPA TENANT BUILD OUT', CA, GC, REMODEL],
-  ['NEW POOL HALL TENANT BUILDOUT', CA, GC, REMODEL],
-  ['INSTALL POOL TABLES AND BAR', CA, GC, REMODEL],
-  ['NEW DOOR FELLOWSHIP CHURCH ALTERATION', CA, GC, REMODEL],
-  ['NEW WINDOW WORLD SHOWROOM', CA, GC, REMODEL],
-  ['THE NEW HOME COMPANY OFFICE ALTERATION', CA, GC, REMODEL],
-  ['ABC TREE REMOVAL LLC OFFICE', CA, GC, REMODEL],
-  ['SOLAR ENERGY SYSTEM SHOWROOM', CA, GC, REMODEL],
+  ['NEW FLOOR & DECOR STORE #231', CA, GC, FIT_OUT],
+  ['NEW SPA TENANT BUILD OUT', CA, GC, FIT_OUT],
+  ['NEW POOL HALL TENANT BUILDOUT', CA, GC, FIT_OUT],
+  ['INSTALL POOL TABLES AND BAR', CA, GC, FIT_OUT],
+  ['NEW DOOR FELLOWSHIP CHURCH ALTERATION', CA, GC, FIT_OUT],
+  ['NEW WINDOW WORLD SHOWROOM', CA, GC, FIT_OUT],
+  ['THE NEW HOME COMPANY OFFICE ALTERATION', CA, GC, FIT_OUT],
+  ['ABC TREE REMOVAL LLC OFFICE', CA, GC, FIT_OUT],
+  ['SOLAR ENERGY SYSTEM SHOWROOM', CA, GC, FIT_OUT],
   // finding 2: traps that were already right
   ['POOLE RESIDENCE', RA, GC, REMODEL],
   ['12 SOLAR DR', RA, GC, REMODEL],
-  ['PEACHTREE ROOFING SUPPLY CO', CA, GC, REMODEL],
-  ['ROOF TOP BAR BUILD OUT', CA, GC, REMODEL],
-  ['T-MOBILE ROOF TOP ANTENNA REPLACEMENT', CA, GC, REMODEL],
+  ['PEACHTREE ROOFING SUPPLY CO', CA, GC, FIT_OUT],
+  ['ROOF TOP BAR BUILD OUT', CA, GC, FIT_OUT],
+  ['T-MOBILE ROOF TOP ANTENNA REPLACEMENT', CA, GC, FIT_OUT],
   ['200 AMP ST', RA, GC, REMODEL],
   // r1-5 reproductions
   ['456 PINE TREE DR NE', RD, GC, 'Addition permit in Atlanta'],
-  ['DOLLAR TREE #4411 INTERIOR ALTERATION', CA, GC, REMODEL],
-  ['LUXE NAIL SPA', CA, GC, REMODEL],
+  ['DOLLAR TREE #4411 INTERIOR ALTERATION', CA, GC, FIT_OUT],
+  ['LUXE NAIL SPA', CA, GC, FIT_OUT],
   ['POOL RESIDENCE', RA, GC, REMODEL],
   ['Install 20 solar panels on existing roof', RA, ['solar', 'general-contractor'], 'Solar and remodel permit in Atlanta'],
   // A sign is not one of the allowed work phrases: from the Name column it stays with the type column (the AI step refines it).
-  ['wall sign for Restoration Hardware', CA, GC, REMODEL],
+  ['wall sign for Restoration Hardware', CA, GC, FIT_OUT],
   // finding 7: real trade names. Only the allowed phrases pick a trade; the rest keep the general contractor for the AI step.
   ['Roof Replacement (RES)', RA, ['roofing', 'general-contractor'], 'Roof and remodel permit in Atlanta'],
   ['REROOF', RA, ['roofing', 'general-contractor'], 'Roof and remodel permit in Atlanta'],
@@ -97,7 +99,7 @@ const VERIFIER: Case[] = [
   ['Furnace replacement', RA, GC, REMODEL],
   ['Heat pump replacement', RA, GC, REMODEL],
   ['HVAC', RA, GC, REMODEL],
-  ['Mechanical - RTU replacement', CA, GC, REMODEL],
+  ['Mechanical - RTU replacement', CA, GC, FIT_OUT],
   ['Electrical', RA, GC, REMODEL],
   ['Generator', RA, GC, REMODEL],
   ['Plumbing', RA, GC, REMODEL],
@@ -135,19 +137,19 @@ const MINE: Case[] = [
   ['PHOTOVOLTAIC', RA, ['solar', 'general-contractor'], 'Solar and remodel permit in Atlanta'],
   ['Roof mounted PV system', RA, ['solar', 'general-contractor'], 'Solar and remodel permit in Atlanta'],
   // must not map
-  ['NEW ROOF TOP UNIT', CA, GC, REMODEL],
-  ['REPLACE ROOF CURB', CA, GC, REMODEL],
-  ['NEW ROOF DRAIN', CA, GC, REMODEL],
-  ['REPLACE ROOF ACCESS LADDER', CA, GC, REMODEL],
-  ['NEW ROOF MOUNTED EXHAUST FAN', CA, GC, REMODEL],
-  ['ROOF REPAIR LLC OFFICE', CA, GC, REMODEL],
-  ['NEW POOL TABLE ROOM', CA, GC, REMODEL],
-  ['SWIMMING POOL SUPPLY STORE', CA, GC, REMODEL],
-  ['SOLAR PANEL OUTLET STORE', CA, GC, REMODEL],
-  ['NEW HOME DEPOT GARDEN CENTER', CA, GC, REMODEL],
+  ['NEW ROOF TOP UNIT', CA, GC, FIT_OUT],
+  ['REPLACE ROOF CURB', CA, GC, FIT_OUT],
+  ['NEW ROOF DRAIN', CA, GC, FIT_OUT],
+  ['REPLACE ROOF ACCESS LADDER', CA, GC, FIT_OUT],
+  ['NEW ROOF MOUNTED EXHAUST FAN', CA, GC, FIT_OUT],
+  ['ROOF REPAIR LLC OFFICE', CA, GC, FIT_OUT],
+  ['NEW POOL TABLE ROOM', CA, GC, FIT_OUT],
+  ['SWIMMING POOL SUPPLY STORE', CA, GC, FIT_OUT],
+  ['SOLAR PANEL OUTLET STORE', CA, GC, FIT_OUT],
+  ['NEW HOME DEPOT GARDEN CENTER', CA, GC, FIT_OUT],
   ['Electrical service upgrade', RA, GC, REMODEL],
   ['New hardwood floors', RA, GC, REMODEL],
-  ['NEW SPA', CA, GC, REMODEL],
+  ['NEW SPA', CA, GC, FIT_OUT],
 ];
 
 describe('verify-v1 P1 #2 / P2 #7: Atlanta Name column, anchored work phrases only, the general contractor kept', () => {

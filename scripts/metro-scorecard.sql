@@ -1,6 +1,9 @@
 -- metro-scorecard.sql
 -- Read-only. Run by an operator in the Supabase SQL editor (service role / postgres). Writes nothing.
 -- Keeps the 10 metros of lib/geo/metros.ts (METROS); tests/geo/metro-scorecard.test.ts fails if the VALUES lists drift from it.
+-- Round 19 UNIFY: cards per metro and trade BY LABEL (act_now, coming_soon, market_insight, context) are not in this file: the
+-- database has no label column, labels are computed in code by lib/signals/lead-rules.ts. Use GET /api/admin/metros (Bearer
+-- CRON_SECRET, JSON or ?format=html), which places records with the same metro rule as the queries below.
 --
 -- QUERY 1 of 2: per-metro scorecard.
 -- One row per metro (all 10 always appear, zero counts included), over the last 14 days of holler_signals.occurred_at (up to now).
@@ -144,7 +147,7 @@ order by m.ord;
 
 -- QUERY 2 of 2: sources on probation (Adapter.probation). Their rows are never in holler_signals; they are kept in holler_source_samples
 -- (service role only, 14 days). Per source: how many rows were sampled in the last 14 days, and 3 of them to eyeball before flipping it live
--- (remove `probation: true` from the adapter). Needs migration 0022. Read-only.
+-- (remove `probation: true` from the adapter). Needs migration 0032 (the other branch's 0022, renamed). Read-only.
 with recent as (
   select source, external_id, fetched_at, "row",
          row_number() over (partition by source order by fetched_at desc, id desc) as rn,

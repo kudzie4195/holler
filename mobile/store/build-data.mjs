@@ -78,7 +78,7 @@ const price = (p) => ({ productId: p.storeProductId, cents: p.cents, display: p.
 const limitsDto = (tier) => { const l = h.PLAN_LIMITS[tier]; return l; };
 const plan = (p) => ({ entitlement: p.entitlement, tier: p.tier, name: p.name, monthly: price(p.monthly), yearly: price(p.annual), yearlySaving: p.annualSaving, limits: p.limits ?? null });
 const config = {
-  ok: true, apiVersion: 1, currency: 'USD', trialDays: pp.trialDays,
+  ok: true, apiVersion: 1, currency: 'USD', trialDays: pp.trialDays, trialHeadline: pp.trialHeadline, trialPhrase: pp.trialPhrase,
   plans: { solo: plan(pp.plans.solo), pro: plan(pp.plans.pro) }, entitlements: ['solo', 'pro'], offeringId: 'default',
   trades: h.CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: Object.fromEntries(h.CATEGORY_GROUPS.map((g) => [g.id, g.label]))[c.group] ?? null })),
   radius: { min: 5, max: 100, default: 25 },

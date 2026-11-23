@@ -7,8 +7,18 @@
  */
 import { env } from '@/lib/env';
 
-/** "Last updated" date printed on /privacy, /terms and /delete-account. */
+/**
+ * "Last updated" dates (round 18 integration): each legal page carries the date its own text last changed.
+ *  - /terms: November 22, 2026 (round 18 trial: the trial length sentence).
+ *  - /privacy: November 22, 2026 (round 18 trial: trial-email timing; round 18 ES: the holler_lang cookie sentence). PRIVACY_UPDATED below.
+ *  - /delete-account: November 19, 2026 (no text change in round 18).
+ */
 export const LEGAL_UPDATED = 'November 19, 2026';
+/** "Last updated" date printed on /terms (its trial sentence changed in round 18). */
+export const TERMS_UPDATED = 'November 22, 2026';
+
+/** "Last updated" date printed on /privacy: it changed later than the other two (round 18 ES: the holler_lang cookie sentence). */
+export const PRIVACY_UPDATED = 'November 22, 2026';
 
 /** The support address when SUPPORT_EMAIL is set, otherwise undefined (pages then point at the contact link in our emails). */
 export function supportAddress(): string | undefined {

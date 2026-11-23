@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { NOTE_MAX_CHARS } from './note-rules';
+import { NOTE_MAX_CHARS, wordingViolations } from './note-rules';
 
 /**
  * Reads for the feed and the digest. No model call: everything comes from holler_signal_ai rows the cron AI step stored.
@@ -15,13 +15,15 @@ interface AiRow {
   signal_id: number;
   trades: Record<string, unknown> | null;
   notes: Record<string, unknown> | null;
+  /** Prompt version the row was written under (0014). A row without one is treated as version 1. */
+  prompt_v?: number | null;
 }
 
 async function loadRows(db: Db, signalIds: number[]): Promise<AiRow[]> {
   const ids = [...new Set(signalIds.filter((n) => Number.isInteger(n)))];
   const out: AiRow[] = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
-    const { data, error } = await db.from('holler_signal_ai').select('signal_id,trades,notes').in('signal_id', ids.slice(i, i + CHUNK));
+    const { data, error } = await db.from('holler_signal_ai').select('signal_id,trades,notes,prompt_v').in('signal_id', ids.slice(i, i + CHUNK));
     if (error) throw new Error(error.message);
     out.push(...((data ?? []) as AiRow[]));
   }
@@ -33,13 +35,36 @@ function conf(v: unknown): number | null {
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1 ? n : null;
 }
 
-/** Last line of defense at read time: the note was checked when it was written; this only refuses anything odd. */
-function safeNote(v: unknown): string | null {
+/** Last line of defense at read time: the note was checked when it was written; this refuses anything odd and re-runs the wording rules. */
+function safeNote(v: unknown, kind?: string | null): string | null {
   if (typeof v !== 'string') return null;
   const t = v.trim();
   if (!t || t.length > NOTE_MAX_CHARS) return null;
   if (/[\r\n<>@]|https?:|www\.|:\/\/|[\u2013\u2014]/i.test(t)) return null;
+  // Every stored note, of any prompt version, is checked again with today's wording rules (banned words, "official record", customer
+  // and lead nouns, certainty, vendor-chosen, proof, damage). Version 1 notes were never checked for most of them, and a note stored
+  // under an older filter stops showing as soon as the filter is tightened (re-review r17 P2-D), without rewriting any row.
+  if (wordingViolations(t, { kind }).length > 0) return null;
   return t;
+}
+
+/**
+ * The kind of each signal, for the read-time check of stored notes (a civic note may say "a report of a damaged sidewalk", a contract
+ * award does name its winner). Any error gives an empty map: the check then runs without a kind, which is stricter.
+ */
+async function kindsFor(db: Db, ids: number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const uniq = [...new Set(ids.filter((n) => Number.isInteger(n)))];
+  try {
+    for (let i = 0; i < uniq.length; i += CHUNK) {
+      const { data, error } = await db.from('holler_signals').select('id,kind').in('id', uniq.slice(i, i + CHUNK));
+      if (error) return new Map();
+      for (const r of (data ?? []) as { id: number; kind: string | null }[]) if (r.kind) out.set(Number(r.id), r.kind);
+    }
+  } catch {
+    return new Map();
+  }
+  return out;
 }
 
 /**
@@ -50,12 +75,14 @@ export async function notesFor(db: Db, signalIds: number[], trades: string[]): P
   const out = new Map<number, string>();
   if (signalIds.length === 0 || trades.length === 0) return out;
   try {
-    for (const r of await loadRows(db, signalIds)) {
+    const rows = await loadRows(db, signalIds);
+    const kinds = await kindsFor(db, rows.map((r) => Number(r.signal_id)));
+    for (const r of rows) {
       const notes = r.notes && typeof r.notes === 'object' ? r.notes : {};
       const tr = r.trades && typeof r.trades === 'object' ? r.trades : {};
       let best: { note: string; p: number } | null = null;
       for (const t of trades) {
-        const note = safeNote(notes[t]);
+        const note = safeNote(notes[t], kinds.get(Number(r.signal_id)));
         if (!note) continue;
         const p = conf(tr[t]) ?? 0;
         if (!best || p > best.p) best = { note, p };

@@ -37,8 +37,7 @@ import AppHome from '@/app/app/page';
 
 const row = (id: number, s: Record<string, unknown>) => ({
   id, status: 'new', distance_mi: 2, draft: null, created_at: iso(-60_000),
-  // u2: requests carry their trade (categories): the feed labels each row for the member's trades and hides 'context' rows.
-  signal: { id, kind: 'ask', categories: ['roofing'], summary: null, url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), ...s },
+  signal: { id, kind: 'ask', summary: null, url: null, city: 'Atlanta', state: 'GA', occurred_at: iso(-3_600_000), ...s },
 });
 
 describe('/app feed and ended resident requests', () => {
@@ -48,8 +47,8 @@ describe('/app feed and ended resident requests', () => {
     h.rows = [
       row(1, { source: 'holler-request', title: 'CLOSED request', expires_at: iso(-60_000) }),
       row(2, { source: 'holler-request', title: 'LIVE request', expires_at: iso(86_400_000) }),
-      // u2: a real NWS event name (an unknown event is context and is not shown): 'Coming soon' for roofing.
-      row(3, { source: 'nws', kind: 'alert', title: 'High Wind Warning: Old warning', expires_at: iso(-86_400_000) }),
+      // round 19 RULES: an NWS row reaches a trade only through the event table, so the title names a real event
+      row(3, { source: 'nws', kind: 'alert', title: 'Severe Thunderstorm Warning: Old warning', expires_at: iso(-86_400_000) }),
       row(4, { source: 'holler-request', title: 'EXPIRED request', expires_at: iso(-3 * 86_400_000) }),
     ];
     const el = await AppHome({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never);
@@ -58,7 +57,7 @@ describe('/app feed and ended resident requests', () => {
     expect(html).toContain('Old warning');
     expect(html).not.toContain('CLOSED request');
     expect(html).not.toContain('EXPIRED request');
-    expect(h.seen.map((i) => i.title).sort()).toEqual(['High Wind Warning: Old warning', 'LIVE request']);
+    expect(h.seen.map((i) => i.title).sort()).toEqual(['LIVE request', 'Severe Thunderstorm Warning: Old warning']);
     vi.useRealTimers();
   });
 });

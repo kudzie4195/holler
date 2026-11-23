@@ -27,6 +27,11 @@ export interface PermitKind {
   cats: CategoryId[];
   /** Generic kinds name no particular trade (building, remodel, addition): they map to general-contractor only. */
   generic?: boolean;
+  /**
+   * Tags its trades but is left out of the title (round 18 review P2-4): the interior demolition inside an alteration. The permit is titled
+   * by its other kinds ("Remodel permit"); its hauling trade (junk-removal) still sees the card.
+   */
+  tagOnly?: boolean;
   /** Tested against each field value on its own. */
   test: (value: string) => boolean;
 }
@@ -47,6 +52,19 @@ export function normalizeWorkText(v: string): string {
 /** Values that record paperwork, not work. A record with one of these in a structured field gets no trade. */
 export const ADMIN_ONLY_RE =
   /\bowner(?:ship)?\s+change\b|\bchange\s+of\s+(?:owner|contractor|address)|\bcontractor\s+change\b|\bname\s+change\b|\brenewal\b|\bextension\s+of\s+(?:time|permit)|\bpermit\s+extension\b|\bvoid(?:ed)?\b|\bwithdrawn\b|\bre\s?issue\b|\bduplicate\s+permit\b|^\s*zoning\b|\bvariance\b/i;
+
+/**
+ * Work types that are paperwork or temporary protection, not trade work: a sidewalk shed or scaffold, a construction fence, a site-safety
+ * plan ("Protection and Mechanical Methods"), a fire sprinkler or standpipe job, a curb cut. When a STRUCTURED type column holds one of
+ * them the row gets no trade and is dropped (as an admin-only value is), because the description then names the building's other work,
+ * not this permit's (round 15 quality gate: a sidewalk shed read "Roof and window", a fire-sprinkler job at a bank read "Landscaping").
+ */
+export const NO_TRADE_WORK_TYPES = ['sidewalk shed', 'supported scaffold', 'construction fence', 'protection and mechanical methods', 'sprinkler', 'standpipe', 'curb cut'] as const;
+// Round 19 RULES (review line 64): a fire-protection type written as a pair or a system ("Sprinkler and Standpipe", Cambridge row 3174; "Fire
+// Sprinkler System") is the same no-trade work; before, only a bare "Sprinkler(s)" or "Standpipe" matched and row 3174 stayed "Landscaping".
+// A bare "Sprinkler System" is not (review P3 item 16): it may be a lawn system, so it is mapped from its words like any other type.
+export const NO_TRADE_WORK_TYPE_RE =
+  /^(?:sidewalk shed|supported scaffold|construction fence|protection and mechanical methods|sprinklers?|fire\s+sprinklers?(?:\s+systems?)?|(?:fire\s+)?sprinklers?\s+and\s+standpipes?|(?:fire\s+)?standpipes?(?:\s+systems?)?|curb cut)$/i;
 
 /** Street suffixes and business words: a trade noun right before one of these names a street or a company, not work. */
 const NOT_WORK_AHEAD =
@@ -173,7 +191,13 @@ export const PERMIT_KINDS: PermitKind[] = [
     generic: true,
     test: re(/\btenant\s?(?:fit\s?out|finish|improvement|build\s?out|up\s?fit)s?\b|\bbuild\s?outs?\b|\bfit\s?outs?\b|\bup\s?fits?\b|\bwhite\s?box\b/i),
   },
-  { id: 'remodel', label: 'Remodel', cats: ['general-contractor'], generic: true, test: re(/\bremodel\w*|\brenovat\w*|\balteration\w*|\balter\b|\brepairs?\b|\brehab\w*/i) },
+  // Masonry and dumpster permits are neither a home remodel nor a demolition (round 15 review: a Chicago "Masonry Work" express permit read as
+  // Remodel, a Cambridge "Dumpster" permit read as Demolition). They stay general-contractor, generic, and route nowhere.
+  { id: 'masonry', label: 'Masonry', cats: ['general-contractor'], generic: true, test: re(/\bmasonry\b|\btuck\s?point\w*|\bbrick\s?work\b/i) },
+  { id: 'dumpster', label: 'Dumpster', cats: ['general-contractor'], generic: true, test: re(/\bdumpsters?\b|\broll\s?off\b/i) },
+  { id: 'remodel', label: 'Remodel', cats: ['general-contractor'], generic: true, test: re(/\bremodel\w*|\brenovat\w*|\balteration\w*|\balter\b|\brehab\w*/i) },
+  // A bare repair is not a remodel (round 15 review: Orlando "Building Permit | Repair" $2,907 read as Remodel). It routes nowhere.
+  { id: 'repair', label: 'Repair', cats: ['general-contractor'], generic: true, test: re(/\brepairs?\b/i) },
   { id: 'structural', label: 'Structural', cats: ['general-contractor'], generic: true, test: re(/\bstructural\b|\bfoundations?\b|\bunderpinning\b/i) },
   { id: 'site-work', label: 'Site work', cats: ['general-contractor'], generic: true, test: re(/\bearth\s?work\b|\bgrading\b|\bexcavat\w*|\bsite\s?work\b|\bland\s?disturb\w*/i) },
   { id: 'building', label: 'Building', cats: ['general-contractor'], generic: true, test: re(/\bbuilding\b|\bbldg\b|\bconstruction\b|\bcontractor\b/i) },
@@ -305,21 +329,65 @@ const FREE_JOIN: Record<string, RegExp> = {
 };
 
 const HVAC_KIND = () => PERMIT_KINDS.find((k) => k.id === 'hvac')!;
+const NEW_CONSTRUCTION_KIND = () => PERMIT_KINDS.find((k) => k.id === 'new-construction')!;
+/** A structured value that is only the word "New" (a work class, not a kind of building). */
+const BARE_NEW_RE = /^\s*new\s*$/i;
+
+/**
+ * A structured use, class or type that says the building is commercial, not a home: "Commercial", "Commercial Alteration", "(C) Commercial",
+ * "Business", "Office", "Mercantile", "Industrial", "Retail", "Warehouse". Exact values only (a column such as "Commercial Kitchen Hood" is
+ * not a use), so a residential permit is never reclassified by a stray word.
+ */
+export const COMMERCIAL_USE_RE =
+  /^(?:\(c\)\s*)?(?:commercial(?:\s+(?:alteration|addition|interior|remodel|renovation|building|bldg))?|business|office|mercantile|industrial|retail|warehouse)$/i;
+
+/**
+ * A commercial alteration or addition is a tenant fit-out, not a home remodel (round 15 re-grade #42, #43: Atlanta "Commercial Alteration"
+ * and LA "Bldg-Alter/Repair | Commercial" sent a house cleaner an office job). Fit-out routes to commercial cleaning, signs, security and
+ * pest control, never to house cleaning. Only the generic remodel and addition kinds are replaced; a named trade stays as it is.
+ */
+function commercialFitOut(kinds: PermitKind[], structured: string[]): PermitKind[] {
+  if (!structured.some((v) => COMMERCIAL_USE_RE.test(v))) return kinds;
+  if (!kinds.some((k) => k.id === 'remodel' || k.id === 'addition')) return kinds;
+  const fit = PERMIT_KINDS.find((k) => k.id === 'fit-out')!;
+  const out = kinds.filter((k) => k.id !== 'remodel' && k.id !== 'addition');
+  return out.some((k) => k.id === 'fit-out') ? out : [...out, fit];
+}
 
 /** Picks the kinds by the precedence above, before the title-length cut. */
 function pickKinds(f: PermitFields): PermitKind[] {
+  const structured = (f.structured ?? []).map((v) => normalizeWorkText(String(v ?? ''))).filter(Boolean);
+  return commercialFitOut(pickKindsRaw(f), structured);
+}
+
+function pickKindsRaw(f: PermitFields): PermitKind[] {
   const clean = (vs: string[] | undefined) => (vs ?? []).map((v) => normalizeWorkText(String(v ?? ''))).filter(Boolean);
   const structured = clean(f.structured);
   const free = clean(f.free);
   const mixed = clean(f.mixed);
-  if (structured.some((v) => ADMIN_ONLY_RE.test(v))) return [];
+  if (structured.some((v) => ADMIN_ONLY_RE.test(v) || NO_TRADE_WORK_TYPE_RE.test(v))) return [];
   const s = kindsIn(structured);
   // Description kinds, plus the unambiguous work phrases of a mixed column (never a generic kind from it).
   const fr = [...kindsIn(free)];
   const fromMixed = strictKindsIn(mixed);
   for (const k of fromMixed) if (!fr.some((x) => x.id === k.id)) fr.push(k);
   fr.sort((a, b) => PERMIT_KINDS.indexOf(a) - PERMIT_KINDS.indexOf(b));
-  const sSpecific = s.filter((k) => !k.generic);
+  let sSpecific = s.filter((k) => !k.generic);
+  // A bare "New" work class next to a named trade's permit type ("Mechanical | New", "Electrical | New", "Driveway / Sidewalks | New") is a
+  // new installation of that trade, not a new building (round 18 ROUTES, item 5: four real rows titled "New construction and HVAC /
+  // electrical / concrete permit", tests/signals/routes-mislabels.test.ts). Unless the description says a new house is being built, the
+  // bare "New" is dropped and the title names the trade alone. A structured "New Construction", "New Building" or a bare "New" with
+  // nothing else beside it keeps New construction.
+  if (
+    sSpecific.length > 1 &&
+    sSpecific.some((k) => k.id === 'new-construction') &&
+    !structured.some((v) => !BARE_NEW_RE.test(v) && NEW_CONSTRUCTION_KIND().test(v)) &&
+    !fr.some((k) => k.id === 'new-home') &&
+    // A combined type that names a building ("Building, Electrical, Mechanical, Plumbing | New") is a new building (review P3-9).
+    !s.some((k) => k.id === 'building')
+  ) {
+    sSpecific = sSpecific.filter((k) => k.id !== 'new-construction');
+  }
   if (sSpecific.length) {
     // A structured "New" or "New Construction" plus a description of a new house is a new home (the description refines it).
     const newHome = PERMIT_KINDS.find((k) => k.id === 'new-home')!;
@@ -338,7 +406,33 @@ function pickKinds(f: PermitFields): PermitKind[] {
     }
     return sSpecific;
   }
-  const fSpecific = fr.filter((k) => !k.generic);
+  let fSpecific = fr.filter((k) => !k.generic);
+  // An addition to or alteration of an existing building is not a new building, and an accessory structure is not a new home (round 15
+  // re-grade #32: a $15,000 "Bldg-Addition" read "New home" from its description; review: a NOLA "Accessory Structure" read "New home").
+  if (s.some((k) => k.id === 'addition' || k.id === 'remodel' || k.id === 'accessory')) {
+    fSpecific = fSpecific.filter((k) => k.id !== 'new-home' && k.id !== 'new-construction');
+  }
+  // A structured "Dumpster" permit is a container, not a demolition, whatever the description says about the debris.
+  if (s.some((k) => k.id === 'dumpster')) fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
+  // An alteration permit whose DESCRIPTION mentions demolition is interior demolition inside the alteration, not a demolition permit (round
+  // 18 ROUTES, item 5: three real rows, two San Francisco "otc alterations permit" and one Cincinnati "Alter Commercial", were titled
+  // "Demolition permit"). The demolition kind is dropped; the alteration stays a remodel (or a fit-out when commercial). A structured
+  // demolition type ("Bldg-Demolition", "Commercial Demolition") is untouched.
+  // The demolition stays as a TAG (junk-removal still gets the card: the debris needs hauling) but is left out of the title.
+  let interiorDemo = false;
+  if (s.some((k) => k.id === 'remodel') && !s.some((k) => k.id === 'demolition') && fSpecific.some((k) => k.id === 'demolition')) {
+    fSpecific = fSpecific.filter((k) => k.id !== 'demolition');
+    interiorDemo = true;
+  }
+  if (interiorDemo) {
+    const rest = pickRest(s, fr, free, fromMixed, fSpecific);
+    return [...rest, INTERIOR_DEMOLITION];
+  }
+  return pickRest(s, fr, free, fromMixed, fSpecific);
+}
+
+/** The last step of pickKindsRaw: description trades with the generic kind that joins them, or the first generic kind. */
+function pickRest(s: PermitKind[], fr: PermitKind[], free: string[], fromMixed: PermitKind[], fSpecific: PermitKind[]): PermitKind[] {
   // With named trades in the description, only a generic word in the description itself joins them ("remodel kitchen, new plumbing"):
   // a city's catch-all type ("Renovation/Alteration", "Building Permit") over a re-roof is not a general contractor lead.
   if (fSpecific.length) {
@@ -353,6 +447,9 @@ function pickKinds(f: PermitFields): PermitKind[] {
   return generic ? [generic] : [];
 }
 
+/** Interior demolition inside an alteration: tags junk-removal, never named in the title (PermitKind.tagOnly). */
+const INTERIOR_DEMOLITION: PermitKind = { id: 'interior-demolition', label: '', cats: ['junk-removal'], tagOnly: true, test: () => false };
+
 /** De-duplicates by trade, fits the title (at most 4 kinds and MAX_TITLE_CHARS, lowest priority dropped first with its trades). */
 function finish(ordered: PermitKind[], city: string): PermitClass {
   // Skip a kind whose trades an earlier kind already covers (Water heater then Plumbing reads "Water heater").
@@ -363,11 +460,14 @@ function finish(ordered: PermitKind[], city: string): PermitClass {
     chosen.push(k);
     k.cats.forEach((c) => covered.add(c));
   }
-  let n = Math.min(chosen.length, MAX_KINDS_IN_TITLE);
-  while (n > 1 && `${joinLabels(chosen.slice(0, n).map((k) => k.label))} permit in ${city}`.length > MAX_TITLE_CHARS) n--;
-  const used = chosen.slice(0, n);
+  // A tag-only kind is never in the title; it keeps its trades only while the title names something.
+  const tags = chosen.filter((k) => k.tagOnly);
+  const titled = chosen.filter((k) => !k.tagOnly);
+  let n = Math.min(titled.length, MAX_KINDS_IN_TITLE);
+  while (n > 1 && `${joinLabels(titled.slice(0, n).map((k) => k.label))} permit in ${city}`.length > MAX_TITLE_CHARS) n--;
+  const used = titled.slice(0, n);
   const categories: CategoryId[] = [];
-  for (const k of used) for (const c of k.cats) if (!categories.includes(c)) categories.push(c);
+  for (const k of [...used, ...(used.length ? tags : [])]) for (const c of k.cats) if (!categories.includes(c)) categories.push(c);
   return { categories, kinds: used.map((k) => k.id), label: used.length ? joinLabels(used.map((k) => k.label)) : null };
 }
 

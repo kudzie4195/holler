@@ -15,8 +15,10 @@ export const FIXTURE_DIR = join(__dirname, '../fixtures');
 
 export function publicProjection(s: SignalInput): Record<string, unknown> {
   // Field-by-field so a new public field shows up as a diff, and `contacts` is the only thing left out.
-  const { contacts: _contacts, ...pub } = s as SignalInput & { contacts?: unknown };
+  // `permitStage` (round 17) is read by lib/signals/projects.ts and is not part of the plain upsert: it is not a stored public field.
+  const { contacts: _contacts, permitStage: _stage, ...pub } = s as SignalInput & { contacts?: unknown };
   void _contacts;
+  void _stage;
   return JSON.parse(JSON.stringify(pub)) as Record<string, unknown>;
 }
 

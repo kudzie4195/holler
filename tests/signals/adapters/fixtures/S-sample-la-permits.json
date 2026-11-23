@@ -1,0 +1,142 @@
+{
+ "_provenance": {
+  "kind": "raw SODA rows (WebFetch transcription)",
+  "url": "https://data.lacity.org/resource/pi9x-tg5x.json?$select=permit_nbr,issue_date,permit_type,permit_sub_type,use_desc,zip_code,lat,lon,valuation&$order=issue_date DESC,permit_nbr&$limit=12",
+  "fetched": "2026-11-22",
+  "note": "WebFetch returns a model transcription, not bytes; work_desc and primary_address were left out of the select. Dataset metadata: Refresh rate Weekly, rowsUpdatedAt 2026-11-16, max(issue_date)=2026-11-14."
+ },
+ "rows": [
+  {
+   "permit_nbr": "25016-10000-22877",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "Commercial",
+   "use_desc": "Restaurant",
+   "zip_code": "90094",
+   "lat": "33.9761",
+   "lon": "-118.41651",
+   "valuation": "350000"
+  },
+  {
+   "permit_nbr": "26014-10000-02788",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Addition",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Accessory Dwelling Unit",
+   "zip_code": "91335",
+   "lat": "34.19303584",
+   "lon": "-118.51939609",
+   "valuation": "121200"
+  },
+  {
+   "permit_nbr": "26014-10002-00024",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Accessory Dwelling Unit",
+   "zip_code": "91411",
+   "lat": "34.16913",
+   "lon": "-118.45328",
+   "valuation": "4500"
+  },
+  {
+   "permit_nbr": "26014-20000-03725",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Addition",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Dwelling - Single Family",
+   "zip_code": "91605",
+   "lat": "34.21243",
+   "lon": "-118.4087",
+   "valuation": "150000"
+  },
+  {
+   "permit_nbr": "26016-10001-15444",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "Commercial",
+   "use_desc": "Coffee Shop",
+   "zip_code": "90021",
+   "lat": "34.03377",
+   "lon": "-118.23211",
+   "valuation": "501"
+  },
+  {
+   "permit_nbr": "26016-90000-31986",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Dwelling - Single Family",
+   "zip_code": "91311",
+   "lat": "34.24572",
+   "lon": "-118.57437",
+   "valuation": "5000"
+  },
+  {
+   "permit_nbr": "26016-90000-31987",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Miscellaneous Bldg/Structure",
+   "zip_code": "90045",
+   "lat": "33.95325",
+   "lon": "-118.38037",
+   "valuation": "75000"
+  },
+  {
+   "permit_nbr": "26016-90000-31988",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Dwelling - Single Family",
+   "zip_code": "90041",
+   "lat": "34.14503",
+   "lon": "-118.22823",
+   "valuation": "4400"
+  },
+  {
+   "permit_nbr": "26016-90000-31989",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Duplex",
+   "zip_code": "91331",
+   "lat": "34.25899",
+   "lon": "-118.41534",
+   "valuation": "600"
+  },
+  {
+   "permit_nbr": "26016-90000-31990",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Dwelling - Single Family",
+   "zip_code": "90065",
+   "lat": "34.10723",
+   "lon": "-118.23476",
+   "valuation": "3400"
+  },
+  {
+   "permit_nbr": "26016-90000-31991",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Dwelling - Single Family",
+   "zip_code": "91601",
+   "lat": "34.16573",
+   "lon": "-118.3865",
+   "valuation": "2500"
+  },
+  {
+   "permit_nbr": "26016-90000-31992",
+   "issue_date": "2026-11-14T00:00:00.000",
+   "permit_type": "Bldg-Alter/Repair",
+   "permit_sub_type": "1 or 2 Family Dwelling",
+   "use_desc": "Duplex",
+   "zip_code": "90011",
+   "lat": "33.99744",
+   "lon": "-118.26061",
+   "valuation": "10000"
+  }
+ ]
+}

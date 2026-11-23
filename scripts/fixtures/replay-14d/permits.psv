@@ -1,0 +1,270 @@
+Electrical permit in X|electrical|1679
+Plumbing permit in X|plumbing|1276
+HVAC permit in X|hvac|1012
+Remodel permit in X|general-contractor|982
+Building permit in X|general-contractor|825
+Roof permit in X|roofing|505
+New construction permit in X|general-contractor|362
+Concrete permit in X|concrete-paving|301
+Demolition permit in X|junk-removal|286
+Solar permit in X|solar|216
+Fence permit in X|fencing|202
+Addition permit in X|general-contractor|174
+Window permit in X|windows-doors|169
+Sign permit in X|signs-printing|150
+New construction and electrical permit in X|general-contractor,electrical|142
+Landscaping permit in X|landscaping|118
+New construction and plumbing permit in X|general-contractor,plumbing|113
+Pool permit in X|pool-spa|107
+Structural permit in X|general-contractor|106
+New construction and HVAC permit in X|general-contractor,hvac|101
+New home permit in X|general-contractor,real-estate,moving|99
+Plumbing and landscaping permit in X|plumbing,landscaping|76
+Site work permit in X|general-contractor|73
+Roof and solar permit in X|roofing,solar|71
+HVAC, plumbing and electrical permit in X|hvac,plumbing,electrical|61
+Accessory building permit in X|general-contractor|56
+Deck permit in X|general-contractor|51
+Damage repair permit in X|restoration|42
+New construction and concrete permit in X|general-contractor,concrete-paving|42
+Roof and HVAC permit in X|roofing,hvac|42
+New home and plumbing permit in X|general-contractor,real-estate,moving,plumbing|38
+Tenant fit-out permit in X|general-contractor|31
+Water heater permit in X|plumbing|31
+Roof and siding permit in X|roofing,siding-gutters|27
+Plumbing and electrical permit in X|plumbing,electrical|21
+New home and electrical permit in X|general-contractor,real-estate,moving,electrical|16
+Door permit in X|windows-doors|14
+HVAC and demolition permit in X|hvac,junk-removal|14
+New home and HVAC permit in X|general-contractor,real-estate,moving,hvac|14
+Fence and concrete permit in X|fencing,concrete-paving|13
+Flooring permit in X|flooring|13
+Pool and electrical permit in X|pool-spa,electrical|13
+Roof and concrete permit in X|roofing,concrete-paving|13
+Roof and window permit in X|roofing,windows-doors|13
+Retaining wall permit in X|landscaping|12
+Demolition and window permit in X|junk-removal,windows-doors|10
+HVAC and electrical permit in X|hvac,electrical|10
+HVAC, plumbing, electrical and window permit in X|hvac,plumbing,electrical,windows-doors|10
+Plumbing and demolition permit in X|plumbing,junk-removal|10
+Plumbing and window permit in X|plumbing,windows-doors|9
+Window and flooring permit in X|windows-doors,flooring|9
+HVAC and plumbing permit in X|hvac,plumbing|8
+Roof, HVAC, plumbing and electrical permit in X|roofing,hvac,plumbing,electrical|8
+Roof, window and siding permit in X|roofing,windows-doors,siding-gutters|8
+Siding permit in X|siding-gutters|8
+Plumbing, electrical and remodel permit in X|plumbing,electrical,general-contractor|7
+Roof and deck permit in X|roofing,general-contractor|7
+HVAC, plumbing, electrical and remodel permit in X|hvac,plumbing,electrical,general-contractor|6
+Plumbing, electrical and demolition permit in X|plumbing,electrical,junk-removal|6
+Pool and concrete permit in X|pool-spa,concrete-paving|6
+Tree removal permit in X|tree-service|6
+Concrete and deck permit in X|concrete-paving,general-contractor|5
+Demolition and door permit in X|junk-removal,windows-doors|5
+Demolition and flooring permit in X|junk-removal,flooring|5
+Demolition and landscaping permit in X|junk-removal,landscaping|5
+HVAC, plumbing and window permit in X|hvac,plumbing,windows-doors|5
+Landscaping and concrete permit in X|landscaping,concrete-paving|5
+Roof and damage repair permit in X|roofing,restoration|5
+Roof and gutter permit in X|roofing,siding-gutters|5
+Roof, solar and electrical permit in X|roofing,solar,electrical|5
+Concrete and window permit in X|concrete-paving,windows-doors|4
+Demolition and remodel permit in X|junk-removal,general-contractor|4
+HVAC and window permit in X|hvac,windows-doors|4
+HVAC, electrical and demolition permit in X|hvac,electrical,junk-removal|4
+Landscaping and window permit in X|landscaping,windows-doors|4
+Painting permit in X|painting|4
+Plumbing and remodel permit in X|plumbing,general-contractor|4
+Plumbing, electrical and window permit in X|plumbing,electrical,windows-doors|4
+Roof, fence and concrete permit in X|roofing,fencing,concrete-paving|4
+Solar and electrical permit in X|solar,electrical|4
+Window and remodel permit in X|windows-doors,general-contractor|4
+Concrete and damage repair permit in X|concrete-paving,restoration|3
+Demolition and addition permit in X|junk-removal,general-contractor|3
+Demolition and concrete permit in X|junk-removal,concrete-paving|3
+Electrical and window permit in X|electrical,windows-doors|3
+Fence and landscaping permit in X|fencing,landscaping|3
+HVAC and remodel permit in X|hvac,general-contractor|3
+HVAC, plumbing, electrical and door permit in X|hvac,plumbing,electrical,windows-doors|3
+New home permit in X|real-estate,moving,general-contractor|3
+Plumbing, electrical and flooring permit in X|plumbing,electrical,flooring|3
+Pool and landscaping permit in X|pool-spa,landscaping|3
+Roof and demolition permit in X|roofing,junk-removal|3
+Roof and fence permit in X|roofing,fencing|3
+Roof and landscaping permit in X|roofing,landscaping|3
+Roof, HVAC and plumbing permit in X|roofing,hvac,plumbing|3
+Roof, plumbing and electrical permit in X|roofing,plumbing,electrical|3
+Window and siding permit in X|windows-doors,siding-gutters|3
+Concrete and porch permit in X|concrete-paving,general-contractor|2
+Demolition and deck permit in X|junk-removal,general-contractor|2
+Demolition and fence permit in X|junk-removal,fencing|2
+Demolition and tenant fit-out permit in X|junk-removal,general-contractor|2
+Door and remodel permit in X|windows-doors,general-contractor|2
+Door and siding permit in X|windows-doors,siding-gutters|2
+Electrical and demolition permit in X|electrical,junk-removal|2
+Electrical and remodel permit in X|electrical,general-contractor|2
+Electrical, demolition and flooring permit in X|electrical,junk-removal,flooring|2
+Electrical, window and remodel permit in X|electrical,windows-doors,general-contractor|2
+Flooring and damage repair permit in X|flooring,restoration|2
+Flooring and remodel permit in X|flooring,general-contractor|2
+HVAC and landscaping permit in X|hvac,landscaping|2
+HVAC, electrical and flooring permit in X|hvac,electrical,flooring|2
+HVAC, electrical and window permit in X|hvac,electrical,windows-doors|2
+HVAC, electrical, flooring and remodel permit in X|hvac,electrical,flooring,general-contractor|2
+HVAC, plumbing, electrical and addition permit in X|hvac,plumbing,electrical,general-contractor|2
+HVAC, plumbing, electrical and demolition permit in X|hvac,plumbing,electrical,junk-removal|2
+HVAC, window and painting permit in X|hvac,windows-doors,painting|2
+HVAC, window and siding permit in X|hvac,windows-doors,siding-gutters|2
+Plumbing and flooring permit in X|plumbing,flooring|2
+Plumbing, flooring and remodel permit in X|plumbing,flooring,general-contractor|2
+Pool and demolition permit in X|pool-spa,junk-removal|2
+Pool, plumbing and electrical permit in X|pool-spa,plumbing,electrical|2
+Roof and electrical permit in X|roofing,electrical|2
+Roof and plumbing permit in X|roofing,plumbing|2
+Roof and remodel permit in X|roofing,general-contractor|2
+Roof, HVAC, siding and flooring permit in X|roofing,hvac,siding-gutters,flooring|2
+Roof, water heater, HVAC and electrical permit in X|roofing,plumbing,hvac,electrical|2
+Solar, HVAC, plumbing and electrical permit in X|solar,hvac,plumbing,electrical|2
+Window and addition permit in X|windows-doors,general-contractor|2
+Window and damage repair permit in X|windows-doors,restoration|2
+Window and painting permit in X|windows-doors,painting|2
+Window and sign permit in X|windows-doors,signs-printing|2
+Window, flooring and painting permit in X|windows-doors,flooring,painting|2
+Concrete and remodel permit in X|concrete-paving,general-contractor|1
+Concrete, door, flooring and remodel permit in X|concrete-paving,windows-doors,flooring,general-contractor|1
+Concrete, flooring and painting permit in X|concrete-paving,flooring,painting|1
+Concrete, window and flooring permit in X|concrete-paving,windows-doors,flooring|1
+Damage repair and porch permit in X|restoration,general-contractor|1
+Demolition and damage repair permit in X|junk-removal,restoration|1
+Demolition, concrete and window permit in X|junk-removal,concrete-paving,windows-doors|1
+Demolition, concrete, window and sign permit in X|junk-removal,concrete-paving,windows-doors,signs-printing|1
+Demolition, door and flooring permit in X|junk-removal,windows-doors,flooring|1
+Demolition, fence and retaining wall permit in X|junk-removal,fencing,landscaping|1
+Demolition, flooring and painting permit in X|junk-removal,flooring,painting|1
+Demolition, landscaping and sign permit in X|junk-removal,landscaping,signs-printing|1
+Demolition, window and flooring permit in X|junk-removal,windows-doors,flooring|1
+Demolition, window and siding permit in X|junk-removal,windows-doors,siding-gutters|1
+Demolition, window, flooring and remodel permit in X|junk-removal,windows-doors,flooring,general-contractor|1
+Door and addition permit in X|windows-doors,general-contractor|1
+Door and flooring permit in X|windows-doors,flooring|1
+Door, flooring and painting permit in X|windows-doors,flooring,painting|1
+Door, flooring and remodel permit in X|windows-doors,flooring,general-contractor|1
+Electrical and concrete permit in X|electrical,concrete-paving|1
+Electrical and damage repair permit in X|electrical,restoration|1
+Electrical and deck permit in X|electrical,general-contractor|1
+Electrical and door permit in X|electrical,windows-doors|1
+Electrical and fence permit in X|electrical,fencing|1
+Electrical and flooring permit in X|electrical,flooring|1
+Electrical and landscaping permit in X|electrical,landscaping|1
+Electrical and siding permit in X|electrical,siding-gutters|1
+Electrical, painting and remodel permit in X|electrical,painting,general-contractor|1
+Electrical, window and flooring permit in X|electrical,windows-doors,flooring|1
+Fence and addition permit in X|fencing,general-contractor|1
+Fence and deck permit in X|fencing,general-contractor|1
+Fence and flooring permit in X|fencing,flooring|1
+Fence and remodel permit in X|fencing,general-contractor|1
+Fence and window permit in X|fencing,windows-doors|1
+Fence, concrete and painting permit in X|fencing,concrete-paving,painting|1
+Fence, concrete and sign permit in X|fencing,concrete-paving,signs-printing|1
+Fence, window and damage repair permit in X|fencing,windows-doors,restoration|1
+Fence, window and gutter permit in X|fencing,windows-doors,siding-gutters|1
+Flooring and painting permit in X|flooring,painting|1
+Home Occupation permit in X|business-services|1
+Home Occupation permit in X|real-estate|1
+HVAC and addition permit in X|hvac,general-contractor|1
+HVAC and concrete permit in X|hvac,concrete-paving|1
+HVAC and flooring permit in X|hvac,flooring|1
+HVAC, concrete and flooring permit in X|hvac,concrete-paving,flooring|1
+HVAC, demolition and porch permit in X|hvac,junk-removal,general-contractor|1
+HVAC, demolition and window permit in X|hvac,junk-removal,windows-doors|1
+HVAC, electrical and concrete permit in X|hvac,electrical,concrete-paving|1
+HVAC, electrical and fence permit in X|hvac,electrical,fencing|1
+HVAC, electrical and landscaping permit in X|hvac,electrical,landscaping|1
+HVAC, electrical and painting permit in X|hvac,electrical,painting|1
+HVAC, electrical and tenant fit-out permit in X|hvac,electrical,general-contractor|1
+HVAC, electrical, landscaping and window permit in X|hvac,electrical,landscaping,windows-doors|1
+HVAC, plumbing and demolition permit in X|hvac,plumbing,junk-removal|1
+HVAC, plumbing and landscaping permit in X|hvac,plumbing,landscaping|1
+HVAC, plumbing and remodel permit in X|hvac,plumbing,general-contractor|1
+HVAC, plumbing and tenant fit-out permit in X|hvac,plumbing,general-contractor|1
+HVAC, plumbing, electrical and concrete permit in X|hvac,plumbing,electrical,concrete-paving|1
+HVAC, plumbing, electrical and deck permit in X|hvac,plumbing,electrical,general-contractor|1
+HVAC, plumbing, electrical and fence permit in X|hvac,plumbing,electrical,fencing|1
+HVAC, plumbing, electrical and flooring permit in X|hvac,plumbing,electrical,flooring|1
+HVAC, plumbing, electrical and landscaping permit in X|hvac,plumbing,electrical,landscaping|1
+HVAC, plumbing, electrical and porch permit in X|hvac,plumbing,electrical,general-contractor|1
+HVAC, plumbing, electrical and sign permit in X|hvac,plumbing,electrical,signs-printing|1
+HVAC, window, siding and remodel permit in X|hvac,windows-doors,siding-gutters,general-contractor|1
+Landscaping and damage repair permit in X|landscaping,restoration|1
+New construction and sign permit in X|general-contractor,signs-printing|1
+New construction, HVAC and plumbing permit in X|general-contractor,hvac,plumbing|1
+New home and roof permit in X|general-contractor,real-estate,moving,roofing|1
+New home, electrical and concrete permit in X|general-contractor,real-estate,moving,electrical,concrete-paving|1
+New home, retaining wall and concrete permit in X|general-contractor,real-estate,moving,landscaping,concrete-paving|1
+New home, window and flooring permit in X|general-contractor,real-estate,moving,windows-doors,flooring|1
+Plumbing and door permit in X|plumbing,windows-doors|1
+Plumbing and painting permit in X|plumbing,painting|1
+Plumbing, concrete and window permit in X|plumbing,concrete-paving,windows-doors|1
+Plumbing, demolition and concrete permit in X|plumbing,junk-removal,concrete-paving|1
+Plumbing, demolition and door permit in X|plumbing,junk-removal,windows-doors|1
+Plumbing, demolition and landscaping permit in X|plumbing,junk-removal,landscaping|1
+Plumbing, door, flooring and remodel permit in X|plumbing,windows-doors,flooring,general-contractor|1
+Plumbing, electrical and concrete permit in X|plumbing,electrical,concrete-paving|1
+Plumbing, fence and window permit in X|plumbing,fencing,windows-doors|1
+Plumbing, fence, concrete and door permit in X|plumbing,fencing,concrete-paving,windows-doors|1
+Plumbing, fence, landscaping and concrete permit in X|plumbing,fencing,landscaping,concrete-paving|1
+Plumbing, flooring and painting permit in X|plumbing,flooring,painting|1
+Plumbing, window and addition permit in X|plumbing,windows-doors,general-contractor|1
+Pool and deck permit in X|pool-spa,general-contractor|1
+Pool and HVAC permit in X|pool-spa,hvac|1
+Pool, HVAC and concrete permit in X|pool-spa,hvac,concrete-paving|1
+Pool, HVAC and electrical permit in X|pool-spa,hvac,electrical|1
+Pool, plumbing, electrical and deck permit in X|pool-spa,plumbing,electrical,general-contractor|1
+Retaining wall, concrete and porch permit in X|landscaping,concrete-paving,general-contractor|1
+Roof and flooring permit in X|roofing,flooring|1
+Roof and porch permit in X|roofing,general-contractor|1
+Roof, concrete and damage repair permit in X|roofing,concrete-paving,restoration|1
+Roof, concrete and window permit in X|roofing,concrete-paving,windows-doors|1
+Roof, concrete, window and porch permit in X|roofing,concrete-paving,windows-doors,general-contractor|1
+Roof, concrete, window and siding permit in X|roofing,concrete-paving,windows-doors,siding-gutters|1
+Roof, demolition and concrete permit in X|roofing,junk-removal,concrete-paving|1
+Roof, demolition and landscaping permit in X|roofing,junk-removal,landscaping|1
+Roof, demolition and porch permit in X|roofing,junk-removal,general-contractor|1
+Roof, demolition and siding permit in X|roofing,junk-removal,siding-gutters|1
+Roof, demolition and window permit in X|roofing,junk-removal,windows-doors|1
+Roof, electrical and concrete permit in X|roofing,electrical,concrete-paving|1
+Roof, electrical and window permit in X|roofing,electrical,windows-doors|1
+Roof, electrical, window and sign permit in X|roofing,electrical,windows-doors,signs-printing|1
+Roof, HVAC and concrete permit in X|roofing,hvac,concrete-paving|1
+Roof, HVAC and flooring permit in X|roofing,hvac,flooring|1
+Roof, HVAC and landscaping permit in X|roofing,hvac,landscaping|1
+Roof, HVAC, electrical and siding permit in X|roofing,hvac,electrical,siding-gutters|1
+Roof, HVAC, electrical and window permit in X|roofing,hvac,electrical,windows-doors|1
+Roof, HVAC, plumbing and siding permit in X|roofing,hvac,plumbing,siding-gutters|1
+Roof, landscaping and concrete permit in X|roofing,landscaping,concrete-paving|1
+Roof, landscaping and damage repair permit in X|roofing,landscaping,restoration|1
+Roof, landscaping, window and siding permit in X|roofing,landscaping,windows-doors,siding-gutters|1
+Roof, plumbing and siding permit in X|roofing,plumbing,siding-gutters|1
+Roof, plumbing, electrical and siding permit in X|roofing,plumbing,electrical,siding-gutters|1
+Roof, plumbing, electrical and window permit in X|roofing,plumbing,electrical,windows-doors|1
+Roof, pool, HVAC and plumbing permit in X|roofing,pool-spa,hvac,plumbing|1
+Roof, retaining wall and deck permit in X|roofing,landscaping,general-contractor|1
+Roof, siding and flooring permit in X|roofing,siding-gutters,flooring|1
+Roof, siding and porch permit in X|roofing,siding-gutters,general-contractor|1
+Roof, siding, flooring and painting permit in X|roofing,siding-gutters,flooring,painting|1
+Roof, sign and damage repair permit in X|roofing,signs-printing,restoration|1
+Roof, solar, landscaping and siding permit in X|roofing,solar,landscaping,siding-gutters|1
+Roof, water heater, HVAC and remodel permit in X|roofing,plumbing,hvac,general-contractor|1
+Roof, window and porch permit in X|roofing,windows-doors,general-contractor|1
+Roof, window, siding and flooring permit in X|roofing,windows-doors,siding-gutters,flooring|1
+Roof, window, siding and porch permit in X|roofing,windows-doors,siding-gutters,general-contractor|1
+Solar, electrical and fence permit in X|solar,electrical,fencing|1
+Solar, plumbing and electrical permit in X|solar,plumbing,electrical|1
+Tree removal and fence permit in X|tree-service,fencing|1
+Water heater and HVAC permit in X|plumbing,hvac|1
+Water heater and remodel permit in X|plumbing,general-contractor|1
+Water heater, HVAC and electrical permit in X|plumbing,hvac,electrical|1
+Water heater, HVAC and window permit in X|plumbing,hvac,windows-doors|1
+Window, flooring and addition permit in X|windows-doors,flooring,general-contractor|1
+Window, flooring and damage repair permit in X|windows-doors,flooring,restoration|1
+Window, flooring and remodel permit in X|windows-doors,flooring,general-contractor|1

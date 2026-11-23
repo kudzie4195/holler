@@ -17,8 +17,8 @@ describe('feature list', () => {
     expect(FEATURE_IDS).toEqual(['gov-bids', 'spanish', 'asking-online', 'city-weekly', 'more-areas']);
   });
   it('the newest migration check constraint lists the same ids', () => {
-    // 0021 widened the constraint 0008 created; the newest definition is the one in force.
-    const sql = readFileSync('supabase/migrations/0021_holler_zip_waitlist.sql', 'utf8');
+    // 0031 (the other branch's 0021, renamed) widened the constraint 0008 created; the newest definition is the one in force.
+    const sql = readFileSync('supabase/migrations/0031_holler_zip_waitlist.sql', 'utf8');
     const m = sql.match(/check \(feature in \(([^)]*)\)\)/)!;
     expect(m[1].split(',').map((s) => s.trim().replace(/'/g, ''))).toEqual([...FEATURE_IDS]);
   });

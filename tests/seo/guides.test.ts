@@ -324,8 +324,9 @@ describe('/faq content', () => {
   it('states the fixed pricing and request facts', () => {
     expect(text).toContain('Solo is $7.99 a month or $79.99 a year');
     expect(text).toContain('Pro is $13.99 a month or $139.99 a year');
-    expect(text).toMatch(/14-day free trial/);
-    expect(text).toMatch(/14 days of alerts on Solo limits/);
+    expect(text).toMatch(/60-day free trial/);
+    expect(text).toMatch(/60 days of alerts on Solo limits/);
+    expect(text).not.toMatch(/14-day free trial|14 days of alerts/);
     expect(text).not.toMatch(/Starter|7-day|Seven days/);
     expect(text).toMatch(/no card/i);
     expect(text).toMatch(/one service area and up to five trades/);

@@ -779,133 +779,7 @@ interface PartResult {
   toks: Tok[];
 }
 
-/**
- * R12 (round 10, entity-marker rescue). Entity and trade words that make a registered business name public by design ("Capitol Roofing
- * Inc", "Queen City Electric Co"). Legal forms (Inc, LLC, Co ...) are handled apart as FINAL words. "Trust" and "Estate" are NOT here: they
- * are role words (R2) and a personal trust must never pass. Folded lower case.
- */
-const ENTITY_MARKER_WORDS = new Set(
-  list(
-    'holdings properties group enterprises services solutions contracting contractors construction builders roofing plumbing electric ' +
-      'electrical mechanical hvac heating cooling air restoration landscaping lawn tree fence paving concrete painting remodeling homes ' +
-      'development realty management partners associates bank church school university authority district',
-  ),
-);
-/** Marker words that name an institution; they never rescue a name that carries a surname ("Grace Church", "Anna Bank" stay rejected). */
-const INSTITUTION_MARKERS = new Set(list('bank church school university authority district'));
-
-/**
- * R12. Words that the name lists read as given names or glued names (R2, R10) although in a company name they are ordinary words, places
- * or brands: "Capitol", "Queen City", "Harbor Point", "Magnolia", "Triangle". Only these exact words (folded) are lifted, only inside a
- * name that holds an entity marker and no other personal word. A listed given name that is not here ("John", "Maria") still fails.
- */
-const SOFT_NAME_WORDS = new Set(
-  list(
-    'capitol triangle queen magnolia point pointe liberty phoenix river delta sterling harbor lake patriot union apex cardinal beacon ' +
-      'heritage gateway keystone pinnacle atlas summit crown colony hudson dixie cypress cedar laurel ash ember sage forest stone ridge ' +
-      'field wood bay shore aspen blue star comfort hill park madison ashford georgia virginia savannah willow fulton christian harmony ' +
-      'rose charlotte austin dallas houston denver orlando service tech',
-  ),
-);
-
-/**
- * R12: a word made of two ordinary words ("Riverbend", "Ironwood", "Oakwood", "Lakeside"): both pieces of 3+ letters are soft, vocabulary
- * or business words. A given name glued to a surname ("JOHNSMITH", "MARIALOPEZ") never splits this way.
- */
-function isCompoundWord(k: string): boolean {
-  if (!/^[a-z]{6,}$/.test(k)) return false;
-  const ok = (w: string) => SOFT_NAME_WORDS.has(w) || ((BUSINESS.has(w) || PUBLIC.has(w) || KNOWN.has(w)) && !isGiven(w));
-  for (let i = 3; i <= k.length - 3; i++) if (ok(k.slice(0, i)) && ok(k.slice(i))) return true;
-  return false;
-}
-
-/**
- * R12: a name with an entity marker is a company even when other words look like names. Allowed: soft words (above), vocabulary words,
- * at most ONE word that is unknown or a listed surname (also one that is a listed given name too: "Smith Roofing"); R10/R11 still
- * apply to that word. Never allowed: a listed given name that is not also a surname ("John Smith LLC", "Maria Lopez Roofing"), an
- * initial, honorific, suffix, credential, job title, glued name, or "&" joined to a given name. Needs a marker word that is not a legal
- * form, and two words that are not legal forms. Returns null when it does not hold.
- */
-const GEO_SOFT_WORDS = new Set(['park', 'ridge', 'point', 'hill', 'hills', 'harbor', 'star', 'lake', 'creek', 'river', 'valley', 'summit', 'oak', 'pine', 'cedar', 'blue', 'stone', 'brook', 'glen', 'dale', 'forest', 'meadow', 'bay', 'grove', 'spring', 'springs']);
-
-function rescueMarker(toks: Tok[]): string | null {
-  if (toks.length < 2) return null;
-  // "City of Marietta", "County of Madison", "State of Georgia": a public body, public by design, even when the place is also a given
-  // name. Exactly one word after "of" ("City of Austin John Smith", "Town of John Smith" still fail).
-  if (toks.length === 3 && ['city', 'county', 'state'].includes(toks[0].k) && toks[1].k === 'of') {
-    const place = toks[2];
-    if (['given', 'surname', 'unknown', 'known', 'business', 'public'].includes(place.kind) && /^[a-z]{3,}$/.test(place.k)) {
-      return toks.map((x) => x.raw).join(' ');
-    }
-  }
-  const last = toks[toks.length - 1];
-  const legalLast = last.kind === 'legalStrong' || last.kind === 'legalWeak';
-  const body = legalLast ? toks.slice(0, -1) : toks;
-  if (body.some((x) => x.kind === 'conj') && body.filter((x) => x.kind === 'conj').length > 1) return null;
-  if (body[0].kind === 'conj' || body[body.length - 1].kind === 'conj') return null;
-  const words = body.filter((x) => x.kind !== 'conj');
-  if (words.length < 2) return null;
-  let marker = false;
-  let institution = false;
-  let surnameWord = false;
-  let softGiven = false;
-  let softGivenCount = 0;
-  let nameLike = 0;
-  let budget = 0;
-  const adjusted: Tok[] = [];
-  for (const x of toks) {
-    const k = x.k.replace(/\.$/, '');
-    if (x === last && legalLast) {
-      adjusted.push(x);
-      continue;
-    }
-    if (x.kind === 'conj') {
-      adjusted.push(x);
-      continue;
-    }
-    if (ENTITY_MARKER_WORDS.has(k)) {
-      marker = true;
-      if (INSTITUTION_MARKERS.has(k)) institution = true;
-      adjusted.push({ ...x, kind: 'business', unknown: 0 });
-      continue;
-    }
-    if (SOFT_NAME_WORDS.has(k) || isCompoundWord(k)) {
-      if (isGiven(k)) {
-        softGiven = true;
-        // Landscape and colour words that are also rare given names ("Park", "Ridge", "Blue") do not read as a person's name.
-        if (!GEO_SOFT_WORDS.has(k)) softGivenCount++;
-      }
-      adjusted.push({ ...x, kind: 'known', unknown: 0 });
-      continue;
-    }
-    if (x.kind === 'business' || x.kind === 'public' || x.kind === 'known') {
-      adjusted.push(x);
-      continue;
-    }
-    if (x.kind === 'unknown' || x.kind === 'surname') {
-      budget += x.unknown;
-      nameLike++;
-      if (x.kind === 'surname') surnameWord = true;
-      adjusted.push(x);
-      continue;
-    }
-    return null; // a given name, initial, honorific, suffix, credential, job title, glued or bad word
-  }
-  const phrase = adjusted.some((x, i) => PUBLIC_PHRASE_HEADS.has(x.k) && adjusted[i + 1]?.k === 'of' && i + 2 < adjusted.length);
-  if (!marker && !phrase) return null;
-  // An institution word ("Church", "Bank", "School") next to a surname or a given-name word needs a third word: "Grace Church", "Anna Bank",
-  // "Queen Bank" stay rejected, "Georgia Tech University" and "Fulton County School District" pass.
-  if (institution && (surnameWord || (softGiven && words.length < 3))) return null;
-  if (budget > 1) return null;
-  // A given-name word next to another given-name, surname or unknown word reads as a person's full name ("Madison Rose Painting",
-  // "Christian Austin Construction", "Austin Rose Realty"): reject. One given-name word with ordinary words passes ("Madison Electric").
-  if (softGivenCount >= 1 && softGivenCount + nameLike >= 2) return null;
-  if (!r10Ok(adjusted)) return null;
-  const out = toks.map((x) => x.raw).join(' ');
-  return out.length < MIN_LEN || out.length > MAX_LEN ? null : out;
-}
-
-/** R1 to R7 on one part, then the R12 entity-marker rescue. */
+/** R1 to R7 on one part. */
 function evaluatePart(text: string): PartResult {
   let t = text.replace(/\s+/g, ' ').trim();
   t = t.replace(STORE_NUMBER_RE, '').trim();
@@ -915,34 +789,25 @@ function evaluatePart(text: string): PartResult {
   if (!t || /\d/.test(t)) return fail; // R1: no digit left after one trailing store number
   if (/[^A-Za-z\u00C0-\u024F\s&'.\-]/.test(t)) return fail; // R3
   if (/[^\x00-\x7f]/.test(foldName(t))) return fail; // R1
-  if (!toks.length) return fail;
-  const strict = strictPart(toks);
-  if (strict !== null) return { out: strict, toks };
-  const rescued = rescueMarker(toks);
-  return rescued !== null ? { out: rescued, toks } : fail;
-}
-
-/** R1 to R7 and R10 on the tokens of one part (the strict shape rule). */
-function strictPart(toks: Tok[]): string | null {
-  if (toks.some((x) => FAIL_KINDS.has(x.kind))) return null; // R2, R3
+  if (!toks.length || toks.some((x) => FAIL_KINDS.has(x.kind))) return fail; // R2, R3
   const conj = toks.filter((x) => x.kind === 'conj' || x.kind === 'glued').length;
-  if (conj > 1) return null; // R3: a single "&" or "AND"
-  if (toks[0].kind === 'conj' || toks[toks.length - 1].kind === 'conj') return null;
+  if (conj > 1) return fail; // R3: a single "&" or "AND"
+  if (toks[0].kind === 'conj' || toks[toks.length - 1].kind === 'conj') return fail;
   const last = toks[toks.length - 1];
-  if (STREET_ABBR.has(last.k.replace(/\.$/, ''))) return null; // R4
+  if (STREET_ABBR.has(last.k.replace(/\.$/, ''))) return fail; // R4
   const strongLegal = last.kind === 'legalStrong';
   // One word alone is a trade or a place ("ROOFING", "Motel"), never a name to show: at least two words (when unsure, null).
-  if (toks.length < 2) return null;
+  if (toks.length < 2) return fail;
   const unknown = toks.reduce((n, x) => n + x.unknown, 0);
   const word = toks.some((x) => x.kind === 'business' || x.kind === 'public');
   const phrase = toks.some((x, i) => PUBLIC_PHRASE_HEADS.has(x.k) && toks[i + 1]?.k === 'of' && i + 2 < toks.length);
   const evidence = word || phrase || strongLegal; // R5; a weak legal form only with other evidence
-  if (!evidence) return null;
-  if (unknown > 1) return null; // R6: one unknown word, legal form or not
-  if (!r10Ok(toks)) return null; // R10
+  if (!evidence) return fail;
+  if (unknown > 1) return fail; // R6: one unknown word, legal form or not
+  if (!r10Ok(toks)) return fail; // R10
   const out = toks.map((x) => x.raw).join(' ');
-  if (out.length < MIN_LEN || out.length > MAX_LEN) return null;
-  return out;
+  if (out.length < MIN_LEN || out.length > MAX_LEN) return fail;
+  return { out, toks };
 }
 
 const EVIDENCE_KINDS = new Set<Kind>(['business', 'public', 'legalStrong', 'legalWeak']);
@@ -1277,8 +1142,132 @@ export function isListedGivenName(w: string): boolean {
   return isGiven(foldName(w).replace(/[\u2018\u2019`]/g, "'"));
 }
 
+/** Is this one word a listed surname (accents folded, apostrophes ignored)? For the contractor trade-name rule (trade-name.ts). */
+export function isListedSurname(w: string): boolean {
+  return isSurname(foldName(w).replace(/[\u2018\u2019`]/g, "'"));
+}
+
+/** What one plain word is to this classifier (round 18, for trade-name.ts): the same kinds the strict rule uses, never a decision. */
+export type WordClass =
+  | 'given'
+  | 'initial'
+  | 'honor'
+  | 'suffix'
+  | 'cred'
+  | 'title'
+  | 'legalStrong'
+  | 'legalWeak'
+  | 'business'
+  | 'public'
+  | 'known'
+  | 'surname'
+  | 'unknown'
+  | 'bad';
+
+/** Classifies one word (letters, apostrophes and hyphens; a final period is ignored). `isFinal`: the last word of the name (legal forms). */
+export function classifyWord(w: string, isFinal = false): WordClass {
+  const k = foldName(w).replace(/[\u2018\u2019`]/g, "'").replace(/\.$/, '');
+  if (!/^[a-z][a-z'-]*$/.test(k)) return 'bad';
+  if (k.includes('-')) {
+    const parts = k.split('-').filter(Boolean);
+    const kinds = parts.map((p) => wordKind(p, false, undefined));
+    const bad = kinds.find((x) => FAIL_KINDS.has(x));
+    if (bad) return bad as WordClass;
+    if (kinds.includes('given')) return 'given';
+    return kinds.every((x) => x === 'business' || x === 'known' || x === 'public') ? (kinds.includes('business') ? 'business' : 'known') : 'unknown';
+  }
+  const kind = wordKind(k, isFinal, undefined);
+  return kind === 'conj' || kind === 'glued' ? 'unknown' : (kind as WordClass);
+}
+
 /** Plain-word classification for other guards: is this word on a non-name vocabulary (business, public, descriptive)? */
 export function isVocabularyWord(w: string): boolean {
   const k = foldName(w);
   return notName(k) && (BUSINESS.has(k) || PUBLIC.has(k) || KNOWN.has(k));
+}
+
+// ---- structured company fields ---------------------------------------------------------------------------------------------------------
+
+/**
+ * Words that make a registered name a company name (a legal form, or a word that only a business carries). One of them is REQUIRED by
+ * registeredCompanyName. Role words (owner, manager, tenant, agent, trust, estate) are never in this list.
+ */
+const COMPANY_MARKERS = new Set(
+  list(
+    'llc l.l.c inc inc. incorporated corp corp. corporation co co. company ltd limited lp l.p. llp lllp lllc pllc hdfc ' +
+      'management managment mgmt mgt realty properties property associates holdings holding group partners equities enterprises ' +
+      'development housing apartments residential capital services investments ventures builders construction brokerage',
+  ),
+);
+/** Extra person-role and placeholder shapes for structured fields (hasRoleWord already covers owner, tenant, trust, estate, c/o ...). */
+const STRUCTURED_ROLE_RE =
+  /\b(?:agents?|managers?|supers?|superintendents?|lessees?|lessors?|landlords?|occupants?|residents?|self[- ]managed|owner[- ]occupied|same as|see above|as above|n\/?a|none|unknown|individual|tbd|various|multiple)\b/i;
+
+/** Ordinal street numbers ("32ND", "5th"): digits plus a suffix, never read as a digit-for-letter disguise. */
+const ORDINAL_RE = /^\d+(?:st|nd|rd|th)$/i;
+/** Honorifics: a registered company name that starts with or holds one names a person ("DR. PATEL MANAGEMENT INC"). */
+const COMPANY_NAME_HONORIFICS = new Set(['dr', 'mr', 'mrs', 'ms', 'mx', 'miss', 'rev', 'prof']);
+const DIGIT_FOR_LETTER: Record<string, string> = { '0': 'O', '1': 'I', '3': 'E', '4': 'A', '5': 'S' };
+/** A word as the name check reads it: punctuation off, and digit-for-letter disguises undone inside words that mix letters and digits ("J0HN" -> "JOHN"). */
+function nameFormOf(w: string): string {
+  const bare = w.replace(/[^A-Za-z0-9'-]/g, '').replace(/^['-]+|['-]+$/g, '');
+  if (!/[A-Za-z]/.test(bare)) return ''; // "560-568", "45"
+  if (!/\d/.test(bare)) return bare;
+  return bare.replace(/[01345]/g, (d) => DIGIT_FOR_LETTER[d]);
+}
+
+/**
+ * A company name read from a STRUCTURED business field (a registration's CorporationName, a permit's contractor company column), or null.
+ * cleanOrgName stays the gate for free text; it is strict enough to reject real managing agents here ("STONEHENGE MANAGEMENT LLC":
+ * measured, 12 of 111 live agent and owner names pass), so a structured field gets this rule on the same vocabularies. ALL must hold:
+ *  S1. Plain ASCII letters, digits, spaces and & . , ' - / ( ) #; no invisible character; no phone, email or link; at most 70 characters.
+ *  S2. No role word (hasRoleWord: owner, tenant, trust, estate, c/o ...; and agent, manager, super, same as, n/a, self-managed ...).
+ *  S3. A company marker word (COMPANY_MARKERS: LLC, INC, CORP, CO, LP, LLP, HDFC, MANAGEMENT, REALTY, PROPERTIES, ASSOCIATES, HOLDINGS ...).
+ *  S4. The rest of the name (marker words, "the", "and", digits and symbols removed). One word left is fine ("PRESTIGE MANAGEMENT INC").
+ *      Two or more words left must hold no listed given name and must not read as a person (mentionsPersonName: unknown or surname words
+ *      side by side, an initial next to a word): "JOHN SMITH MANAGEMENT LLC" and "J SMITH LLC" fail.
+ *  S5. A name that reads as an address ("159 GELSTON AVENUE LLC", an owner entity named for its building) is allowed because the marker is
+ *      required and street words are not names; "382 E 197TH STREET" has no marker and fails S3.
+ *      The given-name, honorific (DR, MR, MRS, MS, MX, REV ...) and initial checks run on every non-marker word BEFORE street, direction
+ *      and digit words are dropped, after digit-for-letter disguises are undone ("J0HN" is "JOHN"): "JOHN WEST LLC", "MARY NORTH INC",
+ *      "JOHN LANE LLC", "JAMES COURT MANAGEMENT", "J0HN SMITH LLC" and "DR. PATEL MANAGEMENT INC" fail. A listed given name next to any
+ *      other word is a person-named entity, rejected even when the second word is also a street word (privacy first).
+ *  S6. Something besides the marker words: a distinctive word or a number ("1864 CORP" passes, "Corporation" does not).
+ * A single word never passes (S3). Returns the name with whitespace collapsed, otherwise unchanged.
+ */
+export function registeredCompanyName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = collapse(raw);
+  if (t.length < 5 || t.length > 70) return null;
+  if (/[​-‏‪-‮⁠-⁤⁦-⁩﻿­]/.test(t)) return null;
+  if (!/^[A-Za-z0-9 &.,'\-/()#]+$/.test(t)) return null;
+  if (hasContactShape(t) || hasRoleWord(t) || STRUCTURED_ROLE_RE.test(t)) return null;
+  const words = t.split(/[\s,/()]+/).filter(Boolean);
+  const isMarker = (w: string) => COMPANY_MARKERS.has(w.toLowerCase().replace(/\.$/, '')) || COMPANY_MARKERS.has(w.toLowerCase());
+  if (!words.some(isMarker)) return null;
+  const core = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/\d/.test(w) && !STREET_SUFFIX_WORDS.has(w.toLowerCase().replace(/\.$/, '')) && !/^(?:n|s|e|w|north|south|east|west)\.?$/i.test(w))
+    .map((w) => w.replace(/[^A-Za-z.'-]/g, ''))
+    .filter(Boolean);
+  if (/\bdba\b/i.test(t)) return null;
+  // A marker alone ("Corporation", "Property Management LLC") names nobody: one distinctive word or a number is required.
+  if (core.length === 0 && !words.some((w) => /\d/.test(w))) return null;
+  // Person check, run on EVERY non-marker word BEFORE street, direction and digit words are dropped (a surname can be "West", "Lane" or
+  // "Court"; a given name can hide as "J0HN"). A given name next to any other word, an honorific, or an initial next to a word is a
+  // person-named entity ("JOHN WEST LLC", "MARY NORTH INC", "DR. PATEL MANAGEMENT INC", "J SMITH LLC"): privacy first, reject it.
+  const nameWords = words
+    .filter((w) => !isMarker(w) && !/^(?:the|and|of|&|dba)$/i.test(w) && !/^\d+$/.test(w) && !ORDINAL_RE.test(w))
+    .map(nameFormOf)
+    .filter(Boolean);
+  // "DR" is also a street word ("OCEAN DR LLC"): it names a person only as the first word.
+  if (nameWords.some((w) => COMPANY_NAME_HONORIFICS.has(w.toLowerCase()) && !(w.toLowerCase() === 'dr' && words[0] && nameFormOf(words[0]).toLowerCase() !== 'dr'))) return null;
+  if (nameWords.length >= 2) {
+    // A compass word is a direction here even where it is also a listed given name ("342 WEST 71 STREET LLC").
+    if (nameWords.some((w) => !/^(?:north|south|east|west)$/i.test(w) && isListedGivenName(w))) return null;
+    if (nameWords.some((w) => w.length === 1 && !/^[nsew]$/i.test(w)) && nameWords.some((w) => w.length > 1)) return null;
+  }
+  // One distinctive word next to the marker ("STONEHENGE MANAGEMENT LLC", "PARK MANAGEMENT INC") is a company, even when the word is also a
+  // first name. Two or more distinctive words read as a person's full name when they look like one together.
+  if (core.length >= 2 && mentionsPersonName(core.join(' '))) return null;
+  return t;
 }

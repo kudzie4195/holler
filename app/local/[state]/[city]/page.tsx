@@ -16,7 +16,6 @@ import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/se
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
 import { Aside, ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
-import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
 
 // SPEC asks for `export const revalidate = 21600`. That segment option is removed when
@@ -74,7 +73,7 @@ export default async function CityPage({ params }: Props) {
   const faq = buildFaq(city, data);
   const nearby = nearbyCities(city.slug, 6);
   const ctaHref = `/signup?city=${encodeURIComponent(city.slug)}`;
-  const ctaLabel = cityCtaLabel(city.name, TRIAL_DAYS);
+  const ctaLabel = cityCtaLabel(city.name);
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible

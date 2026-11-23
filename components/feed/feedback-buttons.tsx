@@ -5,11 +5,11 @@ import { submitFeedback } from '@/app/app/actions';
 import { Button } from '../button';
 import { controlClasses } from '../field';
 import { FeedbackFollowUp } from './feedback-followup';
+import { t, type Lang } from '@/lib/i18n';
 import {
   JOB_VALUE_MAX,
   JOB_VALUE_MIN,
   VERDICTS,
-  VERDICT_LABEL,
   isVerdict,
   parseJobValue,
   type FeedbackState,
@@ -20,7 +20,7 @@ import {
  * Three-button answer on an alert: Useful, Not relevant, Led to work. One answer per member per alert; picking another replaces it.
  * "Led to work" also opens an optional whole-dollar job value field. The server action does the real checking.
  */
-export function FeedbackButtons({ signalId, initial }: { signalId: number; initial?: FeedbackState | null }) {
+export function FeedbackButtons({ signalId, initial, lang = 'en' }: { signalId: number; initial?: FeedbackState | null; lang?: Lang }) {
   const [verdict, setVerdict] = useState<Verdict | null>(initial?.verdict ?? null);
   const [saved, setSaved] = useState<number | null>(initial?.jobValueUsd ?? null);
   const [amount, setAmount] = useState(initial?.jobValueUsd != null ? String(initial.jobValueUsd) : '');
@@ -39,12 +39,12 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
         setVerdict(res.verdict);
         setSaved(res.jobValueUsd ?? null);
         if (res.verdict !== 'led_to_work') setAmount('');
-        setMessage('Thanks, saved.');
+        setMessage(t(lang, 'card.feedback.thanks'));
       } else {
-        setError(res.error ?? "That didn't save. Try again.");
+        setError((lang === 'en' ? res.error : null) ?? t(lang, 'card.save_error'));
       }
     } catch {
-      setError("That didn't save. Try again.");
+      setError(t(lang, 'card.save_error'));
     }
     setPending(false);
   }
@@ -58,7 +58,7 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
   function saveAmount() {
     const value = parseJobValue(amount);
     if (value === undefined) {
-      setError(`Enter whole dollars from ${JOB_VALUE_MIN} to 1,000,000.`);
+      setError(t(lang, 'card.feedback.amount_error'));
       return;
     }
     void send('led_to_work', value);
@@ -67,8 +67,8 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
   const showAmount = verdict === 'led_to_work';
   return (
     <div className="mt-4 border-t border-line pt-3">
-      <div role="group" aria-label="Feedback on this alert" className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-muted">Was this alert helpful?</span>
+      <div role="group" aria-label={t(lang, 'card.feedback.group')} className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted">{t(lang, 'card.feedback.question')}</span>
         {VERDICTS.map((v) => (
           <Button
             key={v}
@@ -78,7 +78,7 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
             disabled={pending}
             onClick={() => pick(v)}
           >
-            {VERDICT_LABEL[v]}
+            {t(lang, `card.feedback.${v}` as const)}
           </Button>
         ))}
       </div>
@@ -86,7 +86,7 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="flex flex-col gap-1">
             <label htmlFor={`${id}-value`} className="text-sm font-medium text-ink">
-              About how much was the job? (optional)
+              {t(lang, 'card.feedback.amount_label')}
             </label>
             <input
               id={`${id}-value`}
@@ -97,16 +97,16 @@ export function FeedbackButtons({ signalId, initial }: { signalId: number; initi
               step={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Dollars"
+              placeholder={t(lang, 'card.feedback.dollars')}
               className={`${controlClasses} w-40`}
             />
           </div>
           <Button size="sm" variant="secondary" disabled={pending} onClick={saveAmount}>
-            Save amount
+            {t(lang, 'card.feedback.save_amount')}
           </Button>
         </div>
       ) : null}
-      {verdict === 'useful' ? <FeedbackFollowUp signalId={signalId} onYes={() => setVerdict('led_to_work')} /> : null}
+      {verdict === 'useful' ? <FeedbackFollowUp signalId={signalId} lang={lang} onYes={() => setVerdict('led_to_work')} /> : null}
       <p role="status" className="mt-2 text-sm text-muted empty:hidden">
         {message}
       </p>

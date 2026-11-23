@@ -18,6 +18,8 @@ import {
 } from './budget';
 import { cleanNote } from './note-rules';
 import { failedBeforeResponse } from './errors';
+import { MAX_ATTEMPTS, readAttempts, writeAttempt, writeSkipMarkers } from './poison';
+import { dayLimit, modelSignalsToday, pickWithinLimit, runLimit } from './limits';
 
 /**
  * Classification runs only from cron (never per page view); reply drafts (./draft.ts) run only when a signed-in member with access
@@ -37,7 +39,8 @@ import { failedBeforeResponse } from './errors';
  */
 
 export const DEFAULT_CLASSIFY_MODEL = 'anthropic/claude-haiku-5.5';
-export const PROMPT_V = 1;
+/** 2: kind rules for permits and civic records, stricter note rules (round 17, item 2.5). Bumping it starts a new cache namespace. */
+export const PROMPT_V = 2;
 export const APPLY_MIN = 0.8;
 export const KEEP_MIN = 0.6;
 export const MAX_TRADES = 4;
@@ -89,6 +92,15 @@ For every record return one result with the same id:
 1. trades: up to ${MAX_TRADES} trades from the list below that could get work from this record, each with p, your confidence from 0 to 1. Leave out trades under 0.3. Return an empty list when no trade fits.
 2. notes: for at most the ${MAX_NOTES} highest trades with p of 0.6 or more, one line that says why this record matters to that trade.
 
+Rules for permit and civic records (kind permit or civic, including 311 requests, violations and inspections):
+- First check the rule trades: keep a trade only if this kind of work is plausible for this record, and leave out the rest. Add a trade the record clearly points to.
+- A permit only shows that work was applied for, approved or finished. It never shows who was or will be hired. Never say a contractor, vendor or crew was chosen, hired, awarded or has the job, and never say who pulled the permit.
+- A 311 request, violation or inspection is a report, not a confirmed condition. Say what work it could lead to, not that the problem is real or fixed.
+- Use only what the record says: its type of work, its stage, its kind. Do not add a number, name, place or fact the record does not contain.
+- Weather and storm records never prove damage. If a note mentions damage it must be a possibility.
+- Call a 311 request "this 311 report". Do not use the words request, asked or wants. Describe a reported condition as "reported", for example "a reported broken water main".
+- Do not say a record confirms, proves or verifies anything. Do not say "official record". Do not write numbers as words.
+
 Rules for each note line:
 - At most 140 characters, one plain sentence, US spelling.
 - Say what kind of work could follow, as a possibility: use words like "may" or "could".
@@ -114,6 +126,8 @@ export type ModelOutput = z.infer<typeof OutputSchema>;
 
 export interface SignalForAi {
   id: number;
+  /** The record's own date; used only to order permit and civic records oldest first. Never sent to the model. */
+  occurred_at?: string | null;
   source: string | null;
   kind: string | null;
   subtype?: string | null;
@@ -222,7 +236,7 @@ export function validateOutput(raw: unknown, records: AiRecord[]): Map<number, S
         dropped++;
         continue;
       }
-      const clean = cleanNote(why, text);
+      const clean = cleanNote(why, text, { kind: rec.kind });
       if (clean === null) {
         dropped++;
         continue;
@@ -357,14 +371,54 @@ export type RematchFn = (db: Db, signalIds: number[]) => Promise<{ created: numb
  * Unclassified signals whose occurred_at is in the last LOOKBACK_DAYS, newest first (the same window MATCH's remap uses, and it
  * rides the existing holler_signals_occurred_idx). Throws 'not_migrated' when holler_signal_ai cannot be read.
  */
-export async function loadCandidates(db: Db, now: Date, want: number): Promise<{ signals: SignalForAi[]; scanned: number }> {
+/** Permit and civic records read by the anti-join, oldest first (PostgREST returns at most 1000 rows per request anyway). */
+export const PRIORITY_READ = 1000;
+
+/**
+ * Permit and civic records that have no holler_signal_ai row yet, OLDEST first, read straight from the database with an anti-join
+ * (holler_signals left join holler_signal_ai, keep the rows where the AI side is null; the foreign key from 0014 makes this a to-one
+ * embed). The newest-first scan below stops after CANDIDATE_WANT rows of any kind, classified ones included, so under a backlog the
+ * oldest unclassified rows would never be seen; this read does not depend on how many other rows there are. Returns no rows on any error
+ * (the scan below still runs, as before) and `failed` holds the error code, which the run report shows as backlogFallback.
+ */
+export async function loadPriorityBacklog(db: Db, now: Date, limit = PRIORITY_READ): Promise<{ rows: SignalForAi[]; failed: string | null }> {
   const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
-  const out: SignalForAi[] = [];
-  let scanned = 0;
+  try {
+    const { data, error } = await db
+      .from('holler_signals')
+      .select('id,source,kind,title,summary,city,state,categories,occurred_at,subtype:data->>subtype,holler_signal_ai(signal_id)')
+      .is('holler_signal_ai', null)
+      .in('kind', ['permit', 'civic'])
+      .gte('occurred_at', since)
+      .order('occurred_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(0, limit - 1);
+    // The error code only (PGRST200, 42703 ...), never the message: it is shown in the run report.
+    if (error) return { rows: [], failed: String((error as { code?: unknown }).code || 'error').slice(0, 20) };
+    // The embed column is only there for the filter: drop it, and double-check that no row actually has an AI result.
+    const rows = ((data ?? []) as (SignalForAi & { holler_signal_ai?: unknown })[])
+      .filter((r) => r.holler_signal_ai == null || (Array.isArray(r.holler_signal_ai) && r.holler_signal_ai.length === 0))
+      .map((r) => {
+        const { holler_signal_ai: _drop, ...rest } = r;
+        void _drop;
+        return rest;
+      });
+    return { rows, failed: null };
+  } catch {
+    return { rows: [], failed: 'exception' };
+  }
+}
+
+export async function loadCandidates(db: Db, now: Date, want: number): Promise<{ signals: SignalForAi[]; scanned: number; backlogFailed: string | null }> {
+  const since = new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString();
+  const { rows: backlog, failed: backlogFailed } = await loadPriorityBacklog(db, now);
+  const out: SignalForAi[] = [...backlog];
+  const have = new Set(backlog.map((r) => r.id));
+  let scanned = backlog.length;
   for (let page = 0; page < CANDIDATE_MAX_PAGES && out.length < want; page++) {
     const { data, error } = await db
       .from('holler_signals')
-      .select('id,source,kind,title,summary,city,state,categories,subtype:data->>subtype')
+      .select('id,source,kind,title,summary,city,state,categories,occurred_at,subtype:data->>subtype')
       .gte('occurred_at', since)
       .order('occurred_at', { ascending: false })
       .order('id', { ascending: false })
@@ -379,10 +433,10 @@ export async function loadCandidates(db: Db, now: Date, want: number): Promise<{
       if (aErr) throw new Error('not_migrated');
       for (const a of (ai ?? []) as { signal_id: number }[]) done.add(Number(a.signal_id));
     }
-    for (const r of rows) if (!done.has(r.id) && out.length < want) out.push(r);
+    for (const r of rows) if (!done.has(r.id) && !have.has(r.id) && out.length < want) out.push(r);
     if (rows.length < CANDIDATE_PAGE) break;
   }
-  return { signals: out, scanned };
+  return { signals: out, scanned, backlogFailed };
 }
 
 /** Run rematch for changed signals and mark them. False when rematch failed (the next run retries those ids). */
@@ -529,6 +583,8 @@ export type StopReason =
   | 'not_migrated'
   | 'cap_reached'
   | 'spend_unavailable'
+  /** The per-day limit on records sent to the model is used up (lib/ai/limits.ts). Not a failure: the next UTC day continues. */
+  | 'day_limit'
   | 'signals_read_failed'
   /** The model id has no entry in MODEL_PRICES: nothing runs, the rule categories stay, the operator is emailed once a day. */
   | 'unknown_model_price'
@@ -579,6 +635,18 @@ export interface RunSummary {
   capUsd: number;
   /** Worst-case cost of the planned batches (dry run) or of the batches that ran. */
   worstCaseUsd: number;
+  /**
+   * Volume limits (lib/ai/limits.ts). perRun and perDay are the configured limits; usedToday is what holler_ai_spend already holds for
+   * this UTC day (null when not read: no model call is planned, or it could not be read); deferred is how many records that needed a
+   * model call were left for a later run because of a limit. null before the limits were evaluated (no auth, nothing to send).
+   */
+  limits: { perRun: number; perDay: number; usedToday: number | null; allowed: number | null; deferred: number };
+  /** Permit and civic records written this run (any origin): how many, how many changed trades, how many got a note. */
+  /** The oldest-first backlog read (anti-join) failed and the plain newest-first scan was used instead: the PostgREST error code, else null. */
+  backlogFallback: string | null;
+  /** Records marked skipped this run because they came back with bad output MAX_ATTEMPTS times (lib/ai/poison.ts). They show no AI note. */
+  poisonSkipped: number;
+  byKind: Record<'permit' | 'civic', { classified: number; applied: number; withNote: number }>;
   alerts: AlertKind[];
   elapsedMs: number;
 }
@@ -664,12 +732,16 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     monthSpentUsd: null,
     capUsd,
     worstCaseUsd: 0,
+    limits: { perRun: runLimit(env), perDay: dayLimit(env), usedToday: null, allowed: null, deferred: 0 },
+    backlogFallback: null,
+    poisonSkipped: 0,
+    byKind: { permit: { classified: 0, applied: 0, withNote: 0 }, civic: { classified: 0, applied: 0, withNote: 0 } },
     alerts: [],
     elapsedMs: 0,
   };
   let modelSignals = 0;
   const finish = (): RunSummary => {
-    if (s.reason !== null && s.reason !== 'cap_reached') s.ok = false;
+    if (s.reason !== null && s.reason !== 'cap_reached' && s.reason !== 'day_limit') s.ok = false;
     s.spend.costUsd = round6(s.spend.costUsd);
     s.spend.usdPer1kSignals = s.signalsClassified > 0 ? round6((s.spend.costUsd * 1000) / s.signalsClassified) : null;
     s.spend.usdPer1kModelSignals = modelSignals > 0 ? round6((s.spend.costUsd * 1000) / modelSignals) : null;
@@ -713,6 +785,7 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     const got = await loadCandidates(o.db, now, CANDIDATE_WANT);
     candidates = got.signals;
     s.scanned = got.scanned;
+    s.backlogFallback = got.backlogFailed;
   } catch (e) {
     s.reason = e instanceof Error && e.message === 'not_migrated' ? 'not_migrated' : 'signals_read_failed';
     return finish();
@@ -744,8 +817,42 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
   s.skipped = skipped.length;
   s.cacheHits = hits.length;
   s.cacheMisses = misses.length;
-  s.sentToModel = reps.length;
-  const batches = planBatches(reps);
+  // Volume limits (per run, per day) for the records that need a model call. Skipped sources and cache hits are free and not limited.
+  // With no gateway auth nothing is planned or read here: the run stops below exactly as it did before limits existed.
+  const authOk = Boolean(o.model) || gatewayAuthAvailable(env);
+  let toSend: (Prepared & { key: string })[] = reps;
+  if (reps.length > 0 && (authOk || o.dry)) {
+    let allowed = s.limits.perRun;
+    if (authOk) {
+      try {
+        s.limits.usedToday = await modelSignalsToday(o.db, now);
+        allowed = Math.min(allowed, Math.max(0, s.limits.perDay - s.limits.usedToday));
+      } catch {
+        // Fail closed like the spend: no model call when today's volume cannot be read.
+        allowed = 0;
+        s.reason = 'spend_unavailable';
+      }
+    }
+    s.limits.allowed = allowed;
+    const { picked, deferred } = pickWithinLimit(
+      reps.map((p) => ({ p, kind: p.sig.kind, occurredAt: p.sig.occurred_at ?? null })),
+      allowed,
+    );
+    toSend = picked.map((x) => x.p);
+    s.limits.deferred = deferred;
+    if (!s.reason && toSend.length === 0 && allowed === 0 && s.limits.usedToday !== null && s.limits.usedToday >= s.limits.perDay) s.reason = 'day_limit';
+  }
+  // Bounded retries (lib/ai/poison.ts): a record that already has attempts goes alone; one at MAX_ATTEMPTS is skipped, not sent.
+  const attempts = new Map<number, number>();
+  const exhausted: (Prepared & { key: string })[] = [];
+  if (toSend.length > 0 && (authOk || o.dry)) {
+    for (const [id, n] of await readAttempts(o.db, toSend.map((p) => p.sig.id))) attempts.set(id, n);
+    for (const p of toSend) if ((attempts.get(p.sig.id) ?? 0) >= MAX_ATTEMPTS) exhausted.push(p);
+    if (exhausted.length > 0) toSend = toSend.filter((p) => !exhausted.includes(p));
+  }
+  s.sentToModel = toSend.length;
+  const solo = toSend.filter((p) => (attempts.get(p.sig.id) ?? 0) > 0);
+  const batches = [...solo.map((p) => [p]), ...planBatches(toSend.filter((p) => !solo.includes(p)))];
   s.batchesPlanned = batches.length;
 
   if (o.dry) {
@@ -773,6 +880,12 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
   };
 
   let stop: StopReason | null = null;
+  /** Mark a record, and the records that share its text, skipped. Counted only when the write went through. */
+  const markPoison = async (p: Prepared & { key: string }): Promise<void> => {
+    const group = [p, ...(followers.get(p.key) ?? [])];
+    if (await writeSkipMarkers(o.db, group.map((g) => g.sig.id), PROMPT_V)) s.poisonSkipped += group.length;
+  };
+  const kindOf = new Map<number, string>(prepared.map((p) => [p.sig.id, (p.sig.kind ?? '').toLowerCase()]));
 
   /** One all-or-nothing write, then rematch for the changed ids. False when the write failed. */
   const write = async (rows: ApplyRow[], dropped: number): Promise<boolean> => {
@@ -789,6 +902,17 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
       return false;
     }
     s.signalsClassified += rows.length;
+    for (const r of rows) {
+      const k = kindOf.get(r.signal_id);
+      if (k === 'permit' || k === 'civic') {
+        s.byKind[k].classified++;
+        if (Object.keys(r.notes).length > 0) s.byKind[k].withNote++;
+      }
+    }
+    for (const id of changed) {
+      const k = kindOf.get(id);
+      if (k === 'permit' || k === 'civic') s.byKind[k].applied++;
+    }
     s.notesKept += rows.reduce((a, r) => a + Object.keys(r.notes).length, 0);
     s.notesDropped += dropped;
     s.signalsApplied += changed.length;
@@ -800,6 +924,9 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     }
     return true;
   };
+
+  // 1b. Records that already used up their attempts (an earlier run could not write the marker): mark them now, no model call.
+  for (const p of exhausted) await markPoison(p);
 
   // 2. Free writes first: skipped sources and cache hits. No model, no gateway, no spend.
   const free: { row: ApplyRow; dropped: number }[] = [
@@ -869,6 +996,14 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
         s.batchesFailed++;
         fail(call.reason);
         if (call.reason === 'bad_output') {
+          // One attempt for every record in this call (only a call that answered with bad output counts; an outage never does). Such a
+          // record goes alone next run, and at MAX_ATTEMPTS it is skipped for good.
+          for (const p of batch) {
+            const n = (attempts.get(p.sig.id) ?? 0) + 1;
+            attempts.set(p.sig.id, n);
+            await writeAttempt(o.db, p.sig.id, n, PROMPT_V);
+            if (n >= MAX_ATTEMPTS) await markPoison(p);
+          }
           // The model answered: book its usage (or the worst case when none was reported).
           book(await settle(o.db, res.id, { kind: 'error', inputTokens: call.inputTokens, outputTokens: call.outputTokens, gatewayCostUsd: call.gatewayCostUsd, price, estimateUsd: res.estimateUsd }));
           s.spend.inputTokens += call.inputTokens ?? 0;
@@ -937,7 +1072,7 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
   await Promise.all(Array.from({ length: Math.min(concurrency, batches.length) }, () => worker()));
   const left = batches.length - s.batchesRun;
   if (left > 0 && !stop) s.failures.not_started_time = left;
-  s.reason = stop;
+  s.reason = stop ?? s.reason;
   if (capHit) s.reason = 'cap_reached';
 
   // Keep the cache bounded on the shared project. Best effort.
@@ -962,6 +1097,6 @@ export async function runClassify(o: RunOptions): Promise<RunSummary> {
     // keep the earlier figure
   }
   s.alerts = s.monthSpentUsd !== null || capHit ? alertFlags(s.monthSpentUsd ?? capUsd, capUsd, capHit) : [];
-  s.ok = s.batchesFailed === 0 && (s.reason === null || s.reason === 'cap_reached');
+  s.ok = s.batchesFailed === 0 && (s.reason === null || s.reason === 'cap_reached' || s.reason === 'day_limit');
   return finish();
 }

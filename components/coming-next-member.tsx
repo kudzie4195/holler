@@ -1,12 +1,15 @@
 import { Suspense } from 'react';
 import { ComingNext } from './coming-next';
-import { getUser } from '@/lib/auth/session';
+import { getProfile, getUser } from '@/lib/auth/session';
 import { loadMemberPicks } from '@/lib/interest/deps';
+import { langOfProfile } from '@/lib/i18n';
 
 async function MemberList() {
   const user = await getUser();
   const picks = user ? await loadMemberPicks(user.id) : [];
-  return <ComingNext page="app" initialPicked={picks} className="mt-12 pt-2" />;
+  // The member's language (profile, migration 0024). The page has already read the profile this request (cached); any failure is English.
+  const lang = user ? langOfProfile(await getProfile(user.id).catch(() => null)) : 'en';
+  return <ComingNext page="app" initialPicked={picks} className="mt-12 pt-2" lang={lang} />;
 }
 
 /**

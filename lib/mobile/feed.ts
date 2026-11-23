@@ -1,4 +1,6 @@
 import 'server-only';
+import { holdOf, missingHoldColumn, shownHold, type AlertHold } from '@/lib/signals/alert-gate';
+import { readWorkProfile } from '@/lib/auth/work-profile';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDistance, maskText } from '@/components/format';
 import type { ContactRecord } from '@/lib/contacts/types';
@@ -7,12 +9,20 @@ import type { FeedbackState } from '@/lib/feedback/types';
 import { loadMemberContacts } from '@/lib/outreach/loader';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { requestTextForMember } from '@/lib/requests/details';
-import { INTENT_LABEL, intentLine, intentLineKey, intentOf } from '@/lib/signals/intent';
+import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { bidCardLine } from '@/lib/signals/bid-card';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
-import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity, opportunityDto, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
-import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from './types';
+import { DEADLINE_SELECT, deadlineOf, demoteExpired, keptMatchLabel, labelForMember, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
+import { cardBrief, summaryForCard, tradeForRecord } from '@/lib/signals/brief';
+import { formatNotes } from '@/lib/signals/summary-i18n';
+import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
+import { MANAGER_SELECT } from '@/lib/signals/managed-by';
+import { VALUE_SELECT, jobValueOf } from '@/lib/signals/permit-value';
+import { STAGE_SELECT } from '@/lib/signals/stage';
+import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
  * The member's alerts for the app, built the way the web feed (app/app/page.tsx) builds them: the member's own matches read with
@@ -21,9 +31,13 @@ import { FEED_PAGE_SIZE, type AlertDto, type ContactDto, type MatchStatus } from
  * masked text and nothing else. Any failure of an extra (contacts, request text, feedback) leaves that extra out, never the alert.
  */
 
-export const MATCH_SELECT = `id,status,distance_mi,draft,created_at,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,severity,occurred_at,expires_at,categories,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS})`;
+export const MATCH_SELECT =
+  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
 
-export interface SignalRow extends OpportunityRowFields {
+/** MATCH_SELECT without alert_hold, for a database without migration 0027. */
+export const MATCH_SELECT_BEFORE_0027 = MATCH_SELECT.replace('alert_hold,', '');
+
+export interface SignalRow {
   id: number;
   source: string;
   kind: string;
@@ -35,13 +49,39 @@ export interface SignalRow extends OpportunityRowFields {
   county: string | null;
   zip: string | null;
   severity?: number | null;
+  /** The point, for the label rules that need it (lead-rules recordLabelInput). Never sent to the app. */
+  lat?: number | null;
+  lon?: number | null;
   occurred_at: string;
   expires_at: string | null;
   subtype?: string | null;
+  /** data->>approxLocation ('true' when the point is a city-centre stand-in): no distance is shown for it. */
+  approxLocation?: string | null;
+  /** The record's trades and any published fix-by or due date, for the opportunity label and deadline. */
+  categories?: string[] | null;
+  deadline?: string | null;
+  fixBy?: string | null;
+  responseDeadline?: string | null;
+  dueDate?: string | null;
+  /** City open bids only: data.buyer. */
+  bidBuyer?: string | null;
+  /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; a page shows it once). */
+  loc?: string | null;
+  alertId?: string | null;
+  /** NYC no-heat rows only (data.managerName, data.managerRole), read with MANAGER_SELECT. */
+  managerName?: string | null;
+  managerRole?: string | null;
+  /** Permits: data.jobValue (text form), the project value the city published. */
+  jobValue?: string | null;
+  /** Permits: data.permitStage and data.permitStageAt (STAGE_SELECT, migration 0025 feature). Absent before it and on rows with no stage update. */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
 }
 
 export interface MatchRow {
   id: number;
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). Absent before 0027. */
+  alert_hold?: string | null;
   status: string;
   distance_mi: number | null;
   draft: string | null;
@@ -83,17 +123,17 @@ function absolute(url: string | null | undefined, siteUrl: string): string | nul
   return /^https?:\/\//i.test(url) ? url : null;
 }
 
-function contactDto(c: ContactRecord): ContactDto {
+/**
+ * One contact for the app. An owner company on a code violation (round 18, role 'owner') is not sent: the app has no "Owner on the
+ * public record" wording or source link yet, and older app builds would print it under a bare role label.
+ */
+function contactDto(c: ContactRecord): ContactDto | null {
+  if (c.role === 'owner') return null;
   const out: ContactDto = { role: c.role, name: c.name };
-  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website'] as const) {
+  for (const k of ['attn', 'address', 'city', 'state', 'zip', 'phone', 'email', 'website', 'license'] as const) {
     if (c[k] !== undefined) out[k] = c[k] ?? null;
   }
   return out;
-}
-
-/** The DTO without 'context' (buildAlerts never sends a context row, so this only narrows the type). */
-function shownOpportunity(o: ReturnType<typeof opportunityDto>): AlertDto['opportunity'] {
-  return { ...o, label: o.label === 'context' ? 'intel' : o.label };
 }
 
 export interface BuildDeps {
@@ -105,24 +145,39 @@ export interface BuildDeps {
   admin: SupabaseClient | null;
   siteUrl: string;
   now: number;
-  /**
-   * The member's plan-limited trades and keyword watches (lib/plan matchScope), for each alert's `opportunity`. Rows whose best label
-   * is 'context' are dropped (they may be in holler_matches from before trade matching used opportunity).
-   */
-  trades: readonly string[];
-  keywords?: readonly string[];
+  /** The member's trades under their plan (matchScope(profile).categories). Without it a record is labelled with the trade unknown. */
+  trades?: readonly string[];
 }
 
-/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context rows are dropped. */
+/**
+ * Brief card v1 for the app (additive field). Same five parts as the web card: the record's own title and summary are the alert's
+ * title and summary (part 1); a locked member's brief is built WITHOUT the record's text (the alert's own title and summary are masked for them, and the brief must not leak a permit type, a contract's work or storm remarks). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
+ */
+function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
+  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue, permitStage: deps.locked ? null : s.permitStage, permitStageAt: deps.locked ? null : s.permitStageAt });
+  return {
+    why: b.why,
+    next: b.next,
+    source: { label: b.source.label, url: b.source.href, linkText: b.source.linkText, recordLink: b.source.recordLink, date: b.source.dateText },
+    uncertain: b.uncertain,
+    confidence: b.confidence,
+    ...(b.managedBy ? { managedBy: b.managedBy } : {}),
+    valueLine: b.valueLine,
+    ...(b.stageLine ? { stageLine: b.stageLine } : {}),
+  };
+}
+
+/** Match rows (this member's own) to AlertDto, newest first as given. Ended resident requests and context records are dropped. */
 export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<AlertDto[]> {
-  const opp = new Map<number, ReturnType<typeof memberOpportunity>>();
-  const live = rows.filter((m) => {
+  // A match the member saved or marked done stays whatever its label is now, without an alert chip it no longer earns (review P2-6).
+  const labelOf = (s: SignalRow, status: string | null | undefined) =>
+    keptMatchLabel(demoteExpired(labelForMember({ ...recordLabelInput(s), categories: s.categories }, deps.trades ?? []), deadlineOf(s), deps.now), status);
+  // Context records (public graffiti, city tree trims, sewer work, park events) are never shown as alerts, even matches stored earlier.
+  const live = dedupeByAlert(rows, (m) => signalOf(m)).filter((m) => {
     const s = signalOf(m);
-    if (!s || isEndedRequest(s, deps.now)) return false;
-    const o = memberOpportunity(s, deps.trades, deps.keywords ?? []);
-    if (o.label === 'context') return false;
-    opp.set(m.id, o);
-    return true;
+    // City bids are hidden whenever HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    return !!s && !isEndedRequest(s, deps.now) && !bidHidden(s, undefined, deps.now) && labelOf(s, m.status) !== 'context';
   });
   if (live.length === 0) return [];
 
@@ -145,12 +200,24 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     feedback = await loadFeedback(deps.db, deps.userId, live.map((m) => signalOf(m)!.id));
   }
 
+  // The member's current minimum (migration 0027): a "Below your minimum" card loses the hold once the minimum is cleared or lowered.
+  let minNow: number | null | undefined;
+  if (!deps.locked && live.some((m) => holdOf(m) === 'below_min')) {
+    const w = await readWorkProfile(deps.db, deps.userId).catch(() => null);
+    minNow = w?.available ? w.settings.minValue : undefined;
+  }
   return live.map((m) => {
     const s = signalOf(m)!;
+    const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
-    const summary = isRequest ? (requestText[m.id] ?? null) : s.summary;
+    // A permit prints its value once: the brief's valueLine, so the summary's "$N job value" part is left out of the alert's summary (display only).
+    const summary = isRequest
+      ? (requestText[m.id] ?? null)
+      : deps.locked
+        ? s.summary
+        : formatNotes(summaryForCard({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, jobValue: s.jobValue }), 'en');
     const item: AlertDto = {
       matchId: m.id,
       signalId: s.id,
@@ -172,18 +239,22 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       occurredAt: s.occurred_at,
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
-      intent: { key: intentLineKey(intentIn), label: INTENT_LABEL[intentOf(intentIn)], line: intentLine(intentIn) },
-      opportunity: shownOpportunity(opportunityDto(opp.get(m.id)!)),
+      intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
+      label: labelOf(s, m.status) as AlertDto['label'],
+      ...(hold ? { hold: hold as AlertHold } : {}),
+      deadline: deadlineOf(s),
+      brief: briefDto(s, labelOf(s, m.status), deps),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,
-      contacts: (contacts.get(s.id) ?? []).map(contactDto),
+      contacts: (contacts.get(s.id) ?? []).map(contactDto).filter((c): c is ContactDto => c !== null),
       draft: m.draft,
       ai: { note: null },
     };
     // Locked: placeholders only, never the real text, link, draft or contacts (the web's LockedFeed rule).
     return deps.locked
-      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [], opportunity: { ...item.opportunity, why: maskText(item.opportunity.why) } }
+      ? { ...item, title: maskText(s.title), summary: summary ? maskText(summary) : null, url: null, draft: null, county: null, zip: null, feedback: null, contacts: [], bidLine: null }
       : item;
   });
 }
@@ -194,9 +265,14 @@ export async function readFeedPage(
   userId: string,
   cursor: Cursor | null,
 ): Promise<{ rows: MatchRow[]; nextCursor: Cursor | null; error: boolean }> {
-  let q = db.from('holler_matches').select(MATCH_SELECT).eq('user_id', userId);
-  if (cursor) q = q.or(`created_at.lt."${cursor.createdAt}",and(created_at.eq."${cursor.createdAt}",id.lt.${cursor.id})`);
-  const { data, error } = await q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(FEED_PAGE_SIZE);
+  const read = (cols: string) => {
+    let q = db.from('holler_matches').select(cols).eq('user_id', userId);
+    if (cursor) q = q.or(`created_at.lt."${cursor.createdAt}",and(created_at.eq."${cursor.createdAt}",id.lt.${cursor.id})`);
+    return q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(FEED_PAGE_SIZE);
+  };
+  let { data, error } = await read(MATCH_SELECT);
+  // Before migration 0027 there is no alert_hold column: read again without it.
+  if (error && missingHoldColumn(error)) ({ data, error } = await read(MATCH_SELECT_BEFORE_0027));
   if (error) return { rows: [], nextCursor: null, error: true };
   const rows = (data ?? []) as unknown as MatchRow[];
   const last = rows[rows.length - 1];
@@ -205,7 +281,9 @@ export async function readFeedPage(
 
 /** The member's own match for one signal, or null. */
 export async function readOneMatch(db: Pick<SupabaseClient, 'from'>, userId: string, signalId: number): Promise<{ row: MatchRow | null; error: boolean }> {
-  const { data, error } = await db.from('holler_matches').select(MATCH_SELECT).eq('user_id', userId).eq('signal_id', signalId).limit(1);
+  const read = (cols: string) => db.from('holler_matches').select(cols).eq('user_id', userId).eq('signal_id', signalId).limit(1);
+  let { data, error } = await read(MATCH_SELECT);
+  if (error && missingHoldColumn(error)) ({ data, error } = await read(MATCH_SELECT_BEFORE_0027));
   if (error) return { row: null, error: true };
   const rows = (data ?? []) as unknown as MatchRow[];
   return { row: rows[0] ?? null, error: false };

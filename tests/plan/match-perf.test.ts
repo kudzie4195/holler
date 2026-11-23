@@ -5,6 +5,11 @@
 import { describe, expect, it } from 'vitest';
 import { matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 
+// Wall-clock bound, robust to a loaded machine (round 17 redo 2, review P2-C: the old 5 s bound failed when the whole suite ran in parallel
+// and passed alone). The regression this guards against ran about 32 s on an idle machine, so 20 s still fails it, while a loaded or slower
+// runner (typically 3 to 4 times the idle time of well under 2 s here) passes. The bound is not an SLA; the printed time is the signal.
+const BOUND_MS = 20_000;
+
 function rng(seed: number) {
   let s = seed;
   return () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
@@ -22,7 +27,6 @@ function perfData(ns: number, np: number, seed = 42): { signals: MatchSignal[]; 
   const lon = () => -122 + rnd() * 50;
   const signals: MatchSignal[] = Array.from({ length: ns }, (_, i) => ({
     id: i,
-    kind: 'permit',
     categories: ['cat' + Math.floor(rnd() * 40)],
     lat: lat(),
     lon: lon(),
@@ -51,17 +55,17 @@ function perfData(ns: number, np: number, seed = 42): { signals: MatchSignal[]; 
 }
 
 describe('matchSignals speed with keyword watches (P1-2)', () => {
-  it('3,000 records x 1,000 Pro profiles (3 areas, 5 keywords each) match in under 5 seconds', () => {
+  it('3,000 records x 1,000 Pro profiles (3 areas, 5 keywords each) match inside the bound (20 s, see BOUND_MS)', () => {
     const { signals, profiles } = perfData(3000, 1000);
     const t = performance.now();
     const rows = matchSignals(signals, profiles);
     const ms = performance.now() - t;
     console.log(`[perf] matchSignals 3000 records x 1000 Pro profiles: ${ms.toFixed(0)} ms, ${rows.length} matches`);
     expect(rows.length).toBeGreaterThan(0);
-    expect(ms).toBeLessThan(5000);
+    expect(ms).toBeLessThan(BOUND_MS);
   }, 120_000);
 
-  it('dense case: every record within reach of every profile, still under 5 seconds', () => {
+  it('dense case: every record within reach of every profile, still inside the bound (20 s)', () => {
     const { signals, profiles } = perfData(3000, 1000, 7);
     // Everything inside one metro, so the area test passes for every pair and the keyword test runs for all 3 million.
     for (const s of signals) {
@@ -78,6 +82,6 @@ describe('matchSignals speed with keyword watches (P1-2)', () => {
     const ms = performance.now() - t;
     console.log(`[perf] dense matchSignals 3000 x 1000: ${ms.toFixed(0)} ms, ${rows.length} matches`);
     expect(rows.length).toBe(1000 * 25); // every profile hits by keyword, capped at 25
-    expect(ms).toBeLessThan(5000);
+    expect(ms).toBeLessThan(BOUND_MS);
   }, 300_000);
 });

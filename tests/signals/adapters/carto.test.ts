@@ -1,4 +1,8 @@
 /**
+ * Ported from origin/r10-integrate tests/signals/adapters/carto.test.ts (round 19 UNIFY). The last block ("labels of the fixtures") was
+ * rewritten for this base's label engine (lib/signals/lead-rules.ts labelFor) instead of the other branch's opportunity.ts.
+ * The recon file named below is the other team's and is not in this repository.
+ *
  * Philadelphia (Carto SQL API) adapters: carto-phl-permits, carto-phl-violations, carto-phl-business. All on probation.
  *
  * Fixture provenance (tests/fixtures/carto-phl-*.json)
@@ -21,7 +25,8 @@ import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { SOURCE_META } from '@/lib/signals/source-meta';
-import { opportunityTrades } from '@/lib/signals/opportunity';
+import { OPPORTUNITY_LABELS, labelFor } from '@/lib/signals/lead-rules';
+import type { CategoryId } from '@/lib/signals/categories';
 import { feedCount } from '@/lib/seo/home-live';
 import { enabledDatasets } from '@/lib/signals/capabilities';
 import type { SignalInput } from '@/lib/signals/types';
@@ -278,26 +283,27 @@ describe('probation: excluded from every coverage list', () => {
   });
 });
 
-describe('opportunity replay of the fixtures', () => {
-  const op = (s: SignalInput) => opportunityTrades({ ...s, subtype: String((s.data as { subtype?: unknown })?.subtype ?? '') });
+describe('labels of the fixtures (this base: lib/signals/lead-rules.ts)', () => {
+  const lab = (s: SignalInput, trade: CategoryId | null) =>
+    labelFor({ source: s.source, kind: s.kind, subtype: String((s.data as { subtype?: unknown })?.subtype ?? ''), title: s.title, summary: s.summary }, trade);
 
-  it('a violation naming a roof repair is act for roofing; weeds are act for lawn care; vacant structure is act for handyman', () => {
+  it('a code violation is act_now for the trades it is tagged with (roof repair for roofing, weeds for lawn care, vacant structure for handyman)', () => {
     const out = parseCarto({ rows: [...fx('violations').rows, ...ASSUMED_VIOLATIONS] }, VIOLATIONS);
     const by = (id: string) => out.find((s) => s.externalId === id)!;
-    expect(op(by('ASSUMED-V1')).roofing).toBe('act');
-    expect(op(by('ASSUMED-V2')).roofing).toBe('act');
-    expect(op(by('VI-2026-097745'))['lawn-care']).toBe('act');
-    expect(op(by('VI-2026-097764')).handyman).toBe('act');
+    expect(lab(by('ASSUMED-V1'), 'roofing')).toBe('act_now');
+    expect(lab(by('ASSUMED-V2'), 'roofing')).toBe('act_now');
+    expect(lab(by('VI-2026-097745'), 'lawn-care')).toBe('act_now');
+    expect(lab(by('VI-2026-097764'), 'handyman')).toBe('act_now');
   });
 
-  it('building trade permits are competitor intel for their own trade, never act', () => {
+  it('building trade permits are market insight for their own trade, never act_now', () => {
     const out = parseCarto({ rows: ASSUMED_PERMITS }, PERMITS);
-    expect(op(out.find((s) => s.externalId === 'ASSUMED-E1')!).electrical).toBe('intel');
-    expect(op(out.find((s) => s.externalId === 'ASSUMED-M1')!).hvac).toBe('intel');
+    expect(lab(out.find((s) => s.externalId === 'ASSUMED-E1')!, 'electrical')).toBe('market_insight');
+    expect(lab(out.find((s) => s.externalId === 'ASSUMED-M1')!, 'hvac')).toBe('market_insight');
   });
 
-  it('every fixture row gets a known label set (no throw, no unknown family)', () => {
-    const out = [...parseCarto(fx('violations'), VIOLATIONS), ...parseCarto(fx('business'), BUSINESS)];
-    for (const s of out) expect(Object.values(op(s)).every((l) => ['act', 'soon', 'intel'].includes(l as string))).toBe(true);
+  it('every fixture row gets one of the four labels for each of its trades (no throw)', () => {
+    const out = [...parseCarto(fx('violations'), VIOLATIONS), ...parseCarto(fx('business'), BUSINESS), ...parseCarto({ rows: ASSUMED_PERMITS }, PERMITS)];
+    for (const s of out) for (const t of s.categories) expect(OPPORTUNITY_LABELS).toContain(lab(s, t));
   });
 });

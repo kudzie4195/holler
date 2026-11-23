@@ -1,6 +1,7 @@
 import 'server-only';
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { PUBLIC_PRICES, type PublicIntervalPrice, type PublicPlan } from '@/lib/plan/public-prices';
 import { limitsDto } from './me';
 import { ENTITLEMENT_IDS, MANAGE_URLS, MOBILE_API_VERSION, OFFERING_ID, type ConfigResponse, type PlanDto, type PriceDto } from './types';
@@ -32,11 +33,13 @@ export function configBody(siteUrl: string, supportEmail: string | null): Omit<C
     apiVersion: MOBILE_API_VERSION,
     currency: 'USD',
     trialDays: PUBLIC_PRICES.trialDays,
+    trialHeadline: PUBLIC_PRICES.trialHeadline,
+    trialPhrase: PUBLIC_PRICES.trialPhrase,
     plans: { solo: plan(PUBLIC_PRICES.plans.solo), pro: plan(PUBLIC_PRICES.plans.pro) },
     entitlements: ENTITLEMENT_IDS,
     offeringId: OFFERING_ID,
     // Same filter as the web form: a trade with no live data source ("coming soon") cannot be picked.
-    trades: CATEGORIES.filter((c) => !tradeComingSoon(c.id)).map((c) => ({ id: c.id, label: c.label, group: GROUP_LABEL[c.group] ?? null })),
+    trades: CATEGORIES.filter((c) => !tradeComingSoon(c.id) && !tradeNoLiveSource(c.id)).map((c) => ({ id: c.id, label: c.label, group: GROUP_LABEL[c.group] ?? null })),
     radius: { min: 5, max: 100, default: 25 },
     links: {
       terms: `${siteUrl}/terms`,

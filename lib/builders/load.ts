@@ -7,6 +7,11 @@ import { memberHasAccess } from '@/lib/contacts/load';
 import { BUILDER_WINDOW_DAYS, summarizeBuilders, type ActiveBuilder, type BuilderRow } from './active';
 
 /**
+ * Ported in round 19 UNIFY from origin/r10-integrate (9de8594, 0cd8361). Adapted to this base: access is lib/contacts/load.ts
+ * memberHasAccess (the same "who may see contacts" rule as contactsForMember, re-read here), the area test is this base's
+ * lib/signals/match.ts matchArea, names pass the round 18 contractor business-name rule (lib/builders/active.ts builderName). Read only: it writes
+ * nothing, creates no card, match or alert.
+ *
  * Builders active near one member: permits in the last 30 days inside the member's area, joined to their contractor contacts.
  * Access: the member's profile is re-read here with the same rule lib/contacts/load.ts uses (memberHasAccess); a canceled, unpaid,
  * paused or unknown account gets nothing, so the page is not the only gate.
@@ -52,7 +57,9 @@ interface SignalRec {
   severity: number | null;
   occurred_at: string;
   categories: string[] | null;
-  data?: { loc?: unknown } | null;
+  /** data->>loc and data->>approxLocation (stand-in positions, lib/signals/approx-location.ts): all the area test reads from data. */
+  loc?: string | null;
+  approxLocation?: string | null;
 }
 
 interface ContactRec {
@@ -103,7 +110,7 @@ export async function loadActiveBuilders(
       const size = Math.min(PAGE, MAX_PERMITS - fetched);
       const { data, error } = await db
         .from('holler_signals')
-        .select('id, title, source, lat, lon, state, severity, occurred_at, categories, data')
+        .select('id, title, source, lat, lon, state, severity, occurred_at, categories, loc:data->>loc, approxLocation:data->>approxLocation')
         .eq('kind', 'permit')
         .gte('occurred_at', cutoff)
         .or(clauses.join(','))
@@ -142,7 +149,7 @@ export async function loadActiveBuilders(
             severity: typeof s.severity === 'number' ? s.severity : 0,
             occurred_at: s.occurred_at,
             source: s.source,
-            data: s.data ?? null,
+            data: { loc: s.loc ?? undefined, approxLocation: s.approxLocation === 'true' ? true : undefined },
           },
           profileForArea,
         ) !== null,
@@ -178,11 +185,16 @@ export async function loadActiveBuilders(
       for (const r of results) contacts.push(...r);
       if (contacts.length >= MAX_CONTACT_ROWS) break;
     }
+    // 3. Phone numbers follow this base's second contact rule (lib/contacts/load.ts contactsForMember: only signals this member has a
+    //    match for). The company NAME is shown for any nearby permit (public permit record); its phone only when the member holds a card
+    //    for that permit. Round 19 review, defect 3. A failed read shows no phone at all, never more.
+    const withPhone = [...new Set(contacts.filter((c) => c && typeof c.phone === 'string' && c.phone.trim()).map((c) => c.signal_id))];
+    const matched = await matchedSignalIds(db, userId, withPhone);
     const rows: BuilderRow[] = [];
     for (const c of contacts) {
       const s = c ? bySignal.get(c.signal_id) : undefined;
       if (!s) continue;
-      rows.push({ signal_id: s.id, title: s.title, occurred_at: s.occurred_at, categories: s.categories, role: c.role, name: c.name, phone: c.phone });
+      rows.push({ signal_id: s.id, title: s.title, occurred_at: s.occurred_at, categories: s.categories, role: c.role, name: c.name, phone: matched.has(s.id) ? c.phone : null });
     }
     return { builders: summarizeBuilders(rows, scope.categories, now), windowDays };
   } catch (e) {
@@ -190,4 +202,24 @@ export async function loadActiveBuilders(
     logFailure(step, step === 'contacts' ? (e as { cause?: unknown }).cause : e);
     return EMPTY();
   }
+}
+
+/** Which of these signal ids the member holds a match for (holler_matches, own rows only). Never throws: a failed read is an empty set. */
+async function matchedSignalIds(db: Db, userId: string, ids: readonly number[]): Promise<Set<number>> {
+  const out = new Set<number>();
+  try {
+    for (let i = 0; i < ids.length; i += ID_CHUNK) {
+      const part = ids.slice(i, i + ID_CHUNK);
+      const { data, error } = await db.from('holler_matches').select('signal_id').eq('user_id', userId).in('signal_id', part).limit(part.length);
+      if (error || !Array.isArray(data)) {
+        logFailure('matches', error);
+        return new Set();
+      }
+      for (const r of data as { signal_id: number }[]) out.add(r.signal_id);
+    }
+  } catch (e) {
+    logFailure('matches', e);
+    return new Set();
+  }
+  return out;
 }

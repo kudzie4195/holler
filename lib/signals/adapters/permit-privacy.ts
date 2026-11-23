@@ -206,6 +206,11 @@ export function publicSummary(parts: string[], opts: { max?: number; minChars?: 
 /** Summary columns that hold a money amount (job cost, valuation). Square footage, scores and zip codes are not money. */
 const MONEY_FIELD_RE = /cost|valuation|value|constrval/i;
 
+/** The money columns among some field names (the project value the dataset publishes), in the given order. */
+export function moneyFields(fields: readonly string[]): string[] {
+  return fields.filter((f) => MONEY_FIELD_RE.test(f));
+}
+
 /**
  * One summary part for display. Money columns become "$3,149 job value" (0 or unparseable is dropped);
  * long float noise such as 7807.6999999999998 in any numeric column is rounded.
@@ -220,20 +225,6 @@ export function summaryPart(field: string, raw: string): string {
   }
   if (Number.isFinite(num) && /\.\d{3,}$/.test(v)) return String(Math.round(num * 100) / 100);
   return v;
-}
-
-/**
- * A dataset with two money columns (DeKalb calculatedValuation and declaredValuation) must print one "job value", not two: only the
- * first "$N job value" part is kept, in the order the config lists the columns. Other parts pass through unchanged.
- */
-export function keepFirstJobValue(parts: string[]): string[] {
-  let seen = false;
-  return parts.filter((p) => {
-    if (!/ job value$/.test(p)) return true;
-    if (seen) return false;
-    seen = true;
-    return true;
-  });
 }
 
 // ---- Permit titles ----------------------------------------------------------------------------------------------------------------

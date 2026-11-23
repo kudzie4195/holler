@@ -9,8 +9,18 @@
  *    heater permit carried hvac ("heater") and a new construction permit fanned out to landscaping and cleaning.
  *  2: round 7. Permit categories and the title label come from one classification (lib/signals/mapping/permit.ts). Code violations no
  *    longer add plumbing for a roof leak.
+ *  3: round 15 quality gate. A permit whose structured work type is a sidewalk shed, scaffold, construction fence, site-safety plan, fire
+ *    sprinkler, standpipe or curb cut carries no trade (permit.ts NO_TRADE_WORK_TYPE_RE). Code violations are tagged by VIOLATION_RULES alone
+ *    (no keyword list: a gutter order is not roofing). A commercial alteration or addition is a tenant fit-out; an addition, alteration or
+ *    accessory structure is never "New home"; masonry, dumpster and repair are their own generic kinds.
+ *
+ *    Stored rows: a row at version 2 got a full mapping at ingest from description fields the database does not keep, so it is NEVER
+ *    re-derived from its summary (round 15 review P0). It gets only the version 3 delta (remap.ts remapFromV2: no-trade work types, and
+ *    the violation rules) and the row it replaces is saved in data.cat_prev. Rows without a version get the full summary re-map as before.
+ *    Downstream routing reads the record's own summary at match time (permit-routing.ts), so stored commercial rows are routed correctly
+ *    without any rewrite.
  */
-export const CAT_V = 2;
+export const CAT_V = 3;
 
 /** Subtypes whose mapping changed since version 1 and are therefore re-mapped from stored text. */
 export const REMAP_SUBTYPES = ['permit', 'violation'] as const;

@@ -1,6 +1,8 @@
+import { contactNameFor } from './names';
+import { hasLegalSuffix } from './trade-name';
+import { violationOwnersEnabled } from './owner-switch';
 import {
   STREET_SUFFIX_WORDS,
-  cleanOrgName,
   foldName,
   givenNameThenWord,
   hasContactShape,
@@ -24,9 +26,10 @@ export const CONTACT_LIMITS = {
   phone: 20,
   email: 254,
   website: 300,
+  license: 40,
 } as const;
 
-const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer']);
+const ROLES = new Set<ContactRole>(['site', 'business', 'contractor', 'awardee', 'buyer', 'owner']);
 
 function text(v: unknown, max: number): string {
   if (typeof v !== 'string' && typeof v !== 'number') return '';
@@ -50,6 +53,21 @@ export function usPhone(v: unknown): string | null {
   if (/^(\d)\1{9}$/.test(a + b + c)) return null;
   if (/^[2-9]11$/.test(a) || /^[2-9]11$/.test(b)) return null;
   return `${a}-${b}-${c}`;
+}
+
+/**
+ * A contractor licence number as it may be stored: 3 to 40 characters of letters, digits, space, "-", "/", "." or "#", with at least one
+ * digit and no phone, e-mail or link shape. "Not Applicable", a name or a sentence is null. Licence numbers are public registry ids of
+ * the business; a nine-digit run (SSN shape) is refused outright.
+ */
+export function cleanLicense(v: unknown): string | null {
+  const s = text(v, CONTACT_LIMITS.license + 1);
+  if (!s || s.length > CONTACT_LIMITS.license || s.length < 3) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9 ./#-]*$/.test(s) || !/\d/.test(s)) return null;
+  // Driver-licence shapes ("D1234567", "DL 1234567", "A1234567B") and a nine-digit run with separators ("1234-56-789") are never a contractor board number.
+  if (/^[A-Za-z]{1,2}[\s-]?\d{7,8}[A-Za-z]?$/.test(s) || (/^[\d\s./-]+$/.test(s) && s.replace(/\D/g, '').length === 9)) return null;
+  if (CONTACT_DETAIL_RE.test(s) || /^\d{3}[- ]?\d{2}[- ]?\d{4}$/.test(s) || /^\d{9}$/.test(s)) return null;
+  return s;
 }
 
 /** A plausible email address in lower case, or null. */
@@ -216,10 +234,7 @@ export function cleanCity(v: unknown, datasetCity?: string | null): string | nul
   const s = text(v, CONTACT_LIMITS.city);
   if (!s || !datasetCity) return null;
   const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
-  const a = norm(s);
-  const b = norm(datasetCity);
-  // NYC data names the city "New York City" while the registered business city is "New York": the same place.
-  return a === b || (b === 'new york city' && a === 'new york') ? s : null;
+  return norm(s) === norm(datasetCity) ? s : null;
 }
 
 export interface SanitizeOptions {
@@ -230,7 +245,11 @@ export interface SanitizeOptions {
 /**
  * One contact, trimmed and limited to the column sizes, or null when it must not be stored:
  *  - an unknown role, or role 'buyer' (no adapter produces buyers yet: the bids unit must add its own reviewed rules first);
- *  - a business, contractor or awardee whose name the classifier does not accept as an organization (lib/contacts/org.ts);
+ *  - a business, contractor, awardee or owner whose name the role's rule does not accept (names.ts contactNameFor: contractor ->
+ *    trade-name rule, owner -> registered-company rule, the others -> the strict organization rule of org.ts);
+ *  - an owner company keeps its name only: address, city, state, zip, phone, email and licence are always null;
+ *  - a contractor's own address (address, city, state, zip) is kept only when the name ends with a legal form (redo 1, rule 5): a sole
+ *    trader's street address is often a home;
  *  - a site whose address does not pass cleanAddress. A site never carries a name, a phone, an email or a website: it is a place.
  * Every role: `address` through cleanAddress (house number or PO BOX first, cut after the street suffix and one unit), `state` a US code
  * (cleanState), `city` through cleanCity (the dataset's own city or place words only), `zip` 5 digits or ZIP+4, `attn` and `website`
@@ -250,16 +269,25 @@ export function sanitizeContact(c: ContactInput | null | undefined, opts: Saniti
     if (!address) return null;
     return { role: 'site', name: '', attn: null, address, ...base, phone: null, email: null, website: null };
   }
-  const cleaned = cleanOrgName(typeof c.name === 'string' ? c.name : '');
+  // A business name was checked against its row at extraction (trade-name.ts rule L3); here only its shape can be re-checked.
+  const cleaned = contactNameFor(c.role, typeof c.name === 'string' ? c.name : '', { shapeOnly: true });
   if (!cleaned) return null;
+  if (c.role === 'owner') {
+    // Redo 2 (review P3-4): the switch is checked here too, so no caller can store an owner row while it is off.
+    if (!violationOwnersEnabled()) return null;
+    return { role: 'owner', name: cleaned.slice(0, CONTACT_LIMITS.name), attn: null, address: null, city: null, state: null, zip: null, phone: null, email: null, website: null };
+  }
+  const license = cleanLicense(c.license);
+  const ownAddress = c.role !== 'contractor' || hasLegalSuffix(cleaned);
   return {
     role: c.role,
     name: cleaned.slice(0, CONTACT_LIMITS.name),
     attn: null,
-    address: cleanAddress(typeof c.address === 'string' ? c.address : ''),
-    ...base,
+    address: ownAddress ? cleanAddress(typeof c.address === 'string' ? c.address : '') : null,
+    ...(ownAddress ? base : { city: null, state: null, zip: null }),
     phone: usPhone(c.phone),
     email: plainEmail(c.email),
+    ...(license ? { license } : {}),
     // No adapter supplies a website, and a URL path or query can carry a person: the bids unit must add its own reviewed rules first.
     website: null,
   };

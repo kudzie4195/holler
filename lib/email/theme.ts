@@ -89,9 +89,9 @@ export function emailHeader(base: string = siteUrl): string {
  * Opens an email: paper page, green header band, white card. Close with `cardClose()`, then the postal footer (which sits on the
  * paper under the card), then `WRAP_CLOSE`. The footer stays the last thing before the final `</div>` (tests rely on it).
  */
-export function wrapOpen(maxWidth = 560): string {
+export function wrapOpen(maxWidth = 560, lang: 'en' | 'es' = 'en'): string {
   return (
-    `<div style="font-family:${F.body};max-width:${maxWidth}px;margin:0 auto;padding:16px;color:${C.ink};background:${C.paper};line-height:1.5">` +
+    `<div${lang === 'en' ? '' : ` lang="${lang}"`} style="font-family:${F.body};max-width:${maxWidth}px;margin:0 auto;padding:16px;color:${C.ink};background:${C.paper};line-height:1.5">` +
     emailHeader() +
     `<div style="background:${C.surface};border:1px solid ${C.line};border-top:0;border-radius:0 0 10px 10px;padding:24px 20px">`
   );

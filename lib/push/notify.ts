@@ -9,25 +9,27 @@
  *  2. leaves out members with push off (push_alerts), without access (computeAccess, the web feed's rule) and members pushed in the
  *     last hour (last_pushed_at): their matches wait, with pushed_at still empty, and go in the next push;
  *  3. reads, for the rest, the new matches (status 'new') of the last PUSH_LOOKBACK_MS that were never pushed (pushed_at is null),
- *     and counts only those whose record is news (isNews: occurred within 3 days; history rows also carry pushed_at from insert) AND
- *     whose best opportunity label for the member's plan-limited trades is 'act' (lib/signals/opportunity.ts). Coming soon, Market
- *     insight and keyword-only matches never push: they go in the email digest and the feed, and stay unstamped;
+ *     and counts only those whose record is news (isNews: occurred within 3 days; history rows also carry pushed_at from insert);
  *  4. claims the hour atomically on last_pushed_at (so two overlapping runs cannot both push), sends one notification to each of the
  *     member's devices, and when at least one device took it, stamps pushed_at on exactly the matches that notification counted.
- * So the count in the text is always "act now items new since the last push", never a running total. The body leads with the newest
- * act item ("Act now: <title>"). The text uses the public signal title and city only (the same fields the public pages show): never
- * contacts, never request text.
+ * So the count in the text is always "new since the last push", never a running total. The text uses the public signal title and
+ * city only (the same fields the public pages show): never contacts, never request text.
  * Fail soft: before migration 0020 (no table, no pushed_at or push columns) a read fails and the run is `not_ready`: nothing is sent.
  * Never throws; every failure is a count in the result.
  */
+import { alertKeyOf } from '@/lib/signals/alert-dedupe';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { bidHidden } from '@/lib/signals/bid-sources';
 import { computeAccess } from '@/lib/auth/access';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
-import type { PushData } from '@/lib/mobile/types';
+import { isAlertLabel, labelForMember, recordLabelInput } from '@/lib/signals/lead-rules';
+import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 import { matchScope } from '@/lib/plan/scope';
-import { OPPORTUNITY_LABEL, assessOpportunity } from '@/lib/signals/opportunity';
-import { OPPORTUNITY_DATA_COLUMNS, bestLabelOf, opportunityInputOf, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
+import type { PushData } from '@/lib/mobile/types';
 import { isFcmConfigured, sendPush, type PushMessage, type SendResult } from './fcm';
+import { isStageUpdate, stageName, STAGE_SELECT } from '@/lib/signals/stage';
+import { parseLang, t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
 import { allActiveTokens, disableTokens, isMissingTable, type ActiveToken } from './tokens';
 
 type Db = Pick<SupabaseClient, 'from'>;
@@ -43,6 +45,13 @@ export const PUSH_TITLE_MAX = 80;
  * The first guard is pushed_at, set at insert on every history row (lib/signals/quiet-matches.ts).
  */
 export const PUSH_MAX_SIGNAL_AGE_MS = 3 * 86_400_000;
+/**
+ * A stage update is pushed even though its record is old (isNews would refuse a permit filed weeks ago, which is the point of the update),
+ * but only while the stage date itself is this recent. This bypass is for stage updates only; every other match keeps the isNews check.
+ */
+export const PUSH_STAGE_MAX_AGE_MS = 14 * 86_400_000;
+/** A re-sent stage update is an OLD match (created before the push lookback): the second read looks this far back for them. */
+const STAGE_REARM_LOOKBACK_MS = 120 * 86_400_000;
 const CHUNK = 200;
 const PAGE = 1000;
 const MAX_MATCH_PAGES = 10;
@@ -51,7 +60,9 @@ export interface PushEntry {
   /** Matches never pushed to this member (new since the last push). */
   count: number;
   /** The newest of them. `title` is the public signal title. */
-  top: { signalId: number; title: string; city: string | null };
+  top: { signalId: number; title: string; city: string | null; stage?: string | null; source?: string };
+  /** How many of the counted matches are stage updates (data.permitStageUpdate). */
+  updates?: number;
   /** The matches this notification counts: stamped pushed_at once it is delivered. */
   matchIds: number[];
 }
@@ -79,15 +90,15 @@ export interface PushCounts {
 interface ProfileRow {
   user_id: string;
   city: string | null;
-  /** Saved trades and plan: the push counts only matches whose label for the plan-limited trades is 'act'. */
-  categories?: string[] | null;
-  plan?: string | null;
   subscription_status: string;
   trial_ends_at: string;
   plan_source?: string | null;
   store_expires_at?: string | null;
   push_alerts?: boolean | null;
   last_pushed_at?: string | null;
+  /** The member's saved trades and plan: the opportunity label of a record depends on the trade that matched it. */
+  categories?: string[] | null;
+  plan?: string | null;
 }
 
 export function truncate(text: string, max: number = PUSH_TITLE_MAX): string {
@@ -98,46 +109,60 @@ export function truncate(text: string, max: number = PUSH_TITLE_MAX): string {
   return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, '')}...`;
 }
 
-/**
- * The notification for one member: "3 new alerts near Smyrna" (act now items new since the last push), the newest act item's title
- * after "Act now: ", and a deep link. Pure.
- */
-export function buildNotification(entry: Pick<PushEntry, 'count' | 'top'>, memberCity: string | null): { title: string; body: string; data: PushData } {
+/** The notification for one member: "3 new alerts near Smyrna" (new since the last push), the newest alert's title, and a deep link. Pure. */
+export function buildNotification(entry: Pick<PushEntry, 'count' | 'top' | 'updates'>, memberCity: string | null, lang: Lang = 'en'): { title: string; body: string; data: PushData } {
   const count = Math.max(1, Math.floor(entry.count));
   const city = (entry.top.city ?? memberCity ?? '').trim();
-  const where = city ? `near ${city}` : 'for you';
-  const title = count === 1 ? `New alert ${where}` : `${count} new alerts ${where}`;
+  const where = city ? t(lang, 'push.where.near', { city }) : t(lang, 'push.where.you');
+  const updates = Math.min(count, Math.max(0, Math.floor(entry.updates ?? 0)));
+  // The record title is source data; a Holler-built title is rebuilt in the member's language (English is returned unchanged).
+  const topTitle = lang === 'en' ? entry.top.title : localizeTitle(entry.top.title, lang, entry.top.source);
+  // A stage update never says "new": "Update near Smyrna" with the stage in the body.
+  let title = count === 1 ? t(lang, 'push.title.new_one', { where }) : t(lang, 'push.title.new_many', { n: count, where });
+  if (updates === count) title = count === 1 ? t(lang, 'push.title.update_one', { where }) : t(lang, 'push.title.update_many', { n: count, where });
+  else if (updates > 0) title = t(lang, 'push.title.mixed', { n: count, where });
+  if (count === 1 && updates === 1) {
+    const name = stageName(entry.top.stage, lang);
+    return { title, body: truncate(name ? t(lang, 'push.body.stage', { name, title: topTitle }) : topTitle), data: { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } };
+  }
   const data: PushData =
     count === 1 ? { type: 'alert', signalId: String(entry.top.signalId), path: `/alert/${entry.top.signalId}` } : { type: 'feed', path: '/feed' };
-  return { title, body: truncate(`${OPPORTUNITY_LABEL.act}: ${entry.top.title}`), data };
+  return { title, body: truncate(topTitle), data };
 }
 
-interface PushSignal extends OpportunityRowFields {
+interface SignalLike {
   id?: number;
   title: string;
   city: string | null;
   source?: string | null;
   expires_at?: string | null;
   occurred_at?: string | null;
+  /** For the opportunity label (lib/signals/lead-rules.ts). */
+  kind?: string | null;
+  subtype?: string | null;
+  /** A permit's summary holds its structured type and class, which downstream routing reads (permit-routing.ts). */
+  summary?: string | null;
+  categories?: string[] | null;
+  /** Where the record is, for the label rules that need it (lead-rules recordLabelInput). Never pushed. */
+  lat?: number | null;
+  lon?: number | null;
+  state?: string | null;
+  severity?: number | null;
+  /** Multi-county weather alerts: data.alertId (one alert is stored once per county). */
+  alertId?: string | null;
+  /** data.permitStage, data.permitStageAt and data.permitStageUpdate (STAGE_SELECT): a stage update bypasses the isNews check. */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
+  permitStageUpdate?: string | boolean | null;
 }
 
 interface MatchLike {
   id: number;
   user_id: string;
   created_at: string;
-  signal: PushSignal | PushSignal[] | null;
-}
-
-/** The signal columns the push reads: title and city for the text, the request fields, and what the opportunity label needs. */
-export const PUSH_SIGNAL_COLUMNS = `id, title, city, source, expires_at, occurred_at, kind, summary, categories, severity, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS}`;
-
-/** Member's trades for the push label: a list, a map by user id, or a lookup. */
-export type PushTrades = Map<string, readonly string[]> | ((userId: string) => readonly string[] | undefined);
-
-/** True when the record is 'act' for at least one of these trades (a missing kind reads as context: no push). Pure. */
-export function isActFor(s: OpportunityRowFields, trades: readonly string[]): boolean {
-  if (!trades.length || typeof s.kind !== 'string' || !s.kind) return false;
-  return bestLabelOf(assessOpportunity(opportunityInputOf(s)), trades).label === 'act';
+  /** Feed-only reason (migration 0027, lib/signals/alert-gate.ts). A held match is never pushed. Absent before 0027. */
+  alert_hold?: string | null;
+  signal: SignalLike | SignalLike[] | null;
 }
 
 /**
@@ -153,30 +178,49 @@ export function isNews(occurredAt: string | null | undefined, createdAt: string 
 }
 
 /**
- * Builds the per-member entries from never-pushed new matches. Only matches whose best label for the member's trades is 'act' count;
- * ended resident requests, history (not isNews) and soon, intel or keyword-only matches are left out (and stay unstamped). Pure.
+ * Builds the per-member entries from never-pushed new matches. Ended resident requests and history (not isNews) are left out (and stay
+ * unstamped). With `tradesByUser`, a match whose record is not an alert for that member (context, market_insight: items 0.2 and 1.1)
+ * is left out too, so a match stored before the label rules existed is never pushed. Pure.
  */
-export function pushEntriesFromMatches(matches: MatchLike[], now: number, trades: PushTrades): Map<string, PushEntry> {
+export function pushEntriesFromMatches(
+  matches: MatchLike[],
+  now: number = Date.now(),
+  tradesByUser?: ReadonlyMap<string, readonly string[]>,
+): Map<string, PushEntry> {
   const out = new Map<string, PushEntry>();
   const newest = new Map<string, string>();
-  const tradesOf = (u: string) => (typeof trades === 'function' ? trades(u) : trades.get(u)) ?? [];
+  const seenAlerts = new Map<string, Set<string>>();
   for (const m of matches) {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
     if (!s || typeof s.id !== 'number' || !s.title) continue;
+    // A feed-only match (no business or site address on a permit, below the member's minimum, a held trade family) is not an alert.
+    if (holdOf(m)) continue;
+    // A city bid is never pushed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on.
+    if (bidHidden(s, undefined, now)) continue;
     if (s.source === HOLLER_REQUEST_SOURCE && isEndedRequest({ source: s.source, expires_at: s.expires_at ?? null }, now)) continue;
-    if (!isNews(s.occurred_at, m.created_at, now)) continue;
-    if (!isActFor(s, tradesOf(m.user_id))) continue;
+    const stageUpdate = isStageUpdate(s) && now - Date.parse(s.permitStageAt as string) <= PUSH_STAGE_MAX_AGE_MS;
+    if (!stageUpdate && !isNews(s.occurred_at, m.created_at, now)) continue;
+    const trades = tradesByUser?.get(m.user_id);
+    if (trades && !isAlertLabel(labelForMember({ ...recordLabelInput(s), categories: s.categories }, trades))) continue;
+    // One weather alert stored once per county is one alert in the count; its other match rows are still stamped with the push.
+    const alertKey = alertKeyOf({ source: s.source, alertId: s.alertId });
     const cur = out.get(m.user_id);
+    if (cur && alertKey && seenAlerts.get(m.user_id)?.has(alertKey)) {
+      if (!cur.matchIds.includes(m.id)) cur.matchIds.push(m.id);
+      continue;
+    }
+    if (alertKey) seenAlerts.set(m.user_id, (seenAlerts.get(m.user_id) ?? new Set<string>()).add(alertKey));
     if (!cur) {
-      out.set(m.user_id, { count: 1, top: { signalId: s.id, title: s.title, city: s.city }, matchIds: [m.id] });
+      out.set(m.user_id, { count: 1, ...(stageUpdate ? { updates: 1 } : {}), top: { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}), ...(s.source ? { source: s.source } : {}) }, matchIds: [m.id] });
       newest.set(m.user_id, m.created_at);
       continue;
     }
     if (cur.matchIds.includes(m.id)) continue;
     cur.count++;
+    if (stageUpdate) cur.updates = (cur.updates ?? 0) + 1;
     cur.matchIds.push(m.id);
     if (Date.parse(m.created_at) > Date.parse(newest.get(m.user_id) ?? '')) {
-      cur.top = { signalId: s.id, title: s.title, city: s.city };
+      cur.top = { signalId: s.id, title: s.title, city: s.city, ...(stageUpdate ? { stage: s.permitStage } : {}), ...(s.source ? { source: s.source } : {}) };
       newest.set(m.user_id, m.created_at);
     }
   }
@@ -194,20 +238,31 @@ export interface NotifyDeps {
 const chunks = <T>(list: T[], n: number): T[][] => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 
 /** Never-pushed new matches of these members since `since`, in pages. 'not_ready' before migration 0020 (no pushed_at column). */
-async function unpushedMatches(db: Db, userIds: string[], since: string): Promise<{ rows: MatchLike[]; error: 'not_ready' | 'failed' | null }> {
+async function unpushedMatches(db: Db, userIds: string[], since: string, before?: string): Promise<{ rows: MatchLike[]; error: 'not_ready' | 'failed' | null }> {
   const rows: MatchLike[] = [];
+  // alert_hold (migration 0027) is read with the match; before 0027 that read fails on the column and is made again without it.
+  let holdCol = 'alert_hold, ';
   for (const ids of chunks(userIds, CHUNK)) {
     for (let page = 0; page < MAX_MATCH_PAGES; page++) {
-      const { data, error } = await db
-        .from('holler_matches')
-        .select(`id, user_id, created_at, signal:holler_signals(${PUSH_SIGNAL_COLUMNS})`)
-        .in('user_id', ids)
-        .eq('status', 'new')
-        .is('pushed_at', null)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(page * PAGE, page * PAGE + PAGE - 1);
+      const build = () => {
+        let q = db
+          .from('holler_matches')
+          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, state, lat, lon, severity, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
+          .in('user_id', ids)
+          .eq('status', 'new')
+          .is('pushed_at', null)
+          .gte('created_at', since);
+        if (before) q = q.lt('created_at', before);
+        return q
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(page * PAGE, page * PAGE + PAGE - 1);
+      };
+      let { data, error } = await build();
+      if (error && holdCol && missingHoldColumn(error)) {
+        holdCol = '';
+        ({ data, error } = await build());
+      }
       if (error) return { rows, error: isMissingTable(error) ? 'not_ready' : 'failed' };
       const got = (Array.isArray(data) ? data : []) as unknown as MatchLike[];
       rows.push(...got);
@@ -251,10 +306,23 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
     for (const ids of chunks([...byUser.keys()], CHUNK)) {
       const { data, error } = await db
         .from('holler_profiles')
-        .select('user_id, city, categories, plan, subscription_status, trial_ends_at, plan_source, store_expires_at, push_alerts, last_pushed_at')
+        .select('user_id, city, subscription_status, trial_ends_at, plan_source, store_expires_at, push_alerts, last_pushed_at, categories, plan')
         .in('user_id', ids);
       if (error) return { ...counts, status: 'not_ready' }; // migration 0020 not applied yet, or a read failure: no push this run
       profiles.push(...((data ?? []) as ProfileRow[]));
+    }
+
+    // Member language (migration 0024), read on its own: a database without the column fails this read and every push stays English.
+    const langById = new Map<string, Lang>();
+    for (const ids of chunks([...byUser.keys()], CHUNK)) {
+      const { data: langRows, error: langErr } = await db.from('holler_profiles').select('user_id, language').in('user_id', ids);
+      if (langErr) {
+        langById.clear();
+        break;
+      }
+      for (const r of (langRows ?? []) as unknown as Array<{ user_id?: string; language?: unknown }>) {
+        if (r && typeof r.user_id === 'string') langById.set(r.user_id, parseLang(r.language));
+      }
     }
 
     // 2. Preference, access and the hour.
@@ -282,15 +350,19 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
     const m = await unpushedMatches(db, ready.map((p) => p.user_id), new Date(nowMs - PUSH_LOOKBACK_MS).toISOString());
     if (m.error === 'not_ready') return { ...counts, status: 'not_ready' };
     if (m.error) counts.failed++;
-    // The trades matching uses for each member (plan-limited), for the act-only rule.
-    const tradesBy = new Map<string, readonly string[]>();
-    for (const p of ready) {
-      tradesBy.set(
+    // Each member's plan-limited trades, so a context or market_insight match is not pushed (it stays unstamped).
+    const tradesByUser = new Map(
+      ready.map((p) => [
         p.user_id,
         matchScope({ categories: p.categories ?? null, lat: null, lon: null, state: null, plan: p.plan ?? null, subscription_status: p.subscription_status, plan_source: p.plan_source ?? null, store_expires_at: p.store_expires_at ?? null }).categories,
-      );
-    }
-    const entries = pushEntriesFromMatches(m.rows, nowMs, tradesBy);
+      ]),
+    );
+    // A re-sent stage update is an old match (created long before the lookback): read those once more, keep ONLY stage updates from them.
+    const sinceMs = nowMs - PUSH_LOOKBACK_MS;
+    const old = await unpushedMatches(db, ready.map((p) => p.user_id), new Date(nowMs - STAGE_REARM_LOOKBACK_MS).toISOString(), new Date(sinceMs).toISOString());
+    if (old.error === 'failed') counts.failed++;
+    const oldUpdates = old.error ? [] : old.rows.filter((r) => isStageUpdate(Array.isArray(r.signal) ? r.signal[0] : r.signal));
+    const entries = pushEntriesFromMatches([...m.rows, ...oldUpdates], nowMs, tradesByUser);
 
     // 4. Claim the hour, send, stamp.
     const dead: string[] = [];
@@ -318,7 +390,7 @@ export async function pushNewMatches(db: Db, deps: NotifyDeps = {}): Promise<Pus
         counts.skipped_recent++;
         continue;
       }
-      const n = buildNotification(entry, p.city);
+      const n = buildNotification(entry, p.city, langById.get(p.user_id) ?? 'en');
       const results: SendResult[] = await Promise.all(
         devices.map((d) =>
           send({ token: d.token, title: n.title, body: n.body, data: n.data as Record<string, string> }).catch(

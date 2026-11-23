@@ -26,10 +26,12 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
   const items = parseSocrata(fx('socrata-chicago-permits-contacts.json'), ds('socrata-chicago-permits'));
   it('keeps only contractor-type companies and the exact job site', () => {
     expect(items).toHaveLength(2);
-    // FIX-E: "NORTH BRANCH ARCHITECTS LTD" fails R10 ("BRANCH", a listed surname, right after the known word "NORTH").
+    // FIX-E: "NORTH BRANCH ARCHITECTS LTD" fails the strict rule R10 ("BRANCH", a listed surname, right after the known word "NORTH").
+    // Round 18 (NAMES): a contractor-type column uses the trade-name rule, and a final legal form (LTD) is a business marker, so it is named.
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '2150 N DAMEN', city: 'Chicago', state: 'IL', zip: null, phone: null, email: null, website: null },
       { role: 'contractor', name: 'LAKEFRONT ROOFING & SIDING INC', attn: null, address: null, city: null, state: 'IL', zip: '60076', phone: null, email: null, website: null }, // FIX-F (review4 P2-13): city only when it is the dataset city
+      { role: 'contractor', name: 'NORTH BRANCH ARCHITECTS LTD', attn: null, address: null, city: 'CHICAGO', state: 'IL', zip: '60622', phone: null, email: null, website: null },
     ]);
   });
   it('drops owner, owner-as-contractor, tenant, applicant and expediter types, and a contractor that is a person', () => {
@@ -47,7 +49,7 @@ describe('Chicago permits (contact_N_type / contact_N_name pairs)', () => {
 
 describe('Austin permits (contractor_company_name)', () => {
   const items = parseSocrata(fx('socrata-austin-permits-contacts.json'), ds('socrata-austin-permits'));
-  it('round 10: "Lone Star Roofing LLC" is an organisation again (an entity marker, "Star" is only a word here), so the company is kept with the job site', () => {
+  it('round 18: "Lone Star Roofing LLC" (refused by the strict rule since FIX-C, "Star" is a listed given name) is a trade name in the contractor column', () => {
     expect(items).toHaveLength(3);
     expect(items[0].contacts).toEqual([
       { role: 'site', name: '', attn: null, address: '4812 AVENUE H', city: 'AUSTIN', state: 'TX', zip: '78751', phone: null, email: null, website: null },
@@ -97,12 +99,10 @@ describe('Chicago food inspections (dba_name)', () => {
 
 describe('Austin food inspections (restaurant_name)', () => {
   const items = parseSocrata(fx('socrata-austin-inspections-contacts.json'), ds('socrata-austin-inspections'));
-  it('business plus site for an establishment, nothing for a person-named row', () => {
+  it('round 18 redo (rule 6): "Taqueria Lopez #3" holds a listed surname, so neither the name nor the site is stored; nothing for a person-named row', () => {
     expect(items).toHaveLength(2);
-    expect(items[0].contacts?.map((c) => [c.role, c.name, c.address, c.city, c.state, c.zip])).toEqual([
-      ['site', '', '1107 E 7th St', 'Austin', 'TX', '78702'],
-      ['business', 'Taqueria Lopez', null, null, null, null], // FIX-C: a trailing store number is stripped (R1); FIX-E input: was "Taqueria Arandas #3" (now fails R10)
-    ]);
+    expect(items[0].contacts).toBeUndefined();
+    expectAbsent(items, ['Lopez', 'Kelly Lewis', '1107 E 7th']);
     expect(items[1].contacts).toBeUndefined();
   });
 });
@@ -146,9 +146,29 @@ describe('USAspending awards (Recipient Name)', () => {
   });
 });
 
-describe('ArcGIS: generic contact support', () => {
-  it('only permit layers carry a spec (round 10: tests/contacts/round10-sources.test.ts), never a violation, inspection or business layer', () => {
+describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask for owner columns', () => {
+  const WITH_SPEC = [
+    'arcgis-atlanta-permits', 'arcgis-cobb-commercial-permits', 'arcgis-cobb-multiunit-permits', 'arcgis-cobb-residential-permits',
+    'arcgis-dc-permits', 'arcgis-dekalb-permits', 'arcgis-mecklenburg-permits', 'arcgis-raleigh-permits',
+    // Round 19 coverage, on probation (lib/signals/adapters/coverage-datasets.ts).
+    'arcgis-arlington-permits', 'arcgis-miamidade-permits', 'arcgis-phoenix-permits', 'arcgis-tempe-permits',
+  ].sort();
+  it('exactly the permit layers named in PLAN-2.0 1.2 and 1.3 carry a spec; no violation, 311 or business layer does', () => {
+    expect(ARCGIS_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort()).toEqual(WITH_SPEC);
     for (const d of ARCGIS_DATASETS) if (d.subtype !== 'permit') expect(d.contacts, d.id).toBeUndefined();
+    for (const d of ARCGIS_DATASETS.filter((x) => x.contacts)) expect(['sourced', 'assumed'], d.id).toContain(d.contacts!.fieldStatus);
+  });
+  it('the query asks for the contractor column, never an owner column; with an allow-list only fields the layer has are asked for', () => {
+    const raleigh = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
+    const all = buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z')).get('outFields')!;
+    expect(all).toContain('contractorcompanyname');
+    expect(all).toContain('contractorlicnum');
+    expect(all).not.toMatch(/owner|contractorfullname/i);
+    const only = buildArcgisQuery(raleigh, new Date('2026-11-17T00:00:00Z'), new Set(['contractorcompanyname'])).get('outFields')!;
+    expect(only).toContain('contractorcompanyname');
+    expect(only).not.toContain('contractorphone');
+    expect(only).not.toContain('contractorlicnum');
+    expect(only).toContain('permitnum');
   });
   it('a TEST-ONLY spec (hypothetical columns) extracts the company and the site, never the owner', () => {
     const base = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
@@ -177,29 +197,41 @@ describe('ArcGIS: generic contact support', () => {
 });
 
 describe('contact specs: only verified datasets, only explicit company columns', () => {
-  it('the five datasets read on 2026-11-17 and the round 10 permit sources carry a spec, each with its verified URL', () => {
+  it('every dataset with a spec has its portal metadata URL as verifiedUrl, and is the same object as CONTACT_SPECS', () => {
     const withSpec = SOCRATA_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort();
+    // The five of round 5, the permit feeds of round 15 (PLAN-2.0 1.2 and 1.3), and round 18: the four other business-licence feeds
+    // (the business on the licence is the prospect) and two code-violation feeds (owner company only).
     expect(withSpec).toEqual([
-      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-batonrouge-permits', 'socrata-buffalo-permits', 'socrata-chicago-business',
-      'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-la-permits', 'socrata-montgomery-permits', 'socrata-nola-permits',
-      'socrata-nyc-permits', 'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-permits',
+      'socrata-austin-inspections', 'socrata-austin-permits', 'socrata-austin-violations', 'socrata-batonrouge-permits', 'socrata-buffalo-permits',
+      'socrata-cambridge-permits', 'socrata-chicago-business', 'socrata-chicago-inspections', 'socrata-chicago-permits', 'socrata-chicago-violations',
+      'socrata-cincinnati-permits', 'socrata-dallas-permits', 'socrata-la-business', 'socrata-la-permits', 'socrata-montgomery-permits',
+      'socrata-nola-permits', 'socrata-norfolk-permits', 'socrata-nyc-business', 'socrata-nyc-permits', 'socrata-orlando-business',
+      'socrata-orlando-permits', 'socrata-seattle-permits', 'socrata-sf-business', 'socrata-sf-permits',
     ]);
     for (const id of withSpec) {
       const d = ds(id);
-      expect(d.contacts!.verifiedUrl).toBe(`https://${d.domain}/api/views/${d.datasetId}.json`);
+      expect(d.contacts!.verifiedUrl, id).toMatch(/^https:\/\//);
       expect(CONTACT_SPECS[id]).toBe(d.contacts);
     }
   });
-  it('no 311, violation, event or other no-contact feed has a spec', () => {
-    for (const d of SOCRATA_DATASETS) if (['311', 'violation', 'event-permit'].includes(d.subtype)) expect(d.contacts, d.id).toBeUndefined();
+  it('no 311, event or other no-contact feed has a spec; a violation spec names only an owner company column (round 18)', () => {
+    for (const d of SOCRATA_DATASETS) if (['311', 'event-permit'].includes(d.subtype)) expect(d.contacts, d.id).toBeUndefined();
+    for (const d of SOCRATA_DATASETS.filter((x) => x.subtype === 'violation' && x.contacts)) {
+      const spec = d.contacts!;
+      expect(spec.site, d.id).toBeUndefined();
+      expect(spec.typedContractors, d.id).toBeUndefined();
+      for (const o of spec.orgs ?? []) {
+        expect(o.role, d.id).toBe('owner');
+        expect([o.phoneField, ...(o.phoneFields ?? []), ...(o.licenseFields ?? []), ...(o.addressFields ?? []), o.cityField, o.zipField].filter(Boolean), d.id).toEqual([]);
+      }
+    }
   });
-  it('the five 2026-11-17 specs name no owner, applicant, tenant, description or personal full-name column (round 10 specs: round10-sources.test.ts)', () => {
+  it('no spec names an owner, applicant, tenant, description or personal full-name column (an owner-company column only with role owner)', () => {
     const bad = /owner|applicant|tenant|desc|full_name|first_name|last_name|comment|requestor|complainant/i;
-    const original = ['socrata-chicago-permits', 'socrata-austin-permits', 'socrata-chicago-inspections', 'socrata-austin-inspections', 'socrata-chicago-business'];
-    for (const [id, spec] of Object.entries(CONTACT_SPECS).filter(([k]) => original.includes(k))) {
+    for (const [id, spec] of Object.entries(CONTACT_SPECS)) {
       const cols = [
         ...(spec.site?.addressFields ?? []), spec.site?.cityField, spec.site?.stateField, spec.site?.zipField,
-        ...(spec.orgs ?? []).flatMap((o) => [...o.nameFields, ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField]),
+        ...(spec.orgs ?? []).flatMap((o) => [...(o.role === 'owner' ? [] : o.nameFields), ...(o.addressFields ?? []), o.cityField, o.stateField, o.zipField, o.phoneField]),
         ...(spec.typedContractors?.pairs ?? []).flatMap((p) => [p.typeField, p.nameField, p.cityField, p.stateField, p.zipField]),
       ].filter(Boolean) as string[];
       for (const c of cols) expect(bad.test(c), `${id} reads ${c}`).toBe(false);

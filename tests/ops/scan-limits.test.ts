@@ -59,28 +59,28 @@ describe('garbage dates (review P2-7)', () => {
     expect(f.tables.holler_signals.map((r) => r.id).sort()).toEqual([2, 3]);
   });
 
-  it('a stored future-dated row ranks as now, never above a fresh one of the same severity by its date', () => {
+  it('a stored future-dated row never outranks a fresh one of the same severity by its date', () => {
     const profile: MatchProfile = { user_id: 'u', categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 25 };
-    const sig = (id: number, occurred_at: string): MatchSignal => ({ id, kind: 'permit', categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', severity: 2, occurred_at });
+    const sig = (id: number, occurred_at: string): MatchSignal => ({ id, categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', severity: 2, occurred_at });
     const fresh = Array.from({ length: MAX_MATCHES_PER_USER }, (_, i) => sig(i + 1, new Date(NOW.getTime() - (i + 1) * 3_600_000).toISOString()));
     const garbage = sig(999, '2099-01-01T00:00:00Z');
     const rows = matchSignals([garbage, ...fresh], [profile], MAX_MATCHES_PER_USER, NOW);
     expect(rows).toHaveLength(MAX_MATCHES_PER_USER);
-    // the 2099 row is clamped to "now": it may rank first among equals but must not push out a whole slot of fresh ones beyond the cap by dating
-    expect(rows.filter((r) => r.signal_id !== 999)).toHaveLength(MAX_MATCHES_PER_USER - 1);
-    expect(rows[0].signal_id).toBe(999);
+    // Score v1 (item 2.7): a 2099 date is not "fresh" (+20), so inside one label it scores below every record from the last day and is
+    // the one cut at the cap. Before the score it was clamped to now and ranked first among equals.
+    expect(rows.map((r) => r.signal_id)).not.toContain(999);
+    expect(rows.map((r) => r.signal_id)).toEqual(fresh.map((s) => s.id));
   });
 });
 
 describe('business rows do not flood a user (review P2-6)', () => {
-  // Opportunity change (u2): a new business licence is 'soon' for janitorial-commercial (lib/signals/opportunity.ts NEW_BUSINESS_TRADES),
-  // and only 'context' for house cleaning, so the member here is a commercial cleaner.
-  const profile: MatchProfile = { user_id: 'u', categories: ['janitorial-commercial'], lat: 34.05, lon: -118.24, state: 'CA', radius_mi: 25 };
+  // Round 15 quality gate: a business licence is context (never shown) for house cleaning, so the cap is proved with security, which still gets licence alerts.
+  const profile: MatchProfile = { user_id: 'u', categories: ['security'], lat: 34.05, lon: -118.24, state: 'CA', radius_mi: 25 };
   const biz = (id: number, dLat: number): MatchSignal => ({
-    id, kind: 'civic', categories: ['cleaning', 'janitorial-commercial', 'insurance', 'security'], lat: 34.05 + dLat, lon: -118.24, state: 'CA', severity: 1,
+    id, categories: ['cleaning', 'insurance', 'security'], lat: 34.05 + dLat, lon: -118.24, state: 'CA', severity: 1,
     occurred_at: new Date(NOW.getTime() - id * 60_000).toISOString(), subtype: 'business',
   });
-  it('25 license rows in one scan give a commercial cleaning user 5, the nearest, not 25', () => {
+  it('25 license rows in one scan give a security user 5, the nearest, not 25', () => {
     const signals = Array.from({ length: 25 }, (_, i) => biz(i + 1, 0.2 - i * 0.008));
     const rows = matchSignals(signals, [profile], MAX_MATCHES_PER_USER, NOW);
     expect(rows).toHaveLength(MAX_BUSINESS_PER_USER);
@@ -97,8 +97,7 @@ describe('business rows do not flood a user (review P2-6)', () => {
     expect(matchSignals(permits, [profile], MAX_MATCHES_PER_USER, NOW)).toHaveLength(10);
   });
   it('business rows never crowd out other rows: 5 business + 20 others fit in 25', () => {
-    // A failed food inspection is 'act' for janitorial-commercial (was an untitled 311 row, which is now city work: context).
-    const others: MatchSignal[] = Array.from({ length: 30 }, (_, i) => ({ ...biz(100 + i, 0.001 * i), subtype: 'inspection', title: 'Failed inspection in Los Angeles: restaurant', severity: 2 }));
+    const others: MatchSignal[] = Array.from({ length: 30 }, (_, i) => ({ ...biz(100 + i, 0.001 * i), subtype: '311', severity: 2 }));
     const bizRows = Array.from({ length: 20 }, (_, i) => biz(i + 1, 0.001 * i));
     const rows = matchSignals([...bizRows, ...others], [profile], MAX_MATCHES_PER_USER, NOW);
     expect(rows).toHaveLength(25);

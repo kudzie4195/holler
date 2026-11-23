@@ -16,7 +16,7 @@ const NOW = new Date('2026-11-17T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
 const NYC = { lat: 40.7128, lon: -74.006 };
 let nextId = 1;
-const sig = (over: Row): Row => ({ id: nextId++, kind: 'permit', categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over });
+const sig = (over: Row): Row => ({ id: nextId++, categories: ['hvac'], lat: null, lon: null, state: null, severity: 2, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over });
 const run = async (signals: Row[], profile: MatchProfile) => {
   const fake = fakeSignalsDb(signals, { now: NOW });
   const r = await backfillMatches(fake as never, profile, NOW);
@@ -68,8 +68,7 @@ describe('backfill location filter', () => {
     const { fake } = await run([], { user_id: 'u', categories: ['hvac'], lat: 40.2171, lon: -74.7429, state: 'NJ', radius_mi: 50 });
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
     expect(rpc).toHaveLength(2); // the main read and the separate severity 2+ read
-    // u2: hvac also reads general-contractor permits (an addition is new rooms to heat and cool: prefilterCategories).
-    expect(rpc[0].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_categories: ['hvac', 'general-contractor'], p_soonest_first: false, p_min_severity: 1 });
+    expect(rpc[0].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_categories: ['hvac'], p_soonest_first: false, p_min_severity: 1 });
     expect(rpc[1].args).toMatchObject({ p_lat: 40.2171, p_lon: -74.7429, p_radius_mi: 50, p_soonest_first: false, p_min_severity: 2 });
   });
 
@@ -122,9 +121,10 @@ describe('backfill location filter', () => {
 
   it('caps new-business rows at 5 per backfill, nearest first, without touching the other rows', async () => {
     nextId = 1;
-    const cleaning: MatchProfile = { ...atlantaHvac, categories: ['cleaning'] };
-    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: 'business' }, lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
-    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['cleaning'], data: { subtype: '311' }, lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
+    // Round 15 quality gate: licences are context for house cleaning, so the cap is proved with security (still alerted on licences).
+    const cleaning: MatchProfile = { ...atlantaHvac, categories: ['security'] };
+    const biz = Array.from({ length: 12 }, (_, i) => sig({ categories: ['security'], data: { subtype: 'business' }, lat: 33.749 + 0.01 * (12 - i), lon: -84.388, state: 'GA', severity: 1, occurred_at: hoursAgo(2 + i) }));
+    const other = Array.from({ length: 3 }, (_, i) => sig({ categories: ['security'], data: { subtype: '311' }, lat: 33.8 + i * 0.01, lon: -84.4, state: 'GA', severity: 1, occurred_at: hoursAgo(30 + i) }));
     const { r, matched } = await run([...biz, ...other], cleaning);
     expect(r.matched).toBe(MAX_BUSINESS_PER_USER + 3);
     const bizIds = matched.filter((id) => biz.some((b) => b.id === id));

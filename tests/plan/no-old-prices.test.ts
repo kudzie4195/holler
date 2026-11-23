@@ -1,7 +1,7 @@
 // Round 7 leftovers guard. Scans every .ts/.tsx file under app/, components/ and lib/ for:
 //  - the old prices ($5, 5/mo, $48, 48/yr, $9.99, 9.99, $96, 96/yr, and the old cents and Offer prices typed into code),
 //  - the old display name "Starter" (the internal id `starter` in lower case is fine everywhere),
-//  - 7-day trial wording (the trial is TRIAL_DAYS = 14 days, printed from the constant).
+//  - 7-day trial wording (the trial is TRIAL_DAYS = 60 days since round 18, printed from the constant).
 // Any hit outside ALLOW fails. Each ALLOW entry names one file and one exact snippet, with the reason. Entries marked `patch` go away
 // when the commander applies the PRICING "Patches for integration" (shared files this unit may not edit); delete them then.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -98,7 +98,7 @@ describe('no old prices, no "Starter", no 7-day trial wording in app/, component
     expect(t('Seven days, no card')).toContain('7-day trial wording');
     expect(t('Start your free week')).toContain('7-day trial wording');
     // and leave the new values and unrelated numbers alone
-    for (const ok of ['$7.99 a month', '$79.99 a year', '$13.99', '$139.99', "plan: 'starter'", 'lat: 29.9902', '23:59:59.999Z', 'last 7 days', '14-day free trial', '$500 per job', '$50', 'Free weekly city email', 'holds the past seven days']) {
+    for (const ok of ['$7.99 a month', '$79.99 a year', '$13.99', '$139.99', "plan: 'starter'", 'lat: 29.9902', '23:59:59.999Z', 'last 7 days', '60-day free trial', '$500 per job', '$50', 'Free weekly city email', 'holds the past seven days']) {
       expect(t(ok), ok).toEqual([]);
     }
   });

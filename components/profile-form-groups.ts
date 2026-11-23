@@ -1,4 +1,5 @@
 import { CATEGORY_GROUPS } from '@/lib/signals/categories';
+import { hasKey, t, type Lang } from '@/lib/i18n';
 
 /** Trade chips grouped by category `group`. Pure, so it is tested without React. */
 export interface ChipCategory {
@@ -8,6 +9,8 @@ export interface ChipCategory {
   group?: string;
   /** No record type can reach this trade on this deployment (see tradeComingSoon). Shown last in its group, disabled, never counted. */
   comingSoon?: boolean;
+  /** With comingSoon: the reason is that no live source reaches this trade yet (lib/signals/lead-rules.ts tradeNoLiveSource), not a missing key. */
+  noLiveSource?: boolean;
 }
 
 export interface ChipGroup {
@@ -27,7 +30,14 @@ function workingFirst(items: ChipCategory[]): ChipCategory[] {
   return [...items.filter((c) => !c.comingSoon), ...items.filter((c) => c.comingSoon)];
 }
 
-export function groupCategories(categories: ChipCategory[]): ChipGroup[] {
+/** A group heading in a language: the dictionary's group.<id> when there is one (round 18 ES), the English label otherwise. */
+function groupLabel(key: string, label: string, lang: Lang): string {
+  if (lang === 'en') return label;
+  const k = `group.${key}`;
+  return hasKey(k) ? t(lang, k) : label;
+}
+
+export function groupCategories(categories: ChipCategory[], lang: Lang = 'en'): ChipGroup[] {
   if (!categories.some((c) => typeof c.group === 'string' && c.group)) {
     return [{ key: 'all', label: null, items: workingFirst(categories) }];
   }
@@ -41,7 +51,7 @@ export function groupCategories(categories: ChipCategory[]): ChipGroup[] {
   const out: ChipGroup[] = [];
   for (const g of GROUP_ORDER) {
     const items = buckets.get(g.key);
-    if (items?.length) out.push({ key: g.key, label: g.label, items: workingFirst(items) });
+    if (items?.length) out.push({ key: g.key, label: groupLabel(g.key, g.label, lang), items: workingFirst(items) });
   }
   // One group after bucketing (for example everything is 'other'): no heading needed.
   if (out.length === 1) out[0] = { ...out[0], label: null };

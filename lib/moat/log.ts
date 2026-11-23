@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { intentOf, type Intent } from '@/lib/signals/intent';
 import { effectiveTier, matchScope } from '@/lib/plan';
-import { bestLabelOf, opportunityInputOf, type OpportunityRowFields } from '@/lib/signals/member-opportunity';
-import { assessOpportunity } from '@/lib/signals/opportunity';
 
 /**
  * Training log (migration 0015, holler_alert_log): one row per match with coarse facts only.
@@ -107,7 +105,7 @@ export async function markAlertsEmailed(db: Db, userId: string, signalIds: numbe
   }
 }
 
-interface LogSignal extends OpportunityRowFields {
+interface LogSignal {
   id: number;
   source?: string | null;
   kind?: string | null;
@@ -128,9 +126,8 @@ interface LogProfile {
 }
 
 /**
- * Builds log rows for new matches. Trade = the member's allowed trade with the best opportunity label for the record (act, soon,
- * intel; lib/signals/opportunity.ts), which can be a downstream trade not in the record's categories; null for a keyword-only match.
- * The intent column stays as it was (migration 0015 has no opportunity column). Plan = the tier in force right now. Never throws.
+ * Builds log rows for new matches. Trade = the first category of the signal that is among the member's allowed trades (null for a
+ * keyword-only match). Plan = the tier in force right now. Never throws.
  */
 export function alertLogRowsFor(
   matches: Array<{ user_id: string; signal_id: number; distance_mi: number | null }>,
@@ -152,14 +149,7 @@ export function alertLogRowsFor(
       const s = sig.get(m.signal_id);
       if (!s) continue;
       const sc = scopes.get(m.user_id);
-      let trade: string | null = null;
-      if (sc && sc.trades.length) {
-        try {
-          trade = bestLabelOf(assessOpportunity(opportunityInputOf(s)), sc.trades).trade;
-        } catch {
-          trade = null;
-        }
-      }
+      const trade = sc ? ((s.categories ?? []).find((c) => sc.trades.includes(c)) ?? null) : null;
       out.push({
         user_id: m.user_id,
         signal_id: m.signal_id,

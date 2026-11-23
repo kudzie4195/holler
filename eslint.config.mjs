@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // The Capacitor app is its own package with its own build and tests (mobile/package.json).
     "mobile/**",
+    // Round 19 UNIFY: the other branch's label engine and NYC agent join, kept unchanged for a later comparison; not part of the product.
+    "reference/**",
   ]),
 ]);
 

@@ -1,6 +1,7 @@
 import { siteUrl } from '@/lib/env';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
+import { countiesFromSame } from '@/lib/geo/county';
 
 /**
  * National Weather Service active alerts.
@@ -30,6 +31,8 @@ export const NWS_RULES: Rule[] = [
   { re: /^tornado/i, categories: ['roofing', 'restoration', 'tree-service', 'general-contractor', 'insurance', 'public-adjuster', 'auto-body', 'electrical', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /hurricane|tropical storm|typhoon|storm surge/i, categories: ['roofing', 'tree-service', 'restoration', 'general-contractor', 'insurance', 'public-adjuster', 'electrical', 'towing', 'junk-removal'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /severe thunderstorm/i, categories: ['roofing', 'tree-service', 'restoration', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
+  // A flood advisory or statement is minor (a stream above its banks): clean-up and claims, not a plumber. Warnings keep plumbing (back-ups, sump pumps).
+  { re: /flood advisory|flood statement/i, categories: ['restoration', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /flash flood|flood/i, categories: ['restoration', 'plumbing', 'junk-removal', 'towing', 'auto-repair', 'insurance', 'public-adjuster'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /ice storm/i, categories: ['tree-service', 'electrical', 'snow-removal', 'towing', 'hvac'], sev: { warning: 3, watch: 2, advisory: 1 } },
   { re: /blizzard|winter storm|lake effect snow|heavy snow|snow squall|winter weather/i, categories: ['snow-removal', 'towing', 'hvac', 'tree-service', 'plumbing'], sev: { warning: 2, watch: 1, advisory: 1 } },
@@ -39,6 +42,14 @@ export const NWS_RULES: Rule[] = [
   { re: /high wind|extreme wind|wind advisory|^wind/i, categories: ['tree-service', 'roofing', 'restoration', 'electrical'], sev: { warning: 2, watch: 1, advisory: 1 } },
   { re: /red flag|fire weather|wildfire|fire warning/i, categories: ['restoration', 'tree-service', 'landscaping', 'insurance'], sev: { warning: 2, watch: 1, advisory: 1 } },
 ];
+
+/** A zone alert is placed by county only at this severity or higher (the floor the state-level match always had), so advisories stay quiet. */
+export const COUNTY_MIN_SEVERITY = 2;
+/**
+ * No cap on the counties one alert becomes. The largest state has 254 counties (Texas), and an alert that lists them all must reach a member in
+ * any of them: a cap silently dropped the counties past the 150th (round 15 re-review). The matcher delivers one alert once per member (alertId), so
+ * the extra rows cost storage only.
+ */
 
 /** Added to a severe thunderstorm alert whose text reports damaging hail. */
 export const NWS_HAIL_EXTRA: CategoryId[] = ['auto-body', 'auto-glass'];
@@ -195,6 +206,7 @@ export function parseNws(raw: unknown): SignalInput[] {
     let states = statesFromUgc(geoCode);
     if (!states.length) states = statesFromAreaDesc(areaDesc);
     const centroid = geometryCentroid(feat.geometry);
+    const counties = centroid ? [] : countiesFromSame((p.geocode as { SAME?: unknown } | undefined)?.SAME);
 
     const occurredAt = iso(p.onset) ?? iso(p.effective) ?? iso(p.sent) ?? new Date().toISOString();
     const expiresAt = iso(p.ends) ?? iso(p.expires);
@@ -224,8 +236,23 @@ export function parseNws(raw: unknown): SignalInput[] {
 
     if (centroid) {
       out.push({ ...base, externalId: id, lat: centroid.lat, lon: centroid.lon, state: states[0] ?? null, data });
+    } else if (counties.length && severity >= COUNTY_MIN_SEVERITY) {
+      // No polygon, but the alert names its counties (SAME codes, always present): one point per county at the county centroid, matched
+      // by radius like any other alert. The point is a stand-in for a county, so it carries data.loc = 'approx' (reach plus a county's
+      // slack, no distance shown) and the same data.alertId, which lets a member who sits between two counties of one alert get it once.
+      for (const c of counties) {
+        out.push({
+          ...base,
+          externalId: `${id}#${c.fips}`,
+          lat: c.lat,
+          lon: c.lon,
+          state: c.state,
+          data: { ...data, loc: 'approx', countyFips: c.fips, alertId: id },
+        });
+      }
     } else if (states.length) {
-      // No geometry: one state-level signal per state so state matching is exact.
+      // No geometry and no county (or a minor alert): one state-level signal per state. The matcher never matches these by state (a
+      // zone alert is not statewide), so they are kept as history only.
       for (const st of states.slice(0, 8)) {
         out.push({ ...base, externalId: states.length > 1 ? `${id}#${st}` : id, state: st, data });
       }

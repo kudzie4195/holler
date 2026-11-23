@@ -1,13 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
+import { isFeedLabel, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
+import { STAGE_SELECT } from '../signals/stage';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
 import { trialStartedAt as readTrialStamp } from '../auth/membership';
 import { missedSince } from './missed';
 import { queryRanges, type LifecycleKind, type LifecycleProfile, type SendRow } from './select';
 import type { AlertItem, TypeLine } from './templates';
-import { matchScope } from '../plan/scope';
-import { OPPORTUNITY_DATA_COLUMNS, memberOpportunity } from '../signals/member-opportunity';
 
 type Db = Pick<SupabaseClient, 'from' | 'auth'>;
 
@@ -52,10 +52,11 @@ export interface LifecycleStore {
    */
   trialStartedAt?(userId: string): Promise<string | null>;
   /**
-   * With `profile`, each item carries its opportunity label for the member's plan-limited trades and keyword watches, and records that
-   * are only 'context' for them are left out (they may be in holler_matches from before trade matching used opportunity).
+   * The member's matches for the welcome and trial-ending mail. With `trades` (the plan's trades, matchScope), each item carries this
+   * base's label for the member (lead-rules labelForMember, the feed's own rule) and a match whose label is not a feed label (context)
+   * is left out, exactly as the feed hides it (round 19 review, defect 9). Without `trades` every match is listed, unlabelled.
    */
-  matchesOf(userId: string, profile?: FullProfile): Promise<MatchesOf>;
+  matchesOf(userId: string, trades?: readonly string[]): Promise<MatchesOf>;
   /** Null when there is no usable area, no trades, or the records cannot be read. A total of 0 is also null: nothing to say. */
   quietPreview(profile: FullProfile, now: Date): Promise<QuietPreview | null>;
   /** Throws when the records cannot be read. */
@@ -87,16 +88,15 @@ interface SignalEmbed {
   title: string | null;
   summary?: string | null;
   categories?: string[] | null;
-  opp_type?: string | null;
-  opp_event?: string | null;
-  opp_hail?: string | null;
-  opp_comments?: string | null;
-  opp_mag?: string | null;
   city: string | null;
   state: string | null;
   severity: number | null;
   occurred_at: string;
   subtype: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  /** data->>permitStage (STAGE_SELECT), passed to the labeller only. */
+  permitStage?: string | null;
 }
 
 export function createStore(db: Db): LifecycleStore {
@@ -130,7 +130,8 @@ export function createStore(db: Db): LifecycleStore {
     async loadSends(userIds) {
       const out: SendRow[] = [];
       for (const ids of chunk(userIds)) {
-        const { data, error } = await sends().select('user_id, kind').in('user_id', ids);
+        // sent_at: a trial_ending / trial_ended row written for an earlier trial end is stale (select.ts staleTrialSends).
+        const { data, error } = await sends().select('user_id, kind, sent_at').in('user_id', ids);
         if (error) {
           if (isMissingTable(error)) throw new NotMigrated();
           throw new Error(`sends: ${error.message}`);
@@ -172,26 +173,30 @@ export function createStore(db: Db): LifecycleStore {
       return (await userOf(userId)).stamp;
     },
 
-    async matchesOf(userId, profile) {
-      const scope = profile ? matchScope(profile) : null;
+    async matchesOf(userId, trades) {
       const { data, error } = await db
         .from('holler_matches')
-        .select(`signal:holler_signals(id, source, kind, title, summary, categories, city, state, severity, occurred_at, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS})`)
+        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT})`)
         .eq('user_id', userId)
         .neq('status', 'dismissed')
         .order('created_at', { ascending: false })
         .limit(MATCH_ROW_CAP);
       if (error) throw new Error(`matches: ${error.message}`);
-      const rows = (data ?? []) as unknown as { signal: SignalEmbed | SignalEmbed[] | null }[];
+      const rows = (data ?? []) as unknown as { status?: string | null; signal: SignalEmbed | SignalEmbed[] | null }[];
       const items: (AlertItem & { id: number })[] = [];
       for (const r of rows) {
         const s = Array.isArray(r.signal) ? r.signal[0] : r.signal;
         if (!s || !s.title?.trim()) continue;
         if (s.source === HOLLER_REQUEST_SOURCE || s.kind === 'ask') continue;
-        const opportunity = scope ? memberOpportunity(s, scope.categories, scope.keywords).label : null;
-        if (opportunity === 'context') continue;
+        // Round 19 integration: the same label input as the feed (recordLabelInput: summary, permit stage, place) and the same rule for a
+        // match the member saved or marked done (keptMatchLabel: it stays listed as a feed item whatever its label is now).
+        const label = trades
+          ? keptMatchLabel(labelForMember({ ...recordLabelInput(s), categories: s.categories ?? null }, trades), r.status)
+          : null;
+        // A record this base calls context for the member's trades is hidden in the feed, so it is never listed or counted in mail either.
+        if (label && !isFeedLabel(label)) continue;
         items.push({
-          opportunity,
+          ...(label ? { label } : {}),
           id: s.id,
           title: s.title,
           city: s.city,
@@ -221,7 +226,7 @@ export function createStore(db: Db): LifecycleStore {
       };
       const p = await recentPreviewFor(pp, { db: db as unknown as SupabaseClient, now });
       if (!p || p.total <= 0) return null;
-      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count }));
+      const lines = p.byType.filter((t) => t.count > 0).map((t) => ({ label: typeLabel(t.key, t.count), count: t.count, key: t.key }));
       if (lines.length === 0) return null;
       return { lines, total: p.total, capped: p.capped, days: PREVIEW_DAYS };
     },

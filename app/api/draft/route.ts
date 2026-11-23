@@ -5,6 +5,9 @@ import { generateDraft } from '@/lib/ai/draft';
 import { computeAccess } from '@/lib/auth/access';
 import { hit, LIMITS } from '@/lib/auth/ratelimit';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
+import { originAllowed } from '@/lib/auth/origin';
+import { siteUrl } from '@/lib/env';
+import { langOfProfile, t, type Lang } from '@/lib/i18n';
 
 // Reply drafts: the model is called only when a signed-in member with access (trial or plan, computeAccess) asks for a draft of an
 // "ask" record matched to them, under the same monthly AI cap as the cron classification step (lib/ai/draft.ts). Classification
@@ -22,6 +25,12 @@ interface SignalRow {
 }
 
 export async function POST(req: Request) {
+  // SEC-5: JSON only (a cross-site form or a no-cors text/plain fetch cannot send it) and same-origin when the browser says where it
+  // came from. Before this the route parsed any body type and leaned on SameSite=Lax alone to stop cross-site calls on the AI budget.
+  if (!(req.headers.get('content-type') ?? '').toLowerCase().includes('application/json')) {
+    return Response.json({ error: 'unsupported' }, { status: 415 });
+  }
+  if (!originAllowed(req, siteUrl)) return Response.json({ error: 'forbidden' }, { status: 403 });
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
@@ -52,9 +61,11 @@ export async function POST(req: Request) {
   const { data: profile } = await supabase.from('holler_profiles').select('*').eq('user_id', user.id).maybeSingle();
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
   // A locked account (trial over, no plan) gets no AI drafts. Checked before the limiter, so nothing is counted.
+  // 'language' is absent before migration 0024: the member is then English, exactly as before.
+  const lang: Lang = langOfProfile(profile);
   if (computeAccess(profile).locked) {
     return Response.json(
-      { error: 'locked', message: 'Your trial or plan has ended. Pick a plan to get reply drafts again.' },
+      { error: 'locked', message: t(lang, 'draft.err.locked') },
       { status: 403 },
     );
   }
@@ -63,12 +74,12 @@ export async function POST(req: Request) {
   const limited = await hit([LIMITS.draftUser(user.id)]);
   if (limited === 'limited') {
     return Response.json(
-      { error: 'rate_limited', message: "You've used 20 drafts this hour. Try again in a bit." },
+      { error: 'rate_limited', message: t(lang, 'draft.err.rate_limited') },
       { status: 429, headers: { 'Retry-After': '3600' } },
     );
   }
   if (limited === 'error') {
-    return Response.json({ error: 'unavailable', message: 'Drafts are unavailable right now. Try again in a moment.' }, { status: 503 });
+    return Response.json({ error: 'unavailable', message: t(lang, 'draft.err.unavailable') }, { status: 503 });
   }
 
   // Service role: the draft is booked in holler_ai_spend, and `draft` is not in the authenticated role's column grants.
@@ -80,16 +91,17 @@ export async function POST(req: Request) {
       title: signal.title,
       summary: signal.summary,
       city: profile.city ?? signal.city,
+      lang,
     },
     { db: admin },
   );
   if (!out.ok) {
     return out.reason === 'cap_reached'
       ? Response.json(
-          { error: 'ai_paused', message: 'Reply drafts are paused until next month. You can still write your own reply.' },
+          { error: 'ai_paused', message: t(lang, 'draft.err.paused') },
           { status: 503 },
         )
-      : Response.json({ error: 'unavailable', message: 'Drafts are unavailable right now. Try again in a moment.' }, { status: 503 });
+      : Response.json({ error: 'unavailable', message: t(lang, 'draft.err.unavailable') }, { status: 503 });
   }
   const { draft } = out;
 

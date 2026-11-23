@@ -10,6 +10,7 @@ export class FakeDb {
   calls: string[] = [];
   private seq: Record<string, number> = {};
   failOn: Record<string, string> = {}; // "table.op" -> error message
+  failCode: Record<string, string> = {}; // "table.op" -> PostgREST / Postgres error code sent with the failOn message (PGRST205, 42P01, ...)
 
   constructor(seed: Record<string, Row[]> = {}) {
     for (const [k, v] of Object.entries(seed)) this.tables[k] = v.map((r) => ({ ...r }));
@@ -56,6 +57,8 @@ class Builder implements PromiseLike<{ data: any; error: { message: string } | n
   gte(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] >= v); return this; }
   lt(c: string, v: any) { this.filters.push((r) => r[c] != null && r[c] < v); return this; }
   in(c: string, vs: any[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
+  is(c: string, v: null) { this.filters.push((r) => (v === null ? r[c] == null : r[c] === v)); return this; }
+  not(c: string, op: string, v: any) { this.filters.push((r) => (op === 'is' && v === null ? r[c] != null : r[c] !== v)); return this; }
   order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
   range(a: number, b: number) { this.rangeFrom = a; this.rangeTo = b; return this; }
   limit(n: number) { this.limitN = n; return this; }
@@ -68,7 +71,10 @@ class Builder implements PromiseLike<{ data: any; error: { message: string } | n
   private run() {
     const t = this.db.tables[this.table];
     const failKey = `${this.table}.${this.op}`;
-    if (this.db.failOn[failKey]) return { data: null, error: { message: this.db.failOn[failKey] } };
+    if (this.db.failOn[failKey]) {
+      const code = this.db.failCode[failKey];
+      return { data: null, error: code ? { message: this.db.failOn[failKey], code } : { message: this.db.failOn[failKey] } };
+    }
     const matching = () => t.filter((r) => this.filters.every((f) => f(r)));
     if (this.op === 'select') {
       let rows = matching();

@@ -1,4 +1,5 @@
-// Source probation: a probation adapter's rows go to holler_source_samples (service role only), never to holler_signals,
+// Ported from origin/r10-integrate tests/signals/probation-samples.test.ts (round 19 UNIFY), adapted: migration 0032, and a missing
+// table is a skip with no error (this base's rule). Source probation: a probation adapter's rows go to holler_source_samples (service role only), never to holler_signals,
 // holler_signal_contacts, matching, notification or IndexNow. Rows and fakes are hand-written; the in-memory db is tests/ops/fakedb.ts.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -53,7 +54,7 @@ describe('runScan with a probation adapter', () => {
     expect(samples.map((s) => [s.source, s.external_id])).toEqual([['fake', 'a'], ['fake', 'b']]);
     expect(samples[1].row).toMatchObject({ title: 'Permit: Second', data: { subtype: 'permit' }, contacts: [{ role: 'contractor', name: 'Acme Roofing LLC' }] });
     expect(r.sources[0]).toMatchObject({ id: 'fake', status: 'ok', fetched: 2, inserted: 2, matched: 0 });
-    expect(f.tables.holler_scan_runs?.[0] ?? f.tables.scan_runs?.[0]).toBeDefined();
+    expect(f.tables.holler_scan_runs?.[0]).toMatchObject({ source: 'fake', inserted: 2, error: null });
   });
 
   it('never calls matching, notification, the alert log or IndexNow', async () => {
@@ -82,16 +83,50 @@ describe('runScan with a probation adapter', () => {
     expect(r.sources[0].inserted).toBe(SAMPLE_CAP - 1);
   });
 
-  it('logs "holler_source_samples missing: apply 0022" when the table is not there and writes nothing to holler_signals', async () => {
+  it.each([
+    ['PGRST205', "Could not find the table 'public.holler_source_samples' in the schema cache"],
+    ['42P01', 'relation "public.holler_source_samples" does not exist'],
+  ])('with the table missing (%s) the probation source is skipped: no fetch, no write anywhere, no scan_runs row, no error', async (code, message) => {
+    const f = seed();
+    for (const op of ['select', 'upsert', 'delete']) {
+      f.failOn[`holler_source_samples.${op}`] = message;
+      f.failCode[`holler_source_samples.${op}`] = code;
+    }
+    let fetches = 0;
+    const live = adapter({ id: 'live', fetch: async () => [sig({ source: 'live', externalId: 'l1' })] });
+    const prob = adapter({ id: 'prob', probation: true, fetch: async () => (fetches++, [sig(), withContacts]) });
+    const r = await runScan({ now: NOW, adapters: [live, prob] }, asDb(f));
+    expect(fetches).toBe(0);
+    expect(r.error).toBeUndefined();
+    expect(r.sources.find((x) => x.id === 'prob')).toMatchObject({ status: 'skipped(env)', inserted: 0, logs: [SAMPLES_MISSING] });
+    expect(r.sources.find((x) => x.id === 'prob')!.error).toBeUndefined();
+    expect(r.sources.find((x) => x.id === 'live')).toMatchObject({ status: 'ok', inserted: 1 });
+    expect((f.tables.holler_signals ?? []).map((s) => s.external_id)).toEqual(['l1']);
+    expect(f.tables.holler_signal_contacts ?? []).toEqual([]);
+    expect((f.tables.holler_scan_runs ?? []).map((x) => x.source).filter((x) => x !== '_prune')).toEqual(['live']);
+    expect((f.tables.holler_source_health ?? []).some((x) => x.source === 'prob')).toBe(false);
+    expect(f.calls.filter((c) => c === 'holler_source_samples.upsert' || c === 'holler_source_samples.delete')).toEqual([]);
+  });
+
+  it('a table that disappears between the probe and the write is a skip too, never an error', async () => {
     const f = seed();
     f.failOn['holler_source_samples.upsert'] = 'relation "public.holler_source_samples" does not exist';
+    f.failCode['holler_source_samples.upsert'] = '42P01';
+    const r = await runScan({ now: NOW, adapters: [adapter({ probation: true })] }, asDb(f));
+    expect(r.sources[0]).toMatchObject({ status: 'ok', inserted: 0 });
+    expect(r.sources[0].logs).toContain(SAMPLES_MISSING);
+    expect(f.tables.holler_signals ?? []).toEqual([]);
+    expect(f.tables.holler_scan_runs.find((x) => x.source === 'fake')!.error).toBeNull();
+  });
+
+  it('any other samples failure is an error on that source only (the live path is untouched)', async () => {
+    const f = seed();
+    f.failOn['holler_source_samples.upsert'] = 'permission denied for table holler_source_samples';
+    f.failCode['holler_source_samples.upsert'] = '42501';
     const r = await runScan({ now: NOW, adapters: [adapter({ probation: true })] }, asDb(f));
     expect(r.sources[0].status).toBe('error');
-    expect(r.sources[0].error).toBe(SAMPLES_MISSING);
+    expect(r.sources[0].error).toMatch(/source samples upsert failed/);
     expect(f.tables.holler_signals ?? []).toEqual([]);
-    expect(f.tables.holler_signal_contacts ?? []).toEqual([]);
-    const logged = Object.entries(f.tables).flatMap(([t, rows]) => (/scan_runs/.test(t) ? rows : []));
-    expect(logged.some((l) => l.source === 'fake' && l.error === SAMPLES_MISSING)).toBe(true);
   });
 
   it('a non-probation adapter is unchanged: rows go to holler_signals and contacts, nothing to samples', async () => {
@@ -137,13 +172,16 @@ describe('probation review fixes (redo 2)', () => {
     expect(f.calls.filter((c: string) => c === 'holler_source_samples.delete').length).toBe(1);
   });
 
-  it('F2: a missing samples table is logged once per scan, not once per source', async () => {
+  it('F2: with no probation source due, the prune still runs once; a missing table there is silent (no warning, no error)', async () => {
     const f = seed();
     f.failOn['holler_source_samples.delete'] = 'relation "public.holler_source_samples" does not exist';
+    f.failCode['holler_source_samples.delete'] = '42P01';
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const many = ['p1', 'p2', 'p3'].map((id) => adapter({ id, fetch: async () => [] }));
-    await runScan({ now: NOW, adapters: many }, asDb(f));
-    expect(warn.mock.calls.filter((c) => String(c[0]) === SAMPLES_MISSING).length).toBe(1);
+    const r = await runScan({ now: NOW, adapters: many }, asDb(f));
+    expect(f.calls.filter((c) => c === 'holler_source_samples.delete').length).toBe(1);
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('holler_source_samples')).length).toBe(0);
+    expect(r.error).toBeUndefined();
     warn.mockRestore();
   });
 
@@ -164,8 +202,8 @@ describe('probation review fixes (redo 2)', () => {
   });
 });
 
-describe('migration 0022_holler_source_samples.sql', () => {
-  const sql = readFileSync(join(__dirname, '..', '..', 'supabase', 'migrations', '0022_holler_source_samples.sql'), 'utf8');
+describe('migration 0032_holler_source_samples.sql', () => {
+  const sql = readFileSync(join(__dirname, '..', '..', 'supabase', 'migrations', '0032_holler_source_samples.sql'), 'utf8');
   it('enables RLS with no policies and revokes anon and authenticated', () => {
     expect(sql).toMatch(/alter table public\.holler_source_samples enable row level security/i);
     expect(sql).not.toMatch(/create\s+policy/i);
@@ -179,5 +217,25 @@ describe('migration 0022_holler_source_samples.sql', () => {
     expect(sql).toMatch(/id bigserial primary key/i);
     expect(sql).toMatch(/"row" jsonb not null/i);
     expect(sql).toMatch(/never in holler_signals/i);
+  });
+  it('reproduces the statements of the parallel branch 0022_holler_source_samples.sql exactly (the table the live database has)', () => {
+    // The SQL of the other branch's supabase/migrations/0022_holler_source_samples.sql (origin/main 61727f3), comments and blank lines removed.
+    const THEIRS = `create table if not exists public.holler_source_samples (
+  id bigserial primary key,
+  source text not null,
+  external_id text not null,
+  fetched_at timestamptz not null default now(),
+  "row" jsonb not null,
+  unique (source, external_id)
+);
+create index if not exists holler_source_samples_source_fetched_idx
+  on public.holler_source_samples (source, fetched_at desc);
+alter table public.holler_source_samples enable row level security;
+revoke all on table public.holler_source_samples from public, anon, authenticated;
+revoke all on sequence public.holler_source_samples_id_seq from public, anon, authenticated;
+comment on table public.holler_source_samples is
+  'Rows of a source on probation are kept here, service role only, never in holler_signals.';`;
+    const statements = sql.split('\n').filter((l) => l.trim() && !l.startsWith('--')).join('\n');
+    expect(statements).toBe(THEIRS);
   });
 });

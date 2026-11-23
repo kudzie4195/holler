@@ -10,7 +10,8 @@
  * plan key and entitlement are `solo`.
  */
 import { TRIAL_DAYS } from '../auth/membership';
-import { annualMonthsFree, annualSavingLabel, annualSavingsPercent, priceDecimal, priceLabel, PRICES_CENTS, type Plan } from '../stripe/plans';
+import { TRIAL_HEADLINE, TRIAL_PHRASE } from './price-copy';
+import { annualSavingLabel, annualSavingsPercent, priceDecimal, priceLabel, PRICES_CENTS, type Plan } from '../stripe/plans';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from './limits';
 
 /** Free trial length in days: the single source (lib/auth/membership.ts), re-exported for the apps. */
@@ -59,11 +60,9 @@ export interface PublicPlan {
   name: string;
   monthly: PublicIntervalPrice;
   annual: PublicIntervalPrice;
-  /** "about 2 months free", computed from the cents (lib/stripe/plans.ts annualSavingLabel). */
+  /** "save 16%", computed from the cents and rounded down (lib/stripe/plans.ts annualSavingLabel). Empty when there is no saving to state. */
   annualSaving: string;
-  /** Whole months the yearly price saves, or null when the math does not support "about N months free". */
-  annualMonthsFree: number | null;
-  /** Whole-percent saving of yearly against 12 monthly payments, computed. */
+  /** Whole-percent saving of yearly against 12 monthly payments, computed and rounded down. */
   annualSavingsPercent: number;
   limits: { serviceAreas: number; trades: number; keywordWatches: number };
 }
@@ -91,7 +90,6 @@ function plan(entitlement: Entitlement): PublicPlan {
     monthly: interval(tier, 'monthly', STORE_PRODUCT_IDS[entitlement].monthly),
     annual: interval(tier, 'annual', STORE_PRODUCT_IDS[entitlement].annual),
     annualSaving: annualSavingLabel(tier),
-    annualMonthsFree: annualMonthsFree(tier),
     annualSavingsPercent: annualSavingsPercent(tier),
     limits: { serviceAreas: l.areas, trades: l.trades, keywordWatches: l.keywords },
   };
@@ -99,10 +97,14 @@ function plan(entitlement: Entitlement): PublicPlan {
 
 export const PUBLIC_PRICES = {
   currency: 'USD',
-  /** Free trial length in days. The web trial needs no card. The stores have no introductory offer (mobile/STORE-SETUP.md); if one is added it must match this length. */
+  /** Free trial length in days (60). The web trial needs no card. The stores have no introductory offer (mobile/STORE-SETUP.md); if one is added it must match this length. */
   trialDays: TRIAL_DAYS,
-  /** ISO 8601 trial period for a store introductory offer, computed from TRIAL_DAYS (P14D today). */
+  /** ISO 8601 trial period for a store introductory offer, computed from TRIAL_DAYS (P60D today). */
   trialPeriod: `P${TRIAL_DAYS}D`,
+  /** Headline form for listings and the app: TRIAL_HEADLINE (lib/plan/price-copy.ts), the 2-month headline. */
+  trialHeadline: TRIAL_HEADLINE,
+  /** Precise form for listings and the app: "60-day free trial" (lib/plan/price-copy.ts). */
+  trialPhrase: TRIAL_PHRASE,
   plans: { solo: plan('solo'), pro: plan('pro') } as Record<Entitlement, PublicPlan>,
 } as const;
 

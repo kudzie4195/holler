@@ -6,7 +6,7 @@ import { runMoat } from '@/lib/moat/run';
 
 export const maxDuration = 60;
 
-/** Daily outcome follow-up. Same protection as the other cron routes (Bearer CRON_SECRET or ?key=). ?dry=1 sends and writes nothing. */
+/** Daily outcome follow-up. Same protection as the other cron routes (Bearer CRON_SECRET only). ?dry=1 sends and writes nothing. */
 export async function GET(req: Request) {
   if (!isCronAuthorized(req, env.CRON_SECRET)) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const dry = new URL(req.url).searchParams.get('dry') === '1';

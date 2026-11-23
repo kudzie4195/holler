@@ -54,7 +54,7 @@ describe('decision 4: keyword-only Cobb backfill uses radius + 15 miles', () => 
     plan: 'pro', subscription_status: 'active', extra_areas: [], keywords: ['pool'],
   } as MatchProfile;
   const cobbRow = {
-    id: 77, kind: 'permit', source: 'arcgis-cobb-residential-permits', categories: ['pool-spa', 'general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon,
+    id: 77, source: 'arcgis-cobb-residential-permits', categories: ['pool-spa', 'general-contractor'], lat: COBB_CENTER.lat, lon: COBB_CENTER.lon,
     state: 'GA', severity: 1, occurred_at: '2026-11-17T00:00:00.000Z', expires_at: null, title: 'Pool permit in Cobb County', summary: 'Pool | 1 MAIN ST | Cobb County', subtype: 'permit',
   };
 

@@ -1,14 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MatchProfile, MatchRow, MatchSignal } from './match';
-import { OPPORTUNITY_DATA_COLUMNS } from './member-opportunity';
 import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
-import { NO_CONTACT_SUBTYPES } from '@/lib/contacts/extract';
+import { contactsAllowedFor } from '@/lib/contacts/extract';
 import type { ContactInput } from '@/lib/contacts/types';
 import { archiveAndPrune } from '@/lib/moat/prune';
+import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { contactPathOf, missingHoldColumn, type ContactLike } from './alert-gate';
+import { isPermitRecord } from './permit-routing';
+import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
 export type Db = SupabaseClient;
 
@@ -22,13 +25,9 @@ export interface StoredSignal extends MatchSignal {
   place_slug?: string | null;
   /** read back so contacts can be filed under the rows that were actually inserted */
   external_id?: string;
+  /** read back for the alert log (lib/moat/log alertLogRowsFor) */
+  kind?: string;
 }
-
-/**
- * Columns read back from the insert: everything the matcher needs, including the opportunity fields (kind, title, summary and the
- * data aliases; lib/signals/member-opportunity.ts), since the scan matches exactly these rows.
- */
-export const INSERTED_SIGNAL_COLUMNS = `id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype, ${OPPORTUNITY_DATA_COLUMNS}`;
 
 export interface ScanRunRecord {
   source: string;
@@ -76,8 +75,9 @@ export async function readAllPages<T>(
  * Latest started_at per source from holler_scan_runs (last 3 days).
  * Paged: 40 sources at 15 to 720 minute cadences write about 350 rows a day, so one 1000-row page can drop a slow
  * source off the end, which would make it look "never run" and re-run it on every tick.
+ * `nowMs` is the scan's own clock (runScan's `now`), so a scan simulated or replayed at another time reads the right window (from the
+ * other branch, 19cb25b).
  */
-/** `nowMs` is the scan's own clock (runScan's `now`), so a scan simulated or replayed at another time reads the right window. */
 export async function getLastRunTimes(db: Db, nowMs: number = Date.now()): Promise<Record<string, number>> {
   const since = new Date(nowMs - 3 * 86400_000).toISOString();
   let rows: { source: string | null; started_at: string | null }[];
@@ -162,20 +162,26 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const { data, error } = await db
       .from('holler_signals')
       .upsert(part.map(toRow), { onConflict: 'source,external_id', ignoreDuplicates: true })
-      .select(INSERTED_SIGNAL_COLUMNS);
+      .select('id, source, kind, external_id, title, summary, categories, lat, lon, state, severity, occurred_at, place_slug, subtype:data->>subtype, data');
     if (error) throw new Error(`signals upsert failed: ${error.message}`);
     const rows = (data ?? []) as StoredSignal[];
     inserted.push(...rows);
     const byKey = new Map<string, { contacts: ContactInput[]; city: string | null }>();
-    // Code violations and 311 requests never get a contact, whatever an adapter attached (review2 P2-5).
+    // 311 requests never get a contact, and a code violation only an owner company, whatever an adapter attached (review2 P2-5; round 18).
     for (const s of part) {
-      if (s.contacts?.length && !noContactSubtype(s.data?.subtype)) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: s.contacts, city: s.city ?? null });
+      const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
+      if (allowed.length) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: allowed, city: s.city ?? null });
     }
     if (!byKey.size || contactBudget <= 0) continue;
     const pending: { signalId: number; contacts: ContactInput[]; city?: string | null }[] = [];
     for (const r of rows) {
-      const c = r.external_id != null && !noContactSubtype(r.subtype) ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
-      if (c && typeof r.id === 'number') pending.push({ signalId: r.id, contacts: c.contacts, city: c.city });
+      const c = r.external_id != null ? byKey.get(`${r.source}\u0000${r.external_id}`) : undefined;
+      // The stored row's own subtype, when the select returns it, decides again (the input and the stored row must agree).
+      const contacts = c ? (typeof r.subtype === 'string' ? contactsAllowedFor(r.subtype, c.contacts) : c.contacts) : [];
+      if (c && contacts.length && typeof r.id === 'number') {
+        pending.push({ signalId: r.id, contacts, city: c.city });
+        r.hasContact = hasNamedContact(contacts); // read by the score (lib/signals/score.ts), same object as in `inserted`
+      }
     }
     if (pending.length) contactBudget -= await writeSignalContacts(db, pending, opts.log, contactBudget);
   }
@@ -317,11 +323,6 @@ export async function dropDuplicateRecords(
   return out;
 }
 
-/** data.subtype of a code violation or a 311 request (lib/contacts/extract.ts NO_CONTACT_SUBTYPES). */
-export function noContactSubtype(subtype: unknown): boolean {
-  return typeof subtype === 'string' && NO_CONTACT_SUBTYPES.has(subtype.trim().toLowerCase());
-}
-
 const CONTACT_BATCH = 500;
 /** Most contact rows written in one scan call (at most 6 per signal). */
 const MAX_CONTACT_ROWS = 6000;
@@ -329,6 +330,21 @@ const MAX_CONTACT_ROWS = 6000;
 function missingContactsTable(e: { message?: string; code?: string } | null | undefined): boolean {
   const m = e?.message ?? '';
   return e?.code === '42P01' || e?.code === 'PGRST205' || (/holler_signal_contacts/.test(m) && /does not exist|could not find|schema cache/i.test(m));
+}
+
+/**
+ * Migration 0030 is not applied yet: the role check constraint of migration 0006 refuses role 'owner' (Postgres 23514, check_violation,
+ * on holler_signal_contacts_role_check). The writer then drops the owner rows and writes the rest.
+ */
+export function ownerRoleRefused(e: { message?: string; code?: string } | null | undefined): boolean {
+  const m = e?.message ?? '';
+  return (e?.code === '23514' || /check constraint/i.test(m)) && /holler_signal_contacts_role_check/i.test(m);
+}
+
+/** The license column of migration 0022 is not there yet (PostgREST PGRST204 or Postgres 42703). */
+export function missingLicenseColumn(e: { message?: string; code?: string } | null | undefined): boolean {
+  const m = e?.message ?? '';
+  return (e?.code === 'PGRST204' || e?.code === '42703' || /does not exist|could not find|schema cache/i.test(m)) && /\blicense\b/i.test(m);
 }
 
 /**
@@ -362,17 +378,47 @@ export async function writeSignalContacts(
         phone: c.phone ?? null,
         email: c.email ?? null,
         website: c.website ?? null,
+        license: c.license ?? null,
       });
       if (rows.length >= cap) break;
     }
     if (rows.length >= cap) break;
   }
   let sent = 0;
+  // Migration 0022 adds the license column. Before it exists the write retries without that key, so names, phones and sites still land.
+  let withLicense = true;
+  // Migration 0030 allows role 'owner'. Before it is applied the write retries without owner rows, so every other contact still lands.
+  let withOwner = true;
   for (const part of chunks(rows, CONTACT_BATCH)) {
     try {
-      const { error } = await db
-        .from('holler_signal_contacts')
-        .upsert(part, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
+      const send = (batch: Record<string, unknown>[]) =>
+        db.from('holler_signal_contacts').upsert(batch, { onConflict: 'signal_id,role,name,address', ignoreDuplicates: true });
+      const strip = (batch: Record<string, unknown>[]) =>
+        batch.map((r) => {
+          const rest = { ...r };
+          delete rest.license;
+          return rest;
+        });
+      const noOwner = (batch: Record<string, unknown>[]) => batch.filter((r) => r.role !== 'owner');
+      let batch = withOwner ? part : noOwner(part);
+      if (batch.length === 0) continue;
+      let { error } = await send(withLicense ? batch : strip(batch));
+      if (error && withLicense && missingLicenseColumn(error)) {
+        withLicense = false;
+        log('contacts: license column is missing (apply migration 0022); contacts are written without licence numbers');
+        ({ error } = await send(strip(batch)));
+      }
+      if (error && withOwner && ownerRoleRefused(error)) {
+        withOwner = false;
+        log('contacts: role owner is not allowed yet (apply migration 0030); owner companies are skipped, other contacts are written');
+        batch = noOwner(part);
+        if (batch.length === 0) continue;
+        ({ error } = await send(withLicense ? batch : strip(batch)));
+        if (error && withLicense && missingLicenseColumn(error)) {
+          withLicense = false;
+          ({ error } = await send(strip(batch)));
+        }
+      }
       if (error) {
         if (missingContactsTable(error)) {
           log('contacts: holler_signal_contacts is missing (apply migration 0006); contacts for this scan are skipped');
@@ -381,7 +427,7 @@ export async function writeSignalContacts(
         log(`contacts: write failed, ${part.length} rows skipped: ${error.message}`);
         continue;
       }
-      sent += part.length;
+      sent += batch.length;
     } catch (e) {
       log(`contacts: write failed, ${part.length} rows skipped: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -469,18 +515,128 @@ export async function loadProfiles(db: Db, now: Date = new Date()): Promise<Matc
   } catch (e) {
     throw new Error(`profiles read failed: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  const out = rows.filter((p) => Array.isArray(p.categories) && p.categories.length > 0 && canSeeAlerts(p, now.getTime()));
+  if (out.length === 0) return out;
+  // Work profiles (migration 0027, holler_work_profiles), read on their own: before 0027 the read fails, nothing is attached and matching
+  // is exactly as before.
+  const work = await loadWorkProfiles(db, out.map((p) => p.user_id));
+  if (work.size === 0) return out;
+  return out.map((p) => {
+    const w = work.get(p.user_id);
+    return w ? { ...p, work_property: w.work_property, work_min_value: w.work_min_value, work_type: w.work_type } : p;
+  });
 }
 
+/**
+ * The table or a column of migration 0027 is missing: Postgres 42P01 (undefined table) or 42703 (undefined column), PostgREST PGRST205
+ * (table not in the schema cache) or PGRST204 (column not in the schema cache), or the same in words.
+ */
+export function missingWorkProfiles(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!e) return false;
+  if (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || e.code === 'PGRST204') return true;
+  const m = e.message ?? '';
+  return /holler_work_profiles|work_(?:property|min_value|type)/.test(m) && /does not exist|could not find|schema cache/i.test(m);
+}
+
+/**
+ * The work settings (migration 0027, holler_work_profiles) of these members, only for members whose settings change matching (not all
+ * defaults). Never throws: a missing table or column is silent, any other failure is logged; both give an empty map, so matching is as
+ * before 0027.
+ */
+export async function loadWorkProfiles(db: Pick<Db, 'from'>, userIds: readonly string[]): Promise<Map<string, WorkColumns>> {
+  const out = new Map<string, WorkColumns>();
+  try {
+    for (const part of chunks([...userIds], CHUNK)) {
+      const { data, error } = await db.from('holler_work_profiles').select(`user_id, ${WORK_PROFILE_COLUMNS}`).in('user_id', part);
+      if (error) {
+        if (!missingWorkProfiles(error)) console.error(`work profiles read failed (matching without them): ${error.message}`);
+        return new Map();
+      }
+      for (const r of (data ?? []) as Array<WorkColumns & { user_id?: unknown }>) {
+        if (typeof r?.user_id === 'string' && workProfileOf(r)) out.set(r.user_id, { work_property: r.work_property, work_min_value: r.work_min_value, work_type: r.work_type });
+      }
+    }
+  } catch (e) {
+    console.error(`work profiles read failed (matching without them): ${e instanceof Error ? e.message : String(e)}`);
+    return new Map();
+  }
+  return out;
+}
+
+/**
+ * Contact paths for permit rows READ BACK from the database (the rematch, a stage update): the stored contacts (holler_signal_contacts)
+ * and the public summary, by the same rule as the scan (alert-gate.ts contactPathOf). Sets `contactPath` on each permit row. Never
+ * throws: on any failed read the rows stay "not known" and are never held.
+ */
+export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Array<MatchSignal & { id: number }>): Promise<void> {
+  const permits = signals.filter((s) => s.contactPath === undefined && isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
+  if (permits.length === 0) return;
+  try {
+    const by = new Map<number, ContactLike[]>();
+    // A row read without its summary (the backfill's RPC read) gets it here: the card's own text is part of the answer, so the same
+    // permit gets the same answer on every path.
+    const summaries = new Map<number, string | null>();
+    const noSummary = permits.filter((s) => s.summary === undefined).map((s) => s.id);
+    for (const part of chunks(noSummary, 150)) {
+      const { data, error } = await db.from('holler_signals').select('id, summary').in('id', part);
+      if (error) return;
+      for (const r of (data ?? []) as Array<{ id: number; summary: string | null }>) summaries.set(r.id, r.summary ?? null);
+    }
+    for (const part of chunks(permits.map((s) => s.id), 150)) {
+      const { data, error } = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);
+      if (error) return;
+      for (const c of (data ?? []) as Array<ContactLike & { signal_id: number }>) by.set(c.signal_id, [...(by.get(c.signal_id) ?? []), c]);
+    }
+    for (const s of permits) {
+      const summary = s.summary !== undefined ? s.summary : summaries.has(s.id) ? summaries.get(s.id) : undefined;
+      if (summary === undefined) continue; // not read: not known, never held
+      s.contactPath = contactPathOf(by.get(s.id), summary ?? null);
+    }
+  } catch {
+    /* not known: never held */
+  }
+}
+
+/**
+ * Is the contact gate on? Only when migration 0027 is applied (holler_matches.alert_hold can be read). Before it the gate is completely
+ * inert: no card is ranked, stored or sent differently from before round 18 (round 18 review 2, P1-1). Any failed read counts as "off".
+ */
+export async function contactGateOn(db: Pick<Db, 'from'>): Promise<boolean> {
+  try {
+    const { error } = await db.from('holler_matches').select('alert_hold').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Upserts the scan's match rows. A row whose card is feed-only carries alert_hold (migration 0027) and is stored as already handled
+ * (notified, pushed_at). Held and plain rows go in SEPARATE upserts: PostgREST sends a bulk upsert with the union of the rows' columns, so a
+ * plain row in a mixed batch would get notified = null. Before 0027 the column is missing: the held batch is retried without the three
+ * keys, so those cards are stored exactly as before (and go out as alerts as before).
+ */
 export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
   let n = 0;
+  const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
   for (const part of chunks(rows, 500)) {
-    const { data, error } = await db
-      .from('holler_matches')
-      .upsert(part, { onConflict: 'user_id,signal_id', ignoreDuplicates: true })
-      .select('id');
-    if (error) throw new Error(`matches upsert failed: ${error.message}`);
-    n += data?.length ?? 0;
+    const plain = part.filter((r) => !('alert_hold' in r));
+    const held = part.filter((r) => 'alert_hold' in r);
+    for (const group of [plain, held]) {
+      if (group.length === 0) continue;
+      let { data, error } = await send(group);
+      if (error && missingHoldColumn(error) && group === held) {
+        // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
+        for (const r of group) {
+          delete r.alert_hold;
+          delete r.notified;
+          delete r.pushed_at;
+        }
+        ({ data, error } = await send(group));
+      }
+      if (error) throw new Error(`matches upsert failed: ${error.message}`);
+      n += data?.length ?? 0;
+    }
   }
   return n;
 }

@@ -65,7 +65,9 @@ describe('migrations are holler-only and additive', () => {
       // 0015 re-creates holler_conversion_by_source this way because its column list changed (review r4).
       const clean = stripComments(sql)
         .replace(/\bdrop\s+function\s+if\s+exists\s+(?:public\.)?holler_[a-z_]+\s*\([^)]*\)\s*;/gi, '')
-        .replace(/\bdrop\s+view\s+if\s+exists\s+(?:public\.)?(holler_[a-z_]+)\s*;(?=\s*create\s+view\s+(?:public\.)?\1\b)/gi, '');
+        .replace(/\bdrop\s+view\s+if\s+exists\s+(?:public\.)?(holler_[a-z_]+)\s*;(?=\s*create\s+view\s+(?:public\.)?\1\b)/gi, '')
+        // A REVOKE only takes privileges away (0023 revokes the TRUNCATE privilege itself); it never removes rows or objects.
+        .replace(/\brevoke\s+[^;]*\bon\s+(?:table\s+|function\s+)?(?:public\.)?holler_[^;]*;/gi, '');
       expect(clean).not.toMatch(/\bdrop\s+(table|column|schema|function|type|extension|view|index)\b/i);
       expect(clean).not.toMatch(/\btruncate\b/i);
     });

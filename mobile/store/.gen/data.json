@@ -1017,7 +1017,9 @@
   "ok": true,
   "apiVersion": 1,
   "currency": "USD",
-  "trialDays": 14,
+  "trialDays": 60,
+  "trialHeadline": "2 months free",
+  "trialPhrase": "60-day free trial",
   "plans": {
    "solo": {
     "entitlement": "solo",
@@ -1037,7 +1039,7 @@
      "displayLong": "$79.99 a year",
      "period": "P1Y"
     },
-    "yearlySaving": "about 2 months free",
+    "yearlySaving": "save 16%",
     "limits": {
      "serviceAreas": 1,
      "trades": 5,
@@ -1062,7 +1064,7 @@
      "displayLong": "$139.99 a year",
      "period": "P1Y"
     },
-    "yearlySaving": "about 2 months free",
+    "yearlySaving": "save 16%",
     "limits": {
      "serviceAreas": 3,
      "trades": 15,
@@ -1319,9 +1321,8 @@
     "displayShort": "$79.99/yr",
     "period": "P1Y"
    },
-   "annualSaving": "about 2 months free",
-   "annualMonthsFree": 2,
-   "annualSavingsPercent": 17,
+   "annualSaving": "save 16%",
+   "annualSavingsPercent": 16,
    "limits": {
     "serviceAreas": 1,
     "trades": 5,
@@ -1350,9 +1351,8 @@
     "displayShort": "$139.99/yr",
     "period": "P1Y"
    },
-   "annualSaving": "about 2 months free",
-   "annualMonthsFree": 2,
-   "annualSavingsPercent": 17,
+   "annualSaving": "save 16%",
+   "annualSavingsPercent": 16,
    "limits": {
     "serviceAreas": 3,
     "trades": 15,

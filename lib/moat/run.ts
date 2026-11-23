@@ -1,3 +1,4 @@
+import { parseLang, type Lang } from '@/lib/i18n';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunk, decideNotify, signUnsubscribeToken, type PlanProfile } from '@/lib/email';
 import { HOLLER_REQUEST_SOURCE } from '@/lib/signals/request-visibility';
@@ -139,6 +140,9 @@ export async function runMoat(args: {
   if (userIds.length === 0) return counts;
 
   const profiles = new Map<string, Prof>();
+  // The member's language (round 18 ES), read on its own like the notify cron does: a database without migration 0024 (no column), a
+  // fake without the table, or any error leaves the map empty, and the email is English as before.
+  const langs = new Map<string, Lang>();
   const lastEmailAsk = new Map<string, number>();
   for (const ids of chunk(userIds, 100)) {
     // The 0020 store columns let decideNotify skip a lapsed store plan; before 0020 the read retries without them.
@@ -147,6 +151,12 @@ export async function runMoat(args: {
     if (p.error && missingStoreColumn(p.error.message)) p = await read(PROFILE_COLUMNS);
     if (p.error) throw new Error(`profiles read failed: ${p.error.message}`);
     for (const row of (p.data ?? []) as unknown as Prof[]) profiles.set(row.user_id, row);
+    try {
+      const l = await db.from('holler_profiles').select('user_id, language').in('user_id', ids);
+      if (!l.error) for (const row of (l.data ?? []) as unknown as Array<{ user_id?: unknown; language?: unknown }>) if (typeof row.user_id === 'string') langs.set(row.user_id, parseLang(row.language));
+    } catch {
+      // English
+    }
     const gap = await db
       .from('holler_outcome_asks')
       .select('user_id, asked_at')
@@ -214,19 +224,26 @@ export async function runMoat(args: {
         counts.failed++;
         continue;
       }
+      const lang: Lang = langs.get(userId) ?? 'en';
+      // A Spanish email's links say l=es, which only picks the language of the answer page (app/api/feedback/outcome/route.ts).
+      const l = lang === 'en' ? '' : `&l=${lang}`;
       const items: FollowUpItem[] = mine.map((c) => {
         const s = sigs.get(c.signal_id) as Sig;
-        return {
+        const item: FollowUpItem = {
           title: s.title,
           kind: s.kind,
           place: [s.city, s.state].filter(Boolean).join(', ') || null,
           occurredAt: s.occurred_at,
-          yesUrl: `${siteUrl}/api/feedback/outcome?t=${encodeURIComponent(signOutcomeToken(userId, c.signal_id, 'yes', secret, now.getTime()))}`,
-          noUrl: `${siteUrl}/api/feedback/outcome?t=${encodeURIComponent(signOutcomeToken(userId, c.signal_id, 'no', secret, now.getTime()))}`,
+          yesUrl: `${siteUrl}/api/feedback/outcome?t=${encodeURIComponent(signOutcomeToken(userId, c.signal_id, 'yes', secret, now.getTime()))}${l}`,
+          noUrl: `${siteUrl}/api/feedback/outcome?t=${encodeURIComponent(signOutcomeToken(userId, c.signal_id, 'no', secret, now.getTime()))}${l}`,
         };
+        return lang === 'en' ? item : { ...item, source: s.source };
       });
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(signUnsubscribeToken(userId, secret))}`;
-      const mail = renderFollowUp({ businessName: prof?.business_name ?? 'your business', items, unsubscribeUrl, now });
+      const mail =
+        lang === 'en'
+          ? renderFollowUp({ businessName: prof?.business_name ?? 'your business', items, unsubscribeUrl, now })
+          : renderFollowUp({ businessName: prof?.business_name ?? 'su negocio', items, unsubscribeUrl, now, lang });
       const res = await send({
         to: email,
         subject: mail.subject,

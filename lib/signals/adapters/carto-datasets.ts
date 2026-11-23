@@ -7,8 +7,9 @@ import type { SocrataDataset, SocrataSubtype } from './socrata-datasets';
  * fields, address, contacts) and carto.ts feeds the rows to the same parser (parseSocrataReport), so permits, violations and licences are
  * titled, categorised, privacy-filtered and contact-extracted exactly like the Socrata ones.
  *
- * Provenance: table names, column names and sample values come from /home/claude/runlog/recon-phl-nyc.md (live recon 2026-11-22, SOURCED).
- * Anything not in that file is marked ASSUMED below and listed in /home/claude/runlog/r13-phl.md.
+ * Provenance: table names, column names and sample values come from the other team's live recon of 2026-11-22 (their
+ * /home/claude/runlog/recon-phl-nyc.md, SOURCED there; that file is NOT in this repository or on this machine: ported in round 19 UNIFY
+ * from origin/r10-integrate 4fad4af and 6d4a179). Anything not in that recon is marked ASSUMED below. This port re-checked nothing live.
  *
  * PRIVACY: `columns` is the whole SELECT list. It never names opa_owner, legalfirstname, legallastname, ownercontact*name, or any other
  * column that holds a person, so those values are never fetched. legalname and business_name are fetched only to feed the organisation
@@ -48,7 +49,8 @@ export interface CartoDataset {
   parse: Pick<SocrataDataset, 'titleFields' | 'textFields' | 'summaryFields' | 'addressFields' | 'zipField' | 'freeTextFields' | 'mixedTextFields'> & { contacts?: ContactSpec };
 }
 
-export const PHL_RECON = '/home/claude/runlog/recon-phl-nyc.md';
+/** Where the contact column names were read: the Carto SQL API itself (SELECT * ... LIMIT 3, the other team's recon of 2026-11-22). */
+export const PHL_RECON = 'https://phl.carto.com/api/v2/sql';
 const CONTACT_CHECKED = '2026-11-22';
 
 /** Business licences: a person's licence (legalentitytype Individual) never yields a name: the name columns are blanked before parsing. */
@@ -87,9 +89,10 @@ export const CARTO_DATASETS: CartoDataset[] = [
       addressFields: ['address'],
       zipField: 'zip',
       contacts: {
+        // Column names read from the live recon field list 2026-11-22 (SQL API, SELECT * ... LIMIT 3), not from portal metadata.
         verifiedUrl: PHL_RECON,
-        note: 'Column names read from the live recon field list 2026-11-22 (SQL API, SELECT * ... LIMIT 3), not from portal metadata.',
         checkedOn: CONTACT_CHECKED,
+        fieldStatus: 'sourced',
         site: { addressFields: ['address'], zipField: 'zip' },
         orgs: [{ role: 'contractor', nameFields: ['contractorname'] }],
       },
@@ -124,9 +127,11 @@ export const CARTO_DATASETS: CartoDataset[] = [
       summaryFields: ['licensetype', 'rentalcategory'],
       zipField: 'zip',
       contacts: {
+        // Column names read from the live recon field list 2026-11-22. Company rows only (prepareRow). ownercontact*name and
+        // legalfirst/lastname are never read.
         verifiedUrl: PHL_RECON,
-        note: 'Column names read from the live recon field list 2026-11-22. Company rows only (prepareRow). ownercontact*name and legalfirst/lastname are never read.',
         checkedOn: CONTACT_CHECKED,
+        fieldStatus: 'sourced',
         site: { addressFields: ['address'], zipField: 'zip', onlyWithOrganisation: true },
         orgs: [{ role: 'business', nameFields: ['legalname', 'business_name'] }],
       },

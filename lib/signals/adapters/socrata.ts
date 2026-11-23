@@ -1,11 +1,16 @@
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
-import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
+import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
-import { extractContacts } from '@/lib/contacts/extract';
+import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { keepFirstJobValue, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
+import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
+import { haversineMi, lookupZip } from '@/lib/geo';
+import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
+import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
+import { cleanAddress } from '@/lib/contacts/sanitize';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -78,8 +83,58 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
       if (p) return { ...p, approx: false };
     }
   }
+  if (ds.zipCentroid && ds.zipField) {
+    // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state AND
+    // within maxMi of the dataset's city (review P3-H: an El Paso ZIP on a Dallas row is not placed in El Paso).
+    const z = lookupZip(s(row, ds.zipField));
+    const near = ds.zipCentroid.near;
+    if (z && z.state === ds.state && haversineMi(near.lat, near.lon, z.lat, z.lon) <= ds.zipCentroid.maxMi) {
+      const p = validLatLon(z.lat, z.lon);
+      if (p) return { ...p, approx: true };
+    }
+  }
   if (ds.fallbackCenter) return { ...ds.fallbackCenter, approx: true };
   return null;
+}
+
+/**
+ * "11/16/26" or "11/16/2026" (month/day/year, a local calendar day) as a floating timestamp "2026-11-16T00:00:00", else null. A two-digit
+ * year is 20xx (the feeds read here start long after 2000). An impossible day ("02/30/26") is null.
+ */
+export function mdyToFloating(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})(?:\s.*)?$/);
+  if (!m) return null;
+  const mo = Number(m[1]);
+  const d = Number(m[2]);
+  const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}T00:00:00`;
+}
+
+/** "2026-11-16" or "2026-11-16T00:00:00.000" (optionally with a zone) naming a real calendar day; anything else false. */
+function strictIsoDay(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+/**
+ * The record's own date as an ISO instant. dateFormat 'mdy' (Dallas) is STRICT (review P3-G): the MM/DD/YY(YY) form, or a strict
+ * yyyy-mm-dd prefix naming a real day; anything else (an impossible "02/30/26", free text) is null, never a lenient guess. Other datasets:
+ * the usual SODA timestamp (toIso).
+ */
+export function recordDateIso(v: unknown, ds: Pick<SocrataDataset, 'tz' | 'dateFormat'>): string | null {
+  if (ds.dateFormat === 'mdy') {
+    const f = mdyToFloating(v);
+    if (f) return toIso(f, ds.tz);
+    return strictIsoDay(v) ? toIso(v.trim().length === 10 ? `${v.trim()}T00:00:00` : v.trim(), ds.tz) : null;
+  }
+  return toIso(v, ds.tz);
 }
 
 /** Offset (ms) of `tz` from UTC at the instant `ms`. */
@@ -126,8 +181,9 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): {
       if (rule.severity && rule.severity > severity) severity = rule.severity;
     }
   }
-  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone.
-  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit') classifyText(text).forEach((c) => set.add(c));
+  // A new roofing business is a competitor, not a roofing lead: business and event rules decide alone. Code violations decide alone too
+  // (round 15 quality gate: "REPAIR GUTTER & DOWNSPOUT" was tagged roofing by the keyword list; VIOLATION_RULES already routes gutters).
+  if (ds.subtype !== 'business' && ds.subtype !== 'event-permit' && ds.subtype !== 'violation') classifyText(text).forEach((c) => set.add(c));
   return { categories: [...set], severity };
 }
 
@@ -318,6 +374,10 @@ export interface ParseReport {
   rows: number;
   /** rows that had an id, a parseable date and at least one non-empty text field: the shape the config expects */
   shapeOk: number;
+  /** Round 19 coverage (review P2-D): rows of the expected shape dropped because their own date is older than maxRecordAgeDays. */
+  tooOld?: number;
+  /** The newest record date among those rows. */
+  newestTooOld?: string | null;
 }
 
 function externalIdFor(row: Row, ds: SocrataDataset): string {
@@ -361,8 +421,11 @@ function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: str
  * `shapeOk` counts rows that look like the configured shape before any trade filtering, so the adapter can tell
  * "columns changed" (shapeOk 0) from "nothing relevant today". Never throws: malformed input returns an empty report.
  */
-export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseReport {
+export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date } = {}): ParseReport {
   const report: ParseReport = { items: [], rows: 0, shapeOk: 0 };
+  // Round 19 coverage: with a query column other than the record date, an old record touched again is dropped by its own date.
+  // Applied only when the caller passes `now` (the adapter and the probe do), so a pure parse of fixture rows does not depend on the clock.
+  const oldest = ds.maxRecordAgeDays != null && opts.now ? opts.now.getTime() - ds.maxRecordAgeDays * 86_400_000 : null;
   if (!Array.isArray(raw)) return report;
   report.rows = raw.length;
   const out = report.items;
@@ -371,11 +434,16 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
     try {
       if (!item || typeof item !== 'object') continue;
       const row = item as Row;
-      const occurredAt = toIso(row[ds.dateField], ds.tz);
+      const occurredAt = recordDateIso(row[ds.dateField], ds);
       const rawId = externalIdFor(row, ds);
       const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
       if (!occurredAt || !rawId || !text) continue;
       report.shapeOk += 1;
+      if (oldest !== null && Date.parse(occurredAt) < oldest) {
+        report.tooOld = (report.tooOld ?? 0) + 1;
+        if (!report.newestTooOld || occurredAt > report.newestTooOld) report.newestTooOld = occurredAt;
+        continue;
+      }
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
@@ -420,9 +488,10 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
       const titleBits = titlePrint.values;
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, rawAddress);
+      // Review P1-B: an unverified address column is used only as the shared site-address rule keeps it (lib/contacts cleanAddress).
+      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, ds.strictAddress ? (cleanAddress(rawAddress) ?? '') : rawAddress);
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
-      const summaryBits = keepFirstJobValue(summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean));
+      const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
@@ -440,7 +509,11 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
 
       const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
       const zip = s(row, ds.zipField).slice(0, 5) || null;
+      // Permits: the project value the city published, as a number (PLAN-2.0 1.3). Public already: the summary prints the same amount.
+      const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
       const expiresAt = ds.endDateField ? toIso(row[ds.endDateField], ds.tz) : null;
+      // Permits: the stage the status column shows, as a fixed code (lib/signals/stage.ts). The scan decides whether to store it.
+      const permitStage = ds.subtype === 'permit' && ds.statusField ? permitStageOf(s(row, ds.statusField)) : null;
       out.push({
         source: ds.id,
         externalId,
@@ -463,8 +536,10 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset): ParseRepor
           subtype: ds.subtype,
           cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
+          ...(jobValue !== null ? { jobValue } : {}),
         },
         ...(contacts.length ? { contacts } : {}),
+        ...(permitStage ? { permitStage } : {}),
       });
     } catch {
       // skip malformed row
@@ -484,9 +559,11 @@ export function parseSocrata(raw: unknown, ds: SocrataDataset): SignalInput[] {
  */
 export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams {
   const from = new Date(now.getTime() - lookbackDays(ds) * 86_400_000);
-  const sinceStr = toFloatingLocal(from, ds.tz);
-  const clauses = [`${ds.dateField} > '${sinceStr}'`];
-  if (ds.windowForwardDays != null) {
+  // A system column (':updated_at') is a UTC timestamp; a dataset column is a floating local one. queryDateField: see socrata-datasets.ts.
+  const qField = ds.queryDateField ?? ds.dateField;
+  const sinceStr = qField.startsWith(':') ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
+  const clauses = [`${qField} > '${sinceStr}'`];
+  if (ds.windowForwardDays != null && !ds.queryDateField) {
     const to = new Date(now.getTime() + ds.windowForwardDays * 86_400_000);
     clauses.push(`${ds.dateField} <= '${toFloatingLocal(to, ds.tz)}'`);
   }
@@ -497,9 +574,103 @@ export function buildSocrataQuery(ds: SocrataDataset, now: Date = new Date()): U
   }
   const p = new URLSearchParams();
   p.set('$where', clauses.join(' AND '));
-  p.set('$order', `${ds.dateField} DESC`);
+  // Paged datasets order by the id too: many rows share one date-only timestamp, and an unstable order would repeat or skip rows across pages.
+  p.set('$order', pages(ds) > 1 ? `${qField} DESC, ${ds.idField}` : `${qField} DESC`);
   p.set('$limit', String(LIMIT));
   return p;
+}
+
+/** How far back the stage query looks (days): wider than a scan interval, so one missed scan loses nothing. */
+export const STAGE_QUERY_DAYS = 3;
+const STAGE_QUERY_TIMEOUT_MS = 8000;
+
+/**
+ * The stage query (PLAN-2.0 2.1): permits whose status or row changed lately, whatever their issue date. One page of LIMIT rows, newest
+ * change first. Null for a dataset without a stageQuery, a status column or the permit subtype. A row it returns is only a PROBE: it can
+ * move a permit Holler already tracks to a new stage (lib/signals/projects.ts) and it can do nothing else, so a portal that touches
+ * old rows for any reason (a reload, a batch edit) changes nothing. Behind HOLLER_STAGE_UPDATES_ENABLED, and only while 0025 is applied.
+ */
+export function buildSocrataStageQuery(ds: SocrataDataset, now: Date = new Date()): URLSearchParams | null {
+  const sq = ds.stageQuery;
+  if (!sq || ds.subtype !== 'permit' || !ds.statusField) return null;
+  const from = new Date(now.getTime() - STAGE_QUERY_DAYS * 86_400_000);
+  const since = sq.dateField.startsWith(':') ? from.toISOString().slice(0, 19) : toFloatingLocal(from, ds.tz);
+  const clauses = [`${sq.dateField} > '${since}'`];
+  if (ds.extraWhere) clauses.push(`(${ds.extraWhere})`);
+  clauses.push(`(${STAGE_STATUS_FRAGMENTS.map((f) => `upper(${ds.statusField}) like '%${f}%'`).join(' OR ')})`);
+  const p = new URLSearchParams();
+  p.set('$where', clauses.join(' AND '));
+  p.set('$order', `${sq.dateField} DESC`);
+  p.set('$limit', String(LIMIT));
+  return p;
+}
+
+/** Rows of a stage query response that read as final inspection, finished or certificate of occupancy, marked as probes. */
+export function parseSocrataStageRows(raw: unknown, ds: SocrataDataset): SignalInput[] {
+  if (!ds.stageQuery || !Array.isArray(raw)) return [];
+  return parseSocrataReport(raw, ds)
+    .items.filter((it) => it.permitStage && isTriggerStage(it.permitStage))
+    .map((it) => ({ ...it, stageProbe: true }));
+}
+
+/** Main rows plus the probe rows of permits the main read did not return. A permit in both keeps its main row. */
+export function mergeStageRows(main: SignalInput[], probes: SignalInput[]): SignalInput[] {
+  const have = new Set(main.map((m) => m.externalId));
+  return [...main, ...probes.filter((p) => !have.has(p.externalId))];
+}
+
+export interface StageQueryRun {
+  outcome: StageQueryOutcome;
+  /** Probe rows (see parseSocrataStageRows). */
+  items: SignalInput[];
+  /** The status text of the first rows, as the portal wrote it (owner dry check only). */
+  sampleStatuses: string[];
+  /** The portal's message when it refused the query (an unknown column), shortened. */
+  message?: string;
+}
+
+/**
+ * Runs the stage query once and says how it went. Never throws. 'rejected' is a portal that answered an error (an unknown date column,
+ * the usual first problem); 'failed' is a timeout or a non-list answer; 'full_page' is a full page of rows (the newest changes are read,
+ * older ones in the same days may not be). Shared by the scan and by the owner's dry check (lib/signals/stage-probe.ts), which writes nothing.
+ */
+export async function runStageQuery(ds: SocrataDataset, doFetch: typeof fetch, headers: Record<string, string>, now: Date): Promise<StageQueryRun> {
+  const dateField = ds.stageQuery?.dateField ?? '';
+  const none = (state: StageQueryOutcome['state'], extra: Partial<StageQueryRun> & { httpStatus?: number } = {}): StageQueryRun => ({
+    outcome: { state, rows: 0, dateField, ...(extra.httpStatus !== undefined ? { httpStatus: extra.httpStatus } : {}) },
+    items: [],
+    sampleStatuses: [],
+    ...(extra.message ? { message: extra.message } : {}),
+  });
+  try {
+    const query = buildSocrataStageQuery(ds, now);
+    if (!query) return none('failed');
+    const res = await doFetch(`https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`, { headers, signal: AbortSignal.timeout(STAGE_QUERY_TIMEOUT_MS) });
+    if (!res.ok) {
+      let message = '';
+      try {
+        const body = (await res.json()) as { message?: unknown; code?: unknown };
+        message = String(body?.message ?? body?.code ?? '').replace(/\s+/g, ' ').slice(0, 120);
+      } catch {
+        /* the body is not JSON: the status code is enough */
+      }
+      return none('rejected', { httpStatus: res.status, message });
+    }
+    const part: unknown = await res.json();
+    if (!Array.isArray(part)) return none('failed', { httpStatus: res.status });
+    const sampleStatuses = part.slice(0, 5).map((r) => trunc(s(r as Row, ds.statusField), 40));
+    return {
+      outcome: { state: part.length >= LIMIT ? 'full_page' : 'ok', rows: part.length, dateField, httpStatus: res.status },
+      items: parseSocrataStageRows(part, ds),
+      sampleStatuses,
+    };
+  } catch (e) {
+    return none('failed', { message: e instanceof Error ? e.message.slice(0, 80) : 'unknown' });
+  }
+}
+
+function pages(ds: Pick<SocrataDataset, 'maxPages'>): number {
+  return Math.max(1, Math.min(ds.maxPages ?? 1, 6));
 }
 
 const LABEL_SUFFIX: Record<SocrataDataset['subtype'], string> = {
@@ -520,38 +691,120 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),
     sourceUrl: datasetPageUrl(ds),
+    ...(ds.stageQuery && ds.subtype === 'permit' && ds.statusField ? { stageQuery: true } : {}),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
-        const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${buildSocrataQuery(ds, ctx.now ?? new Date()).toString()}`;
+        const query = buildSocrataQuery(ds, ctx.now ?? new Date());
+        // Review P3-M: a schema-unverified dataset asks only for the columns it reads ($select), so nothing else is downloaded.
+        if (ds.schemaUnverified) query.set('$select', socrataSelectColumns(ds).join(','));
+        const timeoutMs = ds.schemaUnverified ? UNVERIFIED_REQUEST_TIMEOUT_MS : 15000;
         const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         if (token) headers['X-App-Token'] = token;
-        const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-        if (!res.ok) {
-          ctx.log(`${ds.id}: HTTP ${res.status}`);
-          return [];
+        const body: unknown[] = [];
+        for (let page = 0; page < pages(ds); page++) {
+          if (page > 0) query.set('$offset', String(page * LIMIT));
+          const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${query.toString()}`;
+          const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+          if (!res.ok) {
+            if (ds.schemaUnverified && res.status === 400) {
+              // Socrata answers 400 for a column it does not have ($select, $order): that is the schema, said as such (column names only).
+              let msg = '';
+              try {
+                const b = (await res.json()) as { message?: unknown };
+                msg = String(b?.message ?? '').replace(/[^\w :.,'-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+              } catch {
+                /* the status is enough */
+              }
+              ctx.log(`error: schema mismatch: the portal refused the column list (${ds.id}: HTTP 400${msg ? `; ${msg}` : ''})`);
+            } else ctx.log(`${ds.id}: HTTP ${res.status}`);
+            if (page === 0) return [];
+            break; // keep the pages already read
+          }
+          let part: unknown;
+          if (ds.schemaUnverified) {
+            const read = await readJsonBody(res);
+            if (!read.ok) {
+              ctx.log(`error: ${ds.id}: ${read.problem} (HTTP ${res.status})`);
+              if (page === 0) return [];
+              break;
+            }
+            part = read.body;
+          } else part = await res.json();
+          if (!Array.isArray(part)) {
+            ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
+            if (page === 0) return [];
+            break;
+          }
+          body.push(...part);
+          if (part.length < LIMIT) break;
+          // Review P2-F: the last page allowed was full: older rows in the window were not read.
+          if (ds.schemaUnverified && page === pages(ds) - 1) ctx.log(`${PROBATION_NOTE_PREFIX} row cap reached: ${body.length} rows read (limit ${LIMIT * pages(ds)}); older rows in the window were not read`);
         }
-        const body: unknown = await res.json();
-        if (!Array.isArray(body)) {
-          ctx.log(`error: ${ds.id} returned a non-array response, shape may have changed`);
-          return [];
-        }
-        const report = parseSocrataReport(body, ds);
+        const report = parseSocrataReport(body, ds, { now: ctx.now ?? new Date() });
         if (report.rows > 0 && report.items.length === 0) {
-          if (report.shapeOk === 0) {
+          const problem = report.shapeOk === 0 && ds.schemaUnverified ? socrataSchemaProblem(body, ds) : null;
+          if (problem) {
+            ctx.log(schemaMismatchLog(ds.id, problem, body));
+          } else if (report.shapeOk === 0) {
             ctx.log(`error: parsed 0 of ${report.rows} rows, shape may have changed (${ds.id})`);
+          } else if (report.tooOld && report.tooOld === report.shapeOk) {
+            // Review P2-D: every row is older than the age limit (a republished dataset, or a feed that stopped): broken, not quiet.
+            ctx.log(`error: ${ds.id}: no rows in the last ${ds.maxRecordAgeDays} days: newest is ${(report.newestTooOld ?? '').slice(0, 10)} (${report.rows} rows read)`);
           } else {
             // Rows look right but none map to a trade (or none failed): a quiet window, not a broken source.
             ctx.log(`${ds.id}: ${report.rows} rows, 0 matched a trade`);
           }
         }
+        if (ctx.stageTracking && ds.stageQuery) {
+          const extra = await fetchStageRows(ds, ctx, headers);
+          if (extra.length) return mergeStageRows(report.items, extra);
+        }
         return report.items;
       } catch (e) {
-        ctx.log(`${ds.id}: ${e instanceof Error ? e.message : String(e)}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        // Review P2-C: for an unverified source every failure reads as an error, so it never shows as "ok".
+        ctx.log(ds.schemaUnverified ? `error: ${ds.id}: ${msg}` : `${ds.id}: ${msg}`);
         return [];
       }
     },
   };
+}
+
+/** The columns a dataset reads (id, date, title, text, summary, address, zip, coordinates, status, contacts, value), for $select. */
+export function socrataSelectColumns(ds: SocrataDataset): string[] {
+  return [
+    ...new Set(
+      [
+        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields,
+        ...(ds.addressFields ?? []), ds.zipField, ds.latField, ds.lonField, ds.locationField, ds.latLonTextField, ds.statusField,
+        ...contactSpecFields(ds.contacts), ...(ds.valueFields ?? []),
+      ].filter((x): x is string => Boolean(x)),
+    ),
+  ];
+}
+
+/**
+ * The stage query's probe rows, or none. Never throws and never costs the main rows: one request, one page, its own short timeout. The
+ * outcome goes to ctx.stageOutcome (run.ts writes a failure on that source's scan_runs row); the log line has no error-looking word, so
+ * the source itself is not called broken.
+ */
+async function fetchStageRows(ds: SocrataDataset, ctx: AdapterContext, headers: Record<string, string>): Promise<SignalInput[]> {
+  const run = await runStageQuery(ds, ctx.fetch, headers, ctx.now ?? new Date());
+  ctx.stageOutcome?.(run.outcome);
+  if (run.outcome.state === 'rejected') ctx.log(`${ds.id}: stage query not used (code ${run.outcome.httpStatus}; the date column ${run.outcome.dateField} needs a live check)`);
+  else if (run.outcome.state === 'failed') ctx.log(`${ds.id}: stage query not used (${run.message ?? 'no usable answer'})`);
+  else if (run.outcome.state === 'full_page') ctx.log(`${ds.id}: stage query returned a full page; the newest changes were read`);
+  return run.items;
+}
+
+/** Round 19 coverage: why no row of a schema-unverified dataset parsed (missing id or date column, unreadable date), or null. */
+export function socrataSchemaProblem(rows: readonly unknown[], ds: SocrataDataset): string | null {
+  return schemaProblem(rows, {
+    idFields: ds.idFields?.length ? ds.idFields : [ds.idField],
+    dateField: ds.dateField,
+    readsAsDate: (v) => recordDateIso(v, ds) !== null,
+  });
 }
 
 /** Only verified datasets are enabled by default. */

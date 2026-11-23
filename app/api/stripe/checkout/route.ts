@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { repairShortTrialChecked, type TrialRow } from '@/lib/auth/trial';
 import { siteUrl } from '@/lib/env';
 import { isPaidNow } from '@/lib/auth/access';
+import { hit } from '@/lib/auth/ratelimit';
+import { LIMITS } from '@/lib/auth/limits';
 import {
   billingNotConfigured,
   ensureProduct,
@@ -51,6 +54,12 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const admin = createAdminClient();
+  // Review P2-4d: 10 checkout starts an hour per member (each creates a Stripe session). Fails closed like change-plan: no limiter, no
+  // new Stripe session.
+  const limited = await hit([LIMITS.checkoutUser(user.id)], admin);
+  if (limited === 'limited') return Response.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': '3600' } });
+  if (limited === 'error') return Response.json({ error: 'unavailable' }, { status: 503 });
+
   const { data: profile, error } = await admin
     .from('holler_profiles')
     // '*' so the store columns (migration 0020) come along when they exist; a database without them still answers.
@@ -59,6 +68,14 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (error) return Response.json({ error: 'profile_lookup_failed' }, { status: 500 });
   if (!profile) return Response.json({ error: 'no_profile' }, { status: 400 });
+  // Round 18: the first charge date comes from trial_ends_at, so a short never-paid row is moved to start + TRIAL_DAYS first (the same
+  // repair as /app; no query when the row is already right). Without this a member who subscribes from Settings before opening /app is
+  // charged at the old 14-day end while migration 0028 is not applied. repairShortTrial returns the end AS STORED by the write (or null
+  // when nothing moved), so Stripe is only ever given a value the row holds.
+  const repair = await repairShortTrialChecked(user, profile as TrialRow, () => admin);
+  // Review r3 D1: a repair that was due and failed must not turn into a charge at the short end. Fail closed, like the limiter above.
+  if (repair.failed) return Response.json({ error: 'unavailable' }, { status: 503, headers: { 'Retry-After': '5' } });
+  const trialEnd = repair.end ?? (profile.trial_ends_at as string | null);
   // Already paying (or in Stripe's retry window): a second checkout would create a second subscription.
   // Moving between Solo and Pro goes through POST /api/stripe/change-plan instead.
   // Same paid test as the feed lock (isPaidNow): a store plan whose period ran out with no EXPIRATION webhook, or with no readable
@@ -113,7 +130,7 @@ export async function POST(req: Request) {
       ],
       // No charge during the free trial that started in the app. Same trial rule for every plan and interval.
       // The webhook reads tier from the subscription's metadata to set holler_profiles.plan.
-      subscription_data: { metadata: { ...hollerMetadata(user.id), plan, tier }, ...trialParams(profile.trial_ends_at as string | null) },
+      subscription_data: { metadata: { ...hollerMetadata(user.id), plan, tier }, ...trialParams(trialEnd) },
       success_url: `${siteUrl}/app?upgraded=1`,
       cancel_url: `${siteUrl}/app/settings`,
     });

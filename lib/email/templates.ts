@@ -3,51 +3,66 @@ import { CADENCE_SHORT } from '../seo/cadence';
 import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
-import { INTENT_LABEL, intentLine, intentOf } from '../signals/intent';
-import { OPPORTUNITY_LABEL, OPPORTUNITY_RANK, type Opportunity } from '../signals/opportunity';
+import { bidSourceLinkLabel } from '../signals/bid-card';
+import { sourceLine, type CardBrief } from '../signals/brief';
+import { bidSourceLinkLabelLang, cardBriefLang, sourceLineLang } from '../signals/brief-i18n';
+import { isStageUpdate, stageUpdateLine, stageUpdateMeta, stageUpdateSubject } from '../signals/stage';
+import { lowerFirst, t, type Lang } from '../i18n';
+import { localizeTitle } from '../signals/title-i18n';
+import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
+import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
+import { trialPhraseEs } from '../plan/price-copy-es';
 import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
 
 export interface DigestItem {
   kind: string;
-  /** Source id and data.subtype of the record. Used for the intent label; without them the label comes from the kind alone. */
+  /** Source id and data.subtype of the record. Used for the brief (why it matters, source link). */
   source?: string | null;
   subtype?: string | null;
   title: string;
+  /** The record's own summary (SPC remarks, NWS text). Used by the brief only, to say what the record itself says about damage. */
+  summary?: string | null;
   place?: string | null;
   occurredAt: string;
   sourceUrl?: string | null;
   /** Resident requests only: the filtered description, read with the service role for this member's own match. Plain text. */
   detail?: string | null;
   /**
-   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role only: the email never
-   * carries an address, phone number or email address. Absent when the record names no organization.
+   * One organization the record names, in plain words (see lib/outreach/plan.ts emailContact). Name and role: the email never carries
+   * the record's address, phone number or email address. Round 18: `listing` adds the phone and website of the business's own public
+   * listing when one was found, labelled as such. Absent when the record names no organization.
    */
-  contact?: { name: string; role: string } | null;
+  contact?: { name: string; role: string; listing?: { phone: string | null; website: { href: string; text: string } | null; note: string } | null } | null;
   /** One short AI line on why this record may matter to the member's trade (lib/ai notesFor). Plain text, checked when written. */
   note?: string | null;
   /**
-   * The record's opportunity for this member (lib/signals/member-opportunity.ts): label, why, next step and what is not known. When
-   * set it replaces the intent label and line. The instant digest carries only 'act' and 'soon' items (Act now first); 'intel' and
-   * 'context' items passed here are left out.
+   * The record's opportunity label for this member (lib/signals/lead-rules.ts). Act Now items are listed first and carry the deadline
+   * line. Absent counts as coming_soon (no chip shown for an item without a label, so older callers render as before).
    */
-  opportunity?: { label: Opportunity; why: string; next: string; uncertain: string } | null;
+  label?: OpportunityLabel | null;
+  /** ISO date by which something has to happen (a fix-by, due or response date), when the record publishes one. Act Now items only. */
+  deadline?: string | null;
+  /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." (lib/signals/bid-card.ts bidCardLine). */
+  bidLine?: string | null;
+  /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes "Why it matters" trade-specific. */
+  trade?: string | null;
+  /** NYC no-heat items only: data.managerName / data.managerRole (company names only, checked again by cardBrief). */
+  managerName?: string | null;
+  managerRole?: string | null;
+  /** Permits: data.jobValue, the project value the city published (a number or its text form). The summary's "$N job value" is the fallback. */
+  jobValue?: unknown;
+  /** Permits: data.permitStage and data.permitStageAt of a stage update (migration 0025 feature). */
+  permitStage?: unknown;
+  permitStageAt?: string | null;
+  /** Permits: data.permitStageUpdate, true on a record whose stage changed after it was stored. The item then reads "Stage update", never "new". */
+  permitStageUpdate?: unknown;
 }
 
-/** Labels the instant digest shows, in order. Market insights are in the feed only; context is never an alert. */
-export const DIGEST_OPPORTUNITIES: readonly Opportunity[] = ['act', 'soon'];
-
-/**
- * Digest order: items with an opportunity label first, Act now before Coming soon (input order kept inside each label), then items
- * without one (older callers). Items labelled 'intel' or 'context' are dropped. Pure.
- */
-export function digestOrder<T extends Pick<DigestItem, 'opportunity'>>(items: readonly T[]): T[] {
-  const kept = items.filter((it) => !it.opportunity || DIGEST_OPPORTUNITIES.includes(it.opportunity.label));
-  const rank = (it: T) => (it.opportunity ? OPPORTUNITY_RANK[it.opportunity.label] : -1);
-  return kept
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => rank(b.it) - rank(a.it) || a.i - b.i)
-    .map((x) => x.it);
+/** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
+export function chipText(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lang = 'en'): string | null {
+  if (!it.label || it.label === 'context') return null;
+  return it.label === 'act_now' ? `${chipLabel('act_now', lang)}. ${deadlineLineLang(it.deadline, lang)}` : chipLabel(it.label, lang);
 }
 
 export interface Rendered {
@@ -69,7 +84,8 @@ const KIND_LABELS: Record<string, string> = {
   travel: 'Airport delays',
 };
 
-export function kindLabel(kind: string): string {
+export function kindLabel(kind: string, lang: Lang = 'en'): string {
+  if (lang !== 'en') return t(lang, kind in KIND_LABELS ? (`email.kind.${kind}` as Parameters<typeof t>[1]) : 'email.kind.unknown');
   return KIND_LABELS[kind] ?? 'Local signal';
 }
 
@@ -90,7 +106,7 @@ function safeUrl(u: string | null | undefined): string | null {
 
 /**
  * A resident request links to Holler's own /request page (lib/requests/signal.ts), not to a public source, so its link says
- * "Open the request". Known by its source id, or by a link to this site's /request page when the source is not passed.
+ * "Open the request form" (a request has no page of its own). Known by its source id, or by a link to this site's /request page when the source is not passed.
  */
 export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): boolean {
   if (it.source === HOLLER_REQUEST_SOURCE) return true;
@@ -99,8 +115,17 @@ export function isResidentRequest(it: Pick<DigestItem, 'source' | 'sourceUrl'>, 
 }
 
 /** Label of the link under a digest item. */
-export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl): string {
-  return isResidentRequest(it, base) ? 'Open the request' : 'Open the source';
+export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, base: string = siteUrl, lang: Lang = 'en'): string {
+  if (lang !== 'en') return isResidentRequest(it, base) ? t(lang, 'brief.link.request') : bidSourceLinkLabelLang(it.source, lang);
+  return isResidentRequest(it, base) ? 'Open the request form' : bidSourceLinkLabel(it.source);
+}
+
+/** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
+export function digestBrief(it: DigestItem, base: string = siteUrl, lang: Lang = 'en'): CardBrief & { href: string | null; linkText: string } {
+  const b = cardBriefLang({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, managerName: it.managerName, managerRole: it.managerRole, jobValue: it.jobValue, permitStage: it.permitStage, permitStageAt: it.permitStageAt }, lang);
+  const own = safeUrl(it.sourceUrl);
+  // The link label keeps the digest's own rule: "Open the request form" for a resident request (known by source or by its /request link).
+  return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base, lang) : b.source.linkText };
 }
 
 /** Text we show must never contain an em dash (house copy rule), including text from sources. */
@@ -108,13 +133,41 @@ function noDash(s: string): string {
   return s.replace(/—/g, '-');
 }
 
-export function timeAgo(iso: string, now: Date = new Date()): string {
-  return relativeTime(iso, now.getTime(), 'email');
+export function timeAgo(iso: string, now: Date = new Date(), lang: Lang = 'en'): string {
+  return relativeTime(iso, now.getTime(), 'email', lang);
+}
+
+type ListingForEmail = NonNullable<NonNullable<DigestItem['contact']>['listing']>;
+
+/** The listing's website only when it is an https link; a phone stays even when the website is dropped. */
+function httpsSite(l: ListingForEmail): ListingForEmail['website'] {
+  return l.website && /^https:\/\//.test(l.website.href) ? l.website : null;
+}
+
+/** The listing lines under the Contact line, html. The website is a normal link with rel="noopener noreferrer nofollow". */
+function listingHtml(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
+  const phone = l.phone ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.phone', { value: l.phone })))}</div>` : '';
+  const site = website
+    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(website.text)}</a></div>`
+    : '';
+  return `${phone}${site}<div style="${S.small};margin:2px 0">${escapeHtml(noDash(l.note))}</div>`;
+}
+
+/** The listing lines under the Contact line, plain text. */
+function listingText(l: ListingForEmail | null | undefined, lang: Lang): string {
+  if (!l) return '';
+  const website = httpsSite(l);
+  if (!l.phone && !website) return '';
+  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${website ? `\n${noDash(t(lang, 'listing.website', { value: website.href }))}` : ''}\n${noDash(l.note)}`;
 }
 
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
-export function contactLine(c: { name: string; role: string }): string {
-  return noDash(`Contact: ${c.name} (${c.role})`);
+export function contactLine(c: { name: string; role: string }, lang: Lang = 'en'): string {
+  // The role is a capitalised label ("Aparece en este permiso"); inside the parentheses Spanish writes it in lower case.
+  return noDash(t(lang, 'email.contact', { name: c.name, role: lang === 'en' ? c.role : lowerFirst(c.role) }));
 }
 
 // Look comes from lib/email/theme.ts (one place for every color and font).
@@ -136,18 +189,48 @@ export function contactAddress(): string | null {
   return /^[^\s<>@]+@[^\s<>@]+$/.test(from) ? from : null;
 }
 
-function contactHtml(): string {
+function contactHtml(lang: Lang = 'en'): string {
   const a = contactAddress();
-  return a ? ` Questions? <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">Contact us</a>.` : '';
+  return a ? ` ${t(lang, 'email.questions')} <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">${t(lang, 'email.contact_us')}</a>.` : '';
 }
 
-function contactText(): string {
+function contactText(lang: Lang = 'en'): string {
   const a = contactAddress();
-  return a ? `\nQuestions? Contact us: ${a}\n` : '';
+  return a ? `\n${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${a}\n` : '';
 }
 
 function button(href: string, label: string): string {
   return buttonHtml(escapeHtml(href), escapeHtml(label));
+}
+
+/** True for an item that is a stage update (see lib/signals/stage.ts isStageUpdate). */
+function isUpdateItem(it: DigestItem): boolean {
+  return isStageUpdate({ permitStage: it.permitStage, permitStageAt: it.permitStageAt, permitStageUpdate: it.permitStageUpdate });
+}
+
+/**
+ * The digest subject. One stage update reads "Update: final inspection on a permit near you"; stage updates only read "N permit updates near
+ * you"; a mix says how many are updates. Never "new" for a stage update.
+ */
+export function digestSubject(items: readonly DigestItem[], total: number, lang: Lang = 'en'): string {
+  const updates = items.filter(isUpdateItem);
+  if (updates.length === 0) {
+    return total === 1
+      ? t(lang, 'email.subject.one', { title: items[0] ? localizeTitle(items[0].title, lang, items[0].source) : t(lang, 'email.subject.fallback_title') }).slice(0, 120)
+      : t(lang, 'email.subject.many', { n: total });
+  }
+  if (total === 1 && updates.length === 1) return stageUpdateSubject(updates[0].permitStage, lang) ?? t(lang, 'stage.update.subject_fallback');
+  if (updates.length === items.length && total === items.length) return t(lang, 'stage.update.subject_only', { n: total });
+  return t(lang, 'stage.update.subject_mixed', { n: total, u: updates.length });
+}
+
+/** The time part of an item's meta line: a stage update shows the date of the change, never "N days ago" as if the permit were fresh. */
+function metaTime(it: DigestItem, now: Date, lang: Lang = 'en'): string {
+  if (isUpdateItem(it)) {
+    const meta = stageUpdateMeta(it.permitStageAt, lang);
+    if (meta) return meta;
+  }
+  return timeAgo(it.occurredAt, now, lang);
 }
 
 export function renderDigest(opts: {
@@ -157,86 +240,122 @@ export function renderDigest(opts: {
   appUrl: string;
   unsubscribeUrl: string;
   now?: Date;
+  /** The member's language (profiles.language, migration 0024). 'en' (the default) is the digest as it always was. */
+  lang?: Lang;
 }): Rendered {
+  const lang: Lang = opts.lang ?? 'en';
   const now = opts.now ?? new Date();
-  const items = digestOrder(opts.items);
-  const total = Math.max(opts.totalCount ?? items.length, items.length);
-  const more = Math.max(0, total - items.length);
-  const subject = noDash(
-    total === 1
-      ? `1 new thing near you: ${items[0]?.title ?? 'local signal'}`.slice(0, 120)
-      : `${total} new things near you`,
-  );
+  const total = opts.totalCount ?? opts.items.length;
+  const more = Math.max(0, total - opts.items.length);
+  const subject = noDash(digestSubject(opts.items, total, lang));
 
-  // One heading per label group (Act now, Coming soon) when the items carry labels.
-  const headingFor = (i: number): Opportunity | null => {
-    const l = items[i].opportunity?.label ?? null;
-    if (!l) return null;
-    return i === 0 || items[i - 1].opportunity?.label !== l ? l : null;
-  };
+  // Act Now first (item 0.3); inside a label stage updates come first, then the order the caller gave (a stable sort).
+  const items = orderByLabel(
+    [...opts.items.filter(isUpdateItem), ...opts.items.filter((it) => !isUpdateItem(it))],
+    (it) => it.label ?? 'coming_soon',
+  );
+  const kindText = (it: DigestItem) => (it.subtype === 'bid' ? t(lang, 'bid.label') : kindLabel(it.kind, lang));
+
   const htmlItems = items
-    .map((it, i) => {
-      const src = safeUrl(it.sourceUrl);
-      const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+    .map((it) => {
+      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
         .filter(Boolean)
         .map((m) => escapeHtml(m as string))
         .join(' &middot; ');
-      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const o = it.opportunity;
-      const intentHtml = o
-        ? `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(OPPORTUNITY_LABEL[o.label])}.</strong> ${escapeHtml(noDash(o.why))}</div>` +
-          `<div style="font-size:14px;margin:2px 0"><strong>Next step:</strong> ${escapeHtml(noDash(o.next))}</div>` +
-          `<div style="${S.small};margin:2px 0">Not known: ${escapeHtml(noDash(o.uncertain))}</div>`
-        : `<div style="${S.small};margin:2px 0"><strong style="color:${EMAIL_COLORS.ink}">${escapeHtml(INTENT_LABEL[intentOf(sig)])}.</strong> ${escapeHtml(intentLine(sig))}</div>`;
-      const h = headingFor(i);
-      const heading = h ? `<li style="margin:8px 0 8px 0;padding:0;list-style:none"><h2 style="${S.h1};font-size:18px;margin:0">${escapeHtml(OPPORTUNITY_LABEL[h])}</h2></li>` : '';
+      const chip = chipText(it, lang);
+      const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
+      const bidHtml = it.bidLine ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.bidLine))}</div>` : '';
       const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
-      const note = it.note ? `<div style="font-size:14px;margin:2px 0"><strong>Why it may matter:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
+      // The one-line AI note is written in English by the model, so a Spanish digest leaves it out (the brief below says the same in Spanish).
+      const note = it.note && lang === 'en' ? `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.note')}:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
       const contact = it.contact?.name
-        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact))}</div>`
+        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>${listingHtml(it.contact.listing, lang)}`
         : '';
-      return `${heading}<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div><div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(it.title))}</div>${intentHtml}${note}${detail}${contact}${
-        src ? `<a href="${escapeHtml(src)}" style="${S.link};font-size:14px">${digestLinkLabel(it)}</a>` : ''
-      }</li>`;
+      const br = digestBrief(it, siteUrl, lang);
+      const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
+      const stageLineText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
+      const stageHtml = stageLineText ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(stageLineText))}</div>` : '';
+      const briefHtml =
+        valueHtml +
+        stageHtml +
+        `<div style="font-size:14px;margin:6px 0 2px 0"><strong>${t(lang, 'brief.h.why')}:</strong> ${escapeHtml(noDash(br.why))}</div>` +
+        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.next')}:</strong> ${escapeHtml(noDash(br.next))}</div>` +
+        (br.managedBy ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(br.managedBy))}</div>` : '') +
+        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.source')}:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
+          br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
+        }</div>` +
+        `<div style="font-size:14px;margin:2px 0 4px 0"><strong>${t(lang, 'brief.h.uncertain')}:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
+      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(localizeTitle(it.title, lang, it.source)))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
     })
     .join('');
 
   const html =
-    WRAP_OPEN +
-    `<p style="margin:0 0 6px 0;${S.eyebrow}">Holler for ${escapeHtml(noDash(opts.businessName))}</p>` +
+    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
+    `<p style="margin:0 0 6px 0;${S.eyebrow}">${escapeHtml(t(lang, 'email.eyebrow', { name: noDash(opts.businessName) }))}</p>` +
     `<h1 style="${S.h1};font-size:24px;margin:0 0 20px 0">${escapeHtml(subject)}</h1>` +
     `<ul style="margin:0;padding:0">${htmlItems}</ul>` +
-    (more > 0 ? `<p style="${S.mutedLink}">Plus ${more} more in your feed.</p>` : '') +
-    button(opts.appUrl, 'Open your feed') +
-    `<p style="${S.small};margin-top:32px">You get this because email alerts are on for your Holler account. <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">Turn off email alerts</a>.${contactHtml()}</p>` +
+    (more > 0 ? `<p style="${S.mutedLink}">${escapeHtml(t(lang, 'email.plus_more', { n: more }))}</p>` : '') +
+    button(opts.appUrl, t(lang, 'email.open_feed')) +
+    `<p style="${S.small};margin-top:32px">${t(lang, 'email.footer.why')} <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">${t(lang, 'email.footer.off')}</a>.${contactHtml(lang)}</p>` +
     cardClose() +
-    postalFooterHtml() +
+    postalFooterHtml(lang) +
     WRAP_CLOSE;
 
   const textItems = items
-    .map((it, i) => {
-      const src = safeUrl(it.sourceUrl);
-      const meta = [kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)]
+    .map((it) => {
+      const br = digestBrief(it, siteUrl, lang);
+      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
         .filter(Boolean)
         .join(' | ');
-      const sig = { kind: it.kind, subtype: it.subtype, source: it.source ?? '' };
-      const o = it.opportunity;
-      const label = o
-        ? `${OPPORTUNITY_LABEL[o.label]}. ${noDash(o.why)}\nNext step: ${noDash(o.next)}\nNot known: ${noDash(o.uncertain)}`
-        : `${INTENT_LABEL[intentOf(sig)]}. ${intentLine(sig)}`;
-      const h = headingFor(i);
-      return `${h ? `== ${OPPORTUNITY_LABEL[h]} ==\n\n` : ''}${meta}\n${noDash(it.title)}\n${label}${it.note ? `\nWhy it may matter: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact)}` : ''}${src ? `\n${src}` : ''}`;
+      const chip = chipText(it, lang);
+      const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
+      const stageText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
+      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}${listingText(it.contact.listing, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
     })
     .join('\n\n');
   const text =
-    `Holler for ${noDash(opts.businessName)}\n\n${subject}\n\n${textItems}\n\n` +
-    (more > 0 ? `Plus ${more} more in your feed.\n\n` : '') +
-    `Open your feed: ${opts.appUrl}\n\nTurn off email alerts: ${opts.unsubscribeUrl}\n${contactText()}\n${postalFooterText()}\n`;
+    `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${subject}\n\n${textItems}\n\n` +
+    (more > 0 ? `${t(lang, 'email.plus_more', { n: more })}\n\n` : '') +
+    `${t(lang, 'email.open_feed')}: ${opts.appUrl}\n\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
 
   return { subject, html, text };
 }
 
-export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
+/** How long a verify link works (lib/email/token.ts signs it for 7 days). Said in the verify emails. */
+export const VERIFY_LINK_DAYS = 7;
+
+/**
+ * The account emails in a language other than English (round 18 ES): password reset, welcome, and welcome plus verify. Same layout,
+ * buttons and footer as the English ones below, which are left exactly as they were. Every word comes from the dictionary; the trial
+ * length from TRIAL_DAYS through lib/plan/price-copy-es.ts trialPhraseEs.
+ */
+function accountMail(lang: Lang, o: { subject: string; heading: string; paras: string[]; button: { href: string; label: string }; note: string; noteText?: string; textLink?: string }): Rendered {
+  const html =
+    wrapOpen(560, lang) +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(o.heading)}</h1>` +
+    o.paras.map((p) => `<p>${escapeHtml(p)}</p>`).join('') +
+    button(o.button.href, o.button.label) +
+    `<p style="${S.muted}">${o.note}${contactHtml(lang)}</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text = `${o.heading}\n\n${o.paras.join('\n\n')}\n\n${o.textLink ?? `${o.button.label}: ${o.button.href}`}\n\n${o.noteText ?? o.note}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+  return { subject: o.subject, html, text };
+}
+
+export function renderPasswordReset(opts: { resetUrl: string; lang?: Lang }): Rendered {
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    return accountMail(lang, {
+      subject: t(lang, 'mail.reset.subject'),
+      heading: t(lang, 'mail.reset.h'),
+      paras: [t(lang, 'mail.reset.p')],
+      button: { href: opts.resetUrl, label: t(lang, 'mail.reset.button') },
+      note: escapeHtml(t(lang, 'mail.reset.ignore')),
+      noteText: t(lang, 'mail.reset.ignore'),
+      textLink: opts.resetUrl,
+    });
+  }
   const subject = 'Reset your Holler password';
   const html =
     WRAP_OPEN +
@@ -251,8 +370,24 @@ export function renderPasswordReset(opts: { resetUrl: string }): Rendered {
   return { subject, html, text };
 }
 
-export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderWelcome(opts: { businessName: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const a = contactAddress();
+    const html =
+      wrapOpen(560, lang) +
+      `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">${escapeHtml(t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) }))}</h1>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') }))}</p>` +
+      `<p>${escapeHtml(t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) }))}</p>` +
+      button(opts.appUrl, t(lang, 'email.open_feed')) +
+      (a ? `<p style="${S.muted}">${contactHtml(lang).trim()}</p>` : '') +
+      cardClose() +
+      postalFooterHtml(lang) +
+      WRAP_CLOSE;
+    const text = `${t(lang, 'mail.welcome.h', { name: noDash(opts.businessName) })}\n\n${t(lang, 'mail.welcome.p1', { cadence: t(lang, 'cadence.short') })}\n\n${t(lang, 'mail.welcome.p2', { trial: trialPhraseEs(days) })}\n\n${t(lang, 'email.open_feed')}: ${opts.appUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+    return { subject: t(lang, 'mail.welcome.subject'), html, text };
+  }
   const subject = 'Welcome to Holler';
   const html =
     WRAP_OPEN +
@@ -269,8 +404,21 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
 }
 
 /** Welcome plus the email-confirmation link sent right after signup (and on resend). */
-export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number }): Rendered {
+export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; trialDays?: number; lang?: Lang }): Rendered {
   const days = opts.trialDays ?? TRIAL_DAYS;
+  if (opts.lang && opts.lang !== 'en') {
+    const lang = opts.lang;
+    const url = escapeHtml(opts.appUrl);
+    return accountMail(lang, {
+      subject: t(lang, 'mail.verify.subject'),
+      heading: t(lang, 'mail.verify.h'),
+      paras: [t(lang, 'mail.verify.p1', { trial: trialPhraseEs(days) }), t(lang, 'mail.verify.p2', { days: VERIFY_LINK_DAYS })],
+      button: { href: opts.verifyUrl, label: t(lang, 'mail.verify.button') },
+      note: `${escapeHtml(t(lang, 'mail.verify.setup'))} <a href="${url}" style="${S.mutedLink}">${url}</a>. ${escapeHtml(t(lang, 'mail.verify.ignore'))}`,
+      noteText: `${t(lang, 'mail.verify.setup')} ${opts.appUrl}\n\n${t(lang, 'mail.verify.ignore')}`,
+      textLink: opts.verifyUrl,
+    });
+  }
   const subject = 'Welcome to Holler: confirm your email';
   const html =
     WRAP_OPEN +
@@ -286,18 +434,28 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
   return { subject, html, text };
 }
 
-/** "Coming to your area" double opt-in. One email; nothing more is ever sent unless the link is pressed. */
-export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string }): Rendered {
+/**
+ * "Coming to your area" double opt-in (restored in round 19 from the other branch's lib/email/templates.ts, review defect 1). One
+ * email; nothing more is ever sent unless the link is pressed. The link is /waitlist/confirm (a token page: no-referrer).
+ */
+export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string; lang?: Lang }): Rendered {
+  // Round 19 integration: words from lib/i18n (wl.email.*); English is the round 19 text unchanged, Spanish only when asked for.
+  const lang = opts.lang ?? 'en';
   const place = noDash(opts.place);
-  const subject = `Confirm: tell me when Holler reaches ${place}`;
+  const subject = t(lang, 'wl.email.subject', { place });
+  const h = t(lang, 'wl.email.h');
+  const body = t(lang, 'wl.email.body', { place });
+  const note = t(lang, 'wl.email.note');
+  const button1 = t(lang, 'wl.confirm.button');
   const html =
-    WRAP_OPEN +
-    `<h1 style="${S.h1};margin:0 0 12px 0">One click and you are on the list</h1>` +
-    `<p>You asked Holler to tell you when permits and city requests near ${escapeHtml(place)} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.</p>` +
-    button(opts.confirmUrl, 'Confirm my email') +
-    `<p style="${S.muted}">The link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.${contactHtml()}</p>` +
-    postalFooterHtml() +
+    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
+    `<h1 style="${S.h1};margin:0 0 12px 0">${escapeHtml(h)}</h1>` +
+    `<p>${escapeHtml(body)}</p>` +
+    button(opts.confirmUrl, button1) +
+    `<p style="${S.muted}">${escapeHtml(note)}${contactHtml(lang)}</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
     WRAP_CLOSE;
-  const text = `One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near ${place} are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: ${opts.confirmUrl}\n\nThe link works for 7 days. If you did not ask for this, ignore this email and you will not hear from us.\n${contactText()}\n${postalFooterText()}\n`;
+  const text = `${h}\n\n${body}\n\n${button1}: ${opts.confirmUrl}\n\n${note}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
   return { subject, html, text };
 }

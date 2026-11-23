@@ -1,52 +1,81 @@
-import { cacheLife } from 'next/cache';
-import { publicClient } from '@/lib/seo/client';
-import { CHECK_RADIUS_MI } from './scope';
+import { CHECK_RADIUS_MI, UNCOVERED_STATE_CODES } from '@/lib/check/scope';
+import { cityBySlug, haversineMi, stateByCode } from '@/lib/geo';
+import { enabledDatasets } from '@/lib/signals/capabilities';
 
 /**
- * Does Holler have LOCAL data near this place? "Local" means a building permit or a city request (311, code enforcement, licences),
- * the records that come from a city or county feed. Storm and weather alerts cover every state, so they do not count: a ZIP with only
- * weather is a place Holler has not really reached yet, and the check page offers the "Coming to your area" list there.
+ * "Does Holler serve this ZIP yet?" for the area check and its waitlist card.
  *
- * One bounding-box read, limit 1, any trade, last LOOKBACK_DAYS. Cached per rounded cell for an hour.
- * Returns 'local', 'none', or 'unknown' when the read failed (the page then shows no waitlist rather than a wrong one).
+ * Holler serves a ZIP when it is in a state Holler reads (not a territory or military mail code) AND at least one enabled local feed
+ * (a verified Socrata or ArcGIS dataset: permits, 311, inspections, business licences, violations, event permits) has its centre
+ * within CHECK_RADIUS_MI (25 miles, the default subscriber radius) of the ZIP. National hazard feeds (weather, storm reports) reach
+ * every ZIP and are NOT counted: a ZIP with only those has no local source, and the card says so in those words.
+ * Airport status alone is not counted either: it is not a record a trade can act on.
+ *
+ * Why not CITY_FEEDS[nearestCity(...)]: nearestCity returns the closest place in the city table, which is often a neighbourhood
+ * (60614 gives lincoln-park-il, not chicago-il), and CITY_FEEDS is keyed by the feed's own city. This helper measures to each
+ * dataset's own centre instead. Each dataset's centre is, in order: its county anchor, the city table entry for its city and state,
+ * its fallback centre. A dataset with none of the three is skipped (tests/waitlist/coverage.test.ts lists none today).
  */
-export type Coverage = 'local' | 'none' | 'unknown';
+export const LOCAL_COVERAGE_RADIUS_MI = CHECK_RADIUS_MI;
 
-const LOOKBACK_DAYS = 30;
-const DAY = 86_400_000;
-const LOCAL_KINDS = ['permit', 'civic'];
-const QUERY_TIMEOUT_MS = 5000;
+export interface SourceCentre {
+  id: string;
+  city: string;
+  state: string;
+  lat: number;
+  lon: number;
+}
 
-export async function localCoverage(cellLat: number, cellLon: number): Promise<Coverage> {
-  'use cache: remote';
-  // A failed read is cached for a minute only, so a blip does not hide the list (or show it wrongly) for an hour.
-  const unknown = (): Coverage => {
-    cacheLife({ stale: 60, revalidate: 60, expire: 300 });
-    return 'unknown';
-  };
-  if (!Number.isFinite(cellLat) || !Number.isFinite(cellLon) || Math.abs(cellLat) > 90 || Math.abs(cellLon) > 180) return unknown();
-  const sb = publicClient();
-  if (!sb) return unknown();
-  const r = CHECK_RADIUS_MI;
-  const dLat = r / 68.9;
-  const dLon = r / (68.9 * Math.max(0.05, Math.cos((Math.min(89, Math.abs(cellLat) + dLat) * Math.PI) / 180)));
-  const since = new Date(Date.now() - LOOKBACK_DAYS * DAY).toISOString();
-  try {
-    const { data, error } = await sb
-      .from('holler_signals')
-      .select('id')
-      .in('kind', LOCAL_KINDS)
-      .gte('lat', cellLat - dLat)
-      .lte('lat', cellLat + dLat)
-      .gte('lon', cellLon - dLon)
-      .lte('lon', cellLon + dLon)
-      .gte('occurred_at', since)
-      .limit(1)
-      .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
-    if (error) return unknown();
-    cacheLife('hours');
-    return data && data.length > 0 ? 'local' : 'none';
-  } catch {
-    return unknown();
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+let cache: SourceCentre[] | null = null;
+let skipped: string[] = [];
+
+function build(): SourceCentre[] {
+  const out: SourceCentre[] = [];
+  const skip: string[] = [];
+  for (const ds of enabledDatasets()) {
+    const centre =
+      ds.countyAnchor ??
+      cityBySlug(`${slugify(ds.city)}-${ds.state.toLowerCase()}`) ??
+      ds.fallbackCenter ??
+      null;
+    if (!centre) {
+      skip.push(ds.id);
+      continue;
+    }
+    out.push({ id: ds.id, city: ds.city, state: ds.state, lat: centre.lat, lon: centre.lon });
   }
+  skipped = skip;
+  return out;
+}
+
+/** Centre of every enabled local feed, memoised. */
+export function localSourceCentres(): readonly SourceCentre[] {
+  return (cache ??= build());
+}
+
+/** Ids of enabled datasets whose centre could not be resolved (they count for nothing here). Used by tests. */
+export function unresolvedSources(): readonly string[] {
+  localSourceCentres();
+  return skipped;
+}
+
+/** Enabled local feeds whose centre is within `maxMi` of the point, nearest first. */
+export function localSourcesNear(lat: number, lon: number, maxMi: number = LOCAL_COVERAGE_RADIUS_MI): SourceCentre[] {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+  return localSourceCentres()
+    .map((c) => ({ c, d: haversineMi(lat, lon, c.lat, c.lon) }))
+    .filter((x) => x.d <= maxMi)
+    .sort((a, b) => a.d - b.d)
+    .map((x) => x.c);
+}
+
+/** True when Holler reads at least one local source for this ZIP's place. False = show the "coming to your area" waitlist. */
+export function isServedZip(place: { lat: number; lon: number; state: string }): boolean {
+  const state = place.state.toUpperCase();
+  if (!stateByCode(state) || UNCOVERED_STATE_CODES.includes(state)) return false;
+  return localSourcesNear(place.lat, place.lon).length > 0;
 }

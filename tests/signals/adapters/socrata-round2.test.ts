@@ -18,7 +18,8 @@ const ds = (id: string): SocrataDataset => {
   return d;
 };
 const run = (id: string) => parseSocrata(fx(`${id}.json`), ds(id));
-const BUSINESS_TRADES = ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'cleaning', 'locksmith'];
+// Round 15 quality gate: house cleaning is no longer tagged on licences (10 of 10 graded cards were licences it does not serve).
+const BUSINESS_TRADES = ['signs-printing', 'business-services', 'insurance', 'janitorial-commercial', 'security', 'locksmith'];
 
 describe('business parsers', () => {
   it('Chicago: license type only (no name, no address); food gets pest-control + hvac; no owner names', () => {
@@ -30,6 +31,7 @@ describe('business parsers', () => {
     expect(cafe.title).toBe('New business license in Chicago: Retail Food Establishment');
     expect(cafe.summary).not.toMatch(/WINDY CITY|N CLARK|CLARK ST/i);
     expect(cafe.categories).toEqual(expect.arrayContaining([...BUSINESS_TRADES, 'pest-control', 'hvac']));
+    expect(cafe.categories).not.toContain('cleaning');
     expect(out.find((s) => s.externalId === '3011112-20261113')!.categories).not.toContain('pest-control');
     expect(out.find((s) => s.externalId === '3011113-20261113')!.title).toMatch(/^New business license in Chicago: Regulated/);
     expect(JSON.stringify(out)).not.toMatch(/PRIVATE OWNER|JANE Q SAMPLE/);
@@ -47,7 +49,11 @@ describe('business parsers', () => {
     const la = run('socrata-la-business');
     expect(la).toHaveLength(2);
     expect(la[0].title).toMatch(/^New business license in Los Angeles: /);
-    expect(JSON.stringify(la)).not.toMatch(/SUNSET PIZZA/);
+    // Round 18: the business on the licence is the private contact (never the public title, summary or data).
+    const { contacts: _laContacts, ...laPublic } = la[0];
+    void _laContacts;
+    expect(JSON.stringify(laPublic)).not.toMatch(/SUNSET PIZZA/);
+    expect(la[0].contacts?.find((c) => c.role === 'business')?.name).toBe('SUNSET PIZZA');
     expect(la[1].title).toMatch(/^New business license in Los Angeles: Administrative/);
     const nyc = run('socrata-nyc-business');
     expect(nyc).toHaveLength(2);
@@ -94,7 +100,8 @@ describe('event permit parsers', () => {
     const out = run('socrata-nyc-events');
     expect(out).toHaveLength(2);
     expect(out[0].kind).toBe('event');
-    expect(out[0].categories).toEqual(expect.arrayContaining(['food-truck', 'catering', 'event-services', 'security', 'cleaning']));
+    expect(out[0].categories).toEqual(expect.arrayContaining(['food-truck', 'catering', 'event-services', 'security']));
+    expect(out[0].categories).not.toContain('cleaning'); // round 15 quality gate: an event permit is no house-cleaning job
     expect(out[0].expiresAt).toBe('2026-11-21T21:00:00.000Z');
     expect(out[0].data?.approxLocation).toBe(true);
     expect(out[0].title).toMatch(/^Permitted event in New York City: Street Event at 5 AVENUE/);

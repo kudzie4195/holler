@@ -1,6 +1,7 @@
 import { siteUrl } from '@/lib/env';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
+import { remarkNamesWindDamage } from '../wind-damage';
 
 /**
  * NOAA Storm Prediction Center preliminary local storm reports (CSV).
@@ -162,13 +163,18 @@ export function scanSpc(raw: unknown): SpcScan {
       data.hailInches = inches;
     } else if (type === 'wind') {
       const mph = parseInt(val, 10);
-      const damage = /damage|down|blown|uproot|snapped|power|roof|tree/i.test(comments);
+      // Round 18 integration: the same rule as the address lists (lib/signals/wind-damage.ts). A loose word test ("down", "tree", "power",
+      // "roof" anywhere) let "downtown", "Tree Top Lane" or "No damage reported" keep a row, title it "Wind damage reported" and give it damage
+      // severity. Now only a remark that names damage to a thing does; a measured gust without one stays "NN mph wind gust" (never "damage").
+      const damage = remarkNamesWindDamage(comments);
       if (!Number.isFinite(mph) && !damage) continue;
       if (Number.isFinite(mph) && mph < 50 && !damage) continue;
       title = Number.isFinite(mph) ? `${mph} mph wind gust reported near ${where}` : `Wind damage reported near ${where}`;
       categories = WIND_CATS;
       severity = Number.isFinite(mph) && mph >= 75 ? 3 : (Number.isFinite(mph) && mph >= 58) || damage ? 2 : 1;
       if (Number.isFinite(mph)) data.windMph = mph;
+      // The damage flag the storm label rule reads (lib/signals/lead-rules.ts stormReportIsUrgent), so no rule re-reads the title.
+      data.windDamage = damage;
     } else {
       title = `Tornado reported near ${where}`;
       categories = TORNADO_CATS;

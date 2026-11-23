@@ -16,8 +16,6 @@ function sig(id: number, over: Record<string, unknown> = {}) {
     kind: 'alert',
     title: `Severe thunderstorm warning ${id}`,
     summary: 'Hail up to 1 inch',
-    // u2: the feed labels each alert for the member's trades (profileRow: roofing) and leaves out 'context' rows, so rows carry their trade.
-    categories: ['roofing'],
     url: 'https://api.weather.gov/alerts/x',
     city: 'Smyrna',
     state: 'GA',
@@ -300,19 +298,39 @@ describe('GET /api/m/feed', () => {
       place: 'Smyrna, GA',
     });
     expect(b.items[0].intent).toMatchObject({ key: 'spending', label: 'Money being spent' });
-    // u2: each item carries `opportunity` next to `intent`: a severe thunderstorm warning is Coming soon for a roofer, a roofing permit
-    // is a Market insight (another company likely has the job).
-    expect(Object.keys(nws.opportunity).sort()).toEqual(['label', 'labelText', 'next', 'uncertain', 'why']);
-    expect(nws.opportunity).toMatchObject({ label: 'soon', labelText: 'Coming soon', next: 'Get ready for calls and check damage reports once it passes.' });
-    expect(nws.opportunity.why).toContain('Roofing');
-    expect(nws.opportunity.uncertain).toBe('Damage to homes is not confirmed.');
-    expect(b.items[0].opportunity).toMatchObject({ label: 'intel', labelText: 'Market insight' });
     // Contacts: loaded once, for the caller, with only the caller's own contact-capable signal ids.
     expect(contactCalls).toEqual([{ userId: UA, signalIds: [102], locked: false }]);
     expect(b.items[0].contacts).toEqual([{ role: 'contractor', name: 'Acme Builders LLC', phone: '555-0100' }]);
     expect(b.nextCursor).toBeNull();
     // Every member read was scoped to the caller.
     for (const q of w.members[UA].log.filter((x) => x.table === 'holler_matches')) expect(q.eqOf('user_id')).toBe(UA);
+  });
+  it('review F P1-2b: an $8.4M commercial alteration is shown to a cleaning + janitorial member under janitorial, never "cleaning may follow"', async () => {
+    w.profiles[UA] = profileRow(UA, { categories: ['cleaning', 'janitorial-commercial'] });
+    w.matches = [
+      {
+        id: 9,
+        user_id: UA,
+        created_at: '2026-11-18T12:00:00+00:00',
+        signal: sig(301, {
+          source: 'arcgis-atlanta-permits',
+          kind: 'permit',
+          subtype: 'permit',
+          title: 'Remodel permit in Atlanta',
+          summary: 'Commercial Alteration | $8,400,000 job value | 100 PEACHTREE ST NE, ATLANTA, GA 30303',
+          categories: ['general-contractor', 'cleaning', 'janitorial-commercial'],
+          severity: 1,
+        }),
+      },
+    ];
+    const b = await (await (await feed())(req('/api/m/feed', { token: TA }))).json();
+    const item = b.items[0];
+    expect(item.signalId).toBe(301);
+    expect(JSON.stringify(item.brief)).not.toMatch(/cleaning may follow/i);
+    // round 19 RULES line 59: a commercial alteration is feed only for commercial cleaning (no routed heads-up sentence)
+    expect(item.label).toBe('market_insight');
+    expect(item.brief.why).toMatch(/^A permit was filed nearby/);
+    expect(item.brief.why).not.toMatch(/(?<!commercial )\bcleaning may follow/i);
   });
   it('locked: masked titles, no url, draft, contacts or feedback, and the contacts loader is never called', async () => {
     w.profiles[UA] = profileRow(UA, { trial_ends_at: '2026-01-01T00:00:00Z' });
@@ -529,7 +547,10 @@ describe('GET /api/m/config (public)', () => {
     const b = await res.json();
     expect(res.headers.get('access-control-allow-origin')).toBe('capacitor://localhost');
     expect(b.trialDays).toBe(PUBLIC_PRICES.trialDays);
-    expect(b.trialDays).toBe(14);
+    expect(b.trialDays).toBe(60);
+    expect(b.trialHeadline).toBe(PUBLIC_PRICES.trialHeadline);
+    expect(b.trialHeadline).toBe('2 months free');
+    expect(b.trialPhrase).toBe('60-day free trial');
     expect(b.plans.solo.monthly).toMatchObject({ productId: 'com.localholler.app.solo.monthly', cents: PUBLIC_PRICES.plans.solo.monthly.cents, display: PUBLIC_PRICES.plans.solo.monthly.display });
     expect(b.plans.solo.yearly.productId).toBe('com.localholler.app.solo.yearly');
     expect(b.plans.pro.monthly.productId).toBe('com.localholler.app.pro.monthly');

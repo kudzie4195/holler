@@ -1,17 +1,19 @@
-import { MAX_MATCHES_PER_USER, matchSignals, type MatchProfile, type MatchSignal } from './match';
-import { loadProfiles, readAllPages, type Db } from './store';
+import { alertKeyOf } from './alert-dedupe';
+import { MAX_MATCHES_PER_USER, matchSignals, withoutWorkProfile, type MatchProfile, type MatchSignal } from './match';
+import { contactGateOn, loadProfiles, markStoredContactPaths, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
-import { OPPORTUNITY_DATA_COLUMNS } from './member-opportunity';
 
 /** A signal that happened longer ago than this is matched quietly (notified = true): no email for old news, like the backfill. */
 export const REMATCH_QUIET_AFTER_MS = 3 * 86_400_000;
 const CHUNK = 200;
-/** Everything matchSignals needs, opportunity fields included (kind, title, summary, data aliases). */
-export const SIGNAL_COLUMNS = `id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
+const SIGNAL_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,data';
 
 interface Row extends MatchSignal {
   expires_at: string | null;
+  /** read for the alert log (lib/moat/log) */
+  source?: string | null;
+  kind?: string | null;
 }
 
 export interface RematchOptions {
@@ -67,6 +69,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       }
     }
     if (signals.length === 0) return { created: 0 };
+    // The contact gate applies here too: a permit with no business and no site address is feed-only whoever it is matched to, and whenever.
+    if (await contactGateOn(db)) await markStoredContactPaths(db, signals);
 
     const profiles =
       typeof opts.profiles === 'function' ? await opts.profiles() : (opts.profiles ?? (await loadProfiles(db, now)));
@@ -91,14 +95,19 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
     const nowIso = now.toISOString();
     const byId = new Map(signals.map((s) => [s.id, s]));
     for (const p of profiles) {
-      const fresh = existing.size ? signals.filter((s) => !existing.has(`${p.user_id}\u0000${s.id}`)) : signals;
+      let fresh = existing.size ? signals.filter((s) => !existing.has(`${p.user_id}\u0000${s.id}`)) : signals;
+      // A county row of an alert this member already has through another county row is not matched again (one alert, one match).
+      if (existing.size && fresh.length > 0) {
+        const have = new Set(signals.filter((s) => existing.has(`${p.user_id}\u0000${s.id}`)).map((s) => alertKeyOf(s)).filter((k): k is string => !!k));
+        if (have.size) fresh = fresh.filter((s) => !have.has(alertKeyOf(s) ?? ''));
+      }
       if (fresh.length === 0) continue;
       for (const r of matchSignals(fresh, [p], MAX_MATCHES_PER_USER, now)) {
         const s = byId.get(r.signal_id);
         const t = s ? Date.parse(s.occurred_at) : NaN;
         const quiet = opts.quiet === true || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
-        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null });
+        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
     }
     if (rows.length === 0) return { created: 0 };
@@ -112,7 +121,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       }
     }
     // Outcome log (migration 0015): one coarse row per new pair. Never throws; a repeat pair is ignored by its unique key.
-    await logAlerts(db, alertLogRowsFor(rows, signals, profiles));
+    // A feed-only card (alert_hold) is not an alert, so it is not logged as one.
+    await logAlerts(db, alertLogRowsFor(rows.filter((r) => !r.alert_hold), signals, profiles));
     return { created };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -203,7 +213,8 @@ export async function pruneStaleMatches(db: Db, signalIds: number[], opts: Remat
       const p = byUser.get(m.user_id);
       const s = byId.get(m.signal_id);
       if (!p || !s) continue;
-      if (matchSignals([s], [p], MAX_MATCHES_PER_USER, now).length === 0) stale.push(m.id);
+      // Without the work profile (migration 0027): a new setting applies to new scans only and never removes a card the member already has.
+      if (matchSignals([s], [withoutWorkProfile(p)], MAX_MATCHES_PER_USER, now).length === 0) stale.push(m.id);
     }
     let removed = 0;
     for (const part of chunks(stale)) {

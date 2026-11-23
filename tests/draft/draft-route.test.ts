@@ -39,7 +39,7 @@ async function call(profile: Record<string, unknown>, outcome: unknown = { ok: t
     }),
   }));
   const { POST } = await import('@/app/api/draft/route');
-  const res = await POST(new Request('https://holler.test/api/draft', { method: 'POST', body: JSON.stringify({ matchId: 7 }) }));
+  const res = await POST(new Request('https://holler.test/api/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ matchId: 7 }) }));
   return { res, body: await res.json(), generateDraft, hit, adminUpdate };
 }
 

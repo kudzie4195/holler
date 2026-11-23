@@ -1,11 +1,24 @@
-import { cleanOrgName } from '@/lib/contacts/org';
-import { PERMIT_DOING, PERMIT_KIND_LABELS, permitKindsFromTitle } from '@/lib/signals/opportunity';
+import { contactNameFor } from '@/lib/contacts/names';
+import { GENERIC_LABELS, KIND_DOERS, permitLabelsOf } from '@/lib/signals/permit-routing';
 
 /**
- * "Who's building near you": companies that pulled building permits in the last 30 days, from public permit records.
- * Pure and client-safe (no server imports). Companies only: rows that are not a contractor, have no name, or whose name does not
- * pass cleanOrgName (anything that looks like a person, a phone, an address) are dropped before grouping. No address and no person
- * name is ever returned.
+ * "Who's building near you": companies that pulled building permits in the last 30 days, from public permit records (ported in round 19
+ * UNIFY from origin/r10-integrate 9de8594 and 0cd8361, adapted to this base).
+ *
+ * Pure and client-safe (no server imports). Businesses only: a row is dropped before grouping unless its role is 'contractor' and its
+ * name passes the round 18 contractor business-name rule (builderName below: lib/contacts/names.ts contactNameFor('contractor'), the same
+ * rule lib/outreach/loader.ts applies to every contractor name a member sees). No address, no person, no website is ever returned. The
+ * panel is behind HOLLER_BUILDERS_PANEL_ENABLED (lib/builders/switch.ts, off by default).
+ *
+ * Adapted from the other branch: their permit kinds came from their engine (reference/r10-engine/lib/signals/opportunity.ts: PERMIT_KIND_LABELS, PERMIT_DOING,
+ * permitKindsFromTitle). This base reads the same thing from lib/signals/permit-routing.ts: permitLabelsOf (the work-kind labels a typed
+ * permit title names, lowercased English: 'roof', 'hvac', 'new home') and KIND_DOERS (the trades that do that work). `kinds` are returned
+ * as those label keys; the component prints them through lib/signals/title-i18n.ts permitLabelLang in the member's language.
+ *
+ * "Works in your trade" (relation 'same-trade') comes only from a trade-specific kind on the permit TITLE whose doers include one of the
+ * member's trades. General kinds (new home, new construction and this base's GENERIC_LABELS: remodel, addition, building ...) grant
+ * nothing, so a general contractor is never told a house builder "works in your trade", and a trade tag on the record grants nothing.
+ * This is a read-only panel: it creates no card, no match and no alert.
  */
 
 export const BUILDER_WINDOW_DAYS = 30;
@@ -30,14 +43,15 @@ export interface BuilderRow {
 export interface ActiveBuilder {
   name: string;
   permits: number;
+  /** Work-kind label keys from the permit titles (lowercased English, e.g. 'roof', 'hvac'), most frequent first, at most 3. */
   kinds: string[];
   newest: string;
   phone: string | null;
   relation: BuilderRelation;
 }
 
-const GENERAL_KINDS = new Set(['new-home', 'new-construction', 'addition', 'remodel', 'building', 'structural', 'fit-out']);
-const KIND_LABEL = new Map(PERMIT_KIND_LABELS.map((k) => [k.id, k.label]));
+/** Kinds that name no particular trade: they never make a company "work in your trade". */
+const GENERAL_KINDS: ReadonlySet<string> = new Set(['new home', 'new construction', ...GENERIC_LABELS]);
 const LEGAL_FORMS = new Set(['inc', 'llc', 'co', 'corp', 'company', 'ltd', 'lp', 'incorporated', 'corporation', 'pllc', 'llp', 'pc', 'limited']);
 
 /** Grouping key: case, punctuation, extra spaces and trailing legal forms ignored. Empty string when nothing is left. */
@@ -56,7 +70,7 @@ export function builderKey(name: string): string {
 
 interface Group {
   names: Map<string, number>;
-  permits: Map<string, { ms: number; iso: string; title: string | null; categories: string[] }>;
+  permits: Map<string, { ms: number; iso: string; title: string | null }>;
   phone: string | null;
 }
 
@@ -73,6 +87,17 @@ export function telHref(phone: string | null | undefined): string | null {
   return t ? `${t.startsWith('+') ? '+' : ''}${t.replace(/\D/g, '')}` : null;
 }
 
+/**
+ * The company name to print, or null. Round 19 integration (review defect 5): the round 18 business-name rule of the contractor role
+ * (lib/contacts/names.ts contactNameFor('contractor'), i.e. trade-name.ts cleanContractorName), the same rule that decides which
+ * contractor name a card stores and shows. On the review's 60 names it shows 48 (the old strict check 15; two of those 15 are now refused:
+ * tests/builders/names-60.test.ts), and it refuses every private person of the round 18 contractor matrix (tests/contacts/r18-review2-probes.test.ts).
+ */
+export function builderName(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  return contactNameFor('contractor', raw);
+}
+
 const isAllCaps = (s: string): boolean => /\p{L}/u.test(s) && s === s.toUpperCase();
 
 export function summarizeBuilders(rows: readonly BuilderRow[], memberTrades: readonly string[], now: Date = new Date()): ActiveBuilder[] {
@@ -83,8 +108,7 @@ export function summarizeBuilders(rows: readonly BuilderRow[], memberTrades: rea
 
   for (const r of rows ?? []) {
     if (!r || r.role !== 'contractor') continue;
-    if (typeof r.name !== 'string' || !r.name.trim()) continue;
-    const display = cleanOrgName(r.name);
+    const display = builderName(r.name);
     if (!display) continue;
     const ms = Date.parse(r.occurred_at);
     if (!Number.isFinite(ms) || ms < cutoff || ms > nowMs + DAY_MS) continue;
@@ -94,9 +118,7 @@ export function summarizeBuilders(rows: readonly BuilderRow[], memberTrades: rea
     if (!g) groups.set(key, (g = { names: new Map(), permits: new Map(), phone: null }));
     g.names.set(display, (g.names.get(display) ?? 0) + 1);
     const pid = r.signal_id != null ? `s${r.signal_id}` : `row${anon++}`;
-    if (!g.permits.has(pid)) {
-      g.permits.set(pid, { ms, iso: new Date(ms).toISOString(), title: r.title ?? null, categories: Array.isArray(r.categories) ? r.categories : [] });
-    }
+    if (!g.permits.has(pid)) g.permits.set(pid, { ms, iso: new Date(ms).toISOString(), title: r.title ?? null });
     g.phone ??= usablePhone(r.phone);
   }
 
@@ -109,29 +131,22 @@ export function summarizeBuilders(rows: readonly BuilderRow[], memberTrades: rea
     let newest = permits[0];
     for (const p of permits) {
       if (p.ms > newest.ms) newest = p;
-      const { kinds } = permitKindsFromTitle(p.title);
+      const kinds = [...new Set(permitLabelsOf(p.title) ?? [])];
       for (const k of kinds) kindCounts.set(k, (kindCounts.get(k) ?? 0) + 1);
-      // Same trade: a member trade does the work named by a trade-specific kind. General kinds and unparsed kinds grant nothing.
+      // Same trade: a member trade does the work named by a trade-specific kind. General kinds and unparsed titles grant nothing.
       if (!sameTrade && mine.size > 0) {
         for (const k of kinds) {
           if (GENERAL_KINDS.has(k)) continue;
-          if ((PERMIT_DOING[k] ?? []).some((t) => mine.has(t))) sameTrade = true;
+          if ((KIND_DOERS[k] ?? []).some((t) => mine.has(t))) sameTrade = true;
         }
       }
     }
     const kinds = [...kindCounts.entries()]
       .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
       .slice(0, MAX_KIND_LABELS)
-      .map(([k]) => KIND_LABEL.get(k) ?? k);
+      .map(([k]) => k);
     const name = [...g.names.entries()].sort((a, b) => b[1] - a[1] || Number(isAllCaps(a[0])) - Number(isAllCaps(b[0])) || (a[0] < b[0] ? -1 : 1))[0][0];
-    out.push({
-      name,
-      permits: permits.length,
-      kinds,
-      newest: newest.iso,
-      phone: g.phone,
-      relation: sameTrade ? 'same-trade' : 'other',
-    });
+    out.push({ name, permits: permits.length, kinds, newest: newest.iso, phone: g.phone, relation: sameTrade ? 'same-trade' : 'other' });
   }
 
   out.sort((a, b) => b.permits - a.permits || (a.newest < b.newest ? 1 : a.newest > b.newest ? -1 : 0) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

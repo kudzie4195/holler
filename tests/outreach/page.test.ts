@@ -74,8 +74,7 @@ import AppHome from '@/app/app/page';
 
 const row = (id: number, s: Record<string, unknown>) => ({
   id: id * 100, status: 'new', distance_mi: 2, draft: null, created_at: iso(-60_000),
-  // u2: the feed labels rows for the member's trades and hides 'context' rows, so the permit carries its trade.
-  signal: { id, kind: 'permit', source: 'socrata-chicago-permits', categories: ['roofing'], summary: null, url: null, city: 'Atlanta', state: 'GA', county: 'Fulton County', zip: '30301', occurred_at: iso(-3_600_000), expires_at: null, title: `Signal ${id}`, ...s },
+  signal: { id, kind: 'permit', source: 'socrata-chicago-permits', summary: null, url: null, city: 'Atlanta', state: 'GA', county: 'Fulton County', zip: '30301', occurred_at: iso(-3_600_000), expires_at: null, title: `Signal ${id}`, ...s },
 });
 
 async function renderPage() {

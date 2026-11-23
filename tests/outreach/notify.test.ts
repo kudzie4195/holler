@@ -36,15 +36,17 @@ describe('digest: Contact line', () => {
 
 describe('GET /api/cron/notify: the email names an organisation and nothing else', () => {
   const sent: { html: string; text: string }[] = [];
+  const marked: unknown[][] = [];
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.doUnmock('@/lib/outreach/loader');
     vi.doUnmock('@/lib/supabase/admin');
     vi.doUnmock('@/lib/email');
     sent.length = 0;
+    marked.length = 0;
   });
 
-  function adminFake(matches: unknown[]) {
+  function adminFake(matches: unknown[], profileExtra: Record<string, unknown> = {}) {
     return {
       from(table: string) {
         const q: Record<string, unknown> = {};
@@ -52,12 +54,11 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
         for (const m of ['select', 'eq', 'order']) q[m] = () => q;
         q.range = () => Promise.resolve({ data: table === 'holler_matches' ? matches : [], error: null });
         q.update = (p: unknown) => ((patch = p), q);
-        q.in = () =>
+        q.in = (_col: unknown, ids: unknown) =>
           patch
-            ? Promise.resolve({ error: null })
+            ? (marked.push(ids as unknown[]), Promise.resolve({ error: null }))
             : Promise.resolve({
-                // u2: the digest labels each match for the member's trades (gutters for the re-roof permits, commercial cleaning for a licence).
-                data: [{ user_id: 'u1', business_name: 'Acme', categories: ['siding-gutters', 'janitorial-commercial'], alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z' }],
+                data: [{ user_id: 'u1', business_name: 'Acme', alert_email: true, subscription_status: 'active', trial_ends_at: null, last_notified_at: null, email_verified_at: '2026-11-01T00:00:00Z', created_at: '2026-11-01T00:00:00Z', ...profileExtra }],
                 error: null,
               });
         q.then = (res: (v: unknown) => unknown) => Promise.resolve({ error: null }).then(res);
@@ -67,11 +68,11 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     };
   }
 
-  async function run(matches: unknown[], loaderImpl: (db: unknown, userId: string, ids: number[]) => Promise<Map<number, unknown[]>>) {
+  async function run(matches: unknown[], loaderImpl: (db: unknown, userId: string, ids: number[]) => Promise<Map<number, unknown[]>>, profileExtra: Record<string, unknown> = {}) {
     vi.resetModules();
     vi.stubEnv('CRON_SECRET', 's3cret');
     vi.doMock('server-only', () => ({}));
-    vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminFake(matches) }));
+    vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminFake(matches, profileExtra) }));
     // The real loader (lib/contacts/load.ts) is another unit's file: inject a fake through the same wrapper the route uses.
     vi.doMock('@/lib/outreach/loader', async (orig) => {
       const real = await orig<typeof import('@/lib/outreach/loader')>();
@@ -89,8 +90,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     id: id * 10,
     user_id: 'u1',
     created_at: new Date(NOW.getTime() - 60_000).toISOString(),
-    // u2: a re-roof permit title, which is Coming soon for a gutter company (an untitled permit with no trade label is context).
-    signal: { id, kind: 'permit', source: 'socrata-chicago-permits', title: `Roof permit in Atlanta #${id}`, categories: ['roofing'], url: 'https://example.com', city: 'Atlanta', state: 'GA', occurred_at: new Date(NOW.getTime() - 3_600_000).toISOString(), ...over },
+    signal: { id, kind: 'permit', source: 'socrata-chicago-permits', title: `Permit ${id}`, url: 'https://example.com', city: 'Atlanta', state: 'GA', occurred_at: new Date(NOW.getTime() - 3_600_000).toISOString(), ...over },
   });
 
   it('one Contact line per organisation alert, no address, phone or email, none for other alerts', async () => {
@@ -123,16 +123,16 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     });
     expect(res.status).toBe(200);
     expect(sent).toHaveLength(1);
-    expect(sent[0].html).toContain('Roof permit in Atlanta #1');
+    expect(sent[0].html).toContain('Permit 1');
     expect(sent[0].html).not.toContain('Contact:');
   });
-  // u2: was 'the email intent label comes from the signal subtype: a business licence reads "Money being spent"'. The digest now
-  // labels by opportunity for the member's trade, and a city-work 311 request is context, so it is not mailed at all.
-  it('the email label comes from the opportunity: a business licence reads "Coming soon" with its next step; a pothole request is left out', async () => {
+  it('the email carries the brief per item and no intent block (changed deliberately, brief card v1 redo); a business licence and a 311 each read their own brief', async () => {
     const res = await run(
       [
-        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence', summary: 'Retail Food Establishment | Preparation of Food and Dining on Premises With Seating' }),
-        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }),
+        sig(1, { kind: 'civic', source: 'socrata-chicago-business', subtype: 'business', title: 'New business licence' }),
+        // round 19 RULES line 10: a 311 request alerts only through a named rule (a Cambridge-style pipe-boundary question is one)
+        sig(2, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Sewer pipe boundary question' }),
+        sig(3, { kind: 'civic', source: 'socrata-chicago-311', subtype: '311', title: 'Pothole request' }), // context: never mailed
       ],
       async () => new Map(),
     );
@@ -140,12 +140,36 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(sent).toHaveLength(1);
     const html = sent[0].html;
     const text = sent[0].text;
-    expect(html).toContain('Coming soon');
-    expect(text).toContain('Coming soon. A new business license was issued here');
-    expect(text).toContain('Next step: Introduce yourself while the business is getting set up.');
-    expect(text).toContain('Not known: ');
     expect(html).not.toContain('Money being spent');
-    expect(text).not.toContain('Pothole request');
-    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('Coming soon. A new business'));
+    expect(text).not.toContain('Money being spent');
+    expect(html).not.toContain('Might need work');
+    expect(html).toContain('Sewer pipe boundary question');
+    expect(html).not.toContain('Pothole request');
+    // the licence's brief names a new business license, the 311's brief names the request
+    expect(text).toContain('A new business license was filed nearby');
+    expect(text).toContain('the license was filed');
+    expect(text).toContain('it was filed; the record does not show the city confirmed it');
+    expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
+  });
+
+  it('a market_insight match (a roof permit for a roofer) is stored for the feed but never mailed, and is marked notified', async () => {
+    const res = await run(
+      [sig(1, { title: 'Roof permit in Atlanta', categories: ['roofing'] }), sig(2, { title: 'Wind damage reported near Smyrna', source: 'spc', kind: 'report', categories: ['roofing'] })],
+      async () => new Map(),
+      { categories: ['roofing'] },
+    );
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(1);
+    const mail = sent[0].html + sent[0].text;
+    expect(mail).toContain('Wind damage reported near Smyrna');
+    expect(mail).not.toContain('Roof permit in Atlanta');
+    expect(marked.flat()).toContain(10); // the permit's match id (signal 1 * 10): marked notified without a mail
+  });
+
+  it('only market_insight matches: no email at all, the matches are marked notified', async () => {
+    const res = await run([sig(1, { title: 'Roof permit in Atlanta', categories: ['roofing'] })], async () => new Map(), { categories: ['roofing'] });
+    expect(res.status).toBe(200);
+    expect(sent).toHaveLength(0);
+    expect(marked.flat()).toContain(10);
   });
 });

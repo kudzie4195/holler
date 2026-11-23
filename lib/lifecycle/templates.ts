@@ -1,11 +1,15 @@
 import { escapeHtml, contactAddress, type Rendered } from '../email/templates';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
-import { OPPORTUNITY_LABEL, OPPORTUNITY_RANK, type Opportunity } from '../signals/opportunity';
+import { INTENT_LABEL, intentOf } from '../signals/intent';
+import { OPPORTUNITY_CHIP, type OpportunityLabel } from '../signals/lead-rules';
 import { PLAN_LIMITS, TIER_NAMES, type Tier } from '../plan/limits';
 // Prices come from the one public price module (lib/plan/public-prices.ts, built from the price table), never from this file.
 import { ENTITLEMENT_FOR_TIER, PUBLIC_PRICES } from '../plan/public-prices';
 import { WINDOWS } from './select';
 import { EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from '../email/theme';
+import { hasKey, localizeDate, t, type Lang } from '../i18n';
+import { localizeTitle } from '../signals/title-i18n';
+import { planNameEs } from '../plan/price-copy-es';
 
 /**
  * The three trial emails. Pure: every number and name in them is passed in or read from the plan tables.
@@ -24,22 +28,16 @@ export interface AlertItem {
   subtype?: string | null;
   /** 1 to 3. Used by the trial-ending ranking only. */
   severity?: number | null;
-  /**
-   * The record's opportunity for the member's trades (lib/lifecycle/store.ts matchesOf with the profile). Printed as the label
-   * ("Act now", "Coming soon", "Market insight") after the place and date; no label when absent. 'context' rows are never listed.
-   */
-  opportunity?: Opportunity | null;
-}
-
-/** Rank of an item's label for ordering (Act now highest); an item without one ranks lowest. */
-export function opportunityRankOf(i: Pick<AlertItem, 'opportunity'>): number {
-  return i.opportunity ? OPPORTUNITY_RANK[i.opportunity] : -1;
+  /** This base's label for the member (lib/lifecycle/store.ts matchesOf with trades). Printed as the feed chip ("Act now"). */
+  label?: OpportunityLabel | null;
 }
 
 export interface TypeLine {
   /** Already pluralized by the caller, for example "building permits". */
   label: string;
   count: number;
+  /** The record type (lib/preview/recent.ts byType key). Lets a Spanish email name it in Spanish (recent.type.* keys). Optional. */
+  key?: string;
 }
 
 interface Common {
@@ -48,6 +46,8 @@ interface Common {
   feedUrl: string;
   plansUrl: string;
   unsubscribeUrl: string;
+  /** The member's language (round 18 ES). 'en' or absent: the English emails, exactly as before. */
+  lang?: Lang;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -76,7 +76,8 @@ function placeOf(i: AlertItem): string {
 }
 
 function metaOf(i: AlertItem): string {
-  const label = i.opportunity && i.opportunity !== 'context' ? OPPORTUNITY_LABEL[i.opportunity] : '';
+  // The feed's chip when the member's label is known (round 19 review, defect 9); the record-type wording only for an unlabelled item.
+  const label = i.label ? OPPORTUNITY_CHIP[i.label] : INTENT_LABEL[intentOf({ kind: i.kind, subtype: i.subtype, source: i.source ?? '' })];
   return [placeOf(i), shortDate(i.occurredAt), label].filter(Boolean).join(', ');
 }
 
@@ -145,6 +146,122 @@ function shell(c: Common, subject: string, body: string, bodyText: string): Rend
   return { subject, html, text };
 }
 
+// ---- the same three emails in another language (round 18 ES) --------------------------------------------------------------------
+// Same structure, numbers and links as the English emails below, which are left as they were. Titles Holler composed are rebuilt in the
+// language (lib/signals/title-i18n.ts); text a source wrote stays as written. Every word from the dictionary (life.* keys).
+
+/** Numbers keep the US grouping in both languages ("1,200"): the prices on the same page are US dollars written the US way. */
+const countLang = (_lang: Lang, n: number) => n.toLocaleString('en-US');
+
+function metaOfLang(i: AlertItem, lang: Lang): string {
+  // Round 19 integration: the same rule as the English metaOf (review defect 9): the feed's chip in the member's language (chip.* keys,
+  // as on the cards) when the label is known, the record-type word only for an unlabelled item.
+  const intent = intentOf({ kind: i.kind, subtype: i.subtype, source: i.source ?? '' });
+  const chipKey = i.label ? `chip.${i.label}` : '';
+  const label = chipKey && hasKey(chipKey) ? t(lang, chipKey) : t(lang, `intent.${intent}`);
+  return [placeOf(i), localizeDate(shortDate(i.occurredAt), lang) ?? '', label].filter(Boolean).join(', ');
+}
+
+function titleLang(i: AlertItem, lang: Lang): string {
+  return clip(localizeTitle(i.title, lang, i.source ?? undefined), MAX_TITLE_CHARS);
+}
+
+function itemsHtmlLang(items: AlertItem[], lang: Lang): string {
+  const li = items
+    .map((i) => `<li style="margin:0 0 12px 0;padding:0;list-style:none"><strong style="font-size:16px">${escapeHtml(titleLang(i, lang))}</strong> <small style="${S.small}">(${escapeHtml(metaOfLang(i, lang))})</small></li>`)
+    .join('');
+  return `<ul style="margin:0 0 8px 0;padding:0">${li}</ul>`;
+}
+
+function itemsTextLang(items: AlertItem[], lang: Lang): string {
+  return items.map((i) => `${titleLang(i, lang)} (${metaOfLang(i, lang)})`).join('\n');
+}
+
+function shellLang(c: Common, lang: Lang, subject: string, body: string, bodyText: string): Rendered {
+  const a = contactAddress();
+  const eyebrow = t(lang, 'email.eyebrow', { name: plain(c.businessName) });
+  const html =
+    wrapOpen(560, lang) +
+    `<h1 style="${S.h1};font-size:24px;margin:0 0 16px 0"><small style="display:block;margin:0 0 6px 0;${S.eyebrow};font-weight:400;line-height:1.5">${escapeHtml(eyebrow)}</small>${escapeHtml(subject)}</h1>` +
+    body +
+    `<p style="${S.small};margin-top:32px">${escapeHtml(t(lang, 'life.footer'))} ` +
+    `<a href="${escapeHtml(c.unsubscribeUrl)}" style="${S.mutedLink}">${escapeHtml(t(lang, 'life.stop'))}</a>.` +
+    (a ? ` ${escapeHtml(t(lang, 'email.questions'))} <a href="mailto:${escapeHtml(a)}" style="${S.mutedLink}">${escapeHtml(t(lang, 'email.contact_us'))}</a>.` : '') +
+    `</p>` +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text =
+    `${eyebrow}: ${subject}\n\n${bodyText}\n` +
+    `${t(lang, 'life.footer')}\n${t(lang, 'life.stop')}: ${c.unsubscribeUrl}\n` +
+    (a ? `${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${a}\n` : '') +
+    `\n${postalFooterText(lang)}\n`;
+  return { subject, html, text };
+}
+
+function welcomeMatchesLang(o: WelcomeMatches, lang: Lang): Rendered {
+  const items = o.items.slice(0, 5);
+  const floor = o.capped ? t(lang, 'life.at_least') : '';
+  const lead = o.total === 1 && !o.capped ? t(lang, 'life.w.open_one') : t(lang, 'life.w.open_many', { floor, n: countLang(lang, o.total) });
+  const shown = items.length === 0 ? '' : items.length === 1 && o.total === 1 ? t(lang, 'life.w.here_one') : t(lang, 'life.w.here_many', { n: items.length });
+  const caveat = t(lang, 'life.w.caveat');
+  const source = t(lang, 'life.w.source');
+  const tail = o.total > items.length ? t(lang, 'life.w.tail') : '';
+  const open = t(lang, 'email.open_feed');
+  const body = para(lead) + (shown ? para(shown) : '') + (items.length ? itemsHtmlLang(items, lang) : '') + para(source) + para(caveat) + (tail ? para(tail) : '') + button(o.feedUrl, open);
+  const bodyText = `${lead}\n\n${shown ? `${shown}\n\n` : ''}${items.length ? `${itemsTextLang(items, lang)}\n\n` : ''}${source}\n\n${caveat}\n\n${tail ? `${tail}\n\n` : ''}${open}: ${o.feedUrl}\n`;
+  return shellLang(o, lang, t(lang, 'life.w.subject'), body, bodyText);
+}
+
+function typeLabelLang(l: TypeLine, lang: Lang): string {
+  const k = l.key ? `recent.type.${l.key}.${l.count === 1 ? 'one' : 'many'}` : '';
+  return k && hasKey(k) ? t(lang, k) : l.label;
+}
+
+function welcomeQuietLang(o: WelcomeQuiet, lang: Lang): Rendered {
+  const lines = o.lines.slice(0, 4);
+  const floor = o.capped ? t(lang, 'life.at_least') : '';
+  const lead = t(lang, 'life.q.first');
+  const parts = lines.map((l) => `${typeLabelLang(l, lang)} (${countLang(lang, l.count)})`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ${t(lang, 'life.and')} ${parts[parts.length - 1]}` : (parts[0] ?? '');
+  const watch = t(lang, o.total === 1 && !o.capped ? 'life.q.watch_one' : 'life.q.watch_many', { days: o.days, floor, n: countLang(lang, o.total), list });
+  const how = t(lang, 'life.q.how');
+  const open = t(lang, 'email.open_feed');
+  const body = para(lead) + para(watch) + para(how) + button(o.feedUrl, open);
+  const bodyText = `${lead}\n\n${watch}\n\n${how}\n\n${open}: ${o.feedUrl}\n`;
+  return shellLang(o, lang, t(lang, 'life.w.subject'), body, bodyText);
+}
+
+function planSentenceLang(p: PlanLine, lang: Lang): string {
+  const areas = t(lang, p.areas === 1 ? 'life.p.area_one' : 'life.p.area_many', { n: p.areas });
+  const kw = p.keywords > 0 ? t(lang, 'life.p.kw', { n: p.keywords }) : '';
+  return t(lang, 'life.p.line', { plan: planNameEs(p.tier), areas, trades: p.trades, kw, monthly: p.monthly, yearly: p.yearly });
+}
+
+function trialEndingLang(o: TrialEnding, lang: Lang): Rendered {
+  const items = o.items.slice(0, 3);
+  const plans = o.plans ?? planLines();
+  const subject = t(lang, 'life.e.subject', { n: TRIAL_ENDING_DAYS });
+  const lead = t(lang, 'life.e.first', { n: TRIAL_ENDING_DAYS });
+  const found = items.length === 0 ? t(lang, 'life.e.none') : items.length === 1 ? t(lang, 'life.e.one') : t(lang, 'life.e.many', { n: items.length });
+  const plansIntro = t(lang, 'life.e.plans');
+  const renew = t(lang, 'life.e.renew');
+  const pick = t(lang, 'app.pick_plan');
+  const body = para(lead) + para(found) + (items.length ? itemsHtmlLang(items, lang) : '') + para(plansIntro) + plans.map((p) => para(planSentenceLang(p, lang))).join('') + para(renew) + button(o.plansUrl, pick);
+  const bodyText = `${lead}\n\n${found}\n\n${items.length ? `${itemsTextLang(items, lang)}\n\n` : ''}${plansIntro}\n\n${plans.map((p) => planSentenceLang(p, lang)).join('\n\n')}\n\n${renew}\n\n${pick}: ${o.plansUrl}\n`;
+  return shellLang(o, lang, subject, body, bodyText);
+}
+
+function trialEndedLang(o: TrialEnded, lang: Lang): Rendered {
+  const floor = o.capped ? t(lang, 'life.at_least') : '';
+  const lead = t(lang, 'life.d.first');
+  const since = o.missed > 0 ? t(lang, o.missed === 1 && !o.capped ? 'life.d.since_one' : 'life.d.since_many', { floor, n: countLang(lang, o.missed) }) : '';
+  const pick = t(lang, 'app.pick_plan');
+  const body = para(lead) + (since ? para(since) : '') + button(o.plansUrl, pick);
+  const bodyText = `${lead}\n\n${since ? `${since}\n\n` : ''}${pick}: ${o.plansUrl}\n`;
+  return shellLang(o, lang, t(lang, 'life.d.subject'), body, bodyText);
+}
+
 // ---- welcome ----------------------------------------------------------------------------------------------------------------
 export const WELCOME_SUBJECT = 'What we found near you';
 
@@ -158,6 +275,7 @@ export interface WelcomeMatches extends Common {
 }
 
 export function renderWelcomeMatches(o: WelcomeMatches): Rendered {
+  if (o.lang && o.lang !== 'en') return welcomeMatchesLang(o, o.lang);
   const items = o.items.slice(0, 5);
   const num = count(o.total, 'record', 'records');
   const verb = o.total === 1 && !o.capped ? 'matches' : 'match';
@@ -190,6 +308,7 @@ export interface WelcomeQuiet extends Common {
 }
 
 export function renderWelcomeQuiet(o: WelcomeQuiet): Rendered {
+  if (o.lang && o.lang !== 'en') return welcomeQuietLang(o, o.lang);
   const lines = o.lines.slice(0, 4);
   const floor = o.capped ? 'at least ' : '';
   const lead = 'Your account is a day old, and nothing has matched your trades and area yet.';
@@ -212,9 +331,16 @@ export function renderWelcomeQuiet(o: WelcomeQuiet): Rendered {
 }
 
 // ---- trial-ending ----------------------------------------------------------------------------------------------------------------
-/** Whole days the trial-ending email talks about: the middle of its window (36 to 60 hours before the end) is 48 hours. Not a trial length. */
-export const TRIAL_ENDING_DAYS = Math.round((WINDOWS.trial_ending.from + WINDOWS.trial_ending.to) / 2 / 24);
-export const TRIAL_ENDING_SUBJECT = `Your trial ends in ${TRIAL_ENDING_DAYS} days`;
+/** Whole days the trial-ending email normally talks about: it goes at the first hourly run inside its window, 84 to 60 hours out. Not a trial length. */
+export const TRIAL_ENDING_DAYS = 3;
+/** The days the email states for the hours actually left: 3 from 60 hours up, 2 below (a late send after missed runs). */
+export function trialEndingDays(hoursLeft: number): number {
+  return hoursLeft >= 60 ? 3 : 2;
+}
+export const trialEndingSubject = (days: number = TRIAL_ENDING_DAYS) => `Your trial ends in ${days} days`;
+export const TRIAL_ENDING_SUBJECT = trialEndingSubject(TRIAL_ENDING_DAYS);
+// The window this email is sent in (lib/lifecycle/select.ts); kept here so the copy and the window cannot drift apart unnoticed.
+export const TRIAL_ENDING_WINDOW_HOURS = WINDOWS.trial_ending;
 
 export interface PlanLine {
   tier: Tier;
@@ -247,13 +373,17 @@ function planSentence(p: PlanLine): string {
 export interface TrialEnding extends Common {
   /** The member's best alerts, already ranked, at most 3. May be empty. */
   items: AlertItem[];
+  /** Whole days left as stated in the email (trialEndingDays). Default TRIAL_ENDING_DAYS. */
+  daysLeft?: number;
   plans?: PlanLine[];
 }
 
 export function renderTrialEnding(o: TrialEnding): Rendered {
+  if (o.lang && o.lang !== 'en') return trialEndingLang(o, o.lang);
   const items = o.items.slice(0, 3);
   const plans = o.plans ?? planLines();
-  const lead = `Your free trial ends in about ${TRIAL_ENDING_DAYS} days, and after that your alerts stop unless you pick a plan.`;
+  const days = o.daysLeft ?? TRIAL_ENDING_DAYS;
+  const lead = `Your free trial ends in about ${days} days, and after that your alerts stop unless you pick a plan.`;
   const found =
     items.length === 0
       ? 'Holler has not matched anything to your trades and area yet, and it will keep watching until the trial ends.'
@@ -272,7 +402,7 @@ export function renderTrialEnding(o: TrialEnding): Rendered {
     button(o.plansUrl, 'Pick a plan');
   const bodyText =
     `${lead}\n\n${found}\n\n${items.length ? `${itemsText(items)}\n\n` : ''}${plansIntro}\n\n${plans.map(planSentence).join('\n\n')}\n\n${renew}\n\nPick a plan: ${o.plansUrl}\n`;
-  return shell(o, TRIAL_ENDING_SUBJECT, body, bodyText);
+  return shell(o, trialEndingSubject(days), body, bodyText);
 }
 
 // ---- trial-ended ----------------------------------------------------------------------------------------------------------------
@@ -285,6 +415,7 @@ export interface TrialEnded extends Common {
 }
 
 export function renderTrialEnded(o: TrialEnded): Rendered {
+  if (o.lang && o.lang !== 'en') return trialEndedLang(o, o.lang);
   const lead = 'Your free trial has ended, so Holler has paused your alerts, and a plan is all it takes to turn them back on.';
   const since =
     o.missed > 0

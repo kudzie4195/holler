@@ -1,4 +1,3 @@
-import type { OpportunityDto } from '@/lib/signals/member-opportunity';
 export interface CheckItem {
   id: number;
   kind: string;
@@ -11,18 +10,6 @@ export interface CheckItem {
   lon?: number | null;
   occurredAt: string;
   severity: number;
-  /** The record's opportunity for the chosen trade (lib/check/load.ts). Context rows are never listed. */
-  opportunity?: OpportunityDto | null;
-}
-
-/** Counts per label (Act now, Coming soon, Market insight) of the items that will be shown. Pure. */
-export function opportunityCounts(items: readonly Pick<CheckItem, 'opportunity'>[]): Record<'act' | 'soon' | 'intel', number> {
-  const out = { act: 0, soon: 0, intel: 0 };
-  for (const it of items) {
-    const l = it.opportunity?.label;
-    if (l === 'act' || l === 'soon' || l === 'intel') out[l]++;
-  }
-  return out;
 }
 
 export interface CheckGroup {
@@ -34,6 +21,7 @@ export interface CheckGroup {
 import { haversineMi } from '@/lib/geo';
 import { isUpcoming, toMs } from '@/lib/time';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
+import { t, type Lang } from '@/lib/i18n';
 
 export const MAX_ITEMS = 20;
 export const MAX_PER_GROUP = 8;
@@ -66,8 +54,8 @@ export function distanceFrom(origin: { lat: number; lon: number } | undefined, i
  * The place line of a record: its "City, ST", or for a record whose position is a stand-in (Cobb County) the plain note
  * "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." (approx-location.ts).
  */
-export function placeLine(it: Pick<CheckItem, 'source' | 'place'>): string | null {
-  if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null });
+export function placeLine(it: Pick<CheckItem, 'source' | 'place'>, lang: Lang = 'en'): string | null {
+  if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null, source: it.source }, lang);
   return it.place;
 }
 
@@ -102,9 +90,8 @@ function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: n
  * their newest item that is not in the future, so a far-off event never pins its group to the top; a group with only upcoming items goes
  * after the groups that have recent items. `origin` is the ZIP's own position; without it nothing counts as local.
  */
-export function groupItems(items: CheckItem[], now: number = Date.now(), origin?: { lat: number; lon: number }): CheckGroup[] {
-  // A record that is only 'context' for the trade is never listed as an alert (lib/check/load.ts already leaves them out).
-  const sorted = items.filter((i) => i.opportunity?.label !== 'context').sort((a, b) => compareItems(a, b, now, origin));
+export function groupItems(items: CheckItem[], now: number = Date.now(), origin?: { lat: number; lon: number }, lang: Lang = 'en'): CheckGroup[] {
+  const sorted = items.slice().sort((a, b) => compareItems(a, b, now, origin));
   const buckets = new Map<string, CheckItem[]>();
   let total = 0;
   for (const it of sorted) {
@@ -116,7 +103,7 @@ export function groupItems(items: CheckItem[], now: number = Date.now(), origin?
     buckets.set(id, list);
     total++;
   }
-  const titleOf = (id: string) => GROUPS.find((g) => g.id === id)?.title ?? 'Other records';
+  const titleOf = (id: string) => (lang !== 'en' ? t(lang, `chk.group.${GROUPS.some((g) => g.id === id) ? id : 'other'}` as 'chk.group.other') : (GROUPS.find((g) => g.id === id)?.title ?? 'Other records'));
   const newestPastMs = (list: CheckItem[]) => {
     const past = list.filter((i) => !isUpcoming(i.occurredAt, now)).map((i) => toMs(i.occurredAt));
     return past.length ? Math.max(...past) : -Infinity;

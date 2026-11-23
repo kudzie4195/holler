@@ -1,10 +1,12 @@
 import { siteUrl } from '@/lib/env';
 import { computeAccess } from '@/lib/auth/access';
-import { matchScope } from '@/lib/plan/scope';
 import { adminOrNull } from '@/lib/mobile/admin';
+import { matchScope } from '@/lib/plan/scope';
 import { requireMember } from '@/lib/mobile/auth';
 import { buildAlerts, readOneMatch } from '@/lib/mobile/feed';
 import { fail, ok, preflight } from '@/lib/mobile/http';
+import { repairShortTrial } from '@/lib/auth/trial';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const METHODS = 'GET';
 
@@ -22,16 +24,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ signalId: strin
   if (!m.ok) return m.response;
   const signalId = /^[1-9][0-9]{0,15}$/.test(raw) ? Number(raw) : NaN;
   if (!Number.isSafeInteger(signalId)) return fail(req, METHODS, 'not_found');
-  const { user, db, profile } = m.ctx;
+  const { user, db, profile: loaded } = m.ctx;
+  // Review r3 D3: the same signed-in repair as GET /api/m/me, so a request that arrives before (or beside) /me is not answered locked.
+  const repairedEnd = await repairShortTrial(user, loaded, createAdminClient);
+  const profile = loaded && repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
 
   const now = Date.now();
   const locked = computeAccess(profile!, now).locked;
-  // The trades and keyword watches the plan covers: each alert carries its opportunity for them, and context rows are left out.
-  const scope = matchScope(profile!);
   const one = await readOneMatch(db, user.id, signalId);
   if (one.error) return fail(req, METHODS, 'server_error');
   if (!one.row) return fail(req, METHODS, 'not_found');
-  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: scope.categories, keywords: scope.keywords });
+  const [item] = await buildAlerts([one.row], { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories });
   if (!item || item.signalId !== signalId) return fail(req, METHODS, 'not_found');
   return ok(req, METHODS, { locked, item });
 }

@@ -13,16 +13,24 @@ export function isHollerMetadata(metadata: Record<string, string> | null | undef
   return metadata?.app === APP_TAG;
 }
 
+import { TRIAL_DAYS } from '../auth/membership';
+
 const DAY_MS = 86_400_000;
 /** Stripe Checkout requires subscription_data.trial_end to be at least 48 hours out (see Stripe SDK types). */
 const MIN_TRIAL_END_MS = 2 * DAY_MS + 5 * 60_000;
+/**
+ * Never pass Stripe a trial longer than Holler's own (TRIAL_DAYS, 60 days): a row can never legitimately end later than that (the
+ * billing guard caps a member's insert at TRIAL_DAYS plus 5 minutes), so a later value is bad data and is cut back. This also keeps
+ * every trial far inside Stripe's own limit (a trial period must be 730 days or less).
+ */
+export const MAX_TRIAL_MS = TRIAL_DAYS * DAY_MS;
 
 export type TrialParams = { trial_end: number } | { trial_period_days: number } | Record<string, never>;
 
 /**
  * Keeps the app-side free trial intact when someone subscribes early: no charge until trial_ends_at.
  * - trial already over: charge now (no trial params)
- * - at least 48 h left: exact trial_end timestamp
+ * - at least 48 h left: exact trial_end timestamp (a full 60-day trial included; more than TRIAL_DAYS left is cut to now + TRIAL_DAYS)
  * - less than 48 h left: Checkout rejects trial_end, so use whole trial_period_days (rounded up, minimum 1),
  *   which can only ever add a few free hours, never charge inside the trial.
  */
@@ -31,6 +39,8 @@ export function trialParams(trialEndsAt: string | null | undefined, now: number 
   if (!Number.isFinite(end)) return {};
   const left = end - now;
   if (left <= 0) return {};
+  // The guard allows a row to end up to TRIAL_DAYS plus 5 minutes out (clock skew between the app and the database): that is not cut.
+  if (left > MAX_TRIAL_MS + 5 * 60_000) return { trial_end: Math.ceil((now + MAX_TRIAL_MS) / 1000) };
   if (left >= MIN_TRIAL_END_MS) return { trial_end: Math.ceil(end / 1000) };
   return { trial_period_days: Math.max(1, Math.ceil(left / DAY_MS)) };
 }

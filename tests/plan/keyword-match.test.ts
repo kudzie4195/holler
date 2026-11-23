@@ -2,7 +2,7 @@
 // record text normalised once, per-scan phrase cache) gives exactly the rows the one-pair matcher gives.
 import { describe, expect, it } from 'vitest';
 import { containsPhrase, foldText, keywordHit, keywordProblem, searchText, storableExtraAreas } from '@/lib/plan';
-import { hitLabel, matchOne, matchSignals, pickHits, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
+import { matchOne, matchSignals, pickHits, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 
 describe('keyword phrase matching', () => {
   it('folds accents on both sides', () => {
@@ -64,7 +64,6 @@ describe('matchSignals (fast path) agrees with matchOne', () => {
   const base: MatchProfile = { user_id: 'p', categories: ['roofing'], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 25, plan: 'pro', subscription_status: 'active' };
   const sig = (id: number, o: Partial<MatchSignal> = {}): MatchSignal => ({
     id,
-    kind: 'permit',
     categories: ['plumbing'],
     lat: 33.76,
     lon: -84.4,
@@ -98,7 +97,7 @@ describe('matchSignals (fast path) agrees with matchOne', () => {
       pickHits(
         signals.flatMap((s) => {
           const m = matchOne(s, p);
-          return m ? [{ s, distance_mi: m.distance_mi, label: hitLabel(s, p) }] : [];
+          return m ? [{ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade }] : [];
         }),
         now.getTime(),
       ).map((h) => ({ user_id: p.user_id, signal_id: h.s.id, distance_mi: h.distance_mi })),

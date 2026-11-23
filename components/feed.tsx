@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { hardNavigate } from './format';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Badge, StatusBadge } from './badge';
@@ -8,14 +9,19 @@ import { Card } from './card';
 import { EmptyState } from './empty-state';
 import { getRequestReplyStates, setMatchStatus } from '@/app/app/actions';
 import { RequestReply, type RequestReplyState } from './request-reply';
-import { sourceLabel } from './signal-meta';
 import { CADENCE_SHORT } from '@/lib/seo/cadence';
+import { t, type Lang } from '@/lib/i18n';
+import { localizeTitle } from '@/lib/signals/title-i18n';
+import { localizeSummary } from '@/lib/signals/summary-i18n';
 import type { ContactInput } from '@/lib/contacts/types';
 import { WhoToContact, WhoToContactLocked } from './feed/who-to-contact';
 import { FeedbackButtons } from './feed/feedback-buttons';
-import { IntentNote } from './feed/intent-note';
+import { OpportunityChip } from './feed/opportunity-chip';
+import { BriefBlock } from './feed/brief-block';
+import { summaryForCard } from '@/lib/signals/brief';
 import type { FeedbackState } from '@/lib/feedback/types';
-import { OPPORTUNITY_GROUP_LABEL, SHOWN_OPPORTUNITIES, type OpportunityDto } from '@/lib/signals/member-opportunity';
+import type { OpportunityLabel } from '@/lib/signals/lead-rules';
+import type { AlertHold } from '@/lib/signals/alert-gate';
 
 export type MatchStatus = 'new' | 'saved' | 'done' | 'dismissed';
 
@@ -37,13 +43,24 @@ export interface FeedItem {
   state?: string | null;
   county?: string | null;
   zip?: string | null;
-  /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label when there is no opportunity. */
+  /** data.subtype of the record ('permit', '311', 'business', ...). Used for the intent label. */
   subtype?: string | null;
+  /** Opportunity label for this member's trades (lib/signals/lead-rules.ts). Drives the chip and the order. Absent: no chip. */
+  label?: OpportunityLabel;
   /**
-   * The record's opportunity for this member's trades (lib/signals/member-opportunity.ts): label chip, why, next step, what is not
-   * known. The page never sends a 'context' row. Null for a locked member.
+   * Feed-only reason (lib/signals/alert-gate.ts, migration 0027): the card was not sent as an alert. Shown instead of the label chip
+   * ("Background", "Below your minimum") with one line saying why. Absent: the label chip as before.
    */
-  opportunity?: OpportunityDto | null;
+  hold?: AlertHold | null;
+  /** ISO date of a fix-by, due or response date the record publishes. Shown on Act Now cards; null shows "No deadline published". */
+  deadline?: string | null;
+  /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes the "Why it matters" line trade-specific. */
+  trade?: string | null;
+  /** Permits: the project value the city published, in whole dollars (data.jobValue). Never for a locked member. */
+  jobValue?: number | null;
+  /** data.permitStage and data.permitStageAt of a permit (stage update). */
+  permitStage?: string | null;
+  permitStageAt?: string | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
@@ -55,45 +72,40 @@ export interface FeedItem {
    * address but no map point, so no distance is shown." Shown on the card in place of a distance.
    */
   approxNote?: string | null;
+  /** Open city bids only: "Buyer: X. Due Dec 10, 2026, 19 days left." Worked out on the server. Never says the member can win or bid. */
+  bidLine?: string | null;
+  /** NYC no-heat cards: data.managerName / data.managerRole (company names only, checked again when the card is built). Never for a locked account. */
+  managerName?: string | null;
+  managerRole?: string | null;
   /**
    * Organisations and sites the record names, loaded on the server for this member only (never for a locked account).
    * Absent for records without contacts and always absent for a locked member.
    */
   contacts?: ContactInput[];
+  /**
+   * Storm cards only (round 18, unit LISTS): the address list near this hail or wind-damage report, when it has at least one address. The
+   * line text is written on the server in the member's language ("12 permitted addresses near this hail report"). Never for a locked member.
+   */
+  listLink?: { href: string; text: string; open: string } | null;
 }
 
-type Filter = 'all' | 'act' | 'soon' | 'intel';
-
-/** Act now first, then Coming soon, then Market insights; rows without a label last. Stable inside a label. */
-function labelRank(i: Pick<FeedItem, 'opportunity'>): number {
-  const l = i.opportunity?.label;
-  const at = l && l !== 'context' ? SHOWN_OPPORTUNITIES.indexOf(l) : -1;
-  return at >= 0 ? at : SHOWN_OPPORTUNITIES.length;
-}
-
-export function orderByOpportunity<T extends Pick<FeedItem, 'opportunity'>>(items: readonly T[]): T[] {
-  return items
-    .map((it, i) => ({ it, i }))
-    .sort((a, b) => labelRank(a.it) - labelRank(b.it) || a.i - b.i)
-    .map((x) => x.it);
-}
+type Filter = 'all' | 'ask' | 'signals';
 
 /** Source id of resident requests made on Holler (/request). Matches lib/requests/constants.ts REQUEST_SOURCE. */
 export const REQUEST_SOURCE = 'holler-request';
-
-function itemSourceLabel(source: string): string {
-  return source === REQUEST_SOURCE ? 'Request made on Holler' : sourceLabel(source);
-}
 
 export function Feed({
   items: initial,
   cityPage,
   firstRun = false,
+  lang = 'en',
 }: {
   items: FeedItem[];
   cityPage: { href: string; label: string } | null;
   /** New account: the feed was filled from the last two weeks, so say so. */
   firstRun?: boolean;
+  /** The member's language (profile.language). Defaults to English. */
+  lang?: Lang;
 }) {
   const [items, setItems] = useState(initial);
   const [filter, setFilter] = useState<Filter>('all');
@@ -127,12 +139,11 @@ export function Feed({
   const pool = showClosed ? items : open;
   const counts = {
     all: pool.length,
-    act: pool.filter((i) => i.opportunity?.label === 'act').length,
-    soon: pool.filter((i) => i.opportunity?.label === 'soon').length,
-    intel: pool.filter((i) => i.opportunity?.label === 'intel').length,
+    ask: pool.filter((i) => i.kind === 'ask').length,
+    signals: pool.filter((i) => i.kind !== 'ask').length,
   };
   const visible = useMemo(
-    () => orderByOpportunity(pool.filter((i) => (filter === 'all' ? true : i.opportunity?.label === filter))),
+    () => pool.filter((i) => (filter === 'all' ? true : filter === 'ask' ? i.kind === 'ask' : i.kind !== 'ask')),
     [pool, filter],
   );
 
@@ -144,7 +155,7 @@ export function Feed({
       const res = await setMatchStatus(id, status).catch(() => ({ ok: false }));
       if (!res.ok) {
         setItems(prev);
-        setError("That didn't save. Try again.");
+        setError(t(lang, 'card.save_error'));
       }
     });
   }
@@ -156,57 +167,49 @@ export function Feed({
   if (items.length === 0) {
     return (
       <EmptyState
-        title="Nothing has matched yet"
+        title={t(lang, 'card.empty.title')}
         action={
           cityPage ? (
             <ButtonLink href={cityPage.href} variant="secondary">
-              See what&apos;s happening in {cityPage.label}
+              {t(lang, 'card.empty.see_city', { city: cityPage.label })}
             </ButtonLink>
           ) : undefined
         }
       >
         <p>
-          {CADENCE_SHORT} When something matches what you do and where you work, it
-          lands here and in your email. Quiet days happen.
+          {lang === 'en' ? CADENCE_SHORT : t(lang, 'cadence.short')} {t(lang, 'card.empty.body')}
         </p>
       </EmptyState>
     );
   }
 
   const tabs: { id: Filter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'act', label: OPPORTUNITY_GROUP_LABEL.act },
-    { id: 'soon', label: OPPORTUNITY_GROUP_LABEL.soon },
-    { id: 'intel', label: OPPORTUNITY_GROUP_LABEL.intel },
+    { id: 'all', label: t(lang, 'card.filter.all') },
+    { id: 'ask', label: t(lang, 'card.filter.ask') },
+    { id: 'signals', label: t(lang, 'card.filter.signals') },
   ];
-  const emptyTitle: Record<Filter, string> = {
-    all: 'All caught up',
-    act: 'Nothing to act on right now',
-    soon: 'Nothing coming up right now',
-    intel: 'No market insights right now',
-  };
 
   return (
     <div>
       {firstRun ? (
         <p className="mb-4 text-muted">
-          Here is what the last two weeks looked like near you. New alerts arrive by email.
+          {t(lang, 'card.first_run')}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Filter matches" className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
+        <div role="group" aria-label={t(lang, 'card.filter.aria')} className="flex flex-wrap gap-2">
+          {tabs.map((tab) => (
             <button
-              key={t.id}
+              key={tab.id}
               type="button"
-              aria-pressed={filter === t.id}
-              onClick={() => setFilter(t.id)}
+              aria-pressed={filter === tab.id}
+              onClick={() => setFilter(tab.id)}
               className={`inline-flex min-h-11 items-center gap-2 rounded-control border px-4 text-sm font-medium transition-colors ${
-                filter === t.id ? 'border-brand bg-brand text-on-brand hover:bg-brand-raised' : 'border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand'
+                filter === tab.id ? 'border-brand bg-brand text-on-brand hover:bg-brand-raised' : 'border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand'
               }`}
             >
-              {t.label}
-              <span className="font-mono text-xs tabular-nums opacity-80">{counts[t.id]}</span>
+              {tab.label}
+              <span className="font-mono text-xs tabular-nums opacity-80">{counts[tab.id]}</span>
             </button>
           ))}
         </div>
@@ -218,7 +221,7 @@ export function Feed({
               onChange={(e) => setShowClosed(e.target.checked)}
               className="h-4 w-4 accent-brand"
             />
-            Show done and dismissed ({closedCount})
+            {t(lang, 'card.show_closed', { n: closedCount })}
           </label>
         ) : null}
       </div>
@@ -229,26 +232,21 @@ export function Feed({
 
       {visible.length === 0 ? (
         <div className="mt-6">
-          <EmptyState title={emptyTitle[filter]}>
-            <p>New matches show up here as soon as a scan finds them.</p>
+          <EmptyState title={filter === 'ask' ? t(lang, 'card.none_asking') : filter === 'signals' ? t(lang, 'card.no_signals') : t(lang, 'card.caught_up')}>
+            <p>{t(lang, 'card.new_matches')}</p>
           </EmptyState>
         </div>
       ) : (
         <ul className="mt-6 flex flex-col gap-4">
-          {visible.map((item, idx) => (
+          {visible.map((item) => (
             <li key={item.id}>
-              {/* In the All view, a heading starts each label group (Act now, Coming soon, Market insights). */}
-              {filter === 'all' && item.opportunity && item.opportunity.label !== 'context' && (idx === 0 || visible[idx - 1].opportunity?.label !== item.opportunity.label) ? (
-                <h2 className="h-plain mb-3 mt-2 text-xl text-ink" data-testid="opportunity-group">
-                  {OPPORTUNITY_GROUP_LABEL[item.opportunity.label]}
-                </h2>
-              ) : null}
               <MatchCard
                 item={item}
                 onStatus={update}
                 onDraft={setDraft}
                 replyState={replyStates[item.id]}
                 onReplied={markReplied}
+                lang={lang}
               />
             </li>
           ))}
@@ -264,7 +262,9 @@ function MatchCard({
   onDraft,
   replyState,
   onReplied,
+  lang,
 }: {
+  lang: Lang;
   item: FeedItem;
   onStatus: (id: number, status: MatchStatus) => void;
   onDraft: (id: number, draft: string) => void;
@@ -274,12 +274,12 @@ function MatchCard({
   const closed = item.status === 'done' || item.status === 'dismissed';
   // A resident request has no outside source page and is answered through Holler, so it gets Reply instead of the source link and draft.
   const isRequest = item.source === REQUEST_SOURCE;
+  // A permit prints its value once: the brief's "Job value on the permit" line, so the summary's "$N job value" part is left out here (display only).
+  const cardSummary = localizeSummary(summaryForCard({ source: item.source, kind: item.kind, subtype: item.subtype, title: item.title, summary: item.summary, jobValue: item.jobValue }), lang, item.source) ?? null;
   return (
     <Card as="article" className={closed ? 'opacity-70' : ''}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <Badge kind={item.kind} />
-        <span>{itemSourceLabel(item.source)}</span>
-        <span aria-hidden="true">·</span>
+        <Badge kind={item.kind} label={item.subtype === 'bid' ? t(lang, 'bid.label') : undefined} lang={lang} />
         <time dateTime={item.occurredAt} className="font-mono text-xs tabular-nums">
           {item.ago}
         </time>
@@ -294,73 +294,72 @@ function MatchCard({
             <span>{item.place}</span>
           </>
         ) : null}
-        {item.status === 'saved' ? <StatusBadge tone="brand">Saved</StatusBadge> : null}
-        {item.status === 'done' ? <StatusBadge tone="success">Done</StatusBadge> : null}
-        {item.status === 'dismissed' ? <StatusBadge>Dismissed</StatusBadge> : null}
+        {item.status === 'saved' ? <StatusBadge tone="brand">{t(lang, 'card.saved')}</StatusBadge> : null}
+        {item.status === 'done' ? <StatusBadge tone="success">{t(lang, 'card.done')}</StatusBadge> : null}
+        {item.status === 'dismissed' ? <StatusBadge>{t(lang, 'card.dismissed')}</StatusBadge> : null}
       </div>
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
-      <IntentNote item={item} />
+      {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
+      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} />
+      {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">
-          <span className="font-semibold">Why it may matter: </span>
+          <span className="font-semibold">{`${t(lang, 'brief.h.note')}: `}</span>
           {item.aiNote}
         </p>
       ) : null}
-      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{item.title}</h2>
-      {item.summary ? <p className="mt-1 line-clamp-2 text-muted">{item.summary}</p> : null}
+      <h2 className="h-plain mt-2 text-lg leading-snug text-ink">{localizeTitle(item.title, lang, item.source)}</h2>
+      {cardSummary ? <p className="mt-1 line-clamp-2 text-muted">{cardSummary}</p> : null}
 
-      {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} />}
+      <BriefBlock item={item} lang={lang} />
+
+      {item.listLink ? (
+        <p className="mt-3 text-sm text-ink" data-testid="list-link">
+          {item.listLink.text}.{' '}
+          <Link href={item.listLink.href} className="font-semibold text-brand-text underline">
+            {item.listLink.open}
+          </Link>
+        </p>
+      ) : null}
+
+      {isRequest ? null : <WhoToContact item={item} contacts={item.contacts} lang={lang} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {item.url && !isRequest ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-sand md:min-h-9"
-          >
-            Open the source
-            <span className="sr-only"> (opens in a new tab)</span>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </a>
-        ) : null}
         {isRequest ? (
-          <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} />
+          <RequestReply matchId={item.id} state={replyState} onReplied={(id) => onReplied?.(id)} lang={lang} />
         ) : item.kind === 'ask' ? (
-          <DraftControls item={item} onDraft={onDraft} />
+          <DraftControls item={item} onDraft={onDraft} lang={lang} />
         ) : null}
         {item.status === 'new' ? (
           <>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>Done</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>Dismiss</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'saved')}>{t(lang, 'card.save')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
           </>
         ) : null}
         {item.status === 'saved' ? (
           <>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>Done</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>Dismiss</Button>
-            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>Unsave</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'done')}>{t(lang, 'card.mark_done')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'dismissed')}>{t(lang, 'card.dismiss')}</Button>
+            <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>{t(lang, 'card.unsave')}</Button>
           </>
         ) : null}
         {closed ? (
-          <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>Move back to inbox</Button>
+          <Button size="sm" variant="ghost" onClick={() => onStatus(item.id, 'new')}>{t(lang, 'card.move_back')}</Button>
         ) : null}
       </div>
 
       {/* key: a fresh draft from "Redraft reply" replaces whatever was edited. */}
-      {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} /> : null}
+      {item.kind === 'ask' && !isRequest && item.draft ? <DraftPanel key={item.draft} item={item} lang={lang} /> : null}
 
-      {typeof item.signalId === 'number' ? <FeedbackButtons signalId={item.signalId} initial={item.feedback ?? null} /> : null}
+      {typeof item.signalId === 'number' ? <FeedbackButtons signalId={item.signalId} initial={item.feedback ?? null} lang={lang} /> : null}
     </Card>
   );
 }
 
 /** "Draft reply" button. The draft text itself renders in DraftPanel below the actions. */
-function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number, draft: string) => void }) {
+function DraftControls({ item, onDraft, lang }: { item: FeedItem; onDraft: (id: number, draft: string) => void; lang: Lang }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -381,14 +380,14 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
       if (res.ok && body.draft) {
         onDraft(item.id, body.draft);
       } else if (res.status === 400 || res.status === 404) {
-        setError('Drafts only work for people asking for help.');
+        setError(t(lang, 'card.draft_err.not_ask'));
       } else if ((res.status === 403 || res.status === 429 || res.status === 503) && typeof body.message === 'string') {
         setError(body.message);
       } else {
-        setError("We couldn't write a draft just now. Try again.");
+        setError(t(lang, 'card.draft_err.generic'));
       }
     } catch {
-      setError("We couldn't reach the server. Try again.");
+      setError(t(lang, 'card.draft_err.network'));
     }
     setPending(false);
   }
@@ -396,7 +395,7 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
   return (
     <>
       <Button size="sm" variant="primary" onClick={run} disabled={pending}>
-        {pending ? 'Writing...' : item.draft ? 'Redraft reply' : 'Draft reply'}
+        {pending ? t(lang, 'card.writing') : item.draft ? t(lang, 'card.redraft') : t(lang, 'card.draft')}
       </Button>
       <p role="alert" className="w-full text-sm text-danger empty:hidden">
         {error}
@@ -405,7 +404,7 @@ function DraftControls({ item, onDraft }: { item: FeedItem; onDraft: (id: number
   );
 }
 
-function DraftPanel({ item }: { item: FeedItem }) {
+function DraftPanel({ item, lang }: { item: FeedItem; lang: Lang }) {
   const [text, setText] = useState(item.draft ?? '');
   const [copied, setCopied] = useState(false);
 
@@ -422,7 +421,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
   return (
     <div className="mt-4 rounded-card border border-line bg-background p-4">
       <label htmlFor={`draft-${item.id}`} className="text-sm font-semibold text-ink">
-        Your draft. Edit it, then post it yourself.
+        {t(lang, 'card.draft_panel')}
       </label>
       <textarea
         id={`draft-${item.id}`}
@@ -433,10 +432,10 @@ function DraftPanel({ item }: { item: FeedItem }) {
       />
       <div className="mt-2 flex items-center gap-3">
         <Button size="sm" variant="secondary" onClick={copy}>
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t(lang, 'card.copied') : t(lang, 'card.copy')}
         </Button>
         <span role="status" className="text-sm text-muted">
-          {copied ? 'Copied to your clipboard.' : 'Holler never posts for you.'}
+          {copied ? t(lang, 'card.copied_status') : t(lang, 'card.never_posts')}
         </span>
       </div>
     </div>
@@ -444,7 +443,7 @@ function DraftPanel({ item }: { item: FeedItem }) {
 }
 
 /** Paywall view: placeholders only. The server sends masked text, so nothing real sits behind the blur. */
-export function LockedFeed({ items, children }: { items: FeedItem[]; children: React.ReactNode }) {
+export function LockedFeed({ items, children, lang = 'en' }: { items: FeedItem[]; children: React.ReactNode; lang?: Lang }) {
   return (
     <div className="relative min-h-[30rem]">
       <ul aria-hidden="true" inert className="pointer-events-none flex select-none flex-col gap-4 blur-[6px]">
@@ -452,13 +451,13 @@ export function LockedFeed({ items, children }: { items: FeedItem[]; children: R
           <li key={item.id}>
             <Card as="article">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                <Badge kind={item.kind} />
+                <Badge kind={item.kind} label={item.subtype === 'bid' ? t(lang, 'bid.label') : undefined} lang={lang} />
                 <span className="font-mono text-xs">{item.ago}</span>
                 {item.distance ? <span className="font-mono text-xs">{item.distance}</span> : null}
               </div>
-              <h2 className="h-plain mt-3 text-lg leading-snug">{item.title}</h2>
-              <p className="mt-1 text-muted">{item.summary}</p>
-              <WhoToContactLocked item={item} />
+              <h2 className="h-plain mt-3 text-lg leading-snug">{localizeTitle(item.title, lang, item.source)}</h2>
+              <p className="mt-1 text-muted">{localizeSummary(item.summary, lang, item.source)}</p>
+              <WhoToContactLocked item={item} lang={lang} />
             </Card>
           </li>
         ))}

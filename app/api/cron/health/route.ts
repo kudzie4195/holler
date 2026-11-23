@@ -4,8 +4,12 @@ import { HEALTH_LOOKBACK_HOURS, planHealth, renderHealthEmail, sendEmail, type H
 import { isCronAuthorized } from '@/lib/email/cron-auth';
 import { missingEnvFor } from '@/lib/signals/run';
 import { readAllPages } from '@/lib/signals/store';
-import { readSourceHealth, summarizeSourceHealth } from '@/lib/signals/health';
+import { readSourceHealth, summarizeSourceHealth, type SourceHealthRow } from '@/lib/signals/health';
+import { computeSourceStates, summarizeSourceStates, type SourceStateSummary } from '@/lib/signals/source-state';
+import { readStateRuns, withProbationSetup } from '@/lib/signals/source-state-load';
 import { runMonitor, type MonitorResult } from '@/lib/monitor/run';
+import { countShortTrials, loadTrialDbCheck } from '@/lib/auth/trial-check';
+import { loadHeldPermitReport } from '@/lib/admin/held-permits';
 
 export const maxDuration = 60;
 
@@ -32,10 +36,18 @@ async function loadCounts(admin: Admin, now: Date): Promise<HealthCounts> {
  * Ingest monitor: scan error or stall, whole-feed silence, silent or failing sources, with one deduped email. It never throws:
  * a failure comes back as { status: 'error' } and the health report is unaffected.
  */
-/** Sources that are on right now: in the registry, with every env key they need. The monitor judges only these. */
-async function enabledSources(): Promise<Set<string>> {
+/**
+ * Sources that are on right now: in the registry, with every env key they need, and not on probation. The monitor judges only these.
+ *  - Round 19 review defect 7: a probation source with the samples table missing is skipped by the scan, so it is not on.
+ *  - Round 19 coverage (review P3-K): an unchecked probation source is judged in the daily report and GET /api/admin/sources, never by
+ *    an owner alert, so monitoredSourceIds leaves every probation source out.
+ */
+async function enabledSources(admin: Admin): Promise<Set<string>> {
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
-  return new Set(ALL_ADAPTERS.filter((a) => missingEnvFor(a).length === 0).map((a) => a.id));
+  const { monitoredSourceIds } = await import('@/lib/signals/probation');
+  const list = await withProbationSetup(admin, ALL_ADAPTERS.map((a) => ({ id: a.id, probation: !!a.probation, missingEnv: missingEnvFor(a) })));
+  const missing = new Map(list.map((a) => [a.id, a.missingEnv]));
+  return monitoredSourceIds(ALL_ADAPTERS, (a) => missing.get(a.id) ?? []);
 }
 
 async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null): Promise<MonitorResult> {
@@ -45,7 +57,7 @@ async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null)
       now,
       dry,
       to,
-      enabledSources: await enabledSources(),
+      enabledSources: await enabledSources(admin),
       sourcesUrl: `${siteUrl}/api/admin/sources`,
       send: async (mail) => {
         const res = await sendEmail(mail);
@@ -60,7 +72,7 @@ async function monitor(admin: Admin, now: Date, dry: boolean, to: string | null)
 }
 
 /**
- * GET /api/cron/health (Authorization: Bearer CRON_SECRET, or ?key=). Builds the daily health report from
+ * GET /api/cron/health (Authorization: Bearer CRON_SECRET only). Builds the daily health report from
  * holler_scan_runs, returns it as JSON, and emails it to ADMIN_EMAIL (falling back to SUPPORT_EMAIL).
  * The ingest monitor's conditions are also reported here (under `monitor`, read only), so the daily report stays ONE email and the
  * daily run never stores alert state. The deduped alert email is sent only by the hourly job.
@@ -105,9 +117,79 @@ export async function GET(req: Request) {
   }
 
   const { ALL_ADAPTERS } = await import('@/lib/signals/registry');
-  const adapters = ALL_ADAPTERS.map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a) }));
+  // A probation source with the samples table missing is "not set up" (it is skipped by the scan), never a failure (review defect 7).
+  const adapters = (
+    await withProbationSetup(admin, ALL_ADAPTERS.map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: missingEnvFor(a), probation: !!a.probation })))
+  ).map((a) => ({ id: a.id, label: a.label, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv }));
   const counts = await loadCounts(admin, now);
   const report = planHealth({ adapters, runs, counts, now });
+
+  // Per-source delivery health (holler_source_health), read once for both the email's state block and the JSON below. A read failure
+  // leaves both null and never changes the rest of the report.
+  let healthRows: SourceHealthRow[] | null = null;
+  try {
+    healthRows = await readSourceHealth(admin);
+  } catch {
+    healthRows = null;
+  }
+  // Source states (item 2.4): the health rows plus each source's own run history (14 days for the slow sources, see source-state-load.ts;
+  // the report's 96 hours are too short to tell a long stall from a quiet source). Absent when either read fails.
+  let sourceStates: SourceStateSummary | null = null;
+  if (healthRows) {
+    try {
+      const stateAdapters = adapters.map((a) => ({ id: a.id, kind: a.kind, cadenceMinutes: a.cadenceMinutes, missingEnv: a.missingEnv }));
+      const stateRuns = await readStateRuns(admin, now, stateAdapters);
+      sourceStates = summarizeSourceStates(computeSourceStates({ adapters: stateAdapters, health: healthRows, runs: stateRuns, now }));
+    } catch {
+      sourceStates = null;
+    }
+  }
+  report.sourceStates = sourceStates;
+  // Firecrawl credits and per-source state. Never throws; absent when nothing is configured.
+  try {
+    const { loadFirecrawlHealth } = await import('@/lib/firecrawl/health');
+    report.firecrawl = await loadFirecrawlHealth({ db: admin, now, env: { ...process.env, ...env } });
+  } catch {
+    report.firecrawl = null;
+  }
+  // Advertised trial length against the database's (migration 0028). Read-only; never throws.
+  report.trialCheck = await loadTrialDbCheck(admin);
+  // Review 3 D4: when the database is not at the advertised length, state the real number of members still on a shorter trial.
+  if (report.trialCheck.status === 'not_applied' || report.trialCheck.status === 'mismatch') report.trialCheck.shortTrials = await countShortTrials(admin, now);
+
+  // Round 18 business lookups (lib/enrich/business-lookup.ts): the daily circuit breaker (the first 5 answers of a UTC day held no usable
+  // match) and the outage stop (3 calls in a row with no answer: login, balance or the service). This email goes out once a day (13:03 UTC),
+  // so a stop later in the day is reported by the next day's email ("yesterday"). One Watch line each. Read only, and only with DataForSEO
+  // credentials; never throws.
+  let lookup: { tripped: boolean; tried: number; message: string | null } | null = null;
+  try {
+    const { credentials } = await import('@/lib/dataforseo/client');
+    if (credentials(process.env)) {
+      const { lookupBreaker, lookupOutage, breakerMessage, outageMessage } = await import('@/lib/enrich/business-lookup');
+      const yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 1);
+      lookup = await lookupBreaker(admin, now);
+      if (lookup?.tripped && lookup.message) report.watch.unshift(lookup.message);
+      else {
+        const prev = await lookupBreaker(admin, yesterday);
+        if (prev?.tripped) report.watch.unshift(breakerMessage(prev.tried, 'yesterday'));
+      }
+      const outage = await lookupOutage(admin, now);
+      if (outage?.stopped && outage.message) report.watch.unshift(outage.message);
+      else {
+        const prev = await lookupOutage(admin, yesterday);
+        if (prev?.stopped) report.watch.unshift(outageMessage(prev.failed, 'yesterday'));
+      }
+    }
+  } catch {
+    lookup = null;
+  }
+
+  // Round 18 integration: a source whose permit cards were mostly held as Background by the contact gate (more than 80% of at least 10 in
+  // the last 7 days) gets one Watch line ("DeKalb County permits: 92% held for no contact path, check the site-address field"). Silent
+  // when the gate is off (migration 0027 not applied) or on any read failure. Never throws.
+  const heldPermits = await loadHeldPermitReport(admin, now);
+  // At the front: the email shows the first 10 Watch lines.
+  report.watch.unshift(...heldPermits.lines);
 
   let email: { status: 'not_sent_dry' | 'no_recipient' | 'sent' | 'skipped' | 'failed'; to?: string; detail?: string };
   if (dry) email = { status: 'not_sent_dry' };
@@ -120,16 +202,10 @@ export async function GET(req: Request) {
     else email = { status: 'failed', to, detail: 'error' in res ? res.error : 'send failed' };
   }
 
-  // Per-source delivery health (holler_source_health). A read failure leaves this null and never changes the rest of the report.
-  let sourceHealth: ReturnType<typeof summarizeSourceHealth> | null = null;
-  try {
-    sourceHealth = summarizeSourceHealth(await readSourceHealth(admin), now);
-  } catch {
-    sourceHealth = null;
-  }
+  const sourceHealth: ReturnType<typeof summarizeSourceHealth> | null = healthRows ? summarizeSourceHealth(healthRows, now) : null;
 
   // Read only here: the hourly job (?monitor=1) is the one that sends and records alerts.
   const monitorResult = await monitor(admin, now, true, to);
 
-  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ ...report, email, sourceHealth, monitor: monitorResult, lookup, heldPermits }, { headers: { 'Cache-Control': 'no-store' } });
 }

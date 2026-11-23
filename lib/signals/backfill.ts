@@ -1,9 +1,11 @@
+import { contactGateOn, loadWorkProfiles, markStoredContactPaths } from './store';
+import { isPermitRecord } from './permit-routing';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { MAX_BUSINESS_PER_USER, hitLabel, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
-import { OPPORTUNITY_DATA_COLUMNS, prefilterCategories } from './member-opportunity';
+import { MAX_BUSINESS_PER_USER, matchOne, pickHits, type Hit, type MatchProfile, type MatchSignal } from './match';
 import { matchScope, type ScopeArea } from '@/lib/plan';
 import { APPROX_LOCATION_SOURCES } from './approx-location';
 import { historyRow, upsertMatchRows } from './quiet-matches';
+import { expandCategoriesForRouting } from './permit-routing';
 
 export const BACKFILL_DAYS = 14;
 export const BACKFILL_CAP = 25;
@@ -28,12 +30,18 @@ interface SignalRow extends MatchSignal {
   expires_at: string | null;
 }
 
-/** Every read carries what the opportunity test needs (kind, source, title, summary, data fields): matchOne labels each row per trade. */
-export const COLUMNS = `id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,${OPPORTUNITY_DATA_COLUMNS}`;
-/** Keyword reads: the same columns (the text the phrase is matched against is already there). */
-export const KEYWORD_COLUMNS = COLUMNS;
-/** The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype. */
-export const RPC_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,data';
+// Round 19 RULES: the labels also read the summary (a closed status, a permit's class, the NYC heat-per-building mark, the other orders of a
+// code-violation visit), so the backfill reads it too, as every other matching path does.
+const COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
+/** Keyword reads also need the text the phrase is matched against. */
+const KEYWORD_COLUMNS = 'id,source,kind,categories,lat,lon,state,severity,occurred_at,expires_at,title,summary,subtype:data->>subtype,data';
+/**
+ * The RPC's result is a function return table, so it takes plain columns only (no JSON arrow alias); subtypeOf() reads data.subtype.
+ * source, kind and title are NEEDED: the opportunity label (lib/signals/lead-rules.ts) reads them. Without them every row would fall
+ * back to the source default (coming_soon), city work (public graffiti, tree trims, sewer work) would pass as an alert and fill the
+ * 25 backfill slots, and a heat complaint would lose its act_now label. holler_signals_near returns all of them (migration 0003).
+ */
+export const RPC_COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,data';
 
 /**
  * Records with coordinates inside the profile's own radius, newest first. The distance test runs in SQL (holler_signals_near,
@@ -179,7 +187,7 @@ async function readKeywordsState(db: Db, state: string, keywords: string[], sinc
 
 /** Approximate-location rows (Cobb County: the stand-in point is the county seat) read per backfill. */
 export const BACKFILL_APPROX_LIMIT = 200;
-export const APPROX_COLUMNS = COLUMNS;
+const APPROX_COLUMNS = 'id,source,kind,title,summary,categories,lat,lon,state,severity,occurred_at,expires_at,subtype:data->>subtype,data';
 
 /**
  * Rows from the approximate-location sources (lib/signals/approx-location.ts) in the window, for the profile's trades. They match a
@@ -269,13 +277,12 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
 
     // Only what the current plan allows: a Starter profile with saved Pro extras reads its main area and first 5 trades only.
     const scope = matchScope(profile);
-    // The SQL reads narrow by record categories. A trade also earns records tagged for the trades whose permitted work it follows
-    // (siding-gutters reads roofing permits), so the reads take those categories too; matchOne then keeps only rows the member's
-    // trades label act, soon or intel.
-    const readCats = prefilterCategories(scope.categories);
     const states = [...new Set(scope.areas.map((a) => a.state?.toUpperCase()).filter((x): x is string => Boolean(x)))];
     const reads: Promise<SignalRow[]>[] = [];
     if (scope.categories.length) {
+      // Downstream permit routing (item 1.1): a siding member also reads roof-tagged rows, a painter reads general-contractor rows. A wider
+      // read only; matchOne below decides what the member gets.
+      const readCats = expandCategoriesForRouting(scope.categories);
       for (const a of scope.areas) {
         const at = { lat: a.lat, lon: a.lon, radius_mi: profile.radius_mi, categories: readCats };
         reads.push(readNear(db, at, since, until, { minSeverity: 1, limit: BACKFILL_PAGE_LIMIT, maxPages: BACKFILL_MAX_PAGES }));
@@ -292,24 +299,27 @@ export async function backfillMatches(db: Db, profile: MatchProfile, now: Date =
     const byId = new Map<number, SignalRow>();
     for (const r of (await Promise.all(reads)).flat()) if (!byId.has(r.id)) byId.set(r.id, r);
     const rows = [...byId.values()].filter((s) => !s.expires_at || Date.parse(s.expires_at) > now.getTime());
+    // The contact gate (migration 0027) reads the stored contacts and the card's own text, as the scan does: the same permit gets the same
+    // answer here. Before 0027 it is off and nothing is held.
+    if (rows.some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) })) && (await contactGateOn(db))) await markStoredContactPaths(db, rows);
     const hits: Hit[] = [];
     for (const s of rows) {
       const m = matchOne(s, profile);
-      if (m) hits.push({ s, distance_mi: m.distance_mi, label: hitLabel(s, profile) });
+      if (m) hits.push({ s, distance_mi: m.distance_mi, label: m.label, score: m.score, trade: m.trade, ...(m.hold ? { hold: m.hold } : {}) });
     }
     // Rows this member already has are left out BEFORE the cap: a member whose feed already holds 25 electrical rows who adds roofing
     // must get the roofing rows, not the same 25 electrical rows again (which the upsert would ignore). A failed read keeps them all.
     const have = await existingMatchIds(db, profile.user_id, hits.map((h) => h.s.id));
     const fresh = have.size ? hits.filter((h) => !have.has(h.s.id)) : hits;
-    // Best label first (act, soon, intel), then most severe, then newest (a future start ranks as now); new-business rows capped at
-    // 5, nearest first.
+    // Most severe first, then newest (a future start ranks as now); new-business rows capped at 5, nearest first.
     const picked = pickHits(fresh, now.getTime(), BACKFILL_CAP, MAX_BUSINESS_PER_USER);
     if (picked.length === 0) return { matched: 0, considered: rows.length };
 
     // History, not news: notified and pushed_at set at insert, so neither the email digest nor a push counts these rows.
     await upsertMatchRows(
       db,
-      picked.map((h) => historyRow({ user_id: profile.user_id, signal_id: h.s.id, distance_mi: h.distance_mi }, now)),
+      // A feed-only card keeps its reason (alert_hold, migration 0027) so the feed can say why; upsertMatchRows drops it before 0027.
+      picked.map((h) => historyRow({ user_id: profile.user_id, signal_id: h.s.id, distance_mi: h.distance_mi, ...(h.hold ? { alert_hold: h.hold } : {}) }, now)),
     );
     return { matched: picked.length, considered: rows.length };
   } catch (e) {
@@ -325,7 +335,9 @@ export async function backfillForUser(db: Db, userId: string, now: Date = new Da
     // '*' so a database without migration 0004 still works (no plan columns means Starter limits).
     const { data, error } = await db.from('holler_profiles').select('*').eq('user_id', userId).maybeSingle();
     if (error || !data) throw new Error(error?.message ?? 'profile not found');
-    return await backfillMatches(db, data as MatchProfile, now);
+    // The member's work profile (migration 0027), read on its own; before 0027 (or on any failure) there is none and nothing changes.
+    const work = (await loadWorkProfiles(db, [userId])).get(userId);
+    return await backfillMatches(db, (work ? { ...data, ...work } : data) as MatchProfile, now);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error('backfillForUser failed:', message);

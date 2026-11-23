@@ -15,14 +15,13 @@ const common = (name = 'Peachtree Roofing') => ({
   unsubscribeUrl: `${BASE}/api/cron/lifecycle/unsubscribe?t=abc.def`,
 });
 
-// u2: each item carries its opportunity label for a roofer (lib/lifecycle/store.ts matchesOf sets it), printed after place and date.
 export const ITEMS: AlertItem[] = [
-  { title: 'Hail report: 1.25 inch hail near Marietta', city: 'Marietta', state: 'GA', occurredAt: '2026-11-17T18:20:00Z', kind: 'report', source: 'spc', subtype: null, severity: 3, opportunity: 'act' },
-  { title: 'Residential re-roof permit, 2300 sq ft, Roswell Rd', city: 'Atlanta', state: 'GA', occurredAt: '2026-11-18T14:05:00Z', kind: 'permit', source: 'atlanta-permits', subtype: 'permit', severity: 2, opportunity: 'intel' },
-  { title: 'Storm damage 311 request: tree on roof', city: 'Decatur', state: 'GA', occurredAt: '2026-11-16T09:40:00Z', kind: 'civic', source: 'atlanta-311', subtype: '311', severity: 2, opportunity: 'soon' },
-  { title: 'Severe thunderstorm warning for Cobb County', city: 'Marietta', state: 'GA', occurredAt: '2026-11-15T22:10:00Z', kind: 'alert', source: 'nws', subtype: null, severity: 3, opportunity: 'soon' },
-  { title: 'Roof replacement permit, commercial', city: 'Smyrna', state: 'GA', occurredAt: '2026-11-14T11:00:00Z', kind: 'permit', source: 'smyrna-permits', subtype: 'permit', severity: 1, opportunity: 'intel' },
-  { title: 'Open federal bid: roof repair at a Dobbins facility', city: 'Marietta', state: 'GA', occurredAt: '2026-11-13T08:00:00Z', kind: 'contract', source: 'sam-gov', subtype: null, severity: 1, opportunity: 'act' },
+  { title: 'Hail report: 1.25 inch hail near Marietta', city: 'Marietta', state: 'GA', occurredAt: '2026-11-17T18:20:00Z', kind: 'report', source: 'spc', subtype: null, severity: 3 },
+  { title: 'Residential re-roof permit, 2300 sq ft, Roswell Rd', city: 'Atlanta', state: 'GA', occurredAt: '2026-11-18T14:05:00Z', kind: 'permit', source: 'atlanta-permits', subtype: 'permit', severity: 2 },
+  { title: 'Storm damage 311 request: tree on roof', city: 'Decatur', state: 'GA', occurredAt: '2026-11-16T09:40:00Z', kind: 'civic', source: 'atlanta-311', subtype: '311', severity: 2 },
+  { title: 'Severe thunderstorm warning for Cobb County', city: 'Marietta', state: 'GA', occurredAt: '2026-11-15T22:10:00Z', kind: 'alert', source: 'nws', subtype: null, severity: 3 },
+  { title: 'Roof replacement permit, commercial', city: 'Smyrna', state: 'GA', occurredAt: '2026-11-14T11:00:00Z', kind: 'permit', source: 'smyrna-permits', subtype: 'permit', severity: 1 },
+  { title: 'Open federal bid: roof repair at a Dobbins facility', city: 'Marietta', state: 'GA', occurredAt: '2026-11-13T08:00:00Z', kind: 'contract', source: 'sam-gov', subtype: null, severity: 1 },
 ];
 
 export function samples() {

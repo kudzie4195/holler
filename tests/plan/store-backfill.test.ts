@@ -82,7 +82,7 @@ describe('backfill covers every allowed area', () => {
   const ATHENS = { zip: '30601', city: 'Athens', state: 'GA', lat: 33.96, lon: -83.38 };
   const MACON = { zip: '31201', city: 'Macon', state: 'GA', lat: 32.84, lon: -83.63 };
   const sig = (id: number, lat: number, lon: number, over: Record<string, any> = {}) => ({
-    id, kind: 'permit', categories: ['roofing'], lat, lon, state: 'GA', severity: 1, occurred_at: new Date(NOW.getTime() - id * 3600e3).toISOString(), expires_at: null, title: `t${id}`, summary: null, ...over,
+    id, categories: ['roofing'], lat, lon, state: 'GA', severity: 1, occurred_at: new Date(NOW.getTime() - id * 3600e3).toISOString(), expires_at: null, title: `t${id}`, summary: null, ...over,
   });
   const signals = [sig(1, 33.75, -84.39), sig(2, 33.95, -83.39), sig(3, 32.85, -83.62)];
   const profile = (over: Partial<MatchProfile> = {}): MatchProfile => ({ user_id: 'u1', categories: ['roofing'], lat: 33.749, lon: -84.388, state: 'GA', radius_mi: 25, ...over });

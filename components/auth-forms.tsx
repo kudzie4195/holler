@@ -7,6 +7,26 @@ import { Button } from './button';
 import { Input } from './input';
 import { Notice } from './notice';
 import { PasswordInput } from './password-input';
+import { t, type DictKey, type Lang } from '@/lib/i18n';
+
+/**
+ * A form's words in its language (round 18 ES). English is the literal the form always printed, so English markup is unchanged; the
+ * Spanish auth pages (/es/signup, /es/login, /es/forgot, /es/reset) pass lang 'es' and get the dictionary's words, Spanish links, and
+ * send lang 'es' to the API so its answers are Spanish too.
+ */
+function wordsFor(lang: Lang) {
+  return (key: DictKey, en: string) => (lang === 'en' ? en : t(lang, key));
+}
+
+/** The path of a page in the form's language: '/login' or '/es/login'. */
+function pathFor(lang: Lang, path: string): string {
+  return lang === 'en' ? path : `/es${path}`;
+}
+
+/** The request body: English bodies are exactly as before; a Spanish form adds lang. */
+function withLang<T extends object>(lang: Lang, payload: T): T | (T & { lang: Lang }) {
+  return lang === 'en' ? payload : { ...payload, lang };
+}
 
 interface ApiResult {
   ok: boolean;
@@ -15,7 +35,7 @@ interface ApiResult {
   signedIn?: boolean;
 }
 
-async function post(url: string, payload: unknown): Promise<{ status: number; body: ApiResult }> {
+async function post(url: string, payload: unknown, lang: Lang = 'en'): Promise<{ status: number; body: ApiResult }> {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -25,7 +45,7 @@ async function post(url: string, payload: unknown): Promise<{ status: number; bo
     const body = (await res.json().catch(() => ({ ok: false }))) as ApiResult;
     return { status: res.status, body };
   } catch {
-    return { status: 0, body: { ok: false, error: "We couldn't reach the server. Check your connection and try again." } };
+    return { status: 0, body: { ok: false, error: wordsFor(lang)('auth.err.network', "We couldn't reach the server. Check your connection and try again.") } };
   }
 }
 
@@ -44,8 +64,9 @@ function ErrorNotice({ error, children }: { error: { message: string; status: nu
   );
 }
 
-export function SignupForm({ city }: { city?: string | null }) {
+export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
+  const w = wordsFor(lang);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -53,20 +74,20 @@ export function SignupForm({ city }: { city?: string | null }) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/signup', { email, password });
+    const { status, body } = await post('/api/auth/signup', withLang(lang, { email, password }), lang);
     if (body.ok) {
-      const target = body.signedIn ? `/onboarding${city ? `?city=${encodeURIComponent(city)}` : ''}` : '/login';
+      const target = body.signedIn ? `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}` : pathFor(lang, '/login');
       hardNavigate(target);
       return;
     }
-    setError({ message: body.error ?? 'Something went wrong. Try again.', status });
+    setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
     setPending(false);
   }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
       <Input
-        label="Email"
+        label={w('auth.email', 'Email')}
         name="email"
         type="email"
         autoComplete="email"
@@ -78,29 +99,30 @@ export function SignupForm({ city }: { city?: string | null }) {
         onChange={(e) => setEmail(e.target.value)}
       />
       <PasswordInput
-        label="Password"
+        label={w('auth.password', 'Password')}
+        lang={lang}
         name="password"
         autoComplete="new-password"
-        hint="At least 8 characters."
+        hint={w('auth.password_hint', 'At least 8 characters.')}
         required
         minLength={8}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       <ErrorNotice error={error}>
-        {error?.status === 409 ? <Link href="/login" className="font-semibold underline">Log in</Link> : null}
+        {error?.status === 409 ? <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link> : null}
       </ErrorNotice>
       <Button type="submit" size="lg" full disabled={pending}>
-        {pending ? 'Creating your account...' : 'Create account'}
+        {pending ? w('auth.signup.pending', 'Creating your account...') : w('auth.signup.submit', 'Create account')}
       </Button>
       <p className="text-center text-sm text-muted">
-        By creating an account you agree to the{' '}
-        <Link href="/terms" className="font-medium text-brand-text underline">
-          Terms
+        {w('auth.signup.agree', 'By creating an account you agree to the')}{' '}
+        <Link href="/terms" className="font-medium text-brand-text underline" {...(lang === 'en' ? {} : { hrefLang: 'en' })}>
+          {w('auth.signup.terms', 'Terms')}
         </Link>{' '}
-        and{' '}
-        <Link href="/privacy" className="font-medium text-brand-text underline">
-          Privacy Policy
+        {w('auth.signup.and', 'and')}{' '}
+        <Link href="/privacy" className="font-medium text-brand-text underline" {...(lang === 'en' ? {} : { hrefLang: 'en' })}>
+          {w('auth.signup.privacy', 'Privacy Policy')}
         </Link>
         .
       </p>
@@ -108,8 +130,9 @@ export function SignupForm({ city }: { city?: string | null }) {
   );
 }
 
-export function LoginForm({ next, linkExpired }: { next: string; linkExpired?: boolean }) {
+export function LoginForm({ next, linkExpired, lang = 'en' }: { next: string; linkExpired?: boolean; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
+  const w = wordsFor(lang);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -117,20 +140,20 @@ export function LoginForm({ next, linkExpired }: { next: string; linkExpired?: b
     e.preventDefault();
     setError(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/login', { email, password });
+    const { status, body } = await post('/api/auth/login', withLang(lang, { email, password }), lang);
     if (body.ok) {
       hardNavigate(next);
       return;
     }
-    setError({ message: body.error ?? 'Something went wrong. Try again.', status });
+    setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
     setPending(false);
   }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
-      {linkExpired ? <Notice tone="warn">That link has expired or was already used. Log in, or ask for a new reset link.</Notice> : null}
+      {linkExpired ? <Notice tone="warn">{w('auth.login.expired', 'That link has expired or was already used. Log in, or ask for a new reset link.')}</Notice> : null}
       <Input
-        label="Email"
+        label={w('auth.email', 'Email')}
         name="email"
         type="email"
         autoComplete="username"
@@ -142,7 +165,8 @@ export function LoginForm({ next, linkExpired }: { next: string; linkExpired?: b
         onChange={(e) => setEmail(e.target.value)}
       />
       <PasswordInput
-        label="Password"
+        label={w('auth.password', 'Password')}
+        lang={lang}
         name="password"
         autoComplete="current-password"
         required
@@ -151,19 +175,20 @@ export function LoginForm({ next, linkExpired }: { next: string; linkExpired?: b
       />
       <ErrorNotice error={error} />
       <Button type="submit" size="lg" full disabled={pending}>
-        {pending ? 'Logging in...' : 'Log in'}
+        {pending ? w('auth.login.pending', 'Logging in...') : w('auth.login', 'Log in')}
       </Button>
       <p className="text-center text-sm">
-        <Link href="/forgot" className="inline-flex min-h-11 items-center font-medium text-brand-text underline">
-          Forgot your password?
+        <Link href={pathFor(lang, '/forgot')} className="inline-flex min-h-11 items-center font-medium text-brand-text underline">
+          {w('auth.login.forgot', 'Forgot your password?')}
         </Link>
       </p>
     </form>
   );
 }
 
-export function ForgotForm({ linkExpired }: { linkExpired?: boolean }) {
+export function ForgotForm({ linkExpired, lang = 'en' }: { linkExpired?: boolean; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
+  const w = wordsFor(lang);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
 
@@ -171,23 +196,31 @@ export function ForgotForm({ linkExpired }: { linkExpired?: boolean }) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/forgot', { email });
+    const { status, body } = await post('/api/auth/forgot', withLang(lang, { email }), lang);
     setPending(false);
     if (body.ok) {
       setSent(true);
       return;
     }
-    setError({ message: body.error ?? 'Something went wrong. Try again.', status });
+    setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
   }
 
   if (sent) {
     return (
       <div className="flex flex-col gap-4" role="status">
+        {lang === 'en' ? (
         <Notice tone="success">
           If there is an account for <strong>{email}</strong>, a reset link is on its way. It can take a minute. Check spam too.
         </Notice>
-        <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline">
-          Back to log in
+        ) : (
+          <Notice tone="success">
+            {`${t(lang, 'auth.forgot.sent_pre')} `}
+            <strong>{email}</strong>
+            {t(lang, 'auth.forgot.sent_post')}
+          </Notice>
+        )}
+        <Link href={pathFor(lang, '/login')} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline">
+          {w('auth.back_login', 'Back to log in')}
         </Link>
       </div>
     );
@@ -195,9 +228,9 @@ export function ForgotForm({ linkExpired }: { linkExpired?: boolean }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
-      {linkExpired ? <Notice tone="warn">That reset link has expired or was already used. Ask for a new one.</Notice> : null}
+      {linkExpired ? <Notice tone="warn">{w('auth.forgot.expired', 'That reset link has expired or was already used. Ask for a new one.')}</Notice> : null}
       <Input
-        label="Email"
+        label={w('auth.email', 'Email')}
         name="email"
         type="email"
         autoComplete="email"
@@ -210,14 +243,15 @@ export function ForgotForm({ linkExpired }: { linkExpired?: boolean }) {
       />
       <ErrorNotice error={error} />
       <Button type="submit" size="lg" full disabled={pending}>
-        {pending ? 'Sending...' : 'Send reset link'}
+        {pending ? w('auth.forgot.pending', 'Sending...') : w('auth.forgot.submit', 'Send reset link')}
       </Button>
     </form>
   );
 }
 
-export function ResetForm() {
+export function ResetForm({ lang = 'en' }: { lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
+  const w = wordsFor(lang);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [mismatch, setMismatch] = useState<string | null>(null);
@@ -226,34 +260,36 @@ export function ResetForm() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setMismatch("Those passwords don't match.");
+      setMismatch(w('auth.reset.mismatch', "Those passwords don't match."));
       return;
     }
     setMismatch(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/reset', { password });
+    const { status, body } = await post('/api/auth/reset', withLang(lang, { password }), lang);
     if (body.ok) {
       hardNavigate('/app');
       return;
     }
-    setError({ message: body.error ?? 'Something went wrong. Try again.', status });
+    setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
     setPending(false);
   }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
       <PasswordInput
-        label="New password"
+        label={w('auth.reset.new', 'New password')}
+        lang={lang}
         name="password"
         autoComplete="new-password"
-        hint="At least 8 characters."
+        hint={w('auth.password_hint', 'At least 8 characters.')}
         required
         minLength={8}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       <PasswordInput
-        label="Confirm new password"
+        label={w('auth.reset.confirm', 'Confirm new password')}
+        lang={lang}
         name="confirm"
         autoComplete="new-password"
         required
@@ -263,10 +299,10 @@ export function ResetForm() {
         onChange={(e) => setConfirm(e.target.value)}
       />
       <ErrorNotice error={error}>
-        {error?.status === 401 ? <Link href="/forgot" className="font-semibold underline">Get a new link</Link> : null}
+        {error?.status === 401 ? <Link href={pathFor(lang, '/forgot')} className="font-semibold underline">{w('auth.reset.new_link', 'Get a new link')}</Link> : null}
       </ErrorNotice>
       <Button type="submit" size="lg" full disabled={pending}>
-        {pending ? 'Saving...' : 'Save new password'}
+        {pending ? w('auth.reset.pending', 'Saving...') : w('auth.reset.submit', 'Save new password')}
       </Button>
     </form>
   );

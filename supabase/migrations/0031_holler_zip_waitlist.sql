@@ -1,4 +1,8 @@
 -- Holler: "Coming to your area" waitlist, plus a "More ZIP codes" card on the Coming next list.
+-- Round 19 UNIFY: this is the other branch's 0021_holler_zip_waitlist.sql, renamed to 0031 because this base's 0021 is
+-- holler_area_waitlist. The SQL statements are unchanged. ALREADY APPLIED on the live database (as 0021); running it again changes nothing.
+-- In this merged code new sign-ups go to holler_area_waitlist (0021); holler_zip_waitlist keeps the rows the live site collected, its
+-- confirm links keep working (app/waitlist/confirm) and the owner's counts read both tables (lib/waitlist/zip-confirm.ts, /api/admin/metros).
 -- Purely additive and idempotent; every object is prefixed holler_. Shared Supabase project: never touch non-holler objects.
 --
 -- holler_zip_waitlist holds one row per (email, ZIP) for people who checked a ZIP code where Holler has no local permit or

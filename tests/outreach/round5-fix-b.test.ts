@@ -25,7 +25,8 @@ describe('L1-1: static imports, no ts-ignore', () => {
     const src = readFileSync(path.join(root, 'lib/outreach/loader.ts'), 'utf8');
     expect(src).not.toMatch(/@ts-ignore|eslint-disable|await import\(/);
     expect(src).toMatch(/^import \{ contactsForMember[^}]*\} from '@\/lib\/contacts\/load';/m);
-    expect(src).toMatch(/^import \{ isOrganisationName \} from '@\/lib\/contacts\/org';/m);
+    // Round 18: the re-check is per role (contractor trade names, owner companies, strict for the rest).
+    expect(src).toMatch(/^import \{ isStoredContactName \} from '@\/lib\/contacts\/names';/m);
   });
   it('the default loader and classifier are used when none is injected', async () => {
     // No injected loader: the real contactsForMember runs and, with a client that fails, returns no contacts (and logs the code only).

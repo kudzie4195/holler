@@ -75,8 +75,7 @@ describe('arcgis query builder', () => {
     expect(p.get('outSR')).toBe('4326');
     expect(p.get('f')).toBe('json');
     expect(p.get('outFields')).toContain('permitnum');
-    // Round 10: Raleigh's contact spec reads the parcel owner as an organisation name only; no owner phone or e-mail column is requested.
-    expect(p.get('outFields')).not.toMatch(/owner(phone|email|tel)|e-?mail/i);
+    expect(p.get('outFields')).not.toMatch(/owner/i);
   });
   it('dateOnly fields use date literals', () => {
     const d: ArcgisDataset = { ...ds('arcgis-raleigh-permits'), dateType: 'dateOnly' };
@@ -129,7 +128,8 @@ describe('arcgis config', () => {
     for (const x of ARCGIS_DATASETS) {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: x.tz })).not.toThrow();
       expect(x.verifiedUrl).toBe(`${x.layerUrl}?f=json`);
-      expect(x.checkedOn).toMatch(/^2026-11-(17|19)$/);
+      // Round 19 coverage layers (on probation, schema unverified) carry the research date.
+      expect(x.checkedOn).toMatch(x.probation ? /^2026-11-22$/ : /^2026-11-(17|19)$/);
     }
     expect(new Set(ARCGIS_DATASETS.map((x) => x.id)).size).toBe(ARCGIS_DATASETS.length);
   });

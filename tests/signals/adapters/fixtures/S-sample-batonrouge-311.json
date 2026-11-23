@@ -1,0 +1,118 @@
+{
+ "_provenance": {
+  "kind": "raw SODA rows (WebFetch transcription)",
+  "url": "https://data.brla.gov/resource/7ixm-mnvx.json?$select=id,createdate,statusdesc,parenttype,typename,latitude,longitude&$order=createdate DESC&$limit=12",
+  "fetched": "2026-11-22",
+  "note": "Newest row in the dataset is 2026-10-27T22:54. rowsUpdatedAt 2026-10-28."
+ },
+ "rows": [
+  {
+   "id": "1248105",
+   "createdate": "2026-10-27T22:54:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "GARBAGE",
+   "typename": "MISSED GARBAGE SERVICE DAY (GENERAL PICK-UP)",
+   "latitude": "30.445297",
+   "longitude": "-91.076088"
+  },
+  {
+   "id": "1248103",
+   "createdate": "2026-10-27T21:01:00.000",
+   "statusdesc": "IN PROGRESS",
+   "parenttype": "STREET/TRAFFIC ISSUES",
+   "typename": "MAJOR SIGNAL ISSUE",
+   "latitude": "30.451132",
+   "longitude": "-91.127449"
+  },
+  {
+   "id": "1248102",
+   "createdate": "2026-10-27T20:37:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "GARBAGE",
+   "typename": "MISSED WOODY WASTE SERVICE",
+   "latitude": "30.423111",
+   "longitude": "-90.998215"
+  },
+  {
+   "id": "1248101",
+   "createdate": "2026-10-27T20:13:00.000",
+   "statusdesc": "IN PROGRESS",
+   "parenttype": "STREET/TRAFFIC ISSUES",
+   "typename": "REQUEST A BARRICADE",
+   "latitude": "30.46294",
+   "longitude": "-91.018967"
+  },
+  {
+   "id": "1248100",
+   "createdate": "2026-10-27T20:06:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "DRAINAGE, EROSION, FLOODING OR HOLES",
+   "typename": "ROADSIDE EROSION ISSUE",
+   "latitude": "30.462887",
+   "longitude": "-91.018753"
+  },
+  {
+   "id": "1248098",
+   "createdate": "2026-10-27T19:32:00.000",
+   "statusdesc": "IN PROGRESS",
+   "parenttype": "MOWING AND TREE ISSUES",
+   "typename": "TREE IN ROAD",
+   "latitude": "30.511112",
+   "longitude": "-91.128136"
+  },
+  {
+   "id": "1248099",
+   "createdate": "2026-10-27T19:32:00.000",
+   "statusdesc": "IN PROGRESS",
+   "parenttype": "STREET/TRAFFIC ISSUES",
+   "typename": "REQUEST A BARRICADE",
+   "latitude": "30.511112",
+   "longitude": "-91.128136"
+  },
+  {
+   "id": "1248097",
+   "createdate": "2026-10-27T19:18:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "GARBAGE",
+   "typename": "MISSED HANDPILE SERVICE",
+   "latitude": "30.528988",
+   "longitude": "-91.121895"
+  },
+  {
+   "id": "1248096",
+   "createdate": "2026-10-27T18:54:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "STREET/TRAFFIC ISSUES",
+   "typename": "MAJOR SIGNAL ISSUE",
+   "latitude": "30.390499",
+   "longitude": "-91.164825"
+  },
+  {
+   "id": "1248095",
+   "createdate": "2026-10-27T18:24:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "MOWING AND TREE ISSUES",
+   "typename": "REQUEST REMOVAL/TRIMMING OF TREE",
+   "latitude": "30.44059",
+   "longitude": "-91.142807"
+  },
+  {
+   "id": "1248094",
+   "createdate": "2026-10-27T18:22:00.000",
+   "statusdesc": "OPEN",
+   "parenttype": "GARBAGE",
+   "typename": "MISSED GARBAGE SERVICE DAY (GENERAL PICK-UP)",
+   "latitude": "30.412094",
+   "longitude": "-91.146492"
+  },
+  {
+   "id": "1248093",
+   "createdate": "2026-10-27T18:12:00.000",
+   "statusdesc": "IN PROGRESS",
+   "parenttype": "ENVIRONMENTAL ISSUES",
+   "typename": "ILLEGAL DUMPING OF TRASH/SOLID WASTE",
+   "latitude": "30.394314",
+   "longitude": "-91.012436"
+  }
+ ]
+}

@@ -1,3 +1,4 @@
+import { isRunNote } from '../signals/probation-note';
 import { computeStatus, normalGapDays, sanitizeHealthError, type SourceHealthRow } from '../signals/health';
 
 /**
@@ -87,12 +88,13 @@ interface RunGroup {
 function groupRuns(rows: ScanRunRow[]): RunGroup[] {
   const by = new Map<number, ScanRunRow[]>();
   for (const r of rows) {
-    if (r.source === '_prune') continue;
+    if (r.source === '_prune' || r.source?.startsWith('_')) continue; // markers (_prune, _fc:<source> credit ledger) are not scan sources
     const f = t(r.finished_at);
     if (f === null) continue;
+    const row = isRunNote(r.error) ? { ...r, error: null } : r; // a stage-query or probation note is not a source or run failure
     const list = by.get(f);
-    if (list) list.push(r);
-    else by.set(f, [r]);
+    if (list) list.push(row);
+    else by.set(f, [row]);
   }
   return [...by.entries()].map(([finishedMs, g]) => ({ finishedMs, rows: g })).sort((a, b) => b.finishedMs - a.finishedMs);
 }

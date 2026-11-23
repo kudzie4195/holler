@@ -1,23 +1,29 @@
 import { Badge } from './badge';
+import { CoverageNoticeLine } from './coverage-notice';
 import { ButtonLink } from './button';
 import { timeAgo } from './format';
 import { FamilyDot } from './page-header';
 import { kindFamily, sourceLabel } from './signal-meta';
-import { distanceFrom, groupItems, opportunityCounts, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
-import { OPPORTUNITY_GROUP_LABEL, SHOWN_OPPORTUNITIES } from '@/lib/signals/member-opportunity';
-import { IntentNote } from './feed/intent-note';
+import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
-import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS_FREE } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { lowerFirst, t, type Lang } from '@/lib/i18n';
 
-function Cta({ citySlug, children }: { citySlug: string | null; children?: React.ReactNode }) {
+const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+import { localizeTitle } from '@/lib/signals/title-i18n';
+
+function Cta({ citySlug, children, lang }: { citySlug: string | null; children?: React.ReactNode; lang: Lang }) {
   const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
   return (
     <div className="on-brand mt-10 rounded-card bg-brand px-6 py-8 md:px-8">
       {children}
       <ButtonLink href={href} variant="signal" size="lg" className="max-w-full whitespace-normal! py-3 text-center">
-        Get these by email. {TRIAL_DAYS_FREE}, no card
+        {/* The line under this button names the yearly price, so the trial is in its precise form here, never the 2-month headline. */}
+        {lang === 'en' ? `Get these by email. ${upperFirst(TRIAL_PHRASE)}, no card` : t(lang, 'chk.cta.btn', { trial: upperFirst(t(lang, 'land.trial_precise', { days: TRIAL_DAYS })) })}
       </ButtonLink>
-      <p className="mt-3 text-sm text-on-brand-muted">Then from {FROM_MONTHLY} a month or {FROM_YEARLY} a year. Holler never posts for you.</p>
+      <p className="mt-3 text-sm text-on-brand-muted">
+        {lang === 'en' ? `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.` : t(lang, 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY })}
+      </p>
     </div>
   );
 }
@@ -34,6 +40,9 @@ export function CheckResults({
   watches,
   now,
   origin,
+  coverage = null,
+  coverageKnown = true,
+  lang = 'en',
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -47,19 +56,31 @@ export function CheckResults({
   now: number;
   /** The ZIP's own position, used to order records by distance and to show how far each one is. */
   origin?: { lat: number; lon: number };
+  /** One line when a source covering this place and trade is delayed, degraded or unavailable (lib/check/coverage-notice.ts). Never shown as full coverage. */
+  coverage?: string | null;
+  /** false when the source states could not be read: an empty result is then worded as "what Holler has read so far", never as full coverage. */
+  coverageKnown?: boolean;
+  /** 'es' writes headings, sentences and source labels in Spanish from the dictionary. English (the default) is unchanged. */
+  lang?: Lang;
 }) {
-  const groups = mode === 'results' ? groupItems(items, now, origin) : [];
+  const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
-  // Counts per label of what is listed, for the chosen trade ("3 Act now, 5 Coming soon, 2 Market insights").
-  const byLabel = opportunityCounts(groups.flatMap((g) => g.items));
-  const labelLine = SHOWN_OPPORTUNITIES.filter((l) => byLabel[l] > 0)
-    .map((l) => `${byLabel[l]} ${OPPORTUNITY_GROUP_LABEL[l]}`)
-    .join(', ');
 
   if (shown === 0) {
-    const trade = tradeLabel.toLowerCase();
-    const intro: Record<CheckMode, string> = {
-      results: `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
+    const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
+    const days = CHECK_WINDOW_DAYS;
+    const ago = timeAgo(checkedAt, now, lang);
+    const within = t(lang, 'chk.within', { place: placeLabel });
+    const intro: Record<CheckMode, string> = lang !== 'en' ? {
+      results: coverage || !coverageKnown ? t(lang, 'chk.empty.so_far', { within, trade, days, ago }) : t(lang, 'chk.empty.none', { within, trade, days, ago }),
+      unreadable: t(lang, 'chk.empty.unreadable'),
+      limited: t(lang, 'chk.empty.limited'),
+      uncovered: t(lang, 'chk.empty.uncovered', { place: placeLabel }),
+    } : {
+      // With a source behind, an empty list is not "nothing happened": say it is nothing in what Holler has read so far.
+      results: coverage || !coverageKnown
+        ? `In the records Holler has read so far, nothing within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`
+        : `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
@@ -67,12 +88,15 @@ export function CheckResults({
     return (
       <section aria-labelledby="check-heading" className="mt-10">
         <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
-          {mode === 'uncovered' ? `Holler does not cover ${placeLabel} yet` : `Holler is watching near ${placeLabel} for ${trade} work`}
+          {mode === 'uncovered'
+            ? lang === 'en' ? `Holler does not cover ${placeLabel} yet` : t(lang, 'chk.h.uncovered', { place: placeLabel })
+            : lang === 'en' ? `Holler is watching near ${placeLabel} for ${trade} work` : t(lang, 'chk.h.watching', { place: placeLabel, trade })}
         </h2>
         <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
+        {mode === 'results' ? <div className="mt-4 max-w-2xl empty:hidden"><CoverageNoticeLine line={coverage} /></div> : null}
         {mode !== 'uncovered' ? (
           <div className="mt-8">
-            <h3 className="text-xl text-ink">What Holler watches for this trade near you</h3>
+            <h3 className="text-xl text-ink">{t(lang, 'chk.watch_h')}</h3>
             {watches.length > 0 ? (
               <ul className="mt-3 border-t-2 border-ink">
                 {watches.map((w) => (
@@ -82,15 +106,12 @@ export function CheckResults({
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-muted">No public source tags this trade in your area yet.</p>
+              <p className="mt-3 text-muted">{t(lang, 'chk.watch_none')}</p>
             )}
-            <p className="mt-4 text-muted">
-              Quiet stretches happen, and some places publish more than others. Holler scans its sources every 15 minutes to 12
-              hours, depending on the source, and emails you at most once an hour. An alert can trail the event by a little.
-            </p>
+            <p className="mt-4 text-muted">{t(lang, 'chk.quiet')}</p>
           </div>
         ) : null}
-        {mode !== 'uncovered' ? <Cta citySlug={citySlug} /> : null}
+        {mode !== 'uncovered' ? <Cta citySlug={citySlug} lang={lang} /> : null}
       </section>
     );
   }
@@ -98,17 +119,18 @@ export function CheckResults({
   return (
     <section aria-labelledby="check-heading" className="mt-10">
       <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
-        {tradeLabel} within {CHECK_RADIUS_LABEL} of {placeLabel}, last 30 days
+        {lang === 'en'
+          ? `${tradeLabel} within ${CHECK_RADIUS_LABEL} of ${placeLabel}, last 30 days`
+          : t(lang, 'chk.res.h', { trade: tradeLabel, place: placeLabel, days: CHECK_WINDOW_DAYS })}
       </h2>
       <p className="mt-2 text-muted">
-        {shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}
-        Every record links to its source. Checked {timeAgo(checkedAt, now)}.
+        {lang === 'en'
+          ? `${shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}Every record links to its source. Checked ${timeAgo(checkedAt, now)}.`
+          : `${shown < items.length ? t(lang, 'chk.res.showing', { shown }) : ''}${t(lang, 'chk.res.links', { ago: timeAgo(checkedAt, now, lang) })}`}
       </p>
-      {labelLine ? (
-        <p className="mt-2 font-semibold text-ink" data-testid="check-by-label">
-          For {tradeLabel.toLowerCase()}: {labelLine}.
-        </p>
-      ) : null}
+      <div className="mt-4 max-w-2xl empty:hidden">
+        <CoverageNoticeLine line={coverage} />
+      </div>
       <div className="mt-8 flex flex-col gap-10">
         {groups.map((g) => (
           <div key={g.id}>
@@ -124,25 +146,24 @@ export function CheckResults({
                   <li key={it.id} className="border-b border-line">
                     <article className="py-4">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
-                        <Badge kind={it.kind} />
-                        {placeLine(it) ? <span>{placeLine(it)}</span> : null}
+                        <Badge kind={it.kind} lang={lang} />
+                        {placeLine(it, lang) ? <span>{placeLine(it, lang)}</span> : null}
                         {miles !== null ? (
-                          <span className="font-mono text-xs uppercase text-ink">{miles < 1 ? 'under 1 mi away' : `${Math.round(miles)} mi away`}</span>
+                          <span className="font-mono text-xs uppercase text-ink">{lang === 'en' ? (miles < 1 ? 'under 1 mi away' : `${Math.round(miles)} mi away`) : (miles < 1 ? t(lang, 'distance.under_1') : t(lang, 'distance.mi', { n: Math.round(miles) }))}</span>
                         ) : null}
                         <time dateTime={it.occurredAt} className="font-mono text-xs uppercase tabular-nums">
-                          {timeAgo(it.occurredAt, now)}
+                          {timeAgo(it.occurredAt, now, lang)}
                         </time>
                       </div>
-                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{it.title}</p>
-                      {it.opportunity ? <IntentNote item={it} /> : null}
+                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{localizeTitle(it.title, lang, it.source)}</p>
                       <p className="text-sm text-muted">
                         {href ? (
                           <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline decoration-1 underline-offset-4">
-                            Source: {sourceLabel(it.source)}
-                            <span className="sr-only"> (opens in a new tab)</span>
+                            {lang === 'en' ? `Source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}
+                            <span className="sr-only">{t(lang, 'brief.sr_new_tab')}</span>
                           </a>
                         ) : (
-                          <span className="inline-flex min-h-11 items-center">Source: {sourceLabel(it.source)}</span>
+                          <span className="inline-flex min-h-11 items-center">{lang === 'en' ? `Source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}</span>
                         )}
                       </p>
                     </article>
@@ -153,8 +174,8 @@ export function CheckResults({
           </div>
         ))}
       </div>
-      <Cta citySlug={citySlug}>
-        <p className="mb-5 font-display text-3xl text-on-brand">New matches like these land in your inbox as they appear.</p>
+      <Cta citySlug={citySlug} lang={lang}>
+        <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, 'chk.cta.intro')}</p>
       </Cta>
     </section>
   );

@@ -59,6 +59,11 @@ const PEOPLE: { id: string; file: string; count: number; titleStart: RegExp }[] 
 ];
 
 describe('person-name rows: no name in any stored field', () => {
+  it('round 18: the business-licence and violation datasets now carry contact specs, so the rows below also run the name rules', () => {
+    for (const id of ['socrata-chicago-business', 'socrata-sf-business', 'socrata-la-business', 'socrata-nyc-business', 'socrata-orlando-business', 'socrata-chicago-violations', 'socrata-austin-violations']) {
+      expect(ds(id).contacts, id).toBeDefined();
+    }
+  });
   for (const p of PEOPLE) {
     it(`${p.id}: parses ${p.count} rows, titles are record type and place only`, () => {
       const items = parseSocrata(fx(p.file), ds(p.id));
@@ -265,6 +270,8 @@ function arcgisGuardRow(d: ArcgisDataset) {
   a[d.dateField] = Date.parse('2026-11-12T10:00:00Z');
   if (d.latField) a[d.latField] = 33.7491;
   if (d.lonField) a[d.lonField] = -84.3902;
+  // Round 19 coverage (review P1-A): a layer with a required confidential flag drops a row without it; this row is not confidential.
+  if (d.confidentialField) a[d.confidentialField] = 'N';
   for (const k of NAME_KEYS) a[k] = PERSON;
   for (const f of Object.keys(a)) if (NAME_LIKE_COLUMN.test(f) && !NAME_COLUMN_OK.includes(f)) a[f] = PERSON;
   return { features: [{ attributes: a, geometry: { x: -84.3902, y: 33.7491 } }] };

@@ -57,7 +57,7 @@ describe('prices and trial length come from constants', () => {
       return {
         ...real,
         TRIAL_DAYS: 21,
-        PUBLIC_PRICES: { ...real.PUBLIC_PRICES, plans: { solo: fake('Alpha', '$1.11', '$11.11'), pro: fake('Beta', '$2.22', '$22.22') } },
+        PUBLIC_PRICES: { ...real.PUBLIC_PRICES, trialDays: 21, trialPhrase: '21-day free trial', plans: { solo: fake('Alpha', '$1.11', '$11.11'), pro: fake('Beta', '$2.22', '$22.22') } },
       };
     });
     const { text } = await renderLegal('terms');
@@ -66,7 +66,7 @@ describe('prices and trial length come from constants', () => {
     expect(text).toContain('A new account gets a 21-day free trial');
     expect(text).toContain('The trial has the same limits as Alpha.');
     expect(text).toContain('any trades beyond 9');
-    expect(text).not.toMatch(/\$7\.99|\$79\.99|\$13\.99|\$139\.99|\bSolo\b|14-day free trial/);
+    expect(text).not.toMatch(/\$7\.99|\$79\.99|\$13\.99|\$139\.99|\bSolo\b|14-day free trial|60-day free trial/);
     const priv = await renderLegal('privacy');
     expect(priv.text).toContain('your plan (Alpha or Beta)');
     expect(priv.text).not.toMatch(/\bSolo\b|\bStarter\b/);

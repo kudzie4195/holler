@@ -54,9 +54,16 @@ export function intentLineKey(signal: IntentInput): IntentLineKey {
   const source = norm(signal.source);
   if (PUBLIC_POST_SOURCES.has(source)) return 'public-post';
   if (OPEN_BID_SOURCES.has(source)) return 'open-bid';
+  // City open bids (data.subtype 'bid', lib/signals/adapters/city-bids.ts) use the same line as federal ones.
+  if (subtype === 'bid') return 'open-bid';
   if (kind === 'ask' || source === 'holler-request') return 'asking';
   if (subtype === 'business') return 'new-business';
   return intentOf(signal);
+}
+
+/** The label shown above the line. City open bids say "Open bid"; everything else uses its intent's label (federal bids keep theirs). */
+export function intentLabel(signal: IntentInput): string {
+  return norm(signal.subtype) === 'bid' ? 'Open bid' : INTENT_LABEL[intentOf(signal)];
 }
 
 export const INTENT_LABEL: Record<Intent, string> = {

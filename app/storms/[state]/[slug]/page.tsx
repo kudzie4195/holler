@@ -10,7 +10,6 @@ import { FEMA_ONLY_NOTE, HOW_TO_READ, SIGNUP_LINE, h1 as headingOf, metaDescript
 import { loadStormReport } from '@/lib/storms/data';
 import { reportPath } from '@/lib/storms/report';
 import { RecordsTable } from '../../_components/records-table';
-import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { stormCtaLabel } from '@/lib/plan/price-copy';
 
 type Props = { params: Promise<{ state: string; slug: string }> };
@@ -102,7 +101,7 @@ export default async function StormReportPage({ params }: Props) {
 
         <ClosingBand line={SIGNUP_LINE} note="No card to start. Holler never posts anything for you.">
           <PrimaryLink href="/signup" onBrand>
-            {stormCtaLabel(TRIAL_DAYS)}
+            {stormCtaLabel()}
           </PrimaryLink>
         </ClosingBand>
 
