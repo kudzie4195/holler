@@ -192,7 +192,9 @@ describe('every read surface shows the alert once, however many county rows hold
     await GET(new Request('https://x.test/api/cron/notify', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }));
     expect(sent).toHaveLength(1);
     expect((sent[0].html.match(/<li /g) ?? []).length).toBe(1);
-    expect(sent[0].subject).toMatch(/1 new/);
+    // Round 23: the subject names the one card. A county alert has no address or place of its own, so its own title carries it.
+    expect(sent[0].subject).toMatch(/^Winter Storm Warning: /);
+    expect(sent[0].subject).not.toMatch(/\(\+/);
     expect(selects.find((s) => s.includes('holler_signals'))).toContain('alertId:data->>alertId');
     const notified = updates.filter((u) => u.table === 'holler_matches' && u.patch.notified === true).flatMap((u) => u.ids ?? []);
     expect(new Set(notified).size).toBe(stored.length);

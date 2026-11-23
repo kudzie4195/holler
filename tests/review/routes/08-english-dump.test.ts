@@ -100,6 +100,10 @@ it('dumps English output', async () => {
   // act_now->coming_soon 34, coming_soon->none 30, act_now->market_insight 24, act_now->none 5), and 152 shown cards change on all four
   // surfaces (card, mobile, digest html, digest text): 121 by their label, 31 by the round 19 brief sentences (reason copy, next steps).
   // No output exists only on the merged tree. Every difference is the rules unit's intended change.
+  // Round 23 EMAIL: snapshot regenerated once. The alert digest was rebuilt around one address, one reason and one action per card,
+  // so every `digest.html` and `digest.text` output and the digest subjects changed by design. Card and mobile outputs, the match
+  // rows and the dictionary strings that existed before are untouched; the new strings are the digest's own (email.what.*, email.act.*,
+  // email.honesty, email.subject.card*, email.empty.*).
   const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
   expect({ shown, outputs: Object.keys(out).length, out: sha(out), matchRows: sha(matchRows) }).toMatchSnapshot();
 });

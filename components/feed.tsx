@@ -239,7 +239,9 @@ export function Feed({
       ) : (
         <ul className="mt-6 flex flex-col gap-4">
           {visible.map((item) => (
-            <li key={item.id}>
+            // The anchor the alert email links to (round 23): /app#card-<signal id> opens the feed at this card. scroll-mt keeps the
+            // card clear of the sticky header once the browser jumps to it.
+            <li key={item.id} id={`card-${item.id}`} className="scroll-mt-24">
               <MatchCard
                 item={item}
                 onStatus={update}

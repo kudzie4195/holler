@@ -176,8 +176,11 @@ describe('intent copy', () => {
       }
       // what the intent lines said is in the brief: the open-bid, the public-post and the resident-request cases
       expect(out).toContain('nothing is awarded');
-      expect(out).toContain('Low confidence');
       expect(out).toContain('A resident asked on Holler');
+      // Round 23: the confidence line no longer repeats on every card. It stays on the weather card (damage is never assumed) and
+      // the rest of the honesty is said once, at the end of the email.
+      expect(out).toContain('damage is not confirmed');
+      expect(out).toContain('A permit does not mean the owner is choosing a vendor');
     }
     expect(mail.html).not.toMatch(/[–—]/);
   });

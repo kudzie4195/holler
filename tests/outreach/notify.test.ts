@@ -147,8 +147,9 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(html).not.toContain('Pothole request');
     // the licence's brief names a new business license, the 311's brief names the request
     expect(text).toContain('A new business license was filed nearby');
-    expect(text).toContain('the license was filed');
-    expect(text).toContain('it was filed; the record does not show the city confirmed it');
+    // Round 23: the per-card confidence line is gone (the one honesty line at the end carries it); the "why" of each card stays.
+    expect(text).toContain('A 311 request nearby may involve work you do');
+    expect(text).toContain('A permit does not mean the owner is choosing a vendor');
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
   });
 

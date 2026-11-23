@@ -140,7 +140,7 @@ describe('notify digest: notes and ranking use the plan-limited trades', () => {
   it('Pro with the same trades: the note shows and ranks first', async () => {
     const w: World = { migrated: true, lastNotified: null, ai: AI, calls: [], profile: { categories: SIX, plan: 'pro' } };
     const r = await runNotify(w);
-    expect(r.sent[0].text).toContain('Why it may matter: A roof inspection may follow this hail report.');
+    expect(r.sent[0].text).toContain('A roof inspection may follow this hail report.');
     expect(order(r.sent[0].text)[0]).toBe('Hail report near Marietta');
   });
 });

@@ -159,14 +159,16 @@ describe('renderDigest: Act Now first, with its deadline line', () => {
   it('keeps the caller order inside a label', () => {
     expect(out.text.indexOf('No heat in a building')).toBeLessThan(out.text.indexOf('Janitorial services bid'));
   });
-  it('shows the published deadline or "No deadline published" on Act Now, and nothing on Coming soon', () => {
-    expect(out.text).toContain('Act now. Deadline: Dec 5, 2026');
-    expect(out.text).toContain('Act now. No deadline published');
-    expect(out.text).toContain('Coming soon');
+  // Round 23: the chip carries the deadline only when the record published one. "No deadline published" was a row on every Act Now
+  // card that told the member nothing, so it is gone from the digest (it stays on the web card, which has room for it).
+  it('shows the published deadline on the Act Now chip, and nothing on Coming soon or on an Act Now without one', () => {
+    expect(out.text).toContain('[Act now \u00b7 Deadline: Dec 5, 2026]');
+    expect(out.text).toContain('[Act now]');
+    expect(out.text).toContain('[Coming soon]');
     const coming = out.text.split('\n\n').find((b) => b.includes('Flash Flood Warning'))!;
     expect(coming).not.toContain('Deadline');
     expect(coming).not.toContain(NO_DEADLINE_TEXT);
-    expect(out.html).toContain('No deadline published');
+    expect(out.html + out.text).not.toContain(NO_DEADLINE_TEXT);
   });
   it('an item with no label (older caller) shows no chip', () => {
     const o = renderDigest({ businessName: 'A', items: [{ kind: 'alert', title: 'X', occurredAt: T(1) }], appUrl: 'https://x.example', unsubscribeUrl: 'https://x.example/u', now: new Date(NOW) });

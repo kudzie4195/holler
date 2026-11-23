@@ -145,8 +145,8 @@ describe('notify cron after the round 7 merge', () => {
     expect(r.body).toMatchObject({ ok: true, emailed: 1, matches_marked: 3 });
     // Hail (0.95 for roofing) first, then the unscored tornado warning (0.5, severe), then the wind report (0.1 for roofing).
     expect(order(r.sent[0].text)).toEqual(['Hail report near Marietta', 'Tornado warning for Cobb County', 'Wind damage reported near Smyrna']);
-    expect(r.sent[0].text).toContain('Why it may matter: A roof inspection may follow this hail report.');
-    expect(r.sent[0].html).toContain('<strong>Why it may matter:</strong> A roof inspection may follow this hail report.');
+    expect(r.sent[0].text).toContain('A roof inspection may follow this hail report.');
+    expect(r.sent[0].html).toContain('>A roof inspection may follow this hail report.</div>');
     // The note of a trade the member did not pick is never shown.
     expect(r.sent[0].text).not.toContain('Fallen limbs');
 

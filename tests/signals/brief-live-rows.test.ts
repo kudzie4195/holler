@@ -107,18 +107,23 @@ describe('brief cards over 243 real stored rows', () => {
     for (let k = 0; k < CASES.length; k += 25) {
       const batch = CASES.slice(k, k + 25);
       const d = renderDigest({ businessName: 'Fuzz', items: batch.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
-      const lis = d.html.split('<li ').slice(1);
+      const lis = d.html.split('<li ').slice(1).map((x) => x.split('</li>')[0]);
       // digest orders by label: count parts per li, not by index
       if (lis.length !== batch.length) problems.push(`digest li ${lis.length} != ${batch.length}`);
+      // Round 23: a card is a heading, a reason, a public-source link and one action. The labelled rows are gone.
       for (const li of lis) {
-        for (const p of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) if (!li.includes(p)) problems.push(`digest li missing ${p}`);
-        if (!/<a href="https?:\/\/[^"]+"/.test(li)) problems.push(`digest li missing link: ${strip(li).slice(0, 80)}`);
+        if (!/class="h-head"[^>]*>[^<]+</.test(li)) problems.push(`digest li no heading: ${strip(li).slice(0, 80)}`);
+        if (!/class="h-why"[^>]*>.{20,}?</.test(li)) problems.push(`digest li no reason: ${strip(li).slice(0, 80)}`);
+        if (!/<a class="h-link" href="https?:\/\/[^"]+" style="color:#2E5A41">public source<\/a>/.test(li)) problems.push(`digest li no public source: ${strip(li).slice(0, 80)}`);
+        const acts = (li.match(/min-height:44px;/g) ?? []).length;
+        if (acts !== 1) problems.push(`digest li ${acts} actions: ${strip(li).slice(0, 80)}`);
+        for (const p of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) if (li.includes(p)) problems.push(`digest li still has ${p}`);
       }
-      const texts = d.text.split('\n\n');
-      const n = (d.text.match(/What is uncertain: /g) ?? []).length;
-      if (n !== batch.length) problems.push(`digest text uncertain count ${n} != ${batch.length}`);
-      const links = (d.text.match(/\n(Open the source|Open the source home page|Open the bid portal|Open the request): https?:\/\//g) ?? []).length;
-      if (links !== batch.length) problems.push(`digest text link count ${links} != ${batch.length} (${texts.length})`);
+      const cards = (d.text.match(/^\d+\. /gm) ?? []).length;
+      if (cards !== batch.length) problems.push(`digest text card count ${cards} != ${batch.length}`);
+      const links = (d.text.match(/\n {3}public source: https?:\/\//g) ?? []).length;
+      if (links !== batch.length) problems.push(`digest text link count ${links} != ${batch.length}`);
+      if ((d.text.match(/A permit does not mean the owner is choosing a vendor/g) ?? []).length !== 1) problems.push('digest text honesty line not once');
     }
 
     for (const locked of [false, true]) {

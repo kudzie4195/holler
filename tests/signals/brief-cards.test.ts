@@ -196,56 +196,75 @@ describe('the label rules decide who sees a card (no rules bug: a roofer cannot 
   });
 });
 
-describe('email digest: every item has the five parts and a link', () => {
+/**
+ * Round 23: the digest card is one place, one reason and one action. "Source" and "What is uncertain" no longer repeat on every card
+ * (the link is the words "public source" and the honesty line is said once at the end), so what every card must still carry is: the
+ * place or title as its heading, a reason of real length, a public-source link with an http(s) href, and one action with a real route.
+ */
+describe('email digest: every card has a place, a reason, a public source and one action', () => {
   const mail = renderDigest({ businessName: 'Fixture members', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
   const lis = mail.html.split('<li ').slice(1).map((s) => s.split('</li>')[0]);
-  const blocks = mail.text.split('\n\n').filter((b) => b.includes('Why it matters:'));
+  const blocks = mail.text.split('\n\n').filter((b) => /^\d+\. /.test(b));
+  const ACTIONS = ['Open this card', 'Reply to this request', 'Print a door hanger', 'Print a storm door hanger', 'Print the'];
 
   it('has one list item and one text block per fixture (the digest orders them, Act now first)', () => {
     expect(lis).toHaveLength(FIXTURES.length);
     expect(blocks).toHaveLength(FIXTURES.length);
   });
 
-  it('html: each item has what happened, why, next step, source with date and link, and the uncertainty line', () => {
+  it('html: each card has a heading, a reason, one 44 px action into a route that exists, and no labelled rows', () => {
     for (const li of lis) {
-      expect(li).toMatch(/font-weight:600[^>]*>[^<]+<\/div>/); // title
-      expect(li).toMatch(/<strong>Why it matters:<\/strong> .{30,}/);
-      expect(li).toMatch(/<strong>Next step:<\/strong> .{15,}/);
-      expect(li).toMatch(/<strong>Source:<\/strong> .+ &middot; [A-Z][a-z]{2} \d{1,2}, 2026 &middot; <a href="https?:\/\/[^"]+"[^>]*>Open the (source|source home page|request form|bid portal)<\/a>/);
-      expect(li).toMatch(/<strong>What is uncertain:<\/strong> (High|Medium|Low) confidence .+;.+\./);
+      expect(li).toMatch(/class="h-head"[^>]*>[^<]+<\/div>/);
+      expect(li).toMatch(/class="h-why"[^>]*>.{25,}?<\/div>/);
+      const actions = [...li.matchAll(/<a href="([^"]+)" style="display:inline-block;padding:13px 20px;min-height:44px;[^"]*">([^<]+)<\/a>/g)];
+      expect(actions).toHaveLength(1);
+      const [, href, label] = actions[0];
+      expect(href).toMatch(/^https:\/\/localholler\.com\/app(#card-\d+|\/lists(\/area\?trade=[\w-]+|\/door-hanger(\?storm=1)?))?$/);
+      expect(ACTIONS.some((a) => label.startsWith(a)), label).toBe(true);
+      for (const gone of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) expect(li, gone).not.toContain(gone);
     }
   });
 
-  it('text: each item has the same parts and a link line', () => {
+  it('html and text: every card links its public source once, with an http(s) href; a request links none (it is answered on Holler)', () => {
+    const request = lis.find((s) => s.includes('Service request in Atlanta'))!;
+    expect(request).not.toContain('public source');
+    expect(request).toContain('Reply to this request');
+    for (const li of lis.filter((x) => x !== request)) {
+      const links = [...li.matchAll(/<a class="h-link" href="(https?:\/\/[^"]+)" style="color:#2E5A41">public source<\/a>/g)];
+      expect(links).toHaveLength(1);
+    }
     for (const b of blocks) {
-      expect(b).toMatch(/Why it matters: .{30,}/);
-      expect(b).toMatch(/Next step: .{15,}/);
-      expect(b).toMatch(/Source: .+\. Record date: [A-Z][a-z]{2} \d{1,2}, 2026\./);
-      expect(b).toMatch(/\nOpen the (source|source home page|request form|bid portal): https?:\/\/\S+/);
-      expect(b).toMatch(/What is uncertain: (High|Medium|Low) confidence/);
+      expect(b).toMatch(/^\d+\. .+\n {3}.+\n {3}.{25,}/);
+      if (!b.includes('Service request in Atlanta')) expect(b).toMatch(/\n {3}public source: https?:\/\/\S+/);
     }
   });
 
-  it('has no intent block ("Might need work ... The event is on record") in html or text, and no header source line', () => {
-    expect(mail.html + mail.text).not.toMatch(/Might need work|Money being spent|Someone asked|The event is on record|Money is being spent here|A resident asked for this service|This work is out for bid|A public post asked about this|A new business registered here/);
-    for (const li of lis) {
-      // the only place the source name appears is the Source row
-      const label = li.match(/<strong>Source:<\/strong> (.+?) &middot;/)![1];
-      expect(li.split(label).length - 1, label).toBe(1);
+  it('the record date the source published is still on the card, next to how long ago it was', () => {
+    for (const li of lis) expect(li).toMatch(/class="h-meta"[\s\S]{0,400}?\([A-Z][a-z]{2} \d{1,2}, 20\d\d\)/);
+  });
+
+  it('the honesty line is said once for the whole email, and "not confirmed" stays on the cards that are never proof of damage', () => {
+    for (const body of [mail.html, mail.text]) {
+      expect(body.match(/A permit does not mean the owner is choosing a vendor/g)).toHaveLength(1);
+      expect(body).toContain('damage is not confirmed');
     }
+    // the weather, storm, disaster and earthquake cards keep their own confidence line; no other card does
+    const withUncertain = lis.filter((li) => /confidence/.test(li));
+    expect(withUncertain.length).toBeGreaterThanOrEqual(4);
+    for (const li of withUncertain) expect(li).toMatch(/Severe Thunderstorm Warning|hail reported|wind gust|disaster declaration|earthquake/i);
+  });
+
+  it('has no intent block ("Might need work ... The event is on record") in html or text, and no dataset name on a card', () => {
+    expect(mail.html + mail.text).not.toMatch(/Might need work|Money being spent|Someone asked|The event is on record|Money is being spent here|A resident asked for this service|This work is out for bid|A public post asked about this|A new business registered here/);
+    for (const li of lis) expect(li).not.toMatch(/open data: |Storm Prediction Center storm reports|National Weather Service alerts/);
   });
 
   it('a record without a link of its own gets the dataset home page, never no link', () => {
     const gust = FIXTURES.find((c) => c.name === 'wind gust')!;
     const bare = renderDigest({ businessName: 'Fixture members', items: [{ ...digestItem(gust), sourceUrl: null }], appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
     expect(bare.html).toContain('href="https://www.spc.noaa.gov/climo/reports/"');
-    expect(bare.html).toContain('Open the source home page');
-    expect(bare.text).toContain('Open the source home page: https://www.spc.noaa.gov/climo/reports/');
-  });
-
-  it('a resident request says "Open the request form" (a request has no page of its own) and a Baton Rouge bid says "Open the bid portal"', () => {
-    expect(lis.find((s) => s.includes('Service request in Atlanta'))).toContain('>Open the request form</a>');
-    expect(lis.find((s) => s.includes('Window Washing Library Sites'))).toContain('>Open the bid portal</a>');
+    expect(bare.html).toContain('>public source</a>');
+    expect(bare.text).toContain('public source: https://www.spc.noaa.gov/climo/reports/');
   });
 
   it('no banned wording anywhere in the mail, and no em dash', () => {
