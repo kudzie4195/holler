@@ -465,7 +465,8 @@ export interface DigestAction {
  * The one action of a card (round 24, review P1-1). First rule that fits wins:
  *
  *  1. a resident request                                    reply to it in the feed (the only place a member can answer one)
- *  2. weather, storm, disaster or earthquake                print the storm door hanger
+ *  2. a storm report: print the storm door hanger. A weather alert, a disaster declaration or an earthquake: open its own card
+ *     (round 24 FIX2, review D5: none of them is a storm report)
  *  3. a building permit whose address could not be read,   print that trade's address list (that list really is permits:
  *     when the trade has a neighborhood list (lib/lists)      lib/lists/load.ts loadAreaList)
  *  4. a block-level card (violation, 311, sale)             print a door hanger: a block is something to walk
@@ -480,7 +481,11 @@ export function digestAction(it: DigestItem, appUrl: string, lang: Lang = 'en'):
   const card = typeof it.matchId === 'number' && Number.isSafeInteger(it.matchId) && it.matchId > 0 ? `${base}#card-${it.matchId}` : base;
   const fam = familyOf(it);
   if (fam === 'resident-request') return { href: card, label: t(lang, 'email.act.reply') };
-  if (DAMAGE_FAMILIES.includes(fam)) return { href: `${base}/lists/door-hanger?storm=1`, label: t(lang, 'email.act.storm_hanger') };
+  // Round 24 FIX2 (review D5): only a storm report is a public storm report. The hanger it opens says so ("There was a public storm report
+  // in this area. Damage not confirmed."). A weather alert is a forecast, a FEMA declaration and an earthquake are not storm reports: their
+  // card opens, and nothing they lead to says a storm report exists.
+  if (fam === 'storm-report') return { href: `${base}/lists/door-hanger?storm=1`, label: t(lang, 'email.act.storm_hanger') };
+  if (DAMAGE_FAMILIES.includes(fam)) return { href: card, label: t(lang, 'email.act.open_card') };
   const place = digestPlace(it, lang);
   if (fam === 'permit' && !place.exact) {
     // Round 24: a trade is resolved through the sign-up form's composite "Pressure washing" chip first (lib/plan/composite-trades.ts),

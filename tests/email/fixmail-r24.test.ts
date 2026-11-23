@@ -63,10 +63,18 @@ const DISASTER: DigestItem = { kind: 'disaster', matchId: 28, source: 'fema', su
 const fam = (it: DigestItem) => briefFamilyOf({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary });
 
 describe('P1-1: the one action of a card always leads to something about that card', () => {
-  it('request: reply; weather, storm, disaster, earthquake: the storm hanger, whatever the trade', () => {
+  // Round 24 FIX2 (review D5): only a storm report leads to the storm hanger (it says a public storm report exists). A weather alert, a
+  // disaster declaration and an earthquake open their own card.
+  it('request: reply; a storm report: the storm hanger, whatever the trade; weather, disaster, earthquake: open the card', () => {
     expect(digestAction(REQUEST, APP)).toEqual({ href: `${APP}#card-22`, label: 'Reply to this request' });
-    for (const it of [NWS_CO, QUAKE, HAIL, DISASTER, { ...NWS_CO, trade: 'siding-gutters' }, { ...HAIL, trade: 'landscaping' }]) {
+    for (const it of [HAIL, { ...HAIL, trade: 'landscaping' }]) {
       expect(digestAction(it, APP), it.title).toEqual({ href: `${APP}/lists/door-hanger?storm=1`, label: 'Print a storm door hanger' });
+    }
+    for (const it of [NWS_CO, QUAKE, DISASTER, { ...NWS_CO, trade: 'siding-gutters' }]) {
+      const a = digestAction(it, APP);
+      expect(a.label, it.title).toBe('Open this card');
+      expect(a.href, it.title).not.toContain('door-hanger');
+      expect(a.href, it.title).toBe(`${APP}#card-${it.matchId}`);
     }
   });
 

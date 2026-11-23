@@ -34,3 +34,14 @@ describe('D4: the three garbled titles from the 14-day export', () => {
     expect(m.text).toContain('300 block of WILLIS AVENUE');
   });
 });
+
+describe('D5: a weather alert card never leads to a page that says a storm report exists, and never states damage', () => {
+  it('Flood Advisory (NWS): one action, "Open this card"; no storm hanger link; any damage word is "not confirmed"', () => {
+    for (const lang of ['en', 'es'] as const) {
+      const m = mail({ kind: 'alert', source: 'nws', subtype: null, title: 'Flood Advisory: Miami-Dade, FL', summary: 'Minor flooding.', place: 'Miami-Dade, FL', trade: 'restoration' }, lang);
+      expect(m.html).not.toContain('door-hanger');
+      expect(m.text).not.toContain('door-hanger');
+      for (const line of m.text.split('\n')) if (/damage|daño/i.test(line)) expect(line, line).toMatch(/not confirmed|no confirmado|no está confirmado/i);
+    }
+  });
+});
