@@ -80,6 +80,7 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "bids-sf": { id: "bids-sf", label: "San Francisco open data: open bids", sourceUrl: "https://data.sf.gov/d/eshn-8t3a" },
   "bids-la": { id: "bids-la", label: "Los Angeles open data: open bids", sourceUrl: "https://data.lacity.org/d/hf3r-utnq" },
   "bids-batonrouge": { id: "bids-batonrouge", label: "Baton Rouge open data: open bids", sourceUrl: "https://data.brla.gov/d/u9zk-8nix" },
+  "bids-nyc": { id: "bids-nyc", label: "New York open data: open bids", sourceUrl: "https://data.cityofnewyork.us/d/3khw-qi8f" },
   "bids-gwinnett": { id: "bids-gwinnett", label: "Gwinnett County purchasing: open solicitations", sourceUrl: "https://www.gwinnettcounty.com/departments/FinancialServices/Purchasing/BidsandRFPs" },
   "bids-rockdale": { id: "bids-rockdale", label: "Rockdale County procurement: current bids, RFPs and RFQs", sourceUrl: "https://www.rockdalecountyga.gov/current-bids-rfp-rfq" },
   "bids-tucker": { id: "bids-tucker", label: "City of Tucker procurement: bids and RFPs", sourceUrl: "https://www.tuckerga.gov/business-and-development/bids/" },

@@ -1190,9 +1190,10 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   // Federal contracts and big events
   'usaspending': 'market_insight',
   'sam-gov': 'act_now',
-  // City open bids (lib/signals/adapters/city-bids.ts; bids-nyc is configured but not registered, so it has no entry until it is):
-  // a solicitation is open for bids with a due date, nothing is awarded. Behind HOLLER_BIDS_ENABLED.
+  // City open bids (lib/signals/adapters/city-bids.ts): a solicitation is open for bids with a due date, nothing is awarded. Behind
+  // HOLLER_BIDS_ENABLED. bids-nyc is on probation (samples only) and takes this label once it is put live.
   'bids-sf': 'act_now',
+  'bids-nyc': 'act_now',
   'bids-la': 'act_now',
   'bids-batonrouge': 'act_now',
   // Atlanta-area agency pages read with Firecrawl (lib/signals/adapters/bids-local.ts): open solicitations with a due date. Behind the same

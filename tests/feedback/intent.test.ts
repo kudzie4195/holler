@@ -31,6 +31,7 @@ const FIXED: Record<string, Intent> = {
   'bids-sf': 'spending',
   'bids-la': 'spending',
   'bids-batonrouge': 'spending',
+  'bids-nyc': 'spending',
   'bids-gwinnett': 'spending',
   'bids-rockdale': 'spending',
   'bids-tucker': 'spending',

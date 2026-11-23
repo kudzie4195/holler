@@ -3,6 +3,7 @@ import { isProbationNote } from './probation-note';
 import { SOCRATA_DATASETS } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { CARTO_DATASETS } from './adapters/carto-datasets';
+import { BID_DATASETS } from './adapters/city-bids';
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -208,7 +209,7 @@ export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probati
  * paid lookup. It is independent of the contact gate (alert_hold): neither rule reads or relaxes the other.
  */
 export const PROBATION_SOURCE_IDS: ReadonlySet<string> = new Set(
-  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
+  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...BID_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
 );
 
 /** True when the record's source is on probation. Source ids are exact (no case folding). */
