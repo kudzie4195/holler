@@ -11,6 +11,7 @@ import { TIER_NAMES } from '@/lib/plan/limits';
 import { priceDecimal } from '@/lib/stripe/plans';
 import { tradeLiveAnywhere, tradeSignupClosed, type CoverageState } from '@/lib/check/cells';
 import { t as tr } from '@/lib/i18n';
+import { AREA_LIST_TRADES } from '@/lib/lists/core';
 
 /**
  * Round 24 (review P1-3, decision d): what a trade page may offer, from the measured cells (lib/check/cells.ts).
@@ -25,13 +26,23 @@ export function tradeOffer(id: string): CoverageState {
   return 'limited';
 }
 
+/**
+ * Round 24 INT2 (COPY report section 6 item 2): one true line about the address lists and the door hanger, only for a trade that has a
+ * neighborhood list (lib/lists/core.ts AREA_LIST_TRADES: a permit kind routes work to it) and only where sign-up takes the trade (a
+ * "coming soon" trade page offers the check and the waitlist, never a member tool).
+ */
+export function tradeListsLine(id: string): string | null {
+  if (!AREA_LIST_TRADES.includes(id) || tradeOffer(id) === 'waitlist') return null;
+  return 'Members also get the street addresses of these permits on an address list, and a door hanger with their name and number to print, so they know where to hang and flyer this week.';
+}
+
 // Precise trial form here on purpose: the month headline right after a yearly price would read like a yearly saving.
 export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start.`;
 
 export const HOW_IT_WORKS: string[] = [
   'Pick what you do. Add your ZIP and how far you will drive, from 5 to 100 miles.',
   'Holler checks public weather, city and federal data every few minutes to a few hours.',
-  'When something nearby matches, you get a short email with the source link. Holler never posts anything for you.',
+  'When something nearby matches, you get a short email with a link to the public source. Holler never posts anything for you.',
 ];
 
 export interface TradeEntry {
@@ -172,7 +183,7 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
     },
     {
       q: 'Does Holler post or contact anyone for me?',
-      a: 'No. Holler only sends alerts to you, and it never posts, messages or touches your social accounts, so there is nothing on any platform for anyone to ban.',
+      a: 'No. Holler sends alerts to you. It never posts for you or touches your social accounts, and the only message it sends is a reply you write to a resident request.',
     },
   ];
 }

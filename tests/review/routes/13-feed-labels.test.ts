@@ -87,7 +87,7 @@ describe('REV-ROUTES 13: feed labels', () => {
     console.log('EN ' + JSON.stringify(chips(html)));
     expect(text(html)).toContain('Background');
     expect(text(html)).toContain('Below your minimum');
-    expect(text(html)).toContain('Coming soon');
+    expect(text(html)).toContain('Work may follow');
   });
   it('Spanish: Referencia, Por debajo de su mínimo', async () => {
     const { html } = await renderApp({ rows: HELD, lang: 'es' });

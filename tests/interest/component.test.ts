@@ -14,7 +14,7 @@ describe('feature list', () => {
   it('is exactly the four features, in order, with the agreed ids', () => {
     // Round 23: 'spanish' is gone from Coming next. Spanish is live at /es, so offering it as a future feature was wrong.
     expect(FEATURES.map((f) => f.id)).toEqual(['gov-bids', 'asking-online', 'city-weekly', 'more-areas']);
-    expect(FEATURES.map((f) => f.label)).toEqual(['Local government bids', 'People asking online', 'Free weekly city email', 'More ZIP codes']);
+    expect(FEATURES.map((f) => f.label)).toEqual(['Local government bids', 'People asking online', 'Free weekly city email', 'More cities']);
     expect(FEATURE_IDS).toEqual(['gov-bids', 'asking-online', 'city-weekly', 'more-areas']);
   });
   it('the newest migration check constraint allows every id that is offered', () => {

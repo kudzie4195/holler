@@ -353,13 +353,22 @@ describe('/faq content', () => {
     const open = FAQ_ITEMS.find((i) => /stay open/i.test(i.q))!.a;
     expect(open).toMatch(/description goes only to matching businesses/);
   });
-  it('FAQ answers alone have stdev/mean of sentence length of at least 0.62, with some very short and some long sentences', () => {
+  // Round 24 INT2 (COPY report section 9 item 3): the old gate demanded at least 15 sentences of 6 words or fewer, and the answers grew a
+  // coda reflex to meet it ("Try it first." "Always." "Some feeds lag."). The gate now asks for a share of short sentences in a range,
+  // and bans an answer that ends on a tag sentence of 6 words or fewer.
+  it('FAQ answers alone have stdev/mean of sentence length of at least 0.62, a short-sentence share of 12% to 35%, and some long sentences', () => {
     const answers = FAQ_ITEMS.map((i) => i.a).join('\n');
     const st = copyStats(answers);
     expect(st.cv, 'cv of the answers').toBeGreaterThanOrEqual(0.62);
     const lens = sentences(answers).map(wordCount);
-    expect(lens.filter((n) => n <= 6).length, 'very short sentences').toBeGreaterThanOrEqual(15);
+    const shortShare = lens.filter((n) => n <= 6).length / lens.length;
+    expect(shortShare, 'share of sentences of 6 words or fewer').toBeGreaterThanOrEqual(0.12);
+    expect(shortShare, 'share of sentences of 6 words or fewer').toBeLessThanOrEqual(0.35);
     expect(lens.filter((n) => n >= 25).length, 'long sentences').toBeGreaterThanOrEqual(5);
+  });
+  it('no answer ends on a tag sentence of 6 words or fewer', () => {
+    const tags = FAQ_ITEMS.map((i) => ({ q: i.q, last: sentences(i.a).at(-1) ?? '' })).filter((x) => sentences(FAQ_ITEMS.find((i) => i.q === x.q)!.a).length > 1 && wordCount(x.last) <= 6);
+    expect(tags, 'answers ending on a short tag sentence').toEqual([]);
   });
   it('no banned word, no em dash, and no claim of Bluesky, SAM.gov, Ticketmaster or concerts', () => {
     expect(bannedHits(text)).toEqual([]);

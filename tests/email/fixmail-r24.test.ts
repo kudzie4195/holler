@@ -206,7 +206,7 @@ describe('P2-7: subjects that match the record', () => {
     expect(digestSubject([SF_311], 10)).toBe('311 request in San Francisco, CA (+9 more)');
     // an address or a block is never shortened, even past 50
     const longBlock = { ...CHI_PAINT_VIOLATION, summary: 'X | OPEN | 4500 block of E BEN WHITE BLVD SERVICE ROAD' };
-    expect(digestSubject([longBlock], 12)).toBe('Violation at 4500 block of E BEN WHITE BLVD SERVICE ROAD (+11 more)');
+    expect(digestSubject([longBlock], 12)).toBe('Code violation at 4500 block of E BEN WHITE BLVD SERVICE ROAD (+11 more)');
   });
 
   it('over all the shapes above, in both languages: never over 120, never ending mid-word before the count', () => {
@@ -370,7 +370,7 @@ describe('P2-6: every text element is at least 4.5:1, in light and in dark mode'
         }
         // the runs the review found unreadable in dark mode are among those checked
         if (dark && html === emails[0].html) {
-          for (const t of ['Holler for Acme Co', 'Contact us', 'Open your feed']) expect(runs.some((r) => r.text.includes(t)), t).toBe(true);
+          for (const t of ['Holler for Acme Co', 'Contact us', 'See all your matches']) expect(runs.some((r) => r.text.includes(t)), t).toBe(true);
         }
       }
       expect(n).toBeGreaterThan(100);

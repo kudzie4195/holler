@@ -120,9 +120,13 @@ describe('/pricing page', () => {
     expect(qs).toMatch(/refund/i);
   });
 
-  it('review r2: the trial-end answer limits the delayed first charge to the website; round 24 (review P1-4): it names no app and no store', () => {
+  // INT2: Holler is a website only, so "on the website" no longer separates two ways to pay; the answer now says what pauses and when a
+  // card added during the trial is charged, and must never bring back the app or store sentence.
+  it('the trial-end answer says what pauses and when a card added in the trial is charged; it names no app and no store', () => {
     const a = PRICING_FAQ.find((f) => /trial ends/i.test(f.q))!.a;
-    expect(a).toContain('if you subscribe on the website during the trial, the first charge comes when it ends.');
+    expect(a).toContain('Your alerts and address lists pause until you pick a plan.');
+    expect(a).toContain('if you added a card during the trial, the first charge comes on the day it ends.');
+    expect(a).not.toMatch(/charged by Apple or Google|in the app|feed locks/i);
     expect(a).not.toMatch(/\bapp\b|Apple|Google/);
     expect(a).not.toMatch(/[\u2013\u2014]/);
     expect(text).toContain(a);

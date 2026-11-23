@@ -33,7 +33,9 @@ describe('Spanish trial wording', () => {
     expect(es).toContain(`${t('es', TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS })}, sin tarjeta`);
     expect(es).toContain('1 mes gratis');
     const en = text(await renderResolved(SignupBody({ searchParams: sp })));
-    expect(en).toContain('1 month free, no card. Takes about a minute.');
+    // INT2 copy round: the English page that starts the trial uses the one trial phrase pricing, terms and emails use.
+    expect(en).toContain('30-day free trial, no card. Takes about a minute.');
+    expect(en).not.toContain('1 month free');
   });
 
   it('constants: 30 days, 1 month', () => {

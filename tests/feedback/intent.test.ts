@@ -186,7 +186,7 @@ describe('intent copy', () => {
       expect(out).toContain('Medium confidence a resident asked on Holler; details are unchecked.');
       expect(out).toContain('damage is not confirmed');
       expect(out).toMatch(/A request or a public post is in its writer(&#39;|')s own words, and Holler has not checked them\./);
-      expect(out).not.toContain('A permit does not mean the owner is choosing a vendor');
+      expect(out).not.toContain('A permit does not tell you whether the owner has hired anyone');
       expect(out).not.toContain('Every card comes from a public record');
     }
     expect(mail.html).not.toMatch(/[–—]/);

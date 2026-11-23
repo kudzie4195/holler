@@ -23,7 +23,7 @@ function invalidLang(lang: Lang): Response {
 const INVALID = () =>
   htmlPage('Link not valid', 'This link is not valid or has expired. You can answer from your feed any time.', {
     status: 400,
-    links: [{ href: '/app', label: 'Open your feed' }],
+    links: [{ href: '/app', label: 'See all your matches' }],
   });
 
 function parse(token: string) {
@@ -77,12 +77,12 @@ export async function POST(req: Request) {
     return htmlPage(
       'Thanks, saved',
       parsed.answer === 'yes' ? 'We marked this alert as led to work. You can add the job amount in your feed.' : 'We saved your answer.',
-      { links: [{ href: '/app', label: 'Open your feed' }] },
+      { links: [{ href: '/app', label: 'See all your matches' }] },
     );
   }
   if (result === 'already') {
     return htmlPage('Already answered', 'We have your answer for this alert. You can change it in your feed.', {
-      links: [{ href: '/app', label: 'Open your feed' }],
+      links: [{ href: '/app', label: 'See all your matches' }],
     });
   }
   if (result === 'none') return INVALID();

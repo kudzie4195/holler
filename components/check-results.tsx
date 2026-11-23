@@ -95,7 +95,7 @@ export function CheckResults({
       : !measured
         ? t(lang, 'chk.unmeasured', { trade: tradeWord, place: placeLabel })
         : lang === 'en'
-          ? `Few records for this trade here yet. Holler reads this area, but ${tradeLabel.toLowerCase()} work shows up only now and then. Start free and see for yourself; nothing is charged.`
+          ? `Few ${tradeLabel.toLowerCase()} records near here so far, and some weeks bring none. The trial is free and needs no card, so you can judge it before you pay.`
           : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) });
   const stormLine = coverageState === 'limited' && storm ? t(lang, 'chk.storm', { trade: tradeWord }) : null;
   const LimitedNote = limitedLine ? (
@@ -163,12 +163,12 @@ export function CheckResults({
     <section aria-labelledby="check-heading" className="mt-10">
       <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
         {lang === 'en'
-          ? `${tradeLabel} within ${CHECK_RADIUS_LABEL} of ${placeLabel}, last 30 days`
+          ? `${tradeLabel} within ${CHECK_RADIUS_LABEL} of ${placeLabel}, last ${CHECK_WINDOW_DAYS} days`
           : t(lang, 'chk.res.h', { trade: tradeLabel, place: placeLabel, days: CHECK_WINDOW_DAYS })}
       </h2>
       <p className="mt-2 text-muted">
         {lang === 'en'
-          ? `${shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}Every record links to its source. Checked ${timeAgo(checkedAt, now)}.`
+          ? `${shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}Every record links to its public source. Checked ${timeAgo(checkedAt, now)}.`
           : `${shown < items.length ? t(lang, 'chk.res.showing', { shown }) : ''}${t(lang, 'chk.res.links', { ago: timeAgo(checkedAt, now, lang) })}`}
       </p>
       {LimitedNote}

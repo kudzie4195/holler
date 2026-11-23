@@ -64,7 +64,7 @@ export default function CheckPage(props: PageProps<'/check'>) {
             <h1 className="max-w-[22ch] text-5xl sm:text-6xl md:text-7xl">See what happened near you.</h1>
             <p className="mt-4 max-w-xl text-lg text-on-brand-muted">
               Pick your trade and ZIP code. Holler shows what it recorded nearby in the last {CHECK_WINDOW_DAYS} days, with a link to every
-              source. No login.
+              public source. No login.
             </p>
           </div>
         </div>

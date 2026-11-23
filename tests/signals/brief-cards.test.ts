@@ -259,7 +259,7 @@ describe('email digest: every card has a place, a reason, a public source and on
     });
     expect(ordered.filter((f) => f !== 'permit').length).toBeGreaterThanOrEqual(10);
     for (const body of [mail.html, mail.text]) {
-      expect(body.match(/A permit does not mean the owner is choosing a vendor/g)).toHaveLength(1);
+      expect(body.match(/A permit does not tell you whether the owner has hired anyone/g)).toHaveLength(1);
       expect(body).toContain('damage is not confirmed');
     }
     blocks.forEach((b, i) => {

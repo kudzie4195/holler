@@ -54,7 +54,8 @@ describe('copy rules', () => {
     expect(WAITLIST.intro).toBe("Leave your email and we'll tell you when it does.");
   });
   it('the weather note matches what the app does: hazards are national, permits and city requests need a local feed', () => {
-    expect(WAITLIST.note).toMatch(/Storm reports and weather alerts reach every ZIP/);
+    // INT2: "warnings", not "alerts": a zone-only advisory is not placed by county (lib/signals/adapters/nws.ts COUNTY_MIN_SEVERITY).
+    expect(WAITLIST.note).toMatch(/Storm reports and weather warnings reach every ZIP/);
     expect(WAITLIST.note).toMatch(/Permits and city requests need a local source/);
   });
 });

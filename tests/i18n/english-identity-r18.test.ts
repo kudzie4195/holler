@@ -39,6 +39,11 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * for that reason: every difference they described is in the stored base already. The 28 keys that changed in that rewrite are listed in
  * the round 23 report (PHASEA-report.md); from here on this test is again a byte-for-byte guard, now against the round 23 render.
  *
+ * Round 24 INT2 (copy pass, gates/r24/INT2-report.md) rewrote it again: 19 keys, every difference read token by token. pricing.html (the
+ * pricing lead names what Solo and Pro cover, "All your matches on one page", the alerts line without the app sentence), signup and
+ * signup.city ("Optional." on the data-use box, site review P3-1; the trial phrase "30-day free trial"), onboarding and onboarding.city
+ * (the pressure washing chip hint), the seven app.* pages (Coming next: "More cities"), the five welcome emails ("reads public records",
+ * "See all your matches", "Settings", "The rest are in your account") and the two trial-ending emails (the card-optional renew line).
  * Round 24 INT (CAN-SPAM, FIXLIST row 17) rewrote it once more, for one key only: `email.outcome` (the "did these alerts turn into
  * work?" email), whose plain-text part gained the reason line "You get this because email alerts are on for your Holler account." that
  * its HTML part always had. No other key changed (INT-report.md).
@@ -227,8 +232,8 @@ describe('English output is unchanged (round 18 ES)', () => {
         base[k] = base[k].replace(from, to);
       }
     }
-    // The round 23 base already carries the "More ZIP codes" row and the language-hint script, so nothing is patched into it here.
-    expect(base['pricing.html']).toContain('More ZIP codes');
+    // The base carries the Coming next "more areas" row (INT2 copy pass: labelled "More cities") and the language-hint script, so nothing is patched into it here.
+    expect(base['pricing.html']).toContain('More cities');
     expect(base['app-layout.html']).toContain('<script type="text/javascript">');
     for (const k of Object.keys(base)) expect(now[k], k).toBe(base[k]);
   }, 60_000);

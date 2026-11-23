@@ -25,7 +25,7 @@ export const PRICING_DESCRIPTION = `${SOLO} is ${m('starter')} a month or ${y('s
  * The one sentence in the green band (app/pricing/page.tsx). Final review B P2-1: the paragraph that restated each plan's price and
  * limits under the cards is gone; the cards and the table already say it, and the prices were shown three times in a row.
  */
-export const PRICING_INTRO = ['Holler has two plans, and you can pay for either one by the month or by the year.'];
+export const PRICING_INTRO = ['Solo covers one service area and Pro covers up to three, with more trades and keyword watches. Pay for either one by the month or by the year.'];
 
 /** Rows for the comparison table: [label, Solo, Pro]. */
 export const COMPARISON: [string, string, string][] = [
@@ -35,7 +35,7 @@ export const COMPARISON: [string, string, string][] = [
   ['Trades', `Up to ${S.trades}`, `Up to ${P.trades}`],
   ['Keyword watches', 'None', `Up to ${P.keywords}`],
   ['Email alerts', 'Yes', 'Yes'],
-  ['Feed of matches', 'Yes', 'Yes'],
+  ['Matches page', 'Yes', 'Yes'],
   // Round 23: both have been in /app since round 18 and were on neither card nor this table.
   ['Address lists and door hanger', 'Yes', 'Yes'],
   ['Replies to resident requests', 'Yes', 'Yes'],
@@ -57,7 +57,7 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What happens when the trial ends?',
-    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends.',
+    a: 'Your alerts and address lists pause until you pick a plan. We never charge you just because a trial ended, and if you added a card during the trial, the first charge comes on the day it ends.',
   },
   {
     q: 'Can I cancel any time?',

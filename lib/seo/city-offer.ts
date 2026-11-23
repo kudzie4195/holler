@@ -32,6 +32,8 @@ export interface CityOffer {
   asideButton: string;
   /** The header "Start free" button. False on a waitlist page. */
   showStart: boolean;
+  /** Round 24 INT2: the trades that are live at the city's point (placeCoverage), for the city FAQ's "ready for" answer. */
+  live: string[];
 }
 
 export function cityServed(city: Pick<CityPlace, 'lat' | 'lon' | 'state'>): boolean {
@@ -52,6 +54,7 @@ export function cityOffer(city: CityPlace, served: boolean = cityServed(city)): 
       asideLine: t('en', 'city.aside.live', c),
       asideButton: t('en', 'city.btn.live', c),
       showStart: true,
+      live: answer.live,
     };
   }
   if (answer.state === 'limited') {
@@ -65,6 +68,7 @@ export function cityOffer(city: CityPlace, served: boolean = cityServed(city)): 
       asideLine: t('en', 'city.aside.limited', c),
       asideButton: t('en', 'city.btn.limited'),
       showStart: true,
+      live: answer.live,
     };
   }
   return {
@@ -77,6 +81,7 @@ export function cityOffer(city: CityPlace, served: boolean = cityServed(city)): 
     asideLine: t('en', 'city.aside.waitlist', c),
     asideButton: t('en', 'city.btn.waitlist', c),
     showStart: false,
+    live: answer.live,
   };
 }
 

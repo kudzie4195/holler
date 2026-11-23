@@ -102,7 +102,7 @@ const KIND_LABELS: Record<string, string> = {
 
 export function kindLabel(kind: string, lang: Lang = 'en'): string {
   if (lang !== 'en') return t(lang, kind in KIND_LABELS ? (`email.kind.${kind}` as Parameters<typeof t>[1]) : 'email.kind.unknown');
-  return KIND_LABELS[kind] ?? 'Local signal';
+  return KIND_LABELS[kind] ?? 'Public record';
 }
 
 export function escapeHtml(s: string): string {
@@ -844,14 +844,14 @@ export function renderWelcome(opts: { businessName: string; appUrl: string; tria
   const html =
     WRAP_OPEN +
     `<h1 style="${S.h1};font-size:24px;margin:0 0 12px 0">Welcome, ${escapeHtml(noDash(opts.businessName))}</h1>` +
-    `<p>Holler watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, service requests people post on Holler. ${CADENCE_SHORT}</p>` +
+    `<p>Holler reads public records near you and emails you the ones that match your trade: permits, storm reports, 311 complaints and requests people post on Holler. Your address lists and door hanger are under Lists. ${CADENCE_SHORT}</p>` +
     `<p>Your ${days}-day free trial has started. No card needed. Holler never posts anything for you.</p>` +
-    button(opts.appUrl, 'Open your feed') +
+    button(opts.appUrl, 'See all your matches') +
     (contactAddress() ? `<p style="${S.muted}">${contactHtml().trim()}</p>` : '') +
     cardClose() +
     postalFooterHtml() +
     WRAP_CLOSE;
-  const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller watches public data near you and emails you when something matches what you do: storms, permits, 311 complaints, service requests people post on Holler. ${CADENCE_SHORT}\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nOpen your feed: ${opts.appUrl}\n${contactText()}\n${postalFooterText()}\n`;
+  const text = `Welcome, ${noDash(opts.businessName)}\n\nHoller reads public records near you and emails you the ones that match your trade: permits, storm reports, 311 complaints and requests people post on Holler. Your address lists and door hanger are under Lists. ${CADENCE_SHORT}\n\nYour ${days}-day free trial has started. No card needed. Holler never posts anything for you.\n\nSee all your matches: ${opts.appUrl}\n${contactText()}\n${postalFooterText()}\n`;
   return { subject, html, text };
 }
 

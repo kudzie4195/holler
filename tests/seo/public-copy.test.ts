@@ -153,7 +153,7 @@ describe('N3: public pages tell the truth for the keys that are set', () => {
     for (const has of [NONE, ALL]) expect(allText(homeCopy(has).faqs)).not.toMatch(/on your behalf|we post|posts for you|messages anyone for you/i);
     expect(allText(homeCopy(NONE).faqs)).toContain('It does not promise a job or a customer,');
     expect(allText(FAQ_GROUPS)).toContain('Only when you write a reply to a resident request and press send');
-    expect(allText(aboutCopy(NONE).whatItIs)).toContain('plus a free page where residents can ask local businesses for help');
+    expect(allText(aboutCopy(NONE).whatItIs)).toContain('There is a free page, too, where residents can ask local businesses for help.');
     expect(allText(aboutCopy(NONE).whatItIs)).toContain('Holler is new');
   });
 

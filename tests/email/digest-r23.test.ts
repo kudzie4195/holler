@@ -245,7 +245,7 @@ describe('4. honesty, said once and where it belongs', () => {
     // Round 24 (review P1-4): built from the kinds present. ALL holds permits, violations, a storm report and a resident request.
     const { html, text } = render(ALL);
     for (const body of [html, text]) {
-      expect(body.match(/A permit does not mean the owner is choosing a vendor/g)).toHaveLength(1);
+      expect(body.match(/A permit does not tell you whether the owner has hired anyone/g)).toHaveLength(1);
       expect(body.match(/A violation or a failed inspection is on the record, but whether the owner is hiring is not known/g)).toHaveLength(1);
       expect(body.match(/A weather alert or a storm report only records the event: damage is not confirmed/g)).toHaveLength(1);
       expect(body.match(/Holler has not checked them/g)).toHaveLength(1);
@@ -258,7 +258,7 @@ describe('4. honesty, said once and where it belongs', () => {
     }
     // permits only: the plain opening sentence, and only the permit sentence after it
     const permits = render([COBB_NEW_HOME, ATL_ROOF]);
-    expect(permits.text).toContain('Every card comes from a public record near you, and each one links to its public source. A permit does not mean the owner is choosing a vendor.\n');
+    expect(permits.text).toContain('Every card comes from a public record near you, and each one links to its public source. A permit does not tell you whether the owner has hired anyone.\n');
   });
 
   it('every card but a building permit says on the card what is uncertain; a permit card does not repeat its caveat', () => {
@@ -305,7 +305,7 @@ describe('5. the subject line', () => {
     expect(digestSubject([HAIL], 1)).toBe('1.75 inch hail reported near 2 ESE Longview, TX');
     expect(digestSubject([COBB_NEW_HOME, ATL_ROOF, DEKALB_VIOLATION, HAIL], 4)).toBe('Storm report in Longview, TX (+3 more)');
     // Act Now sorts first, so the strongest card is the one named
-    expect(digestSubject([COBB_NEW_HOME, CHICAGO_PORCH], 2)).toBe('Violation at 7700 block of S JEFFERY BLVD (+1 more)');
+    expect(digestSubject([COBB_NEW_HOME, CHICAGO_PORCH], 2)).toBe('Code violation at 7700 block of S JEFFERY BLVD (+1 more)');
     expect(digestSubject([COBB_NEW_HOME], 1).length).toBeLessThanOrEqual(45);
     expect(digestSubject([ATL_ROOF, COBB_NEW_HOME], 2).length).toBeLessThanOrEqual(45);
   });
@@ -325,7 +325,7 @@ describe('5. the subject line', () => {
   it('stage-update subjects are unchanged, and the empty week has its own', () => {
     const update = { ...ATL_ROOF, permitStage: 'final_inspection', permitStageAt: '2026-11-22T09:00:00Z', permitStageUpdate: true };
     expect(digestSubject([update], 1)).toBe('Update: final inspection on a permit near you');
-    expect(digestSubject([], 0)).toBe('Nothing near you this week');
+    expect(digestSubject([], 0)).toBe('A quiet week near you');
   });
 });
 
@@ -335,9 +335,9 @@ describe('6. the empty week is a useful email', () => {
   const empty = render([], { matchedLastWeek: 0 });
 
   it('says what happened, what is still worth doing, and gives two real links', () => {
-    expect(empty.subject).toBe('Nothing near you this week');
+    expect(empty.subject).toBe('A quiet week near you');
     expect(empty.html).toContain('Nothing matched near you this week');
-    expect(empty.html).toContain('No public record near you matched your trades in the last week');
+    expect(empty.html).toContain('No public record near you matched your trades this past week');
     const unchecked = render([]);
     expect(unchecked.subject).toBe('No new alert near you this week');
     expect(unchecked.html).not.toContain('No public record near you matched');

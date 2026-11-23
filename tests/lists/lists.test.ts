@@ -395,7 +395,7 @@ describe('print view and empty state', () => {
       'Hello, neighbor',
       'Peach Roofing serves your neighborhood. If you would like a quote, call or text 404-555-0199.',
       'There was a public storm report in this area. Damage not confirmed.',
-      'We are an independent business, not a city or government office. We are leaving this card on streets where public records show a building permit, near a public storm report. Those records list addresses only, no names or phone numbers.',
+      'We are an independent business, not a city or government office. We leave this card on streets with a public building permit near a public storm report. Those records list addresses only: no names, no phone numbers.',
     ]);
     // review 2: no "we found this street", no "storm records", no "we do not have your name" promise, in either language
     for (const lang of ['en', 'es'] as const) for (const storm of [true, false]) {

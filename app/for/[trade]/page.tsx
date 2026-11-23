@@ -15,6 +15,7 @@ import {
   tradeHeadline,
   tradeLead,
   tradeOffer,
+  tradeListsLine,
   tradeFaq,
   tradePath,
   tradeTitle,
@@ -102,6 +103,7 @@ export default async function TradePage({ params }: Props) {
   // Round 24 (review P1-3, decision d): the offer follows the measured cells. Only a trade live in some centre gets "Start free" and the
   // price line; the others get "Check your ZIP" as the only button, and a closed trade (waitlist) shows no price and no trial anywhere.
   const offer = tradeOffer(t.id);
+  const listsLine = tradeListsLine(t.id);
   const tradeWord = t.label.toLowerCase();
 
   return (
@@ -171,13 +173,14 @@ export default async function TradePage({ params }: Props) {
             </Ledger>
           )}
           {caveat ? <p className="mt-4 text-sm text-muted">{caveat}</p> : null}
+          {listsLine ? <p className="mt-4 text-muted">{listsLine}</p> : null}
         </section>
 
         {live.items.length > 0 ? (
           <section aria-labelledby="latest">
-            <H2 id="latest">Latest signals for {t.label.toLowerCase()}</H2>
+            <H2 id="latest">Latest records for {t.label.toLowerCase()}</H2>
             <p className="mt-2 text-muted">
-              The newest matching records across the country, each linked to its source. Your alerts are limited to
+              The newest matching records across the country, each linked to its public source. Your alerts are limited to
               your own area.
             </p>
             <Ledger className="mt-4">

@@ -52,7 +52,7 @@ export function distanceFrom(origin: { lat: number; lon: number } | undefined, i
 
 /**
  * The place line of a record: its "City, ST", or for a record whose position is a stand-in (Cobb County) the plain note
- * "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." (approx-location.ts).
+ * "In Cobb County. The county's record has a street address but no map point, so no distance is shown." (approx-location.ts).
  */
 export function placeLine(it: Pick<CheckItem, 'source' | 'place'>, lang: Lang = 'en'): string | null {
   if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null, source: it.source }, lang);

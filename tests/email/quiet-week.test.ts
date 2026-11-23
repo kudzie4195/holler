@@ -223,7 +223,7 @@ describe('flag on ("1")', () => {
     const quiet = profile(ID.quiet);
     const expected = renderDigest({ businessName: quiet.business_name, items: [], totalCount: 0, appUrl: `${new URL(mail('quiet').headers!['List-Unsubscribe'].slice(1, -1)).origin}/app`, unsubscribeUrl: mail('quiet').headers!['List-Unsubscribe'].slice(1, -1), now: new Date(NOW), lang: 'en', coverage: digestCoverage(quiet), matchedLastWeek: 0 });
     expect(mail('quiet').html).toBe(expected.html);
-    expect(mail('quiet').subject).toBe('Nothing near you this week');
+    expect(mail('quiet').subject).toBe('A quiet week near you');
     expect(mail('quiet').text).toContain(en['email.empty.body']);
     // a feed-only match this week: never "no public record matched"
     expect(mail('feedOnly').subject).toBe(en['email.subject.quiet']);
@@ -231,7 +231,7 @@ describe('flag on ("1")', () => {
     expect(mail('feedOnly').text).not.toContain('No public record near you matched');
     // Atlanta lawn care is a 'limited' cell on /check: the email says so in the site's words
     expect(digestCoverage(profile(ID.limited, { categories: ['lawn-care'], ...ATLANTA }))).toEqual({ state: 'limited', trades: ['lawn-care'] });
-    expect(mail('limited').text).toContain('Few records for lawn care near you yet');
+    expect(mail('limited').text).toContain('Few records for lawn care near you so far');
     expect(mail('limited').text).not.toContain('Quiet weeks happen');
     // Spanish member
     expect(mail('spanish').html).toContain('lang="es"');

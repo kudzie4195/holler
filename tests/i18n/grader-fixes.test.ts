@@ -59,9 +59,10 @@ const CORRECTED: Record<string, string> = {
   "note.bidder-to-buyer": "Hola{org}. Soy [su nombre], de [su negocio]. Estoy revisando la licitación abierta que publicó su oficina y tengo una pregunta sobre el alcance. ¿Siguen abiertas las visitas al sitio o las preguntas por escrito, y cuál es la fecha límite? Seguiré el proceso de su oficina. Puede comunicarse conmigo al [su teléfono]. Gracias.",
   "trade.landscaping": "Jardinería y paisajismo",
   // Round 23 rewrote the launch message in both languages. These four keys carry it; the grader's wording rules still apply (checked below).
+  // INT2 (round 24 copy pass): hero.sub and chk.quiet rewritten ("techos rehechos" read translated; "temporadas" for weeks).
   "land.title": "Holler: vea dónde está el trabajo cerca de usted esta semana",
   "hero.h1": "Vea dónde está el trabajo cerca de usted esta semana.",
-  "hero.sub": "Direcciones de casas nuevas y de techos rehechos, más cuadras con problemas, cerca de usted cada semana: para jardinería, corte de césped, canaletas y lavado a presión. Cada alerta enlaza a su fuente pública, y viene con una lista de direcciones y un colgante de puerta para imprimir, para saber dónde colgar y repartir volantes esta semana.",
+  "hero.sub": "Permisos de casas nuevas y de techos nuevos cerca de usted, cada uno con la dirección y un enlace a su fuente pública. Holler pone esas direcciones en una lista y en un colgante de puerta para imprimir, para que sepa dónde colgar y repartir volantes esta semana. Pensado para equipos de jardinería, corte de césped, canaletas y lavado a presión.",
   "fam.civic.tag": "311 E INFRACCIONES",
   "fam.civic.title": "Solicitudes a la ciudad e infracciones de código",
   // Round 18 ES: the owner's rule for plan names ("El plan Solo cuesta" can read as "the plan only costs"): "Plan Solo:" with a colon.
@@ -69,7 +70,7 @@ const CORRECTED: Record<string, string> = {
   "footer.tag": "Vea dónde está el trabajo cerca de usted esta semana.",
   "chk.preview.civic.t": "Solicitudes al 311 e infracciones de código",
   "chk.h.watching": "Holler busca trabajo de {trade} cerca de {place}",
-  "chk.quiet": "Hay temporadas tranquilas, y algunos lugares publican más que otros. Según la fuente, Holler la revisa desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
+  "chk.quiet": "Hay semanas tranquilas, y algunas ciudades publican más que otras. Holler revisa cada fuente pública según su propio horario, desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
   "srcl.fixed.bids-gwinnett": "Compras del condado de Gwinnett: licitaciones abiertas",
   "draft.trade_fallback": "servicios locales",
 };

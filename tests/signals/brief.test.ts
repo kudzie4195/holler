@@ -106,9 +106,9 @@ describe('confidence comes from the source family', () => {
   it('public posts are Low', () => {
     for (const s of ['bluesky', 'websearch-brave', 'websearch-serper']) expect(conf(s, 'act_now'), s).toBe('Low');
   });
-  it('the example in the plan: a failed inspection is High that it is on file, and says hiring is not known', () => {
+  it('the example in the plan: a failed inspection is High that it is on file, and says who will do the work is not known', () => {
     const b = briefFor({ source: 'socrata-chicago-inspections', label: 'act_now', trade: 'pest-control' });
-    expect(b.uncertain).toBe('High confidence the inspection result is on file; hiring is not known.');
+    expect(b.uncertain).toBe('High confidence the inspection result is on file; who will do the work is not known.');
   });
 });
 

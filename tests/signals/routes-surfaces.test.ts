@@ -99,6 +99,7 @@ describe('the feed chip of a feed-only card', () => {
     const html = renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon', hold: 'background' }));
     expect(html).toContain('Background');
     expect(html).toContain(en['hold.background.note']);
+    expect(html).not.toContain('Work may follow');
     expect(html).not.toContain('Coming soon');
   });
   it('a permit below the minimum says so, in Spanish too', () => {
@@ -107,7 +108,7 @@ describe('the feed chip of a feed-only card', () => {
   });
   it('without a hold the chip is exactly as before', () => {
     expect(renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon' }))).toBe(renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon', hold: null })));
-    expect(renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon' }))).toContain('Coming soon');
+    expect(renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon' }))).toContain('Work may follow');
   });
 });
 

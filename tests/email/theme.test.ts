@@ -129,9 +129,9 @@ describe('email theme', () => {
     // Without a source id, a link to this site's /request page still counts; a /request page on another host does not.
     expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request' }, 'https://localholler.com')).toBe('Open the request form');
     expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request/' }, 'https://localholler.com')).toBe('Open the request form');
-    expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the source');
+    expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the public source');
     expect(digestLinkLabel({ source: 'holler-request', sourceUrl: null })).toBe('Open the request form');
-    expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the source');
+    expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the public source');
   });
 
   it('the postal footer takes its size and color from the theme (13 px, muted)', () => {

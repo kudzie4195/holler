@@ -14,7 +14,7 @@ const NOW = new Date('2026-11-19T12:00:00Z');
 
 describe('decision 4: Cobb label', () => {
   it('says the feed has a street address but no map point, never that the location is unknown', () => {
-    expect(COBB_APPROX_NOTE).toBe("In Cobb County. The county's feed has a street address but no map point, so no distance is shown.");
+    expect(COBB_APPROX_NOTE).toBe("In Cobb County. The county's record has a street address but no map point, so no distance is shown.");
     expect(approxLocationNote({ city: 'Cobb County' })).toBe(COBB_APPROX_NOTE);
     expect(approxLocationNote({ city: null })).toBe(`In the county. ${APPROX_LOCATION_REASON}`);
     expect(COBB_APPROX_NOTE).not.toMatch(/does not publish|unknown|somewhere/i);

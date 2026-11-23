@@ -7,7 +7,7 @@ import { cleanCitySlug, safeNext } from '@/lib/auth/redirect';
 import { getUser } from '@/lib/auth/session';
 import { cityBySlug } from '@/lib/geo';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
-import { TRIAL_HEADLINE, TRIAL_HEADLINE_KEY, TRIAL_MONTHS } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE_KEY, TRIAL_MONTHS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /**
  * The bodies of the sign-up, log-in and password pages, shared by the English pages (app/(auth)/...) and their Spanish twins (/es/...).
@@ -29,7 +29,7 @@ export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: 
     lang === 'en'
       ? city
         ? `Alerts for ${city.name}, ${city.state} and the towns around it. No card needed.`
-        : `${TRIAL_HEADLINE}, no card. Takes about a minute.`
+        : `${TRIAL_PHRASE.charAt(0).toUpperCase() + TRIAL_PHRASE.slice(1)}, no card. Takes about a minute.`
       : city
         ? t(lang, 'auth.signup.sub_city', { city: `${city.name}, ${city.state}` })
         : // Round 18 integration: the same headline as in English (r18 trial), from the 'land.trial' templates and TRIAL_MONTHS.

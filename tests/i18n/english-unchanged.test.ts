@@ -46,8 +46,8 @@ describe('dictionary English equals the code literals next to it', () => {
       expect(en[`kind.${k}` as keyof typeof en]).toBe(v);
       expect(kindLabel(k)).toBe(v);
     }
-    expect(kindLabel('nonsense')).toBe('Signal');
-    expect(en['kind.unknown']).toBe('Signal');
+    expect(kindLabel('nonsense')).toBe('Public record');
+    expect(en['kind.unknown']).toBe('Public record');
   });
   it('feedback buttons', () => {
     for (const [k, v] of Object.entries(VERDICT_LABEL)) expect(en[`card.feedback.${k}` as keyof typeof en]).toBe(v);

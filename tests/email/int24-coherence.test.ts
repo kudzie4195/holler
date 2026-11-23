@@ -258,19 +258,21 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
     const waitlist = digest('en', [], { matchedLastWeek: 0, coverage: { state: 'waitlist', trades: ['lawn-care'] } });
     const live = digest('en', [], { matchedLastWeek: 0, coverage: ALERTS_COVERAGE });
     // /check's limited line and the waitlist card's line (Phase A), in the email's own sentence
-    expect(en['chk.limited'].startsWith('Few records for')).toBe(true);
-    expect(words(limited)).toContain('Few records for lawn care near you yet. Holler reads this area, but that work shows up here only now and then');
+    // INT2 (copy round): /check's limited line now reads "Few {trade} records near here so far, and some weeks bring none."; the email
+    // says the same facts in its own sentence (a list of trades reads better after "records for").
+    expect(en['chk.limited'].startsWith('Few {trade} records near here so far, and some weeks bring none.')).toBe(true);
+    expect(words(limited)).toContain('Few records for lawn care near you so far, and some weeks bring none.');
     expect(WAITLIST.tradeNote).toContain('lately none of them has been work for this trade');
     expect(words(waitlist)).toContain('lately none of them has been work for lawn care');
     for (const m of [limited, waitlist]) {
       expect(words(m)).not.toContain('Quiet weeks happen');
       // the same text in both parts
-      expect(m.text).toContain(words(m).includes('Few records') ? 'Few records for lawn care' : 'none of them has been work for lawn care');
+      expect(m.text).toContain(words(m).includes('Few records') ? 'Few records for lawn care near you so far' : 'none of them has been work for lawn care');
     }
     expect(words(live)).toContain('Quiet weeks happen');
     expect(digest('en', [], { matchedLastWeek: 0 }).html).toBe(live.html);
     // two trades read as a list
-    expect(words(digest('en', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: [...PRESSURE_WASHING_PARTS] } }))).toContain('Few records for house cleaning and siding and gutters near you yet');
+    expect(words(digest('en', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: [...PRESSURE_WASHING_PARTS] } }))).toContain('Few records for house cleaning and siding and gutters near you so far');
   });
 
   it('Spanish says the same, under the Spanish wording rules', () => {
@@ -280,7 +282,7 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
       expect(spanishProblems(es[k]), k).toEqual([]);
     }
     const limited = words(digest('es', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: ['lawn-care'] } }));
-    expect(limited).toContain('Todavía hay pocos registros de cuidado del césped cerca de usted');
+    expect(limited).toContain('Por ahora hay pocos registros de cuidado del césped cerca de usted, y algunas semanas no llega ninguno');
     expect(limited).not.toContain('Hay semanas tranquilas');
     expect(words(digest('es', [], { matchedLastWeek: 0, coverage: { state: 'waitlist', trades: ['lawn-care'] } }))).toContain('ninguno ha sido trabajo de cuidado del césped');
   });

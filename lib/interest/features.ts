@@ -21,8 +21,8 @@ export const FEATURES = [
   },
   {
     id: 'more-areas',
-    label: 'More ZIP codes',
-    description: 'Permits and city requests in more places. Check your ZIP code to get one email when we reach it.',
+    label: 'More cities',
+    description: 'Permits and city requests in more cities. Check your ZIP code and we will send one email when we reach it.',
   },
 ] as const;
 

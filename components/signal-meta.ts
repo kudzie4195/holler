@@ -33,7 +33,7 @@ export function isKnownKind(kind: string): kind is SignalKind {
 
 export function kindLabel(kind: string, lang: Lang = 'en'): string {
   if (lang !== 'en') return isKnownKind(kind) ? t(lang, `kind.${kind}`) : t(lang, 'kind.unknown');
-  return isKnownKind(kind) ? KIND_LABEL[kind] : 'Signal';
+  return isKnownKind(kind) ? KIND_LABEL[kind] : 'Public record';
 }
 
 /** Record family, same three as the app and the --color-kind-* tokens: weather and hazards, spending, civic and everything else. */

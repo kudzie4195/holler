@@ -43,7 +43,7 @@ export const PLAN_BLURB: Record<Tier, string> = {
  */
 export const ALERTS_NOTE = 'Alerts come by email.';
 /** /pricing says it once, under both cards: the full cards already list email alerts among the features. */
-export const ALERTS_NOTE_FULL = 'Holler is a website, so alerts come by email and to your feed here, and there is no app to install.';
+export const ALERTS_NOTE_FULL = 'Alerts come by email and show on your matches page when you log in, so there is nothing to install.';
 
 const CARD: Record<Tier, { card: string; tag: string; muted: string; button: string; check: string }> = {
   // Solo on field green: on-brand text 11.3:1, on-brand-muted 8.2:1, signal tag 9.7:1. Signal button with ink text (13.2:1).

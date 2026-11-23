@@ -67,6 +67,6 @@ export async function POST(req: Request) {
     return htmlPage(t(lang, 'page.verify.done_h'), t(lang, 'page.verify.done_p'), { lang, links: [{ href: '/app', label: t(lang, 'email.open_feed') }] });
   }
   return htmlPage('Email confirmed', 'Thanks. Holler can now send you alerts.', {
-    links: [{ href: '/app', label: 'Open your feed' }],
+    links: [{ href: '/app', label: 'See all your matches' }],
   });
 }

@@ -101,7 +101,7 @@ describe('notify digest language', () => {
     expect(es.html).toContain('lang="es"');
     // Round 23: the digest has no labelled "Por qué importa:" row; the Spanish reason sentence itself is what to look for.
     expect(es.subject).toMatch(/Reporte de tormenta|Aviso del clima|cerca de usted|novedades/);
-    expect(es.text).toContain('Se presentó un reporte de tormenta cerca');
+    expect(es.text).toContain('Hay un reporte de tormenta cerca');
     expect(es.text).toContain('Hail damage reported near Marietta');
     expect(es.text).toContain('fuente pública');
     expect(en.subject).not.toMatch(/cerca de usted/);

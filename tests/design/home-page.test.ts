@@ -200,9 +200,9 @@ describe('home page, Version 3', () => {
       expect(t).not.toMatch(/official record|its record|source record/i);
       expect(t).not.toMatch(/Real alerts|LATEST NEAR/);
     }
-    expect(text).toContain('Each one links to its public source,');
-    expect(text).toContain('Each alert links to its source.');
-    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('Open the source');
+    expect(text).toContain('each with the street address and a link to its public source.');
+    expect(text).toContain('Each alert links to its public source.');
+    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('Open the public source');
     expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('The source One tap to the city or weather service page it came from.');
   });
 
@@ -219,7 +219,7 @@ describe('home page, Version 3', () => {
       expect(t).not.toMatch(/iPhone|Android|App Store|Google Play/i);
       expect(t).not.toMatch(/COMING SOON/i);
     }
-    expect(text).toContain('By email, at most one an hour, and in your feed on this site.');
+    expect(text).toContain('By email, at most one an hour, and on your matches page when you log in.');
     expect(text).toContain('Alerts come by email.');
   });
 
@@ -227,7 +227,9 @@ describe('home page, Version 3', () => {
     const faq = between(html, 'id="faq"', 'id="check"');
     const qs = [...faq.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((m) => toText(m[1]).trim());
     const as = [...faq.matchAll(/<h3[^>]*>[^<]+<\/h3><p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => toText(m[1]).trim());
-    expect(qs).toEqual(['Is this a list of customers?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
+    expect(qs).toEqual(['Is this a list of people to call?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
+    // INT2: the house rules ban "lead" as a noun; the old question must not come back.
+    expect(faq).not.toMatch(/Is this a lead list\?|\blead list\b/i);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
     expect(ld['@type']).toBe('FAQPage');
     expect(ld.mainEntity.map((q: { name: string }) => q.name)).toEqual(qs);
@@ -294,7 +296,7 @@ describe('no live data', () => {
     const card = between(html, 'id="how"', 'id="feeds-h"');
     expect(toText(card)).toContain('EXAMPLE');
     expect(card).not.toMatch(/<a [^>]*href="http/);
-    expect(toText(card)).toContain('Each alert links to its source');
+    expect(toText(card)).toContain('Each alert links to its public source');
     expect(card).not.toContain('border-dashed');
     // Ledger: no example lines without data.
     expect(toText(between(html, 'id="feeds-h"', 'id="pricing"'))).not.toContain('EXAMPLE');
@@ -313,8 +315,8 @@ describe('live data (preview fixture)', () => {
     expect(band).not.toContain('·');
     const proof = toText(between(live, 'aria-label="What Holler reads"', '</section>'));
     expect(proof).toContain(`records dated in the last 7 days ${fixture.proof!.total7.toLocaleString('en-US')}`);
-    expect(proof).toContain(`city, county and weather feeds checked ${fixture.proof!.feeds}`);
-    expect(proof).toContain('to the public source, on every record alert 1 TAP');
+    expect(proof).toContain(`city, county and weather sources checked ${fixture.proof!.feeds}`);
+    expect(proof).toContain('to the public source, on every alert 1 TAP');
     expect(proof).toMatch(/RECORD COUNT FROM HOLLER'S OWN DATA, [A-Z][a-z]{2} \d{1,2}, \d{4}/i);
     // Every dot on the map is a picked record, labelled with its distance.
     for (const r of m.records) expect(live).toContain(`${r.label} ${r.mi.toFixed(1)} MI`);

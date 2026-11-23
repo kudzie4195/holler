@@ -154,7 +154,7 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(text).toContain('A 311 request nearby may involve work you do');
     expect(text).toContain('A 311 request is what someone reported, and the record does not show the city confirmed it.');
     expect(text).toContain('A new business or a property sale is on the record, but the need for work is not known.');
-    expect(text).not.toContain('A permit does not mean the owner is choosing a vendor');
+    expect(text).not.toContain('A permit does not tell you whether the owner has hired anyone');
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
   });
 

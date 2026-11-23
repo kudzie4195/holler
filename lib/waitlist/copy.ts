@@ -16,7 +16,7 @@ export const WAITLIST = {
   tradeHeading: (trade: string, place: string) => `Not enough ${trade} work near ${place} yet.`,
   tradeNote: 'Holler reads records near you, but lately none of them has been work for this trade that a crew could act on. Pick another trade above, or leave your email and we will tell you when this one is worth paying for.',
   intro: "Leave your email and we'll tell you when it does.",
-  note: 'Storm reports and weather alerts reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
+  note: 'Storm reports and weather warnings reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
   emailLabel: 'Your email',
   tradeLabel: 'What you do',
   button: "Tell me when it's covered",

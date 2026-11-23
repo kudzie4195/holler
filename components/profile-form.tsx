@@ -137,7 +137,7 @@ export function ProfileForm({
           <p id="pf-pw-hint" className="mt-2 text-sm text-muted">
             {w(
               'pf.trade.pressure_washing_hint',
-              'Picks house cleaning and siding and gutters together: that is where new-build and roof permits reach you. It uses two of your trades.',
+              'Counts as two trades: house cleaning, and siding and gutters. That is where pressure washing work shows up, in new-home and roof permits.',
             )}
           </p>
         ) : null}

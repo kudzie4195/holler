@@ -131,7 +131,7 @@ describe('brief cards over 243 real stored rows', () => {
       if (links !== batch.length) problems.push(`digest text link count ${links} != ${batch.length}`);
       // Round 24 (review P1-4): the permit sentence is in the closing line once when a permit card is in the email, and not otherwise.
       const permits = batch.some((c) => briefFamilyOf({ source: c.row.source, kind: c.row.kind, subtype: c.row.sub, title: c.row.title }) === 'permit');
-      if ((d.text.match(/A permit does not mean the owner is choosing a vendor/g) ?? []).length !== (permits ? 1 : 0)) problems.push('digest text permit honesty sentence not once');
+      if ((d.text.match(/A permit does not tell you whether the owner has hired anyone/g) ?? []).length !== (permits ? 1 : 0)) problems.push('digest text permit honesty sentence not once');
     }
 
     for (const locked of [false, true]) {

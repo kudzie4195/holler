@@ -26,7 +26,7 @@ export function ledgerTrades(families: HomeFamily[]): { href: string; label: str
 const TRADE_LINK = 'h-link font-medium text-brand-text underline-offset-4 hover:underline focus-visible:underline';
 
 /**
- * "Three kinds of record. One feed.": one row per family. The example line is a real recent record of that family, with its date,
+ * "Three kinds of public record.": one row per family. The example line is a real recent record of that family, with its date,
  * when the loaders have one; otherwise the row has none. Trade names in the sentences are plain text, as designed. Under the rows
  * one quiet index, "Find your trade", links the trade page of every trade the sentences name (once each, in the order named, only
  * trades that have a page), then "All trades" to /for: text links 44 px tall, no chips and no borders, a wrapped row on wide
@@ -37,7 +37,7 @@ export function Ledger({ families, examples }: { families: HomeFamily[]; example
     <section aria-labelledby="feeds-h" className="bg-sand">
       <div className={`${COL} flex flex-col gap-9 py-24`}>
         <h2 id="feeds-h" className={`${H2} max-w-[700px]`}>
-          Three kinds of record. One feed.
+          Three kinds of public record.
         </h2>
         <div className="border-t-2 border-ink">
           {families.map((f) => {

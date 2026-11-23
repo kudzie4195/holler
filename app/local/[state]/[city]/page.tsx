@@ -70,7 +70,7 @@ export default async function CityPage({ params }: Props) {
   const place = `${city.name}, ${city.state}`;
 
   const summary = citySummary(city, data);
-  const intro = buildIntro(city, data);
+  const intro = buildIntro(city, data, summary);
   const weeks = data.ok && data.total > 0 ? thisAndLastWeek(Date.parse(data.asOf)) : null;
   const helps = buildHelps(data);
   // Round 24: one answer for the whole page (lib/seo/city-offer.ts, from lib/check/cells.ts coverageFor): hero, side card, the FAQ
