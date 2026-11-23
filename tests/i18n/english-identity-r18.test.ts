@@ -76,7 +76,8 @@ async function renderEnglish(): Promise<Record<string, string>> {
     const signup = await import('@/app/(auth)/signup/page');
     out['signup.html'] = await renderResolved(signup.default({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never));
     out['signup.city.html'] = await renderResolved(signup.default({ params: Promise.resolve({}), searchParams: Promise.resolve({ city: 'atlanta-ga' }) } as never));
-    out['signup.meta'] = meta(signup.metadata);
+    // Round 24 FIX2: the sign-up metadata is generateMetadata now (a waitlist city changes it); with no city it is the same object as before.
+    out['signup.meta'] = meta(await signup.generateMetadata({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never));
     const login = await import('@/app/(auth)/login/page');
     out['login.html'] = await renderResolved(login.default({ params: Promise.resolve({}), searchParams: Promise.resolve({}) } as never));
     out['login.expired.html'] = await renderResolved(login.default({ params: Promise.resolve({}), searchParams: Promise.resolve({ error: 'link', next: '/app/settings' }) } as never));
@@ -231,6 +232,14 @@ describe('English output is unchanged (round 18 ES)', () => {
         expect(base[k].split(from).length - 1, `round 19 ${k}: ${from.slice(0, 60)}`).toBe(1);
         base[k] = base[k].replace(from, to);
       }
+    }
+    // Round 24 FIX2 (review D2): Settings shows the ZIP check's answer for each saved trade at the saved ZIP (the fixture member: Atlanta,
+    // roofing and HVAC). The one intended insertion, inside the ZIP and radius grid, on every Settings render; onboarding (no ZIP yet) is unchanged.
+    const FIX2_FROM = '</p></div></div><fieldset class="min-w-0 rounded-card border border-line p-4 sm:p-5" aria-describedby="pro-hint">';
+    const FIX2_SECTION = "<section aria-labelledby=\"pf-cov-h\" class=\"rounded-card border border-line p-4 sm:col-span-2 sm:p-5\" data-testid=\"trade-coverage\"><h3 id=\"pf-cov-h\" class=\"text-sm font-semibold text-ink\">What Holler has near Atlanta, GA</h3><ul class=\"mt-2 flex flex-col gap-2\"><li class=\"text-sm\" data-answer=\"storm\"><span class=\"font-semibold text-ink\">Roofing</span><span class=\"ml-2 rounded-chip bg-sand px-2 py-0.5 font-mono text-xs uppercase text-ink\">Storm alerts</span><span class=\"mt-0.5 block text-muted\">Storm alerts for roofing arrive when a storm hits near you. Between storms there may be few or no alerts.</span></li><li class=\"text-sm\" data-answer=\"waitlist\"><span class=\"font-semibold text-ink\">Heating and air (HVAC)</span><span class=\"ml-2 rounded-chip bg-sand px-2 py-0.5 font-mono text-xs uppercase text-ink\">Waitlist</span><span class=\"mt-0.5 block text-muted\">Not enough heating and air (hvac) work near Atlanta, GA yet.</span></li></ul></section>";
+    for (const k of Object.keys(base).filter((x) => x.startsWith('settings.') && x.endsWith('.html'))) {
+      expect(base[k].split(FIX2_FROM).length - 1, `round 24 FIX2 ${k}`).toBe(1);
+      base[k] = base[k].replace(FIX2_FROM, FIX2_FROM.replace('</p></div></div>', `</p></div>${FIX2_SECTION}</div>`));
     }
     // The base carries the Coming next "more areas" row (INT2 copy pass: labelled "More cities") and the language-hint script, so nothing is patched into it here.
     expect(base['pricing.html']).toContain('More cities');

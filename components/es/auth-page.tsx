@@ -3,14 +3,14 @@ import { Suspense, type ReactNode } from 'react';
 import { AuthCardSkeleton } from '@/components/auth-card';
 import { AuthShell } from '@/components/auth-shell';
 import { t, type DictKey } from '@/lib/i18n';
-import { ES_NOINDEX, pairAlternates, type EsPair } from '@/lib/i18n/seo';
+import { ES_AUTH_NOINDEX, ES_NOINDEX, pairAlternates, type EsPair } from '@/lib/i18n/seo';
 
 const L = 'es' as const;
 
 /**
  * Metadata of a Spanish account page (/es/signup, /es/login, /es/forgot, /es/reset): its own Spanish title and description, its own
  * canonical, the hreflang pair with the English page (x-default English, as on /es), and Spanish Open Graph. Indexed, except the pages in
- * ES_NOINDEX (/es/reset only works from an emailed link).
+ * ES_NOINDEX (/es/reset only works from an emailed link) and ES_AUTH_NOINDEX (round 24 FIX2: as their English twins).
  */
 export function esAuthMetadata(pair: EsPair, titleKey: DictKey, descKey: DictKey): Metadata {
   const title = t(L, titleKey);
@@ -22,7 +22,8 @@ export function esAuthMetadata(pair: EsPair, titleKey: DictKey, descKey: DictKey
     description,
     alternates: pairAlternates(pair, 'es'),
     openGraph: { type: 'website', siteName: 'Holler', locale: 'es_US', title, description, url: pair.es, images: [{ url: '/og.png', width: 1200, height: 630, alt: title }] },
-    robots: noindex ? { index: false, follow: true } : { index: true, follow: true },
+    // Round 24 FIX2 (review P3-7): sign-up, log-in and forgot match their English twins (noindex, nofollow).
+    robots: ES_AUTH_NOINDEX.includes(pair.es) ? { index: false, follow: false } : noindex ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
 

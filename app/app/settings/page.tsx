@@ -8,6 +8,7 @@ import { ProfileForm } from '@/components/profile-form';
 import { LanguageForm } from '@/components/language-form';
 import { ConsentForm } from '@/components/consent-form';
 import { WorkProfileForm } from '@/components/work-profile-form';
+import { profileCoverage } from '@/lib/check/profile-coverage';
 import { readWorkProfile } from '@/lib/auth/work-profile';
 import { createClient } from '@/lib/supabase/server';
 import { hasLanguageSetting } from '@/lib/auth/language';
@@ -110,6 +111,7 @@ export default async function SettingsPage() {
               tier={tier}
               upgradeHref="#billing-h"
               lang={lang}
+              initialCoverage={profileCoverage(profile.zip ?? '', profile.categories ?? [], lang)}
             />
           </Card>
         </section>
@@ -207,6 +209,7 @@ export default async function SettingsPage() {
             showAlertToggle
             tier={tier}
             upgradeHref="#billing-h"
+            initialCoverage={profileCoverage(profile.zip ?? '', profile.categories ?? [], 'en')}
           />
         </Card>
       </section>

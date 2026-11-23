@@ -24,6 +24,12 @@ export function esPair(path: string): EsPair | null {
 /** Spanish pages that are not indexed (a page that only works from an emailed link). Their pair still carries hreflang. */
 export const ES_NOINDEX: readonly string[] = ['/es/reset'];
 
+/**
+ * Round 24 FIX2 (review P3-7): the Spanish account pages whose English twins are noindex, nofollow (app/(auth)/layout.tsx). They get the
+ * same robots. Kept apart from ES_NOINDEX on purpose, so the sitemap is unchanged in this round (an owner follow-up may drop them from it).
+ */
+export const ES_AUTH_NOINDEX: readonly string[] = ['/es/signup', '/es/login', '/es/forgot'];
+
 /** The Spanish pages listed in the sitemap: every pair except the noindex ones. */
 export const ES_SITEMAP_PAIRS: readonly EsPair[] = ES_PAIRS.filter((p) => !ES_NOINDEX.includes(p.es));
 

@@ -6,6 +6,7 @@ import { isConfirmType } from '@/lib/auth/otp';
 import { cleanCitySlug, safeNext } from '@/lib/auth/redirect';
 import { getUser } from '@/lib/auth/session';
 import { cityBySlug } from '@/lib/geo';
+import { cityOffer } from '@/lib/seo/city-offer';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { TRIAL_HEADLINE_KEY, TRIAL_MONTHS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
@@ -20,11 +21,51 @@ const words = (lang: Lang) => (key: DictKey, en: string) => (lang === 'en' ? en 
 const path = (lang: Lang, p: string) => (lang === 'en' ? p : `/es${p}`);
 const switchLink = 'inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline';
 
+/** The sign-up city is a waitlist city for every trade (lib/seo/city-offer.ts cityOffer, the city page's own answer). */
+export function signupCityWaitlist(city: NonNullable<ReturnType<typeof cityBySlug>>): boolean {
+  return cityOffer(city).state === 'waitlist';
+}
+
+/** The sign-up page title and description for a ?city= value: the waitlist wording for a waitlist city, otherwise null (the defaults). */
+export function signupWaitMeta(rawCity: unknown, lang: Lang): { title: string; description: string } | null {
+  const slug = cleanCitySlug(typeof rawCity === 'string' ? rawCity : null);
+  const city = slug ? cityBySlug(slug) : null;
+  if (!city || !signupCityWaitlist(city)) return null;
+  const name = `${city.name}, ${city.state}`;
+  return { title: t(lang, 'auth.signup.wait_h', { city: name }), description: t(lang, 'auth.signup.wait_sub', { city: name }) };
+}
+
 export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: SP; lang?: Lang }) {
   const w = words(lang);
   const sp = await searchParams;
   const citySlug = cleanCitySlug(typeof sp.city === 'string' ? sp.city : null);
   const city = citySlug ? cityBySlug(citySlug) : null;
+  // Round 24 FIX2 (review D2): a city the ZIP check calls waitlist gets no trial pitch. Old shared and indexed links still open (200): the
+  // page says Holler is not ready there and links to the ZIP check. The account form stays, for an owner who works somewhere else.
+  if (city && signupCityWaitlist(city)) {
+    const name = `${city.name}, ${city.state}`;
+    return (
+      <AuthCard
+        title={t(lang, 'auth.signup.wait_h', { city: name })}
+        subtitle={t(lang, 'auth.signup.wait_sub', { city: name })}
+        note={
+          <Link href={path(lang, '/check')} className={switchLink}>
+            {t(lang, 'auth.signup.wait_link')}
+          </Link>
+        }
+        footer={
+          <>
+            {w('auth.signup.have', 'Already have an account?')}{' '}
+            <Link href={path(lang, '/login')} className={switchLink}>
+              {w('auth.login', 'Log in')}
+            </Link>
+          </>
+        }
+      >
+        <SignupForm city={null} lang={lang} />
+      </AuthCard>
+    );
+  }
   const subtitle =
     lang === 'en'
       ? city

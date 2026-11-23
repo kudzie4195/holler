@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
-import { Button } from './button';
+import { useActionState, useEffect, useState } from 'react';
+import { Button, ButtonLink } from './button';
 import { Chip } from './chip';
 import { Input } from './input';
 import { Notice } from './notice';
@@ -13,6 +13,8 @@ import { COMING_SOON_GROUP_KEY, groupCategories, MARKETED_GROUP_KEY, toggleTrade
 import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { planNameEs } from '@/lib/plan/price-copy-es';
+import type { ProfileCoverage } from '@/lib/check/profile-coverage';
+import { profileCoverageAction } from '@/lib/check/profile-coverage-action';
 
 export interface ProfileDefaults {
   business_name: string;
@@ -42,6 +44,7 @@ export function ProfileForm({
   tier = 'starter',
   upgradeHref = '/pricing',
   lang = 'en',
+  initialCoverage = null,
 }: {
   action: (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
   categories: ChipCategory[];
@@ -58,6 +61,11 @@ export function ProfileForm({
    * form, so the save's answers are Spanish too. English (the default) is the form as it always was. Trade labels come in `categories`.
    */
   lang?: Lang;
+  /**
+   * Round 24 FIX2 (review D2): the /check answer for the saved ZIP and trades, computed on the server (Settings), so it shows on the first
+   * paint. As the member edits the ZIP or the trades the form asks profileCoverageAction (the same coverageFor answer, no database).
+   */
+  initialCoverage?: ProfileCoverage | null;
 }) {
   const es = lang !== 'en';
   const w = (key: DictKey, en: string, vars?: Record<string, string | number>) => (es ? t(lang, key, { pro: planNameEs('pro'), ...vars }) : en);
@@ -71,6 +79,25 @@ export function ProfileForm({
   const [alertEmail, setAlertEmail] = useState(defaults.alert_email);
   const [extraZips, setExtraZips] = useState<string[]>(slots(defaults.extra_zips, PRO.extraAreas));
   const [keywords, setKeywords] = useState<string[]>(slots(defaults.keywords, PRO.keywords));
+  const [coverage, setCoverage] = useState<ProfileCoverage | null>(initialCoverage);
+  const pickedKey = picked.join(',');
+  // The answer shown is the one for the ZIP and trades on screen now; a stale answer (an older ZIP or pick) is never shown.
+  const shownCoverage = coverage && coverage.zip === zip && coverage.lines.map((l) => l.trade).join(',') === pickedKey ? coverage : null;
+  useEffect(() => {
+    if (!/^\d{5}$/.test(zip) || pickedKey === '') return;
+    let live = true;
+    const id = setTimeout(() => {
+      profileCoverageAction(zip, pickedKey.split(','), lang)
+        .then((c) => {
+          if (live) setCoverage(c);
+        })
+        .catch(() => {});
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [zip, pickedKey, lang]);
 
   const isPro = tier === 'pro';
   const max = PLAN_LIMITS[tier].trades;
@@ -247,6 +274,24 @@ export function ProfileForm({
           unit=" mi"
           hint={isPro ? w('pf.radius_hint_pro', 'Alerts only come from inside this radius of each ZIP.') : w('pf.radius_hint', 'Alerts only come from inside this radius.')}
         />
+        {/* Round 24 FIX2 (review D2): the /check answer per picked trade at this ZIP. Inside this grid (its last cell, full width), not as a
+            new child of the form, so the generated ids of the fields after it do not shift. */}
+        {shownCoverage ? (
+          <section aria-labelledby="pf-cov-h" className="rounded-card border border-line p-4 sm:col-span-2 sm:p-5" data-testid="trade-coverage">
+            <h3 id="pf-cov-h" className="text-sm font-semibold text-ink">
+              {t(lang, 'pf.cov.h', { place: shownCoverage.place })}
+            </h3>
+            <ul className="mt-2 flex flex-col gap-2">
+              {shownCoverage.lines.map((l) => (
+                <li key={l.trade} className="text-sm" data-answer={l.answer}>
+                  <span className="font-semibold text-ink">{label(l.trade)}</span>
+                  <span className="ml-2 rounded-chip bg-sand px-2 py-0.5 font-mono text-xs uppercase text-ink">{l.tag}</span>
+                  <span className="mt-0.5 block text-muted">{l.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
       {fe.radius ? (
         <p role="alert" className="-mt-4 text-sm font-medium text-danger">
@@ -366,9 +411,26 @@ export function ProfileForm({
         {state.ok && state.message ? <Notice tone="success">{state.message}</Notice> : null}
       </div>
 
-      <Button type="submit" size="lg" disabled={pending} className="self-start max-sm:w-full">
-        {pending ? w('pf.saving', 'Saving...') : submitLabel}
-      </Button>
+      {shownCoverage?.allWaitlist && shownCoverage.joinHref ? (
+        <>
+          {/* Every picked trade is waitlist here: a calm note (not an error), "Join the list" first, and saving is still allowed. */}
+          <Notice tone="info" role="status">
+            {t(lang, 'pf.cov.all_wait', { trades: shownCoverage.lines.map((l) => (es ? label(l.trade) : label(l.trade).toLowerCase())).join(', '), place: shownCoverage.place })}
+          </Notice>
+          <div className="flex flex-wrap items-center gap-3">
+            <ButtonLink href={shownCoverage.joinHref} size="lg" className="max-sm:w-full">
+              {t(lang, 'pf.cov.join', { place: shownCoverage.place })}
+            </ButtonLink>
+            <Button type="submit" variant="secondary" size="lg" disabled={pending} className="max-sm:w-full">
+              {pending ? w('pf.saving', 'Saving...') : t(lang, 'pf.cov.continue')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <Button type="submit" size="lg" disabled={pending} className="self-start max-sm:w-full">
+          {pending ? w('pf.saving', 'Saving...') : submitLabel}
+        </Button>
+      )}
     </form>
   );
 }

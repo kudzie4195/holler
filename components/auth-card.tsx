@@ -6,16 +6,25 @@ export function AuthCard({
   subtitle,
   children,
   footer,
+  note,
 }: {
   title: string;
   subtitle?: string;
+  /** Round 24 FIX2: one line under the subtitle (the "Check your ZIP" link on a sign-up from a waitlist city). */
+  note?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
     <>
       <h1 className="break-words text-5xl text-ink">{title}</h1>
-      {subtitle ? <p className="mt-3 text-lg text-muted">{subtitle}</p> : null}
+      {/* One child slot for both lines, so the form's generated ids (useId) are the same as before the note existed. */}
+      {subtitle || note ? (
+        <>
+          {subtitle ? <p className="mt-3 text-lg text-muted">{subtitle}</p> : null}
+          {note ? <p className="mt-3 text-lg">{note}</p> : null}
+        </>
+      ) : null}
       <Card className="mt-8 md:p-7">{children}</Card>
       {footer ? <p className="mt-6 text-sm text-muted">{footer}</p> : null}
     </>
