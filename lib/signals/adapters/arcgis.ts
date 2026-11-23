@@ -440,6 +440,8 @@ export function buildArcgisAdapter(ds: ArcgisDataset): Adapter {
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),
+    access: 'open-data-api',
+    apiEndpoint: ds.layerUrl,
     sourceUrl: arcgisPageUrl(ds),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

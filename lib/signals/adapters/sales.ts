@@ -684,6 +684,8 @@ export function buildSaleAdapter(ds: SaleDataset): Adapter {
     kind: 'civic',
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),
+    access: 'open-data-api',
+    apiEndpoint: ds.platform === 'socrata' ? `https://${ds.domain}/resource/${ds.datasetId}.json` : ds.platform === 'arcgis' ? (ds.layerUrl ?? '') : PHL_CARTO,
     sourceUrl: ds.sourceUrl,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       const now = ctx.now ?? new Date();

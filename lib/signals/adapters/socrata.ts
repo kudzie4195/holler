@@ -781,6 +781,8 @@ export function buildSocrataAdapter(ds: SocrataDataset): Adapter {
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     ...(ds.probation ? { probation: true } : {}),
+    access: 'open-data-api',
+    apiEndpoint: `https://${ds.domain}/resource/${ds.datasetId}.json`,
     sourceUrl: datasetPageUrl(ds),
     ...(ds.stageQuery && ds.subtype === 'permit' && ds.statusField ? { stageQuery: true } : {}),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {

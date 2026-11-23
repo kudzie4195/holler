@@ -37,6 +37,16 @@ import { serverKeySecret } from '@/lib/signals/server-key';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, SignalInput } from '@/lib/signals/types';
 import { cleared } from '../signals/page-watch/helpers';
+import { PROBATION_FETCH_FLAG, probationFetchOn } from '@/lib/signals/probation-fetch';
+import { runCoverageProbe, coverageProbeSourceIds } from '@/lib/signals/coverage-probe';
+import { missingEnvFor } from '@/lib/signals/run';
+import { runLicenseProbe } from '@/lib/licenses/sync';
+import { LICENSE_SOURCES, isPromoted } from '@/lib/licenses/sources';
+import { occupancyAddress, occupancyClassOf } from '@/lib/signals/adapters/next-rules';
+import { botContactAddress } from '@/lib/bot-contact';
+import { FIRECRAWL_AGENTS, HOLLER_AGENTS, robotsAllows } from '@/lib/firecrawl/robots';
+import { cleanBidTitle } from '@/lib/signals/adapters/page-watch';
+import { summaryParts } from '@/app/local/_components/records';
 
 vi.mock('server-only', () => ({}));
 
@@ -423,5 +433,116 @@ describe('5. unions and the one owner list', () => {
     expect(block).toMatch(/HOLLER_PAGE_WATCH_ENABLED/);
     const kudzi = md.slice(md.indexOf('**NEEDS KUDZI'), md.indexOf('- [ ] Run `supabase/migrations/0001_holler.sql`'));
     for (const s of ['Round 20 next sources: probe each once', 'Round 20 next sources, Houston permit page', 'Round 20 page watch, per source, in a browser', 'Round 20 page watch: to promote one', 'Round 20 NYC 311 (LIVE source']) expect(kudzi, s).toContain(s);
+  });
+});
+
+// ---- Final review fixes (review-FINAL21.md) ---------------------------------------------------------------------------------------------
+describe('final review P1-1: open-data APIs may be fetched on probation; pages wait for their terms record; one global off switch', () => {
+  const API_PATH = /\/resource\/|\/api\/|\/arcgis\/rest\/|\/rest\/services\/|\/sql\b|\/api\/3\//i;
+  const probationAdapters = ALL_ADAPTERS.filter((a) => a.probation);
+
+  it('every probation source declares its access; every open-data-api source names an API endpoint', () => {
+    expect(probationAdapters.length).toBe(PROBATION_SOURCE_IDS.size);
+    for (const a of probationAdapters) {
+      expect(['open-data-api', 'page'], a.id).toContain(a.access);
+      if (a.access === 'open-data-api') {
+        expect(a.apiEndpoint, a.id).toMatch(/^https:\/\/[^/]+\//);
+        expect(new URL(a.apiEndpoint!).pathname, a.id).toMatch(API_PATH);
+      }
+    }
+    expect(probationAdapters.filter((a) => a.access === 'page').map((a) => a.id).sort()).toEqual([HOUSTON_PERMITS_ID, ...PW_IDS].sort());
+  });
+
+  it('a probation source without access open-data-api sends no request without its terms record, every switch on (real scan, one at a time)', async () => {
+    vi.stubEnv(PAGE_WATCH_FLAG, '1');
+    vi.stubEnv('HOLLER_BIDS_ENABLED', '1');
+    vi.stubEnv('HOLLER_LOCAL_BIDS_ENABLED', '1');
+    vi.stubEnv('FIRECRAWL_API_KEY', 'fc-test');
+    for (const a of probationAdapters.filter((x) => x.access !== 'open-data-api')) {
+      resetRobotsCache();
+      const c = countingFetch();
+      const f = new FakeDb({ holler_profiles: PROFILES, holler_source_samples: [] });
+      await runScan({ now: NOW, adapters: [a], fetchImpl: c.f }, asDb(f));
+      expect(c.urls, a.id).toEqual([]);
+    }
+  });
+
+  it('HOLLER_PROBATION_FETCH defaults on; "0" stops every probation request in the real scan and both probes, live sources still run', async () => {
+    expect(probationFetchOn(undefined)).toBe(true);
+    expect(probationFetchOn('')).toBe(true);
+    for (const v of ['0', 'false', 'off', 'no', ' OFF ']) expect(probationFetchOn(v), v).toBe(false);
+    vi.stubEnv(PROBATION_FETCH_FLAG, '0');
+    vi.stubEnv(PAGE_WATCH_FLAG, '1');
+    for (const a of probationAdapters) expect(missingEnvFor(a, {}), a.id).toContain(PROBATION_FETCH_FLAG);
+    for (const a of ALL_ADAPTERS.filter((x) => !x.probation)) expect(missingEnvFor(a, {}), a.id).not.toContain(PROBATION_FETCH_FLAG);
+    // Only the probation sources (records made, every switch on): not one request.
+    const c = countingFetch();
+    const f = new FakeDb({ holler_profiles: PROFILES, holler_source_samples: [] });
+    const reg = registryWithRecords();
+    const r = await runScan({ now: NOW, adapters: reg.filter((a) => a.probation), fetchImpl: c.f }, asDb(f));
+    expect(c.urls).toEqual([]);
+    for (const s0 of r.sources) expect(s0.missingEnv, s0.id).toContain(PROBATION_FETCH_FLAG);
+    // The whole registry: live sources still fetch, no probation API endpoint is asked.
+    const all = countingFetch();
+    await runScan({ now: NOW, adapters: ALL_ADAPTERS, fetchImpl: all.f }, asDb(new FakeDb({ holler_profiles: PROFILES, holler_source_samples: [] })));
+    expect(all.urls.length).toBeGreaterThan(0);
+    const probeEndpoints = probationAdapters.map((a) => a.apiEndpoint).filter((x): x is string => !!x);
+    for (const u of all.urls) for (const e of probeEndpoints) expect(u.startsWith(e), `${u} ${e}`).toBe(false);
+    // Owner probes: no request either.
+    for (const id of coverageProbeSourceIds()) {
+      const p = countingFetch();
+      const out = await runCoverageProbe(id, p.f, NOW);
+      expect(p.urls, id).toEqual([]);
+      expect(out.message, id).toMatch(/HOLLER_PROBATION_FETCH is off/);
+    }
+    for (const src of LICENSE_SOURCES.filter((x) => !isPromoted(x))) {
+      const p = countingFetch();
+      await runLicenseProbe(src.state, p.f);
+      expect(p.urls, src.state).toEqual([]);
+    }
+  });
+});
+
+describe('final review P2 and P3 fixes', () => {
+  it('P2-3: a certificate prints an exact address only for an explicit commercial or multi-family type; anything else is block level', () => {
+    for (const t of [[''], ['Garage'], ['Swimming Pool'], ['Flat'], ['Accessory Structure'], ['Shed'], ['Final'], []]) {
+      expect(occupancyClassOf(t), JSON.stringify(t)).toBe('residential');
+      expect(occupancyAddress('1234 N SPRING ST', '1234 N SPRING ST', occupancyClassOf(t)).address, JSON.stringify(t)).toBe('1200 block of N SPRING ST');
+    }
+    for (const t of [['Restaurant'], ['Retail'], ['Office'], ['Commercial', 'New Building'], ['Apartment'], ['Hotel']]) expect(occupancyClassOf(t), JSON.stringify(t)).toBe('other');
+    expect(occupancyClassOf(['Single Family Dwelling'])).toBe('residential');
+    expect(occupancyClassOf(['Home Occupation'])).toBe('home');
+  });
+
+  it('P2-2: /bot shows SUPPORT_EMAIL, with support@localholler.com as the fallback', () => {
+    expect(botContactAddress('help@localholler.com')).toBe('help@localholler.com');
+    for (const v of [undefined, '', '   ', 'not an address', '<a@b.c>']) expect(botContactAddress(v), String(v)).toBe('support@localholler.com');
+    const src = readFileSync('app/bot/page.tsx', 'utf8');
+    expect(src).toContain('botContactAddress()');
+    expect(src).not.toMatch(/mailto:support@localholler\.com/);
+  });
+
+  it('P3: a Holler-specific Disallow wins over any other agent\'s Allow, also for a Firecrawl read', () => {
+    const txt = 'User-agent: Holler\nDisallow: /\n\nUser-agent: FirecrawlAgent\nAllow: /\n';
+    expect(robotsAllows(txt, '/bids', FIRECRAWL_AGENTS)).toBe(false);
+    expect(robotsAllows(txt, '/bids', HOLLER_AGENTS)).toBe(false);
+    // Unchanged: a Holler Disallow of another path, and a FirecrawlAgent allow without any Holler group.
+    expect(robotsAllows('User-agent: Holler\nDisallow: /private\n\nUser-agent: FirecrawlAgent\nAllow: /\n', '/bids', FIRECRAWL_AGENTS)).toBe(true);
+    expect(robotsAllows('User-agent: FirecrawlAgent\nAllow: /\n\nUser-agent: *\nDisallow: /\n', '/bids', FIRECRAWL_AGENTS)).toBe(true);
+  });
+
+  it('P3: a person named in free bid-title text is removed; place and program names stay', () => {
+    expect(cleanBidTitle('Plumbing repairs at the home of Mary Jones, 77 Oak Lane')).toBe('Plumbing repairs');
+    expect(cleanBidTitle('Roof Replacement for Mary Jones')).toBe('Roof Replacement');
+    expect(cleanBidTitle('Roof repair, Homeowner: Jane Doe 12 Elm St')).toBe('Roof repair');
+    for (const t of ['Roof repair for Thomas Alva Edison High School', 'Department of Public Works Paving', 'City Hall Tenant Improvements', 'Emergency Homeowner Repair Program', 'Resident Services Center Renovation', 'Janitorial Services for Houston METRO']) {
+      expect(cleanBidTitle(t), t).toBe(t);
+    }
+  });
+
+  it('P3: on public pages a business premises address gets its own unclamped line; other summaries are unchanged', () => {
+    expect(summaryParts('socrata-chicago-business', 'Retail Food Establishment | Sale of Food | 1840 W DIVISION ST')).toEqual({ body: 'Retail Food Establishment | Sale of Food', address: '1840 W DIVISION ST' });
+    expect(summaryParts('socrata-chicago-business', 'Limited Business License | Consulting')).toEqual({ body: 'Limited Business License | Consulting', address: null });
+    expect(summaryParts('socrata-chicago-permits', 'Roof | 1840 W DIVISION ST')).toEqual({ body: 'Roof | 1840 W DIVISION ST', address: null });
   });
 });

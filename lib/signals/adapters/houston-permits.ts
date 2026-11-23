@@ -203,6 +203,8 @@ export function buildHoustonPermitsAdapter(access: typeof HOUSTON_ACCESS = HOUST
     kind: 'permit',
     cadenceMinutes: HOUSTON_PERMITS_DS.cadenceMinutes,
     probation: true,
+    // Round 21 final review P1-1: a web page, not an API: nothing before the owner's terms record (HOUSTON_ACCESS).
+    access: 'page',
     sourceUrl: HOUSTON_REPORT_URL,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

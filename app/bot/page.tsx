@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DocPage, DocSection } from '@/components/doc-page';
+import { botContactAddress } from '@/lib/bot-contact';
 
 export function generateMetadata(): Metadata {
   return {
@@ -14,6 +15,7 @@ export function generateMetadata(): Metadata {
  * review). Static: no data, no form.
  */
 export default function BotPage() {
+  const contact = botContactAddress();
   return (
     <DocPage title="The Holler crawler" intro="Requests with the user agent Holler/1.0 (+https://localholler.com/bot) come from Holler.">
       <DocSection title="What it reads">
@@ -31,7 +33,8 @@ export default function BotPage() {
       </DocSection>
       <DocSection title="robots.txt">
         <p>
-          The crawler reads robots.txt before it reads a page and follows it. It answers to the product token <code>Holler</code>. It honours
+          The crawler reads robots.txt before it reads a web page (a bid or solicitation list) and follows it; requests to a published
+          open-data API (Socrata, ArcGIS REST, Carto) are made as that API documents. It answers to the product token <code>Holler</code>. It honours
           Disallow, Allow and Crawl-delay. If robots.txt cannot be read (for example it answers 401, 403, 429 or an error), the page is not read
           that day.
         </p>
@@ -41,7 +44,7 @@ export default function BotPage() {
       </DocSection>
       <DocSection title="Contact">
         <p>
-          Questions, or a request to stop reading a page: <a href="mailto:support@localholler.com">support@localholler.com</a>. When you ask, we stop reading
+          Questions, or a request to stop reading a page: <a href={`mailto:${contact}`}>{contact}</a>. When you ask, we stop reading
           that page.
         </p>
       </DocSection>

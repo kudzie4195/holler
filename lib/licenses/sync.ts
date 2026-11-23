@@ -1,3 +1,4 @@
+import { PROBATION_FETCH_FLAG, probationFetchOn } from '@/lib/signals/probation-fetch';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { looksLikeFullPersonName } from '@/lib/contacts/org';
 import { licenseKey, toCompanyRow, type DropReason, type LicenseRow } from './company-row';
@@ -171,6 +172,8 @@ export async function runLicenseProbe(stateRaw: string, f: typeof fetch, socrata
   const state = stateRaw.trim().toUpperCase();
   const src = licenseSourceForState(state);
   if (!src) return { state, status: 'unknown_state', knownStates: LICENSE_SOURCES.map((s) => s.state) };
+  // Round 21 final review P1-1: an unpromoted licence source is on probation; the one off switch stops its probe request too.
+  if (!isPromoted(src) && !probationFetchOn()) return { state, source: src.id, fileUrl: src.fileUrl, promoted: false, httpStatus: null, status: 'unreachable', note: `${PROBATION_FETCH_FLAG} is off: no request sent` };
   // The probe keeps every column of the sample in memory (to judge the header); nothing of it is returned except names that pass.
   const got = await fetchLicenseRows(src, f, { maxRows: PROBE_ROWS, timeoutMs: 15_000, deadline: Date.now() + 40_000, socrataToken, keep: null });
   const base = { state, source: src.id, fileUrl: src.fileUrl, promoted: isPromoted(src), httpStatus: got.httpStatus };

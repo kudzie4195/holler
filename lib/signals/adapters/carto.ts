@@ -82,6 +82,8 @@ export function buildCartoAdapter(ds: CartoDataset): Adapter {
     kind: ds.kind,
     cadenceMinutes: ds.cadenceMinutes,
     probation: true,
+    access: 'open-data-api',
+    apiEndpoint: CARTO_BASE,
     sourceUrl: ds.sourceUrl,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {

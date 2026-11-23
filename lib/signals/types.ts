@@ -124,5 +124,15 @@ export interface Adapter {
    * `probation: true`: the next scan writes to holler_signals normally. Nothing else to clean up or migrate.
    */
   probation?: boolean;
+  /**
+   * Round 21 final review P1-1 (owner decision, reversible; LAUNCH.md "Round 21 order"): how a probation source is reached.
+   * 'open-data-api': a data API published for machine access (Socrata /resource/, ArcGIS REST /rest/services/, Carto /sql, CKAN /api/3/):
+   *   fetched on probation like the live portals, so its samples and probe work; `apiEndpoint` names the endpoint it calls.
+   * 'page': a web page that is not an API (page watch, the Houston permit report): nothing is requested before the owner's terms record.
+   * Every probation adapter declares one (tests/integration/r21-int-interactions.test.ts). HOLLER_PROBATION_FETCH=0 stops both kinds.
+   */
+  access?: 'open-data-api' | 'page';
+  /** With access 'open-data-api': the API endpoint the adapter calls (no query string). */
+  apiEndpoint?: string;
   fetch(ctx: AdapterContext): Promise<SignalInput[]>;
 }

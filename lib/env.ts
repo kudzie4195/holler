@@ -27,6 +27,7 @@ export const ENV_KEYS = [
   'HOLLER_BIDS_ENABLED',
   'HOLLER_LOCAL_BIDS_ENABLED',
   'HOLLER_PAGE_WATCH_ENABLED',
+  'HOLLER_PROBATION_FETCH',
   'HOLLER_STAGE_UPDATES_ENABLED',
   'HOLLER_VIOLATION_OWNERS_ENABLED',
   'HOLLER_BUILDERS_PANEL_ENABLED',
@@ -84,6 +85,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_LOCAL_BIDS_ENABLED: process.env.HOLLER_LOCAL_BIDS_ENABLED,
   /** Round 20 page watch: the master switch (default off). Nothing is requested from any bid page while it is off. */
   HOLLER_PAGE_WATCH_ENABLED: process.env.HOLLER_PAGE_WATCH_ENABLED,
+  /** Round 21: every probation request (default ON; "0" stops them all; lib/signals/probation-fetch.ts reads it at call time). */
+  HOLLER_PROBATION_FETCH: process.env.HOLLER_PROBATION_FETCH,
   HOLLER_STAGE_UPDATES_ENABLED: process.env.HOLLER_STAGE_UPDATES_ENABLED,
   // Round 18: owner companies on code-violation cards; read at call time in lib/contacts/owner-switch.ts. Off unless 1, true, on or yes.
   HOLLER_VIOLATION_OWNERS_ENABLED: process.env.HOLLER_VIOLATION_OWNERS_ENABLED,

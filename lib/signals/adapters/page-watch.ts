@@ -220,6 +220,15 @@ const HONORIFIC = /\b(?:[Mm]r|[Mm]rs|[Mm]s|[Mm]iss|MR|MRS|MS)\.?\s+[A-Z][A-Za-z]
 /** Words that make a name-shaped segment a place ("Thomas Alva Edison High School", "Cuney Homes"). */
 const PLACE_WORDS = /\b(?:school|elementary|middle|high|academy|college|university|center|centre|hall|park|library|station|homes|apartments|village|towers?|manor|plaza|courts|gardens?|terrace|building|street|st|avenue|ave|road|rd|boulevard|blvd|drive|lane|way|bridge|facility|field|stadium|museum|campus|house|community|recreation|pool|lake|creek|square|place|heights|estates|commons|memorial|airport|port|terminal|plant|yard|garage)\b/i;
 
+/**
+ * Round 21 final review P3: words that introduce a private home or its occupant inside free title text ("... at the home of Mary Jones, 77
+ * Oak Lane", "Homeowner: ..."; the occupant words only with a colon, so "Tenant Improvements" and "Homeowner Repair Program" stay). The
+ * rest of the text is cut: it names a person, a home address or both.
+ */
+const HOME_LEAD = /(?:^|[\s,;:|(\-–—]+)(?:(?:at|for|to|in)\s+)?(?:the\s+)?(?:(?:home|residence|house|dwelling|apartment)\s+of\b|(?:homeowners?|home\s+owners?|residents?|tenants?|occupants?)\s*:)/i;
+/** A name right after "for", "by" or "of" inside a longer segment ("Roof repair for Mary Jones"). Checked with the shared person rule. */
+const NAME_AFTER = /\b(?:for|by|of)\s+((?:[A-Z][a-z'-]+|[A-Z]\.)(?:\s+(?:[A-Z][a-z'-]+|[A-Z]\.)){1,2})(?=$|[\s,;:.)])/g;
+
 /** Text with e-mails, phones, extensions and anything after a person-introducing word removed, and name-shaped segments dropped. */
 export function cleanPersonText(raw: string): { text: string; removedName: boolean } {
   let t = cleanText(raw).replace(EMAIL, ' ').replace(EMAIL_SPELLED, ' ').replace(EXT, ' ').replace(PHONE, ' ').replace(/https?:\/\/\S+|\bwww\.\S+/gi, ' ');
@@ -229,6 +238,19 @@ export function cleanPersonText(raw: string): { text: string; removedName: boole
     if (!atStart || /:/.test(lead[0])) t = t.slice(0, lead.index);
   }
   let removedName = false;
+  const home = HOME_LEAD.exec(t);
+  if (home && home.index > 0) {
+    t = t.slice(0, home.index);
+    removedName = true;
+  }
+  t = t.replace(NAME_AFTER, (m, name: string, offset: number, all: string) => {
+    const after = all.slice(offset + m.length).trim().split(/\s+/).slice(0, 3).join(' ');
+    if (looksLikeFullPersonName(name) && !PLACE_WORDS.test(name) && !PLACE_WORDS.test(after)) {
+      removedName = true;
+      return '';
+    }
+    return m;
+  });
   const pieces = t.split(/(\s*[(),;|]\s*|\s+[-–—]\s+)/);
   for (let i = 0; i < pieces.length; i += 2) {
     const seg = pieces[i].trim();
@@ -850,6 +872,8 @@ export function buildPageWatchAdapter(ds: PageWatchDataset, over: Pick<PageWatch
     // Firecrawl spend: the agency feeds' own switch and the key, exactly as the Atlanta Firecrawl pages need them.
     ...(firecrawlOnly ? { requiresEnv: ['FIRECRAWL_API_KEY'], extraFlags: [{ name: LOCAL_BIDS_FLAG, on: () => localBidsEnabled() }] } : {}),
     ...(ds.probation ? { probation: true } : {}),
+    // Round 21 final review P1-1: a web page, not an API: nothing before the owner's terms record (and the page-watch switch).
+    access: 'page',
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
         // Defence in depth: run.ts already skips a disabled adapter, but a direct call must not request anything either.

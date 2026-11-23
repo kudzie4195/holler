@@ -1,3 +1,4 @@
+import { probationFetchOn } from '@/lib/signals/probation-fetch';
 import type { Db } from '@/lib/signals/store';
 import { createFirecrawlClient, firecrawlApiKey, type FirecrawlClient } from './client';
 import { runLocalBidSource, type PipelineReport } from './pipeline';
@@ -11,6 +12,8 @@ import { asLocalBidSource, pageWatchGate } from '@/lib/signals/adapters/page-wat
  * for them. Read at call time.
  */
 function pageWatchFirecrawl(e: Record<string, string | undefined>) {
+  // Round 21 final review P1-1: page-watch pages are probation sources; the one off switch hides them from this probe too.
+  if (!probationFetchOn()) return [];
   return PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off' && !pageWatchGate(d, e));
 }
 

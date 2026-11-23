@@ -80,10 +80,10 @@ function toRegex(path: string): RegExp {
   return new RegExp(`^${esc}`);
 }
 
-/** Is `path` (with query, starting with "/") allowed for these agents by this robots.txt text? Default: the Firecrawl agents. */
-export function robotsAllows(text: string, path: string, agents: readonly string[] = FIRECRAWL_AGENTS): boolean {
+/** The longest matching rule of these groups for `path` (a tie goes to Allow), or null when no rule matches. */
+function decide(groups: readonly Group[], path: string): boolean | null {
   let best: { allow: boolean; len: number } | null = null;
-  for (const g of chosenGroups(text, agents)) {
+  for (const g of groups) {
     for (const r of g.rules) {
       if (r.path === '') continue; // "Disallow:" with nothing allows everything
       const pat = r.path.endsWith('$') ? r.path.slice(0, -1) : r.path;
@@ -93,7 +93,19 @@ export function robotsAllows(text: string, path: string, agents: readonly string
       if (!best || len > best.len || (len === best.len && r.allow && !best.allow)) best = { allow: r.allow, len };
     }
   }
-  return best ? best.allow : true;
+  return best ? best.allow : null;
+}
+
+/**
+ * Is `path` (with query, starting with "/") allowed for these agents by this robots.txt text? Default: the Firecrawl agents.
+ * Round 21 final review P3: a group that names Holler's own token and disallows the path wins over any other agent's Allow (a Firecrawl
+ * read included), as the /bot page promises ("User-agent: Holler / Disallow: /" stops it).
+ */
+export function robotsAllows(text: string, path: string, agents: readonly string[] = FIRECRAWL_AGENTS): boolean {
+  const own = parseRobots(text).filter((g) => g.agents.some((t) => t !== '*' && HOLLER_AGENTS.some((a) => agentTokenMatches(t, a))));
+  if (own.length && decide(own, path) === false) return false;
+  const v = decide(chosenGroups(text, agents), path);
+  return v === null ? true : v;
 }
 
 /** The Crawl-delay (seconds) of the groups that apply to these agents, or null. */

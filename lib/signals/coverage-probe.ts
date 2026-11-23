@@ -1,3 +1,4 @@
+import { PROBATION_FETCH_FLAG, probationFetchOn } from './probation-fetch';
 import { HOLLER_UA } from '@/lib/user-agent';
 import { contactSpecFields } from '@/lib/contacts/extract';
 import { env } from '@/lib/env';
@@ -503,6 +504,10 @@ export async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch
 
 /** Runs the probe for one source. `doFetch` is passed in so a test can answer without a network. Never throws. */
 export async function runCoverageProbe(source: string, doFetch: typeof fetch, now: Date = new Date()): Promise<CoverageProbeResult> {
+  // Round 21 final review P1-1: the one off switch for every probation request (every source this probe accepts is on probation).
+  if (!probationFetchOn() && coverageProbeSourceIds().includes(source)) {
+    return { ...empty(source), schema: 'unreachable', message: `${PROBATION_FETCH_FLAG} is off: no request sent` };
+  }
   const sale = SALES_DATASETS.find((d) => d.id === source && d.verified && d.probation);
   if (sale) {
     try {

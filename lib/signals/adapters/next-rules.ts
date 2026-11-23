@@ -77,15 +77,26 @@ const MULTI_RE = /\bapartment|\bmulti[- ]?family|\b(?:[3-9]|\d{2,})\s*(?:\+\s*)?
 /** One or two family homes and other dwellings. */
 const RESIDENTIAL_CO_RE = /\b(?:1|one) (?:or|&|and) (?:2|two) family|\b1-2 family|\bsingle[- ]family|\btwo[- ]family|\bone[- ]family|\bduplex|\btownho(?:use|me)|\baccessory dwelling|\badu\b|\bdwelling|\bresidence\b|\bresidential\b|\bsfd\b|\bsfr\b/i;
 
+/**
+ * Round 21 final review P2-3: the explicit list of commercial building types that may print an exact address. Anything not on it (a blank
+ * type, "Garage", "Swimming Pool", a DC "Flat", any word this list does not know) is treated as residential: block level only (fail closed).
+ */
+export const COMMERCIAL_CO_RE =
+  /\bcommercial\b|\brestaurants?\b|\bretail\b|\bstores?\b|\bshop(?:ping)?\b|\boffices?\b|\bmercantile\b|\bbusiness\b|\bassembly\b|\bindustrial\b|\bwarehouses?\b|\bfactory\b|\bmanufactur|\bhotels?\b|\bmotels?\b|\bhospital\b|\bclinic\b|\bmedical office\b|\bbank\b|\bschool\b|\beducational\b|\bchurch\b|\bhouse of worship\b|\btheat(?:er|re)\b|\bgym\b|\bfitness\b|\bbar\b|\bnightclub\b|\btavern\b|\bauto repair\b|\bservice station\b|\bgas station\b|\bparking (?:garage|structure)\b|\bself[- ]storage\b|\bdaycare center\b|\bchild care center\b/i;
+
 export type OccupancyClass = 'home' | 'residential' | 'other';
 
-/** home: no address; residential: block only; other (commercial, multi-family): the exact building address. unknownType: residential. */
+/**
+ * home: no address; residential: block only; other (an explicit commercial type, or multi-family): the exact building address.
+ * unknownType, a blank type and any type on neither list: residential (block only; round 21 final review P2-3, fail closed).
+ */
 export function occupancyClassOf(typeValues: readonly string[], unknownType = false): OccupancyClass {
   const t = typeValues.filter(Boolean).join(' | ');
   if (HOME_OCCUPANCY_RE.test(t)) return 'home';
-  if (unknownType) return 'residential';
+  if (unknownType || !t.trim()) return 'residential';
   if (MULTI_RE.test(t)) return 'other';
-  return RESIDENTIAL_CO_RE.test(t) ? 'residential' : 'other';
+  if (RESIDENTIAL_CO_RE.test(t)) return 'residential';
+  return COMMERCIAL_CO_RE.test(t) ? 'other' : 'residential';
 }
 
 /** The trailing quadrant (NW, NE, SW, SE) right after the street that cleanAddress keeps, or ''. */
