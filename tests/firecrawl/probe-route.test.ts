@@ -44,7 +44,7 @@ describe('GET /api/admin/firecrawl-probe', () => {
     const { GET, mock } = await load();
     const res = await GET(req('/api/admin/firecrawl-probe'));
     expect(res.status).toBe(400);
-    expect((await res.json()).knownSources).toEqual(['bids-gwinnett', 'bids-rockdale', 'bids-tucker', 'bids-dunwoody']);
+    expect((await res.json()).knownSources).toEqual(['bids-gwinnett', 'bids-rockdale', 'bids-tucker', 'bids-dunwoody', 'bids-pw-houston-city', 'bids-pw-phoenix-opengov']); // + round 20 Firecrawl-only page-watch pages
     expect(mock.calls).toHaveLength(0);
   });
   it('unknown source: 400, no call', async () => {

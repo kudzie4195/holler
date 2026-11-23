@@ -240,6 +240,8 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   }
   if ((m = /^Federal bid in (.+?): (.*)$/.exec(title))) return { key: 'title.fed_bid', vars: { place: m[1], text: m[2] } };
   if ((m = /^Open bid in (.+?): (.*)$/.exec(title))) return { key: 'title.open_bid', vars: { place: placeLang(m[1], lang), text: m[2] } };
+  // Round 20 page watch: "Bid: <title> (<agency>)". The title and the agency's name are the agency's own words and stay as printed.
+  if ((m = /^Bid: (.+) \(([^()]+)\)$/.exec(title))) return { key: 'title.page_watch_bid', vars: { text: m[1], agency: m[2] } };
 
   // City records
   if ((m = /^Failed inspection in (.+?): (.*)$/.exec(title))) return { key: 'title.inspection', vars: { city: m[1], text: fixedTextLang(m[2], lang) } };

@@ -125,7 +125,8 @@ describe('buildMetroReport', () => {
     expect(atl.sources!.behindIds).toContain('arcgis-dekalb-permits');
     const phl = r.metros.find((m) => m.id === 'philadelphia')!;
     expect(phl.sources!.total).toBe(0);
-    expect(phl.probation).toEqual([
+    // Round 20 page watch adds Philadelphia bid pages on probation (bids-pw-*).
+    expect(phl.probation.filter((p) => !p.id.startsWith('bids-pw-'))).toEqual([
       { id: 'carto-phl-business', samples: 0, state: null },
       { id: 'carto-phl-permits', samples: 120, state: 'healthy' },
       { id: 'carto-phl-violations', samples: 0, state: null },

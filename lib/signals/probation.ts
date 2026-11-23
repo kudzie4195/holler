@@ -3,6 +3,9 @@ import { isProbationNote } from './probation-note';
 import { SOCRATA_DATASETS } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { CARTO_DATASETS } from './adapters/carto-datasets';
+import { PAGE_WATCH_DATASETS } from './adapters/page-watch-datasets';
+
+const PAGE_WATCH_IDS: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.map((d) => d.id));
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -11,7 +14,7 @@ import { CARTO_DATASETS } from './adapters/carto-datasets';
  * owner instead of silently storing nothing. Pure: rows in, rows out.
  */
 
-export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto';
+export type ProbationPlatform = 'socrata' | 'arcgis' | 'carto' | 'page-watch';
 
 /** One source added by round 19 COVERAGE: where it is, what it can carry, and how sure the schema is (COVERAGE-research.md tags). */
 export interface CoverageSource {
@@ -69,7 +72,11 @@ export const COVERAGE_R19_SOURCES: readonly CoverageSource[] = [
  * tests/signals/lead-rules.test.ts lets ONLY these ids, and only while they are on probation, go without an entry (they reach no member,
  * so no label is ever computed for them). At integration: add each id with COVERAGE_R19_SOURCES[].label to SOURCE_DEFAULTS.
  */
-export const LABEL_PENDING_INTEGRATION: readonly string[] = COVERAGE_R19_SOURCES.map((s) => s.id);
+export const LABEL_PENDING_INTEGRATION: readonly string[] = [
+  ...COVERAGE_R19_SOURCES.map((s) => s.id),
+  // Round 20 page watch: proposed labels in lib/signals/proposed-labels.ts (urgent when due 3+ days out, else heads-up), not yet in lead-rules.ts.
+  ...PAGE_WATCH_DATASETS.filter((d) => d.verified && d.probation).map((d) => d.id),
+];
 
 /** The owner's probe for a coverage source (Bearer CRON_SECRET only). */
 export function coverageProbePath(id: string): string {
@@ -111,7 +118,22 @@ export interface ProbationRow {
    *   row_cap          worked, but the last run read a full page: older rows in the window were not read (note says so)
    *   ok               the last run worked and the source has returned rows
    */
-  check: 'not_run' | 'ok' | 'schema_mismatch' | 'not_json' | 'no_recent_rows' | 'error' | 'no_rows' | 'row_cap';
+  check:
+    | 'not_run'
+    | 'ok'
+    | 'schema_mismatch'
+    | 'not_json'
+    | 'no_recent_rows'
+    | 'error'
+    | 'no_rows'
+    | 'row_cap'
+    // Round 20 page watch (lib/signals/adapters/page-watch.ts): the page's robots.txt forbids the path, the answer was not an HTML page,
+    // the parser read zero rows from a page that has a table or list, the fetch timed out, or the listing is the same as last stored.
+    | 'robots_disallowed'
+    | 'not_html'
+    | 'parser_mismatch'
+    | 'timeout'
+    | 'unchanged';
   /** The latest run's probation note (row cap), when there is one. */
   note?: string;
   /** Coverage sources only: the probe to run before promoting it. */
@@ -122,11 +144,13 @@ export interface ProbationRow {
 
 const PROMOTE_FILE: Record<ProbationPlatform, string> = {
   socrata: 'lib/signals/adapters/socrata-datasets.ts',
+  'page-watch': 'lib/signals/adapters/page-watch-datasets.ts',
   arcgis: 'lib/signals/adapters/coverage-datasets.ts',
   carto: 'lib/signals/adapters/carto-datasets.ts and buildCartoAdapter (lib/signals/adapters/carto.ts)',
 };
 
 function platformOf(id: string): ProbationPlatform | null {
+  if (PAGE_WATCH_IDS.has(id)) return 'page-watch';
   if (id.startsWith('socrata-')) return 'socrata';
   if (id.startsWith('arcgis-')) return 'arcgis';
   if (id.startsWith('carto-')) return 'carto';
@@ -140,12 +164,21 @@ export function probationCheck(h: ProbationHealthLite | undefined, lastRun?: Pro
   const e = h.last_error;
   if (e) {
     if (isSchemaMismatch(e)) return 'schema_mismatch';
+    // Round 20 page watch: its own check states (the other probation sources keep their round-19 states).
+    if (PAGE_WATCH_IDS.has(h.source)) {
+      if (/\brobots_disallowed\b/.test(e)) return 'robots_disallowed';
+      if (/\bnot_html\b/.test(e)) return 'not_html';
+      if (/\bparser_mismatch\b/.test(e)) return 'parser_mismatch';
+      if (/\bnot_json\b/.test(e)) return 'not_json';
+      if (e.trim() === 'timeout' || /: timeout\b/.test(e)) return 'timeout';
+    }
     if (/empty response body|response was not JSON/.test(e)) return 'not_json';
     if (/no rows in the last \d+ days/.test(e)) return 'no_recent_rows';
     return 'error';
   }
   if (!h.last_record_at) return 'no_rows';
   if (lastRun && isProbationNote(lastRun.error) && /row cap reached/.test(lastRun.error ?? '')) return 'row_cap';
+  if (lastRun && PAGE_WATCH_IDS.has(h.source) && isProbationNote(lastRun.error) && /\bunchanged\b/.test(lastRun.error ?? '')) return 'unchanged';
   return 'ok';
 }
 
@@ -161,7 +194,7 @@ export function probationOverview(
     const prev = runBy.get(r.source);
     if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
   }
-  const coverage = new Set(COVERAGE_R19_SOURCES.map((s) => s.id));
+  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...PAGE_WATCH_IDS]);
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
@@ -180,7 +213,9 @@ export function probationOverview(
         check,
         ...(run && isProbationNote(run.error) ? { note: run.error as string } : {}),
         ...(coverage.has(a.id) ? { probe: coverageProbePath(a.id) } : {}),
-        promote: `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
+        promote: PAGE_WATCH_IDS.has(a.id)
+          ? `remove probation: true and schemaUnverified: true from its entry in ${file}, move its label from lib/signals/proposed-labels.ts to lib/signals/lead-rules.ts SOURCE_DEFAULTS (or a due-date rule), then deploy; members see it only while HOLLER_BIDS_ENABLED is on`
+          : `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
       };
     })
     .sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
@@ -208,7 +243,7 @@ export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probati
  * paid lookup. It is independent of the contact gate (alert_hold): neither rule reads or relaxes the other.
  */
 export const PROBATION_SOURCE_IDS: ReadonlySet<string> = new Set(
-  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
+  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...PAGE_WATCH_DATASETS.filter((d) => d.verified)].filter((d) => d.probation === true).map((d) => d.id),
 );
 
 /** True when the record's source is on probation. Source ids are exact (no case folding). */

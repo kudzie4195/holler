@@ -1,3 +1,5 @@
+import { PAGE_WATCH_IDS } from './adapters/page-watch-datasets';
+
 /**
  * City open bids (kind 'contract', data.subtype 'bid'): source ids, the feature flag and the one test for "is this a bid".
  * Pure and client-safe: no server imports, so match.ts, approx-location.ts and the cards can all use it.
@@ -25,6 +27,8 @@ export const BID_SOURCE_IDS: readonly string[] = [
   'bids-rockdale',
   'bids-tucker',
   'bids-dunwoody',
+  // Round 20 page watch (lib/signals/adapters/page-watch-datasets.ts): public bid pages read with a plain fetch, on probation.
+  ...PAGE_WATCH_IDS,
 ];
 
 /** Prefix of every city-bid source id. */

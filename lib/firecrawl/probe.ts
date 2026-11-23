@@ -2,6 +2,11 @@ import type { Db } from '@/lib/signals/store';
 import { createFirecrawlClient, firecrawlApiKey, type FirecrawlClient } from './client';
 import { runLocalBidSource, type PipelineReport } from './pipeline';
 import { LOCAL_BID_SOURCES, localSourceById } from './local-sources';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+import { asLocalBidSource } from '@/lib/signals/adapters/page-watch';
+
+/** Round 20 page watch: the pages read only through Firecrawl (`firecrawl: 'only'`) are probed here too, with the same caps. */
+const PAGE_WATCH_FIRECRAWL = PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off');
 
 /**
  * The owner probe behind GET /api/admin/firecrawl-probe?source=<id>. A dry run of one source: it reads the page once with the
@@ -36,9 +41,10 @@ export async function runProbe(opts: {
   db?: Db | null;
   makeClient?: (apiKey: string) => FirecrawlClient;
 }): Promise<ProbeResult> {
-  const known = LOCAL_BID_SOURCES.map((s) => s.id);
+  const known = [...LOCAL_BID_SOURCES.map((s) => s.id), ...PAGE_WATCH_FIRECRAWL.map((d) => d.id)];
   const base = { ok: false, page: '', reason: null, error: null, changeStatus: null, rowsExtracted: 0, kept: [], dropped: [], notes: [], knownSources: known, credits: { calls: 0, estimated: 0, reported: null, measured: null, remainingBefore: null, remainingAfter: null, planCredits: null } };
-  const src = opts.source ? localSourceById(opts.source) : undefined;
+  const pw = opts.source ? PAGE_WATCH_FIRECRAWL.find((d) => d.id === opts.source) : undefined;
+  const src = opts.source ? localSourceById(opts.source) ?? (pw ? asLocalBidSource(pw) : undefined) : undefined;
   if (!src) return { ...base, source: opts.source ?? '', status: 'unknown_source', reason: 'unknown_source' };
   const key = firecrawlApiKey(opts.env);
   if (!key) return { ...base, source: src.id, page: src.listUrl, status: 'no_key', reason: 'no_key' };

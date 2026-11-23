@@ -134,10 +134,11 @@ describe('2. the contact gate and the new rules agree', () => {
 
 describe('3. probation and the label exemption', () => {
   it('the eight coverage ids have no SOURCE_DEFAULTS entry and are exempt only while on probation; the Philadelphia three have had entries since r19-metros', () => {
-    expect(PROBATION_SOURCE_IDS.size).toBe(11);
+    // 11 round-19 probation sources; round 20 page watch adds its bids-pw-* pages (all on probation, labels proposed in proposed-labels.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !id.startsWith('bids-pw-'))).toHaveLength(11);
     for (const s of COVERAGE_R19_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
     for (const id of ['carto-phl-permits', 'carto-phl-violations', 'carto-phl-business']) expect(SOURCE_DEFAULTS[id], id).toBeDefined();
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());
     const t = read('tests/signals/lead-rules.test.ts');
     expect(t).toMatch(/a\.probation && LABEL_PENDING_INTEGRATION\.includes\(a\.id\) && !\(a\.id in SOURCE_DEFAULTS\)/);
   });

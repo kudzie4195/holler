@@ -276,11 +276,12 @@ describe('7. metros and the label exemption', () => {
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
-    expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
+    // Round 20 page watch: its own probation ids (bids-pw-*) sit under their metros too (tests/signals/page-watch/adapter.test.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual(Object.keys(want).sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS].sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual([...IDS].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);

@@ -8,6 +8,8 @@ import { ARCGIS_DATASETS, arcgisLookbackDays, type ArcgisDataset } from './adapt
 import { buildSocrataQuery, parseSocrataReport, recordDateIso, socrataSchemaProblem, socrataSelectColumns } from './adapters/socrata';
 import { arcgisDateToIso, arcgisSchemaProblem, buildArcgisQuery, layerSchemaCheck, parseArcgisReport, valueFieldsOf } from './adapters/arcgis';
 import type { SignalInput } from './types';
+import { PAGE_WATCH_DATASETS, type PageWatchDataset } from './adapters/page-watch-datasets';
+import { PW_ROW_CAP, runPageWatch, type PageWatchCheck, type PageWatchCounts } from './adapters/page-watch';
 
 /**
  * GET /api/admin/coverage-probe?source=<id> (round 19 COVERAGE). The owner's check of ONE probation source's schema before promoting it,
@@ -26,24 +28,27 @@ const TIMEOUT_MS = 10000;
 /** The scan's row cap per run (one page of 500; Socrata datasets with maxPages read more). */
 const SCAN_PAGE = 500;
 
-type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset };
+type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset } | { platform: 'page-watch'; ds: PageWatchDataset };
 
 /** Probation datasets the probe accepts (Socrata and ArcGIS), sorted. */
 export function coverageProbeSourceIds(): string[] {
-  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id).sort();
+  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...PAGE_WATCH_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id).sort();
 }
 
 function find(id: string): Probed | null {
   const s = SOCRATA_DATASETS.find((d) => d.id === id && d.verified && d.probation);
   if (s) return { platform: 'socrata', ds: s };
   const a = ARCGIS_DATASETS.find((d) => d.id === id && d.verified && d.probation);
-  return a ? { platform: 'arcgis', ds: a } : null;
+  if (a) return { platform: 'arcgis', ds: a };
+  const w = PAGE_WATCH_DATASETS.find((d) => d.id === id && d.verified && d.probation);
+  return w ? { platform: 'page-watch', ds: w } : null;
 }
 
 const uniq = (xs: (string | undefined)[]): string[] => [...new Set(xs.filter((x): x is string => Boolean(x)))];
 
 /** Every column the config reads (id, date, text, title, summary, address, zip, coordinates, status, contacts, value). */
 export function expectedColumns(p: Probed): string[] {
+  if (p.platform === 'page-watch') return [];
   const d = p.ds;
   const common = [
     ...(d.idFields?.length ? d.idFields : [d.idField]),
@@ -72,7 +77,7 @@ export interface MappedRow {
 export interface CoverageProbeResult {
   status: 'ok' | 'unknown_source';
   source: string;
-  platform: 'socrata' | 'arcgis' | null;
+  platform: 'socrata' | 'arcgis' | 'page-watch' | null;
   /** The endpoint, without any query string. */
   endpoint: string | null;
   /** HTTP status of the rows request (null when it was not sent or got no answer). */
@@ -106,6 +111,19 @@ export interface CoverageProbeResult {
   rowCapNote?: string;
   mapped: MappedRow[];
   message?: string;
+  /**
+   * Round 20 page watch only: the adapter's own check state (robots_disallowed, not_html, parser_mismatch, empty, timeout ...), the
+   * counts of the validation, the platform and parser, and every kept row as title, due date, trades and link (never a person's name:
+   * the parser does not read contact columns and the title is cleaned of e-mails, phones and "Contact:" text).
+   */
+  pageWatch?: {
+    check: PageWatchCheck;
+    detail: string | null;
+    platform: string;
+    parser: string;
+    counts: PageWatchCounts;
+    rows: { title: string; dueDate: string | null; trades: string[]; url: string | null; proposedLabel: string | null }[];
+  };
   wroteNothing: true;
 }
 
@@ -312,11 +330,48 @@ async function probeArcgis(ds: ArcgisDataset, doFetch: typeof fetch, now: Date):
   }
 }
 
+/**
+ * Round 20 page watch: robots.txt, one fetch of the page and the same parser and validation as the scan, with no marker read or written
+ * and no Firecrawl call (a Firecrawl-only page says so and points to /api/admin/firecrawl-probe). Returns the parsed rows.
+ */
+async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch, now: Date): Promise<CoverageProbeResult> {
+  const r = await runPageWatch(ds, { fetch: doFetch, now, probe: true, db: null, dry: true, budgetMs: 25_000 });
+  const reached = r.httpStatus !== null && r.httpStatus < 400;
+  const schema: CoverageProbeResult['schema'] =
+    r.check === 'parser_mismatch' || r.check === 'not_html' || r.check === 'not_json' ? 'mismatch' : r.check === 'empty' ? 'no_rows' : reached && r.counts.read > 0 ? 'ok' : reached ? 'no_rows' : 'unreachable';
+  const dues = r.kept.map((s) => s.expiresAt ?? null).filter((x): x is string => !!x);
+  return {
+    ...empty(ds.id, { platform: 'page-watch', endpoint: ds.url.split('?')[0], rowCap: PW_ROW_CAP }),
+    httpStatus: r.httpStatus,
+    rowCount: r.counts.read,
+    schema,
+    ...(schema === 'mismatch' ? { schemaProblem: `${r.check}${r.detail ? `: ${r.detail}` : ''}` } : {}),
+    shapeOk: r.counts.read - r.counts.noTitle,
+    parsedRows: r.kept.length,
+    newestDate: dues.length ? dues.sort().at(-1) ?? null : null,
+    ...(r.check === 'row_cap' ? { rowCapNote: r.notes.find((n) => /row cap/.test(n)) } : {}),
+    mapped: r.kept.slice(0, PROBE_MAPPED).map(mappedRow),
+    ...(r.detail && schema !== 'mismatch' ? { message: r.detail } : {}),
+    pageWatch: {
+      check: r.check,
+      detail: r.detail,
+      platform: ds.platform,
+      parser: ds.parser,
+      counts: r.counts,
+      rows: r.kept.slice(0, 25).map((s) => {
+        const d = (s.data ?? {}) as Record<string, unknown>;
+        return { title: s.title, dueDate: typeof d.dueDate === 'string' ? d.dueDate : null, trades: [...s.categories], url: s.url ?? null, proposedLabel: typeof d.proposedLabel === 'string' ? d.proposedLabel : null };
+      }),
+    },
+  };
+}
+
 /** Runs the probe for one source. `doFetch` is passed in so a test can answer without a network. Never throws. */
 export async function runCoverageProbe(source: string, doFetch: typeof fetch, now: Date = new Date()): Promise<CoverageProbeResult> {
   const p = find(source);
   if (!p) return { ...empty(source), status: 'unknown_source', schema: 'unreachable' };
   try {
+    if (p.platform === 'page-watch') return await probePageWatch(p.ds, doFetch, now);
     return p.platform === 'socrata' ? await probeSocrata(p.ds, doFetch, now) : await probeArcgis(p.ds, doFetch, now);
   } catch (e) {
     return empty(source, { platform: p.platform, message: msgOf(e) });

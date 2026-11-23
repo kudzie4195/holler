@@ -1,3 +1,4 @@
+import { PAGE_WATCH_IDS } from '@/lib/signals/adapters/page-watch-datasets';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -35,6 +36,8 @@ const FIXED: Record<string, Intent> = {
   'bids-rockdale': 'spending',
   'bids-tucker': 'spending',
   'bids-dunwoody': 'spending',
+  // Round 20 page watch: public bid pages (kind contract, subtype bid), like every bid source.
+  ...Object.fromEntries(PAGE_WATCH_IDS.map((id) => [id, 'spending'])),
   ticketmaster: 'demand',
   bluesky: 'asking',
   'websearch-brave': 'asking',

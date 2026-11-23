@@ -1,3 +1,4 @@
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
 import type { CategoryId } from '@/lib/signals/categories';
 import { isAlertLabel, labelFor, OPPORTUNITY_LABELS, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { METROS, metroFor, metroForCityState } from '@/lib/geo/metros';
@@ -204,6 +205,8 @@ export function sourcePlaces(): Map<string, string | null> {
     ...CARTO_DATASETS,
     ...BID_DATASETS,
     ...LOCAL_BID_SOURCES,
+    // Round 20 page watch: placed by the agency office ZIP like the Firecrawl agency pages.
+    ...PAGE_WATCH_DATASETS,
   ];
   return new Map(list.map((d) => [d.id, metroOfPlace(d)]));
 }

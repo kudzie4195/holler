@@ -161,13 +161,15 @@ describe('the new sources are declared on probation, like Philadelphia', () => {
       expect(d.probation, id).toBe(true);
       expect(d.schemaUnverified, id).toBe(true);
     }
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(IDS);
+    // Round 20 page watch adds its own probation ids to the exemption (tests/signals/page-watch); the coverage ids are all still there.
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual(IDS);
   });
 
   it('no Fort Worth source and no Houston permit source was added (no usable endpoint without a page scraper)', () => {
     const ids = ALL_ADAPTERS.map((a) => a.id);
     expect(ids.some((id) => /fortworth|fort-worth/.test(id))).toBe(false);
-    expect(ids.filter((id) => /houston/.test(id))).toEqual(['arcgis-houston-311']);
+    // Round 20 page watch adds Houston BID pages (bids-pw-*), not permit sources.
+    expect(ids.filter((id) => /houston/.test(id) && !id.startsWith('bids-pw-'))).toEqual(['arcgis-houston-311']);
   });
 
   it('metros: every coverage source sits in its metro (Arlington in Dallas-Fort Worth, Tempe in Phoenix, Miami-Dade County in Miami)', () => {
