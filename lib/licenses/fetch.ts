@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { expectedColumns, type LicenseSource } from './sources';
 
 /** One raw row of a licence file: column name (or position, for a headerless CSV) to text. Never stored or logged as is. */
@@ -79,7 +80,8 @@ async function fetchSocrata(src: LicenseSource, f: typeof fetch, o: FetchLicense
   const start = o.offset ?? 0;
   let offset = start;
   let status: number | null = null;
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  // Round 21: the one Holler user agent (lib/user-agent.ts, round 20 WATCH) on every outbound request.
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': HOLLER_UA };
   if (o.socrataToken) headers['X-App-Token'] = o.socrataToken;
   const base = (): FetchLicenseResult => ({ httpStatus: status, columns: [...cols], rows, maxCells: 0, done: false, skipped: 0 });
   while (rows.length < o.maxRows) {
@@ -139,7 +141,7 @@ async function fetchCsv(src: LicenseSource, f: typeof fetch, o: FetchLicenseOpti
   let done = false;
   let error: FetchErrorCode | undefined;
   try {
-    const res = await f(src.fileUrl, { headers: { Accept: 'text/csv, text/plain, */*' }, signal: ctl.signal });
+    const res = await f(src.fileUrl, { headers: { Accept: 'text/csv, text/plain, */*', 'User-Agent': HOLLER_UA }, signal: ctl.signal });
     status = res.status;
     if (!res.ok || !res.body) return { httpStatus: status, columns: [], rows: [], maxCells: 0, done: false, skipped: 0, error: `http_${res.status}` };
     const reader = res.body.getReader();

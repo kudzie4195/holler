@@ -15,6 +15,7 @@ import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as cityBids } from './adapters/city-bids';
 import { adapters as localBids } from './adapters/bids-local';
+import { adapters as pageWatch } from './adapters/page-watch';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
 import { adapters as websearch } from './adapters/websearch';
@@ -44,6 +45,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...cityBids,
   // Atlanta-area county and city bid pages read with Firecrawl: on only with HOLLER_BIDS_ENABLED and FIRECRAWL_API_KEY both set.
   ...localBids,
+  // Round 20 page watch: public bid pages read with a plain fetch (Firecrawl only where a page needs a browser). All on probation.
+  ...pageWatch,
   ...ticketmaster,
   ...bluesky,
   ...websearch,

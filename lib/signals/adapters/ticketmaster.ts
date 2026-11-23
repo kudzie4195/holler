@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
@@ -20,7 +21,7 @@ import { env } from '@/lib/env';
  */
 
 const ENDPOINT = 'https://app.ticketmaster.com/discovery/v2/events.json';
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 const PAGES = 1;
 const SEGMENTS = ['Sports', 'Music'];
 const SIZE = 200;

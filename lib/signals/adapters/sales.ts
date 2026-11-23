@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import type { CategoryId } from '@/lib/signals/categories';
 import { cleanAddress } from '@/lib/contacts/sanitize';
@@ -29,7 +30,8 @@ import { MIN_SALE_PRICE, PHL_CARTO, RESIDENTIAL_CLASSES, SALES_DATASETS, saleReq
  *   timeout          the scan's own "timeout" (run.ts), and this adapter stops itself inside SALE_BUDGET_MS
  */
 
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+// Round 21: the one Holler user agent (lib/user-agent.ts, round 20 WATCH), here too.
+const UA = HOLLER_UA;
 /** Rows per page. */
 export const SALE_PAGE = 500;
 /** Pages per run (newest first): the row cap is SALE_PAGE x SALE_MAX_PAGES. */

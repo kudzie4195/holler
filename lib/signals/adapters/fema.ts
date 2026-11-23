@@ -1,4 +1,4 @@
-import { siteUrl } from '@/lib/env';
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
@@ -119,7 +119,7 @@ export const femaAdapter: Adapter = {
       const from = new Date(Date.now() - 30 * 86400_000).toISOString().replace(/Z$/, 'z');
       const qs = `$filter=${encodeURIComponent(`declarationDate ge '${from}'`)}&$orderby=${encodeURIComponent('declarationDate desc')}&$top=1000`;
       const res = await ctx.fetch(`${BASE}?${qs}`, {
-        headers: { 'User-Agent': `Holler/1.0 (+${siteUrl}/about; contact@holler)`, Accept: 'application/json' },
+        headers: { 'User-Agent': HOLLER_UA, Accept: 'application/json' },
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

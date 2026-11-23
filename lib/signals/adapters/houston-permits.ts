@@ -2,7 +2,7 @@ import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { parseSocrataReport } from './socrata';
-import { checkRobots } from '@/lib/firecrawl/robots';
+import { HOLLER_AGENTS, checkRobots, crawlDelayWaitMs, noteFetch } from '@/lib/firecrawl/robots';
 import {
   HOUSTON_ACCESS,
   HOUSTON_HEADER_ALIASES,
@@ -148,15 +148,34 @@ export function parseHoustonPermits(rows: readonly Record<string, string>[], now
 
 /**
  * Review fix P1-3: may the page be requested now? Without the owner's access record nothing is requested (not even robots.txt); with it,
- * the shared robots checker must allow the page path (robots.txt unreachable or a 5xx: refused).
+ * the shared robots checker must allow the page path. Round 21 (the page-watch rules of round 20 WATCH, shared): robots.txt is judged for
+ * Holler's own agent token only (HOLLER_AGENTS: a FirecrawlAgent group never grants a plain fetch anything); it fails closed on 401, 403,
+ * 429, 5xx, an HTML or non-text answer, a redirect to another host and a network error; and a Crawl-delay not yet met since the last read
+ * of the host skips this run (`crawl_delay`, not an error).
  */
 export async function houstonAccess(doFetch: typeof fetch, now: Date, access: typeof HOUSTON_ACCESS = HOUSTON_ACCESS): Promise<{ ok: true } | { ok: false; reason: string; error: boolean }> {
   if (!houstonAccessCleared(access)) {
     return { ok: false, error: false, reason: 'terms not recorded: the owner records robotsUrl, termsUrl and checkedOn and sets termsChecked (houston-permits-config.ts HOUSTON_ACCESS); no request sent' };
   }
-  const robots = await checkRobots(HOUSTON_REPORT_URL, doFetch, now.getTime());
+  let robots: Awaited<ReturnType<typeof checkRobots>>;
+  try {
+    robots = await checkRobots(HOUSTON_REPORT_URL, doFetch, now.getTime(), { agents: HOLLER_AGENTS });
+  } catch {
+    robots = { allowed: false, reason: 'unreachable' };
+  }
   if (!robots.allowed) return { ok: false, error: true, reason: `robots_${robots.reason}: no request sent for the page` };
+  const wait = crawlDelayWaitMs(HOUSTON_REPORT_URL, robots.crawlDelaySec, now.getTime());
+  if (wait > 0) return { ok: false, error: false, reason: `crawl_delay: Crawl-delay ${robots.crawlDelaySec} s not met since the last read of this host; no request sent` };
   return { ok: true };
+}
+
+/**
+ * Round 21: the one request for the page. Holler's user agent, no redirect followed (a moved report is reported, never fetched from
+ * another place), and the read noted for Crawl-delay.
+ */
+export async function fetchHoustonReport(doFetch: typeof fetch, now: Date, timeoutMs: number): Promise<Response> {
+  noteFetch(HOUSTON_REPORT_URL, now.getTime());
+  return doFetch(HOUSTON_REPORT_URL, { headers: { Accept: 'text/html', 'User-Agent': HOUSTON_USER_AGENT }, redirect: 'manual', signal: AbortSignal.timeout(timeoutMs) });
 }
 
 /** The response body as text, read only up to `max` characters (the rest is never downloaded). */
@@ -193,12 +212,9 @@ export function buildHoustonPermitsAdapter(access: typeof HOUSTON_ACCESS = HOUST
           ctx.log(gate.error ? `error: ${HOUSTON_PERMITS_ID}: ${gate.reason}` : `${PROBATION_NOTE_PREFIX} ${HOUSTON_PERMITS_ID}: ${gate.reason}`);
           return [];
         }
-        const res = await ctx.fetch(HOUSTON_REPORT_URL, {
-          headers: { Accept: 'text/html', 'User-Agent': HOUSTON_USER_AGENT },
-          signal: AbortSignal.timeout(UNVERIFIED_REQUEST_TIMEOUT_MS),
-        });
+        const res = await fetchHoustonReport(ctx.fetch, now, UNVERIFIED_REQUEST_TIMEOUT_MS);
         if (!res.ok) {
-          ctx.log(`error: ${HOUSTON_PERMITS_ID}: HTTP ${res.status}`);
+          ctx.log(`error: ${HOUSTON_PERMITS_ID}: HTTP ${res.status}${res.status >= 300 && res.status < 400 ? ' (redirect not followed)' : ''}`);
           return [];
         }
         const table = readPermitTable(await readBoundedText(res));

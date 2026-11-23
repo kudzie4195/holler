@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { CATEGORIES, classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { CITIES, type City } from '@/lib/geo';
@@ -30,7 +31,7 @@ import { env } from '@/lib/env';
  * Serper has no such limit and keeps its parallel batches of 4.
  */
 
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 export const QUERY_BUDGET = 40;
 export const TOP_CITY_COUNT = 25;
 const RUN_DEADLINE_MS = 35_000;

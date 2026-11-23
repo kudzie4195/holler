@@ -1,4 +1,6 @@
 import type { SocrataDataset } from './socrata-datasets';
+import { accessRecordCleared, type AccessRecord } from '@/lib/signals/access-record';
+import { HOLLER_UA } from '@/lib/user-agent';
 
 /**
  * Round 20 NEXT: the Houston weekly Permit Activity Report's config (see houston-permits.ts for the reader and the research). Config only, no
@@ -33,24 +35,25 @@ export const HOUSTON_HEADER_ALIASES: Record<string, readonly string[]> = {
 
 /**
  * Review fix P1-3: the owner's access record for the page. Nothing is requested from houstontx.gov (the page, its robots.txt, the probe)
- * until the owner has read its robots.txt and terms of use in a browser and recorded them here, with termsChecked set to true: the same
- * per-source gate as the page-watch sources (branch r20-watch, page-watch-datasets.ts termsChecked). Ships false. Even then the shared
- * robots checker (lib/firecrawl/robots.ts checkRobots, failing closed when robots.txt cannot be read) must allow the page path.
+ * until the owner has read its robots.txt and terms of use in a browser and recorded them here, with termsChecked set to true. Round 21: the
+ * same record shape and rule as the page-watch sources (lib/signals/access-record.ts; no vendor endpoint here). It is the Houston page's own
+ * gate: HOLLER_PAGE_WATCH_ENABLED switches page watch only. Ships false. Even then the shared robots checker (lib/firecrawl/robots.ts
+ * checkRobots with Holler's own agent token, failing closed when robots.txt cannot be read) must allow the page path.
  */
-export const HOUSTON_ACCESS: { termsChecked: boolean; robotsUrl?: string; termsUrl?: string; checkedOn?: string } = {
+export const HOUSTON_ACCESS: AccessRecord = {
   termsChecked: false,
   robotsUrl: 'https://www.houstontx.gov/robots.txt',
   termsUrl: undefined,
   checkedOn: undefined,
 };
 
-/** The access record is complete: termsChecked, the robots and terms pages read, and the day (YYYY-MM-DD). */
-export function houstonAccessCleared(a: typeof HOUSTON_ACCESS = HOUSTON_ACCESS): boolean {
-  return a.termsChecked === true && Boolean(a.robotsUrl) && Boolean(a.termsUrl) && /^\d{4}-\d{2}-\d{2}$/.test(a.checkedOn ?? '');
+/** The access record is complete (lib/signals/access-record.ts accessRecordCleared). */
+export function houstonAccessCleared(a: AccessRecord = HOUSTON_ACCESS): boolean {
+  return accessRecordCleared(a);
 }
 
-/** Review fix P1-3: the user agent of every request to the page, naming the site and its bot page. */
-export const HOUSTON_USER_AGENT = 'Holler/1.0 (+https://localholler.com/bot)';
+/** Review fix P1-3: the user agent of every request to the page. Round 21: the one Holler user agent (lib/user-agent.ts). */
+export const HOUSTON_USER_AGENT = HOLLER_UA;
 /** Without these the table is not the report (schema mismatch). */
 export const HOUSTON_REQUIRED = ['project_no', 'permit_date', 'address'] as const;
 

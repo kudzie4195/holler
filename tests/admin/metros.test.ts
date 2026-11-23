@@ -7,6 +7,10 @@ import { METROS } from '@/lib/geo/metros';
 import { buildMetroReport, metroOfRecord, metroOfZip, NATIONAL_SOURCES, sourcePlaces, type MetroInputs, type MetroSignalLite } from '@/lib/admin/metros';
 import { renderMetrosHtml } from '@/lib/admin/metros-html';
 import type { Db } from '@/lib/signals/store';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 vi.mock('server-only', () => ({}));
 
@@ -125,7 +129,8 @@ describe('buildMetroReport', () => {
     expect(atl.sources!.behindIds).toContain('arcgis-dekalb-permits');
     const phl = r.metros.find((m) => m.id === 'philadelphia')!;
     expect(phl.sources!.total).toBe(0);
-    expect(phl.probation).toEqual([
+    // Round 20 page watch adds Philadelphia bid pages on probation (PW_REGISTERED, exact ids).
+    expect(phl.probation.filter((p) => !PW_REGISTERED.has(p.id))).toEqual([
       { id: 'carto-phl-business', samples: 0, state: null },
       { id: 'carto-phl-permits', samples: 120, state: 'healthy' },
       { id: 'carto-phl-sales', samples: 0, state: null }, // round 20 SALES

@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '@/lib/signals/categories';
 import { categoryById, classifyText } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '@/lib/signals/types';
@@ -22,7 +23,7 @@ import { sanitizeContacts } from '@/lib/contacts/sanitize';
  */
 
 const ENDPOINT = 'https://api.usaspending.gov/api/v2/search/spending_by_award/';
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 /**
  * The API accepts only 2, 4 or 6 digit codes in naics_codes (usaspending-api search/filters/elasticsearch/naics.py:

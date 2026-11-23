@@ -1,4 +1,4 @@
-import { siteUrl } from '@/lib/env';
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 import { countiesFromSame } from '@/lib/geo/county';
@@ -287,7 +287,7 @@ async function readJson(res: Response): Promise<unknown> {
 }
 
 export function nwsUserAgent(): string {
-  return `Holler/1.0 (+${siteUrl}/about; contact@holler)`;
+  return HOLLER_UA;
 }
 
 export const nwsAdapter: Adapter = {

@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts, extractJobValue, extractLicenseRefs } from '@/lib/contacts/extract';
 import { civicLabel, moneyFields, publicSummary, scrubText, stripActor, summaryPart } from './permit-privacy';
@@ -12,7 +13,7 @@ import { site311Contact } from '@/lib/signals/site-311';
 import { OCCUPANCY_TRADES, businessSummary, occupancyAddress, occupancyClassOf, occupancyTitle, occupancyTypeText, premisesAddressOf, quadrantAfter } from './next-rules';
 
 const LIMIT = 500;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 type Attrs = Record<string, unknown>;
 

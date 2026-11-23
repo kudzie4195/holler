@@ -16,7 +16,7 @@ import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { runScan } from '@/lib/signals/run';
 import { sanitizeSample } from '@/lib/signals/samples';
 import { PROBATION_SOURCE_IDS, SALE_SOURCE_IDS, VIOL_R20_SOURCES, COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, NEXT_R20_SOURCES } from '@/lib/signals/probation';
-import { NEXT_PROPOSED_LABELS, PROPOSED_LABELS } from '@/lib/signals/proposed-labels';
+import { NEXT_PROPOSED_LABELS, PROPOSED_LABELS, WATCH_PROPOSED_LABELS } from '@/lib/signals/proposed-labels';
 import { SALES_PROPOSED_LABELS } from '@/lib/signals/proposed-labels-sales';
 import { SOURCE_DEFAULTS } from '@/lib/signals/lead-rules';
 import { SALES_DATASETS } from '@/lib/signals/adapters/sales-datasets';
@@ -70,9 +70,11 @@ describe('1. probation holds for every new id of every round 20 branch', () => {
       expect(PROBATION_SOURCE_IDS.has(id), id).toBe(true);
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
     }
-    // The union, exactly: round 19's eleven, VIOL's five, SALES' four; round 21 adds NEXT's ten (tests/integration/r21-int-interactions.test.ts).
-    expect(PROBATION_SOURCE_IDS.size).toBe(11 + VIOL_R20_SOURCES.length + SALE_SOURCE_IDS.length + NEXT_R20_SOURCES.length);
-    expect(new Set(LABEL_PENDING_INTEGRATION)).toEqual(new Set([...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES, ...NEXT_R20_SOURCES].map((s) => s.id)));
+    // The union, exactly: round 19's eleven, VIOL's five, SALES' four; round 21 adds NEXT's ten and WATCH's twelve registered pages
+    // (tests/integration/r21-int-interactions.test.ts).
+    const pw = Object.keys(WATCH_PROPOSED_LABELS);
+    expect(PROBATION_SOURCE_IDS.size).toBe(11 + VIOL_R20_SOURCES.length + SALE_SOURCE_IDS.length + NEXT_R20_SOURCES.length + pw.length);
+    expect(new Set(LABEL_PENDING_INTEGRATION)).toEqual(new Set([...[...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES, ...NEXT_R20_SOURCES].map((s) => s.id), ...pw]));
   });
 
   it('samples table present: one scan of all nine writes samples only (real ids and probation flags, records with an address and a business)', async () => {
@@ -268,8 +270,8 @@ describe('5. the merged lists are the union of every branch', () => {
     for (const s of VIOL_R20_SOURCES) expect(PROPOSED_LABELS[s.id], s.id).toBeDefined();
     for (const id of ['carto-phl-violations', 'arcgis-miamidade-violations', 'arcgis-miamidade-building-violations']) expect(PROPOSED_LABELS[id], id).toBeDefined();
     for (const id of SALE_SOURCE_IDS) for (const k of [id, `${id}:commercial`]) expect(PROPOSED_LABELS[k], k).toBeDefined();
-    // Round 21: plus NEXT's eleven (its ten sources and the live Chicago address change).
-    expect(Object.keys(PROPOSED_LABELS)).toHaveLength(VIOL_R20_SOURCES.length + 3 + 2 * SALE_SOURCE_IDS.length + Object.keys(NEXT_PROPOSED_LABELS).length);
+    // Round 21: plus NEXT's eleven (its ten sources and the live Chicago address change) and WATCH's twelve registered pages.
+    expect(Object.keys(PROPOSED_LABELS)).toHaveLength(VIOL_R20_SOURCES.length + 3 + 2 * SALE_SOURCE_IDS.length + Object.keys(NEXT_PROPOSED_LABELS).length + Object.keys(WATCH_PROPOSED_LABELS).length);
   });
 
   it('the scorecard reads a sale as property-sale (SALES\' line in SCORE\'s trade-needs table)', async () => {
@@ -283,7 +285,8 @@ describe('6. LAUNCH.md: one NEEDS KUDZI list and one ordered "Round 20 order" bl
   it('exactly one bold NEEDS KUDZI header and one Round 20 order block, steps 1 to 11 each with a reason', () => {
     expect(md.split('**NEEDS KUDZI').length - 1).toBe(1);
     expect(md.split('**Round 20 order**').length - 1).toBe(1);
-    const block = md.slice(md.indexOf('**Round 20 order**'), md.indexOf('**Rounds 18 and 19 order**'));
+    // Round 21: the Round 21 order block follows the Round 20 one (tests/integration/r21-int-interactions.test.ts).
+    const block = md.slice(md.indexOf('**Round 20 order**'), md.indexOf('**Round 21 order**'));
     const steps = [...block.matchAll(/^(\d+)\. (.*)$/gm)];
     // Final review fixes added step 10 (0037, optional) and step 11 (promotion prerequisites).
     expect(steps.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);

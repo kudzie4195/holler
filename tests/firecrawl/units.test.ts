@@ -32,11 +32,11 @@ describe('robots.txt rules (RFC 9309)', () => {
   it('checkRobots: 200 judged, 404 allowed, 5xx and network errors unreachable, result cached', async () => {
     resetRobotsCache();
     const f = (async () => new Response('User-agent: *\nDisallow: /no', { status: 200 })) as unknown as typeof fetch;
-    expect(await checkRobots('https://a.example/yes', f)).toEqual({ allowed: true, checked: true });
+    expect(await checkRobots('https://a.example/yes', f)).toEqual({ allowed: true, checked: true, crawlDelaySec: null });
     expect(await checkRobots('https://a.example/no?q=1', f)).toEqual({ allowed: false, reason: 'disallowed' });
-    expect(await checkRobots('https://b.example/x', (async () => new Response('', { status: 404 })) as unknown as typeof fetch)).toEqual({ allowed: true, checked: false });
-    expect(await checkRobots('https://c.example/x', (async () => new Response('', { status: 500 })) as unknown as typeof fetch)).toEqual({ allowed: false, reason: 'unreachable' });
-    expect(await checkRobots('https://d.example/x', (async () => { throw new Error('net'); }) as unknown as typeof fetch)).toEqual({ allowed: false, reason: 'unreachable' });
+    expect(await checkRobots('https://b.example/x', (async () => new Response('', { status: 404 })) as unknown as typeof fetch)).toEqual({ allowed: true, checked: false, crawlDelaySec: null });
+    expect(await checkRobots('https://c.example/x', (async () => new Response('', { status: 500 })) as unknown as typeof fetch)).toMatchObject({ allowed: false, reason: 'unreachable' });
+    expect(await checkRobots('https://d.example/x', (async () => { throw new Error('net'); }) as unknown as typeof fetch)).toMatchObject({ allowed: false, reason: 'unreachable' });
     let n = 0;
     const counting = (async () => (n++, new Response('', { status: 200 }))) as unknown as typeof fetch;
     await checkRobots('https://e.example/1', counting);

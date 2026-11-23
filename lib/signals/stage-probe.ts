@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { runStageQuery } from './adapters/socrata';
 import { SOCRATA_DATASETS, type SocrataDataset } from './adapters/socrata-datasets';
 import { env } from '@/lib/env';
@@ -40,7 +41,7 @@ export async function runStageProbe(source: string, doFetch: typeof fetch, now: 
   const ds: SocrataDataset | undefined = SOCRATA_DATASETS.find((d) => d.id === source && d.verified && d.subtype === 'permit' && d.statusField && d.stageQuery);
   const flagEnabled = stageUpdatesEnabled(flag);
   if (!ds) return { status: 'unknown_source', source, dateField: null, dateColumnAccepted: false, state: null, httpStatus: null, rowCount: 0, sampleStatuses: [], stageRows: 0, flagEnabled, wroteNothing: true };
-  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': 'Holler/1.0 (+https://holler.app/about; contact@holler)' };
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': HOLLER_UA };
   const token = process.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
   if (token) headers['X-App-Token'] = token;
   const run = await runStageQuery(ds, doFetch, headers, now);

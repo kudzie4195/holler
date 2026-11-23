@@ -35,6 +35,10 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { ENV, fakeFetch, item, newDb, NOW as LNOW } from '../enrich/helpers';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 const NOW = new Date('2026-11-22T12:00:00Z');
 const IDS = COVERAGE_R19_SOURCES.map((s) => s.id);
@@ -282,12 +286,16 @@ describe('7. metros and the label exemption', () => {
       ...Object.fromEntries(NEXT_R20_SOURCES.map((s) => [s.id, s.metro])),
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
-    expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
+    // Round 20 page watch: its own probation ids (PW_REGISTERED, exact ids) sit under their metros too (tests/signals/page-watch/adapter.test.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual(Object.keys(want).sort());
+    expect([...PROBATION_SOURCE_IDS].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    // Round 20 VIOL and NEXT add their probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts).
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_R20_SOURCES.map((s) => s.id)].sort());
+    // Round 20 VIOL and NEXT add their probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts);
+    // round 20 page watch adds its registered pages (PW_REGISTERED, exact ids).
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id), ...NEXT_R20_SOURCES.map((s) => s.id)].sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);

@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 /**
  * Firecrawl client (server code only: it reads FIRECRAWL_API_KEY and must never reach a browser bundle; no 'use client' file imports it,
  * tests/firecrawl/client.test.ts checks that, and it throws if it is ever run where `window` exists).
@@ -248,7 +249,7 @@ export function createFirecrawlClient(opts: ClientOptions): FirecrawlClient {
         const attemptTimeout = Math.min(timeoutMs, left);
         res = await fetchImpl(`${FIRECRAWL_BASE_URL}${path}`, {
           method,
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'Holler/1.0 (+https://holler.app/about)' },
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': HOLLER_UA },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: AbortSignal.timeout(attemptTimeout),
         });

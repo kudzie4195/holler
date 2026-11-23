@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { CATEGORIES, classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { ASK_TERMS, looksLikeRequest, resolveCityFromText } from './websearch';
@@ -34,7 +35,7 @@ import { ASK_TERMS, looksLikeRequest, resolveCityFromText } from './websearch';
 const PUBLIC_ENDPOINT = 'https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts';
 const ENTRYWAY = 'https://bsky.social';
 const APPVIEW_PROXY = 'did:web:api.bsky.app#bsky_appview';
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 const QUERIES_PER_RUN = 12;
 const CADENCE = 360;
 /** The engine kills an adapter at 40 s and drops everything it fetched, so this one finishes well inside that. */

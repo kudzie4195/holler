@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { contactSpecFields } from '@/lib/contacts/extract';
 import { env } from '@/lib/env';
 import { sanitizeHealthError } from './health';
@@ -11,7 +12,9 @@ import type { SignalInput } from './types';
 import { SALES_DATASETS, PHL_CARTO, type SaleDataset } from './adapters/sales-datasets';
 import { SALE_MAX_PAGES, SALE_PAGE, arcgisSaleWhere, cartoSaleWhere, cartoUrl, fetchSaleRows, parseSaleRows, saleRecordDate, saleSchemaProblem, socrataWhere } from './adapters/sales';
 import { idKeySecret } from './id-key';
-import { HOUSTON_ACCESS, HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_ROW_CAP, HOUSTON_USER_AGENT, houstonAccess, parseHoustonPermits, readBoundedText, readPermitTable } from './adapters/houston-permits';
+import { HOUSTON_ACCESS, HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_ROW_CAP, fetchHoustonReport, houstonAccess, parseHoustonPermits, readBoundedText, readPermitTable } from './adapters/houston-permits';
+import { PAGE_WATCH_DATASETS, type PageWatchDataset } from './adapters/page-watch-datasets';
+import { PW_ROW_CAP, runPageWatch, type PageWatchCheck, type PageWatchCounts } from './adapters/page-watch';
 
 /**
  * GET /api/admin/coverage-probe?source=<id> (round 19 COVERAGE). The owner's check of ONE probation source's schema before promoting it,
@@ -24,30 +27,34 @@ import { HOUSTON_ACCESS, HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID
 
 export const PROBE_ROWS = 5;
 export const PROBE_MAPPED = 3;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 /** Per request (review P3-I): four requests at most, inside the route's 60 s. */
 const TIMEOUT_MS = 10000;
 /** The scan's row cap per run (one page of 500; Socrata datasets with maxPages read more). */
 const SCAN_PAGE = 500;
 
-type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset };
+type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset } | { platform: 'page-watch'; ds: PageWatchDataset };
 
-/** Probation datasets the probe accepts (Socrata and ArcGIS, the round 20 property sale sources, and the Houston permit report page), sorted. */
+/** Probation datasets the probe accepts (Socrata and ArcGIS, the round 20 property sale sources, the Houston permit report page and the registered page-watch pages), sorted. */
 export function coverageProbeSourceIds(): string[] {
-  return [...[...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...SALES_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id), HOUSTON_PERMITS_ID].sort();
+  return [...[...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...SALES_DATASETS, ...PAGE_WATCH_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id), HOUSTON_PERMITS_ID].sort();
 }
 
 function find(id: string): Probed | null {
   const s = SOCRATA_DATASETS.find((d) => d.id === id && d.verified && d.probation);
   if (s) return { platform: 'socrata', ds: s };
   const a = ARCGIS_DATASETS.find((d) => d.id === id && d.verified && d.probation);
-  return a ? { platform: 'arcgis', ds: a } : null;
+  if (a) return { platform: 'arcgis', ds: a };
+  // Every page-watch dataset answers (an unregistered or unchecked one with its gate and zero requests).
+  const w = PAGE_WATCH_DATASETS.find((d) => d.id === id && d.probation);
+  return w ? { platform: 'page-watch', ds: w } : null;
 }
 
 const uniq = (xs: (string | undefined)[]): string[] => [...new Set(xs.filter((x): x is string => Boolean(x)))];
 
 /** Every column the config reads (id, date, text, title, summary, address, zip, coordinates, status, contacts, value). */
 export function expectedColumns(p: Probed): string[] {
+  if (p.platform === 'page-watch') return [];
   const d = p.ds;
   const common = [
     ...(d.idFields?.length ? d.idFields : [d.idField]),
@@ -78,7 +85,7 @@ export interface MappedRow {
 export interface CoverageProbeResult {
   status: 'ok' | 'unknown_source';
   source: string;
-  platform: 'socrata' | 'arcgis' | 'carto' | 'html' | null;
+  platform: 'socrata' | 'arcgis' | 'carto' | 'html' | 'page-watch' | null;
   /** The endpoint, without any query string. */
   endpoint: string | null;
   /** HTTP status of the rows request (null when it was not sent or got no answer). */
@@ -114,6 +121,23 @@ export interface CoverageProbeResult {
   message?: string;
   /** Round 20 sales with a second dataset (NYC legals, Cook County addresses): its id, its column list and the expected columns it lacks. */
   join?: { dataset: string; columns: string[]; missingExpected: string[] };
+  /**
+   * Round 20 page watch only: the adapter's own check state (robots_disallowed, not_html, parser_mismatch, empty, timeout ...), the
+   * counts of the validation, the platform and parser, and every kept row as title, due date, trades and link (never a person's name:
+   * the parser does not read contact columns and the title is cleaned of e-mails, phones and "Contact:" text).
+   */
+  pageWatch?: {
+    check: PageWatchCheck;
+    detail: string | null;
+    platform: string;
+    parser: string;
+    /** false: not registered with the scan (vendor terms unread). */
+    registered: boolean;
+    /** Requests sent to the source's hosts by this probe (0 while its terms are not checked or the switch is off). */
+    requests: number;
+    counts: PageWatchCounts;
+    rows: { title: string; dueDate: string | null; trades: string[]; url: string | null; proposedLabel: string | null }[];
+  };
   wroteNothing: true;
 }
 
@@ -414,9 +438,9 @@ export async function probeHoustonReport(doFetch: typeof fetch, now: Date, acces
     // Review fix P1-3: the same access gate as the scan (terms record, then robots.txt); nothing is requested until it passes.
     const gate = await houstonAccess(doFetch, now, access);
     if (!gate.ok) return { ...base, schema: 'unreachable', message: gate.reason };
-    const res = await doFetch(HOUSTON_REPORT_URL, { headers: { Accept: 'text/html', 'User-Agent': HOUSTON_USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetchHoustonReport(doFetch, now, TIMEOUT_MS);
     base.httpStatus = res.status;
-    if (!res.ok) return { ...base, schema: 'unreachable', message: `HTTP ${res.status}` };
+    if (!res.ok) return { ...base, schema: 'unreachable', message: `HTTP ${res.status}${res.status >= 300 && res.status < 400 ? ' (redirect not followed)' : ''}` };
     const table = readPermitTable(await readBoundedText(res));
     base.columns = [...table.headers].sort();
     base.columnsFrom = table.headers.length ? 'column list' : null;
@@ -439,6 +463,44 @@ export async function probeHoustonReport(doFetch: typeof fetch, now: Date, acces
   }
 }
 
+/**
+ * Round 20 page watch: robots.txt, one fetch of the page and the same parser and validation as the scan, with no marker read or written
+ * and no Firecrawl call (a Firecrawl-only page says so and points to /api/admin/firecrawl-probe). Returns the parsed rows.
+ */
+export async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch, now: Date): Promise<CoverageProbeResult> {
+  const r = await runPageWatch(ds, { fetch: doFetch, now, probe: true, db: null, dry: true, budgetMs: 25_000 });
+  const reached = r.httpStatus !== null && r.httpStatus < 400;
+  const schema: CoverageProbeResult['schema'] =
+    r.check === 'parser_mismatch' || r.check === 'not_html' || r.check === 'not_json' ? 'mismatch' : r.check === 'empty' ? 'no_rows' : reached && r.counts.read > 0 ? 'ok' : reached ? 'no_rows' : 'unreachable';
+  const dues = r.kept.map((s) => s.expiresAt ?? null).filter((x): x is string => !!x);
+  return {
+    ...empty(ds.id, { platform: 'page-watch', endpoint: ds.url.split('?')[0], rowCap: PW_ROW_CAP }),
+    httpStatus: r.httpStatus,
+    rowCount: r.counts.read,
+    schema,
+    ...(schema === 'mismatch' ? { schemaProblem: `${r.check}${r.detail ? `: ${r.detail}` : ''}` } : {}),
+    shapeOk: r.counts.read - r.counts.noTitle,
+    parsedRows: r.kept.length,
+    newestDate: dues.length ? dues.sort().at(-1) ?? null : null,
+    ...(r.check === 'row_cap' ? { rowCapNote: r.notes.find((n) => /row cap/.test(n)) } : {}),
+    mapped: r.kept.slice(0, PROBE_MAPPED).map(mappedRow),
+    ...(r.detail && schema !== 'mismatch' ? { message: r.detail } : {}),
+    pageWatch: {
+      check: !ds.verified && r.check === 'terms_not_checked' ? 'terms_not_checked' : r.check,
+      detail: r.detail,
+      platform: ds.platform,
+      parser: ds.parser,
+      registered: ds.verified,
+      requests: r.requests,
+      counts: r.counts,
+      rows: r.kept.slice(0, 25).map((s) => {
+        const d = (s.data ?? {}) as Record<string, unknown>;
+        return { title: s.title, dueDate: typeof d.dueDate === 'string' ? d.dueDate : null, trades: [...s.categories], url: s.url ?? null, proposedLabel: typeof d.proposedLabel === 'string' ? d.proposedLabel : null };
+      }),
+    },
+  };
+}
+
 /** Runs the probe for one source. `doFetch` is passed in so a test can answer without a network. Never throws. */
 export async function runCoverageProbe(source: string, doFetch: typeof fetch, now: Date = new Date()): Promise<CoverageProbeResult> {
   const sale = SALES_DATASETS.find((d) => d.id === source && d.verified && d.probation);
@@ -453,6 +515,7 @@ export async function runCoverageProbe(source: string, doFetch: typeof fetch, no
   const p = find(source);
   if (!p) return { ...empty(source), status: 'unknown_source', schema: 'unreachable' };
   try {
+    if (p.platform === 'page-watch') return await probePageWatch(p.ds, doFetch, now);
     return p.platform === 'socrata' ? await probeSocrata(p.ds, doFetch, now) : await probeArcgis(p.ds, doFetch, now);
   } catch (e) {
     return empty(source, { platform: p.platform, message: msgOf(e) });
