@@ -65,11 +65,33 @@ export const COVERAGE_R19_SOURCES: readonly CoverageSource[] = [
 ];
 
 /**
+ * Round 20 VIOL: violation and building-problem 311 feeds, all on probation and schema-unverified (lib/signals/adapters/viol-datasets.ts).
+ * Their intended label per trade, expected rows a week and call path are in lib/signals/proposed-labels.ts (PROPOSED_LABELS), which the
+ * SCORE unit imports; they get NO SOURCE_DEFAULTS entry this round. Same probe and promotion path as round 19 coverage.
+ */
+export interface ViolSource {
+  id: string;
+  metro: 'new-york' | 'washington-dc' | 'phoenix';
+  platform: 'socrata' | 'arcgis';
+  endpoint: string;
+  /** Research tag of the column names (VIOL-research.md): O opened, 3P third party, A assumed. */
+  schemaTag: 'O' | '3P' | 'A';
+}
+
+export const VIOL_R20_SOURCES: readonly ViolSource[] = [
+  { id: 'socrata-nyc-hpd-violations', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/wvxf-dwi5.json', schemaTag: 'O' },
+  { id: 'socrata-nyc-rodent-violations', metro: 'new-york', platform: 'socrata', endpoint: 'https://data.cityofnewyork.us/resource/p937-wjvj.json', schemaTag: '3P' },
+  { id: 'socrata-montgomery-violations', metro: 'washington-dc', platform: 'socrata', endpoint: 'https://data.montgomerycountymd.gov/resource/k9nj-z35d.json', schemaTag: '3P' },
+  { id: 'arcgis-phoenix-violations', metro: 'phoenix', platform: 'arcgis', endpoint: 'https://maps.phoenix.gov/pub/rest/services/Public/NSD_Property_Maintenance/MapServer/0', schemaTag: 'A' },
+  { id: 'arcgis-dc-311', metro: 'washington-dc', platform: 'arcgis', endpoint: 'https://maps2.dcgis.dc.gov/DCGIS/rest/services/DCGIS_DATA/ServiceRequests/MapServer/13', schemaTag: 'O' },
+];
+
+/**
  * Sources that are registered but have no SOURCE_DEFAULTS entry yet, because lib/signals/lead-rules.ts belongs to another unit this round.
  * tests/signals/lead-rules.test.ts lets ONLY these ids, and only while they are on probation, go without an entry (they reach no member,
  * so no label is ever computed for them). At integration: add each id with COVERAGE_R19_SOURCES[].label to SOURCE_DEFAULTS.
  */
-export const LABEL_PENDING_INTEGRATION: readonly string[] = COVERAGE_R19_SOURCES.map((s) => s.id);
+export const LABEL_PENDING_INTEGRATION: readonly string[] = [...COVERAGE_R19_SOURCES.map((s) => s.id), ...VIOL_R20_SOURCES.map((s) => s.id)];
 
 /** The owner's probe for a coverage source (Bearer CRON_SECRET only). */
 export function coverageProbePath(id: string): string {
@@ -161,7 +183,8 @@ export function probationOverview(
     const prev = runBy.get(r.source);
     if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
   }
-  const coverage = new Set(COVERAGE_R19_SOURCES.map((s) => s.id));
+  const viol = new Set(VIOL_R20_SOURCES.map((s) => s.id));
+  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...viol]);
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
@@ -169,7 +192,9 @@ export function probationOverview(
       const run = runBy.get(a.id);
       const check = probationCheck(h, run);
       const platform = platformOf(a.id);
-      const file = platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
+      const file = viol.has(a.id)
+        ? 'lib/signals/adapters/viol-datasets.ts'
+        : platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
       return {
         id: a.id,
         probation: true as const,
@@ -180,7 +205,7 @@ export function probationOverview(
         check,
         ...(run && isProbationNote(run.error) ? { note: run.error as string } : {}),
         ...(coverage.has(a.id) ? { probe: coverageProbePath(a.id) } : {}),
-        promote: `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ' and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts' : ''}, then deploy`,
+        promote: `remove probation: true${coverage.has(a.id) ? ' and schemaUnverified: true' : ''} from its entry in ${file}${coverage.has(a.id) ? ` and add its SOURCE_DEFAULTS label in lib/signals/lead-rules.ts${viol.has(a.id) ? ' (proposed in lib/signals/proposed-labels.ts)' : ''}` : ''}, then deploy`,
       };
     })
     .sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));

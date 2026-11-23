@@ -11,7 +11,7 @@ import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS, type ArcgisDataset } from '@/lib/signals/adapters/arcgis-datasets';
 import { buildSocrataAdapter, buildSocrataQuery, mdyToFloating, parseSocrataReport, recordDateIso } from '@/lib/signals/adapters/socrata';
 import { buildArcgisAdapter, buildArcgisQuery, isConfidential, layerSchemaCheck, parseArcgisReport, requestTimeoutMs, resetArcgisFieldCache } from '@/lib/signals/adapters/arcgis';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, LABEL_PENDING_INTEGRATION, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
 import { isProbationNote, isRunNote } from '@/lib/signals/probation-note';
 import { computeSourceStates } from '@/lib/signals/source-state';
 import { PROBATION_TIMEOUT_MS } from '@/lib/signals/run';
@@ -161,7 +161,7 @@ describe('the new sources are declared on probation, like Philadelphia', () => {
       expect(d.probation, id).toBe(true);
       expect(d.schemaUnverified, id).toBe(true);
     }
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(IDS);
+    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id)].sort()); // + round 20 VIOL
   });
 
   it('no Fort Worth source and no Houston permit source was added (no usable endpoint without a page scraper)', () => {
@@ -927,7 +927,7 @@ describe('review P3 items', () => {
 
   it('L: every schema-unverified dataset is on probation (removing the flag alone cannot make an unchecked source live)', () => {
     const unverified = [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.schemaUnverified);
-    expect(unverified.length).toBe(IDS.length);
+    expect(unverified.length).toBe(IDS.length + VIOL_R20_SOURCES.length); // + round 20 VIOL (tests/signals/viol-r20.test.ts)
     for (const d of unverified) expect(d.probation, d.id).toBe(true);
   });
 

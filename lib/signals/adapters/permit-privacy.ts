@@ -377,6 +377,20 @@ export function categoryValueHasName(value: string): boolean {
   return false;
 }
 
+/**
+ * Round 20 (review P3-7): a status or type value of a 311 or violation row with who acted on it appended ("Initial by OFFICER KRUPKE",
+ * "Open by Jane Doe", "Closed - per Inspector Smith", "Assigned to K. Lee") keeps only the part before that actor phrase. '' when nothing is
+ * left. Applied to every printed value of a 311 or violation row (socrata.ts and arcgis.ts), before the name checks.
+ */
+export function stripActor(value: string): string {
+  const v = (value ?? '').replace(/\s+/g, ' ').trim();
+  if (!v) return '';
+  return v
+    .replace(/\s*(?:[-,;:(|/]\s*)?\b(?:by|per|assigned\s+to|inspected\s+by|inspector|insp|officer|ofc|sgt|det|agent)\b\.?(?:\s+\S[\s\S]*|\s*$)/i, '')
+    .replace(/[\s\-,;:(|/]+$/, '')
+    .trim();
+}
+
 /** Fixed words for a 311 or violation title, by trade (first match wins; at most two are joined). Never text from the record. */
 const CIVIC_LABELS: [CategoryId, string][] = [
   ['roofing', 'roof'],

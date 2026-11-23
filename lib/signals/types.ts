@@ -50,6 +50,11 @@ export interface SignalInput {
    * probe row of a permit with no history is dropped before anything is stored, carded or logged, and a probe row is never inserted.
    */
   stageProbe?: boolean;
+  /**
+   * Round 20 (review P3-11): the visit a New York violation row belongs to (its building and day), as a salted hash. In memory for the scan
+   * only: never written to holler_signals (store.ts toRow) or to a sample (samples.ts sanitizeSample).
+   */
+  visitKey?: string;
 }
 
 export interface AdapterContext {

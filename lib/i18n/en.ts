@@ -525,6 +525,7 @@ export const en = {
   'who.copied_hint': 'Copied to your clipboard. Replace the [bracketed] parts before you send it.',
   'who.copy_failed': 'Copy did not work here. Select the note below and copy it by hand.',
   'who.note_text': '{label}: note text',
+  'who.building_block': 'Building: the {block} block of {street} (the exact address is not published)',
   'who.owner_record': 'Owner on the public record: {name}',
   'who.public_source': 'Public source',
   'outreach.role.permit': 'Named on this permit',

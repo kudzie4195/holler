@@ -189,9 +189,12 @@ export const MAX_ORDERS_PER_CARD = 12;
 const CLOSED_PART_RE = /(?:^|\|)\s*(?:closed|clos-[a-z]+|clos|complied|resolved|compliance achieved|case closed|no violation|cancell?ed|duplicate)\s*(?:\||$)/i;
 
 /** "socrata-chicago-violations|41.903,-87.700|2026-11-12" for a violation row with a point and a date; null otherwise. */
-export function visitKeyOf(sig: { source?: string | null; lat?: number | null; lon?: number | null; occurredAt?: string | null; occurred_at?: string | null; data?: Record<string, unknown> | null; subtype?: string | null }): string | null {
+export function visitKeyOf(sig: { source?: string | null; lat?: number | null; lon?: number | null; occurredAt?: string | null; occurred_at?: string | null; data?: Record<string, unknown> | null; subtype?: string | null; visitKey?: string | null }): string | null {
   const subtype = typeof sig.subtype === 'string' ? sig.subtype : typeof sig.data?.subtype === 'string' ? (sig.data.subtype as string) : '';
   if (subtype !== 'violation') return null;
+  // Round 20 (review P3-11): a New York violation row arrives with its building's key (socrata.ts visitKeyFor, a salted hash held in memory
+  // only). Stored rows never carry one, so a New York row joins only rows of its own building in the same scan, never a stored card by point.
+  if (typeof sig.visitKey === 'string' && sig.visitKey) return sig.visitKey;
   const { lat, lon } = sig;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const day = String(sig.occurredAt ?? sig.occurred_at ?? '').slice(0, 10);

@@ -3,7 +3,7 @@ import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome 
 import { env } from '@/lib/env';
 import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
-import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName } from './permit-privacy';
+import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName, stripActor } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
@@ -11,6 +11,8 @@ import { haversineMi, lookupZip } from '@/lib/geo';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
+import { nycBlockAddress, nycBuildingAddress, nameBeforeStreet } from './nyc-address';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -170,12 +172,12 @@ export function toIso(v: unknown, tz?: string): string | null {
   return new Date(guess).toISOString();
 }
 
-export function categorize(ds: Pick<SocrataDataset, 'subtype'>, text: string): { categories: CategoryId[]; severity: Severity } {
+export function categorize(ds: Pick<SocrataDataset, 'subtype'> & { extraRules?: SocrataDataset['extraRules'] }, text: string): { categories: CategoryId[]; severity: Severity } {
   // Permits: one classification for trades and title (lib/signals/mapping/permit.ts). Plain text is read as description values.
   if (ds.subtype === 'permit') return { categories: classifyPermit({ structured: [], free: text.split(' | ') }).categories, severity: 1 };
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
-  for (const rule of RULES_BY_SUBTYPE[ds.subtype]) {
+  for (const rule of [...RULES_BY_SUBTYPE[ds.subtype], ...(ds.extraRules ?? [])]) {
     if (rule.re.test(text) && !rule.unless?.test(text)) {
       rule.add.forEach((c) => set.add(c));
       if (rule.severity && rule.severity > severity) severity = rule.severity;
@@ -241,6 +243,31 @@ export function blockAddress(raw: string): string {
   return hundred === 0 ? `0-99 block of ${street}` : `${hundred} block of ${street}`;
 }
 
+/**
+ * Review P3-7: the shared site-address rule (lib/contacts cleanAddress), and nothing at all when a person-like name sits in front of the
+ * street ("8701 ZELDA GEORGIA AVE": a name typed into the house-number column must not become "8700 block of ZELDA GEORGIA AVE").
+ */
+export function strictSiteAddress(raw: string): string {
+  const kept = cleanAddress(raw);
+  if (!kept) return '';
+  return nameBeforeStreet(kept) ? '' : kept;
+}
+
+/** A per-process salt: a visit key is never stored, and even a copy of one cannot be matched to an address without it. */
+const VISIT_SALT = randomUUID();
+
+/**
+ * Review P3-11: the visit of a New York violation row is its BUILDING on that day (house number and street), not the 100 m point, so two
+ * buildings inspected the same day on one block stay two cards. The key is a salted hash, held in memory for the scan only (store.ts toRow
+ * and samples.ts sanitizeSample never write it). A row with no readable building address keeps the point rule (no key here).
+ */
+export function visitKeyFor(source: string, rawAddress: string, occurredAt: string): { visitKey?: string } {
+  const building = nycBuildingAddress(rawAddress);
+  const day = occurredAt.slice(0, 10);
+  if (!building || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return {};
+  return { visitKey: `${source}|bldg:${createHash('sha256').update(`${VISIT_SALT}|${building}`).digest('hex').slice(0, 24)}|${day}` };
+}
+
 /** Violation rows store a block-level address; every other subtype keeps what the config asks for. */
 export function publicAddress(subtype: string, raw: string): string {
   // Anything after the street suffix of a permit or violation address (" - SMITH RESIDENCE", a name typed into the street column) is
@@ -267,7 +294,8 @@ export function printableValues(
   let withheld = false;
   const values: string[] = [];
   for (const f of fields) {
-    const v = get(f);
+    // Review P3-7: who acted on a 311 or violation row is never printed ("Initial by OFFICER KRUPKE" prints "Initial").
+    const v = civic ? stripActor(get(f)) : get(f);
     if (!v) continue;
     if (free.has(f) || (civic && looksLikeProse(v)) || (nameChecked && categoryValueHasName(v))) {
       withheld = true;
@@ -436,7 +464,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       const row = item as Row;
       const occurredAt = recordDateIso(row[ds.dateField], ds);
       const rawId = externalIdFor(row, ds);
-      const text = ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
+      const text = ds.textOf ? ds.textOf((f) => s(row, f)) : ds.textFields.map((f) => s(row, f)).filter(Boolean).join(' | ');
       if (!occurredAt || !rawId || !text) continue;
       report.shapeOk += 1;
       if (oldest !== null && Date.parse(occurredAt) < oldest) {
@@ -489,9 +517,16 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // Business rows never carry a street address: sole proprietors, home-based nurses and short-term-rental hosts list home addresses.
       const rawAddress = (ds.addressFields ?? []).map((f) => s(row, f)).filter(Boolean).join(' ');
       // Review P1-B: an unverified address column is used only as the shared site-address rule keeps it (lib/contacts cleanAddress).
-      const address = ds.subtype === 'business' ? '' : publicAddress(ds.subtype, ds.strictAddress ? (cleanAddress(rawAddress) ?? '') : rawAddress);
+      // Round 20 (review P2-4): New York addresses are read by the New York rule (numbered streets, Queens house numbers, named streets).
+      const address = ds.subtype === 'business'
+        ? ''
+        : ds.addressRule === 'nyc'
+          ? nycBlockAddress(rawAddress)
+          : publicAddress(ds.subtype, ds.strictAddress ? strictSiteAddress(rawAddress) : rawAddress);
       const summaryFields = ds.summaryFields.filter((f) => printableValues(ds, [f], (x) => s(row, x)).values.length > 0);
-      const summaryBits = summaryFields.map((f) => summaryPart(f, s(row, f))).filter(Boolean);
+      // Review P3-7: a printed status or type value of a 311 or violation row never carries who acted on it.
+      const civicRow = ds.subtype === '311' || ds.subtype === 'violation';
+      const summaryBits = summaryFields.map((f) => summaryPart(f, civicRow ? stripActor(s(row, f)) : s(row, f))).filter(Boolean);
       // A feed with only a NAICS code (San Francisco): the two-digit sector reads naturally; an unknown code adds nothing.
       if (!summaryBits.length && ds.naicsField) {
         const sector = NAICS_SECTORS[s(row, ds.naicsField).slice(0, 2)];
@@ -503,6 +538,13 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
+      // Round 20 (review P1-1): a 311 request about a whole building (NYC "HEAT/HOT WATER / ENTIRE BUILDING") gives a PRIVATE site contact
+      // at BLOCK level (holler_signal_contacts, service role only, shown to a member with access on the card's "Who to contact" block). The
+      // public row (title, summary, data) never carries it. No feed carries a residential unit count, so no member ever gets the exact
+      // address (see buildingAddress in socrata-datasets.ts).
+      const buildingSite = ds.subtype === '311' && ds.buildingAddress?.when((f) => s(row, f))
+        ? nycBlockAddress(ds.buildingAddress.fields.map((f) => s(row, f)).filter(Boolean).join(' '))
+        : '';
       const summary = ds.subtype === 'business'
         ? trunc(summaryParts.join(' | '), 280) || null
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
@@ -538,8 +580,9 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
         },
-        ...(contacts.length ? { contacts } : {}),
+        ...(contacts.length ? { contacts } : buildingSite ? { contacts: [{ role: 'site' as const, name: '', address: buildingSite, city: ds.city, state: ds.state, zip }] } : {}),
         ...(permitStage ? { permitStage } : {}),
+        ...(ds.addressRule === 'nyc' && ds.subtype === 'violation' ? visitKeyFor(ds.id, rawAddress, occurredAt) : {}),
       });
     } catch {
       // skip malformed row
@@ -776,7 +819,7 @@ export function socrataSelectColumns(ds: SocrataDataset): string[] {
   return [
     ...new Set(
       [
-        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields,
+        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.buildingAddress?.fields ?? []),
         ...(ds.addressFields ?? []), ds.zipField, ds.latField, ds.lonField, ds.locationField, ds.latLonTextField, ds.statusField,
         ...contactSpecFields(ds.contacts), ...(ds.valueFields ?? []),
       ].filter((x): x is string => Boolean(x)),

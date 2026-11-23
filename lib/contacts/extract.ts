@@ -1,7 +1,7 @@
 import { contactNameFor } from './names';
 import { violationOwnersEnabled } from './owner-switch';
 import { hasLegalSuffix, HOME_BASED_RE, HOME_PRONE_RE } from './trade-name';
-import { cleanAddressPart, sanitizeContacts } from './sanitize';
+import { cleanAddressPart, isBlockForm, sanitizeContacts } from './sanitize';
 import type { ContactInput } from './types';
 import { firstMoney } from '@/lib/signals/permit-value';
 
@@ -159,15 +159,23 @@ export const NO_CONTACT_SUBTYPES: ReadonlySet<string> = new Set(['311']);
  */
 export const OWNER_ONLY_SUBTYPES: ReadonlySet<string> = new Set(['violation']);
 
+/** A site contact that names a BLOCK only ("2300 block of WEST 52 STREET", "41-00 block of BOWNE STREET"), with no name. */
+export function isBlockSite(c: { name?: unknown; address?: unknown }): boolean {
+  const name = typeof c.name === 'string' ? c.name.trim() : '';
+  return !name && typeof c.address === 'string' && isBlockForm(c.address);
+}
+
 /**
- * The contacts a record of this kind may keep: none for a 311 request, only role 'owner' for a code violation (and none at all while the
+ * The contacts a record of this kind may keep: none for a 311 request but a block-level site (round 20), only role 'owner' for a code violation (and none at all while the
  * owner switch is off), and never role 'owner' for anything else. Used at extraction and again before any write (lib/signals/store.ts).
  * `subtype` is matched trimmed, any case. `ownersOn` defaults to the HOLLER_VIOLATION_OWNERS_ENABLED switch.
  */
 export function contactsAllowedFor<T extends { role: string }>(subtype: unknown, contacts: readonly T[] | null | undefined, ownersOn: boolean = violationOwnersEnabled()): T[] {
   const list = Array.isArray(contacts) ? contacts : [];
   const k = typeof subtype === 'string' ? subtype.trim().toLowerCase() : '';
-  if (NO_CONTACT_SUBTYPES.has(k)) return [];
+  // Round 20 (review P1-1): a 311 request keeps at most a site contact at BLOCK level (a whole-building NYC heat request; socrata.ts). An
+  // exact address, a business or anything else is dropped here, before any write.
+  if (NO_CONTACT_SUBTYPES.has(k)) return list.filter((c) => c?.role === 'site' && isBlockSite(c as unknown as { name?: unknown; address?: unknown }));
   if (OWNER_ONLY_SUBTYPES.has(k)) return ownersOn ? list.filter((c) => c?.role === 'owner') : [];
   return list.filter((c) => c?.role !== 'owner');
 }
