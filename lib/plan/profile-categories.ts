@@ -4,6 +4,7 @@ import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { tradeLabel } from '@/lib/check/trades';
 import { t, type Lang } from '@/lib/i18n';
 import type { ChipCategory } from '@/components/profile-form-groups';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from './composite-trades';
 
 /**
  * Round 23. Holler is marketed for four kinds of work: landscaping (with lawn care), gutters and pressure washing. Those chips come
@@ -19,9 +20,9 @@ export const MARKETED_TRADES: readonly string[] = ['landscaping', 'lawn-care', '
  * pick and today gets half his records either way. This chip picks BOTH for him. It is never saved: components/profile-form.tsx turns it
  * into its two real ids before the form is submitted, so nothing downstream (matching, limits, the database) knows it exists.
  * It costs two of the plan's trade slots, which is what picking the two chips by hand costs.
+ * The id and its parts live in lib/plan/composite-trades.ts (round 24), so the alert email can resolve the chip without this module.
  */
-export const PRESSURE_WASHING_ID = 'pressure-washing';
-export const PRESSURE_WASHING_PARTS: readonly string[] = ['cleaning', 'siding-gutters'];
+export { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS };
 
 /**
  * The trade chips for the onboarding and Settings form: every category, its group, and whether it can be picked on this deployment.

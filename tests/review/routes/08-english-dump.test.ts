@@ -104,6 +104,10 @@ it('dumps English output', async () => {
   // so every `digest.html` and `digest.text` output and the digest subjects changed by design. Card and mobile outputs, the match
   // rows and the dictionary strings that existed before are untouched; the new strings are the digest's own (email.what.*, email.act.*,
   // email.honesty, email.subject.card*, email.empty.*).
+  // Round 24 INT (CAN-SPAM, FIXLIST row 17): snapshot regenerated once. The only change: every `digest.text` output (493 of them, single
+  // and multi) gains the reason line "You get this because email alerts are on for your Holler account." above the opt-out link, which the
+  // html part already had. Removing that one line from each text output gives back exactly the round 23 `out` hash (bb1d8fd7...);
+  // shown, outputs and matchRows are unchanged.
   const sha = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
   expect({ shown, outputs: Object.keys(out).length, out: sha(out), matchRows: sha(matchRows) }).toMatchSnapshot();
 });

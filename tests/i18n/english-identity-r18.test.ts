@@ -38,6 +38,10 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * render, not the round 18 one. The three patch maps the round 18 and 19 units used (INTENDED, R19_INTENDED and MORE_AREAS_LI) are empty
  * for that reason: every difference they described is in the stored base already. The 28 keys that changed in that rewrite are listed in
  * the round 23 report (PHASEA-report.md); from here on this test is again a byte-for-byte guard, now against the round 23 render.
+ *
+ * Round 24 INT (CAN-SPAM, FIXLIST row 17) rewrote it once more, for one key only: `email.outcome` (the "did these alerts turn into
+ * work?" email), whose plain-text part gained the reason line "You get this because email alerts are on for your Holler account." that
+ * its HTML part always had. No other key changed (INT-report.md).
  */
 const INTENDED: Record<string, [string, string][]> = {};
 const R19_INTENDED: Record<string, [string, string][]> = {};

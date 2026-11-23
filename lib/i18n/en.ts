@@ -471,7 +471,13 @@ export const en = {
   'email.empty.h': 'Nothing matched near you this week',
   'email.empty.body':
     'No public record near you matched your trades in the last week. Quiet weeks happen, and the next match is emailed as soon as a scan finds it.',
-  'email.empty.next': 'While it is quiet: print a door hanger for the blocks you already work, or open your address lists to see the permitted addresses Holler holds near you.',
+  'email.empty.next': 'While it is quiet: print a door hanger for the blocks you already work, or open your address lists to see where to hang and flyer this week.',
+  // Round 24: the quiet-week line for a member whose trade and city the site's coverage gate (lib/check/cells.ts) calls limited or
+  // waitlist. Same words as /check's limited line and the waitlist card, so the email never implies a fuller week than the site does.
+  'email.empty.limited':
+    'Few records for {trades} near you yet. Holler reads this area, but that work shows up here only now and then, so a week with nothing is normal for now. The next match is emailed as soon as a scan finds it.',
+  'email.empty.waitlist':
+    'Holler reads public records near you, but lately none of them has been work for {trades}. You can add another trade in Settings, and the next match is emailed as soon as a scan finds it.',
 
   // ---- alert cards in the app ----
   'card.empty.title': 'Nothing has matched yet',

@@ -16,6 +16,8 @@ import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
 import { trialPhraseEs } from '../plan/price-copy-es';
+import { expandTradeIds } from '../plan/composite-trades';
+import type { CoverageState } from '../check/cells';
 import {
   EMAIL_COLORS,
   EMAIL_FONTS,
@@ -367,7 +369,9 @@ export function digestAction(it: DigestItem, appUrl: string, lang: Lang = 'en'):
   const fam = familyOf(it);
   if (fam === 'resident-request') return { href: card, label: t(lang, 'email.act.reply') };
   if (!digestPlace(it, lang).exact) {
-    const trade = it.trade && areaListTrades([it.trade]).length > 0 ? it.trade : null;
+    // Round 24: a trade is resolved through the sign-up form's composite "Pressure washing" chip first (lib/plan/composite-trades.ts),
+    // so the link always names a real trade the area-list page accepts: never the chip's own id, which no profile ever saves.
+    const trade = it.trade ? (areaListTrades(expandTradeIds([it.trade]))[0] ?? null) : null;
     if (trade) {
       return { href: `${base}/lists/area?trade=${encodeURIComponent(trade)}`, label: t(lang, 'email.act.area_list', { trade: lowerFirst(tradeLabel(trade, lang)) }) };
     }
@@ -398,6 +402,32 @@ function contactParts(it: DigestItem, lang: Lang): { text: string; website: List
   return { text: [contactLine(it.contact, lang), phone].filter(Boolean).join(' · '), website };
 }
 
+/** The member's own cell in the site's coverage gate, as the quiet-week email needs it: the state, and the trades that are in it. */
+export interface DigestCoverage {
+  state: CoverageState;
+  /** The member's trades (real ids) that sit at `state`. Empty for 'live'. */
+  trades: string[];
+}
+
+/** "lawn care", "lawn care and fencing", "lawn care, fencing and painting", in the member's language. */
+function tradeList(ids: readonly string[], lang: Lang): string {
+  const names = ids.map((id) => lowerFirst(tradeLabel(id, lang)));
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} ${t(lang, 'life.and')} ${names[names.length - 1]}` : (names[0] ?? '');
+}
+
+/**
+ * The quiet-week email's one honest line (round 24). A member whose trade and city the site calls 'limited' is told what the /check page
+ * tells a visitor ("few records for this trade here yet"); a member in a 'waitlist' cell is told what the waitlist card says ("lately
+ * none of them has been work for this trade"). Only a 'live' cell, or a member the gate has never measured, reads "quiet weeks happen".
+ */
+function emptyBody(coverage: DigestCoverage | null, lang: Lang): string {
+  if (coverage && coverage.trades.length > 0) {
+    if (coverage.state === 'limited') return t(lang, 'email.empty.limited', { trades: tradeList(coverage.trades, lang) });
+    if (coverage.state === 'waitlist') return t(lang, 'email.empty.waitlist', { trades: tradeList(coverage.trades, lang) });
+  }
+  return t(lang, 'email.empty.body');
+}
+
 export function renderDigest(opts: {
   businessName: string;
   items: DigestItem[];
@@ -407,6 +437,12 @@ export function renderDigest(opts: {
   now?: Date;
   /** The member's language (profiles.language, migration 0024). 'en' (the default) is the digest as it always was. */
   lang?: Lang;
+  /**
+   * Round 24: the member's own cell in the site's coverage gate (lib/check/cells.ts, built by lib/email/coverage.ts digestCoverage).
+   * Read by the quiet-week email only: in a 'limited' or 'waitlist' cell it says so in the site's own terms instead of "quiet weeks
+   * happen", which would imply a full week elsewhere. Absent or 'live': the quiet-week email as written in round 23.
+   */
+  coverage?: DigestCoverage | null;
 }): Rendered {
   const lang: Lang = opts.lang ?? 'en';
   const now = opts.now ?? new Date();
@@ -418,17 +454,20 @@ export function renderDigest(opts: {
   const h1 = (text: string) => `<h1 class="h-h1" style="${S.h1};font-size:24px;margin:0 0 16px 0">${escapeHtml(text)}</h1>`;
   const legal =
     `<p class="h-small" style="${S.small};margin:28px 0 0 0">${t(lang, 'email.footer.why')} <a class="h-link" href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">${t(lang, 'email.footer.off')}</a>.${contactHtml(lang)}</p>`;
-  const legalText = `${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+  // CAN-SPAM (round 24, FIXLIST row 17): the plain-text part carries the same three things as the HTML: why you got this, the opt-out
+  // link and the postal address. Before round 24 the text part had no reason line.
+  const legalText = `${t(lang, 'email.footer.why')}\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
 
   // A quiet week is not an empty email (item 7): one honest line about why, and the two things that are still worth doing.
   if (opts.items.length === 0) {
     const base = opts.appUrl.replace(/\/$/, '');
+    const quietBody = emptyBody(opts.coverage ?? null, lang);
     const html =
       digestDarkModeCss() +
       open +
       eyebrow +
       h1(t(lang, 'email.empty.h')) +
-      `<p class="h-why" style="font-size:15px;margin:0 0 10px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(t(lang, 'email.empty.body'))}</p>` +
+      `<p class="h-why" style="font-size:15px;margin:0 0 10px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(quietBody)}</p>` +
       `<p class="h-meta" style="${S.muted};margin:0">${escapeHtml(t(lang, 'email.empty.next'))}</p>` +
       cardButtonHtml(escapeHtml(`${base}/lists/door-hanger`), escapeHtml(t(lang, 'email.act.hanger'))) +
       `<p style="margin:14px 0 0 0"><a class="h-link" href="${escapeHtml(`${base}/lists`)}" style="${S.link};font-size:15px">${escapeHtml(t(lang, 'email.act.lists'))}</a></p>` +
@@ -438,7 +477,7 @@ export function renderDigest(opts: {
       WRAP_CLOSE;
     const text =
       `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${t(lang, 'email.empty.h')}\n\n` +
-      `${t(lang, 'email.empty.body')}\n\n${t(lang, 'email.empty.next')}\n\n` +
+      `${quietBody}\n\n${t(lang, 'email.empty.next')}\n\n` +
       `${t(lang, 'email.act.hanger')}: ${base}/lists/door-hanger\n${t(lang, 'email.act.lists')}: ${base}/lists\n\n${legalText}`;
     return { subject, html, text };
   }

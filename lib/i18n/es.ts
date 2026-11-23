@@ -458,7 +458,11 @@ export const es: Record<DictKey, string> = {
   'email.empty.body':
     'En la última semana ningún registro público cerca de usted coincidió con sus oficios. Hay semanas tranquilas, y la próxima coincidencia le llega por correo en cuanto una búsqueda la encuentra.',
   'email.empty.next':
-    'Mientras está tranquilo: imprima un colgante de puerta para las cuadras donde ya trabaja, o abra sus listas de direcciones para ver las direcciones con permiso que Holler tiene cerca de usted.',
+    'Mientras está tranquilo: imprima un colgante de puerta para las cuadras donde ya trabaja, o abra sus listas de direcciones para ver dónde colgar y repartir volantes esta semana.',
+  'email.empty.limited':
+    'Todavía hay pocos registros de {trades} cerca de usted. Holler lee esta zona, pero ese trabajo aparece aquí solo de vez en cuando, así que por ahora es normal una semana sin nada. La próxima coincidencia le llega por correo en cuanto una búsqueda la encuentra.',
+  'email.empty.waitlist':
+    'Holler lee los registros públicos cerca de usted, pero últimamente ninguno ha sido trabajo de {trades}. Puede agregar otro oficio en Configuración, y la próxima coincidencia le llega por correo en cuanto una búsqueda la encuentra.',
 
   'card.empty.title': 'Todavía no hay coincidencias',
   'card.empty.see_city': 'Ver qué pasa en {city}',
