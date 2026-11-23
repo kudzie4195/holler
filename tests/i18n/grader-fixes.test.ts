@@ -116,8 +116,9 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       now: NOW,
       lang: 'es',
     });
-    // Round 23: the subject is what happened and where. The Spanish title still appears on the card itself.
-    expect(mail.subject).toBe('Permiso de casa nueva en Atlanta, GA');
+    // Round 24 (review P1-3): the title already names the town, so the card is headed by its own (Spanish) title, and so is the subject
+    // (round 23 read "Permiso de casa nueva en Atlanta, GA", the city as the heading).
+    expect(mail.subject).toBe('Permiso de vivienda nueva en Atlanta');
     expect(mail.text).toContain('Permiso de vivienda nueva en Atlanta');
     expect(mail.text).not.toContain('New home');
   });
@@ -129,7 +130,8 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       unsubscribeUrl: 'https://localholler.com/u',
       now: NOW,
     });
-    expect(mail.subject).toBe('New home permit at Atlanta, GA');
+    // Round 24 (review P1-3, P2-7): never "at" a city ("New home permit at Atlanta, GA" in round 23).
+    expect(mail.subject).toBe('New home permit in Atlanta');
     expect(mail.text).toContain('New home permit in Atlanta');
   });
 });

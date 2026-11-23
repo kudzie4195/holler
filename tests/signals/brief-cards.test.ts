@@ -17,7 +17,8 @@ vi.mock('@/app/app/actions', () => ({
 }));
 
 import { Feed, type FeedItem } from '@/components/feed';
-import { renderDigest } from '@/lib/email/templates';
+import { digestOrder, renderDigest } from '@/lib/email/templates';
+import { briefFamilyOf } from '@/lib/signals/brief';
 import { buildAlerts } from '@/lib/mobile/feed';
 import { allBriefStrings, briefFor, reasonCopyFor, WHY_OVERRIDES, workFor } from '@/lib/signals/brief';
 import { matchOne } from '@/lib/signals/match';
@@ -203,8 +204,11 @@ describe('the label rules decide who sees a card (no rules bug: a roofer cannot 
  */
 describe('email digest: every card has a place, a reason, a public source and one action', () => {
   const mail = renderDigest({ businessName: 'Fixture members', items: FIXTURES.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
-  const lis = mail.html.split('<li ').slice(1).map((s) => s.split('</li>')[0]);
+  // Round 24 (review P2-9): role="listitem" blocks instead of <li> (Outlook on Windows); each ends with its card table.
+  const lis = mail.html.split('<div role="listitem"').slice(1).map((s) => s.slice(0, s.lastIndexOf('</table></div>') + '</table></div>'.length));
   const blocks = mail.text.split('\n\n').filter((b) => /^\d+\. /.test(b));
+  // The cards in the order the email lists them, with their family, so each card can be checked for its own caveat.
+  const ordered = digestOrder(FIXTURES.map(digestItem)).map((it) => briefFamilyOf({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary }));
   const ACTIONS = ['Open this card', 'Reply to this request', 'Print a door hanger', 'Print a storm door hanger', 'Print the'];
 
   it('has one list item and one text block per fixture (the digest orders them, Act now first)', () => {
@@ -216,7 +220,8 @@ describe('email digest: every card has a place, a reason, a public source and on
     for (const li of lis) {
       expect(li).toMatch(/class="h-head"[^>]*>[^<]+<\/div>/);
       expect(li).toMatch(/class="h-why"[^>]*>.{25,}?<\/div>/);
-      const actions = [...li.matchAll(/<a href="([^"]+)" style="display:inline-block;padding:13px 20px;min-height:44px;[^"]*">([^<]+)<\/a>/g)];
+      // Round 24 (review P2-9): the padding is on the cell (Outlook ignores it on a link); the cell is still 13 + 18 + 13 = 44 px.
+      const actions = [...li.matchAll(/<td class="h-btn" style="[^"]*padding:13px 20px[^"]*"><a href="([^"]+)" style="display:block;[^"]*line-height:18px[^"]*">([^<]+)<\/a>/g)];
       expect(actions).toHaveLength(1);
       const [, href, label] = actions[0];
       expect(href).toMatch(/^https:\/\/localholler\.com\/app(#card-\d+|\/lists(\/area\?trade=[\w-]+|\/door-hanger(\?storm=1)?))?$/);
@@ -243,15 +248,24 @@ describe('email digest: every card has a place, a reason, a public source and on
     for (const li of lis) expect(li).toMatch(/class="h-meta"[\s\S]{0,400}?\([A-Z][a-z]{2} \d{1,2}, 20\d\d\)/);
   });
 
-  it('the honesty line is said once for the whole email, and "not confirmed" stays on the cards that are never proof of damage', () => {
+  it('every card says what is uncertain for its own kind: on the card, or (a permit) once in the closing line', () => {
+    // Round 24 (review P1-4): restored to test the real behaviour. Every card except a building permit carries its own uncertainty line,
+    // "(High|Medium|Low) confidence <what the record shows>; <what it does not>." (lib/signals/brief.ts UNCERTAIN); a permit's caveat is
+    // said once, in the closing line, because a permit card is in the email.
+    expect(ordered).toHaveLength(lis.length);
+    lis.forEach((li, i) => {
+      if (ordered[i] === 'permit') expect(li, `permit card ${i}`).not.toMatch(/confidence/);
+      else expect(li, `${ordered[i]} card ${i}`).toMatch(/<div class="h-small"[^>]*>(High|Medium|Low) confidence [^<;]+;[^<]+\.<\/div>/);
+    });
+    expect(ordered.filter((f) => f !== 'permit').length).toBeGreaterThanOrEqual(10);
     for (const body of [mail.html, mail.text]) {
       expect(body.match(/A permit does not mean the owner is choosing a vendor/g)).toHaveLength(1);
       expect(body).toContain('damage is not confirmed');
     }
-    // the weather, storm, disaster and earthquake cards keep their own confidence line; no other card does
-    const withUncertain = lis.filter((li) => /confidence/.test(li));
-    expect(withUncertain.length).toBeGreaterThanOrEqual(4);
-    for (const li of withUncertain) expect(li).toMatch(/Severe Thunderstorm Warning|hail reported|wind gust|disaster declaration|earthquake/i);
+    blocks.forEach((b, i) => {
+      if (ordered[i] === 'permit') expect(b).not.toMatch(/confidence/);
+      else expect(b, `${ordered[i]} text block ${i}`).toMatch(/\n {3}(High|Medium|Low) confidence .+;.+\./);
+    });
   });
 
   it('has no intent block ("Might need work ... The event is on record") in html or text, and no dataset name on a card', () => {

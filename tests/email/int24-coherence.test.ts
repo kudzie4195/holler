@@ -251,10 +251,12 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
     expect(digestCoverage({ ...member('atlanta', ['lawn-care']), lat: null, lon: null }, served)).toBeNull();
   });
 
+  // Round 24 (review P1-5): these lines say the week was empty, so they are used only when the quiet-week sender counted the member's
+  // matches of the last 7 days and found none (matchedLastWeek: 0, lib/email/quiet-week.ts). The other two cases are in fixmail-r24.
   it('a limited cell gets the site\'s "few records" line, a waitlist cell the waitlist card\'s line, and neither says "quiet weeks happen"', () => {
-    const limited = digest('en', [], { coverage: { state: 'limited', trades: ['lawn-care'] } });
-    const waitlist = digest('en', [], { coverage: { state: 'waitlist', trades: ['lawn-care'] } });
-    const live = digest('en', [], { coverage: ALERTS_COVERAGE });
+    const limited = digest('en', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: ['lawn-care'] } });
+    const waitlist = digest('en', [], { matchedLastWeek: 0, coverage: { state: 'waitlist', trades: ['lawn-care'] } });
+    const live = digest('en', [], { matchedLastWeek: 0, coverage: ALERTS_COVERAGE });
     // /check's limited line and the waitlist card's line (Phase A), in the email's own sentence
     expect(en['chk.limited'].startsWith('Few records for')).toBe(true);
     expect(words(limited)).toContain('Few records for lawn care near you yet. Holler reads this area, but that work shows up here only now and then');
@@ -266,9 +268,9 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
       expect(m.text).toContain(words(m).includes('Few records') ? 'Few records for lawn care' : 'none of them has been work for lawn care');
     }
     expect(words(live)).toContain('Quiet weeks happen');
-    expect(digest('en', []).html).toBe(live.html);
+    expect(digest('en', [], { matchedLastWeek: 0 }).html).toBe(live.html);
     // two trades read as a list
-    expect(words(digest('en', [], { coverage: { state: 'limited', trades: [...PRESSURE_WASHING_PARTS] } }))).toContain('Few records for house cleaning and siding and gutters near you yet');
+    expect(words(digest('en', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: [...PRESSURE_WASHING_PARTS] } }))).toContain('Few records for house cleaning and siding and gutters near you yet');
   });
 
   it('Spanish says the same, under the Spanish wording rules', () => {
@@ -277,10 +279,10 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
       expect(es[k]).not.toBe(en[k]);
       expect(spanishProblems(es[k]), k).toEqual([]);
     }
-    const limited = words(digest('es', [], { coverage: { state: 'limited', trades: ['lawn-care'] } }));
+    const limited = words(digest('es', [], { matchedLastWeek: 0, coverage: { state: 'limited', trades: ['lawn-care'] } }));
     expect(limited).toContain('Todavía hay pocos registros de cuidado del césped cerca de usted');
     expect(limited).not.toContain('Hay semanas tranquilas');
-    expect(words(digest('es', [], { coverage: { state: 'waitlist', trades: ['lawn-care'] } }))).toContain('ninguno ha sido trabajo de cuidado del césped');
+    expect(words(digest('es', [], { matchedLastWeek: 0, coverage: { state: 'waitlist', trades: ['lawn-care'] } }))).toContain('ninguno ha sido trabajo de cuidado del césped');
   });
 
   it('coverage never changes an email that has cards: the cards are the member\'s own matched records, and no card claims a week', () => {
@@ -296,13 +298,17 @@ describe('C. the quiet-week email agrees with the site\'s coverage gate', () => 
 });
 
 describe("D. the email's address-list link works with Phase A's sign-up and settings", () => {
+  // Round 24 (review P1-1): the trade's address list is a list of permits, so the only card that still links to it is a building permit
+  // whose address could not be read (a block-level violation prints the door hanger instead). The composite-chip resolution these tests
+  // pin is unchanged and now applies to that card.
+  const NO_ADDRESS: DigestItem = { ...PERMIT, summary: 'New Home | $609,273 job value | Cobb County' };
   const washer = { user_id: 'u', categories: [...PRESSURE_WASHING_PARTS], lat: 33.75, lon: -84.39, state: 'GA', radius_mi: 25, plan: null, subscription_status: 'trialing' };
 
-  it('a member who picked "Pressure washing" saved its two real trades, and a block card for either links to a list the page will open', () => {
+  it('a member who picked "Pressure washing" saved its two real trades, and a permit card with no address for either links to a list the page will open', () => {
     const m = memberAreas(washer);
     expect(m?.trades).toEqual([...PRESSURE_WASHING_PARTS]);
     for (const trade of PRESSURE_WASHING_PARTS) {
-      const act = digestAction({ ...BLOCK, trade }, APP, 'en');
+      const act = digestAction({ ...NO_ADDRESS, trade }, APP, 'en');
       const linked = new URL(act.href).searchParams.get('trade');
       expect(act.href).toBe(`${APP}/lists/area?trade=${trade}`);
       // lib/lists/load.ts loadAreaList answers 404 unless the trade is one of these: it is, so the page opens
@@ -312,16 +318,18 @@ describe("D. the email's address-list link works with Phase A's sign-up and sett
 
   it('the composite chip id itself resolves to its trades, never to a link the area-list page would 404', () => {
     for (const lang of LANGS) {
-      const act = digestAction({ ...BLOCK, trade: PRESSURE_WASHING_ID }, APP, lang);
+      const act = digestAction({ ...NO_ADDRESS, trade: PRESSURE_WASHING_ID }, APP, lang);
       expect(act.href).toBe(`${APP}/lists/area?trade=${PRESSURE_WASHING_PARTS[0]}`);
       expect(act.label).not.toContain(PRESSURE_WASHING_ID);
     }
     // and no chip on the sign-up form ever produces a link naming a trade that is not real
     for (const c of profileCategories('en')) {
-      const href = digestAction({ ...BLOCK, trade: c.id }, APP, 'en').href;
+      const href = digestAction({ ...NO_ADDRESS, trade: c.id }, APP, 'en').href;
       expect(href).not.toContain(PRESSURE_WASHING_ID);
       const linked = href.includes('/lists/area?') ? new URL(href).searchParams.get('trade') : null;
       if (linked) expect(areaListTrades([linked])).toEqual([linked]);
+      // and a block-level card never links to the permit list, whatever its trade
+      expect(digestAction({ ...BLOCK, trade: c.id }, APP, 'en').href).toBe(`${APP}/lists/door-hanger`);
     }
   });
 });

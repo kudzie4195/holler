@@ -132,9 +132,13 @@ export const PRIMARY_BUTTON_STYLE = `background:${C.brand};color:${C.onBrand};te
 /** Style of the secondary button: white fill, ink text, a 3:1 edge, 44 px tall (1 + 12 + 18 + 12 + 1). */
 export const SECONDARY_BUTTON_STYLE = `background:${C.surface};color:${C.ink};text-decoration:none;padding:12px 22px;line-height:18px;font-size:16px;min-height:44px;box-sizing:border-box;border-radius:10px;display:inline-block;font-weight:600;font-family:${F.body};border:1px solid ${C.lineStrong}`;
 
-/** A primary button on its own line. `href` and `label` must already be HTML-escaped. */
-export function buttonHtml(hrefEscaped: string, labelEscaped: string): string {
-  return `<p style="margin:20px 0"><a href="${hrefEscaped}" style="${PRIMARY_BUTTON_STYLE}">${labelEscaped}</a></p>`;
+/**
+ * A primary button on its own line. `href` and `label` must already be HTML-escaped. `classed` (round 24, the alert digest's "Open your
+ * feed" only) adds the dark-mode hook, so the button keeps a visible fill on the dark card (review P2-6). Off by default: every other
+ * email keeps its exact bytes.
+ */
+export function buttonHtml(hrefEscaped: string, labelEscaped: string, classed = false): string {
+  return `<p style="margin:20px 0"><a${classed ? ' class="h-cta"' : ''} href="${hrefEscaped}" style="${PRIMARY_BUTTON_STYLE}">${labelEscaped}</a></p>`;
 }
 
 // ---- the alert digest (round 23) ---------------------------------------------------------------------------------------------------
@@ -163,6 +167,8 @@ export function digestDarkModeCss(): string {
     `.h-chip-strong{background:${D.button} !important;border-color:${D.button} !important;color:${D.onButton} !important}` +
     `.h-btn{background:${D.button} !important}` +
     `.h-btn a{color:${D.onButton} !important}` +
+    // Round 24 (review P2-6): the feed button keeps a visible fill and edge on the dark card (its light fill was 1.34:1 against it).
+    `.h-cta{background:${D.button} !important;color:${D.onButton} !important;border:1px solid ${D.link} !important}` +
     `.h-quote{background:${D.surface} !important;border-left-color:${D.button} !important;color:${D.ink} !important}` +
     '}' +
     '</style>'
@@ -175,9 +181,11 @@ export function digestDarkModeCss(): string {
  * order. Content must already be HTML-escaped.
  */
 export function cardTableHtml(inner: string): string {
+  // Round 24 (review P3): a long unbroken token (a link pasted into a resident's request) wraps inside the card instead of pushing it past
+  // a 320 px screen.
   return (
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="h-item" style="width:100%;border-collapse:separate;background:${C.surface};border:1px solid ${C.line};border-radius:12px">` +
-    `<tr><td style="padding:16px">${inner}</td></tr></table>`
+    `<tr><td style="padding:16px;overflow-wrap:anywhere;word-break:break-word">${inner}</td></tr></table>`
   );
 }
 
@@ -197,8 +205,12 @@ export function chipHtml(labelEscaped: string, strong = false): string {
 }
 
 /**
- * The one action of a card: a table-cell button, 44 px tall (13 + 18 + 13), so the tap target holds in every client. `variant`
- * 'secondary' is the white-filled version with a 3:1 edge, for a second-rank card. Both strings must already be escaped.
+ * The one action of a card: a table-cell button, 44 px tall (13 + 18 + 13). `variant` 'secondary' is the white-filled version with a 3:1
+ * edge, for a second-rank card. Both strings must already be escaped.
+ *
+ * Round 24 (review P2-9): the padding is on the table cell, not on the link. Outlook on Windows lays mail out with Word, which ignores
+ * padding on an <a>, so with the padding on the link the fill collapsed tight around the text there. The link is a block inside the
+ * padded cell.
  */
 export function cardButtonHtml(hrefEscaped: string, labelEscaped: string, variant: 'primary' | 'secondary' = 'primary'): string {
   const primary = variant === 'primary';
@@ -207,8 +219,8 @@ export function cardButtonHtml(hrefEscaped: string, labelEscaped: string, varian
   const edge = primary ? C.brand : C.lineStrong;
   return (
     `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0 0 0;border-collapse:separate"><tr>` +
-    `<td class="h-btn" style="background:${fill};border:1px solid ${edge};border-radius:10px">` +
-    `<a href="${hrefEscaped}" style="display:inline-block;padding:13px 20px;min-height:44px;box-sizing:border-box;font-family:${F.body};font-size:16px;font-weight:600;line-height:18px;color:${ink};text-decoration:none">${labelEscaped}</a>` +
+    `<td class="h-btn" style="background:${fill};border:1px solid ${edge};border-radius:10px;padding:13px 20px">` +
+    `<a href="${hrefEscaped}" style="display:block;font-family:${F.body};font-size:16px;font-weight:600;line-height:18px;color:${ink};text-decoration:none">${labelEscaped}</a>` +
     `</td></tr></table>`
   );
 }

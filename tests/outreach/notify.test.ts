@@ -147,9 +147,14 @@ describe('GET /api/cron/notify: the email names an organisation and nothing else
     expect(html).not.toContain('Pothole request');
     // the licence's brief names a new business license, the 311's brief names the request
     expect(text).toContain('A new business license was filed nearby');
-    // Round 23: the per-card confidence line is gone (the one honesty line at the end carries it); the "why" of each card stays.
+    expect(text).toContain('the license was filed');
+    expect(text).toContain('it was filed; the record does not show the city confirmed it');
+    // Round 24 (review P1-4): restored. Each card carries its own confidence line again, and the closing line says one sentence for each
+    // kind in this email (a new business and a 311 request), not the permit sentence: no permit card is in it.
     expect(text).toContain('A 311 request nearby may involve work you do');
-    expect(text).toContain('A permit does not mean the owner is choosing a vendor');
+    expect(text).toContain('A 311 request is what someone reported, and the record does not show the city confirmed it.');
+    expect(text).toContain('A new business or a property sale is on the record, but the need for work is not known.');
+    expect(text).not.toContain('A permit does not mean the owner is choosing a vendor');
     expect(text.indexOf('New business licence')).toBeLessThan(text.indexOf('A new business license was filed nearby'));
   });
 

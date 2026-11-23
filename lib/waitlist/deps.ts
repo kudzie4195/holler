@@ -23,10 +23,11 @@ export function waitlistDeps(): WaitlistDeps {
     },
     hit: (limits) => hit(limits, db),
     signToken: (id) => signScopedToken(WAITLIST_CONFIRM_PURPOSE, id, secret, WAITLIST_CONFIRM_TTL_SECONDS),
-    sendConfirm: async ({ to, confirmUrl, place }) => {
+    sendConfirm: async ({ to, confirmUrl, place, trade }) => {
       // Without the signing secret no link could be verified: send nothing, the card says "try again later".
       if (!secret) return false;
-      const msg = renderWaitlistConfirm({ confirmUrl, place });
+      // Round 24: a sign-up for one trade in a place Holler already serves names that trade in the email (lib/email/templates.ts).
+      const msg = renderWaitlistConfirm({ confirmUrl, place, trade: trade ?? null });
       const res = await sendEmail({ to, subject: msg.subject, html: msg.html, text: msg.text });
       return 'ok' in res && res.ok === true;
     },

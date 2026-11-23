@@ -82,6 +82,11 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    length. They are out of scope for a website-only launch and must be corrected before any store submission.
 5. NEEDS KUDZI: set `SUPPORT_EMAIL` (or `EMAIL_FROM`) in Production and confirm the footer "Email support" link renders, so a visitor
    with no account can write in.
+6. NEEDS KUDZI (round 24 mail): `HOLLER_QUIET_WEEK_ENABLED` stays empty at the deploy. Turn on after one real-inbox test: set it to `1`
+   in Preview, trigger `/api/cron/notify` for a test member with no alert in 7 days, read the quiet-week email in Gmail and Outlook, then
+   set it to `1` in Production and redeploy. Why: off, the notify cron sends exactly what it did before; on, a member with nothing to
+   alert on for 7 days gets one short email (at most 150 a run, `last_notified_at` stamped), and nothing about it has been seen in a
+   real inbox yet.
 
 **Round 20 order** (one block for the four round 20 units: the would-pay scorecard, violation and inspection feeds with the NYC heat block contact, property sales, and known companies with licence files. Main e3a4fcc with rounds 18 and 19 is already live; their own block below still lists 0026 and 0027.)
 
