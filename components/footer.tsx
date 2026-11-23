@@ -66,7 +66,7 @@ export function Footer({ spanishHref = '/es' }: { spanishHref?: string } = {}) {
       <div className={`${PAGE_BOX} grid gap-10 pb-8 pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:gap-12`}>
         <div className="flex max-w-sm flex-col gap-3">
           <Logo size={34} className="self-start" />
-          <p className="text-balance text-[0.9375rem] text-on-brand-faint">Public records near you, sorted for your trade.</p>
+          <p className="text-balance text-[0.9375rem] text-on-brand-faint">See where the work is near you this week.</p>
         </div>
         <nav aria-label="Footer" className="grid grid-cols-1 gap-x-5 gap-y-8 min-[18rem]:grid-cols-2 md:grid-cols-4">
           {groups(contact, spanishHref).map((g) => (

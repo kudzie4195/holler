@@ -19,10 +19,15 @@ export const TRIAL_MONTHS = Math.round(TRIAL_DAYS / 30);
  * free trial, never the yearly saving (that is always a percent, "save 16%", lib/stripe/plans.ts annualSavingLabel).
  */
 export const TRIAL_HEADLINE = `${TRIAL_MONTHS} ${TRIAL_MONTHS === 1 ? 'month' : 'months'} free`;
-/** Precise form: "60-day free trial". For terms, pricing fine print, FAQ, emails and JSON-LD. */
+/**
+ * The dictionary key the Spanish pages use for the same headline. Spanish needs a singular and a plural template, and
+ * the trial moved to 30 days in round 23, so the key follows TRIAL_MONTHS here instead of being typed on each page.
+ */
+export const TRIAL_HEADLINE_KEY: 'land.trial' | 'land.trial_one' = TRIAL_MONTHS === 1 ? 'land.trial_one' : 'land.trial';
+/** Precise form: "30-day free trial". For terms, pricing fine print, FAQ, emails and JSON-LD. */
 export const TRIAL_PHRASE = `${TRIAL_DAYS}-day free trial`;
-// Spanish: lib/i18n es.ts fills the same constants into 'land.trial' ({months} -> the 2-month headline in Spanish) and
-// 'land.description' ("prueba gratis de {days} días" -> "prueba gratis de 60 días"); tests/plan/no-months-free.test.ts checks both.
+// Spanish: lib/i18n es.ts fills the same constants into 'land.trial' / 'land.trial_one' ({months} -> the headline in Spanish) and
+// 'land.description' ("prueba gratis de {days} días" -> "prueba gratis de 30 días"); tests/plan/no-months-free.test.ts checks both.
 
 /** The lowest monthly price ("$7.99"): what "from ... a month" copy quotes. */
 export const FROM_MONTHLY = priceLabel('starter', 'monthly');

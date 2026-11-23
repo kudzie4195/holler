@@ -19,15 +19,15 @@ describe('cleanPage', () => {
 describe('recordInterest stores the page only when allowed', () => {
   it('a signed-out pick with an unknown page is stored with page null', async () => {
     const f = fakeInterest();
-    const r = await recordInterest(f.deps, { feature: 'spanish', page: 'x'.repeat(40), userId: null, ip: '203.0.113.1', cookiePicked: [] });
+    const r = await recordInterest(f.deps, { feature: 'asking-online', page: 'x'.repeat(40), userId: null, ip: '203.0.113.1', cookiePicked: [] });
     expect(r.code).toBe('ok');
-    expect(f.writes[0].row).toEqual({ feature: 'spanish', page: null, user_id: null });
+    expect(f.writes[0].row).toEqual({ feature: 'asking-online', page: null, user_id: null });
   });
   it('a signed-in pick with an unknown page is stored with page null; a known page is kept', async () => {
     const f = fakeInterest();
-    await recordInterest(f.deps, { feature: 'spanish', page: 'free-text-tag', userId: 'u-1', ip: '203.0.113.1', cookiePicked: [] });
+    await recordInterest(f.deps, { feature: 'asking-online', page: 'free-text-tag', userId: 'u-1', ip: '203.0.113.1', cookiePicked: [] });
     await recordInterest(f.deps, { feature: 'gov-bids', page: 'app', userId: 'u-1', ip: '203.0.113.1', cookiePicked: [] });
-    expect(f.writes[0].row).toEqual({ feature: 'spanish', user_id: 'u-1', page: null });
+    expect(f.writes[0].row).toEqual({ feature: 'asking-online', user_id: 'u-1', page: null });
     expect(f.writes[1].row).toEqual({ feature: 'gov-bids', user_id: 'u-1', page: 'app' });
   });
 });

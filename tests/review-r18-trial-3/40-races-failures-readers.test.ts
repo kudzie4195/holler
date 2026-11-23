@@ -1,5 +1,5 @@
 // REV3 probe 40 (r18 TRIAL, commit b99347a): the repair under failure and under concurrency, and the readers that have no repair.
-// State for every test: the code is live and migration 0028 is NOT applied (a never-paid member still holds an old 14-day row).
+// State for every test: the code is live and no trial migration is applied (a never-paid member still holds an old 14-day row).
 // REAL: app/api/stripe/checkout/route.ts, app/api/m/{feed,alert,me}/route.ts, lib/lifecycle/run.ts, lib/auth/trial.ts, lib/lifecycle/store.ts.
 // FAKE: Supabase (admin and member clients), the session, Stripe, the mobile feed readers. The fakes apply PostgREST filters at write time.
 // Tests named FINDING assert the behaviour AS IT IS at b99347a; they fail once the defect is fixed.
@@ -110,10 +110,10 @@ afterEach(() => {
 });
 
 describe('REV3 checkout: what Stripe is given when the repair does not move the row itself', () => {
-  it('control: day 11 of an old 14-day row, repair works: Stripe gets day 60', async () => {
+  it('control: day 11 of an old 14-day row, repair works: Stripe gets day 30', async () => {
     const w = member(11, 14);
     expect((await checkoutFor(w)).status).toBe(200);
-    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 49 * DAY);
+    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 19 * DAY);
   });
 
 
@@ -147,13 +147,13 @@ async function cronWorld(w: World) {
 }
 
 describe('REV3 lifecycle cron: the repair does not move the row itself', () => {
-  it('control: day 11 (72 h left), repair works: no email, row at day 60', async () => {
+  it('control: day 11 (72 h left), repair works: no email, row at day 30', async () => {
     const w = member(11, 14);
     const c = await cronWorld(w);
     const s = await c.run(NOW);
     expect(c.sent).toEqual([]);
     expect(s).toMatchObject({ skipped_trial_extended: 1 });
-    expect(w.row.trial_ends_at).toBe(iso(NOW + 49 * DAY));
+    expect(w.row.trial_ends_at).toBe(iso(NOW + 19 * DAY));
   });
 
 
@@ -188,15 +188,15 @@ async function mobile(w: World) {
 
 
 describe('REV3 cost when nothing needs repair', () => {
-  it('a row already at start + 60 days: no admin client is built by GET /api/m/me, and the pure check makes no call', async () => {
-    const w = member(20, 60);
+  it('a row already at start + TRIAL_DAYS: no admin client is built by GET /api/m/me, and the pure check makes no call', async () => {
+    const w = member(20, 30);
     const m = await mobile(w);
     await m.me();
     expect(w.calls).toMatchObject({ factory: 0, getUser: 0, select: 0, update: 0, ledgerDelete: 0 });
   });
 
-  it('checkout with a row already at start + 60 days: the repair adds no call (1 profile read by the route itself, no Auth admin call, no UPDATE)', async () => {
-    const w = member(20, 60);
+  it('checkout with a row already at start + TRIAL_DAYS: the repair adds no call (1 profile read by the route itself, no Auth admin call, no UPDATE)', async () => {
+    const w = member(20, 30);
     await checkoutFor(w);
     expect(w.calls).toMatchObject({ getUser: 0, select: 1, update: 0, updateHit: 0, ledgerDelete: 0 });
   });
@@ -210,8 +210,8 @@ describe('REV3 cost when nothing needs repair', () => {
     expect(n).toBe(1);
   });
 
-  it('the cron with a member already at start + 60: the repair hook is not called at all', async () => {
-    const w = member(57, 60); // 72 h left of the 60 days
+  it('the cron with a member already at start + TRIAL_DAYS: the repair hook is not called at all', async () => {
+    const w = member(27, 30); // 72 h left of the trial
     const c = await cronWorld(w);
     await c.run(NOW);
     expect(c.sent.map((m) => m.subject)).toEqual(['Your trial ends in 3 days']);

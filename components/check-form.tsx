@@ -3,7 +3,23 @@ import { Input } from './input';
 import { Select } from './select';
 import { tradeGroups } from '@/lib/check/trades';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { t, type Lang } from '@/lib/i18n';
+
+/**
+ * The trade options of the check form and of the waitlist card, built on the server. Exported so components/area-waitlist.tsx (a client
+ * component) is given the same list instead of building its own.
+ */
+export function checkTradeGroups(trade = '', lang: Lang = 'en') {
+  return tradeGroups(lang)
+    .map((g) => ({
+      ...g,
+      options: g.options
+        .filter((o) => o.id === trade || (!tradeComingSoon(o.id) && !tradeNoLiveSource(o.id)))
+        .map((o) => (o.id === 'cleaning' ? { ...o, label: t(lang, 'chk.trade.cleaning') } : o)),
+    }))
+    .filter((g) => g.options.length > 0);
+}
 
 /** Plain GET form to /check. No client JS needed, so it works in the landing hero too. */
 export function CheckForm({
@@ -29,9 +45,11 @@ export function CheckForm({
 }) {
   // A trade that no record type can reach on this deployment (childcare and beauty without a people-asking key) is left out, as onboarding
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
-  const groups = tradeGroups(lang)
-    .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
-    .filter((g) => g.options.length > 0);
+  // Round 23: a trade no live source reaches (Locksmith, "Bookkeeping, payroll and IT setup") is left out too. It was pickable here and
+  // refused at sign-up, so a visitor could check it, get "nothing matched", and then not find it on the form.
+  // House cleaning also says "and pressure washing": that category is where the pressure-washing keywords live, so a washer picking by
+  // name now finds it instead of guessing (lib/signals/categories.ts, lib/plan/profile-categories.ts PRESSURE_WASHING_PARTS).
+  const groups = checkTradeGroups(trade, lang);
   return (
     // Layout follows the width of the box the form sits in (container queries), not the screen: the home hero column is about
     // 520px on a desktop, /check is wider, phones are narrow. Narrow: one column. From 24rem: ZIP and trade side by side, button on its

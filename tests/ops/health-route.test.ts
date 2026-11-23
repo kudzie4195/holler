@@ -13,11 +13,11 @@ async function load(opts: { env?: Record<string, string>; db?: FakeDb; adapters?
   vi.stubEnv('CRON_SECRET', 's3cret');
   for (const k of ['ADMIN_EMAIL', 'SUPPORT_EMAIL']) vi.stubEnv(k, opts.env?.[k] ?? '');
   const db = opts.db ?? new FakeDb();
-  // Round 18: the route also reads the trial length the database enforces (migration 0028, holler_trial_db_check). A healthy database
-  // has 0028 applied; FakeDb has no rpc of its own.
+  // Round 18: the route also reads the trial length the database enforces (holler_trial_db_check, migration 0028 re-created by 0038). A healthy database
+  // has the newest trial migration applied; FakeDb has no rpc of its own.
   const withRpc = db as FakeDb & { rpc?: (fn: string) => Promise<{ data: unknown; error: { code: string } | null }> };
   withRpc.rpc ??= async (fn: string) =>
-    fn === 'holler_trial_db_check' ? { data: { default_days: 60, stamp_cap_days: 60, guard_cap_days: 60 }, error: null } : { data: null, error: { code: 'PGRST202' } };
+    fn === 'holler_trial_db_check' ? { data: { default_days: 30, stamp_cap_days: 30, guard_cap_days: 30 }, error: null } : { data: null, error: { code: 'PGRST202' } };
   vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => db }));
   vi.doMock('@/lib/signals/registry', () => ({
     ALL_ADAPTERS: opts.adapters ?? [

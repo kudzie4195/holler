@@ -8,12 +8,16 @@ import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/
 import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { lowerFirst, t, type Lang } from '@/lib/i18n';
+import type { CoverageState } from '@/lib/check/cells';
 
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
 
 function Cta({ citySlug, children, lang }: { citySlug: string | null; children?: React.ReactNode; lang: Lang }) {
-  const href = citySlug ? `/signup?city=${encodeURIComponent(citySlug)}` : '/signup';
+  // Round 23: a Spanish visitor goes to the Spanish sign-up. The old line built '/signup?city=' for both languages, so every /es
+  // conversion landed on the English page.
+  const base = lang === 'en' ? '/signup' : `/${lang}/signup`;
+  const href = citySlug ? `${base}?city=${encodeURIComponent(citySlug)}` : base;
   return (
     <div className="on-brand mt-10 rounded-card bg-brand px-6 py-8 md:px-8">
       {children}
@@ -42,6 +46,7 @@ export function CheckResults({
   origin,
   coverage = null,
   coverageKnown = true,
+  coverageState = 'live',
   lang = 'en',
 }: {
   items: CheckItem[];
@@ -60,11 +65,27 @@ export function CheckResults({
   coverage?: string | null;
   /** false when the source states could not be read: an empty result is then worded as "what Holler has read so far", never as full coverage. */
   coverageKnown?: boolean;
+  /**
+   * How much Holler really has for THIS trade in THIS area (lib/check/cells.ts). 'live': the trial CTA, as before. 'limited': the CTA
+   * with a line saying there are few records for this trade here yet. 'waitlist': no trial CTA at all and no "Holler is watching near X"
+   * block, because the page already shows the waitlist card. Defaults to 'live' so a caller that does not set it is unchanged.
+   */
+  coverageState?: CoverageState;
   /** 'es' writes headings, sentences and source labels in Spanish from the dictionary. English (the default) is unchanged. */
   lang?: Lang;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
+  // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
+  // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
+  const hideOffer = coverageState === 'waitlist';
+  const limitedLine =
+    coverageState === 'limited'
+      ? lang === 'en'
+        ? `Few records for this trade here yet. Holler reads this area, but ${tradeLabel.toLowerCase()} work shows up only now and then. Start free and see for yourself; nothing is charged.`
+        : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) })
+      : null;
+  const LimitedNote = limitedLine ? <p className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">{limitedLine}</p> : null;
 
   if (shown === 0) {
     const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
@@ -85,6 +106,9 @@ export function CheckResults({
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
     };
+    // Nothing an owner could act on for this trade here. The waitlist card above has already said so and asked for an email; a
+    // "Holler is watching near X" list under it would read as coverage, and a trial button would sell an empty week.
+    if (hideOffer) return null;
     return (
       <section aria-labelledby="check-heading" className="mt-10">
         <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
@@ -93,6 +117,7 @@ export function CheckResults({
             : lang === 'en' ? `Holler is watching near ${placeLabel} for ${trade} work` : t(lang, 'chk.h.watching', { place: placeLabel, trade })}
         </h2>
         <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
+        {LimitedNote}
         {mode === 'results' ? <div className="mt-4 max-w-2xl empty:hidden"><CoverageNoticeLine line={coverage} /></div> : null}
         {mode !== 'uncovered' ? (
           <div className="mt-8">
@@ -128,6 +153,7 @@ export function CheckResults({
           ? `${shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}Every record links to its source. Checked ${timeAgo(checkedAt, now)}.`
           : `${shown < items.length ? t(lang, 'chk.res.showing', { shown }) : ''}${t(lang, 'chk.res.links', { ago: timeAgo(checkedAt, now, lang) })}`}
       </p>
+      {LimitedNote}
       <div className="mt-4 max-w-2xl empty:hidden">
         <CoverageNoticeLine line={coverage} />
       </div>
@@ -174,9 +200,11 @@ export function CheckResults({
           </div>
         ))}
       </div>
-      <Cta citySlug={citySlug} lang={lang}>
-        <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, 'chk.cta.intro')}</p>
-      </Cta>
+      {hideOffer ? null : (
+        <Cta citySlug={citySlug} lang={lang}>
+          <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, 'chk.cta.intro')}</p>
+        </Cta>
+      )}
     </section>
   );
 }

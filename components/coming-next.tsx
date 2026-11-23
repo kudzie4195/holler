@@ -18,11 +18,11 @@ function copyFor(lang: Lang) {
       thanks: t(lang, 'next.thanks'),
       error: t(lang, 'next.error'),
     },
-    // "Holler in Spanish" is not offered on a Spanish page: it is what the reader is using.
-    features: FEATURES.filter((f) => f.id !== 'spanish').map((f) => ({
+    // Round 23: "Holler in Spanish" is gone from the list for everybody (it is live at /es), so there is nothing to filter here now.
+    features: FEATURES.map((f) => ({
       id: f.id as FeatureId,
-      label: t(lang, `next.f.${f.id as Exclude<FeatureId, 'spanish'>}.label`),
-      description: t(lang, `next.f.${f.id as Exclude<FeatureId, 'spanish'>}.desc`),
+      label: t(lang, `next.f.${f.id}.label`),
+      description: t(lang, `next.f.${f.id}.desc`),
     })),
   };
 }

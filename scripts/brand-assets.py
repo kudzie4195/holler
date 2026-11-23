@@ -4,7 +4,7 @@ Regenerate the brand files in public/ from one drawing of the mark:
 
   public/icon.svg              32x32 favicon: signal tile, ink arcs (the same drawing as components/logo.tsx LogoMark)
   public/apple-touch-icon.png  180x180, full bleed (iOS rounds the corners itself)
-  public/og.png                1200x630 share image: field green, the lockup, the tagline in the display face
+  public/og.png                1200x630 share image: field green, the lockup, the home page h1 in the display face
 
 The PNGs are screenshots of small HTML pages taken with Chrome through Python playwright. Fonts come from the installed
 @fontsource packages (file:// URLs), so nothing is fetched from the network.
@@ -88,8 +88,8 @@ display:flex;gap:56px;align-items:center;font-family:Inter,sans-serif;overflow:h
       {mark_svg(64, 12, xmlns=False)}
       <span style="font-family:'Barlow Condensed';font-weight:700;font-size:58px;line-height:1;letter-spacing:.01em">HOLLER</span>
     </div>
-    <div style="font-family:'Barlow Condensed';font-weight:700;font-size:112px;line-height:.9;text-transform:uppercase">
-      Know when your town needs you.</div>
+    <div style="font-family:'Barlow Condensed';font-weight:700;font-size:96px;line-height:.9;text-transform:uppercase">
+      See where the work is near you this week.</div>
     <div style="font-family:'JetBrains Mono';font-weight:500;font-size:24px;letter-spacing:.06em;color:{SIGNAL}">LOCALHOLLER.COM</div>
   </div>
   <div style="flex:0 0 400px;height:400px;position:relative;background:{BRAND_RAISED};border-radius:28px;overflow:hidden">

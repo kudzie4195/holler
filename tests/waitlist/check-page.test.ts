@@ -56,11 +56,16 @@ describe('uncovered ZIP shows the card', () => {
     expect(html).toContain('name="leave_blank"');
     expect(html).toContain('aria-hidden="true"');
   });
-  it('the card sits above the results and the page still shows the check form', async () => {
-    const { html } = await render({ zip: '59001', trade: 'roofing' });
+  it('the card sits under the check form and IS the whole answer: no "Holler is watching" block and no trial offer', async () => {
+    const { html, text } = await render({ zip: '59001', trade: 'roofing' });
     expect(html).toContain('action="/check"');
     expect(html.indexOf('Coming to your area')).toBeGreaterThan(html.indexOf('action="/check"'));
-    expect(html.indexOf('Coming to your area')).toBeLessThan(html.indexOf('id="check-heading"'));
+    // Round 23: a waitlist cell shows no results block at all. The page used to carry the waitlist card AND
+    // "Holler is watching near Absarokee, MT" AND "Get these by email. 60-day free trial, no card" together.
+    expect(html).not.toContain('id="check-heading"');
+    expect(text).not.toContain('Holler is watching near');
+    expect(text).not.toMatch(/free trial, no card/);
+    expect(html).not.toMatch(/href="\/signup/);
   });
   it('a territory (San Juan, 00901) shows the card, reads no records, and does not also print the old "does not cover" heading', async () => {
     loadCheck.mockClear();

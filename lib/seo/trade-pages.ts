@@ -106,15 +106,19 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
       { signal: 'People asking for a landscaper', type: 'ask', why: 'Public requests for design or hardscape quotes show up every spring, and the first reply gets noticed.' },
     ],
   },
+  // Round 23: this page promised "code violations for tall grass and weeds" and "311 overgrown lot complaints" everywhere. Measured
+  // over 14 days of live records, 61 of the 65 named grass violations in the whole dataset are Austin and 4 are Chicago; Atlanta,
+  // Charlotte and Raleigh have none, and most of what a lawn-care member really gets is new-home permits. The page now leads with the
+  // permits, says where the named violations exist, and says what a new-home permit means for timing.
   'lawn-care': {
     noun: 'lawn care pros',
-    headline: 'Code violation and 311 alerts for lawn care pros',
-    lead: 'Recurring mowing routes grow one house at a time. Holler points you at cited yards and overgrown-lot complaints.',
+    headline: 'New-home permit and code violation alerts for lawn care pros',
+    lead: 'Recurring mowing routes grow one house at a time. Holler points you at new yards going in near you, and at cited yards where the city names the problem.',
     signals: [
-      { signal: 'Building permits for new homes', type: 'permit', why: 'A new house means a new owner with a fresh lawn and no mowing service yet.' },
-      { signal: 'Code violations for tall grass and weeds', type: 'violation', why: 'The city already told the owner to fix it. A weekly mowing contract solves the problem for good.' },
+      { signal: 'Building permits for new homes', type: 'permit', why: 'A new house means a new owner with a fresh lawn and no mowing service yet. The yard goes in when the house is done, so this is a spring list, not a job this week.' },
+      { signal: 'Code violations on a property', type: 'violation', why: 'The city has told an owner to fix something. Where the record names tall grass or an overgrown yard, Holler says so; many counties publish only "property violation", and the card says that instead of guessing.' },
       { signal: 'Severe storm and wind reports', type: 'storm-report', why: 'Limbs and leaves on lawns turn into one-time cleanup jobs that often convert to routes.' },
-      { signal: '311 overgrown lot complaints', type: '311', why: 'Neighbors reporting a lot to the city often means the owner needs help quickly.' },
+      { signal: '311 requests about yards and lots', type: '311', why: 'Where a city runs a 311 feed and publishes overgrown-lot requests, they reach you by block. Not every city publishes them.' },
       { signal: 'People asking for a lawn guy', type: 'ask', why: 'Someone just posted that their mower guy quit. That is a route stop for the next reply.' },
     ],
   },

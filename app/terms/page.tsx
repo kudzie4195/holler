@@ -305,6 +305,15 @@ export default function TermsPage() {
           <Link href="/privacy">Privacy Policy</Link> describe. You promise that you have the right to share it and that it
           breaks no law. If you send us ideas or feedback, we may use them without paying you.
         </p>
+        {/* Round 23: the data-use consent. The box at sign-up is optional and unticked; this says what ticking it allows. */}
+        <p>
+          At sign-up there is an optional box, unticked, about your answers to alerts. If you tick it, you let us add your taps
+          and any job amount you enter to combined statistics by trade, record type, area and week, and you let us publish,
+          share, license or sell those combined statistics. They never contain your name, business, email, phone or street
+          address, and we do not publish a group smaller than 10 members. We never sell or share your answers on their own.
+          You can untick the box in Settings at any time, and we stop adding your answers from that day. Nothing about your
+          plan or your alerts depends on this box. See our <Link href="/privacy">Privacy Policy</Link> for the detail.
+        </p>
       </DocSection>
 
       <DocSection title="Our content and trademarks">

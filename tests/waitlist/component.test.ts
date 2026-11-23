@@ -3,9 +3,12 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AreaWaitlist } from '../../components/area-waitlist';
+import { checkTradeGroups } from '../../components/check-form';
 import { WAITLIST } from '../../lib/waitlist/copy';
 
-const html = renderToStaticMarkup(createElement(AreaWaitlist, { zip: '59001', trade: 'roofing', placeLabel: 'Absarokee, MT' }));
+// Round 23: the trade options come from the server, from the same builder the check form uses (so the two lists cannot drift apart).
+const groups = checkTradeGroups('roofing');
+const html = renderToStaticMarkup(createElement(AreaWaitlist, { zip: '59001', trade: 'roofing', placeLabel: 'Absarokee, MT', groups }));
 const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, ' ');
 
 describe('server render', () => {

@@ -10,6 +10,7 @@ import { getProfile, getUser } from '@/lib/auth/session';
 import { deleteHollerAccount } from '@/lib/mobile/account';
 import { saveProfile } from '@/lib/auth/profile';
 import { saveLanguage, type LanguageState } from '@/lib/auth/language';
+import { saveStatsConsent, type ConsentState } from '@/lib/auth/stats-consent-save';
 import { saveWorkProfile, type WorkProfileState } from '@/lib/auth/work-profile';
 import { backfillWithLimit } from '@/lib/signals/backfill-run';
 import { applyTrialRules } from '@/lib/auth/trial';
@@ -134,6 +135,28 @@ export async function saveLanguageSetting(_prev: LanguageState, formData: FormDa
     await setLangCookieFromAction(parseLang(formData.get('language')));
     revalidatePath('/app', 'layout');
   }
+  return result;
+}
+
+/**
+ * Saves the member's answer to the data-use box (round 23). Separate from saveSettings on purpose, like the language and work-profile
+ * saves: the consent lives in app_metadata, which needs the admin client, and a failure there must never make "Save changes" fail.
+ * The checkbox is controlled and an unticked box posts nothing, so the form sends a hidden `answered` field and the absence of
+ * `stats_consent` is the "no" answer.
+ */
+export async function saveConsentSetting(_prev: ConsentState, formData: FormData): Promise<ConsentState> {
+  const user = await getUser();
+  if (!user) redirect('/login?next=/app/settings');
+  const profile = await getProfile(user.id).catch(() => null);
+  const lang: Lang = langOfProfile(profile);
+  const consent = formData.get('stats_consent') === 'on';
+  let result: ConsentState;
+  try {
+    result = await saveStatsConsent(createAdminClient().auth.admin, user.id, consent, lang);
+  } catch {
+    return { error: t(lang, 'consent.error') };
+  }
+  if (result.ok) revalidatePath('/app/settings');
   return result;
 }
 

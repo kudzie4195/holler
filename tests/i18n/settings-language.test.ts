@@ -131,7 +131,7 @@ describe('the Settings page, rendered with and without migration 0024', () => {
     }));
     vi.doMock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }) }));
     vi.doMock('@/lib/supabase/server', () => ({ createClient: async () => ({}) }));
-    vi.doMock('@/app/app/settings/actions', () => ({ saveSettings: async () => ({}), saveLanguageSetting: async () => ({}), deleteAccount: async () => ({}) }));
+    vi.doMock('@/app/app/settings/actions', () => ({ saveSettings: async () => ({}), saveLanguageSetting: async () => ({}), saveConsentSetting: async () => ({}), saveWorkProfileSetting: async () => ({}), deleteAccount: async () => ({}) }));
     const { default: SettingsPage } = await import('@/app/app/settings/page');
     return renderToStaticMarkup(await SettingsPage());
   }

@@ -4,7 +4,6 @@ import { TIER_NAMES } from '@/lib/plan/limits';
 import { FROM_MONTHLY, namedPlanPrices } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
-import { PUSH_CAP } from './home-cadence';
 
 /**
  * Every sentence on the home page, /about, /faq and /llms.txt that depends on an optional key lives here, built from the keys that are
@@ -100,8 +99,13 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
   const dataAnswer = 'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its source.';
 
   return {
-    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
-    heroLead: 'Alerts when hail, a permit or a 311 request near you fits your trade. Each one links to its public source.',
+    // Round 23: the meta/OG description and the lead say the same thing as the h1 ("See where the work is near you this week.") and name
+    // the trades Holler is marketed for: landscaping, lawn care, gutters and pressure washing. The lead also names the two things a
+    // member gets besides the alert, because they are the strongest part for this audience: the weekly address list and the printable
+    // door hanger. Nothing here promises a job or a customer.
+    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and shows landscaping, lawn care, gutter and pressure washing crews where the work is near them each week. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
+    heroLead:
+      'New-build and re-roof addresses, plus problem blocks, near you every week: for landscaping, lawn care, gutters and pressure washing. Each one links to its public source, and comes with an address list and a printable door hanger for where to hang and flyer this week.',
     steps: [
       { title: 'What happened', body: 'In plain words, matched to the trades you picked.' },
       { title: 'How far from you', body: 'Only records inside the radius you drive.' },
@@ -121,39 +125,43 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
         ],
       },
       {
+        // Round 23: the trades named here are the ones Holler is marketed for. Most of the value measured in the four launch cities is
+        // new-build and re-roof permits with an exact street address, which is what landscaping, lawn care, gutter and pressure washing
+        // crews can act on. "pressure washing" links to the house cleaning page because that is the category it sits in today.
         id: 'permit',
         tag: 'PERMITS',
-        title: 'New building permits',
-        from: 'From cities and counties that publish them.',
+        title: 'New-build and re-roof permits',
+        from: 'From cities and counties that publish them, with the street address.',
         goodFor: [
-          { label: 'plumbing', id: 'plumbing' },
-          { label: 'HVAC', id: 'hvac' },
-          { label: 'electrical', id: 'electrical' },
-          { label: 'windows and doors', id: 'windows-doors' },
+          { label: 'landscaping', id: 'landscaping' },
+          { label: 'lawn care', id: 'lawn-care' },
+          { label: 'gutters and siding', id: 'siding-gutters' },
+          { label: 'pressure washing', id: 'cleaning' },
         ],
       },
       {
         id: 'civic',
         tag: '311 AND CODE',
         title: 'City requests and code cases',
-        from: 'Fallen trees, dumping, rats and repair orders.',
+        from: 'Overgrown yards, fallen trees, dumping and repair orders, by block.',
         goodFor: [
-          { label: 'tree service', id: 'tree-service' },
-          { label: 'handyman', id: 'handyman' },
+          { label: 'lawn care', id: 'lawn-care' },
+          { label: 'landscaping', id: 'landscaping' },
           { label: 'junk removal', id: 'junk-removal' },
-          { label: 'pest control', id: 'pest-control' },
+          { label: 'tree service', id: 'tree-service' },
         ],
       },
     ],
     faqs: [
       {
         q: 'Is this a lead list?',
-        a: 'No. Holler shows public records that point to work. It does not promise a job or a customer.',
+        a: 'No. Holler shows public records that point to work, so you know where to hang and flyer this week. It does not promise a job or a customer, and it never gives you a resident’s name.',
       },
       { q: 'Where does it come from?', a: dataAnswer },
       {
+        // Round 23: Holler is a website. Alerts go by email and to the feed on this site; there is no app and no push.
         q: 'How do alerts reach me?',
-        a: `By email today. iPhone and Android apps are coming, and push will be capped at ${PUSH_CAP}.`,
+        a: 'By email, at most one an hour, and in your feed on this site. Holler is a website, so there is nothing to install.',
       },
       {
         q: 'Does it cover my area?',

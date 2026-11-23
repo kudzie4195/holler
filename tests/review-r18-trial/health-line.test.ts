@@ -10,17 +10,17 @@ const counts: HealthCounts = { newSignups24h: 0, activeSubscribers: 0, trialing:
 const NOW = new Date('2026-11-22T12:00:00Z');
 
 describe('REV health trial line', () => {
-  it('0028 applied: ok line, subject untouched', async () => {
-    const c = await loadTrialDbCheck(rpc({ default_days: 60, stamp_cap_days: 60, guard_cap_days: 60 }));
+  it('the trial migration applied: ok line, subject untouched', async () => {
+    const c = await loadTrialDbCheck(rpc({ default_days: 30, stamp_cap_days: 30, guard_cap_days: 30 }));
     expect(c.status).toBe('ok');
     const r = planHealth({ adapters: [], runs: [], counts, now: NOW });
     const base = renderHealthEmail(r).subject;
     r.trialCheck = c;
     expect(renderHealthEmail(r).subject).toBe(base);
-    expect(renderHealthEmail(r).text).toContain('the site says 60 days and the database enforces 60 days');
+    expect(renderHealthEmail(r).text).toContain('the site says 30 days and the database enforces 30 days');
   });
 
-  it('0028 missing (PostgREST PGRST202, Postgres 42883): MISMATCH line and subject', async () => {
+  it('the check function missing (PostgREST PGRST202, Postgres 42883): MISMATCH line and subject', async () => {
     for (const code of ['PGRST202', '42883']) {
       const c = await loadTrialDbCheck(rpc(null, { code, message: 'Could not find the function public.holler_trial_db_check without parameters in the schema cache' }));
       expect(c.status).toBe('not_applied');
@@ -28,17 +28,17 @@ describe('REV health trial line', () => {
       r.trialCheck = c;
       const m = renderHealthEmail(r);
       expect(m.subject).toBe('Holler health: free trial length does not match the database');
-      expect(m.text).toContain('MISMATCH: the site says 60 days but holler_trial_db_check() is missing: migration 0028 is not applied, or the API has not reloaded its schema');
+      expect(m.text).toContain('MISMATCH: the site says 30 days but holler_trial_db_check() is missing: no trial migration is applied, or the API has not reloaded its schema');
     }
   });
 
-  it('0028 applied then 0019 re-run (14 everywhere), or one place differs: MISMATCH with each number', async () => {
+  it('a trial migration applied then 0019 re-run (14 everywhere), or one place differs: MISMATCH with each number', async () => {
     const c = await loadTrialDbCheck(rpc({ default_days: 14, stamp_cap_days: 14, guard_cap_days: 14 }));
-    expect(trialCheckLine(c)).toBe('MISMATCH: the site says 60 days, the database has column default 14 days, one-trial cap 14 days, member insert cap 14 days. Apply the newest trial migration (LAUNCH.md, Rounds 18 and 19 order).');
+    expect(trialCheckLine(c)).toBe('MISMATCH: the site says 30 days, the database has column default 14 days, one-trial cap 14 days, member insert cap 14 days. Apply the newest trial migration (LAUNCH.md, round 23 order).');
   });
 
   it('hostile shapes never throw and never read as ok', async () => {
-    const shapes: unknown[] = [null, undefined, 'x', 42, [], [{ default_days: 60, stamp_cap_days: 60, guard_cap_days: 60 }], { default_days: '60', stamp_cap_days: '60', guard_cap_days: '60' }, { default_days: 60 }, { default_days: NaN, stamp_cap_days: 60, guard_cap_days: 60 }, { default_days: 60.0, stamp_cap_days: 60, guard_cap_days: Infinity }];
+    const shapes: unknown[] = [null, undefined, 'x', 42, [], [{ default_days: 30, stamp_cap_days: 30, guard_cap_days: 30 }], { default_days: '30', stamp_cap_days: '30', guard_cap_days: '30' }, { default_days: 30 }, { default_days: NaN, stamp_cap_days: 30, guard_cap_days: 30 }, { default_days: 30.0, stamp_cap_days: 30, guard_cap_days: Infinity }];
     for (const s of shapes) {
       const c = await loadTrialDbCheck(rpc(s));
       expect(c.status, JSON.stringify(s)).toBe('mismatch');
@@ -54,7 +54,7 @@ describe('REV health trial line', () => {
     }
     // a status the renderer does not know, and a null check
     const r = planHealth({ adapters: [], runs: [], counts, now: NOW });
-    r.trialCheck = { status: 'weird', codeDays: 60, defaultDays: null, stampCapDays: null, guardCapDays: null } as unknown as TrialDbCheck;
+    r.trialCheck = { status: 'weird', codeDays: 30, defaultDays: null, stampCapDays: null, guardCapDays: null } as unknown as TrialDbCheck;
     expect(() => renderHealthEmail(r)).not.toThrow();
     r.trialCheck = null;
     expect(renderHealthEmail(r).text).not.toContain('Free trial length');
@@ -71,7 +71,7 @@ describe('REV health trial line', () => {
     expect(renderHealthEmail(r).text).toContain('a mismatch cannot be ruled out');
   });
 
-  it('F10 fixed: function missing (0028 not applied, or a stale schema cache) no longer claims to have read the default', async () => {
+  it('F10 fixed: function missing (no trial migration applied, or a stale schema cache) no longer claims to have read the default', async () => {
     const c = await loadTrialDbCheck(rpc(null, { code: 'PGRST202' }));
     expect(trialCheckLine(c)).not.toContain('so the database default is still 14 days');
     expect(trialCheckLine(c)).toContain('or the API has not reloaded its schema');

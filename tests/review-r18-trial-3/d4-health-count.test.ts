@@ -12,17 +12,17 @@ const row = (id: string, startDaysAgo: number, endDays: number, over: Record<str
 });
 
 describe('review 3 D4: the real count of members still on a shorter trial', () => {
-  it('counts exactly the rows the app would move (never paid, end earlier than signup + 60, not an ended trial with 72 h or less left)', async () => {
+  it('counts exactly the rows the app would move (never paid, end earlier than signup + TRIAL_DAYS, not an ended trial with 72 h or less left)', async () => {
     const db = new FakeDb({
       holler_profiles: [
         row('short-running', 5, 9), // 14-day row, day 5: moved by the app -> counted
-        row('short-ended', 20, -6), // 14-day row ended 6 days ago, 40 days of the 60 left -> counted
-        row('at-60', 5, 55), // already at signup + 60 -> not counted
-        row('ended-late', 58, -44), // 2 days of the 60 left: never revived -> not counted
+        row('short-ended', 20, -6), // 14-day row ended 6 days ago, 10 days of the 30 left -> counted
+        row('at-full', 5, 25), // already at signup + TRIAL_DAYS -> not counted
+        row('ended-late', 28, -14), // 2 days of the 30 left: never revived -> not counted
         row('paid', 5, 9, { subscription_status: 'active' }),
         row('stripe', 5, 9, { stripe_subscription_id: 'sub_1' }),
         row('store', 5, 9, { plan_source: 'apple' }),
-        row('old', 70, -56), // outside the 60-day window
+        row('old', 40, -26), // outside the TRIAL_DAYS window
       ],
     });
     expect(await countShortTrials(db as never, NOW)).toBe(2);
@@ -34,11 +34,11 @@ describe('review 3 D4: the real count of members still on a shorter trial', () =
   });
 
   it('the not-applied line states the count and the real reach of the hourly job', () => {
-    const base: TrialDbCheck = { status: 'not_applied', codeDays: 60, defaultDays: null, stampCapDays: null, guardCapDays: null };
+    const base: TrialDbCheck = { status: 'not_applied', codeDays: 30, defaultDays: null, stampCapDays: null, guardCapDays: null };
     const two = trialCheckLine({ ...base, shortTrials: 2 });
     expect(two).toContain('Today 2 never-paid members still hold a shorter trial that the app would move');
     expect(two).toContain('the hourly email job moves only members due a trial email (verified, not unsubscribed)');
-    expect(two).toContain('Everyone else keeps the 14-day end until they sign in or 0028 is applied.');
+    expect(two).toContain('Everyone else keeps the end their row holds until they sign in or the migration is applied.');
     expect(two).not.toMatch(/and by the hourly email job\./);
     expect(trialCheckLine({ ...base, shortTrials: 1 })).toContain('Today 1 never-paid member still holds');
     expect(trialCheckLine({ ...base, shortTrials: null })).toContain('could not be counted');

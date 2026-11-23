@@ -1,6 +1,6 @@
 // Round 18 integration: review 3 probe (logs/REV3-TRIAL-probe-tests) kept as a permanent regression test.
 // REV3 probe 43: the SAME scenarios as probe 40, asserting the behaviour WITH R3-proposed-fix.patch applied. Fails at b99347a as committed.
-// State for every test: the code is live and migration 0028 is NOT applied (a never-paid member still holds an old 14-day row).
+// State for every test: the code is live and no trial migration is applied (a never-paid member still holds an old 14-day row).
 // REAL: app/api/stripe/checkout/route.ts, app/api/m/{feed,alert,me}/route.ts, lib/lifecycle/run.ts, lib/auth/trial.ts, lib/lifecycle/store.ts.
 // FAKE: Supabase (admin and member clients), the session, Stripe, the mobile feed readers. The fakes apply PostgREST filters at write time.
 // Tests named FINDING assert the behaviour AS IT IS at b99347a; they fail once the defect is fixed.
@@ -160,7 +160,7 @@ async function mobile(w: World) {
 
 
 describe('AFTER FIX checkout', () => {
-  it('a failed repair (Auth admin read, or the UPDATE): 503 and no Stripe session; the retry gets day 60', async () => {
+  it('a failed repair (Auth admin read, or the UPDATE): 503 and no Stripe session; the retry gets day 30', async () => {
     for (const how of ['auth', 'update'] as const) {
       const w = member(11, 14);
       if (how === 'auth') w.failGetUser = 1; else w.failUpdate = 1;
@@ -170,7 +170,7 @@ describe('AFTER FIX checkout', () => {
       expect(w.sessions).toHaveLength(0);
       const again = await checkoutFor(w);
       expect(again.status).toBe(200);
-      expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 49 * DAY);
+      expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 19 * DAY);
     }
   });
   it('an ended 14-day trial with a failed repair is not charged today', async () => {
@@ -178,17 +178,17 @@ describe('AFTER FIX checkout', () => {
     expect((await checkoutFor(e)).status).toBe(503);
     expect(e.sessions).toHaveLength(0);
   });
-  it('a concurrent repair wins (both shapes): Stripe gets the end the row holds, day 60', async () => {
+  it('a concurrent repair wins (both shapes): Stripe gets the end the row holds, day 30', async () => {
     for (const n of [1, 2]) {
       const w = member(11, 14);
-      w.afterSelect = (k, ww) => { if (k === n) ww.row.trial_ends_at = iso(NOW + 49 * DAY); };
+      w.afterSelect = (k, ww) => { if (k === n) ww.row.trial_ends_at = iso(NOW + 19 * DAY); };
       expect((await checkoutFor(w)).status).toBe(200);
-      expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 49 * DAY);
+      expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 19 * DAY);
       expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(Date.parse(w.row.trial_ends_at));
     }
   });
   it('unchanged: a healthy row costs no extra call; a refused revival (start 58 days back) is charged now as before; a paying row is refused', async () => {
-    const h = member(20, 60); await checkoutFor(h);
+    const h = member(20, 30); await checkoutFor(h);
     expect(h.calls).toMatchObject({ getUser: 0, select: 1, update: 0 });
     const o = member(58, 14); expect((await checkoutFor(o)).status).toBe(200);
     expect(o.sessions[0].subscription_data.trial_end).toBeUndefined();
@@ -209,7 +209,7 @@ describe('AFTER FIX lifecycle cron', () => {
     const w = member(11, 14); const c = await cronWorld(w);
     await Promise.all([c.run(NOW), c.run(NOW)]);
     expect(c.sent).toEqual([]);
-    expect(w.row.trial_ends_at).toBe(iso(NOW + 49 * DAY));
+    expect(w.row.trial_ends_at).toBe(iso(NOW + 19 * DAY));
   });
   it('one failed repair: nothing is sent and no ledger row is taken; the next hourly run extends; the reminder comes once, 84 h before the new end', async () => {
     const w = member(11, 14); const c = await cronWorld(w);
@@ -220,14 +220,14 @@ describe('AFTER FIX lifecycle cron', () => {
     expect(s1).toMatchObject({ failed: 3, skipped_trial_extended: 0 });
     const s2 = await c.run(NOW + HOUR);
     expect(s2).toMatchObject({ skipped_trial_extended: 1 });
-    expect(w.row.trial_ends_at).toBe(iso(NOW + 49 * DAY));
-    const newEnd = NOW + 49 * DAY;
+    expect(w.row.trial_ends_at).toBe(iso(NOW + 19 * DAY));
+    const newEnd = NOW + 19 * DAY;
     for (let h = 90; h >= 30; h--) await c.run(newEnd - h * HOUR);
     for (let h = 1; h <= 50; h++) await c.run(newEnd + h * HOUR);
     expect(c.sent.map((m) => m.subject)).toEqual(['Your trial ends in 3 days', 'Your alerts are paused']);
   });
   it('unchanged: a refused repair (the member subscribed, or a returning member) still sends as before; a healthy row never calls the hook', async () => {
-    const w = member(57, 60); const c = await cronWorld(w);
+    const w = member(27, 30); const c = await cronWorld(w);
     await c.run(NOW);
     expect(c.sent.map((m) => m.subject)).toEqual(['Your trial ends in 3 days']);
     expect(w.calls).toMatchObject({ getUser: 0, select: 0, update: 0 });
@@ -243,10 +243,10 @@ describe('AFTER FIX mobile', () => {
     const w3 = member(20, 14); const m3 = await mobile(w3);
     const [f, a, who] = await Promise.all([m3.feed(), m3.alert(), m3.me()]);
     expect([f.locked, a.locked, who.access.state]).toEqual([false, false, 'trial']);
-    const w4 = member(20, 60); const m4 = await mobile(w4);
+    const w4 = member(20, 30); const m4 = await mobile(w4);
     await m4.feed(); await m4.alert();
     expect(w4.calls.factory).toBe(0);
-    const w5 = member(58, 14); const m5 = await mobile(w5); // 2 days of the 60 left: not revived, still locked
+    const w5 = member(28, 14); const m5 = await mobile(w5); // 2 days of the trial left: not revived, still locked
     expect((await m5.feed()).locked).toBe(true);
   });
 });

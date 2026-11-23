@@ -9,7 +9,8 @@ import { Notice } from './notice';
 import { Slider } from './slider';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { KEYWORD_MAX_LENGTH, KEYWORD_MIN_LENGTH, PLAN_LIMITS, type Tier } from '@/lib/plan/limits';
-import { groupCategories, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
+import { groupCategories, MARKETED_GROUP_KEY, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/profile-categories';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { planNameEs } from '@/lib/plan/price-copy-es';
 
@@ -74,9 +75,73 @@ export function ProfileForm({
   const isPro = tier === 'pro';
   const max = PLAN_LIMITS[tier].trades;
   const view = tradeLimitView(picked, max);
+  /**
+   * The composite "Pressure washing" chip (lib/plan/profile-categories.ts): it is selected when BOTH house cleaning and siding and
+   * gutters are picked, turning it on adds both, turning it off removes both. Its own id is never in `picked`, so nothing is submitted
+   * for it and no other code has to know about it. It takes two of the plan's trade slots, so it is only offered when two are free.
+   */
+  const pwOn = PRESSURE_WASHING_PARTS.every((id) => picked.includes(id));
+  const togglePressureWashing = () =>
+    setPicked((cur) => {
+      if (PRESSURE_WASHING_PARTS.every((id) => cur.includes(id))) return cur.filter((id) => !PRESSURE_WASHING_PARTS.includes(id));
+      const add = PRESSURE_WASHING_PARTS.filter((id) => !cur.includes(id));
+      return cur.length + add.length > max ? cur : [...cur, ...add];
+    });
   const label = (id: string) => categories.find((c) => c.id === id)?.label ?? id;
   const fe = state.fieldErrors ?? {};
   const groups = groupCategories(categories, lang);
+  const rest = groups.filter((g) => g.key !== MARKETED_GROUP_KEY);
+  // Open "More trades" when there is no marketed group at all (a deployment where none of them can be picked), or when a trade the
+  // member already saved lives inside it: a saved pick must never be hidden from the person who saved it.
+  const openRest = groups.every((g) => g.key !== MARKETED_GROUP_KEY) || rest.some((g) => g.items.some((c) => picked.includes(c.id)));
+
+  /** One group's chips. A plain function, not a component, so the chips are not remounted on every keystroke in the form. */
+  function renderGroup(g: (typeof groups)[number]) {
+    return (
+      <div key={g.key} role="group" aria-label={g.label ?? undefined}>
+        {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {g.items.map((c) => {
+            if (c.comingSoon) {
+              return (
+                <Chip key={c.id} selected={false} disabled aria-disabled="true">
+                  {c.label}
+                  <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>
+                </Chip>
+              );
+            }
+            if (c.id === PRESSURE_WASHING_ID) {
+              return (
+                <Chip
+                  key={c.id}
+                  selected={pwOn}
+                  disabled={!pwOn && picked.length + PRESSURE_WASHING_PARTS.filter((id) => !picked.includes(id)).length > max}
+                  aria-describedby="pf-pw-hint"
+                  onClick={togglePressureWashing}
+                >
+                  {c.label}
+                </Chip>
+              );
+            }
+            const selected = picked.includes(c.id);
+            return (
+              <Chip key={c.id} selected={selected} disabled={!selected && view.full} onClick={() => setPicked((cur) => toggleTrade(cur, c.id, max))}>
+                {c.label}
+              </Chip>
+            );
+          })}
+        </div>
+        {g.items.some((c) => c.id === PRESSURE_WASHING_ID) ? (
+          <p id="pf-pw-hint" className="mt-2 text-sm text-muted">
+            {w(
+              'pf.trade.pressure_washing_hint',
+              'Picks house cleaning and siding and gutters together: that is where new-build and roof permits reach you. It uses two of your trades.',
+            )}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
   const savedExtras = (defaults.extra_zips ?? []).filter(Boolean);
   const savedKeywords = (defaults.keywords ?? []).filter(Boolean);
 
@@ -121,30 +186,20 @@ export function ProfileForm({
             )}
           </div>
         ) : null}
+        {/* Round 23: the trades Holler is marketed for are the first group and are always open; the other 30-odd sit behind one
+            disclosure, so the form opens on six chips instead of 37. <details> needs no JavaScript, so it works on a first paint and
+            with the keyboard. A saved trade from the hidden part stays saved and stays counted; only the chips are folded away. */}
         <div className="mt-3 flex flex-col gap-5">
-          {groups.map((g) => (
-            <div key={g.key} role="group" aria-label={g.label ?? undefined}>
-              {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
-              <div className="flex flex-wrap gap-2">
-                {g.items.map((c) => {
-                  if (c.comingSoon) {
-                    return (
-                      <Chip key={c.id} selected={false} disabled aria-disabled="true">
-                        {c.label}
-                        <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>
-                      </Chip>
-                    );
-                  }
-                  const selected = picked.includes(c.id);
-                  return (
-                    <Chip key={c.id} selected={selected} disabled={!selected && view.full} onClick={() => setPicked((cur) => toggleTrade(cur, c.id, max))}>
-                      {c.label}
-                    </Chip>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          {groups.filter((g) => g.key === MARKETED_GROUP_KEY).map(renderGroup)}
+          {rest.length > 0 ? (
+            <details className="rounded-card border border-line p-4" open={openRest}>
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-ink">{w('pf.more_trades', 'More trades')}</summary>
+              <p className="mt-1 text-sm text-muted">
+                {w('pf.more_trades_hint', 'Holler has records for these too, but fewer of them in the cities it covers today.')}
+              </p>
+              <div className="mt-3 flex flex-col gap-5">{rest.map(renderGroup)}</div>
+            </details>
+          ) : null}
         </div>
         {picked.map((id) => (
           <input key={id} type="hidden" name="categories" value={id} />

@@ -10,11 +10,6 @@ export const FEATURES = [
     description: 'City and county work that is out for bid, matched to your trade and area.',
   },
   {
-    id: 'spanish',
-    label: 'Holler in Spanish',
-    description: 'The site and the alert emails in Spanish.',
-  },
-  {
     id: 'asking-online',
     label: 'People asking online',
     description: 'Public posts where someone nearby asks for a pro in your trade.',

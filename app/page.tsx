@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Footer } from '@/components/footer';
 import { TopNav } from '@/components/top-nav';
 import { Anatomy } from '@/components/home/anatomy';
-import { AppBand } from '@/components/home/app-band';
 import { ClosingBand } from '@/components/home/closing-band';
 import { Faq } from '@/components/home/faq';
 import { Hero } from '@/components/home/hero';
@@ -15,12 +14,18 @@ import { homeCopy } from '@/lib/seo/public-copy';
 import { loadHomeLive } from '@/lib/seo/home-live';
 import { exampleMap } from '@/lib/seo/home-map';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import { socialMeta } from '@/lib/seo/social';
+
+const HOME_TITLE = 'See where the work is near you this week | Holler';
 
 export function generateMetadata(): Metadata {
+  const description = homeCopy().metaDescription;
   return {
-    title: { absolute: 'Holler: know when your town needs you' },
-    description: homeCopy().metaDescription,
+    // Round 23: the page title, the share title and the h1 are now one message (owner wording), and the share card carries the picture.
+    title: { absolute: HOME_TITLE },
+    description,
     alternates: pairAlternates(ES_PAIRS[0], 'en'),
+    ...socialMeta({ title: HOME_TITLE, description, path: '/' }),
   };
 }
 
@@ -57,7 +62,6 @@ export default async function Home() {
         {live.proof ? <ProofStrip proof={live.proof} /> : null}
         <Anatomy map={map} steps={copy.steps} />
         <Ledger families={copy.families} examples={ledgerExamples(map, live.weather)} />
-        <AppBand map={map} />
         <PricingBand />
         <Faq faqs={copy.faqs} />
         <ClosingBand />

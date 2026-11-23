@@ -48,6 +48,9 @@ export function DoorHanger({ lang, initialBusiness = '', storm = false }: { lang
 
   return (
     <div>
+      {/* Round 23. Putting unstamped mail in a mailbox is a federal offence (fines run to thousands of dollars), and some towns need a
+          handbill permit, so the one line that keeps a member out of trouble sits above the form, not in the fine print. */}
+      <p className="mb-5 rounded-card border border-line bg-surface p-4 text-muted print:hidden">{t(lang, 'hanger.rules')}</p>
       <form className="grid gap-4 print:hidden sm:grid-cols-2" onSubmit={(e) => e.preventDefault()} autoComplete="off">
         <Input
           label={t(lang, 'hanger.business')}

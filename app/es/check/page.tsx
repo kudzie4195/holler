@@ -13,6 +13,7 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
+import { coverageFor } from '@/lib/check/cells';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -149,8 +150,11 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     lang: L,
   };
 
-  // A ZIP with no local source within reach: say so, and point to the English waitlist card (the waitlist form is English only).
-  const uncoveredNote = isServedZip(place) ? null : <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} />;
+  // Round 23: coverage is per city AND per trade (lib/check/cells.ts), as on the English page. 'waitlist' means this trade has nothing
+  // here an owner could act on: say so, and point to the English waitlist card (the waitlist form is English only). The results block
+  // then shows no trial offer and no "Holler is watching near X" list.
+  const coverageState = coverageFor(place, params.trade, isServedZip(place)).state;
+  const uncoveredNote = coverageState === 'waitlist' ? <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} /> : null;
 
   if (!scope.covered) {
     return (
@@ -172,7 +176,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
           <CheckForm lang={L} zip={params.zip} trade={params.trade} />
         </FormBand>
         {uncoveredNote}
-        <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+        <CheckResults {...common} coverageState={coverageState} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
   }
@@ -193,7 +197,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} coverageState={coverageState} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

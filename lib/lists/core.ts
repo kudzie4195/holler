@@ -9,9 +9,15 @@ import { remarkNamesWindDamage, stormFactsOf } from '@/lib/signals/wind-damage';
 import { isProbationSource } from '@/lib/signals/probation';
 
 /**
- * Address lists (PLAN-2.0 item 3.3, round 18 unit LISTS). Trades that sell to homeowners (roofers, painters, landscapers, fencing, tree
- * service) work by door-knocking and mailers. Holler never gives them a homeowner's name or phone, and never will. What it can give is the
- * street address of PERMITTED work, which is public record, read from rows Holler already stores:
+ * Address lists (PLAN-2.0 item 3.3, round 18 unit LISTS). Trades that sell to homeowners (landscapers, lawn care, gutters, pressure
+ * washing, fencing, tree service) work by leaving something behind: this is where to hang and flyer this week. Holler never gives them a
+ * homeowner's name or phone, and never will. What it can give is the street address of PERMITTED work, which is public record, read from
+ * rows Holler already stores.
+ *
+ * The address rule, settled in round 23 and enforced by what this file reads: an EXACT street address only for a building permit;
+ * everything else (code violations, 311 requests, home sales) stays at block level; never a private person. That is why only permit rows
+ * reach a list at all (see the paragraph below).
+ * The sources:
  *
  *   storm lists         for a hail report of 1.00 inch or more, or a wind-damage report, from SPC in the last 14 days that already reached
  *                       the member as an act_now or coming_soon card: the permits Holler holds within STORM_RADIUS_MI of the report point.

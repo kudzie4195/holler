@@ -8,6 +8,7 @@ import { Input } from './input';
 import { Notice } from './notice';
 import { PasswordInput } from './password-input';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
+import { STATS_CONSENT_TEXT } from '@/lib/auth/stats-consent';
 
 /**
  * A form's words in its language (round 18 ES). English is the literal the form always printed, so English markup is unchanged; the
@@ -69,12 +70,18 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
   const w = wordsFor(lang);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  /**
+   * Round 23: the data-use box. Optional and UNTICKED, and the account is created either way: nothing on this page depends on it, and
+   * the button says nothing about it. Ticking it sends statsConsent true, which the API stores with the wording version and the time
+   * (lib/auth/stats-consent.ts). Leaving it alone sends nothing and stores nothing. Settings can turn it off again later.
+   */
+  const [statsConsent, setStatsConsent] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/signup', withLang(lang, { email, password }), lang);
+    const { status, body } = await post('/api/auth/signup', withLang(lang, statsConsent ? { email, password, statsConsent: true } : { email, password }), lang);
     if (body.ok) {
       const target = body.signedIn ? `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}` : pathFor(lang, '/login');
       hardNavigate(target);
@@ -109,6 +116,16 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-muted">
+        <input
+          type="checkbox"
+          name="stats_consent"
+          checked={statsConsent}
+          onChange={(e) => setStatsConsent(e.target.checked)}
+          className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
+        />
+        <span>{w('consent.stats', STATS_CONSENT_TEXT)}</span>
+      </label>
       <ErrorNotice error={error}>
         {error?.status === 409 ? <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link> : null}
       </ErrorNotice>

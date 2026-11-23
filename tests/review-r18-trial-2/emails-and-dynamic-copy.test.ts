@@ -1,6 +1,6 @@
 // REV2 probe 25 (r18 TRIAL, commit ef745e4): every email that mentions the trial or a price, and the dynamic blocks the prerender scan
 // (probe 24) cannot see (the /check CTA in English and Spanish, the pricing cards, the home pricing band). In each one: no "months free"
-// phrase together with a yearly price, no 14-day trial, and the trial stated as 60 days.
+// phrase together with a yearly price, no 14-day trial, and the trial stated as TRIAL_DAYS days.
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,7 +34,7 @@ describe('REV2 emails', () => {
     ['trial ended, missed', renderTrialEnded({ ...common, missed: 4 })],
     ['trial ended, none', renderTrialEnded({ ...common, missed: 0 })],
   ];
-  it('no email holds a months-free phrase and a yearly price together; none says 14 days; day counts say 60', () => {
+  it('no email holds a months-free phrase and a yearly price together; none says 14 days; day counts say TRIAL_DAYS', () => {
     const report: string[] = [];
     for (const [name, m] of mails) {
       for (const body of [m.subject + ' ' + strip(m.html), m.subject + ' ' + m.text]) {
@@ -68,14 +68,14 @@ describe('REV2 dynamic blocks', () => {
     const txt = strip(renderToStaticMarkup(createElement(PricingBand)));
     expect(YEARLY.test(txt)).toBe(true);
     expect(MONTHS.test(txt)).toBe(false);
-    expect(txt).toContain('60-day free trial. Then a flat monthly price.');
+    expect(txt).toContain('30-day free trial. Then a flat monthly price.');
   });
   it('/check CTA box, English and Spanish, built exactly as components/check-results.tsx builds it', () => {
     const up = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
     const en = `Get these by email. ${up(TRIAL_PHRASE)}, no card` + ' ' + `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.`;
     const es = t('es', 'chk.cta.btn', { trial: up(t('es', 'land.trial_precise', { days: TRIAL_DAYS })) }) + ' ' + t('es', 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY });
     for (const s of [en, es]) { expect(YEARLY.test(s)).toBe(true); expect(MONTHS.test(s)).toBe(false); }
-    expect(es).toContain('Prueba gratis de 60 días, sin tarjeta');
+    expect(es).toContain('Prueba gratis de 30 días, sin tarjeta');
     // and the source really uses those keys (not the headline) in that box
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const src = require('node:fs').readFileSync('components/check-results.tsx', 'utf8') as string;
@@ -84,20 +84,20 @@ describe('REV2 dynamic blocks', () => {
     expect(box).toContain("'land.trial_precise'");
     expect(/TRIAL_HEADLINE|'land\.trial'/.test(box)).toBe(false);
   });
-  it('Spanish home: price section is precise; the hero (no yearly price in that section) keeps the 2-month headline', () => {
-    const priceSection = t('es', 'price.h', { trial: 'Prueba gratis de 60 días' }) + ' ' + t('es', 'price.line', { starter: 'Solo', pro: 'Pro', a: '$7.99', b: '$79.99', c: '$13.99', d: '$139.99' });
+  it('Spanish home: price section is precise; the hero (no yearly price in that section) keeps the month headline', () => {
+    const priceSection = t('es', 'price.h', { trial: 'Prueba gratis de 30 días' }) + ' ' + t('es', 'price.line', { starter: 'Solo', pro: 'Pro', a: '$7.99', b: '$79.99', c: '$13.99', d: '$139.99' });
     expect(YEARLY.test(priceSection)).toBe(true);
     expect(MONTHS.test(priceSection)).toBe(false);
-    const hero = t('es', 'hero.price', { from: FROM_MONTHLY, trial: t('es', 'land.trial', { months: 2 }) });
-    expect(hero).toBe('Desde $7.99/mes después de 2 meses gratis. Sin tarjeta.');
+    const hero = t('es', 'hero.price', { from: FROM_MONTHLY, trial: t('es', 'land.trial_one', { months: 1 }) });
+    expect(hero).toBe('Desde $7.99/mes después de 1 mes gratis. Sin tarjeta.');
     expect(YEARLY.test(hero)).toBe(false);
   });
-  it('CTA labels and the mobile config: headline never with a yearly price; config carries 60 / both phrases', () => {
+  it('CTA labels and the mobile config: headline never with a yearly price; config carries TRIAL_DAYS / both phrases', () => {
     for (const s of [cityCtaLabel('Chicago'), stormCtaLabel()]) { expect(MONTHS.test(s)).toBe(true); expect(YEARLY.test(s)).toBe(false); }
-    expect(TRIAL_HEADLINE).toBe('2 months free');
-    expect(PUBLIC_PRICES.trialPeriod).toBe('P60D');
+    expect(TRIAL_HEADLINE).toBe('1 month free');
+    expect(PUBLIC_PRICES.trialPeriod).toBe('P30D');
     const cfg = JSON.stringify(configBody('https://x.test', null));
-    expect(cfg).toContain('"trialDays":60');
+    expect(cfg).toContain('"trialDays":30');
     expect(T14.test(cfg)).toBe(false);
   });
 });

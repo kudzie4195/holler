@@ -7,7 +7,7 @@ import { cleanCitySlug, safeNext } from '@/lib/auth/redirect';
 import { getUser } from '@/lib/auth/session';
 import { cityBySlug } from '@/lib/geo';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
-import { TRIAL_HEADLINE, TRIAL_MONTHS } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE, TRIAL_HEADLINE_KEY, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 
 /**
  * The bodies of the sign-up, log-in and password pages, shared by the English pages (app/(auth)/...) and their Spanish twins (/es/...).
@@ -32,8 +32,9 @@ export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: 
         : `${TRIAL_HEADLINE}, no card. Takes about a minute.`
       : city
         ? t(lang, 'auth.signup.sub_city', { city: `${city.name}, ${city.state}` })
-        : // Round 18 integration: the 2-month headline, as in English (r18 trial), from the 'land.trial' template and TRIAL_MONTHS.
-          t(lang, 'auth.signup.sub', { free: t(lang, 'land.trial', { months: TRIAL_MONTHS }) });
+        : // Round 18 integration: the same headline as in English (r18 trial), from the 'land.trial' templates and TRIAL_MONTHS.
+          // Round 23: one month, so the key is the singular one (lib/plan/price-copy.ts TRIAL_HEADLINE_KEY).
+          t(lang, 'auth.signup.sub', { free: t(lang, TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS }) });
   return (
     <AuthCard
       title={w('auth.signup.h', 'Start your free trial')}

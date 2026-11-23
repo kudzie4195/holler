@@ -37,10 +37,13 @@ export const PLAN_BLURB: Record<Tier, string> = {
   pro: 'For a crew that covers more ground or more kinds of work.',
 };
 
-/** The app is not released: both short cards say push comes with it (alerts go by email today). */
-export const PUSH_NOTE = 'Push arrives with the app.';
+/**
+ * Round 23 (website-only launch): both notes say what is true today. Holler is a website; alerts go by email and to the feed, and no
+ * app, store listing or push notification exists. These replaced PUSH_NOTE / PUSH_NOTE_FULL, which promised push "with the app".
+ */
+export const ALERTS_NOTE = 'Alerts come by email.';
 /** /pricing says it once, under both cards: the full cards already list email alerts among the features. */
-export const PUSH_NOTE_FULL = 'Push alerts arrive with the iPhone and Android apps, which are on the way.';
+export const ALERTS_NOTE_FULL = 'Holler is a website, so alerts come by email and to your feed here, and there is no app to install.';
 
 const CARD: Record<Tier, { card: string; tag: string; muted: string; button: string; check: string }> = {
   // Solo on field green: on-brand text 11.3:1, on-brand-muted 8.2:1, signal tag 9.7:1. Signal button with ink text (13.2:1).
@@ -131,7 +134,7 @@ export function Pricing({ variant = 'full', lang = 'en' }: { variant?: 'short' |
                   ))}
                 </p>
               )}
-              {full ? null : <p className={`text-[0.9375rem] ${c.muted}`}>{es ? t(lang, 'pricing.push_short') : PUSH_NOTE}</p>}
+              {full ? null : <p className={`text-[0.9375rem] ${c.muted}`}>{es ? t(lang, 'pricing.alerts_short') : ALERTS_NOTE}</p>}
               <Link
                 href={es ? '/es/signup' : '/signup'}
                 className={`mt-auto flex min-h-[52px] items-center justify-center whitespace-normal! rounded-control px-4 text-center font-semibold transition-[filter,background-color] duration-150 active:translate-y-px ${c.button}`}
@@ -150,11 +153,11 @@ export function Pricing({ variant = 'full', lang = 'en' }: { variant?: 'short' |
       </ul>
       {full && es ? (
         <p className="text-sm text-muted">
-          {t(lang, 'pricing.trial_note', { solo: planNameEs('starter'), pro: planNameEs('pro') })} {t(lang, 'pricing.push_full')}
+          {t(lang, 'pricing.trial_note', { solo: planNameEs('starter'), pro: planNameEs('pro') })} {t(lang, 'pricing.alerts_full')}
         </p>
       ) : full ? (
         <p className="text-sm text-muted">
-          The trial uses {TIER_NAMES.starter} limits. Move to {TIER_NAMES.pro} in Settings, or cancel, any time. {PUSH_NOTE_FULL}
+          The trial uses {TIER_NAMES.starter} limits. Move to {TIER_NAMES.pro} in Settings, or cancel, any time. {ALERTS_NOTE_FULL}
         </p>
       ) : null}
     </div>

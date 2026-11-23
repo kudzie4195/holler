@@ -54,7 +54,7 @@ export const requests311: Guide = {
         'Pick the two or three request types that fit your trade.',
         'Drop rows marked as duplicates, and set aside Completed and Canceled ones.',
         'Count what is left by ZIP code for each of the last four weeks.',
-        'Put your mail or door-knocking time into the ZIP codes where the count jumped.',
+        'Put your flyers and door hangers into the ZIP codes where the count jumped.',
         'Repeat the count every week. A flat number tells you an area is quiet for your kind of work, which is worth knowing too.',
       ],
     },

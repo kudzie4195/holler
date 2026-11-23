@@ -4,7 +4,7 @@
  * deletion, the verify notice, and the welcome, verify, password reset, trial lifecycle and outcome-question emails) is rendered here
  * for an English member or visitor and compared with tests/i18n/fixtures/english-r18.json.
  *
- * That file was written by this test at the base commit with WRITE_ENGLISH_BASELINE=1, and is not edited by hand. Base: first 8bee203;
+ * That file is written by this test with WRITE_ENGLISH_BASELINE=1 and is never edited by hand. Base: first 8bee203;
  * at the round 18 integration it was rewritten at 765687f (the five other round 18 units merged, before this unit), with this harness, so
  * the trial wording, the Lists link, the print classes and the work-profile section are in the base and only this unit's changes differ. The only intended English differences are listed in INTENDED below and checked on their own.
  */
@@ -31,42 +31,16 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * (The other intended change, the "Español" link in the footer of /signup, /login, /forgot and /reset, depends on the path and is tested in
  * tests/i18n/es-account.test.ts; here the path is /app, where that link renders nothing.)
  */
-const INTENDED: Record<string, [string, string][]> = {
-  'pricing.html': [['href="/es">Español</a>', 'href="/es/pricing">Español</a>']],
-  // Redo 2 (review 2 P2-2): the privacy page names the holler_lang cookie. NEEDS KUDZI. (Its date, November 22, 2026, is already in the
-  // round 18 integration base: the trial unit moved it first, so it is no ES difference here.)
-  'privacy.html': [
-    [
-      'Our city, trade and storm pages never read cookies on our servers.</p>',
-      'Our city, trade and storm pages never read cookies on our servers.</p><p>Your browser also gets a cookie, holler_lang, that holds only en or es and remembers the language of your account pages in this browser for one year; it is not used for tracking, and logging out or deleting your account removes it.</p>',
-    ],
-  ],
-};
-
 /**
- * Round 19 integration (r19-metros merged with round 18): the English changes r19-metros made on purpose to these same surfaces, applied
- * to the round 18 base like INTENDED above (each must occur exactly once in the base):
- *  - the fifth Coming-next feature "More ZIP codes" (lib/interest/features.ts) on /pricing and every /app state; on /app the list's
- *    React id moves by one because the extra item is rendered before the section's heading id is taken;
- *  - /privacy: the waitlist paragraph now says sign-ups are double opt-in (round 19 review defect 1).
- * The "Who's building near you" panel is not here: it is off by default (HOLLER_BUILDERS_PANEL_ENABLED), so /app is otherwise unchanged.
+ * Round 23 rewrote the launch copy on exactly these surfaces (the home message, no app or push wording, the 30-day trial, the data-use
+ * consent box at sign-up and in Settings, the marketed trades first on the onboarding form, the lists and door hanger on the plan cards,
+ * the privacy paragraphs). The fixture was therefore rewritten with WRITE_ENGLISH_BASELINE=1 at round 23, and it now holds the round 23
+ * render, not the round 18 one. The three patch maps the round 18 and 19 units used (INTENDED, R19_INTENDED and MORE_AREAS_LI) are empty
+ * for that reason: every difference they described is in the stored base already. The 28 keys that changed in that rewrite are listed in
+ * the round 23 report (PHASEA-report.md); from here on this test is again a byte-for-byte guard, now against the round 23 render.
  */
-const MORE_AREAS_LI = "<li class=\"flex flex-col gap-3 border-b border-line py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-5\"><div class=\"min-w-0\"><h3 class=\"text-lg font-semibold text-ink\">More ZIP codes</h3><p class=\"mt-1 text-muted\">Permits and city requests in more places. Check your ZIP code to get one email when we reach it.</p></div><button type=\"button\" class=\"inline-flex max-w-full items-center justify-center gap-2 rounded-control text-center font-semibold whitespace-normal min-[22.5rem]:whitespace-nowrap select-none transition-[color,background-color,border-color,box-shadow,filter] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 border border-line-strong bg-surface text-ink hover:border-ink hover:bg-sand min-h-11 px-5 text-base  w-full shrink-0 sm:w-36\" aria-label=\"I want this: More ZIP codes\">I want this</button></li>";
-const R19_PRIVACY_FROM = "We save your email, that ZIP code, the trade you picked and the page you were on, with no account and no name. We use the email only to tell you when we cover that area. We do not set a cookie for it, and we do not share the email or use it for ads. Pressing the button again with the same email and ZIP saves nothing new.";
-const R19_PRIVACY_TO = "We save your email, that ZIP code, the rough center of that ZIP code, the trade you picked and which version of the card&#x27;s wording you saw, with no account and no name. We send one email with a link to confirm the address; you are on the list only once you press it. We use the email only to confirm it and to tell you when we cover that area. We do not set a cookie for it, and we do not share the email or use it for ads. Pressing the button again with the same email and ZIP saves nothing new, and once the address is confirmed it sends nothing new either.";
-const R19_COMING_NEXT_KEYS = ['pricing.html', 'app.trialing.html', 'app.trialing.unverified.html', 'app.trialing.1day.html', 'app.past_due.html', 'app.active.html', 'app.locked.html', 'app.locked.none.html'];
-const R19_INTENDED: Record<string, [string, string][]> = {
-  ...Object.fromEntries(
-    R19_COMING_NEXT_KEYS.map((k) => [
-      k,
-      [
-        ['Free weekly city email">I want this</button></li></ul>', `Free weekly city email">I want this</button></li>${MORE_AREAS_LI}</ul>`],
-        ...(k.startsWith('app.') ? ([['aria-labelledby="_R_6_" class="mt-12 pt-2"><h2 id="_R_6_"', 'aria-labelledby="_R_7_" class="mt-12 pt-2"><h2 id="_R_7_"']] as [string, string][]) : []),
-      ] as [string, string][],
-    ]),
-  ),
-  'privacy.html': [[R19_PRIVACY_FROM, R19_PRIVACY_TO]],
-};
+const INTENDED: Record<string, [string, string][]> = {};
+const R19_INTENDED: Record<string, [string, string][]> = {};
 
 function stripMeta(m: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...m };
@@ -232,8 +206,6 @@ describe('English output is unchanged (round 18 ES)', () => {
     expect(existsSync(FIXTURE), FIXTURE).toBe(true);
     const base = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
     expect(Object.keys(now).sort()).toEqual(Object.keys(base).sort());
-    const { APP_LANG_SCRIPT } = await import('@/components/app-header');
-    INTENDED['app-layout.html'] = [['</header><main', `</header><script type="text/javascript">${APP_LANG_SCRIPT}</script><main`]];
     for (const [k, swaps] of Object.entries(INTENDED)) {
       for (const [from, to] of swaps) {
         expect(base[k].split(from).length - 1, `${k}: ${from}`).toBe(1);
@@ -246,8 +218,9 @@ describe('English output is unchanged (round 18 ES)', () => {
         base[k] = base[k].replace(from, to);
       }
     }
-    expect(MORE_AREAS_LI).toMatch(/^<li [^]*More ZIP codes[^]*Check your ZIP code to get one email when we reach it\.[^]*<\/li>$/);
-    expect(MORE_AREAS_LI.split('<li').length - 1).toBe(1);
+    // The round 23 base already carries the "More ZIP codes" row and the language-hint script, so nothing is patched into it here.
+    expect(base['pricing.html']).toContain('More ZIP codes');
+    expect(base['app-layout.html']).toContain('<script type="text/javascript">');
     for (const k of Object.keys(base)) expect(now[k], k).toBe(base[k]);
   }, 60_000);
 });

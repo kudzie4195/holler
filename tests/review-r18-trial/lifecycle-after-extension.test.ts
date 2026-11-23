@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { selectLifecycle, WINDOWS, type LifecycleProfile, type SendRow } from '../../lib/lifecycle/select';
 import { TRIAL_ENDED_SUBJECT, TRIAL_ENDING_SUBJECT, renderTrialEnded } from '../../lib/lifecycle/templates';
 import { mayExtendTrial } from '../../lib/auth/trial';
+import { TRIAL_DAYS } from '../../lib/auth/membership';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -28,23 +29,23 @@ const member = (createdDaysAgo: number, endsInDays: number): LifecycleProfile =>
 const AFTER_0028: SendRow[] = [{ user_id: 'u1', kind: 'welcome' }]; // 0028 deleted trial_ending and trial_ended
 
 describe('REV lifecycle emails after the 0028 extension', () => {
-  it('extended mid-trial member (day 10, new end +50 d): one reminder about 3 days before the new end, one ended email after it, nothing else', () => {
-    const sent = run(member(10, 50), AFTER_0028, 53 * 24);
-    expect(sent).toEqual([`trial_ending@+${50 * 24 - WINDOWS.trial_ending.to}h`, `trial_ended@+${50 * 24 + WINDOWS.trial_ended.from}h`]);
+  it('extended mid-trial member (day 10, new end +20 d): one reminder about 3 days before the new end, one ended email after it, nothing else', () => {
+    const sent = run(member(10, 20), AFTER_0028, 23 * 24);
+    expect(sent).toEqual([`trial_ending@+${20 * 24 - WINDOWS.trial_ending.to}h`, `trial_ended@+${20 * 24 + WINDOWS.trial_ended.from}h`]);
     expect(TRIAL_ENDING_SUBJECT).toBe('Your trial ends in 3 days');
   });
 
   it('no "trial ended" email goes to an extended member while the new trial runs', () => {
-    const sent = run(member(34, 26), AFTER_0028, 26 * 24 - 1);
+    const sent = run(member(20, 10), AFTER_0028, 10 * 24 - 1);
     expect(sent.filter((s) => s.startsWith('trial_ended'))).toEqual([]);
   });
 
   it('a member who opted out of trial emails gets none after the extension (opt-out row survives 0028)', () => {
-    expect(run(member(10, 50), [...AFTER_0028, { user_id: 'u1', kind: 'optout' }], 53 * 24)).toEqual([]);
+    expect(run(member(10, 20), [...AFTER_0028, { user_id: 'u1', kind: 'optout' }], 23 * 24)).toEqual([]);
   });
 
   it('welcome is not re-sent (its ledger row is kept)', () => {
-    expect(run(member(1, 59), AFTER_0028, 48).filter((s) => s.startsWith('welcome'))).toEqual([]);
+    expect(run(member(1, 29), AFTER_0028, 48).filter((s) => s.startsWith('welcome'))).toEqual([]);
   });
 
   /** What 0028 / the app leave behind for a member whose 14-day trial ended: revived (ledger reset) only when mayExtendTrial allows. */
@@ -53,27 +54,28 @@ describe('REV lifecycle emails after the 0028 extension', () => {
     const start = iso(T0 - startDaysAgo * DAY);
     const revived = mayExtendTrial(ended, start, T0);
     if (!revived) return { p: ended, ledger: [...AFTER_0028, { user_id: 'u1', kind: 'trial_ending' }, { user_id: 'u1', kind: 'trial_ended' }], revived };
-    return { p: member(startDaysAgo, 60 - startDaysAgo), ledger: AFTER_0028, revived };
+    return { p: member(startDaysAgo, TRIAL_DAYS - startDaysAgo), ledger: AFTER_0028, revived };
   }
 
-  it('F1 fixed: a member whose trial ended 45.9 days ago (start 59.875 d back) is NOT revived, so no second "Your alerts are paused"', () => {
-    const m = afterMigration(59.875);
+  it('F1 fixed: a member whose trial ended 15.875 days ago (start 29.875 d back) is NOT revived, so no second "Your alerts are paused"', () => {
+    const m = afterMigration(29.875);
     expect(m.revived).toBe(false);
     expect(run(m.p, m.ledger, 96)).toEqual([]);
     expect(TRIAL_ENDED_SUBJECT).toBe('Your alerts are paused');
     expect(renderTrialEnded({ businessName: 'Biz', feedUrl: 'https://x.test/app', plansUrl: 'https://x.test/p', unsubscribeUrl: 'https://x.test/u', missed: 0 }).text).toContain('Your free trial has ended, so Holler has paused your alerts');
   });
 
-  it('F1 fixed: original start 57 to 60 days back stays ended (no email at all); 56 and 46 days back are revived and get the reminder FIRST', () => {
-    for (const startDaysAgo of [57, 57.5, 57.6, 58, 59, 59.9]) {
+  // Round 23: the same boundary, measured against TRIAL_DAYS = 30 (it was 60 in round 18).
+  it('F1 fixed: original start 27 to 30 days back stays ended (no email at all); 26 and 16 days back are revived and get the reminder FIRST', () => {
+    for (const startDaysAgo of [27, 27.5, 27.6, 28, 29, 29.9]) {
       const m = afterMigration(startDaysAgo);
       expect(m.revived, `start ${startDaysAgo} d ago`).toBe(false);
       expect(run(m.p, m.ledger, 6 * 24), `start ${startDaysAgo} d ago`).toEqual([]);
     }
-    for (const startDaysAgo of [56, 46]) {
+    for (const startDaysAgo of [26, 16]) {
       const m = afterMigration(startDaysAgo);
       expect(m.revived, `start ${startDaysAgo} d ago`).toBe(true);
-      expect(run(m.p, m.ledger, (62 - startDaysAgo) * 24).map((s) => s.split('@')[0]), `start ${startDaysAgo} d ago`).toEqual(['trial_ending', 'trial_ended']);
+      expect(run(m.p, m.ledger, (32 - startDaysAgo) * 24).map((s) => s.split('@')[0]), `start ${startDaysAgo} d ago`).toEqual(['trial_ending', 'trial_ended']);
     }
   });
 });

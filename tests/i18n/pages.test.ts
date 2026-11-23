@@ -150,7 +150,10 @@ describe('/es/check', () => {
     expect(t).toContain('Fuente: Datos abiertos de Atlanta: permisos de construcción');
     expect(t).toMatch(/hace 3 h|hace 3 horas/);
     expect(t).toContain(es['chk.cta.intro']);
-    expect(html).toContain('href="/signup');
+    // Round 23: the Spanish CTA goes to the Spanish sign-up. It used to build '/signup?city=...' and ignore `lang`, so every /es
+    // conversion landed on the English page.
+    expect(html).toContain('href="/es/signup?city=');
+    expect(html).not.toMatch(/href="\/signup/);
     expect(t).not.toMatch(/Source:|Weather and disasters|Building permits|ago\b/);
     expect(spanishProblems(t.replace(/1\.50 inch hail reported near 2 ESE Atlanta, GA|Roof permit in Atlanta/g, ' '))).toEqual([]);
   });

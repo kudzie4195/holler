@@ -31,6 +31,8 @@ describe('groupCategories', () => {
     expect(g[0].label).toBeNull();
   });
   it('covers every group id the contract defines', () => {
-    expect(GROUP_ORDER.map((x) => x.key)).toEqual(['home', 'storm', 'auto', 'business', 'food-events', 'other']);
+    // Round 23: 'marketed' is first. It is not a CATEGORY_GROUPS value; it exists only to put the trades Holler is marketed for
+    // (lib/plan/profile-categories.ts MARKETED_TRADES) at the top of the sign-up form, above a "More trades" disclosure.
+    expect(GROUP_ORDER.map((x) => x.key)).toEqual(['marketed', 'home', 'storm', 'auto', 'business', 'food-events', 'other']);
   });
 });
