@@ -327,9 +327,15 @@ function isBareState(s: string): boolean {
  * A house number before a named street ("147 LEE AVENUE"). Only a building permit may print an exact street address (wording rules), so in
  * the title of any other record (an event permit names its street, review P3) the number is printed as its hundred-block. "34 AVENUE" and
  * "93 STREET" (a numbered street with no house number) and an existing "100 block of" are left alone.
+ * Round 24 FIX2 (review D4): a number right before a street word ("EAST 147 STREET between ..."), a number after a hyphen (the end of a
+ * range, "1801-2011 N. Clark St.", is read with its first number: the 1800 block), and a span through "km", "mi", "between", "and" or "of" ("19 km SW of Toms Place") are not a house.
  */
 const HOUSE_ADDRESS_RE =
-  /\b(\d{1,6})\s+(?!block\b)((?:[NSEW]\.?\s+)?(?:[A-Za-z][A-Za-z'.-]*\s+){1,4}(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|CIR|CIRCLE|TER|TERRACE))\b/gi;
+  /(?<![-\d])\b(\d{1,6})(?:-\d{1,6})?\s+(?!block\b)(?!(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE)\b)((?:[NSEW]\.?\s+)?(?:(?!(?:km|mi|between|and|of)\b)[A-Za-z][A-Za-z'.-]*\s+){1,4}(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|CIR|CIRCLE|TER|TERRACE))\b/gi;
+/** Round 24 FIX2 (review D4): families whose titles name a distance or a street span, never a house: their title is never rewritten. */
+// Event permits are NOT skipped (the reviewer suggested it): their titles do name house addresses ("33-15 DITMARS BOULEVARD"), and the
+// rewrite is what keeps those off a non-permit card. The three guards above fix the garbled event titles instead.
+const NO_BLOCK_REWRITE: readonly BriefFamily[] = ['quake'];
 
 /**
  * A title some feeds stored cut short ("...; Western Putnam; S…"): cut back to the last whole item or word, so a heading never ends
@@ -350,7 +356,8 @@ function tidyCutTitle(s: string): string {
  */
 function displayTitle(it: DigestItem, lang: Lang): string {
   let title = tidyCutTitle(noDash(localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' '));
-  if (familyOf(it) !== 'permit') {
+  const fam = familyOf(it);
+  if (fam !== 'permit' && !NO_BLOCK_REWRITE.includes(fam)) {
     title = title.replace(HOUSE_ADDRESS_RE, (_m, num: string, street: string) => {
       const hundred = Math.floor(Number(num) / 100) * 100;
       return t(lang, 'sum.sale_block', { n: hundred > 0 ? String(hundred) : '0-99', street: street.trim() });
