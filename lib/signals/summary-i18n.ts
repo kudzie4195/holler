@@ -113,6 +113,20 @@ function parseWhole(summary: string, lang: Lang, source: string | null | undefin
   return null;
 }
 
+const SALE_CLASS_KEYS: Record<string, DictKey> = {
+  'Single-family home': 'sum.sale_class.single',
+  Condo: 'sum.sale_class.condo',
+  'Multi-family building': 'sum.sale_class.multi',
+  'Commercial property': 'sum.sale_class.commercial',
+};
+
+/** A price band: the two open-ended ones have words; "$250k–$500k" and "$500k–$1M" read the same in both languages. */
+function saleBandLang(band: string, lang: Lang): string {
+  if (band === 'under $250k') return t(lang, 'sum.sale_band.under_250k');
+  if (band === 'over $1M') return t(lang, 'sum.sale_band.over_1m');
+  return band;
+}
+
 /** One " | " part, or one ", " part of USAspending and Ticketmaster summaries. Holler's own words are said in the language; source text is kept. */
 function partLang(part: string, lang: Lang, source: string): string {
   let m: RegExpExecArray | null;
@@ -124,6 +138,9 @@ function partLang(part: string, lang: Lang, source: string): string {
   // are the records' own words and stay as written.
   if (part === HEAT_MARK) return t(lang, 'sum.heat_building');
   if (part.startsWith(ALSO_CITED_PREFIX)) return t(lang, 'sum.also_cited', { orders: part.slice(ALSO_CITED_PREFIX.length) });
+  // Round 20 SALES (lib/signals/adapters/sales.ts saleSummary): "Price band: $250k–$500k | Single-family home".
+  if ((m = /^Price band: (.+)$/.exec(part))) return t(lang, 'sum.sale_band', { band: saleBandLang(m[1], lang) });
+  if (SALE_CLASS_KEYS[part]) return t(lang, SALE_CLASS_KEYS[part]);
   if (part === 'Mechanical') return t(lang, 'sum.part_mechanical');
   if (part === 'Residential building') return t(lang, 'sum.part_res_building');
   if (part === 'Commercial building') return t(lang, 'sum.part_com_building');

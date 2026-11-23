@@ -6,6 +6,7 @@ import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
 import { adapters as socrata } from './adapters/socrata';
 import { adapters as carto } from './adapters/carto';
+import { adapters as sales } from './adapters/sales';
 import { adapters as nycHeat } from './adapters/nyc-hpd';
 import { adapters as arcgis } from './adapters/arcgis';
 import { adapters as arcgisJohnsCreek } from './adapters/arcgis-johnscreek';
@@ -28,6 +29,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...socrata.map((a) => nycHeat.find((n) => n.id === a.id) ?? a),
   // Philadelphia (Carto SQL API): every adapter here is on probation (samples only in holler_source_samples, never members).
   ...carto,
+  // Round 20 SALES: recorded property sales (NYC, Cook County, Philadelphia, Miami-Dade), every one on probation.
+  ...sales,
   // The Cobb permit layers are built by arcgis-cobb.ts (approximate location marker), so the shared list skips them.
   ...arcgis.filter((a) => !COBB_SOURCE_IDS.includes(a.id)),
   ...arcgisCobb,

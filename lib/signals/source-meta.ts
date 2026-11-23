@@ -56,6 +56,11 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "carto-phl-permits": { id: "carto-phl-permits", label: "Philadelphia open data: building permits", sourceUrl: "https://opendataphilly.org/datasets/licenses-and-inspections-building-permits/" },
   "carto-phl-violations": { id: "carto-phl-violations", label: "Philadelphia open data: code violations", sourceUrl: "https://opendataphilly.org/datasets/licenses-and-inspections-violations/" },
   "carto-phl-business": { id: "carto-phl-business", label: "Philadelphia open data: new business licenses", sourceUrl: "https://opendataphilly.org/datasets/licenses-and-inspections-business-licenses/" },
+  // Round 20 SALES (lib/signals/adapters/sales-datasets.ts), all on probation.
+  "socrata-nyc-acris-sales": { id: "socrata-nyc-acris-sales", label: "New York open data: property sales", sourceUrl: "https://data.cityofnewyork.us/d/bnx9-e6tj" },
+  "socrata-cook-sales": { id: "socrata-cook-sales", label: "Chicago open data: property sales", sourceUrl: "https://datacatalog.cookcountyil.gov/d/wvhk-k5uv" },
+  "carto-phl-sales": { id: "carto-phl-sales", label: "Philadelphia open data: property sales", sourceUrl: "https://opendataphilly.org/datasets/real-estate-transfers/" },
+  "arcgis-miamidade-sales": { id: "arcgis-miamidade-sales", label: "Miami-Dade County open data: property sales", sourceUrl: "https://opendata.miamidade.gov/datasets/bf92e51f90a8426cae904ebc15018067" },
   "arcgis-dekalb-permits": { id: "arcgis-dekalb-permits", label: "DeKalb County open data: building permits", sourceUrl: "https://dcgis.dekalbcountyga.gov/mapping/rest/services/Building_Permit_Applications/MapServer/0" },
   "arcgis-raleigh-permits": { id: "arcgis-raleigh-permits", label: "Raleigh open data: building permits", sourceUrl: "https://services.arcgis.com/v400IkDOw1ad7Yad/arcgis/rest/services/Building_Permits/FeatureServer/0" },
   "arcgis-dc-permits": { id: "arcgis-dc-permits", label: "Washington open data: building permits", sourceUrl: "https://maps2.dcgis.dc.gov/DCGIS/rest/services/FEEDS/DCRA/MapServer/4" },

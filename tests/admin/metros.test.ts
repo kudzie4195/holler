@@ -128,6 +128,7 @@ describe('buildMetroReport', () => {
     expect(phl.probation).toEqual([
       { id: 'carto-phl-business', samples: 0, state: null },
       { id: 'carto-phl-permits', samples: 120, state: 'healthy' },
+      { id: 'carto-phl-sales', samples: 0, state: null }, // round 20 SALES
       { id: 'carto-phl-violations', samples: 0, state: null },
     ]);
     expect(r.national!.total).toBe(NATIONAL_SOURCES.length);

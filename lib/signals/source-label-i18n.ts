@@ -15,6 +15,7 @@ const TYPE_KEY: Record<string, DictKey> = {
   'new business licenses': 'srcl.type.business',
   'special event permits': 'srcl.type.events',
   'open bids': 'srcl.type.bids',
+  'property sales': 'srcl.type.sales',
 };
 
 /** The label rebuilt from the dictionary for any language (used for 'en' too, by the drift test). Null when the id has no label. */

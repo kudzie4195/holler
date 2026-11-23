@@ -341,4 +341,5 @@ const FAMILY_SOURCE: Partial<Record<BriefFamily, string>> = {
   'city-bid': 'bids-sf',
   'public-post': 'bluesky',
   'resident-request': 'holler-request',
+  sale: 'carto-phl-sales',
 };

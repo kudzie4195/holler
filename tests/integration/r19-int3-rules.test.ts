@@ -19,7 +19,7 @@ import { createStore } from '@/lib/lifecycle/store';
 import { buildAlerts } from '@/lib/mobile/feed';
 import { matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { labelFor, keptMatchLabel, SOURCE_DEFAULTS } from '@/lib/signals/lead-rules';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, SALE_SOURCE_IDS } from '@/lib/signals/probation';
 import { createsWorkFor, stormListLabel } from '@/lib/lists/core';
 import { OpportunityChip } from '@/components/feed/opportunity-chip';
 
@@ -134,7 +134,9 @@ describe('2. the contact gate and the new rules agree', () => {
 
 describe('3. probation and the label exemption', () => {
   it('the eight coverage ids have no SOURCE_DEFAULTS entry and are exempt only while on probation; the Philadelphia three have had entries since r19-metros', () => {
-    expect(PROBATION_SOURCE_IDS.size).toBe(11);
+    // 11 from round 19, plus the four round 20 property sale sources (proposed labels only, lib/signals/proposed-labels.ts)
+    expect(PROBATION_SOURCE_IDS.size).toBe(11 + SALE_SOURCE_IDS.length);
+    for (const id of SALE_SOURCE_IDS) expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
     for (const s of COVERAGE_R19_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
     for (const id of ['carto-phl-permits', 'carto-phl-violations', 'carto-phl-business']) expect(SOURCE_DEFAULTS[id], id).toBeDefined();
     expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());

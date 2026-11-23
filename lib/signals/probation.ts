@@ -3,6 +3,7 @@ import { isProbationNote } from './probation-note';
 import { SOCRATA_DATASETS } from './adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { CARTO_DATASETS } from './adapters/carto-datasets';
+import { SALES_DATASETS } from './adapters/sales-datasets';
 
 /**
  * Source probation, the owner's view (round 19 COVERAGE). The storage side is lib/signals/samples.ts and the scan side lib/signals/run.ts
@@ -71,6 +72,13 @@ export const COVERAGE_R19_SOURCES: readonly CoverageSource[] = [
  */
 export const LABEL_PENDING_INTEGRATION: readonly string[] = COVERAGE_R19_SOURCES.map((s) => s.id);
 
+/**
+ * Round 20 SALES: the property sale sources (lib/signals/adapters/sales-datasets.ts), all on probation and schema-unverified. Their
+ * proposed labels are in lib/signals/proposed-labels-sales.ts (never in SOURCE_DEFAULTS until promotion), and the owner probes each with
+ * /api/admin/coverage-probe like a coverage source.
+ */
+export const SALE_SOURCE_IDS: readonly string[] = SALES_DATASETS.map((d) => d.id);
+
 /** The owner's probe for a coverage source (Bearer CRON_SECRET only). */
 export function coverageProbePath(id: string): string {
   return `/api/admin/coverage-probe?source=${encodeURIComponent(id)}`;
@@ -103,15 +111,16 @@ export interface ProbationRow {
   /**
    * Review P2-C/D/F: a broken source never reads "ok".
    *   not_run          no scan has recorded it yet (or the samples table is missing, which skips it)
+   *   timeout          the last run was cut off by the scan's time limit (round 20: shown apart from other errors)
    *   schema_mismatch  the expected id, date or flag column is missing, or the date is unreadable (lastError says which)
    *   not_json         the portal answered 200 with an HTML page or an empty body
    *   no_recent_rows   rows came back, but none in the age window (lastError names the newest date)
-   *   error            any other failure (HTTP status, timeout, unreadable field list ...)
+   *   error            any other failure (HTTP status, unreadable field list ...)
    *   no_rows          ran without error but has never returned a row
    *   row_cap          worked, but the last run read a full page: older rows in the window were not read (note says so)
    *   ok               the last run worked and the source has returned rows
    */
-  check: 'not_run' | 'ok' | 'schema_mismatch' | 'not_json' | 'no_recent_rows' | 'error' | 'no_rows' | 'row_cap';
+  check: 'not_run' | 'ok' | 'schema_mismatch' | 'not_json' | 'no_recent_rows' | 'timeout' | 'error' | 'no_rows' | 'row_cap';
   /** The latest run's probation note (row cap), when there is one. */
   note?: string;
   /** Coverage sources only: the probe to run before promoting it. */
@@ -142,6 +151,9 @@ export function probationCheck(h: ProbationHealthLite | undefined, lastRun?: Pro
     if (isSchemaMismatch(e)) return 'schema_mismatch';
     if (/empty response body|response was not JSON/.test(e)) return 'not_json';
     if (/no rows in the last \d+ days/.test(e)) return 'no_recent_rows';
+    // Round 20: the scan writes exactly "timeout" when a source runs past its limit (run.ts TimeoutError); a sale source that cut a
+    // request off itself writes "error: <id>: timeout".
+    if (/(^|: )timeout$/.test(e.trim())) return 'timeout';
     return 'error';
   }
   if (!h.last_record_at) return 'no_rows';
@@ -161,7 +173,7 @@ export function probationOverview(
     const prev = runBy.get(r.source);
     if (!prev || (r.started_at ?? '') > (prev.started_at ?? '')) runBy.set(r.source, r);
   }
-  const coverage = new Set(COVERAGE_R19_SOURCES.map((s) => s.id));
+  const coverage = new Set([...COVERAGE_R19_SOURCES.map((s) => s.id), ...SALE_SOURCE_IDS]);
   return adapters
     .filter((a) => a.probation)
     .map((a) => {
@@ -169,7 +181,9 @@ export function probationOverview(
       const run = runBy.get(a.id);
       const check = probationCheck(h, run);
       const platform = platformOf(a.id);
-      const file = platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
+      const file = SALE_SOURCE_IDS.includes(a.id)
+        ? 'lib/signals/adapters/sales-datasets.ts'
+        : platform === 'arcgis' && !coverage.has(a.id) ? 'lib/signals/adapters/arcgis-datasets.ts' : platform ? PROMOTE_FILE[platform] : 'its adapter';
       return {
         id: a.id,
         probation: true as const,
@@ -208,7 +222,7 @@ export function monitoredSourceIds(adapters: ReadonlyArray<{ id: string; probati
  * paid lookup. It is independent of the contact gate (alert_hold): neither rule reads or relaxes the other.
  */
 export const PROBATION_SOURCE_IDS: ReadonlySet<string> = new Set(
-  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
+  [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...CARTO_DATASETS, ...SALES_DATASETS].filter((d) => d.probation === true).map((d) => d.id),
 );
 
 /** True when the record's source is on probation. Source ids are exact (no case folding). */
