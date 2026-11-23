@@ -98,8 +98,9 @@ describe('REV2 hour table: starts around the TRIAL_DAYS boundary', () => {
     expect(anomalies).toEqual([]);
     // Every hour of the grid is decided, the revived ones all have more than 72 h, and both outcomes really occur.
     expect(revived + untouched).toBe(toH - fromH + 1);
-    expect(revived).toBeGreaterThan(300);
-    expect(untouched).toBeGreaterThan(80);
+    // Round 24 (review P3-4): the exact counts for this grid, pinned again (round 23 had loosened them to "more than 300" / "more than 80").
+    expect(revived).toBe(408);
+    expect(untouched).toBe(169);
     expect(minLeft).toBeGreaterThan(72);
     expect(maxLeft).toBeLessThanOrEqual(20 * 24);
   }, 60_000);

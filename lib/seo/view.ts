@@ -8,6 +8,7 @@ import { WINDOW_DAYS } from './threshold';
 import type { PlaceData } from './summarize';
 import { isUpcoming } from '../time';
 import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
+import { t } from '@/lib/i18n';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -141,7 +142,17 @@ export function buildHelps(data: PlaceData, max = 8): HelpsBlock | null {
 }
 
 /** `flags` says which optional sources are on (default: the keys set on this deployment). With none on, the cadence names keyless sources only. */
-export function buildFaq(city: CityRef, data: PlaceData, flags: Flags = flagsFor()): { q: string; a: string }[] {
+/**
+ * `answer` (round 24, review P1-2): the city's coverage answer (lib/seo/city-offer.ts cityOffer). The alerts answer offers the price and
+ * the trial only on a live city; a limited city is told to check its ZIP first; a waitlist city gets no price and no trial at all. The
+ * same list feeds the visible FAQ and the FAQPage structured data. Default live, the wording before round 24.
+ */
+export function buildFaq(
+  city: CityRef,
+  data: PlaceData,
+  flags: Flags = flagsFor(),
+  answer: { state: 'live' | 'limited' | 'waitlist'; measured: boolean } = { state: 'live', measured: true },
+): { q: string; a: string }[] {
   const place = `${city.name}, ${city.state}`;
   const labels = [...new Set(data.sources.map((s) => sourceInfo(s).label))];
   const hasData = data.ok && data.total > 0 && !!data.latestAt;
@@ -178,11 +189,17 @@ export function buildFaq(city: CityRef, data: PlaceData, flags: Flags = flagsFor
     `Pick what your business does and how far you travel. Holler emails you when something nearby matches. Plans start at ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}, with no card needed to start, and Holler never posts anything for you.`,
     `Holler emails you when something nearby matches what your business does and how far you travel, and you pick both. Plans start at ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card is needed to start, and Holler never posts anything for you.`,
   ][v('alerts')];
+  const alertsAnswer =
+    answer.state === 'live'
+      ? alerts
+      : answer.state === 'waitlist'
+        ? t('en', 'city.faq.alerts.waitlist', { place })
+        : t('en', answer.measured ? 'city.faq.alerts.limited' : 'city.faq.alerts.unmeasured', { place, monthly: FROM_MONTHLY, trial: TRIAL_PHRASE });
   return [
     { q: `Where does the ${city.name} information come from?`, a: where },
     { q: `How much has happened in ${place} lately?`, a: how },
     { q: `How often is this page updated?`, a: often },
-    { q: `How do I get alerts for ${place}?`, a: alerts },
+    { q: `How do I get alerts for ${place}?`, a: alertsAnswer },
   ];
 }
 

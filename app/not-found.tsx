@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 export default function NotFound() {
   return (
     <>
-      <TopNav />
+      {/* Round 24: this tree is sent with every page's payload (the not-found boundary), so its header has no "Start free": a waitlist
+          page must carry no sign-up link anywhere. The 404 offers home and the local pages instead. */}
+      <TopNav showStart={false} />
       <main id="main" className={`on-brand flex w-full flex-1 flex-col justify-center bg-brand ${BODY_TEXT}`}>
         <div className={`${PAGE_BOX} py-16 md:py-24`}>
           <p className="eyebrow">Error 404 · Page not found</p>

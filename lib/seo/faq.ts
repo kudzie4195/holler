@@ -78,7 +78,7 @@ export function faqGroups(has?: Has): FaqGroup[] {
       items: [
         {
           q: 'How much does Holler cost?',
-          a: `${SOLO} is ${m('starter')} a month or ${y('starter')} a year, and ${PRO} is ${m('pro')} a month or ${y('pro')} a year. Both plans include alerts by email, the feed and replies to resident requests. Both start with a ${TRIAL_PHRASE} that needs no card, and there are no per-lead fees and no contract after it. Cancel any time.`,
+          a: `${SOLO} is ${m('starter')} a month or ${y('starter')} a year, and ${PRO} is ${m('pro')} a month or ${y('pro')} a year. Both plans include alerts by email, the feed and replies to resident requests. Both start with a ${TRIAL_PHRASE} that needs no card, and there are no fees per alert and no contract after it. Cancel any time.`,
         },
         {
           q: 'What does the free trial include?',

@@ -37,8 +37,13 @@ export const COMPARISON_ES: [string, string, string][] = [
   [t(L, 'pricing.row.keywords'), t(L, 'pricing.cell.none'), t(L, 'pricing.cell.up_to', { n: P.keywords })],
   [t(L, 'pricing.row.email'), t(L, 'pricing.cell.yes'), t(L, 'pricing.cell.yes')],
   [t(L, 'pricing.row.feed'), t(L, 'pricing.cell.yes'), t(L, 'pricing.cell.yes')],
+  // Round 24 (review P2-6): the row the English table has had since round 23.
+  [t(L, 'pricing.row.lists'), t(L, 'pricing.cell.yes'), t(L, 'pricing.cell.yes')],
   [t(L, 'pricing.row.replies'), t(L, 'pricing.cell.yes'), t(L, 'pricing.cell.yes')],
 ];
+
+/** Round 24 (review P2-6): the card-optional offer, as on /pricing. */
+export const CARD_OPTIONAL_OFFER_ES = t(L, 'pricing.card_offer', { days: TRIAL_DAYS });
 
 /** The billing questions, in the same order as PRICING_FAQ. */
 export const PRICING_FAQ_ES: { q: string; a: string }[] = [

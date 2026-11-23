@@ -89,7 +89,9 @@ describe('the confirmation email', () => {
     expect(m.text).toContain('https://localholler.com/waitlist/confirm?token=a.b');
     expect(m.html).toContain('https://localholler.com/waitlist/confirm?token=a.b');
     expect(m.html).not.toContain('<x>');
-    expect(m.text).toMatch(/one email when we launch there\. Nothing else\./);
+    // Round 24 (review P3-8): the email no longer talks about an area launch; it fits a trade that is not ready yet, too.
+    expect(m.text).toMatch(/one email when it does\. Nothing else\./);
+    expect(`${m.subject} ${m.text}`).not.toMatch(/launch/i);
     expect(`${m.subject} ${m.text}`).not.toMatch(/\bleads?\b|guaranteed|you will win|official record/i);
   });
 });

@@ -154,7 +154,7 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
     ],
     faqs: [
       {
-        q: 'Is this a lead list?',
+        q: 'Is this a list of customers?',
         a: 'No. Holler shows public records that point to work, so you know where to hang and flyer this week. It does not promise a job or a customer, and it never gives you a resident’s name.',
       },
       { q: 'Where does it come from?', a: dataAnswer },

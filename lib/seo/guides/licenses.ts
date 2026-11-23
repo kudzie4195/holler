@@ -2,8 +2,8 @@ import type { Guide } from './types';
 
 export const licenses: Guide = {
   slug: 'new-business-licenses-as-a-lead-source',
-  title: 'New business licenses as a lead source',
-  metaTitle: 'New Business Licenses as a B2B Lead Source | Holler',
+  title: 'New business licenses as a source of work',
+  metaTitle: 'New Business Licenses as a Source of B2B Work | Holler',
   description:
     'New business licenses show who is opening near you. How to separate new licenses from renewals in city data, what a month in Chicago held and how to pitch.',
   directAnswer:

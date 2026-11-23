@@ -450,20 +450,21 @@ describe('round 19 integration: the strings that came from r19-metros, for a Spa
     expect(text(out['coming-next'])).toContain(es['next.f.more-areas.label']);
   }, 60_000);
 
-  it('English is unchanged: the confirm page and email without lang read exactly as round 19 wrote them', async () => {
+  // Round 24 (review P3-8): the waitlist words no longer promise an area launch (the list is also for one trade in a city Holler reads).
+  it('English is unchanged: the confirm page and email without lang read exactly as round 24 wrote them', async () => {
     vi.resetModules();
     vi.doUnmock('@/lib/waitlist/zip-confirm');
     const route = await import('@/app/waitlist/confirm/route');
     const get = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=abc.def')).text();
     expect(get).toContain('<html lang="en">');
     expect(get).toContain('<title>Confirm your email</title>');
-    expect(get).toContain('Press the button and we will send you one email when Holler launches in your area. Nothing else.');
+    expect(get).toContain('Press the button and we will send you one email when Holler has enough for you in your area. Nothing else.');
     expect(get).not.toContain('name="lang"');
     const bad = await route.GET(new Request('https://localholler.com/waitlist/confirm?token=bad')).text();
     expect(bad).toContain('It may have expired. Check your ZIP code again to get a new link.');
     const { renderWaitlistConfirm } = await import('@/lib/email/templates');
     const m = renderWaitlistConfirm({ confirmUrl: 'https://x.test/c', place: 'Austin, TX' });
-    expect(m.subject).toBe('Confirm: tell me when Holler reaches Austin, TX');
-    expect(m.text.startsWith('One click and you are on the list\n\nYou asked Holler to tell you when permits and city requests near Austin, TX are ready. Confirm this address and we will send you one email when we launch there. Nothing else.\n\nConfirm my email: https://x.test/c\n\nThe link works for 7 days.')).toBe(true);
+    expect(m.subject).toBe('Confirm: tell me when Holler is ready for me near Austin, TX');
+    expect(m.text.startsWith('One click and you are on the list\n\nYou asked Holler to tell you when it has enough permits and city requests near Austin, TX for you. Confirm this address and we will send you one email when it does. Nothing else.\n\nConfirm my email: https://x.test/c\n\nThe link works for 7 days.')).toBe(true);
   });
 });

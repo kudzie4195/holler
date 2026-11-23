@@ -1,3 +1,4 @@
+import { statsConsentGiven, statsConsentPatch } from './stats-consent';
 /**
  * Holler shares auth.users with other products, so "has a Holler account" is explicit:
  * app_metadata.products contains 'holler' (set at signup), or a holler_profiles row exists (legacy accounts).
@@ -75,6 +76,9 @@ export function trialCapFromStart(startedAt: string): string {
 export function leaveHollerPatch(appMetadata: unknown, now: Date, profileCreatedAt?: string | null): Record<string, unknown> {
   const patch: Record<string, unknown> = { products: withoutHoller(appMetadata), holler_email_verified_at: null, holler_left_at: now.toISOString() };
   if (!trialStartedAt(appMetadata) && profileCreatedAt && Number.isFinite(Date.parse(profileCreatedAt))) patch.holler_trial_started_at = profileCreatedAt;
+  // Round 24 (review P2-5): deleting the account withdraws the statistics consent (revoked_at today), so a person who comes back through
+  // log-in is not treated as consenting without seeing the box again.
+  if (statsConsentGiven(appMetadata)) Object.assign(patch, statsConsentPatch(appMetadata, false, now));
   return patch;
 }
 

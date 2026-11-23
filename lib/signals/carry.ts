@@ -282,8 +282,9 @@ export function windDamageLevel(summary: string | null | undefined, trade: 'roof
   const road = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c);
   const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c) && !(road && !/home|house|yard|residen/.test(c));
   // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
-  const roof = /roof|shingle|siding|gutter/.test(c);
-  const homeDamage = /home|house|residen|roof|siding|garage|carport|porch|structure|building/.test(c);
+  // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
+  const roof = /(?<!p)roof|shingle|siding|gutter/.test(c);
+  const homeDamage = /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/.test(c);
   if (trade === 'tree-service') return trees ? 'act_now' : roof ? 'market_insight' : 'coming_soon';
   if (trade === 'roofing') return roof ? 'act_now' : 'coming_soon';
   return homeDamage ? 'act_now' : 'coming_soon';

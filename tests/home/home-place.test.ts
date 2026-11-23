@@ -89,12 +89,12 @@ describe('radius map placement', () => {
     expect(labelEdge(m.placed)).toBeGreaterThanOrEqual(LABEL_EDGE);
     for (const p of m.placed) expect(Math.abs(toScale(p))).toBeLessThan(1e-9);
     expect(m.placed.map((p) => p.text)).toEqual([
-      'HVAC PERMIT 1.7 MI',
-      'ROOF PERMIT 2.6 MI',
-      'PLUMBING PERMIT 3.5 MI',
-      'TREE EMERGENCY 4.9 MI',
-      'ROOF REPAIR 5.0 MI',
-      'PORCH REPAIR 5.5 MI',
+      'LANDSCAPING 1.7 MI',
+      'GUTTER PERMIT 2.6 MI',
+      'FENCE PERMIT 3.5 MI',
+      'WEED REMOVAL 4.9 MI',
+      'GRAFFITI REMOVAL 5.0 MI',
+      'EXTERIOR PAINT 5.5 MI',
     ]);
   });
 

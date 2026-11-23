@@ -42,6 +42,11 @@ const INTENDED_METADATA_KEYS = ['alternates'];
  * Round 24 INT (CAN-SPAM, FIXLIST row 17) rewrote it once more, for one key only: `email.outcome` (the "did these alerts turn into
  * work?" email), whose plain-text part gained the reason line "You get this because email alerts are on for your Holler account." that
  * its HTML part always had. No other key changed (INT-report.md).
+ *
+ * Round 24 site unit rewrote it once more (WRITE_ENGLISH_BASELINE=1), for 15 keys, every change intended and listed in FIXSITE-report.md:
+ * pricing.html (no "first 100" line, no "buy in the app" sentence, the footer's launch trades), privacy.html and privacy.meta (the app,
+ * store and push sentences removed, the new date), onboarding.html, onboarding.city.html and the ten settings.*.html keys (the trades
+ * sign-up no longer takes move to a "Coming soon" group).
  */
 const INTENDED: Record<string, [string, string][]> = {};
 const R19_INTENDED: Record<string, [string, string][]> = {};

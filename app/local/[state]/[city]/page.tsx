@@ -13,13 +13,13 @@ import { citySummary } from '@/lib/seo/week-summary';
 import { thisAndLastWeek, weekPath } from '@/lib/seo/week';
 import { tradeEntry, tradePath } from '@/lib/seo/trade-view';
 import { buildFaq, buildHelps, buildIntro, fmtDate, fmtDateTime } from '@/lib/seo/view';
+import { t } from '@/lib/i18n';
 import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
 import { Aside, ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
-import { cityCtaLabel } from '@/lib/plan/price-copy';
 import { socialMeta } from '@/lib/seo/social';
-import { anyTradeLive } from '@/lib/check/cells';
-import { isServedZip } from '@/lib/check/coverage';
+import { flagsFor } from '@/lib/seo/public-copy';
+import { cityOffer, cityServed, cityTradeRows } from '@/lib/seo/city-offer';
 
 // SPEC asks for `export const revalidate = 21600`. That segment option is removed when
 // cacheComponents is on (see next.config.ts), so the same 6 h lifetime is set with cacheLife in
@@ -73,14 +73,14 @@ export default async function CityPage({ params }: Props) {
   const intro = buildIntro(city, data);
   const weeks = data.ok && data.total > 0 ? thisAndLastWeek(Date.parse(data.asOf)) : null;
   const helps = buildHelps(data);
-  const faq = buildFaq(city, data);
+  // Round 24: one answer for the whole page (lib/seo/city-offer.ts, from lib/check/cells.ts coverageFor): hero, side card, the FAQ
+  // and its structured data, the trade rows and the header button. A waitlist city shows no price, no trial and no sign-up link.
+  const served = cityServed(city);
+  const offer = cityOffer(city, served);
+  const tradeRows = cityTradeRows(city, served);
+  const faq = buildFaq(city, data, flagsFor(), offer);
   const nearby = nearbyCities(city.slug, 6);
-  // Round 23: a city where no measured trade is live gets no trial offer and no price. Valdosta used to carry
-  // the whole trial CTA with its price above two weather alerts. It now points at the free check, where the
-  // waitlist card is the honest answer (lib/check/cells.ts).
-  const marketable = anyTradeLive(city, isServedZip({ lat: city.lat, lon: city.lon, state: city.state }));
-  const ctaHref = marketable ? `/signup?city=${encodeURIComponent(city.slug)}` : '/check';
-  const ctaLabel = marketable ? cityCtaLabel(city.name) : `See what Holler has near ${city.name}`;
+  const { ctaHref, ctaLabel } = offer;
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible
@@ -108,6 +108,7 @@ export default async function CityPage({ params }: Props) {
   return (
     <Page
       withAside
+      showStart={offer.showStart}
       header={
         <PageHeader
           size="md"
@@ -130,11 +131,7 @@ export default async function CityPage({ params }: Props) {
           <PrimaryLink href={ctaHref} onBrand>
             {ctaLabel}
           </PrimaryLink>
-          <p className="mt-2 text-sm text-on-brand-muted">
-            {marketable
-              ? 'No card to start. Holler never posts anything for you.'
-              : `Holler reads public records here, but not yet enough of them for a trade to be worth paying for. Check your ZIP and join the ${city.name} list.`}
-          </p>
+          <p className="mt-2 text-sm text-on-brand-muted">{offer.sub}</p>
         </PageHeader>
       }
     >
@@ -194,6 +191,21 @@ export default async function CityPage({ params }: Props) {
           </section>
         ) : null}
 
+        <section aria-labelledby="by-trade">
+          <H2 id="by-trade">{t('en', 'city.trades.h', { city: city.name })}</H2>
+          <p className="mt-2 text-muted">{t('en', 'city.trades.note', { city: city.name })}</p>
+          <Ledger className="mt-4">
+            {tradeRows.map((row) => (
+              <li key={row.id} data-trade={row.id} data-state={row.state} className="flex min-h-12 flex-wrap items-baseline justify-between gap-x-4 py-2">
+                <Link href={tradePath(row.id)} className={`${linkClass} inline-flex min-h-11 items-center font-medium`}>
+                  {row.label}
+                </Link>
+                <span className="text-sm text-muted">{row.phrase}</span>
+              </li>
+            ))}
+          </Ledger>
+        </section>
+
         <section aria-labelledby="faq">
           <H2 id="faq">Questions about {place}</H2>
           <Ledger as="dl" className="mt-4">
@@ -225,9 +237,9 @@ export default async function CityPage({ params }: Props) {
             1024 px it sits in the right column, so where it is in the source does not move it on screen. The hero CTA above carries
             the price, so the card's button is short (final review B P2-2). */}
         <Aside>
-          <ClosingBand line={marketable ? <>Know first when {city.name} needs you.</> : <>Holler is not ready for {city.name} yet.</>}>
+          <ClosingBand line={offer.asideLine}>
             <PrimaryLink href={ctaHref} onBrand>
-              {marketable ? <>Get {city.name} alerts</> : <>Join the {city.name} list</>}
+              {offer.asideButton}
             </PrimaryLink>
           </ClosingBand>
         </Aside>

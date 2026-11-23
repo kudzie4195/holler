@@ -24,7 +24,7 @@ const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[0.9375rem] font-me
  * Start free wraps under the logo instead of pushing the page sideways (review 2b P2-7).
  * Focus rings are signal (the .on-brand class), 9.7:1 on brand.
  */
-export function TopNav({ ctaHref = '/signup' }: { ctaHref?: string }) {
+export function TopNav({ ctaHref = '/signup', showStart = true }: { ctaHref?: string; /** Round 24: false on a page whose answer is waitlist (no sign-up link anywhere on it). */ showStart?: boolean }) {
   return (
     <>
       <a
@@ -51,9 +51,11 @@ export function TopNav({ ctaHref = '/signup' }: { ctaHref?: string }) {
             <Link href="/login" className={`${linkCls} hidden min-[22.5rem]:inline-flex`}>
               Log in
             </Link>
-            <ButtonLink href={ctaHref} variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
-              Start free
-            </ButtonLink>
+            {showStart ? (
+              <ButtonLink href={ctaHref} variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
+                Start free
+              </ButtonLink>
+            ) : null}
           </div>
         </div>
       </header>

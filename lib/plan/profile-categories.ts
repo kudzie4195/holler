@@ -5,6 +5,22 @@ import { tradeLabel } from '@/lib/check/trades';
 import { t, type Lang } from '@/lib/i18n';
 import type { ChipCategory } from '@/components/profile-form-groups';
 import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from './composite-trades';
+import { tradeSignupClosed } from '@/lib/check/cells';
+import { COMING_SOON_GROUP_KEY } from '@/components/profile-form-groups';
+
+/**
+ * Round 24 (decision d): a trade the measurement found live in no centre and with no storm cells (lib/check/cells.ts
+ * tradeSignupClosed) cannot be picked. It moves to the "Coming soon" group, disabled. A member who already saved one (`keep`) keeps it:
+ * the chip stays where it was, selected, and the save accepts it (lib/auth/profile.ts), so settings, the feed and plan limits are
+ * unchanged for them. Derived from the measured table, never a typed list.
+ */
+export function applySignupClosed(chips: ChipCategory[], keep: readonly string[] = []): ChipCategory[] {
+  return chips.map((c) =>
+    c.id !== PRESSURE_WASHING_ID && tradeSignupClosed(c.id) && !keep.includes(c.id)
+      ? { ...c, comingSoon: true, closed: true, group: COMING_SOON_GROUP_KEY }
+      : c,
+  );
+}
 
 /**
  * Round 23. Holler is marketed for four kinds of work: landscaping (with lawn care), gutters and pressure washing. Those chips come
@@ -30,14 +46,14 @@ export { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS };
  * Round 23: the marketed trades are copied into a first group ('marketed'), the composite "Pressure washing" chip is added to it, and
  * the rest keep their own groups. A marketed trade that cannot be picked on this deployment is left where it was.
  */
-export function profileCategories(lang: Lang = 'en'): ChipCategory[] {
-  const all: ChipCategory[] = CATEGORIES.map((c) => ({
+export function profileCategories(lang: Lang = 'en', keep: readonly string[] = []): ChipCategory[] {
+  const all: ChipCategory[] = applySignupClosed(CATEGORIES.map((c) => ({
     id: c.id,
     label: lang === 'en' ? c.label : tradeLabel(c.id, lang),
     group: (c as unknown as { group?: string }).group,
     comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id),
     noLiveSource: tradeNoLiveSource(c.id),
-  }));
+  })), keep);
   const byId = new Map(all.map((c) => [c.id, c]));
   const lead: ChipCategory[] = [];
   for (const id of MARKETED_TRADES) {

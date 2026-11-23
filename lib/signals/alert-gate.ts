@@ -70,7 +70,11 @@ const COUNT_WORDS = new Set(
     'sign signs tree trees shingle shingles plex phase electric dumpster dumpsters fence').split(' '),
 );
 /** A word right before a number that makes the number a lot, block, unit or box, not a house number ("Lot 2 Sample Ct", "PO Box 12"). */
-const NOT_HOUSE_BEFORE = new Set('lot lots tract unit ste suite apt bldg building fl floor rm room box no no. number phase section sec #'.split(' '));
+// Round 24 (cells report data bug): a highway, route or exit number is not a house number either ("blown down on Interstate 405 near
+// Cherry Avenue" read as "405 near Cherry Avenue", a street address that does not exist).
+const NOT_HOUSE_BEFORE = new Set(
+  'lot lots tract unit ste suite apt bldg building fl floor rm room box no no. number phase section sec # interstate highway hwy route rte freeway expressway exit i us sr'.split(' '),
+);
 const STREET_WORD_RE = /^[#A-Za-z0-9'./-]+$/;
 
 const words = (t: string) => t.split(' ').map((w) => w.replace(/[,;]+$/, '')).filter(Boolean);

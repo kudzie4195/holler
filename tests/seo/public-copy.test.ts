@@ -230,17 +230,23 @@ describe('P2: city and state descriptions, trade caveat, coming-soon trades', ()
 });
 
 describe('final verify P2-9 and P2-10: no promise a trade or a city cannot keep', () => {
-  it('childcare and beauty FAQ promise no alerts without a people-asking key, and do with one', async () => {
+  it('childcare and beauty FAQ promise no alerts, with or without a people-asking key (round 24: live nowhere, so sign-up is closed)', async () => {
     const { tradeFaq } = await import('../../lib/seo/trade-view');
     for (const id of ['childcare', 'beauty']) {
       const t = tradeEntries().find((x) => x.id === id)!;
-      const none = tradeFaq(t, NONE).map((f) => f.q + ' ' + f.a).join(' ');
-      expect(none).not.toMatch(/see real alerts/i);
-      expect(none).toContain('no alerts to send this trade yet');
-      expect(tradeFaq(t, setOf('BRAVE_SEARCH_API_KEY')).map((f) => f.a).join(' ')).toMatch(/see real alerts/i);
+      for (const has of [NONE, setOf('BRAVE_SEARCH_API_KEY')]) {
+        const all = tradeFaq(t, has).map((f) => f.q + ' ' + f.a).join(' ');
+        expect(all).not.toMatch(/see real alerts|free trial|\$7\.99/i);
+        expect(all).toContain('Holler is not taking sign-ups for');
+      }
     }
+    // Roofing is live in no measured centre (storm cells only): no "see real alerts" promise, check the ZIP first.
     const roofing = tradeEntries().find((x) => x.id === 'roofing')!;
-    expect(tradeFaq(roofing, NONE)[1].a).toMatch(/see real alerts/i);
+    expect(tradeFaq(roofing, NONE)[1].a).not.toMatch(/see real alerts|free trial/i);
+    expect(tradeFaq(roofing, NONE)[1].a).toContain('Check your ZIP before you start.');
+    // Landscaping is live in 10 centres: the full answer.
+    const landscaping = tradeEntries().find((x) => x.id === 'landscaping')!;
+    expect(tradeFaq(landscaping, NONE)[1].a).toMatch(/see real alerts/i);
   });
   it('llms.txt says city records exist only for the connected cities, with and without keys', () => {
     for (const has of [NONE, ALL]) {

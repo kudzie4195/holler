@@ -13,7 +13,7 @@ import { fmtDate } from '@/lib/seo/view';
 import { JsonLd } from '../../../../_components/jsonld';
 import { SectionCard } from '../../../../_components/records';
 import { Page, PageHeader, PrimaryLink, linkClass, PublicRecordsNote } from '../../../../_components/ui';
-import { cityCtaLabel } from '@/lib/plan/price-copy';
+import { cityOffer } from '@/lib/seo/city-offer';
 
 // Any Monday in the current week and the 11 before it, for any city, renders on its first visit and is then cached (lib/seo/week-data.ts).
 // Cache Components needs at least one known param set to prerender the route shell, so the build prerenders one: the largest city, this
@@ -84,8 +84,9 @@ export default async function WeekPage({ params }: Props) {
   const place = `${city.name}, ${city.state}`;
   const h1 = `${place}: public records for the week of ${fmtDate(data.weekIso)}`;
   const summary = summaryOf(city, data);
-  const ctaHref = `/signup?city=${encodeURIComponent(city.slug)}`;
-  const ctaLabel = cityCtaLabel(city.name);
+  // Round 24: the same answer as the city page (lib/seo/city-offer.ts): a waitlist city's week page offers no price and no sign-up.
+  const offer = cityOffer(city);
+  const { ctaHref, ctaLabel } = offer;
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible
@@ -110,6 +111,7 @@ export default async function WeekPage({ params }: Props) {
 
   return (
     <Page
+      showStart={offer.showStart}
       header={
         <PageHeader
           size="md"
@@ -133,7 +135,7 @@ export default async function WeekPage({ params }: Props) {
           <PrimaryLink href={ctaHref} onBrand>
             {ctaLabel}
           </PrimaryLink>
-          <p className="mt-2 text-sm text-on-brand-muted">No card to start. Holler never posts anything for you.</p>
+          <p className="mt-2 text-sm text-on-brand-muted">{offer.sub}</p>
         </PageHeader>
       }
     >

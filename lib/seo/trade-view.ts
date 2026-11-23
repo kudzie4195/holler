@@ -9,6 +9,21 @@ import { SIGNAL_PHRASES, activeTradeSignals, signalTypeActive, tradeComingSoon }
 import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { TIER_NAMES } from '@/lib/plan/limits';
 import { priceDecimal } from '@/lib/stripe/plans';
+import { tradeLiveAnywhere, tradeSignupClosed, type CoverageState } from '@/lib/check/cells';
+import { t as tr } from '@/lib/i18n';
+
+/**
+ * Round 24 (review P1-3, decision d): what a trade page may offer, from the measured cells (lib/check/cells.ts).
+ *   live      the trade is live in at least one measured centre: the full offer (price line, trial, Start free);
+ *   limited   pickable but live nowhere (the storm trades): "Check your ZIP" is the only button and there is no price line;
+ *   waitlist  sign-up does not take it: "Check your ZIP" and join the list, with no price and no trial anywhere on the page.
+ * The page keeps its content, its index setting and its canonical URL in every state.
+ */
+export function tradeOffer(id: string): CoverageState {
+  if (tradeLiveAnywhere(id)) return 'live';
+  if (tradeSignupClosed(id)) return 'waitlist';
+  return 'limited';
+}
 
 // Precise trial form here on purpose: the month headline right after a yearly price would read like a yearly saving.
 export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start.`;
@@ -123,7 +138,9 @@ export function tradeTitle(t: TradeEntry): string {
 export function tradeDescription(t: TradeEntry): string {
   const kinds = [...new Set(visibleSignals(t).map((s) => s.type))].slice(0, 3).map((k) => SIGNAL_PHRASES[k]);
   const what = kinds.length ? `when ${kinds.join(', ')} point to work nearby` : 'when public records point to work nearby';
-  const d = `${tradeHeadline(t)}. Holler emails ${t.facts.noun} ${what}. ${TRADE_PRICE_LINE}`;
+  const offer = tradeOffer(t.id);
+  const tail = offer === 'live' ? TRADE_PRICE_LINE : tr('en', offer === 'waitlist' ? 'tp.waitlist.line' : 'tp.limited.line', { trade: t.label.toLowerCase() });
+  const d = `${tradeHeadline(t)}. Holler emails ${t.facts.noun} ${what}. ${tail}`;
   return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
 }
 
@@ -145,7 +162,11 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
     },
     {
       q: `How much does Holler cost for ${t.facts.noun}?`,
-      a: comingSoon
+      a: tradeOffer(t.id) === 'waitlist'
+        ? tr('en', 'tp.faq.cost.waitlist', { trade: t.label.toLowerCase() })
+        : tradeOffer(t.id) === 'limited'
+          ? tr('en', 'tp.faq.cost.limited', { trade: t.label.toLowerCase(), monthly: FROM_MONTHLY, yearly: FROM_YEARLY })
+          : comingSoon
         ? `Plans start at ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start. Holler has no alerts to send this trade yet, so there is nothing to try today. Check back once its sources are switched on.`
         : `Plans start at ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, and the first ${TRIAL_DAYS} days are free with no card needed to start, so you can see real alerts for your area before you pay anything.`,
     },
@@ -157,16 +178,21 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
 }
 
 export function serviceLd(t: TradeEntry): Record<string, unknown> {
-  return {
+  const ld: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Service',
     name: tradeHeadline(t),
-    serviceType: 'Local lead and storm alerts',
+    serviceType: 'Local public record and storm alerts',
     description: tradeLead(t),
     url: absoluteUrl(tradePath(t.id)),
     audience: { '@type': 'Audience', audienceType: t.label },
     provider: { '@type': 'Organization', name: 'Holler', url: absoluteUrl('/') },
     areaServed: { '@type': 'Country', name: 'United States' },
+  };
+  // Prices and the trial only for a trade with a live cell (review P1-3): a search engine must not print a trial nobody can use.
+  if (tradeOffer(t.id) !== 'live') return ld;
+  return {
+    ...ld,
     offers: [
       // Offer prices and names from lib/stripe/plans.ts (cheapest plan), never typed.
       { '@type': 'Offer', name: `Holler ${TIER_NAMES.starter} monthly`, price: priceDecimal('starter', 'monthly'), priceCurrency: 'USD', description: `Monthly plan, ${TRIAL_PHRASE}` },

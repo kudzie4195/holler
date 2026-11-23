@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/server';
 import { hasLanguageSetting } from '@/lib/auth/language';
 import { statsConsentGiven } from '@/lib/auth/stats-consent';
 import { langOfProfile, t, type Lang } from '@/lib/i18n';
-import { profileCategories } from '@/lib/plan/profile-categories';
+import { applySignupClosed, profileCategories } from '@/lib/plan/profile-categories';
 import {
   annualSavingSentenceEs,
   downgradeNoteEs,
@@ -95,7 +95,7 @@ export default async function SettingsPage() {
           <Card className="mt-4">
             <ProfileForm
               action={saveSettings}
-              categories={profileCategories(lang)}
+              categories={profileCategories(lang, profile.categories ?? [])}
               defaults={{
                 business_name: profile.business_name,
                 categories: profile.categories,
@@ -189,7 +189,11 @@ export default async function SettingsPage() {
         <Card className="mt-4">
           <ProfileForm
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) }))}
+            // Round 24: a trade sign-up no longer takes moves to "Coming soon", unless this member already saved it (kept, still pickable).
+            categories={applySignupClosed(
+              CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) })),
+              profile.categories ?? [],
+            )}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,

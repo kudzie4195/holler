@@ -59,7 +59,8 @@ describe.each(['terms', 'privacy'] as const)('%s page', (page) => {
     expect(metadata.alternates?.canonical).toBe(`/${page}`);
     // Round 7: both pages moved to November 19, 2026. Round 18: both changed text, so both read November 22, 2026 (terms: the 60-day free
     // trial; privacy: the trial-email timing and, from the ES unit, the holler_lang cookie sentence). /delete-account did not change.
-    expect(html).toContain('Last updated November 22, 2026');
+    // Round 24: both dropped the app, store billing and push sentences (review P1-5), so both read November 23, 2026.
+    expect(html).toContain('Last updated November 23, 2026');
   });
 
   it('names the operator and postal address from COMPANY', async () => {
@@ -141,9 +142,11 @@ describe('terms content', () => {
 describe('privacy content', () => {
   it('names every processor verified in code and says no sale and no trackers', async () => {
     const { text } = await render('privacy', 'support@localholler.com');
-    for (const p of ['Supabase', 'Vercel', 'Stripe', 'Resend', 'Anthropic', 'RevenueCat', 'Firebase Cloud Messaging', 'Apple', 'Google', 'DataForSEO']) {
+    for (const p of ['Supabase', 'Vercel', 'Stripe', 'Resend', 'Anthropic', 'DataForSEO']) {
       expect(text).toContain(p);
     }
+    // Round 24 (review P1-5): Holler is a website only; the app's store, push and app-subscription processors are no longer listed.
+    for (const p of ['RevenueCat', 'Firebase Cloud Messaging', 'App Store purchases', 'Google Play purchases']) expect(text).not.toContain(p);
     expect(text).toContain('We do not sell personal information');
     expect(text).toContain('cross-context behavioral advertising');
     // Round 7: first-party counting replaced "no analytics trackers" (ANALYTICS unit, migration 0017).

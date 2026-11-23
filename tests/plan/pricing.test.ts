@@ -120,10 +120,10 @@ describe('/pricing page', () => {
     expect(qs).toMatch(/refund/i);
   });
 
-  it('review r2: the trial-end answer limits the delayed first charge to the website and says app purchases are charged at once', () => {
+  it('review r2: the trial-end answer limits the delayed first charge to the website; round 24 (review P1-4): it names no app and no store', () => {
     const a = PRICING_FAQ.find((f) => /trial ends/i.test(f.q))!.a;
     expect(a).toContain('if you subscribe on the website during the trial, the first charge comes when it ends.');
-    expect(a).toContain('A plan you buy in the app is charged by Apple or Google when you buy it.');
+    expect(a).not.toMatch(/\bapp\b|Apple|Google/);
     expect(a).not.toMatch(/[\u2013\u2014]/);
     expect(text).toContain(a);
   });

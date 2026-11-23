@@ -9,8 +9,8 @@ import { Notice } from './notice';
 import { Slider } from './slider';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { KEYWORD_MAX_LENGTH, KEYWORD_MIN_LENGTH, PLAN_LIMITS, type Tier } from '@/lib/plan/limits';
-import { groupCategories, MARKETED_GROUP_KEY, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
-import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/profile-categories';
+import { COMING_SOON_GROUP_KEY, groupCategories, MARKETED_GROUP_KEY, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { planNameEs } from '@/lib/plan/price-copy-es';
 
@@ -90,7 +90,9 @@ export function ProfileForm({
   const label = (id: string) => categories.find((c) => c.id === id)?.label ?? id;
   const fe = state.fieldErrors ?? {};
   const groups = groupCategories(categories, lang);
-  const rest = groups.filter((g) => g.key !== MARKETED_GROUP_KEY);
+  const rest = groups.filter((g) => g.key !== MARKETED_GROUP_KEY && g.key !== COMING_SOON_GROUP_KEY);
+  // Round 24: the trades sign-up does not take yet, in their own group after "More trades", never pickable.
+  const soon = groups.filter((g) => g.key === COMING_SOON_GROUP_KEY);
   // Open "More trades" when there is no marketed group at all (a deployment where none of them can be picked), or when a trade the
   // member already saved lives inside it: a saved pick must never be hidden from the person who saved it.
   const openRest = groups.every((g) => g.key !== MARKETED_GROUP_KEY) || rest.some((g) => g.items.some((c) => picked.includes(c.id)));
@@ -106,7 +108,7 @@ export function ProfileForm({
               return (
                 <Chip key={c.id} selected={false} disabled aria-disabled="true">
                   {c.label}
-                  <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>
+                  {c.closed ? null : <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>}
                 </Chip>
               );
             }
@@ -198,6 +200,13 @@ export function ProfileForm({
                 {w('pf.more_trades_hint', 'Holler has records for these too, but fewer of them in the cities it covers today.')}
               </p>
               <div className="mt-3 flex flex-col gap-5">{rest.map(renderGroup)}</div>
+            </details>
+          ) : null}
+          {soon.length > 0 ? (
+            <details className="rounded-card border border-line p-4">
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-ink">{t(lang, 'group.coming-soon')}</summary>
+              <p className="mt-1 text-sm text-muted">{t(lang, 'pf.coming_soon_hint')}</p>
+              <div className="mt-3 flex flex-col gap-5">{soon.map((g) => renderGroup({ ...g, label: null }))}</div>
             </details>
           ) : null}
         </div>

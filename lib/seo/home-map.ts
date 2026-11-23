@@ -117,12 +117,14 @@ export function dayRange(isos: (string | null)[], month: 'short' | 'long' = 'sho
  * example and shows no dates and no source links for them. Titles follow the adapters' shapes so the label rule makes the labels.
  */
 export const EXAMPLE_RECORDS: { title: string; family: Family; mi: number }[] = [
-  { title: 'HVAC permit in Chicago', family: 'permit', mi: 1.7 },
-  { title: 'Roof permit in Chicago', family: 'permit', mi: 2.6 },
-  { title: 'Plumbing permit in Chicago', family: 'permit', mi: 3.5 },
-  { title: '311 request in Chicago: Tree Emergency', family: 'civic', mi: 4.9 },
-  { title: 'Code violation in Chicago: Roof repair order', family: 'civic', mi: 5.0 },
-  { title: 'Code violation in Chicago: Porch repair order', family: 'civic', mi: 5.5 },
+  // Round 24 (review P2-9, decision e): the example leads with the trades the launch markets (landscaping, lawn care, gutters and
+  // siding, pressure washing, then fencing and painting), never plumbing, HVAC, electrical or pest control.
+  { title: 'Landscaping permit in Chicago', family: 'permit', mi: 1.7 },
+  { title: 'Gutter permit in Chicago', family: 'permit', mi: 2.6 },
+  { title: 'Fence permit in Chicago', family: 'permit', mi: 3.5 },
+  { title: '311 request in Chicago: Weed Removal', family: 'civic', mi: 4.9 },
+  { title: '311 request in Chicago: Graffiti Removal', family: 'civic', mi: 5.0 },
+  { title: 'Code violation in Chicago: Exterior paint order', family: 'civic', mi: 5.5 },
 ];
 
 function toRecord(id: string, title: string, family: Family, mi: number, occurredAt: string | null, url: string | null, place: string): MapRecord {
