@@ -14,6 +14,7 @@ import {
   tradeEntry,
   tradeHeadline,
   tradeLead,
+  tradeOffer,
   tradeFaq,
   tradePath,
   tradeTitle,
@@ -24,6 +25,8 @@ import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
 import { Aside, ClosingBand, FamilyDot, H2, Ledger, Page, PageHeader, PrimaryLink, SecondaryLink, linkClass, PublicRecordsNote, type Family } from '../../local/_components/ui';
 import { kindFamily } from '@/components/signal-meta';
+import { t as tr } from '@/lib/i18n';
+import { tradeHasStormCells } from '@/lib/check/cells';
 
 type Props = { params: Promise<{ trade: string }> };
 
@@ -96,10 +99,15 @@ export default async function TradePage({ params }: Props) {
   const caveat = cityRecordsCaveat(signals);
   const path = tradePath(t.id);
   const checkHref = `/check?trade=${encodeURIComponent(t.id)}`;
+  // Round 24 (review P1-3, decision d): the offer follows the measured cells. Only a trade live in some centre gets "Start free" and the
+  // price line; the others get "Check your ZIP" as the only button, and a closed trade (waitlist) shows no price and no trial anywhere.
+  const offer = tradeOffer(t.id);
+  const tradeWord = t.label.toLowerCase();
 
   return (
     <Page
       withAside
+      showStart={offer !== 'waitlist'}
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'By trade', href: '/for' }, { name: t.label }]}
@@ -107,15 +115,29 @@ export default async function TradePage({ params }: Props) {
           size="md"
           lead={<p className="leading-relaxed">{tradeLead(t)}</p>}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <PrimaryLink href="/signup" onBrand>
-              Start free
-            </PrimaryLink>
-            <SecondaryLink href={checkHref} onBrand>
-              Check your area
-            </SecondaryLink>
-          </div>
-          <p className="mt-3 text-sm text-on-brand-muted">{TRADE_PRICE_LINE}</p>
+          {offer === 'live' ? (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <PrimaryLink href="/signup" onBrand>
+                  Start free
+                </PrimaryLink>
+                <SecondaryLink href={checkHref} onBrand>
+                  Check your area
+                </SecondaryLink>
+              </div>
+              <p className="mt-3 text-sm text-on-brand-muted">{TRADE_PRICE_LINE}</p>
+            </>
+          ) : (
+            <>
+              <PrimaryLink href={checkHref} onBrand>
+                {tr('en', 'tp.cta.check')}
+              </PrimaryLink>
+              <p className="mt-3 text-sm text-on-brand-muted">
+                {tr('en', offer === 'waitlist' ? 'tp.waitlist.line' : 'tp.limited.line', { trade: tradeWord })}
+                {offer === 'limited' && tradeHasStormCells(t.id) ? ` ${tr('en', 'chk.storm', { trade: tradeWord })}` : ''}
+              </p>
+            </>
+          )}
         </PageHeader>
       }
     >
@@ -196,13 +218,23 @@ export default async function TradePage({ params }: Props) {
         </section>
 
         <Aside>
-          <ClosingBand line="See what is happening near you today.">
-            <PrimaryLink href="/signup" onBrand>
-              Start free
-            </PrimaryLink>
-            <SecondaryLink href={checkHref} onBrand>
-              Check your area
-            </SecondaryLink>
+          <ClosingBand
+            line={offer === 'live' ? 'See what is happening near you today.' : offer === 'waitlist' ? tr('en', 'tp.aside.waitlist', { trade: tradeWord }) : tr('en', 'tp.aside.limited')}
+          >
+            {offer === 'live' ? (
+              <>
+                <PrimaryLink href="/signup" onBrand>
+                  Start free
+                </PrimaryLink>
+                <SecondaryLink href={checkHref} onBrand>
+                  Check your area
+                </SecondaryLink>
+              </>
+            ) : (
+              <PrimaryLink href={checkHref} onBrand>
+                {tr('en', 'tp.cta.check')}
+              </PrimaryLink>
+            )}
           </ClosingBand>
         </Aside>
       </div>

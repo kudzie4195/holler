@@ -14,6 +14,7 @@ import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
 import { coverageFor } from '@/lib/check/cells';
+import { checkAnswer } from '@/lib/check/answer';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -23,7 +24,7 @@ import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
-import { t } from '@/lib/i18n';
+import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 
 const L = 'es' as const;
@@ -55,7 +56,10 @@ export async function generateMetadata(props: PageProps<'/es/check'>): Promise<M
 export default function CheckPageEs(props: PageProps<'/es/check'>) {
   return (
     <>
-      <TopNavEs englishHref={PAIR.en} />
+      {/* Round 24 (review P3-7): no "Empezar gratis" in the header on a waitlist answer; the fallback has none either. */}
+      <Suspense fallback={<TopNavEs englishHref={PAIR.en} showStart={false} />}>
+        <CheckNavEs sp={props.searchParams} />
+      </Suspense>
       <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         <div className="on-brand bg-brand">
           <div className={`${PAGE_BOX} pb-24 pt-6 md:pb-28 md:pt-10`}>
@@ -81,6 +85,11 @@ export default function CheckPageEs(props: PageProps<'/es/check'>) {
 function zipMessage(raw: string, known: 'unknown' | 'bad' | 'missing'): string {
   void raw;
   return t(L, known === 'unknown' ? 'chk.err.zip_unknown' : known === 'bad' ? 'chk.err.zip_bad' : 'chk.err.zip_missing');
+}
+
+async function CheckNavEs({ sp }: { sp: PageProps<'/es/check'>['searchParams'] }) {
+  const q = await sp;
+  return <TopNavEs englishHref={PAIR.en} showStart={checkAnswer(q.zip, q.trade)?.state !== 'waitlist'} />;
 }
 
 async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['searchParams'] }) {
@@ -153,8 +162,13 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   // Round 23: coverage is per city AND per trade (lib/check/cells.ts), as on the English page. 'waitlist' means this trade has nothing
   // here an owner could act on: say so, and point to the English waitlist card (the waitlist form is English only). The results block
   // then shows no trial offer and no "Holler is watching near X" list.
-  const coverageState = coverageFor(place, params.trade, isServedZip(place)).state;
-  const uncoveredNote = coverageState === 'waitlist' ? <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} /> : null;
+  const served = isServedZip(place);
+  const answer = coverageFor(place, params.trade, served);
+  const coverageState = answer.state;
+  const gate = { coverageState, measured: answer.measured, storm: answer.storm };
+  // Round 24 (review P2-6): a ZIP Holler reads gets the per-trade wording, as in English; only an unserved ZIP hears "not covered".
+  const uncoveredNote =
+    coverageState === 'waitlist' ? <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} tradeWord={served ? lowerFirst(tradeLabel(params.trade, L)) : null} /> : null;
 
   if (!scope.covered) {
     return (
@@ -168,15 +182,15 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   }
 
   const h = await headers();
-  const gate = await gateCheck(clientIp(new Request('https://holler.invalid/es/check', { headers: h })), hit);
-  if (gate === 'limited') {
+  const limit = await gateCheck(clientIp(new Request('https://holler.invalid/es/check', { headers: h })), hit);
+  if (limit === 'limited') {
     return (
       <>
         <FormBand>
           <CheckForm lang={L} zip={params.zip} trade={params.trade} />
         </FormBand>
         {uncoveredNote}
-        <CheckResults {...common} coverageState={coverageState} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+        <CheckResults {...common} {...gate} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
   }
@@ -197,19 +211,21 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} coverageState={coverageState} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }
 
 /** "Holler does not cover X yet", and a link to the English page that has the waitlist form. */
-function Waitlist({ placeLabel, zip, trade }: { placeLabel: string; zip: string; trade: string }) {
+function Waitlist({ placeLabel, zip, trade, tradeWord }: { placeLabel: string; zip: string; trade: string; tradeWord: string | null }) {
   const href = `/check?zip=${encodeURIComponent(zip)}&trade=${encodeURIComponent(trade)}`;
   return (
     <section aria-labelledby="es-waitlist-h" className="mt-10">
-      <h2 id="es-waitlist-h" className="text-3xl text-ink md:text-4xl">{t(L, 'chk.h.uncovered', { place: placeLabel })}</h2>
-      <p className="mt-3 max-w-2xl text-muted">{t(L, 'chk.empty.uncovered', { place: placeLabel })}</p>
-      <p className="mt-3 max-w-2xl text-muted">{t(L, 'chk.uncovered.cta')}</p>
+      <h2 id="es-waitlist-h" className="text-3xl text-ink md:text-4xl">
+        {tradeWord ? t(L, 'chk.h.trade_wait', { trade: tradeWord, place: placeLabel }) : t(L, 'chk.h.uncovered', { place: placeLabel })}
+      </h2>
+      <p className="mt-3 max-w-2xl text-muted">{tradeWord ? t(L, 'chk.empty.trade_wait') : t(L, 'chk.empty.uncovered', { place: placeLabel })}</p>
+      <p className="mt-3 max-w-2xl text-muted">{tradeWord ? t(L, 'chk.trade_wait.cta') : t(L, 'chk.uncovered.cta')}</p>
       <p className="mt-2">
         <Link href={href} hrefLang="en" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'chk.uncovered.link')}</Link>
       </p>

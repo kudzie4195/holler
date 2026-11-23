@@ -6,14 +6,19 @@ import { Logo } from './logo';
 
 type FooterLink = { href: string; label: string; /** Set on a link to a page in another language: the label is read in that language and the link says what it points to. */ lang?: string; hrefLang?: string };
 
-/** Trade pages linked from the footer, by category id in lib/signals/categories.ts. */
+/**
+ * Trade pages linked from the footer, by category id in lib/signals/categories.ts. Round 24 (review P1-3, decision e): the trades the
+ * launch markets come first (landscaping, lawn care, gutters and siding, pressure washing), then fencing, painting and cleaning. Pressure
+ * washing is not a category: its keywords live in House cleaning, so it links to that page, as cleaning does.
+ */
 export const FOOTER_TRADES: FooterLink[] = [
-  { href: '/for/roofing', label: 'Roofing' },
-  { href: '/for/plumbing', label: 'Plumbing' },
-  { href: '/for/hvac', label: 'HVAC' },
-  { href: '/for/electrical', label: 'Electrical' },
-  { href: '/for/tree-service', label: 'Tree service' },
-  { href: '/for/restoration', label: 'Restoration' },
+  { href: '/for/landscaping', label: 'Landscaping' },
+  { href: '/for/lawn-care', label: 'Lawn care' },
+  { href: '/for/siding-gutters', label: 'Gutters and siding' },
+  { href: '/for/cleaning', label: 'Pressure washing' },
+  { href: '/for/fencing', label: 'Fencing' },
+  { href: '/for/painting', label: 'Painting' },
+  { href: '/for/cleaning', label: 'Cleaning' },
   { href: '/for', label: 'All trades' },
 ];
 
@@ -74,7 +79,7 @@ export function Footer({ spanishHref = '/es' }: { spanishHref?: string } = {}) {
               <h2 className="eyebrow">{g.title}</h2>
               <ul className="mt-1 flex flex-col">
                 {g.links.map((l) => (
-                  <li key={l.href}>
+                  <li key={`${l.href} ${l.label}`}>
                     {l.href.startsWith('mailto:') ? (
                       <a href={l.href} className="h-link text-[0.9375rem] text-on-brand">
                         {l.label}

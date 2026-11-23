@@ -47,6 +47,8 @@ export function CheckResults({
   coverage = null,
   coverageKnown = true,
   coverageState = 'live',
+  measured = true,
+  storm = false,
   lang = 'en',
 }: {
   items: CheckItem[];
@@ -71,6 +73,13 @@ export function CheckResults({
    * block, because the page already shows the waitlist card. Defaults to 'live' so a caller that does not set it is unchanged.
    */
   coverageState?: CoverageState;
+  /**
+   * Round 24 (lib/check/cells.ts coverageFor). With 'limited': `measured` false means no measured centre is near, so the line says Holler
+   * has not measured this trade here (never "few records", which would be a claim about data nobody counted); `storm` true adds the one
+   * sentence about storm alerts.
+   */
+  measured?: boolean;
+  storm?: boolean;
   /** 'es' writes headings, sentences and source labels in Spanish from the dictionary. English (the default) is unchanged. */
   lang?: Lang;
 }) {
@@ -79,13 +88,22 @@ export function CheckResults({
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
+  const tradeWord = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
   const limitedLine =
-    coverageState === 'limited'
-      ? lang === 'en'
-        ? `Few records for this trade here yet. Holler reads this area, but ${tradeLabel.toLowerCase()} work shows up only now and then. Start free and see for yourself; nothing is charged.`
-        : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) })
-      : null;
-  const LimitedNote = limitedLine ? <p className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">{limitedLine}</p> : null;
+    coverageState !== 'limited'
+      ? null
+      : !measured
+        ? t(lang, 'chk.unmeasured', { trade: tradeWord, place: placeLabel })
+        : lang === 'en'
+          ? `Few records for this trade here yet. Holler reads this area, but ${tradeLabel.toLowerCase()} work shows up only now and then. Start free and see for yourself; nothing is charged.`
+          : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) });
+  const stormLine = coverageState === 'limited' && storm ? t(lang, 'chk.storm', { trade: tradeWord }) : null;
+  const LimitedNote = limitedLine ? (
+    <div className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">
+      <p>{limitedLine}</p>
+      {stormLine ? <p className="mt-2">{stormLine}</p> : null}
+    </div>
+  ) : null;
 
   if (shown === 0) {
     const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);

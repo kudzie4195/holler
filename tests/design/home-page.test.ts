@@ -227,7 +227,7 @@ describe('home page, Version 3', () => {
     const faq = between(html, 'id="faq"', 'id="check"');
     const qs = [...faq.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((m) => toText(m[1]).trim());
     const as = [...faq.matchAll(/<h3[^>]*>[^<]+<\/h3><p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => toText(m[1]).trim());
-    expect(qs).toEqual(['Is this a lead list?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
+    expect(qs).toEqual(['Is this a list of customers?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
     expect(ld['@type']).toBe('FAQPage');
     expect(ld.mainEntity.map((q: { name: string }) => q.name)).toEqual(qs);

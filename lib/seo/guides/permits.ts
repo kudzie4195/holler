@@ -88,7 +88,7 @@ export const permits: Guide = {
   related: [
     { href: '/check', label: 'Check your area' },
     { href: '/for/general-contractor', label: 'Alerts for general contractors' },
-    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond to a local lead fast' },
+    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond fast when local work comes up' },
   ],
   lastReviewed: '2026-11-17',
 };

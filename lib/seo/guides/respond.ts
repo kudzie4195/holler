@@ -3,8 +3,8 @@ import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const respond: Guide = {
   slug: 'how-to-respond-to-a-local-lead-fast',
-  title: 'How to respond to a local lead fast',
-  metaTitle: 'How to Respond to a Local Lead Fast | Holler',
+  title: 'How to respond fast when local work comes up',
+  metaTitle: 'How to Respond Fast to Local Work | Holler',
   description:
     'Reply in minutes for urgent jobs and the same day for planned ones. A first message that works, when to follow up and the FTC rules for calls and email.',
   directAnswer:

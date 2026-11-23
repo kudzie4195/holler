@@ -100,6 +100,7 @@ describe('public prices for the apps and stores', () => {
     walk('lib/plan/public-prices.ts');
     // review r2: limits.ts reads the shared paid test from lib/storebilling/source.ts (pure, no imports).
     // round 18: price-copy.ts builds the trial phrases (relative imports only).
-    expect([...seen].sort()).toEqual(['lib/auth/membership.ts', 'lib/plan/limits.ts', 'lib/plan/price-copy.ts', 'lib/plan/public-prices.ts', 'lib/storebilling/source.ts', 'lib/stripe/plans.ts']);
+    // round 24: membership.ts withdraws the statistics consent on account deletion, from lib/auth/stats-consent.ts (pure, no imports).
+    expect([...seen].sort()).toEqual(['lib/auth/membership.ts', 'lib/auth/stats-consent.ts', 'lib/plan/limits.ts', 'lib/plan/price-copy.ts', 'lib/plan/public-prices.ts', 'lib/storebilling/source.ts', 'lib/stripe/plans.ts']);
   });
 });

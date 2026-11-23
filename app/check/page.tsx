@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { AreaWaitlist } from '@/components/area-waitlist';
-import { CheckForm, checkTradeGroups } from '@/components/check-form';
+import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
 import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
@@ -14,6 +14,8 @@ import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
 import { coverageFor } from '@/lib/check/cells';
+import { checkAnswer } from '@/lib/check/answer';
+import { waitlistTradeGroups } from '@/lib/waitlist/trades';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -49,7 +51,11 @@ export async function generateMetadata(props: PageProps<'/check'>): Promise<Meta
 export default function CheckPage(props: PageProps<'/check'>) {
   return (
     <>
-      <TopNav />
+      {/* Round 24 (review P3-7): no "Start free" in the header on a waitlist answer. The fallback has no button, so a waitlist page
+          never carries a sign-up link, even before the answer streams in. `sp`, not `searchParams`, so tests find the Check body. */}
+      <Suspense fallback={<TopNav showStart={false} />}>
+        <CheckNav sp={props.searchParams} />
+      </Suspense>
       <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         {/* Green header band. The form card below is pulled up over its lower edge, so the form reads as part of the header. */}
         <div className="on-brand bg-brand">
@@ -73,6 +79,11 @@ export default function CheckPage(props: PageProps<'/check'>) {
       <Footer />
     </>
   );
+}
+
+async function CheckNav({ sp }: { sp: PageProps<'/check'>['searchParams'] }) {
+  const q = await sp;
+  return <TopNav showStart={checkAnswer(q.zip, q.trade)?.state !== 'waitlist'} />;
 }
 
 async function Check({ searchParams }: { searchParams: PageProps<'/check'>['searchParams'] }) {
@@ -149,15 +160,20 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   // Round 23: coverage is per city AND per trade (lib/check/cells.ts), not per ZIP. 'waitlist' means this trade has nothing here an
   // owner could act on, so the "Coming to your area" card is the whole answer: no trial CTA and no "Holler is watching near X" block
   // (components/check-results.tsx hides both). 'limited' still offers sign-up, with a line that says there are few records.
-  const coverageState = coverageFor(place, params.trade, isServedZip(place)).state;
+  // Round 24: one answer (coverageFor) for the whole page; 'limited' says whether it was measured and whether it is a storm cell. The
+  // waitlist card offers exactly the trades the server accepts for this ZIP (lib/waitlist/trades.ts, review P2-3).
+  const served = isServedZip(place);
+  const answer = coverageFor(place, params.trade, served);
+  const coverageState = answer.state;
+  const gate = { coverageState, measured: answer.measured, storm: answer.storm };
   const waitlist =
     coverageState === 'waitlist' ? (
       <AreaWaitlist
         zip={params.zip}
         trade={params.trade}
         placeLabel={placeLabel}
-        groups={checkTradeGroups(params.trade)}
-        tradeLabel={isServedZip(place) ? tradeLabel(params.trade) : null}
+        groups={waitlistTradeGroups(place, served)}
+        tradeLabel={served ? tradeLabel(params.trade) : null}
       />
     ) : null;
 
@@ -174,15 +190,15 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   }
 
   const h = await headers();
-  const gate = await gateCheck(clientIp(new Request('https://holler.invalid/check', { headers: h })), hit);
-  if (gate === 'limited') {
+  const limit = await gateCheck(clientIp(new Request('https://holler.invalid/check', { headers: h })), hit);
+  if (limit === 'limited') {
     return (
       <>
         <FormBand>
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
         {waitlist}
-        <CheckResults {...common} coverageState={coverageState} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+        <CheckResults {...common} {...gate} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
   }
@@ -205,7 +221,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} coverageState={coverageState} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

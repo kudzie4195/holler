@@ -14,7 +14,8 @@ describe('/delete-account', () => {
     expect(metadata.alternates?.canonical).toBe('/delete-account');
     expect(metadata.robots).toBeUndefined();
     // Round 18 integration: the page's text did not change in round 18, so it keeps its own date (terms and privacy moved to November 22).
-    expect(html).toContain('Last updated November 19, 2026');
+    // Round 24 (review P1-5): the app steps and the app-plan section came out, so the page reads November 23, 2026.
+    expect(html).toContain('Last updated November 23, 2026');
     expect(src('app/delete-account/page.tsx')).not.toMatch(/robots\s*:|index:\s*false/);
   });
 
@@ -29,20 +30,12 @@ describe('/delete-account', () => {
     expect(src('components/top-nav.tsx')).not.toContain('delete-account');
   });
 
-  it('app steps match the app screens', async () => {
-    const { text } = await renderLegal('delete-account');
-    expect(text).toContain('Go to Settings.');
-    expect(text).toContain('Tap Delete account, at the bottom of the screen.');
-    expect(text).toContain('Type DELETE in the box, then tap Delete my account.');
-    const settings = src('mobile/src/screens/Settings.tsx');
-    expect(settings).toContain("app.navigate({ name: 'delete' })");
-    expect(settings).toMatch(/Delete account\s*<\/Button>/);
-    // The delete button is the last control in the screen (after Sign out).
-    expect(settings.indexOf('Delete account\n')).toBeGreaterThan(settings.indexOf('Sign out'));
-    const screen = src('mobile/src/screens/DeleteAccount.tsx');
-    expect(screen).toContain("if (typed !== 'DELETE') return;");
-    expect(screen).toContain("{busy ? 'Deleting...' : 'Delete my account'}");
-    expect(src('app/api/m/account/delete/route.ts')).toContain('DELETE');
+  it('round 24 (review P1-5): website steps only; no app, no store, no push', async () => {
+    const { text, metadata } = await renderLegal('delete-account');
+    expect(text).toContain('You can delete your Holler account yourself, on the website.');
+    expect(String(metadata.description)).not.toMatch(/\bapp\b/);
+    for (const gone of ['Open the Holler app and sign in.', 'Tap Delete account', 'A plan bought in the app', 'push tokens', 'app store billing events']) expect(text).not.toContain(gone);
+    expect(text).not.toMatch(/iPhone|Android|App Store|Google Play|push notification/i);
   });
 
   it('web steps match the Settings page', async () => {
@@ -64,8 +57,8 @@ describe('/delete-account', () => {
     expect(text).toContain('Your sign-in. It is shared with other apps we run, so it stays.');
     expect(text).toContain('A note of when your free trial started. It stops a second free trial.');
     expect(text).toContain('Trend counts made from old public records. They never held your name or account.');
-    expect(text).toContain('Records of app store billing events, with your account number removed.');
-    expect(text).toContain('Deleting your account does not cancel a plan you bought in the app.');
+    expect(text).toContain('Stripe keeps its own records for website payments.');
+    expect(text).not.toContain('a plan you bought in the app');
     expect(text).toContain('Deletion starts the moment you confirm.');
     expect(text).toContain('If we cannot cancel a website plan, we delete nothing.');
     expect(src('lib/mobile/account.ts')).toContain("return { ok: false, error: 'billing_cancel_failed' };");

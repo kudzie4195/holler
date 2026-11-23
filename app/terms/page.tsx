@@ -7,7 +7,7 @@ import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 
 export const metadata: Metadata = {
   title: 'Terms',
-  description: 'The plain-language agreement for using Holler on the web and in the app: plans and renewal, rules, resident requests, public records and disputes.',
+  description: 'The plain-language agreement for using Holler on the web: plans and renewal, rules, resident requests, public records and disputes.',
   alternates: { canonical: '/terms' },
 };
 
@@ -24,7 +24,7 @@ export default function TermsPage() {
         <p>
           Holler is run by {COMPANY.legalName}, {COMPANY.entity}. Our mailing address is {COMPANY.addressLine}. In these
           terms, &quot;we&quot; and &quot;us&quot; mean {COMPANY.legalName}. &quot;You&quot; means the person or business
-          using Holler. These terms cover {COMPANY.site} and the Holler app for iPhone and Android.
+          using Holler. These terms cover {COMPANY.site}.
         </p>
       </DocSection>
 
@@ -37,6 +37,10 @@ export default function TermsPage() {
             at your own home or property.
           </li>
           <li>If you sign up for a business, you confirm that you are allowed to accept these terms for it.</li>
+          <li>
+            You confirm that you are not in a country under a US government embargo, and that you are not on a US government
+            list of barred people.
+          </li>
         </ul>
       </DocSection>
 
@@ -90,31 +94,18 @@ export default function TermsPage() {
         </ul>
         <p>
           {pro.name} covers more service areas and more trades, and adds keyword watches. The{' '}
-          <Link href="/pricing">pricing page</Link> lists what each plan includes. In the app, the price is the one Apple or
-          Google shows you before you buy.
+          <Link href="/pricing">pricing page</Link> lists what each plan includes.
         </p>
       </DocSection>
 
       <DocSection title="Free trial">
         <ul>
-          <li>A new account gets a {PUBLIC_PRICES.trialPhrase}, on the website or in the app. No card is needed to start.</li>
+          <li>A new account gets a {PUBLIC_PRICES.trialPhrase}. No card is needed to start.</li>
           <li>The trial has the same limits as {solo.name}.</li>
           <li>Each person gets one free trial. Deleting an account and signing up again does not start a new one.</li>
           <li>When the trial ends, your feed locks unless you subscribe. We never charge you just because a trial ended.</li>
           <li>If you subscribe on the website during your trial, your first charge comes when the trial ends.</li>
-          <li>
-            If you buy a plan in the app during your trial, Apple or Google charges you when you buy it. Your paid plan starts
-            then.
-          </li>
         </ul>
-      </DocSection>
-
-      <DocSection title="Where you buy is where you manage">
-        <p>
-          You can buy a plan on our website, where Stripe takes the payment, or in the app, where Apple or Google takes the
-          payment and bills you under its own terms. Manage it where you bought it. While a plan bought on the website is
-          active, the app does not sell you a second one.
-        </p>
       </DocSection>
 
       <DocSection title="Automatic renewal">
@@ -129,17 +120,11 @@ export default function TermsPage() {
           period you already paid for.
         </p>
         <p>
-          <strong>Plans bought in the app.</strong> Apple or Google bills you, renews the plan, and handles cancellation under
-          its own terms. Cancel in your Apple ID or Google Play subscription settings. Deleting your Holler account does not
-          cancel it.
-        </p>
-        <p>
           <strong>Price changes.</strong> If we change a price, we will email you at least 30 days before the new price
-          applies to you. You can cancel before then. If you do not cancel, the new price starts at your next renewal. For a
-          plan bought in the app, the store&apos;s own rules on price changes also apply.
+          applies to you. You can cancel before then. If you do not cancel, the new price starts at your next renewal.
         </p>
         <p>
-          <strong>Failed payments.</strong> If a charge fails, Stripe, Apple or Google may try again. Alerts can stop until a
+          <strong>Failed payments.</strong> If a charge fails, Stripe may try again. Alerts can stop until a
           payment goes through.
         </p>
       </DocSection>
@@ -151,7 +136,6 @@ export default function TermsPage() {
           fails, your plan does not change. Moving down to {solo.name}, the difference becomes a credit on your next bill. Your
           billing period stays monthly or yearly, as it was.
         </p>
-        <p>For a plan bought in the app, Apple or Google handles a switch and any price difference.</p>
         <p>
           Moving from {pro.name} to {solo.name}? Your extra service areas, any trades beyond {solo.limits.trades} and your
           keyword watches stop being used. They stay saved. Move back to {pro.name} and they work again.
@@ -164,10 +148,6 @@ export default function TermsPage() {
           plan change is prorated. If you delete your account, we cancel your website subscription at once and do not refund
           the rest of that period. Think you were charged by mistake? Write to <Support support={support} /> and we will look
           into it.
-        </p>
-        <p>
-          Refunds for plans bought in the app are handled by Apple or Google, under their rules. We cannot issue them, so
-          ask the store that billed you.
         </p>
       </DocSection>
 
@@ -196,18 +176,6 @@ export default function TermsPage() {
           <strong>Not for credit, insurance, jobs or housing.</strong> Holler is not a consumer reporting agency under the
           Fair Credit Reporting Act, and nothing on Holler is a consumer report. Do not use Holler to decide whether anyone
           is eligible for credit, insurance, employment, housing or any similar purpose.
-        </p>
-      </DocSection>
-
-      <DocSection title="Push notifications">
-        <p>
-          The app asks before it sends push notifications. If you allow them, you agree that we may send a push when new
-          alerts match you. We send at most one an hour. A push shows the city and the title of a public record, and it can
-          show on your lock screen.
-        </p>
-        <p>
-          To stop them, turn off Push notifications in the app&apos;s Settings, or turn off notifications for Holler in your
-          phone&apos;s settings. Pushes can be late or missing, like any alert.
         </p>
       </DocSection>
 
@@ -326,41 +294,12 @@ export default function TermsPage() {
 
       <DocSection title="Other companies' services">
         <p>
-          Holler runs on services from other companies. Stripe takes payments on the website. Apple and Google take payments
-          in the app, and RevenueCat records those plans for us. Supabase runs accounts and data, Vercel hosts the site and
+          Holler runs on services from other companies. Stripe takes payments on the website. Supabase runs accounts and data, Vercel hosts the site and
           its AI Gateway, and Resend sends email. An AI model from Anthropic sorts records, writes alert notes and drafts replies.
-          Google&apos;s Firebase delivers push notifications. Their terms can also apply to you. For example, Stripe&apos;s
-          terms apply when you pay on the website, and Apple&apos;s or Google&apos;s apply when you pay in the app. Links to
+          Their terms can also apply to you. For example, Stripe&apos;s
+          terms apply when you pay on the website. Links to
           agency sites and other sites are for your convenience. We do not control those sites.
         </p>
-      </DocSection>
-
-      <DocSection title="If you got the app from Apple or Google">
-        <p>
-          These terms are between you and us. They are not with Apple or Google. We, not Apple or Google, are responsible for
-          the app and what is in it.
-        </p>
-        <ul>
-          <li>
-            We give you a personal license to use the app on an Apple or Android device you own or control, as the store&apos;s
-            rules allow. You may not transfer it.
-          </li>
-          <li>Apple and Google have no duty to give support or upkeep for the app. Ask us.</li>
-          <li>
-            If the app fails a warranty the law gives you, you may tell Apple, and Apple may refund what you paid for the app,
-            if anything. Beyond that, Apple has no warranty duty for the app, as far as the law allows.
-          </li>
-          <li>
-            We, not Apple, handle any claim about the app. That includes product liability claims, claims that the app breaks a
-            law or rule, consumer protection claims, and claims that it infringes someone&apos;s rights.
-          </li>
-          <li>
-            You confirm that you are not in a country under a US government embargo, and that you are not on a US government
-            list of barred people.
-          </li>
-          <li>Follow the terms of your phone carrier and any other service you use with the app.</li>
-          <li>Apple and its subsidiaries may enforce these terms against you as third-party beneficiaries.</li>
-        </ul>
       </DocSection>
 
       <DocSection title="Copyright complaints">
@@ -385,8 +324,8 @@ export default function TermsPage() {
       <DocSection title="Suspension and ending your account">
         <ul>
           <li>
-            You can stop using Holler any time. Delete your account in Settings, on the website or in the app. That also
-            cancels a website subscription at once. A plan bought in the app must be canceled with Apple or Google. Our{' '}
+            You can stop using Holler any time. Delete your account in Settings, on the website. That also
+            cancels a website subscription at once. Our{' '}
             <Link href="/delete-account">delete account page</Link> has the steps.
           </li>
           <li>

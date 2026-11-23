@@ -126,12 +126,12 @@ describe('example map', () => {
       expect(r.url).toBeNull();
     }
     expect(m.records.map((r) => `${r.label} ${r.mi}`)).toEqual([
-      'HVAC PERMIT 1.7',
-      'ROOF PERMIT 2.6',
-      'PLUMBING PERMIT 3.5',
-      'TREE EMERGENCY 4.9',
-      'ROOF REPAIR 5',
-      'PORCH REPAIR 5.5',
+      'LANDSCAPING 1.7',
+      'GUTTER PERMIT 2.6',
+      'FENCE PERMIT 3.5',
+      'WEED REMOVAL 4.9',
+      'GRAFFITI REMOVAL 5',
+      'EXTERIOR PAINT 5.5',
     ]);
   });
 });

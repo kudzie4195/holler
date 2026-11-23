@@ -11,8 +11,10 @@ export const WAITLIST = {
    * records an owner could act on in 14 days). That visitor gets this heading and note instead, so the page never says Holler is not
    * in their town when it is, and never offers a trial for a trade with an empty feed.
    */
-  tradeHeading: (trade: string, place: string) => `Holler has nothing for ${trade} near ${place} yet.`,
-  tradeNote: 'Holler reads records near you, but lately none of them has been work for this trade. Pick another trade above, or leave your email and we will tell you when this one is worth paying for.',
+  // Round 24 (review P2-2): true with and without a list of records underneath. The note keeps its round 23 clause, which the alert
+  // email quotes (tests/email/int24-coherence.test.ts).
+  tradeHeading: (trade: string, place: string) => `Not enough ${trade} work near ${place} yet.`,
+  tradeNote: 'Holler reads records near you, but lately none of them has been work for this trade that a crew could act on. Pick another trade above, or leave your email and we will tell you when this one is worth paying for.',
   intro: "Leave your email and we'll tell you when it does.",
   note: 'Storm reports and weather alerts reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
   emailLabel: 'Your email',
@@ -24,6 +26,9 @@ export const WAITLIST = {
   errors: {
     email: 'Check your email address.',
     invalid: 'Check the form and try again.',
+    /** Round 24: the server names the field it refused. Equal to the dictionary's wl.err.* keys (tests/waitlist/trades-r24.test.ts). */
+    trade: 'This trade is not on the list for this ZIP: Holler already has something for it here. Pick another trade, or check this one above.',
+    zip: 'We could not find that ZIP code. Check it and try again.',
     limited: 'Too many tries. Wait a bit, then try again.',
     unavailable: 'Could not save that. Try again later.',
     network: 'We could not reach the server. Check your connection and try again.',
@@ -34,3 +39,17 @@ export const WAITLIST = {
 export const WAITLIST_PAGES = ['check'] as const;
 export const WAITLIST_EMAIL_MAX = 254;
 export const WAITLIST_HONEYPOT = 'leave_blank';
+
+/**
+ * Round 24 (review P2-3): what the card says for a refused submit, from the server's { ok, error, field } answer. A refusal always says
+ * what is wrong: the email, the ZIP, or the trade (not on this ZIP's list); only an answer with no field falls back to the general line.
+ */
+export function waitlistRefusal(data: { ok?: boolean; error?: string; field?: string } | null): { emailError: string | null; message: string | null } {
+  if (data?.ok) return { emailError: null, message: null };
+  if (data?.error === 'invalid' && data.field === 'email') return { emailError: WAITLIST.errors.email, message: null };
+  if (data?.error === 'invalid' && data.field === 'trade') return { emailError: null, message: WAITLIST.errors.trade };
+  if (data?.error === 'invalid' && data.field === 'zip') return { emailError: null, message: WAITLIST.errors.zip };
+  if (data?.error === 'invalid') return { emailError: null, message: WAITLIST.errors.invalid };
+  if (data?.error === 'limited') return { emailError: null, message: WAITLIST.errors.limited };
+  return { emailError: null, message: WAITLIST.errors.unavailable };
+}

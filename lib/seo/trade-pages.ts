@@ -55,13 +55,13 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
       { signal: 'Winter storm and hard freeze warnings', type: 'weather-alert', why: 'Furnaces that were fine in October quit under a cold snap, and no-heat calls cannot wait.' },
       { signal: 'Storm and wind reports', type: 'storm-report', why: 'Lightning and power surges during a damaging storm burn out control boards and condensers, which is a repair order for you.' },
       { signal: 'Building permits for new construction and remodels', type: 'permit', why: 'A permit for a new house or addition means a system will be sized, bid and installed.' },
-      { signal: 'People asking for AC or heating help', type: 'ask', why: 'A public post saying the AC died is about as warm as a lead gets.' },
+      { signal: 'People asking for AC or heating help', type: 'ask', why: 'A public post saying the AC died is someone asking for help right now.' },
     ],
   },
   plumbing: {
     noun: 'plumbers',
     headline: 'Freeze and flood alerts for plumbers',
-    lead: 'Burst pipes, backed-up sewers and water heaters that quit all follow the weather. Holler warns you before the phone starts ringing.',
+    lead: 'Burst pipes, backed-up sewers and water heaters that quit all follow the weather. Holler watches freeze and flood warnings near you and links each one to its public source.',
     signals: [
       { signal: 'Freeze warnings and winter storms', type: 'weather-alert', why: 'Pipes in unheated crawl spaces split overnight, and the calls come in the morning when the thaw starts.' },
       { signal: 'Flood and flash flood warnings', type: 'weather-alert', why: 'Sump pumps fail and sewer lines back up when the ground is saturated.' },

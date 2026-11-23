@@ -5,7 +5,7 @@ import { Button } from './button';
 import { Input } from './input';
 import { Select } from './select';
 import type { TradeGroup } from '@/lib/check/trades';
-import { WAITLIST, WAITLIST_EMAIL_MAX, WAITLIST_HONEYPOT } from '@/lib/waitlist/copy';
+import { WAITLIST, WAITLIST_EMAIL_MAX, WAITLIST_HONEYPOT, waitlistRefusal } from '@/lib/waitlist/copy';
 
 /**
  * The "Coming to your area" card on /check, for a ZIP Holler does not serve yet, or (round 23, `tradeLabel` set) for a ZIP it does serve
@@ -71,10 +71,10 @@ export function AreaWaitlist({
         setMessage(WAITLIST.thanks(placeLabel));
         return;
       }
-      if (data?.error === 'invalid' && data.field === 'email') setEmailError(WAITLIST.errors.email);
-      else if (data?.error === 'invalid') setMessage(WAITLIST.errors.invalid);
-      else if (data?.error === 'limited') setMessage(WAITLIST.errors.limited);
-      else setMessage(WAITLIST.errors.unavailable);
+      // Round 24 (review P2-3): every refusal says what is wrong (lib/waitlist/copy.ts waitlistRefusal).
+      const refusal = waitlistRefusal(data);
+      setEmailError(refusal.emailError);
+      setMessage(refusal.message);
     } catch {
       setMessage(WAITLIST.errors.network);
     }

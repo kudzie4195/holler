@@ -54,7 +54,7 @@ export const ES_ACCOUNT: Record<keyof typeof EN_ACCOUNT, string> = {
   'pricing.faq.q1': '¿Necesito una tarjeta para probarlo?',
   'pricing.faq.a1': 'No. La prueba gratis dura {days} días sin tarjeta y usa los límites del {solo}: un código postal y hasta {trades} oficios mientras prueba.',
   'pricing.faq.q2': '¿Qué pasa cuando termina la prueba?',
-  'pricing.faq.a2': 'Su lista de coincidencias se bloquea si no se suscribe. Nunca le cobramos por el simple hecho de que terminó la prueba. Si se suscribe en el sitio web durante la prueba, el primer cobro llega cuando la prueba termina. Un plan que compra en la aplicación lo cobra Apple o Google en el momento de la compra.',
+  'pricing.faq.a2': 'Su lista de coincidencias se bloquea si no se suscribe. Nunca le cobramos por el simple hecho de que terminó la prueba. Si se suscribe en el sitio web durante la prueba, el primer cobro llega cuando la prueba termina.',
   'pricing.faq.q3': '¿Puedo cancelar cuando quiera?',
   'pricing.faq.a3': 'Sí. Elija Administrar pagos en Configuración y cancele ahí. Eso detiene el próximo cobro, y su plan sigue activo hasta el final del periodo que ya pagó.',
   'pricing.faq.q4': '¿Puedo cambiar entre el {solo} y el {pro}?',

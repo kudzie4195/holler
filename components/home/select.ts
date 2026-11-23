@@ -15,14 +15,15 @@ export function newestRecord(map: HomeMap): MapRecord | null {
 export function featuredRecord(map: HomeMap): MapRecord {
   const permits = map.records.filter((r) => r.family === 'permit');
   const pool = permits.length ? permits : map.records;
-  if (!map.live) return pool.find((r) => /^Roof permit/.test(r.title)) ?? pool[0];
+  // Round 24 (review P2-9): the example leads with a launch trade (lib/seo/home-map.ts EXAMPLE_RECORDS).
+  if (!map.live) return pool.find((r) => /^Gutter permit/.test(r.title)) ?? pool[0];
   return [...pool].sort((a, b) => time(b) - time(a))[0];
 }
 
 /** The three cards in the phone feed: the newest other records (the example keeps the design's order). */
 export function phoneRecords(map: HomeMap, featured: MapRecord): MapRecord[] {
   const rest = map.records.filter((r) => r.id !== featured.id);
-  if (!map.live) return [rest.find((r) => /^Plumbing/.test(r.title)), rest.find((r) => /^HVAC/.test(r.title)), rest.find((r) => r.family === 'civic')].filter((r): r is MapRecord => !!r);
+  if (!map.live) return [rest.find((r) => /^Landscaping/.test(r.title)), rest.find((r) => /^Fence/.test(r.title)), rest.find((r) => r.family === 'civic')].filter((r): r is MapRecord => !!r);
   return [...rest].sort((a, b) => time(b) - time(a)).slice(0, 3);
 }
 

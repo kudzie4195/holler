@@ -6,6 +6,7 @@ import { TRIAL_DAYS, TRIAL_PHRASE } from './price-copy';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
 import { PLAN_FEATURES } from './copy';
+import { t } from '@/lib/i18n';
 import { PLAN_LIMITS, TIER_NAMES, TIERS, type Tier } from './limits';
 
 const S = PLAN_LIMITS.starter;
@@ -43,10 +44,11 @@ export const COMPARISON: [string, string, string][] = [
 /**
  * Round 23, the card-optional offer. Stripe Checkout already sets the subscription's trial end to the member's own trial end
  * (app/api/stripe/checkout/route.ts trialParams), so adding a card during the trial really does charge nothing until the trial ends.
- * The first-100 yearly price is the owner's offer, held by hand; nothing in the code enforces a count, so the copy does not claim one
- * beyond "the first 100".
+ * Round 24 (review P2-7): the "first 100 keep $79.99 a year" sentence is gone. Nothing in the code counted to 100, named a plan or ended
+ * the offer, so the page promised something no code kept. The owner can bring back a counted offer later. Words from the dictionary
+ * (pricing.card_offer), so /es/pricing says the same.
  */
-export const CARD_OPTIONAL_OFFER = `Add a card now and nothing is charged until your ${TRIAL_DAYS}-day trial ends. The first 100 members who do keep ${y('starter')} a year for as long as they stay. You can cancel in Settings before the trial ends and pay nothing.`;
+export const CARD_OPTIONAL_OFFER = t('en', 'pricing.card_offer', { days: TRIAL_DAYS });
 
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
@@ -55,7 +57,7 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What happens when the trial ends?',
-    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends. A plan you buy in the app is charged by Apple or Google when you buy it.',
+    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends.',
   },
   {
     q: 'Can I cancel any time?',

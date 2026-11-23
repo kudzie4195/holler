@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { LIMITS, type Limit } from '@/lib/auth/limits';
 import { isServedZip } from '@/lib/check/coverage';
-import { coverageFor } from '@/lib/check/cells';
 import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { limiterMailbox } from '@/lib/requests/tokens';
 import { WAITLIST_EMAIL_MAX, WAITLIST_HONEYPOT, WAITLIST_PAGES } from './copy';
+import { waitlistAccepts } from './trades';
 
 /**
  * Saves one "Coming to your area" waitlist signup, double opt-in. Pure logic over injected dependencies so tests run without a database
@@ -99,9 +99,9 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
   if (!page) return { code: 'invalid' };
   // The card only shows where this ZIP and this TRADE have nothing an owner could act on (lib/check/cells.ts coverageFor). A cell that
   // is live or limited never needs the waitlist, so a direct post for one is refused rather than filling the list with places that
-  // already have alerts. Round 23: the test is per trade, not per ZIP, so a town Holler reads that has nothing for lawn care can still
-  // join the list for lawn care.
-  if (coverageFor(place, trade, isServedZip(place)).state !== 'waitlist') return { code: 'invalid', field: 'zip' };
+  // already have alerts. Round 24 (review P2-3): the test is the same list the card offers (lib/waitlist/trades.ts), and a refusal
+  // names the trade field, so the card can say what is wrong.
+  if (!waitlistAccepts(place, isServedZip(place), trade)) return { code: 'invalid', field: 'trade' };
 
   const deps = typeof depsOrFactory === 'function' ? depsOrFactory() : depsOrFactory;
   const address = email.data.toLowerCase();

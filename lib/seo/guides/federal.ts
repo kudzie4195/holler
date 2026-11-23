@@ -89,7 +89,7 @@ export const federal: Guide = {
   related: [
     { href: '/check', label: 'Check your area' },
     { href: '/local', label: 'City pages' },
-    { href: '/guides/free-public-data-sources-for-local-leads', label: 'Free public data sources for local leads' },
+    { href: '/guides/free-public-data-sources-for-local-leads', label: 'Free public data sources for local work' },
   ],
   lastReviewed: '2026-11-17',
 };

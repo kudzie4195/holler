@@ -53,7 +53,7 @@ export const EN_ACCOUNT = {
   'pricing.faq.q1': 'Do I need a card to try it?',
   'pricing.faq.a1': 'No. The free trial lasts {days} days with no card, and it runs on {solo} limits: one ZIP code and up to {trades} trades while you try it.',
   'pricing.faq.q2': 'What happens when the trial ends?',
-  'pricing.faq.a2': 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends. A plan you buy in the app is charged by Apple or Google when you buy it.',
+  'pricing.faq.a2': 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends.',
   'pricing.faq.q3': 'Can I cancel any time?',
   'pricing.faq.a3': 'Yes. Choose Manage billing in Settings and cancel there, which stops the next charge, and your plan stays on until the end of the period you already paid for.',
   'pricing.faq.q4': 'Can I switch between {solo} and {pro}?',
