@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { absoluteUrl } from '@/lib/seo/canonical';
+import { socialMeta } from '@/lib/seo/social';
 import { breadcrumbLd, faqLd } from '@/lib/seo/jsonld';
 import { sourceInfo } from '@/lib/seo/sources';
 import { loadTradeSignals, isTradeIndexable, type TradeSignalItem } from '@/lib/seo/trade-data';
@@ -43,8 +44,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical: absoluteUrl(path) },
     robots: isTradeIndexable(live.items.length) ? { index: true, follow: true } : { index: false, follow: true },
-    openGraph: { title, description, url: absoluteUrl(path), siteName: 'Holler', type: 'website' },
-    twitter: { card: 'summary', title, description },
+    // Round 23: a shared trade link showed no picture either (no og:image, twitter card 'summary').
+    ...socialMeta({ title, description, path }),
   };
 }
 

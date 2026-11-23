@@ -10,7 +10,7 @@ import { TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { TIER_NAMES } from '@/lib/plan/limits';
 import { priceDecimal } from '@/lib/stripe/plans';
 
-// Precise trial form here on purpose: the 2-month headline right after a yearly price would read like a yearly saving.
+// Precise trial form here on purpose: the month headline right after a yearly price would read like a yearly saving.
 export const TRADE_PRICE_LINE = `From ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year, with a ${TRIAL_PHRASE} and no card to start.`;
 
 export const HOW_IT_WORKS: string[] = [

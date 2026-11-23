@@ -219,7 +219,7 @@ describe('/app round 19 integration: the panel with round 18 header, Lists link,
   });
 
   it('the Lists link (round 18) sits above the feed and the panel below it, in both languages', async () => {
-    for (const [language, link] of [['en', 'Address lists for door-knocking and mailers'], ['es', 'Listas de direcciones para visitas y correo directo']] as const) {
+    for (const [language, link] of [['en', 'Address lists: where to hang and flyer this week'], ['es', 'Listas de direcciones: dónde colgar y repartir volantes esta semana']] as const) {
       const { pageHtml, html, found } = await renderApp({ language });
       expect(pageHtml).toContain('href="/app/lists"');
       expect(text(pageHtml)).toContain(link);

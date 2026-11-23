@@ -44,13 +44,13 @@ describe('public prices for the apps and stores', () => {
     for (const bad of ['', 'holler_solo_monthly', 'com.localholler.app.gold.monthly', 'com.localholler.app.pro']) expect(entitlementForProduct(bad)).toBeNull();
   });
 
-  it('the trial is 60 days (round 18), the same constant the web app uses, with both phrases built from it', () => {
-    expect(TRIAL_DAYS).toBe(60);
+  it('the trial is 30 days (round 23), the same constant the web app uses, with both phrases built from it', () => {
+    expect(TRIAL_DAYS).toBe(30);
     expect(TRIAL_DAYS).toBe(MEMBERSHIP_TRIAL_DAYS);
-    expect(PUBLIC_PRICES.trialDays).toBe(60);
-    expect(PUBLIC_PRICES.trialPeriod).toBe('P60D');
-    expect(PUBLIC_PRICES.trialHeadline).toBe('2 months free');
-    expect(PUBLIC_PRICES.trialPhrase).toBe('60-day free trial');
+    expect(PUBLIC_PRICES.trialDays).toBe(30);
+    expect(PUBLIC_PRICES.trialPeriod).toBe('P30D');
+    expect(PUBLIC_PRICES.trialHeadline).toBe('1 month free');
+    expect(PUBLIC_PRICES.trialPhrase).toBe('30-day free trial');
   });
 
   it('display strings and amounts', () => {

@@ -4,24 +4,37 @@ import { useId, useState, type FormEvent } from 'react';
 import { Button } from './button';
 import { Input } from './input';
 import { Select } from './select';
-import { tradeGroups } from '@/lib/check/trades';
-import { tradeComingSoon } from '@/lib/seo/signal-types';
+import type { TradeGroup } from '@/lib/check/trades';
 import { WAITLIST, WAITLIST_EMAIL_MAX, WAITLIST_HONEYPOT } from '@/lib/waitlist/copy';
 
 /**
- * The "Coming to your area" card on /check, for a ZIP Holler does not serve yet. Shown the way the "Coming next" list is: a heading,
+ * The "Coming to your area" card on /check, for a ZIP Holler does not serve yet, or (round 23, `tradeLabel` set) for a ZIP it does serve
+ * where the trade the visitor picked has nothing an owner could act on. Shown the way the "Coming next" list is: a heading,
  * one line, a ruled row. Email and trade (preselected from the check), the ZIP is carried in the card, one button. No account, no
  * login. The server (POST /api/waitlist) saves the row; this card only says what happened. No counts are shown anywhere.
  * The hidden `leave_blank` field is the honeypot (people never see it, simple bots fill it; the server accepts and drops it).
  */
-export function AreaWaitlist({ zip, trade, placeLabel }: { zip: string; trade: string; placeLabel: string }) {
+export function AreaWaitlist({
+  zip,
+  trade,
+  placeLabel,
+  groups,
+  tradeLabel = null,
+}: {
+  zip: string;
+  trade: string;
+  placeLabel: string;
+  /**
+   * The trade options, already filtered on the server (components/check-form.tsx builds the same list). Round 23: they are passed in
+   * rather than computed here, so this client component no longer imports lib/check/trades and lib/seo/signal-types, which dragged the
+   * whole US ZIP table and the capability tables into the /check browser bundle, and so the waitlist list and the check list cannot
+   * drift apart (the waitlist used to offer Locksmith, which sign-up refuses).
+   */
+  groups: TradeGroup[];
+  tradeLabel?: string | null;
+}) {
   const headingId = useId();
   const statusId = useId();
-  // A trade no record type can reach on this deployment is left out of the list, as on the check form; the one passed in stays so
-  // the visitor's own choice still shows.
-  const groups = tradeGroups()
-    .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
-    .filter((g) => g.options.length > 0);
 
   const [state, setState] = useState<'idle' | 'sending' | 'done'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -72,10 +85,10 @@ export function AreaWaitlist({ zip, trade, placeLabel }: { zip: string; trade: s
     <section aria-labelledby={headingId} className="mt-10">
       <p className="font-mono text-sm uppercase tracking-[0.06em] text-brand-text">{WAITLIST.eyebrow}</p>
       <h2 id={headingId} className="mt-2 text-3xl text-ink md:text-4xl">
-        {WAITLIST.heading(placeLabel)}
+        {tradeLabel ? WAITLIST.tradeHeading(tradeLabel.toLowerCase(), placeLabel) : WAITLIST.heading(placeLabel)}
       </h2>
       <p className="mt-2 max-w-2xl text-muted">{WAITLIST.intro}</p>
-      <p className="mt-2 max-w-2xl text-muted">{WAITLIST.note}</p>
+      <p className="mt-2 max-w-2xl text-muted">{tradeLabel ? WAITLIST.tradeNote : WAITLIST.note}</p>
 
       <div className="mt-6 border-t-2 border-ink pt-5">
         {state === 'done' ? (

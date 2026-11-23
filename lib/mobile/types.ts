@@ -146,9 +146,9 @@ export interface ConfigResponse {
   currency: 'USD';
   /** Free trial length in days (60, lib/auth/membership.ts TRIAL_DAYS). Store introductory offers are set up to match. */
   trialDays: number;
-  /** The headline form (lib/plan/price-copy.ts TRIAL_HEADLINE, the 2-month headline), built from TRIAL_DAYS on the server (lib/plan/price-copy.ts). Added in round 18; older servers omit it. */
+  /** The headline form (lib/plan/price-copy.ts TRIAL_HEADLINE, the month headline), built from TRIAL_DAYS on the server (lib/plan/price-copy.ts). Added in round 18; older servers omit it. */
   trialHeadline?: string;
-  /** "60-day free trial": the precise form, built from TRIAL_DAYS on the server. Added in round 18; older servers omit it. */
+  /** "30-day free trial": the precise form, built from TRIAL_DAYS on the server. Added in round 18; older servers omit it. */
   trialPhrase?: string;
   plans: Record<EntitlementId, PlanDto>;
   entitlements: readonly EntitlementId[];

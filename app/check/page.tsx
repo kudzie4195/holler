@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
 import { AreaWaitlist } from '@/components/area-waitlist';
-import { CheckForm } from '@/components/check-form';
+import { CheckForm, checkTradeGroups } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { Footer } from '@/components/footer';
 import { BODY_TEXT, PAGE_BOX } from '@/components/grid';
@@ -13,6 +13,7 @@ import { TopNav } from '@/components/top-nav';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
+import { coverageFor } from '@/lib/check/cells';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -23,17 +24,25 @@ import { coverageNotice } from '@/lib/check/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import { socialMeta } from '@/lib/seo/social';
 
 // Only /check itself is indexed. Every ?zip=&trade= variant is noindex (tens of thousands of combinations, one canonical).
+const CHECK_TITLE = 'See what happened near you';
+const CHECK_DESCRIPTION =
+  'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.';
+
 export async function generateMetadata(props: PageProps<'/check'>): Promise<Metadata> {
   const sp = await props.searchParams;
   const variant = sp.zip !== undefined || sp.trade !== undefined;
   return {
-    title: 'See what happened near you',
-    description:
-      'Free local check. Enter a ZIP code and a trade to see recent storm reports, permits, 311 requests and more near you, with sources. No login.',
+    title: CHECK_TITLE,
+    description: CHECK_DESCRIPTION,
     alternates: pairAlternates(ES_PAIRS[1], 'en'),
     robots: variant ? { index: false, follow: true } : { index: true, follow: true },
+    // Round 23: /check is the page every video links to, and it had no openGraph block of its own, so it inherited og:url
+    // https://localholler.com from app/layout.tsx: a shared /check link previewed as the home page and Facebook merged the two.
+    // Its own url, title, description and the share picture, on every variant (the ?zip=&trade= pages are noindex but still shared).
+    ...socialMeta({ title: `${CHECK_TITLE} | Holler`, description: CHECK_DESCRIPTION, path: '/check' }),
   };
 }
 
@@ -137,9 +146,20 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     origin: { lat: place.lat, lon: place.lon },
   };
 
-  // A ZIP with no local source within reach (isServedZip: territories, military codes, and places with no connected permit or city feed
-  // nearby) gets the "Coming to your area" card: leave an email, hear when Holler covers it. A served ZIP never gets it.
-  const waitlist = isServedZip(place) ? null : <AreaWaitlist zip={params.zip} trade={params.trade} placeLabel={placeLabel} />;
+  // Round 23: coverage is per city AND per trade (lib/check/cells.ts), not per ZIP. 'waitlist' means this trade has nothing here an
+  // owner could act on, so the "Coming to your area" card is the whole answer: no trial CTA and no "Holler is watching near X" block
+  // (components/check-results.tsx hides both). 'limited' still offers sign-up, with a line that says there are few records.
+  const coverageState = coverageFor(place, params.trade, isServedZip(place)).state;
+  const waitlist =
+    coverageState === 'waitlist' ? (
+      <AreaWaitlist
+        zip={params.zip}
+        trade={params.trade}
+        placeLabel={placeLabel}
+        groups={checkTradeGroups(params.trade)}
+        tradeLabel={isServedZip(place) ? tradeLabel(params.trade) : null}
+      />
+    ) : null;
 
   // Territories and military mail codes have no source rows yet: say so, read nothing. The waitlist card is the answer here.
   if (!scope.covered) {
@@ -162,7 +182,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
           <CheckForm zip={params.zip} trade={params.trade} />
         </FormBand>
         {waitlist}
-        <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+        <CheckResults {...common} coverageState={coverageState} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
   }
@@ -185,7 +205,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} coverageState={coverageState} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

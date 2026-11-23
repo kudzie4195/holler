@@ -6,6 +6,13 @@
 export const WAITLIST = {
   eyebrow: 'Coming to your area',
   heading: (place: string) => `Holler isn't covering ${place} yet.`,
+  /**
+   * Round 23: a ZIP can have a local source and still have nothing for one trade (Dallas reads a 311 feed but produced 0 lawn-care
+   * records an owner could act on in 14 days). That visitor gets this heading and note instead, so the page never says Holler is not
+   * in their town when it is, and never offers a trial for a trade with an empty feed.
+   */
+  tradeHeading: (trade: string, place: string) => `Holler has nothing for ${trade} near ${place} yet.`,
+  tradeNote: 'Holler reads records near you, but lately none of them has been work for this trade. Pick another trade above, or leave your email and we will tell you when this one is worth paying for.',
   intro: "Leave your email and we'll tell you when it does.",
   note: 'Storm reports and weather alerts reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
   emailLabel: 'Your email',

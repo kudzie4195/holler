@@ -2,13 +2,19 @@ import { PLAN_LIMITS, TIER_NAMES, type Tier } from './limits';
 
 const P = PLAN_LIMITS;
 
-/** What each plan includes, in plain words. Numbers come from PLAN_LIMITS. Shared by the pricing cards and settings. */
+/**
+ * What each plan includes, in plain words. Numbers come from PLAN_LIMITS. Shared by the pricing cards and settings.
+ * Round 23: the address lists and the printable door hanger are on both cards. They have been in /app since round 18 and are the
+ * strongest part of Holler for an owner-operator who sells to homeowners, and neither card mentioned them.
+ */
 export const PLAN_FEATURES: Record<Tier, string[]> = {
   starter: [
     `${P.starter.areas} service area: your ZIP code and how far you travel`,
     `Up to ${P.starter.trades} trades`,
     'Alerts by email, at most one an hour',
     'Your feed of matches',
+    'Address lists: where to hang and flyer this week',
+    'A printable door hanger with your name and number',
     'Reply to resident requests through Holler',
   ],
   pro: [
@@ -17,6 +23,8 @@ export const PLAN_FEATURES: Record<Tier, string[]> = {
     `Up to ${P.pro.keywords} keyword watches, such as "tree removal"`,
     'Alerts by email, at most one an hour',
     'Your feed of matches',
+    'Address lists: where to hang and flyer this week',
+    'A printable door hanger with your name and number',
     'Reply to resident requests through Holler',
   ],
 };

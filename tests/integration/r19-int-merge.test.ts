@@ -198,7 +198,14 @@ describe('trial: no member-facing string from r19-metros states a trial length',
     expect(keys.length).toBeGreaterThan(20);
     const texts = [
       ...keys.flatMap((k) => [(en as Record<string, string>)[k], (es as Record<string, string>)[k]]),
-      ...Object.values(WAITLIST).flatMap((v) => (typeof v === 'function' ? [v('Philadelphia, PA')] : typeof v === 'string' ? [v] : Object.values(v))),
+      // Round 23 added WAITLIST.tradeHeading(trade, place), so the functions are called by their arity (both are still covered here).
+      ...Object.values(WAITLIST).flatMap((v) =>
+        typeof v === 'function'
+          ? [v.length === 2 ? (v as (a: string, b: string) => string)('lawn care', 'Philadelphia, PA') : (v as (a: string) => string)('Philadelphia, PA')]
+          : typeof v === 'string'
+            ? [v]
+            : Object.values(v),
+      ),
       ...FEATURES.flatMap((f) => [f.label, f.description]),
     ];
     const LENGTH = /\b(?:14|fourteen|60|sixty)[- ]?(?:day|días)|\b(?:two|2|dos)\s+(?:weeks|semanas|months|meses)\b|free trial|prueba gratis/i;

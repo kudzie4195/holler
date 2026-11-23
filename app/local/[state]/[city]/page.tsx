@@ -17,6 +17,9 @@ import { JsonLd } from '../../_components/jsonld';
 import { SectionCard } from '../../_components/records';
 import { Aside, ClosingBand, H2, Ledger, Page, PageHeader, PrimaryLink, linkClass, rowLinkClass, PublicRecordsNote } from '../../_components/ui';
 import { cityCtaLabel } from '@/lib/plan/price-copy';
+import { socialMeta } from '@/lib/seo/social';
+import { anyTradeLive } from '@/lib/check/cells';
+import { isServedZip } from '@/lib/check/coverage';
 
 // SPEC asks for `export const revalidate = 21600`. That segment option is removed when
 // cacheComponents is on (see next.config.ts), so the same 6 h lifetime is set with cacheLife in
@@ -52,8 +55,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical: absoluteUrl(path) },
     robots: indexable ? { index: true, follow: true } : { index: false, follow: true },
-    openGraph: { title, description, url: absoluteUrl(path), siteName: 'Holler', type: 'website' },
-    twitter: { card: 'summary', title, description },
+    // Round 23: a shared city link showed no picture on Facebook, iMessage or a TikTok bio click (no og:image, twitter card 'summary').
+    ...socialMeta({ title, description, path }),
   };
 }
 
@@ -72,8 +75,12 @@ export default async function CityPage({ params }: Props) {
   const helps = buildHelps(data);
   const faq = buildFaq(city, data);
   const nearby = nearbyCities(city.slug, 6);
-  const ctaHref = `/signup?city=${encodeURIComponent(city.slug)}`;
-  const ctaLabel = cityCtaLabel(city.name);
+  // Round 23: a city where no measured trade is live gets no trial offer and no price. Valdosta used to carry
+  // the whole trial CTA with its price above two weather alerts. It now points at the free check, where the
+  // waitlist card is the honest answer (lib/check/cells.ts).
+  const marketable = anyTradeLive(city, isServedZip({ lat: city.lat, lon: city.lon, state: city.state }));
+  const ctaHref = marketable ? `/signup?city=${encodeURIComponent(city.slug)}` : '/check';
+  const ctaLabel = marketable ? cityCtaLabel(city.name) : `See what Holler has near ${city.name}`;
 
   const visible = SECTIONS.filter((s) => (data.sections[s.id]?.length ?? 0) > 0);
   const listItems = visible
@@ -123,7 +130,11 @@ export default async function CityPage({ params }: Props) {
           <PrimaryLink href={ctaHref} onBrand>
             {ctaLabel}
           </PrimaryLink>
-          <p className="mt-2 text-sm text-on-brand-muted">No card to start. Holler never posts anything for you.</p>
+          <p className="mt-2 text-sm text-on-brand-muted">
+            {marketable
+              ? 'No card to start. Holler never posts anything for you.'
+              : `Holler reads public records here, but not yet enough of them for a trade to be worth paying for. Check your ZIP and join the ${city.name} list.`}
+          </p>
         </PageHeader>
       }
     >
@@ -214,9 +225,9 @@ export default async function CityPage({ params }: Props) {
             1024 px it sits in the right column, so where it is in the source does not move it on screen. The hero CTA above carries
             the price, so the card's button is short (final review B P2-2). */}
         <Aside>
-          <ClosingBand line={<>Know first when {city.name} needs you.</>}>
+          <ClosingBand line={marketable ? <>Know first when {city.name} needs you.</> : <>Holler is not ready for {city.name} yet.</>}>
             <PrimaryLink href={ctaHref} onBrand>
-              Get {city.name} alerts
+              {marketable ? <>Get {city.name} alerts</> : <>Join the {city.name} list</>}
             </PrimaryLink>
           </ClosingBand>
         </Aside>

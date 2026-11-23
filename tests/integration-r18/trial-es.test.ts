@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/es/pricing', useRouter:
 
 import { Pricing } from '@/components/pricing';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
-import { TRIAL_MONTHS } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE_KEY, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { APP_TITLES_EN, APP_TITLES_ES } from '@/components/app-header';
 import { t } from '@/lib/i18n';
 import { renderResolved } from '../i18n/render-tree';
@@ -25,20 +25,20 @@ describe('Spanish trial wording', () => {
     expect(en).toContain(`Start your ${TRIAL_DAYS}-day free trial`);
   });
 
-  it('sign-up: the 2-month headline in both languages (no yearly price beside it)', async () => {
+  it('sign-up: the month headline in both languages (no yearly price beside it)', async () => {
     vi.doMock('@/lib/auth/session', () => ({ getUser: async () => null }));
     const { SignupBody } = await import('@/components/auth-pages');
     const sp = Promise.resolve({});
     const es = text(await renderResolved(SignupBody({ searchParams: sp, lang: 'es' })));
-    expect(es).toContain(`${t('es', 'land.trial', { months: TRIAL_MONTHS })}, sin tarjeta`);
-    expect(es).toContain('2 meses gratis');
+    expect(es).toContain(`${t('es', TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS })}, sin tarjeta`);
+    expect(es).toContain('1 mes gratis');
     const en = text(await renderResolved(SignupBody({ searchParams: sp })));
-    expect(en).toContain('2 months free, no card. Takes about a minute.');
+    expect(en).toContain('1 month free, no card. Takes about a minute.');
   });
 
-  it('constants: 60 days, 2 months', () => {
-    expect(TRIAL_DAYS).toBe(60);
-    expect(TRIAL_MONTHS).toBe(2);
+  it('constants: 30 days, 1 month', () => {
+    expect(TRIAL_DAYS).toBe(30);
+    expect(TRIAL_MONTHS).toBe(1);
   });
 });
 

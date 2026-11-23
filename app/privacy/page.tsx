@@ -137,6 +137,18 @@ export default function PrivacyPage() {
           or account numbers, to describe which kinds of records turn into work. We never sell your answers with your name or
           account attached.
         </p>
+        {/* Round 23: the opt-in box at sign-up (components/auth-forms.tsx, lib/auth/stats-consent.ts). Word for word as the owner
+            settled it; the box itself is the short form of the same promise, and Settings turns it off. */}
+        <p>
+          If you tick the box, we add your taps (useful, not relevant, led to work) and any job amount you enter to combined
+          statistics by trade, record type, area and week. They contain no name, business, email, phone or street address, and we
+          do not publish a group smaller than 10 members. We may publish, share, license or sell these combined statistics. We
+          never sell or share your answers on their own. Untick the box in Settings and we stop adding your answers from that day.
+        </p>
+        <p>
+          The box is unticked when you sign up, and nothing on your plan or your alerts depends on it. We store which wording you
+          agreed to and when, so we can always show you what you said yes to.
+        </p>
       </DocSection>
 
       <DocSection title="Resident service requests">
@@ -307,8 +319,10 @@ export default function PrivacyPage() {
         <p>
           Most of what Holler shows is government open data. That includes weather alerts, storm reports, disaster
           declarations, earthquakes, airport delays, federal awards, and city permits, 311 requests, inspections, code
-          violations, new business licenses and permitted events. Permit and event records show a street address. Inspection
-          and code violation records show only the street block. No public page prints a business name from inspection or federal
+          violations, new business licenses and permitted events. The rule on addresses, everywhere on Holler: an exact street
+          address only for a building permit, which is where the work itself is; a street block only for a code violation, a 311
+          request or a home sale; never a private person&apos;s name. Permit and event records therefore show a street address, and
+          inspection and code violation records show only the block. No public page prints a business name from inspection or federal
           award records.
           A filter removes phone numbers, email addresses and personal names from free text. We keep full records for about
           120 days, then delete them.

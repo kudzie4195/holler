@@ -2,7 +2,7 @@
 // REV2 probe 27 (r18 TRIAL, commit ef745e4).
 //  R1: the repair runs on /app and GET /api/m/me only. The trial emails' button goes to /app/settings#billing-h, and Settings and
 //      Checkout read the UNREPAIRED row. While 0028 is not applied, a member who subscribes from that button is charged at the old
-//      14-day end (or at once, if that end has passed), although the same member is due start + 60 days and would get it on /app.
+//      14-day end (or at once, if that end has passed), although the same member is due start + TRIAL_DAYS and would get it on /app.
 //  R2: in that same state the hourly cron sends "Your trial ends in 3 days" to a member the app would extend on their next /app load.
 //  R5: 0028 has a 46-day floor the app does not have (7-day-era rows).
 //  plus: the Stripe cap after the F12 fix, and what "canceled" means for access while trial_ends_at is still ahead.
@@ -35,25 +35,25 @@ describe('R1 fixed (was P2, only while 0028 is not applied): Settings and Checko
   });
 
   // The two cases below are the arithmetic of what the repair prevents; checkout-from-settings.test.ts runs the real route.
-  it('day 11 of an old 14-day trial: Checkout from Settings sets the first charge to day 14; after one /app load it would be day 60 (46 days later)', () => {
+  it('day 11 of an old 14-day trial: Checkout from Settings sets the first charge to day 14; after one /app load it would be day 30 (16 days later)', () => {
     const r = row(11, 14);
     const start = r.created_at;
-    expect(mayExtendTrial(r, start, NOW)).toBe(true);                       // /app would move this row to start + 60
+    expect(mayExtendTrial(r, start, NOW)).toBe(true);                       // /app would move this row to start + TRIAL_DAYS
     const unrepaired = trialParams(r.trial_ends_at, NOW) as { trial_end: number };
     const repaired = trialParams(trialEndFromStart(start), NOW) as { trial_end: number };
     expect(unrepaired.trial_end * 1000).toBe(NOW + 3 * DAY);                 // charged in 3 days
-    expect(repaired.trial_end * 1000).toBe(NOW + 49 * DAY);                  // charged in 49 days
-    expect((repaired.trial_end - unrepaired.trial_end) / 86400).toBe(46);
+    expect(repaired.trial_end * 1000).toBe(NOW + 19 * DAY);                  // charged in 19 days
+    expect((repaired.trial_end - unrepaired.trial_end) / 86400).toBe(16);
     expect(computeAccess(r, NOW).daysLeft).toBe(3);                          // Settings prints "Free trial: 3 days left."
   });
 
-  it('14-day trial ended 6 days ago (start 20 days back): Checkout from Settings charges TODAY; after one /app load it would be in 40 days', () => {
+  it('14-day trial ended 6 days ago (start 20 days back): Checkout from Settings charges TODAY; after one /app load it would be in 10 days', () => {
     const r = row(20, 14);
     expect(mayExtendTrial(r, r.created_at, NOW)).toBe(true);
     expect(trialParams(r.trial_ends_at, NOW)).toEqual({});                   // no Stripe trial: charge now
     expect(computeAccess(r, NOW).trialEnded).toBe(true);                     // Settings prints "Your free trial has ended."
     expect(renewalNote('starter', 'monthly', { inTrial: false })).toContain('starting today');
-    expect((trialParams(trialEndFromStart(r.created_at), NOW) as { trial_end: number }).trial_end * 1000).toBe(NOW + 40 * DAY);
+    expect((trialParams(trialEndFromStart(r.created_at), NOW) as { trial_end: number }).trial_end * 1000).toBe(NOW + 10 * DAY);
   });
 });
 
@@ -66,8 +66,8 @@ describe('R2 (only while 0028 is not applied): the selection still picks the mem
       const due = selectLifecycle([p], [{ user_id: 'u', kind: 'welcome' }], new Date(NOW));
       if (due.some((c) => c.kind === 'trial_ending')) {
         sent++;
-        expect(mayExtendTrial({ ...p, plan_source: 'none' }, p.created_at!, NOW)).toBe(true); // the app says: this member has start + 60
-        expect(Date.parse(trialEndFromStart(p.created_at!)) - NOW).toBeGreaterThanOrEqual(47.5 * DAY); // 47.5 days or more really left
+        expect(mayExtendTrial({ ...p, plan_source: 'none' }, p.created_at!, NOW)).toBe(true); // the app says: this member has start + TRIAL_DAYS
+        expect(Date.parse(trialEndFromStart(p.created_at!)) - NOW).toBeGreaterThanOrEqual(17.5 * DAY); // 17.5 days or more really left
       }
     }
     expect(sent).toBe(49); // every hour of start from 10 d 12 h to 12 d 12 h back (window 36 to 84 h)
@@ -98,16 +98,16 @@ describe('R2 (only while 0028 is not applied): the selection still picks the mem
   });
 });
 
-describe('R5 fixed: 0028 bounds by the start (created_at > now - 60 days), like the app (tests/ops/migration-0028.test.ts runs it)', () => {
-  it('a 7-day-era row (migration 0001 default) with start 55 days back ended 48 days ago: the app revives it (5 days left), and so does 0028 now', () => {
-    const r = row(55, 7);
-    expect(Date.parse(r.trial_ends_at)).toBeLessThan(NOW - 46 * DAY);        // outside 0028's window
-    expect(mayExtendTrial(r, r.created_at, NOW)).toBe(true);                 // inside the app's
+describe('R5 fixed: 0028 bounded by the start (created_at > now - 60 days), like the app (tests/ops/migration-0028.test.ts runs it)', () => {
+  it('a 7-day-era row (migration 0001 default) with start 25 days back ended 18 days ago: the app revives it (5 days left)', () => {
+    const r = row(25, 7);
+    expect(Date.parse(r.trial_ends_at)).toBeLessThan(NOW - 16 * DAY);
+    expect(mayExtendTrial(r, r.created_at, NOW)).toBe(true);                 // inside the app's window (start + TRIAL_DAYS is 5 days out)
   });
 });
 
 describe('REV2 notes', () => {
-  it('F12 after the fix: no first charge before trial_ends_at for any time left up to 60 days 5 minutes; beyond that it is cut to now + 60 days', () => {
+  it('F12 after the fix: no first charge before trial_ends_at for any time left up to TRIAL_MAX_DAYS plus 5 minutes; beyond that it is cut back', () => {
     for (let left = 60_000; left <= MAX_TRIAL_MS + 5 * 60_000; left += 7 * 60_000 + 13) {
       const p = trialParams(iso(NOW + left), NOW);
       const chargeAt = 'trial_end' in p ? (p as { trial_end: number }).trial_end * 1000 : 'trial_period_days' in p ? NOW + (p as { trial_period_days: number }).trial_period_days * DAY : NOW;
@@ -117,8 +117,8 @@ describe('REV2 notes', () => {
     expect(trialParams(iso(NOW + MAX_TRIAL_MS + 5 * 60_000), NOW)).toEqual({ trial_end: Math.ceil((NOW + MAX_TRIAL_MS + 5 * 60_000) / 1000) });
     expect(trialParams(iso(NOW + MAX_TRIAL_MS + 5 * 60_000 + 1), NOW)).toEqual({ trial_end: Math.ceil((NOW + MAX_TRIAL_MS) / 1000) });
   });
-  it('NOTE (not in this diff, wider with 60 days): a canceled row whose trial_ends_at is still ahead is NOT locked on /app', () => {
-    const a = computeAccess({ subscription_status: 'canceled', trial_ends_at: iso(NOW + 50 * DAY) }, NOW);
+  it('NOTE: a canceled row whose trial_ends_at is still ahead is NOT locked on /app', () => {
+    const a = computeAccess({ subscription_status: 'canceled', trial_ends_at: iso(NOW + 20 * DAY) }, NOW);
     expect(a.locked).toBe(false);
     expect(computeAccess({ subscription_status: 'canceled', trial_ends_at: iso(NOW - DAY) }, NOW).locked).toBe(true);
   });

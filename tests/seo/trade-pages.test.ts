@@ -83,8 +83,8 @@ describe('trade page builders', () => {
     // Offers priced from lib/stripe/plans.ts, not typed (they said '5' and '48' before round 7).
     expect((svc.offers as { price: string; description: string }[]).map((o) => [o.price, o.description])).toEqual([
       // Round 18: the precise trial form in JSON-LD, never "months free" next to a yearly price.
-      ['7.99', 'Monthly plan, 60-day free trial'],
-      ['79.99', 'Annual plan, 60-day free trial'],
+      ['7.99', 'Monthly plan, 30-day free trial'],
+      ['79.99', 'Annual plan, 30-day free trial'],
     ]);
     expect(JSON.stringify(svc)).not.toMatch(/[—–]/);
   });

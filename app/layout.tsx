@@ -7,12 +7,12 @@ import { jsonLdString } from '@/lib/seo/serialize';
 import './globals.css';
 
 const description =
-  `Holler sends a short alert when public data, such as weather alerts, storm reports and city records, shows your town may need what you do. Plans from ${FROM_MONTHLY} a month.`;
+  `Holler reads public data, such as building permits, code cases and storm reports, and shows you where the work is near you each week. Plans from ${FROM_MONTHLY} a month.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'Holler: know when your town needs you',
+    default: 'Holler: see where the work is near you this week',
     template: '%s | Holler',
   },
   description,
@@ -21,14 +21,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Holler',
-    title: 'Holler: know when your town needs you',
+    title: 'Holler: see where the work is near you this week',
     description,
     url: '/',
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Holler: know when your town needs you' }],
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Holler: see where the work is near you this week' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Holler: know when your town needs you',
+    title: 'Holler: see where the work is near you this week',
     description,
     images: ['/og.png'],
   },

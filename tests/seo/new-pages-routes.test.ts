@@ -61,7 +61,7 @@ describe('llms.txt', () => {
     expect(text).toContain('https://example.test/pricing');
     expect(text).toContain('Solo: $7.99 per month or $79.99 per year. 1 service area and up to 5 trades.');
     expect(text).toContain('Pro: $13.99 per month or $139.99 per year. Up to 3 service areas, up to 15 trades and up to 5 keyword watches.');
-    expect(text).toContain('60-day free trial');
+    expect(text).toContain('30-day free trial');
     expect(text).not.toContain('14-day free trial');
     expect(text).toContain('The trial has Solo limits.');
     expect(text).not.toMatch(/Starter|7-day/);

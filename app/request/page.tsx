@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     url: '/request',
     siteName: 'Holler',
     type: 'website',
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Holler: know when your town needs you' }],
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Holler: see where the work is near you this week' }],
   },
   twitter: {
     card: 'summary_large_image',

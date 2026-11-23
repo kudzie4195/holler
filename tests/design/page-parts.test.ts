@@ -254,7 +254,7 @@ describe('small shell rules from the round 9 reviews', () => {
     expect(footer).toContain("{ href: '/data', label: 'Local public records in numbers' }");
     // Final review B P2-9: the legal line does not leave "you act." alone on a line.
     expect(footer).toMatch(/<p className="text-pretty">\s*Data comes from public government records/);
-    expect(footer).toMatch(/text-balance[^"]*">Public records near you, sorted for your trade\.<\/p>/);
+    expect(footer).toMatch(/text-balance[^"]*">See where the work is near you this week\.<\/p>/);
   });
   it('the guides list has no decorative icon tiles (review 2 P2-16)', () => {
     expect(read('app/guides/page.tsx')).not.toMatch(/Icon\b|GUIDE_ICON/);

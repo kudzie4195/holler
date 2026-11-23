@@ -17,11 +17,11 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#3
 
 describe('REV copy: the 2-month headline and yearly prices', () => {
   it('constants', () => {
-    expect(TRIAL_HEADLINE).toBe('2 months free');
-    expect(TRIAL_PHRASE).toBe('60-day free trial');
+    expect(TRIAL_HEADLINE).toBe('1 month free');
+    expect(TRIAL_PHRASE).toBe('30-day free trial');
     expect(annualSavingLabel('starter')).toBe('save 16%');
     expect(annualSavingLabel('pro')).toBe('save 16%');
-    expect(PUBLIC_PRICES.trialPeriod).toBe('P60D');
+    expect(PUBLIC_PRICES.trialPeriod).toBe('P30D');
   });
 
   it('the yearly saving is a percent, and 16% of a year IS about 2 months (why the two must not sit together)', () => {
@@ -29,12 +29,12 @@ describe('REV copy: the 2-month headline and yearly prices', () => {
     expect(Math.round((annualSavingsPercent('starter') / 100) * 12)).toBe(2);
   });
 
-  it('F2 fixed: on /pricing the Solo card holds the yearly price and "save 16%", and its button states the precise 60-day trial', () => {
+  it('F2 fixed: on /pricing the Solo card holds the yearly price and "save 16%", and its button states the precise 30-day trial', () => {
     const html = renderToStaticMarkup(createElement(Pricing as FC<{ variant?: 'short' | 'full' }>, { variant: 'full' }));
     const cards = html.split(/<li(?=[^>]*rounded-card)/).slice(1).map((c) => text('<li' + c)); // one string per plan card, nested feature rows included
     const solo = cards.find((c) => c.includes(priceLabel('starter', 'annual')))!;
     expect(solo).toContain(`or ${priceLabel('starter', 'annual')} a year, save 16%`);
-    expect(solo).toContain('Start your 60-day free trial');
+    expect(solo).toContain('Start your 30-day free trial');
     expect(solo).not.toMatch(/months free/);
     const pro = cards.find((c) => c.includes(priceLabel('pro', 'annual')))!;
     expect(pro).not.toMatch(/months free/); // the Pro card does not do it
@@ -46,23 +46,23 @@ describe('REV copy: the 2-month headline and yearly prices', () => {
   });
 
   it('F2 (P3 part) fixed: the /check CTA box (button above the yearly price line) uses the precise form, English and Spanish', () => {
-    const es = t('es', 'chk.cta.btn', { trial: 'Prueba gratis de 60 días' });
-    expect(es).toBe('Reciba estas alertas por correo. Prueba gratis de 60 días, sin tarjeta');
-    expect(t('es', 'land.trial_precise', { days: 60 })).toBe('prueba gratis de 60 días');
-    expect(t('en', 'land.trial_precise', { days: 60 })).toBe(TRIAL_PHRASE);
+    const es = t('es', 'chk.cta.btn', { trial: 'Prueba gratis de 30 días' });
+    expect(es).toBe('Reciba estas alertas por correo. Prueba gratis de 30 días, sin tarjeta');
+    expect(t('es', 'land.trial_precise', { days: 30 })).toBe('prueba gratis de 30 días');
+    expect(t('en', 'land.trial_precise', { days: 30 })).toBe(TRIAL_PHRASE);
   });
 
   it('single sentences that name a yearly price use the precise form (good)', () => {
     for (const s of [TRADE_PRICE_LINE, PRICING_DESCRIPTION, ...PRICING_FAQ.map((f) => `${f.q} ${f.a}`)]) {
       if (/year|annual/i.test(s)) expect(s, s).not.toMatch(/months? free/i);
     }
-    expect(TRADE_PRICE_LINE).toContain('with a 60-day free trial');
-    expect(cityCtaLabel('Austin')).toBe('Get alerts for Austin from $7.99/mo, 2 months free');
-    expect(stormCtaLabel()).toBe('Get alerts from $7.99/mo, 2 months free');
+    expect(TRADE_PRICE_LINE).toContain('with a 30-day free trial');
+    expect(cityCtaLabel('Austin')).toBe('Get alerts for Austin from $7.99/mo, 1 month free');
+    expect(stormCtaLabel()).toBe('Get alerts from $7.99/mo, 1 month free');
   });
 
-  it('Spanish: 2 meses gratis and prueba gratis de 60 días', () => {
-    expect(t('es', 'land.trial', { months: 2 })).toBe('2 meses gratis');
-    expect(t('es', 'land.description', { from: '$7.99', days: 60 })).toContain('prueba gratis de 60 días');
+  it('Spanish: 1 mes gratis and prueba gratis de 30 días', () => {
+    expect(t('es', 'land.trial_one', { months: 1 })).toBe('1 mes gratis');
+    expect(t('es', 'land.description', { from: '$7.99', days: 30 })).toContain('prueba gratis de 30 días');
   });
 });

@@ -35,8 +35,18 @@ export const COMPARISON: [string, string, string][] = [
   ['Keyword watches', 'None', `Up to ${P.keywords}`],
   ['Email alerts', 'Yes', 'Yes'],
   ['Feed of matches', 'Yes', 'Yes'],
+  // Round 23: both have been in /app since round 18 and were on neither card nor this table.
+  ['Address lists and door hanger', 'Yes', 'Yes'],
   ['Replies to resident requests', 'Yes', 'Yes'],
 ];
+
+/**
+ * Round 23, the card-optional offer. Stripe Checkout already sets the subscription's trial end to the member's own trial end
+ * (app/api/stripe/checkout/route.ts trialParams), so adding a card during the trial really does charge nothing until the trial ends.
+ * The first-100 yearly price is the owner's offer, held by hand; nothing in the code enforces a count, so the copy does not claim one
+ * beyond "the first 100".
+ */
+export const CARD_OPTIONAL_OFFER = `Add a card now and nothing is charged until your ${TRIAL_DAYS}-day trial ends. The first 100 members who do keep ${y('starter')} a year for as long as they stay. You can cancel in Settings before the trial ends and pay nothing.`;
 
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
