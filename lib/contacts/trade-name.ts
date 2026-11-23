@@ -457,6 +457,9 @@ export function cleanContractorName(raw: unknown): string | null {
   // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts; never a string that only shares a word).
   const known = knownCompanyName(raw);
   if (known) return known;
+  // Final review P3-4: a name that is only a listed place and a legal form ("TEXAS LLC", "CALIFORNIA LLC") is the tail of "X HOMES OF TEXAS
+  // LLC" as rows stored before the round 20 fix kept it. Never a firm's name on its own: not shown (display reads this rule too).
+  if (placeWithLegal(raw)) return null;
   if (isPlaceholderName(raw)) return null;
   // C2: "PERSON of FIRM" / "PERSON c/o FIRM": the firm alone, or nothing. "FIRM of PLACE" keeps the firm.
   const parts = raw.normalize('NFKC').split(PERSON_FIRM_SPLIT_RE);

@@ -151,6 +151,20 @@ const ROLE_LABEL: Record<ContactDto['role'], string> = {
   buyer: 'Buyer',
 };
 
+/**
+ * Final review P3-1: the block a whole-building 311 request names, with the server's own words and heading (the member's language). Not a
+ * contact: no "Organizations and public offices only" note, no role label.
+ */
+export function BuildingBlock({ building }: { building?: AlertDto['building'] }) {
+  if (!building?.line) return null;
+  return (
+    <section className="card" aria-labelledby="who-building">
+      <h3 id="who-building">{building.heading}</h3>
+      <p className="small" style={{ marginTop: 4, overflowWrap: 'anywhere' }} data-testid="building-block">{building.line}</p>
+    </section>
+  );
+}
+
 export function Contacts({ contacts }: { contacts: ContactDto[] }) {
   if (!contacts.length) return null;
   return (

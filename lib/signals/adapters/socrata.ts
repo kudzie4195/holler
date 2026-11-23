@@ -13,6 +13,7 @@ import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
 import { nycBlockAddress, nycBuildingAddress, nameBeforeStreet } from './nyc-address';
 import { createHash, randomUUID } from 'node:crypto';
+import { buildingRefOf, isWholeBuildingHeat } from '@/lib/signals/building-ref';
 import {
   CIVIC_TYPE_KEYWORDS,
   NAICS_SECTORS,
@@ -209,12 +210,14 @@ export function classifyPermitRow(
 
 /**
  * Business rows are rounded to 2 decimals (about 1 km): enough for a 5 mile alert radius and the nearest-city lookup, too coarse to
- * point at a home. Code-violation rows and EVERY inspection row are rounded to 3 decimals (about 100 m, a block): holler_signals is
- * public, and such a record is often a private home (a home daycare). Everything else keeps its exact point.
+ * point at a home. Code-violation rows, EVERY inspection row and EVERY 311 row (final review P2-1: a heat complaint is about a home)
+ * are rounded to 3 decimals (about 100 m, a block): holler_signals is public, and such a record is often a private home (a home
+ * daycare, an apartment building). Everything else keeps its exact point. A NYC heat row keeps its building as a keyed hash
+ * (building-ref.ts), never as a point.
  */
 export function privatePosition<T extends { lat: number; lon: number }>(pos: T | null, subtype: string): T | null {
   if (!pos) return pos;
-  const f = subtype === 'business' ? 100 : subtype === 'violation' || subtype === 'inspection' ? 1000 : 0;
+  const f = subtype === 'business' ? 100 : subtype === 'violation' || subtype === 'inspection' || subtype === '311' ? 1000 : 0;
   if (!f) return pos;
   return { ...pos, lat: Math.round(pos.lat * f) / f, lon: Math.round(pos.lon * f) / f };
 }
@@ -552,7 +555,10 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         ? trunc(summaryParts.join(' | '), 280) || null
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
 
-      const pos = privatePosition(extractLatLon(row, ds), ds.subtype);
+      const exactPos = extractLatLon(row, ds);
+      const pos = privatePosition(exactPos, ds.subtype);
+      // Final review P2-1: the building of a NYC whole-building heat complaint, as a keyed hash of its exact point (building-ref.ts).
+      const bref = isWholeBuildingHeat({ source: ds.id, title }) ? buildingRefOf(exactPos?.lat, exactPos?.lon) : null;
       const zip = s(row, ds.zipField).slice(0, 5) || null;
       // Permits: the project value the city published, as a number (PLAN-2.0 1.3). Public already: the summary prints the same amount.
       const jobValue = ds.subtype === 'permit' ? extractJobValue((f) => s(row, f), ds.valueFields ?? moneyFields(ds.summaryFields)) : null;
@@ -582,6 +588,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
           cat_v: CAT_V,
           ...(pos?.approx ? { approxLocation: true } : {}),
           ...(jobValue !== null ? { jobValue } : {}),
+          ...(bref ? { bref } : {}),
         },
         ...(contacts.length ? { contacts } : buildingSite ? { contacts: [{ role: 'site' as const, name: '', address: buildingSite, city: ds.city, state: ds.state, zip }] } : {}),
         ...(licenseRefs.length ? { licenseRefs } : {}),

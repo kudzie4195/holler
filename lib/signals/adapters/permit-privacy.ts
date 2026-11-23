@@ -377,18 +377,55 @@ export function categoryValueHasName(value: string): boolean {
   return false;
 }
 
+/** A role word for who acted on a record ("Officer", "Insp.", "Sgt"). */
+const ACTOR_TITLE_RE = /^(?:officer|ofc|sgt|sergeant|det|detective|insp|inspector|investigator|agent|deputy)\.?$/i;
+const initialToken = (w: string) => /^[A-Z]\.?$/.test(core(w));
+
+/** A person-like name starts at ws[i]: an initial and a word ("J. Doe"), a full personal name ("Zelda Fitzgerald", "JOHN SMITH"), or a lone listed given name that is not an ordinary word ("by Zelda"). */
+function personAt(ws: string[], i: number): boolean {
+  const a = ws[i];
+  if (!a || !isCapWord(a)) return false;
+  const b = ws[i + 1];
+  if (initialToken(a)) return !!b && isCapWord(b);
+  const ca = core(a).replace(/\.$/, '');
+  if (b && isCapWord(b) && !plainWord(core(b).replace(/\.$/, '')) && looksLikeFullPersonName(`${ca} ${core(b)}`)) return true;
+  return !plainWord(ca) && looksLikeFullPersonName(ca);
+}
+
+/** After a role word: a name of any shape that is not an ordinary word ("Officer KRUPKE", "Inspector J. Doe", "Inspector Smith"). */
+function nameAfterTitle(ws: string[], i: number): boolean {
+  const a = ws[i];
+  if (!a || !isCapWord(a)) return false;
+  return initialToken(a) || personAt(ws, i) || !plainWord(core(a).replace(/\.$/, ''));
+}
+
 /**
- * Round 20 (review P3-7): a status or type value of a 311 or violation row with who acted on it appended ("Initial by OFFICER KRUPKE",
- * "Open by Jane Doe", "Closed - per Inspector Smith", "Assigned to K. Lee") keeps only the part before that actor phrase. '' when nothing is
- * left. Applied to every printed value of a 311 or violation row (socrata.ts and arcgis.ts), before the name checks.
+ * Round 20 (review P3-7), narrowed by the final review (P3-3): a status or type value of a 311 or violation row with WHO acted on it
+ * appended keeps only the part before that actor phrase; '' when nothing is left. The cut starts only at
+ *  - "by" or "per" followed by a role word ("by OFFICER KRUPKE", "per Inspector") or a person-like name ("Open by Zelda Fitzgerald",
+ *    "per J. Doe");
+ *  - "assigned to" / "inspected by" followed by the same;
+ *  - a role word followed by a name ("Compliance, Inspector J. Doe", "Officer KRUPKE").
+ * Ordinary phrases are left whole: "Sidewalk Blocked by Construction", "per code", "by owner request", "Stand By", "Agent Orange".
+ * Applied to every printed value of a 311 or violation row (socrata.ts and arcgis.ts), before the name checks.
  */
 export function stripActor(value: string): string {
   const v = (value ?? '').replace(/\s+/g, ' ').trim();
   if (!v) return '';
-  return v
-    .replace(/\s*(?:[-,;:(|/]\s*)?\b(?:by|per|assigned\s+to|inspected\s+by|inspector|insp|officer|ofc|sgt|det|agent)\b\.?(?:\s+\S[\s\S]*|\s*$)/i, '')
-    .replace(/[\s\-,;:(|/]+$/, '')
-    .trim();
+  const ws = v.split(' ');
+  const low = (j: number) => core(ws[j] ?? '').replace(/\.$/, '').toLowerCase();
+  const actorAt = (j: number) => ACTOR_TITLE_RE.test(core(ws[j] ?? '')) || personAt(ws, j);
+  let cut = -1;
+  for (let i = 0; i < ws.length && cut < 0; i++) {
+    const w = low(i);
+    if ((w === 'by' || w === 'per') && actorAt(i + 1)) cut = i;
+    else if (((w === 'assigned' && low(i + 1) === 'to') || (w === 'inspected' && low(i + 1) === 'by')) && actorAt(i + 2)) cut = i;
+    else if (ACTOR_TITLE_RE.test(core(ws[i])) && nameAfterTitle(ws, i + 1)) cut = i;
+  }
+  if (cut < 0) return v;
+  // A separator glued to the cut word ("(by", "-per") goes with it.
+  const head = [...ws.slice(0, cut), ws[cut].replace(/[A-Za-z].*$/, '')].join(' ');
+  return head.replace(/[\s\-,;:(|/]+$/, '').trim();
 }
 
 /** Fixed words for a 311 or violation title, by trade (first match wins; at most two are joined). Never text from the record. */

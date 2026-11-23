@@ -11,6 +11,8 @@ import {
   looksLikeFullPersonName,
 } from './org';
 import type { ContactInput, ContactRole } from './types';
+// Runtime-only use inside isBlockForm (nyc-address.ts imports cleanAddress from here; neither file uses the other at load time).
+import { nycBuildingAddress } from '@/lib/signals/adapters/nyc-address';
 
 /** Most contacts kept for one record (site first, then organizations in the order the record lists them). */
 export const MAX_CONTACTS_PER_SIGNAL = 6;
@@ -261,13 +263,18 @@ export const BLOCK_ADDRESS_RE = /^(?:0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of [A
 /**
  * A block-level address and nothing else: the block prefix, then 1 to 6 street words of letters or digits (no unit, no phone, no role word,
  * no "#"). Exported for the 311 contact rule (lib/contacts/extract.ts contactsAllowedFor).
+ * Final review P3-2: the street part must also be exactly what the New York street rule keeps (nycBuildingAddress, which runs the shared
+ * person-name and phone checks), so ANY trailing text after the street ("2300 block of WEST 52 STREET JOHN SMITH") or a name in place of
+ * the street ("200 block of JOHN SMITH") is refused. Every block nycBlockAddress writes passes (tests/contacts/final-review-fixes).
  */
 export function isBlockForm(text: string): boolean {
   const t = text.replace(/\s+/g, ' ').trim();
   const m = /^(?:0-99|\d{1,3}-00|[1-9]\d{0,2}00) block of ((?:[A-Za-z0-9.'-]+ ?){1,6})$/i.exec(t);
   if (!m) return false;
   if (/\b(?:apt|apartment|unit|suite|ste|fl|floor|rm|room|ph|bsmt|basement|rear|front|c\/o|attn|owner)\b/i.test(m[1])) return false;
-  return cleanAddressPart(t) === t;
+  if (cleanAddressPart(t) !== t) return false;
+  const street = m[1].trim().toUpperCase();
+  return nycBuildingAddress(`1 ${street}`) === `1 ${street}`;
 }
 
 export function sanitizeContact(c: ContactInput | null | undefined, opts: SanitizeOptions = {}): ContactInput | null {

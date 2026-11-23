@@ -23,9 +23,20 @@ describe('public fields equal the committed snapshot (fixtures/public-before.jso
     expect(Object.keys(now).sort()).toEqual(Object.keys(before).sort());
     expect(Object.values(now).reduce((n, v) => n + v.length, 0)).toBe(102);
   });
+  // Round 20 final review P2-1 (an intended public change): a 311 row's point is stored rounded to 3 decimals, like violation and
+  // inspection rows. The snapshot is read with exactly that change applied; every other field must still be equal.
+  const r3 = (x: number) => Math.round(x * 1000) / 1000;
+  const expected = (f: string) =>
+    (before[f] as Array<{ lat?: unknown; lon?: unknown; data?: { subtype?: unknown } }>).map((it) =>
+      it.data?.subtype === '311' && typeof it.lat === 'number' && typeof it.lon === 'number' ? { ...it, lat: r3(it.lat), lon: r3(it.lon) } : it,
+    );
   for (const f of Object.keys(before)) {
-    it(`${f}: title, summary, city, zip, lat/lon, data and every other public field unchanged`, () => expect(now[f]).toEqual(before[f]));
+    it(`${f}: title, summary, city, zip, lat/lon, data and every other public field unchanged`, () => expect(now[f]).toEqual(expected(f)));
   }
+  it('the snapshot still holds exact 311 points, so the rounding above is really exercised', () => {
+    const pts = Object.values(before).flat().filter((it) => (it as { data?: { subtype?: unknown } }).data?.subtype === '311') as Array<{ lat: unknown; lon: unknown }>;
+    expect(pts.some((p) => typeof p.lat === 'number' && r3(p.lat) !== p.lat)).toBe(true);
+  });
 });
 
 const CONTACT_FIXTURES: [string, (raw: unknown) => SignalInput[]][] = [

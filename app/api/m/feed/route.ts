@@ -1,4 +1,5 @@
 import { siteUrl } from '@/lib/env';
+import { langOfProfile } from '@/lib/i18n';
 import { computeAccess } from '@/lib/auth/access';
 import { adminOrNull } from '@/lib/mobile/admin';
 import { matchScope } from '@/lib/plan/scope';
@@ -31,6 +32,6 @@ export async function GET(req: Request) {
   const locked = computeAccess(profile!, now).locked;
   const page = await readFeedPage(db, user.id, cursor);
   if (page.error) return fail(req, METHODS, 'server_error', "We couldn't load your alerts. Try again in a moment.");
-  const items = await buildAlerts(page.rows, { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories });
+  const items = await buildAlerts(page.rows, { userId: user.id, locked, db, admin: locked ? null : adminOrNull(), siteUrl, now, trades: matchScope(profile!).categories, lang: langOfProfile(profile) });
   return ok(req, METHODS, { locked, items, nextCursor: page.nextCursor ? encodeCursor(page.nextCursor) : null });
 }

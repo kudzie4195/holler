@@ -344,7 +344,7 @@ describe('titles, summaries, bands and classes', () => {
   it('class tables: residential, condo, multi-family, commercial; vacant and unknown codes drop', () => {
     expect(['D1', 'D3', 'SC', 'CR', 'VL', 'zz'].map(nycClassOf)).toEqual(['residential_single', 'multi_family', 'condo', 'commercial', null, null]);
     expect(['203', '2-99', '211', '517', '100', ''].map(cookClassOf)).toEqual(['residential_single', 'condo', 'multi_family', 'commercial', null, null]);
-    expect(['SINGLE FAMILY', 'MULTI FAMILY', 'MIXED USE', 'VACANT LAND'].map(phlClassOf)).toEqual(['residential_single', 'multi_family', 'commercial', null]);
+    expect(['SINGLE FAMILY', 'MULTI FAMILY', 'MIXED USE', 'VACANT LAND'].map(phlClassOf)).toEqual(['residential_single', 'multi_family', null, null]);
     expect(['0101', '0407', '0803', '1111', '0000', '8080'].map(miamiClassOf)).toEqual(['residential_single', 'condo', 'multi_family', 'commercial', null, null]);
   });
 

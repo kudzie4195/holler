@@ -176,13 +176,14 @@ export function cookClassOf(raw: string): SaleClass | null {
 
 /**
  * Philadelphia OPA category_code_description [A: values from memory; the column name is 3P]. A condo unit has no category of its own
- * there, so it reads as "Home"; MIXED USE (store with dwelling) reads as commercial. The probe's mapped rows show whether these hold.
+ * there, so it reads as "Home". MIXED USE (a store with a dwelling above it) is DROPPED (final review P3-7): read as commercial it would
+ * keep the exact address of somebody's home if promoted. The probe's mapped rows show whether these hold.
  */
 export function phlClassOf(raw: string): SaleClass | null {
   const v = raw.trim().toUpperCase();
   if (v === 'SINGLE FAMILY') return 'residential_single';
   if (v === 'MULTI FAMILY') return 'multi_family';
-  if (v === 'COMMERCIAL' || v === 'INDUSTRIAL' || v === 'MIXED USE') return 'commercial';
+  if (v === 'COMMERCIAL' || v === 'INDUSTRIAL') return 'commercial';
   return null; // VACANT LAND and anything else
 }
 

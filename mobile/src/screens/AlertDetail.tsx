@@ -6,7 +6,7 @@ import { useApp } from '../state/AppContext';
 import { shortDate } from '../ui/format';
 import { family } from '../ui/kind';
 import { Button, ErrorState, Loading, Notice, Screen, openInApp } from '../ui/kit';
-import { AlertMeta, Contacts, FeedbackButtons } from './AlertParts';
+import { AlertMeta, BuildingBlock, Contacts, FeedbackButtons } from './AlertParts';
 
 export function AlertDetail({ signalId }: { signalId: number }) {
   const app = useApp();
@@ -85,6 +85,7 @@ export function AlertDetail({ signalId }: { signalId: number }) {
           ) : null}
 
           <Contacts contacts={item.contacts} />
+          <BuildingBlock building={item.building} />
 
           {item.draft ? (
             <section className="card stack">

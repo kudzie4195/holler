@@ -27,6 +27,8 @@ export interface ContactSignal {
   summary?: string | null;
   /** The record's public source page: linked next to an owner company on a code-violation card. */
   url?: string | null;
+  /** The stored public title: a sale's block needs it (lib/outreach/plan.ts saleSitePlan shows a site for a commercial sale only). */
+  title?: string | null;
 }
 
 const actionClass =

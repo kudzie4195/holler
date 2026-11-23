@@ -222,7 +222,7 @@ export const REISSUED_ID_SOURCES: ReadonlySet<string> = new Set<string>();
  * places), title, summary and url. And only for a source in `reissuing` (REISSUED_ID_SOURCES): for every other source the answer is
  * null and nothing is ever merged.
  * Also null for rows without a subtype, without any location, with an approximate location (data.approxLocation) or with a position
- * rounded for privacy (business, violation, inspection).
+ * rounded for privacy (business, violation, inspection, 311).
  */
 export function recordKey(
   s: {
@@ -255,7 +255,7 @@ export function recordKey(
 }
 
 /** Subtypes whose stored position is rounded on purpose (socrata.ts privatePosition): never de-duplicated by position. */
-export const COARSE_POSITION_SUBTYPES = new Set(['business', 'violation', 'inspection']);
+export const COARSE_POSITION_SUBTYPES = new Set(['business', 'violation', 'inspection', '311']);
 const DEDUPE_TITLES_PER_READ = 30;
 
 /**
