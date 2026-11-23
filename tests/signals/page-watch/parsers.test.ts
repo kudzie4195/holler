@@ -70,9 +70,14 @@ describe('platform parsers', () => {
     expect(r.rows[2].status).toBe('Walkthrough Sign-in Sheet, Bid Tab');
     noPeople(r.rows);
   });
-  it('html-table (Miami-Dade): the page\'s own "No data to show" is an empty list, not a mismatch', () => {
+  it('html-table (Miami-Dade): headers with no row is a mismatch (a script may fill the grid), even with "No data to show" outside it', () => {
     const r = parseHtmlTable(fx('miamidade-empty.html'), ds('bids-pw-miamidade-construction'));
-    expect(r).toMatchObject({ rows: [], structure: true, empty: true });
+    expect(r).toMatchObject({ rows: [], structure: true, empty: false });
+    expect(r.problem).toMatch(/filled by a script/);
+  });
+  it('html-table: a server-rendered "no open solicitations" row is an empty list', () => {
+    const html = '<table><tr><th>Bid #</th><th>Title</th><th>Due Date</th></tr><tr><td colspan="3">There are currently no open solicitations.</td></tr></table>';
+    expect(parseHtmlTable(html, ds('bids-pw-houston-isd'))).toMatchObject({ rows: [], structure: true, empty: true });
   });
   it('html-table: a table with no title column is a mismatch with the headers named', () => {
     const r = parseHtmlTable(fx('mismatch-table.html'), ds('bids-pw-houston-isd'));
@@ -80,6 +85,9 @@ describe('platform parsers', () => {
     expect(r.structure).toBe(true);
     expect(r.empty).toBe(false);
     expect(r.problem).toMatch(/no table has a title column \(headers seen: foo\/bar\)/);
+    // A header-less table: only its shape is printed, never a cell.
+    const r2 = parseHtmlTable('<table><tr><td>RFP 123</td><td>Jane Buyerson</td><td>713-555-0100</td></tr></table>', ds('bids-pw-houston-isd'));
+    expect(r2.problem).toBe('no table has a title column (3 columns, 0 rows, no header row)');
   });
   it('html-table (Chicago): agency, category, spec number and response due date', () => {
     const r = parseHtmlTable(fx('chicago.html'), ds('bids-pw-chicago'));
@@ -94,6 +102,7 @@ describe('platform parsers', () => {
   it('html-links (Atlanta Housing): numbered links only; mail and terms links ignored', () => {
     const r = parseHtmlLinks(fx('atlanta-housing.html'), ds('bids-pw-atlanta-housing'));
     expect(r.rows.map((x) => x.number)).toEqual(['RFP 2027-0052', 'RFQL 2027-0045', 'RFQL 2027-0045', 'IFB 2027-0061', 'IFB 2027-0062']);
+    expect(r.rows.every((x) => !x.feedOnly)).toBe(true);
     expect(r.rows[3]).toMatchObject({ title: 'Unit Turn Painting and Flooring Services', link: '/wp-content/uploads/2026/11/IFB-2027-0061.pdf' });
   });
   it('html-links (SEPTA): item numbers, the EOI line without a number is left out', () => {
@@ -126,11 +135,17 @@ describe('row validation (rowsToSignals)', () => {
   it('Bonfire rows: open and past-due split, parts purchase dropped, awarded dropped, title "Bid: <title> (<agency>)"', () => {
     const d = ds('bids-pw-dart');
     const { items, counts } = rowsToSignals(parseBonfire(JSON.parse(fx('bonfire-open.json')), d).rows, d, NOW);
-    expect(counts).toMatchObject({ read: 6, kept: 2, closed: 1, notOpen: 1, noTrade: 2 });
-    expect(items.map((s) => s.title)).toEqual(['Bid: Roof Replacement at Kashmere Bus Operating Facility (Facilities Maintenance)', 'Bid: Janitorial Services for Administrative Buildings (Dallas Area Rapid Transit (DART))']);
+    expect(counts).toMatchObject({ read: 6, kept: 3, closed: 1, notOpen: 1, noTrade: 2 });
+    expect(items.map((s) => s.title)).toEqual([
+      'Bid: Roof Replacement at Kashmere Bus Operating Facility (Facilities Maintenance)',
+      'Bid: Janitorial Services for Administrative Buildings (Dallas Area Rapid Transit (DART))',
+      'Bid: Landscape Maintenance of Transit Centers (Dallas Area Rapid Transit (DART))',
+    ]);
+    // Awarded: kept for the feed only, never urgent.
+    expect(items[2].data).toMatchObject({ statusClass: 'closed', proposedLabel: 'context' });
     const roof = items[0];
     expect(roof).toMatchObject({ source: 'bids-pw-dart', kind: 'contract', categories: ['roofing'], expiresAt: '2026-12-10T20:00:00.000Z', url: 'https://dart.bonfirehub.com/opportunities/149219', state: 'TX', zip: '75202' });
-    expect(roof.data).toMatchObject({ subtype: 'bid', solicitationId: 'IFB 2027000041', dueDate: '2026-12-10', loc: 'approx', approxLocation: true, via: 'page-watch', proposedLabel: 'act_now' });
+    expect(roof.data).toMatchObject({ subtype: 'bid', solicitationId: 'IFB 2027000041', dueDate: '2026-12-10', loc: 'approx', approxLocation: true, via: 'page-watch', statusClass: 'open', proposedLabel: 'act_now' });
     // Janitorial bid due tomorrow: under 3 days, heads-up.
     expect(items[1].data?.proposedLabel).toBe('coming_soon');
   });
@@ -145,25 +160,26 @@ describe('row validation (rowsToSignals)', () => {
     expect(paint.categories).toEqual(expect.arrayContaining(['painting', 'concrete-paving']));
     noPeople(items);
   });
-  it('Philadelphia SD: bid tab and cancellation rows are not open; no buyer name anywhere', () => {
+  it('Philadelphia SD: the past bid-tab row is dropped, the cancelled one is feed-only, an empty status cell is never urgent; no buyer name', () => {
     const d = ds('bids-pw-philasd-capital');
     const { items, counts } = rowsToSignals(parseHtmlTable(fx('philasd-capital.html'), d).rows, d, NOW);
-    expect(counts.notOpen).toBe(2);
-    expect(items.map((s) => s.title)).toEqual([
-      'Bid: Kitchen Ventilation Upgrade at Thomas Alva Edison High School MC (Capital Programs)',
-      'Bid: Bathroom Renovations at George W. Childs School EC (Capital Programs)',
+    expect(counts).toMatchObject({ closed: 1, notOpen: 1 });
+    expect(items.map((s) => [s.title, s.data?.proposedLabel])).toEqual([
+      ['Bid: Kitchen Ventilation Upgrade at Thomas Alva Edison High School MC (Capital Programs)', 'coming_soon'],
+      ['Bid: Bathroom Renovations at George W. Childs School EC (Capital Programs)', 'coming_soon'],
+      ['Bid: Roof Replacement at Lincoln HS (Capital Programs)', 'context'],
     ]);
     expect(items[0].categories).toEqual(['hvac']);
     expect(items[1].categories).toEqual(['general-contractor']);
     expect(items[0].url).toBe('https://philasd.org/procurement/wp-content/uploads/sites/93/2026/11/NG10901.pdf');
     noPeople(items);
   });
-  it('Chicago: stale "active" rows dropped by their due date; commodity leasing dropped; CTA named in full', () => {
+  it('Chicago: stale "active" rows dropped by their due date; the Construction category alone names no trade; CTA named in full; ACTIVE is open', () => {
     const d = ds('bids-pw-chicago');
     const { items, counts } = rowsToSignals(parseHtmlTable(fx('chicago.html'), d).rows, d, NOW);
-    expect(counts).toMatchObject({ read: 4, closed: 1, noTrade: 1, kept: 2 });
-    expect(items[0]).toMatchObject({ title: 'Bid: Term Agreement for Block Level Lead Service Line Replacement: Dist 8 (City of Chicago)', categories: ['general-contractor'], url: 'https://webapps1.chicago.gov/vcsearch/city/solicitationdetails/-1338908eprocurement' });
-    expect(items[1].title).toBe('Bid: Station Janitorial Services, North Branch (Chicago Transit Authority)');
+    expect(counts).toMatchObject({ read: 4, closed: 1, noTrade: 2, kept: 1 });
+    expect(items[0]).toMatchObject({ title: 'Bid: Station Janitorial Services, North Branch (Chicago Transit Authority)', url: 'https://webapps1.chicago.gov/vcsearch/cta/solicitationdetails/C26FI101' });
+    expect(items[0].data).toMatchObject({ statusClass: 'open', proposedLabel: 'act_now' });
   });
   it('Atlanta Housing: no due dates (heads-up), addendum folded into its solicitation, consulting dropped', () => {
     const d = ds('bids-pw-atlanta-housing');
@@ -200,26 +216,34 @@ describe('helpers', () => {
   });
   it('titles: e-mail, phone, "Contact:" tail, number prefix and addendum removed', () => {
     expect(cleanBidTitle('IFB 12 - Roof Repair Contact: Jane Doe 404-555-0100', 'IFB 12')).toBe('Roof Repair');
-    expect(cleanBidTitle('Mowing (call 404-555-0100 or x@y.org)')).toBe('Mowing (call or');
+    expect(cleanBidTitle('Mowing (call 404-555-0100 or x@y.org)')).toBe('Mowing');
     expect(cleanBidTitle('Fence Install ADDENDUM #2')).toBe('Fence Install');
   });
   it('trades: the shared bid table plus general-contractor work, under the same purchase and paper guards', () => {
     expect(pageWatchTrades({ title: 'Audelia Manor Interior Remodel' })).toEqual(['general-contractor']);
     expect(pageWatchTrades({ title: 'Roof Replacement and Renovation' })).toEqual(['roofing', 'general-contractor']);
     expect(pageWatchTrades({ title: 'Renovation Design Services' })).toEqual([]);
-    expect(pageWatchTrades({ title: 'Lead Service Line Replacement', category: 'Construction' })).toEqual(['general-contractor']);
+    expect(pageWatchTrades({ title: 'Lead Service Line Replacement', category: 'Construction' })).toEqual([]);
+    expect(pageWatchTrades({ title: 'Website Remodel and Hosting' })).toEqual([]);
+    expect(pageWatchTrades({ title: 'New Construction Loan Servicing' })).toEqual([]);
     expect(pageWatchTrades({ title: 'Demolition Equipment Purchase' })).toEqual([]);
   });
   it('proposed label: urgent at 3 days or more, heads-up sooner or with no due date', () => {
     expect(proposedPageWatchLabel('2026-11-25T17:00:00Z', NOW)).toBe('act_now');
     expect(proposedPageWatchLabel('2026-11-25T16:59:00Z', NOW)).toBe('coming_soon');
     expect(proposedPageWatchLabel(null, NOW)).toBe('coming_soon');
+    expect(proposedPageWatchLabel('2026-12-25T17:00:00Z', NOW, { status: 'open' })).toBe('act_now');
+    expect(proposedPageWatchLabel('2026-12-25T17:00:00Z', NOW, { status: 'empty' })).toBe('coming_soon');
+    expect(proposedPageWatchLabel('2026-12-25T17:00:00Z', NOW, { status: 'other' })).toBe('coming_soon');
+    expect(proposedPageWatchLabel('2026-12-25T17:00:00Z', NOW, { status: 'closed' })).toBe('context');
+    expect(proposedPageWatchLabel('2026-12-25T17:00:00Z', NOW, { feedOnly: true })).toBe('context');
   });
   it('every dataset: ids start with bids-pw-, on probation, schema unverified, link domains cover the page, a ZIP the dataset knows', () => {
     for (const d of PAGE_WATCH_DATASETS) {
       expect(d.id).toMatch(/^bids-pw-[a-z0-9-]+$/);
       expect(d.probation).toBe(true);
       expect(d.schemaUnverified).toBe(true);
+      expect(d.termsChecked, d.id).toBe(false);
       const host = new URL(d.pageUrl).hostname.replace(/^www\./, '');
       expect(d.linkDomains.some((x) => host === x || host.endsWith(`.${x}`)), d.id).toBe(true);
       expect(rowsToSignals([{ title: 'Roof Replacement', due: '12/30/2026' }], d, NOW).items, d.id).toHaveLength(1);

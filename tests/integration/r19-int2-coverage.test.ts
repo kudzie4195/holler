@@ -35,6 +35,10 @@ import type { ContactRecord } from '@/lib/contacts/types';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { ENV, fakeFetch, item, newDb, NOW as LNOW } from '../enrich/helpers';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 const NOW = new Date('2026-11-22T12:00:00Z');
 const IDS = COVERAGE_R19_SOURCES.map((s) => s.id);
@@ -276,12 +280,13 @@ describe('7. metros and the label exemption', () => {
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
-    // Round 20 page watch: its own probation ids (bids-pw-*) sit under their metros too (tests/signals/page-watch/adapter.test.ts).
-    expect([...PROBATION_SOURCE_IDS].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual(Object.keys(want).sort());
+    // Round 20 page watch: its own probation ids (PW_REGISTERED, exact ids) sit under their metros too (tests/signals/page-watch/adapter.test.ts).
+    expect([...PROBATION_SOURCE_IDS].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual(Object.keys(want).sort());
+    expect([...PROBATION_SOURCE_IDS].filter((id) => PW_REGISTERED.has(id)).sort()).toEqual([...PW_REGISTERED].sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual([...IDS].sort());
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual([...IDS].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);

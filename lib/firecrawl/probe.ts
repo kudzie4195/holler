@@ -3,10 +3,16 @@ import { createFirecrawlClient, firecrawlApiKey, type FirecrawlClient } from './
 import { runLocalBidSource, type PipelineReport } from './pipeline';
 import { LOCAL_BID_SOURCES, localSourceById } from './local-sources';
 import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
-import { asLocalBidSource } from '@/lib/signals/adapters/page-watch';
+import { asLocalBidSource, pageWatchGate } from '@/lib/signals/adapters/page-watch';
 
-/** Round 20 page watch: the pages read only through Firecrawl (`firecrawl: 'only'`) are probed here too, with the same caps. */
-const PAGE_WATCH_FIRECRAWL = PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off');
+/**
+ * Round 20 page watch: the pages read through Firecrawl (`firecrawl: 'only'` or 'fallback') are probed here too, with the same caps, but
+ * ONLY once the owner recorded their terms check and the page-watch switch is on (round 20 review P0): until then no Firecrawl call is made
+ * for them. Read at call time.
+ */
+function pageWatchFirecrawl(e: Record<string, string | undefined>) {
+  return PAGE_WATCH_DATASETS.filter((d) => d.verified && d.firecrawl !== 'off' && !pageWatchGate(d, e));
+}
 
 /**
  * The owner probe behind GET /api/admin/firecrawl-probe?source=<id>. A dry run of one source: it reads the page once with the
@@ -41,6 +47,7 @@ export async function runProbe(opts: {
   db?: Db | null;
   makeClient?: (apiKey: string) => FirecrawlClient;
 }): Promise<ProbeResult> {
+  const PAGE_WATCH_FIRECRAWL = pageWatchFirecrawl(opts.env);
   const known = [...LOCAL_BID_SOURCES.map((s) => s.id), ...PAGE_WATCH_FIRECRAWL.map((d) => d.id)];
   const base = { ok: false, page: '', reason: null, error: null, changeStatus: null, rowsExtracted: 0, kept: [], dropped: [], notes: [], knownSources: known, credits: { calls: 0, estimated: 0, reported: null, measured: null, remainingBefore: null, remainingAfter: null, planCredits: null } };
   const pw = opts.source ? PAGE_WATCH_FIRECRAWL.find((d) => d.id === opts.source) : undefined;

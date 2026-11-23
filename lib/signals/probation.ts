@@ -132,6 +132,7 @@ export interface ProbationRow {
     | 'robots_disallowed'
     | 'not_html'
     | 'parser_mismatch'
+    | 'parse_timeout'
     | 'timeout'
     | 'unchanged';
   /** The latest run's probation note (row cap), when there is one. */
@@ -169,6 +170,7 @@ export function probationCheck(h: ProbationHealthLite | undefined, lastRun?: Pro
       if (/\brobots_disallowed\b/.test(e)) return 'robots_disallowed';
       if (/\bnot_html\b/.test(e)) return 'not_html';
       if (/\bparser_mismatch\b/.test(e)) return 'parser_mismatch';
+      if (/\bparse_timeout\b/.test(e)) return 'parse_timeout';
       if (/\bnot_json\b/.test(e)) return 'not_json';
       if (e.trim() === 'timeout' || /: timeout\b/.test(e)) return 'timeout';
     }

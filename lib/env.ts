@@ -26,6 +26,7 @@ export const ENV_KEYS = [
   'REQUESTS_ENABLED',
   'HOLLER_BIDS_ENABLED',
   'HOLLER_LOCAL_BIDS_ENABLED',
+  'HOLLER_PAGE_WATCH_ENABLED',
   'HOLLER_STAGE_UPDATES_ENABLED',
   'HOLLER_VIOLATION_OWNERS_ENABLED',
   'HOLLER_BUILDERS_PANEL_ENABLED',
@@ -80,6 +81,8 @@ export const env: Record<EnvKey, string | undefined> = {
   REQUESTS_ENABLED: process.env.REQUESTS_ENABLED,
   HOLLER_BIDS_ENABLED: process.env.HOLLER_BIDS_ENABLED,
   HOLLER_LOCAL_BIDS_ENABLED: process.env.HOLLER_LOCAL_BIDS_ENABLED,
+  /** Round 20 page watch: the master switch (default off). Nothing is requested from any bid page while it is off. */
+  HOLLER_PAGE_WATCH_ENABLED: process.env.HOLLER_PAGE_WATCH_ENABLED,
   HOLLER_STAGE_UPDATES_ENABLED: process.env.HOLLER_STAGE_UPDATES_ENABLED,
   // Round 18: owner companies on code-violation cards; read at call time in lib/contacts/owner-switch.ts. Off unless 1, true, on or yes.
   HOLLER_VIOLATION_OWNERS_ENABLED: process.env.HOLLER_VIOLATION_OWNERS_ENABLED,

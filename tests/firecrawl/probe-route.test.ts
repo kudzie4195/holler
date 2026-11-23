@@ -44,7 +44,7 @@ describe('GET /api/admin/firecrawl-probe', () => {
     const { GET, mock } = await load();
     const res = await GET(req('/api/admin/firecrawl-probe'));
     expect(res.status).toBe(400);
-    expect((await res.json()).knownSources).toEqual(['bids-gwinnett', 'bids-rockdale', 'bids-tucker', 'bids-dunwoody', 'bids-pw-houston-city', 'bids-pw-phoenix-opengov']); // + round 20 Firecrawl-only page-watch pages
+    expect((await res.json()).knownSources).toEqual(['bids-gwinnett', 'bids-rockdale', 'bids-tucker', 'bids-dunwoody']); // round 20 page-watch Firecrawl pages are listed only once their terms are recorded and HOLLER_PAGE_WATCH_ENABLED is on (none today)
     expect(mock.calls).toHaveLength(0);
   });
   it('unknown source: 400, no call', async () => {

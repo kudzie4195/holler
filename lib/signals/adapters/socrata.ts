@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { classifyText, type CategoryId } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, Severity, SignalInput, StageQueryOutcome } from '@/lib/signals/types';
 import { env } from '@/lib/env';
@@ -23,7 +24,7 @@ import {
 } from './socrata-datasets';
 
 const LIMIT = 500;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 type Row = Record<string, unknown>;
 

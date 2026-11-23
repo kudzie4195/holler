@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import { contactSpecFields } from '@/lib/contacts/extract';
 import { env } from '@/lib/env';
 import { sanitizeHealthError } from './health';
@@ -22,7 +23,7 @@ import { PW_ROW_CAP, runPageWatch, type PageWatchCheck, type PageWatchCounts } f
 
 export const PROBE_ROWS = 5;
 export const PROBE_MAPPED = 3;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 /** Per request (review P3-I): four requests at most, inside the route's 60 s. */
 const TIMEOUT_MS = 10000;
 /** The scan's row cap per run (one page of 500; Socrata datasets with maxPages read more). */
@@ -40,7 +41,8 @@ function find(id: string): Probed | null {
   if (s) return { platform: 'socrata', ds: s };
   const a = ARCGIS_DATASETS.find((d) => d.id === id && d.verified && d.probation);
   if (a) return { platform: 'arcgis', ds: a };
-  const w = PAGE_WATCH_DATASETS.find((d) => d.id === id && d.verified && d.probation);
+  // Every page-watch dataset answers (an unregistered or unchecked one with its gate and zero requests).
+  const w = PAGE_WATCH_DATASETS.find((d) => d.id === id && d.probation);
   return w ? { platform: 'page-watch', ds: w } : null;
 }
 
@@ -121,6 +123,10 @@ export interface CoverageProbeResult {
     detail: string | null;
     platform: string;
     parser: string;
+    /** false: not registered with the scan (vendor terms unread). */
+    registered: boolean;
+    /** Requests sent to the source's hosts by this probe (0 while its terms are not checked or the switch is off). */
+    requests: number;
     counts: PageWatchCounts;
     rows: { title: string; dueDate: string | null; trades: string[]; url: string | null; proposedLabel: string | null }[];
   };
@@ -334,7 +340,7 @@ async function probeArcgis(ds: ArcgisDataset, doFetch: typeof fetch, now: Date):
  * Round 20 page watch: robots.txt, one fetch of the page and the same parser and validation as the scan, with no marker read or written
  * and no Firecrawl call (a Firecrawl-only page says so and points to /api/admin/firecrawl-probe). Returns the parsed rows.
  */
-async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch, now: Date): Promise<CoverageProbeResult> {
+export async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch, now: Date): Promise<CoverageProbeResult> {
   const r = await runPageWatch(ds, { fetch: doFetch, now, probe: true, db: null, dry: true, budgetMs: 25_000 });
   const reached = r.httpStatus !== null && r.httpStatus < 400;
   const schema: CoverageProbeResult['schema'] =
@@ -353,10 +359,12 @@ async function probePageWatch(ds: PageWatchDataset, doFetch: typeof fetch, now: 
     mapped: r.kept.slice(0, PROBE_MAPPED).map(mappedRow),
     ...(r.detail && schema !== 'mismatch' ? { message: r.detail } : {}),
     pageWatch: {
-      check: r.check,
+      check: !ds.verified && r.check === 'terms_not_checked' ? 'terms_not_checked' : r.check,
       detail: r.detail,
       platform: ds.platform,
       parser: ds.parser,
+      registered: ds.verified,
+      requests: r.requests,
       counts: r.counts,
       rows: r.kept.slice(0, 25).map((s) => {
         const d = (s.data ?? {}) as Record<string, unknown>;

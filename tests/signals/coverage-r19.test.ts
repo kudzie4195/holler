@@ -26,6 +26,10 @@ import { buildMetroReport, sourcePlaces } from '@/lib/admin/metros';
 import { METROS } from '@/lib/geo/metros';
 import type { Db } from '@/lib/signals/store';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
+import { PAGE_WATCH_DATASETS } from '@/lib/signals/adapters/page-watch-datasets';
+/** Round 20 page watch: its registered pages are on probation too. Exempted by exact id (never by prefix), and pinned below. */
+const PW_REGISTERED: ReadonlySet<string> = new Set(PAGE_WATCH_DATASETS.filter((d) => d.verified).map((d) => d.id));
+
 
 vi.mock('server-only', () => ({}));
 
@@ -162,14 +166,14 @@ describe('the new sources are declared on probation, like Philadelphia', () => {
       expect(d.schemaUnverified, id).toBe(true);
     }
     // Round 20 page watch adds its own probation ids to the exemption (tests/signals/page-watch); the coverage ids are all still there.
-    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !id.startsWith('bids-pw-')).sort()).toEqual(IDS);
+    expect([...LABEL_PENDING_INTEGRATION].filter((id) => !PW_REGISTERED.has(id)).sort()).toEqual(IDS);
   });
 
   it('no Fort Worth source and no Houston permit source was added (no usable endpoint without a page scraper)', () => {
     const ids = ALL_ADAPTERS.map((a) => a.id);
     expect(ids.some((id) => /fortworth|fort-worth/.test(id))).toBe(false);
-    // Round 20 page watch adds Houston BID pages (bids-pw-*), not permit sources.
-    expect(ids.filter((id) => /houston/.test(id) && !id.startsWith('bids-pw-'))).toEqual(['arcgis-houston-311']);
+    // Round 20 page watch adds Houston BID pages (PW_REGISTERED, exact ids), not permit sources.
+    expect(ids.filter((id) => /houston/.test(id) && !PW_REGISTERED.has(id))).toEqual(['arcgis-houston-311']);
   });
 
   it('metros: every coverage source sits in its metro (Arlington in Dallas-Fort Worth, Tempe in Phoenix, Miami-Dade County in Miami)', () => {

@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { parseSocrataReport, type ParseReport } from './socrata';
 import type { SocrataDataset } from './socrata-datasets';
@@ -11,7 +12,7 @@ import { CARTO_DATASETS, type CartoDataset } from './carto-datasets';
 
 const LIMIT = 1000;
 const CARTO_BASE = 'https://phl.carto.com/api/v2/sql';
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 const LABEL_SUFFIX: Record<CartoDataset['subtype'], string> = {
   permit: 'building permits',

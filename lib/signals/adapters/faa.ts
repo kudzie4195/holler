@@ -1,4 +1,4 @@
-import { siteUrl } from '@/lib/env';
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 
@@ -177,7 +177,7 @@ export const faaAdapter: Adapter = {
   async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
     try {
       const res = await ctx.fetch(FAA_URL, {
-        headers: { 'User-Agent': `Holler/1.0 (+${siteUrl}/about; contact@holler)`, Accept: 'application/xml, text/xml' },
+        headers: { 'User-Agent': HOLLER_UA, Accept: 'application/xml, text/xml' },
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

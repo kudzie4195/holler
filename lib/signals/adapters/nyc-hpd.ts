@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { buildSocrataAdapter } from './socrata';
 import { SOCRATA_DATASETS, type SocrataDataset } from './socrata-datasets';
@@ -58,7 +59,7 @@ export const POOL_SIZE = 4;
 export const LOOKUP_BUDGET_MS = 12_000;
 /** The lookups end by this long after the adapter started, whatever the budget says. */
 export const ADAPTER_DEADLINE_MS = 25_000;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 export interface Bbl {
   boro: string;

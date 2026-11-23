@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
 import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
@@ -11,7 +12,7 @@ import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
 
 const LIMIT = 500;
-const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
+const UA = HOLLER_UA;
 
 type Attrs = Record<string, unknown>;
 

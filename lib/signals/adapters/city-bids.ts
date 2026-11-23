@@ -1,3 +1,4 @@
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
 import { bidTrades } from '@/lib/signals/bid-trades';
@@ -436,7 +437,7 @@ export function buildBidAdapter(ds: BidDataset): Adapter {
       try {
         const now = ctx.now ?? new Date();
         const url = `https://${ds.domain}/resource/${ds.datasetId}.json?${buildBidQuery(ds, now).toString()}`;
-        const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': 'Holler/1.0 (+https://holler.app/about; contact@holler)' };
+        const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': HOLLER_UA };
         const token = ctx.env.SOCRATA_APP_TOKEN ?? env.SOCRATA_APP_TOKEN;
         if (token) headers['X-App-Token'] = token;
         const res = await ctx.fetch(url, { headers, signal: AbortSignal.timeout(15000) });

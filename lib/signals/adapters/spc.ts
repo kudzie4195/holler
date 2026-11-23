@@ -1,4 +1,4 @@
-import { siteUrl } from '@/lib/env';
+import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 import { remarkNamesWindDamage } from '../wind-damage';
@@ -220,7 +220,7 @@ export const spcAdapter: Adapter = {
   sourceUrl: 'https://www.spc.noaa.gov/climo/reports/',
   async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
     const now = new Date();
-    const ua = `Holler/1.0 (+${siteUrl}/about; contact@holler)`;
+    const ua = HOLLER_UA;
 
     /** One CSV file: fetch, validate, parse. Returns null when the file could not be used (an error was logged). */
     async function load(name: string, type: SpcType, day: string): Promise<SignalInput[] | null> {
