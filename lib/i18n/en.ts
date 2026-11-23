@@ -1284,7 +1284,7 @@ export const en = {
   'lists.area.sub': 'Permits from the last {days} days that are often followed by work for your trade.',
   'lists.area.none': 'Your trades have no neighborhood list yet. Lists cover trades whose work often follows another permit, such as landscaping or cleaning after a new home, or gutters after a re-roof.',
   'lists.area.title': '{trade}: permitted addresses',
-  'lists.area.note': 'Permits from the last {days} days that are often followed by {trade} work. A permit does not mean the owner is choosing a vendor.',
+  'lists.area.note': 'Permits from the last {days} days that are often followed by {trade} work. A permit does not tell you whether the owner has hired anyone.',
   'lists.count.one': '1 address',
   'lists.count.many': '{n} addresses',
   'lists.group.nozip': 'No ZIP',

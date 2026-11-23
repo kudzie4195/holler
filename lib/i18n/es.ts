@@ -1244,7 +1244,7 @@ export const es: Record<DictKey, string> = {
   'lists.area.sub': 'Permisos de los últimos {days} días que suelen traer trabajo para su oficio.',
   'lists.area.none': 'Sus oficios todavía no tienen lista de vecindario. Las listas cubren oficios cuyo trabajo suele venir después de otro permiso, como jardinería o limpieza después de una casa nueva, o canaletas después de un cambio de techo.',
   'lists.area.title': '{trade}: direcciones con permiso',
-  'lists.area.note': 'Permisos de los últimos {days} días que suelen traer trabajo de {trade}. Un permiso no significa que el propietario esté eligiendo proveedor.',
+  'lists.area.note': 'Permisos de los últimos {days} días que suelen traer trabajo de {trade}. Un permiso no dice si el propietario ya contrató a alguien.',
   'lists.count.one': '1 dirección',
   'lists.count.many': '{n} direcciones',
   'lists.group.nozip': 'Sin código postal',

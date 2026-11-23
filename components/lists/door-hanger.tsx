@@ -17,15 +17,15 @@ export const HANGER_TEXT: Record<Lang, { hello: string; body: string; storm: str
     body: '{business} serves your neighborhood. If you would like a quote, call or text {phone}.',
     storm: 'There was a public storm report in this area. Damage not confirmed.',
     // Without the storm line the card mentions permits only (review redo 1, defect 2).
-    footer: 'We are an independent business, not a city or government office. We leave this card on streets with a public building permit. Those permits list addresses only: no names, no phone numbers.',
-    footerStorm: 'We are an independent business, not a city or government office. We leave this card on streets with a public building permit near a public storm report. Those records list addresses only: no names, no phone numbers.',
+    footer: 'We are an independent business, not a city or government office, and we leave this card on streets with a public building permit. Those permits list addresses only: no names, no phone numbers.',
+    footerStorm: 'We are an independent business, not a city or government office, and we leave this card on streets with a public building permit near a public storm report. Those records list addresses only: no names, no phone numbers.',
   },
   es: {
     hello: 'Hola, vecino',
     body: '{business} ofrece sus servicios en su vecindario. Si desea un presupuesto, llame o envíe un mensaje al {phone}.',
     storm: 'Hubo un reporte público de tormenta en esta zona. Daño no confirmado.',
-    footer: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Dejamos esta tarjeta en calles con un permiso de construcción público. Esos permisos solo tienen direcciones: ni nombres ni teléfonos.',
-    footerStorm: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno. Dejamos esta tarjeta en calles con un permiso de construcción público cerca de un reporte público de tormenta. Esos registros solo tienen direcciones: ni nombres ni teléfonos.',
+    footer: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno, y dejamos esta tarjeta en calles con un permiso de construcción público. Esos permisos solo tienen direcciones: ni nombres ni teléfonos.',
+    footerStorm: 'Somos un negocio independiente, no una oficina de la ciudad ni del gobierno, y dejamos esta tarjeta en calles con un permiso de construcción público cerca de un reporte público de tormenta. Esos registros solo tienen direcciones: ni nombres ni teléfonos.',
   },
 };
 
