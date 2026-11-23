@@ -170,7 +170,7 @@ export async function sendQuietWeek(deps: QuietWeekDeps): Promise<QuietWeekCount
     if (read.error) return { ...counts, error: read.error };
     const due = read.rows
       .filter((p) => !deps.skip.has(p.user_id))
-      // The digest's own gate, with a 7-day gap instead of 60 minutes: alerts on, verified, entitled now, last alert email > 7 days ago.
+      // The digest's own gate, with a gap of QUIET_WEEK_DAYS instead of 60 minutes: alerts on, verified, entitled now, last alert email > 7 days ago.
       .filter((p) => decideNotify(p, deps.now, QUIET_WEEK_DAYS * 24 * 60).ok)
       .filter((p) => {
         const created = p.created_at ? new Date(p.created_at).getTime() : NaN;

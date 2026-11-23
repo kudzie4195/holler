@@ -63,7 +63,8 @@ describe('FIXED (was FINDING P1 F, defect 1): a sign-up needs proof that the add
     expect(res).toEqual({ code: 'ok' });
     expect(rows).toEqual([expect.objectContaining({ email: 'someone.else@example.com', zip: uncovered, trade: 'roofing', consent_version: 'v1-2026-11' })]);
     expect(rows[0]).not.toHaveProperty('confirmed_at');
-    expect(sent).toEqual([{ to: 'someone.else@example.com', confirmUrl: expect.stringMatching(/\/waitlist\/confirm\?token=/), place: expect.any(String) }]);
+    // Round 24: `trade` is passed only for a ZIP Holler already serves (a trade-level waitlist); this ZIP is not served, so it is null.
+    expect(sent).toEqual([{ to: 'someone.else@example.com', confirmUrl: expect.stringMatching(/\/waitlist\/confirm\?token=/), place: expect.any(String), trade: null }]);
     expect(readFileSync('lib/waitlist/deps.ts', 'utf8')).toMatch(/holler_zip_waitlist|WAITLIST_TABLE/);
     expect(readFileSync('lib/waitlist/service.ts', 'utf8')).toMatch(/WAITLIST_TABLE = 'holler_zip_waitlist'/);
   });
