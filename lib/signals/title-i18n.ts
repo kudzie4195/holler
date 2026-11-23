@@ -213,6 +213,13 @@ export function knownNaicsSectors(): string[] {
   return Object.keys(NAICS_SECTOR_KEYS);
 }
 
+const SALE_TITLE_KEYS: Record<string, DictKey> = {
+  Home: 'title.sale_home',
+  Condo: 'title.sale_condo',
+  'Multi-family building': 'title.sale_multi',
+  'Commercial property': 'title.sale_commercial',
+};
+
 interface Parsed {
   key: DictKey;
   vars: Fields;
@@ -254,6 +261,9 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
     if (at > 0) return { key: 'title.event_at', vars: { city: m[1], text: fixedTextLang(rest.slice(0, at), lang), address: rest.slice(at + 4) } };
     return { key: 'title.event', vars: { city: m[1], text: fixedTextLang(rest, lang) } };
   }
+
+  // Round 20 SALES: "Home sold in Brooklyn, NY" (lib/signals/adapters/sales.ts saleTitle). The place is the record's own data.
+  if ((m = /^(Home|Condo|Multi-family building|Commercial property) sold in (.+)$/.exec(title))) return { key: SALE_TITLE_KEYS[m[1]], vars: { place: m[2] } };
 
   // A resident's request through Holler: "Service request in Atlanta: Roofing"
   if ((m = /^Service request in (.+?): (.*)$/.exec(title))) {

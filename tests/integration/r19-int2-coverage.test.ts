@@ -227,7 +227,7 @@ describe('5. check states: owner views only, never a member-facing or public lin
     ['schema_mismatch', 'schema mismatch: expected ISSUEDATE', null, 'arcgis-tempe-permits'],
     ['not_json', 'arcgis-miamidade-permits: response was not JSON (HTTP 200)', null, 'arcgis-miamidade-permits'],
     ['no_recent_rows', 'socrata-dallas-permits: no rows in the last 30 days: newest is 2018-03-15 (500 rows read)', null, 'socrata-dallas-permits'],
-    ['error', 'timeout', null, 'arcgis-houston-311'],
+    ['timeout', 'timeout', null, 'arcgis-houston-311'], // round 20: a timeout is its own check state
     ['no_rows', null, null, 'arcgis-phoenix-permits'],
     ['row_cap', null, '2026-11-21T00:00:00Z', 'arcgis-arlington-permits'],
   ];
@@ -276,6 +276,8 @@ describe('7. metros and the label exemption', () => {
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
       // Round 20 VIOL (lib/signals/adapters/viol-datasets.ts)
       ...Object.fromEntries(VIOL_R20_SOURCES.map((s) => [s.id, s.metro])),
+      // round 20 SALES (tests/signals/sales-r20.test.ts)
+      'socrata-nyc-acris-sales': 'new-york', 'socrata-cook-sales': 'chicago', 'carto-phl-sales': 'philadelphia', 'arcgis-miamidade-sales': 'miami',
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
     expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());

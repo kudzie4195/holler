@@ -1,6 +1,7 @@
 import type { CategoryId } from './categories';
 import type { OpportunityLabel } from './lead-rules';
 import type { RecordType } from './trade-needs';
+import { SALES_PROPOSED_LABELS } from './proposed-labels-sales';
 
 /**
  * Round 20: the labels NEW probation sources are meant to get, written by the units that add them, so the scorecard can PROJECT coverage
@@ -65,8 +66,9 @@ export interface ProposedSource {
   callPath: boolean;
 }
 
-/** Source id -> proposed labels. Empty until this round's source units fill it. */
+/** Source id -> proposed labels. Round 20: VIOL entries below, SALES entries from lib/signals/proposed-labels-sales.ts. */
 export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
+  ...SALES_PROPOSED_LABELS,
   // ==== Round 20 VIOL (lib/signals/adapters/viol-datasets.ts; research /home/claude/gates/r20/VIOL-research.md) ======================
   // Labels follow the reviewed rules (lead-rules.ts RULES), except where a per-building cap is proposed (NYC HPD and rodent, below): a
   // violation order that names a repair is act_now for the trade it names

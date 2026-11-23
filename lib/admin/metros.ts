@@ -8,6 +8,7 @@ import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
 import { BID_DATASETS } from '@/lib/signals/adapters/city-bids';
 import { JOHNS_CREEK_PERMITS } from '@/lib/signals/adapters/arcgis-johnscreek';
+import { SALES_DATASETS } from '@/lib/signals/adapters/sales-datasets';
 import { LOCAL_BID_SOURCES } from '@/lib/firecrawl/local-sources';
 import { mayHaveContacts } from '@/lib/outreach/plan';
 import { isResidentialHeatTitle, managedByLineFrom } from '@/lib/signals/managed-by';
@@ -202,6 +203,8 @@ export function sourcePlaces(): Map<string, string | null> {
     ...ARCGIS_DATASETS,
     JOHNS_CREEK_PERMITS,
     ...CARTO_DATASETS,
+    // Round 20 SALES: property sale sources (all on probation), listed under their metro.
+    ...SALES_DATASETS,
     ...BID_DATASETS,
     ...LOCAL_BID_SOURCES,
   ];

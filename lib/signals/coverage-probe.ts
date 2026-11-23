@@ -8,6 +8,8 @@ import { ARCGIS_DATASETS, arcgisLookbackDays, type ArcgisDataset } from './adapt
 import { buildSocrataQuery, parseSocrataReport, recordDateIso, socrataSchemaProblem, socrataSelectColumns } from './adapters/socrata';
 import { arcgisDateToIso, arcgisSchemaProblem, buildArcgisQuery, layerSchemaCheck, parseArcgisReport, valueFieldsOf } from './adapters/arcgis';
 import type { SignalInput } from './types';
+import { SALES_DATASETS, PHL_CARTO, type SaleDataset } from './adapters/sales-datasets';
+import { SALE_MAX_PAGES, SALE_PAGE, arcgisSaleWhere, cartoSaleWhere, cartoUrl, fetchSaleRows, parseSaleRows, saleRecordDate, saleSchemaProblem, socrataWhere } from './adapters/sales';
 
 /**
  * GET /api/admin/coverage-probe?source=<id> (round 19 COVERAGE). The owner's check of ONE probation source's schema before promoting it,
@@ -28,9 +30,9 @@ const SCAN_PAGE = 500;
 
 type Probed = { platform: 'socrata'; ds: SocrataDataset } | { platform: 'arcgis'; ds: ArcgisDataset };
 
-/** Probation datasets the probe accepts (Socrata and ArcGIS), sorted. */
+/** Probation datasets the probe accepts (Socrata and ArcGIS, and the round 20 property sale sources), sorted. */
 export function coverageProbeSourceIds(): string[] {
-  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id).sort();
+  return [...SOCRATA_DATASETS, ...ARCGIS_DATASETS, ...SALES_DATASETS].filter((d) => d.verified && d.probation).map((d) => d.id).sort();
 }
 
 function find(id: string): Probed | null {
@@ -72,7 +74,7 @@ export interface MappedRow {
 export interface CoverageProbeResult {
   status: 'ok' | 'unknown_source';
   source: string;
-  platform: 'socrata' | 'arcgis' | null;
+  platform: 'socrata' | 'arcgis' | 'carto' | null;
   /** The endpoint, without any query string. */
   endpoint: string | null;
   /** HTTP status of the rows request (null when it was not sent or got no answer). */
@@ -106,6 +108,8 @@ export interface CoverageProbeResult {
   rowCapNote?: string;
   mapped: MappedRow[];
   message?: string;
+  /** Round 20 sales with a second dataset (NYC legals, Cook County addresses): its id, its column list and the expected columns it lacks. */
+  join?: { dataset: string; columns: string[]; missingExpected: string[] };
   wroteNothing: true;
 }
 
@@ -312,8 +316,95 @@ async function probeArcgis(ds: ArcgisDataset, doFetch: typeof fetch, now: Date):
   }
 }
 
+async function socrataColumns(doFetch: typeof fetch, domain: string, datasetId: string): Promise<string[] | null> {
+  try {
+    const meta = await getJson(doFetch, `https://${domain}/api/views/${datasetId}.json`, { Accept: 'application/json', 'User-Agent': UA });
+    const cols = (meta.body as { columns?: { fieldName?: unknown }[] } | null)?.columns;
+    if (meta.status < 400 && Array.isArray(cols) && cols.length) return uniq(cols.map((c) => (typeof c?.fieldName === 'string' ? c.fieldName : undefined))).sort();
+  } catch {
+    /* rows only */
+  }
+  return null;
+}
+
+/**
+ * Round 20 SALES: the probe of a property sale source. Same answer shape as a coverage source. Every request it sends is one the scan
+ * itself would send (lib/signals/adapters/sales.ts builders, which refuse any party column), plus the column list and a row count.
+ */
+async function probeSale(ds: SaleDataset, doFetch: typeof fetch, now: Date): Promise<CoverageProbeResult> {
+  const endpoint = ds.platform === 'socrata' ? `https://${ds.domain}/resource/${ds.datasetId}.json` : ds.platform === 'arcgis' ? (ds.layerUrl ?? null) : PHL_CARTO;
+  const base = empty(ds.id, { platform: ds.platform, endpoint, expectedColumns: [...ds.columns], rowCap: SALE_PAGE * SALE_MAX_PAGES });
+  const headers = { Accept: 'application/json', 'User-Agent': UA };
+  if (ds.platform === 'socrata') {
+    const cols = await socrataColumns(doFetch, ds.domain!, ds.datasetId!);
+    if (cols) {
+      base.columns = cols;
+      base.columnsFrom = 'column list';
+    }
+    if (ds.join) {
+      const jc = await socrataColumns(doFetch, ds.domain!, ds.join.datasetId);
+      base.join = { dataset: ds.join.datasetId, columns: jc ?? [], missingExpected: jc ? ds.join.columns.filter((c) => !jc.includes(c)) : [] };
+    }
+  }
+  // How many rows the scan's window holds now (the scan's own where clause), against its row cap.
+  try {
+    let n = NaN;
+    if (ds.platform === 'socrata') {
+      const c = await getJson(doFetch, `${endpoint}?${new URLSearchParams({ $select: 'count(*) AS n', $where: socrataWhere(ds, now) }).toString()}`, headers);
+      if (c.status < 400 && Array.isArray(c.body)) n = Number((c.body[0] as { n?: unknown } | undefined)?.n);
+    } else if (ds.platform === 'arcgis') {
+      const c = await getJson(doFetch, `${ds.layerUrl}/query?${new URLSearchParams({ where: arcgisSaleWhere(ds, now), returnCountOnly: 'true', f: 'json' }).toString()}`, headers);
+      if (c.status < 400) n = Number((c.body as { count?: unknown } | null)?.count);
+    } else {
+      const c = await getJson(doFetch, cartoUrl(`SELECT count(*) AS n FROM ${ds.cartoFrom} WHERE ${cartoSaleWhere(ds, now)}`), headers);
+      if (c.status < 400) n = Number(((c.body as { rows?: { n?: unknown }[] } | null)?.rows ?? [])[0]?.n);
+    }
+    if (Number.isFinite(n)) {
+      base.windowCount = n;
+      const note = rowCapNote(n, base.rowCap);
+      if (note) base.rowCapNote = note;
+    }
+  } catch {
+    /* count unknown */
+  }
+  const got = await fetchSaleRows(ds, doFetch, now, { limit: PROBE_ROWS, pages: 1, budgetMs: 30_000 });
+  base.httpStatus = got.httpStatus;
+  if (got.columns && base.columnsFrom === null) {
+    base.columns = got.columns;
+    base.columnsFrom = 'column list';
+  }
+  const err = got.logs.find((l) => l.startsWith('error'));
+  if (err) {
+    const msg = sanitizeHealthError(err) ?? 'error';
+    const stale = /no rows in the last \d+ days: newest is (\d{4}-\d{2}-\d{2})/.exec(err);
+    if (stale) {
+      const out = finish({ ...base, schema: 'no_rows', newestDate: `${stale[1]}T00:00:00.000Z`, freshness: 'stale', freshnessNote: err.replace(/^error: [^:]+: /, '') }, [], [], 0, null);
+      out.schema = 'no_rows';
+      return out;
+    }
+    if (/schema mismatch:/.test(err)) {
+      return { ...base, schema: 'mismatch', schemaProblem: msg.replace(/^.*schema mismatch: /, ''), missingExpected: base.columnsFrom ? base.expectedColumns.filter((c) => !base.columns.includes(c)) : [], message: msg };
+    }
+    return { ...base, schema: 'unreachable', message: msg };
+  }
+  const report = parseSaleRows(got.rows, ds, now);
+  base.newestDate = newest(got.rows.map((r) => saleRecordDate(ds, r[ds.dateField])));
+  Object.assign(base, freshness(base.newestDate, ds.lookbackDays, now));
+  base.schema = 'ok';
+  const problem = report.shapeOk === 0 ? saleSchemaProblem(got.rows, ds) ?? (got.rows.length ? 'no row has the id and a readable date' : null) : null;
+  return finish(base, got.rows, report.items, report.shapeOk, problem);
+}
+
 /** Runs the probe for one source. `doFetch` is passed in so a test can answer without a network. Never throws. */
 export async function runCoverageProbe(source: string, doFetch: typeof fetch, now: Date = new Date()): Promise<CoverageProbeResult> {
+  const sale = SALES_DATASETS.find((d) => d.id === source && d.verified && d.probation);
+  if (sale) {
+    try {
+      return await probeSale(sale, doFetch, now);
+    } catch (e) {
+      return empty(source, { platform: sale.platform, message: msgOf(e) });
+    }
+  }
   const p = find(source);
   if (!p) return { ...empty(source), status: 'unknown_source', schema: 'unreachable' };
   try {

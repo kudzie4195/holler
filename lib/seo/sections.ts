@@ -63,6 +63,8 @@ export function sectionFor(kind: string, source: string, title: string, subtype?
     case 'permit':
       return 'permits';
     case 'civic':
+      // Round 20 SALES: a recorded property sale is never listed or counted on a public page (a home sale is about a household).
+      if (subtype === 'sale') return null;
       if (subtype === 'inspection') return 'inspections';
       if (subtype === 'business') return 'business';
       if (subtype === 'violation') return 'violations';

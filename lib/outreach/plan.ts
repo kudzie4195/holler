@@ -12,7 +12,7 @@ import { t, type Lang } from '@/lib/i18n';
  * (lib/contacts/load.ts) and only ever for a member with current access whose own match points at the record.
  */
 
-export type RecordClass = 'request' | 'permit' | 'business' | 'inspection' | 'award' | 'bid' | 'storm' | 'area' | 'none';
+export type RecordClass = 'request' | 'permit' | 'business' | 'inspection' | 'award' | 'bid' | 'storm' | 'area' | 'sale' | 'none';
 
 /** Source and kind -> the kind of record, which decides the block. One mapping for the feed, the loader call and the email. */
 export function recordClass(source: string, kind: string): RecordClass {
@@ -24,6 +24,8 @@ export function recordClass(source: string, kind: string): RecordClass {
   if (s.endsWith('-permits') || kind === 'permit') return 'permit';
   if (s.endsWith('-business')) return 'business';
   if (s.endsWith('-inspections')) return 'inspection';
+  // Round 20 SALES (lib/signals/adapters/sales.ts): a recorded property sale. Its own block rules (saleCommercial below).
+  if (s.endsWith('-sales')) return 'sale';
   if (s.endsWith('-311') || s.endsWith('-violations')) return 'area';
   if (s.endsWith('-events') || kind === 'event') return 'none';
   if (s === 'nws' || s === 'spc' || s === 'fema' || kind === 'alert' || kind === 'report' || kind === 'disaster') return 'storm';
@@ -43,7 +45,20 @@ export function isViolationSource(source: string): boolean {
  * company on the public record, round 18). Other area records and requests never carry contacts.
  */
 export function mayHaveContacts(source: string, kind: string, ownersOn: boolean = violationOwnersEnabled()): boolean {
-  return ORG_CLASSES.includes(recordClass(source, kind)) || (ownersOn && recordClass(source, kind) === 'area' && isViolationSource(source)) || BUILDING_BLOCK_SOURCES.has((source ?? '').toLowerCase());
+  const cls = recordClass(source, kind);
+  // A sale: only a commercial sale stores a (site) contact; a residential one stores none, so the loader finds nothing for it.
+  // Round 20 VIOL (review P1-1): NYC whole-building heat keeps a private block-level site contact (BUILDING_BLOCK_SOURCES).
+  return ORG_CLASSES.includes(cls) || cls === 'sale' || (ownersOn && cls === 'area' && isViolationSource(source)) || BUILDING_BLOCK_SOURCES.has((source ?? '').toLowerCase());
+}
+
+/**
+ * Round 20 SALES (review P1-2, owner decision): a sale card's block. A RESIDENTIAL sale never gets one: no site address (it is stored at
+ * block level only), no map pin, no letter to the owner, no door-hanger or door-to-door kit. A home that just sold is a private household,
+ * so Holler offers no way to go to its door. A COMMERCIAL sale shows its street address and a map link (a business property), never a
+ * letter. The class is read from the record's own title ("Commercial property sold in ...", lib/signals/adapters/sales.ts saleTitle).
+ */
+export function isCommercialSaleTitle(title: string | null | undefined): boolean {
+  return typeof title === 'string' && /^Commercial property sold in /.test(title);
 }
 
 /**
@@ -60,7 +75,8 @@ export function isOrgRecord(source: string, kind: string): boolean {
 /** True when the member sees any block at all for this record (used by the locked view for the heading). */
 export function hasBlock(source: string, kind: string): boolean {
   const c = recordClass(source, kind);
-  return c !== 'none' && c !== 'request';
+  // A sale's block depends on its class (saleSitePlan); the locked view never promises one.
+  return c !== 'none' && c !== 'request' && c !== 'sale';
 }
 
 const ROLE_FOR_CLASS: Partial<Record<RecordClass, ContactRole>> = {
@@ -113,6 +129,8 @@ export interface PlanSignal {
   summary?: string | null;
   /** The record's public source page. Shown next to an owner company on a code-violation card. */
   url?: string | null;
+  /** The record's title. Read only for a sale, to tell a commercial sale (a site block) from a residential one (no block). */
+  title?: string | null;
 }
 
 export type PlanContact = ContactInput;
@@ -286,6 +304,7 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   const cls = recordClass(signal.source, signal.kind);
   if (cls === 'none' || cls === 'request') return null;
   const list = Array.isArray(contacts) ? contacts.filter((c): c is PlanContact => !!c && typeof c === 'object') : [];
+  if (cls === 'sale') return saleSitePlan(signal, list, lang);
   if (!ORG_CLASSES.includes(cls)) return areaPlan(signal, [], cls, lang, cls === 'area' ? ownerLine(signal, list, lang) : null, cls === 'area' ? buildingBlockLine(signal, list, lang) : null);
 
   const wantRole = ROLE_FOR_CLASS[cls]!;
@@ -383,6 +402,22 @@ export function outreachPlan(signal: PlanSignal, contacts: PlanContact[] | null 
   }
 
   return areaPlan(signal, list, cls, lang);
+}
+
+/** A sale's block: a commercial sale's site (address and map, never a letter); a residential sale gets none (see isCommercialSaleTitle). */
+function saleSitePlan(signal: PlanSignal, contacts: PlanContact[], lang: Lang): OutreachPlan | null {
+  if (!isCommercialSaleTitle(signal.title)) return null;
+  const site = contacts.find((c) => c.role === 'site' && cleanText(c.address));
+  const address = site ? formatAddress(site, signal.city, signal.state) : null;
+  if (!site || !address) return null;
+  return {
+    type: 'site',
+    heading: t(lang, 'outreach.site.default'),
+    address,
+    map: withLabel(buildLink({ type: 'map', address: cleanText(site.address), city: site.city || signal.city, state: site.state || signal.state, zip: site.zip }), t(lang, 'outreach.link.map')),
+    letter: null,
+    reminder: reminderFor(false, lang),
+  };
 }
 
 /** The organisation a card and its email name first: the first contact with the record's organisation role and a name. */

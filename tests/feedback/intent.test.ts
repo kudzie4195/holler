@@ -41,6 +41,11 @@ const FIXED: Record<string, Intent> = {
   'websearch-serper': 'asking',
   'holler-request': 'asking',
   'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
+  // Round 20 SALES: a recorded property sale (kind civic, data.subtype 'sale'): a home changing hands may create a need, the most cautious reading.
+  'socrata-nyc-acris-sales': 'demand',
+  'socrata-cook-sales': 'demand',
+  'carto-phl-sales': 'demand',
+  'arcgis-miamidade-sales': 'demand',
 };
 
 const datasets = new Map<string, { subtype: string; kind: string }>([
@@ -65,6 +70,8 @@ describe('intentOf: every registered source', () => {
       expect(intentOf({ kind: a.kind, subtype, source: a.id }), `${a.id} (${a.kind}/${subtype})`).toBe(expected);
     }
     for (const id of NON_ADAPTER_SOURCES) expect(intentOf({ kind: 'ask', source: id })).toBe(FIXED[id]);
+    // the subtype a sale record actually carries reads the same
+    expect(intentOf({ kind: 'civic', subtype: 'sale', source: 'carto-phl-sales' })).toBe('demand');
   });
 
   it('covers every subtype the Socrata and ArcGIS datasets use', () => {
