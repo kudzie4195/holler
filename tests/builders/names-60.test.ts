@@ -6,7 +6,8 @@
  *  - the old strict check (lib/contacts/org.ts, exact pass): 15 of 60 (14 of 48, 1 of 12), as the review found;
  *  - the round 18 contractor business-name rule, which builderName now uses: 48 of 60 (43 of 48, 5 of 12) in round 19;
  *  - round 20 (LIC): the same rule plus the reviewed known-company list (lib/contacts/known-companies.ts, exact name forms only):
- *    54 of 60 (43 of 48, 11 of 12). The bar is MET. "Taylor Morrison" alone is still refused on purpose (a given name plus a surname:
+ *    54 of 60 (43 of 48, 11 of 12): 54 of the test's 60, reached by listing the test's own large-builder names; not measured on live rows
+ *    (review LIC P2-8: on 61 builder names the reviewer wrote, correct display moved from 32 to 34). "Taylor Morrison" alone is still refused on purpose (a given name plus a surname:
  *    the list holds it only as "Taylor Morrison Homes" / "Taylor Morrison Inc").
  * The rule is not loosened for anything else (it would name private persons). The panel still ships dark behind
  * HOLLER_BUILDERS_PANEL_ENABLED (lib/builders/switch.ts, off by default): turning it on is the owner's decision (LAUNCH.md NEEDS KUDZI).
@@ -64,7 +65,7 @@ describe('builders panel names (review defect 5), measured on the 60 names', () 
     expect(ALL.filter((n) => oldRule(n) !== null && builderName(n) !== oldRule(n))).toEqual(['Cardinal Development Partners LP', 'Union Realty Group']);
   });
 
-  it('54 meets the bar of 54; the panel is still off unless HOLLER_BUILDERS_PANEL_ENABLED is set (the owner\'s switch)', () => {
+  it('54 of the test\'s 60 (by listing its names, not measured on live rows); the panel is still off unless HOLLER_BUILDERS_PANEL_ENABLED is set (the owner\'s switch)', () => {
     expect(ALL.filter((n) => builderName(n) !== null).length).toBe(54);
     expect(buildersPanelEnabled(undefined)).toBe(false);
     expect(buildersPanelEnabled('')).toBe(false);

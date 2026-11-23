@@ -9,9 +9,11 @@ export const maxDuration = 60;
 
 /**
  * GET /api/cron/license-sync?state=FL[&offset=N] (Authorization: Bearer CRON_SECRET only). Round 20 (LIC): loads one state's contractor
- * license file into holler_contractor_licenses (migration 0036), company licensees only. OFF unless HOLLER_LICENSE_SYNC_ENABLED is set:
- * with it off nothing is fetched or written ({ status: "disabled" }). Each call reads at most 50,000 rows from `offset` and stops at
- * about 45 s; the answer gives `done` and `nextOffset` for the next call. A person-licensee row is dropped before anything is written.
+ * license file into holler_contractor_licenses (migration 0036), company licensees only. It runs only when HOLLER_LICENSE_SYNC_ENABLED is
+ * set AND the state's source is promoted in lib/licenses/sources.ts (review LIC P2-4); otherwise { status: "disabled" } or
+ * { status: "not_promoted" } and nothing is fetched or written. Each call reads at most 20,000 rows from `offset` (25 s read limit, 45 s in
+ * all); the answer gives `done` and `nextOffset` (only written rows count), or `no_progress`. A person-licensee row is dropped before
+ * anything is written.
  */
 export async function GET(req: Request) {
   if (!isCronAuthorized(req, env.CRON_SECRET)) return Response.json({ error: 'unauthorized' }, { status: 401 });

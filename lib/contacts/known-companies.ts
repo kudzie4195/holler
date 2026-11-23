@@ -4,7 +4,8 @@ import { foldName } from './org';
  * Round 20 (unit LIC, lever 1): a reviewed allow-list of large home builders and national or regional contractors that pull permits in
  * the 10 metros. The business-name rules (trade-name.ts cleanContractorName and cleanBusinessName) accept a string that matches one of
  * these legal or trade name FORMS exactly, after companyKey() below, even when the rule would otherwise read it as a person ("Toll
- * Brothers", "Lennar Homes", "D.R. Horton Inc"). It is a whole-string match only: a string that shares a word with a listed name ("John
+ * Brothers", "Lennar Homes", "D.R. Horton Inc"). In the business-licence role a listed name is accepted only when it ends with a legal
+ * form (review LIC P2-6: a licence card shows the licence address, which can be a home). It is a whole-string match only: a string that shares a word with a listed name ("John
  * Horton", "Mary Lennar", "Toll Smith", "Horton Roofing") gets nothing from this list and goes through the normal rule unchanged.
  *
  * Rules for an entry (tests/contacts/known-companies.test.ts enforces the first three):
@@ -44,10 +45,11 @@ export const KNOWN_COMPANIES: readonly KnownCompany[] = [
     name: 'D.R. Horton, Inc.',
     kind: 'homebuilder',
     forms: [
-      'D.R. Horton, Inc.', 'D R Horton Inc', 'DR Horton Inc', 'D.R. Horton - Texas, Ltd.', 'DR Horton Texas Ltd', 'D.R. Horton - Georgia, LLC',
-      'D.R. Horton - Houston, LLC', 'D.R. Horton, Inc. - Chicago', 'D.R. Horton - South', 'Continental Homes, Inc.', 'Continental Homes of Texas, L.P.',
+      'D.R. Horton, Inc.', 'D R Horton Inc', 'D.R. Horton - Texas, Ltd.', 'D.R. Horton - Georgia, LLC',
+      'D.R. Horton - Houston, LLC', 'D.R. Horton, Inc. - Chicago', 'Continental Homes, Inc.', 'Continental Homes of Texas, L.P.',
     ],
-    source: 'SEC EDGAR, HORTON D R INC /DE/ 10-K FY2025 Exhibit 21.1 subsidiaries (sec.gov a9302025ex211subsidiaries.htm, opened); "D.R. Horton - South" from ' + CNP,
+    // Review LIC P3-9: no "DR Horton" form (it is also "Dr. Horton"), and no "D.R. Horton - South" (a utility list's label, no legal form).
+    source: 'SEC EDGAR, HORTON D R INC /DE/ 10-K FY2025 Exhibit 21.1 subsidiaries (sec.gov a9302025ex211subsidiaries.htm, opened)',
     tag: '[O]',
   },
   { name: 'Lennar', kind: 'homebuilder', forms: ['Lennar Corporation', 'Lennar Corp', 'Lennar Homes', 'Lennar Homes LLC', 'Lennar Homes of Texas'], source: `${CD25} ("Lennar Corp."); ${CNP} ("Lennar Homes"); "Lennar Homes of Texas" (buildzoom title) and "Lennar Homes, LLC" (levelset URL) in search results`, tag: '[3P]' },
@@ -121,17 +123,19 @@ export const KNOWN_COMPANIES: readonly KnownCompany[] = [
 ];
 
 /**
- * The key a name form is compared on: NFKC, accents folded, lower case, "&" read as "and", apostrophes dropped ("Lowe's" = "Lowes"),
- * periods, commas, hyphens and slashes read as spaces, spaces collapsed. Null for a value with an invisible or direction character, or
- * anything but ASCII letters, digits and spaces after that.
+ * The key a name form is compared on: NFKC, accents folded, lower case, "&" read as "and", periods, commas, hyphens and slashes read as
+ * spaces, spaces collapsed. Null for a value with an invisible or direction character, an apostrophe (a possessive), an honorific with a
+ * period ("Dr."), or anything but ASCII letters, digits and spaces after that.
  */
 export function companyKey(raw: unknown): string | null {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > 200) return null;
-  if (/[​-‏‪-‮⁠-⁤⁦-⁩﻿­]/.test(raw)) return null;
+  if (/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\u00AD]/.test(raw)) return null;
+  // Review LIC P3-9: no listed form has an apostrophe, so a possessive ("Harkin's Builders", "Toll Brother's Inc") never matches; and an
+  // honorific with a period ("Dr. Horton Inc", "Mr. Toll") never matches either.
+  if (/[\u2018\u2019\u201B\u00B4`']/.test(raw) || /\b(?:dr|mr|mrs|ms|miss|prof)\./i.test(raw)) return null;
   const s = foldName(raw.normalize('NFKC'))
-    .replace(/[‘’´`']/g, '')
     .replace(/&/g, ' and ')
-    .replace(/[.,\-‐-―/]/g, ' ')
+    .replace(/[.,\-\u2010-\u2015/]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return /^[a-z0-9 ]+$/.test(s) ? s : null;
@@ -158,6 +162,21 @@ export function knownCompanyOf(raw: unknown): KnownCompany | null {
  */
 export function knownCompanyName(raw: unknown): string | null {
   if (!knownCompanyOf(raw)) return null;
-  const out = (raw as string).normalize('NFKC').replace(/\s+/g, ' ').trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // Review LIC P3-10: stray edge punctuation is trimmed ("- Lennar Corp", "D R Horton Inc,").
+  const out = (raw as string)
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s,;/-]+|[\s,;/-]+$/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036F]/g, '');
   return out.length >= 3 && out.length <= 120 ? out : null;
+}
+
+/** Legal forms a listed name must END with to be accepted in the business-licence role (review LIC P2-6). */
+const LICENCE_ROLE_LEGAL_END = /\s(?:llc|l l c|inc|incorporated|corp|corporation|co|lp|l p|llp|l l p|pllc|p l l c|ltd|limited)$/;
+
+/** Does the name end with one of LLC, Inc, Corp, Co, LP, LLP, PLLC, Ltd (after companyKey)? */
+export function knownFormHasLegalEnd(raw: unknown): boolean {
+  const k = companyKey(raw);
+  return Boolean(k && LICENCE_ROLE_LEGAL_END.test(k));
 }

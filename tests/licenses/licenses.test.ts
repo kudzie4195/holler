@@ -30,7 +30,33 @@ const PERSONS = [
   'JOHN SMITH', 'SMITH, JOHN A', 'Maria Lopez', 'MARIA LOPEZ ROOFING', 'Mary Jones Plumbing LLC', 'Danny Smith LLC', 'J. Smith', 'Kowalski Roofing',
   'Deontay Kamara LLC', 'NGUYEN, VAN MINH', 'Jose Luis Hernandez Garcia', 'John Smith DBA Mary Jones', 'Gareth Barber', 'Taylor Morrison', 'Dr. Horton',
 ];
-const COMPANIES = ['ACME ROOFING LLC', 'SUMMIT MECHANICAL INC', 'Toll Brothers', 'D.R. Horton, Inc.', 'Premier Heating & Air LLC'];
+/** Review LIC P1-1: a person joined to a company in one cell. The licence is the person's: never stored. */
+const JOINED = [
+  'JOHN SMITH DBA ACME ROOFING LLC', 'JOHN SMITH D/B/A ACME ROOFING LLC', 'JOHN SMITH D.B.A. ACME ROOFING LLC', 'JOHN SMITH T/A ACME ROOFING LLC',
+  'JOHN SMITH TRADING AS ACME ROOFING LLC', 'JOHN SMITH DOING BUSINESS AS ACME ROOFING LLC', 'ACME ROOFING LLC DBA JOHN SMITH', 'JOHN SMITH / ACME ROOFING LLC',
+  'JOHN SMITH, ACME ROOFING LLC', 'JOHN SMITH OF ACME ROOFING LLC', 'ACME ROOFING LLC (JOHN SMITH)', 'JOHN SMITH C/O ACME ROOFING LLC',
+  'JOHN SMITH DBA DESERT COOLING LLC', 'JOHN SMITH AKA ACME ROOFING LLC', 'JOHN SMITH OPERATING AS ACME ROOFING LLC',
+];
+const COMPANIES = ['ACME ROOFING LLC', 'SUMMIT MECHANICAL INC', 'Toll Brothers Inc', 'D.R. Horton, Inc.', 'Premier Heating & Air LLC'];
+/** A valid licence number per state (each matches the state's numberPattern). */
+const NUM: Record<string, string> = { FL: 'QB1234567', CA: '1012345', AZ: 'ROC123456', TX: 'TACLA12345', NY: '2091234-DCA' };
+/** An allowed company type per state that has a type column. */
+const TYPE: Record<string, string> = { FL: 'QB', CA: 'Corporation', NY: 'Business' };
+/** A source promoted for a test only (the registry keeps every source on probation). */
+const promoted = (s: LicenseSource): LicenseSource => ({ ...s, probation: false, schemaUnverified: false, ...(s.headerless ? { headerless: { ...s.headerless, confirmed: true } } : {}) });
+
+/** One row in a source's own shape: holder, optional DBA, a valid number and an allowed type unless overridden. */
+function rowFor(s: LicenseSource, holder: string, over: Record<string, string> = {}): Record<string, string> {
+  const row: Record<string, string> = {};
+  for (const c of expectedColumns(s)) row[c] = '';
+  row[s.columns.number] = NUM[s.state];
+  row[s.columns.holder] = holder;
+  if (s.columns.entityType) row[s.columns.entityType] = TYPE[s.state];
+  if (s.columns.phone) row[s.columns.phone] = '214-555-0100';
+  if (s.columns.personFields) for (const p of s.columns.personFields) row[p] = 'JOHN SMITH';
+  return { ...row, ...over };
+}
+const readOf = (row: Record<string, string>) => (c: string) => row[c] ?? '';
 
 /** A California CSLB-shaped row (header names [A]). */
 const ca = (name: string, type = 'Corporation', phone = '(213) 555-0142', no = '1012345') => ({
@@ -38,72 +64,121 @@ const ca = (name: string, type = 'Corporation', phone = '(213) 555-0142', no = '
 });
 
 describe('company rows only (privacy, planted names)', () => {
-  it('every planted person is dropped as the holder, in every registered source', () => {
+  it('every planted person is dropped as the holder, in every registered source (valid number and type, so the holder rule decides)', () => {
     for (const s of LICENSE_SOURCES) {
-      for (const p of PERSONS) {
-        const row: Record<string, string> = {};
-        for (const c of expectedColumns(s)) row[c] = '';
-        row[s.columns.number] = 'ABC123456';
-        row[s.columns.holder] = p;
-        if (s.columns.entityType) row[s.columns.entityType] = s.state === 'NY' ? 'Business' : 'Corporation';
-        const out = toCompanyRow((c) => row[c] ?? '', s, NOW);
-        expect('drop' in out, `${s.id}: ${p}`).toBe(true);
+      for (const p of PERSONS) expect(toCompanyRow(readOf(rowFor(s, p)), s, NOW), `${s.id}: ${p}`).toEqual({ drop: 'holder_not_company' });
+      // A company in the same shape is kept (so the drops above are not an artefact of the row).
+      expect('row' in toCompanyRow(readOf(rowFor(s, 'ACME ROOFING LLC', s.columns.personFields ? { 'Qualifying Party': 'BRENT KOWALSKI' } : {})), s, NOW), s.id).toBe(true);
+    }
+  });
+
+  it('P1-1: a person joined to a company in the holder cell is dropped in every source, and as a DBA under a company holder too', () => {
+    for (const s of LICENSE_SOURCES) {
+      for (const j of JOINED) {
+        expect(toCompanyRow(readOf(rowFor(s, j)), s, NOW), `${s.id}: ${j}`).toEqual({ drop: 'holder_not_company' });
+        if (s.columns.dba) {
+          const out = toCompanyRow(readOf(rowFor(s, 'SUMMIT MECHANICAL INC', { [s.columns.dba]: j })), s, NOW);
+          expect('row' in out && out.row.business_name, `${s.id} dba: ${j}`).toBe('SUMMIT MECHANICAL INC');
+        }
       }
     }
   });
 
-  it('a company name under an individual entity type is dropped (the file says it is a person), and a blank type fails closed', () => {
-    for (const t of ['Sole Owner', 'SOLE OWNERSHIP', 'Individual', '']) {
-      expect(toCompanyRow((c) => (ca('ACME ROOFING LLC', t) as Record<string, string>)[c] ?? '', src('CA'), NOW), t).toEqual({ drop: 'individual_type' });
+  it('P1-1: through the sync (promoted sources), no joined person row reaches the table, and the person\'s number attaches nothing', async () => {
+    const db = new FakeDb();
+    for (const s of LICENSE_SOURCES.filter((x) => x.format === 'csv' && !x.headerless)) {
+      const rows = JOINED.map((j, i) => rowFor(s, j, { [s.columns.number]: s.state === 'CA' ? String(1500000 + i) : `ROC${150000 + i}` }));
+      const r = await runLicenseSync({ db: asDb(db), state: s.state, fetch: fileFetch(csv(rows)), enabled: true, source: promoted(s) });
+      expect(r, s.id).toMatchObject({ status: 'ok', kept: 0, written: 0 });
     }
+    expect(db.tables.holler_contractor_licenses ?? []).toEqual([]);
+    const items = [{ contacts: [] as ContactInput[], refs: [{ state: 'CA', number: '1500000' }] }];
+    expect(await attachLicensedContacts(asDb(db), items)).toBe(0);
+    expect(items[0].contacts).toEqual([]);
   });
 
-  it('a person holder with a company DBA is dropped (the licence holder must be a company: Florida qualifiers)', () => {
-    const fl = src('FL');
-    const row: Record<string, string> = { '1': 'JOHN SMITH', '2': 'ACME ROOFING LLC', '3': 'CGC', '11': 'CGC1234567' };
-    expect(toCompanyRow((c) => row[c] ?? '', fl, NOW)).toEqual({ drop: 'holder_not_company' });
+  it('P1-2: the type check is an allow-list: every unknown, individual or blank code is dropped (CA and NY), allowed types are kept', () => {
+    const DROP = ['S', '01', 'SO', 'SoleOwner', 'Sole_Owner', 'Sole Owner', 'SOLE', 'sole-owner', 'IND', 'I', 'Individual', 'Proprietorship', 'Person', 'Owner/Operator', 'N/A', '-', '0', ''];
+    for (const t of DROP) {
+      expect(toCompanyRow(readOf(ca('ACME ROOFING INC', t)), src('CA'), NOW), `CA ${t}`).toEqual({ drop: 'individual_type' });
+      expect(toCompanyRow(readOf(rowFor(src('NY'), 'ACME ROOFING LLC', { license_type: t })), src('NY'), NOW), `NY ${t}`).toEqual({ drop: 'individual_type' });
+    }
+    for (const t of ['Corporation', 'CORPORATION', 'LLC', 'Limited Liability Company', 'Limited Liability', 'Partnership', 'Joint Venture'])
+      expect('row' in toCompanyRow(readOf(ca('ACME ROOFING INC', t)), src('CA'), NOW), `CA ${t}`).toBe(true);
+    expect('row' in toCompanyRow(readOf(rowFor(src('NY'), 'ACME ROOFING LLC', { license_type: 'Business' })), src('NY'), NOW)).toBe(true);
+    // Florida: only the business-organisation class.
+    for (const t of ['CGC', 'CBC', 'CRC', 'CCC', '', 'qb ', 'QBX']) expect(toCompanyRow(readOf(rowFor(src('FL'), 'ACME ROOFING LLC', { '2': t })), src('FL'), NOW), `FL ${t}`).toEqual({ drop: 'individual_type' });
   });
 
-  it('a DBA that shares a word with a person named on the row is not shown; the company holder is', () => {
-    const az = src('AZ');
-    const row: Record<string, string> = { 'License No': 'ROC123456', 'Business Name': 'DESERT AIR LLC', 'Doing Business As': 'KOWALSKI COOLING LLC', 'Qualifying Party': 'BRENT KOWALSKI', Class: 'C-39' };
-    const out = toCompanyRow((c) => row[c] ?? '', az, NOW);
-    expect('row' in out && out.row.business_name).toBe('DESERT AIR LLC');
-    expect(JSON.stringify(out)).not.toMatch(/KOWALSKI/);
+  it('P1-3: a number that does not match the state pattern is dropped; a type that does not have the label shape is stored as null', () => {
+    for (const bad of ['01/15/1998', '90001', '742', '742 EVERGREEN TER', 'PO BOX 12', 'JOHN SMITH 3RD', '33101'])
+      expect(toCompanyRow(readOf(rowFor(src('FL'), 'ACME ROOFING LLC', { '10': bad })), src('FL'), NOW), `FL ${bad}`).toEqual({ drop: 'no_number' });
+    for (const bad of ['01/15/1998', 'ROC12', 'CGC1234567', '742 EVERGREEN TER'])
+      expect(toCompanyRow(readOf(ca('ACME ROOFING INC', 'Corporation', '213-555-0142', bad)), src('CA'), NOW), `CA ${bad}`).toEqual({ drop: 'no_number' });
+    const az = toCompanyRow(readOf(rowFor(src('AZ'), 'ACME ROOFING LLC', { Class: '742 EVERGREEN TER' })), src('AZ'), NOW);
+    expect('row' in az && az.row.license_type).toBeNull();
+    const az2 = toCompanyRow(readOf(rowFor(src('AZ'), 'ACME ROOFING LLC', { Class: 'CR-39' })), src('AZ'), NOW);
+    expect('row' in az2 && az2.row.license_type).toBe('CR-39');
+  });
+
+  it('P1-3: the reviewer\'s Florida layouts that differ from the documented one store nothing (promoted and layout confirmed for the test)', async () => {
+    const fl = promoted(src('FL'));
+    const ADDR = ['742 EVERGREEN TER', '', '', 'MIAMI', 'FL', '33101', '23'];
+    const lines = [
+      // a leading board code: every field one place to the right
+      ['06', 'ACME ROOFING LLC', '', 'QB', ...ADDR, 'QB1500001', 'C', '01/15/1998'],
+      // a date where the documented layout has the number
+      ['ACME ROOFING LLC', '', 'QB', ...ADDR, '01/15/1998', 'QB1500002'],
+      // the street where the class code should be
+      ['ACME ROOFING LLC', '', '742 EVERGREEN TER', 'QB', '', '', 'MIAMI', 'FL', '33101', '23', 'QB1500003'],
+      // the reviewer's layout B: a person, the DBA company, class, address ..., a date in the number column
+      ['SMITH, JOHN A', 'ACME ROOFING LLC', 'CGC', ...ADDR, '01/15/1998', 'CGC1500003'],
+      // a ZIP code in the number column
+      ['ACME ROOFING LLC', '', 'QB', '742 EVERGREEN TER', '', '', 'MIAMI', 'FL', '23', '33101', '33101'],
+    ];
+    const body = lines.map((l) => l.map((v) => (/[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)).join(',')).join('\n') + '\n';
+    const db = new FakeDb();
+    const r = await runLicenseSync({ db: asDb(db), state: 'FL', fetch: fileFetch(body), enabled: true, source: fl });
+    expect(r).toMatchObject({ status: 'ok', read: 5, kept: 0, written: 0 });
+    expect(db.tables.holler_contractor_licenses ?? []).toEqual([]);
+    // The documented layout itself is kept.
+    const good = ['ACME ROOFING LLC', '', 'QB', ...ADDR, 'QB1500004', 'C', '01/15/1998'].join(',') + '\n';
+    const r2 = await runLicenseSync({ db: asDb(db), state: 'FL', fetch: fileFetch(good), enabled: true, source: fl });
+    expect(r2).toMatchObject({ status: 'ok', kept: 1 });
+    expect(db.tables.holler_contractor_licenses).toEqual([expect.objectContaining({ license_number: 'QB1500004', business_name: 'ACME ROOFING LLC', license_type: 'QB', business_address: null })]);
+    expect(JSON.stringify(db.tables)).not.toMatch(/EVERGREEN|SMITH|01\/15/);
   });
 
   it('companies are kept: name, licence key, business phone only from a business-phone column, never a mailing address', () => {
-    const out = toCompanyRow((c) => (ca('SUMMIT MECHANICAL INC') as Record<string, string>)[c] ?? '', src('CA'), NOW);
+    const out = toCompanyRow(readOf(ca('SUMMIT MECHANICAL INC')), src('CA'), NOW);
     expect(out).toEqual({
       row: {
         state: 'CA', license_number: '1012345', source: 'license-ca-cslb-master', business_name: 'SUMMIT MECHANICAL INC', business_phone: '213-555-0142',
         business_address: null, business_city: null, business_zip: null, license_type: 'C20', fetched_at: NOW,
       },
     });
-    // Arizona's phone is not marked as the business phone: not kept.
-    const az: Record<string, string> = { 'License No': 'ROC999001', 'Business Name': 'ACME ROOFING LLC', Phone: '602-555-0100' };
-    const a = toCompanyRow((c) => az[c] ?? '', src('AZ'), NOW);
-    expect('row' in a && a.row.business_phone).toBeNull();
-    // No source marks its address as the business address (research): none stores one.
+    const az = toCompanyRow(readOf({ 'License No': 'ROC999001', 'Business Name': 'ACME ROOFING LLC', Phone: '602-555-0100', 'Qualifying Party': 'BRENT KOWALSKI' }), src('AZ'), NOW);
+    expect('row' in az && az.row.business_phone).toBeNull();
     for (const s of LICENSE_SOURCES) expect(s.addressIsBusiness, s.id).toBe(false);
   });
 
   it('a batch keeps companies only and the kept JSON holds no planted person anywhere', () => {
-    const raw = [...PERSONS.map((p, i) => ca(p, 'Corporation', '312-555-0100', String(2000000 + i))), ...COMPANIES.map((c, i) => ca(c, 'Corporation', '312-555-0100', String(3000000 + i)))];
+    const raw = [...[...PERSONS, ...JOINED].map((p, i) => ca(p, 'Corporation', '312-555-0100', String(2000000 + i))), ...COMPANIES.map((c, i) => ca(c, 'Corporation', '312-555-0100', String(3000000 + i)))];
     const { rows, dropped } = filterCompanyRows('CA', raw, NOW);
     expect(rows.map((r) => r.business_name)).toEqual(COMPANIES);
-    expect(dropped.holder_not_company).toBe(PERSONS.length);
+    expect(dropped.holder_not_company).toBe(PERSONS.length + JOINED.length);
     const json = JSON.stringify(rows);
-    for (const p of PERSONS) expect(json, p).not.toContain(p);
+    for (const p of [...PERSONS, 'JOHN SMITH']) expect(json, p).not.toContain(p);
     expect(json).not.toMatch(/EVERGREEN/);
   });
 
-  it('the holder rule: both name rules or a listed company; L3 trade names without an owner column give nothing', () => {
+  it('the holder rule: both name rules or a listed company with a legal form; L3 trade names without an owner column give nothing', () => {
     expect(companyLicenseName('ACME ROOFING LLC', [])).toBe('ACME ROOFING LLC');
-    expect(companyLicenseName('Toll Brothers', [])).toBe('Toll Brothers');
+    expect(companyLicenseName('Toll Brothers Inc', [])).toBe('Toll Brothers Inc');
+    expect(companyLicenseName('Toll Brothers', [])).toBeNull();
     expect(companyLicenseName('KOWALSKI ROOFING', [])).toBeNull();
     expect(companyLicenseName('SMITH ROOFING LLC', ['JOHN SMITH'])).toBeNull();
-    for (const p of PERSONS) expect(companyLicenseName(p, []), p).toBeNull();
+    for (const p of [...PERSONS, ...JOINED]) expect(companyLicenseName(p, []), p).toBeNull();
   });
 
   it('licence keys: upper case, no spaces; phone and SSN shapes are refused; a board number shaped like "QB1234567" is a key', () => {
@@ -113,19 +188,22 @@ describe('company rows only (privacy, planted names)', () => {
   });
 });
 
+const csv = (rows: Record<string, string>[]) => {
+  const cols = Object.keys(rows[0]);
+  const q = (v: string) => (/[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return [cols.join(','), ...rows.map((r) => cols.map((c) => q(r[c] ?? '')).join(','))].join('\r\n') + '\r\n';
+};
+function fileFetch(body: string, calls: string[] = []): typeof fetch {
+  return (async (u: string | URL | Request) => {
+    calls.push(String(u));
+    return new Response(body, { status: 200, headers: { 'content-type': 'text/csv' } });
+  }) as unknown as typeof fetch;
+}
+
 describe('sync and probe', () => {
   afterEach(() => vi.unstubAllEnvs());
-  const csv = (rows: Record<string, string>[]) => {
-    const cols = Object.keys(rows[0]);
-    const q = (v: string) => (/[",]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-    return [cols.join(','), ...rows.map((r) => cols.map((c) => q(r[c] ?? '')).join(','))].join('\r\n') + '\r\n';
-  };
-  const fileFetch = (body: string, calls: string[] = []) =>
-    (async (u: string | URL | Request) => {
-      calls.push(String(u));
-      return new Response(body, { status: 200, headers: { 'content-type': 'text/csv' } });
-    }) as unknown as typeof fetch;
   const RAW = [...PERSONS.map((p, i) => ca(p, i % 2 ? 'Sole Owner' : 'Corporation', '312-555-0100', String(2000000 + i))), ...COMPANIES.map((c, i) => ca(c, 'Corporation', '312-555-0100', String(3000000 + i)))];
+  const CA = () => promoted(src('CA'));
 
   it('the switch is off by default; off means no fetch and no write', async () => {
     expect(licenseSyncEnabled(undefined)).toBe(false);
@@ -133,15 +211,32 @@ describe('sync and probe', () => {
     for (const v of ['1', 'true', 'ON', ' yes ']) expect(licenseSyncEnabled(v), v).toBe(true);
     const calls: string[] = [];
     const db = new FakeDb();
-    const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW), calls), enabled: false });
+    const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW), calls), enabled: false, source: CA() });
     expect(r.status).toBe('disabled');
     expect(calls).toEqual([]);
     expect(db.calls).toEqual([]);
   });
 
-  it('on: only company rows reach the database (planted persons never sent)', async () => {
+  it('P2-4: switch on but the source on probation (every registered source today): not_promoted, no fetch, no write', async () => {
+    for (const s of LICENSE_SOURCES) {
+      expect(s.probation && s.schemaUnverified, s.id).toBe(true);
+      const calls: string[] = [];
+      const db = new FakeDb();
+      const r = await runLicenseSync({ db: asDb(db), state: s.state, fetch: fileFetch(csv(RAW), calls), enabled: true });
+      expect(r.status, s.id).toBe('not_promoted');
+      expect(calls).toEqual([]);
+      expect(db.calls).toEqual([]);
+    }
+    // One flag removed is not enough, and a headerless layout must be confirmed too.
+    for (const s of [{ ...src('CA'), probation: false }, { ...src('CA'), schemaUnverified: false }, { ...src('FL'), probation: false, schemaUnverified: false }]) {
+      const r = await runLicenseSync({ db: asDb(new FakeDb()), state: s.state, fetch: fileFetch(''), enabled: true, source: s });
+      expect(r.status).toBe('not_promoted');
+    }
+  });
+
+  it('on and promoted: only company rows reach the database (planted persons never sent)', async () => {
     const db = new FakeDb();
-    const r = await runLicenseSync({ db: asDb(db), state: 'ca', fetch: fileFetch(csv(RAW)), enabled: true, now: new Date(NOW) });
+    const r = await runLicenseSync({ db: asDb(db), state: 'ca', fetch: fileFetch(csv(RAW)), enabled: true, now: new Date(NOW), source: CA() });
     expect(r).toMatchObject({ status: 'ok', read: RAW.length, kept: COMPANIES.length, written: COMPANIES.length, done: true, nextOffset: RAW.length });
     expect(db.tables.holler_contractor_licenses.map((x) => x.business_name)).toEqual(COMPANIES);
     const json = JSON.stringify(db.tables);
@@ -154,40 +249,113 @@ describe('sync and probe', () => {
       const db = new FakeDb();
       db.failOn['holler_contractor_licenses.upsert'] = 'relation "public.holler_contractor_licenses" does not exist';
       db.failCode['holler_contractor_licenses.upsert'] = code;
-      const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW)), enabled: true });
+      const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW)), enabled: true, source: CA() });
       expect(r.status, code).toBe('table_missing');
     }
   });
 
-  it('a portal that answers an HTML page or fails: fetch_failed / unreachable, nothing written', async () => {
+  it('a portal that answers an HTML page or fails: fetch_failed / unreachable with a fixed code, nothing written', async () => {
     const db = new FakeDb();
-    const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch('<!DOCTYPE html><html></html>'), enabled: true });
-    expect(r.status).toBe('fetch_failed');
+    const r = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch('<!DOCTYPE html><html></html>'), enabled: true, source: CA() });
+    expect(r).toMatchObject({ status: 'fetch_failed', error: 'not_csv' });
     const down = (async () => new Response('no', { status: 503 })) as unknown as typeof fetch;
-    expect((await runLicenseProbe('CA', down)).status).toBe('unreachable');
+    expect(await runLicenseProbe('CA', down)).toMatchObject({ status: 'unreachable', error: 'http_503' });
     expect(db.calls).toEqual([]);
   });
 
-  it('probe: columns, missing expected columns, row count and companies kept, with no name, number or phone in the answer', async () => {
-    const p = await runLicenseProbe('CA', fileFetch(csv(RAW)));
-    expect(p).toMatchObject({ status: 'ok', rowCount: RAW.length, keptAsCompanies: COMPANIES.length, schema: 'ok', missingExpected: [] });
-    expect(p.dropped?.individual_type).toBe(Math.floor(PERSONS.length / 2));
-    const json = JSON.stringify(p);
-    for (const n of [...PERSONS, ...COMPANIES, '1012345', '312-555-0100']) expect(json, n).not.toContain(n);
-    const unknown = await runLicenseProbe('ZZ', fileFetch(''));
-    expect(unknown.status).toBe('unknown_state');
+  it('P3-11: error text never echoes the body or a thrown message', async () => {
+    const leaky = (async () => { throw new Error('ECONNRESET secret=abc'); }) as unknown as typeof fetch;
+    const a = await runLicenseProbe('CA', leaky);
+    expect(a).toMatchObject({ status: 'unreachable', error: 'fetch_failed' });
+    expect(JSON.stringify(a)).not.toMatch(/secret|ECONNRESET/);
+    const notJson = (async () => new Response('SMITH, JOHN A, 742 EVERGREEN TER', { status: 200 })) as unknown as typeof fetch;
+    const b = await runLicenseProbe('NY', notJson);
+    expect(b).toMatchObject({ status: 'unreachable', error: 'not_json' });
+    expect(JSON.stringify(b)).not.toMatch(/SMITH|EVERGREEN/);
   });
 
-  it('Socrata sources page with $where, $limit and $offset', async () => {
+  it('P3-12: a body with no line break over 1,000,000 characters stops as not_csv', async () => {
+    const r = await runLicenseProbe('CA', fileFetch('x'.repeat(1_200_000)));
+    expect(r).toMatchObject({ status: 'unreachable', error: 'not_csv' });
+  });
+
+  it('P3-7: a stalled body is cut off by the timeout; a call past its deadline reports no_progress, never the same offset as "ok"', async () => {
+    const stall = (async (_u: unknown, init?: RequestInit) => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(new TextEncoder().encode('LicenseNo,BusinessName\n'));
+          init?.signal?.addEventListener('abort', () => c.error(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        },
+      });
+      return new Response(stream, { status: 200 });
+    }) as unknown as typeof fetch;
+    const t0 = Date.now();
+    const r = await runLicenseSync({ db: asDb(new FakeDb()), state: 'CA', fetch: stall, enabled: true, source: CA(), deadline: Date.now() + 300 });
+    expect(Date.now() - t0).toBeLessThan(3000);
+    expect(r).toMatchObject({ status: 'fetch_failed', error: 'timeout' });
+    const past = await runLicenseSync({ db: asDb(new FakeDb()), state: 'CA', fetch: fileFetch(csv(RAW)), enabled: true, source: CA(), offset: 7, deadline: Date.now() - 1 });
+    expect(past).toMatchObject({ status: 'no_progress', nextOffset: 7, done: false });
+  });
+
+  it('P3-7: offset and nextOffset: a second call continues after the rows written by the first', async () => {
+    const db = new FakeDb();
+    const a = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW)), enabled: true, source: CA(), maxRows: 10 });
+    expect(a).toMatchObject({ status: 'ok', read: 10, done: false, nextOffset: 10 });
+    const b = await runLicenseSync({ db: asDb(db), state: 'CA', fetch: fileFetch(csv(RAW)), enabled: true, source: CA(), offset: a.nextOffset });
+    expect(b).toMatchObject({ status: 'ok', read: RAW.length - 10, done: true, nextOffset: RAW.length });
+    expect(db.tables.holler_contractor_licenses.map((x) => x.business_name)).toEqual(COMPANIES);
+  });
+
+  it('probe (headed CSV): columns, missing expected columns, row count, companies kept and type labels, with no name, number or phone', async () => {
+    const p = await runLicenseProbe('CA', fileFetch(csv(RAW)));
+    expect(p).toMatchObject({ status: 'ok', rowCount: RAW.length, keptAsCompanies: COMPANIES.length, schema: 'ok', missingExpected: [], promoted: false, numberPatternShare: 1 });
+    expect(p.typeValues?.sort()).toEqual(['Corporation', 'Sole Owner']);
+    expect(p.dropped?.individual_type).toBe(Math.floor(PERSONS.length / 2));
+    const json = JSON.stringify(p);
+    for (const n of [...PERSONS, ...COMPANIES, '1012345', '312-555-0100', 'EVERGREEN']) expect(json, n).not.toContain(n);
+    expect((await runLicenseProbe('ZZ', fileFetch(''))).status).toBe('unknown_state');
+    // A type column that holds people (misread): a name seen once is never listed, nor a full name seen three times, nor a street.
+    const misread = [...['MARIA LOPEZ', 'KOWALSKI', 'NGUYEN'].map((t, i) => ca('ACME ROOFING INC', t, '', String(4000000 + i))),
+      ...[0, 1, 2].map((i) => ca('ACME ROOFING INC', 'JOHN SMITH', '', String(4100000 + i))), ...[0, 1, 2].map((i) => ca('ACME ROOFING INC', '742 EVERGREEN TER', '', String(4200000 + i)))];
+    const q = await runLicenseProbe('CA', fileFetch(csv(misread)));
+    expect(q.typeValues).toEqual([]);
+  });
+
+  it('P2-5: a headed source whose file has no header line: no column names, no values, schema mismatch', async () => {
+    const body = 'ROC300001,JOHN SMITH,SMITH COOLING,CR-39,742 EVERGREEN TER,PHOENIX,AZ,85001,602-555-0100,JOHN SMITH\nROC300002,ACME ROOFING LLC,,CR-39,1 MAIN ST,PHOENIX,AZ,85001,602-555-0101,BRENT KOWALSKI\n';
+    const p = await runLicenseProbe('AZ', fileFetch(body));
+    expect(p).toMatchObject({ status: 'ok', schema: 'mismatch', columnCount: 10 });
+    expect(p.columns).toBeUndefined();
+    expect(p.note).toMatch(/first line does not look like a header/);
+    expect(JSON.stringify(p)).not.toMatch(/ROC3000|SMITH|EVERGREEN|MAIN ST|555-01|PHOENIX|85001|KOWALSKI|ACME/);
+  });
+
+  it('P1-3 / P2-5: the Florida probe (no header) says "schema unverified: no header", reports shares per position, never a value', async () => {
+    const lines = [
+      ['ACME ROOFING LLC', '', 'QB', '742 EVERGREEN TER', '', '', 'MIAMI', 'FL', '33101', '23', 'QB1500004', 'C', '01/15/1998'],
+      ['SMITH, JOHN A', 'SMITH ROOFING', 'CGC', '1 MAIN ST', '', '', 'MIAMI', 'FL', '33101', '23', 'CGC1500005', 'C', '02/01/2001'],
+    ];
+    const body = lines.map((l) => l.map((v) => (/[",]/.test(v) ? `"${v}"` : v)).join(',')).join('\n') + '\n';
+    const p = await runLicenseProbe('FL', fileFetch(body));
+    expect(p).toMatchObject({ status: 'ok', schema: 'schema unverified: no header', columnCount: 13, rowCount: 2, keptAsCompanies: 1 });
+    expect(p.columns).toBeUndefined();
+    expect(p.shape?.positions[10]).toMatchObject({ index: 10, numberPattern: 1 });
+    expect(p.shape?.positions[2]).toMatchObject({ companyType: 0.5 });
+    expect(p.shape?.positions[12]).toMatchObject({ dateLike: 1 });
+    expect(JSON.stringify(p)).not.toMatch(/ACME|SMITH|EVERGREEN|MAIN ST|MIAMI|33101|QB1500004|CGC1500005|01\/15/);
+  });
+
+  it('Socrata sources select only the expected columns and page with $where, $limit and $offset', async () => {
     const calls: string[] = [];
     const f = (async (u: string | URL | Request) => {
       calls.push(String(u));
-      return Response.json([{ license_nbr: '2091234-DCA', business_name: 'SUMMIT CONSTRUCTION LLC', license_type: 'Business', business_category: 'Home Improvement Contractor' }, { license_nbr: '2091235-DCA', business_name: 'JOHN SMITH', license_type: 'Individual' }]);
+      return Response.json([{ license_nbr: '2091234-DCA', business_name: 'SUMMIT CONSTRUCTION LLC', license_type: 'Business', business_category: 'Home Improvement Contractor', owner_name: 'JOHN SMITH' }, { license_nbr: '2091235-DCA', business_name: 'JOHN SMITH', license_type: 'Individual' }]);
     }) as unknown as typeof fetch;
     const p = await runLicenseProbe('NY', f);
     expect(p.keptAsCompanies).toBe(1);
     const u = new URL(calls[0]);
     expect(u.searchParams.get('$where')).toContain('Home Improvement Contractor');
+    expect(u.searchParams.get('$select')).toBe('license_nbr,business_name,dba_trade_name,license_type,business_category');
     expect(u.searchParams.get('$offset')).toBe('0');
   });
 

@@ -15,7 +15,7 @@
 create table if not exists public.holler_contractor_licenses (
   id bigserial primary key,
   state text not null check (state ~ '^[A-Z]{2}$'),
-  license_number text not null check (char_length(license_number) between 3 and 40),
+  license_number text not null check (char_length(license_number) between 3 and 40 and license_number ~ '^[A-Z0-9][A-Z0-9./#-]*$'),
   source text not null check (char_length(source) <= 60),
   business_name text not null check (char_length(business_name) between 3 and 120),
   business_phone text check (business_phone is null or char_length(business_phone) <= 20),

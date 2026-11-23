@@ -11,7 +11,7 @@ import {
   isVocabularyWord,
   type WordClass,
 } from './org';
-import { knownCompanyName } from './known-companies';
+import { knownCompanyName, knownFormHasLegalEnd } from './known-companies';
 
 /**
  * Round 18 (NAMES, redo 1 after the privacy review): the names a CONTRACTOR column and a BUSINESS-LICENCE column may show.
@@ -461,8 +461,52 @@ export function cleanContractorName(raw: unknown): string | null {
   // C2: "PERSON of FIRM" / "PERSON c/o FIRM": the firm alone, or nothing. "FIRM of PLACE" keeps the firm.
   const parts = raw.normalize('NFKC').split(PERSON_FIRM_SPLIT_RE);
   if (parts.length > 2) return null;
-  if (parts.length === 2) return contractorOne(parts[0]) ?? contractorOne(parts[1]);
+  if (parts.length === 2) {
+    // Round 20 (review LIC P3, a live bug): "FIRM of PLACE LEGAL" ("LENNAR HOMES OF CALIFORNIA LLC") used to show "CALIFORNIA LLC", the
+    // place alone. A right part that is only a place plus a legal form is never shown on its own; the whole name is kept when the left
+    // part ends in a firm word and "<left part> <legal form>" passes this rule by itself, else the left part alone, else nothing.
+    const place = placeWithLegal(parts[1]);
+    if (place) return firmOfPlace(raw, parts[0], place);
+    return contractorOne(parts[0]) ?? contractorOne(parts[1]);
+  }
   return contractorOne(raw);
+}
+
+/** US states and the metro labels builders use in subsidiary names ("OF DFW", "OF NORTH TEXAS"), lower case. */
+const PLACE_NAMES = new Set(
+  [
+    'alabama', 'alaska', 'arizona', 'arkansas', 'california', 'colorado', 'connecticut', 'delaware', 'florida', 'georgia', 'hawaii', 'idaho',
+    'illinois', 'indiana', 'iowa', 'kansas', 'kentucky', 'louisiana', 'maine', 'maryland', 'massachusetts', 'michigan', 'minnesota',
+    'mississippi', 'missouri', 'montana', 'nebraska', 'nevada', 'new hampshire', 'new jersey', 'new mexico', 'new york', 'north carolina',
+    'north dakota', 'ohio', 'oklahoma', 'oregon', 'pennsylvania', 'rhode island', 'south carolina', 'south dakota', 'tennessee', 'texas',
+    'utah', 'vermont', 'virginia', 'washington', 'west virginia', 'wisconsin', 'wyoming', 'the carolinas', 'carolinas', 'dfw', 'dallas',
+    'houston', 'austin', 'san antonio', 'phoenix', 'atlanta', 'chicago', 'miami', 'tampa', 'orlando', 'jacksonville', 'philadelphia',
+    'los angeles', 'southern california', 'northern california', 'central california', 'inland empire', 'las vegas', 'denver', 'charlotte',
+    'raleigh', 'nashville', 'dc', 'washington dc', 'south florida', 'north florida', 'central florida', 'southwest florida', 'north texas',
+    'central texas', 'south texas', 'east texas', 'west texas', 'north georgia', 'arizona central',
+  ],
+);
+const PLACE_LEGAL_RE = /^(.+?)[\s,]+(l\.?\s?l\.?\s?c\.?|inc\.?|incorporated|corp\.?|corporation|ltd\.?|limited|l\.?\s?p\.?|l\.?\s?l\.?\s?p\.?)\s*$/i;
+/** Left-part endings that make "<left> of <place>" a firm's subsidiary name. */
+const FIRM_OF_PLACE_END = new Set(list('homes home homebuilders communities builders building construction contractors residential companies company bros brothers group development developers'));
+
+/** "CALIFORNIA LLC", "North Texas, Inc." -> the legal form when the text is only a listed place plus a legal form, else null. */
+function placeWithLegal(text: string): string | null {
+  const m = collapse(text).match(PLACE_LEGAL_RE);
+  if (!m) return null;
+  const place = collapse(foldName(m[1]).replace(/[.,]/g, ' '));
+  return PLACE_NAMES.has(place) ? m[2] : null;
+}
+
+function firmOfPlace(raw: string, left: string, legal: string): string | null {
+  const ws = collapse(left).split(' ');
+  const last = foldName(ws[ws.length - 1] ?? '').replace(/[^a-z]/g, '');
+  if (FIRM_OF_PLACE_END.has(last) && contractorOne(`${collapse(left)} ${legal}`)) {
+    // The left part with the legal form passed every check of this rule; the rest is " of ", a listed place and that legal form.
+    const whole = collapse(raw.normalize('NFKC'));
+    if (/^[A-Za-z0-9 &.,'/-]+$/.test(whole) && whole.length <= 120 && !hasRoleWord(whole) && !hasContactShape(whole)) return whole;
+  }
+  return contractorOne(left);
 }
 
 /** True only when cleanContractorName returns the same string (after whitespace normalization). */
@@ -559,7 +603,9 @@ export function cleanBusinessName(raw: unknown, ctx: LicenceContext = {}): strin
   if (typeof raw !== 'string' || !raw.trim()) return null;
   // Round 20 (LIC): a listed large builder or contractor, named exactly (known-companies.ts). The owner check still applies: a row whose
   // owner column names a PERSON who shares a word with the name gives nothing ("Toll Brothers" owned by "Mary Toll").
-  const known = knownCompanyName(raw);
+  // Review LIC P2-6: only a listed name that ENDS with a legal form (LLC, Inc, Corp, Co, LP, LLP, PLLC, Ltd); any other listed name goes
+  // through the normal licence rule below, as before round 20.
+  const known = knownFormHasLegalEnd(raw) ? knownCompanyName(raw) : null;
   if (known) return !ctx.shapeOnly && sharesWithOwner(nameTokens(known), ctx) ? null : known;
   if (isPlaceholderName(raw)) return null;
   const strict = cleanOrgName(raw);

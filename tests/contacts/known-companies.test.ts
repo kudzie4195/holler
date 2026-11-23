@@ -3,7 +3,7 @@
  * accepted even where the shape rule reads a surname as a person; a string that only shares a word with a listed name gets nothing.
  */
 import { describe, expect, it } from 'vitest';
-import { KNOWN_COMPANIES, companyKey, knownCompanyName, knownCompanyOf } from '@/lib/contacts/known-companies';
+import { KNOWN_COMPANIES, companyKey, knownCompanyName, knownCompanyOf, knownFormHasLegalEnd } from '@/lib/contacts/known-companies';
 import { contactNameFor, isStoredContactName } from '@/lib/contacts/names';
 import { looksLikeFullPersonName } from '@/lib/contacts/org';
 import { hasLegalSuffix } from '@/lib/contacts/trade-name';
@@ -41,19 +41,45 @@ describe('the list itself (K1 to K4)', () => {
 });
 
 describe('exact match only', () => {
-  it('each form passes the contractor rule and the licence rule unchanged, and is stable on re-check', () => {
+  it('each form passes the contractor rule unchanged; in the licence role only a form ending with a legal form does (review P2-6)', () => {
+    let legal = 0;
     for (const f of ALL_FORMS) {
       const want = f.replace(/\s+/g, ' ').trim();
       expect(contactNameFor('contractor', f), f).toBe(want);
-      expect(contactNameFor('business', f, { ownerNames: ['ACME HOLDINGS LLC'] }), f).toBe(want);
       expect(isStoredContactName('contractor', want), f).toBe(true);
-      expect(isStoredContactName('business', want), f).toBe(true);
       expect(knownCompanyName(knownCompanyName(f)), f).toBe(knownCompanyName(f));
+      if (knownFormHasLegalEnd(f)) {
+        legal += 1;
+        expect(contactNameFor('business', f, { ownerNames: ['ACME HOLDINGS LLC'] }), f).toBe(want);
+        expect(isStoredContactName('business', want), f).toBe(true);
+      }
     }
+    expect(legal).toBeGreaterThan(40);
+  });
+
+  it('licence role (review P2-6): the reviewer\'s ten names are refused unless the name carries a legal form', () => {
+    const TEN = ['Turner Construction', 'Holder Construction', 'Perry Homes', 'Stanley Martin Homes', 'David Weekley Homes', 'Highland Homes', 'Walsh Group', "Harkin's Builders", 'Dr. Horton Inc', 'Taylor Morrison Inc'];
+    // Base (round 19): 0 of 10. Round 20 first commit: 10 of 10. Now: only "Taylor Morrison Inc" (a listed name with a legal form).
+    expect(TEN.filter((n) => contactNameFor('business', n) !== null)).toEqual(['Taylor Morrison Inc']);
+    expect(TEN.filter((n) => contactNameFor('business', n, { ownerNames: ['SOMEONE ELSE LLC'] }) !== null)).toEqual(['Taylor Morrison Inc']);
+    for (const f of ['Lennar Homes', 'Toll Brothers', 'KB Home', 'PulteGroup', 'Meritage Homes', 'Lennar Homes of Texas']) expect(knownFormHasLegalEnd(f), f).toBe(false);
+    for (const f of ['Toll Brothers Inc', 'Lennar Homes LLC', 'D.R. Horton - Texas, Ltd.', 'Continental Homes of Texas, L.P.', 'Gilbane Building Co']) expect(knownFormHasLegalEnd(f), f).toBe(true);
+  });
+
+  it('possessives, an honorific with a period and stray edge punctuation (review P3-9, P3-10)', () => {
+    for (const v of ["Harkin's Builders", "Dree's Homes", "Toll Brother's Inc", 'Toll Brother\u2019s Inc', 'Dr. Horton Inc', 'Dr. Horton, Inc.', 'DR HORTON INC', 'DR Horton Texas Ltd', 'D R Horton South', 'D.R. Horton - South', 'Mr. Toll Brothers'])
+      expect(knownCompanyOf(v), v).toBeNull();
+    expect(contactNameFor('contractor', 'Dr. Horton Inc')).toBeNull();
+    // The list never matches a possessive; the contractor rule's own answer for "Harkin's Builders" is the round 18 one (it is not a listed
+    // given name), unchanged by this unit, and the licence rule refuses it.
+    expect(contactNameFor('business', "Harkin's Builders")).toBeNull();
+    expect(knownCompanyName('- Lennar Corp')).toBe('Lennar Corp');
+    expect(knownCompanyName('D R Horton Inc,')).toBe('D R Horton Inc');
+    expect(knownCompanyName('Lennar/Corp')).toBe('Lennar/Corp');
   });
 
   it('punctuation, case and spacing variants of a form match ("D R HORTON INC", "toll  brothers, inc.")', () => {
-    for (const v of ['D R HORTON INC', 'd.r. horton, inc.', 'DR HORTON INC', 'toll  brothers, inc.', 'LENNAR HOMES OF TEXAS', 'Brasfield and Gorrie LLC', 'WHITING TURNER CONTRACTING CO'])
+    for (const v of ['D R HORTON INC', 'd.r. horton, inc.', 'toll  brothers, inc.', 'LENNAR HOMES OF TEXAS', 'Brasfield and Gorrie LLC', 'WHITING TURNER CONTRACTING CO'])
       expect(knownCompanyOf(v), v).not.toBeNull();
   });
 
@@ -62,7 +88,7 @@ describe('exact match only', () => {
       'John Horton', 'Mary Lennar', 'Toll Smith', 'Maria Meritage', 'Taylor Morrison', 'Taylor Morrison Smith', 'Dr. Horton', 'DR HORTON',
       'D.R. Horton', 'David Weekley', 'Kevin Perry Homes', 'Perry Homes John Smith', 'Lennar Homes - John Smith', 'John Smith of Lennar Homes Inc',
       'Toll Brothers c/o Mary Toll', 'Ashton Woods', 'Stanley Martin', 'Hensel Phelps', 'KB', 'Pulte', 'Turner', 'Shea', 'Mary Shea Homes',
-      'Lennar Homes​', 'Lennar Homes 2', 'Toll Brothers Owner', 'Homeowner Toll Brothers',
+      'Lennar Homes\u200B', 'Lennar Homes 2', 'Toll Brothers Owner', 'Homeowner Toll Brothers',
     ];
     for (const s of sharing) expect(knownCompanyOf(s), s).toBeNull();
     // And through the full rules: none of these person shapes is named.
@@ -70,9 +96,9 @@ describe('exact match only', () => {
       expect(contactNameFor('contractor', s), s).toBeNull();
   });
 
-  it('licence rule: the owner check still holds for a listed name ("Toll Brothers" owned by the person "Mary Toll" gives nothing)', () => {
-    expect(contactNameFor('business', 'Toll Brothers', { ownerNames: ['MARY TOLL'] })).toBeNull();
-    expect(contactNameFor('business', 'Toll Brothers', { ownerNames: ['TOLL BROTHERS INC'] })).toBe('Toll Brothers');
+  it('licence rule: the owner check still holds for a listed name ("Toll Brothers Inc" owned by the person "Mary Toll" gives nothing)', () => {
+    expect(contactNameFor('business', 'Toll Brothers Inc', { ownerNames: ['MARY TOLL'] })).toBeNull();
+    expect(contactNameFor('business', 'Toll Brothers Inc', { ownerNames: ['TOLL BROTHERS INC'] })).toBe('Toll Brothers Inc');
   });
 
   it('owner, awardee and buyer roles do not use the list', () => {

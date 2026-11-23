@@ -8,8 +8,9 @@
  * names), accepted in a licence name only with a legal form and only when every other word is a trade, business or plain word that is no
  * person-name word. No other word changed.
  * Round 20 (LIC): both rules also accept a listed large builder or contractor named exactly (lib/contacts/known-companies.ts): the contractor
- * rule 52 of 57 (+LENNAR HOMES OF TEXAS, TOLL BROTHERS, FIRST TEXAS HOMES, ARS RESCUE ROOTER), the licence rule 36 of 57 (the same four plus
- * D R HORTON TEXAS LTD). "DR HORTON" stays refused on purpose: bare, it is also "Dr. Horton", a person. The private-person matrices (tests/contacts/r18-review2-probes.test.ts, 814 strings) are
+ * rule 52 of 57 (+LENNAR HOMES OF TEXAS, TOLL BROTHERS, FIRST TEXAS HOMES, ARS RESCUE ROOTER). The licence rule accepts a listed name only
+ * with a legal form (review LIC P2-6): 32 of 57 (+D R HORTON TEXAS LTD; the first round 20 commit had 36). "DR HORTON" stays refused on
+ * purpose: bare, it is also "Dr. Horton", a person. The private-person matrices (tests/contacts/r18-review2-probes.test.ts, 814 strings) are
  * unchanged and still name no private person; the shapes below that pair a state with a person's name stay refused.
  */
 import { describe, expect, it } from 'vitest';
@@ -32,8 +33,8 @@ describe('review COVERAGE: 57 company names under the merged round 18 rules', ()
     expect(rejected((s) => contactNameFor('contractor', s))).toEqual(["ROOFING LLC", "A-1 PLUMBING CO", "3D ELECTRIC INC", "ON TIME EXPERTS", "DR HORTON"]);
   });
 
-  it('licence rule with the round 20 known-company list: 36 accepted; exactly these 21 rejected (round 19: 31 and 26)', () => {
-    expect(rejected((s) => contactNameFor('business', s))).toEqual(["LONE STAR ROOFING LLC", "Lone Star Roofing LLC", "ROOFING LLC", "ALL MASTERS PLUMBING", "A-1 PLUMBING CO", "3D ELECTRIC INC", "SUNSHINE ROOFING INC", "NORTH TEXAS ROOFING", "DALLAS ROOFING LLC", "BAKER BROTHERS PLUMBING", "BAKER BROTHERS PLUMBING LLC", "TRINITY ROOFING LLC", "STAR ROOFING LLC", "ON TIME EXPERTS", "DR HORTON", "A & B PLUMBING INC", "PHOENIX PLUMBING LLC", "NORTH DALLAS ROOFING LLC", "WEST TEXAS ROOFING LLC", "ALL STAR ROOFING LLC", "ACE ROOFING LLC"]);
+  it('licence rule with the round 20 known-company list (legal forms only): 32 accepted; exactly these 25 rejected (round 19: 31 and 26)', () => {
+    expect(rejected((s) => contactNameFor('business', s))).toEqual(["LONE STAR ROOFING LLC", "Lone Star Roofing LLC", "ROOFING LLC", "ALL MASTERS PLUMBING", "A-1 PLUMBING CO", "3D ELECTRIC INC", "SUNSHINE ROOFING INC", "NORTH TEXAS ROOFING", "DALLAS ROOFING LLC", "BAKER BROTHERS PLUMBING", "BAKER BROTHERS PLUMBING LLC", "TRINITY ROOFING LLC", "STAR ROOFING LLC", "ARS RESCUE ROOTER", "ON TIME EXPERTS", "LENNAR HOMES OF TEXAS", "DR HORTON", "TOLL BROTHERS", "FIRST TEXAS HOMES", "A & B PLUMBING INC", "PHOENIX PLUMBING LLC", "NORTH DALLAS ROOFING LLC", "WEST TEXAS ROOFING LLC", "ALL STAR ROOFING LLC", "ACE ROOFING LLC"]);
   });
 
   it('the change is exactly two words, and a state name never carries a person\'s name through', () => {
