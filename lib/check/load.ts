@@ -5,6 +5,8 @@ import { CHECK_CORE_RADIUS_MI, CHECK_SEARCH_RADIUS_MI, CHECK_WINDOW_DAYS } from 
 import type { CheckItem } from './group';
 import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
+import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
+import { deliveryFor, type CheckSignal } from './delivery';
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = CHECK_WINDOW_DAYS;
@@ -17,8 +19,17 @@ const SEVERE_LIMIT = 20;
 const STATE_LIMIT = 20;
 /** Rows that have not started yet (events, event permits). Read separately so they cannot crowd out the recent records. */
 const UPCOMING_LIMIT = 12;
+/**
+ * Round 24 FIX2 (review D1): records tagged with OTHER trades that this trade still sees (a roof permit for a gutter crew, the downstream
+ * permits matching routes to it, lib/signals/permit-routing.ts expandCategoriesForRouting). Their own two reads, so the trade's own records
+ * and the routed ones cannot crowd each other out. A fixed number of reads per cell, never one per row.
+ */
+const ROUTED_LIMIT = 100;
+const ROUTED_CORE_LIMIT = 30;
 const QUERY_TIMEOUT_MS: number = 8000;
-const COLUMNS = 'id,source,kind,title,url,city,state,lat,lon,severity,occurred_at,expires_at';
+// summary, categories and data are read for the member view only (lib/check/delivery.ts: matching, the label and the contact gate). They are
+// never rendered: the page keeps the fields it showed before.
+const COLUMNS = 'id,source,kind,title,summary,url,city,state,lat,lon,severity,occurred_at,expires_at,categories,data';
 
 export interface CheckData {
   /** false when the database could not be read (env missing, timeout, error). Render the empty state. */
@@ -28,7 +39,8 @@ export interface CheckData {
   checkedAt: string;
 }
 
-interface Row {
+/** One record as the check reads it. */
+export interface CheckRow {
   id: number;
   source: string;
   kind: string;
@@ -41,6 +53,9 @@ interface Row {
   severity: number;
   occurred_at: string;
   expires_at?: string | null;
+  summary?: string | null;
+  categories?: string[] | null;
+  data?: Record<string, unknown> | null;
 }
 
 
@@ -83,13 +98,15 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
   }
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
-    const near = (from: string, until: string, limit: number, soonestFirst: boolean, radiusMi: number = CHECK_SEARCH_RADIUS_MI, minSeverity = 1) =>
+    // The trades whose records this trade sees, besides its own (the same expansion matching uses for its reads). Empty for most trades.
+    const routed = expandCategoriesForRouting([trade]).filter((c) => c !== trade);
+    const near = (from: string, until: string, limit: number, soonestFirst: boolean, radiusMi: number = CHECK_SEARCH_RADIUS_MI, minSeverity = 1, categories: string[] = [trade]) =>
       sb
         .rpc('holler_signals_near', {
           p_lat: cellLat,
           p_lon: cellLon,
           p_radius_mi: radiusMi,
-          p_categories: [trade],
+          p_categories: categories,
           p_since: from,
           p_until: until,
           p_limit: limit,
@@ -99,7 +116,8 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         .select(COLUMNS)
         .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS));
 
-    const [recent, core, severe, upcoming, stateLevel] = await Promise.all([
+    const none = Promise.resolve({ data: [] as CheckRow[], error: null });
+    const [recent, core, severe, upcoming, stateLevel, routedRecent, routedCore] = await Promise.all([
       near(since, checkedAt, ROW_LIMIT, false),
       near(since, checkedAt, CORE_LIMIT, false, CHECK_CORE_RADIUS_MI),
       near(since, checkedAt, SEVERE_LIMIT, false, CHECK_SEARCH_RADIUS_MI, 2),
@@ -118,6 +136,8 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         .order('occurred_at', { ascending: false })
         .limit(STATE_LIMIT)
         .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
+      routed.length ? near(since, checkedAt, ROUTED_LIMIT, false, CHECK_SEARCH_RADIUS_MI, 1, routed) : none,
+      routed.length ? near(since, checkedAt, ROUTED_CORE_LIMIT, false, CHECK_CORE_RADIUS_MI, 1, routed) : none,
     ]);
     if (recent.error) {
       console.error('[check] loadCheck query failed:', recent.error.code ?? recent.error.message);
@@ -128,11 +148,16 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (severe.error) console.error('[check] severe read failed:', severe.error.code ?? severe.error.message);
     if (upcoming.error) console.error('[check] upcoming read failed:', upcoming.error.code ?? upcoming.error.message);
     if (stateLevel.error) console.error('[check] state-level read failed:', stateLevel.error.code ?? stateLevel.error.message);
-    const rowsOf = (r: { error: unknown; data: unknown }): Row[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as Row[]));
+    if (routedRecent.error) console.error('[check] routed read failed:', routedRecent.error.code ?? routedRecent.error.message);
+    if (routedCore.error) console.error('[check] routed close-to-home read failed:', routedCore.error.code ?? routedCore.error.message);
+    const rowsOf = (r: { error: unknown; data: unknown }): CheckRow[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as CheckRow[]));
     // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
     // City bids: every stored bid is left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
-    const data: Row[] = withoutHiddenBids(
-      withoutEndedRequests([...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent)], now.getTime()),
+    const data: CheckRow[] = withoutHiddenBids(
+      withoutEndedRequests(
+        [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent), ...rowsOf(routedCore), ...rowsOf(routedRecent)],
+        now.getTime(),
+      ),
       now.getTime(),
     );
 
@@ -141,18 +166,8 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     for (const r of data) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
-      items.push({
-        id: r.id,
-        kind: r.kind,
-        source: r.source,
-        title: r.title,
-        url: r.url,
-        place: [r.city, r.state].filter(Boolean).join(', ') || null,
-        lat: r.lat,
-        lon: r.lon,
-        occurredAt: r.occurred_at,
-        severity: r.severity,
-      });
+      const item = checkItemFor(r, trade, now.getTime());
+      if (item) items.push(item);
     }
     // A live resident request in the list: tag the entry and keep it 15 minutes at most, so a closed request leaves /check promptly.
     if (hasRequestRows(data)) cacheTag(REQUEST_CACHE_TAG);
@@ -166,4 +181,49 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     console.error('[check] loadCheck failed:', e instanceof Error ? e.message : 'unknown');
     return fail();
   }
+}
+
+/**
+ * One row as a check item, for a member with this one trade (round 24 FIX2, review D1): null when the record would never be in that
+ * member's feed (lib/check/delivery.ts deliveryFor: context, a record the trade does not see, a follower, a probation source). Otherwise
+ * the item carries its delivery ('email' or 'feed') and the record fields the page needs for its ZIP area test (memberItems).
+ */
+export function checkItemFor(r: CheckRow, trade: string, nowMs: number): CheckItem | null {
+  const signal: CheckSignal = {
+    id: r.id,
+    source: r.source,
+    kind: r.kind,
+    title: r.title,
+    summary: r.summary ?? null,
+    categories: Array.isArray(r.categories) ? r.categories : [],
+    lat: r.lat,
+    lon: r.lon,
+    state: r.state,
+    severity: r.severity,
+    occurred_at: r.occurred_at,
+    expires_at: r.expires_at ?? null,
+    data: r.data && typeof r.data === 'object' ? r.data : null,
+  };
+  const delivery = deliveryFor(signal, trade, nowMs);
+  if (!delivery) return null;
+  return {
+    id: r.id,
+    kind: r.kind,
+    source: r.source,
+    title: r.title,
+    url: r.url,
+    place: placeOf(r.city, r.state),
+    lat: r.lat,
+    lon: r.lon,
+    occurredAt: r.occurred_at,
+    severity: r.severity,
+    delivery,
+    signal,
+  };
+}
+
+/** "City, ST". A city stored as "0", "-" or blank is not a place (round 24 FIX2, review P3-6): the state alone, or null. */
+export function placeOf(city: string | null | undefined, state: string | null | undefined): string | null {
+  const c = typeof city === 'string' && /[A-Za-z]/.test(city) ? city.trim() : '';
+  return [c, state].filter(Boolean).join(', ') || null;
 }

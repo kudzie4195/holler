@@ -92,11 +92,11 @@ export function EmptyFeedView({ data, now, recent }: { data: EmptyFeedData; now:
                         <p className="mt-1 text-sm text-muted">
                           {href ? (
                             <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline md:min-h-9">
-                              Source: {sourceLabel(it.source)}
+                              Public source: {sourceLabel(it.source)}
                               <span className="sr-only"> (opens in a new tab)</span>
                             </a>
                           ) : (
-                            <>Source: {sourceLabel(it.source)}</>
+                            <>Public source: {sourceLabel(it.source)}</>
                           )}
                         </p>
                       </Card>

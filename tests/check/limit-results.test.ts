@@ -53,7 +53,7 @@ describe('checker states', () => {
     const html = render('limited');
     expect(html).toContain('Try again in a minute');
     expect(html).toContain('What Holler watches');
-    expect(html).toContain(`Get these by email. ${TRIAL_PHRASE}, no card`); // precise form: the box also shows the yearly price (round 18 review F2)
+    expect(html).toContain(`Get alerts by email. ${TRIAL_PHRASE}, no card`); // precise form: the box also shows the yearly price (round 18 review F2)
     expect(html.toLowerCase()).not.toContain('error');
   });
   it('uncovered territory: says plainly that Holler does not cover it yet, no watch list', () => {
@@ -61,9 +61,10 @@ describe('checker states', () => {
     expect(html).toContain('Holler does not cover San Juan, PR yet');
     expect(html).not.toContain('What Holler watches');
   });
-  it('empty results use the honest "about 25 to 50 miles" wording and do not promise instant alerts', () => {
+  // Round 24 FIX2 (review D1): the list is what a member with the default 25 mile area would have in the feed, so it says 25 miles.
+  it('empty results say "within 25 miles" (the list is the member area) and do not promise instant alerts', () => {
     const html = render('results');
-    expect(html).toContain('within about 25 to 50 miles of Absarokee, MT');
+    expect(html).toContain('within 25 miles of Absarokee, MT');
     expect(html).not.toMatch(/the moment/i);
     expect(html).toContain('every 15 minutes to 12 hours');
     expect(html).toContain('at most once an hour');
@@ -72,7 +73,7 @@ describe('checker states', () => {
     const html = render('results', {
       items: [{ id: 1, kind: 'report', source: 'spc', title: 'Hail near Absarokee', url: 'https://www.spc.noaa.gov/', place: 'MT', occurredAt: new Date(NOW - 3600_000).toISOString(), severity: 2 }],
     });
-    expect(html).toMatch(/<a [^>]*class="[^"]*min-h-11[^"]*"[^>]*>Source:/);
+    expect(html).toMatch(/<a [^>]*class="[^"]*min-h-11[^"]*"[^>]*>Public source:/);
   });
   it('no em dashes in any state', () => {
     for (const m of ['results', 'unreadable', 'limited', 'uncovered'] as CheckMode[]) expect(render(m)).not.toMatch(/[—–]/);

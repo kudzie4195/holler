@@ -19,7 +19,8 @@ import { waitlistTradeGroups } from '@/lib/waitlist/trades';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
-import { CHECK_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
+import { CHECK_LIST_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
+import { memberItems } from '@/lib/check/delivery';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
@@ -221,7 +222,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={memberItems(data.items, place, params.trade)} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }
@@ -262,7 +263,7 @@ function CheckPreview() {
         ))}
       </Ledger>
       <p className="mt-4 text-muted">
-        Records from the last {CHECK_WINDOW_DAYS} days, {CHECK_RADIUS_LABEL} around your ZIP. Each one shows its public
+        Records from the last {CHECK_WINDOW_DAYS} days, {CHECK_LIST_RADIUS_LABEL} around your ZIP. Each one shows its public
         source.
       </p>
     </section>

@@ -17,6 +17,7 @@ import { coverageFor } from '@/lib/check/cells';
 import { checkAnswer } from '@/lib/check/answer';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
+import { memberItems } from '@/lib/check/delivery';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
@@ -226,7 +227,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={memberItems(data.items, place, params.trade)} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }
@@ -282,7 +283,7 @@ function CheckPreview() {
           </li>
         ))}
       </Ledger>
-      <p className="mt-4 text-muted">{t(L, 'chk.preview.foot', { days: CHECK_WINDOW_DAYS, radius: t(L, 'chk.radius') })}</p>
+      <p className="mt-4 text-muted">{t(L, 'chk.preview.foot', { days: CHECK_WINDOW_DAYS, radius: t(L, 'chk.radius_list') })}</p>
     </section>
   );
 }

@@ -72,7 +72,7 @@ describe('REV2 dynamic blocks', () => {
   });
   it('/check CTA box, English and Spanish, built exactly as components/check-results.tsx builds it', () => {
     const up = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-    const en = `Get these by email. ${up(TRIAL_PHRASE)}, no card` + ' ' + `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.`;
+    const en = `Get alerts by email. ${up(TRIAL_PHRASE)}, no card` + ' ' + `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.`;
     const es = t('es', 'chk.cta.btn', { trial: up(t('es', 'land.trial_precise', { days: TRIAL_DAYS })) }) + ' ' + t('es', 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY });
     for (const s of [en, es]) { expect(YEARLY.test(s)).toBe(true); expect(MONTHS.test(s)).toBe(false); }
     expect(es).toContain('Prueba gratis de 30 días, sin tarjeta');

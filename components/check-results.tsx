@@ -5,7 +5,7 @@ import { timeAgo } from './format';
 import { FamilyDot } from './page-header';
 import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
-import { CHECK_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
+import { CHECK_LIST_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 import { lowerFirst, t, type Lang } from '@/lib/i18n';
 import type { CoverageState } from '@/lib/check/cells';
@@ -13,22 +13,54 @@ import type { CoverageState } from '@/lib/check/cells';
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
 
-function Cta({ citySlug, children, lang }: { citySlug: string | null; children?: React.ReactNode; lang: Lang }) {
+/**
+ * Round 24 FIX2 (review D1): the button promises email only when what it sits under is emailed. 'email': "Get alerts by email" (an empty
+ * list, or a list with at least one record marked "Emailed as an alert"). 'trial': the trial alone, for a list where no record would be
+ * emailed (the records are on the matches page only).
+ */
+function Cta({ citySlug, children, lang, promise = 'email' }: { citySlug: string | null; children?: React.ReactNode; lang: Lang; promise?: 'email' | 'trial' }) {
   // Round 23: a Spanish visitor goes to the Spanish sign-up. The old line built '/signup?city=' for both languages, so every /es
   // conversion landed on the English page.
   const base = lang === 'en' ? '/signup' : `/${lang}/signup`;
   const href = citySlug ? `${base}?city=${encodeURIComponent(citySlug)}` : base;
+  const trialEs = t(lang, 'land.trial_precise', { days: TRIAL_DAYS });
+  const label =
+    promise === 'email'
+      ? lang === 'en' ? `Get alerts by email. ${upperFirst(TRIAL_PHRASE)}, no card` : t(lang, 'chk.cta.btn', { trial: upperFirst(trialEs) })
+      : lang === 'en' ? `Start your ${TRIAL_PHRASE}, no card` : t(lang, 'chk.cta.btn_trial', { trial: trialEs });
   return (
     <div className="on-brand mt-10 rounded-card bg-brand px-6 py-8 md:px-8">
       {children}
       <ButtonLink href={href} variant="signal" size="lg" className="max-w-full whitespace-normal! py-3 text-center">
         {/* The line under this button names the yearly price, so the trial is in its precise form here, never the 2-month headline. */}
-        {lang === 'en' ? `Get these by email. ${upperFirst(TRIAL_PHRASE)}, no card` : t(lang, 'chk.cta.btn', { trial: upperFirst(t(lang, 'land.trial_precise', { days: TRIAL_DAYS })) })}
+        {label}
       </ButtonLink>
       <p className="mt-3 text-sm text-on-brand-muted">
         {lang === 'en' ? `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.` : t(lang, 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY })}
       </p>
     </div>
+  );
+}
+
+/** The counted sentence above the list: from the listed rows only (each row's delivery), never an estimate. */
+export function deliveryCountLine(listed: readonly CheckItem[], lang: Lang): string | null {
+  const marked = listed.filter((i) => i.delivery === 'email' || i.delivery === 'feed');
+  if (marked.length === 0 || marked.length !== listed.length) return null;
+  const n = marked.filter((i) => i.delivery === 'email').length;
+  const total = marked.length;
+  if (total === 1) return t(lang, n === 1 ? 'chk.count.one_email' : 'chk.count.one_feed');
+  if (n === 0) return t(lang, 'chk.count.none', { total });
+  if (n === total) return t(lang, 'chk.count.all', { total });
+  return t(lang, 'chk.count.some', { n, total });
+}
+
+/** The plain mark under each listed record: emailed as an alert, or on the matches page (no email). */
+function DeliveryMark({ delivery, lang }: { delivery?: 'email' | 'feed'; lang: Lang }) {
+  if (delivery !== 'email' && delivery !== 'feed') return null;
+  return (
+    <p className={`mt-1 text-sm font-semibold ${delivery === 'email' ? 'text-brand-text' : 'text-muted'}`} data-delivery={delivery}>
+      {t(lang, delivery === 'email' ? 'chk.mark.email' : 'chk.mark.feed')}
+    </p>
   );
 }
 
@@ -85,6 +117,11 @@ export function CheckResults({
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
+  const listed = groups.flatMap((g) => g.items);
+  const countLine = deliveryCountLine(listed, lang);
+  // The sentence above the button and the button promise email only when a listed record would be emailed (review D1).
+  const anyEmailed = listed.some((i) => i.delivery === 'email');
+  const promise: 'email' | 'trial' = listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
@@ -118,8 +155,8 @@ export function CheckResults({
     } : {
       // With a source behind, an empty list is not "nothing happened": say it is nothing in what Holler has read so far.
       results: coverage || !coverageKnown
-        ? `In the records Holler has read so far, nothing within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`
-        : `Nothing in the public record within ${CHECK_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
+        ? `In the records Holler has read so far, nothing within ${CHECK_LIST_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`
+        : `Nothing in the public record within ${CHECK_LIST_RADIUS_LABEL} of ${placeLabel} matched ${trade} in the last ${CHECK_WINDOW_DAYS} days. Holler checked ${timeAgo(checkedAt, now)}.`,
       unreadable: 'We could not load recent records just now, so this page shows what Holler watches instead.',
       limited: 'You have run a lot of checks in a short time. Try again in a minute. Until then, this is what Holler watches.',
       uncovered: `Holler does not cover ${placeLabel} yet. We are adding places as public data sources are found.`,
@@ -163,7 +200,7 @@ export function CheckResults({
     <section aria-labelledby="check-heading" className="mt-10">
       <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
         {lang === 'en'
-          ? `${tradeLabel} within ${CHECK_RADIUS_LABEL} of ${placeLabel}, last ${CHECK_WINDOW_DAYS} days`
+          ? `${tradeLabel} within ${CHECK_LIST_RADIUS_LABEL} of ${placeLabel}, last ${CHECK_WINDOW_DAYS} days`
           : t(lang, 'chk.res.h', { trade: tradeLabel, place: placeLabel, days: CHECK_WINDOW_DAYS })}
       </h2>
       <p className="mt-2 text-muted">
@@ -171,6 +208,11 @@ export function CheckResults({
           ? `${shown < items.length ? `Showing ${shown} records: active severe alerts first, then the closest, then the newest. ` : ''}Every record links to its public source. Checked ${timeAgo(checkedAt, now)}.`
           : `${shown < items.length ? t(lang, 'chk.res.showing', { shown }) : ''}${t(lang, 'chk.res.links', { ago: timeAgo(checkedAt, now, lang) })}`}
       </p>
+      {countLine ? (
+        <p className="mt-3 max-w-2xl font-semibold text-ink" data-testid="delivery-count">
+          {countLine}
+        </p>
+      ) : null}
       {LimitedNote}
       <div className="mt-4 max-w-2xl empty:hidden">
         <CoverageNoticeLine line={coverage} />
@@ -200,14 +242,15 @@ export function CheckResults({
                         </time>
                       </div>
                       <p className="mt-2 text-lg font-semibold leading-snug text-ink">{localizeTitle(it.title, lang, it.source)}</p>
+                      <DeliveryMark delivery={it.delivery} lang={lang} />
                       <p className="text-sm text-muted">
                         {href ? (
                           <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline decoration-1 underline-offset-4">
-                            {lang === 'en' ? `Source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}
+                            {lang === 'en' ? `Public source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}
                             <span className="sr-only">{t(lang, 'brief.sr_new_tab')}</span>
                           </a>
                         ) : (
-                          <span className="inline-flex min-h-11 items-center">{lang === 'en' ? `Source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}</span>
+                          <span className="inline-flex min-h-11 items-center">{lang === 'en' ? `Public source: ${sourceLabel(it.source)}` : t(lang, 'chk.source', { label: sourceLabel(it.source, lang) })}</span>
                         )}
                       </p>
                     </article>
@@ -219,8 +262,8 @@ export function CheckResults({
         ))}
       </div>
       {hideOffer ? null : (
-        <Cta citySlug={citySlug} lang={lang}>
-          <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, 'chk.cta.intro')}</p>
+        <Cta citySlug={citySlug} lang={lang} promise={promise}>
+          <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, promise === 'trial' ? 'chk.cta.intro_feed' : 'chk.cta.intro')}</p>
         </Cta>
       )}
     </section>

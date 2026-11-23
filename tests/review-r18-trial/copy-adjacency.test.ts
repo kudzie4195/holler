@@ -47,7 +47,7 @@ describe('REV copy: the 2-month headline and yearly prices', () => {
 
   it('F2 (P3 part) fixed: the /check CTA box (button above the yearly price line) uses the precise form, English and Spanish', () => {
     const es = t('es', 'chk.cta.btn', { trial: 'Prueba gratis de 30 días' });
-    expect(es).toBe('Reciba estas alertas por correo. Prueba gratis de 30 días, sin tarjeta');
+    expect(es).toBe('Reciba alertas por correo. Prueba gratis de 30 días, sin tarjeta');
     expect(t('es', 'land.trial_precise', { days: 30 })).toBe('prueba gratis de 30 días');
     expect(t('en', 'land.trial_precise', { days: 30 })).toBe(TRIAL_PHRASE);
   });

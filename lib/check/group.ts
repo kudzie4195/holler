@@ -10,6 +10,13 @@ export interface CheckItem {
   lon?: number | null;
   occurredAt: string;
   severity: number;
+  /**
+   * Round 24 FIX2 (review D1): what a member with this one trade would get from the record (lib/check/delivery.ts): 'email' (an alert) or
+   * 'feed' (on the matches page only). Absent on callers that do not compute it.
+   */
+  delivery?: 'email' | 'feed';
+  /** The record fields for the ZIP area test (lib/check/delivery.ts memberItems). Server side only; memberItems removes it. */
+  signal?: import('./delivery').CheckSignal;
 }
 
 export interface CheckGroup {

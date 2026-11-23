@@ -19,6 +19,7 @@ vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/seo/client', () => ({ publicClient: () => h.db }));
 import { loadCheck } from '@/lib/check/load';
 import { groupItems } from '@/lib/check/group';
+import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
 
 describe('check scope: the ZIP\'s own place, a coarse grid cell, never the raw ZIP', () => {
   it('two ZIPs in the same cell and state share a key; the raw ZIP is not in it', () => {
@@ -251,12 +252,17 @@ describe('loadCheck query shape', () => {
   it('calls holler_signals_near centred on the cell with the stated radius, the trade, a 30 day window; state rows are a separate indexed read', async () => {
     const { fake, sc } = await checkZip('10301', 'roofing', []);
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
-    expect(rpc).toHaveLength(4);
+    // Round 24 FIX2 (review D1): roofing has routed trades (records tagged for others that roofing still sees), read by two more calls.
+    expect(rpc).toHaveLength(6);
     expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 100, p_soonest_first: false, p_min_severity: 1 });
     expect(Date.parse(rpc[0].args!.p_until) - Date.parse(rpc[0].args!.p_since)).toBe(30 * 86_400_000);
     expect(rpc[1].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_limit: 30, p_min_severity: 1 });
     expect(rpc[2].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_limit: 20, p_min_severity: 2 });
     expect(rpc[3].args).toMatchObject({ p_limit: 12, p_soonest_first: true });
+    const routed = expandCategoriesForRouting(['roofing']).filter((c) => c !== 'roofing');
+    expect(routed.length).toBeGreaterThan(0);
+    expect(rpc[4].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: routed, p_limit: 100, p_min_severity: 1 });
+    expect(rpc[5].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_categories: routed, p_limit: 30, p_min_severity: 1 });
     const sel = fake.log.filter((l) => l.kind === 'select');
     expect(sel).toHaveLength(1);
     expect(sel[0].name).toContain('is:lat');

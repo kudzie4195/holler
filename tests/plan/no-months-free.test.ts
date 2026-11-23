@@ -261,9 +261,9 @@ describe('never the 2-month headline in a card or block with a yearly price (rev
       }
     }
     const en = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0) } as Parameters<typeof CheckResults>[0]));
-    expect(plain(en)).toContain('Get these by email. 30-day free trial, no card');
+    expect(plain(en)).toContain('Get alerts by email. 30-day free trial, no card');
     const es = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0), lang: 'es' } as Parameters<typeof CheckResults>[0]));
-    expect(plain(es)).toContain('Reciba estas alertas por correo. Prueba gratis de 30 días, sin tarjeta');
+    expect(plain(es)).toContain('Reciba alertas por correo. Prueba gratis de 30 días, sin tarjeta');
   });
 
   it('/es home: the price section uses "Prueba gratis de 30 días"; the hero (monthly price only) keeps "1 mes gratis"; no section holds both', () => {
