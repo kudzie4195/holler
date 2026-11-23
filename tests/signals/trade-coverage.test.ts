@@ -6,12 +6,17 @@
 import { describe, expect, it } from 'vitest';
 import { CATEGORY_IDS, type CategoryId } from '@/lib/signals/categories';
 import { METROS } from '@/lib/geo/metros';
-import { PROPOSED_LABELS, proposedLabelOf, type MetroId, type ProposedSource } from '@/lib/signals/proposed-labels';
+import { PROPOSED_LABELS, proposedLabelOf, proposedTierOf, type MetroId, type ProposedSource } from '@/lib/signals/proposed-labels';
 import { RECORD_TYPES, recordTypeOf, TRADE_NEEDS } from '@/lib/signals/trade-needs';
 import {
+  addressTierOf,
   buildList,
   callPathOfRow,
+  callPathRate,
   cellOf,
+  COVER_MODES,
+  isBlockText,
+  summaryTierOf,
   covers,
   gapOf,
   headlineOf,
@@ -34,7 +39,7 @@ import {
 const NOW = Date.parse('2026-12-07T00:00:00Z');
 const noSpec = () => false;
 
-const card = (source: string, label: Card['label'] = 'coming_soon', callPath: Card['callPath'] = 'address', type: Card['type'] = 'permit'): Card => ({ source, type, label, callPath });
+const card = (source: string, label: Card['label'] = 'coming_soon', callPath: Card['callPath'] = 'exact', type: Card['type'] = 'permit'): Card => ({ source, type, label, callPath });
 
 describe('span of days', () => {
   const rows = [
@@ -77,9 +82,9 @@ describe('span of days', () => {
 });
 
 describe('call path', () => {
-  it('an address on the row summary (the live gate\'s own test) is a strict call path', () => {
-    expect(callPathOfRow({ source: 's', summary: 'Reroofing | $10,225 job value | 3447 W 71ST PL' }, noSpec)).toBe('address');
-    expect(callPathOfRow({ source: 's', summary: 'MAINTAIN WINDOW | OPEN | 3600 block of W GRENSHAW ST' }, noSpec)).toBe('address');
+  it('an exact address on the row summary (the live gate\'s own test) is the exact tier; a hundred-block is the block tier', () => {
+    expect(callPathOfRow({ source: 's', summary: 'Reroofing | $10,225 job value | 3447 W 71ST PL' }, noSpec)).toBe('exact');
+    expect(callPathOfRow({ source: 's', summary: 'MAINTAIN WINDOW | OPEN | 3600 block of W GRENSHAW ST' }, noSpec)).toBe('block');
   });
   it('a borough, a ZIP, a count or house number 0 is not a place', () => {
     expect(callPathOfRow({ source: 's', summary: 'HEAT/HOT WATER | ENTIRE BUILDING | BRONX' }, noSpec)).toBeNull();
@@ -99,9 +104,9 @@ describe('call path', () => {
     expect(specCanGiveCallPath({ typedContractors: { pairs: [] } })).toBe(true);
     expect(specCanGiveCallPath({ orgs: [{ role: 'owner' }] })).toBe(false);
   });
-  it('strict counts address cards only; upper counts address and spec cards; actionable counts all', () => {
+  it('strict counts business and exact cards; upper counts those, block and spec cards; actionable counts all', () => {
     const spans = new Map([['s', 7]]);
-    const c = cellOf([card('s', 'coming_soon', 'address'), card('s', 'coming_soon', 'spec'), card('s', 'act_now', null)], spans);
+    const c = cellOf([card('s', 'coming_soon', 'exact'), card('s', 'coming_soon', 'spec'), card('s', 'act_now', null)], spans);
     expect(c.perWeek).toBeCloseTo(3, 10);
     expect(c.addressPerWeek).toBeCloseTo(1, 10);
     expect(c.upperPerWeek).toBeCloseTo(2, 10);
@@ -340,6 +345,102 @@ describe('tables the scorecard reads', () => {
       expect(['O', '3P', 'A']).toContain(s.volumeEvidence.tag);
       expect(s.volumeEvidence.note).toMatch(/\S/);
       for (const tr of Object.keys(s.labels)) expect((CATEGORY_IDS as string[]).includes(tr)).toBe(true);
+    }
+  });
+});
+
+// Round 20 integration (owner decision): a BLOCK-level address counts as a place to go. A card's call path has three tiers (business,
+// exact address, block address); strict = business or exact, 'block' = all three (the official headline), upper = block or a source spec.
+describe('call path tiers (round 20 integration: a block-level address counts as a place to go)', () => {
+  const spans = new Map([['s', 7]]);
+  it('a stored business contact with a name is the business tier, before any address', () => {
+    expect(callPathOfRow({ source: 's', summary: '3600 block of W GRENSHAW ST', contacts: [{ role: 'contractor', name: 'Acme Roofing LLC' }] }, noSpec)).toBe('business');
+    expect(callPathOfRow({ source: 's', summary: 'Reroof', contacts: [{ role: 'contractor', name: '  ' }] }, noSpec)).toBeNull();
+  });
+  it('a stored site contact gives exact or block by its own address; an exact address beats a block', () => {
+    expect(callPathOfRow({ source: 's', summary: 'HEAT/HOT WATER | ENTIRE BUILDING | BRONX', contacts: [{ role: 'site', name: '', address: '6800 block of 4 AVENUE' }] }, noSpec)).toBe('block');
+    expect(callPathOfRow({ source: 's', summary: 'Reroof', contacts: [{ role: 'site', name: '', address: '3447 W 71ST PL' }] }, noSpec)).toBe('exact');
+    expect(callPathOfRow({ source: 's', summary: '3600 block of W GRENSHAW ST | 12 OAK ST', contacts: [] }, noSpec)).toBe('exact');
+    expect(callPathOfRow({ source: 's', summary: 'Price band: $250k to $500k | Condo | 0-99 block of WEST STREET' }, noSpec)).toBe('block');
+    expect(callPathOfRow({ source: 's', summary: 'Open | 41-00 block of BOWNE STREET' }, noSpec)).toBe('block');
+  });
+  it('summaryTierOf and addressTierOf agree with the live gate: no place, no tier', () => {
+    expect(summaryTierOf('HEAT/HOT WATER | ENTIRE BUILDING | BRONX')).toBeNull();
+    expect(summaryTierOf(null)).toBeNull();
+    expect(addressTierOf('0 block of MAIN ST')).toBeNull();
+    expect(addressTierOf('1200 block of Main St')).toBe('block');
+    expect(addressTierOf('1200 Main St')).toBe('exact');
+    expect(isBlockText('Block Island Rd')).toBe(false);
+  });
+  it('a block card covers with block level and upper, never strict; business and exact cover all three', () => {
+    const blockCell = cellOf([card('s', 'coming_soon', 'block')], spans);
+    expect(blockCell.blockPerWeek).toBeCloseTo(1, 10);
+    expect(blockCell.addressPerWeek).toBeCloseTo(1, 10);
+    expect(covers(blockCell, 'strict')).toBe(false);
+    expect(covers(blockCell, 'block')).toBe(true);
+    expect(covers(blockCell, 'upper')).toBe(true);
+    for (const t of ['business', 'exact'] as const) for (const m of COVER_MODES) expect(covers(cellOf([card('s', 'coming_soon', t)], spans), m), `${t} ${m}`).toBe(true);
+    const spec = cellOf([card('s', 'coming_soon', 'spec')], spans);
+    expect([covers(spec, 'strict'), covers(spec, 'block'), covers(spec, 'upper')]).toEqual([false, false, true]);
+  });
+  it('tiers add up: half a week of exact plus half a week of block covers with block, not strict', () => {
+    const c = cellOf([card('s', 'coming_soon', 'exact'), card('s', 'coming_soon', 'block')], new Map([['s', 14]]));
+    expect(c.exactPerWeek).toBeCloseTo(0.5, 10);
+    expect(c.blockPerWeek).toBeCloseTo(0.5, 10);
+    expect(callPathRate(c, 'strict')).toBeCloseTo(0.5, 10);
+    expect(callPathRate(c, 'block')).toBeCloseTo(1, 10);
+    expect(covers(c, 'strict')).toBe(false);
+    expect(covers(c, 'block')).toBe(true);
+  });
+  it('the headline differs by mode on the same grid', () => {
+    const centres: Centre[] = METROS.map((m) => ({ id: m.id, label: m.label, lat: m.center.lat, lon: m.center.lon, state: m.states[0] }));
+    const g = {} as Grid;
+    for (const tr of CATEGORY_IDS) g[tr] = Object.fromEntries(centres.map((c) => [c.id, cellOf([], spans)]));
+    centres.slice(0, 7).forEach((c, i) => (g.fencing[c.id] = cellOf([card('s', 'coming_soon', i < 4 ? 'exact' : 'block')], spans)));
+    expect(headlineOf(g, centres, 'strict').paying).toBe(0);
+    expect(headlineOf(g, centres, 'block').paying).toBe(1);
+    expect(headlineOf(g, centres, 'upper').paying).toBe(1);
+  });
+  it('measure: a Chicago-style violation row with a block summary is a block card', () => {
+    const row: CoverageRow = {
+      id: 9001, source: 'socrata-chicago-violations', kind: 'civic', title: 'Code violation in Chicago: MAINTAIN WINDOW', summary: 'MAINTAIN WINDOW | OPEN | 3600 block of W GRENSHAW ST',
+      categories: ['windows-doors'], state: 'IL', severity: 2, occurred_at: '2026-11-17T12:00:00Z', data: { subtype: 'violation' }, lat: 41.8781, lon: -87.6298,
+    };
+    const CHI: Centre = { id: 'chicago', label: 'Chicago', lat: 41.8781, lon: -87.6298, state: 'IL' };
+    const m = measure([row], [CHI], new Map([['socrata-chicago-violations', 7]]), noSpec, { nowMs: NOW }, ['windows-doors'] as CategoryId[]);
+    const c = m.grid['windows-doors'].chicago;
+    expect(c.cards).toBe(1);
+    expect(c.blockPerWeek).toBeCloseTo(c.perWeek, 10);
+    expect(c.exactPerWeek).toBe(0);
+    expect(covers(c, 'strict')).toBe(false);
+    expect(covers(c, 'block')).toBe(true);
+    // A custom path (the script's projected pass) is honoured and never changes the default measurement.
+    const m2 = measure([row], [CHI], new Map([['socrata-chicago-violations', 7]]), noSpec, { nowMs: NOW }, ['windows-doors'] as CategoryId[], () => 'exact');
+    expect(m2.grid['windows-doors'].chicago.exactPerWeek).toBeCloseTo(c.perWeek, 10);
+  });
+  it('projection: a block-only proposed source counts with block and upper, never strict; a strict one counts everywhere', () => {
+    const centres: Centre[] = METROS.map((m) => ({ id: m.id, label: m.label, lat: m.center.lat, lon: m.center.lon, state: m.states[0] }));
+    const g = {} as Grid;
+    for (const tr of CATEGORY_IDS) g[tr] = Object.fromEntries(centres.map((c) => [c.id, cellOf([], spans)]));
+    const src: ProposedSource = { metros: ['houston'], recordKind: 'property-sale', expectedRowsPerWeekPerMetro: 10, volumeEvidence: { tag: 'A', note: 't' }, labels: { moving: 'coming_soon' }, callPath: false, blockPath: true };
+    const p = projectGrid(g, centres, { b: src });
+    expect(p.moving.houston.addedBlockPerWeek).toBe(10);
+    expect(p.moving.houston.addedCallPathPerWeek).toBe(0);
+    expect(projectedRate(p.moving.houston, 'strict')).toBe(0);
+    expect(projectedRate(p.moving.houston, 'block')).toBe(10);
+    expect(projectedRate(p.moving.houston, 'upper')).toBe(10);
+    const q = projectGrid(g, centres, { e: { ...src, callPath: true } });
+    expect(q.moving.houston.addedCallPathPerWeek).toBe(10);
+    expect(q.moving.houston.addedBlockPerWeek).toBe(0);
+    for (const m of COVER_MODES) expect(projectedRate(q.moving.houston, m)).toBe(10);
+    expect(proposedTierOf({ callPath: false })).toBeNull();
+    expect(proposedTierOf({ callPath: true, callPathTier: 'business' })).toBe('business');
+  });
+  it('the proposed entries say their tier honestly: violations and home sales are block-only, a commercial sale is exact', () => {
+    for (const [id, s] of Object.entries(PROPOSED_LABELS)) {
+      if (s.recordKind === 'code-violation') expect(proposedTierOf(s), id).toBe('block');
+      if (s.recordKind === 'property-sale') expect(proposedTierOf(s), id).toBe(id.endsWith(':commercial') ? 'exact' : 'block');
+      if (s.blockPath) expect(s.callPath, `${id}: blockPath is for rows with no strict call path`).toBe(false);
     }
   });
 });

@@ -1,6 +1,6 @@
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
 import type { Db } from './store';
-import { contactsAllowedFor } from '@/lib/contacts/extract';
+import { contactsAllowedFor, isResidentialSaleRecord } from '@/lib/contacts/extract';
 import type { SignalInput } from './types';
 
 /**
@@ -88,6 +88,8 @@ export function sanitizeSample(input: SignalInput): SignalInput {
   void _visitKey;
   void _refs;
   if (!s.contacts?.length) return s;
+  // Round 20 integration: a residential sale never keeps a contact.
+  if (isResidentialSaleRecord(s.data?.subtype, s.title)) return { ...s, contacts: [] };
   const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
   if (!allowed.length) return { ...s, contacts: [] };
   return { ...s, contacts: sanitizeContacts(allowed, { datasetCity: s.city ?? null }) };

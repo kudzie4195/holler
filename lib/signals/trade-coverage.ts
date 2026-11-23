@@ -1,9 +1,9 @@
 import { CATEGORY_IDS, type CategoryId } from './categories';
-import { contactPathOf } from './alert-gate';
+import { contactPathOf, textShowsPlace, type ContactLike } from './alert-gate';
 import { isAlertLabel, type OpportunityLabel } from './lead-rules';
 import { matchArea, matchOne, type MatchProfile, type MatchSignal } from './match';
 import { carriedTrades } from './permit-routing';
-import { proposedLabelOf, type ProposedSource } from './proposed-labels';
+import { proposedLabelOf, proposedTierOf, type ProposedSource } from './proposed-labels';
 import {
   buildingKeyOf,
   heatTriggers,
@@ -33,10 +33,16 @@ import { recordTypeOf, TRADE_NEEDS, type RecordType } from './trade-needs';
  *                      25 miles, one trade, no keywords, no work profile, plan id 'starter' (Solo limits), city bids off (as the reviewed replay).
  *   cards a week       each card counts 7 / (its source's span of days in the rows file), so a source held for 4 days and one held for
  *                      14 are put on the same weekly footing.
- *   call path          the card shows an address (the live gate's own test on the row's public summary, alert-gate.ts contactPathOf)
- *                      or a business to call. The rows file holds no contacts table, so the business side is known only per source: the
- *                      "upper" mode also counts a card whose source has a contact spec that can store a business or a site address.
- *   covers             at least 1 actionable card a week with a call path (strict mode: an address on the row itself).
+ *   call path          the card names a business to call or a place to go. Three tiers (owner decision, round 20 integration: a
+ *                      BLOCK-level address counts as a place to go):
+ *                        business  a stored business contact with a name (only when the rows carry contacts; the 14-day rows file does not);
+ *                        exact     a street address with a house number (the live gate's own test, alert-gate.ts contactPathOf, on the
+ *                                  card's public summary or a stored site contact), that is not a block;
+ *                        block     a hundred-block ("2300 block of W 52 STREET"): violations, home sales, NYC whole-building heat.
+ *                      The rows file holds no contacts table, so the "upper" mode also counts a card whose source has a contact spec
+ *                      that can store a business or a site address (an upper bound, never the headline).
+ *   covers             at least 1 actionable card a week with a call path. Modes: 'strict' = business or exact; 'block' = business, exact
+ *                      or block (THE OWNER'S RULE, the official headline); 'upper' = block, or a source contact spec.
  *   would pay          the trade covers at least 7 of the 10 metros.
  */
 
@@ -100,11 +106,41 @@ export function sourceSpans(rows: readonly Pick<CoverageRow, 'source' | 'occurre
 
 // ---- call path --------------------------------------------------------------------------------------------------------------------
 
-/** 'address': the row's public summary names a place (measured on the row). 'spec': only the source's contact spec could add one. */
-export type CallPath = 'address' | 'spec' | null;
+/**
+ * The card's best call path, in tier order: 'business' (a stored business contact with a name), 'exact' (a street address with a house
+ * number), 'block' (a hundred-block only), then 'spec' (nothing on the row, but the source's contact spec could add one: upper mode only).
+ * Business, exact and block are measured on the row (its contacts when present, its public summary); 'spec' is not.
+ */
+export type CallPathTier = 'business' | 'exact' | 'block';
+export type CallPath = CallPathTier | 'spec' | null;
 
-export function callPathOfRow(r: Pick<CoverageRow, 'source' | 'summary'>, specCapable: (source: string) => boolean): CallPath {
-  if (contactPathOf(null, r.summary) === 'site') return 'address';
+/** A hundred-block as the block rules write it ("2300 block of ...", "0-99 block of ...", "41-00 block of ..."), anywhere in the text. */
+const BLOCK_TEXT_RE = /(?:^|[\s,(])(?:0-99|\d{1,3}-00|\d{1,6}) block of \S/i;
+export const isBlockText = (text: string | null | undefined): boolean => typeof text === 'string' && BLOCK_TEXT_RE.test(text);
+
+/** 'exact' or 'block' for an address text that the live gate counts as a place (textShowsPlace); null when it is not a place. */
+export function addressTierOf(text: string | null | undefined): 'exact' | 'block' | null {
+  if (!textShowsPlace(text)) return null;
+  return isBlockText(text) ? 'block' : 'exact';
+}
+
+/** The address tier the public summary shows: 'exact' when any part is an exact address, else 'block', else null. */
+export function summaryTierOf(summary: string | null | undefined): 'exact' | 'block' | null {
+  if (contactPathOf(null, summary) !== 'site') return null;
+  const tiers = (summary ?? '').split(' | ').map((p) => addressTierOf(p));
+  if (tiers.includes('exact')) return 'exact';
+  if (tiers.includes('block')) return 'block';
+  // The gate found the place through the display cutter (a street cut out of a longer part): a block only if the summary says so.
+  return isBlockText(summary) ? 'block' : 'exact';
+}
+
+export function callPathOfRow(r: Pick<CoverageRow, 'source' | 'summary'> & { contacts?: readonly ContactLike[] | null }, specCapable: (source: string) => boolean): CallPath {
+  const contacts = Array.isArray(r.contacts) ? r.contacts : [];
+  if (contacts.length && contactPathOf(contacts, null) === 'business') return 'business';
+  const siteTiers = contacts.filter((c) => c.role === 'site').map((c) => addressTierOf(c.address));
+  const fromSummary = summaryTierOf(r.summary);
+  if (siteTiers.includes('exact') || fromSummary === 'exact') return 'exact';
+  if (siteTiers.includes('block') || fromSummary === 'block') return 'block';
   return specCapable(r.source) ? 'spec' : null;
 }
 
@@ -130,9 +166,15 @@ export interface Rate {
   cards: number;
   /** Actionable cards a week (any call path). */
   perWeek: number;
-  /** ... with an address on the row (strict). */
+  /** ... whose best call path is a named business. */
+  businessPerWeek: number;
+  /** ... whose best call path is an exact street address (house number). */
+  exactPerWeek: number;
+  /** ... whose best call path is a hundred-block address. */
+  blockPerWeek: number;
+  /** ... with any address on the row, exact or block (exactPerWeek + blockPerWeek). */
   addressPerWeek: number;
-  /** ... with an address on the row or a source contact spec that can add one (upper). */
+  /** ... with any measured call path or a source contact spec that can add one (upper). */
   upperPerWeek: number;
 }
 
@@ -146,13 +188,21 @@ export interface Cell extends Rate {
   bySource: Record<string, Rate>;
 }
 
-export type CoverMode = 'strict' | 'upper';
+/**
+ * 'strict': business or exact address. 'block': business, exact or block address (the owner's rule, round 20 integration: the OFFICIAL
+ * headline). 'upper': block, or a source contact spec that could add a business or a site (an upper bound).
+ */
+export type CoverMode = 'strict' | 'block' | 'upper';
+export const COVER_MODES: readonly CoverMode[] = ['strict', 'block', 'upper'];
 
-const emptyRate = (): Rate => ({ cards: 0, perWeek: 0, addressPerWeek: 0, upperPerWeek: 0 });
+const emptyRate = (): Rate => ({ cards: 0, perWeek: 0, businessPerWeek: 0, exactPerWeek: 0, blockPerWeek: 0, addressPerWeek: 0, upperPerWeek: 0 });
 function addTo(r: Rate, w: number, path: CallPath): void {
   r.cards++;
   r.perWeek += w;
-  if (path === 'address') r.addressPerWeek += w;
+  if (path === 'business') r.businessPerWeek += w;
+  if (path === 'exact') r.exactPerWeek += w;
+  if (path === 'block') r.blockPerWeek += w;
+  if (path === 'exact' || path === 'block') r.addressPerWeek += w;
   if (path !== null) r.upperPerWeek += w;
 }
 
@@ -176,8 +226,10 @@ export function cellOf(cards: readonly Card[], spans: ReadonlyMap<string, number
   return c;
 }
 
-export const callPathRate = (r: Pick<Rate, 'addressPerWeek' | 'upperPerWeek'>, mode: CoverMode): number => (mode === 'strict' ? r.addressPerWeek : r.upperPerWeek);
-export const covers = (r: Pick<Rate, 'addressPerWeek' | 'upperPerWeek'>, mode: CoverMode): boolean => callPathRate(r, mode) + EPS >= COVER_MIN_PER_WEEK;
+type TierRate = Pick<Rate, 'businessPerWeek' | 'exactPerWeek' | 'blockPerWeek' | 'upperPerWeek'>;
+export const callPathRate = (r: TierRate, mode: CoverMode): number =>
+  mode === 'strict' ? r.businessPerWeek + r.exactPerWeek : mode === 'block' ? r.businessPerWeek + r.exactPerWeek + r.blockPerWeek : r.upperPerWeek;
+export const covers = (r: TierRate, mode: CoverMode): boolean => callPathRate(r, mode) + EPS >= COVER_MIN_PER_WEEK;
 export const wouldPay = (metrosCovered: number): boolean => metrosCovered >= PAY_MIN_METROS;
 
 // ---- grid -------------------------------------------------------------------------------------------------------------------------
@@ -338,6 +390,8 @@ export function measure(
   specCapable: (source: string) => boolean,
   opts: EngineOpts,
   trades: readonly CategoryId[] = CATEGORY_IDS,
+  /** The call path of a row (default callPathOfRow). The script's PROJECTED pass passes one that adds an unmeasurable live change. */
+  pathOf: (r: CoverageRow, specCapable: (source: string) => boolean) => CallPath = callPathOfRow,
 ): Measured {
   const grid = {} as Grid;
   const seen = {} as Measured['seen'];
@@ -372,7 +426,7 @@ export function measure(
         const r = area[i];
         const m = matchOne(signalOf(r), profile, opts.bidsOn ?? false, opts.nowMs);
         const alert = !!m && isAlertLabel(m.label) && !m.hold;
-        if (alert) cards.push({ source: r.source, type: types[i], label: m!.label, callPath: callPathOfRow(r, specCapable) });
+        if (alert) cards.push({ source: r.source, type: types[i], label: m!.label, callPath: pathOf(r, specCapable) });
         if (needs.has(types[i])) {
           ns.neededRows++;
           if (alert) ns.alert++;
@@ -394,7 +448,10 @@ export function measure(
 export interface ProjectedCell {
   measured: Rate;
   addedPerWeek: number;
+  /** Added cards a week with a strict call path (business or exact address). */
   addedCallPathPerWeek: number;
+  /** Added cards a week whose rows carry a hundred-block address only (count under the owner's block rule, never in strict). */
+  addedBlockPerWeek: number;
   /** Proposed source ids that add to this cell. */
   from: string[];
 }
@@ -412,7 +469,13 @@ export function projectGrid(
     out[tr] = {};
     for (const c of centres) {
       const m = grid[tr][c.id];
-      out[tr][c.id] = { measured: { cards: m.cards, perWeek: m.perWeek, addressPerWeek: m.addressPerWeek, upperPerWeek: m.upperPerWeek }, addedPerWeek: 0, addedCallPathPerWeek: 0, from: [] };
+      out[tr][c.id] = {
+        measured: { cards: m.cards, perWeek: m.perWeek, businessPerWeek: m.businessPerWeek, exactPerWeek: m.exactPerWeek, blockPerWeek: m.blockPerWeek, addressPerWeek: m.addressPerWeek, upperPerWeek: m.upperPerWeek },
+        addedPerWeek: 0,
+        addedCallPathPerWeek: 0,
+        addedBlockPerWeek: 0,
+        from: [],
+      };
     }
   }
   for (const [id, src] of Object.entries(proposed)) {
@@ -424,7 +487,9 @@ export function projectGrid(
         const cell = out[tr][metro];
         if (!cell) continue;
         cell.addedPerWeek += vol * l.share;
-        if (src.callPath) cell.addedCallPathPerWeek += vol * l.share;
+        const tier = proposedTierOf(src);
+        if (tier === 'business' || tier === 'exact') cell.addedCallPathPerWeek += vol * l.share;
+        else if (tier === 'block') cell.addedBlockPerWeek += vol * l.share;
         cell.from.push(id);
       }
     }
@@ -432,8 +497,9 @@ export function projectGrid(
   return out;
 }
 
-/** The projected rate with a call path for the mode: measured + added. */
-export const projectedRate = (p: ProjectedCell, mode: CoverMode): number => callPathRate(p.measured, mode) + p.addedCallPathPerWeek;
+/** The projected rate with a call path for the mode: measured + added (block-only proposed rows count in 'block' and 'upper' only). */
+export const projectedRate = (p: ProjectedCell, mode: CoverMode): number =>
+  callPathRate(p.measured, mode) + p.addedCallPathPerWeek + (mode === 'strict' ? 0 : p.addedBlockPerWeek);
 
 export function projectedHeadline(pg: ProjectedGrid, centres: readonly Centre[], mode: CoverMode, trades: readonly CategoryId[] = CATEGORY_IDS): Headline {
   const out: TradeSummary[] = trades.map((trade) => {

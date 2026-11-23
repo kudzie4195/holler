@@ -21,7 +21,8 @@ import { SALES_PROPOSED_LABELS } from './proposed-labels-sales';
  *
  * Projection arithmetic (lib/signals/trade-coverage.ts projectGrid): for each metro listed and each trade whose label is act_now or
  * coming_soon, the cell gains expectedRowsPerWeekPerMetro x share actionable cards a week (share defaults to 1), and the same amount with
- * a call path when callPath is true. Every expected row is assumed to fall within 25 miles of the metro centre, which overstates a
+ * a call path when callPath is true (strict: an exact address or a business), or a block-level address only when blockPath is true (counted
+ * under the owner's block rule, never in strict). Every expected row is assumed to fall within 25 miles of the metro centre, which overstates a
  * county-wide feed: set share below 1 to say otherwise. The projected grid is printed apart from the measured one and marked PROJECTED.
  */
 
@@ -62,8 +63,25 @@ export interface ProposedSource {
   volumeEvidence: { tag: VolumeEvidenceTag; note: string };
   /** The proposed label per trade. A trade not listed gets nothing (context). */
   labels: Partial<Record<CategoryId, ProposedTradeLabel>>;
-  /** Each row carries a street address or a business a member can call. */
+  /**
+   * Each row carries an EXACT street address (house number) or a business a member can call: the strict call path. A row that carries
+   * only a hundred-block address is NOT a strict call path: say so with `blockPath` (round 20 integration).
+   */
   callPath: boolean;
+  /** With callPath true: which strict tier the rows carry. Default 'exact'. */
+  callPathTier?: 'business' | 'exact';
+  /**
+   * Round 20 integration (owner decision: a block-level address counts as a place to go): the rows carry a hundred-block address only
+   * ("2300 block of W 52 STREET"; violations, home sales). Counts in the scorecard's 'block' and 'upper' modes, never in 'strict'.
+   * Ignored when callPath is true.
+   */
+  blockPath?: boolean;
+}
+
+/** The best call-path tier a proposed source's rows carry: business, exact, block, or null (none). */
+export function proposedTierOf(src: Pick<ProposedSource, 'callPath' | 'callPathTier' | 'blockPath'>): 'business' | 'exact' | 'block' | null {
+  if (src.callPath) return src.callPathTier === 'business' ? 'business' : 'exact';
+  return src.blockPath ? 'block' : null;
 }
 
 /** Source id -> proposed labels. Round 20: VIOL entries below, SALES entries from lib/signals/proposed-labels-sales.ts. */
@@ -76,7 +94,7 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
   // coming_soon for its tagged trades and market_insight for the general contractor (violation-unnamed); 311 city work is context.
   // tests/signals/viol-r20.test.ts parses a hand-written row per trade through the real parser and checks labelFor() gives these labels.
   // Every `share` is the ASSUMED part of the source's rows that names that trade (no live row was read); the volume tags say how sure the
-  // row count is. callPath: violations carry a block-level street address ("2300 block of W 52 STREET"), which the live gate counts as a
+  // row count is. Violations carry a block-level street address ("2300 block of W 52 STREET"), which the live gate counts as a
   // place; HPD streets numbered 100 and up lose their address under the block-address rule (see the why on each HPD trade).
   // ---- NYC HPD and rodent (review P2-3): NOT to be promoted on an act_now default. Rule proposed for review with two weeks of samples:
   //   - heat (§ 27-2029 and the like): ONE card per building (HPD building id or BBL) per heating season (Oct 1 to May 31), HEADS-UP; a
@@ -114,7 +132,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       'general-contractor': { label: 'market_insight', share: 0.0225, why: 'unnamed structure orders: feed only' },
     },
     // Block-level address under the New York block rule (nyc-address.ts): 100+ streets, Queens numbers and named streets now place.
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   // Rodent (review P2-3): a first finding of rats is FEED ONLY; a failed compliance re-inspection (rats still there) is a HEADS-UP, at most
   // one card per property per 30 days. Share: 0.25 of rat findings are compliance failures [A]: 600 x 0.25 = 150 a week = 21.4 a day,
@@ -125,7 +145,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     expectedRowsPerWeekPerMetro: 600,
     volumeEvidence: { tag: 'A', note: 'DOHMH rodent inspections whose result names rats (dataset p937-wjvj, last modified 2026-11-17 [O]); count not measured.' },
     labels: { 'pest-control': { label: 'coming_soon', share: 0.25, why: 'failed compliance re-inspection only, one card per property per 30 days; a first finding is feed only' } },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   'socrata-montgomery-violations': {
     metros: ['washington-dc'],
@@ -139,7 +161,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       restoration: { label: 'coming_soon', share: 0.04, why: 'condition Water/Mold-Light under an item that names no repair' },
       'general-contractor': { label: 'market_insight', share: 0.05, why: 'Accessory Structure and other unnamed structure items: feed only' },
     },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   'arcgis-phoenix-violations': {
     metros: ['phoenix'],
@@ -157,7 +181,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       fencing: { label: 'coming_soon', share: 0.03, why: 'fence cases (assumed share)' },
       'pool-spa': { label: 'coming_soon', share: 0.03, why: 'green or stagnant pools (assumed share)' },
     },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   'arcgis-dc-311': {
     metros: ['washington-dc'],
@@ -183,7 +209,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       handyman: { label: 'coming_soon', share: 0.15, why: 'exterior walls next to the general contractor, vacant structure titles (assumed share)' },
       'general-contractor': { label: 'act_now', share: 0.05, why: 'exterior wall and porch titles only; vacant and unsafe titles are feed only (assumed share)' },
     },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   'arcgis-miamidade-violations': {
     metros: ['miami'],
@@ -195,7 +223,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       landscaping: { label: 'act_now', share: 0.3, why: 'overgrown lot (assumed share)' },
       'junk-removal': { label: 'act_now', share: 0.25, why: 'trash and debris, junk (assumed share)' },
     },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
   'arcgis-miamidade-building-violations': {
     metros: ['miami'],
@@ -206,7 +236,9 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
       roofing: { label: 'act_now', share: 0.1, why: 'roof case types (assumed share)' },
       'general-contractor': { label: 'coming_soon', share: 0.15, why: 'work-without-permit case types only (paperwork rule, line 15); unsafe structure is feed only (assumed share)' },
     },
-    callPath: true,
+    // Block-level address only (publicAddress / nycBlockAddress): a place to go under the owner's block rule, not a strict call path.
+    callPath: false,
+    blockPath: true,
   },
 };
 

@@ -14,8 +14,9 @@ import type { SaleClass } from './adapters/sales-datasets';
  * removed after review, see SALES-report.md "Review fixes").
  *
  * Two entries per source (review P1-1): `<id>` for the residential rows and `<id>:commercial` for the commercial ones. A residential sale
- * is stored and shown at BLOCK level only (no house number), so it has NO call path (callPath false). A commercial sale keeps its street
- * address, so it has one (callPath true). expectedRowsPerWeekPerMetro of each entry is the source's rows a week times that part's share.
+ * is stored and shown at BLOCK level only (no house number), so it has NO strict call path (callPath false); under the owner's round 20
+ * rule a block counts as a place to go, so it has blockPath true (the scorecard's 'block' mode). A commercial sale keeps its street
+ * address, so it has a strict one (callPath true). expectedRowsPerWeekPerMetro of each entry is the source's rows a week times that part's share.
  *
  * Share of a trade inside an entry = (share of that entry's rows in the classes that reach the trade) x (share of rows within 25 miles of
  * the metro centre). Every number below is ASSUMED [A] (SALES-research.md); none was read from a portal.
@@ -66,7 +67,7 @@ function labelsFor(id: string, p: SaleProjection, part: 'residential' | 'commerc
   }
   const out: Partial<Record<CategoryId, ProposedTradeLabel>> = {};
   for (const [trade, x] of share) {
-    out[trade] = { label: 'coming_soon', share: round(Math.min(1, x)), why: part === 'commercial' ? `commercial sale (${id}): the street address is shown` : 'heads-up: a home on this block changed hands (block only, no call path)' };
+    out[trade] = { label: 'coming_soon', share: round(Math.min(1, x)), why: part === 'commercial' ? `commercial sale (${id}): the street address is shown` : 'heads-up: a home on this block changed hands (block only: a place under the block rule, no strict call path)' };
   }
   return out;
 }
@@ -80,6 +81,8 @@ function entry(id: string, p: SaleProjection, part: 'residential' | 'commercial'
     volumeEvidence: { tag: 'A', note: `${p.note} ${part === 'residential' ? 'Residential part' : 'Commercial part'}: ${Math.round(frac * 100)}% of rows [A].` },
     labels: labelsFor(id, p, part),
     callPath: part === 'commercial',
+    // Round 20 integration (owner decision): a home's block counts as a place to go under the block rule, never as a strict call path.
+    ...(part === 'residential' ? { blockPath: true } : {}),
   };
 }
 

@@ -3,7 +3,7 @@ import type { MatchProfile, MatchRow, MatchSignal } from './match';
 import type { SignalInput } from './types';
 import { MAX_FUTURE_DAYS } from './run-limits';
 import { sanitizeContacts } from '@/lib/contacts/sanitize';
-import { contactsAllowedFor } from '@/lib/contacts/extract';
+import { contactsAllowedFor, isResidentialSaleRecord } from '@/lib/contacts/extract';
 import { attachLicensedContacts, type LicenseRef } from '@/lib/licenses/attach';
 import type { ContactInput } from '@/lib/contacts/types';
 import { archiveAndPrune } from '@/lib/moat/prune';
@@ -170,7 +170,8 @@ export async function insertNewSignals(db: Db, signals: SignalRowInput[], opts: 
     const byKey = new Map<string, { contacts: ContactInput[]; city: string | null; refs: LicenseRef[] }>();
     // 311 requests never get a contact, and a code violation only an owner company, whatever an adapter attached (review2 P2-5; round 18).
     for (const s of part) {
-      const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
+      // Round 20 integration: a residential sale never keeps a contact (no house number of a home is ever stored).
+      const allowed = isResidentialSaleRecord(s.data?.subtype, s.title) ? [] : contactsAllowedFor(s.data?.subtype, s.contacts);
       // Round 20 (LIC): licence numbers are looked up for permits only.
       const refs = s.data?.subtype === 'permit' ? (s.licenseRefs ?? []) : [];
       if (allowed.length || refs.length) byKey.set(`${s.source}\u0000${s.externalId}`, { contacts: allowed, city: s.city ?? null, refs });

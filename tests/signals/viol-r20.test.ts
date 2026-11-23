@@ -486,12 +486,13 @@ describe('mapping to trades and the proposed labels (real parser, real rules)', 
     const metroIds = new Set(METROS.map((m) => m.id));
     const types = new Set(RECORD_TYPES.map((r) => r.id));
     for (const [id, p] of Object.entries(PROPOSED_LABELS)) {
-      expect(adapterOf(id)?.probation, id).toBe(true);
+      // Integration: round 20 SALES adds `<id>:commercial` entries (the commercial part of a sale source); the adapter is `<id>`.
+      expect(adapterOf(id.replace(/:commercial$/, ''))?.probation, id).toBe(true);
       for (const m of p.metros) expect(metroIds.has(m), `${id} ${m}`).toBe(true);
       expect(types.has(p.recordKind), id).toBe(true);
       expect(['O', '3P', 'A']).toContain(p.volumeEvidence.tag);
       expect(p.expectedRowsPerWeekPerMetro).toBeGreaterThanOrEqual(0);
-      expect(sourcePlaces().get(id), id).toBe(p.metros[0]);
+      expect(sourcePlaces().get(id.replace(/:commercial$/, '')), id).toBe(p.metros[0]);
       for (const e of Object.values(p.labels)) expect(proposedLabelOf(e)!.share).toBeLessThanOrEqual(1);
     }
     // Every VIOL source has a proposal; the VIOL ones have no SOURCE_DEFAULTS entry.
@@ -811,7 +812,10 @@ describe('review P3-11: New York visits are grouped by building, not by the 100 
     expect(plan.followerOf.get(items[2].externalId)).toBe(items[0].externalId);
     expect(plan.followerOf.has(items[1].externalId)).toBe(false);
     // The key never holds the address, and it is never stored (store.ts toRow, samples.ts sanitizeSample).
-    expect(rows[0].key).not.toMatch(/451|WEST|52/);
+    // (Integration fix: the old /451|WEST|52/ check failed whenever the salted hex hash happened to contain "52" or "451". The key is now
+    // pinned to its shape: source, a 24-digit hex hash and the day, so no house number or street word can be in it.)
+    for (const r of rows) expect(r.key).toMatch(/^socrata-nyc-hpd-violations\|bldg:[0-9a-f]{24}\|\d{4}-\d{2}-\d{2}$/);
+    expect(rows[0].key).not.toMatch(/WEST|STREET/);
     const { sanitizeSample } = await import('@/lib/signals/samples');
     expect(sanitizeSample(items[0]).visitKey).toBeUndefined();
   });

@@ -176,6 +176,15 @@ export function isBlockSite(c: { name?: unknown; address?: unknown }): boolean {
 }
 
 /**
+ * Round 20 integration (SALES privacy, defence in depth): a RESIDENTIAL sale (home, condo, multi-family) never keeps a contact. The sale
+ * parser already writes none (lib/signals/adapters/sales.ts); this rule holds it at every write too, so a stale or wrong contact can never
+ * store a home's house number. Only a commercial sale ("Commercial property sold in ...", sales.ts saleTitle) may keep its nameless site.
+ */
+export function isResidentialSaleRecord(subtype: unknown, title: unknown): boolean {
+  return typeof subtype === 'string' && subtype.trim().toLowerCase() === 'sale' && !(typeof title === 'string' && /^Commercial property sold in /.test(title));
+}
+
+/**
  * The contacts a record of this kind may keep: none for a 311 request but a block-level site (round 20), only role 'owner' for a code violation (and none at all while the
  * owner switch is off), and never role 'owner' for anything else. Used at extraction and again before any write (lib/signals/store.ts).
  * `subtype` is matched trimmed, any case. `ownersOn` defaults to the HOLLER_VIOLATION_OWNERS_ENABLED switch.
