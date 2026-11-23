@@ -85,23 +85,28 @@ export const PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
   //     repair is urgent, a handyman next to a specialist and an unnamed order a heads-up, the general contractor feed only), with at most one
   //     card per building per trade per day; class B building-wide is feed only; painting is capped at a heads-up (the commonest order);
   //   - promote only if `npm run replay:rules` on the samples keeps every NYC trade at or under 10 urgent and 25 heads-up a day.
-  // Shares below = (assumed share of B/C rows naming the trade) x 0.25 building-wide [A] x 0.3 class C among those [A]; heat x 0.4 (60% of
-  // heat violations repeat a building within the season [A]). Projected a day on 7,000 rows a week: plumbing 9.0 urgent, windows-doors
-  // 9.0 urgent, electrical 6.0 urgent, pest-control 6.0 urgent, painting 15.0 heads-up, handyman 9.0 heads-up, hvac 8.0 heads-up,
-  // restoration 3.0 heads-up, flooring 2.2 heads-up (tests/signals/viol-r20.test.ts recomputes them against the 10 / 25 ceilings).
+  //   - review P3-2 wording (HPD_EXTRA_RULES): hot water (§ 27-2031) is treated like heat for plumbing (one heads-up per building per
+  //     season); a radiator is HVAC and a toilet stoppage plumbing (building-wide class C only); a carbon-monoxide detector is electrical,
+  //     like a smoke detector; elevator orders name no Holler trade and are dropped.
+  // Shares below = (assumed share of B/C rows naming the trade) x 0.25 building-wide [A] x 0.3 class C among those [A]; heat and hot water
+  // x 0.4 (60% repeat a building within the season [A]). Projected a day on 7,000 rows a week: plumbing 9.75 urgent (9.0 + 0.75 stoppage)
+  // and 6.0 heads-up (hot water), windows-doors 9.0 urgent, electrical 7.5 urgent (6.0 + 1.5 carbon monoxide), pest-control 6.0 urgent,
+  // hvac 0.75 urgent (radiator) and 8.0 heads-up (heat), painting 15.0 heads-up, handyman 9.0 heads-up, restoration 3.0 heads-up,
+  // flooring 2.2 heads-up. The SCORE shape holds one label per trade, so the smaller second path of plumbing and hvac is in `why`
+  // (tests/signals/viol-r20.test.ts adds both paths and checks the 10 / 25 ceilings).
   'socrata-nyc-hpd-violations': {
     metros: ['new-york'],
     recordKind: 'code-violation',
     expectedRowsPerWeekPerMetro: 7000,
     volumeEvidence: { tag: 'A', note: 'HPD class B and C violations, open, by NOV issue date: about 10,000 a week issued citywide, about 70% B or C (estimate; dataset wvxf-dwi5 holds 11.4M rows [3P], updated daily [O]). Not measured.' },
     labels: {
-      plumbing: { label: 'act_now', share: 0.009, why: 'building-wide class C plumbing orders only (0.12 x 0.25 x 0.3); apartment-level orders are feed only' },
+      plumbing: { label: 'act_now', share: 0.00975, why: 'building-wide class C plumbing orders (0.12 x 0.25 x 0.3) and toilet stoppages (0.01 x 0.25 x 0.3); apartment-level orders are feed only. Second path: hot water, one heads-up per building per season, 6.0 a day' },
       'windows-doors': { label: 'act_now', share: 0.009, why: 'building-wide class C door and window orders (self-closing public-hall doors): 0.12 x 0.25 x 0.3' },
-      electrical: { label: 'act_now', share: 0.006, why: 'building-wide class C electrical orders: 0.08 x 0.25 x 0.3' },
+      electrical: { label: 'act_now', share: 0.0075, why: 'building-wide class C electrical orders (0.08 x 0.25 x 0.3) and carbon-monoxide detectors (0.02 x 0.25 x 0.3)' },
       'pest-control': { label: 'act_now', share: 0.006, why: 'building-wide class C pest orders: 0.08 x 0.25 x 0.3' },
       painting: { label: 'coming_soon', share: 0.015, why: 'building-wide class C paint orders, capped at a heads-up: 0.2 x 0.25 x 0.3' },
       handyman: { label: 'coming_soon', share: 0.009, why: 'named next to a specialist, or unnamed building-wide class C orders: 0.12 x 0.25 x 0.3' },
-      hvac: { label: 'coming_soon', share: 0.008, why: 'heat: one card per building per heating season, heads-up: 0.02 x 0.4 first-in-season' },
+      hvac: { label: 'coming_soon', share: 0.008, why: 'heat: one card per building per heating season, heads-up: 0.02 x 0.4 first-in-season. Second path: building-wide class C radiator orders, urgent, 0.75 a day' },
       restoration: { label: 'coming_soon', share: 0.003, why: 'mold, building-wide class C (unnamed in the title words): 0.04 x 0.25 x 0.3' },
       flooring: { label: 'coming_soon', share: 0.00225, why: 'floor orders, building-wide class C: 0.03 x 0.25 x 0.3' },
       'general-contractor': { label: 'market_insight', share: 0.0225, why: 'unnamed structure orders: feed only' },
@@ -210,3 +215,38 @@ export function proposedLabelOf(entry: ProposedTradeLabel | undefined): { label:
   const share = typeof entry.share === 'number' && Number.isFinite(entry.share) ? Math.min(1, Math.max(0, entry.share)) : 1;
   return { label: entry.label, share };
 }
+
+/**
+ * Round 20 VIOL (review P3-6): label RULES a source needs before it can be promoted, because a SOURCE_DEFAULTS value alone cannot give the
+ * proposed label (a rule in lib/signals/lead-rules.ts RULES beats a source default). Nothing reads this in the product; LAUNCH.md lists each
+ * as a promotion prerequisite, and tests/signals/viol-r20.test.ts proves the default alone would not cap the source.
+ */
+export interface ProposedRule {
+  id: string;
+  sources: readonly string[];
+  /** The rule in plain words, as it would be written in RULES. */
+  rule: string;
+  /** Why a source default is not enough. */
+  why: string;
+}
+
+export const PROPOSED_RULES: readonly ProposedRule[] = [
+  {
+    id: 'phoenix-complaint-heads-up',
+    sources: ['arcgis-phoenix-violations'],
+    rule: 'A Phoenix Neighborhood Services property-maintenance case is complaint level: every trade its case type names gets coming_soon (a heads-up), never act_now; a trade it does not name gets context. Placed before act-violation-named, like property-violation-311 (Kansas City, line 9).',
+    why: 'Today act-violation-named makes a case type that names a repair ("Grass/Weeds") act_now for that trade, whatever SOURCE_DEFAULTS says.',
+  },
+  {
+    id: 'nyc-hpd-per-building',
+    sources: ['socrata-nyc-hpd-violations'],
+    rule: 'Heat and hot water: one heads-up per building per heating season; apartment-level orders and building-wide class B orders: feed only; building-wide class C orders: the violation rule with one card per building per trade per day; painting at most a heads-up.',
+    why: 'act-violation-named makes every named HPD order act_now (painting alone about 200 a day).',
+  },
+  {
+    id: 'nyc-rodent-reinspection',
+    sources: ['socrata-nyc-rodent-violations'],
+    rule: 'A first finding of rats: feed only; a failed compliance re-inspection: heads-up, one per property per 30 days.',
+    why: 'act-violation-named makes every "Rat Activity" row act_now for pest control.',
+  },
+];

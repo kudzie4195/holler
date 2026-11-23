@@ -1,4 +1,4 @@
-import type { SocrataDataset } from './socrata-datasets';
+import type { CategoryRule, SocrataDataset } from './socrata-datasets';
 import type { ArcgisDataset } from './arcgis-datasets';
 
 /**
@@ -47,12 +47,35 @@ export const DC_311_TYPE_WHERE = [
   .map((k) => `UPPER(SERVICECODEDESCRIPTION) LIKE '%${k}%'`)
   .join(' OR ');
 
+/**
+ * Review P3-2: HPD order wording the shared violation rules do not read. HPD only (SocrataDataset.extraRules), so no live source changes.
+ * Order texts these were written from (HPD form [A]): "§ 27-2031 ADM CODE PROVIDE HOT WATER AT ALL HOT WATER FIXTURES", "REPAIR THE BROKEN
+ * OR DEFECTIVE RADIATOR", "ABATE THE NUISANCE CONSISTING OF STOPPAGE IN THE TOILET", "PROVIDE AN APPROVED AND OPERATIONAL CARBON MONOXIDE
+ * DETECTING DEVICE". Elevator orders are deliberately NOT mapped: no Holler trade does elevator work (it needs a licensed elevator
+ * contractor), so such a row names no trade and is dropped.
+ */
+export const HPD_EXTRA_RULES: CategoryRule[] = [
+  { re: /\bhot water\b/i, add: ['plumbing'] },
+  { re: /\bradiators?\b/i, add: ['hvac'] },
+  { re: /\b(?:stoppage|clogged|stopped up)\b/i, add: ['plumbing'] },
+  { re: /carbon monoxide|\bco detect/i, add: ['electrical'] },
+];
+
+/** Review P3-3: Montgomery reads its condition "Inoperable" only with a vehicle item (a towing or hauling job); otherwise the item alone. */
+export function montgomeryText(get: (field: string) => string): string {
+  const item = get('item');
+  const condition = get('condition');
+  const vehicle = /\b(?:vehicle|car|auto|truck|trailer|boat|motorcycle|rv)\b/i.test(item);
+  const keep = /\binoperable\b/i.test(condition) && !vehicle ? condition.replace(/\binoperable\b/gi, '').trim() : condition;
+  return [item, keep].filter(Boolean).join(' | ');
+}
+
 export const VIOL_SOCRATA_DATASETS: SocrataDataset[] = [
   // ---- New York --------------------------------------------------------------------------------------------------------------------
   {
     id: 'socrata-nyc-hpd-violations', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: NYC, datasetId: 'wvxf-dwi5',
     kind: 'civic', subtype: 'violation', idField: 'violationid', dateField: 'novissueddate', latField: 'latitude', lonField: 'longitude',
-    titleFields: ['novdescription'], textFields: ['novdescription'], freeTextFields: ['novdescription'], summaryFields: ['currentstatus'],
+    titleFields: ['novdescription'], textFields: ['novdescription'], freeTextFields: ['novdescription'], summaryFields: ['currentstatus'], extraRules: HPD_EXTRA_RULES,
     addressFields: ['housenumber', 'streetname'], zipField: 'zip', strictAddress: true, addressRule: 'nyc',
     extraWhere: "violationstatus = 'Open' AND class IN ('B','C')",
     lookbackOverride: 2, maxPages: 6, windowForwardDays: 0, cadenceMinutes: 360, verified: true, probation: true, schemaUnverified: true,
@@ -74,7 +97,7 @@ export const VIOL_SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-montgomery-violations', city: 'Montgomery County', state: 'MD', countyAnchor: { lat: 39.084, lon: -77.1528 }, tz: 'America/New_York',
     domain: MONTGOMERY, datasetId: 'k9nj-z35d',
     kind: 'civic', subtype: 'violation', idField: 'violation_id', dateField: 'date_inspected', latField: 'latitude', lonField: 'longitude',
-    titleFields: ['item', 'condition'], textFields: ['item', 'condition'], summaryFields: ['condition', 'violation_category'],
+    titleFields: ['item', 'condition'], textFields: ['item', 'condition'], textOf: montgomeryText, summaryFields: ['condition', 'violation_category'],
     addressFields: ['street_address'], zipField: 'zip_code', strictAddress: true,
     extraWhere: 'date_corrected IS NULL',
     lookbackOverride: 30, maxPages: 2, windowForwardDays: 0, cadenceMinutes: 720, verified: true, probation: true, schemaUnverified: true,

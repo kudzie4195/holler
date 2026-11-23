@@ -1,14 +1,13 @@
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { contactSpecFields, extractContacts, extractJobValue } from '@/lib/contacts/extract';
-import { civicLabel, moneyFields, publicSummary, scrubText, summaryPart } from './permit-privacy';
+import { civicLabel, moneyFields, publicSummary, scrubText, stripActor, summaryPart } from './permit-privacy';
 import { permitTitleFor } from '@/lib/signals/mapping/permit';
 import { permitStageOf } from '@/lib/signals/stage';
 import { CAT_V } from '@/lib/signals/mapping/version';
-import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress } from './socrata';
+import { INSPECTION_ID_RE, categorize, classifyPermitRow, inspectionPublicText, inspectionTitle, printableValues, privatePosition, publicAddress, strictSiteAddress } from './socrata';
 import { ARCGIS_DATASETS, arcgisLookbackDays, arcgisPageUrl, type ArcgisDataset } from './arcgis-datasets';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
-import { cleanAddress } from '@/lib/contacts/sanitize';
 
 const LIMIT = 500;
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
@@ -257,10 +256,11 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         const titleBits = titlePrint.values;
         const joined = (ds.addressFields ?? []).map((x) => str(a, x)).filter(Boolean).join(' ');
         // Review P1-B: an unverified address column may hold a name. Only what the shared site-address rule keeps is used, else nothing.
-        const rawAddress = ds.strictAddress ? (cleanAddress(joined) ?? '') : joined;
+        const rawAddress = ds.strictAddress ? strictSiteAddress(joined) : joined;
         const summaryBits = ds.summaryFields
           .filter((x) => printableValues(ds, [x], (y) => str(a, y)).values.length > 0)
-          .map((x) => summaryPart(x, str(a, x)))
+          // Review P3-7: who acted on a 311 or violation row is never printed.
+          .map((x) => summaryPart(x, ds.subtype === '311' || ds.subtype === 'violation' ? stripActor(str(a, x)) : str(a, x)))
           // DeKalb's statusDescription holds the literal text "Issued Status Code" on live rows: a field label, not a status (final review, Q3 pattern 3).
           .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).

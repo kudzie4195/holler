@@ -1,6 +1,6 @@
 import { cleanAddress } from '@/lib/contacts/sanitize';
 export { BLOCK_ADDRESS_RE } from '@/lib/contacts/sanitize';
-import { STREET_SUFFIX_WORDS } from '@/lib/contacts/org';
+import { STREET_SUFFIX_WORDS, holdsGivenName, looksLikeFullPersonName } from '@/lib/contacts/org';
 
 /**
  * New York street addresses (round 20 VIOL review fixes P2-1, P2-2, P2-4). The shared rules (lib/contacts cleanAddress, socrata.ts
@@ -82,6 +82,29 @@ function streetFromClean(rest: string[], kept: string[]): string[] | null {
   return street;
 }
 
+/**
+ * Review P3-7: a kept address ("<house> <words...>") whose first street word is a person's given name, or whose first two street words read as
+ * a person's name, while the words after them still make a street on their own ("451 ZELDA WEST 52 STREET", "8701 MARIA LOPEZ GEORGIA AVE"):
+ * a name was typed into the house-number or street column. Such an address gives nothing. A street that IS a given name with only its
+ * type after it ("12 FRANKLIN AVENUE") is not refused: the rest is not a street on its own.
+ */
+export function nameBeforeStreet(kept: string): boolean {
+  const w = kept.replace(/\s+/g, ' ').trim().split(' ');
+  const house = w[0];
+  const rest = w.slice(1);
+  if (rest.length < 3) return false;
+  // A word that can be the start of a street name on its own: a direction, a street type ("ST MARKS"), a number or a unit word.
+  const streetish = (x: string) => DIR_RE.test(x) || STREET_SUFFIX_WORDS.has(x.replace(/\.$/, '').toLowerCase()) || /\d/.test(x) || UNIT_WORD_RE.test(x) || /^SAINT$/i.test(x);
+  const restIsStreet = (from: number) => {
+    const tail = rest.slice(from);
+    if (tail.length < 2 || STREET_SUFFIX_WORDS.has(tail[0].toLowerCase()) || UNIT_WORD_RE.test(tail[0])) return false;
+    return NUMBERED_STREET_RE.test(tail.join(' ')) || Boolean(cleanAddress(`${house} ${tail.join(' ')}`));
+  };
+  if (!streetish(rest[0]) && /^[A-Z'-]+$/i.test(rest[0]) && holdsGivenName(rest[0]) && restIsStreet(1)) return true;
+  if (!streetish(rest[0]) && !streetish(rest[1]) && looksLikeFullPersonName(`${rest[0]} ${rest[1]}`) && restIsStreet(2)) return true;
+  return false;
+}
+
 /** The building's street address (no unit), or ''. See the file header. */
 export function nycBuildingAddress(raw: unknown): string {
   if (typeof raw !== 'string') return '';
@@ -119,6 +142,7 @@ export function nycBuildingAddress(raw: unknown): string {
     street = streetFromClean(rest, keptTokens);
   }
   if (!street || street.length === 0) return '';
+  if (nameBeforeStreet(`${house} ${rest.join(' ')}`) && !NYC_NAMED_STREETS.some((n) => restText.startsWith(n))) return '';
   // Never a unit, in any spelling: a street ending in a unit-like token is not trusted (the type, a direction or a named word ends it).
   const last = street[street.length - 1];
   if (street.some((w) => w.startsWith('#') || UNIT_WORD_RE.test(w)) || (UNIT_TOKEN_RE.test(last) && !NUMBERED_STREET_RE.test(street.join(' ')) && !/^[A-Z]$/i.test(last))) return '';

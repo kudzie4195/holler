@@ -423,8 +423,15 @@ describe('mapping to trades and the proposed labels (real parser, real rules)', 
       expect(c.headsUp, `${t} heads-up a day`).toBeLessThanOrEqual(25);
     }
     const r = (x: number) => Math.round(x * 10) / 10;
+    // Review P3-2: the second, smaller path of two HPD trades (the SCORE shape holds one label per trade; proposed-labels.ts says so).
+    perDay.plumbing.headsUp += 6.0; // hot water (§ 27-2031): one heads-up per building per heating season
+    perDay.hvac.urgent += 0.75; // building-wide class C radiator orders
+    for (const [t, c] of Object.entries(perDay)) {
+      expect(c.urgent, `${t} urgent a day with second paths`).toBeLessThanOrEqual(10);
+      expect(c.headsUp, `${t} heads-up a day with second paths`).toBeLessThanOrEqual(25);
+    }
     expect(Object.fromEntries(Object.entries(perDay).map(([t, c]) => [t, [r(c.urgent), r(c.headsUp)]]))).toEqual({
-      plumbing: [9, 0], 'windows-doors': [9, 0], electrical: [6, 0], 'pest-control': [6, 21.4], painting: [0, 15], handyman: [0, 9], hvac: [0, 8],
+      plumbing: [9.8, 6], 'windows-doors': [9, 0], electrical: [7.5, 0], 'pest-control': [6, 21.4], painting: [0, 15], handyman: [0, 9], hvac: [0.8, 8],
       restoration: [0, 3], flooring: [0, 2.2], 'general-contractor': [0, 0],
     });
     // HPD heat is a heads-up (one per building per heating season), never urgent; the rodent feed is never urgent.
@@ -695,5 +702,117 @@ describe('review P2-1, P2-2: New York building addresses (internal step) and blo
   it('no unit word or "#" ever survives, on every case', async () => {
     const { nycBlockAddress } = await import('@/lib/signals/adapters/nyc-address');
     for (const [raw] of CASES) expect(nycBlockAddress(raw), raw).not.toMatch(/#|\b(?:APT|UNIT|FL|PH|BSMT|REAR|4B|2F|4D|5F|12A)\b/);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+describe('review P3-7: printed status and type values never carry who acted; a name in the house-number or street column gives no address', () => {
+  it('stripActor: "by <name>", "by OFFICER <name>", inspector and officer suffixes are cut; plain values are unchanged', async () => {
+    const { stripActor } = await import('@/lib/signals/adapters/permit-privacy');
+    expect(stripActor('Initial by OFFICER KRUPKE')).toBe('Initial');
+    expect(stripActor('Open by OFFICER KRUPKE')).toBe('Open');
+    expect(stripActor('Open by Zelda Fitzgerald')).toBe('Open');
+    expect(stripActor('Closed - per Inspector Smith')).toBe('Closed');
+    expect(stripActor('Compliance, Inspector J. Doe')).toBe('Compliance');
+    expect(stripActor('Assigned to Pat Kelly')).toBe('');
+    expect(stripActor('NOV SENT OUT')).toBe('NOV SENT OUT');
+    expect(stripActor('Initial')).toBe('Initial');
+    expect(stripActor('Rodent Inspection and Treatment')).toBe('Rodent Inspection and Treatment');
+  });
+
+  it('rodent inspection_type and DC SERVICEORDERSTATUS: the officer is never printed', () => {
+    const rodent = parseSoc(RODENT, [rodentRow('Rat Activity', { inspection_type: 'Initial by OFFICER KRUPKE' })]);
+    expect(rodent).toHaveLength(1);
+    expect(rodent[0].summary ?? '').toMatch(/^Initial \| /);
+    expect(JSON.stringify(rodent[0])).not.toMatch(/KRUPKE|OFFICER/);
+    const dc = parseArcgisReport({ features: [dcFeature('Rodent Inspection and Treatment', { SERVICEORDERSTATUS: 'Open by OFFICER KRUPKE' })] }, DC);
+    expect(dc.items).toHaveLength(1);
+    expect(dc.items[0].summary).toBe('Rodent Inspection and Treatment | Open');
+    expect(JSON.stringify(dc.items[0])).not.toMatch(/KRUPKE|OFFICER/);
+  });
+
+  it('a name typed into the house-number or street column: no address at all (never "400 block of Zelda WEST 52 STREET")', () => {
+    const rodent = parseSoc(RODENT, [rodentRow('Rat Activity', { house_number: '451 Zelda', street_name: 'WEST 52 STREET' })]);
+    expect(rodent).toHaveLength(1);
+    expect(rodent[0].summary ?? '').not.toMatch(/block of|Zelda|ZELDA/i);
+    const hpd = parseSoc(HPD, [hpdRow(HPD_TEXT.outlet, { housenumber: '2318', streetname: 'MARIA LOPEZ WEST 52 STREET' })]);
+    expect(hpd[0].summary ?? '').not.toMatch(/block of|MARIA|LOPEZ/i);
+    const mont = parseSoc(MONT, [montRow('Water Heater', 'Inoperable', { street_address: '8701 ZELDA GEORGIA AVE' })]);
+    expect(mont[0].summary ?? '').not.toMatch(/block of|ZELDA/i);
+    const phx = parseArcgisReport({ features: [phxFeature('Grass/Weeds', { ADDRESS: '1820 ZELDA W ROOSEVELT ST' })] }, PHX);
+    expect(phx.items[0].summary ?? '').not.toMatch(/block of|ZELDA/i);
+    // A street that is a given name with only its type after it stays: "FRANKLIN AVENUE".
+    const ok = parseSoc(HPD, [hpdRow(HPD_TEXT.outlet, { housenumber: '1220', streetname: 'FRANKLIN AVENUE' })]);
+    expect(ok[0].summary).toBe('NOV SENT OUT | 1200 block of FRANKLIN AVENUE');
+  });
+});
+
+describe('review P3-3: Montgomery "Inoperable" counts only with a vehicle item', () => {
+  it('a water heater, a door or a smoke detector marked Inoperable gets no towing or junk-removal tag; a vehicle does', () => {
+    const rows = parseSoc(MONT, [montRow('Water Heater', 'Inoperable'), montRow('Doors', 'Inoperable'), montRow('Smoke Detector', 'Inoperable'), montRow('Motor Vehicle', 'Inoperable')]);
+    expect(rows.map((r) => r.categories)).toEqual([['plumbing'], ['windows-doors', 'handyman'], ['electrical'], ['towing', 'junk-removal']]);
+    for (const r of rows.slice(0, 3)) {
+      expect(r.categories).not.toContain('towing');
+      expect(r.categories).not.toContain('junk-removal');
+    }
+  });
+});
+
+describe('review P3-2: HPD hot water, radiator, toilet stoppage and carbon-monoxide orders map to their trades; elevator orders name none', () => {
+  it.each([
+    ['§ 27-2031 ADM CODE PROVIDE HOT WATER AT ALL HOT WATER FIXTURES IN THE ENTIRE BUILDING', ['plumbing']],
+    ['§ 27-2005 HMC: PROPERLY REPAIR THE BROKEN OR DEFECTIVE RADIATOR IN THE PUBLIC HALL', ['hvac']],
+    ['§ 27-2026 ADM CODE ABATE THE NUISANCE CONSISTING OF STOPPAGE IN THE TOILET', ['plumbing']],
+    ['§ 27-2045 HMC: PROVIDE AN APPROVED AND OPERATIONAL CARBON MONOXIDE DETECTING DEVICE', ['electrical']],
+  ])('%s', (text, want) => {
+    const items = parseSoc(HPD, [hpdRow(text)]);
+    expect(items).toHaveLength(1);
+    expect(items[0].categories).toEqual(want);
+  });
+  it('an elevator order is dropped on purpose: no Holler trade does elevator work', () => {
+    expect(parseSoc(HPD, [hpdRow('§ 27-2005 HMC: REPAIR THE ELEVATOR CAB AND MAINTAIN IN GOOD WORKING ORDER')])).toEqual([]);
+  });
+  it('the extra wording is HPD only: the live Chicago violations do not read it', () => {
+    const chicago = SOCRATA_DATASETS.find((d) => d.id === 'socrata-chicago-violations')!;
+    expect(chicago.extraRules).toBeUndefined();
+  });
+});
+
+describe('review P3-6: the Phoenix complaint-level rule is a promotion prerequisite', () => {
+  it('a heads-up SOURCE_DEFAULTS value alone would not cap Phoenix: the violation rule decides first and gives act_now', async () => {
+    const r = parseArcgisReport({ features: [phxFeature('Grass/Weeds')] }, PHX).items[0];
+    const sig = { source: r.source, kind: r.kind, subtype: 'violation', title: r.title, summary: r.summary ?? null };
+    // Simulate promotion with a heads-up default: the default is only read when no rule fits, and a rule fits.
+    expect(ruleFor(sig, 'lawn-care')?.id).toBe('act-violation-named');
+    expect(labelFor(sig, 'lawn-care')).toBe('act_now');
+    const { PROPOSED_RULES } = await import('@/lib/signals/proposed-labels');
+    const rule = PROPOSED_RULES.find((x) => x.id === 'phoenix-complaint-heads-up');
+    expect(rule?.sources).toEqual(['arcgis-phoenix-violations']);
+    for (const id of ['socrata-nyc-hpd-violations', 'socrata-nyc-rodent-violations']) expect(PROPOSED_RULES.some((x) => x.sources.includes(id)), id).toBe(true);
+    expect(readFileSync('LAUNCH.md', 'utf8')).toMatch(/PREREQUISITE before promotion: the complaint-level rule `phoenix-complaint-heads-up`/);
+  });
+});
+
+describe('review P3-11: New York visits are grouped by building, not by the 100 m point', () => {
+  it('two buildings inspected the same day at one rounded point stay two cards; two orders at one building become one card', async () => {
+    const { violationVisits, visitKeyOf } = await import('@/lib/signals/repeat-marks');
+    const sameSpot = { latitude: '40.76512', longitude: '-73.98901' };
+    const items = parseSoc(HPD, [
+      hpdRow(HPD_TEXT.outlet, { housenumber: '451', streetname: 'WEST 52 STREET', ...sameSpot }),
+      hpdRow(HPD_TEXT.outlet, { housenumber: '455', streetname: 'WEST 52 STREET', ...sameSpot }),
+      hpdRow('§ 27-2005 HMC: PROPERLY REPAIR OR REPLACE THE BROKEN OR DEFECTIVE ELECTRICAL LIGHT FIXTURE AT CEILING IN THE KITCHEN', { housenumber: '451', streetname: 'WEST 52 STREET', ...sameSpot }),
+    ]);
+    expect(items).toHaveLength(3);
+    expect(new Set(items.map((i) => `${i.lat},${i.lon}`)).size).toBe(1); // one rounded point for all three
+    const rows = items.map((i) => ({ key: visitKeyOf({ ...i, subtype: 'violation' }) as string, id: i.externalId, source: i.source, kind: i.kind, title: i.title, summary: i.summary ?? null, categories: i.categories, stored: false }));
+    expect(rows[0].key).not.toBe(rows[1].key);
+    expect(rows[0].key).toBe(rows[2].key);
+    const plan = violationVisits(rows);
+    expect(plan.followerOf.get(items[2].externalId)).toBe(items[0].externalId);
+    expect(plan.followerOf.has(items[1].externalId)).toBe(false);
+    // The key never holds the address, and it is never stored (store.ts toRow, samples.ts sanitizeSample).
+    expect(rows[0].key).not.toMatch(/451|WEST|52/);
+    const { sanitizeSample } = await import('@/lib/signals/samples');
+    expect(sanitizeSample(items[0]).visitKey).toBeUndefined();
   });
 });

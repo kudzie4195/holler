@@ -81,7 +81,10 @@ export async function storeSourceSamples(db: Db, source: string, signals: Signal
  * HOLLER_VIOLATION_OWNERS_ENABLED is on, no other record an owner row), then every kept contact goes through sanitizeContacts with the
  * signal's own city.
  */
-export function sanitizeSample(s: SignalInput): SignalInput {
+export function sanitizeSample(input: SignalInput): SignalInput {
+  // Round 20 (review P3-11): the in-memory visit key is never stored.
+  const { visitKey: _visitKey, ...s } = input;
+  void _visitKey;
   if (!s.contacts?.length) return s;
   const allowed = contactsAllowedFor(s.data?.subtype, s.contacts);
   if (!allowed.length) return { ...s, contacts: [] };

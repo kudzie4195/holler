@@ -154,6 +154,13 @@ export interface SocrataDataset {
    * members only for a building with 3 or more residential units, and no feed read here carries a unit count, so it is never given.
    */
   buildingAddress?: { fields: string[]; when: (get: (field: string) => string) => boolean };
+  /**
+   * Round 20 (review P3-3): the classifier text built from the row instead of joining textFields (textFields are still the columns asked
+   * for). Montgomery reads its condition "Inoperable" only with a vehicle item, so a water heater or a door never gets towing tags.
+   */
+  textOf?: (get: (field: string) => string) => string;
+  /** Round 20 (review P3-2): extra category rules for this dataset only (NYC HPD order wording), applied after the subtype's rules. */
+  extraRules?: CategoryRule[];
   /** Round 20: 'nyc' reads the address columns by the New York rule (nyc-address.ts nycBlockAddress) instead of the shared one. */
   addressRule?: 'nyc';
   /** Round 19 coverage (review P1-B): the address is stored only as lib/contacts cleanAddress keeps it, else not at all. */
