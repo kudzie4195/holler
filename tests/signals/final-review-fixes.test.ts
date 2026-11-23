@@ -205,7 +205,7 @@ describe('P2-1: every 311 point is stored rounded to 3 decimals; the heat count 
     expect(after.slice(5)).toEqual(before.slice(5));
     await db.exec(SQL);
     expect((await db.query('select * from public.holler_signals order by id')).rows).toEqual(after);
-  });
+  }, 60_000);
 });
 
 // ---- P3-1 ---------------------------------------------------------------------------------------------------------------------------

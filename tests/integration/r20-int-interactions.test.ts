@@ -279,12 +279,13 @@ describe('5. the merged lists are the union of every branch', () => {
 
 describe('6. LAUNCH.md: one NEEDS KUDZI list and one ordered "Round 20 order" block that keeps every item of the four units', () => {
   const md = readFileSync('LAUNCH.md', 'utf8');
-  it('exactly one bold NEEDS KUDZI header and one Round 20 order block, steps 1 to 9 each with a reason', () => {
+  it('exactly one bold NEEDS KUDZI header and one Round 20 order block, steps 1 to 11 each with a reason', () => {
     expect(md.split('**NEEDS KUDZI').length - 1).toBe(1);
     expect(md.split('**Round 20 order**').length - 1).toBe(1);
     const block = md.slice(md.indexOf('**Round 20 order**'), md.indexOf('**Rounds 18 and 19 order**'));
     const steps = [...block.matchAll(/^(\d+)\. (.*)$/gm)];
-    expect(steps.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    // Final review fixes added step 10 (0037, optional) and step 11 (promotion prerequisites).
+    expect(steps.map((m) => Number(m[1]))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     for (const m of steps) expect(m[2], `step ${m[1]}`).toMatch(/ Why: /);
     for (const id of NEW_IDS) expect(block, id).toContain(`\`${id}\``);
     expect(block).toMatch(/0033, 0034 and 0035 are unused/);
