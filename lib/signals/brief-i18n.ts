@@ -23,6 +23,7 @@ import {
   type CardBrief,
   type CardBriefInput,
   isInteriorDemolitionCard,
+  isCommercialSaleTitle,
 } from './brief';
 import { BID_LIST_LINK_LABEL, BID_PORTAL_LINK_LABEL, bidSourceLinkLabel } from './bid-card';
 import { isResidentialHeatTitle, companyNameOf } from './managed-by';
@@ -211,7 +212,9 @@ export function briefFromDict(input: BriefInput & { label: BriefLabel; trade?: s
     ? t(lang, key(`brief.reason.${reason.id}.next`))
     : family === 'weather-alert' && label === 'coming_soon' && input.title
       ? t(lang, 'brief.next.weather-alert.soon_titled')
-      : t(lang, key(`brief.next.${family}`));
+      : family === 'sale' && isCommercialSaleTitle(input.title)
+        ? t(lang, 'brief.next.sale.commercial')
+        : t(lang, key(`brief.next.${family}`));
   return {
     ...base,
     why: whyFromDict(input, family, ctx, lang),
@@ -315,7 +318,7 @@ export function briefProbeInputs(): Array<BriefInput & { label: BriefLabel; trad
 
 /** Every string a localized brief can show, for the wording tests. */
 export function allBriefStringsLang(lang: Lang): string[] {
-  const out: string[] = BRIEF_FAMILIES.map((f) => t(lang, key(`brief.next.${f}`)));
+  const out: string[] = [...BRIEF_FAMILIES.map((f) => t(lang, key(`brief.next.${f}`))), t(lang, 'brief.next.sale.commercial')];
   for (const input of briefProbeInputs()) {
     const b = briefForLang(input, lang);
     out.push(b.why, b.uncertain);

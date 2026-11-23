@@ -628,9 +628,18 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'city-bid': "Check the due date and the buyer's bid page.",
   'public-post': 'Read the whole post before you reply.',
   'resident-request': 'Reply through Holler if it fits what you do.',
-  sale: 'Check the address and the property type.',
+  // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.
+  sale: 'A home on this block sold; homes often need work in the first months.',
   other: 'Check the address.',
 };
+
+/** A commercial sale's next step (the residential one is NEXT_STEP.sale). */
+export const SALE_COMMERCIAL_NEXT = 'A commercial property here sold; cleaning and security often follow.';
+
+/** "Commercial property sold in ..." (lib/signals/adapters/sales.ts saleTitle). Same test as lib/outreach/plan.ts. */
+export function isCommercialSaleTitle(title: string | null | undefined): boolean {
+  return typeof title === 'string' && /^Commercial property sold in /.test(title);
+}
 
 export interface Brief {
   family: BriefFamily;
@@ -701,7 +710,7 @@ export function briefFor(input: BriefInput & { label: BriefLabel; trade?: string
     label,
     trade,
     why,
-    next: reason?.copy.next ?? (family === 'weather-alert' && label === 'coming_soon' && input.title ? WEATHER_SOON_NEXT : NEXT_STEP[family]),
+    next: reason?.copy.next ?? (family === 'weather-alert' && label === 'coming_soon' && input.title ? WEATHER_SOON_NEXT : family === 'sale' && isCommercialSaleTitle(input.title) ? SALE_COMMERCIAL_NEXT : NEXT_STEP[family]),
     confidence: merged.confidence,
     uncertain: `${merged.confidence} confidence ${merged.known}; ${merged.unknown}.`,
   };

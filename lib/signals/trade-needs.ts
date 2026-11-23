@@ -130,6 +130,8 @@ const SUBTYPE_TYPE: Record<string, RecordType> = {
   business: 'business-licence',
   'event-permit': 'event-permit',
   bid: 'public-bid',
+  // Round 20 SALES (review P2-3): a recorded property sale (lib/signals/adapters/sales.ts writes data.subtype 'sale').
+  sale: 'property-sale',
 };
 
 const SOURCE_TYPE: Record<string, RecordType> = {

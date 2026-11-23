@@ -4,10 +4,10 @@ import { cleanAddress } from '@/lib/contacts/sanitize';
 import { cityBySlug, haversineMi, lookupZip } from '@/lib/geo';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
-import { toFloatingLocal, toIso } from './socrata';
+import { blockAddress, toFloatingLocal, toIso } from './socrata';
 import { arcgisDateToIso, toTimestampLiteral } from './arcgis';
 import { normalizeCartoDate } from './carto';
-import { MIN_SALE_PRICE, PHL_CARTO, SALES_DATASETS, saleRequestColumns, type SaleClass, type SaleDataset } from './sales-datasets';
+import { MIN_SALE_PRICE, PHL_CARTO, RESIDENTIAL_CLASSES, SALES_DATASETS, saleRequestColumns, type SaleClass, type SaleDataset } from './sales-datasets';
 
 /**
  * Round 20 SALES: the adapter for recorded property sales and deed transfers (configs in sales-datasets.ts, every one on probation).
@@ -38,6 +38,8 @@ export const SALE_MAX_PAGES = 2;
 export const JOIN_BATCH = 100;
 /** The adapter's own time budget: under the scan's 12 s probation limit (run.ts PROBATION_TIMEOUT_MS), so it ends cleanly first. */
 export const SALE_BUDGET_MS = 10_000;
+/** A second page is read only with this much budget left, so the join still has time (review P3). */
+export const PAGE2_MIN_LEFT_MS = 6_500;
 
 /**
  * A column that could hold a party to a sale. A request naming one is refused before it is sent. `name` alone is not here: street_name and
@@ -95,22 +97,51 @@ export const SALE_CLASS_LABEL: Record<SaleClass, string> = {
 };
 
 /**
- * Trades a sale is a heads-up for (round 20 SALES goal). Movers, cleaners, yard, painting, flooring, fence, security, locksmith, pest,
- * handyman, HVAC servicing and pool service when a home changes hands; commercial cleaning, security and signs for a commercial sale.
+ * Trades a sale is a heads-up for. A deed is published 2 to 8 weeks after closing, so only work that a home or building still needs in
+ * its first months is listed (review P2-2): yard care and fences, painting, flooring, handyman work, recurring cleaning, pest control and
+ * HVAC service plans, and alarm and security systems; for a commercial property, commercial cleaning and security. NOT listed: moving
+ * (the move is over), locksmith (rekeying happens at closing), signs and printing (they follow a new business, not a deed). Pool service
+ * only where pools are common (saleTradesFor: Miami single-family homes).
  */
 export const SALE_TRADES: Record<SaleClass, readonly CategoryId[]> = {
-  residential_single: ['moving', 'cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'locksmith', 'pest-control', 'handyman', 'hvac', 'pool-spa'],
-  condo: ['moving', 'cleaning', 'painting', 'flooring', 'security', 'locksmith', 'pest-control', 'handyman', 'hvac'],
-  multi_family: ['cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'locksmith', 'pest-control', 'handyman', 'hvac'],
-  commercial: ['janitorial-commercial', 'security', 'signs-printing'],
+  residential_single: ['cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'pest-control', 'handyman', 'hvac'],
+  condo: ['cleaning', 'painting', 'flooring', 'security', 'pest-control', 'handyman', 'hvac'],
+  multi_family: ['cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'pest-control', 'handyman', 'hvac'],
+  commercial: ['janitorial-commercial', 'security'],
 };
+
+/** Metros where a single-family sale also tags pool service (pools are common there). */
+export const POOL_METROS: ReadonlySet<string> = new Set(['miami']);
+
+/** The trades a sale of this class in this source's metro reaches. */
+export function saleTradesFor(ds: { metro: string }, cls: SaleClass): CategoryId[] {
+  return [...SALE_TRADES[cls], ...(cls === 'residential_single' && POOL_METROS.has(ds.metro) ? (['pool-spa'] as CategoryId[]) : [])];
+}
 
 export function saleTitle(cls: SaleClass, place: string, state: string): string {
   return `${SALE_TITLE_NOUN[cls]} sold in ${place}, ${state}`;
 }
 
-export function saleSummary(cls: SaleClass, band: PriceBand): string {
-  return `Price band: ${band} | ${SALE_CLASS_LABEL[cls]}`;
+/**
+ * "Price band: $250k–$500k | Single-family home | 3400 block of N Lakewood Ave". The place part is the block for a residential sale (no
+ * house number, no unit) and the street address for a commercial one.
+ */
+export function saleSummary(cls: SaleClass, band: PriceBand, place?: string | null): string {
+  return [`Price band: ${band}`, SALE_CLASS_LABEL[cls], ...(place ? [place] : [])].join(' | ');
+}
+
+const titleWord = (w: string) => (/^\d/.test(w) ? w.toLowerCase() : /^[NSEW]$|^(NE|NW|SE|SW)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+/**
+ * Review P1-2 (owner decision, round 20): a residential sale is stored and shown at BLOCK level only. "3412 N LAKEWOOD AVE UNIT 2" becomes
+ * "3400 block of N Lakewood Ave": the house number rounded down to the hundred, the unit dropped (lib/signals/adapters/socrata.ts
+ * blockAddress). Null when no block can be read.
+ */
+export function saleBlock(cleanStreet: string): string | null {
+  const b = blockAddress(cleanStreet);
+  const m = /^(\d+|0-99) block of (.+)$/.exec(b);
+  if (!m) return null;
+  return `${m[1]} block of ${m[2].split(' ').map(titleWord).join(' ')}`;
 }
 
 const NYC_BOROUGHS: Record<string, { name: string; lat: number; lon: number }> = {
@@ -144,7 +175,8 @@ export function placeOf(ds: Pick<SaleDataset, 'id' | 'city' | 'state' | 'placeFi
 
 type Row = Record<string, unknown>;
 const str = (v: unknown): string => (v === null || v === undefined ? '' : typeof v === 'object' ? '' : String(v).trim());
-const ID_RE = /^(?=.*\d)[A-Za-z0-9_.:-]{1,80}$/;
+/** Each id part is digits (dashes allowed), with NYC's FT_ / BK_ microfilm prefix allowed (review P3): no word can ride in an id. */
+const ID_PART_RE = /^(?:FT_|BK_)?\d[\d-]{0,39}$/;
 
 export interface SaleParseReport {
   items: SignalInput[];
@@ -164,9 +196,8 @@ export function saleRecordDate(ds: SaleDataset, v: unknown): string | null {
 
 function idOf(ds: SaleDataset, row: Row): string | null {
   const parts = (ds.idFields?.length ? ds.idFields : [ds.idField]).map((f) => str(row[f]));
-  if (parts.some((p) => !p)) return null;
-  const id = parts.join(':');
-  return ID_RE.test(id) ? id : null;
+  if (parts.some((p) => !ID_PART_RE.test(p))) return null;
+  return parts.join(':');
 }
 
 /** The row's point rounded to 3 decimals (a block), its ZIP centroid, or its borough or county stand-in (approx). */
@@ -185,18 +216,37 @@ function positionOf(ds: SaleDataset, row: Row, zip: string | null, anchor?: { la
   return anchor ? { ...anchor, approx: true } : null;
 }
 
-/** Rows (main columns, plus the join's when there is one) to sale records. Pure: no I/O. Rows older than the window are dropped. */
+/**
+ * Rows (main columns, plus the join's when there is one) to sale records. Pure: no I/O. Rows older than the window are dropped.
+ *
+ * One deed, one record (review P2-1, P2-6): rows that share an external id (a Cook County deed over several PINs, an NYC deed over several
+ * lots, a repeated Philadelphia document) make ONE record, built from the first row (in the given order) whose class is residential, else
+ * from the first row. A residential record keeps the block only, in its summary, and NO contact (review P1-2); a commercial record keeps
+ * the street address cleanAddress allows, in its summary and as a private site contact.
+ */
 export function parseSaleRows(rows: readonly unknown[], ds: SaleDataset, now: Date = new Date()): SaleParseReport {
   const report: SaleParseReport = { items: [], rows: rows.length, shapeOk: 0, dropped: { price: 0, class: 0, address: 0, old: 0 } };
   const oldest = now.getTime() - (ds.lookbackDays + 1) * 86_400_000;
   const latest = now.getTime() + 86_400_000;
+  const groups = new Map<string, Row[]>();
   for (const r of rows) {
     if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
     const row = r as Row;
     const externalId = idOf(ds, row);
-    const occurredAt = saleRecordDate(ds, row[ds.dateField]);
-    if (!externalId || !occurredAt) continue;
+    if (!externalId || !saleRecordDate(ds, row[ds.dateField])) continue;
     report.shapeOk++;
+    const g = groups.get(externalId);
+    if (g) g.push(row);
+    else groups.set(externalId, [row]);
+  }
+  const classOfRow = (row: Row): SaleClass | null => {
+    const cls = ds.classOf(str(row[ds.classField]));
+    // Miami-Dade flags condo units apart from the land-use code.
+    return cls === 'residential_single' && /^(y|yes|t|true|1)$/i.test(str(row.CONDO_FLAG)) ? 'condo' : cls;
+  };
+  for (const [externalId, group] of groups) {
+    const row = group.find((x) => { const c = classOfRow(x); return c !== null && RESIDENTIAL_CLASSES.has(c); }) ?? group[0];
+    const occurredAt = saleRecordDate(ds, row[ds.dateField])!;
     const t = Date.parse(occurredAt);
     if (t < oldest || t > latest) {
       report.dropped.old++;
@@ -207,17 +257,17 @@ export function parseSaleRows(rows: readonly unknown[], ds: SaleDataset, now: Da
       report.dropped.price++;
       continue;
     }
-    let cls = ds.classOf(str(row[ds.classField]));
-    // Miami-Dade flags condo units apart from the land-use code.
-    if (cls === 'residential_single' && /^(y|yes|t|true|1)$/i.test(str(row.CONDO_FLAG))) cls = 'condo';
+    const cls = classOfRow(row);
     if (!cls) {
       report.dropped.class++;
       continue;
     }
-    const unit = ds.unitField ? str(row[ds.unitField]) : '';
-    const rawAddress = [...ds.addressFields.map((f) => str(row[f])), unit && /^[A-Za-z0-9-]{1,6}$/.test(unit) ? `UNIT ${unit}` : ''].filter(Boolean).join(' ');
-    const address = cleanAddress(rawAddress);
-    if (!address) {
+    const residential = RESIDENTIAL_CLASSES.has(cls);
+    const street = cleanAddress(ds.addressFields.map((f) => str(row[f])).filter(Boolean).join(' '));
+    // A unit is kept for a commercial property only; a home's unit is never read into anything stored.
+    const unit = !residential && ds.unitField ? str(row[ds.unitField]) : '';
+    const shownPlace = !street ? null : residential ? saleBlock(street) : unit && /^[A-Za-z0-9-]{1,6}$/.test(unit) ? cleanAddress(`${street} UNIT ${unit}`) ?? street : street;
+    if (!shownPlace) {
       report.dropped.address++;
       continue;
     }
@@ -231,18 +281,18 @@ export function parseSaleRows(rows: readonly unknown[], ds: SaleDataset, now: Da
       externalId,
       kind: 'civic',
       title: saleTitle(cls, place.name, ds.state),
-      summary: saleSummary(cls, band),
+      summary: saleSummary(cls, band, shownPlace),
       url: ds.sourceUrl,
       lat: pos?.lat ?? null,
       lon: pos?.lon ?? null,
       city: place.name,
       state: ds.state,
       zip,
-      categories: [...SALE_TRADES[cls]],
+      categories: saleTradesFor(ds, cls),
       severity: 1,
       occurredAt,
       data: { subtype: 'sale', recordKind: 'property-sale', saleClass: cls, priceBand: band, ...(pos?.approx ? { approxLocation: true } : {}) },
-      contacts: [{ role: 'site', name: '', address, city: place.name, state: ds.state, zip }],
+      ...(residential ? {} : { contacts: [{ role: 'site' as const, name: '', address: shownPlace, city: place.name, state: ds.state, zip }] }),
     });
   }
   return report;
@@ -264,7 +314,7 @@ export function buildSocrataSaleQuery(ds: SaleDataset, now: Date, page = 0, limi
   const p = new URLSearchParams();
   p.set('$select', safe(ds.columns).join(','));
   p.set('$where', socrataWhere(ds, now));
-  p.set('$order', `${ds.dateField} DESC, ${ds.idField}`);
+  p.set('$order', [`${ds.dateField} DESC`, ds.idField, ...(ds.orderTiebreak ?? [])].map(assertSafeColumn).join(', '));
   p.set('$limit', String(limit));
   if (page > 0) p.set('$offset', String(page * limit));
   return p;
@@ -298,7 +348,8 @@ export function buildSocrataJoinQuery(ds: SaleDataset, keys: readonly string[]):
   p.set('$select', safe(j.columns).join(','));
   p.set('$where', `${assertSafeColumn(j.keyField)} in (${ok.map((k) => `'${k}'`).join(',')})`);
   if (j.orderField) p.set('$order', `${assertSafeColumn(j.orderField)} DESC`);
-  p.set('$limit', String(Math.min(5000, ok.length * 20)));
+  else if (j.sortFields?.length) p.set('$order', [j.keyField, ...j.sortFields].map(assertSafeColumn).join(', '));
+  p.set('$limit', String(Math.min(5000, ok.length * (j.orderField ? 5 : 20))));
   return p;
 }
 
@@ -403,20 +454,33 @@ type Got = { ok: true; status: number; body: unknown } | { ok: false; status: nu
 
 async function getJson(doFetch: typeof fetch, url: string, timeoutMs: number): Promise<Got> {
   try {
-    const res = await doFetch(url, { headers: { Accept: 'application/json', 'User-Agent': UA }, signal: AbortSignal.timeout(Math.max(500, timeoutMs)) });
+    const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': UA };
+    // Socrata app token, as the main Socrata adapter sends it (review P3: unthrottled join batches).
+    const token = process.env.SOCRATA_APP_TOKEN;
+    if (token && url.includes('/resource/')) headers['X-App-Token'] = token;
+    const res = await doFetch(url, { headers, signal: AbortSignal.timeout(Math.max(500, timeoutMs)) });
+    // Review P3: a portal's error text is never logged or stored (it could echo a value); the HTTP status says enough.
+    if (!res.ok) return { ok: false, status: res.status, problem: `HTTP ${res.status}` };
     const read = await readJsonBody(res);
     if (!read.ok) return { ok: false, status: res.status, problem: read.problem };
-    if (!res.ok) {
-      const b = read.body as { message?: unknown; error?: unknown } | null;
-      const raw = b?.message ?? (Array.isArray(b?.error) ? b?.error[0] : b?.error) ?? '';
-      const msg = String(raw).replace(/[^\w :.,'-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
-      return { ok: false, status: res.status, problem: `HTTP ${res.status}${msg ? `; ${msg}` : ''}` };
-    }
     return { ok: true, status: res.status, body: read.body };
   } catch (e) {
     const name = e instanceof Error ? e.name : '';
-    return { ok: false, status: null, problem: name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : e instanceof Error ? e.message.slice(0, 120) : 'request failed' };
+    return { ok: false, status: null, problem: name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'request failed' };
   }
+}
+
+/** Stable order of join rows: numeric where both values read as numbers, else as text. */
+function compareBy(a: Row, b: Row, fields: readonly string[]): number {
+  for (const f of fields) {
+    const x = str(a[f]);
+    const y = str(b[f]);
+    const nx = Number(x);
+    const ny = Number(y);
+    const c = x !== '' && y !== '' && Number.isFinite(nx) && Number.isFinite(ny) ? nx - ny : x < y ? -1 : x > y ? 1 : 0;
+    if (c !== 0) return c;
+  }
+  return 0;
 }
 
 /** Keeps only the named columns of a row (a portal that ignores $select or outFields still hands nothing else on). */
@@ -455,7 +519,7 @@ async function fetchSocrata(ds: SaleDataset, doFetch: typeof fetch, now: Date, o
   const left = () => deadline - Date.now();
   const main: Row[] = [];
   for (let page = 0; page < o.pages; page++) {
-    if (page > 0 && left() < 4000) break;
+    if (page > 0 && left() < PAGE2_MIN_LEFT_MS) break;
     const g = await getJson(doFetch, socrataUrl(ds.domain!, ds.datasetId!, buildSocrataSaleQuery(ds, now, page, o.limit)), Math.min(UNVERIFIED_REQUEST_TIMEOUT_MS, left()));
     if (!g.ok) {
       out.httpStatus = g.status;
@@ -474,7 +538,7 @@ async function fetchSocrata(ds: SaleDataset, doFetch: typeof fetch, now: Date, o
       if (p) main.push(p);
     }
     if (g.body.length < o.limit) break;
-    if (page === o.pages - 1 || left() < 4000) out.capped = true;
+    if (page === o.pages - 1 || left() < PAGE2_MIN_LEFT_MS) out.capped = true;
   }
   if (!ds.join || !main.length) {
     out.rows = main;
@@ -490,7 +554,9 @@ async function fetchSocrata(ds: SaleDataset, doFetch: typeof fetch, now: Date, o
       return q ? getJson(doFetch, socrataUrl(ds.domain!, j.datasetId, q), Math.min(UNVERIFIED_REQUEST_TIMEOUT_MS, left())) : Promise.resolve<Got>({ ok: true, status: 200, body: [] });
     }),
   );
-  const byKey = new Map<string, Row>();
+  // With orderField (Cook County, newest tax year first) one row per key is kept; without it (NYC: one deed, several lots) every row is
+  // kept, sorted by sortFields, and the parser keeps one record per deed (first residential lot, else the first lot).
+  const byKey = new Map<string, Row[]>();
   for (const g of answers) {
     if (!g.ok) {
       out.logs.push(failLine(ds, g, `join ${j.datasetId}:`));
@@ -503,14 +569,18 @@ async function fetchSocrata(ds: SaleDataset, doFetch: typeof fetch, now: Date, o
     for (const r of g.body) {
       const p = pick(r, j.columns);
       const k = p ? str(p[j.keyField]) : '';
-      if (p && k && !byKey.has(k)) byKey.set(k, p); // newest first (orderField DESC): the first row per key wins
+      if (!p || !k) continue;
+      const list = byKey.get(k);
+      if (!list) byKey.set(k, [p]);
+      else if (!j.orderField) list.push(p);
     }
   }
   if (!keys.some((k) => byKey.has(k))) {
     out.logs.push(`error: schema mismatch: join ${j.datasetId} matched none of ${keys.length} keys on ${j.keyField} (${ds.id})`);
     return;
   }
-  out.rows = main.map((r) => ({ ...(byKey.get(str(r[j.mainKeyField])) ?? {}), ...r }));
+  if (j.sortFields?.length) for (const list of byKey.values()) list.sort((a, b) => compareBy(a, b, j.sortFields!));
+  out.rows = main.flatMap((r) => (byKey.get(str(r[j.mainKeyField])) ?? [{}]).map((jr) => ({ ...jr, ...r })));
 }
 
 /** ArcGIS: the layer's field list, then the query. Returns the names present (null when the list could not be read). */

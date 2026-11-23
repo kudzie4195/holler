@@ -38,8 +38,13 @@ export interface SaleJoin {
   mainKeyField: string;
   /** Every column the join request names ($select). */
   columns: string[];
-  /** Newest first when the join dataset has several rows per key (Cook County addresses: one per tax year). */
+  /** Newest first when the join dataset has several rows per key (Cook County addresses: one per tax year): only the first row is kept. */
   orderField?: string;
+  /**
+   * Without orderField every join row of a key is kept (NYC: one deed can cover several lots), sorted by these columns (numeric when they
+   * read as numbers) so the order is stable; the parser then keeps one record per deed (review P2-6).
+   */
+  sortFields?: string[];
   verifiedUrl: string;
 }
 
@@ -84,6 +89,8 @@ export interface SaleDataset {
   lonField?: string;
   /** Every column the main query names. */
   columns: string[];
+  /** Extra $order columns after the date and the id (Socrata), so rows of one deed come in a stable order. */
+  orderTiebreak?: string[];
   join?: SaleJoin;
   /** Raw where clause appended with AND (column vocabulary of the main query). */
   extraWhere?: string;
@@ -112,33 +119,65 @@ const CHECKED = '2026-11-22';
 /** A row below this price is not a market sale (family transfer, nominal $1 or $10 deed): dropped, in the query and again in code. */
 export const MIN_SALE_PRICE = 10_000;
 
-// ---- class code tables (all [A]: platform documentation from memory; the probe's mapped rows show whether they hold) ------------------
+// ---- class code tables -------------------------------------------------------------------------------------------------------------
+// Review fix (P2-4, P2-5): every code below was checked against the published list, tagged per table. A code not listed DROPS the row:
+// a wrong code can never relabel a home as commercial or the reverse.
 
-/** NYC ACRIS property type codes (ACRIS Property Types Codes, 94g4-w6xz). Only codes listed here map; any other drops the row. */
+/**
+ * NYC ACRIS property type codes, read 2026-11-22 from the city's own table "ACRIS - Property Types Codes" (94g4-w6xz, CSV export) [O].
+ * Mapped: D1 "DWELLING ONLY - 1 FAMILY", RG "1-2 FAMILY DWELLING WITH ATTACHED GARAGE", RP "1- 2 FAM WITH ATTCH GAR &/OR VACANT LAND",
+ * RV "1-2 FAMILY DWELLING WITH VACANT LAND" (a house); SC "SINGLE RESIDENTIAL CONDO UNIT" (condo); D2-D6 "DWELLING ONLY - 2..6 FAMILY",
+ * AP "APARTMENT BUILDING", MC "MULTIPLE RESIDENTIAL CONDO UNT", F1 "1-3 FAMILY WITH STORE / OFFICE", F4 "4-6 FAMILY WITH STORE / OFFICE",
+ * F5 "5-6 FAMILY WITH STORE / OFFICE", FS "4 FAMILY WITH STORE / OFFICE" (multi-family: homes over a store are residential buildings);
+ * CC "COMMERCIAL CONDO UNIT(S)", CP "COMMERCIAL COOP UNIT(S)", CR "COMMERCIAL REAL ESTATE", OF "OFFICE BUILDING", IB "INDUSTRIAL BUILDING",
+ * RB "RETAIL BUILDING" (commercial). Dropped on purpose: coop units (SP, MP, SA: shares, not deeds), parking, storage and maid's rooms
+ * (PS, SR, MR), garages (GR), vacant land (VL, VR, VN, VI), bulk and combined sales (BS, SM, CA, MU), REITs (RE, R1, R2), timeshares,
+ * religious, utility, entertainment, HDFC, "other", "not applicable", pre-ACRIS. (The first version mapped 1F-4F, CM, ST and IP, which
+ * are not in the table, F1 as commercial, and SR and MR as condos: all wrong, all fixed here.)
+ */
 export const NYC_PROPERTY_TYPES: Readonly<Record<string, SaleClass>> = {
-  D1: 'residential_single', '1F': 'residential_single',
-  D2: 'multi_family', D3: 'multi_family', D4: 'multi_family', '2F': 'multi_family', '3F': 'multi_family', '4F': 'multi_family', AP: 'multi_family',
-  SC: 'condo', SR: 'condo', MR: 'condo',
-  CC: 'commercial', CM: 'commercial', CR: 'commercial', OF: 'commercial', ST: 'commercial', IP: 'commercial', F1: 'commercial', RG: 'commercial',
+  D1: 'residential_single', RG: 'residential_single', RP: 'residential_single', RV: 'residential_single',
+  SC: 'condo',
+  D2: 'multi_family', D3: 'multi_family', D4: 'multi_family', D5: 'multi_family', D6: 'multi_family', AP: 'multi_family', MC: 'multi_family',
+  F1: 'multi_family', F4: 'multi_family', F5: 'multi_family', FS: 'multi_family',
+  CC: 'commercial', CP: 'commercial', CR: 'commercial', OF: 'commercial', IB: 'commercial', RB: 'commercial',
 };
 
 export function nycClassOf(raw: string): SaleClass | null {
-  return NYC_PROPERTY_TYPES[raw.trim().toUpperCase()] ?? null;
+  const k = raw.trim().toUpperCase();
+  return Object.hasOwn(NYC_PROPERTY_TYPES, k) ? NYC_PROPERTY_TYPES[k] : null;
 }
 
-/** Cook County Assessor classes: 2-xx residential, 3-xx multi-family rental (7+ units), 5-xx commercial and industrial. */
+/**
+ * Cook County Assessor classes, read 2026-11-22 from the Assessor's "Class codes definitions 12.16.24" PDF [O]
+ * (prodassets.cookcountyassessor.com). Single-family: 2-02 to 2-09 (one-story and two-or-more story residences), 2-10 (old style row
+ * house), 2-34 (split level), 2-78 (two-or-more story, 2,001 to 3,800 sq ft), 2-95 (individually owned townhome or row house).
+ * Condo: 2-99 (residential condominium). Multi-family: 2-11 (apartment building, 2 to 6 units), 2-12 (mixed-use, 6 units or less),
+ * 3-13, 3-14, 3-15, 3-18, 3-91, 3-96, 3-99 (rental apartments, 7+ units; rental condominium). Commercial: 5-xx improved (5-17 one-story
+ * commercial, 5-22 automotive, 5-23 gasoline station, 5-31 shopping center, 5-91 over three stories, 5-92, 5-97, 5-99 commercial condo,
+ * other 5-xx buildings). Dropped: vacant land (1-00, 1-90, 2-41, 3-00, 5-00 commercial land, 5-50 industrial land), minor improvements
+ * (2-90, 3-01, 5-90), cooperatives (2-13), farm, SRO, bed and breakfast, special and exemption classes (2-19, 2-24, 2-25, 2-36, 2-39,
+ * 2-40, 2-88, 2-97, 3-97).
+ */
+const COOK_SINGLE = new Set([202, 203, 204, 205, 206, 207, 208, 209, 210, 234, 278, 295]);
+const COOK_MULTI = new Set([211, 212, 313, 314, 315, 318, 391, 396, 399]);
+const COOK_COMMERCIAL_DROP = new Set([500, 550, 590]);
+
 export function cookClassOf(raw: string): SaleClass | null {
   const d = raw.replace(/\D/g, '');
   if (!/^\d{3}$/.test(d)) return null;
   const n = Number(d);
-  if ((n >= 202 && n <= 210) || n === 234 || n === 278) return 'residential_single';
+  if (COOK_SINGLE.has(n)) return 'residential_single';
   if (n === 299) return 'condo';
-  if (n === 211 || n === 212 || (n >= 313 && n <= 399)) return 'multi_family';
-  if (n >= 500 && n <= 599) return 'commercial';
-  return null; // vacant (1xx, 200, 241), exempt, railroad, incentive classes
+  if (COOK_MULTI.has(n)) return 'multi_family';
+  if (n >= 500 && n <= 599 && !COOK_COMMERCIAL_DROP.has(n)) return 'commercial';
+  return null;
 }
 
-/** Philadelphia OPA category_code_description [3P name, values A]. */
+/**
+ * Philadelphia OPA category_code_description [A: values from memory; the column name is 3P]. A condo unit has no category of its own
+ * there, so it reads as "Home"; MIXED USE (store with dwelling) reads as commercial. The probe's mapped rows show whether these hold.
+ */
 export function phlClassOf(raw: string): SaleClass | null {
   const v = raw.trim().toUpperCase();
   if (v === 'SINGLE FAMILY') return 'residential_single';
@@ -147,17 +186,27 @@ export function phlClassOf(raw: string): SaleClass | null {
   return null; // VACANT LAND and anything else
 }
 
-/** Florida DOR land use codes, Miami-Dade 4-digit form: the first two digits are the state code. */
+/**
+ * Florida DOR land use codes, read 2026-11-22 from Fla. Admin. Code R. 12D-8.008 (Cornell LII) [O]: 0100 Single Family, 0300
+ * Multi-family 10 units or more, 0400 Condominia, 0800 Multi-family less than 10 units, 1100-3900 commercial (1000 Vacant Commercial),
+ * 4100-4900 industrial (4000 Vacant Industrial). Miami-Dade writes the code as 4 digits [3P]; a shorter value (a number that lost its
+ * leading zero, "101", 303) is padded back to 4 digits before reading the first two (review P2-4), so "303" is 0303 (multi-family), never
+ * commercial. Dropped: vacant (00, 10, 40), mobile homes (02), cooperatives (05), retirement homes (06), miscellaneous residential (07), 09,
+ * and 50 and up (agricultural, institutional, government, ...).
+ */
 export function miamiClassOf(raw: string): SaleClass | null {
-  const d = raw.replace(/\D/g, '');
-  if (d.length < 2) return null;
-  const two = Number(d.slice(0, 2));
+  const d = raw.trim();
+  if (!/^\d{1,4}$/.test(d)) return null;
+  const two = Number(d.padStart(4, '0').slice(0, 2));
   if (two === 1) return 'residential_single';
   if (two === 4) return 'condo';
   if (two === 3 || two === 8) return 'multi_family';
   if ((two >= 11 && two <= 39) || (two >= 41 && two <= 49)) return 'commercial';
-  return null; // vacant (00, 10, 40), mobile homes, co-ops, agricultural, institutional, government
+  return null;
 }
+
+/** Residential classes: stored and shown at block level only, never with a house number or unit (review P1-2, owner decision r20). */
+export const RESIDENTIAL_CLASSES: ReadonlySet<SaleClass> = new Set(['residential_single', 'condo', 'multi_family']);
 
 // ---- endpoints --------------------------------------------------------------------------------------------------------------------
 
@@ -181,7 +230,8 @@ export const SALES_DATASETS: SaleDataset[] = [
     extraWhere: `doc_type in ('DEED','DEEDO') AND document_amt >= ${MIN_SALE_PRICE}`,
     join: {
       datasetId: NYC_ACRIS_LEGALS, keyField: 'document_id', mainKeyField: 'document_id',
-      columns: ['document_id', 'borough', 'property_type', 'street_number', 'street_name', 'unit'],
+      columns: ['document_id', 'borough', 'block', 'lot', 'property_type', 'street_number', 'street_name', 'unit'],
+      sortFields: ['borough', 'block', 'lot'],
       verifiedUrl: `https://data.cityofnewyork.us/api/views/${NYC_ACRIS_LEGALS}.json`,
     },
     lookbackDays: 45, classOf: nycClassOf, cadenceMinutes: 720,
@@ -189,14 +239,15 @@ export const SALES_DATASETS: SaleDataset[] = [
     verifiedUrl: `https://data.cityofnewyork.us/api/views/${NYC_ACRIS_MASTER}.json`,
     sourceUrl: 'https://data.cityofnewyork.us/d/bnx9-e6tj', checkedOn: CHECKED, fieldSource: 'assumed',
     evidence: { columns: 'A', endpoint: '3P', freshness: '3P' },
-    note: 'ON PROBATION. NYC ACRIS Real Property Master (bnx9-e6tj) joined to Real Property Legals (8h5j-fqxa) on document_id [3P ids]. Columns [A]: master document_id, doc_type, recorded_datetime, document_amt; legals document_id, borough, property_type, street_number, street_name, unit. Deeds only (DEED, DEEDO [A]) of at least $10,000. Real Property Parties (636b-3b5g, names and addresses) is NEVER queried. Freshness is UNCERTAIN: "lags the live City Register by weeks" and one capture said Master was last updated 2026-09-08 [3P]; if the probe says stale, do not promote. No ZIP or coordinates: rows sit at their borough centre (approxLocation).',
+    note: 'ON PROBATION. NYC ACRIS Real Property Master (bnx9-e6tj) joined to Real Property Legals (8h5j-fqxa) on document_id [3P ids]. Columns [A]: master document_id, doc_type, recorded_datetime, document_amt; legals document_id, borough, property_type, street_number, street_name, unit. Deeds only (DEED, DEEDO [A]) of at least $10,000. Real Property Parties (636b-3b5g, names and addresses) is NEVER queried. Freshness is UNCERTAIN: "lags the live City Register by weeks" and one capture said Master was last updated 2026-09-08 [3P]; if the probe says stale, do not promote. No ZIP or coordinates: rows sit at their borough centre (approxLocation). A deed over several lots makes ONE record: the first lot (borough, block, lot order) whose property type is residential, else the first lot. Property type codes are from the city\'s own table 94g4-w6xz [O].',
   },
   // ---- Chicago ----------------------------------------------------------------------------------------------------------------------
   {
-    id: 'socrata-cook-sales', platform: 'socrata', metro: 'chicago', city: 'Chicago', state: 'IL', tz: 'America/Chicago',
+    id: 'socrata-cook-sales', platform: 'socrata', metro: 'chicago', city: 'Cook County', state: 'IL', tz: 'America/Chicago',
     countyAnchor: { lat: 41.85003, lon: -87.65005 },
     domain: 'datacatalog.cookcountyil.gov', datasetId: COOK_SALES,
-    idField: 'doc_no', idFields: ['doc_no', 'pin'], dateField: 'sale_date', priceField: 'sale_price', classField: 'class',
+    // One deed, one record (review P2-1): a deed over several PINs repeats doc_no on each PIN's row; the parser keeps one.
+    idField: 'doc_no', dateField: 'sale_date', orderTiebreak: ['pin'], priceField: 'sale_price', classField: 'class',
     addressFields: ['prop_address_full'], zipField: 'prop_address_zipcode_1', placeField: 'prop_address_city_name',
     columns: ['pin', 'doc_no', 'sale_date', 'sale_price', 'class'],
     extraWhere: `sale_price >= ${MIN_SALE_PRICE}`,
@@ -210,7 +261,7 @@ export const SALES_DATASETS: SaleDataset[] = [
     verifiedUrl: `https://datacatalog.cookcountyil.gov/api/views/${COOK_SALES}.json`,
     sourceUrl: 'https://datacatalog.cookcountyil.gov/d/wvhk-k5uv', checkedOn: CHECKED, fieldSource: 'assumed',
     evidence: { columns: 'A', endpoint: '3P', freshness: '3P' },
-    note: 'ON PROBATION. Cook County Assessor Parcel Sales (wvhk-k5uv) joined to Parcel Addresses (3723-97qp) on pin [3P ids]; both semi-monthly, last updated 2026-11-15 [3P]. Sales arrive late ("many records not populating until months after their official recording date"; newest sale ~5.5 weeks behind in Aug 2026 [3P]), so the window is 60 days. Columns [A]: sales pin, doc_no, sale_date, sale_price, class; addresses pin, year, prop_address_full, prop_address_city_name, prop_address_zipcode_1 (newest year kept). buyer_name, seller_name, owner_address_name and mail_address_* are NEVER selected. Rows are placed at their ZIP centre (approxLocation).',
+    note: 'ON PROBATION. Cook County Assessor Parcel Sales (wvhk-k5uv) joined to Parcel Addresses (3723-97qp) on pin [3P ids]; both semi-monthly, last updated 2026-11-15 [3P]. Sales arrive late ("many records not populating until months after their official recording date"; newest sale ~5.5 weeks behind in Aug 2026 [3P]), so the window is 60 days. Columns [A]: sales pin, doc_no, sale_date, sale_price, class; addresses pin, year, prop_address_full, prop_address_city_name, prop_address_zipcode_1 (newest year kept). buyer_name, seller_name, owner_address_name and mail_address_* are NEVER selected. Rows are placed at their ZIP centre (approxLocation). One deed over several PINs makes ONE record (the first residential PIN, else the first PIN, in PIN order).',
   },
   // ---- Philadelphia -----------------------------------------------------------------------------------------------------------------
   {

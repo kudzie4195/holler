@@ -264,25 +264,31 @@ describe('privacy in what is stored: names planted in every column never reach a
     expect(stored).not.toMatch(/850000|412000|1250000|210000/);
   });
 
-  it('a record keeps only the address (site contact, no name), the date, the band and the class', () => {
+  it('a home keeps only its block (in the summary, no contact), the date, the band and the class', () => {
     const [s] = parseSaleRows([JOINED['socrata-nyc-acris-sales']], ds('socrata-nyc-acris-sales'), NOW).items;
     expect(s).toMatchObject({
       title: 'Home sold in Brooklyn, NY',
-      summary: 'Price band: $500k–$1M | Single-family home',
+      summary: 'Price band: $500k–$1M | Single-family home | 200 block of Prospect Pl',
       occurredAt: '2026-11-10T05:00:00.000Z',
       state: 'NY',
       data: { subtype: 'sale', recordKind: 'property-sale', saleClass: 'residential_single', priceBand: '$500k–$1M', approxLocation: true },
-      contacts: [{ role: 'site', name: '', address: '245 PROSPECT PL', city: 'Brooklyn', state: 'NY', zip: null }],
     });
+    expect(s.contacts).toBeUndefined();
+    expect(JSON.stringify(sanitizeSample(s))).not.toMatch(/\b245\b/);
     expect(Object.keys(s.data!).sort()).toEqual(['approxLocation', 'priceBand', 'recordKind', 'saleClass', 'subtype']);
-    expect(sanitizeSample(s).contacts).toEqual([expect.objectContaining({ role: 'site', name: '' })]);
+  });
+
+  it('a commercial sale keeps its street address (summary and a nameless site contact)', () => {
+    const [s] = parseSaleRows([JOINED['carto-phl-sales']], ds('carto-phl-sales'), NOW).items;
+    expect(s.summary).toBe('Price band: over $1M | Commercial property | 1520 SPRUCE ST');
+    expect(s.contacts).toEqual([{ role: 'site', name: '', address: '1520 SPRUCE ST', city: 'Philadelphia', state: 'PA', zip: '19102' }]);
   });
 
   it('an address column that holds a name drops the row; a city column that holds a name prints the dataset place', () => {
     const cook = ds('socrata-cook-sales');
     expect(parseSaleRows([{ ...JOINED['socrata-cook-sales'], prop_address_full: 'JOHN Q SMITHERSON' }], cook, NOW).items).toEqual([]);
     const [s] = parseSaleRows([{ ...JOINED['socrata-cook-sales'], prop_address_city_name: 'MARIA LOPEZ' }], cook, NOW).items;
-    expect(s.title).toBe('Home sold in Chicago, IL');
+    expect(s.title).toBe('Home sold in Cook County, IL');
     const [e] = parseSaleRows([{ ...JOINED['socrata-cook-sales'], prop_address_city_name: 'EVANSTON' }], cook, NOW).items;
     expect(e.title).toBe('Home sold in Evanston, IL');
   });
@@ -296,7 +302,7 @@ describe('privacy in what is stored: names planted in every column never reach a
 // ---- wording -------------------------------------------------------------------------------------------------------------------------
 
 describe('titles, summaries, bands and classes', () => {
-  it('title shapes per class, summary = band and class only', () => {
+  it('title shapes per class, summary = band, class and (when given) the block or street', () => {
     expect(saleTitle('residential_single', 'Brooklyn', 'NY')).toBe('Home sold in Brooklyn, NY');
     expect(saleTitle('commercial', 'Chicago', 'IL')).toBe('Commercial property sold in Chicago, IL');
     expect(saleTitle('condo', 'Miami', 'FL')).toBe('Condo sold in Miami, FL');
@@ -316,13 +322,14 @@ describe('titles, summaries, bands and classes', () => {
   it('the four sources make the four expected records', () => {
     const out = IDS.map((id) => parseSaleRows([JOINED[id]], ds(id), NOW).items[0]);
     expect(out.map((s) => [s.title, s.summary])).toEqual([
-      ['Home sold in Brooklyn, NY', 'Price band: $500k–$1M | Single-family home'],
-      ['Home sold in Chicago, IL', 'Price band: $250k–$500k | Single-family home'],
-      ['Commercial property sold in Philadelphia, PA', 'Price band: over $1M | Commercial property'],
-      ['Condo sold in Miami, FL', 'Price band: under $250k | Condo'],
+      ['Home sold in Brooklyn, NY', 'Price band: $500k–$1M | Single-family home | 200 block of Prospect Pl'],
+      ['Home sold in Chicago, IL', 'Price band: $250k–$500k | Single-family home | 3400 block of N Lakewood Ave'],
+      ['Commercial property sold in Philadelphia, PA', 'Price band: over $1M | Commercial property | 1520 SPRUCE ST'],
+      ['Condo sold in Miami, FL', 'Price band: under $250k | Condo | 1000 block of Brickell Ave'],
     ]);
-    expect(out[2].categories).toEqual(['janitorial-commercial', 'security', 'signs-printing']);
+    expect(out[2].categories).toEqual(['janitorial-commercial', 'security']);
     expect(out[0].categories).toEqual([...SALE_TRADES.residential_single]);
+    expect(out[0].categories).not.toContain('pool-spa'); // pool service in Miami only
   });
 
   it('price bands and the market-sale floor', () => {
@@ -335,7 +342,7 @@ describe('titles, summaries, bands and classes', () => {
   });
 
   it('class tables: residential, condo, multi-family, commercial; vacant and unknown codes drop', () => {
-    expect(['D1', 'D3', 'SC', 'CM', 'VL', 'zz'].map(nycClassOf)).toEqual(['residential_single', 'multi_family', 'condo', 'commercial', null, null]);
+    expect(['D1', 'D3', 'SC', 'CR', 'VL', 'zz'].map(nycClassOf)).toEqual(['residential_single', 'multi_family', 'condo', 'commercial', null, null]);
     expect(['203', '2-99', '211', '517', '100', ''].map(cookClassOf)).toEqual(['residential_single', 'condo', 'multi_family', 'commercial', null, null]);
     expect(['SINGLE FAMILY', 'MULTI FAMILY', 'MIXED USE', 'VACANT LAND'].map(phlClassOf)).toEqual(['residential_single', 'multi_family', 'commercial', null]);
     expect(['0101', '0407', '0803', '1111', '0000', '8080'].map(miamiClassOf)).toEqual(['residential_single', 'condo', 'multi_family', 'commercial', null, null]);
@@ -370,7 +377,7 @@ describe('fail safe: each failure is its own check state, never "ok"', () => {
   it('schema mismatch: the portal refuses the column list (Socrata 400)', async () => {
     const { src, health } = await runOnce('socrata-cook-sales', (u) => (u.includes('wvhk-k5uv') ? { status: 400, body: { message: 'No such column: sale_price' } } : undefined));
     expect(src.status).toBe('error');
-    expect(src.error).toMatch(/^error: schema mismatch: the portal refused the column list \(socrata-cook-sales: HTTP 400; No such column: sale_price\)/);
+    expect(src.error).toMatch(/^error: schema mismatch: the portal refused the column list \(socrata-cook-sales: HTTP 400\)/);
     expect(probationCheck(health)).toBe('schema_mismatch');
   });
 
@@ -447,7 +454,8 @@ describe('/api/admin/coverage-probe works for the sale ids', () => {
     expect(res.schema, JSON.stringify(res)).toBe('ok');
     expect(res.freshness).toBe('ok');
     expect(res.mapped).toHaveLength(1);
-    expect(res.mapped[0].contacts).toEqual([expect.objectContaining({ role: 'site', name: '' })]);
+    // a home has no contact at all; a commercial sale one nameless site row
+    expect(res.mapped[0].contacts).toEqual(id === 'carto-phl-sales' ? [expect.objectContaining({ role: 'site', name: '' })] : []);
     expect(res.wroteNothing).toBe(true);
     expect(JSON.stringify(res)).not.toMatch(PLANTED_RE);
     for (const u of urls) expect(namesParty(u), u).toBeNull();
@@ -471,24 +479,33 @@ describe('/api/admin/coverage-probe works for the sale ids', () => {
 // ---- proposed labels -------------------------------------------------------------------------------------------------------------------
 
 describe('proposed labels (for the scorecard projection only)', () => {
-  const RESIDENTIAL_GOAL = ['moving', 'cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'locksmith', 'pest-control', 'handyman', 'hvac', 'pool-spa'];
+  // Review fix 5: the trades that plausibly act on a deed published weeks after closing.
+  const RESIDENTIAL_KEEP = ['cleaning', 'landscaping', 'lawn-care', 'painting', 'flooring', 'fencing', 'security', 'pest-control', 'handyman', 'hvac'];
+  const REMOVED = ['moving', 'locksmith', 'signs-printing'];
 
-  it.each(IDS)('%s: property-sale, its metro, a call path, heads-up for the goal trades and the commercial trades', (id) => {
-    const p = PROPOSED_LABELS[id];
-    expect(p).toBeDefined();
-    expect(p.recordKind).toBe('property-sale');
-    expect(p.metros).toEqual([ds(id).metro]);
-    expect(p.callPath).toBe(true);
-    expect(p.expectedRowsPerWeekPerMetro).toBeGreaterThan(0);
-    expect(['O', '3P', 'A']).toContain(p.volumeEvidence.tag);
-    for (const t of RESIDENTIAL_GOAL) expect(proposedLabelOf(p.labels[t as keyof typeof p.labels])?.label, `${id} ${t}`).toBe('coming_soon');
-    for (const t of ['janitorial-commercial', 'signs-printing']) expect(proposedLabelOf(p.labels[t as keyof typeof p.labels])?.label, `${id} ${t}`).toBe('coming_soon');
-    for (const v of Object.values(p.labels)) {
-      const l = proposedLabelOf(v)!;
-      expect(l.label).toBe('coming_soon');
-      expect(l.share).toBeGreaterThan(0);
-      expect(l.share).toBeLessThanOrEqual(1);
+  it.each(IDS)('%s: a residential entry with no call path and a commercial entry with one; heads-up only', (id) => {
+    const res = PROPOSED_LABELS[id];
+    const com = PROPOSED_LABELS[`${id}:commercial`];
+    for (const p of [res, com]) {
+      expect(p).toBeDefined();
+      expect(p.recordKind).toBe('property-sale');
+      expect(p.metros).toEqual([ds(id).metro]);
+      expect(p.expectedRowsPerWeekPerMetro).toBeGreaterThan(0);
+      expect(['O', '3P', 'A']).toContain(p.volumeEvidence.tag);
+      for (const v of Object.values(p.labels)) {
+        const l = proposedLabelOf(v)!;
+        expect(l.label).toBe('coming_soon');
+        expect(l.share).toBeGreaterThan(0);
+        expect(l.share).toBeLessThanOrEqual(1);
+      }
+      for (const t of REMOVED) expect(p.labels[t as keyof typeof p.labels], `${id} ${t}`).toBeUndefined();
     }
+    expect(res.callPath, 'a home is block level only: no call path').toBe(false);
+    expect(com.callPath, 'a commercial sale keeps its street address').toBe(true);
+    for (const t of RESIDENTIAL_KEEP) expect(proposedLabelOf(res.labels[t as keyof typeof res.labels])?.label, `${id} ${t}`).toBe('coming_soon');
+    expect(res.labels['janitorial-commercial']).toBeUndefined();
+    expect(Object.keys(com.labels).sort()).toEqual(['janitorial-commercial', 'security']);
+    expect(res.labels['pool-spa'] !== undefined, `${id} pool-spa`).toBe(ds(id).metro === 'miami');
   });
 
   it('a sale is never an urgent card and never sets SOURCE_DEFAULTS', () => {

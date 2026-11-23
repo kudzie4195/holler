@@ -140,7 +140,9 @@ function partLang(part: string, lang: Lang, source: string): string {
   if (part.startsWith(ALSO_CITED_PREFIX)) return t(lang, 'sum.also_cited', { orders: part.slice(ALSO_CITED_PREFIX.length) });
   // Round 20 SALES (lib/signals/adapters/sales.ts saleSummary): "Price band: $250k–$500k | Single-family home".
   if ((m = /^Price band: (.+)$/.exec(part))) return t(lang, 'sum.sale_band', { band: saleBandLang(m[1], lang) });
-  if (SALE_CLASS_KEYS[part]) return t(lang, SALE_CLASS_KEYS[part]);
+  if (Object.hasOwn(SALE_CLASS_KEYS, part)) return t(lang, SALE_CLASS_KEYS[part]);
+  // A residential sale's block ("3400 block of N Lakewood Ave"): the number and street are the record's own, the words around them Holler's.
+  if (/-sales$/.test(source) && (m = /^(\d+|0-99) block of (.+)$/.exec(part))) return t(lang, 'sum.sale_block', { n: m[1], street: m[2] });
   if (part === 'Mechanical') return t(lang, 'sum.part_mechanical');
   if (part === 'Residential building') return t(lang, 'sum.part_res_building');
   if (part === 'Commercial building') return t(lang, 'sum.part_com_building');
