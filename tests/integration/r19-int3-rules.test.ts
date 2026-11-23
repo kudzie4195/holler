@@ -134,7 +134,9 @@ describe('2. the contact gate and the new rules agree', () => {
 
 describe('3. probation and the label exemption', () => {
   it('the eight coverage ids have no SOURCE_DEFAULTS entry and are exempt only while on probation; the Philadelphia three have had entries since r19-metros', () => {
-    expect(PROBATION_SOURCE_IDS.size).toBe(11);
+    // 8 coverage + 3 Philadelphia + bids-nyc (City Record bids, which already has its SOURCE_DEFAULTS entry).
+    expect(PROBATION_SOURCE_IDS.size).toBe(12);
+    expect(SOURCE_DEFAULTS['bids-nyc']).toBe('act_now');
     for (const s of COVERAGE_R19_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
     for (const id of ['carto-phl-permits', 'carto-phl-violations', 'carto-phl-business']) expect(SOURCE_DEFAULTS[id], id).toBeDefined();
     expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());

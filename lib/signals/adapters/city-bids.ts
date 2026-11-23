@@ -67,6 +67,8 @@ export interface BidDataset {
   cadenceMinutes: number;
   /** Disabled sources are configured and tested but not registered. `why` says what is missing. */
   verified: boolean;
+  /** On probation (Adapter.probation): rows go to holler_source_samples only, never to holler_signals, until a person checks the samples. */
+  probation?: boolean;
   why?: string;
   license: { name: string; url: string | null };
   updated: string;
@@ -377,10 +379,11 @@ export const BID_DATASETS: BidDataset[] = [
   },
   {
     // sourced: metadata https://data.cityofnewyork.us/api/views/3khw-qi8f.json and sample rows (2026-11-21, newest start_date 2026-11-20).
-    // DISABLED: the one thing not confirmed is the page for a single solicitation. City Record Online
-    // (https://a856-cityrecord.nyc.gov/RequestDetail/<request_id>) is the likely page, but WebFetch of it was not permitted, so the pattern is
-    // unproven. Do not enable until one such URL has been opened. Also: the portal metadata says rows updated 2026-10-25 while rows dated
-    // 2026-11-20 are served, so its "updated" date cannot be trusted.
+    // Row page confirmed 2026-11-22: https://a856-cityrecord.nyc.gov/RequestDetail/20261116019 opens the City Record notice for that row
+    // (title "HWXPRATT - RECONSTRUCTION OF PRATT AVENUE RETAINING WALL, THE BRONX", due 12/16/2026 2:00 PM), matching the dataset row.
+    // The notice points bidders to PASSPort for documents, so the link is the public notice, not the bid package.
+    // ON PROBATION: rows go to holler_source_samples until the samples are checked. The portal metadata says rows updated 2026-10-25 while
+    // rows dated 2026-11-20 are served, so its "updated" date cannot be trusted.
     id: 'bids-nyc', city: 'New York', state: 'NY', placeLabel: 'New York City', domain: 'data.cityofnewyork.us', datasetId: '3khw-qi8f',
     tz: 'America/New_York', tzSource: 'assumed',
     fields: { id: 'request_id', title: 'short_title', buyer: 'agency_name', category: 'category_description', type: 'selection_method_description', posted: 'start_date', due: 'due_date' },
@@ -392,8 +395,8 @@ export const BID_DATASETS: BidDataset[] = [
       return /^\d{8,14}$/.test(id) ? { url: `https://a856-cityrecord.nyc.gov/RequestDetail/${id}`, kind: 'solicitation' } : null;
     },
     cadenceMinutes: 720,
-    verified: false,
-    why: 'row-level City Record URL pattern not confirmed',
+    verified: true,
+    probation: true,
     license: { name: 'Public Domain (Socrata licenseId PUBLIC_DOMAIN, attribution DCAS)', url: null },
     updated: 'metadata rowsUpdatedAt 2026-10-25 (contradicted by rows from 2026-11-20)',
     fieldSource: 'sourced',
@@ -427,6 +430,7 @@ export function buildBidAdapter(ds: BidDataset): Adapter {
     sourceUrl: bidDatasetPageUrl(ds),
     enabled: () => bidsEnabled(),
     flag: BIDS_FLAG,
+    ...(ds.probation ? { probation: true } : {}),
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       // Defence in depth: run.ts already skips a disabled adapter, but a direct call (a probe, a test) must not fetch either.
       if (!bidsEnabled(ctx.env[BIDS_FLAG] ?? env.HOLLER_BIDS_ENABLED ?? process.env[BIDS_FLAG])) {

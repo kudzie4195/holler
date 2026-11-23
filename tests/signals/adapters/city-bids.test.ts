@@ -92,15 +92,18 @@ describe('parseBids on the live fixtures', () => {
     expect(items.find((i) => i.externalId === '19362')!.summary).toBe('Downtown Development District | due 2026-12-08');
   });
 
-  it('New York is configured and parses, but is not registered (row link pattern unconfirmed)', () => {
-    expect(NYC.verified).toBe(false);
-    expect(NYC.why).toMatch(/not confirmed/);
+  it('New York is registered on probation (row page confirmed) and parses', () => {
+    expect(NYC.verified).toBe(true);
+    expect(NYC.probation).toBe(true);
     const r = parseBids(fx('nyc'), NYC, NOW);
     // Roofs (twice), electrical, security staffing, retaining wall are all open; the RFEI is a request for information.
     expect(r.items.map((i) => i.externalId).sort()).toEqual(['20261106020', '20261106025', '20261112002', '20261112006', '20261116019']);
     expect(r.notOpen).toBe(1);
     expect(r.items[0].url).toMatch(/^https:\/\/a856-cityrecord\.nyc\.gov\/RequestDetail\/\d+$/);
-    expect(bidAdapters.map((a) => a.id)).not.toContain('bids-nyc');
+    const nycAdapter = bidAdapters.find((a) => a.id === 'bids-nyc');
+    expect(nycAdapter?.probation).toBe(true);
+    // The other city bid sources are live, not on probation.
+    for (const a of bidAdapters.filter((x) => x.id !== 'bids-nyc')) expect(a.probation).toBeFalsy();
   });
 
   it('every kept row links to a source page, has a valid trade, a city centre marked approximate, kind contract and subtype bid', () => {
@@ -266,8 +269,8 @@ describe('query and adapter', () => {
     expect(buildBidQuery(NYC, NOW).get('$where')).toContain("(type_of_notice_description = 'Solicitation')");
   });
 
-  it('registers San Francisco, Los Angeles and Baton Rouge, with source metadata equal to the adapter', () => {
-    expect(bidAdapters.map((a) => a.id)).toEqual(['bids-sf', 'bids-la', 'bids-batonrouge']);
+  it('registers San Francisco, Los Angeles, Baton Rouge and New York (probation), with source metadata equal to the adapter', () => {
+    expect(bidAdapters.map((a) => a.id)).toEqual(['bids-sf', 'bids-la', 'bids-batonrouge', 'bids-nyc']);
     for (const a of bidAdapters) {
       expect(ALL_ADAPTERS.filter((x) => x.id === a.id)).toHaveLength(1);
       expect(SOURCE_META[a.id]?.label).toBe(a.label);

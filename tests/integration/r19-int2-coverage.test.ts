@@ -274,6 +274,8 @@ describe('7. metros and the label exemption', () => {
       'socrata-dallas-permits': 'dallas-fort-worth', 'arcgis-arlington-permits': 'dallas-fort-worth', 'arcgis-houston-311': 'houston',
       'arcgis-miamidade-permits': 'miami', 'arcgis-miamidade-violations': 'miami', 'arcgis-miamidade-building-violations': 'miami',
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
+      // City Record Online bids (lib/signals/adapters/city-bids.ts), on probation since the NYC/ESBD bids round.
+      'bids-nyc': 'new-york',
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
     expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
