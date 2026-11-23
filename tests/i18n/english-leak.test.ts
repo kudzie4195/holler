@@ -52,7 +52,7 @@ const DENY: Set<string> = (() => {
   return out;
 })();
 
-const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
+const text = (html: string) => html.replace(/<(script|style)[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/\s+/g, ' ');
 
 /** Remove each data value (case-insensitive) from the text. Longest first, so a long title is removed before the words in it. */
 function without(s: string, data: Iterable<string>): string {

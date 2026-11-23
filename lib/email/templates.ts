@@ -4,8 +4,11 @@ import { env, siteUrl } from '../env';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { postalFooterHtml, postalFooterText } from '../legal/email-footer';
 import { bidSourceLinkLabel } from '../signals/bid-card';
-import { sourceLine, type CardBrief } from '../signals/brief';
-import { bidSourceLinkLabelLang, cardBriefLang, sourceLineLang } from '../signals/brief-i18n';
+import { briefFamilyOf, type BriefFamily, type CardBrief } from '../signals/brief';
+import { isHundredBlock } from '../signals/site-address';
+import { areaListTrades, buildingAddress } from '../lists/core';
+import { tradeLabel } from '../check/trades';
+import { bidSourceLinkLabelLang, cardBriefLang } from '../signals/brief-i18n';
 import { isStageUpdate, stageUpdateLine, stageUpdateMeta, stageUpdateSubject } from '../signals/stage';
 import { lowerFirst, t, type Lang } from '../i18n';
 import { localizeTitle } from '../signals/title-i18n';
@@ -13,10 +16,27 @@ import { orderByLabel, type OpportunityLabel } from '../signals/lead-rules';
 import { chipLabel, deadlineLineLang } from '../signals/lead-i18n';
 import { TRIAL_DAYS } from '../auth/membership';
 import { trialPhraseEs } from '../plan/price-copy-es';
-import { EMAIL_COLORS, EMAIL_STYLE, buttonHtml, cardClose, wrapOpen, WRAP_CLOSE as THEME_WRAP_CLOSE } from './theme';
+import {
+  EMAIL_COLORS,
+  EMAIL_FONTS,
+  EMAIL_STYLE,
+  buttonHtml,
+  cardButtonHtml,
+  cardClose,
+  cardTableHtml,
+  chipHtml,
+  digestDarkModeCss,
+  wrapOpen,
+  WRAP_CLOSE as THEME_WRAP_CLOSE,
+} from './theme';
 
 export interface DigestItem {
   kind: string;
+  /**
+   * holler_matches.id of this member's own match row. Round 23: the card's own action deep-links to this card in the member's feed
+   * (`/app#card-<id>`, the anchor components/feed.tsx puts on every card). Absent: the action opens the feed itself.
+   */
+  matchId?: number | null;
   /** Source id and data.subtype of the record. Used for the brief (why it matters, source link). */
   source?: string | null;
   subtype?: string | null;
@@ -57,12 +77,6 @@ export interface DigestItem {
   permitStageAt?: string | null;
   /** Permits: data.permitStageUpdate, true on a record whose stage changed after it was stored. The item then reads "Stage update", never "new". */
   permitStageUpdate?: unknown;
-}
-
-/** "Act now" for an act_now item, plus its deadline line; "Coming soon" and "Market insight" for those; nothing for no label. */
-export function chipText(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lang = 'en'): string | null {
-  if (!it.label || it.label === 'context') return null;
-  return it.label === 'act_now' ? `${chipLabel('act_now', lang)}. ${deadlineLineLang(it.deadline, lang)}` : chipLabel(it.label, lang);
 }
 
 export interface Rendered {
@@ -144,26 +158,6 @@ function httpsSite(l: ListingForEmail): ListingForEmail['website'] {
   return l.website && /^https:\/\//.test(l.website.href) ? l.website : null;
 }
 
-/** The listing lines under the Contact line, html. The website is a normal link with rel="noopener noreferrer nofollow". */
-function listingHtml(l: ListingForEmail | null | undefined, lang: Lang): string {
-  if (!l) return '';
-  const website = httpsSite(l);
-  if (!l.phone && !website) return '';
-  const phone = l.phone ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.phone', { value: l.phone })))}</div>` : '';
-  const site = website
-    ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(website.href)}" rel="noopener noreferrer nofollow" style="${S.link};font-size:14px">${escapeHtml(website.text)}</a></div>`
-    : '';
-  return `${phone}${site}<div style="${S.small};margin:2px 0">${escapeHtml(noDash(l.note))}</div>`;
-}
-
-/** The listing lines under the Contact line, plain text. */
-function listingText(l: ListingForEmail | null | undefined, lang: Lang): string {
-  if (!l) return '';
-  const website = httpsSite(l);
-  if (!l.phone && !website) return '';
-  return `${l.phone ? `\n${noDash(t(lang, 'listing.phone', { value: l.phone }))}` : ''}${website ? `\n${noDash(t(lang, 'listing.website', { value: website.href }))}` : ''}\n${noDash(l.note)}`;
-}
-
 /** "Contact: Acme Roofing LLC (General contractor on this permit)". Plain text; callers escape it for HTML. */
 export function contactLine(c: { name: string; role: string }, lang: Lang = 'en'): string {
   // The role is a capitalised label ("Aparece en este permiso"); inside the parentheses Spanish writes it in lower case.
@@ -208,16 +202,36 @@ function isUpdateItem(it: DigestItem): boolean {
   return isStageUpdate({ permitStage: it.permitStage, permitStageAt: it.permitStageAt, permitStageUpdate: it.permitStageUpdate });
 }
 
+/** Act Now first; inside a label a stage update first, then the order the caller gave (a stable sort). The feed's own order. */
+export function digestOrder(items: readonly DigestItem[]): DigestItem[] {
+  return orderByLabel([...items.filter(isUpdateItem), ...items.filter((it) => !isUpdateItem(it))], (it) => it.label ?? 'coming_soon');
+}
+
 /**
- * The digest subject. One stage update reads "Update: final inspection on a permit near you"; stage updates only read "N permit updates near
- * you"; a mix says how many are updates. Never "new" for a stage update.
+ * The digest subject (round 23): what happened and where, on the strongest card, with the count of the rest. "Permit at 5900 SPARROW
+ * WAY (+3)" reads on a lock screen; the old "4 new things near you" did not. A long street can push it past 45 characters, so it is
+ * cut at 120 as before and never mid-address.
+ *
+ * Unchanged for stage updates: one reads "Update: final inspection on a permit near you"; updates only read "N permit updates near
+ * you"; a mix says how many are updates. Never "new" for a stage update. Empty week: "Nothing near you this week".
  */
 export function digestSubject(items: readonly DigestItem[], total: number, lang: Lang = 'en'): string {
   const updates = items.filter(isUpdateItem);
   if (updates.length === 0) {
-    return total === 1
-      ? t(lang, 'email.subject.one', { title: items[0] ? localizeTitle(items[0].title, lang, items[0].source) : t(lang, 'email.subject.fallback_title') }).slice(0, 120)
-      : t(lang, 'email.subject.many', { n: total });
+    if (items.length === 0) return t(lang, 'email.subject.empty');
+    const best = digestOrder(items)[0];
+    const place = digestPlace(best, lang);
+    const rest = Math.max(0, total - 1);
+    // No address and no place: the title alone, which already says what happened ("Roof permit in Norfolk").
+    const line =
+      place.kind === 'title'
+        ? rest > 0
+          ? t(lang, 'email.subject.plain_more', { title: place.text, n: rest })
+          : t(lang, 'email.subject.plain', { title: place.text })
+        : rest > 0
+          ? t(lang, 'email.subject.card_more', { what: digestWhat(best, lang), place: place.text, n: rest })
+          : t(lang, 'email.subject.card', { what: digestWhat(best, lang), place: place.text });
+    return line.slice(0, 120);
   }
   if (total === 1 && updates.length === 1) return stageUpdateSubject(updates[0].permitStage, lang) ?? t(lang, 'stage.update.subject_fallback');
   if (updates.length === items.length && total === items.length) return t(lang, 'stage.update.subject_only', { n: total });
@@ -231,6 +245,157 @@ function metaTime(it: DigestItem, now: Date, lang: Lang = 'en'): string {
     if (meta) return meta;
   }
   return timeAgo(it.occurredAt, now, lang);
+}
+
+// ---- the alert digest, round 23 -----------------------------------------------------------------------------------------------------
+//
+// One card is five rows at most: the chip, the place (loudest), one meta line, one reason, one action. "Source" and "What is uncertain"
+// no longer repeat on every card: the link is the word "public source" in the meta line, and the honesty line sits once at the end of
+// the email. A weather, storm, disaster or earthquake card keeps its own uncertainty line, because for those the words "damage is not
+// confirmed" are part of what the card says, not a footnote.
+
+/** The families whose card keeps its "What is uncertain" line: an event that is never, on its own, proof of damage. */
+const DAMAGE_FAMILIES: readonly BriefFamily[] = ['weather-alert', 'storm-report', 'disaster', 'quake'];
+
+function familyOf(it: DigestItem): BriefFamily {
+  return briefFamilyOf({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary });
+}
+
+/**
+ * True for a place name ("Atlanta, GA", "Cobb County"), false for a sentence. `place` is sometimes an approximate-location note
+ * ("This alert covers a county or zone, not a point", lib/signals/approx-location.ts), which is honest but is not a heading: a card
+ * whose only place is such a note falls back to its own title and keeps the note on the meta line.
+ */
+function looksLikePlace(s: string): boolean {
+  if (s.length > 44 || /[.;:]/.test(s)) return false;
+  return s.split(/\s+/).every((w) => {
+    const core = w.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, '');
+    return core.replace(/\P{L}/gu, '').length < 2 || /^[\p{Lu}\d]/u.test(core);
+  });
+}
+
+/** "7800 block of S AVALON AVE" in English, "cuadra 7800 de S AVALON AVE" in Spanish. Null when the part is not a hundred-block. */
+function blockPhrase(part: string, lang: Lang): string | null {
+  const m = /^\s*(\d+|0-99)\s*(?:block of|blk\.?|block)\s+(.+?)\s*$/i.exec(part);
+  return m ? t(lang, 'sum.sale_block', { n: m[1], street: m[2] }) : null;
+}
+
+/**
+ * The loudest line of a card: where it is.
+ *
+ * Privacy (VERDICT section 5): an EXACT street address is printed only for a building permit. For anything else, a violation, a 311
+ * request or a home sale, the card prints the hundred-block the record itself carries, and nothing finer. The check is made here as
+ * well as upstream, so a record whose summary ever carried a house number could still not be printed as an address by this email.
+ * No record of any family ever prints a person's name: the only names a card can print are the business contact lines, which come
+ * from lib/contacts already checked for personal names.
+ */
+export function digestPlace(it: DigestItem, lang: Lang = 'en'): { text: string; exact: boolean; kind: 'address' | 'block' | 'place' | 'title' } {
+  const parts = (it.summary ?? '').split(' | ').map((p) => p.trim()).filter(Boolean);
+  if (familyOf(it) === 'permit') {
+    const exact = buildingAddress(it.summary);
+    if (exact) return { text: exact, exact: true, kind: 'address' };
+  }
+  for (const p of parts) {
+    if (!isHundredBlock(p)) continue;
+    const phrase = blockPhrase(p, lang);
+    if (phrase) return { text: phrase, exact: false, kind: 'block' };
+  }
+  if (it.place && looksLikePlace(noDash(it.place))) return { text: noDash(it.place), exact: false, kind: 'place' };
+  // A record with neither an address nor a place of its own: its own title is the loudest thing the card can say.
+  return { text: noDash(localizeTitle(it.title, lang, it.source)), exact: false, kind: 'title' };
+}
+
+/** The chip's words: "Act now" on its own, or "Act now . Deadline: Dec 5, 2026" when the record published one. No chip without a label. */
+export function digestChip(it: Pick<DigestItem, 'label' | 'deadline'>, lang: Lang = 'en'): { text: string; strong: boolean } | null {
+  if (!it.label || it.label === 'context') return null;
+  const label = chipLabel(it.label, lang);
+  if (it.label !== 'act_now') return { text: label, strong: false };
+  const d = it.deadline ? deadlineLineLang(it.deadline, lang) : null;
+  return { text: d ? `${label} · ${d}` : label, strong: true };
+}
+
+/** Short words for the subject line: what kind of thing happened. One phrase per brief family, with a word for a new-home permit. */
+export function digestWhat(it: DigestItem, lang: Lang = 'en'): string {
+  if (it.subtype === 'bid') return t(lang, 'email.what.bid');
+  const fam = familyOf(it);
+  if (fam === 'permit') {
+    return /\bnew (?:home|construction)\b/i.test(it.title) ? t(lang, 'email.what.new_home') : t(lang, 'email.what.permit');
+  }
+  const key = {
+    'weather-alert': 'email.what.weather',
+    'storm-report': 'email.what.storm',
+    'disaster': 'email.what.disaster',
+    'quake': 'email.what.quake',
+    'airport': 'email.what.airport',
+    'permit': 'email.what.permit',
+    '311': 'email.what.311',
+    'violation': 'email.what.violation',
+    'inspection': 'email.what.inspection',
+    'business': 'email.what.business',
+    'event-permit': 'email.what.event_permit',
+    'big-event': 'email.what.event',
+    'federal-bid': 'email.what.bid',
+    'city-bid': 'email.what.bid',
+    'federal-award': 'email.what.award',
+    'public-post': 'email.what.post',
+    'resident-request': 'email.what.request',
+    'sale': 'email.what.sale',
+    'other': 'email.what.other',
+  }[fam] as Parameters<typeof t>[1];
+  return t(lang, key);
+}
+
+export interface DigestAction {
+  href: string;
+  label: string;
+}
+
+/**
+ * The one action of a card. First rule that fits wins:
+ *
+ *  1. a resident request    reply to it in the feed (the only place a member can answer one)
+ *  2. a block-level card whose trade has a neighborhood list (lib/lists)   print that list
+ *  3. any other block-level card                                          print a door hanger (the storm version after weather)
+ *  4. a card with an exact address                                        open that card in the feed
+ *
+ * Rule 2 and 3 follow the strategy's "where to hang and flyer this week": a block is something to walk, not an address to write to.
+ * Every href is a route that exists today (app/app, app/app/lists/*) plus a query or anchor that route already reads.
+ */
+export function digestAction(it: DigestItem, appUrl: string, lang: Lang = 'en'): DigestAction {
+  const base = appUrl.replace(/\/$/, '');
+  const card = typeof it.matchId === 'number' && Number.isSafeInteger(it.matchId) ? `${base}#card-${it.matchId}` : base;
+  const fam = familyOf(it);
+  if (fam === 'resident-request') return { href: card, label: t(lang, 'email.act.reply') };
+  if (!digestPlace(it, lang).exact) {
+    const trade = it.trade && areaListTrades([it.trade]).length > 0 ? it.trade : null;
+    if (trade) {
+      return { href: `${base}/lists/area?trade=${encodeURIComponent(trade)}`, label: t(lang, 'email.act.area_list', { trade: lowerFirst(tradeLabel(trade, lang)) }) };
+    }
+    return DAMAGE_FAMILIES.includes(fam)
+      ? { href: `${base}/lists/door-hanger?storm=1`, label: t(lang, 'email.act.storm_hanger') }
+      : { href: `${base}/lists/door-hanger`, label: t(lang, 'email.act.hanger') };
+  }
+  return { href: card, label: t(lang, 'email.act.open_card') };
+}
+
+/**
+ * The reason a card gives: one line, or two on the few permits whose stage moved (the stage line is the news, and the line under it
+ * says why that matters to this trade). The AI note (lib/ai, English only) is preferred over the brief's generic "why", because it is
+ * written for this record and this trade; both are checked for wording before they get here.
+ */
+function digestReasons(it: DigestItem, br: CardBrief, lang: Lang): string[] {
+  const stage = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
+  const why = it.note && lang === 'en' ? noDash(it.note) : noDash(br.why);
+  return stage ? [noDash(stage), why] : [why];
+}
+
+/** The contact line of a card, folded into one row: the business, its role, and the phone and site of its own public listing. */
+function contactParts(it: DigestItem, lang: Lang): { text: string; website: ListingForEmail['website'] } | null {
+  if (!it.contact?.name) return null;
+  const l = it.contact.listing ?? null;
+  const website = l ? httpsSite(l) : null;
+  const phone = l?.phone ? noDash(t(lang, 'listing.phone', { value: l.phone })) : null;
+  return { text: [contactLine(it.contact, lang), phone].filter(Boolean).join(' · '), website };
 }
 
 export function renderDigest(opts: {
@@ -248,75 +413,148 @@ export function renderDigest(opts: {
   const total = opts.totalCount ?? opts.items.length;
   const more = Math.max(0, total - opts.items.length);
   const subject = noDash(digestSubject(opts.items, total, lang));
+  const open = wrapOpen(560, lang, true);
+  const eyebrow = `<p style="margin:0 0 6px 0;${S.eyebrow}">${escapeHtml(t(lang, 'email.eyebrow', { name: noDash(opts.businessName) }))}</p>`;
+  const h1 = (text: string) => `<h1 class="h-h1" style="${S.h1};font-size:24px;margin:0 0 16px 0">${escapeHtml(text)}</h1>`;
+  const legal =
+    `<p class="h-small" style="${S.small};margin:28px 0 0 0">${t(lang, 'email.footer.why')} <a class="h-link" href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">${t(lang, 'email.footer.off')}</a>.${contactHtml(lang)}</p>`;
+  const legalText = `${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
 
-  // Act Now first (item 0.3); inside a label stage updates come first, then the order the caller gave (a stable sort).
-  const items = orderByLabel(
-    [...opts.items.filter(isUpdateItem), ...opts.items.filter((it) => !isUpdateItem(it))],
-    (it) => it.label ?? 'coming_soon',
-  );
-  const kindText = (it: DigestItem) => (it.subtype === 'bid' ? t(lang, 'bid.label') : kindLabel(it.kind, lang));
+  // A quiet week is not an empty email (item 7): one honest line about why, and the two things that are still worth doing.
+  if (opts.items.length === 0) {
+    const base = opts.appUrl.replace(/\/$/, '');
+    const html =
+      digestDarkModeCss() +
+      open +
+      eyebrow +
+      h1(t(lang, 'email.empty.h')) +
+      `<p class="h-why" style="font-size:15px;margin:0 0 10px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(t(lang, 'email.empty.body'))}</p>` +
+      `<p class="h-meta" style="${S.muted};margin:0">${escapeHtml(t(lang, 'email.empty.next'))}</p>` +
+      cardButtonHtml(escapeHtml(`${base}/lists/door-hanger`), escapeHtml(t(lang, 'email.act.hanger'))) +
+      `<p style="margin:14px 0 0 0"><a class="h-link" href="${escapeHtml(`${base}/lists`)}" style="${S.link};font-size:15px">${escapeHtml(t(lang, 'email.act.lists'))}</a></p>` +
+      legal +
+      cardClose() +
+      postalFooterHtml(lang) +
+      WRAP_CLOSE;
+    const text =
+      `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${t(lang, 'email.empty.h')}\n\n` +
+      `${t(lang, 'email.empty.body')}\n\n${t(lang, 'email.empty.next')}\n\n` +
+      `${t(lang, 'email.act.hanger')}: ${base}/lists/door-hanger\n${t(lang, 'email.act.lists')}: ${base}/lists\n\n${legalText}`;
+    return { subject, html, text };
+  }
 
-  const htmlItems = items
-    .map((it) => {
-      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
-        .filter(Boolean)
-        .map((m) => escapeHtml(m as string))
-        .join(' &middot; ');
-      const chip = chipText(it, lang);
-      const chipHtml = chip ? `<div style="font-size:14px;font-weight:700;margin:2px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(chip)}</div>` : '';
-      const bidHtml = it.bidLine ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.bidLine))}</div>` : '';
-      const detail = it.detail ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(it.detail))}</div>` : '';
-      // The one-line AI note is written in English by the model, so a Spanish digest leaves it out (the brief below says the same in Spanish).
-      const note = it.note && lang === 'en' ? `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.note')}:</strong> ${escapeHtml(noDash(it.note))}</div>` : '';
-      const contact = it.contact?.name
-        ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(contactLine(it.contact, lang))}</div>${listingHtml(it.contact.listing, lang)}`
-        : '';
-      const br = digestBrief(it, siteUrl, lang);
-      const valueHtml = br.valueLine ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(br.valueLine))}</div>` : '';
-      const stageLineText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
-      const stageHtml = stageLineText ? `<div style="font-size:14px;margin:6px 0 0 0">${escapeHtml(noDash(stageLineText))}</div>` : '';
-      const briefHtml =
-        valueHtml +
-        stageHtml +
-        `<div style="font-size:14px;margin:6px 0 2px 0"><strong>${t(lang, 'brief.h.why')}:</strong> ${escapeHtml(noDash(br.why))}</div>` +
-        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.next')}:</strong> ${escapeHtml(noDash(br.next))}</div>` +
-        (br.managedBy ? `<div style="font-size:14px;margin:2px 0">${escapeHtml(noDash(br.managedBy))}</div>` : '') +
-        `<div style="font-size:14px;margin:2px 0"><strong>${t(lang, 'brief.h.source')}:</strong> ${escapeHtml(noDash(br.source.label))}${br.source.dateText ? ` &middot; ${escapeHtml(br.source.dateText)}` : ''}${
-          br.href ? ` &middot; <a href="${escapeHtml(br.href)}" style="${S.link};font-size:14px">${escapeHtml(br.linkText)}</a>` : ''
-        }</div>` +
-        `<div style="font-size:14px;margin:2px 0 4px 0"><strong>${t(lang, 'brief.h.uncertain')}:</strong> ${escapeHtml(noDash(br.uncertain))}</div>`;
-      return `<li style="margin:0 0 16px 0;padding:0;list-style:none"><div style="${S.small}">${meta}</div>${chipHtml}<div style="font-size:16px;font-weight:600;margin:2px 0">${escapeHtml(noDash(localizeTitle(it.title, lang, it.source)))}</div>${bidHtml}${note}${detail}${contact}${briefHtml}</li>`;
+  const items = digestOrder(opts.items);
+  const anyListing = items.some((it) => it.contact?.listing && (it.contact.listing.phone || httpsSite(it.contact.listing)));
+  const honesty = [t(lang, 'email.honesty'), anyListing ? t(lang, 'email.honesty.listing') : null].filter(Boolean).join(' ');
+
+  /** Everything one card shows, built once and rendered twice (html and plain text). */
+  const cards = items.map((it) => {
+    const br = digestBrief(it, siteUrl, lang);
+    const place = digestPlace(it, lang);
+    const title = noDash(localizeTitle(it.title, lang, it.source));
+    // The meta line: the record's own title, then only what helps a decision. "City data" and the dataset's name are gone.
+    // The place is dropped when the headline is already that place, or when the record's own title names the town ("... in Chicago").
+    const city = it.place ? noDash(it.place).split(',')[0].trim() : '';
+    const showPlace = !!it.place && noDash(it.place) !== place.text && !(city.length > 2 && title.includes(city));
+    // One time segment: how long ago, with the date the record itself carries in brackets. A stage update's meta already names its
+    // date, so it is not repeated. The record date stays on the card (a permit read in March wants the day, not "4 months ago").
+    const ago = metaTime(it, now, lang);
+    const date = br.source.dateText;
+    const when = date && !isUpdateItem(it) ? `${ago} (${date})` : ago;
+    const bidLabel = it.subtype === 'bid' && !title.includes(t(lang, 'bid.label')) ? t(lang, 'bid.label') : null;
+    const meta = [
+      bidLabel,
+      place.kind === 'title' ? null : title,
+      showPlace ? noDash(it.place as string) : null,
+      when,
+      br.valueLine ? noDash(br.valueLine) : null,
+      it.bidLine ? noDash(it.bidLine) : null,
+    ].filter((x): x is string => !!x);
+    return {
+      it,
+      br,
+      place,
+      title,
+      meta,
+      chip: digestChip(it, lang),
+      reasons: digestReasons(it, br, lang),
+      // A request's own words, and the business the record names, are the two things in a card worth more than a sentence of ours.
+      detail: it.detail ? noDash(it.detail) : null,
+      contact: contactParts(it, lang),
+      managedBy: br.managedBy ? noDash(br.managedBy) : null,
+      // "Not confirmed" stays on the card only where the event itself is never proof of damage; for the rest it is said once below.
+      uncertain: DAMAGE_FAMILIES.includes(familyOf(it)) ? noDash(br.uncertain) : null,
+      act: digestAction(it, opts.appUrl, lang),
+      // A resident request has no public source page of its own, so it gets no "public source" link (it links to the form instead).
+      source: familyOf(it) === 'resident-request' ? null : br.href,
+    };
+  });
+
+  const htmlItems = cards
+    .map((c) => {
+      // The first meta segment is the record's own title (or, when the headline is the title, the time): ink, so the eye lands on it.
+      const metaHtml =
+        `<div class="h-meta" style="font-size:14px;line-height:1.45;margin:5px 0 0 0;color:${EMAIL_COLORS.muted}">` +
+        c.meta.map((m, i) => (i === 0 ? `<span class="h-ink" style="color:${EMAIL_COLORS.ink}">${escapeHtml(m)}</span>` : ` &middot; ${escapeHtml(m)}`)).join('') +
+        (c.source ? ` &middot; <a class="h-link" href="${escapeHtml(c.source)}" style="${S.link}">${escapeHtml(t(lang, 'email.source_link'))}</a>` : '') +
+        '</div>';
+      const inner =
+        (c.chip ? chipHtml(escapeHtml(c.chip.text), c.chip.strong) + '<div style="height:10px;line-height:10px">&nbsp;</div>' : '') +
+        `<div class="h-head" style="font-family:${EMAIL_FONTS.body};font-size:20px;line-height:1.25;font-weight:700;margin:0;color:${EMAIL_COLORS.ink}">${escapeHtml(c.place.text)}</div>` +
+        metaHtml +
+        c.reasons.map((r) => `<div class="h-why" style="font-size:15px;line-height:1.5;margin:10px 0 0 0;color:${EMAIL_COLORS.ink}">${escapeHtml(r)}</div>`).join('') +
+        (c.detail
+          ? `<div class="h-quote" style="${S.quote};font-size:15px;line-height:1.5;margin:10px 0 0 0;padding:8px 12px">${escapeHtml(c.detail)}</div>`
+          : '') +
+        (c.contact
+          ? `<div class="h-meta" style="font-size:14px;line-height:1.45;margin:8px 0 0 0;color:${EMAIL_COLORS.muted}">${escapeHtml(c.contact.text)}${
+              c.contact.website
+                ? ` &middot; ${escapeHtml(noDash(t(lang, 'listing.website', { value: '' }).trimEnd()))} <a href="${escapeHtml(c.contact.website.href)}" rel="noopener noreferrer nofollow" class="h-link" style="${S.link}">${escapeHtml(c.contact.website.text)}</a>`
+                : ''
+            }</div>`
+          : '') +
+        (c.managedBy ? `<div class="h-meta" style="font-size:14px;line-height:1.45;margin:8px 0 0 0;color:${EMAIL_COLORS.muted}">${escapeHtml(c.managedBy)}</div>` : '') +
+        (c.uncertain ? `<div class="h-small" style="${S.small};line-height:1.45;margin:8px 0 0 0">${escapeHtml(c.uncertain)}</div>` : '') +
+        cardButtonHtml(escapeHtml(c.act.href), escapeHtml(c.act.label), c.chip?.strong ? 'primary' : 'secondary');
+      return `<li style="margin:0 0 14px 0;padding:0;list-style:none">${cardTableHtml(inner)}</li>`;
     })
     .join('');
 
   const html =
-    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
-    `<p style="margin:0 0 6px 0;${S.eyebrow}">${escapeHtml(t(lang, 'email.eyebrow', { name: noDash(opts.businessName) }))}</p>` +
-    `<h1 style="${S.h1};font-size:24px;margin:0 0 20px 0">${escapeHtml(subject)}</h1>` +
+    digestDarkModeCss() +
+    open +
+    eyebrow +
+    h1(subject) +
     `<ul style="margin:0;padding:0">${htmlItems}</ul>` +
-    (more > 0 ? `<p style="${S.mutedLink}">${escapeHtml(t(lang, 'email.plus_more', { n: more }))}</p>` : '') +
-    button(opts.appUrl, t(lang, 'email.open_feed')) +
-    `<p style="${S.small};margin-top:32px">${t(lang, 'email.footer.why')} <a href="${escapeHtml(opts.unsubscribeUrl)}" style="${S.mutedLink}">${t(lang, 'email.footer.off')}</a>.${contactHtml(lang)}</p>` +
+    (more > 0 ? `<p class="h-meta" style="${S.muted};margin:0 0 4px 0">${escapeHtml(t(lang, 'email.plus_more', { n: more }))}</p>` : '') +
+    buttonHtml(escapeHtml(opts.appUrl), escapeHtml(t(lang, 'email.open_feed'))) +
+    `<p class="h-small" style="${S.small};line-height:1.5;margin:0">${escapeHtml(honesty)}</p>` +
+    legal +
     cardClose() +
     postalFooterHtml(lang) +
     WRAP_CLOSE;
 
-  const textItems = items
-    .map((it) => {
-      const br = digestBrief(it, siteUrl, lang);
-      const meta = [kindText(it), it.place ? noDash(it.place) : null, metaTime(it, now, lang)]
-        .filter(Boolean)
-        .join(' | ');
-      const chip = chipText(it, lang);
-      const sourceText = lang === 'en' ? sourceLine(br.source) : sourceLineLang(br.source, lang);
-      const stageText = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
-      return `${meta}${chip ? `\n${chip}` : ''}\n${noDash(localizeTitle(it.title, lang, it.source))}${it.bidLine ? `\n${noDash(it.bidLine)}` : ''}${it.note && lang === 'en' ? `\n${t(lang, 'brief.h.note')}: ${noDash(it.note)}` : ''}${it.detail ? `\n${noDash(it.detail)}` : ''}${it.contact?.name ? `\n${contactLine(it.contact, lang)}${listingText(it.contact.listing, lang)}` : ''}${br.valueLine ? `\n${noDash(br.valueLine)}` : ''}${stageText ? `\n${noDash(stageText)}` : ''}\n${t(lang, 'brief.h.why')}: ${noDash(br.why)}\n${t(lang, 'brief.h.next')}: ${noDash(br.next)}${br.managedBy ? `\n${noDash(br.managedBy)}` : ''}\n${noDash(sourceText)}${br.href ? `\n${br.linkText}: ${br.href}` : ''}\n${t(lang, 'brief.h.uncertain')}: ${noDash(br.uncertain)}`;
+  const textItems = cards
+    .map((c, i) => {
+      const lines = [
+        `${i + 1}. ${c.place.text}${c.chip ? ` [${c.chip.text}]` : ''}`,
+        `   ${c.meta.join('. ')}`,
+        ...c.reasons.map((r) => `   ${r}`),
+        ...(c.detail ? [`   "${c.detail}"`] : []),
+        ...(c.contact ? [`   ${c.contact.text}${c.contact.website ? ` \u00b7 ${noDash(t(lang, 'listing.website', { value: c.contact.website.href }))}` : ''}`] : []),
+        ...(c.managedBy ? [`   ${c.managedBy}`] : []),
+        ...(c.uncertain ? [`   ${c.uncertain}`] : []),
+        `   ${c.act.label}: ${c.act.href}`,
+        ...(c.source ? [`   ${t(lang, 'email.source_link')}: ${c.source}`] : []),
+      ];
+      return lines.join('\n');
     })
     .join('\n\n');
+
   const text =
     `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${subject}\n\n${textItems}\n\n` +
     (more > 0 ? `${t(lang, 'email.plus_more', { n: more })}\n\n` : '') +
-    `${t(lang, 'email.open_feed')}: ${opts.appUrl}\n\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contactText(lang)}\n${postalFooterText(lang)}\n`;
+    `${honesty}\n\n${t(lang, 'email.open_feed')}: ${opts.appUrl}\n\n${legalText}`;
 
   return { subject, html, text };
 }

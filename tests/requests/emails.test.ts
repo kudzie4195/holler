@@ -27,7 +27,9 @@ describe('request emails', () => {
     expect(all).not.toContain(RESIDENT);
     expect(all).not.toContain('404-555-1212');
     expect(all).not.toContain('Sarah');
-    expect(mail.subject).toContain('Service request in Atlanta: Roofing');
+    // Round 23: the subject names where it is; the request's own title is on the card.
+    expect(mail.subject).toBe('Public post at Atlanta, GA');
+    expect(mail.text).toContain('Service request in Atlanta: Roofing');
   });
 
   it('reply: subject, message, business name and city, close link, report mailto; business text is escaped', () => {

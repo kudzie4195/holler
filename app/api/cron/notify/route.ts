@@ -313,8 +313,10 @@ export async function GET(req: Request) {
           cardContacts = contacts;
         }
       }
-      const items: DigestItem[] = shown.map(({ s }) => ({
+      const items: DigestItem[] = shown.map(({ m, s }) => ({
         kind: s.kind,
+        // Round 23: the card's own action deep-links to this card in the feed (/app#card-<match id>, the anchor the feed renders).
+        matchId: typeof m.id === 'number' ? m.id : null,
         source: s.source ?? null,
         subtype: s.subtype ?? null,
         title: s.title,

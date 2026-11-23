@@ -115,7 +115,8 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       now: NOW,
       lang: 'es',
     });
-    expect(mail.subject).toBe('1 novedad cerca de usted: Permiso de vivienda nueva en Atlanta');
+    // Round 23: the subject is what happened and where. The Spanish title still appears on the card itself.
+    expect(mail.subject).toBe('Permiso de casa nueva en Atlanta, GA');
     expect(mail.text).toContain('Permiso de vivienda nueva en Atlanta');
     expect(mail.text).not.toContain('New home');
   });
@@ -127,7 +128,8 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       unsubscribeUrl: 'https://localholler.com/u',
       now: NOW,
     });
-    expect(mail.subject).toContain('New home permit in Atlanta');
+    expect(mail.subject).toBe('New home permit at Atlanta, GA');
+    expect(mail.text).toContain('New home permit in Atlanta');
   });
 });
 

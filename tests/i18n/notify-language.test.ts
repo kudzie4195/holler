@@ -99,18 +99,20 @@ describe('notify digest language', () => {
     const es = to(r, 'b@pinos.test');
     const en = to(r, 'a@peachtree.test');
     expect(es.html).toContain('lang="es"');
-    expect(es.subject).toMatch(/cerca de usted|novedades/);
-    expect(es.text).toContain('Por qué importa:');
+    // Round 23: the digest has no labelled "Por qué importa:" row; the Spanish reason sentence itself is what to look for.
+    expect(es.subject).toMatch(/Reporte de tormenta|Aviso del clima|cerca de usted|novedades/);
+    expect(es.text).toContain('Se presentó un reporte de tormenta cerca');
     expect(es.text).toContain('Hail damage reported near Marietta');
+    expect(es.text).toContain('fuente pública');
     expect(en.subject).not.toMatch(/cerca de usted/);
-    expect(en.text).toContain('Why it matters:');
+    expect(en.text).toContain('A storm report was filed nearby');
   });
   it('migration 0024 NOT applied (the language read errors): everyone is emailed in English and the run does not fail', async () => {
     const r = await runNotify({ calls: [], language: 'no0024' });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ emailed: 2, failed: 0 });
     for (const m of r.sent) {
-      expect(m.text).toContain('Why it matters:');
+      expect(m.text).toContain('A storm report was filed nearby');
       expect(m.html).not.toContain('lang="es"');
     }
   });
@@ -119,11 +121,11 @@ describe('notify digest language', () => {
     const r = await runNotify({ calls: [], language: 'throw' });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ emailed: 2 });
-    for (const m of r.sent) expect(m.text).toContain('Why it matters:');
+    for (const m of r.sent) expect(m.text).toContain('A storm report was filed nearby');
   });
   it('a row with no language (or a bad one) is English', async () => {
     const r = await runNotify({ calls: [], language: [{ user_id: UID }, { user_id: UID2, language: 'xx' }] });
-    for (const m of r.sent) expect(m.text).toContain('Why it matters:');
+    for (const m of r.sent) expect(m.text).toContain('A storm report was filed nearby');
   });
   it('the language read asks for user_id and language only, for the members being considered', async () => {
     const w: World = { calls: [], language: [{ user_id: UID2, language: 'es' }] };

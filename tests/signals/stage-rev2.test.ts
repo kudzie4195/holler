@@ -211,9 +211,9 @@ describe('REV2 R9 and decision 7: the re-sent alert is a stage update, in the em
     expect(mail.text).not.toMatch(/official record|\bleads?\b|guaranteed|they need you/i);
   });
 
-  it('a normal alert is unchanged ("1 new thing near you"), and a mix says how many are updates and lists updates first', () => {
+  it('a normal alert names its place (round 23), and a mix still says how many are updates and lists updates first', () => {
     const plain = { ...item, permitStageUpdate: undefined, permitStage: null, permitStageAt: null, title: 'Roof permit in Norfolk' };
-    expect(renderDigest({ businessName: 'X', appUrl: 'https://a.test', unsubscribeUrl: 'https://u.test', now: NOW, items: [plain] }).subject).toBe('1 new thing near you: Roof permit in Norfolk');
+    expect(renderDigest({ businessName: 'X', appUrl: 'https://a.test', unsubscribeUrl: 'https://u.test', now: NOW, items: [plain] }).subject).toBe('Permit at 100 EXAMPLE AVE');
     const mixed = renderDigest({ businessName: 'X', appUrl: 'https://a.test', unsubscribeUrl: 'https://u.test', now: NOW, items: [plain, item] });
     expect(mixed.subject).toBe('2 things near you, 1 of them a stage update');
     expect(mixed.text.indexOf('Stage update: final inspection')).toBeLessThan(mixed.text.indexOf('Roof permit in Norfolk'));

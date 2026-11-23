@@ -37,7 +37,7 @@ describe.skipIf(!process.env.HOLLER_SHOTS_DIR)('write the pages for the screensh
     const css = process.env.HOLLER_SHOTS_CSS ?? '/_next/static/css/app.css';
     const raw = renderToStaticMarkup(createElement(Feed, { items: FIXTURES.map(feedItem), cityPage: null }));
     // each card gets a caption naming the fixture member it was built for (a screenshot aid, not product markup)
-    const parts = raw.split('<li><article');
+    const parts = raw.split(/<li[^>]*><article/);
     const feed = parts
       .map((part, i) => (i === 0 ? part : `<li><p style="margin:0 0 4px 0;font:12px/1.4 monospace;color:#5B635D" data-testid="fixture-caption">Fixture member: ${FIXTURES[i - 1].member.business_name} (${FIXTURES[i - 1].profile.categories.join(', ')}) · label ${FIXTURES[i - 1].label}</p><article${part}`))
       .join('');
