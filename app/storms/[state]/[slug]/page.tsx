@@ -6,11 +6,12 @@ import { ClosingBand, H2, Page, PageHeader, PrimaryLink, PublicRecordsNote, link
 import { stateBySlug } from '@/lib/geo';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd } from '@/lib/seo/jsonld';
-import { FEMA_ONLY_NOTE, HOW_TO_READ, SIGNUP_LINE, h1 as headingOf, metaDescription, pageTitle, summary } from '@/lib/storms/copy';
+import { FEMA_ONLY_NOTE, HOW_TO_READ, SIGNUP_LINE, STORM_WAITLIST_LINE, h1 as headingOf, metaDescription, pageTitle, summary } from '@/lib/storms/copy';
 import { loadStormReport } from '@/lib/storms/data';
 import { reportPath } from '@/lib/storms/report';
 import { RecordsTable } from '../../_components/records-table';
 import { stormCtaLabel } from '@/lib/plan/price-copy';
+import { stormReportCoverage } from '@/lib/storms/offer';
 
 type Props = { params: Promise<{ state: string; slug: string }> };
 
@@ -50,6 +51,9 @@ export default async function StormReportPage({ params }: Props) {
   const path = reportPath(r);
   const heading = headingOf(r);
   const lines = summary(r);
+  // Round 24 FIX2 (review D3): the same coverage answer as the ZIP check and the city pages for the report's place. Waitlist: no price, no
+  // trial, no sign-up link anywhere on the page (header included); the button goes to the ZIP check.
+  const waitlist = stormReportCoverage(r) === 'waitlist';
   const sources = [
     ...(r.spcTotal > 0 ? [{ label: 'NOAA Storm Prediction Center storm reports', href: 'https://www.spc.noaa.gov/climo/reports/' }] : []),
     ...(r.declarations > 0 ? [{ label: 'FEMA disaster declarations', href: 'https://www.fema.gov/disaster/declarations' }] : []),
@@ -74,6 +78,7 @@ export default async function StormReportPage({ params }: Props) {
   return (
     <Page
       width="wide"
+      showStart={!waitlist}
       header={
         <PageHeader
           width="wide"
@@ -99,11 +104,19 @@ export default async function StormReportPage({ params }: Props) {
           </div>
         </section>
 
-        <ClosingBand line={SIGNUP_LINE} note="No card to start. Holler never posts anything for you.">
-          <PrimaryLink href="/signup" onBrand>
-            {stormCtaLabel()}
-          </PrimaryLink>
-        </ClosingBand>
+        {waitlist ? (
+          <ClosingBand line={STORM_WAITLIST_LINE} note="Holler never posts anything for you.">
+            <PrimaryLink href="/check" onBrand>
+              Check your ZIP
+            </PrimaryLink>
+          </ClosingBand>
+        ) : (
+          <ClosingBand line={SIGNUP_LINE} note="No card to start. Holler never posts anything for you.">
+            <PrimaryLink href="/signup" onBrand>
+              {stormCtaLabel()}
+            </PrimaryLink>
+          </ClosingBand>
+        )}
 
         <p className="text-sm text-muted">
           Sources:{' '}

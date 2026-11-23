@@ -22,7 +22,24 @@ vi.mock('@/lib/seo/data', async () => {
       earliestAt: '2026-10-30T12:00:00.000Z',
       sources: ['nws'],
     }),
+    loadPlaceCounts: async () => ({ ok: false, counts: {}, partial: false }),
   };
+});
+// Round 24 FIX2 (review D3): storm reports shaped like the 8 in the sitemap (records as the saved pages list them). No database.
+vi.mock('@/lib/storms/data', () => {
+  const rec = (place: string, source: 'spc' | 'fema' = 'spc') => ({ type: source === 'spc' ? 'wind' : 'declaration', at: '2026-11-19T10:26:00.000Z', timeLabel: source === 'spc' ? '2:26 AM PST' : '', place, detail: null, url: null, source });
+  const report = (state: string, stateName: string, kind: 'county' | 'state', name: string, slug: string, places: string[], fema = false) => ({
+    state, stateName, kind, name, place: kind === 'state' ? stateName : `${name}, ${state}`, date: slug.slice(-10), dateLabel: 'Nov 19, 2026', slug, zone: 'America/Los_Angeles',
+    counts: { tornado: 0, hail: 0, wind: fema ? 0 : places.length }, spcTotal: fema ? 0 : places.length, declarations: fema ? 1 : 0, largestHailIn: null, peakWindMph: null,
+    firstAt: null, lastAt: null, firstLabel: null, lastLabel: null, modifiedAt: '2026-11-20T00:00:00.000Z', records: places.map((p) => rec(p, fema ? 'fema' : 'spc')), qualifies: true,
+  });
+  const REPORTS: Record<string, unknown> = {
+    'santa-barbara-county-2026-11-19': report('CA', 'California', 'county', 'Santa Barbara County', 'santa-barbara-county-2026-11-19', ['Gaviota, Santa Barbara County', 'Summerland, Santa Barbara County']),
+    'san-luis-obispo-county-2026-11-20': report('CA', 'California', 'county', 'San Luis Obispo County', 'san-luis-obispo-county-2026-11-20', ['Arroyo Grande, San Luis Obispo County', 'Cuyama, San Luis Obispo County']),
+    'new-mexico-fema-2026-10-26': report('NM', 'New Mexico', 'state', 'New Mexico', 'new-mexico-fema-2026-10-26', ['New Mexico'], true),
+    'los-angeles-county-2026-11-19': report('CA', 'California', 'county', 'Los Angeles County', 'los-angeles-county-2026-11-19', ['Agua Dulce, Los Angeles County', 'San Fernando, Los Angeles County']),
+  };
+  return { loadStormReport: async (_state: string, slug: string) => (REPORTS[slug] ? { status: 'ok', report: REPORTS[slug] } : { status: 'missing' }) };
 });
 vi.mock('@/lib/seo/trade-data', async (orig) => ({
   ...(await orig<typeof import('@/lib/seo/trade-data')>()),
@@ -30,6 +47,8 @@ vi.mock('@/lib/seo/trade-data', async (orig) => ({
 }));
 
 import CityPage from '@/app/local/[state]/[city]/page';
+import StormPage from '@/app/storms/[state]/[slug]/page';
+import { stormReportCoverage } from '@/lib/storms/offer';
 import TradePage, { generateMetadata as tradeMetadata } from '@/app/for/[trade]/page';
 import CheckPage from '@/app/check/page';
 import CheckPageEs from '@/app/es/check/page';
@@ -198,4 +217,41 @@ describe('the city page and the ZIP check agree, place by place and trade by tra
     if (want.storm) expect(text).toContain('Storm alerts for siding and gutters arrive when a storm hits near you.');
     if (want.state === 'live') expect(chk).toContain('href="/signup?city=');
   }, 60_000);
+});
+
+describe('round 24 FIX2 (review D3): storm pages follow the same coverage answer for their place', () => {
+  const render = async (state: string, slug: string) => renderToStaticMarkup((await StormPage({ params: Promise.resolve({ state, slug }) })) as ReactElement);
+  for (const [state, slug] of [
+    ['california', 'santa-barbara-county-2026-11-19'],
+    ['california', 'san-luis-obispo-county-2026-11-20'],
+    ['new-mexico', 'new-mexico-fema-2026-10-26'],
+  ] as const) {
+    it(`${slug}: waitlist, so no price, no trial, no sign-up link anywhere in the payload; the button is the ZIP check`, async () => {
+      const html = await render(state, slug);
+      NO_OFFER(html, slug);
+      expect(html).not.toMatch(/No card|1 month free|months? free/i);
+      expect(html).toContain('href="/check"');
+      expect(html).toContain('Check your ZIP');
+    });
+  }
+  it('the answer agrees with the city page for the same place (Santa Barbara is a waitlist city page)', () => {
+    expect(cityOffer(cityBySlug('santa-barbara-ca')!).state).toBe('waitlist');
+  });
+  it('a live place (Los Angeles County) keeps the offer, so the check above is not vacuous', async () => {
+    const html = await render('california', 'los-angeles-county-2026-11-19');
+    expect(html).toContain('href="/signup"');
+    expect(html).toContain('$7.99');
+    expect(stormReportCoverage({ kind: 'county', state: 'CA', name: 'Los Angeles County', records: [] })).toBe('live');
+  });
+});
+
+describe('round 24 FIX2 (review P3-16): a state page where every city is waitlist has no "Start free"', () => {
+  it('Montana (every city waitlist) has no sign-up link; Georgia (Atlanta live) keeps it', async () => {
+    const StatePage = (await import('@/app/local/[state]/page')).default;
+    const mt = renderToStaticMarkup((await StatePage({ params: Promise.resolve({ state: 'montana' }) })) as ReactElement);
+    expect(CITIES.filter((c) => c.state === 'MT').every((c) => cityOffer(c).state === 'waitlist')).toBe(true);
+    NO_OFFER(mt, 'montana');
+    const ga = renderToStaticMarkup((await StatePage({ params: Promise.resolve({ state: 'georgia' }) })) as ReactElement);
+    expect(ga).toContain('href="/signup"');
+  });
 });

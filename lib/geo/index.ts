@@ -128,6 +128,19 @@ export function nearbyCities(slug: string, n = 6): City[] {
   return result;
 }
 
+/**
+ * Round 24 FIX2 (review D3): a town name and state to a point (the first ZIP the dataset lists for that name), or null. Server-side only.
+ * Used to place a storm report, whose rows carry a town or county name and no coordinates.
+ */
+export function lookupPlaceByName(city: string, state: string): ZipInfo | null {
+  const name = String(city ?? '').trim();
+  const st = String(state ?? '').trim().toUpperCase();
+  if (!name || !/^[A-Z]{2}$/.test(st)) return null;
+  const rec = (zipcodes.lookupByName(name, st) ?? [])[0];
+  if (!rec || typeof rec.latitude !== 'number' || typeof rec.longitude !== 'number') return null;
+  return { zip: rec.zip, city: rec.city, state: rec.state, lat: rec.latitude, lon: rec.longitude };
+}
+
 /** ZIP to place. Server-side only (the zipcodes dataset is large). */
 export function lookupZip(zip: string): ZipInfo | null {
   const z = String(zip ?? '').trim().slice(0, 5);
