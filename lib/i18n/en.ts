@@ -465,8 +465,6 @@ export const en = {
   'email.act.storm_hanger': 'Print a storm door hanger',
   'email.act.lists': 'Open your address lists',
   'email.source_link': 'public source',
-  'email.honesty':
-    'Every card comes from a public record near you, and each one links to its public source. A permit does not mean the owner is choosing a vendor, and a weather or storm report only records the event: damage is not confirmed.',
   'email.honesty.listing': "A phone number or website above comes from the business's own public listing, not from the public record.",
   'email.empty.h': 'Nothing matched near you this week',
   'email.empty.body':
@@ -478,6 +476,49 @@ export const en = {
     'Few records for {trades} near you yet. Holler reads this area, but that work shows up here only now and then, so a week with nothing is normal for now. The next match is emailed as soon as a scan finds it.',
   'email.empty.waitlist':
     'Holler reads public records near you, but lately none of them has been work for {trades}. You can add another trade in Settings, and the next match is emailed as soon as a scan finds it.',
+  // r24 mail
+  // Round 24 FIXMAIL, one block so a later merge is easy: subjects that match the record, the closing honesty line built from the kinds
+  // of card in the email, the quiet-week email (sent only with HOLLER_QUIET_WEEK_ENABLED=1), the feed's deep-link notice, the trade-level
+  // waitlist confirmation and the unsubscribe pages in both languages.
+  'email.subject.card_in': '{what} in {place}',
+  'email.subject.card_in_more': '{what} in {place} (+{n} more)',
+  'email.subject.quiet': 'No new alert near you this week',
+  'email.what.new_build': 'New construction permit',
+  'email.what.federal_bid': 'Federal bid',
+  'email.what.property_sale': 'Property sale',
+  'email.honesty.opening': 'Every card comes from a public record near you, and each one links to its public source.',
+  'email.honesty.opening_mixed': 'Each card that comes from a public record links to its public source.',
+  'email.honesty.permit': 'A permit does not mean the owner is choosing a vendor.',
+  'email.honesty.violation': 'A violation or a failed inspection is on the record, but whether the owner is hiring is not known.',
+  'email.honesty.311': 'A 311 request is what someone reported, and the record does not show the city confirmed it.',
+  'email.honesty.bid': 'A bid listing does not show who may respond or who will be chosen.',
+  'email.honesty.business': 'A new business or a property sale is on the record, but the need for work is not known.',
+  'email.honesty.request': "A request or a public post is in its writer's own words, and Holler has not checked them.",
+  'email.honesty.weather': 'A weather alert or a storm report only records the event: damage is not confirmed.',
+  'email.empty.h_quiet': 'No new alert near you this week',
+  'email.empty.feed_only':
+    'Some public records near you matched your trades this week, but none of them was strong enough to send as an alert. They are in your feed. The next alert is emailed as soon as a scan finds one.',
+  'email.empty.unchecked': 'No new alert came for you this week. The next match is emailed as soon as a scan finds it.',
+  'card.link_missing': 'The card from your email is not in this list; it may be older than the cards shown here, or closed.',
+  'wl.email.subject_trade': 'Confirm: tell me when Holler has {trade} work near {place}',
+  'wl.email.body_trade':
+    'You asked Holler to tell you when it has {trade} work near {place}. Holler already reads public records there, but lately none of them has been {trade} work. Confirm this address and we will send you one email when that changes. Nothing else.',
+  'unsub.settings': 'Email settings',
+  'unsub.alerts.invalid_p': 'This unsubscribe link is not valid. You can turn off email alerts in your settings.',
+  'unsub.alerts.confirm_h': 'Turn off email alerts?',
+  'unsub.alerts.confirm_p': 'You will stop getting Holler emails. You can turn them back on in settings any time.',
+  'unsub.alerts.button': 'Turn off email alerts',
+  'unsub.alerts.error_p': 'We could not update your settings. Try again, or turn off email alerts in your settings.',
+  'unsub.alerts.done_h': 'Email alerts are off',
+  'unsub.alerts.done_p': 'You will not get Holler emails anymore. You can turn them back on in settings any time.',
+  'unsub.trial.invalid_p': 'This link is not valid. Your alert emails are not affected by it.',
+  'unsub.trial.confirm_h': 'Stop trial emails?',
+  'unsub.trial.confirm_p': 'You will stop getting the short emails about your trial. Your alert emails are not affected.',
+  'unsub.trial.button': 'Stop these emails',
+  'unsub.trial.error_p': 'We could not save that. Try the link again in a few minutes.',
+  'unsub.trial.done_h': 'Trial emails are off',
+  'unsub.trial.done_p': 'You will not get these emails anymore. Your alert emails are not affected.',
+  // end r24 mail
 
   // ---- alert cards in the app ----
   'card.empty.title': 'Nothing has matched yet',

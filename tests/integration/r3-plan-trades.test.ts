@@ -176,12 +176,17 @@ describe('notify digest: integrate3 patches', () => {
     expect(r.body).toMatchObject({ emailed: 0, skipped_not_entitled: 1 });
     vi.restoreAllMocks();
   });
-  it('a Cobb County row says the feed has a street address but no map point, instead of a town', async () => {
+  it('a Cobb County row never names a town it is not in, and (round 24) never explains a distance the email does not show', async () => {
     const cobb = { ...sig(9, 'Residential permit: re-roof', 3), source: 'arcgis-cobb-residential-permits', kind: 'permit', city: 'Cobb County' };
     const w: World = { migrated: true, lastNotified: null, ai: [], calls: [], matches: [{ id: 109, user_id: UID, created_at: new Date(NOW - H).toISOString(), signal: cobb }] };
     const r = await runNotify(w);
-    expect(r.sent[0].text).toContain("In Cobb County. The county's feed has a street address but no map point, so no distance is shown.");
     expect(r.sent[0].text).not.toContain('Cobb County, GA');
+    // Round 24 (review P2-8): the route still passes the approximate-location note as the place (the feed shows it in place of a
+    // distance), but the email shows no distance, so the note is neither the heading nor on the meta line: the card is headed by its own
+    // title, and the plain text never gets the note's double full stop.
+    expect(r.sent[0].text).not.toContain('no distance is shown');
+    expect(r.sent[0].text).toContain('1. Residential permit: re-roof');
+    expect(r.sent[0].text).not.toMatch(/\.\. /);
   });
 });
 

@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { digestAction, digestPlace, digestSubject, renderDigest, type DigestItem } from '@/lib/email/templates';
+import { approxLocationNote } from '@/lib/signals/approx-location';
 import { EMAIL_DARK, digestDarkModeCss } from '@/lib/email/theme';
 import { en } from '@/lib/i18n/en';
 import { es } from '@/lib/i18n/es';
@@ -37,7 +38,8 @@ const COBB_NEW_HOME: DigestItem = {
   subtype: 'permit',
   title: 'New home permit in Cobb County',
   summary: 'New Home | $609,273 job value | 5900 SPARROW WAY | Cobb County',
-  place: 'Location is approximate (Cobb County, GA)',
+  // Round 24 (review P2-8): the place the notify route really passes for a Cobb row (no code ever produced "Location is approximate").
+  place: approxLocationNote({ city: 'Cobb County', source: 'arcgis-cobb-residential-permits', subtype: 'permit' }),
   occurredAt: '2026-11-18T00:00:00+00:00',
   sourceUrl: 'https://gis.cobbcounty.org/gisserver/rest/services/comdev/Accela_PermitsDashboard/FeatureServer/4',
   label: 'coming_soon',
@@ -82,7 +84,8 @@ const ATL_ROOF: DigestItem = {
   occurredAt: '2026-11-17T00:00:00+00:00',
   sourceUrl: 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0',
   label: 'coming_soon',
-  trade: 'gutters',
+  // Round 24 (review P2-8): the real trade id ('gutters' is not one).
+  trade: 'siding-gutters',
 };
 const HAIL: DigestItem = {
   kind: 'report',
@@ -113,7 +116,15 @@ const REQUEST: DigestItem = {
 };
 
 const ALL = [COBB_NEW_HOME, DEKALB_VIOLATION, CHICAGO_PORCH, ATL_ROOF, HAIL, REQUEST];
-const cardsOf = (html: string) => html.split('<li ').slice(1).map((s) => s.split('</li>')[0]);
+// Round 24 (review P2-9): the cards are a role="list" of role="listitem" blocks, no longer a <ul> (Outlook on Windows). Each item ends with
+// its card table; the last one is followed by the closing part of the email, which has no table.
+const cardsOf = (html: string) =>
+  html
+    .split('<div role="listitem"')
+    .slice(1)
+    .map((s) => s.slice(0, s.lastIndexOf('</table></div>') + '</table></div>'.length));
+/** The one action of a card: padding on the table cell (Outlook ignores it on a link), the link a block inside it. */
+const ACTION_RE = /<td class="h-btn" style="[^"]*padding:13px 20px[^"]*"><a href="([^"]+)" style="display:block;[^"]*">([^<]+)<\/a>/g;
 
 describe('1. hierarchy: the place is the loudest line, and a card is at most five rows', () => {
   it('the first block of text in a card is the 20 px heading, and it holds the address, not the title', () => {
@@ -128,10 +139,12 @@ describe('1. hierarchy: the place is the loudest line, and a card is at most fiv
     expect(card).toMatch(/class="h-meta"[^>]*font-size:14px/);
   });
 
-  it('every card is at most 5 rows: chip, place, meta, reason, action', () => {
+  it('every card is at most 6 rows: chip, place, meta, reason, what is uncertain, action (a request adds the resident\'s own words)', () => {
+    // Round 24 (review P1-4): every card except a building permit carries its own "what is uncertain" line again, so a non-permit card
+    // is six rows and a permit card stays five. Only the request card adds its quote.
     for (const card of cardsOf(render(ALL).html)) {
       const rows = (card.match(/<div class="h-(head|meta|why|small|quote)"/g) ?? []).length + (card.includes('class="h-chip') ? 1 : 0) + 1;
-      expect(rows, card.slice(0, 120)).toBeLessThanOrEqual(6);
+      expect(rows, card.slice(0, 120)).toBeLessThanOrEqual(card.includes('class="h-quote"') ? 7 : 6);
     }
     // the ordinary card (no request text, no contact, no stage move) is exactly five
     const plain = cardsOf(render([COBB_NEW_HOME]).html)[0];
@@ -151,9 +164,13 @@ describe('1. hierarchy: the place is the loudest line, and a card is at most fiv
     expect(digestPlace(DEKALB_VIOLATION).text).toBe('2400 block of HARMONY RIDGE CT');
     const [card] = cardsOf(render([DEKALB_VIOLATION]).html);
     expect(card.match(/DeKalb County, GA/g) ?? []).toHaveLength(0);
-    // the approximate-location note is kept, but on the meta line, because it is a sentence and not a place
-    const [cobb] = cardsOf(render([COBB_NEW_HOME]).html);
-    expect(cobb).toContain('Location is approximate (Cobb County, GA)');
+    // Round 24 (review P2-8): the approximate-location note explains a missing distance, and the email shows no distance, so it is not
+    // a heading and not on the meta line either; the plain text never gets a double full stop.
+    const cobb = render([COBB_NEW_HOME]);
+    expect(COBB_NEW_HOME.place).toMatch(/no distance is shown/);
+    expect(cobb.html).not.toContain('no distance is shown');
+    expect(cobb.text).not.toContain('no distance is shown');
+    expect(cobb.text).not.toMatch(/\.\. /);
     expect(digestPlace({ ...COBB_NEW_HOME, summary: null }).kind).toBe('title');
   });
 });
@@ -161,20 +178,22 @@ describe('1. hierarchy: the place is the loudest line, and a card is at most fiv
 describe('2. one action per card, into a route that exists', () => {
   it('exactly one 44 px action per card, and it is a real link', () => {
     for (const card of cardsOf(render(ALL).html)) {
-      const acts = [...card.matchAll(/<a href="([^"]+)" style="display:inline-block;padding:13px 20px;min-height:44px;[^"]*">([^<]+)<\/a>/g)];
+      const acts = [...card.matchAll(ACTION_RE)];
       expect(acts, card.slice(0, 120)).toHaveLength(1);
       expect(acts[0][1]).toMatch(/^https:\/\/localholler\.com\/app/);
       expect(acts[0][2].length).toBeGreaterThan(5);
     }
   });
 
-  it('the action table: a permit with an address opens its own card; a block prints a list or a hanger; a request is replied to', () => {
+  it('the action table: a permit with an address opens its own card; a block prints a hanger; a request is replied to', () => {
     expect(digestAction(COBB_NEW_HOME, APP)).toEqual({ href: `${APP}#card-9001`, label: 'Open this card' });
     expect(digestAction(ATL_ROOF, APP)).toEqual({ href: `${APP}#card-9004`, label: 'Open this card' });
-    // lawn care has a neighborhood list (lib/lists AREA_LIST_TRADES), so the block-level card prints that
-    expect(digestAction(DEKALB_VIOLATION, APP)).toEqual({ href: `${APP}/lists/area?trade=lawn-care`, label: 'Print the lawn care address list' });
-    // handyman has no list, so the block-level card prints the hanger
+    // Round 24 (review P1-1): the trade's address list is a list of PERMITS, so a block-level violation never links to it, whatever the
+    // trade: a block is something to walk, so it prints the door hanger.
+    expect(digestAction(DEKALB_VIOLATION, APP)).toEqual({ href: `${APP}/lists/door-hanger`, label: 'Print a door hanger' });
     expect(digestAction(CHICAGO_PORCH, APP)).toEqual({ href: `${APP}/lists/door-hanger`, label: 'Print a door hanger' });
+    // only a permit whose address could not be read prints the permit list of its trade
+    expect(digestAction({ ...COBB_NEW_HOME, summary: 'New Home | Cobb County' }, APP)).toEqual({ href: `${APP}/lists/area?trade=landscaping`, label: 'Print the landscaping address list' });
     // a storm report is area level and gets the storm hanger
     expect(digestAction({ ...HAIL, trade: 'roofing' }, APP).href).toBe(`${APP}/lists/door-hanger?storm=1`);
     expect(digestAction(REQUEST, APP)).toEqual({ href: `${APP}#card-9006`, label: 'Reply to this request' });
@@ -222,20 +241,36 @@ describe('3. privacy: an exact address only for a permit', () => {
 });
 
 describe('4. honesty, said once and where it belongs', () => {
-  it('the one closing line carries the permit rule and the weather rule, and it is said once', () => {
+  it('the closing line says one sentence for each kind of card in the email, once', () => {
+    // Round 24 (review P1-4): built from the kinds present. ALL holds permits, violations, a storm report and a resident request.
     const { html, text } = render(ALL);
     for (const body of [html, text]) {
       expect(body.match(/A permit does not mean the owner is choosing a vendor/g)).toHaveLength(1);
-      expect(body).toContain('damage is not confirmed');
-      expect(body.match(/each one links to its public source/g)).toHaveLength(1);
+      expect(body.match(/A violation or a failed inspection is on the record, but whether the owner is hiring is not known/g)).toHaveLength(1);
+      expect(body.match(/A weather alert or a storm report only records the event: damage is not confirmed/g)).toHaveLength(1);
+      expect(body.match(/Holler has not checked them/g)).toHaveLength(1);
+      // a resident request is in this email: the closing line does not claim every card is a public record with a public source link
+      expect(body).not.toContain('Every card comes from a public record');
+      expect(body).toContain('Each card that comes from a public record links to its public source.');
+      // kinds that are not in the email are not mentioned
+      expect(body).not.toContain('311 request is what someone reported');
+      expect(body).not.toContain('A bid listing');
     }
+    // permits only: the plain opening sentence, and only the permit sentence after it
+    const permits = render([COBB_NEW_HOME, ATL_ROOF]);
+    expect(permits.text).toContain('Every card comes from a public record near you, and each one links to its public source. A permit does not mean the owner is choosing a vendor.\n');
   });
 
-  it('a weather or storm card still says on the card that damage is not confirmed; a permit card does not repeat a caveat', () => {
+  it('every card but a building permit says on the card what is uncertain; a permit card does not repeat its caveat', () => {
     const storm = cardsOf(render([HAIL]).html)[0];
     expect(storm).toMatch(/damage is not confirmed/);
     const permit = cardsOf(render([COBB_NEW_HOME]).html)[0];
     expect(permit).not.toMatch(/confidence/);
+    for (const it of [DEKALB_VIOLATION, CHICAGO_PORCH, HAIL, REQUEST]) {
+      const [card] = cardsOf(render([it]).html);
+      expect(card, it.title).toMatch(/<div class="h-small"[^>]*>(High|Medium|Low) confidence [^<]+<\/div>/);
+    }
+    expect(cardsOf(render([REQUEST]).html)[0]).toContain('Medium confidence a resident asked on Holler; details are unchecked.');
   });
 
   it('the listing caveat appears only when a card has a listing, and only once', () => {
@@ -265,7 +300,10 @@ describe('4. honesty, said once and where it belongs', () => {
 describe('5. the subject line', () => {
   it('names the strongest card and counts the rest, and stays short', () => {
     expect(digestSubject([COBB_NEW_HOME], 1)).toBe('New home permit at 5900 SPARROW WAY');
-    expect(digestSubject([COBB_NEW_HOME, ATL_ROOF, DEKALB_VIOLATION, HAIL], 4)).toBe('Storm report at Longview, TX (+3 more)');
+    // Round 24 (review P1-3, P2-7): the storm report's own title names Longview, so it heads the card; with the count it would pass 50
+    // characters, so the subject says what and where, with "in" (never "at" before a town).
+    expect(digestSubject([HAIL], 1)).toBe('1.75 inch hail reported near 2 ESE Longview, TX');
+    expect(digestSubject([COBB_NEW_HOME, ATL_ROOF, DEKALB_VIOLATION, HAIL], 4)).toBe('Storm report in Longview, TX (+3 more)');
     // Act Now sorts first, so the strongest card is the one named
     expect(digestSubject([COBB_NEW_HOME, CHICAGO_PORCH], 2)).toBe('Violation at 7700 block of S JEFFERY BLVD (+1 more)');
     expect(digestSubject([COBB_NEW_HOME], 1).length).toBeLessThanOrEqual(45);
@@ -281,6 +319,7 @@ describe('5. the subject line', () => {
   it('never longer than 120 characters, whatever a source wrote', () => {
     const long = { ...COBB_NEW_HOME, summary: null, place: null, title: 'X'.repeat(400) };
     expect(digestSubject([long], 2).length).toBeLessThanOrEqual(120);
+    expect(digestSubject([long], 2)).toMatch(/… \(\+1 more\)$/);
   });
 
   it('stage-update subjects are unchanged, and the empty week has its own', () => {
@@ -291,12 +330,17 @@ describe('5. the subject line', () => {
 });
 
 describe('6. the empty week is a useful email', () => {
-  const empty = render([]);
+  // Round 24 (review P1-5): "no public record matched" is said only when the sender counted the member's matches of the week and found
+  // none (matchedLastWeek: 0); see tests/email/fixmail-r24.test.ts for the other two cases.
+  const empty = render([], { matchedLastWeek: 0 });
 
   it('says what happened, what is still worth doing, and gives two real links', () => {
     expect(empty.subject).toBe('Nothing near you this week');
     expect(empty.html).toContain('Nothing matched near you this week');
     expect(empty.html).toContain('No public record near you matched your trades in the last week');
+    const unchecked = render([]);
+    expect(unchecked.subject).toBe('No new alert near you this week');
+    expect(unchecked.html).not.toContain('No public record near you matched');
     expect(empty.html).toContain(`href="${APP}/lists/door-hanger"`);
     expect(empty.html).toContain(`href="${APP}/lists"`);
     expect(empty.text).toContain(`Print a door hanger: ${APP}/lists/door-hanger`);
@@ -304,6 +348,7 @@ describe('6. the empty week is a useful email', () => {
 
   it('does not look broken: no empty list, no zero count, and the legal footer is there', () => {
     expect(empty.html).not.toContain('<ul');
+    expect(empty.html).not.toContain('role="list"');
     expect(empty.html).not.toMatch(/\b0 (new|things)/);
     expect(empty.html).toContain(UNSUB.replace(/&/g, '&amp;'));
     expect(empty.html).toContain('You get this because email alerts are on');
@@ -413,8 +458,8 @@ describe('10. Spanish parity', () => {
   it('the Spanish digest carries the Spanish chip, action, source words and honesty line, and no English chrome', () => {
     const { html, text } = render(ALL, { lang: 'es' });
     expect(html).toContain('lang="es"');
-    for (const phrase of [es['chip.act_now'], es['email.source_link'], es['email.honesty'], es['email.open_feed']]) expect(html).toContain(phrase);
-    for (const english of [en['email.honesty'], en['email.source_link'], en['email.act.hanger'], en['email.act.open_card']]) expect(html, english).not.toContain(english);
+    for (const phrase of [es['chip.act_now'], es['email.source_link'], es['email.honesty.opening_mixed'], es['email.honesty.permit'], es['email.honesty.weather'], es['email.open_feed']]) expect(html).toContain(phrase);
+    for (const english of [en['email.honesty.opening_mixed'], en['email.honesty.permit'], en['email.source_link'], en['email.act.hanger'], en['email.act.open_card']]) expect(html, english).not.toContain(english);
     // the block phrase is Spanish too, and the street stays as the source wrote it
     expect(text).toContain('cuadra 7700 de S JEFFERY BLVD');
     expect(text).toContain('5900 SPARROW WAY');
@@ -432,7 +477,7 @@ describe('the request card keeps the resident\'s own words and nothing else abou
     const [card] = cardsOf(render([REQUEST]).html);
     expect(card).toContain('Back yard is overgrown after the storm');
     expect(card).toMatch(/class="h-quote"/);
-    expect((card.match(/min-height:44px;/g) ?? []).length).toBe(1);
+    expect([...card.matchAll(ACTION_RE)]).toHaveLength(1);
     expect(card).toContain('Reply to this request');
   });
 });
@@ -454,14 +499,14 @@ describe.skipIf(!process.env.HOLLER_EMAIL_PREVIEW_DIR)('rendered previews', () =
   // (a) Atlanta landscaper, 4 cards, one new-build permit with an exact address (ids 138447, 72203, 55537, 55540)
   const ATL_LANDSCAPING: DigestItem[] = [
     { kind: 'civic', matchId: 41, source: 'arcgis-dekalb-violations', subtype: 'violation', title: 'Code violation in DeKalb County: property violation', summary: '2400 block of HARMONY RIDGE CT', place: 'DeKalb County, GA', occurredAt: '2026-11-18T09:25:28+00:00', sourceUrl: 'https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0', label: 'act_now', trade: 'landscaping', deadline: null },
-    { kind: 'permit', matchId: 42, source: 'arcgis-cobb-residential-permits', subtype: 'permit', title: 'New home permit in Cobb County', summary: 'New Home | $609,273 job value | 5900 SPARROW WAY | Cobb County', place: 'Location is approximate (Cobb County, GA)', occurredAt: '2026-11-18T00:00:00+00:00', sourceUrl: 'https://gis.cobbcounty.org/gisserver/rest/services/comdev/Accela_PermitsDashboard/FeatureServer/4', label: 'coming_soon', trade: 'landscaping', jobValue: 609273 },
+    { kind: 'permit', matchId: 42, source: 'arcgis-cobb-residential-permits', subtype: 'permit', title: 'New home permit in Cobb County', summary: 'New Home | $609,273 job value | 5900 SPARROW WAY | Cobb County', place: approxLocationNote({ city: 'Cobb County', source: 'arcgis-cobb-residential-permits', subtype: 'permit' }), occurredAt: '2026-11-18T00:00:00+00:00', sourceUrl: 'https://gis.cobbcounty.org/gisserver/rest/services/comdev/Accela_PermitsDashboard/FeatureServer/4', label: 'coming_soon', trade: 'landscaping', jobValue: 609273 },
     { kind: 'permit', matchId: 43, source: 'arcgis-atlanta-permits', subtype: 'permit', title: 'New construction permit in Atlanta', summary: 'Residential New | $500,000 job value | 333 WEST WIEUCA NE, ATLANTA, GA 30342', place: 'Atlanta, GA', occurredAt: '2026-11-18T00:00:00+00:00', sourceUrl: 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0', label: 'coming_soon', trade: 'landscaping', jobValue: 500000 },
     { kind: 'civic', matchId: 44, source: 'arcgis-dekalb-violations', subtype: 'violation', title: 'Code violation in DeKalb County: property violation', summary: '2100 block of RAMBLEWOOD CIR', place: 'DeKalb County, GA', occurredAt: '2026-11-17T00:00:00+00:00', sourceUrl: 'https://dcgis.dekalbcountyga.gov/mapping/rest/services/Hansen/CodeEnforcementCasesInspections/FeatureServer/0', label: 'coming_soon', trade: 'landscaping' },
   ];
 
   // (b) Atlanta gutters and pressure washing, 2 cards (ids 55448, 55451)
   const ATL_GUTTERS: DigestItem[] = [
-    { kind: 'permit', matchId: 51, source: 'arcgis-atlanta-permits', subtype: 'permit', title: 'Roof and remodel permit in Atlanta', summary: 'Residential Alteration | 771 PALATINE SE, ATLANTA, GA 30316', place: 'Atlanta, GA', occurredAt: '2026-11-17T00:00:00+00:00', sourceUrl: 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0', label: 'coming_soon', trade: 'gutters' },
+    { kind: 'permit', matchId: 51, source: 'arcgis-atlanta-permits', subtype: 'permit', title: 'Roof and remodel permit in Atlanta', summary: 'Residential Alteration | 771 PALATINE SE, ATLANTA, GA 30316', place: 'Atlanta, GA', occurredAt: '2026-11-17T00:00:00+00:00', sourceUrl: 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0', label: 'coming_soon', trade: 'siding-gutters' },
     { kind: 'permit', matchId: 52, source: 'arcgis-atlanta-permits', subtype: 'permit', title: 'New construction permit in Atlanta', summary: 'Residential New | $600,000 job value | 538 ETHEL NW, ATLANTA, GA 30318', place: 'Atlanta, GA', occurredAt: '2026-11-17T00:00:00+00:00', sourceUrl: 'https://services5.arcgis.com/5RxyIIJ9boPdptdo/arcgis/rest/services/building_permit_featureLayer/FeatureServer/0', label: 'coming_soon', trade: 'cleaning', jobValue: 600000 },
   ];
 

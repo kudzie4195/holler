@@ -191,7 +191,8 @@ describe('every read surface shows the alert once, however many county rows hold
     const { GET } = await import('@/app/api/cron/notify/route');
     await GET(new Request('https://x.test/api/cron/notify', { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }));
     expect(sent).toHaveLength(1);
-    expect((sent[0].html.match(/<li /g) ?? []).length).toBe(1);
+    // Round 24 (review P2-9): one role="listitem" block per card (no <ul>/<li>: Outlook on Windows).
+    expect((sent[0].html.match(/<div role="listitem"/g) ?? []).length).toBe(1);
     // Round 23: the subject names the one card. A county alert has no address or place of its own, so its own title carries it.
     expect(sent[0].subject).toMatch(/^Winter Storm Warning: /);
     expect(sent[0].subject).not.toMatch(/\(\+/);

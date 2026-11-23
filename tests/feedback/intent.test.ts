@@ -176,11 +176,18 @@ describe('intent copy', () => {
       }
       // what the intent lines said is in the brief: the open-bid, the public-post and the resident-request cases
       expect(out).toContain('nothing is awarded');
+      expect(out).toContain('Low confidence');
       expect(out).toContain('A resident asked on Holler');
-      // Round 23: the confidence line no longer repeats on every card. It stays on the weather card (damage is never assumed) and
-      // the rest of the honesty is said once, at the end of the email.
+      // Round 24 (review P1-4): restored. Every card but a permit carries its own confidence line again (the public post's "Low
+      // confidence ... the author is unchecked", the request's "details are unchecked"), and the closing line says one sentence for
+      // each kind in this email. No permit is in it, so the permit sentence is not, and with a request and a post in it the closing
+      // line does not claim every card is a public record with a public source link.
+      expect(out).toContain('Low confidence a post asked for this; the author is unchecked.');
+      expect(out).toContain('Medium confidence a resident asked on Holler; details are unchecked.');
       expect(out).toContain('damage is not confirmed');
-      expect(out).toContain('A permit does not mean the owner is choosing a vendor');
+      expect(out).toMatch(/A request or a public post is in its writer(&#39;|')s own words, and Holler has not checked them\./);
+      expect(out).not.toContain('A permit does not mean the owner is choosing a vendor');
+      expect(out).not.toContain('Every card comes from a public record');
     }
     expect(mail.html).not.toMatch(/[–—]/);
   });

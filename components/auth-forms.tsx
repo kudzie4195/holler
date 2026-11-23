@@ -147,6 +147,15 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
   );
 }
 
+/**
+ * Where to go after log-in (round 24, review P1-2): `next`, plus the alert email's card anchor when the login page was opened with one
+ * (`/login?next=/app#card-123`: the hash never reaches the server, so `next` cannot carry it). Only a `#card-<digits>` hash is carried, and
+ * only onto a `next` that has no hash of its own.
+ */
+export function nextWithCardHash(next: string, hash: string): string {
+  return /^#card-\d{1,15}$/.test(hash) && !next.includes('#') ? next + hash : next;
+}
+
 export function LoginForm({ next, linkExpired, lang = 'en' }: { next: string; linkExpired?: boolean; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
   const w = wordsFor(lang);
@@ -159,7 +168,9 @@ export function LoginForm({ next, linkExpired, lang = 'en' }: { next: string; li
     setPending(true);
     const { status, body } = await post('/api/auth/login', withLang(lang, { email, password }), lang);
     if (body.ok) {
-      hardNavigate(next);
+      // Round 24 (review P1-2): a signed-out member who opened an alert email's card link lands here as /login?next=/app#card-<id>. The
+      // browser keeps the #card part on this page but `next` cannot carry it (the server never sees a hash), so it is added back here.
+      hardNavigate(nextWithCardHash(next, window.location.hash));
       return;
     }
     setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });

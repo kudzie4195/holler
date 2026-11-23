@@ -46,8 +46,11 @@ export interface WaitlistDeps {
   hit: (limits: Limit[]) => Promise<'allowed' | 'limited' | 'error'>;
   /** Signs a row id into a confirm token (purpose 'waitlist', 7 days). */
   signToken: (id: string) => string;
-  /** True when the email was handed to the provider. */
-  sendConfirm: (msg: { to: string; confirmUrl: string; place: string }) => Promise<boolean>;
+  /**
+   * True when the email was handed to the provider. `trade` (round 24) is set only when the ZIP is one Holler already serves, so the
+   * sign-up is for that one trade there: the email then names the trade instead of "when Holler reaches {place}".
+   */
+  sendConfirm: (msg: { to: string; confirmUrl: string; place: string; trade?: string | null }) => Promise<boolean>;
   siteUrl: string;
 }
 
@@ -101,7 +104,8 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
   // is live or limited never needs the waitlist, so a direct post for one is refused rather than filling the list with places that
   // already have alerts. Round 23: the test is per trade, not per ZIP, so a town Holler reads that has nothing for lawn care can still
   // join the list for lawn care.
-  if (coverageFor(place, trade, isServedZip(place)).state !== 'waitlist') return { code: 'invalid', field: 'zip' };
+  const served = isServedZip(place);
+  if (coverageFor(place, trade, served).state !== 'waitlist') return { code: 'invalid', field: 'zip' };
 
   const deps = typeof depsOrFactory === 'function' ? depsOrFactory() : depsOrFactory;
   const address = email.data.toLowerCase();
@@ -132,7 +136,7 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
   if (found.data.confirmed_at || found.data.unsubscribed_at) return { code: 'ok' };
 
   const confirmUrl = `${deps.siteUrl.replace(/\/$/, '')}/waitlist/confirm?token=${encodeURIComponent(deps.signToken(found.data.id))}`;
-  const sent = await deps.sendConfirm({ to: address, confirmUrl, place: `${place.city}, ${place.state}` });
+  const sent = await deps.sendConfirm({ to: address, confirmUrl, place: `${place.city}, ${place.state}`, trade: served ? trade : null });
   if (!sent) {
     console.error('[waitlist] confirm email not sent');
     return { code: 'unavailable' };
