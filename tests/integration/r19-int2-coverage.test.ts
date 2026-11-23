@@ -20,7 +20,7 @@ import { runScan } from '@/lib/signals/run';
 import { SOCRATA_DATASETS } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { CARTO_DATASETS } from '@/lib/signals/adapters/carto-datasets';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS, isProbationSource, monitoredSourceIds, probationCheck, probationOverview } from '@/lib/signals/probation';
 import { matchArea, matchOne, matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { isListablePermit } from '@/lib/lists/core';
 import { lookupForCards, lookupSettings, newBudget } from '@/lib/enrich/business-lookup';
@@ -274,13 +274,16 @@ describe('7. metros and the label exemption', () => {
       'socrata-dallas-permits': 'dallas-fort-worth', 'arcgis-arlington-permits': 'dallas-fort-worth', 'arcgis-houston-311': 'houston',
       'arcgis-miamidade-permits': 'miami', 'arcgis-miamidade-violations': 'miami', 'arcgis-miamidade-building-violations': 'miami',
       'arcgis-phoenix-permits': 'phoenix', 'arcgis-tempe-permits': 'phoenix',
+      // Round 20 VIOL (lib/signals/adapters/viol-datasets.ts)
+      ...Object.fromEntries(VIOL_R20_SOURCES.map((s) => [s.id, s.metro])),
     };
     for (const [id, metro] of Object.entries(want)) expect(places.get(id), id).toBe(metro);
     expect([...PROBATION_SOURCE_IDS].sort()).toEqual(Object.keys(want).sort());
   });
 
   it('the eight ids have no label yet and are exempt only while on probation', () => {
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS].sort());
+    // Round 20 VIOL adds its probation sources to the exemption (no SOURCE_DEFAULTS entry this round; proposals in lib/signals/proposed-labels.ts).
+    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...IDS, ...VIOL_R20_SOURCES.map((s) => s.id)].sort());
     for (const id of IDS) {
       expect(SOURCE_DEFAULTS[id], id).toBeUndefined();
       expect(isProbationSource(id), id).toBe(true);

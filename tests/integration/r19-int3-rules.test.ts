@@ -19,7 +19,7 @@ import { createStore } from '@/lib/lifecycle/store';
 import { buildAlerts } from '@/lib/mobile/feed';
 import { matchSignals, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { labelFor, keptMatchLabel, SOURCE_DEFAULTS } from '@/lib/signals/lead-rules';
-import { COVERAGE_R19_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS } from '@/lib/signals/probation';
+import { COVERAGE_R19_SOURCES, VIOL_R20_SOURCES, LABEL_PENDING_INTEGRATION, PROBATION_SOURCE_IDS } from '@/lib/signals/probation';
 import { createsWorkFor, stormListLabel } from '@/lib/lists/core';
 import { OpportunityChip } from '@/components/feed/opportunity-chip';
 
@@ -134,10 +134,10 @@ describe('2. the contact gate and the new rules agree', () => {
 
 describe('3. probation and the label exemption', () => {
   it('the eight coverage ids have no SOURCE_DEFAULTS entry and are exempt only while on probation; the Philadelphia three have had entries since r19-metros', () => {
-    expect(PROBATION_SOURCE_IDS.size).toBe(11);
+    expect(PROBATION_SOURCE_IDS.size).toBe(11 + VIOL_R20_SOURCES.length); // round 20 VIOL adds its probation feeds
     for (const s of COVERAGE_R19_SOURCES) expect(SOURCE_DEFAULTS[s.id], s.id).toBeUndefined();
     for (const id of ['carto-phl-permits', 'carto-phl-violations', 'carto-phl-business']) expect(SOURCE_DEFAULTS[id], id).toBeDefined();
-    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual(COVERAGE_R19_SOURCES.map((s) => s.id).sort());
+    expect([...LABEL_PENDING_INTEGRATION].sort()).toEqual([...COVERAGE_R19_SOURCES, ...VIOL_R20_SOURCES].map((s) => s.id).sort());
     const t = read('tests/signals/lead-rules.test.ts');
     expect(t).toMatch(/a\.probation && LABEL_PENDING_INTEGRATION\.includes\(a\.id\) && !\(a\.id in SOURCE_DEFAULTS\)/);
   });

@@ -1,5 +1,6 @@
 import type { CategoryId } from '@/lib/signals/categories';
 import type { ContactSpec } from '@/lib/contacts/extract';
+import { VIOL_SOCRATA_DATASETS } from './viol-datasets';
 
 /**
  * Config for the Socrata (SODA) adapters. Every dataset id and field name below was read from the
@@ -145,6 +146,12 @@ export interface SocrataDataset {
    * review P3-H), flagged approxLocation.
    */
   zipCentroid?: { near: { lat: number; lon: number }; maxMi: number };
+  /**
+   * 311 only (round 20, NYC 311 call path). A 311 summary carries no street address, because most requests are about a street or one
+   * apartment. When `when` says the request is about a WHOLE BUILDING, the building's address from `fields` is added to the summary, only as
+   * lib/contacts cleanAddress keeps it and never with a unit (socrata.ts wholeBuildingAddress). `when` reads the row's own type columns.
+   */
+  buildingAddress?: { fields: string[]; when: (get: (field: string) => string) => boolean };
   /** Round 19 coverage (review P1-B): the address is stored only as lib/contacts cleanAddress keeps it, else not at all. */
   strictAddress?: boolean;
   /**
@@ -163,7 +170,8 @@ export interface SocrataDataset {
  */
 export const NAME_LIKE_COLUMN =
   /(dba|owner|applicant|contact|licensee|requestor|requester|inspector|complainant|legal|business_name|ownership|permittee|contractor|host|organization|trade_name|first_name|last_name|full_name|restaurant_name|(^|_)name$)/i;
-export const NAME_COLUMN_OK = ['park_facility_name'];
+// street_name: a street, not a person (round 20 VIOL, NYC rodent inspections; still cut to block level by publicAddress).
+export const NAME_COLUMN_OK = ['park_facility_name', 'street_name'];
 /** Subtypes whose records can describe a private individual (sole proprietors, home addresses, private hosts). */
 export const PERSON_RISK_SUBTYPES: SocrataSubtype[] = ['business', 'violation', 'event-permit'];
 
@@ -350,6 +358,13 @@ const nycFail = (r: Record<string, unknown>) =>
 const austinFail = (r: Record<string, unknown>) => Number(r.score) < 70;
 
 const D = (domain: string, id: string) => `https://${domain}/api/views/${id}.json`;
+
+/** NYC 311: a request about a whole building (round 20 call path). Exported for tests. */
+export function isWholeBuildingNyc311(complaintType: string, descriptor: string): boolean {
+  const t = complaintType.trim().toUpperCase();
+  const d = descriptor.trim().toUpperCase();
+  return (t === 'HEAT/HOT WATER' && d === 'ENTIRE BUILDING') || t === 'NON-RESIDENTIAL HEAT';
+}
 
 // --- Inspection summary vocabularies (round 5 FIX-E) ---------------------------------------------------------------------------
 // Known values of each portal's categorical columns, from the portals' public field documentation (assumed, not re-read live). A value
@@ -694,6 +709,11 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     titleFields: ['complaint_type', 'descriptor'], textFields: ['complaint_type', 'descriptor'], summaryFields: ['complaint_type', 'descriptor', 'borough'],
     zipField: 'incident_zip', typeFilterField: 'complaint_type', cadenceMinutes: 180, verified: true,
     verifiedUrl: D('data.cityofnewyork.us', 'erm2-nwe9'), fieldSource: 'sourced',
+    // Round 20: whole-building heat (HPD "HEAT/HOT WATER" with descriptor "ENTIRE BUILDING") and non-residential heat (a business premises)
+    // name the building, so the summary carries its street address (incident_address, a column of the 311 dataset [S: socrata-nyc-311
+    // stored rows have no address today; the column is in the NYC 311 data dictionary, assumed live]). Apartment-only heat and every other
+    // request keep no address.
+    buildingAddress: { fields: ['incident_address'], when: (get) => isWholeBuildingNyc311(get('complaint_type'), get('descriptor')) },
   },
   {
     id: 'socrata-nyc-inspections', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: '43nn-pn8j',
@@ -1002,6 +1022,8 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     lookbackOverride: 1, windowForwardDays: 14, cadenceMinutes: 720, verified: false, verifiedUrl: D('data.cityofnewyork.us', 'tg4x-b46p'), fieldSource: 'sourced',
     note: 'DISABLED: columns verified, but max(enteredon) is 2026-08-14 and max(startdatetime) 2026-08-17 (rowsUpdatedAt 2026-10-27 is a re-publish of old rows). NYC Permitted Event Information above carries film shoots as "Production Event".',
   },
+  // Round 20 VIOL (New York HPD and rodent findings, Montgomery County MD housing code): ALL ON PROBATION, schemas unverified. See viol-datasets.ts.
+  ...VIOL_SOCRATA_DATASETS,
 ];
 
 for (const d of SOCRATA_DATASETS) if (CONTACT_SPECS[d.id]) d.contacts = CONTACT_SPECS[d.id];

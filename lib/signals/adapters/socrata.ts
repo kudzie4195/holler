@@ -241,6 +241,18 @@ export function blockAddress(raw: string): string {
   return hundred === 0 ? `0-99 block of ${street}` : `${hundred} block of ${street}`;
 }
 
+/**
+ * Round 20 (NYC 311 call path): the street address of a WHOLE BUILDING named by a 311 request, or ''. Only what the shared site-address rule
+ * keeps (lib/contacts cleanAddress: house number, street words, suffix, cut there), and never a unit: a trailing "#4B", "APT 4B", "UNIT 2"
+ * and so on is removed. A building with heating plant trouble is a building, not a person; apartment-level requests never reach this.
+ */
+export function wholeBuildingAddress(raw: string): string {
+  const kept = cleanAddress(raw);
+  if (!kept || /^PO BOX/i.test(kept)) return '';
+  const out = kept.replace(/\s+(?:#\S+|(?:apt|apartment|unit|ste|suite|fl|floor|rm|room|bldg|ph)\.?\s+\S+)$/i, '').trim();
+  return /^\d/.test(out) && /\s\S/.test(out) ? out : '';
+}
+
 /** Violation rows store a block-level address; every other subtype keeps what the config asks for. */
 export function publicAddress(subtype: string, raw: string): string {
   // Anything after the street suffix of a permit or violation address (" - SMITH RESIDENCE", a name typed into the street column) is
@@ -503,6 +515,12 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       // configured summary fields are read, never owner or applicant columns.
       const summaryParts = [...new Set(summaryBits)];
       if (address && ds.subtype !== '311') summaryParts.push(address);
+      // Round 20: a 311 request about a whole building (NYC "HEAT/HOT WATER / ENTIRE BUILDING") names the building's street address, so the
+      // card has a call path. Apartment-level and street requests keep the old behaviour (no address).
+      if (ds.subtype === '311' && ds.buildingAddress?.when((f) => s(row, f))) {
+        const building = wholeBuildingAddress(ds.buildingAddress.fields.map((f) => s(row, f)).filter(Boolean).join(' '));
+        if (building) summaryParts.push(building);
+      }
       const summary = ds.subtype === 'business'
         ? trunc(summaryParts.join(' | '), 280) || null
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
@@ -776,7 +794,7 @@ export function socrataSelectColumns(ds: SocrataDataset): string[] {
   return [
     ...new Set(
       [
-        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields,
+        ...(ds.idFields?.length ? ds.idFields : [ds.idField]), ds.dateField, ...ds.titleFields, ...ds.textFields, ...ds.summaryFields, ...(ds.buildingAddress?.fields ?? []),
         ...(ds.addressFields ?? []), ds.zipField, ds.latField, ds.lonField, ds.locationField, ds.latLonTextField, ds.statusField,
         ...contactSpecFields(ds.contacts), ...(ds.valueFields ?? []),
       ].filter((x): x is string => Boolean(x)),

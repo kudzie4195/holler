@@ -1,6 +1,7 @@
 import type { InspectionSummaryField, SocrataSubtype } from './socrata-datasets';
 import type { ContactSpec } from '@/lib/contacts/extract';
 import { COVERAGE_ARCGIS_DATASETS, COVERAGE_CONTACT_SPECS, COVERAGE_VALUE_FIELDS } from './coverage-datasets';
+import { VIOL_ARCGIS_DATASETS } from './viol-datasets';
 
 /**
  * Config for the generic ArcGIS (FeatureServer / MapServer layer) adapter.
@@ -214,6 +215,8 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   },
   // Round 19 coverage (Dallas-Fort Worth, Houston, Miami, Phoenix): ALL ON PROBATION, schemas unverified. See coverage-datasets.ts.
   ...COVERAGE_ARCGIS_DATASETS,
+  // Round 20 VIOL (Washington DC 311): ON PROBATION, schema unverified. See viol-datasets.ts.
+  ...VIOL_ARCGIS_DATASETS,
 ];
 
 /**

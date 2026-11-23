@@ -180,7 +180,9 @@ describe('silent-empty rule and config', () => {
     for (const d of SOCRATA_DATASETS) {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: d.tz })).not.toThrow();
       expect(d.verifiedUrl).toMatch(/^https:\/\/.+\/api\/views\/[a-z0-9]{4}-[a-z0-9]{4}\.json$/);
-      if (d.verified) expect(d.fieldSource).toBe('sourced');
+      // A probation, schema-unverified dataset (round 20 VIOL) says honestly that its columns were not read: it reaches no member until promoted,
+      // and promotion removes schemaUnverified (tests/signals/coverage-r19.test.ts L), so the rule still holds for every live dataset.
+      if (d.verified && !(d.probation && d.schemaUnverified)) expect(d.fieldSource).toBe('sourced');
     }
     expect(new Set(SOCRATA_DATASETS.map((d) => d.id)).size).toBe(SOCRATA_DATASETS.length);
     for (const sub of ['business', 'violation', 'event-permit'] as const) expect(SOCRATA_DATASETS.some((d) => d.subtype === sub && d.verified)).toBe(true);
