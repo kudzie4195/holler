@@ -10,7 +10,7 @@ import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIME
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { cleanAddress } from '@/lib/contacts/sanitize';
 import { site311Contact } from '@/lib/signals/site-311';
-import { OCCUPANCY_TRADES, occupancyTitle, occupancyTypeText, premisesAddressOf } from './next-rules';
+import { OCCUPANCY_TRADES, businessSummary, occupancyAddress, occupancyClassOf, occupancyTitle, occupancyTypeText, premisesAddressOf, quadrantAfter } from './next-rules';
 
 const LIMIT = 500;
 const UA = 'Holler/1.0 (+https://holler.app/about; contact@holler)';
@@ -258,6 +258,7 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
       const jobValue = ds.subtype === 'permit' ? extractJobValue((x) => str(a, x), valueFieldsOf(ds)) : null;
       const pos = privatePosition(position({ attributes: a, geometry: feat.geometry }, ds), ds.subtype);
       let itemTitle: string;
+      let dropSite = false;
       let summary: string | null;
       let zip: string | null;
       if (ds.subtype === 'inspection') {
@@ -279,15 +280,21 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
           .filter((b) => Boolean(b) && !/^issued status code$/i.test(b.trim()));
         // Business rows never carry a street address (home addresses of sole proprietors).
         // Round 20 (NEXT): a business with a `premises` rule prints its premises address only when its name passed.
-        const address = ds.subtype === 'business'
-          ? (ds.premises ? premisesAddressOf((x) => str(a, x), ds.premises, { city: ds.city, state: ds.state }) : '')
+        const baseAddress = ds.subtype === 'business'
+          ? (ds.premises ? premisesAddressOf((x) => str(a, x), ds.premises, { city: ds.city, state: ds.state }, ds.premisesWhen) : '')
           : publicAddress(ds.subtype, rawAddress);
+        // Review fix P2-3: a certificate of occupancy at a home prints its block (residential) or nothing (home occupation); DC keeps its quadrant.
+        const occ = ds.occupancy && ds.subtype === 'permit'
+          ? occupancyAddress(joined, baseAddress, occupancyClassOf(ds.occupancy.typeFields.map((x) => str(a, x)), ds.occupancy.unknownType), ds.keepQuadrant)
+          : null;
+        if (occ?.dropSite) dropSite = true;
+        const address = occ ? occ.address : ds.keepQuadrant && baseAddress && quadrantAfter(joined) ? `${baseAddress} ${quadrantAfter(joined)}` : baseAddress;
         const parts = [...new Set(summaryBits)];
         if (address && ds.subtype !== '311') parts.push(address);
         itemTitle = ds.occupancy && ds.subtype === 'permit'
           ? occupancyTitle(ds.city, occupancyTypeText(printableValues(ds, ds.occupancy.typeFields, (x) => str(a, x)).values))
           : permitClass ? permitTitleFor(ds.city, permitClass.label) : title(ds, titleBits, summaryBits, address, categories, titlePrint.withheld);
-        summary = ds.subtype === 'business' ? trunc(parts.join(' | '), 280) || null : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
+        summary = ds.subtype === 'business' ? businessSummary(parts, address) : publicSummary(parts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
         zip = str(a, ds.zipField).slice(0, 5) || null;
       }
       const permitStage = ds.occupancy && ds.subtype === 'permit'
@@ -295,7 +302,9 @@ export function parseArcgisReport(raw: unknown, ds: ArcgisDataset): ArcgisParseR
         : ds.subtype === 'permit' && ds.statusField ? permitStageOf(str(a, ds.statusField)) : null;
       // Round 20 (NEXT): a 311 request about a property gives at most a PRIVATE block-level site (lib/signals/site-311.ts).
       const site311 = ds.subtype === '311' && ds.site311 ? site311Contact((x) => str(a, x), ds.site311, { city: ds.city, state: ds.state, zip }) : null;
-      const allContacts = site311 ? [...contacts, site311] : contacts;
+      // Review fix P2-3: a residential or home certificate keeps no exact private site either.
+      const kept = dropSite ? contacts.filter((c) => c.role !== 'site') : contacts;
+      const allContacts = site311 ? [...kept, site311] : kept;
       report.items.push({
         source: ds.id,
         externalId,

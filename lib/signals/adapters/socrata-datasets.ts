@@ -158,6 +158,10 @@ export interface SocrataDataset {
    * this field a business row never carries a street address (unchanged).
    */
   premises?: ContactSpec;
+  /** Review fix P2-2: the premises address is printed only when this also says so (a commercial-premises NAICS class); absent: always. */
+  premisesWhen?: (get: (field: string) => string) => boolean;
+  /** Review fix P2-3: a trailing quadrant (NW, NE, SW, SE) of the address is kept (Washington DC: without it one address is four places). */
+  keepQuadrant?: boolean;
   /** Round 20 (NEXT), 311 only: the block-level site rule (lib/signals/site-311.ts). A private site contact at block level, never public. */
   site311?: Site311Rule;
   /**
@@ -166,7 +170,7 @@ export interface SocrataDataset {
    * title "Certificate of occupancy in <city>: <building type>" from `typeFields` (fixed-safe printing: printableValues + scrubText). No
    * applicant, owner or permittee column is ever named.
    */
-  occupancy?: { typeFields: string[] };
+  occupancy?: { typeFields: string[]; /** Review fix P2-3: no building-type column (New York): every row is treated as residential. */ unknownType?: boolean };
   /**
    * Round 20 (NEXT): a row is dropped before ANYTHING is built from it (title, id, contacts, sample) unless this says keep. Used for the
    * Texas feeds: organisation type must be a company form (sole proprietors are never stored) and the NAICS code a storefront sector. Reads
@@ -174,10 +178,21 @@ export interface SocrataDataset {
    */
   keepRow?: (get: (field: string) => string) => boolean;
   /**
-   * Round 20 (NEXT): the external id is a hash of the id columns (sha256, 24 hex), never their raw value. For ids that embed a taxpayer
-   * number (Texas Comptroller): the stored id cannot be read back into the number.
+   * Round 20 (NEXT): the external id is a KEYED hash of the id columns (review fix P2-1: HMAC-SHA256 with a server secret,
+   * lib/signals/id-key.ts), never their raw value. For ids that embed a taxpayer number (Texas Comptroller). Without the secret the adapter
+   * sends no request.
    */
   hashId?: boolean;
+  /**
+   * Review fix P1-1: the columns `keepRow` reads. They are asked for in $select (and listed by the probe), so the keep rule sees them.
+   */
+  keepFields?: string[];
+  /**
+   * Review fix P1-2: send the column allow-list ($select, socrataSelectColumns) on EVERY request, whatever `schemaUnverified` says, so
+   * promotion (removing schemaUnverified) never switches the source to select-all. Set on every round 20 NEXT Socrata dataset: a portal
+   * column this config does not read (Texas taxpayer name and address, the TABC owner, applicant or owner columns) is never requested.
+   */
+  selectOnly?: boolean;
   /**
    * Round 20 (NEXT), with naicsField: the classifier text also gets the NAICS sector words (NAICS_SECTORS, "Food service and lodging"), so a
    * code-only feed can be told food from retail. Off for the existing feeds (San Francisco is unchanged).

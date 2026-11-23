@@ -312,9 +312,11 @@ describe('9. the coverage feeds\' real-shaped company strings under the merged r
     expect(tempe('Phoenix Plumbing LLC')).toEqual(['contractor:Phoenix Plumbing LLC']);
     expect(dal('NORTH TEXAS ROOFING LLC 7501 US HWY 287, ARLINGTON, TX 76001 (214) 555-0100')).toEqual(['contractor:NORTH TEXAS ROOFING LLC']);
     expect(dal('MILESTONE ELECTRIC 7501 US HWY 287, Suite C4, ARLINGTON, TX 76001 (817) 969-5050')).toEqual(['contractor:MILESTONE ELECTRIC']);
-    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Lone Star" and "Dallas" are still refused.
+    // Arlington NameofBusiness is role business (licence rule): Texas with a legal form is kept now; "Dallas" is still refused.
     expect(arlington('North Texas Roofing LLC')).toEqual(['business:North Texas Roofing LLC']);
-    expect(arlington('Lone Star Roofing LLC')).toEqual([]);
+    // Round 20 NEXT review fix P1-4 / P2-6, decided explicitly: "Lone Star Roofing LLC" is a company (a Texas nickname, a trade word and a legal
+    // form, no person named); the licence rule's second try (lib/contacts/trade-name.ts) accepts it.
+    expect(arlington('Lone Star Roofing LLC')).toEqual(['business:Lone Star Roofing LLC']);
     expect(arlington('Dallas Roofing LLC')).toEqual([]);
     // never a person, in any of them
     for (const p of ['Maria Lopez', 'JOHN A SMITH', 'Smith, John', 'Florida Garcia Inc', 'TEXAS SMITH LLC']) {

@@ -5,7 +5,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SOCRATA_DATASETS, type SocrataDataset } from '@/lib/signals/adapters/socrata-datasets';
 import { ARCGIS_DATASETS, type ArcgisDataset } from '@/lib/signals/adapters/arcgis-datasets';
 import { buildSocrataQuery, parseSocrata, parseSocrataReport, socrataSelectColumns } from '@/lib/signals/adapters/socrata';
@@ -13,7 +13,11 @@ import { buildArcgisQuery, parseArcgis } from '@/lib/signals/adapters/arcgis';
 import { NEXT_ARCGIS_DATASETS, NEXT_SOCRATA_DATASETS, NEXT_SOURCE_IDS, miamiNewBusiness, tabcKeep, txSalesKeep } from '@/lib/signals/adapters/next-datasets';
 import { isCompanyForm, isFoodNaics, isStorefrontNaics } from '@/lib/signals/adapters/next-filters';
 import { OCCUPANCY_TRADES, hashedId, occupancyTitle, occupancyTypeText } from '@/lib/signals/adapters/next-rules';
-import { HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, buildHoustonPermitsAdapter, cellText, parseHoustonPermits, readPermitTable } from '@/lib/signals/adapters/houston-permits';
+import { HOUSTON_ACCESS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_USER_AGENT, buildHoustonPermitsAdapter, cellText, houstonAccessCleared, parseHoustonPermits, readPermitTable } from '@/lib/signals/adapters/houston-permits';
+import { probeHoustonReport } from '@/lib/signals/coverage-probe';
+import { resetRobotsCache } from '@/lib/firecrawl/robots';
+import { keyedId } from '@/lib/signals/id-key';
+import { buildSocrataAdapter } from '@/lib/signals/adapters/socrata';
 import { NEVER_SITE_311_RE, PROPERTY_CONDITION_311_RE, blockOfAddress, site311Block, site311Contact, site311TypeAllowed } from '@/lib/signals/site-311';
 import { blockSiteAddress, sanitizeContact, sanitizeContacts } from '@/lib/contacts/sanitize';
 import { contactsAllowedFor, isBlockSiteContact } from '@/lib/contacts/extract';
@@ -31,6 +35,9 @@ import { contactPathOf, textShowsPlace } from '@/lib/signals/alert-gate';
 import type { AdapterContext, SignalInput } from '@/lib/signals/types';
 
 const NOW = new Date('2026-11-22T18:00:00Z');
+// Review fix P2-1: the Texas id is keyed with a server secret (lib/signals/id-key.ts). A test-only secret for this file.
+beforeAll(() => vi.stubEnv('HOLLER_BUILDING_REF_SECRET', 'test-only-secret'));
+afterAll(() => vi.unstubAllEnvs());
 const PERSON = /Zelda Quixmore|QUIXMORE|Zelda|Marisol Vantreek|VANTREEK/i;
 const sd = (id: string) => SOCRATA_DATASETS.find((d) => d.id === id)!;
 const ad = (id: string) => ARCGIS_DATASETS.find((d) => d.id === id)!;
@@ -70,7 +77,8 @@ describe('Chicago new business licences: premises address (LIVE source, one inte
       expect(restOn).toEqual(restWas); // title, categories, lat/lon, zip, data, contacts, id, date
       const site = s.contacts?.find((c) => c.role === 'site')?.address;
       const named = s.contacts?.some((c) => c.role === 'business');
-      expect(a).toBe(named && site ? `${b} | ${site}` : b);
+      // Review fix P0-1: a home-based or home-prone activity prints nothing even with a passing name (the private site may stay).
+      expect(a === b || (named && site && a === `${b} | ${site}`)).toBe(true);
     });
   });
 
@@ -97,8 +105,11 @@ describe('Chicago new business licences: premises address (LIVE source, one inte
 describe('311: at most a block-level site, never a house number, only for property-condition request types', () => {
   it('blocks: rounded to the hundred, units dropped, unsure input gives nothing', () => {
     expect(blockOfAddress('2318 W 47TH ST')).toBe('2300 block of W 47TH ST');
-    expect(blockOfAddress('12 MAIN ST APT 4')).toBe('0-99 block of MAIN ST');
-    expect(blockOfAddress('4521 ELM AVE #5B')).toBe('4500 block of ELM AVE');
+    expect(blockOfAddress('12 MAIN ST')).toBe('0-99 block of MAIN ST');
+    // Review fix P2-4: an address with a unit gives no block at all.
+    expect(blockOfAddress('12 MAIN ST APT 4')).toBe('');
+    expect(blockOfAddress('4521 ELM AVE #5B')).toBe('');
+    expect(blockOfAddress('1200 MAIN ST UNIT B')).toBe('');
     for (const bad of ['', 'MAIN ST & ELM ST', 'PO BOX 12', '0 MAIN ST', '8701 ZELDA QUIXMORE', 'call 214-555-0199', 'N/A']) expect(blockOfAddress(bad), bad).toBe('');
   });
 
@@ -210,6 +221,8 @@ describe('Texas sales-tax outlets and TABC applications: companies only, never a
     expect(s.occurredAt.slice(0, 10)).toBe('2026-11-18');
     expect(s.categories).toEqual(expect.arrayContaining(['signs-printing', 'security', 'janitorial-commercial', 'pest-control']));
     expect(s.externalId).toBe(hashedId('32012345678:00001'));
+    expect(s.externalId).toBe(keyedId('32012345678:00001', 'test-only-secret'));
+    expect(s.externalId).not.toBe(keyedId('32012345678:00001', 'another-secret'));
     expect(hay([s])).not.toMatch(/32012345678|SECRET|Zelda/);
     expect(s.contacts?.find((c) => c.role === 'business')?.name).toBe('DESERT GRILL LLC');
     const sel = socrataSelectColumns(tx);
@@ -225,9 +238,10 @@ describe('Texas sales-tax outlets and TABC applications: companies only, never a
     expect(hay([s])).not.toMatch(PERSON);
   });
 
-  it('a retail outlet gets no pest control (food premises only)', () => {
+  it('a retail outlet gets no pest control (food premises only), and a non-premises class prints no address (review fix P2-2)', () => {
     const [s] = parseSocrata([row({ outlet_naics_code: '448140' })], tx);
     expect(s.categories).not.toContain('pest-control');
+    expect(s.summary).toBe('Retail');
   });
 
   it('TABC: company form only, on-premise alcohol is a food premises, the owner never stored', () => {
@@ -312,17 +326,20 @@ describe('certificates of occupancy (LA, New York, DC): address, date, building 
     expect(n.title).toBe('Certificate of occupancy in New York City: Final');
     expect(n.permitStage).toBe('certificate_of_occupancy');
     const dc = ad('arcgis-dc-occupancy-permits');
-    const out = buildArcgisQuery(dc, NOW, new Set(['TRADING_AS', 'PERMISSION_GRANTED_TO'])).get('outFields')!;
-    expect(out).not.toMatch(/PROPERTY_OWNER|OWNER_ADDRESS/);
+    const out = buildArcgisQuery(dc, NOW, new Set(['TRADING_AS', 'PERMISSION_GRANTED_TO', 'PROPERTY_OWNER'])).get('outFields')!;
+    expect(out).not.toMatch(/PROPERTY_OWNER|OWNER_ADDRESS|PERMISSION_GRANTED_TO|TRADING_AS/);
+    // Review fix P2-3: New York has no building-type column, so every certificate prints its block only.
+    expect(n.summary).toBe('Issued | MANHATTAN | 100 block of W 44TH ST');
     const items = parseArcgis({ features: [
       { attributes: { OBJECTID: 7, ISSUE_DATE: Date.parse('2026-11-17T00:00:00Z'), ADDRESS: '1100 4TH ST SW', DESCRIPTION_OF_OCCUPANCY: 'Restaurant for Marisol Vantreek', APPROVED_ZONING_USE: 'Restaurant', OCCUPANCY_LOAD: '80', PERMISSION_GRANTED_TO: 'Marisol Vantreek', TRADING_AS: '', PROPERTY_OWNER: 'Zelda Quixmore', OWNER_ADDRESS: '9 SECRET LN' }, geometry: { x: -77.02, y: 38.88 } },
       { attributes: { OBJECTID: 8, ISSUE_DATE: Date.parse('2026-11-17T00:00:00Z'), ADDRESS: '700 PENNSYLVANIA AVE SE', DESCRIPTION_OF_OCCUPANCY: 'Retail', APPROVED_ZONING_USE: 'Retail', OCCUPANCY_LOAD: '40', PERMISSION_GRANTED_TO: 'DESERT GRILL LLC', TRADING_AS: '' }, geometry: { x: -76.99, y: 38.88 } },
     ] }, dc);
     expect(items).toHaveLength(2);
     expect(items[0].title).toBe('Certificate of occupancy in Washington: Restaurant');
-    expect(items[0].summary).toMatch(/1100 4TH ST/);
-    expect(items[0].contacts?.some((c) => c.role === 'business')).toBeFalsy();
-    expect(items[1].contacts?.find((c) => c.role === 'business')?.name).toBe('DESERT GRILL LLC');
+    // Review fix P2-3: the quadrant is kept; no contact at all (the occupant columns are never requested).
+    expect(items[0].summary).toBe('Restaurant | 1100 4TH ST SW');
+    expect(items[1].summary).toBe('Retail | 700 PENNSYLVANIA AVE SE');
+    for (const it of items) expect(it.contacts).toBeUndefined();
     expect(hay(items)).not.toMatch(PERSON);
     expect(hay(items)).not.toMatch(/SECRET/);
   });
@@ -374,17 +391,59 @@ describe('Houston weekly Permit Activity Report (HTML table reader, no dependenc
     expect(home.title).toMatch(/Houston/);
   });
 
+  const CLEARED = { termsChecked: true, robotsUrl: 'https://www.houstontx.gov/robots.txt', termsUrl: 'https://www.houstontx.gov/terms.html', checkedOn: '2026-11-23' };
+  const site = (page: string, robots: Response | (() => Response) = new Response('User-agent: *\nDisallow: /private/\n', { status: 200 })) => (url: string) =>
+    url.endsWith('/robots.txt') ? (typeof robots === 'function' ? robots() : robots.clone()) : new Response(page, { status: 200 });
+  beforeEach(() => resetRobotsCache());
+
+  it('review fix P1-3: as shipped (terms not recorded) nothing is requested at all, by the scan or the probe', async () => {
+    expect(HOUSTON_ACCESS.termsChecked).toBe(false);
+    expect(houstonAccessCleared()).toBe(false);
+    const x = ctx(site(PAGE));
+    expect(await buildHoustonPermitsAdapter().fetch(x.c)).toEqual([]);
+    expect(x.urls).toEqual([]);
+    expect(x.logs.join('\n')).toMatch(/terms not recorded/);
+    const urls: string[] = [];
+    const probe = await runCoverageProbe(HOUSTON_PERMITS_ID, (async (u: string) => { urls.push(String(u)); return new Response(PAGE); }) as unknown as typeof fetch, NOW);
+    expect(urls).toEqual([]);
+    expect(probe.message).toMatch(/terms not recorded/);
+    expect(houstonAccessCleared({ ...CLEARED, checkedOn: '' })).toBe(false);
+    expect(houstonAccessCleared({ ...CLEARED, termsUrl: undefined })).toBe(false);
+  });
+
+  it('review fix P1-3: with the record, robots.txt must allow the page (disallowed or unreachable: no page request); the user agent names localholler.com', async () => {
+    const deny = ctx(site(PAGE, new Response('User-agent: *\nDisallow: /planning/\n', { status: 200 })));
+    expect(await buildHoustonPermitsAdapter(CLEARED).fetch(deny.c)).toEqual([]);
+    expect(deny.urls).toEqual(['https://www.houstontx.gov/robots.txt']);
+    expect(deny.logs.join('\n')).toMatch(/error: .*robots_disallowed/);
+    resetRobotsCache();
+    const down = ctx(site(PAGE, () => new Response('oops', { status: 503 })));
+    expect(await buildHoustonPermitsAdapter(CLEARED).fetch(down.c)).toEqual([]);
+    expect(down.urls).toEqual(['https://www.houstontx.gov/robots.txt']);
+    expect(down.logs.join('\n')).toMatch(/robots_unreachable/);
+    resetRobotsCache();
+    const agents: string[] = [];
+    const ok = ctx(site(PAGE));
+    const okFetch = ok.c.fetch;
+    ok.c.fetch = (async (u: string, init?: RequestInit) => { agents.push(String((init?.headers as Record<string, string> | undefined)?.['User-Agent'] ?? '')); return okFetch(u, init); }) as typeof fetch;
+    expect((await buildHoustonPermitsAdapter(CLEARED).fetch(ok.c)).length).toBeGreaterThan(0);
+    expect(agents[agents.length - 1]).toBe(HOUSTON_USER_AGENT);
+    expect(HOUSTON_USER_AGENT).toBe('Holler/1.0 (+https://localholler.com/bot)');
+  });
+
   it('the adapter is on probation, logs a mismatch as an error, and the probe reads the page without returning a raw cell', async () => {
-    const a = buildHoustonPermitsAdapter();
+    const a = buildHoustonPermitsAdapter(CLEARED);
     expect(a.probation).toBe(true);
-    const good = ctx(() => new Response(PAGE, { status: 200 }));
+    const good = ctx(site(PAGE));
     const items = await a.fetch(good.c);
     expect(items.length).toBeGreaterThan(0);
-    expect(good.urls).toEqual([HOUSTON_REPORT_URL]);
-    const bad = ctx(() => new Response('<html>moved</html>', { status: 200 }));
+    expect(good.urls).toEqual(['https://www.houstontx.gov/robots.txt', HOUSTON_REPORT_URL]);
+    resetRobotsCache();
+    const bad = ctx(site('<html>moved</html>'));
     expect(await a.fetch(bad.c)).toEqual([]);
     expect(bad.logs.join('\n')).toMatch(/error: schema mismatch/);
-    const probe = await runCoverageProbe(HOUSTON_PERMITS_ID, (async () => new Response(PAGE, { status: 200 })) as unknown as typeof fetch, NOW);
+    resetRobotsCache();
+    const probe = await probeHoustonReport((async (u: string) => site(PAGE)(String(u))) as unknown as typeof fetch, NOW, CLEARED);
     expect(probe.status).toBe('ok');
     expect(probe.platform).toBe('html');
     expect(probe.schema).toBe('ok');
@@ -451,7 +510,8 @@ describe('every NEXT source is on probation, probed, placed, labelled and exempt
     };
     for (const [id, p] of Object.entries(PROPOSED_LABELS)) {
       if (allowed[p.recordKind]) expect(Object.keys(p.labels).every((t) => allowed[p.recordKind].includes(t)), id).toBe(true);
-      expect(p.callPath, id).toBe(true);
+      // Review fix P2-3: New York certificates print a block only (block tier), so no strict call path.
+      expect(p.callPath, id).toBe(id !== 'socrata-nyc-occupancy-permits');
     }
   });
 
@@ -464,3 +524,157 @@ describe('every NEXT source is on probation, probed, placed, labelled and exempt
     }
   });
 });
+
+// ---- 8. Review fixes ---------------------------------------------------------------------------------------------------------------------
+
+describe('review fix P0-1: a home-based Chicago licence never prints an address, whatever the name (the reviewer\'s examples)', () => {
+  const d = sd('socrata-chicago-business');
+  const base = { date_issued: '2026-11-20T00:00:00.000', latitude: '41.9', longitude: '-87.7', city: 'CHICAGO', state: 'IL', zip_code: '60622', application_type: 'ISSUE' };
+  const home: Array<[string, string, string, string, string]> = [
+    ['SUNRISE CONSULTING LLC', 'SUNRISE CONSULTING LLC', 'Regulated Business License', 'Professional Consulting (Home Based Business)', '2234 N KEDZIE AVE'],
+    ['KOWALCZYK LLC', 'KOWALCZYK LLC', 'Regulated Business License', 'Online Sales (Home Based Business)', '3301 W BELMONT AVE'],
+    ['OKONKWO CLEANING LLC', 'OKONKWO CLEANING LLC', 'Regulated Business License', 'Residential Cleaning (Home Based Business)', '7710 S JEFFERY BLVD'],
+    ['NORTHSIDE DESIGN LLC', 'NORTHSIDE DESIGN LLC', 'Home Occupation', 'Interior Design / Consulting Services', '1417 W ADDISON ST'],
+    ['MARY JONES', 'MJ HOLDINGS GROUP LLC', 'Regulated Business License', 'Other Home Based Businesses', '733 W MELROSE ST'],
+    ['GENTLE HANDS CARE LLC', 'GENTLE HANDS CARE LLC', 'Limited Business License', 'Provide Home Health Care Services', '6100 N SHERIDAN RD APT 12B'],
+    ['JACKSON LANDSCAPING LLC', 'JACKSON LANDSCAPING LLC', 'Regulated Business License', 'Landscaping Services (Home Based Business)', '9020 S HALSTED ST'],
+    ['STONE WOOD LLC', 'STONE WOOD LLC', 'Regulated Business License', 'Other Home Based Businesses', '4444 N BROADWAY'],
+    ['AMB VENTURES LLC', 'AMB VENTURES LLC', 'Regulated Business License', 'Other Home Based Businesses', '733 W MELROSE ST'],
+  ];
+  it.each(home)('%s (%s, %s / %s) prints no address', (dba, legal, lic, act, addr) => {
+    const [s] = parseSocrata([{ id: 'h1', ...base, doing_business_as_name: dba, legal_name: legal, license_description: lic, business_activity: act, address: addr }], d);
+    expect(s.summary).not.toContain(addr.split(' ').slice(1, 3).join(' '));
+    expect(contactPathOf(null, s.summary)).toBeNull();
+  });
+  it('an address with a unit (APT, UNIT, #, a bare trailing number) prints nothing; a storefront still prints its address', () => {
+    const r = (id: string, addr: string) => ({ id, ...base, doing_business_as_name: 'LAKEVIEW GOODS LLC', legal_name: 'LAKEVIEW GOODS LLC', license_description: 'Limited Business License', business_activity: 'Retail sales', address: addr });
+    const items = parseSocrata([r('u1', '2234 N KEDZIE AVE APT 2'), r('u2', '2234 N KEDZIE AVE UNIT B'), r('u3', '2234 N KEDZIE AVE #2'), r('u4', '2234 N KEDZIE AVE 2'), r('u5', '2234 N KEDZIE AVE')], d);
+    expect(items.map((s) => s.summary)).toEqual([...Array(4).fill('Limited Business License | Retail sales'), 'Limited Business License | Retail sales | 2234 N KEDZIE AVE']);
+  });
+});
+
+describe('review fix P1-1 / P1-2: the Socrata NEXT sources send their allow-list on every request, with the keep columns, before and after promotion', () => {
+  const FORBIDDEN = /\b(?:taxpayer_name|taxpayer_address|owner|owner_name|applicant\w*|permittee\w*)\b/;
+  /** A portal that honours $select: only the asked columns come back. */
+  const honour = (rows: Record<string, string>[], urls: string[]) => (url: string) => {
+    urls.push(url);
+    const sel = new URL(url).searchParams.get('$select');
+    const out = sel ? rows.map((r) => Object.fromEntries(sel.split(',').filter((c) => c in r).map((c) => [c, r[c]]))) : rows;
+    return new Response(JSON.stringify(out), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const TX = { taxpayer_number: '32087654321', outlet_number: '00001', outlet_name: 'DESERT GRILL LLC', outlet_address: '1200 MAIN ST', outlet_city: 'DALLAS', outlet_zip_code: '75201', outlet_county_code: '057', outlet_naics_code: '722511', outlet_permit_issue_date: '2026-11-20T00:00:00.000', taxpayer_organizational_type: 'CL', taxpayer_name: 'ZELDA QUIXMORE', taxpayer_address: '9 PRIVATE LN' };
+  const TABC = { application_id: 'A1', received_date: '2026-11-20T00:00:00.000', license_type: 'Mixed Beverage Permit', trade_name: 'DESERT GRILL LLC', address: '1200 MAIN ST', city: 'DALLAS', zip: '75201', county: 'DALLAS', ownership_type: 'Limited Liability Company', owner: 'ZELDA QUIXMORE' };
+
+  it.each([
+    ['socrata-txsales-dallas-business', TX, 'taxpayer_organizational_type'],
+    ['socrata-tabc-dallas-business', TABC, 'ownership_type'],
+  ] as const)('%s: a row passes the keep rule through the real adapter (the keep column is requested)', async (id, row, keepCol) => {
+    for (const promoted of [false, true]) {
+      const d = { ...sd(id), ...(promoted ? { schemaUnverified: undefined, probation: undefined } : {}) } as SocrataDataset;
+      const urls: string[] = [];
+      const x = ctx(honour([row as unknown as Record<string, string>], urls));
+      const items = await buildSocrataAdapter(d).fetch(x.c);
+      expect(items, x.logs.join('\n')).toHaveLength(1);
+      const sel = new URL(urls[0]).searchParams.get('$select')!;
+      expect(sel.split(',')).toContain(keepCol);
+      expect(sel).not.toMatch(FORBIDDEN);
+      expect(hay(items)).not.toMatch(/QUIXMORE|PRIVATE LN|32087654321/);
+    }
+  });
+
+  it('every NEXT Socrata source sends $select with schemaUnverified removed (promotion never switches to select-all); ArcGIS always names outFields', async () => {
+    for (const ds0 of NEXT_SOCRATA_DATASETS) {
+      expect(ds0.selectOnly, ds0.id).toBe(true);
+      const d = { ...ds0, schemaUnverified: undefined, probation: undefined } as SocrataDataset;
+      const urls: string[] = [];
+      await buildSocrataAdapter(d).fetch(ctx(honour([], urls)).c);
+      expect(urls.length, ds0.id).toBeGreaterThan(0);
+      const sel = new URL(urls[0]).searchParams.get('$select');
+      expect(sel, `${ds0.id} sent no $select after promotion`).toBeTruthy();
+      expect(sel!, ds0.id).not.toMatch(FORBIDDEN);
+    }
+    for (const d of NEXT_ARCGIS_DATASETS) expect(buildArcgisQuery(d, NOW).get('outFields'), d.id).not.toMatch(/\*/);
+  });
+
+  it('a keep-rule drop is said as such, not as a schema problem', async () => {
+    const urls: string[] = [];
+    const x = ctx(honour([{ ...TX, taxpayer_organizational_type: 'IS' }], urls));
+    expect(await buildSocrataAdapter(sd('socrata-txsales-dallas-business')).fetch(x.c)).toEqual([]);
+    expect(x.logs.join('\n')).toMatch(/all dropped by the keep rule/);
+    expect(x.logs.join('\n')).not.toMatch(/schema mismatch/);
+  });
+
+  it('review fix P2-1: without an id key the Texas sources send no request; the stored id is a keyed hash', async () => {
+    vi.stubEnv('HOLLER_BUILDING_REF_SECRET', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+    const urls: string[] = [];
+    const x = ctx(honour([TX as unknown as Record<string, string>], urls));
+    expect(await buildSocrataAdapter(sd('socrata-txsales-dallas-business')).fetch(x.c)).toEqual([]);
+    expect(urls).toEqual([]);
+    expect(x.logs.join('\n')).toMatch(/no id key/);
+    expect(hashedId('32087654321:00001')).toBe('');
+    vi.stubEnv('HOLLER_BUILDING_REF_SECRET', 'test-only-secret');
+    expect(hashedId('32087654321:00001')).toMatch(/^k[0-9a-f]{24}$/);
+  });
+});
+
+describe('review fix P2-2: storefront classes only, an address only for a commercial-premises class, home words print nothing', () => {
+  const tx = sd('socrata-txsales-dallas-business');
+  const row = (o: Record<string, string>) => ({ taxpayer_number: '32012345678', outlet_number: o.n ?? '1', outlet_permit_issue_date: '2026-11-18T00:00:00.000', outlet_naics_code: '722511', taxpayer_organizational_type: 'CL', outlet_name: 'DESERT GRILL LLC', outlet_address: '1840 ELM ST', outlet_city: 'DALLAS', outlet_zip_code: '75201', ...o });
+  it('online, direct-selling, mobile food, caterers, pet care and other personal services are not kept', () => {
+    for (const n of ['454110', '454390', '722330', '722320', '812910', '812990', '811490', '812199']) expect(isStorefrontNaics(n), n).toBe(false);
+    expect(parseSocrata([row({ outlet_naics_code: '454110', outlet_address: '4521 GASTON AVE APT 214' })], tx)).toEqual([]);
+  });
+  it('home words in the name, or a unit in the address, print no address even for a restaurant class', () => {
+    const items = parseSocrata([row({ n: '1', outlet_name: 'HOME BASED BAKERY LLC' }), row({ n: '2', outlet_name: 'COTTAGE CRAFTS LLC' }), row({ n: '3', outlet_address: '4521 GASTON AVE APT 214' }), row({ n: '4' })], tx);
+    expect(items.map((s) => s.summary)).toEqual(['Food service and lodging', 'Food service and lodging', 'Food service and lodging', 'Food service and lodging | 1840 ELM ST']);
+  });
+});
+
+describe('review fix P2-3: residential certificates print their block only, a home occupation nothing; DC keeps its quadrant', () => {
+  it('LA: one or two family is block only with no private site; an apartment keeps its address', () => {
+    const la = sd('socrata-la-occupancy-permits');
+    const r = (id: string, sub: string, addr: string) => ({ cofo_number: id, cofo_issue_date: '2026-11-16T00:00:00.000', permit_type: 'Bldg-New', permit_sub_type: sub, address: addr, zip_code: '90026', latitude: '34.07', longitude: '-118.25', contractor_business_name: 'PACIFIC BUILDERS INC' });
+    const [h, a] = parseSocrata([r('C1', '1 or 2 Family Dwelling', '1522 N ALVARADO ST'), r('C2', 'Apartment', '800 S FIGUEROA ST')], la);
+    expect(h.summary).toMatch(/\| 1500 block of N ALVARADO ST$/);
+    expect(h.contacts?.some((c) => c.role === 'site')).toBeFalsy();
+    expect(a.summary).toMatch(/\| 800 S FIGUEROA ST$/);
+    expect(a.contacts?.some((c) => c.role === 'site')).toBe(true);
+  });
+  it('DC: single family dwelling block with quadrant, home occupation and child development home nothing', () => {
+    const dc = ad('arcgis-dc-occupancy-permits');
+    const f = (id: number, use: string, addr: string) => ({ attributes: { OBJECTID: id, ISSUE_DATE: Date.parse('2026-11-17T00:00:00Z'), ADDRESS: addr, DESCRIPTION_OF_OCCUPANCY: use, APPROVED_ZONING_USE: use }, geometry: { x: -77.02, y: 38.9 } });
+    const items = parseArcgis({ features: [f(1, 'Single Family Dwelling', '4410 GARRISON ST NW'), f(2, 'Home Occupation', '1723 P ST NW'), f(3, 'Child Development Home', '4410 GARRISON ST NW'), f(4, 'Restaurant', '1400 14TH ST NW')] }, dc);
+    expect(items.map((s) => s.summary)).toEqual(['Single Family Dwelling | 4400 block of GARRISON ST NW', 'Home Occupation', 'Child Development Home', 'Restaurant | 1400 14TH ST NW']);
+  });
+});
+
+describe('review fix P2-4: 311 never gives a block for a unit address or a home type', () => {
+  it('condo, duplex, mobile home, rental, occupied, inside, interior and dwelling types give nothing', () => {
+    const rule = { addressFields: ['a'], typeFields: ['t'], propertyTypes: PROPERTY_CONDITION_311_RE };
+    for (const t of ['Condo - Rodents', 'Duplex Substandard Structure', 'Mobile Home Park - High Weeds', 'Occupied Substandard Structure', 'Water Leak Inside Home - Substandard', 'Single Family Rental - Substandard']) {
+      expect(site311Block((f) => (f === 't' ? t : '2318 ELM ST'), rule), t).toBe('');
+    }
+    expect(site311Block((f) => (f === 't' ? 'High Weeds - CCS' : '1200 MAIN ST APT 7'), rule)).toBe('');
+    expect(site311Block((f) => (f === 't' ? 'High Weeds - CCS' : '1200 MAIN ST'), rule)).toBe('1200 block of MAIN ST');
+  });
+});
+
+describe('review fix P2-5: the Houston reader finds the report in realistic page shapes', () => {
+  const HEAD = '<tr><th>Zip Code</th><th>Permit Date</th><th>Permit Type</th><th>Project No</th><th>Address</th><th>Comments</th></tr>';
+  const ROW = (p: string, zip = '77002') => `<tr><td class="z">${zip}</td><td>11/18/2026</td><td>Building Pmt</td><td>${p}</td><td>1200 MAIN ST</td><td>NEW ROOF</td></tr>`;
+  it('a title row above the header, a layout table around it, two report tables, a ">" in an attribute, renamed headers', () => {
+    expect(readPermitTable(`<table><tr><td colspan="6">Permit Activity Report 11/16 - 11/22</td></tr>${HEAD}${ROW('26000001')}</table>`).rows).toHaveLength(1);
+    const layout = readPermitTable(`<table><tr><td>Menu</td><td><table>${HEAD}${ROW('26000002')}</table></td></tr><tr><td>footer</td></tr></table>`);
+    expect(layout.rows.map((r) => r.project_no)).toEqual(['26000002']);
+    const two = readPermitTable(`<table>${HEAD}${ROW('26000003')}</table><p>page 2</p><table>${HEAD}${ROW('26000004')}</table>`);
+    expect(two.rows.map((r) => r.project_no)).toEqual(['26000003', '26000004']);
+    expect(two.tables).toBe(2);
+    const attr = readPermitTable(`<table>${HEAD}<tr><td title="a>b">77">002</td><td>11/18/2026</td><td>Building Pmt</td><td>26000005</td><td>1200 MAIN ST</td><td>x</td></tr></table>`);
+    expect(attr.rows[0].zip_code).toBe('');
+    const renamed = readPermitTable('<table><tr><th>ZIP</th><th>Permit Issue Date</th><th>Type</th><th>Project Number</th><th>Site Address</th><th>Comments</th></tr>' + ROW('26000006') + '</table>');
+    expect(renamed.problem).toBeNull();
+    expect(renamed.rows.map((r) => r.project_no)).toEqual(['26000006']);
+  });
+});
+

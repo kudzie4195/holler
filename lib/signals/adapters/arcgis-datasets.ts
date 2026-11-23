@@ -111,10 +111,14 @@ export interface ArcgisDataset {
   confidentialField?: string;
   /** Round 20 (NEXT), business rows only: the premises address rule (see socrata-datasets.ts `premises`). */
   premises?: ContactSpec;
+  /** Review fix P2-2: the premises address is printed only when this also says so (a commercial-premises NAICS class); absent: always. */
+  premisesWhen?: (get: (field: string) => string) => boolean;
+  /** Review fix P2-3: a trailing quadrant (NW, NE, SW, SE) of the address is kept (Washington DC: without it one address is four places). */
+  keepQuadrant?: boolean;
   /** Round 20 (NEXT), 311 only: the block-level site rule (lib/signals/site-311.ts). */
   site311?: Site311Rule;
   /** Round 20 (NEXT), permit rows only: a certificate-of-occupancy feed (see socrata-datasets.ts `occupancy`). */
-  occupancy?: { typeFields: string[] };
+  occupancy?: { typeFields: string[]; /** Review fix P2-3: no building-type column (New York): every row is treated as residential. */ unknownType?: boolean };
   /** Round 20 (NEXT): drop a row before anything is built from it unless this says keep (see socrata-datasets.ts `keepRow`). */
   keepRow?: (get: (field: string) => string) => boolean;
   /** Round 20 (NEXT): columns `keepRow` reads (asked for in outFields like the other optional columns). */

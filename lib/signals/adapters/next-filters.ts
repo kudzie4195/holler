@@ -24,7 +24,20 @@ export function isCompanyForm(raw: string): boolean {
 export function isStorefrontNaics(raw: string): boolean {
   const c = raw.replace(/\s+/g, '');
   if (!/^\d{3,6}$/.test(c)) return false;
+  // Review fix P2-2: classes with no shopfront are not kept (online and mail-order 454, direct selling, mobile food 722330, caterers 722320,
+  // pet care 812910, other personal services 812990, household-goods repair 8114, other personal care 81219).
+  if (/^(?:454|722330|722320|812910|812990|8114|81219)/.test(c)) return false;
   return /^(?:722|44|45|811|812)/.test(c);
+}
+
+/**
+ * Review fix P2-2: the classes whose kept rows may PRINT the outlet address publicly: they need a commercial premises (restaurants 722511,
+ * 722513, 722515, bars 722410, grocery 445, gas stations 447, car dealers 4441). Every other kept class is a record with no address.
+ */
+export function isPremisesNaics(raw: string): boolean {
+  const c = raw.replace(/\s+/g, '');
+  if (!/^\d{3,6}$/.test(c)) return false;
+  return /^(?:722511|722513|722515|722410|445|447|4441)/.test(c);
 }
 
 /** NAICS 722 (food service and drinking places): the only new businesses that are a pest-control heads-up. */

@@ -9,7 +9,7 @@
  *   values the independent review pulled with the adapter's own $where on 2026-11-17 (sourced). Addresses, ids, coordinates, LA, NYC,
  *   violation and event rows are hand written (assumed) in the same shapes.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseSocrata, buildSocrataQuery, blockAddress } from '@/lib/signals/adapters/socrata';
@@ -266,6 +266,10 @@ function socrataGuardRow(d: SocrataDataset): Record<string, unknown> {
 }
 
 /** Round 20 NEXT: values that pass each dataset's keepRow (lib/signals/adapters/next-datasets.ts). */
+// Round 20 NEXT review fix P2-1: the Texas id is keyed with a server secret; without one the source stores nothing. A test secret here.
+beforeAll(() => vi.stubEnv('HOLLER_BUILDING_REF_SECRET', 'test-only-secret'));
+afterAll(() => vi.unstubAllEnvs());
+
 const KEEP_PASS: Record<string, Record<string, unknown>> = {
   'socrata-txsales-dallas-business': { taxpayer_organizational_type: 'Texas Limited Liability Company', outlet_naics_code: '722511' },
   'socrata-txsales-houston-business': { taxpayer_organizational_type: 'Texas Limited Liability Company', outlet_naics_code: '722511' },

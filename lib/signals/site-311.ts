@@ -40,7 +40,8 @@ export interface Site311Rule {
  * "APARTMENT ONLY" is the NYC heat descriptor for one flat.
  */
 export const NEVER_SITE_311_RE =
-  /\bapartment\b|\bapt\b|\bunit\b|\btenant|\blandlord\b|\bheat\b|\bhot water\b|\bnoise\b|\bloud\b|\bneighbou?r|\bdomestic\b|\bharass|\bpanhandl|\bhomeless|\bencampment|\bwelfare\b|\bwellness\b|\bsenior\b|\bchild\b|\bmedical\b|\bmissed (?:collection|pickup|pick-up)\b|\bgarbage cart\b|\brecycl/i;
+  // Review fix P2-4: condo, duplex, mobile home, rental, renter, occupied, inside, interior and dwelling too (a home or unit from the inside).
+  /\bcondo|\bduplex\b|\bmobile home|\brental\b|\brenter|\boccupied\b|\binside\b|\binterior\b|\bdwelling|\bapartment\b|\bapt\b|\bunit\b|\btenant|\blandlord\b|\bheat\b|\bhot water\b|\bnoise\b|\bloud\b|\bneighbou?r|\bdomestic\b|\bharass|\bpanhandl|\bhomeless|\bencampment|\bwelfare\b|\bwellness\b|\bsenior\b|\bchild\b|\bmedical\b|\bmissed (?:collection|pickup|pick-up)\b|\bgarbage cart\b|\brecycl/i;
 
 /**
  * The shared default list of property-condition request types (rule 1), assumed from the published 311 type names of Dallas, Houston,
@@ -49,8 +50,14 @@ export const NEVER_SITE_311_RE =
 export const PROPERTY_CONDITION_311_RE =
   /\bhigh weeds?\b|\bweeds?\b|\bovergrown\b|\btall grass\b|\bjunk(?:ed)?\s+(?:motor\s+)?vehicle|\binoperable vehicle|\bopen (?:and|&) vacant\b|\bvacant (?:lot|structure|building|house)\b|\bsubstandard\b|\bdangerous (?:building|structure)\b|\bunsecured (?:building|structure)\b|\bill?egal dumping\b|\bdumping\b|\bjunk and debris\b|\bdebris on private\b|\blitter on private\b|\bgraffiti\b.*\b(?:private|building|property)\b|\brodent|\brats?\b|\bmosquito|\bstagnant (?:water|pool)\b|\bswimming pool\b|\bfence\b|\bminimum property standards?\b|\bproperty maintenance\b/i;
 
-/** "2318 W 47TH ST" -> "2300 block of W 47TH ST"; "12 MAIN ST APT 4" -> "0-99 block of MAIN ST"; anything unsure -> ''. */
+/** A unit, floor or pad word, or a "#", anywhere in an address. */
+export const UNIT_IN_ADDRESS_RE = /#|\b(?:apt|apartment|unit|ste|suite|fl|flr|floor|rm|room|bldg|rear|bsmt|basement|lot|trlr|trailer|space|spc|ph|penthouse)\b/i;
+
+/** "2318 W 47TH ST" -> "2300 block of W 47TH ST"; an address with a unit ("12 MAIN ST APT 4") or anything unsure -> ''. */
 export function blockOfAddress(raw: string): string {
+  // Review fix P2-4: an address that names a unit (APT, UNIT, #, floor, suite, rear, basement, lot, trailer) is a home or a part of a
+  // building: no block at all, rather than the block of the unit.
+  if (UNIT_IN_ADDRESS_RE.test(raw)) return '';
   const exact = cleanAddress(raw);
   if (!exact || /^PO BOX\b/i.test(exact)) return '';
   const m = /^(\d{1,6})(?:-\d{1,6})?[A-Za-z]?\s+(.+)$/.exec(exact);

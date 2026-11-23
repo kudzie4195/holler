@@ -137,7 +137,8 @@ describe('Chicago new business licences (doing_business_as_name, then legal_name
       'Retail Food Establishment | Retail sales of prepared food | 1840 W DIVISION ST',
       'Limited Business License | Instructional services',
       'Home Repair | Home repair services',
-      'Home Repair | Home repair services | 6420 N CLARK ST',
+      // Review fix P0-1: "Home Repair" reads as a home-prone activity, so no address is printed whatever the legal form (the private site stays).
+      'Home Repair | Home repair services',
     ]);
   });
 });
@@ -159,9 +160,9 @@ describe('ArcGIS: contact specs (round 15) are explicit, labelled and never ask 
     'arcgis-dc-permits', 'arcgis-dekalb-permits', 'arcgis-mecklenburg-permits', 'arcgis-raleigh-permits',
     // Round 19 coverage, on probation (lib/signals/adapters/coverage-datasets.ts).
     'arcgis-arlington-permits', 'arcgis-miamidade-permits', 'arcgis-phoenix-permits', 'arcgis-tempe-permits',
-    // Round 20 NEXT, on probation (lib/signals/adapters/next-datasets.ts): the DC certificate-of-occupancy layer (its occupant business,
-    // licence name rule) and the two new-business layers.
-    'arcgis-dc-occupancy-permits', 'arcgis-miamidade-business', 'arcgis-phoenix-liquor-business',
+    // Round 20 NEXT, on probation (lib/signals/adapters/next-datasets.ts): the two new-business layers (the DC certificate layer has no spec
+    // since the review: its occupant columns are never requested).
+    'arcgis-miamidade-business', 'arcgis-phoenix-liquor-business',
   ].sort();
   it('exactly the permit layers named in PLAN-2.0 1.2 and 1.3 carry a spec; no violation, 311 or business layer does', () => {
     expect(ARCGIS_DATASETS.filter((d) => d.contacts).map((d) => d.id).sort()).toEqual(WITH_SPEC);

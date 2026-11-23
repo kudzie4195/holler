@@ -72,22 +72,32 @@ export interface ProposedSource {
 // 0.218 (Chicago, the only feed whose licence text names food premises). Permits (median of NYC, LA, CHI, ATL, DC): landscaping 0.012,
 // lawn care 0.003, cleaning 0.003, painting 0.003, moving 0.005, real estate 0.005, commercial cleaning 0.001, security 0.001, fencing 0.005,
 // siding and gutters 0.024, signs 0.001. Each is then multiplied by the share of rows that can print an address:
-//   NAME_PASS 0.8: a new business prints its premises only when its name passes the licence name rule; 48 of 60 live Chicago DBA values passed
-//                  (socrata-datasets.ts note on socrata-chicago-business: 12 of 60 were bare personal names) [O].
-//   ADDRESS_PASS 0.9: a permit or CO address passes lib/contacts cleanAddress [A]; New York numbered streets 0.6 [A].
-const NAME_PASS = 0.8;
+//   NAME_PASS 0.68: a new business prints its premises only when its name passes the licence name rule. Review fix P1-4: the earlier 0.8 was
+//                  not a measurement. 0.68 is 34 of the reviewer's 50 hand-written storefront LLC names with the round 20 second try
+//                  (lib/contacts/trade-name.ts; /home/claude/gates/r20/logs/NEXT2-names.log; 32% to 38% without it). Hand-written, not live: [A].
+//   HOME_PASS (Chicago) 0.816: 155 of the 190 live Chicago rows can print an address once the home-based and home-prone activities print none
+//                  (review fix P0-1; /home/claude/gates/r20/logs/NEXT2-chicago-home.log) [O for the activity text, the names are stand-ins].
+//   PREMISES_CLASS (Texas) 0.5: share of kept storefront outlets in a class that may print its address (restaurants, bars, grocery, gas, car
+//                  dealers; review fix P2-2) [A].
+//   ADDRESS_PASS 0.9: a permit or CO address passes lib/contacts cleanAddress [A]; New York 0.6 [A] (block level since the review, which still
+//                  counts for the block tier, not the strict one: kept here only as the block-tier figure).
+const NAME_PASS = 0.68;
+const HOME_PASS = 0.816;
+const PREMISES_CLASS = 0.5;
+/** Review fix P2-3: share of LA and DC certificates that are commercial or multi-family (exact address) [A]. */
+const NON_RESIDENTIAL = 0.5;
 const ADDRESS_PASS = 0.9;
 const NYC_ADDRESS_PASS = 0.6;
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** The reviewed rules' logic for a NEW BUSINESS: heads-up for signs, security and commercial cleaning; pest control only for food premises. */
-function newBusinessLabels(pestShare: number): ProposedSource['labels'] {
-  const s = r3(0.246 * NAME_PASS);
+function newBusinessLabels(pestShare: number, addressShare = 1): ProposedSource['labels'] {
+  const s = r3(0.246 * NAME_PASS * addressShare);
   return {
     'signs-printing': { label: 'coming_soon', share: s, why: 'new storefront needs signs (business-licence share 0.246 x name pass)' },
     security: { label: 'coming_soon', share: s, why: 'new storefront needs alarms or guards (business-licence share 0.246 x name pass)' },
     'janitorial-commercial': { label: 'coming_soon', share: s, why: 'new storefront needs a cleaning contract (business-licence share 0.246 x name pass)' },
-    ...(pestShare > 0 ? { 'pest-control': { label: 'coming_soon' as const, share: r3(pestShare * NAME_PASS), why: 'food premises only (BUSINESS_RULES food words / NAICS 722)' } } : {}),
+    ...(pestShare > 0 ? { 'pest-control': { label: 'coming_soon' as const, share: r3(pestShare * NAME_PASS * addressShare), why: 'food premises only (BUSINESS_RULES food words / NAICS 722)' } } : {}),
   };
 }
 
@@ -120,10 +130,10 @@ const NEXT_PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     expectedRowsPerWeekPerMetro: 113.9,
     volumeEvidence: { tag: 'O', note: 'measured: 113.9 Chicago business-licence rows a week within 25 miles in the 14-day export (NEXT-shares.log)' },
     labels: {
-      'signs-printing': { label: 'coming_soon', share: r3(0.268 * NAME_PASS), why: 'measured Chicago share 0.268 x name pass' },
-      security: { label: 'coming_soon', share: r3(0.268 * NAME_PASS), why: 'measured Chicago share 0.268 x name pass' },
-      'janitorial-commercial': { label: 'coming_soon', share: r3(0.268 * NAME_PASS), why: 'measured Chicago share 0.268 x name pass' },
-      'pest-control': { label: 'coming_soon', share: r3(0.218 * NAME_PASS), why: 'measured Chicago share 0.218 x name pass (food premises)' },
+      'signs-printing': { label: 'coming_soon', share: r3(0.268 * NAME_PASS * HOME_PASS), why: 'measured Chicago share 0.268 x name pass x not home-based' },
+      security: { label: 'coming_soon', share: r3(0.268 * NAME_PASS * HOME_PASS), why: 'measured Chicago share 0.268 x name pass x not home-based' },
+      'janitorial-commercial': { label: 'coming_soon', share: r3(0.268 * NAME_PASS * HOME_PASS), why: 'measured Chicago share 0.268 x name pass x not home-based' },
+      'pest-control': { label: 'coming_soon', share: r3(0.218 * NAME_PASS * HOME_PASS), why: 'measured Chicago share 0.218 x name pass x not home-based (food premises)' },
     },
     callPath: true,
   },
@@ -132,7 +142,7 @@ const NEXT_PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     recordKind: 'business-licence',
     expectedRowsPerWeekPerMetro: 100,
     volumeEvidence: { tag: 'A', note: 'scout [A]: 2,000-2,500 new outlets a week statewide, about 25% in Dallas/Tarrant/Collin/Denton, 100-200 a week after the storefront NAICS filter; the low end, before the company-form filter' },
-    labels: newBusinessLabels(0.218),
+    labels: newBusinessLabels(0.218, PREMISES_CLASS),
     callPath: true,
   },
   'socrata-txsales-houston-business': {
@@ -140,7 +150,7 @@ const NEXT_PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     recordKind: 'business-licence',
     expectedRowsPerWeekPerMetro: 70,
     volumeEvidence: { tag: 'A', note: 'scout [A]: about 17% of 2,000-2,500 weekly new outlets in Harris; 70 a week after the storefront NAICS filter (proportional to Dallas)' },
-    labels: newBusinessLabels(0.218),
+    labels: newBusinessLabels(0.218, PREMISES_CLASS),
     callPath: true,
   },
   // Backups for the sales-tax outlets (same cells): counted so a failed Comptroller probe still shows what TABC alone would give.
@@ -190,7 +200,8 @@ const NEXT_PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     recordKind: 'certificate-of-occupancy',
     expectedRowsPerWeekPerMetro: 100,
     volumeEvidence: { tag: 'A', note: 'LADBS loads certificates weekly [3P]; no count was read; 100 a week is a guess' },
-    labels: occupancyLabels(ADDRESS_PASS),
+    // Review fix P2-3: residential certificates print their block only; NON_RESIDENTIAL is the share that prints an exact address [A].
+    labels: occupancyLabels(ADDRESS_PASS * NON_RESIDENTIAL),
     callPath: true,
   },
   'socrata-nyc-occupancy-permits': {
@@ -199,14 +210,16 @@ const NEXT_PROPOSED_LABELS: Readonly<Record<string, ProposedSource>> = {
     expectedRowsPerWeekPerMetro: 60,
     volumeEvidence: { tag: 'A', note: 'no count was read; 60 DOB NOW certificates a week is a guess' },
     labels: occupancyLabels(NYC_ADDRESS_PASS),
-    callPath: true,
+    // Review fix P2-3: every New York certificate prints its block only (no building-type column): a block-tier call path, not a strict one.
+    callPath: false,
   },
   'arcgis-dc-occupancy-permits': {
     metros: ['washington-dc'],
     recordKind: 'certificate-of-occupancy',
     expectedRowsPerWeekPerMetro: 40,
     volumeEvidence: { tag: 'A', note: 'no count was read; 40 certificates a week is a guess' },
-    labels: occupancyLabels(ADDRESS_PASS),
+    // Review fix P2-3: residential certificates print their block only; NON_RESIDENTIAL is the share that prints an exact address [A].
+    labels: occupancyLabels(ADDRESS_PASS * NON_RESIDENTIAL),
     callPath: true,
   },
 };

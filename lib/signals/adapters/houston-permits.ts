@@ -2,9 +2,22 @@ import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { PROBATION_NOTE_PREFIX } from '@/lib/signals/probation-note';
 import { UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
 import { parseSocrataReport } from './socrata';
-import { HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_REQUIRED, HOUSTON_ROW_CAP, MAX_BODY_CHARS } from './houston-permits-config';
+import { checkRobots } from '@/lib/firecrawl/robots';
+import {
+  HOUSTON_ACCESS,
+  HOUSTON_HEADER_ALIASES,
+  HOUSTON_HEADERS,
+  HOUSTON_PERMITS_DS,
+  HOUSTON_PERMITS_ID,
+  HOUSTON_REPORT_URL,
+  HOUSTON_REQUIRED,
+  HOUSTON_ROW_CAP,
+  HOUSTON_USER_AGENT,
+  MAX_BODY_CHARS,
+  houstonAccessCleared,
+} from './houston-permits-config';
 
-export { HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_REQUIRED, HOUSTON_ROW_CAP };
+export { HOUSTON_ACCESS, HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT_URL, HOUSTON_REQUIRED, HOUSTON_ROW_CAP, HOUSTON_USER_AGENT, houstonAccessCleared };
 
 /**
  * ROUND 20 NEXT: the City of Houston weekly "Permit Activity Report", HTML table version (Houston has no permit feed with an address
@@ -21,6 +34,11 @@ export { HOUSTON_HEADERS, HOUSTON_PERMITS_DS, HOUSTON_PERMITS_ID, HOUSTON_REPORT
  * through the shared Socrata parser (parseSocrataReport) with the config below, so classification, titles (fixed permit labels), the address
  * rule (strictAddress: lib/contacts cleanAddress), the ZIP-centroid placement and the age limit are the same reviewed code as every permit
  * feed. Comments are classified but NEVER printed (free text: a name could be typed there). Nothing else of the page is read.
+ *
+ * Review fixes: P1-3, no request at all (page, robots.txt, probe) until the owner records the access check (houston-permits-config.ts
+ * HOUSTON_ACCESS), then the shared robots checker must allow the page (it fails closed when robots.txt cannot be read), and every request
+ * names localholler.com. P2-5, the reader finds the header row anywhere in the page (a title row above it, a layout table around it), reads
+ * every table whose header matches, maps a short list of header spellings, and keeps a ZIP only when it is five digits.
  */
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
@@ -29,7 +47,7 @@ const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"'
 export function cellText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, ' ')
+    .replace(/<(?:[^>"']|"[^"]*"|'[^']*')*>/g, ' ')
     .replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,6}|#39);/gi, (m, e: string) => {
       const k = e.toLowerCase();
       if (ENTITIES[k] !== undefined) return ENTITIES[k];
@@ -48,47 +66,73 @@ export interface TableRead {
   headers: string[];
   /** Why no row could be read, or null. */
   problem: string | null;
-  /** Data rows seen in the table (before the cap). */
+  /** Data rows seen under a matching header (before the cap). */
   seen: number;
+  /** Header rows that matched (one per report table, or per repeated header). */
+  tables: number;
 }
 
 /** A project number that may be an external id: letters, digits and "-", 3 to 30 characters. Anything else drops the row. */
 const PROJECT_RE = /^[A-Za-z0-9-]{3,30}$/;
 
+/** The cells of one row: a <td> or <th> start tag (attributes may hold ">" inside quotes) up to the next cell or the end of the row. */
+function cellsOf(tr: string): string[] {
+  return [...tr.matchAll(/<t([hd])\b(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)(?=<t[hd]\b|<\/tr\s*>|$)/gi)].map((m) => cellText((m[2] ?? '').replace(/<\/t[hd]\s*>\s*$/i, '')));
+}
+
+/** The header mapping of a row (key -> cell index) when every required header is there, else null. */
+function headerIndex(cells: readonly string[]): Record<string, number> | null {
+  const normed = cells.map(norm);
+  const index: Record<string, number> = {};
+  for (const key of Object.keys(HOUSTON_HEADERS)) {
+    const names = [HOUSTON_HEADERS[key], ...(HOUSTON_HEADER_ALIASES[key] ?? [])].map(norm);
+    const i = normed.findIndex((h, j) => names.includes(h) && !Object.values(index).includes(j));
+    if (i >= 0) index[key] = i;
+  }
+  return HOUSTON_REQUIRED.every((k) => k in index) ? index : null;
+}
+
 /**
- * Reads the report table out of the page. The first <table> whose header row (th cells, or the first row's td cells) names every required
- * header is used; its columns are mapped by header text. Pure; never throws.
+ * Reads the report out of the page. The page is walked as a sequence of rows and table ends: a row that names every required header starts
+ * (or restarts) a report table, its columns mapped by header text; rows before any header (a title, a layout table) are skipped; the report
+ * table's end stops it. Every matching table is read. Pure; never throws.
  */
 export function readPermitTable(html: unknown, cap = HOUSTON_ROW_CAP): TableRead {
-  const out: TableRead = { rows: [], headers: [], problem: null, seen: 0 };
+  const out: TableRead = { rows: [], headers: [], problem: null, seen: 0, tables: 0 };
   if (typeof html !== 'string' || !html.trim()) return { ...out, problem: 'empty response body' };
   const page = html.length > MAX_BODY_CHARS ? html.slice(0, MAX_BODY_CHARS) : html;
-  const tables = page.match(/<table\b[\s\S]*?<\/table>/gi) ?? [];
-  for (const table of tables) {
-    const trs = table.match(/<tr\b[\s\S]*?(?=<tr\b|<\/table>)/gi) ?? [];
-    if (!trs.length) continue;
-    const cellsOf = (tr: string) => [...tr.matchAll(/<t([hd])\b[^>]*>([\s\S]*?)(?=<t[hd]\b|<\/tr>|$)/gi)].map((m) => cellText((m[2] ?? '').replace(/<\/t[hd]>\s*$/i, '')));
-    const headerCells = cellsOf(trs[0] ?? '').map(norm);
-    const index: Record<string, number> = {};
-    for (const [key, label] of Object.entries(HOUSTON_HEADERS)) {
-      const i = headerCells.findIndex((h) => h === label || h === `${label}.` || h.replace(/\s/g, '') === label.replace(/\s/g, ''));
-      if (i >= 0) index[key] = i;
+  const marks = [...page.matchAll(/<tr\b|<\/table\s*>/gi)].map((m) => ({ at: m.index ?? 0, end: /^<\//.test(m[0]) }));
+  const found = new Set<string>();
+  let index: Record<string, number> | null = null;
+  for (let k = 0; k < marks.length; k++) {
+    const m = marks[k];
+    if (m.end) {
+      index = null;
+      continue;
     }
-    if (!HOUSTON_REQUIRED.every((k) => k in index)) continue;
-    out.headers = Object.keys(index);
-    for (const tr of trs.slice(1)) {
-      const cells = cellsOf(tr);
-      if (!cells.length || cells.every((c) => !c)) continue;
-      out.seen += 1;
-      if (out.rows.length >= cap) continue;
-      const row: Record<string, string> = {};
-      for (const [key, i] of Object.entries(index)) row[key] = cells[i] ?? '';
-      if (!PROJECT_RE.test(row.project_no ?? '')) continue;
-      out.rows.push(row);
+    const chunk = page.slice(m.at, k + 1 < marks.length ? marks[k + 1].at : page.length);
+    const cells = cellsOf(chunk);
+    if (!cells.length) continue;
+    const h = headerIndex(cells);
+    if (h) {
+      index = h;
+      out.tables += 1;
+      Object.keys(h).forEach((x) => found.add(x));
+      continue;
     }
-    return out;
+    if (!index || cells.every((c) => !c)) continue;
+    out.seen += 1;
+    if (out.rows.length >= cap) continue;
+    const row: Record<string, string> = {};
+    for (const [key, i] of Object.entries(index)) row[key] = cells[i] ?? '';
+    if (!PROJECT_RE.test(row.project_no ?? '')) continue;
+    // A ZIP is five digits or nothing (a stray attribute or a ZIP+4 never becomes a ZIP).
+    if (row.zip_code !== undefined && !/^\d{5}$/.test(row.zip_code)) row.zip_code = '';
+    out.rows.push(row);
   }
-  return { ...out, problem: `schema mismatch: expected a table with the headers ${HOUSTON_REQUIRED.map((k) => HOUSTON_HEADERS[k]).join(', ')}` };
+  out.headers = [...found];
+  if (!out.tables) return { ...out, problem: `schema mismatch: expected a table with the headers ${HOUSTON_REQUIRED.map((k) => HOUSTON_HEADERS[k]).join(', ')}` };
+  return out;
 }
 
 /** The report rows as records: the shared parser, then the report's own link and data (never the Socrata ones). */
@@ -102,7 +146,38 @@ export function parseHoustonPermits(rows: readonly Record<string, string>[], now
   return { items, shapeOk: report.shapeOk, tooOld: report.tooOld ?? 0 };
 }
 
-export function buildHoustonPermitsAdapter(): Adapter {
+/**
+ * Review fix P1-3: may the page be requested now? Without the owner's access record nothing is requested (not even robots.txt); with it,
+ * the shared robots checker must allow the page path (robots.txt unreachable or a 5xx: refused).
+ */
+export async function houstonAccess(doFetch: typeof fetch, now: Date, access: typeof HOUSTON_ACCESS = HOUSTON_ACCESS): Promise<{ ok: true } | { ok: false; reason: string; error: boolean }> {
+  if (!houstonAccessCleared(access)) {
+    return { ok: false, error: false, reason: 'terms not recorded: the owner records robotsUrl, termsUrl and checkedOn and sets termsChecked (houston-permits-config.ts HOUSTON_ACCESS); no request sent' };
+  }
+  const robots = await checkRobots(HOUSTON_REPORT_URL, doFetch, now.getTime());
+  if (!robots.allowed) return { ok: false, error: true, reason: `robots_${robots.reason}: no request sent for the page` };
+  return { ok: true };
+}
+
+/** The response body as text, read only up to `max` characters (the rest is never downloaded). */
+export async function readBoundedText(res: Response, max = MAX_BODY_CHARS): Promise<string> {
+  const reader = res.body?.getReader?.();
+  if (!reader) return (await res.text()).slice(0, max);
+  const dec = new TextDecoder();
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+    if (text.length >= max) {
+      await reader.cancel().catch(() => undefined);
+      return text.slice(0, max);
+    }
+  }
+  return text + dec.decode();
+}
+
+export function buildHoustonPermitsAdapter(access: typeof HOUSTON_ACCESS = HOUSTON_ACCESS): Adapter {
   return {
     id: HOUSTON_PERMITS_ID,
     label: 'City of Houston: weekly permit activity report',
@@ -112,21 +187,28 @@ export function buildHoustonPermitsAdapter(): Adapter {
     sourceUrl: HOUSTON_REPORT_URL,
     async fetch(ctx: AdapterContext): Promise<SignalInput[]> {
       try {
+        const now = ctx.now ?? new Date();
+        const gate = await houstonAccess(ctx.fetch, now, access);
+        if (!gate.ok) {
+          ctx.log(gate.error ? `error: ${HOUSTON_PERMITS_ID}: ${gate.reason}` : `${PROBATION_NOTE_PREFIX} ${HOUSTON_PERMITS_ID}: ${gate.reason}`);
+          return [];
+        }
         const res = await ctx.fetch(HOUSTON_REPORT_URL, {
-          headers: { Accept: 'text/html', 'User-Agent': 'Holler/1.0 (+https://holler.app/about; contact@holler)' },
+          headers: { Accept: 'text/html', 'User-Agent': HOUSTON_USER_AGENT },
           signal: AbortSignal.timeout(UNVERIFIED_REQUEST_TIMEOUT_MS),
         });
         if (!res.ok) {
           ctx.log(`error: ${HOUSTON_PERMITS_ID}: HTTP ${res.status}`);
           return [];
         }
-        const table = readPermitTable(await res.text());
+        const table = readPermitTable(await readBoundedText(res));
         if (table.problem) {
           ctx.log(`error: ${table.problem} (${HOUSTON_PERMITS_ID})`);
           return [];
         }
+        if (table.tables > 1) ctx.log(`${PROBATION_NOTE_PREFIX} ${table.tables} report tables read on the page`);
         if (table.seen > HOUSTON_ROW_CAP) ctx.log(`${PROBATION_NOTE_PREFIX} row cap reached: ${HOUSTON_ROW_CAP} of ${table.seen} rows read`);
-        const parsed = parseHoustonPermits(table.rows, ctx.now ?? new Date());
+        const parsed = parseHoustonPermits(table.rows, now);
         if (table.rows.length > 0 && parsed.items.length === 0) {
           if (parsed.shapeOk === 0) ctx.log(`error: schema mismatch: no row had a project number, a readable permit date and a type (${HOUSTON_PERMITS_ID})`);
           else if (parsed.tooOld === parsed.shapeOk) ctx.log(`error: ${HOUSTON_PERMITS_ID}: no rows in the last ${HOUSTON_PERMITS_DS.maxRecordAgeDays} days (${table.rows.length} rows read)`);

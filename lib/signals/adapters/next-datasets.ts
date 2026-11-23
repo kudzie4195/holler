@@ -1,7 +1,7 @@
 import type { ContactSpec } from '@/lib/contacts/extract';
 import type { ArcgisDataset } from './arcgis-datasets';
 import type { SocrataDataset } from './socrata-datasets';
-import { isCompanyForm, isStorefrontNaics } from './next-filters';
+import { isCompanyForm, isPremisesNaics, isStorefrontNaics } from './next-filters';
 
 /**
  * ROUND 20 NEXT: new-business feeds (Texas Comptroller sales-tax outlets, TABC pending liquor applications, Miami-Dade business tax, Phoenix
@@ -22,14 +22,16 @@ import { isCompanyForm, isStorefrontNaics } from './next-filters';
  * PRIVACY (round 20 rules):
  *   - Texas Comptroller: Taxpayer Name and Taxpayer Address are NEVER requested. A row is dropped before anything is built unless its
  *     organisation type reads as a company form (next-filters.ts isCompanyForm: sole owners, individuals and unknown values are dropped;
- *     fail closed) and its NAICS code is a storefront sector (722, 44-45, 811, 812). The taxpayer number is used only inside a hashed
- *     external id (hashId). The outlet name is a business name: it is stored (private contacts) only when it passes the licence name rule.
+ *     fail closed) and its NAICS code is a storefront sector (722, 44-45, 811, 812). The taxpayer number is used only inside a KEYED
+ *     external id (hashId: HMAC with a server secret, lib/signals/id-key.ts; no secret, no request). The outlet name is a business name: it is stored (private contacts) only when it passes the licence name rule.
  *   - TABC: the owner column is NEVER requested; same company-form and name rules.
  *   - Miami-Dade business tax: OWNERNAME, MAILNAME, MAIL* and EMAIL are NEVER requested. BUSNAME and PHONENO go through the licence name rule
  *     (a phone is kept only next to a name that passed).
  *   - Phoenix liquor: only the licence, series, address and date columns; the licensee/agent columns are never named.
- *   - Certificates of occupancy: no applicant, owner, permittee or agent column is ever named (DC PROPERTY_OWNER and OWNER_ADDRESS are never in
- *     outFields). A contractor or a DC "permission granted to" name is a business only through the existing name rules.
+ *   - Certificates of occupancy: no applicant, owner, occupant, permittee or agent column is ever named (DC PROPERTY_OWNER, OWNER_ADDRESS,
+ *     PERMISSION_GRANTED_TO and TRADING_AS are never in outFields). A contractor name is a business only through the existing name rules. A
+ *     residential certificate prints its block only and a home occupation nothing (review fix P2-3; New York: every row, no type column).
+ *   - Review fix P1-2: every Socrata source here sends its column allow-list ($select) on every request, also after promotion (selectOnly).
  *   - A new-business card prints the business PREMISES address only when its name passed (socrata-datasets.ts `premises`); a CO card prints
  *     the building address through lib/contacts cleanAddress (strictAddress).
  */
@@ -70,7 +72,10 @@ function txSales(id: string, city: string, near: { lat: number; lon: number }, c
     kind: 'civic', subtype: 'business', idField: 'outlet_number', idFields: ['taxpayer_number', 'outlet_number'], hashId: true,
     dateField: 'outlet_permit_issue_date', zipField: 'outlet_zip_code', zipCentroid: { near, maxMi: 30 },
     titleFields: [], textFields: ['outlet_naics_code'], summaryFields: [], naicsField: 'outlet_naics_code', naicsText: true,
-    keepRow: txSalesKeep, premises: TX_SALES_PREMISES, contacts: TX_SALES_PREMISES,
+    // Review fixes: the keep columns are requested (P1-1); the allow-list stays after promotion (P1-2); the premises address is printed
+    // only for a commercial-premises NAICS class (P2-2).
+    keepRow: txSalesKeep, keepFields: ['taxpayer_organizational_type', 'outlet_naics_code'], selectOnly: true,
+    premises: TX_SALES_PREMISES, premisesWhen: (get) => isPremisesNaics(get('outlet_naics_code')), contacts: TX_SALES_PREMISES,
     extraWhere: countyIn('outlet_county_code', counties),
     lookbackOverride: 7, maxPages: 3, windowForwardDays: 0, cadenceMinutes: 720,
     verified: true, probation: true, schemaUnverified: true, verifiedUrl: D('data.texas.gov', 'jrea-zgmq'), fieldSource: 'assumed',
@@ -97,7 +102,7 @@ function tabc(id: string, city: string, near: { lat: number; lon: number }, coun
     id, city, state: 'TX', tz: 'America/Chicago', domain: 'data.texas.gov', datasetId: 'mxm5-tdpj', label: 'Texas open data: pending liquor license applications',
     kind: 'civic', subtype: 'business', idField: 'application_id', dateField: 'received_date', zipField: 'zip', zipCentroid: { near, maxMi: 30 },
     titleFields: [], textFields: ['license_type'], summaryFields: ['license_type'],
-    keepRow: tabcKeep, premises: TABC_PREMISES, contacts: TABC_PREMISES,
+    keepRow: tabcKeep, keepFields: ['ownership_type'], selectOnly: true, premises: TABC_PREMISES, contacts: TABC_PREMISES,
     // On-premise alcohol (a bar or restaurant) is a food premises: pest control too. Package stores and distributors are not.
     extraRules: [{ re: /mixed beverage|on.?premise|food and beverage|restaurant|brewpub|wine and malt beverage retailer|beer retailer/i, add: ['pest-control'], unless: /package|off.?premise|distributor|wholesal|manufactur|carrier/i }],
     extraWhere: `upper(county) in (${counties.map((c) => `'${c}'`).join(',')})`,
@@ -135,7 +140,7 @@ export const NEXT_SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-la-occupancy-permits', city: 'Los Angeles', state: 'CA', tz: 'America/Los_Angeles', domain: 'data.lacity.org', datasetId: '3f9m-afei', label: 'Los Angeles open data: certificates of occupancy',
     kind: 'permit', subtype: 'permit', idField: 'cofo_number', dateField: 'cofo_issue_date', latField: 'latitude', lonField: 'longitude',
-    occupancy: { typeFields: ['permit_sub_type', 'permit_type'] },
+    occupancy: { typeFields: ['permit_sub_type', 'permit_type'] }, selectOnly: true,
     titleFields: ['permit_sub_type', 'permit_type'], textFields: ['permit_type', 'permit_sub_type', 'work_description'], freeTextFields: ['work_description'],
     summaryFields: ['permit_sub_type'], addressFields: ['address'], zipField: 'zip_code', strictAddress: true, contacts: LA_CO_CONTACTS,
     lookbackOverride: 14, maxPages: 2, windowForwardDays: 0, cadenceMinutes: 720,
@@ -145,7 +150,8 @@ export const NEXT_SOCRATA_DATASETS: SocrataDataset[] = [
   {
     id: 'socrata-nyc-occupancy-permits', city: 'New York City', state: 'NY', tz: 'America/New_York', domain: 'data.cityofnewyork.us', datasetId: 'pkdm-hqz6', label: 'New York City open data: certificates of occupancy',
     kind: 'permit', subtype: 'permit', idField: 'job_filing_name', dateField: 'c_of_o_issuance_date', latField: 'latitude', lonField: 'longitude',
-    occupancy: { typeFields: ['c_of_o_filing_type'] },
+    // Review fix P2-3: no building-type column is known, so every row is treated as residential (block level only).
+    occupancy: { typeFields: ['c_of_o_filing_type'], unknownType: true }, selectOnly: true,
     titleFields: ['c_of_o_filing_type'], textFields: ['c_of_o_filing_type', 'c_of_o_status'], summaryFields: ['c_of_o_status', 'borough'],
     addressFields: ['house_no', 'street_name'], zipField: 'postcode', strictAddress: true, contacts: NYC_CO_CONTACTS,
     lookbackOverride: 14, windowForwardDays: 0, cadenceMinutes: 720,
@@ -180,14 +186,6 @@ const PHOENIX_LIQUOR_SPEC: ContactSpec = {
   site: { addressFields: ['ADDRESS'], zipField: 'ZIP', onlyWithOrganisation: true },
 };
 
-const DC_OCCUPANCY_SPEC: ContactSpec = {
-  verifiedUrl: M(DC_OCCUPANCY),
-  checkedOn: CHECKED,
-  fieldStatus: 'sourced',
-  site: { addressFields: ['ADDRESS'] },
-  // TRADING_AS first (a trade name), then PERMISSION_GRANTED_TO (the occupant entity, can be a person): both through the licence name rule.
-  orgs: [{ role: 'business', nameFields: ['TRADING_AS', 'PERMISSION_GRANTED_TO'], homeFields: ['DESCRIPTION_OF_OCCUPANCY', 'APPROVED_ZONING_USE'] }],
-};
 
 export const NEXT_ARCGIS_DATASETS: ArcgisDataset[] = [
   {
@@ -214,12 +212,14 @@ export const NEXT_ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-dc-occupancy-permits', city: 'Washington', state: 'DC', tz: 'America/New_York', layerUrl: DC_OCCUPANCY, label: 'Washington open data: certificates of occupancy',
     kind: 'permit', subtype: 'permit', idField: 'OBJECTID', dateField: 'ISSUE_DATE', dateType: 'date',
-    occupancy: { typeFields: ['APPROVED_ZONING_USE', 'DESCRIPTION_OF_OCCUPANCY'] },
+    occupancy: { typeFields: ['APPROVED_ZONING_USE', 'DESCRIPTION_OF_OCCUPANCY'] }, keepQuadrant: true,
     titleFields: ['APPROVED_ZONING_USE'], textFields: ['DESCRIPTION_OF_OCCUPANCY', 'APPROVED_ZONING_USE'], freeTextFields: ['DESCRIPTION_OF_OCCUPANCY'],
-    summaryFields: ['APPROVED_ZONING_USE'], addressFields: ['ADDRESS'], strictAddress: true, contacts: DC_OCCUPANCY_SPEC,
+    summaryFields: ['APPROVED_ZONING_USE'], addressFields: ['ADDRESS'], strictAddress: true,
+    // Review fix P2-3: no contact spec at all. The occupant columns (PERMISSION_GRANTED_TO, TRADING_AS) are never requested, and the private
+    // site would lose the quadrant (lib/contacts cleanAddress): the public summary carries the address with its quadrant instead.
     lookbackOverride: 14, windowForwardDays: 0, cadenceMinutes: 720, verified: true, probation: true, schemaUnverified: true,
     verifiedUrl: M(DC_OCCUPANCY), checkedOn: CHECKED, fieldSource: 'sourced',
-    note: 'ON PROBATION (round 20 NEXT). DC "Certificate of Occupancy" FeatureServer layer 46, catalogue modified 2026-11-17 [3P], max 2,000 rows a page. Fields [O]: ADDRESS, ISSUE_DATE, PERMISSION_GRANTED_TO, TRADING_AS, DESCRIPTION_OF_OCCUPANCY, APPROVED_ZONING_USE, OCCUPANCY_LOAD, PROPERTY_OWNER, OWNER_ADDRESS. OBJECTID as the id is [A]. PROPERTY_OWNER and OWNER_ADDRESS are NEVER in outFields. DESCRIPTION_OF_OCCUPANCY is classified but never printed (free text).',
+    note: 'ON PROBATION (round 20 NEXT). DC "Certificate of Occupancy" FeatureServer layer 46, catalogue modified 2026-11-17 [3P], max 2,000 rows a page. Fields [O]: ADDRESS, ISSUE_DATE, PERMISSION_GRANTED_TO, TRADING_AS, DESCRIPTION_OF_OCCUPANCY, APPROVED_ZONING_USE, OCCUPANCY_LOAD, PROPERTY_OWNER, OWNER_ADDRESS. OBJECTID as the id is [A]. PROPERTY_OWNER, OWNER_ADDRESS, PERMISSION_GRANTED_TO and TRADING_AS (owner and occupant) are NEVER in outFields. A residential certificate prints its block only, a home occupation nothing; the quadrant (NW, NE, SW, SE) is kept. DESCRIPTION_OF_OCCUPANCY is classified but never printed (free text).',
   },
 ];
 
