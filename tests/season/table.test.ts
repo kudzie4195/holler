@@ -101,6 +101,46 @@ describe('season table: every row', () => {
     }
   });
 
+  // Round 30 review D1, D2: a window Holler builds itself is told as Holler's estimate, in the words the customer reads, EN and ES.
+  const SERVICE_WINDOW_EN = /\b(?:booked|booking|scheduled|prepped|applied)\b/i;
+  const SERVICE_WINDOW_ES = /(?:programar|programan|se preparan|se suele aplicar)/i;
+  it('every estimate row whose line states a booking or service window says "Holler estimates" / "Holler estima"', () => {
+    const estimates = SEASON_TABLE.filter((r) => r.confidence === 'estimate');
+    expect(estimates.length).toBeGreaterThan(0);
+    for (const r of estimates) {
+      expect(SERVICE_WINDOW_EN.test(r.en), `${r.id} en states a window`).toBe(SERVICE_WINDOW_ES.test(r.es));
+      if (SERVICE_WINDOW_EN.test(r.en)) {
+        expect(r.en, r.id).toMatch(/Holler estimates that /);
+        expect(r.es, r.id).toMatch(/Holler estima que/);
+      }
+    }
+    // the launch-week rows themselves
+    for (const c of ['atlanta', 'charlotte', 'raleigh']) {
+      for (const id of [`gutters-${c}`, `leaf-cleanup-${c}`]) {
+        expect(row(id).confidence, id).toBe('estimate');
+        expect(row(id).en, id).toContain('Holler estimates that');
+        expect(row(id).es, id).toContain('Holler estima que');
+      }
+    }
+  });
+  it('the review\'s exact gutter and leaf lines (review D1, D2); no "leaves keep falling into December" anywhere', () => {
+    const city = { atlanta: 'Atlanta', charlotte: 'Charlotte', raleigh: 'Raleigh' } as const;
+    for (const [c, name] of Object.entries(city)) {
+      expect(row(`gutters-${c}`).en).toContain(`Holler estimates that around ${name}, gutter clean-outs are usually booked from mid-November to mid-January.`);
+      expect(row(`gutters-${c}`).es).toContain(`Holler estima que, en la zona de ${name}, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.`);
+    }
+    expect(row('leaf-cleanup-atlanta').en).toMatch(/in the first two weeks of November\. Holler estimates that leaf clean-ups around Atlanta are typically booked from November to mid-December\.$/);
+    expect(row('leaf-cleanup-atlanta').es).toMatch(/en las dos primeras semanas de noviembre\. Holler estima que, en la zona de Atlanta, las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre\.$/);
+    expect(row('leaf-cleanup-charlotte').en).toMatch(/in early to mid-November\. Holler estimates that leaf clean-ups are typically booked from November to mid-December\.$/);
+    expect(row('leaf-cleanup-charlotte').es).toMatch(/de principios a mediados de noviembre\. Holler estima que las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre\.$/);
+    expect(row('leaf-cleanup-raleigh').en).toMatch(/from late October to early November\. Holler estimates that leaf clean-ups around Raleigh are typically booked from late October to early December\.$/);
+    expect(row('leaf-cleanup-raleigh').es).toMatch(/de fines de octubre a principios de noviembre\. Holler estima que, en la zona de Raleigh, las limpiezas de hojas se suelen programar de fines de octubre a principios de diciembre\.$/);
+    for (const r of SEASON_TABLE) {
+      expect(r.en, r.id).not.toMatch(/leaves keep falling/i);
+      expect(r.es, r.id).not.toMatch(/siguen cayendo/i);
+    }
+  });
+
   it('each row reaches exactly the trades the brief gave it', () => {
     const want: Record<string, string[]> = {
       gutters: ['siding-gutters'],

@@ -90,45 +90,46 @@ const POLLEN = ['cleaning', 'siding-gutters'] as const;
 const LISTING = ['landscaping', 'cleaning'] as const;
 
 export const SEASON_TABLE: readonly SeasonRow[] = [
-  // Gutter clean-out after leaf drop, Nov 15 to Jan 15. Holler's own estimate: no source states this window (VERIFY.md 2f). The line
+  // Gutter clean-out after leaf drop, Nov 15 to Jan 15. Holler's own estimate, and the line says so: no source states this window
+  // (VERIFY.md 2f, review D1). The line
   // rests on the Farmers' Almanac final major leaf drop (Georgia late November to December, North Carolina mid-November to December).
   {
     id: 'gutters-atlanta', topic: 'gutters', centre: 'atlanta', trades: GUTTERS, start: '11-15', end: '01-15', peak: '12-01',
-    en: 'In Georgia, the last big leaf drop usually comes from late November into December. Around Atlanta, gutter clean-outs are usually booked from mid-November to mid-January.',
-    es: 'En Georgia, la última gran caída de hojas suele llegar de fines de noviembre a diciembre. En la zona de Atlanta, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
+    en: 'In Georgia, the last big leaf drop usually comes from late November into December. Holler estimates that around Atlanta, gutter clean-outs are usually booked from mid-November to mid-January.',
+    es: 'En Georgia, la última gran caída de hojas suele llegar de fines de noviembre a diciembre. Holler estima que, en la zona de Atlanta, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
     source: SRC.almanacLeafDrop, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'gutters-charlotte', topic: 'gutters', centre: 'charlotte', trades: GUTTERS, start: '11-15', end: '01-15', peak: '12-01',
-    en: 'In North Carolina, the last big leaf drop usually comes from mid-November into December. Around Charlotte, gutter clean-outs are usually booked from mid-November to mid-January.',
-    es: 'En Carolina del Norte, la última gran caída de hojas suele llegar de mediados de noviembre a diciembre. En la zona de Charlotte, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
+    en: 'In North Carolina, the last big leaf drop usually comes from mid-November into December. Holler estimates that around Charlotte, gutter clean-outs are usually booked from mid-November to mid-January.',
+    es: 'En Carolina del Norte, la última gran caída de hojas suele llegar de mediados de noviembre a diciembre. Holler estima que, en la zona de Charlotte, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
     source: SRC.almanacLeafDrop, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'gutters-raleigh', topic: 'gutters', centre: 'raleigh', trades: GUTTERS, start: '11-15', end: '01-15', peak: '12-01',
-    en: 'In North Carolina, the last big leaf drop usually comes from mid-November into December. Around Raleigh, gutter clean-outs are usually booked from mid-November to mid-January.',
-    es: 'En Carolina del Norte, la última gran caída de hojas suele llegar de mediados de noviembre a diciembre. En la zona de Raleigh, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
+    en: 'In North Carolina, the last big leaf drop usually comes from mid-November into December. Holler estimates that around Raleigh, gutter clean-outs are usually booked from mid-November to mid-January.',
+    es: 'En Carolina del Norte, la última gran caída de hojas suele llegar de mediados de noviembre a diciembre. Holler estima que, en la zona de Raleigh, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.',
     source: SRC.almanacLeafDrop, verifiedOn: R30, confidence: 'estimate',
   },
 
-  // Leaf clean-up: Atlanta and Charlotte Nov 1 to Dec 15, Raleigh Oct 25 to Dec 10 (VERIFY.md 2a to 2e). Peak color is the source's
-  // (checked); the clean-up window is derived from it and the final leaf drop, so estimate.
+  // Leaf clean-up: Atlanta and Charlotte Nov 1 to Dec 15, Raleigh Oct 25 to Dec 10 (VERIFY.md 2a to 2e). Peak color is the source's;
+  // the clean-up window is Holler's own estimate (no cited page dates the leaf fall after it), and the line says so (review D2).
   {
     id: 'leaf-cleanup-atlanta', topic: 'leaf-cleanup', centre: 'atlanta', trades: LEAVES, start: '11-01', end: '12-15', peak: '11-20',
-    en: 'Fall color in the lower areas of Georgia usually peaks in the first two weeks of November, and leaves keep falling into December. Around Atlanta, leaf clean-ups are typically booked from November to mid-December.',
-    es: 'Los colores de otoño en las zonas bajas de Georgia suelen llegar a su punto máximo en las dos primeras semanas de noviembre, y las hojas siguen cayendo hasta diciembre. En la zona de Atlanta, las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre.',
+    en: 'Fall color in the lower areas of Georgia usually peaks in the first two weeks of November. Holler estimates that leaf clean-ups around Atlanta are typically booked from November to mid-December.',
+    es: 'Los colores de otoño en las zonas bajas de Georgia suelen llegar a su punto máximo en las dos primeras semanas de noviembre. Holler estima que, en la zona de Atlanta, las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre.',
     source: SRC.ajcLeaves, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'leaf-cleanup-charlotte', topic: 'leaf-cleanup', centre: 'charlotte', trades: LEAVES, start: '11-01', end: '12-15', peak: '11-20',
-    en: 'Fall color around Charlotte is usually brightest in early to mid-November, and leaves keep falling into December. Leaf clean-ups are typically booked from November to mid-December.',
-    es: 'Los colores de otoño en la zona de Charlotte suelen estar en su mejor momento de principios a mediados de noviembre, y las hojas siguen cayendo hasta diciembre. Las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre.',
+    en: 'Fall color around Charlotte is usually brightest in early to mid-November. Holler estimates that leaf clean-ups are typically booked from November to mid-December.',
+    es: 'Los colores de otoño en la zona de Charlotte suelen estar en su mejor momento de principios a mediados de noviembre. Holler estima que las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre.',
     source: SRC.aolCharlotteLeaves, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'leaf-cleanup-raleigh', topic: 'leaf-cleanup', centre: 'raleigh', trades: LEAVES, start: '10-25', end: '12-10', peak: '11-12',
-    en: 'NC State says peak fall color usually reaches the Piedmont from late October to early November, and leaves keep falling into December. Around Raleigh, leaf clean-ups are typically booked from late October to early December.',
-    es: 'NC State indica que los colores de otoño suelen llegar a su punto máximo en el Piedmont de fines de octubre a principios de noviembre, y las hojas siguen cayendo hasta diciembre. En la zona de Raleigh, las limpiezas de hojas se suelen programar de fines de octubre a principios de diciembre.',
+    en: 'NC State says peak fall color usually reaches the Piedmont from late October to early November. Holler estimates that leaf clean-ups around Raleigh are typically booked from late October to early December.',
+    es: 'NC State indica que los colores de otoño suelen llegar a su punto máximo en el Piedmont de fines de octubre a principios de noviembre. Holler estima que, en la zona de Raleigh, las limpiezas de hojas se suelen programar de fines de octubre a principios de diciembre.',
     source: SRC.ncsuFoliage, verifiedOn: R30, confidence: 'estimate',
   },
 
@@ -236,23 +237,24 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
     source: SRC.ncsuCarolinaLawns, verifiedOn: R30, confidence: 'checked',
   },
 
-  // Home-listing season prep (Zillow confirmed, VERIFY.md 6; the prep window before the listing weeks is derived, so estimate).
+  // Home-listing season prep (Zillow's 2025 sales, VERIFY.md 6; the prep window before the listing weeks is Holler's estimate, and the
+  // line says so).
   {
     id: 'listing-prep-atlanta', topic: 'listing-prep', centre: 'atlanta', trades: LISTING, start: '04-15', end: '05-15', peak: '05-01',
-    en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Atlanta. Homes are often prepped for sale with yard work and exterior washes in the weeks before.",
-    es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Atlanta. Las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
+    en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Atlanta. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
+    es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Atlanta. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'listing-prep-charlotte', topic: 'listing-prep', centre: 'charlotte', trades: LISTING, start: '04-15', end: '05-15', peak: '05-01',
-    en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Charlotte. Homes are often prepped for sale with yard work and exterior washes in the weeks before.",
-    es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Charlotte. Las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
+    en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Charlotte. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
+    es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Charlotte. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',
   },
   {
     id: 'listing-prep-austin', topic: 'listing-prep', centre: 'austin', trades: LISTING, start: '03-01', end: '03-31', peak: '03-20',
-    en: "Zillow's analysis of 2025 sales points to the last two weeks of March as the best time to list a home in Austin. Homes are often prepped for sale with yard work and exterior washes in the weeks before.",
-    es: 'El análisis de Zillow de las ventas de 2025 señala las dos últimas semanas de marzo como el mejor momento para poner una casa a la venta en Austin. Las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
+    en: "Zillow's analysis of 2025 sales points to the last two weeks of March as the best time to list a home in Austin. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
+    es: 'El análisis de Zillow de las ventas de 2025 señala las dos últimas semanas de marzo como el mejor momento para poner una casa a la venta en Austin. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',
   },
 ];
