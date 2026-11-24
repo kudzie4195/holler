@@ -1419,6 +1419,23 @@ export const en = {
   'pricing.card_offer': 'Add a card now and nothing is charged until your {days}-day trial ends. You can cancel in Settings before the trial ends and pay nothing.',
   'pricing.row.lists': 'Address lists (trades that have one) and door hanger',
   'pricing.lists_note': 'Address lists are for {trades}. The door hanger works for any trade.',
+  // r25 check
+  'chk.verdict.live': 'Worth a trial here.',
+  'chk.verdict.limited': 'Too early to say here.',
+  'chk.verdict.count': 'Recently, {n} alerts would have been emailed to {who} within {mi} miles of {zip}, {where}, {when}.',
+  'chk.verdict.count_one': 'Recently, {n} alert would have been emailed to {who} within {mi} miles of {zip}, {when}.',
+  'chk.verdict.none': 'Recently, no alerts would have been emailed to {who} within {mi} miles of {zip}.',
+  'chk.verdict.at_least': 'at least {n}',
+  'chk.verdict.who': 'a {trade} business',
+  'chk.verdict.who_an': 'an {trade} business',
+  'chk.verdict.places': 'at {places} different places',
+  'chk.verdict.places_one': 'all at one place',
+  'chk.verdict.since': 'since {date}',
+  'chk.verdict.on': 'on {date}',
+  'chk.city_link': 'See the free public records for {city}',
+  'chk.reads_h': 'What Holler reads near you',
+  'chk.reads_note': 'Local public feeds based within {mi} miles of {zip}. Weather alerts and storm reports are read for the whole country.',
+  'chk.trade.pressure_washing': 'Pressure washing',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,
 } as const;

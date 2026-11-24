@@ -17,7 +17,8 @@ import { coverageFor } from '@/lib/check/cells';
 import { checkAnswer } from '@/lib/check/answer';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
-import { memberItems } from '@/lib/check/delivery';
+import { alertTotals, memberItems } from '@/lib/check/delivery';
+import { checkVerdict } from '@/lib/check/verdict';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
@@ -221,13 +222,18 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   ]);
   const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now, lang: L });
 
+  // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
+  // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.
+  const member = memberItems(data.items, place, params.trade);
+  const verdict = data.ok ? checkVerdict(coverageState, alertTotals(member, data.clipped === true), { tradeLabel: common.tradeLabel, zip: params.zip, lang: L }) : null;
+
   return (
     <>
       <FormBand>
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={memberItems(data.items, place, params.trade)} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

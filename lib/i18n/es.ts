@@ -1376,6 +1376,23 @@ export const es: Record<DictKey, string> = {
   'pricing.card_offer': 'Agregue una tarjeta ahora y no se cobra nada hasta que termine su prueba de {days} días. Puede cancelar en Configuración antes de que termine la prueba y no pagar nada.',
   'pricing.row.lists': 'Listas de direcciones (oficios que las tienen) y colgante para puertas',
   'pricing.lists_note': 'Las listas de direcciones son para {trades}. El colgante para puertas sirve para cualquier oficio.',
+  // r25 check
+  'chk.verdict.live': 'Vale la pena probarlo aquí.',
+  'chk.verdict.limited': 'Todavía es pronto para saberlo aquí.',
+  'chk.verdict.count': 'Recientemente, se habrían enviado por correo {n} alertas a {who} a menos de {mi} millas de {zip}, {where}, {when}.',
+  'chk.verdict.count_one': 'Recientemente, se habría enviado por correo {n} alerta a {who} a menos de {mi} millas de {zip}, {when}.',
+  'chk.verdict.none': 'Recientemente no se habría enviado ninguna alerta por correo a {who} a menos de {mi} millas de {zip}.',
+  'chk.verdict.at_least': 'al menos {n}',
+  'chk.verdict.who': 'un negocio de {trade}',
+  'chk.verdict.who_an': 'un negocio de {trade}',
+  'chk.verdict.places': 'en {places} lugares distintos',
+  'chk.verdict.places_one': 'todas en un mismo lugar',
+  'chk.verdict.since': 'desde el {date}',
+  'chk.verdict.on': 'el {date}',
+  'chk.city_link': 'Vea gratis los registros públicos de {city} (página en inglés)',
+  'chk.reads_h': 'Lo que Holler lee cerca de usted',
+  'chk.reads_note': 'Fuentes públicas locales con sede a menos de {mi} millas de {zip}. Los avisos del tiempo y los reportes de tormentas se leen para todo el país.',
+  'chk.trade.pressure_washing': 'Lavado a presión',
   // Ronda 18, unidad ES: precios, registro, la aplicación web, Configuración, pagos y los correos de la cuenta (lib/i18n/es-account.ts).
   ...ES_ACCOUNT,
 };

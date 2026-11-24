@@ -17,7 +17,7 @@ import { fakeSignalsDb, type Row } from '../fixtures/fake-signals-db';
 const h = vi.hoisted(() => ({ db: null as unknown }));
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
 vi.mock('@/lib/seo/client', () => ({ publicClient: () => h.db }));
-import { loadCheck } from '@/lib/check/load';
+import { CHECK_READ_LIMITS, loadCheck } from '@/lib/check/load';
 import { groupItems } from '@/lib/check/group';
 import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
 
@@ -118,7 +118,8 @@ const sig = (over: Row): Row => ({
   severity: 1, occurred_at: hoursAgo(5), expires_at: null, data: {}, ...over,
 });
 /** The review's reproduction: 400 NYC heat rows in the last 10 hours fill any bounding-box read with a row limit. */
-const nycFlood = () => Array.from({ length: 400 }, (_, i) => sig({ state: 'NY', title: 'nyc 311', lat: 40.7 + (i % 40) * 0.003, lon: -73.99 + (i % 9) * 0.004, occurred_at: hoursAgo((i * 10) / 400) }));
+// Round 25: 1,200 rows (was 400), so the flood still overflows the raised read limits (lib/check/load.ts CHECK_READ_LIMITS: 500 and 200).
+const nycFlood = () => Array.from({ length: 1200 }, (_, i) => sig({ state: 'NY', title: 'nyc 311', lat: 40.7 + (i % 40) * 0.003, lon: -73.99 + (i % 9) * 0.004, occurred_at: hoursAgo((i * 10) / 1200) }));
 
 async function checkZip(zip: string, trade: string, signals: Row[]) {
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -163,14 +164,14 @@ describe('N1: a dense feed 26 to 60 miles away must not empty the page (the revi
       for (const it of r.items) if (it.lat != null && it.lon != null) expect(haversineMi(sc.cellLat, sc.cellLon, it.lat, it.lon)).toBeLessThanOrEqual(CHECK_SEARCH_RADIUS_MI);
       const rpc = fake.log.filter((l) => l.kind === 'rpc');
       expect(rpc).toHaveLength(4); // newest in radius, close to home, severity 2+, upcoming
-      expect(rpc[0].returned).toBeLessThanOrEqual(100);
+      expect(rpc[0].returned).toBeLessThanOrEqual(CHECK_READ_LIMITS.recent);
     });
   }
-  it('P2-1: 400 newer cluster rows 30 to 38 miles out do not hide the local rows or an 18 mile severity 3 warning at Morristown', async () => {
+  it('P2-1: 1,200 newer cluster rows 30 to 38 miles out do not hide the local rows or an 18 mile severity 3 warning at Morristown', async () => {
     nid = 1;
     const z = lookupZip('07960')!;
     const sc = deriveScope(z);
-    const cluster = Array.from({ length: 400 }, (_, i) => sig({ title: `cluster${i}`, state: 'NY', lat: sc.cellLat, lon: sc.cellLon + (30 + (i % 70) / 10) / (69.09 * Math.cos((sc.cellLat * Math.PI) / 180)), occurred_at: hoursAgo(0.01 + i / 1000) }));
+    const cluster = Array.from({ length: 1200 }, (_, i) => sig({ title: `cluster${i}`, state: 'NY', lat: sc.cellLat, lon: sc.cellLon + (30 + (i % 70) / 10) / (69.09 * Math.cos((sc.cellLat * Math.PI) / 180)), occurred_at: hoursAgo(0.01 + i / 10000) }));
     const local = Array.from({ length: 5 }, (_, i) => sig({ title: `local${i}`, state: 'NJ', lat: z.lat + (i + 1) * 0.01, lon: z.lon, occurred_at: hoursAgo(48 + i) }));
     const warning = sig({ title: 'warning3', kind: 'report', severity: 3, state: 'NJ', lat: z.lat + 18 / 69.09, lon: z.lon, occurred_at: hoursAgo(24) });
     const { r } = await checkZip('07960', 'hvac', [...cluster, ...local, warning]);
@@ -204,10 +205,11 @@ describe('N1: a dense feed 26 to 60 miles away must not empty the page (the revi
     const { r } = await checkZip('08540', 'hvac', rows);
     expect(r.items.map((i) => i.title).sort()).toEqual(['Freeze Warning', 'local row']);
   });
-  it('a ZIP that sits inside the flood itself gets exactly the newest 100 inside the radius, never an empty page', async () => {
+  it('a ZIP that sits inside the flood itself gets exactly the newest 500 (the read limit) inside the radius, never an empty page', async () => {
     nid = 1;
     const { r } = await checkZip('10001', 'hvac', nycFlood());
-    expect(r.items).toHaveLength(100);
+    expect(r.items).toHaveLength(CHECK_READ_LIMITS.recent);
+    expect(r.clipped).toBe(true);
   });
   it('a record 45 to 50 miles from the cell centre is not read (the stated "about 40 miles" is not stretched)', async () => {
     nid = 1;
@@ -254,15 +256,16 @@ describe('loadCheck query shape', () => {
     const rpc = fake.log.filter((l) => l.kind === 'rpc');
     // Round 24 FIX2 (review D1): roofing has routed trades (records tagged for others that roofing still sees), read by two more calls.
     expect(rpc).toHaveLength(6);
-    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 100, p_soonest_first: false, p_min_severity: 1 });
+    expect(rpc[0].args).toMatchObject({ p_lat: sc.cellLat, p_lon: sc.cellLon, p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: ['roofing'], p_limit: 500, p_soonest_first: false, p_min_severity: 1 });
     expect(Date.parse(rpc[0].args!.p_until) - Date.parse(rpc[0].args!.p_since)).toBe(30 * 86_400_000);
-    expect(rpc[1].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_limit: 30, p_min_severity: 1 });
+    // Round 25: the own-trade and routed reads hold the whole window where they can (lib/check/load.ts ROW_LIMIT 500, CORE_LIMIT 200).
+    expect(rpc[1].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_limit: 200, p_min_severity: 1 });
     expect(rpc[2].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_limit: 20, p_min_severity: 2 });
     expect(rpc[3].args).toMatchObject({ p_limit: 12, p_soonest_first: true });
     const routed = expandCategoriesForRouting(['roofing']).filter((c) => c !== 'roofing');
     expect(routed.length).toBeGreaterThan(0);
-    expect(rpc[4].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: routed, p_limit: 100, p_min_severity: 1 });
-    expect(rpc[5].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_categories: routed, p_limit: 30, p_min_severity: 1 });
+    expect(rpc[4].args).toMatchObject({ p_radius_mi: CHECK_SEARCH_RADIUS_MI, p_categories: routed, p_limit: 500, p_min_severity: 1 });
+    expect(rpc[5].args).toMatchObject({ p_radius_mi: CHECK_CORE_RADIUS_MI, p_categories: routed, p_limit: 200, p_min_severity: 1 });
     const sel = fake.log.filter((l) => l.kind === 'select');
     expect(sel).toHaveLength(1);
     expect(sel[0].name).toContain('is:lat');

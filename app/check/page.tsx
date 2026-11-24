@@ -20,7 +20,8 @@ import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_LIST_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
-import { memberItems } from '@/lib/check/delivery';
+import { alertTotals, memberItems } from '@/lib/check/delivery';
+import { checkVerdict } from '@/lib/check/verdict';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
@@ -217,13 +218,18 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now });
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
 
+  // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
+  // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.
+  const member = memberItems(data.items, place, params.trade);
+  const verdict = data.ok ? checkVerdict(coverageState, alertTotals(member, data.clipped === true), { tradeLabel: common.tradeLabel, zip: params.zip, lang: 'en' }) : null;
+
   return (
     <>
       <FormBand>
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={memberItems(data.items, place, params.trade)} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }
