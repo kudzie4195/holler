@@ -251,6 +251,15 @@ describe('English output is unchanged (round 18 ES)', () => {
       '</tbody></table>',
       '</tbody></table><p class="mt-4 text-sm text-muted">Address lists are for siding and gutters, landscaping, house cleaning, lawn care and painting. The door hanger works for any trade.</p>',
     );
+    // R25 check fix (review R25CHECK P3-7): the footer's "Pressure washing" link opens the check with that option picked (it went to the
+    // House cleaning page). The one intended change, on every render that has the footer.
+    const PW_FROM = 'href="/for/cleaning">Pressure washing<';
+    const pwKeys = Object.keys(base).filter((x) => base[x].includes(PW_FROM));
+    expect(pwKeys.sort()).toEqual(['pricing.html', 'privacy.html']);
+    for (const k of pwKeys) {
+      expect(base[k].split(PW_FROM).length - 1, `R25 check fix ${k}`).toBe(1);
+      base[k] = base[k].replace(PW_FROM, 'href="/check?trade=pressure-washing">Pressure washing<');
+    }
     // The base carries the Coming next "more areas" row (INT2 copy pass: labelled "More cities") and the language-hint script, so nothing is patched into it here.
     expect(base['pricing.html']).toContain('More cities');
     expect(base['app-layout.html']).toContain('<script type="text/javascript">');

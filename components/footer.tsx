@@ -9,13 +9,15 @@ type FooterLink = { href: string; label: string; /** Set on a link to a page in 
 /**
  * Trade pages linked from the footer, by category id in lib/signals/categories.ts. Round 24 (review P1-3, decision e): the trades the
  * launch markets come first (landscaping, lawn care, gutters and siding, pressure washing), then fencing, painting and cleaning. Pressure
- * washing is not a category: its keywords live in House cleaning, so it links to that page, as cleaning does.
+ * washing is not a category and has no trade page: it links the check with that option picked.
  */
 export const FOOTER_TRADES: FooterLink[] = [
   { href: '/for/landscaping', label: 'Landscaping' },
   { href: '/for/lawn-care', label: 'Lawn care' },
   { href: '/for/siding-gutters', label: 'Gutters and siding' },
-  { href: '/for/cleaning', label: 'Pressure washing' },
+  // R25 check fix (review R25CHECK P3-7): the check with Pressure washing picked (the sign-up chip: cleaning AND siding-gutters), the same
+  // option the check form lists on its own, not the House cleaning page.
+  { href: '/check?trade=pressure-washing', label: 'Pressure washing' },
   { href: '/for/fencing', label: 'Fencing' },
   { href: '/for/painting', label: 'Painting' },
   { href: '/for/cleaning', label: 'Cleaning' },
