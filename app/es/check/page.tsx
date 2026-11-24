@@ -29,7 +29,8 @@ import { lookupZip, nearestCity } from '@/lib/geo';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import type { WaitlistCardWords } from '@/lib/waitlist/copy';
-import { waitlistTradeGroups } from '@/lib/waitlist/trades';
+import { waitlistAccepts, waitlistTradeGroups } from '@/lib/waitlist/trades';
+import { PRESSURE_WASHING_ID, expandTradeIds } from '@/lib/plan/composite-trades';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[1];
@@ -174,12 +175,16 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   const answer = coverageFor(place, params.trade, served);
   const coverageState = answer.state;
   const gate = { coverageState, measured: answer.measured, storm: answer.storm };
+  // Round 25: the waitlist takes real trades only (lib/waitlist/trades.ts). For the composite "Pressure washing" answer the card preselects
+  // the first of its two trades that the waitlist takes here, or none.
+  const cardTrade =
+    params.trade === PRESSURE_WASHING_ID ? (expandTradeIds([params.trade]).find((tr) => waitlistAccepts(place, served, tr)) ?? '') : params.trade;
   // Round 24 (review P2-6): a ZIP Holler reads gets the per-trade wording, as in English; only an unserved ZIP hears "not covered".
   const uncoveredNote =
     coverageState === 'waitlist' ? (
       <AreaWaitlist
         zip={params.zip}
-        trade={params.trade}
+        trade={cardTrade}
         placeLabel={placeLabel}
         groups={waitlistTradeGroups(place, served, L)}
         tradeLabel={served ? tradeLabel(params.trade, L) : null}
@@ -220,7 +225,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
     loadSourceStateSnapshot().catch(() => null),
   ]);
-  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now, lang: L });
+  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: expandTradeIds([params.trade]), states: snapshot?.states, now, lang: L });
 
   // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
   // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.

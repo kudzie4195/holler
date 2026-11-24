@@ -4,6 +4,7 @@ import { CITY_TYPES, NATIONAL_TYPES, SIGNAL_PHRASES, activeTradeSignals, sourceA
 import { isAlertLabel, labelFor, ruleFor, type LabelInput } from '@/lib/signals/lead-rules';
 import type { CategoryId } from '@/lib/signals/categories';
 import { hasEnv, type EnvKey } from '@/lib/env';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 
 type Has = (...k: EnvKey[]) => boolean;
 
@@ -43,6 +44,8 @@ function neverAlert(type: SignalTypeId, trade: string, has: Has): boolean {
  * (CITY_FEEDS) and the trade receives them. Never a type that nothing sends.
  */
 export function watchTypes(trade: string, citySlug: string | null, has?: Parameters<typeof activeTradeSignals>[1]): SignalTypeId[] {
+  // Round 25: the composite "Pressure washing" chip watches what its two trades watch (lib/plan/composite-trades.ts), in their order.
+  if (trade === PRESSURE_WASHING_ID) return [...new Set(PRESSURE_WASHING_PARTS.flatMap((p) => watchTypes(p, citySlug, has)))];
   const forTrade = activeTradeSignals(trade, has);
   const cityHas = citySlug ? (CITY_FEEDS[citySlug] ?? []) : [];
   return forTrade.filter((t) => (NATIONAL_TYPES.includes(t) ? !neverAlert(t, trade, has ?? hasEnv) : CITY_TYPES.includes(t) && cityHas.includes(t)));

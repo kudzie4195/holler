@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
 import { hasKey, t, type Lang } from '@/lib/i18n';
+import { PRESSURE_WASHING_ID } from '@/lib/plan/composite-trades';
 
 export interface TradeOption {
   id: string;
@@ -32,6 +33,8 @@ export function tradeGroups(lang: Lang = 'en'): TradeGroup[] {
 }
 
 export function tradeLabel(id: string, lang: Lang = 'en'): string {
+  // Round 25: the composite "Pressure washing" chip (lib/plan/composite-trades.ts) is not a category; its label is in the dictionary.
+  if (id === PRESSURE_WASHING_ID) return t(lang, 'chk.trade.pressure_washing');
   if (lang !== 'en' && hasKey(`trade.${id}`)) return t(lang, `trade.${id}` as 'trade.roofing');
   return CATEGORIES.find((c) => c.id === id)?.label ?? id;
 }
