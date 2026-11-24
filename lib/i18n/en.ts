@@ -1392,6 +1392,7 @@ export const en = {
   'tp.cta.check': 'Check your ZIP',
   'tp.limited.line': 'Check your ZIP first to see what Holler has for {trade} near you.',
   'tp.waitlist.line': 'Holler is not taking sign-ups for {trade} yet. Check your ZIP and leave your email, and we will tell you when it opens.',
+  'tp.closed.sentence': 'Holler is not taking sign-ups for {trade} yet.',
   'tp.faq.cost.limited': 'Check your ZIP before you start. In the cities Holler has measured, it has few {trade} records so far. Plans start at {monthly} a month or {yearly} a year.',
   'tp.faq.cost.waitlist': 'Holler is not taking sign-ups for {trade} yet: it has not found enough of this work in the cities it measured. Check your ZIP and leave your email, and we will tell you when it opens.',
   'tp.aside.limited': 'Check what Holler has near you.',

@@ -84,12 +84,40 @@ function gatedOut(id: string, has?: Has): boolean {
 }
 
 /** The headline for this deployment: the trade's `keyless` text when a key-gated type it leans on is off, else the default. */
+/**
+ * Round 24 FIX2 (review D7): a trade sign-up does not take (tradeSignupClosed) keeps its page, URL and records, but its headline, lead,
+ * meta description, section heading and first FAQ answer describe the public records and say Holler is not taking sign-ups for it yet.
+ * They never say Holler emails or alerts that trade.
+ */
+export function tradePageClosed(t: Pick<TradeEntry, 'id'>): boolean {
+  return tradeSignupClosed(t.id);
+}
+
+function tradeWordOf(t: Pick<TradeEntry, 'id'> & { label?: string }): string {
+  return (t.label ?? t.id.replace(/-/g, ' ')).toLowerCase();
+}
+
 export function tradeHeadline(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): string {
   return t.facts.keyless && gatedOut(t.id, has) ? t.facts.keyless.headline : t.facts.headline;
 }
 
 export function tradeLead(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): string {
   return t.facts.keyless && gatedOut(t.id, has) ? t.facts.keyless.lead : t.facts.lead;
+}
+
+/** The trade page's own headline (title, H1, JSON-LD name): tradeHeadline, or for a closed trade what the records are (review D7). */
+export function tradePageHeadline(t: Pick<TradeEntry, 'id' | 'facts'>, has?: Has): string {
+  return tradePageClosed(t) ? `Public records that point to work for ${t.facts.noun}` : tradeHeadline(t, has);
+}
+
+/** The trade page's lead (and JSON-LD description): tradeLead, or for a closed trade the records and "not taking sign-ups" (review D7). */
+export function tradePageLead(t: Pick<TradeEntry, 'id' | 'facts'> & { label?: string }, has?: Has): string {
+  const lead = tradeLead(t, has);
+  if (!tradePageClosed(t)) return lead;
+  // The lead's first sentence says what the work follows; kept only when it does not name Holler.
+  const first = /^[^.]*\./.exec(lead)?.[0] ?? '';
+  const firstOk = first && !/holler/i.test(first) ? `${first} ` : '';
+  return `${firstOk}This page lists the public records that can point to work for ${t.facts.noun}, each with its source. ${tr('en', 'tp.closed.sentence', { trade: tradeWordOf(t) })}`;
 }
 
 /** Plain names of the record types that exist only in connected cities (airport status is a separate, named feed). */
@@ -142,7 +170,7 @@ export function tradePath(id: string): string {
 }
 
 export function tradeTitle(t: TradeEntry): string {
-  const base = tradeHeadline(t);
+  const base = tradePageHeadline(t);
   return base.length + 9 <= 66 ? `${base} | Holler` : base;
 }
 
@@ -151,7 +179,9 @@ export function tradeDescription(t: TradeEntry): string {
   const what = kinds.length ? `when ${kinds.join(', ')} point to work nearby` : 'when public records point to work nearby';
   const offer = tradeOffer(t.id);
   const tail = offer === 'live' ? TRADE_PRICE_LINE : tr('en', offer === 'waitlist' ? 'tp.waitlist.line' : 'tp.limited.line', { trade: t.label.toLowerCase() });
-  const d = `${tradeHeadline(t)}. Holler emails ${t.facts.noun} ${what}. ${tail}`;
+  const d = tradePageClosed(t)
+    ? `${tradePageHeadline(t)}, each with its public source. ${tr('en', 'tp.closed.sentence', { trade: t.label.toLowerCase() })}`
+    : `${tradeHeadline(t)}. Holler emails ${t.facts.noun} ${what}. ${tail}`;
   return d.length <= 155 ? d : `${d.slice(0, 152).trimEnd()}...`;
 }
 
@@ -165,7 +195,12 @@ export function tradeFaq(t: TradeEntry, has: Has = hasEnv): { q: string; a: stri
   const names = visibleSignals(t).map((s) => lowerFirst(s.signal));
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : (names[0] ?? '');
   return [
-    {
+    tradePageClosed(t)
+      ? {
+          q: `What would Holler send ${t.facts.noun}?`,
+          a: `${list ? `Holler reads ${list}, each with its public source. ` : ''}${tr('en', 'tp.closed.sentence', { trade: t.label.toLowerCase() })} So it sends ${t.facts.noun} nothing today. Check your ZIP and leave your email, and we will tell you when it opens.`,
+        }
+      : {
       q: `What does Holler send ${t.facts.noun}?`,
       a: list
         ? `Holler watches for ${list}. You pick your trade and how far you will drive, and a short email arrives whenever something nearby matches what you do. Each one links to the public source.`
@@ -192,9 +227,9 @@ export function serviceLd(t: TradeEntry): Record<string, unknown> {
   const ld: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Service',
-    name: tradeHeadline(t),
+    name: tradePageHeadline(t),
     serviceType: 'Local public record and storm alerts',
-    description: tradeLead(t),
+    description: tradePageLead(t),
     url: absoluteUrl(tradePath(t.id)),
     audience: { '@type': 'Audience', audienceType: t.label },
     provider: { '@type': 'Organization', name: 'Holler', url: absoluteUrl('/') },

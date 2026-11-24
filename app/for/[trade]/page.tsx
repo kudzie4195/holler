@@ -12,8 +12,8 @@ import {
   serviceLd,
   tradeDescription,
   tradeEntry,
-  tradeHeadline,
-  tradeLead,
+  tradePageHeadline,
+  tradePageLead,
   tradeOffer,
   tradeListsLine,
   tradeFaq,
@@ -113,9 +113,9 @@ export default async function TradePage({ params }: Props) {
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'By trade', href: '/for' }, { name: t.label }]}
-          title={tradeHeadline(t)}
+          title={tradePageHeadline(t)}
           size="md"
-          lead={<p className="leading-relaxed">{tradeLead(t)}</p>}
+          lead={<p className="leading-relaxed">{tradePageLead(t)}</p>}
         >
           {offer === 'live' ? (
             <>
@@ -156,7 +156,7 @@ export default async function TradePage({ params }: Props) {
       />
       <div className="flex flex-col gap-14">
         <section aria-labelledby="what-you-get">
-          <H2 id="what-you-get">What Holler sends {t.facts.noun}</H2>
+          <H2 id="what-you-get">{offer === 'waitlist' ? `Records that can point to ${tradeWord} work` : `What Holler sends ${t.facts.noun}`}</H2>
           {signals.length === 0 ? (
             <p className="mt-4 text-muted">Nothing yet. The sources behind this trade are not switched on for this launch.</p>
           ) : (
@@ -180,8 +180,8 @@ export default async function TradePage({ params }: Props) {
           <section aria-labelledby="latest">
             <H2 id="latest">Latest records for {t.label.toLowerCase()}</H2>
             <p className="mt-2 text-muted">
-              The newest matching records across the country, each linked to its public source. Your alerts are limited to
-              your own area.
+              The newest matching records across the country, each linked to its public source.
+              {offer === 'waitlist' ? null : ' Your alerts are limited to your own area.'}
             </p>
             <Ledger className="mt-4">
               {live.items.map((it) => (

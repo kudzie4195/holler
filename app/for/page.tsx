@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { breadcrumbLd, itemListLd } from '@/lib/seo/jsonld';
-import { groupTrades, tradeEntries, tradeHeadline, tradePath } from '@/lib/seo/trade-view';
+import { groupTrades, tradeEntries, tradePageHeadline, tradePath } from '@/lib/seo/trade-view';
 import { JsonLd } from '../local/_components/jsonld';
 import { H2, Ledger, Page, PageHeader, linkClass, rowLinkClass } from '../local/_components/ui';
 import { FROM_MONTHLY, TRIAL_HEADLINE } from '@/lib/plan/price-copy';
@@ -60,7 +60,7 @@ export default function ForIndexPage() {
                 <li key={t.id}>
                   <Link href={tradePath(t.id)} className={`${rowLinkClass} flex min-h-11 flex-col justify-center py-3`}>
                     <span className="text-lg font-semibold">{t.label}</span>
-                    <span className="text-sm text-muted">{tradeHeadline(t)}</span>
+                    <span className="text-sm text-muted">{tradePageHeadline(t)}</span>
                   </Link>
                 </li>
               ))}

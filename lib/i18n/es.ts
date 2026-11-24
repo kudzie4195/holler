@@ -1350,6 +1350,7 @@ export const es: Record<DictKey, string> = {
   'tp.cta.check': 'Revise su código postal',
   'tp.limited.line': 'Revise primero su código postal para ver lo que Holler tiene para {trade} cerca de usted.',
   'tp.waitlist.line': 'Holler todavía no acepta registros para {trade}. Revise su código postal y deje su correo, y le avisaremos cuando se abra.',
+  'tp.closed.sentence': 'Holler todavía no acepta inscripciones para {trade}.',
   'tp.faq.cost.limited': 'Revise su código postal antes de empezar. En las ciudades que Holler ha medido, tiene pocos registros de {trade} por ahora. Los planes empiezan en {monthly} al mes o {yearly} al año.',
   'tp.faq.cost.waitlist': 'Holler todavía no acepta registros para {trade}: no ha encontrado suficiente de este trabajo en las ciudades que midió. Revise su código postal y deje su correo, y le avisaremos cuando se abra.',
   'tp.aside.limited': 'Revise lo que Holler tiene cerca de usted.',

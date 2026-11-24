@@ -255,3 +255,30 @@ describe('round 24 FIX2 (review P3-16): a state page where every city is waitlis
     expect(ga).toContain('href="/signup"');
   });
 });
+
+describe('round 24 FIX2 (review D7): a closed trade page never says Holler emails that trade', () => {
+  it('every closed trade: title, meta, lead, heading and FAQ say what the records are and that sign-ups are not open; JSON-LD matches', async () => {
+    for (const id of signupClosedTrades()) {
+      const html = await renderTrade(id);
+      const meta = await tradeMetadata({ params: Promise.resolve({ trade: id }) });
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
+      const all = `${String(typeof meta.title === 'string' ? meta.title : (meta.title as { absolute?: string })?.absolute ?? '')} ${meta.description} ${text} ${JSON.stringify(ldBlocks(html))}`;
+      expect(all, id).not.toMatch(/Holler emails|What Holler sends|a short email arrives|Your alerts are limited/);
+      expect(String(meta.description), id).toContain('Holler is not taking sign-ups for');
+      expect(text, id).toContain('Public records that point to');
+      const service = ldBlocks(html).find((b) => b['@type'] === 'Service')!;
+      expect(text, id).toContain(service.description);
+      expect(text, id).toContain(service.name);
+      for (const q of ldBlocks(html).find((b) => b['@type'] === 'FAQPage')!.mainEntity as Array<{ name: string; acceptedAnswer: { text: string } }>) {
+        expect(text, id).toContain(q.name);
+        expect(text, id).toContain(q.acceptedAnswer.text.replace(/&#x27;/g, "'"));
+      }
+      // URL, canonical and indexability unchanged
+      expect((meta.alternates as { canonical?: string })?.canonical, id).toMatch(new RegExp(`/for/${id}$`));
+    }
+  }, 120_000);
+  it('a live trade keeps its wording (landscaping)', async () => {
+    const html = await renderTrade('landscaping');
+    expect(html).toContain('What Holler sends');
+  });
+});
