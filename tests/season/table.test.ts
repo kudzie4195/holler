@@ -10,7 +10,7 @@ import { CATEGORIES } from '@/lib/signals/categories';
 import { haversineMi, lookupZip } from '@/lib/geo';
 import { spanishProblems } from '@/lib/i18n/rules';
 
-const TRADE_IDS = new Set(CATEGORIES.map((c) => c.id));
+const TRADE_IDS = new Set<string>(CATEGORIES.map((c) => c.id));
 const CENTRE = new Map(measuredCentres().map((c) => [c.id, c]));
 const row = (id: string): SeasonRow => SEASON_TABLE.find((r) => r.id === id)!;
 const ids = (rows: SeasonRow[]) => rows.map((r) => r.id);
