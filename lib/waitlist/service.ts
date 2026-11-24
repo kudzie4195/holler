@@ -156,7 +156,9 @@ export async function joinWaitlist(depsOrFactory: WaitlistDeps | (() => Waitlist
   // One row per (email, ZIP, trade) once migration 0039 is applied; before it the unique index is (email, ZIP) and the first trade stays.
   let legacy = false;
   let up = await deps.db.upsert(row, 'email,zip,trade');
-  if (up.error && noTradeUniqueIndex(up.error)) {
+  // 42P10: 0039 not applied. 23505: 0039 applied but the old (email, zip) index not yet dropped by hand, and this email already has
+  // a row for the ZIP under another trade. Both are the one-row-per-ZIP state: retry on (email, zip), which keeps the first row.
+  if (up.error && (noTradeUniqueIndex(up.error) || up.error.code === '23505')) {
     legacy = true;
     up = await deps.db.upsert(row, 'email,zip');
   }

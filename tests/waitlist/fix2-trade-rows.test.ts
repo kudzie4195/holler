@@ -43,7 +43,18 @@ describe('before 0039 (unique on email and ZIP only)', () => {
   });
 });
 
-describe('after 0039 (unique on email, ZIP and trade)', () => {
+describe('0039 applied, the old (email, zip) index not yet dropped by hand', () => {
+  it('a second trade conflicts on the old index (23505): handled as before 0039, no confirmation naming it', async () => {
+    const f = fakeWaitlist({ bothIndexes: true });
+    await joinWaitlist(f.deps, { ...base, trade: 'lawn-care' });
+    expect(await joinWaitlist(f.deps, { ...base, trade: 'landscaping' })).toEqual({ code: 'ok' });
+    expect(f.rows.map((r) => r.trade)).toEqual(['lawn-care']);
+    expect(f.sent.map((s) => s.trade)).toEqual(['lawn-care']);
+    expect(f.already).toHaveLength(1);
+  });
+});
+
+describe('after 0039 and the hand drop of the old index (unique on email, ZIP and trade only)', () => {
   it('a second trade is its own row with its own confirmation naming it', async () => {
     const f = fakeWaitlist({ uniqueTrade: true });
     await joinWaitlist(f.deps, { ...base, trade: 'lawn-care' });
@@ -57,7 +68,7 @@ describe('after 0039 (unique on email, ZIP and trade)', () => {
 
 const pgCase = (name: string, fn: () => Promise<void>) => (hasPglite ? it(name, fn, 60_000) : it.skip(`NEEDS PGlite (not installed, so NOT RUN): ${name}`, fn));
 describe('migration 0039 on PGlite, on top of 0001..0038', () => {
-  pgCase('two trades for one email and ZIP are two rows; a repeat of either is ignored; null trades stay one per email and ZIP; runs twice', async () => {
+  pgCase('0039 runs twice; with the old index still there a second trade is a 23505; after the hand drop it is its own row; null trades stay one per email and ZIP', async () => {
     const db = await bootDb('0038_zzz');
     const ins = (trade: string | null, conflict: string) =>
       db.query(`insert into holler_zip_waitlist (email, zip, trade, consent_version) values ('a@b.co', '75201', $1, 'v1') on conflict (${conflict}) do nothing`, [trade]);
@@ -66,14 +77,15 @@ describe('migration 0039 on PGlite, on top of 0001..0038', () => {
     const sql = fs.readFileSync('supabase/migrations/0039_holler_zip_waitlist_trade.sql', 'utf8');
     await db.exec(sql);
     await db.exec(sql);
+    await ins('lawn-care', 'email, zip, trade'); // a repeat of the same trade: ignored
+    await expect(ins('landscaping', 'email, zip, trade')).rejects.toThrow(/duplicate key|unique/);
+    // The owner's hand step (LAUNCH.md NEEDS KUDZI, round 24 FIX2 step 8).
+    await db.exec('drop index if exists public.holler_zip_waitlist_email_zip_idx;');
     await ins('landscaping', 'email, zip, trade');
     await ins('landscaping', 'email, zip, trade');
     await ins(null, 'email, zip, trade');
     await ins(null, 'email, zip, trade');
     const n = (await db.query(`select trade from holler_zip_waitlist order by 1 nulls last`)).rows.map((r: { trade: string | null }) => r.trade);
     expect(n).toEqual(['landscaping', 'lawn-care', null]);
-    const idx = (await db.query(`select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1`)).rows.map((r: { indexname: string }) => r.indexname);
-    expect(idx).toContain('holler_zip_waitlist_email_zip_trade_idx');
-    expect(idx).not.toContain('holler_zip_waitlist_email_zip_idx');
   });
 });

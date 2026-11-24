@@ -11,7 +11,9 @@ type Err = { code?: string; message?: string } | null;
 // Round 24 FIX2 (review D8): `uniqueTrade` stands for migration 0039 (unique (email, zip, trade)); without it the fake is the live table
 // before 0039: an ON CONFLICT on (email, zip, trade) is refused with 42P10 and the service retries on (email, zip). Only a write that
 // succeeds is recorded in `writes`.
-export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: string; sendOk?: boolean; uniqueTrade?: boolean } = {}) {
+// `bothIndexes` stands for 0039 applied while the old (email, zip) index is still there (dropped by hand later): a second trade for the
+// same email and ZIP is refused with 23505.
+export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: string; sendOk?: boolean; uniqueTrade?: boolean; bothIndexes?: boolean } = {}) {
   const rows: Record<string, unknown>[] = [];
   const writes: { row: Record<string, unknown>; opts: unknown }[] = [];
   const hits: Limit[][] = [];
@@ -25,10 +27,14 @@ export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: strin
   const db: WaitlistDb = {
     upsert: async (row, onConflict = 'email,zip') => {
       if (opts.missingTable) return { error: missing };
-      if (onConflict === 'email,zip,trade' && !opts.uniqueTrade) {
+      if (onConflict === 'email,zip,trade' && opts.bothIndexes) {
+        if (rows.some((r) => same(r, row.email, row.zip) && (r.trade ?? null) !== (row.trade ?? null))) {
+          return { error: { code: '23505', message: 'duplicate key value violates unique constraint "holler_zip_waitlist_email_zip_idx"' } };
+        }
+      } else if (onConflict === 'email,zip,trade' && !opts.uniqueTrade) {
         return { error: { code: '42P10', message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification' } };
       }
-      writes.push({ row: { ...row }, opts: { onConflict: opts.uniqueTrade ? onConflict : 'email,zip', ignoreDuplicates: true } });
+      writes.push({ row: { ...row }, opts: { onConflict: opts.uniqueTrade || opts.bothIndexes ? onConflict : 'email,zip', ignoreDuplicates: true } });
       if (!rows.some((r) => same(r, row.email, row.zip, opts.uniqueTrade ? row.trade : undefined))) rows.push({ ...row });
       return { error: null };
     },

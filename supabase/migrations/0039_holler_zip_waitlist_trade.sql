@@ -11,16 +11,19 @@
 -- address is already on the list for that ZIP (renderWaitlistAlready), never a confirmation that names the trade that was not stored.
 --
 -- The existing rows are unique on (email, zip), so they are unique on (email, zip, trade) and the new index always builds.
--- Order: the new index first, then the old one goes, so there is never a moment with no unique key.
--- Check after running:
---   select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;
---   -- holler_zip_waitlist_email_zip_trade_idx and holler_zip_waitlist_pending_idx (and the primary key); no holler_zip_waitlist_email_zip_idx
--- Rollback (only while no email has two rows): create unique index holler_zip_waitlist_email_zip_idx on public.holler_zip_waitlist (email, zip);
---   drop index public.holler_zip_waitlist_email_zip_trade_idx;
+--
+-- THIS FILE DOES NOT DROP THE OLD (email, zip) INDEX. Migrations here never drop an index (tests/signals/core/migration.test.ts), so the
+-- old unique index stays until the owner drops it by hand (LAUNCH.md, NEEDS KUDZI, round 24 FIX2 step 8):
+--   drop index if exists public.holler_zip_waitlist_email_zip_idx;
+-- While both indexes exist a second trade for the same email and ZIP still conflicts on the old one (Postgres 23505); the code treats
+-- that exactly like the state before this file (the "already on the list" email) and nothing breaks. Each trade is its own row only
+-- once the old index is gone.
+-- Check after running: select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;
+--   -- holler_zip_waitlist_email_zip_trade_idx is listed (and, until the hand step, holler_zip_waitlist_email_zip_idx too)
+-- Rollback: not needed (an extra unique index that every existing row already satisfies).
 
 set lock_timeout = '5s';
 
 create unique index if not exists holler_zip_waitlist_email_zip_trade_idx
   on public.holler_zip_waitlist (email, zip, trade) nulls not distinct;
 
-drop index if exists public.holler_zip_waitlist_email_zip_idx;
