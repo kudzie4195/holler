@@ -1428,7 +1428,8 @@ export const en = {
   'chk.reads_county': 'of {county} County',
   'chk.trade.pressure_washing': 'Pressure washing',
   // r25 check fix
-  'chk.reach.many': 'Recently, {n} records near {zip} would have reached {who} as alerts, {where}. Each email lists up to {cap}; the rest are on your matches page.',
+  'chk.reach.many': 'Recently, {n} records near {zip} would have reached {who} as alerts, {where}.',
+  'chk.reach.cap': 'Each email lists up to {cap}; the rest are on your matches page.',
   'chk.reach.one': 'Recently, {n} record near {zip} would have reached {who} as an alert.',
   'chk.reach.places_one': 'all at one place',
   'chk.shown.none': 'Of the {total} shown here, none would have been emailed to you. They would be on your matches page.',

@@ -34,10 +34,10 @@ describe('the counted sentence (EN and ES)', () => {
     );
     const one = { count: 7, places: 1, oldest: '2026-11-17T00:00:00Z', atLeast: false };
     expect(checkVerdict('live', one, { ...ctx, lang: 'en' })!.count).toBe(
-      'Recently, 7 records near 28202 would have reached a landscaping business as alerts, all at one place. Each email lists up to 10; the rest are on your matches page.',
+      'Recently, 7 records near 28202 would have reached a landscaping business as alerts, all at one place.',
     );
     expect(checkVerdict('live', one, { ...ctx, tradeLabel: 'Jardinería', lang: 'es' })!.count).toBe(
-      'Recientemente, 7 registros cerca de 28202 habrían llegado como alertas a un negocio de jardinería, todos en un mismo lugar. Cada correo muestra hasta 10; los demás están en su página de coincidencias.',
+      'Recientemente, 7 registros cerca de 28202 habrían llegado como alertas a un negocio de jardinería, todos en un mismo lugar.',
     );
   });
   it('one record: singular, no cap sentence; a bad or future date changes nothing', () => {

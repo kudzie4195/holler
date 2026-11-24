@@ -53,7 +53,7 @@ describe('checkVerdict wording (EN and ES)', () => {
     expect(checkVerdict('limited', { count: 5, places: 5, oldest: '2026-11-10T21:07:42Z', atLeast: false }, { ...ctx, tradeLabel: 'Siding and gutters', zip: '27601', lang: 'en' })).toEqual({
       state: 'limited',
       head: 'Too early to say here.',
-      count: 'Recently, 5 records near 27601 would have reached a siding and gutters business as alerts, at 5 different places. Each email lists up to 10; the rest are on your matches page.',
+      count: 'Recently, 5 records near 27601 would have reached a siding and gutters business as alerts, at 5 different places.',
     });
     const none = checkVerdict('limited', { count: 0, places: 0, oldest: null, atLeast: false }, { ...ctx, tradeLabel: 'Lawn care', lang: 'en' })!;
     expect(none.count).toBe('Recently, no alerts would have been emailed to a lawn care business within 25 miles of 28202.');

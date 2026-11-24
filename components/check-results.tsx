@@ -186,7 +186,8 @@ export function CheckResults({
   // The sentence above the button and the button promise email only when a record would be emailed (review D1). R25 check fix (review
   // R25CHECK P1-1): with the verdict's count given, that count decides, so the offer can never say "no email" under "15 alerts".
   const anyEmailed = typeof emailedTotal === 'number' ? emailedTotal > 0 : listed.some((i) => i.delivery === 'email');
-  const promise: 'email' | 'trial' = listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
+  // R27 (review FIXR25 P3 note 2): a verdict count of 0 means nothing would be emailed, so the button never promises email, listed rows or not.
+  const promise: 'email' | 'trial' = emailedTotal === 0 || listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
@@ -260,7 +261,7 @@ export function CheckResults({
           </div>
         ) : null}
         {mode === 'results' ? <ReadsNear reads={reads} lang={lang} /> : null}
-        {mode !== 'uncovered' ? <Cta citySlug={citySlug} lang={lang} cityLink={limitedCityLink} /> : null}
+        {mode !== 'uncovered' ? <Cta citySlug={citySlug} lang={lang} promise={promise} cityLink={limitedCityLink} /> : null}
       </section>
     );
   }

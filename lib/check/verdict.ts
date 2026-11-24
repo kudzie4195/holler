@@ -31,7 +31,7 @@ export function checkVerdict(
   const { lang, zip } = ctx;
   // R25 check fix (review R25CHECK P1-2): a live cell where this ZIP's complete reads count nothing would print "Worth a trial here." over
   // "no alerts". The cell is measured for the centre, the count is for this ZIP: the block answers for this ZIP, so it says "too early".
-  const shown: 'live' | 'limited' = state === 'live' && totals !== null && totals.count === 0 && !totals.atLeast ? 'limited' : state;
+  const shown: 'live' | 'limited' = state === 'live' && totals !== null && totals.count === 0 ? 'limited' : state;
   const head = t(lang, shown === 'live' ? 'chk.verdict.live' : 'chk.verdict.limited');
   if (!totals) return { state: shown, head, count: null };
   // R25 check fix (review R25CHECK P2-4, P3-1): a zero from reads that stopped at their limit or partly failed is a lower bound, not a
@@ -45,5 +45,7 @@ export function checkVerdict(
   const n = totals.atLeast ? t(lang, 'chk.verdict.at_least', { n: totals.count }) : String(totals.count);
   if (totals.count === 1) return { state: shown, head, count: t(lang, 'chk.reach.one', { n, who, zip }) };
   const where = totals.places === 1 ? t(lang, 'chk.reach.places_one') : t(lang, 'chk.verdict.places', { places: totals.places });
-  return { state: shown, head, count: t(lang, 'chk.reach.many', { n, who, zip, where, cap: MAX_ITEMS_IN_DIGEST }) };
+  // R27 (review FIXR25 P3 note 4): the cap sentence is printed only when more records were counted than one email lists.
+  const reach = t(lang, 'chk.reach.many', { n, who, zip, where });
+  return { state: shown, head, count: totals.count > MAX_ITEMS_IN_DIGEST ? `${reach} ${t(lang, 'chk.reach.cap', { cap: MAX_ITEMS_IN_DIGEST })}` : reach };
 }

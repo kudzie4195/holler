@@ -1385,7 +1385,8 @@ export const es: Record<DictKey, string> = {
   'chk.reads_county': 'del condado de {county}',
   'chk.trade.pressure_washing': 'Lavado a presión',
   // r25 check fix
-  'chk.reach.many': 'Recientemente, {n} registros cerca de {zip} habrían llegado como alertas a {who}, {where}. Cada correo muestra hasta {cap}; los demás están en su página de coincidencias.',
+  'chk.reach.many': 'Recientemente, {n} registros cerca de {zip} habrían llegado como alertas a {who}, {where}.',
+  'chk.reach.cap': 'Cada correo muestra hasta {cap}; los demás están en su página de coincidencias.',
   'chk.reach.one': 'Recientemente, {n} registro cerca de {zip} habría llegado como alerta a {who}.',
   'chk.reach.places_one': 'todos en un mismo lugar',
   'chk.shown.none': 'De los {total} que se muestran aquí, ninguno se le habría enviado por correo. Estarían en su página de coincidencias.',

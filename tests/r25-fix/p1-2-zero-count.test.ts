@@ -28,9 +28,9 @@ describe('checkVerdict at zero', () => {
       count: 'Recientemente no se habría enviado ninguna alerta por correo a un negocio de corte de césped a menos de 25 millas de 91724.',
     });
   });
-  it('zero from clipped or partial reads: head only, live or limited', () => {
+  it('zero from clipped or partial reads: the limited head only, live or limited (R27: a live cell with a zero count never says "Worth a trial here.")', () => {
     expect(checkVerdict('limited', zeroClipped, { tradeLabel: 'Tree service', zip: '60290', lang: 'en' })).toEqual({ state: 'limited', head: 'Too early to say here.', count: null });
-    expect(checkVerdict('live', zeroClipped, { tradeLabel: 'Landscaping', zip: '27601', lang: 'en' })).toEqual({ state: 'live', head: 'Worth a trial here.', count: null });
+    expect(checkVerdict('live', zeroClipped, { tradeLabel: 'Landscaping', zip: '27601', lang: 'en' })).toEqual({ state: 'limited', head: 'Too early to say here.', count: null });
     expect(checkVerdict('limited', zeroClipped, { tradeLabel: 'Servicio de árboles', zip: '60290', lang: 'es' })!.count).toBeNull();
   });
   it('a live cell with a count keeps its head', () => {
@@ -79,6 +79,8 @@ describe.skipIf(!HAVE_EXPORT)('P1-2 and P3-1 on the 14-day export (the review ca
       const v = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, lang), zip, lang })!;
       // The zero is a lower bound, so the page makes no zero claim at all (P2-4, P3-1): the head alone.
       expect(v.count).toBeNull();
+      expect(v.state).toBe('limited');
+      expect(v.head).toBe(lang === 'en' ? 'Too early to say here.' : 'Todavía es pronto para saberlo aquí.');
     }
   });
 
