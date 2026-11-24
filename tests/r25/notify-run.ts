@@ -98,7 +98,7 @@ export async function emailedByNotify(matches: ReturnType<typeof scanMatches>, t
       ...real,
       renderDigest: (opts: Parameters<typeof real.renderDigest>[0]) => {
         const mail = real.renderDigest(opts);
-        digests.push({ cards: opts.items.map((i) => (typeof i.matchId === 'number' ? i.matchId - OFFSET : -1)), total: opts.totalCount, text: mail.text });
+        digests.push({ cards: opts.items.map((i) => (typeof i.matchId === 'number' ? i.matchId - OFFSET : -1)), total: opts.totalCount ?? opts.items.length, text: mail.text });
         return mail;
       },
       sendEmail: async () => (sends++, { ok: true, id: 'x' }),
