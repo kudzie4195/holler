@@ -87,16 +87,19 @@ function ReadsNear({ reads, lang }: { reads: { labels: string[]; note: string } 
   );
 }
 
-/** The counted sentence above the list: from the listed rows only (each row's delivery), never an estimate. */
+/**
+ * The counted sentence above the list: from the listed rows only (each row's delivery), never an estimate. R25 check fix (review R25CHECK
+ * P1-1): it says so ("Of the 8 shown here, ..."), so it can never read as a second answer next to the verdict's count of every record.
+ */
 export function deliveryCountLine(listed: readonly CheckItem[], lang: Lang): string | null {
   const marked = listed.filter((i) => i.delivery === 'email' || i.delivery === 'feed');
   if (marked.length === 0 || marked.length !== listed.length) return null;
   const n = marked.filter((i) => i.delivery === 'email').length;
   const total = marked.length;
-  if (total === 1) return t(lang, n === 1 ? 'chk.count.one_email' : 'chk.count.one_feed');
-  if (n === 0) return t(lang, 'chk.count.none', { total });
-  if (n === total) return t(lang, 'chk.count.all', { total });
-  return t(lang, 'chk.count.some', { n, total });
+  if (total === 1) return t(lang, n === 1 ? 'chk.shown.one_email' : 'chk.shown.one_feed');
+  if (n === 0) return t(lang, 'chk.shown.none', { total });
+  if (n === total) return t(lang, 'chk.shown.all', { total });
+  return t(lang, n === 1 ? 'chk.shown.some_one' : 'chk.shown.some', { n, total });
 }
 
 /** The plain mark under each listed record: emailed as an alert, or on the matches page (no email). */
@@ -130,6 +133,7 @@ export function CheckResults({
   verdict = null,
   cityLink = null,
   reads = null,
+  emailedTotal = null,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -168,13 +172,19 @@ export function CheckResults({
   cityLink?: CityLink | null;
   /** Round 25: the local feeds Holler reads near the ZIP, with the line under them. Shown whenever the page has an answer. */
   reads?: { labels: string[]; note: string } | null;
+  /**
+   * R25 check fix (review R25CHECK P1-1): the verdict's count of every record a member here would be emailed (lib/check/delivery.ts
+   * alertTotals). When given, the offer promises email from this count, not from the listed rows. Null: the listed rows decide, as before.
+   */
+  emailedTotal?: number | null;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
   const listed = groups.flatMap((g) => g.items);
   const countLine = deliveryCountLine(listed, lang);
-  // The sentence above the button and the button promise email only when a listed record would be emailed (review D1).
-  const anyEmailed = listed.some((i) => i.delivery === 'email');
+  // The sentence above the button and the button promise email only when a record would be emailed (review D1). R25 check fix (review
+  // R25CHECK P1-1): with the verdict's count given, that count decides, so the offer can never say "no email" under "15 alerts".
+  const anyEmailed = typeof emailedTotal === 'number' ? emailedTotal > 0 : listed.some((i) => i.delivery === 'email');
   const promise: 'email' | 'trial' = listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.

@@ -813,11 +813,6 @@ export const es: Record<DictKey, string> = {
   'chk.cta.intro_feed': 'Los registros como estos están en su página de coincidencias cuando inicia sesión.',
   'chk.mark.email': 'Enviado por correo como alerta',
   'chk.mark.feed': 'En su página de coincidencias, sin correo',
-  'chk.count.some': '{n} de estos {total} se le habrían enviado por correo como alertas. Los demás estarían en su página de coincidencias.',
-  'chk.count.all': 'Los {total} se le habrían enviado por correo como alertas.',
-  'chk.count.none': 'Ninguno de estos {total} se le habría enviado por correo. Estarían en su página de coincidencias.',
-  'chk.count.one_email': 'Este registro se le habría enviado por correo como alerta.',
-  'chk.count.one_feed': 'Este registro no se le habría enviado por correo. Estaría en su página de coincidencias.',
   'chk.group.weather': 'Clima y desastres',
   'chk.group.ask': 'Solicitudes de ayuda local',
   'chk.group.permit': 'Permisos de construcción',
@@ -1394,6 +1389,13 @@ export const es: Record<DictKey, string> = {
   'chk.reads_note': 'Fuentes públicas locales con sede a menos de {mi} millas de {zip}. Los avisos del tiempo y los reportes de tormentas se leen para todo el país.',
   'chk.reads_county': 'del condado de {county}',
   'chk.trade.pressure_washing': 'Lavado a presión',
+  // r25 check fix
+  'chk.shown.none': 'De los {total} que se muestran aquí, ninguno se le habría enviado por correo. Estarían en su página de coincidencias.',
+  'chk.shown.some': 'De los {total} que se muestran aquí, {n} se le habrían enviado por correo como alertas. Los demás estarían en su página de coincidencias.',
+  'chk.shown.some_one': 'De los {total} que se muestran aquí, {n} se le habría enviado por correo como alerta. Los demás estarían en su página de coincidencias.',
+  'chk.shown.all': 'De los {total} que se muestran aquí, todos se le habrían enviado por correo como alertas.',
+  'chk.shown.one_email': 'El registro que se muestra aquí se le habría enviado por correo como alerta.',
+  'chk.shown.one_feed': 'El registro que se muestra aquí no se le habría enviado por correo. Estaría en su página de coincidencias.',
   // Ronda 18, unidad ES: precios, registro, la aplicación web, Configuración, pagos y los correos de la cuenta (lib/i18n/es-account.ts).
   ...ES_ACCOUNT,
 };

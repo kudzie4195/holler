@@ -839,11 +839,6 @@ export const en = {
   'chk.cta.intro_feed': 'Records like these are on your matches page when you log in.',
   'chk.mark.email': 'Emailed as an alert',
   'chk.mark.feed': 'On your matches page, not emailed',
-  'chk.count.some': '{n} of these {total} would have been emailed to you as alerts. The rest would be on your matches page.',
-  'chk.count.all': 'All {total} of these would have been emailed to you as alerts.',
-  'chk.count.none': 'None of these {total} would have been emailed to you. They would be on your matches page.',
-  'chk.count.one_email': 'This record would have been emailed to you as an alert.',
-  'chk.count.one_feed': 'This record would not have been emailed to you. It would be on your matches page.',
   'chk.group.weather': 'Weather and disasters',
   'chk.group.ask': 'Requests for local help',
   'chk.group.permit': 'Building permits',
@@ -1437,6 +1432,13 @@ export const en = {
   'chk.reads_note': 'Local public feeds based within {mi} miles of {zip}. Weather alerts and storm reports are read for the whole country.',
   'chk.reads_county': 'of {county} County',
   'chk.trade.pressure_washing': 'Pressure washing',
+  // r25 check fix
+  'chk.shown.none': 'Of the {total} shown here, none would have been emailed to you. They would be on your matches page.',
+  'chk.shown.some': 'Of the {total} shown here, {n} would have been emailed to you as alerts. The rest would be on your matches page.',
+  'chk.shown.some_one': 'Of the {total} shown here, {n} would have been emailed to you as an alert. The rest would be on your matches page.',
+  'chk.shown.all': 'Of the {total} shown here, all would have been emailed to you as alerts.',
+  'chk.shown.one_email': 'The one record shown here would have been emailed to you as an alert.',
+  'chk.shown.one_feed': 'The one record shown here would not have been emailed to you. It would be on your matches page.',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,
 } as const;

@@ -174,7 +174,8 @@ describe.skipIf(!have)('D1: /check marks match what the notify route really emai
       // The counted sentence is computed from the listed rows.
       const line = deliveryCountLine(listed, 'en');
       const c = counts[name];
-      expect(line).toBe(c.email === 0 ? `None of these ${c.listed} would have been emailed to you. They would be on your matches page.` : c.email === c.listed ? `All ${c.listed} of these would have been emailed to you as alerts.` : `${c.email} of these ${c.listed} would have been emailed to you as alerts. The rest would be on your matches page.`);
+      // R25 check fix (review R25CHECK P1-1): the line speaks only of the rows shown.
+      expect(line).toBe(c.email === 0 ? `Of the ${c.listed} shown here, none would have been emailed to you. They would be on your matches page.` : c.email === c.listed ? `Of the ${c.listed} shown here, all would have been emailed to you as alerts.` : `Of the ${c.listed} shown here, ${c.email} would have been emailed to you as ${c.email === 1 ? 'an alert' : 'alerts'}. The rest would be on your matches page.`);
     }, 60_000);
   }
 
@@ -226,26 +227,26 @@ describe('D1: the page says only what the listed rows support (EN and ES)', () =
     const en = render(items, 'en');
     expect(en).toContain('Emailed as an alert');
     expect(en).toContain('On your matches page, not emailed');
-    expect(en).toContain('1 of these 2 would have been emailed to you as alerts. The rest would be on your matches page.');
+    expect(en).toContain('Of the 2 shown here, 1 would have been emailed to you as an alert. The rest would be on your matches page.');
     expect(en).toContain('Alerts like the ones marked above are emailed as they appear. The rest are on your matches page.');
     expect(en).toContain('Get alerts by email. 30-day free trial, no card');
     expect(en).not.toContain('Get these by email');
     const es = render(items, 'es');
     expect(es).toContain('Enviado por correo como alerta');
     expect(es).toContain('En su página de coincidencias, sin correo');
-    expect(es).toContain('1 de estos 2 se le habrían enviado por correo como alertas.');
+    expect(es).toContain('De los 2 que se muestran aquí, 1 se le habría enviado por correo como alerta.');
     expect(es).toContain('Reciba alertas por correo. Prueba gratis de 30 días, sin tarjeta');
   });
 
   it('a list where nothing would be emailed: no sentence and no button promises email', () => {
     const items: CheckItem[] = [{ ...base, id: 1, delivery: 'feed' }, { ...base, id: 2, delivery: 'feed' }];
     const en = render(items, 'en');
-    expect(en).toContain('None of these 2 would have been emailed to you. They would be on your matches page.');
+    expect(en).toContain('Of the 2 shown here, none would have been emailed to you. They would be on your matches page.');
     expect(en).toContain('Records like these are on your matches page when you log in.');
     expect(en).toContain('Start your 30-day free trial, no card');
     expect(en).not.toMatch(/by email|land in your inbox|are emailed as they appear/i);
     const es = render(items, 'es');
-    expect(es).toContain('Ninguno de estos 2 se le habría enviado por correo.');
+    expect(es).toContain('De los 2 que se muestran aquí, ninguno se le habría enviado por correo.');
     expect(es).toContain('Empiece su prueba gratis de 30 días, sin tarjeta');
     expect(es).not.toMatch(/por correo como alertas|Reciba alertas por correo|llegan por correo/i);
   });

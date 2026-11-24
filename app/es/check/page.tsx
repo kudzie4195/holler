@@ -235,7 +235,8 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
   // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.
   const member = memberItems(data.items, place, params.trade);
-  const verdict = data.ok ? checkVerdict(coverageState, alertTotals(member, data.clipped === true), { tradeLabel: common.tradeLabel, zip: params.zip, lang: L }) : null;
+  const totals = data.ok ? alertTotals(member, data.clipped === true) : null;
+  const verdict = totals ? checkVerdict(coverageState, totals, { tradeLabel: common.tradeLabel, zip: params.zip, lang: L }) : null;
 
   return (
     <>
@@ -243,7 +244,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} {...gate} verdict={verdict} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

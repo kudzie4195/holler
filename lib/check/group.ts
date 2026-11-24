@@ -66,12 +66,18 @@ export function placeLine(it: Pick<CheckItem, 'source' | 'place'>, lang: Lang = 
   return it.place;
 }
 
+/** 0 for a row marked emailed, 1 for any other row (matches page only, or no mark). */
+function emailFirst(it: CheckItem): number {
+  return it.delivery === 'email' ? 0 : 1;
+}
+
 /**
  * What the page puts first, in this order:
  *  0. active severe weather and disaster records (severity 2 or more), most severe then newest;
  *  1. upcoming records (events), soonest start first;
  *  2. records within LOCAL_MI of the ZIP, closest first (only when the ZIP's position is known);
  *  3. everything else, newest first.
+ * Inside 2 and 3, rows marked emailed come before the others (R25 check fix, review R25CHECK P1-1).
  * Both what is kept under the caps and the order inside each group follow this order.
  */
 function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: number; lon: number }): number {
@@ -87,6 +93,11 @@ function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: n
   const newest = toMs(b.occurredAt) - toMs(a.occurredAt);
   if (ra === 0) return b.severity - a.severity || newest;
   if (ra === 1) return toMs(a.occurredAt) - toMs(b.occurredAt);
+  // R25 check fix (review R25CHECK P1-1): inside the local and the rest ranks a row a member would be emailed comes before a matches-page
+  // row, so the per-group cap never keeps only matches-page rows while the verdict above counts emailed ones. Rows with no delivery mark
+  // (callers that do not compute it) compare equal here, so their order is unchanged.
+  const mail = emailFirst(a) - emailFirst(b);
+  if (mail !== 0) return mail;
   if (ra === 2) return (distanceFrom(origin, a) ?? 0) - (distanceFrom(origin, b) ?? 0) || newest;
   return newest;
 }
