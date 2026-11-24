@@ -28,14 +28,20 @@ export function checkVerdict(
 ): CheckVerdict | null {
   if (state === 'waitlist') return null;
   const { lang, zip } = ctx;
-  const head = t(lang, state === 'live' ? 'chk.verdict.live' : 'chk.verdict.limited');
-  if (!totals) return { state, head, count: null };
+  // R25 check fix (review R25CHECK P1-2): a live cell where this ZIP's complete reads count nothing would print "Worth a trial here." over
+  // "no alerts". The cell is measured for the centre, the count is for this ZIP: the block answers for this ZIP, so it says "too early".
+  const shown: 'live' | 'limited' = state === 'live' && totals !== null && totals.count === 0 && !totals.atLeast ? 'limited' : state;
+  const head = t(lang, shown === 'live' ? 'chk.verdict.live' : 'chk.verdict.limited');
+  if (!totals) return { state: shown, head, count: null };
+  // R25 check fix (review R25CHECK P2-4, P3-1): a zero from reads that stopped at their limit or partly failed is a lower bound, not a
+  // fact, so no zero sentence is printed: the head alone.
+  if (totals.count === 0 && totals.atLeast) return { state: shown, head, count: null };
   const word = lang === 'en' ? ctx.tradeLabel.toLowerCase() : lowerFirst(ctx.tradeLabel);
   const who = t(lang, lang === 'en' && /^[aeiou]/.test(word) ? 'chk.verdict.who_an' : 'chk.verdict.who', { trade: word });
   const mi = CHECK_RADIUS_MI;
-  if (totals.count === 0) return { state, head, count: t(lang, 'chk.verdict.none', { who, mi, zip }) };
+  if (totals.count === 0) return { state: shown, head, count: t(lang, 'chk.verdict.none', { who, mi, zip }) };
   const n = totals.atLeast ? t(lang, 'chk.verdict.at_least', { n: totals.count }) : String(totals.count);
-  if (totals.count === 1) return { state, head, count: t(lang, 'chk.reach.one', { n, who, zip }) };
+  if (totals.count === 1) return { state: shown, head, count: t(lang, 'chk.reach.one', { n, who, zip }) };
   const where = totals.places === 1 ? t(lang, 'chk.reach.places_one') : t(lang, 'chk.verdict.places', { places: totals.places });
-  return { state, head, count: t(lang, 'chk.reach.many', { n, who, zip, where, cap: MAX_ITEMS_IN_DIGEST }) };
+  return { state: shown, head, count: t(lang, 'chk.reach.many', { n, who, zip, where, cap: MAX_ITEMS_IN_DIGEST }) };
 }

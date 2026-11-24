@@ -59,7 +59,9 @@ describe('area_check path = the answer given', () => {
       ok: true,
       clipped: false,
       checkedAt: '2026-11-23T12:00:00Z',
-      items: [],
+      // R25 check fix (review R25CHECK P1-2): a live cell with nothing counted says "too early", so the mock carries one emailed record
+      // and the block shows the cell's own answer.
+      items: [{ id: 1, kind: 'permit', source: 'x', title: 'Roof permit', url: null, place: 'Charlotte, NC', occurredAt: '2026-11-20T12:00:00Z', severity: 1, delivery: 'email' }],
     });
   });
   it('areaCheckPath: /check/<state> and /es/check/<state>; every one passes cleanPath', () => {
