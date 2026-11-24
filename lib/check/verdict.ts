@@ -1,4 +1,5 @@
-import { lowerFirst, t, type Lang } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
+import { tradeInSentence } from './trades';
 import type { CoverageState } from './cells';
 import type { AlertTotals } from './delivery';
 import { CHECK_RADIUS_MI } from './scope';
@@ -36,7 +37,8 @@ export function checkVerdict(
   // R25 check fix (review R25CHECK P2-4, P3-1): a zero from reads that stopped at their limit or partly failed is a lower bound, not a
   // fact, so no zero sentence is printed: the head alone.
   if (totals.count === 0 && totals.atLeast) return { state: shown, head, count: null };
-  const word = lang === 'en' ? ctx.tradeLabel.toLowerCase() : lowerFirst(ctx.tradeLabel);
+  // R25 check fix (review R25CHECK P3-4): acronyms keep their capitals ("heating and air (HVAC)").
+  const word = tradeInSentence(ctx.tradeLabel);
   const who = t(lang, lang === 'en' && /^[aeiou]/.test(word) ? 'chk.verdict.who_an' : 'chk.verdict.who', { trade: word });
   const mi = CHECK_RADIUS_MI;
   if (totals.count === 0) return { state: shown, head, count: t(lang, 'chk.verdict.none', { who, mi, zip }) };

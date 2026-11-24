@@ -7,9 +7,10 @@ import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_LIST_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
-import { lowerFirst, t, type Lang } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import type { CoverageState } from '@/lib/check/cells';
 import type { CheckVerdict } from '@/lib/check/verdict';
+import { tradeInSentence } from '@/lib/check/trades';
 
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
@@ -190,15 +191,16 @@ export function CheckResults({
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
   const limitedCityLink = coverageState === 'limited' ? cityLink : null;
-  const tradeWord = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
+  // R25 check fix (review R25CHECK P3-4): acronyms keep their capitals ("heating and air (HVAC)").
+  const tradeWord = tradeInSentence(tradeLabel);
   const limitedLine =
     coverageState !== 'limited'
       ? null
       : !measured
         ? t(lang, 'chk.unmeasured', { trade: tradeWord, place: placeLabel })
         : lang === 'en'
-          ? `Few ${tradeLabel.toLowerCase()} records near here so far, and some weeks bring none. The trial is free and needs no card, so you can judge it before you pay.`
-          : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) });
+          ? `Few ${tradeWord} records near here so far, and some weeks bring none. The trial is free and needs no card, so you can judge it before you pay.`
+          : t(lang, 'chk.limited', { trade: tradeWord });
   const stormLine = coverageState === 'limited' && storm ? t(lang, 'chk.storm', { trade: tradeWord }) : null;
   const LimitedNote = limitedLine ? (
     <div className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">
@@ -208,7 +210,7 @@ export function CheckResults({
   ) : null;
 
   if (shown === 0) {
-    const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
+    const trade = tradeWord;
     const days = CHECK_WINDOW_DAYS;
     const ago = timeAgo(checkedAt, now, lang);
     const within = t(lang, 'chk.within', { place: placeLabel });

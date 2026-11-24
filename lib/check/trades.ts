@@ -1,5 +1,5 @@
 import { CATEGORIES, CATEGORY_GROUPS } from '@/lib/signals/categories';
-import { hasKey, t, type Lang } from '@/lib/i18n';
+import { hasKey, lowerFirst, t, type Lang } from '@/lib/i18n';
 import { PRESSURE_WASHING_ID } from '@/lib/plan/composite-trades';
 
 export interface TradeOption {
@@ -37,6 +37,15 @@ export function tradeLabel(id: string, lang: Lang = 'en'): string {
   if (id === PRESSURE_WASHING_ID) return t(lang, 'chk.trade.pressure_washing');
   if (lang !== 'en' && hasKey(`trade.${id}`)) return t(lang, `trade.${id}` as 'trade.roofing');
   return CATEGORIES.find((c) => c.id === id)?.label ?? id;
+}
+
+/**
+ * A trade label inside a sentence: first letter lower case, the rest as it is, so an acronym keeps its capitals ("heating and air (HVAC)",
+ * "bookkeeping, payroll and IT setup"); a label that starts with an acronym is left whole. R25 check fix (review R25CHECK P3-4): the
+ * English /check sentences used toLowerCase() and printed "(hvac)". Same rule as the emails (lib/email/templates.ts tradeWords).
+ */
+export function tradeInSentence(label: string): string {
+  return /^\p{Lu}{2}/u.test(label) ? label : lowerFirst(label);
 }
 
 /** Spanish trade and group labels from the dictionary. An id with no Spanish label keeps its English one (tests/i18n checks every id has one). */
