@@ -76,7 +76,8 @@ describe('D2: one coverage answer per picked trade, the same as /check', () => {
 
   it('every picked trade waitlist: a calm notice (info, not an error), "Join the list" first, "Continue anyway" second, no trial button', () => {
     const html = form('75201', ['lawn-care', 'landscaping']);
-    expect(html).toContain('Holler has had no usable records for lawn care, landscaping near Dallas, TX yet.');
+    // Round 24 FIX3 (review-FIX2 F6): the notice no longer claims there were no records.
+    expect(html).toContain('Holler does not offer alerts for lawn care, landscaping near Dallas, TX yet.');
     expect(html).toContain('bg-sky'); // the info tone
     expect(html).not.toMatch(/bg-danger-soft|role="alert"/);
     const join = html.indexOf('Join the list for Dallas, TX');

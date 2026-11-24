@@ -35,6 +35,25 @@ export function signupWaitMeta(rawCity: unknown, lang: Lang): { title: string; d
   return { title: t(lang, 'auth.signup.wait_h', { city: name }), description: t(lang, 'auth.signup.wait_sub', { city: name }) };
 }
 
+/**
+ * Round 24 FIX3 (review-FIX2 F5): the share preview of a waitlist-city sign-up page. og and twitter are set in full (title, description,
+ * image and its alt) so nothing with a price or a trial is inherited from the layout or the Spanish auth defaults.
+ */
+export function signupWaitShare(wait: { title: string; description: string }, url: string, locale?: string) {
+  return {
+    openGraph: {
+      type: 'website' as const,
+      siteName: 'Holler',
+      ...(locale ? { locale } : {}),
+      title: wait.title,
+      description: wait.description,
+      url,
+      images: [{ url: '/og.png', width: 1200, height: 630, alt: wait.title }],
+    },
+    twitter: { card: 'summary_large_image' as const, title: wait.title, description: wait.description, images: ['/og.png'] },
+  };
+}
+
 export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: SP; lang?: Lang }) {
   const w = words(lang);
   const sp = await searchParams;

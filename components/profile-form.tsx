@@ -45,6 +45,7 @@ export function ProfileForm({
   upgradeHref = '/pricing',
   lang = 'en',
   initialCoverage = null,
+  inSettings = false,
 }: {
   action: (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
   categories: ChipCategory[];
@@ -66,6 +67,11 @@ export function ProfileForm({
    * paint. As the member edits the ZIP or the trades the form asks profileCoverageAction (the same coverageFor answer, no database).
    */
   initialCoverage?: ProfileCoverage | null;
+  /**
+   * Round 24 FIX3 (review-FIX2 F6): the form is in Settings. With every picked trade waitlist the save button keeps its own label
+   * (submitLabel) and the notice says "save your settings as they are"; only onboarding says "Continue anyway".
+   */
+  inSettings?: boolean;
 }) {
   const es = lang !== 'en';
   const w = (key: DictKey, en: string, vars?: Record<string, string | number>) => (es ? t(lang, key, { pro: planNameEs('pro'), ...vars }) : en);
@@ -415,14 +421,14 @@ export function ProfileForm({
         <>
           {/* Every picked trade is waitlist here: a calm note (not an error), "Join the list" first, and saving is still allowed. */}
           <Notice tone="info" role="status">
-            {t(lang, 'pf.cov.all_wait', { trades: shownCoverage.lines.map((l) => (es ? label(l.trade) : label(l.trade).toLowerCase())).join(', '), place: shownCoverage.place })}
+            {t(lang, inSettings ? 'pf.cov.all_wait_settings' : 'pf.cov.all_wait', { trades: shownCoverage.lines.map((l) => (es ? label(l.trade) : label(l.trade).toLowerCase())).join(', '), place: shownCoverage.place })}
           </Notice>
           <div className="flex flex-wrap items-center gap-3">
             <ButtonLink href={shownCoverage.joinHref} size="lg" className="max-sm:w-full">
               {t(lang, 'pf.cov.join', { place: shownCoverage.place })}
             </ButtonLink>
             <Button type="submit" variant="secondary" size="lg" disabled={pending} className="max-sm:w-full">
-              {pending ? w('pf.saving', 'Saving...') : t(lang, 'pf.cov.continue')}
+              {pending ? w('pf.saving', 'Saving...') : inSettings ? submitLabel : t(lang, 'pf.cov.continue')}
             </Button>
           </div>
         </>

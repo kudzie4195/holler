@@ -95,6 +95,7 @@ export default async function SettingsPage() {
           <h2 id="profile-h" className="h-plain text-2xl text-ink">{t(lang, 'set.profile_h')}</h2>
           <Card className="mt-4">
             <ProfileForm
+              inSettings
               action={saveSettings}
               categories={profileCategories(lang, profile.categories ?? [])}
               defaults={{
@@ -190,6 +191,7 @@ export default async function SettingsPage() {
         <h2 id="profile-h" className="h-plain text-2xl text-ink">What you do and where</h2>
         <Card className="mt-4">
           <ProfileForm
+            inSettings
             action={saveSettings}
             // Round 24: a trade sign-up no longer takes moves to "Coming soon", unless this member already saved it (kept, still pickable).
             categories={applySignupClosed(
