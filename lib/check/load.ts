@@ -216,9 +216,18 @@ export const CHECK_READ_LIMITS = {
 export type CheckReadName = keyof typeof CHECK_READ_LIMITS;
 
 /**
+ * R25 check fix (review R25CHECK P3-2): the reads whose limit can hide a row the count would include. The close-to-home and severe reads
+ * ask for a subset of what the recent read asks for (same window and trades, a smaller radius or a higher severity), and the routed
+ * close-to-home read a subset of the routed read: when the wider read did not stop at its limit it already returned every row the subset
+ * could have, and when it did, the count is a lower bound anyway. So only these four decide "at least", and only when a read returned
+ * exactly its limit (the database clamps the limit, so a full read returns exactly that many rows).
+ */
+const WIDE_READS: readonly CheckReadName[] = ['recent', 'routedRecent', 'upcoming', 'stateLevel'];
+
+/**
  * The rows of loadCheck's reads as check items, in the order loadCheck has always merged them (upcoming, state level, severe, close to home,
- * recent, then the routed reads). Pure, so the export-based tests run exactly this on their simulated reads. `clipped` is true when any read
- * returned as many rows as its limit: rows past the limit may exist, so a count from these items is a lower bound.
+ * recent, then the routed reads). Pure, so the export-based tests run exactly this on their simulated reads. `clipped` is true when one of
+ * WIDE_READS returned exactly its limit: rows past the limit may exist, so a count from these items is a lower bound.
  */
 export function assembleCheck(
   reads: Record<CheckReadName, [rows: CheckRow[], limit: number]>,
@@ -226,7 +235,7 @@ export function assembleCheck(
   nowMs: number,
 ): { items: CheckItem[]; clipped: boolean; data: CheckRow[] } {
   const order: CheckReadName[] = ['upcoming', 'stateLevel', 'severe', 'core', 'recent', 'routedCore', 'routedRecent'];
-  const clipped = order.some((k) => reads[k][0].length >= reads[k][1]);
+  const clipped = WIDE_READS.some((k) => reads[k][0].length === reads[k][1]);
   // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
   // City bids: every stored bid is left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
   const data: CheckRow[] = withoutHiddenBids(
