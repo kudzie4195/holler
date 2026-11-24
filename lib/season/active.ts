@@ -11,6 +11,7 @@ import { SEASON_TABLE, type SeasonRow } from './table';
  *   - its metro centre (lib/check/cells.ts measuredCentres: the coordinates the coverage gate already uses, none typed here) is within
  *     25 miles (CHECK_RADIUS_MI) of the point, by the same haversineMi;
  *   - one of its trades is one of the member's trades; the "Pressure washing" chip counts as cleaning and siding-gutters (expandTradeIds);
+ *     a trade the row also lists in `allTrades` counts only when the member holds every id there (rowReachedBy, review D4);
  *   - its window contains the day, inclusive, in the metro's own calendar (a window whose end is before its start runs over New Year).
  * Then: one row per id and per topic (the nearer centre wins a topic), ordered by how many days the day is from the row's peak (or the
  * window's midpoint), at most MAX_SEASON_LINES. Nothing applies: an empty list, and every surface stays exactly as it was.
@@ -86,6 +87,17 @@ export interface ActiveSeasonInput {
   table?: readonly SeasonRow[];
 }
 
+/**
+ * True when the member's (already expanded) trades reach the row: one of `row.trades` is held, and when that trade is also in
+ * `row.allTrades`, every id in `row.allTrades` is held too. So a pressure-washing row (allTrades cleaning + siding-gutters) skips a
+ * house-cleaning-only member, while a listing-prep row still reaches a landscaper through landscaping alone.
+ */
+export function rowReachedBy(row: Pick<SeasonRow, 'trades' | 'allTrades'>, trades: readonly string[]): boolean {
+  const all = row.allTrades ?? [];
+  const allHeld = all.every((t) => trades.includes(t));
+  return row.trades.some((t) => trades.includes(t) && (allHeld || !all.includes(t)));
+}
+
 export function activeSeasons(input: ActiveSeasonInput): SeasonRow[] {
   const { lat, lon } = input;
   if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) return [];
@@ -98,7 +110,7 @@ export function activeSeasons(input: ActiveSeasonInput): SeasonRow[] {
     if (!c) return;
     const miles = haversineMi(lat, lon, c.lat, c.lon);
     if (!(miles <= CHECK_RADIUS_MI)) return;
-    if (!row.trades.some((t) => trades.includes(t))) return;
+    if (!rowReachedBy(row, trades)) return;
     const md = monthDayOf(input.date, CENTRE_TZ[row.centre] ?? 'UTC');
     if (!md || !inWindow(md, row.start, row.end)) return;
     hits.push({ row, miles, fromPeak: circularDays(md, peakDay(row)), order });

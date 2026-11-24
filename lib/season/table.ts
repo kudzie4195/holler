@@ -42,8 +42,14 @@ export interface SeasonRow {
   topic: 'gutters' | 'leaf-cleanup' | 'irrigation-winterize' | 'pre-emergent' | 'pollen' | 'fescue-seeding' | 'listing-prep';
   /** The measured centre this row belongs to (lib/check/cells.ts). The row applies within 25 miles of it. */
   centre: SeasonCentre;
-  /** Holler trade ids (lib/signals/categories.ts). The "Pressure washing" chip reaches a row through cleaning or siding-gutters. */
+  /** Holler trade ids (lib/signals/categories.ts). The member reaches the row through any one of them, except as `allTrades` says. */
   trades: readonly string[];
+  /**
+   * Optional AND rule (round 30 review D4). A trade listed here as well as in `trades` reaches the row only when the member holds every
+   * id in `allTrades`. Pressure washing is stored as cleaning + siding-gutters, so a row meant for pressure washers sets
+   * `allTrades: PRESSURE_WASHING` and a house-cleaning-only member does not get it. Trades in `trades` but not here reach it alone.
+   */
+  allTrades?: readonly string[];
   /** Window, inclusive, 'MM-DD'. end < start wraps over the new year. */
   start: MonthDay;
   end: MonthDay;
@@ -87,6 +93,8 @@ const LEAVES = ['landscaping', 'lawn-care'] as const;
 const IRRIGATION = ['landscaping'] as const;
 const LAWN = ['lawn-care', 'landscaping'] as const;
 const POLLEN = ['cleaning', 'siding-gutters'] as const;
+/** The "Pressure washing" chip's parts (lib/plan/composite-trades.ts PRESSURE_WASHING_PARTS): both must be held (review D4). */
+const PRESSURE_WASHING = ['cleaning', 'siding-gutters'] as const;
 const LISTING = ['landscaping', 'cleaning'] as const;
 
 export const SEASON_TABLE: readonly SeasonRow[] = [
@@ -190,27 +198,28 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
 
   // Pine and tree pollen wash season, Mar 15 to Apr 25, all checked: the peak is stated for North Georgia and metro Atlanta (FOX 5) and
   // for North Carolina (NC State), VERIFY.md 3a to 3c; the wash window around it is Holler's edges. Austin mountain cedar, Dec 15 to
-  // Mar 1, Central Texas (VERIFY.md 3d).
+  // Mar 1, Central Texas (VERIFY.md 3d). The wash lines are for pressure washers: all four need cleaning AND siding-gutters (review
+  // D4), so a house-cleaning-only member gets none.
   {
-    id: 'pollen-atlanta', topic: 'pollen', centre: 'atlanta', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-30',
+    id: 'pollen-atlanta', topic: 'pollen', centre: 'atlanta', trades: POLLEN, allTrades: PRESSURE_WASHING, start: '03-15', end: '04-25', peak: '03-30',
     en: 'Tree pollen around Atlanta usually peaks from late March to mid-April. Pollen can leave a yellow film on decks, siding and cars, and spring washes are typically booked from mid-March through April.',
     es: 'El polen de los árboles en la zona de Atlanta suele alcanzar su punto máximo de fines de marzo a mediados de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.fox5Pollen, verifiedOn: R30, confidence: 'checked',
   },
   {
-    id: 'pollen-charlotte', topic: 'pollen', centre: 'charlotte', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
+    id: 'pollen-charlotte', topic: 'pollen', centre: 'charlotte', trades: POLLEN, allTrades: PRESSURE_WASHING, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Charlotte are typically booked from mid-March through April.',
     es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Charlotte se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
-    id: 'pollen-raleigh', topic: 'pollen', centre: 'raleigh', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
+    id: 'pollen-raleigh', topic: 'pollen', centre: 'raleigh', trades: POLLEN, allTrades: PRESSURE_WASHING, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Raleigh are typically booked from mid-March through April.',
     es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Raleigh se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
-    id: 'pollen-austin', topic: 'pollen', centre: 'austin', trades: ['cleaning'], start: '12-15', end: '03-01', peak: '01-15',
+    id: 'pollen-austin', topic: 'pollen', centre: 'austin', trades: ['cleaning'], allTrades: PRESSURE_WASHING, start: '12-15', end: '03-01', peak: '01-15',
     en: 'Mountain cedar pollen season around Austin typically starts in mid-December, peaks in mid-January and eases toward early March. Pollen can leave a dusty film on cars and outdoor surfaces through the winter.',
     es: 'La temporada de polen de cedro de montaña en la zona de Austin suele empezar a mediados de diciembre, alcanzar su punto máximo a mediados de enero y bajar hacia principios de marzo. El polen puede dejar una capa de polvo en autos y superficies exteriores durante el invierno.',
     source: SRC.tamuCedar, verifiedOn: R30, confidence: 'checked',
@@ -238,21 +247,21 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
   },
 
   // Home-listing season prep (Zillow's 2025 sales, VERIFY.md 6; the prep window before the listing weeks is Holler's estimate, and the
-  // line says so).
+  // line says so). Landscaping reaches it alone; cleaning only with siding-gutters, i.e. pressure washers (review D4).
   {
-    id: 'listing-prep-atlanta', topic: 'listing-prep', centre: 'atlanta', trades: LISTING, start: '04-15', end: '05-15', peak: '05-01',
+    id: 'listing-prep-atlanta', topic: 'listing-prep', centre: 'atlanta', trades: LISTING, allTrades: PRESSURE_WASHING, start: '04-15', end: '05-15', peak: '05-01',
     en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Atlanta. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
     es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Atlanta. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',
   },
   {
-    id: 'listing-prep-charlotte', topic: 'listing-prep', centre: 'charlotte', trades: LISTING, start: '04-15', end: '05-15', peak: '05-01',
+    id: 'listing-prep-charlotte', topic: 'listing-prep', centre: 'charlotte', trades: LISTING, allTrades: PRESSURE_WASHING, start: '04-15', end: '05-15', peak: '05-01',
     en: "Zillow's analysis of 2025 sales points to the first two weeks of May as the best time to list a home in Charlotte. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
     es: 'El análisis de Zillow de las ventas de 2025 señala las dos primeras semanas de mayo como el mejor momento para poner una casa a la venta en Charlotte. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',
   },
   {
-    id: 'listing-prep-austin', topic: 'listing-prep', centre: 'austin', trades: LISTING, start: '03-01', end: '03-31', peak: '03-20',
+    id: 'listing-prep-austin', topic: 'listing-prep', centre: 'austin', trades: LISTING, allTrades: PRESSURE_WASHING, start: '03-01', end: '03-31', peak: '03-20',
     en: "Zillow's analysis of 2025 sales points to the last two weeks of March as the best time to list a home in Austin. Holler estimates that homes are often prepped for sale with yard work and exterior washes in the weeks before.",
     es: 'El análisis de Zillow de las ventas de 2025 señala las dos últimas semanas de marzo como el mejor momento para poner una casa a la venta en Austin. Holler estima que las casas a menudo se preparan para la venta con trabajo de jardín y lavado exterior en las semanas previas.',
     source: SRC.zillowList, verifiedOn: R30, confidence: 'estimate',

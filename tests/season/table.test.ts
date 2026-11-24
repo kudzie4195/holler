@@ -264,11 +264,11 @@ describe('windows and the year wrap', () => {
     for (const date of ['2026-12-31', '2027-01-10']) expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date })), date).toEqual(['gutters-charlotte']);
     expect(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: '2027-01-20' })).toEqual([]);
   });
-  it('Austin cedar (Dec 15 to Mar 1) wraps too', () => {
+  it('Austin cedar (Dec 15 to Mar 1) wraps too (pressure washers: cleaning and siding-gutters, review D4)', () => {
     const aus = lookupZip('78701')!;
-    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['cleaning'], date: '2027-01-15' }))).toEqual(['pollen-austin']);
-    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['cleaning'], date: '2026-12-20' }))).toEqual(['pollen-austin']);
-    expect(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['cleaning'], date: '2026-12-14' })).toEqual([]);
+    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2027-01-15' }))).toEqual(['pollen-austin']);
+    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2026-12-20' }))).toEqual(['pollen-austin']);
+    expect(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2026-12-14' })).toEqual([]);
   });
   it('a Date is read in the metro\'s own calendar: 9 pm Nov 30 in Charlotte is still Nov 30 there (UTC already says Dec 1)', () => {
     expect(monthDayOf(new Date('2026-12-01T02:00:00Z'), 'America/New_York')).toBe('11-30');
@@ -310,16 +310,39 @@ describe('trades, dedupe, order, cap', () => {
   const clt = lookupZip('28202')!;
   const at = (trades: string[], date: string) => ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades, date }));
 
-  it('each row is reached by each of its own trades and by no other trade', () => {
+  it('each row is reached by each of its own trades alone (unless the AND rule holds it back) and by no other trade', () => {
     const others = CATEGORIES.map((c) => c.id);
     for (const r of SEASON_TABLE) {
       const c = CENTRE.get(r.centre)!;
       const date = `2027-${r.peak ?? r.start}`;
       for (const t of others) {
         const got = activeSeasons({ lat: c.lat, lon: c.lon, trades: [t], date }).some((x) => x.id === r.id);
-        expect(got, `${r.id} via ${t}`).toBe(r.trades.includes(t));
+        expect(got, `${r.id} via ${t}`).toBe(r.trades.includes(t) && !(r.allTrades ?? []).includes(t));
       }
+      // and with every id of allTrades held, the row is reached
+      if (r.allTrades) expect(activeSeasons({ lat: c.lat, lon: c.lon, trades: [...r.allTrades], date }).some((x) => x.id === r.id), r.id).toBe(true);
     }
+  });
+  it('review D4: pollen and listing-prep wash lines reach pressure washers (cleaning AND siding-gutters), never cleaning alone', () => {
+    const at = (zip: string, trades: string[], date: string) => {
+      const p = lookupZip(zip)!;
+      return ids(activeSeasons({ lat: p.lat, lon: p.lon, trades, date }));
+    };
+    // pollen, all four metros
+    for (const [zip, id, date] of [['30303', 'pollen-atlanta', '2027-03-31'], ['28202', 'pollen-charlotte', '2027-03-31'], ['27601', 'pollen-raleigh', '2027-03-31'], ['78701', 'pollen-austin', '2027-01-15']]) {
+      expect(at(zip, ['cleaning'], date), `${id} cleaning only`).toEqual([]);
+      expect(at(zip, ['siding-gutters'], date), `${id} siding-gutters only`).not.toContain(id);
+      expect(at(zip, ['pressure-washing'], date), `${id} pressure washing`).toEqual([id]);
+      expect(at(zip, ['cleaning', 'siding-gutters'], date), `${id} both`).toEqual([id]);
+    }
+    // listing prep: landscaping alone still reaches it; cleaning only with siding-gutters
+    for (const [zip, id, date] of [['30303', 'listing-prep-atlanta', '2027-05-01'], ['28202', 'listing-prep-charlotte', '2027-05-01'], ['78701', 'listing-prep-austin', '2027-03-20']]) {
+      expect(at(zip, ['cleaning'], date), `${id} cleaning only`).toEqual([]);
+      expect(at(zip, ['landscaping'], date), `${id} landscaping`).toContain(id);
+      expect(at(zip, ['pressure-washing'], date), `${id} pressure washing`).toContain(id);
+    }
+    for (const r of SEASON_TABLE.filter((x) => x.topic === 'pollen' || x.topic === 'listing-prep')) expect(r.allTrades, r.id).toEqual(['cleaning', 'siding-gutters']);
+    for (const r of SEASON_TABLE.filter((x) => x.topic !== 'pollen' && x.topic !== 'listing-prep')) expect(r.allTrades, r.id).toBeUndefined();
   });
   it('the Pressure washing chip reaches gutters through siding-gutters and pollen through both parts', () => {
     expect(at(['pressure-washing'], '2026-12-01')).toEqual(['gutters-charlotte']);
