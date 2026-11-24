@@ -34,6 +34,8 @@ const UPCOMING_LIMIT = 12;
 const ROUTED_LIMIT = 500;
 const ROUTED_CORE_LIMIT = 200;
 const QUERY_TIMEOUT_MS: number = 8000;
+/** A failed read, or an entry built with one read missing: kept a minute only (R25 check fix, review R25CHECK P2-4). */
+const PARTIAL_CACHE_LIFE = { stale: 60, revalidate: 60, expire: 300 };
 // summary, categories and data are read for the member view only (lib/check/delivery.ts: matching, the label and the contact gate). They are
 // never rendered: the page keeps the fields it showed before.
 const COLUMNS = 'id,source,kind,title,summary,url,city,state,lat,lon,severity,occurred_at,expires_at,categories,data';
@@ -47,6 +49,7 @@ export interface CheckData {
   /**
    * Round 25: true when at least one read returned as many rows as its limit, so older matching records may exist that were not read. The
    * page then says "at least N" (lib/check/delivery.ts alertTotals). Absent on entries cached before this field existed: read as false.
+   * R25 check fix (review R25CHECK P2-4): also true when an extra read failed (its rows are missing).
    */
   clipped?: boolean;
 }
@@ -92,7 +95,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
   const checkedAt = now.toISOString();
   // A failed read is cached for a minute only, so a blip does not pin an empty page for an hour.
   const fail = (): CheckData => {
-    cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+    cacheLife(PARTIAL_CACHE_LIFE);
     return { ok: false, items: [], checkedAt };
   };
 
@@ -166,6 +169,10 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (routedRecent.error) console.error('[check] routed read failed:', routedRecent.error.code ?? routedRecent.error.message);
     if (routedCore.error) console.error('[check] routed close-to-home read failed:', routedCore.error.code ?? routedCore.error.message);
     const rowsOf = (r: { error: unknown; data: unknown }): CheckRow[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as CheckRow[]));
+    // R25 check fix (review R25CHECK P2-4): a read that failed (or answered no rows array) leaves out rows that may exist, so the entry is a
+    // lower bound like a read that stopped at its limit: it is marked clipped (the page says "at least", or at zero prints the head only)
+    // and cached for a minute only, so one blip does not pin a wrong answer on the whole grid cell for an hour.
+    const partial = [core, severe, upcoming, stateLevel, routedRecent, routedCore].some((r) => r.error || !Array.isArray(r.data));
     const { items, clipped, data } = assembleCheck(
       {
         upcoming: [rowsOf(upcoming), UPCOMING_LIMIT],
@@ -182,11 +189,13 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     // A live resident request in the list: tag the entry and keep it 15 minutes at most, so a closed request leaves /check promptly.
     if (hasRequestRows(data)) cacheTag(REQUEST_CACHE_TAG);
     cacheLife(
-      hasRequestRows(data)
-        ? REQUEST_CACHE_LIFE
-        : { stale: 300, revalidate: 3600, expire: 7200 },
+      partial
+        ? PARTIAL_CACHE_LIFE
+        : hasRequestRows(data)
+          ? REQUEST_CACHE_LIFE
+          : { stale: 300, revalidate: 3600, expire: 7200 },
     );
-    return { ok: true, items, checkedAt, clipped };
+    return { ok: true, items, checkedAt, clipped: clipped || partial };
   } catch (e) {
     console.error('[check] loadCheck failed:', e instanceof Error ? e.message : 'unknown');
     return fail();
