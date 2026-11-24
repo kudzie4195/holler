@@ -117,14 +117,29 @@ describe('season table: every row', () => {
     }
   });
 
-  it('the windows the brief gave', () => {
+  it('the windows the brief gave, as corrected by the date check (review/VERIFY.md)', () => {
     const w = (id: string) => [row(id).start, row(id).end];
     for (const c of ['atlanta', 'charlotte', 'raleigh']) {
       expect(w(`gutters-${c}`)).toEqual(['11-15', '01-15']);
-      expect(w(`leaf-cleanup-${c}`)).toEqual(['11-01', '12-15']);
+      expect(row(`gutters-${c}`).confidence).toBe('estimate');
       expect(w(`pollen-${c}`)).toEqual(['03-15', '04-25']);
-      expect(w(`fescue-seeding-${c}`)).toEqual(['09-01', '10-15']);
     }
+    expect(w('leaf-cleanup-atlanta')).toEqual(['11-01', '12-15']);
+    expect(w('leaf-cleanup-charlotte')).toEqual(['11-01', '12-15']);
+    expect(w('leaf-cleanup-raleigh')).toEqual(['10-25', '12-10']);
+    expect(w('fescue-seeding-charlotte')).toEqual(['09-01', '10-01']);
+    expect(w('fescue-seeding-raleigh')).toEqual(['09-01', '10-01']);
+    expect(w('fescue-seeding-atlanta')).toEqual(['09-01', '10-31']);
+    for (const r of SEASON_TABLE.filter((x) => x.topic === 'fescue-seeding')) expect(r.en, r.id).not.toMatch(/mid-October/);
+    expect(row('pre-emergent-raleigh').end).toBe('02-28');
+    expect(row('pre-emergent-atlanta').peak).toBe('03-01');
+    expect(row('pre-emergent-charlotte').peak).toBe('03-01');
+    expect(row('pre-emergent-austin').end).toBe('02-15');
+    expect(row('irrigation-winterize-charlotte').peak).toBe('11-05');
+    expect(row('irrigation-winterize-atlanta').peak).toBe('11-13');
+    expect(row('irrigation-winterize-raleigh').peak).toBe('10-30');
+    expect(row('irrigation-winterize-austin').peak).toBe('12-01');
+    for (const r of SEASON_TABLE) expect(r.en, r.id).not.toMatch(/mostly down by late November/);
     expect(w('pollen-austin')).toEqual(['12-15', '03-01']);
     expect(w('listing-prep-atlanta')).toEqual(['04-15', '05-15']);
     expect(w('listing-prep-charlotte')).toEqual(['04-15', '05-15']);
@@ -223,10 +238,11 @@ describe('trades, dedupe, order, cap', () => {
     expect(at(['cleaning', 'siding-gutters'], '2027-04-01')).toEqual(['pollen-charlotte']);
   });
   it('at most two, ordered by closeness to the peak', () => {
-    // Nov 15: gutters (peak Dec 1, 16 days), leaf clean-up (peak Nov 20, 5 days), irrigation (peak Nov 7, 8 days): three apply
-    const r = at(['siding-gutters', 'landscaping'], '2026-11-15');
+    // Atlanta, Nov 15: gutters (peak Dec 1, 16 days), leaf clean-up (peak Nov 20, 5 days), irrigation (peak Nov 13, 2 days): three apply
+    const atl = lookupZip('30303')!;
+    const r = ids(activeSeasons({ lat: atl.lat, lon: atl.lon, trades: ['siding-gutters', 'landscaping'], date: '2026-11-15' }));
     expect(r).toHaveLength(MAX_SEASON_LINES);
-    expect(r).toEqual(['leaf-cleanup-charlotte', 'irrigation-winterize-charlotte']);
+    expect(r).toEqual(['irrigation-winterize-atlanta', 'leaf-cleanup-atlanta']);
     // Dec 1: gutters (peak today) before leaf clean-up (11 days)
     expect(at(['landscaping', 'siding-gutters'], '2026-12-01')).toEqual(['gutters-charlotte', 'leaf-cleanup-charlotte']);
   });
@@ -242,7 +258,7 @@ describe('December 1 2026 (launch week)', () => {
     const clt = lookupZip('28202')!;
     expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: '2026-12-01' }))).toEqual(['gutters-charlotte']);
     expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['landscaping'], date: '2026-12-01' }))).toEqual(['leaf-cleanup-charlotte']);
-    expect(row('gutters-charlotte').en).toContain('Gutter clean-outs are typically booked from mid-November to mid-January.');
+    expect(row('gutters-charlotte').en).toContain('gutter clean-outs are usually booked from mid-November to mid-January.');
   });
   it('Austin 78701: nothing for gutters (and nothing for pressure washing or cleaning before Dec 15)', () => {
     const aus = lookupZip('78701')!;
