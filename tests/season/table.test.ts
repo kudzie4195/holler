@@ -193,6 +193,22 @@ describe('season table: every row', () => {
   });
 });
 
+describe('Spanish says what the English says (review D5)', () => {
+  it('"Freezing temperatures" is "Las heladas", "through April" is "a fines de abril", tall fescue is "festuca alta"', () => {
+    for (const r of SEASON_TABLE) {
+      expect(r.es, r.id).not.toMatch(/bajo cero/);
+      expect(r.es, r.id).not.toMatch(/hasta abril/);
+      if (/Freezing temperatures can affect/.test(r.en)) expect(r.es, r.id).toContain('Las heladas pueden afectar las partes expuestas del riego');
+      if (/from mid-March through April/.test(r.en)) expect(r.es, r.id).toContain('de mediados de marzo a fines de abril');
+      if (/tall fescue/.test(r.en)) expect(r.es, r.id).toContain('festuca alta (tall fescue)');
+      expect(r.es.replace(/festuca alta \(tall fescue\)/g, ''), r.id).not.toMatch(/tall fescue/);
+    }
+    expect(SEASON_TABLE.filter((r) => r.es.includes('Las heladas pueden afectar')).length).toBe(4);
+    expect(SEASON_TABLE.filter((r) => r.es.includes('de mediados de marzo a fines de abril')).length).toBe(3);
+    expect(SEASON_TABLE.filter((r) => r.es.includes('festuca alta (tall fescue)')).length).toBe(3);
+  });
+});
+
 describe('confidence: one rule (review D6)', () => {
   it('checked only where the source states the anchor date for the metro or a region it names; every row listed', () => {
     const want: Record<string, 'checked' | 'estimate'> = {

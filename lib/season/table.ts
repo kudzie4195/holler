@@ -138,25 +138,25 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
   {
     id: 'irrigation-winterize-atlanta', topic: 'irrigation-winterize', centre: 'atlanta', trades: IRRIGATION, start: '11-03', end: '11-20', peak: '11-13',
     en: 'The average first freeze in Atlanta comes around November 13. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
-    es: 'La primera helada promedio en Atlanta llega alrededor del 13 de noviembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
+    es: 'La primera helada promedio en Atlanta llega alrededor del 13 de noviembre. Las heladas pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
     source: SRC.ffcFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-charlotte', topic: 'irrigation-winterize', centre: 'charlotte', trades: IRRIGATION, start: '10-26', end: '11-13', peak: '11-05',
     en: 'The average first freeze in Charlotte comes around November 5. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
-    es: 'La primera helada promedio en Charlotte llega alrededor del 5 de noviembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
+    es: 'La primera helada promedio en Charlotte llega alrededor del 5 de noviembre. Las heladas pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
     source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-raleigh', topic: 'irrigation-winterize', centre: 'raleigh', trades: IRRIGATION, start: '10-20', end: '11-06', peak: '10-30',
     en: 'The average first freeze in Raleigh comes around October 30. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
-    es: 'La primera helada promedio en Raleigh llega alrededor del 30 de octubre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
+    es: 'La primera helada promedio en Raleigh llega alrededor del 30 de octubre. Las heladas pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
     source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-austin', topic: 'irrigation-winterize', centre: 'austin', trades: IRRIGATION, start: '11-21', end: '12-08', peak: '12-01',
     en: 'The average first freeze in Austin comes around December 1. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
-    es: 'La primera helada promedio en Austin llega alrededor del 1 de diciembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
+    es: 'La primera helada promedio en Austin llega alrededor del 1 de diciembre. Las heladas pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
     source: SRC.ewxAustin, verifiedOn: R30, confidence: 'checked',
   },
 
@@ -194,19 +194,19 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
   {
     id: 'pollen-atlanta', topic: 'pollen', centre: 'atlanta', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-30',
     en: 'Tree pollen around Atlanta usually peaks from late March to mid-April. Pollen can leave a yellow film on decks, siding and cars, and spring washes are typically booked from mid-March through April.',
-    es: 'El polen de los árboles en la zona de Atlanta suele alcanzar su punto máximo de fines de marzo a mediados de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera se suelen programar de mediados de marzo hasta abril.',
+    es: 'El polen de los árboles en la zona de Atlanta suele alcanzar su punto máximo de fines de marzo a mediados de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.fox5Pollen, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pollen-charlotte', topic: 'pollen', centre: 'charlotte', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Charlotte are typically booked from mid-March through April.',
-    es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Charlotte se suelen programar de mediados de marzo hasta abril.',
+    es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Charlotte se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pollen-raleigh', topic: 'pollen', centre: 'raleigh', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Raleigh are typically booked from mid-March through April.',
-    es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Raleigh se suelen programar de mediados de marzo hasta abril.',
+    es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Raleigh se suelen programar de mediados de marzo a fines de abril.',
     source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
@@ -221,19 +221,19 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
   {
     id: 'fescue-seeding-atlanta', topic: 'fescue-seeding', centre: 'atlanta', trades: LAWN, start: '09-01', end: '10-31', peak: '09-30',
     en: 'University of Georgia guidance puts tall fescue seeding in the Georgia Piedmont, which includes Atlanta, in September and October. Fall seeding around Atlanta is usually booked in those weeks.',
-    es: 'La guía de la Universidad de Georgia ubica la siembra de tall fescue en el Piedmont de Georgia, que incluye Atlanta, en septiembre y octubre. La siembra de otoño en la zona de Atlanta se suele programar en esas semanas.',
+    es: 'La guía de la Universidad de Georgia ubica la siembra de festuca alta (tall fescue) en el Piedmont de Georgia, que incluye Atlanta, en septiembre y octubre. La siembra de otoño en la zona de Atlanta se suele programar en esas semanas.',
     source: SRC.ugaLawnsB1533, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'fescue-seeding-charlotte', topic: 'fescue-seeding', centre: 'charlotte', trades: LAWN, start: '09-01', end: '10-01', peak: '09-15',
     en: 'NC State guidance puts the best tall fescue seeding window in the Piedmont from September 1 to October 1. Fall seeding around Charlotte is usually booked in that window.',
-    es: 'La guía de NC State ubica el mejor período para sembrar tall fescue en el Piedmont del 1 de septiembre al 1 de octubre. La siembra de otoño en la zona de Charlotte se suele programar en esas semanas.',
+    es: 'La guía de NC State ubica el mejor período para sembrar festuca alta (tall fescue) en el Piedmont del 1 de septiembre al 1 de octubre. La siembra de otoño en la zona de Charlotte se suele programar en esas semanas.',
     source: SRC.ncsuCarolinaLawns, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'fescue-seeding-raleigh', topic: 'fescue-seeding', centre: 'raleigh', trades: LAWN, start: '09-01', end: '10-01', peak: '09-15',
     en: 'NC State guidance puts the best tall fescue seeding window in the Piedmont from September 1 to October 1. Fall seeding around Raleigh is usually booked in that window.',
-    es: 'La guía de NC State ubica el mejor período para sembrar tall fescue en el Piedmont del 1 de septiembre al 1 de octubre. La siembra de otoño en la zona de Raleigh se suele programar en esas semanas.',
+    es: 'La guía de NC State ubica el mejor período para sembrar festuca alta (tall fescue) en el Piedmont del 1 de septiembre al 1 de octubre. La siembra de otoño en la zona de Raleigh se suele programar en esas semanas.',
     source: SRC.ncsuCarolinaLawns, verifiedOn: R30, confidence: 'checked',
   },
 
