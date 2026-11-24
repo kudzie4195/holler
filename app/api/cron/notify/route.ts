@@ -35,7 +35,7 @@ import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/
 import { parseLang, type Lang } from '@/lib/i18n';
 import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 import { quietWeekEnabled, sendQuietWeek, type QuietWeekCounts } from '@/lib/email/quiet-week';
-import { activeSeasons, seasonEmailEnabled, seasonLines } from '@/lib/season/active';
+import { activeSeasons, seasonEmailEnabled, seasonLines, type SeasonLine } from '@/lib/season/active';
 
 export const maxDuration = 60;
 
@@ -390,8 +390,14 @@ export async function GET(req: Request) {
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),
       )}`;
       // Round 30: "This week in your area" (lib/season), from the member's main point and plan-limited trades. Empty: no `season`.
+      // Review D7: a throw here never costs the member the alert email; the line is left out instead.
       const point = pointById.get(p.user_id);
-      const season = point ? seasonLines(activeSeasons({ lat: point.lat, lon: point.lon, trades, date: now }), lang) : [];
+      let season: SeasonLine[] = [];
+      try {
+        season = point ? seasonLines(activeSeasons({ lat: point.lat, lon: point.lon, trades, date: now }), lang) : [];
+      } catch {
+        season = [];
+      }
       const mail = renderDigest({
         businessName: p.business_name,
         items,

@@ -129,7 +129,7 @@ function seed(nowMs: number): FakeDb {
 
 type Sent = { to: string; subject: string; html: string; text: string; headers?: Record<string, string>; idempotencyKey?: string };
 
-async function runNotify(db: FakeDb, opts: { quiet?: string; season?: string; nowMs: number; routeFile?: string }) {
+async function runNotify(db: FakeDb, opts: { quiet?: string; season?: string; nowMs: number; routeFile?: string; seasonThrows?: boolean }) {
   vi.resetModules();
   vi.stubEnv('CRON_SECRET', SECRET);
   if (opts.quiet === undefined) delete process.env.HOLLER_QUIET_WEEK_ENABLED;
@@ -145,6 +145,14 @@ async function runNotify(db: FakeDb, opts: { quiet?: string; season?: string; no
   vi.doMock('@/lib/outreach/loader', async (orig) => ({ ...(await orig<typeof import('@/lib/outreach/loader')>()), loadMemberContacts: async () => new Map() }));
   vi.doMock('@/lib/push/notify', () => ({ pushNewMatches: async () => ({ skipped: 'test' }) }));
   vi.doMock('@/lib/analytics/server', () => ({ track: async () => {} }));
+  if (opts.seasonThrows) {
+    vi.doMock('@/lib/season/active', async (orig) => ({
+      ...(await orig<typeof import('@/lib/season/active')>()),
+      activeSeasons: () => {
+        throw new Error('season boom');
+      },
+    }));
+  }
   vi.doMock('@/lib/email', async (orig) => ({
     ...(await orig<typeof import('@/lib/email')>()),
     sendEmail: async (m: Sent) => (sent.push(m), { ok: true as const, id: `e${sent.length}` }),
@@ -161,7 +169,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   delete process.env.HOLLER_QUIET_WEEK_ENABLED;
   delete process.env.HOLLER_SEASON_ENABLED;
-  for (const m of ['@/lib/supabase/admin', '@/lib/outreach/loader', '@/lib/email', '@/lib/push/notify', '@/lib/analytics/server', 'server-only']) vi.doUnmock(m);
+  for (const m of ['@/lib/supabase/admin', '@/lib/outreach/loader', '@/lib/email', '@/lib/push/notify', '@/lib/analytics/server', 'server-only', '@/lib/season/active']) vi.doUnmock(m);
 });
 
 let baseDir = '';
@@ -226,6 +234,19 @@ describe('the notify cron', () => {
     };
     const r = await runNotify(db, { nowMs: DEC1.getTime(), season: '1' });
     expect(r.sent).toEqual(base.sent);
+  });
+
+  it('review D7: a throw in the season code leaves the line out; the digest still goes out and nothing counts as failed', async () => {
+    const base = await runNotify(seed(DEC1.getTime()), { nowMs: DEC1.getTime() });
+    const db = seed(DEC1.getTime());
+    const r = await runNotify(db, { nowMs: DEC1.getTime(), season: '1', seasonThrows: true });
+    expect(r.body).toEqual(base.body);
+    expect(r.body.failed ?? 0).toBe(0);
+    expect(r.sent).toEqual(base.sent);
+    expect(r.sent.map((m) => m.to)).toEqual(['pending@shop.test']);
+    expect(r.sent[0].html).not.toContain('data-season=');
+    // the match is marked notified, as on any sent digest
+    expect((db.tables.holler_matches as { id: number; notified: boolean }[]).find((m) => m.id === 701)?.notified).toBe(true);
   });
 
   it('quiet week (both switches on), Dec 1: the Charlotte members get the line, EN and ES; Austin gets none for gutters', async () => {
