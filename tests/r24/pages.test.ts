@@ -241,7 +241,8 @@ describe('round 24 FIX2 (review D3): storm pages follow the same coverage answer
     const html = await render('california', 'los-angeles-county-2026-11-19');
     expect(html).toContain('href="/signup"');
     expect(html).toContain('$7.99');
-    expect(stormReportCoverage({ kind: 'county', state: 'CA', name: 'Los Angeles County', records: [] })).toBe('live');
+    // Round 24 FIX3 (review-FIX2 F3): a county report is placed by its records' towns, never by the county's own name.
+    expect(stormReportCoverage({ kind: 'county', state: 'CA', name: 'Los Angeles County', records: [{ place: 'Los Angeles, Los Angeles County' }] as never })).toBe('live');
   });
 });
 
