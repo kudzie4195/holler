@@ -58,8 +58,8 @@ export function CheckForm({
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
   // Round 23: a trade no live source reaches (Locksmith, "Bookkeeping, payroll and IT setup") is left out too. It was pickable here and
   // refused at sign-up, so a visitor could check it, get "nothing matched", and then not find it on the form.
-  // House cleaning also says "and pressure washing": that category is where the pressure-washing keywords live, so a washer picking by
-  // name now finds it instead of guessing (lib/signals/categories.ts, lib/plan/profile-categories.ts PRESSURE_WASHING_PARTS).
+  // Round 25: "Pressure washing" is its own option (checkTradeGroups above), the sign-up chip's two trades, so House cleaning is labelled as
+  // itself whenever that option is listed (lib/plan/composite-trades.ts PRESSURE_WASHING_PARTS).
   const groups = checkTradeGroups(trade, lang);
   return (
     // Layout follows the width of the box the form sits in (container queries), not the screen: the home hero column is about
