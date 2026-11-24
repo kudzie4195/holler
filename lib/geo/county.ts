@@ -46,3 +46,29 @@ export function countiesFromSame(codes: unknown): County[] {
   }
   return out;
 }
+
+/** USPS code to 2-digit state FIPS (the inverse of STATE_BY_FIPS). */
+const FIPS_BY_STATE: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(STATE_BY_FIPS).map(([f, st]) => [st, f]));
+
+/**
+ * Round 25: the county a NWS UGC COUNTY code names. A UGC code is two state letters, a format letter and three digits: "C" codes are
+ * counties, and the three digits are the county's FIPS number inside the state ("SDC003" is Aurora County, SD = 46003). "Z" codes are
+ * forecast or fire weather zones, which are not counties and give null here (placing a zone needs the NWS zone-county table).
+ */
+export function countyFromUgc(ugc: unknown): County | null {
+  const m = typeof ugc === 'string' ? /^([A-Z]{2})C(\d{3})$/.exec(ugc) : null;
+  const stateFips = m ? FIPS_BY_STATE[m[1]] : undefined;
+  if (!m || !stateFips) return null;
+  return countyFromSame(`0${stateFips}${m[2]}`);
+}
+
+/** Distinct counties for a list of UGC codes (county codes only), in the order given. */
+export function countiesFromUgc(codes: unknown): County[] {
+  if (!Array.isArray(codes)) return [];
+  const out: County[] = [];
+  for (const code of codes) {
+    const c = countyFromUgc(code);
+    if (c && !out.some((x) => x.fips === c.fips)) out.push(c);
+  }
+  return out;
+}
