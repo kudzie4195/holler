@@ -962,7 +962,8 @@ export const CELL_TABLE: Readonly<Record<string, Readonly<Record<string, CellVal
 
 /**
  * Round 25: composite cells from the measurement's rollups, keyed by the composite chip id (lib/plan/composite-trades.ts). "pressure-washing" is a
- * member with cleaning AND siding-gutters, measured as one member (its cards are the union of both trades' cards).
+ * member with cleaning AND siding-gutters, measured as one member (its cards are the union of both trades' cards). R25 check fix (review
+ * R25CHECK P2-6): 'storm' where the rollup is waitlist and a part is a storm cell.
  */
 export const COMPOSITE_CELL_TABLE: Readonly<Record<string, Readonly<Record<string, CellValue>>>> = {
   'chicago': { 'pressure-washing': 'live' },
@@ -979,14 +980,14 @@ export const COMPOSITE_CELL_TABLE: Readonly<Record<string, Readonly<Record<strin
   'charlotte': { 'pressure-washing': 'live' },
   'new-orleans': { 'pressure-washing': 'live' },
   'buffalo': { 'pressure-washing': 'limited' },
-  'dallas': { 'pressure-washing': 'waitlist' },
-  'houston': { 'pressure-washing': 'waitlist' },
-  'phoenix': { 'pressure-washing': 'waitlist' },
-  'miami': { 'pressure-washing': 'waitlist' },
-  'philadelphia': { 'pressure-washing': 'waitlist' },
-  'orlando': { 'pressure-washing': 'waitlist' },
-  'norfolk': { 'pressure-washing': 'waitlist' },
-  'kansas-city': { 'pressure-washing': 'waitlist' },
+  'dallas': { 'pressure-washing': 'storm' },
+  'houston': { 'pressure-washing': 'storm' },
+  'phoenix': { 'pressure-washing': 'storm' },
+  'miami': { 'pressure-washing': 'storm' },
+  'philadelphia': { 'pressure-washing': 'storm' },
+  'orlando': { 'pressure-washing': 'storm' },
+  'norfolk': { 'pressure-washing': 'storm' },
+  'kansas-city': { 'pressure-washing': 'storm' },
 };
 
 /** The hand overrides the measurement carries (engine state -> state), for the record. Not read by the gate. */
