@@ -129,7 +129,8 @@ describe('arcgis config', () => {
       expect(() => new Intl.DateTimeFormat('en-US', { timeZone: x.tz })).not.toThrow();
       expect(x.verifiedUrl).toBe(`${x.layerUrl}?f=json`);
       // Round 19 coverage layers (on probation, schema unverified) carry the research date.
-      expect(x.checkedOn).toMatch(x.probation ? /^2026-11-22$/ : /^2026-11-(17|19)$/);
+      // Round 28: Raleigh was re-read live on 2026-11-24 (permitclassmapped); only that layer carries the newer date.
+      expect(x.checkedOn).toMatch(x.probation ? /^2026-11-22$/ : x.id === 'arcgis-raleigh-permits' ? /^2026-11-24$/ : /^2026-11-(17|19)$/);
     }
     expect(new Set(ARCGIS_DATASETS.map((x) => x.id)).size).toBe(ARCGIS_DATASETS.length);
   });

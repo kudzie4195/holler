@@ -155,10 +155,10 @@ export const ARCGIS_DATASETS: ArcgisDataset[] = [
   {
     id: 'arcgis-raleigh-permits', city: 'Raleigh', state: 'NC', tz: 'America/New_York', layerUrl: RALEIGH,
     kind: 'permit', subtype: 'permit', idField: 'permitnum', dateField: 'issueddate', dateType: 'date', latField: 'latitude_perm', lonField: 'longitude_perm',
-    titleFields: ['description', 'permittype'], textFields: ['description', 'proposedworkdescription', 'workclass', 'permittype'],
+    titleFields: ['description', 'permittype'], textFields: ['description', 'proposedworkdescription', 'workclass', 'permittype', 'permitclassmapped'],
     summaryFields: ['permittype', 'workclass', 'permitclassmapped', 'estprojectcost'], addressFields: ['originaladdress1'], zipField: 'originalzip',
-    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(RALEIGH), checkedOn: '2026-11-17', fieldSource: 'sourced',
-    note: 'City of Raleigh Building Permits, 83 fields. editingInfo.lastEditDate 2026-11-15 22:03 UTC; live query returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. parcelownername, contractor and reviewer columns are never read. Round 28: permitclassmapped ("Residential" or "Non-Residential", read from live features 2026-11-24; permitclass is null on them) is a summary part, so routing and the property filter see the class.',
+    windowForwardDays: 0, cadenceMinutes: 360, verified: true, verifiedUrl: M(RALEIGH), checkedOn: '2026-11-24', fieldSource: 'sourced',
+    note: 'City of Raleigh Building Permits, 83 fields. editingInfo.lastEditDate 2026-11-15 22:03 UTC; live query returned permits issued 2026-11-10 to 2026-11-12 with lon/lat geometry. parcelownername, contractor and reviewer columns are never read. Round 28: permitclassmapped ("Residential" or "Non-Residential", read from live features 2026-11-24; permitclass is null on them) is a summary part, so routing and the property filter see the class. It is classifier text too, as the Austin permit_class_mapped is: there "Non-Residential" makes an alteration or addition a tenant fit-out (lib/signals/mapping/permit.ts SOURCE_COMMERCIAL_CLASS_RE).',
   },
   {
     id: 'arcgis-dc-permits', city: 'Washington', state: 'DC', tz: 'America/New_York', layerUrl: DC,

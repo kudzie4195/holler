@@ -246,6 +246,8 @@ export interface PermitFields {
    * for unambiguous work phrases (MIXED_FIELD_PHRASES), never printed, and never a source of a generic kind.
    */
   mixed?: string[];
+  /** The dataset id. Only a few sources print a class value that is commercial there and not elsewhere (SOURCE_COMMERCIAL_CLASS_RE). */
+  source?: string;
 }
 
 export interface PermitClass {
@@ -346,8 +348,18 @@ export const COMMERCIAL_USE_RE =
  * and LA "Bldg-Alter/Repair | Commercial" sent a house cleaner an office job). Fit-out routes to commercial cleaning, signs, security and
  * pest control, never to house cleaning. Only the generic remodel and addition kinds are replaced; a named trade stays as it is.
  */
-function commercialFitOut(kinds: PermitKind[], structured: string[]): PermitKind[] {
-  if (!structured.some((v) => COMMERCIAL_USE_RE.test(v))) return kinds;
+/**
+ * Round 28 review D5: a class value that is commercial on one source only. Raleigh's permitclassmapped is "Residential" or "Non-Residential"
+ * (13,225 BLDNR rows, none with another class), so there "Non-Residential" reads like Austin's "Commercial": a non-residential alteration
+ * (BLDNR-042817-2026, an office) is a tenant fit-out. Other sources are read as before: the bare word is not in COMMERCIAL_USE_RE.
+ */
+const SOURCE_COMMERCIAL_CLASS_RE: Readonly<Record<string, RegExp>> = {
+  'arcgis-raleigh-permits': /^non[\s-]?residential$/i,
+};
+
+function commercialFitOut(kinds: PermitKind[], structured: string[], source?: string): PermitKind[] {
+  const sourceRe = source ? SOURCE_COMMERCIAL_CLASS_RE[source] : undefined;
+  if (!structured.some((v) => COMMERCIAL_USE_RE.test(v) || (sourceRe?.test(v) ?? false))) return kinds;
   if (!kinds.some((k) => k.id === 'remodel' || k.id === 'addition')) return kinds;
   const fit = PERMIT_KINDS.find((k) => k.id === 'fit-out')!;
   const out = kinds.filter((k) => k.id !== 'remodel' && k.id !== 'addition');
@@ -357,7 +369,7 @@ function commercialFitOut(kinds: PermitKind[], structured: string[]): PermitKind
 /** Picks the kinds by the precedence above, before the title-length cut. */
 function pickKinds(f: PermitFields): PermitKind[] {
   const structured = (f.structured ?? []).map((v) => normalizeWorkText(String(v ?? ''))).filter(Boolean);
-  return commercialFitOut(pickKindsRaw(f), structured);
+  return commercialFitOut(pickKindsRaw(f), structured, f.source);
 }
 
 function pickKindsRaw(f: PermitFields): PermitKind[] {

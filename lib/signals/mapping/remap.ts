@@ -59,7 +59,7 @@ export function remapPermitRow(row: StoredRuleRow): { categories: CategoryId[]; 
   const parts = (row.summary ?? '').split(' | ').map((p) => p.trim()).filter((p) => p && !isNoisePart(p));
   // A paperwork or temporary-protection work type (sidewalk shed, site-safety plan, fire sprinklers): no trade work, whatever the old tags say.
   if (parts.some((v) => NO_TRADE_WORK_TYPE_RE.test(normalizeWorkText(v)))) return { categories: [], label: null };
-  const fromSummary = classifyPermit({ structured: parts }, city);
+  const fromSummary = classifyPermit({ structured: parts, source: row.source }, city);
   const specific = fromSummary.kinds.some((id) => !PERMIT_KINDS.find((k) => k.id === id)?.generic);
   if (specific) return { categories: fromSummary.categories, label: fromSummary.label };
 

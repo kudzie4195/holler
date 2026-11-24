@@ -24,6 +24,8 @@ import { ARCGIS_DATASETS } from '@/lib/signals/adapters/arcgis-datasets';
 import { carriedTrades, downstreamTradesOf, routeKindsOf } from '@/lib/signals/permit-routing';
 import { isAlertLabel, labelFor, recordLabelInput } from '@/lib/signals/lead-rules';
 import { recordPropertyOf } from '@/lib/signals/work-profile';
+import { classifyPermit } from '@/lib/signals/mapping/permit';
+import { remapPermitRow } from '@/lib/signals/mapping/remap';
 import { CATEGORY_IDS, type CategoryId } from '@/lib/signals/categories';
 import type { SignalInput } from '@/lib/signals/types';
 
@@ -103,14 +105,15 @@ describe('R28 Raleigh', () => {
     expect(recordPropertyOf(rec(s))).toBe('commercial');
   });
 
-  it('non-residential alteration (BLDNR-042817-2026, office): fit-out, not flooring, painting, cleaning or handyman', () => {
+  it('non-residential alteration (BLDNR-042817-2026, office): fit-out heads-up for commercial cleaning, signs and security only', () => {
     const s = byId(raleigh, 'BLDNR-042817-2026');
-    expect(s.title).toBe('Remodel permit in Raleigh');
+    expect(s.title).toBe('Tenant fit-out permit in Raleigh');
     expect(s.summary).toBe('Building | Alteration/Repairs | Non-Residential | $639,901 job value | 3600 Glenwood Ave');
     expect(routeKindsOf(s.title, rec(s))).toEqual(['fit-out']);
+    expect(alerted(s).sort()).toEqual(['janitorial-commercial', 'security', 'signs-printing']);
     for (const t of HOME_ONLY) expect(carried(s)).not.toContain(t);
-    // Without the class the same title and summary routed to the home remodel trades.
-    const before = { ...rec(s), summary: 'Building | Alteration/Repairs | $639,901 job value | 3600 Glenwood Ave' };
+    // Before round 28 (no class in the summary, title "Remodel") the same row routed to the home remodel trades.
+    const before = { ...rec(s), title: 'Remodel permit in Raleigh', summary: 'Building | Alteration/Repairs | $639,901 job value | 3600 Glenwood Ave' };
     expect(carriedTrades(before, s.categories)).toEqual(expect.arrayContaining(['flooring', 'painting', 'cleaning', 'handyman']));
   });
 
@@ -164,5 +167,47 @@ describe('R28 other cities: routing and labels unchanged', () => {
     const sig = recordLabelInput(recd);
     for (const [t, l] of Object.entries(e.labels)) expect(labelFor(sig, t as CategoryId), t).toBe(l);
     expect(Object.keys(e.labels).every((t) => (CATEGORY_IDS as readonly string[]).includes(t))).toBe(true);
+  });
+});
+
+describe('R28 review: the mapped class alone never states a new home', () => {
+  const label = (r: { source: string; title: string; summary: string }, t: CategoryId) => labelFor(recordLabelInput({ ...r, kind: 'permit', subtype: 'permit' }), t);
+  // Real rows: Austin 2026-152164 BP (R- 329 Res Structures Other Than Bldg, a pool), 2026-141166 BP (R- 438, a detached carport) and
+  // 2026-141164 BP (R- 101, a house whose description gives no "New home" title). The summary is what the adapter writes at cae5aaf.
+  it.each([
+    ['socrata-austin-permits', 'Building Permit | New | Residential | 3415 RAIN FOREST DR'],
+    ['socrata-austin-permits', 'Building Permit | New | Residential | 2603 E 14TH ST'],
+    ['arcgis-raleigh-permits', 'Building | Deck/Porch | Residential | $38,000 job value | 7200 Bluffside Ct'],
+  ])('%s "New construction" with a bare Residential class is feed only for cleaning, moving and fencing', (source, summary) => {
+    const r = { source, title: `New construction permit in ${source.includes('austin') ? 'Austin' : 'Raleigh'}`, summary };
+    for (const t of ['cleaning', 'moving', 'fencing'] as CategoryId[]) expect(label(r, t), t).toBe('market_insight');
+  });
+  it('a part that names a dwelling still states a new home, and other cities read "Residential" as before', () => {
+    expect(label({ source: 'arcgis-raleigh-permits', title: 'New construction permit in Raleigh', summary: 'Building | New Residential Dwelling | Residential | 900 Currituck Dr' }, 'cleaning')).toBe('coming_soon');
+    expect(label({ source: 'socrata-orlando-permits', title: 'New construction permit in Orlando', summary: 'Building Permit | New | Residential | 1 MAIN ST' }, 'cleaning')).toBe('coming_soon');
+  });
+});
+
+describe('R28 review D5: Raleigh "Non-Residential" is a commercial class there only', () => {
+  it('a Raleigh non-residential alteration or addition is a tenant fit-out; a residential one stays a remodel', () => {
+    const src = 'arcgis-raleigh-permits';
+    expect(classifyPermit({ structured: ['Building', 'Alteration/Repairs', 'Non-Residential'], source: src }, 'Raleigh').label).toBe('Tenant fit-out');
+    expect(classifyPermit({ structured: ['Building', 'Addition', 'Non-Residential'], source: src }, 'Raleigh').label).toBe('Tenant fit-out');
+    expect(classifyPermit({ structured: ['Building', 'Alteration/Repairs', 'Residential'], source: src }, 'Raleigh').label).toBe('Remodel');
+    // A new building is not a fit-out (same as Austin record 67557).
+    expect(classifyPermit({ structured: ['Building', 'New Building', 'Non-Residential'], source: src }, 'Raleigh').label).toBe('New construction');
+  });
+  it('the same values on another source, or with no source, read as before', () => {
+    for (const source of [undefined, 'socrata-austin-permits', 'socrata-la-permits']) {
+      expect(classifyPermit({ structured: ['Building', 'Alteration/Repairs', 'Non-Residential'], source }, 'X').label, String(source)).toBe('Remodel');
+    }
+  });
+  it('the stored-row remap reads the class the same way, on Raleigh only', () => {
+    const row = (source: string) => ({
+      id: 1, source, title: 'Remodel permit in Raleigh', city: 'Raleigh', categories: ['general-contractor'], data: null,
+      summary: 'Building | Alteration/Repairs | Non-Residential | $639,901 job value | 3600 Glenwood Ave',
+    });
+    expect(remapPermitRow(row('arcgis-raleigh-permits'))?.label).toBe('Tenant fit-out');
+    expect(remapPermitRow(row('socrata-la-permits'))?.label).toBe('Remodel');
   });
 });
