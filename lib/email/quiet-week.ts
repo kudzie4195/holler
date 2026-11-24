@@ -1,5 +1,7 @@
 import { parseLang, type Lang } from '@/lib/i18n';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
+import { matchScope } from '@/lib/plan/scope';
+import { activeSeasons, seasonEmailEnabled, seasonLines } from '@/lib/season/active';
 import { digestCoverage } from './coverage';
 import { chunk, decideNotify, type NotifyProfile } from './notify-logic';
 import { renderDigest } from './templates';
@@ -214,7 +216,19 @@ export async function sendQuietWeek(deps: QuietWeekDeps): Promise<QuietWeekCount
           return null;
         }
       })();
-      const mail = renderDigest({ businessName: p.business_name, items: [], totalCount: 0, appUrl: `${deps.siteUrl}/app`, unsubscribeUrl, now: deps.now, lang, coverage, matchedLastWeek });
+      // Round 30: the season line ("This week in your area"), only while HOLLER_SEASON_ENABLED is "1": the member's main area and
+      // plan-limited trades, today. No row applies, or the switch is off: no `season`, and the email is exactly as before.
+      const season = seasonEmailEnabled()
+        ? (() => {
+            try {
+              const trades = matchScope({ categories: p.categories ?? null, lat: null, lon: null, state: null, plan: p.plan ?? null, subscription_status: p.subscription_status, plan_source: p.plan_source ?? null, store_expires_at: p.store_expires_at ?? null }).categories;
+              return seasonLines(activeSeasons({ lat: p.lat, lon: p.lon, trades, date: deps.now }), lang);
+            } catch {
+              return [];
+            }
+          })()
+        : [];
+      const mail = renderDigest({ businessName: p.business_name, items: [], totalCount: 0, appUrl: `${deps.siteUrl}/app`, unsubscribeUrl, now: deps.now, lang, coverage, matchedLastWeek, ...(season.length > 0 ? { season } : {}) });
       const res = await deps.send({
         to,
         subject: mail.subject,

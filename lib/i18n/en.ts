@@ -465,6 +465,9 @@ export const en = {
   'email.act.storm_hanger': 'Print a storm door hanger',
   'email.act.lists': 'Open your address lists',
   'email.source_link': 'public source',
+  // Round 30: the season line (lib/season), in the alert email, the quiet-week email and on /check.
+  'season.h': 'This week in your area',
+  'season.source': 'Public source',
   'email.honesty.listing': "A phone number or website above comes from the business's own public listing, not from the public record.",
   'email.empty.h': 'Nothing matched near you this week',
   'email.empty.body':

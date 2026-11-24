@@ -35,6 +35,7 @@ import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/
 import { parseLang, type Lang } from '@/lib/i18n';
 import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
 import { quietWeekEnabled, sendQuietWeek, type QuietWeekCounts } from '@/lib/email/quiet-week';
+import { activeSeasons, seasonEmailEnabled, seasonLines } from '@/lib/season/active';
 
 export const maxDuration = 60;
 
@@ -209,6 +210,24 @@ export async function GET(req: Request) {
     langById.clear();
   }
 
+  // Round 30: the member's main point, for the season line ("This week in your area", lib/season). Read only while HOLLER_SEASON_ENABLED
+  // is "1", and on its own like the language: with the switch off the run makes exactly the calls it made before; a failed read only
+  // leaves the season line out.
+  const pointById = new Map<string, { lat: number | null; lon: number | null }>();
+  if (seasonEmailEnabled()) {
+    try {
+      for (const ids of chunk(userIds)) {
+        const { data: ptRows, error: ptErr } = await admin.from('holler_profiles').select('user_id, lat, lon').in('user_id', ids);
+        if (ptErr) break;
+        for (const r of (ptRows ?? []) as unknown as Array<{ user_id?: string; lat?: unknown; lon?: unknown }>) {
+          if (r && typeof r.user_id === 'string') pointById.set(r.user_id, { lat: typeof r.lat === 'number' ? r.lat : null, lon: typeof r.lon === 'number' ? r.lon : null });
+        }
+      }
+    } catch {
+      pointById.clear();
+    }
+  }
+
   const plan = planNotify(userIds, profiles, now);
   counts.skipped_throttled = plan.counts.throttled ?? 0;
   counts.skipped_alerts_off = plan.counts.alerts_off ?? 0;
@@ -370,6 +389,9 @@ export async function GET(req: Request) {
       const unsubscribeUrl = `${siteUrl}/api/cron/notify/unsubscribe?t=${encodeURIComponent(
         signUnsubscribeToken(p.user_id, env.CRON_SECRET!),
       )}`;
+      // Round 30: "This week in your area" (lib/season), from the member's main point and plan-limited trades. Empty: no `season`.
+      const point = pointById.get(p.user_id);
+      const season = point ? seasonLines(activeSeasons({ lat: point.lat, lon: point.lon, trades, date: now }), lang) : [];
       const mail = renderDigest({
         businessName: p.business_name,
         items,
@@ -378,6 +400,7 @@ export async function GET(req: Request) {
         unsubscribeUrl,
         now,
         lang,
+        ...(season.length > 0 ? { season } : {}),
       });
       const res = await sendEmail({
         to: email,
