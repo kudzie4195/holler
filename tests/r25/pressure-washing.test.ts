@@ -93,7 +93,8 @@ describe.skipIf(!HAVE_EXPORT)('R25 pressure washing on the 14-day export', () =>
       expect(member.filter((i) => i.delivery === 'email').map((i) => i.id).sort()).toEqual([...emailed].sort());
       const place = lookupZip(zip)!;
       const v = checkVerdict(coverageFor(place, PRESSURE_WASHING_ID, isServedZip(place)).state, totals, { tradeLabel: 'Pressure washing', zip, lang: 'en' })!;
-      expect(v.count).toContain(`${totals.atLeast ? 'at least ' : ''}${expected} alerts would have been emailed to a pressure washing business within 25 miles of ${zip}`);
+      // R25 check fix (review R25CHECK P1-3): the sentence says the records would have reached the member as alerts.
+      expect(v.count).toContain(`${totals.atLeast ? 'at least ' : ''}${expected} ${expected === 1 ? 'record' : 'records'} near ${zip} would have reached a pressure washing business as ${expected === 1 ? 'an alert' : 'alerts'}`);
     }, 120_000);
   }
 });

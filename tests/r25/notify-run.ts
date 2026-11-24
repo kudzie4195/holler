@@ -45,6 +45,11 @@ export function scanMatches(zip: string, trades: string[], recs: readonly Export
 
 let marked: Array<{ ids: number[]; afterSend: boolean }> = [];
 let sends = 0;
+/**
+ * R25 check fix (review R25CHECK P1-3): what each digest the route rendered really shows: the cards listed (the items passed to
+ * renderDigest), the matches it stands for (totalCount) and its plain text, so a test can assert against the email, not only the ids.
+ */
+export const digests: Array<{ cards: number[]; total: number; text: string }> = [];
 function adminFake(matches: unknown[], trades: string[]) {
   return {
     from(table: string) {
@@ -77,6 +82,7 @@ function adminFake(matches: unknown[], trades: string[]) {
 export async function emailedByNotify(matches: ReturnType<typeof scanMatches>, trades: string[]): Promise<Set<number>> {
   marked = [];
   sends = 0;
+  digests.length = 0;
   vi.resetModules();
   vi.stubEnv('CRON_SECRET', 's3cret');
   vi.doMock('server-only', () => ({}));
@@ -86,10 +92,18 @@ export async function emailedByNotify(matches: ReturnType<typeof scanMatches>, t
     return { ...real, loadMemberContacts: async () => new Map() };
   });
   vi.doMock('@/lib/push/notify', () => ({ pushNewMatches: async () => ({}) }));
-  vi.doMock('@/lib/email', async (orig) => ({
-    ...(await orig<typeof import('@/lib/email')>()),
-    sendEmail: async () => (sends++, { ok: true, id: 'x' }),
-  }));
+  vi.doMock('@/lib/email', async (orig) => {
+    const real = await orig<typeof import('@/lib/email')>();
+    return {
+      ...real,
+      renderDigest: (opts: Parameters<typeof real.renderDigest>[0]) => {
+        const mail = real.renderDigest(opts);
+        digests.push({ cards: opts.items.map((i) => (typeof i.matchId === 'number' ? i.matchId - OFFSET : -1)), total: opts.totalCount, text: mail.text });
+        return mail;
+      },
+      sendEmail: async () => (sends++, { ok: true, id: 'x' }),
+    };
+  });
   const GET = (await import('@/app/api/cron/notify/route')).GET;
   const res = await GET(new Request('http://localhost/api/cron/notify', { headers: { authorization: 'Bearer s3cret' } }));
   expect(res.status).toBe(200);

@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 vi.mock('server-only', () => ({}));
 
 import { alertTotals } from '@/lib/check/delivery';
-import { checkVerdict, shortDate } from '@/lib/check/verdict';
+import { checkVerdict } from '@/lib/check/verdict';
 import { coverageFor } from '@/lib/check/cells';
 import { isServedZip } from '@/lib/check/coverage';
 import { lookupZip } from '@/lib/geo';
@@ -17,7 +17,7 @@ import type { CheckItem } from '@/lib/check/group';
 import { EXPORT, EXPORT_NOW, HAVE_EXPORT, checkFromExport, exportRows, unlimitedEmailed } from './export-reads';
 import { emailedByNotify, scanMatches } from './notify-run';
 
-const BANNED = /\bleads?\b|guaranteed|you will win|they need you|knock doors|14 days|\bdays?\b|días|—/i;
+const BANNED = /\bleads?\b|guaranteed|you will win|they need you|knock doors|14 days|\bdays?\b|días|—|\bsince\b|\bdesde\b/i;
 
 describe('alertTotals: counts only rows marked emailed, over every item given', () => {
   const it0 = { id: 1, occurredAt: '2026-11-20T12:00:00Z', lat: 35.2, lon: -80.8, place: 'Charlotte, NC' };
@@ -38,20 +38,22 @@ describe('alertTotals: counts only rows marked emailed, over every item given', 
 describe('checkVerdict wording (EN and ES)', () => {
   const ctx = { tradeLabel: 'Landscaping', zip: '28202' };
   const totals = { count: 91, places: 91, oldest: '2026-11-12T05:00:00Z', atLeast: false };
-  it('live: "Worth a trial here." and one counted sentence with "recently" and the oldest date, no window length', () => {
+  // R25 check fix (review R25CHECK P1-3): the sentence says the records would have reached the member as alerts, that each email lists up
+  // to 10, and names no date (the heading under it says the window).
+  it('live: "Worth a trial here." and one counted sentence with "recently", no date and no window length', () => {
     const en = checkVerdict('live', totals, { ...ctx, lang: 'en' })!;
     expect(en.head).toBe('Worth a trial here.');
-    expect(en.count).toBe('Recently, 91 alerts would have been emailed to a landscaping business within 25 miles of 28202, at 91 different places, since Nov 12.');
+    expect(en.count).toBe('Recently, 91 records near 28202 would have reached a landscaping business as alerts, at 91 different places. Each email lists up to 10; the rest are on your matches page.');
     const es = checkVerdict('live', totals, { ...ctx, tradeLabel: 'Jardinería', lang: 'es' })!;
     expect(es.head).toBe('Vale la pena probarlo aquí.');
-    expect(es.count).toBe('Recientemente, se habrían enviado por correo 91 alertas a un negocio de jardinería a menos de 25 millas de 28202, en 91 lugares distintos, desde el 12 nov.');
+    expect(es.count).toBe('Recientemente, 91 registros cerca de 28202 habrían llegado como alertas a un negocio de jardinería, en 91 lugares distintos. Cada correo muestra hasta 10; los demás están en su página de coincidencias.');
     for (const v of [en, es]) expect(`${v.head} ${v.count}`).not.toMatch(BANNED);
   });
   it('limited: "Too early to say here." with the count, or a plain line when there were none', () => {
     expect(checkVerdict('limited', { count: 5, places: 5, oldest: '2026-11-10T21:07:42Z', atLeast: false }, { ...ctx, tradeLabel: 'Siding and gutters', zip: '27601', lang: 'en' })).toEqual({
       state: 'limited',
       head: 'Too early to say here.',
-      count: 'Recently, 5 alerts would have been emailed to a siding and gutters business within 25 miles of 27601, at 5 different places, since Nov 10.',
+      count: 'Recently, 5 records near 27601 would have reached a siding and gutters business as alerts, at 5 different places. Each email lists up to 10; the rest are on your matches page.',
     });
     const none = checkVerdict('limited', { count: 0, places: 0, oldest: null, atLeast: false }, { ...ctx, tradeLabel: 'Lawn care', lang: 'en' })!;
     expect(none.count).toBe('Recently, no alerts would have been emailed to a lawn care business within 25 miles of 28202.');
@@ -59,22 +61,26 @@ describe('checkVerdict wording (EN and ES)', () => {
     expect(noneEs.head).toBe('Todavía es pronto para saberlo aquí.');
     expect(noneEs.count).toBe('Recientemente no se habría enviado ninguna alerta por correo a un negocio de corte de césped a menos de 25 millas de 28202.');
   });
-  it('a read that stopped at its limit says "at least"; one record says "on <date>"', () => {
+  it('a read that stopped at its limit says "at least"; one record is singular', () => {
     expect(checkVerdict('live', { count: 158, places: 146, oldest: '2026-11-09T12:00:00Z', atLeast: true }, { ...ctx, tradeLabel: 'Lawn care', zip: '78701', lang: 'en' })!.count).toBe(
-      'Recently, at least 158 alerts would have been emailed to a lawn care business within 25 miles of 78701, at 146 different places, since Nov 9.',
+      'Recently, at least 158 records near 78701 would have reached a lawn care business as alerts, at 146 different places. Each email lists up to 10; the rest are on your matches page.',
     );
-    expect(checkVerdict('live', { count: 158, places: 146, oldest: '2026-11-09T12:00:00Z', atLeast: true }, { ...ctx, tradeLabel: 'Corte de césped', zip: '78701', lang: 'es' })!.count).toContain('al menos 158 alertas');
+    expect(checkVerdict('live', { count: 158, places: 146, oldest: '2026-11-09T12:00:00Z', atLeast: true }, { ...ctx, tradeLabel: 'Corte de césped', zip: '78701', lang: 'es' })!.count).toContain('al menos 158 registros');
     expect(checkVerdict('limited', { count: 1, places: 1, oldest: '2026-11-17T00:00:00Z', atLeast: false }, { ...ctx, tradeLabel: 'Siding and gutters', zip: '30318', lang: 'en' })!.count).toBe(
-      'Recently, 1 alert would have been emailed to a siding and gutters business within 25 miles of 30318, on Nov 17.',
+      'Recently, 1 record near 30318 would have reached a siding and gutters business as an alert.',
     );
   });
   it('waitlist: no block at all', () => {
     expect(checkVerdict('waitlist', totals, { ...ctx, lang: 'en' })).toBeNull();
     expect(checkVerdict('waitlist', totals, { ...ctx, lang: 'es' })).toBeNull();
   });
-  it('dates are the calendar day of the oldest counted record', () => {
-    expect(shortDate('2026-11-12T05:00:00Z', 'en')).toBe('Nov 12');
-    expect(shortDate('2026-11-12T05:00:00Z', 'es')).toBe('12 nov');
+  it('no date in the sentence, whatever the oldest counted record (R25 check fix, review R25CHECK P1-3 and P3-3)', () => {
+    for (const oldest of ['2026-11-12T05:00:00Z', '2026-12-03T00:00:00Z', 'garbage']) {
+      for (const lang of ['en', 'es'] as const) {
+        const v = checkVerdict('live', { ...totals, oldest }, { ...ctx, lang })!;
+        expect(v.count).not.toMatch(/\b(since|desde|Nov|nov|Dec|dic)\b|undefined|NaN/);
+      }
+    }
   });
 });
 
@@ -139,7 +145,7 @@ describe.skipIf(!HAVE_EXPORT)('R25 count on the 14-day export', () => {
     expect(bySource['socrata-austin-violations']).toBe(155);
     const verdict = checkVerdict(coverageFor(lookupZip('78701')!, 'lawn-care', isServedZip(lookupZip('78701')!)).state, totals, { tradeLabel: 'Lawn care', zip: '78701', lang: 'en' })!;
     expect(verdict.head).toBe('Worth a trial here.');
-    expect(verdict.count).toMatch(/^Recently, at least 158 alerts would have been emailed to a lawn care business within 25 miles of 78701, at 146 different places, since Nov \d+\.$/);
+    expect(verdict.count).toBe('Recently, at least 158 records near 78701 would have reached a lawn care business as alerts, at 146 different places. Each email lists up to 10; the rest are on your matches page.');
   }, 120_000);
 
   it('Charlotte 28202 landscaping: 91, the full emailed set (with 100-row reads it read 22)', () => {
