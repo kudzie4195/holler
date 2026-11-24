@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pricing } from '@/components/pricing';
 import { t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import { addressListTradeNames } from '@/lib/plan/list-trades';
 import { jsonLdString } from '@/lib/seo/serialize';
 import { planNameEs } from '@/lib/plan/price-copy-es';
 import { CARD_OPTIONAL_OFFER_ES, COMPARISON_ES, PRICING_DESCRIPTION_ES, PRICING_FAQ_ES, PRICING_INTRO_ES, PRICING_TITLE_ES, YEARLY_NOTE_ES, pricingFaqLdEs, pricingLdEs } from '@/lib/plan/pricing-page-es';
@@ -89,6 +90,7 @@ export default function PricingPageEs() {
                   ))}
                 </tbody>
               </table>
+              <p className="mt-4 text-sm text-muted">{t('es', 'pricing.lists_note', { trades: addressListTradeNames('es') })}</p>
             </div>
           </div>
         </section>

@@ -16,6 +16,11 @@ export const WAITLIST = {
   tradeHeading: (trade: string, place: string) => `Not enough ${trade} work near ${place} yet.`,
   tradeNote: 'Holler reads records near you, but lately none of them has been work for this trade that a crew could act on. Pick another trade above, or leave your email and we will tell you when this one is worth paying for.',
   intro: "Leave your email and we'll tell you when it does.",
+  /** Round 24 FIX2 (review P3-2): under "Not enough {trade} work near {place} yet." the intro says "when there is", not "when it does". */
+  tradeIntro: "Leave your email and we'll tell you when there is.",
+  /** Round 24 FIX2 (review P3-1): a trade sign-up does not take anywhere (closed): the card says so instead of "lately none of them". */
+  tradeClosedNote: (trade: string) =>
+    `Holler is not taking sign-ups for ${trade} yet: it has not found enough of this work in the cities it measured. Pick another trade above, or leave your email and we will tell you when it opens.`,
   note: 'Storm reports and weather warnings reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
   emailLabel: 'Your email',
   tradeLabel: 'What you do',

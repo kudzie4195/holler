@@ -241,6 +241,16 @@ describe('English output is unchanged (round 18 ES)', () => {
       expect(base[k].split(FIX2_FROM).length - 1, `round 24 FIX2 ${k}`).toBe(1);
       base[k] = base[k].replace(FIX2_FROM, FIX2_FROM.replace('</p></div></div>', `</p></div>${FIX2_SECTION}</div>`));
     }
+    // Round 24 FIX2 (review P3-9): pricing says address lists are for the trades that have one, and names them under the table.
+    expect(base['pricing.html'].split('Address lists: where to hang and flyer this week').length - 1).toBe(4);
+    base['pricing.html'] = base['pricing.html'].split('Address lists: where to hang and flyer this week').join('Address lists, for trades that have one: where to hang and flyer this week');
+    expect(base['pricing.html'].split('Address lists and door hanger').length - 1).toBe(1);
+    base['pricing.html'] = base['pricing.html'].replace('Address lists and door hanger', 'Address lists (trades that have one) and door hanger');
+    expect(base['pricing.html'].split('</tbody></table>').length - 1).toBe(1);
+    base['pricing.html'] = base['pricing.html'].replace(
+      '</tbody></table>',
+      '</tbody></table><p class="mt-4 text-sm text-muted">Address lists are for siding and gutters, landscaping, house cleaning, lawn care and painting. The door hanger works for any trade.</p>',
+    );
     // The base carries the Coming next "more areas" row (INT2 copy pass: labelled "More cities") and the language-hint script, so nothing is patched into it here.
     expect(base['pricing.html']).toContain('More cities');
     expect(base['app-layout.html']).toContain('<script type="text/javascript">');

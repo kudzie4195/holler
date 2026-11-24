@@ -45,3 +45,12 @@ describe('D5: a weather alert card never leads to a page that says a storm repor
     }
   });
 });
+
+describe('P3-6: a federal bid stored with city "0" is not "in 0, MI"', () => {
+  it('heading and subject use the state, EN and ES', () => {
+    for (const lang of ['en', 'es'] as const) {
+      const m = mail({ kind: 'contract', source: 'sam-gov', subtype: 'bid', title: 'Federal bid in 0, MI: St. Marys River Sea Lamprey Trap (SLT)', place: '0, MI' }, lang);
+      expect(`${m.subject}\n${m.text}\n${m.html}`, lang).not.toMatch(/\b0, MI/);
+    }
+  });
+});

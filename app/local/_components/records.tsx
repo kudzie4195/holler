@@ -38,7 +38,7 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
     <li className="py-4">
       <p className="font-medium leading-snug">
         {item.url ? (
-          <a href={item.url} target="_blank" rel={ask ? 'nofollow ugc noopener' : 'noopener'} className={linkClass}>
+          <a href={item.url} target="_blank" rel={ask ? 'nofollow ugc noopener' : 'noopener'} className={`${linkClass} -my-3 inline-block py-3`}>
             {item.title}
           </a>
         ) : (
@@ -60,9 +60,9 @@ export function ItemRow({ item, ask, asOf }: { item: SectionItem; ask: boolean; 
           {fmtItemTime(item.occurredAt, asOf)}
         </time>
         <span>
-          Source:{' '}
+          Public source:{' '}
           {src.homeUrl ? (
-            <a href={src.homeUrl} target="_blank" rel="noopener" className={linkClass}>
+            <a href={src.homeUrl} target="_blank" rel="noopener" className={`${linkClass} inline-flex min-h-11 items-center`}>
               {src.label}
             </a>
           ) : (

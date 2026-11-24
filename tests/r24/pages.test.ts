@@ -282,3 +282,22 @@ describe('round 24 FIX2 (review D7): a closed trade page never says Holler email
     expect(html).toContain('What Holler sends');
   });
 });
+
+describe('round 24 FIX2 (review P3-1, P3-2): the waitlist card wording', () => {
+  it('a closed trade (plumbing at 30318) says sign-ups are not open, not "lately none of them"; EN and ES', async () => {
+    const en = await renderCheck({ zip: '30318', trade: 'plumbing' });
+    expect(en.text).toContain('Holler is not taking sign-ups for plumbing yet: it has not found enough of this work');
+    expect(en.text).not.toContain('lately none of them');
+    const es = await renderCheck({ zip: '30318', trade: 'plumbing' }, 'es');
+    expect(es.text).toContain('Holler todavía no acepta inscripciones para');
+  });
+  it('an open trade with nothing here (lawn care at 75201): "when there is", never "when it does"; EN and ES', async () => {
+    const en = await renderCheck({ zip: '75201', trade: 'lawn-care' });
+    expect(en.text).toContain("Leave your email and we'll tell you when there is.");
+    expect(en.text).not.toContain('when it does');
+    expect(en.text).toContain('lately none of them');
+    const es = await renderCheck({ zip: '75201', trade: 'lawn-care' }, 'es');
+    expect(es.text).toContain('le avisaremos cuando lo haya');
+    expect(es.text).not.toContain('le avisaremos cuando la cubra');
+  });
+});

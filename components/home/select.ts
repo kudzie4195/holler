@@ -11,9 +11,17 @@ export function newestRecord(map: HomeMap): MapRecord | null {
   return [...map.records].sort((a, b) => time(b) - time(a))[0];
 }
 
-/** The record on the alert card and the phone's push banner: the newest permit, else the newest record. */
+/**
+ * Round 24 FIX2 (review P3-8): the home page shows a permit a marketed trade would get: a new-home, new-construction or re-roof permit
+ * (landscaping, lawn care, cleaning and siding and gutters get those as downstream alerts), never an electrical or HVAC permit.
+ */
+export const MARKETED_PERMIT_RE = /^(?:New (?:home|construction|build)|Re-?roof|Roof)\b[^.]*\bpermit\b/i;
+const marketedPermit = (r: MapRecord) => r.family === 'permit' && MARKETED_PERMIT_RE.test(r.title);
+
+/** The record on the alert card and the phone's push banner: the newest marketed permit, else the newest permit, else the newest record. */
 export function featuredRecord(map: HomeMap): MapRecord {
-  const permits = map.records.filter((r) => r.family === 'permit');
+  const marketed = map.records.filter(marketedPermit);
+  const permits = marketed.length ? marketed : map.records.filter((r) => r.family === 'permit');
   const pool = permits.length ? permits : map.records;
   // Round 24 (review P2-9): the example leads with a launch trade (lib/seo/home-map.ts EXAMPLE_RECORDS).
   if (!map.live) return pool.find((r) => /^Gutter permit/.test(r.title)) ?? pool[0];
@@ -31,7 +39,8 @@ export function phoneRecords(map: HomeMap, featured: MapRecord): MapRecord[] {
 export function ledgerExamples(map: HomeMap, weather: LedgerExample | null): Record<Family, LedgerExample | null> {
   const fromMap = (f: Family): LedgerExample | null => {
     if (!map.live) return null;
-    const r = [...map.records].filter((x) => x.family === f).sort((a, b) => time(b) - time(a))[0];
+    // The permit line shows a permit a marketed trade gets (P3-8), or no example at all.
+    const r = [...map.records].filter((x) => (f === 'permit' ? marketedPermit(x) : x.family === f)).sort((a, b) => time(b) - time(a))[0];
     return r && r.occurredAt ? { title: r.title, occurredAt: r.occurredAt, mi: r.mi, tz: HOME_TZ } : null;
   };
   const tidy = (e: LedgerExample | null): LedgerExample | null => (e ? { ...e, title: tidyInches(e.title) } : null);

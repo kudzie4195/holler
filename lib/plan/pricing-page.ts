@@ -37,7 +37,8 @@ export const COMPARISON: [string, string, string][] = [
   ['Email alerts', 'Yes', 'Yes'],
   ['Matches page', 'Yes', 'Yes'],
   // Round 23: both have been in /app since round 18 and were on neither card nor this table.
-  ['Address lists and door hanger', 'Yes', 'Yes'],
+  // Round 24 FIX2 (review P3-9): only some trades have a neighborhood list; the page names them under the table.
+  ['Address lists (trades that have one) and door hanger', 'Yes', 'Yes'],
   ['Replies to resident requests', 'Yes', 'Yes'],
 ];
 

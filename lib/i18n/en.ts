@@ -1350,6 +1350,8 @@ export const en = {
   'wl.card.eyebrow': 'Coming to your area',
   'wl.card.heading': "Holler isn't covering {place} yet.",
   'wl.card.intro': "Leave your email and we'll tell you when it does.",
+  'wl.card.intro_trade': 'Leave your email and we\'ll tell you when there is.',
+  'chk.empty.trade_closed': 'Holler is not taking sign-ups for {trade} yet: it has not found enough of this work in the cities it measured. Pick another trade above, or leave your email and we will tell you when it opens.',
   'wl.card.note': 'Storm reports and weather warnings reach every ZIP. Permits and city requests need a local source, and none is connected near you yet.',
   'wl.card.email': 'Your email',
   'wl.card.trade': 'What you do',
@@ -1413,7 +1415,8 @@ export const en = {
   'auth.signup.wait_sub': 'Holler has had no usable records near {city} yet. Check your ZIP to see what Holler has where you work.',
   'auth.signup.wait_link': 'Check your ZIP',
   'pricing.card_offer': 'Add a card now and nothing is charged until your {days}-day trial ends. You can cancel in Settings before the trial ends and pay nothing.',
-  'pricing.row.lists': 'Address lists and door hanger',
+  'pricing.row.lists': 'Address lists (trades that have one) and door hanger',
+  'pricing.lists_note': 'Address lists are for {trades}. The door hanger works for any trade.',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,
 } as const;

@@ -325,7 +325,8 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
     // Round 18 ES: the login, signup and forgot bodies are shared with /es (components/auth-pages.tsx); every switch link uses switchLink.
     const bodies = read('components/auth-pages.tsx');
     expect(bodies).toContain("const switchLink = 'inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline';");
-    expect(bodies.match(/className=\{switchLink\}/g)).toHaveLength(3);
+    // Round 24 FIX2 (review D2): a fourth switch link, "Check your ZIP" on a sign-up from a waitlist city, uses the same 44 by 44 class.
+    expect(bodies.match(/className=\{switchLink\}/g)).toHaveLength(4);
   });
 
   it('a large browser text size cannot push a page sideways: labels wrap under 22.5rem, long words break (review 2b P2-7)', () => {

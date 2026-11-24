@@ -62,7 +62,7 @@ function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
       <div className="min-w-0">
         <p className="font-medium leading-snug">
           {item.url ? (
-            <a href={item.url} target="_blank" rel={item.kind === 'ask' ? 'nofollow ugc noopener' : 'noopener'} className={linkClass}>
+            <a href={item.url} target="_blank" rel={item.kind === 'ask' ? 'nofollow ugc noopener' : 'noopener'} className={`${linkClass} -my-3 inline-block py-3`}>
               {item.title}
             </a>
           ) : (
@@ -75,7 +75,7 @@ function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
           </time>
           {place ? <span>{place}</span> : null}
           <span>
-            Source:{' '}
+            Public source:{' '}
             {src.homeUrl ? (
               <a href={src.homeUrl} target="_blank" rel="noopener" className={`${linkClass} inline-flex min-h-11 items-center`}>
                 {src.label}

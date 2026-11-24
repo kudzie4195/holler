@@ -12,6 +12,7 @@ import type { CoverageState } from '@/lib/check/cells';
 
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
+import { withoutZeroCity } from '@/lib/email/templates';
 
 /**
  * Round 24 FIX2 (review D1): the button promises email only when what it sits under is emailed. 'email': "Get alerts by email" (an empty
@@ -241,7 +242,7 @@ export function CheckResults({
                           {timeAgo(it.occurredAt, now, lang)}
                         </time>
                       </div>
-                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{localizeTitle(it.title, lang, it.source)}</p>
+                      <p className="mt-2 text-lg font-semibold leading-snug text-ink">{withoutZeroCity(localizeTitle(it.title, lang, it.source))}</p>
                       <DeliveryMark delivery={it.delivery} lang={lang} />
                       <p className="text-sm text-muted">
                         {href ? (

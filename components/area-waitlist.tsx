@@ -21,6 +21,7 @@ export function AreaWaitlist({
   groups,
   tradeLabel = null,
   words = null,
+  closed = false,
 }: {
   zip: string;
   trade: string;
@@ -38,6 +39,8 @@ export function AreaWaitlist({
    * the confirm page are Spanish. Without it the card is the English one, byte for byte, and posts no language.
    */
   words?: WaitlistCardWords | null;
+  /** Round 24 FIX2 (review P3-1): the trade is closed everywhere (sign-up does not take it): the note says so. */
+  closed?: boolean;
 }) {
   const headingId = useId();
   const statusId = useId();
@@ -49,7 +52,8 @@ export function AreaWaitlist({
   const w = words ?? {
     ...WAITLIST,
     heading: tradeLabel ? WAITLIST.tradeHeading(tradeLabel.toLowerCase(), placeLabel) : WAITLIST.heading(placeLabel),
-    note: tradeLabel ? WAITLIST.tradeNote : WAITLIST.note,
+    intro: tradeLabel ? WAITLIST.tradeIntro : WAITLIST.intro,
+    note: tradeLabel ? (closed ? WAITLIST.tradeClosedNote(tradeLabel.toLowerCase()) : WAITLIST.tradeNote) : WAITLIST.note,
     thanks: WAITLIST.thanks(placeLabel),
   };
 

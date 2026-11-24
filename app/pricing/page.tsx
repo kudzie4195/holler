@@ -12,6 +12,8 @@ import { socialMeta } from '@/lib/seo/social';
 import { TIER_NAMES } from '@/lib/plan/limits';
 import { CARD_OPTIONAL_OFFER, COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_INTRO, PRICING_TITLE, YEARLY_NOTE, pricingLd } from '@/lib/plan/pricing-page';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import { t } from '@/lib/i18n';
+import { addressListTradeNames } from '@/lib/plan/list-trades';
 
 const PAIR = ES_PAIRS[2];
 
@@ -80,6 +82,7 @@ export default function PricingPage() {
                   ))}
                 </tbody>
               </table>
+              <p className="mt-4 text-sm text-muted">{t('en', 'pricing.lists_note', { trades: addressListTradeNames('en') })}</p>
             </div>
           </div>
         </section>

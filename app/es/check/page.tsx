@@ -182,7 +182,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         placeLabel={placeLabel}
         groups={waitlistTradeGroups(place, served, L)}
         tradeLabel={served ? tradeLabel(params.trade, L) : null}
-        words={waitlistWordsEs(placeLabel, served ? lowerFirst(tradeLabel(params.trade, L)) : null)}
+        words={waitlistWordsEs(placeLabel, served ? lowerFirst(tradeLabel(params.trade, L)) : null, answer.closed)}
       />
     ) : null;
 
@@ -233,12 +233,13 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
 }
 
 /** The waitlist card's words in Spanish, finished on the server (the place and the trade filled in). */
-function waitlistWordsEs(placeLabel: string, tradeWord: string | null): WaitlistCardWords {
+function waitlistWordsEs(placeLabel: string, tradeWord: string | null, closed = false): WaitlistCardWords {
   return {
     eyebrow: t(L, 'wl.card.eyebrow'),
     heading: tradeWord ? `${t(L, 'chk.h.trade_wait', { trade: tradeWord, place: placeLabel })}.` : t(L, 'wl.card.heading', { place: placeLabel }),
-    intro: t(L, 'wl.card.intro'),
-    note: tradeWord ? t(L, 'chk.empty.trade_wait') : t(L, 'wl.card.note'),
+    // Round 24 FIX2 (review P3-1, P3-2): "cuando lo haya" under the trade heading; the closed wording for a closed trade.
+    intro: t(L, tradeWord ? 'wl.card.intro_trade' : 'wl.card.intro'),
+    note: tradeWord ? (closed ? t(L, 'chk.empty.trade_closed', { trade: tradeWord }) : t(L, 'chk.empty.trade_wait')) : t(L, 'wl.card.note'),
     emailLabel: t(L, 'wl.card.email'),
     tradeLabel: t(L, 'wl.card.trade'),
     button: t(L, 'wl.card.button'),

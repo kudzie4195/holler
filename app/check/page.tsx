@@ -175,6 +175,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         placeLabel={placeLabel}
         groups={waitlistTradeGroups(place, served)}
         tradeLabel={served ? tradeLabel(params.trade) : null}
+        closed={answer.closed}
       />
     ) : null;
 

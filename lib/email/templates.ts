@@ -312,6 +312,8 @@ function familyOf(it: DigestItem): BriefFamily {
  */
 function looksLikePlace(s: string): boolean {
   if (s.length > 44 || /[.;:]/.test(s)) return false;
+  // Round 24 FIX2 (review P3-6): a city stored as "0" ("0, MI") is not a place; the card falls back to the title.
+  if (!/\p{L}/u.test(s.split(',')[0] ?? '')) return false;
   return s.split(/\s+/).every((w) => {
     const core = w.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, '');
     return core.replace(/\P{L}/gu, '').length < 2 || /^[\p{Lu}\d]/u.test(core);
@@ -355,7 +357,7 @@ function tidyCutTitle(s: string): string {
  * ("sewage_back-up_discharge", review P3), a stored cut at a whole word, and (anything but a building permit) no house number.
  */
 function displayTitle(it: DigestItem, lang: Lang): string {
-  let title = tidyCutTitle(noDash(localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' '));
+  let title = withoutZeroCity(tidyCutTitle(noDash(localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' ')));
   const fam = familyOf(it);
   if (fam !== 'permit' && !NO_BLOCK_REWRITE.includes(fam)) {
     title = title.replace(HOUSE_ADDRESS_RE, (_m, num: string, street: string) => {
@@ -364,6 +366,11 @@ function displayTitle(it: DigestItem, lang: Lang): string {
     });
   }
   return title;
+}
+
+/** Round 24 FIX2 (review P3-6): "Federal bid in 0, MI: ..." (a city stored as "0") reads "Federal bid in MI: ...". */
+export function withoutZeroCity(title: string): string {
+  return title.replace(/\b(in|en) 0, ([A-Z]{2})\b/g, '$1 $2');
 }
 
 /** "7800 block of S AVALON AVE" in English, "cuadra 7800 de S AVALON AVE" in Spanish. Null when the part is not a hundred-block. */

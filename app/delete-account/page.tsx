@@ -23,7 +23,7 @@ export default function DeleteAccountPage() {
       <DocSection title="On the website">
         <ol className="list-decimal pl-5">
           <li>
-            Sign in at <Link href="/login">{COMPANY.site}</Link>.
+            Sign in at <Link href="/login" className="inline-flex min-h-11 items-center">{COMPANY.site}</Link>.
           </li>
           <li>Open Settings.</li>
           <li>Under Delete account, press Delete my account.</li>

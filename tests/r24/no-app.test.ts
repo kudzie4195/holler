@@ -47,8 +47,11 @@ describe('pricing, both languages', () => {
   });
   it('/es/pricing has the card-optional offer and the address lists row, like /pricing (review P2-6)', () => {
     expect(esHtml).toContain('Agregue una tarjeta ahora y no se cobra nada hasta que termine su prueba de 30 días.');
-    expect(esHtml).toContain('Listas de direcciones y colgante para puertas');
-    expect(enHtml).toContain('Address lists and door hanger');
+    // Round 24 FIX2 (review P3-9): the row says lists are for the trades that have one, and a note names them.
+    expect(esHtml).toContain('Listas de direcciones (oficios que las tienen) y colgante para puertas');
+    expect(enHtml).toContain('Address lists (trades that have one) and door hanger');
+    expect(enHtml).toContain('Address lists are for siding and gutters, landscaping, house cleaning, lawn care and painting.');
+    expect(esHtml).toContain('Las listas de direcciones son para');
   });
   it('no longer says "there is no app" and "buy in the app" on the same page', () => {
     expect(enHtml).not.toContain('A plan you buy in the app');

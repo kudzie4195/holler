@@ -40,6 +40,14 @@ export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: 
   const sp = await searchParams;
   const citySlug = cleanCitySlug(typeof sp.city === 'string' ? sp.city : null);
   const city = citySlug ? cityBySlug(citySlug) : null;
+  const haveAccount = (
+    <>
+      {w('auth.signup.have', 'Already have an account?')}{' '}
+      <Link href={path(lang, '/login')} className={switchLink}>
+        {w('auth.login', 'Log in')}
+      </Link>
+    </>
+  );
   // Round 24 FIX2 (review D2): a city the ZIP check calls waitlist gets no trial pitch. Old shared and indexed links still open (200): the
   // page says Holler is not ready there and links to the ZIP check. The account form stays, for an owner who works somewhere else.
   if (city && signupCityWaitlist(city)) {
@@ -53,14 +61,7 @@ export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: 
             {t(lang, 'auth.signup.wait_link')}
           </Link>
         }
-        footer={
-          <>
-            {w('auth.signup.have', 'Already have an account?')}{' '}
-            <Link href={path(lang, '/login')} className={switchLink}>
-              {w('auth.login', 'Log in')}
-            </Link>
-          </>
-        }
+        footer={haveAccount}
       >
         <SignupForm city={null} lang={lang} />
       </AuthCard>
@@ -80,14 +81,7 @@ export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: 
     <AuthCard
       title={w('auth.signup.h', 'Start your free trial')}
       subtitle={subtitle}
-      footer={
-        <>
-          {w('auth.signup.have', 'Already have an account?')}{' '}
-          <Link href={path(lang, '/login')} className={switchLink}>
-            {w('auth.login', 'Log in')}
-          </Link>
-        </>
-      }
+      footer={haveAccount}
     >
       <SignupForm city={city ? citySlug : null} lang={lang} />
     </AuthCard>
