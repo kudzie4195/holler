@@ -11,6 +11,7 @@ import { t, type Lang } from '@/lib/i18n';
 import type { CoverageState } from '@/lib/check/cells';
 import type { CheckVerdict } from '@/lib/check/verdict';
 import { tradeInSentence } from '@/lib/check/trades';
+import type { SeasonLine } from '@/lib/season/active';
 
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
@@ -66,6 +67,28 @@ function VerdictBlock({ verdict }: { verdict: CheckVerdict | null }) {
     <div className="mb-8 max-w-2xl rounded-card border-2 border-ink bg-surface p-5" data-testid="check-verdict" data-verdict={verdict.state}>
       <p className="font-display text-3xl text-ink">{verdict.head}</p>
       {verdict.count ? <p className="mt-2 text-lg text-ink" data-testid="check-verdict-count">{verdict.count}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * Round 30: "This week in your area", one line per season row under the verdict (lib/season/active.ts). Nothing when no row applies; the
+ * caller passes rows only for a live or limited cell, and this block is never rendered on a waitlist answer either way.
+ */
+function SeasonNote({ lines, lang }: { lines: readonly SeasonLine[] | null; lang: Lang }) {
+  if (!lines || lines.length === 0) return null;
+  return (
+    <div className="mb-8 max-w-2xl" data-testid="check-season">
+      {lines.map((l, i) => (
+        <p key={l.id} className={`${i > 0 ? 'mt-2 ' : ''}text-ink`} data-season={l.id}>
+          {i === 0 ? <span className="font-semibold">{t(lang, 'season.h')}: </span> : null}
+          {l.text}{' '}
+          <a href={l.source} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text underline decoration-1 underline-offset-4">
+            {t(lang, 'season.source')}
+            <span className="sr-only">{t(lang, 'brief.sr_new_tab')}</span>
+          </a>
+        </p>
+      ))}
     </div>
   );
 }
@@ -135,6 +158,7 @@ export function CheckResults({
   cityLink = null,
   reads = null,
   emailedTotal = null,
+  season = null,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -178,6 +202,8 @@ export function CheckResults({
    * alertTotals). When given, the offer promises email from this count, not from the listed rows. Null: the listed rows decide, as before.
    */
   emailedTotal?: number | null;
+  /** Round 30: season lines for this ZIP, trade and day (lib/season). Shown under the verdict on a live or limited answer only. */
+  season?: readonly SeasonLine[] | null;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
@@ -191,6 +217,8 @@ export function CheckResults({
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
+  // Round 30: never on a waitlist answer, whatever the caller passed.
+  const seasonShown = hideOffer ? null : season;
   const limitedCityLink = coverageState === 'limited' ? cityLink : null;
   // R25 check fix (review R25CHECK P3-4): acronyms keep their capitals ("heating and air (HVAC)").
   const tradeWord = tradeInSentence(tradeLabel);
@@ -240,7 +268,7 @@ export function CheckResults({
             : lang === 'en' ? `Holler is watching near ${placeLabel} for ${trade} work` : t(lang, 'chk.h.watching', { place: placeLabel, trade })}
         </h2>
         <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
-        {mode === 'results' ? <div className="mt-6"><VerdictBlock verdict={verdict} /></div> : null}
+        {mode === 'results' ? <div className="mt-6"><VerdictBlock verdict={verdict} /><SeasonNote lines={seasonShown} lang={lang} /></div> : null}
         {LimitedNote}
         {mode === 'results' ? <div className="mt-4 max-w-2xl empty:hidden"><CoverageNoticeLine line={coverage} /></div> : null}
         {mode !== 'uncovered' ? (
@@ -269,6 +297,7 @@ export function CheckResults({
   return (
     <section aria-labelledby="check-heading" className="mt-10">
       <VerdictBlock verdict={hideOffer ? null : verdict} />
+      {mode === 'results' ? <SeasonNote lines={seasonShown} lang={lang} /> : null}
       <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
         {lang === 'en'
           ? `${tradeLabel} within ${CHECK_LIST_RADIUS_LABEL} of ${placeLabel}, last ${CHECK_WINDOW_DAYS} days`
