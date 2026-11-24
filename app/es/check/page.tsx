@@ -19,6 +19,7 @@ import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { alertTotals, memberItems } from '@/lib/check/delivery';
 import { checkVerdict } from '@/lib/check/verdict';
+import { areaCheckPath } from '@/lib/check/funnel';
 import { checkCityLink, checkReads } from '@/lib/check/reads';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
@@ -221,9 +222,9 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     );
   }
 
-  // Funnel step: one area check. Path only, never the ZIP or the trade. Runs after the response; skipped for privacy signals and bots.
+  // Funnel step: one area check. Path only, never the ZIP or the trade. Round 25: the path is the answer given (lib/check/funnel.ts). Runs after the response; skipped for privacy signals and bots.
   const ctx = await eventContext().catch(() => null);
-  if (ctx) after(() => trackVisitorStep('area_check', ctx, '/es/check'));
+  if (ctx) after(() => trackVisitorStep('area_check', ctx, areaCheckPath(coverageState, L)));
 
   const [data, snapshot] = await Promise.all([
     loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
