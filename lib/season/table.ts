@@ -5,8 +5,16 @@
  * HOW TO EDIT A ROW. Dates are month-day strings, 'MM-DD', recurring every year. `start` and `end` are inclusive; a window whose end comes
  * before its start runs over the new year ('11-15' to '01-15'). `peak` is optional: rows are ordered by how close today is to it (the
  * window's midpoint when absent). After a fact-check, change the dates or text, then set `verifiedOn` to the day you checked and
- * `confidence` to 'checked' only when the window's anchor date comes from the source itself. tests/season/table.test.ts checks every row
- * on every edit (dates valid, EN and ES twins, wording rules, a source URL on every row).
+ * `confidence` by the one rule below. tests/season/table.test.ts checks every row on every edit (dates valid, EN and ES twins, wording
+ * rules, a source URL on every row, the confidence of every row).
+ *
+ * CONFIDENCE, ONE RULE. A row's anchor is the dated event its window is built on (the first freeze, the pre-emergent date, the pollen
+ * peak, the seeding window). 'checked' only when the cited source itself states that anchor date as usual timing (not a one-year
+ * forecast, not one year's sales), either for the metro by name or for a region it names explicitly that contains the metro (North
+ * Georgia, North Carolina, the Piedmont, central North Carolina, Central Texas, Williamson County in the Austin metro). Window edges
+ * Holler sets around a checked anchor do not change the label. Everything else is 'estimate': a window Holler builds on an event the
+ * source does not date that way (gutters after the last leaf drop, leaf clean-ups after peak color, listing prep before one year's best
+ * listing weeks), and such a line says "Holler estimates" / "Holler estima" for its booking or service window.
  *
  * WORDING RULES (every `en` and `es`): a window is typical timing, never a fact about a property ("usually", "typically", "can"); weather
  * and pests never state damage as fact; never "lead"/"leads", "guaranteed", "you will win", "they need you", "knock doors"; no em dash.
@@ -16,8 +24,7 @@
  * independent date check /home/claude/gates/r30/review/VERIFY.md, all as of 2026-11-24 (VERIFY.md's corrections are applied: fescue
  * Sep 1 to Oct 1 in the NC Piedmont, pre-emergent by end of February in Raleigh and mid-February near Austin, Charlotte first freeze
  * Nov 5, Raleigh leaf window Oct 25 to Dec 10, no "leaves mostly down by late November", the gutter window as Holler's own estimate).
- * `confidence: 'estimate'` marks a window derived or assumed; 'checked' marks one whose anchor date the cited source states. Edit dates
- * here only: nothing else reads them.
+ * Edit dates here only: nothing else reads them.
  */
 
 /** The measured centres the season table covers (lib/check/cells.ts CENTRE_SOURCE ids; coordinates come from there, never from here). */
@@ -125,46 +132,47 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
     source: SRC.ncsuFoliage, verifiedOn: R30, confidence: 'estimate',
   },
 
-  // Irrigation winterizing: the weeks around the average first fall freeze (anchors checked, VERIFY.md 1b, 1d, 1e, 1f; window derived).
+  // Irrigation winterizing: the weeks around the average first fall freeze. Each source states the freeze date for the metro's own
+  // station (VERIFY.md 1b, 1d, 1e, 1f), so checked; the weeks around it are Holler's edges.
   {
     id: 'irrigation-winterize-atlanta', topic: 'irrigation-winterize', centre: 'atlanta', trades: IRRIGATION, start: '11-03', end: '11-20', peak: '11-13',
     en: 'The average first freeze in Atlanta comes around November 13. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
     es: 'La primera helada promedio en Atlanta llega alrededor del 13 de noviembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
-    source: SRC.ffcFrost, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ffcFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-charlotte', topic: 'irrigation-winterize', centre: 'charlotte', trades: IRRIGATION, start: '10-26', end: '11-13', peak: '11-05',
     en: 'The average first freeze in Charlotte comes around November 5. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
     es: 'La primera helada promedio en Charlotte llega alrededor del 5 de noviembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
-    source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-raleigh', topic: 'irrigation-winterize', centre: 'raleigh', trades: IRRIGATION, start: '10-20', end: '11-06', peak: '10-30',
     en: 'The average first freeze in Raleigh comes around October 30. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
     es: 'La primera helada promedio en Raleigh llega alrededor del 30 de octubre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
-    source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ncsuFrost, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'irrigation-winterize-austin', topic: 'irrigation-winterize', centre: 'austin', trades: IRRIGATION, start: '11-21', end: '12-08', peak: '12-01',
     en: 'The average first freeze in Austin comes around December 1. Freezing temperatures can affect exposed sprinkler parts, so irrigation winterizing is typically booked in the weeks around it.',
     es: 'La primera helada promedio en Austin llega alrededor del 1 de diciembre. Las temperaturas bajo cero pueden afectar las partes expuestas del riego, por eso la preparación del riego para el invierno se suele programar en las semanas cercanas.',
-    source: SRC.ewxAustin, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ewxAustin, verifiedOn: R30, confidence: 'checked',
   },
 
-  // Spring pre-emergent (VERIFY.md 4a, 4b, 4d): Atlanta Mar 1 at 52F (UGA); Raleigh by end of February and Charlotte very early March at
-  // 55F (NC State; Charlotte is "western Piedmont", not named, so estimate); Austin by mid-February (AgriLife Williamson County, the
-  // adjacent county, so estimate).
+  // Spring pre-emergent (VERIFY.md 4a, 4b, 4d), all checked: Atlanta Mar 1 at 52F (a UGA climate blog post, 2015, Atlanta named);
+  // Raleigh by end of February in central NC and Charlotte very early March in the central and western Piedmont at 55F (NC State, the
+  // regions named); Austin by mid-February (AgriLife Williamson County, which is part of the Austin metro).
   {
     id: 'pre-emergent-atlanta', topic: 'pre-emergent', centre: 'atlanta', trades: LAWN, start: '02-15', end: '03-15', peak: '03-01',
-    en: 'University of Georgia guidance puts spring pre-emergent timing around Atlanta near March 1, when soil near the surface typically reaches about 52°F. Timing can shift with the weather.',
-    es: 'La guía de la Universidad de Georgia ubica el momento del preemergente de primavera en la zona de Atlanta cerca del 1 de marzo, cuando el suelo cerca de la superficie suele llegar a unos 52 °F. Las fechas pueden cambiar con el clima.',
+    en: 'A University of Georgia climate blog post puts spring pre-emergent timing around Atlanta near March 1, when soil near the surface typically reaches about 52°F. Timing can shift with the weather.',
+    es: 'Una publicación del blog de clima de la Universidad de Georgia ubica el momento del preemergente de primavera en la zona de Atlanta cerca del 1 de marzo, cuando el suelo cerca de la superficie suele llegar a unos 52 °F. Las fechas pueden cambiar con el clima.',
     source: SRC.ugaCrabgrass, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pre-emergent-charlotte', topic: 'pre-emergent', centre: 'charlotte', trades: LAWN, start: '02-15', end: '03-10', peak: '03-01',
     en: 'NC State guidance for the central and western Piedmont typically points to very early March for spring pre-emergent, when soil holds near 55°F for a few days. Timing around Charlotte can shift with the weather.',
     es: 'La guía de NC State para el centro y el oeste del Piedmont suele indicar los primeros días de marzo para el preemergente de primavera, cuando el suelo se mantiene cerca de 55 °F por unos días. Las fechas en la zona de Charlotte pueden cambiar con el clima.',
-    source: SRC.ncsuPreemergent, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ncsuPreemergent, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pre-emergent-raleigh', topic: 'pre-emergent', centre: 'raleigh', trades: LAWN, start: '02-01', end: '02-28', peak: '02-20',
@@ -176,28 +184,29 @@ export const SEASON_TABLE: readonly SeasonRow[] = [
     id: 'pre-emergent-austin', topic: 'pre-emergent', centre: 'austin', trades: LAWN, start: '01-25', end: '02-15', peak: '02-08',
     en: 'Texas A&M AgriLife in nearby Williamson County advises putting out spring pre-emergent by mid-February. Timing around Austin can shift with the weather.',
     es: 'Texas A&M AgriLife en el vecino condado de Williamson aconseja aplicar el preemergente de primavera antes de mediados de febrero. Las fechas en la zona de Austin pueden cambiar con el clima.',
-    source: SRC.agrilifeWilliamson, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.agrilifeWilliamson, verifiedOn: R30, confidence: 'checked',
   },
 
-  // Pine and tree pollen wash season, Mar 15 to Apr 25 (peaks confirmed, VERIFY.md 3a to 3c; the wash window around them is derived).
-  // Austin mountain cedar, Dec 15 to Mar 1, cleaning only (confirmed, VERIFY.md 3d).
+  // Pine and tree pollen wash season, Mar 15 to Apr 25, all checked: the peak is stated for North Georgia and metro Atlanta (FOX 5) and
+  // for North Carolina (NC State), VERIFY.md 3a to 3c; the wash window around it is Holler's edges. Austin mountain cedar, Dec 15 to
+  // Mar 1, Central Texas (VERIFY.md 3d).
   {
     id: 'pollen-atlanta', topic: 'pollen', centre: 'atlanta', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-30',
     en: 'Tree pollen around Atlanta usually peaks from late March to mid-April. Pollen can leave a yellow film on decks, siding and cars, and spring washes are typically booked from mid-March through April.',
     es: 'El polen de los árboles en la zona de Atlanta suele alcanzar su punto máximo de fines de marzo a mediados de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera se suelen programar de mediados de marzo hasta abril.',
-    source: SRC.fox5Pollen, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.fox5Pollen, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pollen-charlotte', topic: 'pollen', centre: 'charlotte', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Charlotte are typically booked from mid-March through April.',
     es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Charlotte se suelen programar de mediados de marzo hasta abril.',
-    source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pollen-raleigh', topic: 'pollen', centre: 'raleigh', trades: POLLEN, start: '03-15', end: '04-25', peak: '03-31',
     en: 'Tree pollen in North Carolina typically peaks from late March into early April. Pollen can leave a yellow film on decks, siding and cars, and spring washes around Raleigh are typically booked from mid-March through April.',
     es: 'El polen de los árboles en Carolina del Norte suele alcanzar su punto máximo de fines de marzo a principios de abril. El polen puede dejar una capa amarilla en terrazas, revestimientos y autos, y los lavados de primavera en la zona de Raleigh se suelen programar de mediados de marzo hasta abril.',
-    source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'estimate',
+    source: SRC.ncsuPinePollen, verifiedOn: R30, confidence: 'checked',
   },
   {
     id: 'pollen-austin', topic: 'pollen', centre: 'austin', trades: ['cleaning'], start: '12-15', end: '03-01', peak: '01-15',

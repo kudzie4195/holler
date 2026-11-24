@@ -153,6 +153,28 @@ describe('season table: every row', () => {
   });
 });
 
+describe('confidence: one rule (review D6)', () => {
+  it('checked only where the source states the anchor date for the metro or a region it names; every row listed', () => {
+    const want: Record<string, 'checked' | 'estimate'> = {
+      // built by Holler on an undated event or one year's data
+      'gutters-atlanta': 'estimate', 'gutters-charlotte': 'estimate', 'gutters-raleigh': 'estimate',
+      'leaf-cleanup-atlanta': 'estimate', 'leaf-cleanup-charlotte': 'estimate', 'leaf-cleanup-raleigh': 'estimate',
+      'listing-prep-atlanta': 'estimate', 'listing-prep-charlotte': 'estimate', 'listing-prep-austin': 'estimate',
+      // anchor date stated by the source for the metro's station or a named region
+      'irrigation-winterize-atlanta': 'checked', 'irrigation-winterize-charlotte': 'checked', 'irrigation-winterize-raleigh': 'checked', 'irrigation-winterize-austin': 'checked',
+      'pre-emergent-atlanta': 'checked', 'pre-emergent-charlotte': 'checked', 'pre-emergent-raleigh': 'checked', 'pre-emergent-austin': 'checked',
+      'pollen-atlanta': 'checked', 'pollen-charlotte': 'checked', 'pollen-raleigh': 'checked', 'pollen-austin': 'checked',
+      'fescue-seeding-atlanta': 'checked', 'fescue-seeding-charlotte': 'checked', 'fescue-seeding-raleigh': 'checked',
+    };
+    expect(Object.fromEntries(SEASON_TABLE.map((r) => [r.id, r.confidence]))).toEqual(want);
+  });
+  it('pre-emergent-atlanta names its source for what it is (a UGA climate blog post), EN and ES', () => {
+    expect(row('pre-emergent-atlanta').en).toMatch(/^A University of Georgia climate blog post puts /);
+    expect(row('pre-emergent-atlanta').es).toMatch(/^Una publicación del blog de clima de la Universidad de Georgia ubica /);
+    expect(row('pre-emergent-atlanta').en).not.toMatch(/guidance/);
+  });
+});
+
 describe('windows and the year wrap', () => {
   it('a plain window is inclusive at both ends', () => {
     expect(inWindow('11-01', '11-01', '12-15')).toBe(true);
