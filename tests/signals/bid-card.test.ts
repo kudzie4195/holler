@@ -8,9 +8,9 @@ import { BID_DATASETS, parseBids } from '@/lib/signals/adapters/city-bids';
 const NOW = new Date('2026-11-21T22:00:00Z');
 
 describe('open bid card wording', () => {
-  it('says Open bid, the buyer, the due date with the days left, and Open the source', () => {
+  it('says Open bid, the buyer, the due date with the days left, and Open the public source', () => {
     expect(BID_LABEL).toBe('Open bid');
-    expect(BID_SOURCE_LINK_LABEL).toBe('Open the source');
+    expect(BID_SOURCE_LINK_LABEL).toBe('Open the public source');
     expect(bidCardLine({ buyer: 'Water & Power', dueDate: '2026-12-10', expiresAt: '2026-12-10T22:00:00.000Z' }, NOW)).toBe('Buyer: Water & Power. Due Dec 10, 2026, 19 days left.');
   });
 

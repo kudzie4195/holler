@@ -8,6 +8,7 @@ import { Input } from './input';
 import { Notice } from './notice';
 import { PasswordInput } from './password-input';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
+import { STATS_CONSENT_TEXT } from '@/lib/auth/stats-consent';
 
 /**
  * A form's words in its language (round 18 ES). English is the literal the form always printed, so English markup is unchanged; the
@@ -64,20 +65,46 @@ function ErrorNotice({ error, children }: { error: { message: string; status: nu
   );
 }
 
+/**
+ * Where a successful sign-up answer goes (round 24, review P3-2): onboarding when signed in, else the log-in page, except when the
+ * statistics box was ticked and the account was not signed in: then the form stays and shows the note (an address that already had a
+ * sign-in is not changed, so its box was not saved). Pure, so tests can check it without a browser.
+ */
+export function signupNext(body: { signedIn?: boolean }, statsConsent: boolean, lang: Lang, city?: string | null): string {
+  if (body.signedIn) return `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}`;
+  if (statsConsent) return 'consent-note';
+  return pathFor(lang, '/login');
+}
+
 export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
   const w = wordsFor(lang);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  /**
+   * Round 23: the data-use box. Optional and UNTICKED, and the account is created either way: nothing on this page depends on it, and
+   * the button says nothing about it. Ticking it sends statsConsent true, which the API stores with the wording version and the time
+   * (lib/auth/stats-consent.ts). Leaving it alone sends nothing and stores nothing. Settings can turn it off again later.
+   */
+  const [statsConsent, setStatsConsent] = useState(false);
+  const [existingNote, setExistingNote] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const { status, body } = await post('/api/auth/signup', withLang(lang, { email, password }), lang);
+    const { status, body } = await post('/api/auth/signup', withLang(lang, statsConsent ? { email, password, statsConsent: true } : { email, password }), lang);
     if (body.ok) {
-      const target = body.signedIn ? `${pathFor(lang, '/onboarding')}${city ? `?city=${encodeURIComponent(city)}` : ''}` : pathFor(lang, '/login');
-      hardNavigate(target);
+      // Round 24 (review P3-2): an address that already has a sign-in (the shared sign-in with the owner's other products) is not
+      // changed, so a ticked box is not saved for it. Say so before sending them to log in, in words that are true either way and do
+      // not reveal whether the address was registered; Settings has the same box.
+      const next = signupNext(body, statsConsent, lang, city);
+      if (next === 'consent-note') {
+        setExistingNote(true);
+        setPending(false);
+        return;
+      }
+      hardNavigate(next);
       return;
     }
     setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });
@@ -109,6 +136,26 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-muted">
+        <input
+          type="checkbox"
+          name="stats_consent"
+          checked={statsConsent}
+          onChange={(e) => setStatsConsent(e.target.checked)}
+          className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
+        />
+        {/* Round 24 (review P3-1): the box is optional, so the label says so first, as Settings does. The consent wording itself
+            (STATS_CONSENT_TEXT and its version) is unchanged. */}
+        <span>
+          <span className="font-semibold text-ink">{w('consent.optional', 'Optional.')}</span> {w('consent.stats', STATS_CONSENT_TEXT)}
+        </span>
+      </label>
+      {existingNote ? (
+        <Notice tone="info" role="status">
+          {w('consent.signup.existing', 'If this email already had an account, its choice about combined statistics did not change. You can set it in Settings after you log in.')}{' '}
+          <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link>
+        </Notice>
+      ) : null}
       <ErrorNotice error={error}>
         {error?.status === 409 ? <Link href={pathFor(lang, '/login')} className="font-semibold underline">{w('auth.login', 'Log in')}</Link> : null}
       </ErrorNotice>
@@ -130,6 +177,15 @@ export function SignupForm({ city, lang = 'en' }: { city?: string | null; lang?:
   );
 }
 
+/**
+ * Where to go after log-in (round 24, review P1-2): `next`, plus the alert email's card anchor when the login page was opened with one
+ * (`/login?next=/app#card-123`: the hash never reaches the server, so `next` cannot carry it). Only a `#card-<digits>` hash is carried, and
+ * only onto a `next` that has no hash of its own.
+ */
+export function nextWithCardHash(next: string, hash: string): string {
+  return /^#card-\d{1,15}$/.test(hash) && !next.includes('#') ? next + hash : next;
+}
+
 export function LoginForm({ next, linkExpired, lang = 'en' }: { next: string; linkExpired?: boolean; lang?: Lang }) {
   const { pending, setPending, error, setError } = useFormRunner();
   const w = wordsFor(lang);
@@ -142,7 +198,9 @@ export function LoginForm({ next, linkExpired, lang = 'en' }: { next: string; li
     setPending(true);
     const { status, body } = await post('/api/auth/login', withLang(lang, { email, password }), lang);
     if (body.ok) {
-      hardNavigate(next);
+      // Round 24 (review P1-2): a signed-out member who opened an alert email's card link lands here as /login?next=/app#card-<id>. The
+      // browser keeps the #card part on this page but `next` cannot carry it (the server never sees a hash), so it is added back here.
+      hardNavigate(nextWithCardHash(next, window.location.hash));
       return;
     }
     setError({ message: body.error ?? w('auth.err.generic', 'Something went wrong. Try again.'), status });

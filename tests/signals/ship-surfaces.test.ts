@@ -49,7 +49,7 @@ const caseNamed = (re: RegExp) => cases.find((c) => re.test(c.name))!;
 
 function webCards(): { c: ShipCase; html: string }[] {
   const raw = renderToStaticMarkup(createElement(Feed, { items: cases.map(shipFeedItem), cityPage: null }));
-  const parts = raw.split('<li><article').slice(1);
+  const parts = raw.split(/<li[^>]*><article/).slice(1);
   expect(parts.length).toBe(cases.length);
   // the feed orders cards by label; match each chunk back to its case by the signal title (two cases share the no-heat title: the one with a company is told apart by its name)
   const used = new Set<ShipCase>();
@@ -278,29 +278,35 @@ describe('a permit prints its job value exactly once, on web, mobile and digest'
 describe('digest html and text carry the same additions, once', () => {
   const d = () => renderDigest({ businessName: 'Fixture members', items: cases.map(shipDigestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
 
-  it('html: value line before "Why it matters", company after "Next step", each once for its card', () => {
+  // Round 23: the value and the managing company are folded into the card's meta and contact rows; the labelled rows are gone, so
+  // what matters is that each still prints exactly once, on its own card, and that no card prints two actions.
+  it('html: the value and the managing company print once, each on its own card, with one action per card', () => {
     const { html } = d();
     const t = text(html);
     expect(count(t, 'Job value on the permit: $12,500')).toBe(1);
     expect(count(t, 'Job value on the permit: $14,500')).toBe(1);
     expect(count(t, /(Managed by|Owner company):/g)).toBe(1);
-    const items = html.split('<li ').slice(1);
+    const items = html.split('<li ').slice(1).map((x) => x.split('</li>')[0]);
     for (const li of items) {
       expect(count(li, 'Job value on the permit')).toBeLessThanOrEqual(1);
       expect(count(li, /Managed by:|Owner company:/g)).toBeLessThanOrEqual(1);
-      expect(count(li, 'Why it matters:')).toBe(1);
-      expect(count(li, 'Source:')).toBe(1);
+      expect(count(li, 'min-height:44px;')).toBe(1);
+      expect(count(li, /class="h-head"/g)).toBe(1);
+      for (const gone of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) expect(count(li, gone), gone).toBe(0);
     }
   });
 
-  it('text: same lines, same order', () => {
+  it('text: the same lines, with the value in the meta line above the reason and the company under it', () => {
     const { text: tx } = d();
     expect(count(tx, 'Job value on the permit: $12,500')).toBe(1);
     expect(count(tx, /(Managed by|Owner company): /g)).toBe(1);
-    const blocks = tx.split('\n\n').filter((b) => b.includes('Why it matters:'));
+    const blocks = tx.split('\n\n').filter((b) => /^\d+\. /.test(b));
+    expect(blocks).toHaveLength(cases.length);
     for (const b of blocks) {
-      if (b.includes('Job value on the permit')) expect(b.indexOf('Job value on the permit')).toBeLessThan(b.indexOf('Why it matters:'));
-      if (/Managed by|Owner company/.test(b)) expect(b.indexOf('Next step:')).toBeLessThan(b.search(/Managed by|Owner company/));
+      const lines = b.split('\n');
+      if (b.includes('Job value on the permit')) expect(lines.findIndex((l) => l.includes('Job value on the permit'))).toBe(1);
+      if (/Managed by|Owner company/.test(b)) expect(lines.findIndex((l) => /Managed by|Owner company/.test(l))).toBeGreaterThan(2);
+      expect(lines[lines.length - 1]).toMatch(/^ {3}(public source: https?:\/\/|\S)/);
     }
   });
 });

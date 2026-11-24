@@ -1,7 +1,7 @@
 import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
-import { countiesFromSame } from '@/lib/geo/county';
+import { countiesFromSame, countiesFromUgc } from '@/lib/geo/county';
 
 /**
  * National Weather Service active alerts.
@@ -206,7 +206,11 @@ export function parseNws(raw: unknown): SignalInput[] {
     let states = statesFromUgc(geoCode);
     if (!states.length) states = statesFromAreaDesc(areaDesc);
     const centroid = geometryCentroid(feat.geometry);
-    const counties = centroid ? [] : countiesFromSame((p.geocode as { SAME?: unknown } | undefined)?.SAME);
+    // Counties for a zone alert: its SAME codes. Round 25: an alert whose SAME list is missing or names no land county falls back to its
+    // UGC COUNTY codes ("SDC003"), which name the same counties directly; county-based products (tornado and severe thunderstorm watches)
+    // are issued that way. Forecast and fire-weather ZONE codes ("WYZ116") are not counties and still give none.
+    const sameCounties = centroid ? [] : countiesFromSame((p.geocode as { SAME?: unknown } | undefined)?.SAME);
+    const counties = centroid || sameCounties.length ? sameCounties : countiesFromUgc(geoCode);
 
     const occurredAt = iso(p.onset) ?? iso(p.effective) ?? iso(p.sent) ?? new Date().toISOString();
     const expiresAt = iso(p.ends) ?? iso(p.expires);

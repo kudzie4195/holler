@@ -111,6 +111,8 @@ export interface WaitlistCounts {
   area: number | null;
   /** holler_zip_waitlist rows that are confirmed and not unsubscribed (the live site's waitlist), null when unavailable */
   zipConfirmed: number | null;
+  /** Round 24 FIX2 (review D8): the confirmed rows of holler_zip_waitlist by trade ("no trade" for a row stored without one). */
+  zipByTrade?: Record<string, number> | null;
 }
 
 export interface MetroScore {
@@ -160,6 +162,8 @@ export interface MetroInputs {
   areaWaitlistZips?: readonly string[] | 'missing' | null;
   /** ZIPs of holler_zip_waitlist rows that are confirmed and not unsubscribed; 'missing' or null (failed). */
   zipWaitlistZips?: readonly string[] | 'missing' | null;
+  /** The trade of each holler_zip_waitlist row, parallel to zipWaitlistZips (round 24 FIX2). */
+  zipWaitlistTrades?: readonly (string | null)[] | null;
   status?: Partial<{ cards: SectionStatus; areaWaitlist: SectionStatus; zipWaitlist: SectionStatus }>;
 }
 
@@ -176,6 +180,20 @@ function waitlistBy(zips: readonly string[] | 'missing' | null | undefined): Map
     const m = metroOfZip(z);
     if (m) out.set(m, (out.get(m) ?? 0) + 1);
   }
+  return out;
+}
+
+function waitlistByTrade(zips: readonly string[] | 'missing' | null | undefined, trades: readonly (string | null)[] | null | undefined): Map<string, Record<string, number>> | null {
+  if (!Array.isArray(zips) || !Array.isArray(trades)) return null;
+  const out = new Map<string, Record<string, number>>();
+  zips.forEach((z, i) => {
+    const m = metroOfZip(z);
+    if (!m) return;
+    const rec = out.get(m) ?? {};
+    const t = trades[i] ?? 'no trade';
+    rec[t] = (rec[t] ?? 0) + 1;
+    out.set(m, rec);
+  });
   return out;
 }
 
@@ -319,6 +337,7 @@ export function buildMetroReport(input: MetroInputs): MetroReport {
   const samples = input.samples;
   const areaBy = waitlistBy(input.areaWaitlistZips);
   const zipBy = waitlistBy(input.zipWaitlistZips);
+  const zipTradeBy = waitlistByTrade(input.zipWaitlistZips, input.zipWaitlistTrades);
   const metros: MetroScore[] = METROS.map((m) => {
     const pm = perMetro.get(m.id)!;
     const trades = [...pm.trades.values()]
@@ -335,7 +354,11 @@ export function buildMetroReport(input: MetroInputs): MetroReport {
         samples: samples instanceof Map ? (samples.get(id) ?? 0) : null,
         state: input.states?.get(id) ?? null,
       })),
-      waitlist: { area: areaBy ? (areaBy.get(m.id) ?? 0) : null, zipConfirmed: zipBy ? (zipBy.get(m.id) ?? 0) : null },
+      waitlist: {
+        area: areaBy ? (areaBy.get(m.id) ?? 0) : null,
+        zipConfirmed: zipBy ? (zipBy.get(m.id) ?? 0) : null,
+        ...(zipTradeBy ? { zipByTrade: zipTradeBy.get(m.id) ?? {} } : {}),
+      },
     };
   });
 

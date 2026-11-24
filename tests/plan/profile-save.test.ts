@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORIES } from '../../lib/signals/categories';
+import { tradeSignupClosed } from '@/lib/check/cells';
 import { tradeComingSoon } from '../../lib/seo/signal-types';
 
 const h = vi.hoisted(() => ({ upserts: [] as any[], saved: null as any, upsertError: null as any }));
@@ -27,7 +28,8 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { saveProfile } from '../../lib/auth/profile';
 
-const live = CATEGORIES.map((c) => c.id as string).filter((c) => !tradeComingSoon(c));
+// Round 24: a trade sign-up does not take (lib/check/cells.ts tradeSignupClosed) is not pickable for a new choice either.
+const live = CATEGORIES.map((c) => c.id as string).filter((c) => !tradeComingSoon(c) && !tradeSignupClosed(c));
 const form = (o: { cats?: string[]; zips?: string[]; keywords?: string[] } = {}) => {
   const f = new FormData();
   f.set('business_name', 'Acme Roofing');

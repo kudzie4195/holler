@@ -169,7 +169,8 @@ describe('city page data (summarize)', () => {
   });
   it('the intro text for a place with only an upcoming event does not crash and names no future date', () => {
     const d = summarize('atlanta-ga', [row(1, 'event', 3 * DAY), row(2, 'permit', -2 * DAY)], nowIso);
-    const text = buildIntro({ slug: 'atlanta-ga', name: 'Atlanta', state: 'GA' }, d);
+    // INT2: without the header summary the intro says the date range it counted (with one, the summary carries the counts).
+    const text = buildIntro({ slug: 'atlanta-ga', name: 'Atlanta', state: 'GA' }, d, null);
     expect(text).toContain('Nov 15, 2026');
     expect(text).not.toContain('Nov 20, 2026');
   });

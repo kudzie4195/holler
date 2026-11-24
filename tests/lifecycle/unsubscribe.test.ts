@@ -65,7 +65,7 @@ describe('tokens', () => {
 
 describe('GET (what a mail scanner does) changes nothing', () => {
   it('shows a confirm page with a POST form and writes no row', async () => {
-    const res = route.GET(new Request(`https://x.test/api/cron/lifecycle/unsubscribe?t=${encodeURIComponent(tokenFor(U))}`));
+    const res = await route.GET(new Request(`https://x.test/api/cron/lifecycle/unsubscribe?t=${encodeURIComponent(tokenFor(U))}`));
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain('method="POST"');
@@ -74,7 +74,7 @@ describe('GET (what a mail scanner does) changes nothing', () => {
     expect(db.calls.filter((c) => c.endsWith('.upsert') || c.endsWith('.insert'))).toEqual([]);
   });
   it('a bad token gets a 400 page', async () => {
-    const res = route.GET(new Request('https://x.test/api/cron/lifecycle/unsubscribe?t=nope'));
+    const res = await route.GET(new Request('https://x.test/api/cron/lifecycle/unsubscribe?t=nope'));
     expect(res.status).toBe(400);
     expect(await res.text()).toContain('Link not valid');
   });
@@ -114,7 +114,7 @@ describe('POST opts the member out', () => {
   it('without CRON_SECRET configured every token is refused', async () => {
     h.secret = undefined;
     expect((await post(tokenFor(U))).status).toBe(400);
-    expect(route.GET(new Request(`https://x.test/x?t=${encodeURIComponent(tokenFor(U))}`)).status).toBe(400);
+    expect((await route.GET(new Request(`https://x.test/x?t=${encodeURIComponent(tokenFor(U))}`))).status).toBe(400);
     expect(db.tables.holler_lifecycle_sends).toEqual([]);
   });
   it('a database error (or the table missing) answers a plain 500 page, not a crash', async () => {

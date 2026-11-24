@@ -14,7 +14,7 @@ function esc(s: string): string {
 
 const pct = (v: number | null): string => (v === null ? '-' : `${Math.round(v * 100)}%`);
 const hrs = (v: number | null): string => (v === null ? '-' : `${v} h`);
-const NAMES = { act_now: 'Act now', coming_soon: 'Coming soon', market_insight: 'Market insight', context: 'Context' } as const;
+const NAMES = { act_now: 'Act now', coming_soon: 'Work may follow', market_insight: 'Market insight', context: 'Context' } as const;
 
 function row(t: TradeQuality, target: number): string {
   const s = t.sent;
@@ -80,7 +80,7 @@ export function renderQualityHtml(r: QualityReport, ai?: AiCoverage, contactPath
   const head =
     '<tr><th>Trade</th><th>Members (with access)</th><th>Sent</th>' +
     Object.values(NAMES).map((n) => `<th>${esc(n)}</th>`).join('') +
-    '<th>Act now + Coming soon</th><th>Feedback answers</th><th>Not relevant</th>' +
+    '<th>Act now + Work may follow</th><th>Feedback answers</th><th>Not relevant</th>' +
     '<th>New members</th><th>With a useful card</th><th>Within 24 h</th><th>Median to first card</th><th>90th percentile</th></tr>';
   const sectionsWith = (status: string) => (Object.entries(r.sections) as Array<[string, string]>).filter(([, v]) => v === status).map(([k]) => esc(k));
   const unavailable = sectionsWith('unavailable');
@@ -91,13 +91,13 @@ export function renderQualityHtml(r: QualityReport, ai?: AiCoverage, contactPath
     '<style>body{font:14px/1.45 system-ui,sans-serif;margin:24px;color:#111}table{border-collapse:collapse;width:100%}' +
     'th,td{border:1px solid #ccc;padding:4px 8px;text-align:right}th:first-child,thead th{text-align:left}' +
     'thead th{background:#f3f3f3;position:sticky;top:0}tr.bad{background:#fdecea}ul{padding-left:20px}</style></head><body>' +
-    `<h1>Holler alert quality</h1><p>Last ${r.windowDays} days, since ${esc(r.since)}. Generated ${esc(r.generatedAt)}. Target: at least ${Math.round(r.target * 100)}% of sent alerts are Act now or Coming soon, per trade.</p>` +
+    `<h1>Holler alert quality</h1><p>Last ${r.windowDays} days, since ${esc(r.since)}. Generated ${esc(r.generatedAt)}. Target: at least ${Math.round(r.target * 100)}% of sent alerts are Act now or Work may follow, per trade.</p>` +
     (ai ? `<p>${esc(aiCoverageLine(ai))}</p>` : '') +
     (unavailable.length ? `<p><strong>Unavailable reads:</strong> ${unavailable.join(', ')} (blank, not zero).</p>` : '') +
     (partial.length ? `<p><strong>Partial reads:</strong> ${partial.join(', ')} (row limit reached: only the newest rows are counted).</p>` : '') +
     (r.belowTarget.length ? `<p><strong>Below target:</strong> ${r.belowTarget.map(esc).join(', ')}</p>` : '') +
     `<table><thead>${head}</thead><tbody>${row(r.all, r.target)}${r.trades.map((t) => row(t, r.target)).join('')}</tbody></table>` +
-    '<p>* fewer than 10 answers: small sample. "Sent" = emailed (holler_alert_log.emailed_at). "Not relevant" is what members told us, not proof the record was wrong. Time to first card counts any card in the feed that is Act now or Coming soon for one of the member&#39;s trades.</p>' +
+    '<p>* fewer than 10 answers: small sample. "Sent" = emailed (holler_alert_log.emailed_at). "Not relevant" is what members told us, not proof the record was wrong. Time to first card counts any card in the feed that is Act now or Work may follow for one of the member&#39;s trades.</p>' +
     duplicatesBlock(r.duplicates) +
     contactPathBlock(contactPaths) +
     heldPermitsBlock(heldPermits) +

@@ -285,7 +285,7 @@ export function renderWelcomeMatches(o: WelcomeMatches): Rendered {
     'A record shows that something happened, but it does not show that anyone needs work or that a job is still open. Treat each one as a starting point.';
   const source =
     'These come from public sources such as city permit offices, the National Weather Service and city 311 systems, so every line is something an agency already published.';
-  const tail = o.total > items.length ? 'The rest are in your feed.' : '';
+  const tail = o.total > items.length ? 'The rest are in your account.' : '';
   const body =
     para(lead) +
     (shown ? para(shown) : '') +
@@ -293,9 +293,9 @@ export function renderWelcomeMatches(o: WelcomeMatches): Rendered {
     para(source) +
     para(caveat) +
     (tail ? para(tail) : '') +
-    button(o.feedUrl, 'Open your feed');
+    button(o.feedUrl, 'See all your matches');
   const bodyText =
-    `${lead}\n\n${shown ? `${shown}\n\n` : ''}${items.length ? `${itemsText(items)}\n\n` : ''}${source}\n\n${caveat}\n\n${tail ? `${tail}\n\n` : ''}Open your feed: ${o.feedUrl}\n`;
+    `${lead}\n\n${shown ? `${shown}\n\n` : ''}${items.length ? `${itemsText(items)}\n\n` : ''}${source}\n\n${caveat}\n\n${tail ? `${tail}\n\n` : ''}See all your matches: ${o.feedUrl}\n`;
   return shell(o, WELCOME_SUBJECT, body, bodyText);
 }
 
@@ -324,9 +324,9 @@ export function renderWelcomeQuiet(o: WelcomeQuiet): Rendered {
       ? `, which includes ${list}`
       : '';
   const watch = `Holler watches the public records near you, and in the last ${o.days} days, ${floor}${count(o.total, 'public record', 'public records')} ${verb} your trades and area${detail}.`;
-  const how = 'New ones show up as agencies publish them. To see more, add a trade or widen your radius in settings.';
-  const body = para(lead) + para(watch) + para(how) + button(o.feedUrl, 'Open your feed');
-  const bodyText = `${lead}\n\n${watch}\n\n${how}\n\nOpen your feed: ${o.feedUrl}\n`;
+  const how = 'New ones show up as agencies publish them. To see more, add a trade or widen your radius in Settings.';
+  const body = para(lead) + para(watch) + para(how) + button(o.feedUrl, 'See all your matches');
+  const bodyText = `${lead}\n\n${watch}\n\n${how}\n\nSee all your matches: ${o.feedUrl}\n`;
   return shell(o, WELCOME_SUBJECT, body, bodyText);
 }
 
@@ -391,7 +391,7 @@ export function renderTrialEnding(o: TrialEnding): Rendered {
         ? 'Here is the alert that looks strongest for your trades so far.'
         : `Here are the ${items.length} alerts that look strongest for your trades so far, picked from what Holler matched to you. Judge them for yourself.`;
   const plansIntro = 'There are two plans.';
-  const renew = 'Both renew until you cancel in Settings. Otherwise, you do not need to do anything.';
+  const renew = 'If you added a card, your plan starts when the trial ends and renews until you cancel in Settings. If not, nothing is charged.';
   const body =
     para(lead) +
     para(found) +

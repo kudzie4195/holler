@@ -5,6 +5,7 @@ import { lookupZip } from '@/lib/geo';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
 import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
+import { tradeSignupClosed } from '@/lib/check/cells';
 import { createClient } from '@/lib/supabase/server';
 import {
   cleanKeyword,
@@ -166,11 +167,16 @@ export async function saveProfile(
 
   const valid = new Set<string>(CATEGORIES.map((c) => c.id));
   // Trades with no live data source in this configuration ("coming soon", or no source yet: locksmith, business-services) are dropped from a submission, never saved.
-  let categories = [...new Set(parsed.data.categories)].filter((c) => valid.has(c) && !tradeComingSoon(c) && !tradeNoLiveSource(c));
+  // Round 24 (decision d): so is a trade sign-up no longer takes (lib/check/cells.ts tradeSignupClosed: live in no measured centre and no
+  // storm cells), UNLESS this member already has it saved: an existing member keeps it, and nothing changes for them. A new profile
+  // (sign-up, onboarding, the mobile onboarding route) has nothing saved, so it can never submit one.
+  const savedCats = Array.isArray(saved?.categories) ? saved.categories : [];
+  let categories = [...new Set(parsed.data.categories)].filter(
+    (c) => valid.has(c) && !tradeComingSoon(c) && !tradeNoLiveSource(c) && (!tradeSignupClosed(c) || savedCats.includes(c)),
+  );
   if (categories.length === 0) {
     return { error: fix, fieldErrors: { categories: msg(lang, 'pf.err.pick_one', 'Pick at least one thing you do.') } };
   }
-  const savedCats = Array.isArray(saved?.categories) ? saved.categories : [];
   if (savedCats.length && sameSet(categories, savedCats)) {
     categories = savedCats; // unchanged: keep the saved order (matching uses the first N) and never trip the plan check
   } else if (categories.length > limits.trades) {

@@ -14,15 +14,19 @@ export interface CadenceOptions {
 }
 
 /**
- * The long cadence sentence. The base is the keyless sources only (weather, storm and earthquake reports, airport delays, city
- * records, federal contracts). Posts from people asking online and events are named only when their keys are set.
+ * The long cadence text, in short clauses (round 24 INT2, COPY report section 9: one long shared sentence on every city page read as
+ * machine-made). The base is the keyless sources only (weather, storm and earthquake reports, airport delays, city records, federal
+ * contracts). Posts from people asking online and events are named only when their keys are set.
  */
 export function cadenceLong({ ask = false, event = false }: CadenceOptions = {}): string {
-  const hazards = ask
-    ? 'Weather alerts and airport delays are checked every 15 minutes, storm and earthquake reports every 30 minutes, and posts from people asking online every six hours.'
-    : 'Weather alerts and airport delays are checked every 15 minutes, and storm and earthquake reports every 30 minutes.';
   const slow = event ? 'City records, federal contracts and events' : 'City records and federal contracts';
-  return `${hazards} ${slow} are checked a few times a day. Requests that residents post on Holler are added once they are confirmed.`;
+  return [
+    'Weather alerts and airport delays: every 15 minutes.',
+    'Storm and earthquake reports: every 30 minutes.',
+    ...(ask ? ['Posts from people asking online: every six hours.'] : []),
+    `${slow}: a few times a day.`,
+    'Requests that residents post on Holler are added once they are confirmed.',
+  ].join(' ');
 }
 
 /** What every city page says when no optional key is set. */

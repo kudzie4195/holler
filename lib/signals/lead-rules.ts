@@ -72,7 +72,7 @@ export const OPPORTUNITY_LABELS: readonly OpportunityLabel[] = ['act_now', 'comi
 /** Chip text on cards and in the digest. Context has no chip because it is never shown as an alert. */
 export const OPPORTUNITY_CHIP: Record<OpportunityLabel, string> = {
   act_now: 'Act now',
-  coming_soon: 'Coming soon',
+  coming_soon: 'Work may follow',
   market_insight: 'Market insight',
   context: 'Context',
 };

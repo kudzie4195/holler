@@ -105,7 +105,7 @@ describe('email theme', () => {
     for (const m of [digest, followUp, trialEnded]) expect(m.html).toContain(`${EMAIL_STYLE.eyebrow}`);
   });
 
-  it('a resident request in the digest says "Open the request form"; every other item says "Open the source"', () => {
+  it('round 23: every card links to its public source under that name; a resident request has no public source page, so it links none', () => {
     const d = renderDigest({
       businessName: 'Acme',
       items: [
@@ -117,18 +117,21 @@ describe('email theme', () => {
       unsubscribeUrl: `${U}/u`,
       now: NOW,
     });
-    const labels = [...d.html.matchAll(/<a href="([^"]+)" style="[^"]*font-size:14px">([^<]+)<\/a>/g)].map((x) => [x[1], x[2]]);
+    const labels = [...d.html.matchAll(/<a class="h-link" href="([^"]+)" style="color:#2E5A41">([^<]+)<\/a>/g)].map((x) => [x[1], x[2]]);
     expect(labels).toEqual([
-      [`${siteUrl}/request`, 'Open the request form'],
-      ['https://data.example.gov/p/1', 'Open the source'],
-      ['https://www.spc.noaa.gov/x', 'Open the source'],
+      ['https://data.example.gov/p/1', 'public source'],
+      ['https://www.spc.noaa.gov/x', 'public source'],
     ]);
+    // The resident request's own /request link is not printed as a "public source": it is Holler's own form, and the card's action
+    // (reply in the feed) is where a member answers it.
+    expect(d.html).not.toContain(`${siteUrl}/request`);
+    expect(d.html).toContain('Reply to this request');
     // Without a source id, a link to this site's /request page still counts; a /request page on another host does not.
     expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request' }, 'https://localholler.com')).toBe('Open the request form');
     expect(digestLinkLabel({ sourceUrl: 'https://localholler.com/request/' }, 'https://localholler.com')).toBe('Open the request form');
-    expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the source');
+    expect(digestLinkLabel({ sourceUrl: 'https://city.example.gov/request' }, 'https://localholler.com')).toBe('Open the public source');
     expect(digestLinkLabel({ source: 'holler-request', sourceUrl: null })).toBe('Open the request form');
-    expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the source');
+    expect(digestLinkLabel({ source: 'spc', sourceUrl: 'https://www.spc.noaa.gov/x' })).toBe('Open the public source');
   });
 
   it('the postal footer takes its size and color from the theme (13 px, muted)', () => {
@@ -145,9 +148,9 @@ describe('email theme', () => {
     expect(SECONDARY_BUTTON_STYLE).toContain(`border:1px solid ${EMAIL_COLORS.lineStrong}`);
   });
 
-  it('the digest link to a record says "Open the source", never "Open source" or "official record"', () => {
+  it('the digest link to a record says "public source", never "Open source" or "official record"', () => {
     const { digest } = all();
-    expect(digest.html).toContain('>Open the source</a>');
+    expect(digest.html).toContain('>public source</a>');
     expect(digest.html + digest.text).not.toMatch(/Open source|official record|source record|its record/);
   });
 

@@ -84,8 +84,8 @@ describe('Pricing component', () => {
   it('lists what each plan includes and the free trial line', () => {
     for (const f of [...PLAN_FEATURES.starter, ...PLAN_FEATURES.pro]) expect(text).toContain(f);
     expect(text).toContain(`Every plan starts with a ${TRIAL_DAYS}-day free trial. No card needed.`);
-    expect(TRIAL_DAYS).toBe(60);
-    expect(text).toContain('Every plan starts with a 60-day free trial. No card needed.');
+    expect(TRIAL_DAYS).toBe(30);
+    expect(text).toContain('Every plan starts with a 30-day free trial. No card needed.');
     expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
   });
   it('links to /signup', () => {
@@ -120,10 +120,14 @@ describe('/pricing page', () => {
     expect(qs).toMatch(/refund/i);
   });
 
-  it('review r2: the trial-end answer limits the delayed first charge to the website and says app purchases are charged at once', () => {
+  // INT2: Holler is a website only, so "on the website" no longer separates two ways to pay; the answer now says what pauses and when a
+  // card added during the trial is charged, and must never bring back the app or store sentence.
+  it('the trial-end answer says what pauses and when a card added in the trial is charged; it names no app and no store', () => {
     const a = PRICING_FAQ.find((f) => /trial ends/i.test(f.q))!.a;
-    expect(a).toContain('if you subscribe on the website during the trial, the first charge comes when it ends.');
-    expect(a).toContain('A plan you buy in the app is charged by Apple or Google when you buy it.');
+    expect(a).toContain('Your alerts and address lists pause until you pick a plan.');
+    expect(a).toContain('if you added a card during the trial, the first charge comes on the day it ends.');
+    expect(a).not.toMatch(/charged by Apple or Google|in the app|feed locks/i);
+    expect(a).not.toMatch(/\bapp\b|Apple|Google/);
     expect(a).not.toMatch(/[\u2013\u2014]/);
     expect(text).toContain(a);
   });

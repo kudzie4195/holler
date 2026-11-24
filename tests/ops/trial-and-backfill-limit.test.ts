@@ -2,8 +2,9 @@
 // In-memory fakes of the Supabase admin client; values hand written (assumed). Auth user and profile shapes follow lib/auth/session.ts.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { trialCapFromStart } from '@/lib/auth/membership';
 import { applyTrialRules } from '../../lib/auth/trial';
-import { leaveHollerPatch, trialEndFromStart, trialStartedAt } from '../../lib/auth/membership';
+import { leaveHollerPatch, trialStartedAt } from '../../lib/auth/membership';
 import { BACKFILL_RATE, backfillLimit, backfillWithLimit } from '../../lib/signals/backfill-run';
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 
@@ -99,8 +100,8 @@ function fakeAdmin(init: { meta?: Record<string, unknown>; profile?: Record<stri
 
 const trialing = (over: Record<string, unknown>) => ({ user_id: 'u1', subscription_status: 'trialing', stripe_subscription_id: null, ...over });
 
-describe('one free trial per person (review L3), 60 days from the first start (round 18)', () => {
-  it('first profile with the 0028 default (start + 60): records the trial start and changes nothing else', async () => {
+describe('one free trial per person (review L3), TRIAL_DAYS from the first start', () => {
+  it('first profile with the migration default (start + TRIAL_DAYS): records the trial start and changes nothing else', async () => {
     const f = fakeAdmin({});
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('first');
     expect(f.state.meta.holler_trial_started_at).toBe(iso(0));
@@ -108,12 +109,12 @@ describe('one free trial per person (review L3), 60 days from the first start (r
     expect(f.calls).not.toContain('profile.update');
   });
 
-  it('first profile BEFORE 0028 (the database default still gives 14 days): the app moves it to start + 60, so the site never promises more than the row holds', async () => {
+  it('first profile on a 14-day database: the app moves it to start + TRIAL_DAYS, so the site never promises more than the row holds', async () => {
     const f = fakeAdmin({ profile: trialing({ created_at: iso(0), trial_ends_at: iso(14) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('first');
     expect(f.state.meta.holler_trial_started_at).toBe(iso(0));
-    expect(f.state.profile!.trial_ends_at).toBe(iso(60));
-    expect(f.updateFilters).toEqual(['user_id=u1', 'subscription_status=trialing', 'stripe_subscription_id is null', `trial_ends_at<${new Date(Date.parse(iso(60)) - 1000).toISOString()}`]);
+    expect(f.state.profile!.trial_ends_at).toBe(iso(30));
+    expect(f.updateFilters).toEqual(['user_id=u1', 'subscription_status=trialing', 'stripe_subscription_id is null', `trial_ends_at<${new Date(Date.parse(iso(30)) - 1000).toISOString()}`]);
     expect(f.calls).toContain('sends.delete');
     // Running it again (re-submitted onboarding) changes nothing.
     f.calls.length = 0;
@@ -122,28 +123,33 @@ describe('one free trial per person (review L3), 60 days from the first start (r
   });
 
   it('delete then re-onboard 70 days later: the new profile gets the ORIGINAL trial end, already past, not a fresh trial', async () => {
-    // day -70: signed up (stamped). Deleted. Today: onboards again; the table default gives now + 60 days.
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-70) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(60) }) });
+    // day -70: signed up (stamped). Deleted. Today: onboards again; the table default gives now + TRIAL_DAYS.
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-70) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(30) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
-    expect(f.state.profile!.trial_ends_at).toBe(trialEndFromStart(iso(-70)));
+    // Round 23: the cut-back goes to the cap (stamp + TRIAL_MAX_DAYS), not to stamp + TRIAL_DAYS, so that lowering TRIAL_DAYS cannot
+    // shorten a trial anybody already holds. Either way this person's trial is long over and they land on the upgrade card.
+    expect(f.state.profile!.trial_ends_at).toBe(trialCapFromStart(iso(-70)));
     expect(Date.parse(f.state.profile!.trial_ends_at as string)).toBeLessThan(NOW.getTime());
   });
 
-  it('returns during the original trial: only the remaining days (60 - 2 = 58)', async () => {
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS) }) });
-    await applyTrialRules(f.admin, 'u1', NOW);
-    expect(TRIAL_DAYS).toBe(60);
+  it('returns during the original trial: only the remaining days (30 - 2 = 28)', async () => {
+    // The database trigger (holler_profiles_trial_from_stamp) already cuts the new row to stamp + TRIAL_DAYS on insert; the app agrees
+    // and writes nothing.
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(TRIAL_DAYS - 2) }) });
+    expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
+    expect(TRIAL_DAYS).toBe(30);
     expect(f.state.profile!.trial_ends_at).toBe(iso(TRIAL_DAYS - 2));
+    expect(f.calls).not.toContain('profile.update');
   });
 
-  it('a returning person cut to stamp + 14 by the pre-0028 trigger gets the remainder of 60 days from the ORIGINAL start', async () => {
+  it('a returning person cut to stamp + 14 by an old trigger gets the remainder of TRIAL_DAYS from the ORIGINAL start', async () => {
     const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-20) }, profile: trialing({ created_at: iso(0), trial_ends_at: iso(-6) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
-    expect(f.state.profile!.trial_ends_at).toBe(iso(40));
+    expect(f.state.profile!.trial_ends_at).toBe(iso(10));
   });
 
-  it('is idempotent: a profile already at start + 60 is untouched', async () => {
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(-2), trial_ends_at: iso(58) }) });
+  it('is idempotent: a profile already at start + TRIAL_DAYS is untouched', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-2) }, profile: trialing({ created_at: iso(-2), trial_ends_at: iso(28) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
     expect(f.calls).not.toContain('profile.update');
   });
@@ -157,8 +163,8 @@ describe('one free trial per person (review L3), 60 days from the first start (r
     }
   });
 
-  it('never moves an end to a date already past (start more than 60 days ago)', async () => {
-    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-61) }, profile: trialing({ created_at: iso(-61), trial_ends_at: iso(-47) }) });
+  it('never moves an end to a date already past (start more than TRIAL_DAYS ago)', async () => {
+    const f = fakeAdmin({ meta: { holler_trial_started_at: iso(-31) }, profile: trialing({ created_at: iso(-31), trial_ends_at: iso(-17) }) });
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('unchanged');
     expect(f.calls).not.toContain('profile.update');
   });
@@ -172,12 +178,12 @@ describe('one free trial per person (review L3), 60 days from the first start (r
       { user_id: 'u2', kind: 'trial_ending' },
     ];
     expect(await applyTrialRules(f.admin, 'u1', NOW)).toBe('returning');
-    expect(f.state.profile!.trial_ends_at).toBe(iso(48));
+    expect(f.state.profile!.trial_ends_at).toBe(iso(18));
     expect(f.state.sends).toEqual([{ user_id: 'u1', kind: 'welcome' }, { user_id: 'u1', kind: 'optout' }, { user_id: 'u2', kind: 'trial_ending' }]);
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const g = fakeAdmin({ meta: { holler_trial_started_at: iso(-12) }, profile: trialing({ created_at: iso(-12), trial_ends_at: iso(2) }), failSendsDelete: true });
     expect(await applyTrialRules(g.admin, 'u1', NOW)).toBe('returning');
-    expect(g.state.profile!.trial_ends_at).toBe(iso(48));
+    expect(g.state.profile!.trial_ends_at).toBe(iso(18));
     spy.mockRestore();
   });
 
@@ -196,7 +202,7 @@ describe('one free trial per person (review L3), 60 days from the first start (r
     expect(leaveHollerPatch({ products: ['clovermap', 'holler'] }, NOW, iso(-1)).products).toEqual(['clovermap']);
   });
 
-  it('full cycle through the same fake: sign up, delete (patch merges into app_metadata), come back after the 60 days', async () => {
+  it('full cycle through the same fake: sign up, delete (patch merges into app_metadata), come back after the trial', async () => {
     const f = fakeAdmin({});
     await applyTrialRules(f.admin, 'u1', new Date(iso(0)));
     // delete: the shared auth user is kept and the patch is merged in

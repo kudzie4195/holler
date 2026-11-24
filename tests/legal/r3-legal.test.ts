@@ -34,7 +34,7 @@ describe('r3 P0: account deletion and visit counts', () => {
     expect(text).toContain('Account steps: about 13 months, and deleted with your account.');
     expect(text).toContain('Your source tag: until you delete your account.');
     expect(text).toContain(
-      'It also deletes your feature picks, your feedback and answers, your alert log, your account steps, your source tag, your trial email record and your push tokens.',
+      'It also deletes your feature picks, your feedback and answers, your alert log, your account steps, your source tag and your trial email record.',
     );
     expect(text).toContain('Visit counts stay until they age out, about 13 months after the visit.');
     expect(text).not.toMatch(/400 days/);
@@ -74,27 +74,10 @@ describe('r3 P2: smaller legal gaps', () => {
     expect(src('lib/seo/indexnow.ts')).toContain("'https://api.indexnow.org/indexnow'");
   });
 
-  it('(b) the small notes the app keeps on the phone, besides the session', async () => {
+  it('(b) round 24: the policy no longer describes notes an app keeps on a phone (Holler is a website only)', async () => {
     const { text } = await renderLegal('privacy');
-    expect(text).toContain(
-      "For each account that signs in, the app also keeps three small notes there, labeled with the account number: the phone's push token, whether it already asked about notifications, and whether you turned pushes on.",
-    );
-    expect(text).toContain('Signing out removes the token. Turning pushes off removes the token and the pushes note. The note about asking stays until you remove the app.');
-    const push = src('mobile/src/push/push.ts');
-    // The three per-account keys, and nothing else written with deps.store.set.
-    expect(push).toContain('export const tokenKeyFor = (userId: string) => `holler-push-token:${userId}`;');
-    expect(push).toContain('export const promptSeenKeyFor = (userId: string) => `holler-push-prompt-seen:${userId}`;');
-    expect(push).toContain('export const consentKeyFor = (userId: string) => `holler-push-consent:${userId}`;');
-    const sets = [...push.matchAll(/deps\.store\.set\((\w+)/g)].map((m) => m[1]).sort();
-    expect([...new Set(sets)]).toEqual(['consentKeyFor', 'promptSeenKeyFor', 'tokenKeyFor']);
-    // Sign-out (unregister) removes the token keys; disable removes the token and the consent; nothing removes the prompt note.
-    const unreg = push.slice(push.indexOf('async unregister()'), push.indexOf('async disable()'));
-    expect(unreg).toContain('tokenKeyFor(userId)');
-    expect(unreg).toContain('await deps.store.remove(key)');
-    const disable = push.slice(push.indexOf('async disable()'), push.indexOf('async isRegistered()'));
-    expect(disable).toContain('remove(tokenKeyFor(owner))');
-    expect(disable).toContain('remove(consentKeyFor(owner))');
-    expect(push).not.toMatch(/remove\(promptSeenKeyFor/);
+    expect(text).not.toContain('the app also keeps three small notes there');
+    expect(text).not.toMatch(/push token|pushes/i);
   });
 
   it('(c) the model is from Anthropic, and only Anthropic models can run', async () => {

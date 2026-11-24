@@ -6,7 +6,7 @@ import { absoluteUrl, SITE_NAME } from './canonical';
  * so every field is repeated here: title, description, url, siteName, type and the share image. `title` is the full title as it
  * should appear when shared (the same text as the page title, including " | Holler" where the page title has it).
  */
-export const OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: 'Holler: know when your town needs you' };
+export const OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: 'Holler: see where the work is near you this week' };
 
 export function socialMeta(opts: { title: string; description: string; path: string; type?: 'website' | 'article' }): Pick<Metadata, 'openGraph' | 'twitter'> {
   const { title, description, path, type = 'website' } = opts;

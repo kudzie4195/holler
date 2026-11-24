@@ -5,7 +5,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { Pricing } from '@/components/pricing';
-import { COMPARISON, PRICING_FAQ, PRICING_INTRO, YEARLY_NOTE } from '@/lib/plan/pricing-page';
+import { CARD_OPTIONAL_OFFER, COMPARISON, PRICING_FAQ, PRICING_INTRO, YEARLY_NOTE } from '@/lib/plan/pricing-page';
 import { FAQ_GROUPS } from '@/lib/seo/faq';
 import { bannedHits, copyStats, hasEmDash } from '../seo/helpers/copy-metrics';
 
@@ -34,7 +34,7 @@ function paragraphs(html: string): string[] {
  * table cells, button labels and the feature bullets are labels, not sentences, so they are left out here and counted in pricingAll.
  */
 export function pricingProse(): string {
-  return [...PRICING_INTRO, ...paragraphs(renderToStaticMarkup(createElement(Pricing))), YEARLY_NOTE, ...PRICING_FAQ.flatMap((f) => [f.q, f.a])].join('\n');
+  return [...PRICING_INTRO, ...paragraphs(renderToStaticMarkup(createElement(Pricing))), YEARLY_NOTE, CARD_OPTIONAL_OFFER, ...PRICING_FAQ.flatMap((f) => [f.q, f.a])].join('\n');
 }
 
 /** Every visible block of /pricing, labels included (headings, bullets, table rows, buttons). Printed, not asserted. */
@@ -44,6 +44,7 @@ export function pricingAll(): string {
     ...PRICING_INTRO,
     blockText(renderToStaticMarkup(createElement(Pricing))),
     YEARLY_NOTE,
+    CARD_OPTIONAL_OFFER,
     ...COMPARISON.map((r) => r.join(' ')),
     'Billing questions',
     ...PRICING_FAQ.flatMap((f) => [f.q, f.a]),

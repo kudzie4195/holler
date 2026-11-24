@@ -58,26 +58,32 @@ const CORRECTED: Record<string, string> = {
   "note.trade-to-owner": "Estimado {greeting}: Se emitió un permiso de construcción{at}, según una fuente pública. Soy [su nombre], de [su negocio], y trabajo cerca de allí. Si desea una segunda cotización o tiene preguntas sobre el trabajo del permiso, llámeme al [su teléfono]. Si ya tiene a alguien, gracias de todos modos. No volveré a escribirle.",
   "note.bidder-to-buyer": "Hola{org}. Soy [su nombre], de [su negocio]. Estoy revisando la licitación abierta que publicó su oficina y tengo una pregunta sobre el alcance. ¿Siguen abiertas las visitas al sitio o las preguntas por escrito, y cuál es la fecha límite? Seguiré el proceso de su oficina. Puede comunicarse conmigo al [su teléfono]. Gracias.",
   "trade.landscaping": "Jardinería y paisajismo",
-  "land.title": "Holler: entérese cuando algo cerca de usted tenga que ver con su oficio",
-  "hero.h1": "Registros públicos cerca de usted, filtrados para su oficio.",
-  "hero.sub": "Alertas cuando una granizada, un permiso o una solicitud al 311 cerca de usted encaja con su oficio. Cada alerta enlaza a su fuente pública.",
+  // Round 23 rewrote the launch message in both languages. These four keys carry it; the grader's wording rules still apply (checked below).
+  // INT2 (round 24 copy pass): hero.sub and chk.quiet rewritten ("techos rehechos" read translated; "temporadas" for weeks).
+  "land.title": "Holler: vea dónde está el trabajo cerca de usted esta semana",
+  "hero.h1": "Vea dónde está el trabajo cerca de usted esta semana.",
+  "hero.sub": "Permisos de casas nuevas y de techos nuevos cerca de usted, cada uno con la dirección y un enlace a su fuente pública. Holler pone esas direcciones en una lista y en un colgante de puerta para imprimir, para que sepa dónde colgar y repartir volantes esta semana. Pensado para equipos de jardinería, corte de césped, canaletas y lavado a presión.",
   "fam.civic.tag": "311 E INFRACCIONES",
   "fam.civic.title": "Solicitudes a la ciudad e infracciones de código",
   // Round 18 ES: the owner's rule for plan names ("El plan Solo cuesta" can read as "the plan only costs"): "Plan Solo:" with a colon.
   "price.line": "Plan {starter}: {a} al mes o {b} al año. Plan {pro}: {c} al mes o {d} al año.",
-  "footer.tag": "Registros públicos cerca de usted, filtrados para su oficio.",
+  "footer.tag": "Vea dónde está el trabajo cerca de usted esta semana.",
   "chk.preview.civic.t": "Solicitudes al 311 e infracciones de código",
   "chk.h.watching": "Holler busca trabajo de {trade} cerca de {place}",
-  "chk.quiet": "Hay temporadas tranquilas, y algunos lugares publican más que otros. Según la fuente, Holler la revisa desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
-  // Round 19 review fix (defect 1): the waitlist is double opt-in again, so the line now says to confirm the emailed link (grader wording kept).
-  "chk.uncovered.cta": "Deje su correo en la página en inglés y confirme con el enlace del correo que le enviaremos. Así le avisaremos cuando Holler cubra su zona.",
+  "chk.quiet": "Hay semanas tranquilas, y algunas ciudades publican más que otras. Holler revisa cada fuente pública según su propio horario, desde cada 15 minutos hasta cada 12 horas, y le escribe como máximo una vez por hora. Una alerta puede llegar un poco después de lo ocurrido.",
   "srcl.fixed.bids-gwinnett": "Compras del condado de Gwinnett: licitaciones abiertas",
   "draft.trade_fallback": "servicios locales",
 };
 
 // Round 19 RULES removed the two failed-inspection overrides ("failures often involve ..." was a guess, review section 6), so their corrections
 // are no longer in the dictionary.
-describe('grader corrections (grade-ES.md, 50 dictionary keys, 2 retired in round 19)', () => {
+// Round 24 INT2 retired a third: chk.uncovered.cta sent Spanish visitors to the English waitlist page; /es/check now has the card itself
+// (wl.card.*, checked in tests/int2/waitlist-es.test.ts), so the key is gone and the test below makes sure it stays gone.
+describe('grader corrections (grade-ES.md, 50 dictionary keys, 3 retired in rounds 19 and 24)', () => {
+  it('the retired English-page waitlist line is not in the dictionary', () => {
+    expect('chk.uncovered.cta' in es).toBe(false);
+    expect(Object.values(es).join('\n')).not.toContain('en la página en inglés');
+  });
   for (const [k, v] of Object.entries(CORRECTED)) {
     it(k, () => {
       expect(es[k as keyof typeof es]).toBe(v);
@@ -115,7 +121,9 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       now: NOW,
       lang: 'es',
     });
-    expect(mail.subject).toBe('1 novedad cerca de usted: Permiso de vivienda nueva en Atlanta');
+    // Round 24 (review P1-3): the title already names the town, so the card is headed by its own (Spanish) title, and so is the subject
+    // (round 23 read "Permiso de casa nueva en Atlanta, GA", the city as the heading).
+    expect(mail.subject).toBe('Permiso de vivienda nueva en Atlanta');
     expect(mail.text).toContain('Permiso de vivienda nueva en Atlanta');
     expect(mail.text).not.toContain('New home');
   });
@@ -127,7 +135,9 @@ describe('C3: a one-item digest has a Spanish subject, not the English title', (
       unsubscribeUrl: 'https://localholler.com/u',
       now: NOW,
     });
-    expect(mail.subject).toContain('New home permit in Atlanta');
+    // Round 24 (review P1-3, P2-7): never "at" a city ("New home permit at Atlanta, GA" in round 23).
+    expect(mail.subject).toBe('New home permit in Atlanta');
+    expect(mail.text).toContain('New home permit in Atlanta');
   });
 });
 

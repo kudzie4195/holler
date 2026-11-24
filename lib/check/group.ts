@@ -10,6 +10,13 @@ export interface CheckItem {
   lon?: number | null;
   occurredAt: string;
   severity: number;
+  /**
+   * Round 24 FIX2 (review D1): what a member with this one trade would get from the record (lib/check/delivery.ts): 'email' (an alert) or
+   * 'feed' (on the matches page only). Absent on callers that do not compute it.
+   */
+  delivery?: 'email' | 'feed';
+  /** The record fields for the ZIP area test (lib/check/delivery.ts memberItems). Server side only; memberItems removes it. */
+  signal?: import('./delivery').CheckSignal;
 }
 
 export interface CheckGroup {
@@ -52,11 +59,16 @@ export function distanceFrom(origin: { lat: number; lon: number } | undefined, i
 
 /**
  * The place line of a record: its "City, ST", or for a record whose position is a stand-in (Cobb County) the plain note
- * "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." (approx-location.ts).
+ * "In Cobb County. The county's record has a street address but no map point, so no distance is shown." (approx-location.ts).
  */
 export function placeLine(it: Pick<CheckItem, 'source' | 'place'>, lang: Lang = 'en'): string | null {
   if (hasApproxLocation(it)) return approxLocationNote({ city: (it.place ?? '').split(',')[0]?.trim() || null, source: it.source }, lang);
   return it.place;
+}
+
+/** 0 for a row marked emailed, 1 for any other row (matches page only, or no mark). */
+function emailFirst(it: CheckItem): number {
+  return it.delivery === 'email' ? 0 : 1;
 }
 
 /**
@@ -65,6 +77,7 @@ export function placeLine(it: Pick<CheckItem, 'source' | 'place'>, lang: Lang = 
  *  1. upcoming records (events), soonest start first;
  *  2. records within LOCAL_MI of the ZIP, closest first (only when the ZIP's position is known);
  *  3. everything else, newest first.
+ * Inside 2 and 3, rows marked emailed come before the others (R25 check fix, review R25CHECK P1-1).
  * Both what is kept under the caps and the order inside each group follow this order.
  */
 function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: number; lon: number }): number {
@@ -80,6 +93,11 @@ function compareItems(a: CheckItem, b: CheckItem, now: number, origin?: { lat: n
   const newest = toMs(b.occurredAt) - toMs(a.occurredAt);
   if (ra === 0) return b.severity - a.severity || newest;
   if (ra === 1) return toMs(a.occurredAt) - toMs(b.occurredAt);
+  // R25 check fix (review R25CHECK P1-1): inside the local and the rest ranks a row a member would be emailed comes before a matches-page
+  // row, so the per-group cap never keeps only matches-page rows while the verdict above counts emailed ones. Rows with no delivery mark
+  // (callers that do not compute it) compare equal here, so their order is unchanged.
+  const mail = emailFirst(a) - emailFirst(b);
+  if (mail !== 0) return mail;
   if (ra === 2) return (distanceFrom(origin, a) ?? 0) - (distanceFrom(origin, b) ?? 0) || newest;
   return newest;
 }

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { trialEndFromStart, trialStartedAt } from './membership';
+import { trialCapFromStart, trialEndFromStart, trialStartedAt } from './membership';
 
 type Admin = Pick<SupabaseClient, 'from' | 'auth'>;
 
@@ -66,10 +66,12 @@ export function mayExtendTrial(p: TrialRow, start: string, now: number): boolean
  * The auth user outlives "delete account" (shared project), so a returning user's new holler_profiles row would get the column default
  * of now() + the database's trial length (60 days with migration 0028; 14 days before it, migration 0019).
  *  - First profile: records holler_trial_started_at (the profile's created_at) in app_metadata.
- *  - Then, for everyone, the row's trial_ends_at is brought to start + TRIAL_DAYS (start = trialStartOf):
- *      later than that: cut back (a returning user's new row; usually already past, so they land on the upgrade card);
+ *  - Then, for everyone, the row's trial_ends_at is compared with start + TRIAL_DAYS (start = trialStartOf):
+ *      later than start + TRIAL_MAX_DAYS: cut back to that cap. Round 23: the cap, not start + TRIAL_DAYS, so dropping TRIAL_DAYS from 60
+ *      to 30 leaves every trial already granted exactly where it is (owner decision: existing trials keep their end date). A row between
+ *      start + TRIAL_DAYS and the cap is not written at all.
  *      earlier than that: moved out to it when mayExtendTrial allows (never paid, never past start + TRIAL_DAYS, an ended trial only with
- *      more than 72 hours left). This is what makes the site's 2-month headline true for a new member even while the database default
+ *      more than 72 hours left). This is what makes the site's headline true for a new member even while the database default
  *      is still 14 days (migration 0028 not applied yet): the code, not the column default, sets the length.
  *      When an end really moves later (the guarded UPDATE returned the row), the member's trial_ending / trial_ended lifecycle ledger rows
  *      are removed so those two emails can be sent again for the new end (opt-outs are kept).
@@ -121,8 +123,13 @@ export async function applyTrialRulesDetailed(admin: Admin, userId: string, now:
     const endMs = Date.parse(ends);
     const current = parse(row.trial_ends_at);
 
-    if (Number.isFinite(current) && current > endMs + SAME_END_MS) {
-      const { data: cut, error } = await admin.from('holler_profiles').update({ trial_ends_at: ends }).eq('user_id', userId).select('trial_ends_at');
+    // Round 23: the cut-back is measured against start + TRIAL_MAX_DAYS, not start + TRIAL_DAYS, so lowering TRIAL_DAYS to 30 cannot
+    // shorten a trial a member already holds (a running 60-day trial sits at the cap and is left alone). Only an end beyond the cap,
+    // which no Holler code ever wrote, is cut, and then to the cap.
+    const cap = trialCapFromStart(start);
+    const capMs = Date.parse(cap);
+    if (Number.isFinite(current) && current > capMs + SAME_END_MS) {
+      const { data: cut, error } = await admin.from('holler_profiles').update({ trial_ends_at: cap }).eq('user_id', userId).select('trial_ends_at');
       if (error) throw new Error(error.message);
       const stored = Array.isArray(cut) && cut.length > 0 ? String((cut[0] as { trial_ends_at: unknown }).trial_ends_at) : readEnd;
       return { outcome: outcome === 'first' ? 'first' : 'returning', extended: false, storedEnd: stored };

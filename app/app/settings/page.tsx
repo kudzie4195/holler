@@ -6,12 +6,15 @@ import { DeleteAccount } from '@/components/delete-account';
 import { Notice } from '@/components/notice';
 import { ProfileForm } from '@/components/profile-form';
 import { LanguageForm } from '@/components/language-form';
+import { ConsentForm } from '@/components/consent-form';
 import { WorkProfileForm } from '@/components/work-profile-form';
+import { profileCoverage } from '@/lib/check/profile-coverage';
 import { readWorkProfile } from '@/lib/auth/work-profile';
 import { createClient } from '@/lib/supabase/server';
 import { hasLanguageSetting } from '@/lib/auth/language';
+import { statsConsentGiven } from '@/lib/auth/stats-consent';
 import { langOfProfile, t, type Lang } from '@/lib/i18n';
-import { profileCategories } from '@/lib/plan/profile-categories';
+import { applySignupClosed, profileCategories } from '@/lib/plan/profile-categories';
 import {
   annualSavingSentenceEs,
   downgradeNoteEs,
@@ -33,7 +36,7 @@ import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { readShadowStore } from '@/lib/storebilling/shadow';
 import { storeManaged } from '@/lib/storebilling/web';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { saveLanguageSetting, saveSettings, saveWorkProfileSetting } from './actions';
+import { saveConsentSetting, saveLanguageSetting, saveSettings, saveWorkProfileSetting } from './actions';
 
 // Static, in the <head> of the first bytes with the layout's noindex, as before round 18. A Spanish member's tab title is set in the
 // browser (components/app-header.tsx APP_LANG_SCRIPT on the first load, components/member-document.tsx after that).
@@ -47,6 +50,9 @@ export default async function SettingsPage() {
   const repairedEnd = await repairShortTrial(user, loaded, createAdminClient);
   const profile = repairedEnd ? { ...loaded, trial_ends_at: repairedEnd } : loaded;
   const access = computeAccess(profile);
+  // Round 23: the data-use box the member saw at sign-up, so they can turn it off here (privacy: "Untick the box in Settings and we
+  // stop adding your answers from that day"). It lives in app_metadata, so it is always readable, with or without any migration.
+  const consentGiven = statsConsentGiven(user.app_metadata);
   const stripeReady = hasEnv('STRIPE_SECRET_KEY');
   const tier = effectiveTier({
     plan: profile.plan ?? null,
@@ -89,8 +95,9 @@ export default async function SettingsPage() {
           <h2 id="profile-h" className="h-plain text-2xl text-ink">{t(lang, 'set.profile_h')}</h2>
           <Card className="mt-4">
             <ProfileForm
+              inSettings
               action={saveSettings}
-              categories={profileCategories(lang)}
+              categories={profileCategories(lang, profile.categories ?? [])}
               defaults={{
                 business_name: profile.business_name,
                 categories: profile.categories,
@@ -105,6 +112,7 @@ export default async function SettingsPage() {
               tier={tier}
               upgradeHref="#billing-h"
               lang={lang}
+              initialCoverage={profileCoverage(profile.zip ?? '', profile.categories ?? [], lang)}
             />
           </Card>
         </section>
@@ -117,6 +125,13 @@ export default async function SettingsPage() {
             </Card>
           </section>
         ) : null}
+
+        <section aria-labelledby="consent-h" className="mt-12">
+          <h2 id="consent-h" className="h-plain text-2xl text-ink">{t(lang, 'consent.heading')}</h2>
+          <Card className="mt-4">
+            <ConsentForm action={saveConsentSetting} current={consentGiven} lang={lang} />
+          </Card>
+        </section>
 
         <section aria-labelledby="billing-h" className="mt-12">
           <h2 id="billing-h" className="h-plain scroll-mt-24 text-2xl text-ink">{t(lang, 'set.billing_h')}</h2>
@@ -176,8 +191,13 @@ export default async function SettingsPage() {
         <h2 id="profile-h" className="h-plain text-2xl text-ink">What you do and where</h2>
         <Card className="mt-4">
           <ProfileForm
+            inSettings
             action={saveSettings}
-            categories={CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) }))}
+            // Round 24: a trade sign-up no longer takes moves to "Coming soon", unless this member already saved it (kept, still pickable).
+            categories={applySignupClosed(
+              CATEGORIES.map((c) => ({ id: c.id, label: c.label, group: (c as unknown as { group?: string }).group, comingSoon: tradeComingSoon(c.id) || tradeNoLiveSource(c.id), noLiveSource: tradeNoLiveSource(c.id) })),
+              profile.categories ?? [],
+            )}
             defaults={{
               business_name: profile.business_name,
               categories: profile.categories,
@@ -191,6 +211,7 @@ export default async function SettingsPage() {
             showAlertToggle
             tier={tier}
             upgradeHref="#billing-h"
+            initialCoverage={profileCoverage(profile.zip ?? '', profile.categories ?? [], 'en')}
           />
         </Card>
       </section>
@@ -204,6 +225,13 @@ export default async function SettingsPage() {
           </Card>
         </section>
       ) : null}
+
+      <section aria-labelledby="consent-h" className="mt-12">
+        <h2 id="consent-h" className="h-plain text-2xl text-ink">{t(langOfProfile(profile), 'consent.heading')}</h2>
+        <Card className="mt-4">
+          <ConsentForm action={saveConsentSetting} current={consentGiven} lang={langOfProfile(profile)} />
+        </Card>
+      </section>
 
       {/* Only when the database has the work table (migration 0027): without it the section is hidden and matching is as before. */}
       {work.available ? (

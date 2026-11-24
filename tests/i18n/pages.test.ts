@@ -142,15 +142,20 @@ describe('/es/check', () => {
     });
     const { html } = await renderCheck({ zip: '30303', trade: 'roofing' });
     const t = text(html);
-    expect(t).toContain('Techos: dentro de unas 25 a 50 millas de Atlanta, GA, últimos 30 días');
+    expect(t).toContain('Techos: dentro de 25 millas de Atlanta, GA, últimos 30 días');
     expect(t).toContain('Clima y desastres');
     expect(t).toContain('Permisos de construcción');
     expect(t).toContain('Granizo de 1.50 pulgadas reportado cerca de 2 ESE Atlanta, GA');
-    expect(t).toContain('Fuente: Reportes de tormenta del Centro de Predicción de Tormentas de NOAA');
-    expect(t).toContain('Fuente: Datos abiertos de Atlanta: permisos de construcción');
+    expect(t).toContain('Fuente pública: Reportes de tormenta del Centro de Predicción de Tormentas de NOAA');
+    expect(t).toContain('Fuente pública: Datos abiertos de Atlanta: permisos de construcción');
     expect(t).toMatch(/hace 3 h|hace 3 horas/);
-    expect(t).toContain(es['chk.cta.intro']);
-    expect(html).toContain('href="/signup');
+    // R27 (review FIXR25 note 2): this page's verdict count is 0, so the offer line under the results is the matches-page one, not the email one.
+    expect(t).toContain(es['chk.cta.intro_feed']);
+    expect(t).not.toContain(es['chk.cta.intro']);
+    // Round 23: the Spanish CTA goes to the Spanish sign-up. It used to build '/signup?city=...' and ignore `lang`, so every /es
+    // conversion landed on the English page.
+    expect(html).toContain('href="/es/signup?city=');
+    expect(html).not.toMatch(/href="\/signup/);
     expect(t).not.toMatch(/Source:|Weather and disasters|Building permits|ago\b/);
     expect(spanishProblems(t.replace(/1\.50 inch hail reported near 2 ESE Atlanta, GA|Roof permit in Atlanta/g, ' '))).toEqual([]);
   });
@@ -166,10 +171,14 @@ describe('/es/check', () => {
     loadCheck.mockResolvedValue({ ok: false, items: [], checkedAt: new Date().toISOString() });
     expect(text((await renderCheck({ zip: '30303', trade: 'roofing' })).html)).toContain(es['chk.empty.unreadable']);
   });
-  it('a ZIP Holler does not cover: says so in Spanish and links to the English page that has the waitlist form', async () => {
+  // Round 24 INT2: the waitlist card is on the Spanish page itself (it posts lang 'es'); nothing sends the visitor to the English page.
+  it('a ZIP Holler does not cover: says so in Spanish and shows the Spanish waitlist form on this page', async () => {
     const { html } = await renderCheck({ zip: '00601', trade: 'roofing' });
-    expect(html).toContain('href="/check?zip=00601&amp;trade=roofing"');
-    expect(text(html)).toContain(es['chk.uncovered.link']);
+    expect(html).not.toContain('href="/check?zip=00601');
+    expect(html).not.toMatch(/hrefLang="en"[^>]*>[^<]*lista de espera/i);
+    expect(text(html)).toContain(es['wl.card.button']);
+    expect(text(html)).toContain(es['wl.card.email']);
+    expect(html).toMatch(/<input[^>]*type="email"/);
   });
   it('metadata: only the bare page is indexed, every ?zip= variant is noindex, canonical and hreflang pairs are the same either way', async () => {
     const bare = await checkMeta({ searchParams: Promise.resolve({}) } as never);

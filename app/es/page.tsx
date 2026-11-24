@@ -9,7 +9,7 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import { tradeLabel } from '@/lib/check/trades';
-import { FROM_MONTHLY, TRIAL_DAYS, TRIAL_MONTHS } from '@/lib/plan/price-copy';
+import { FROM_MONTHLY, TRIAL_DAYS, TRIAL_HEADLINE_KEY, TRIAL_MONTHS } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TIER_NAMES } from '@/lib/plan/limits';
 
@@ -44,8 +44,9 @@ const STEPS = [
 
 const FAMILIES: { id: 'weather' | 'permit' | 'civic'; family: Family; trades: string[] }[] = [
   { id: 'weather', family: 'weather', trades: ['roofing', 'tree-service', 'restoration', 'auto-glass'] },
-  { id: 'permit', family: 'spending', trades: ['plumbing', 'hvac', 'electrical', 'windows-doors'] },
-  { id: 'civic', family: 'civic', trades: ['junk-removal', 'pest-control', 'tree-service', 'handyman'] },
+  // Round 23: the same trades the English home names (lib/seo/public-copy.ts families), in the same order.
+  { id: 'permit', family: 'spending', trades: ['landscaping', 'lawn-care', 'siding-gutters', 'cleaning'] },
+  { id: 'civic', family: 'civic', trades: ['lawn-care', 'landscaping', 'junk-removal', 'tree-service'] },
 ];
 
 const FAQS = [1, 2, 3, 4].map((n) => ({ q: t(L, `faq.q${n}` as 'faq.q1'), a: t(L, `faq.a${n}` as 'faq.a1') }));
@@ -64,7 +65,7 @@ function faqLd() {
  * Pricing and sign-up link to their Spanish pages; privacy, terms and the full FAQ are English pages, and the links say so.
  */
 export default function HomeEs() {
-  const trial = t(L, 'land.trial', { months: TRIAL_MONTHS });
+  const trial = t(L, TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS });
   return (
     <>
       <TopNavEs englishHref={PAIR.en} />

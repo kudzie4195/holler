@@ -149,9 +149,13 @@ describe('summarize and copy', () => {
   });
   it('writes an intro from the data with no em dashes', () => {
     const intro = buildIntro({ name: 'Atlanta', state: 'GA', slug: 'atlanta-ga' }, data);
-    expect(intro).toContain('7 public records');
-    expect(intro).toMatch(/1 weather alert( is active|, as of)/);
+    expect(intro).toMatch(/1 (active )?weather alert( is)?( active)? as of/);
     expect(intro).not.toContain('\u2014');
+    // INT2: the header shows the summary sentence (past 7 days), so the intro does not repeat a count; without one, it says what it counted.
+    expect(intro).not.toContain('Holler recorded');
+    const noSummary = buildIntro({ name: 'Atlanta', state: 'GA', slug: 'atlanta-ga' }, data, null);
+    expect(noSummary).toContain('7 public records');
+    expect(noSummary).not.toContain('\u2014');
   });
   it('varies intro and FAQ across cities with different data and never uses em dashes', () => {
     const quiet = summarize('chicago-il', [], '2026-11-14T12:00:00Z');
@@ -180,11 +184,15 @@ describe('summarize and copy', () => {
     for (const c of CITIES.slice(0, 30)) {
       const faq = buildFaq({ name: c.name, state: c.state, slug: c.slug }, data).map((f) => f.a).join(' ');
       expect(faq).toContain('40 miles');
-      expect(faq).toContain('every 15 minutes');
-      expect(faq).toContain('a few times a day');
       expect(faq).not.toContain('15 to 60');
       expect(faq).toContain(`${priceLabel('starter', 'monthly')} a month after a ${TRIAL_DAYS}-day free trial`);
       expect(faq).toContain('7 public records');
+      // INT2: a page with records shows its refresh time in the header, so the cadence question is left out; an empty page keeps it.
+      expect(faq).not.toContain('every 15 minutes');
+      const empty = buildFaq({ name: c.name, state: c.state, slug: c.slug }, summarize(c.slug, [], '2026-11-14T12:00:00Z')).map((f) => f.a).join(' ');
+      expect(empty).toContain('every 15 minutes');
+      expect(empty).toContain('a few times a day');
+      expect(empty).toContain('40 miles');
     }
   });
   it('escapes < in JSON-LD', () => {

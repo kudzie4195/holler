@@ -12,73 +12,22 @@ afterEach(() => vi.unstubAllEnvs());
 
 const MIG = (n: string) => src(`supabase/migrations/${n}`);
 
-describe('privacy: the mobile app', () => {
-  it('session on the device, push token, FCM, lock screen content, how to turn off', async () => {
+describe('privacy: no app (round 24, review P1-5)', () => {
+  // Round 7 pinned the app sections (session on the phone, push tokens, Sign in with Apple, store purchases) to the mobile code. Holler is
+  // a website only, so round 24 took those sentences out of the policy; this pins that they stay out and that the scope says so.
+  it('covers the website and the emails only, and no longer describes an app, push, app sign-in or store purchases', async () => {
     const { text } = await renderLegal('privacy');
-    expect(text).toContain('the Holler app for iPhone and Android');
-    expect(text).toContain(
-      'The app keeps your sign-in session in its own storage on your phone, with a backup copy so a short outage on the sign-in service does not sign you out.',
-    );
-    // Round 7 mobile fixes: the session store is wrapped by auth/guard.ts, which copies every saved session to its own backup key.
-    const sb = src('mobile/src/auth/supabase.ts');
-    expect(sb).toContain("const STORAGE_KEY = 'holler-auth';");
-    expect(sb).toContain('storage: isNative() ? preferencesStorage : webStorage(),');
-    expect(sb).toContain('storageKey: STORAGE_KEY,');
-    const guard = src('mobile/src/auth/guard.ts');
-    expect(guard).toContain("export const BACKUP_SUFFIX = '-backup';");
-    expect(guard).toContain('const backupKey = storageKey + BACKUP_SUFFIX;');
-    expect(guard).toMatch(/async setItem\(key, value\) \{[\s\S]*?await base\.setItem\(backupKey, value\);/);
-    expect(text).toContain('Signing out removes both.');
-    // Our own sign-out starts and ends in the guard: the backup goes first, then the session and the backup are both removed.
-    expect(src('mobile/src/state/AppContext.tsx')).toContain('await guard.beginSignOut()');
-    expect(src('mobile/src/state/AppContext.tsx')).toContain('await guard.endSignOut()');
-    expect(guard).toMatch(/async endSignOut\(\) \{[\s\S]*?await base\.removeItem\(storageKey\);\s*await base\.removeItem\(backupKey\);/);
-    // Sign-out goes through releaseMember (mobile/src/state/member.ts) since the round 7 mobile fixes; it still drops the session.
-    expect(src('mobile/src/state/AppContext.tsx')).toContain("signOutSupabase: async () => void (await supabase().auth.signOut({ scope: 'local' }))");
-    expect(src('mobile/src/state/member.ts')).toContain('await deps.signOutSupabase();');
-    // No location, contacts or photo plugin in the app.
-    const deps = Object.keys(JSON.parse(src('mobile/package.json')).dependencies as Record<string, string>);
-    expect(deps.filter((d) => /geoloc|contacts|camera|photo|media/i.test(d))).toEqual([]);
-    expect(text).toContain('The app never reads your location, contacts or photos.');
-    // Token, platform and app version stored with the account (0020).
-    expect(text).toContain('We store that token with your account, the kind of phone and the app version');
-    expect(MIG('0020_holler_mobile.sql')).toMatch(/user_id uuid not null[\s\S]*token text not null,\s*platform text not null,\s*app_version text/);
-    expect(text).toContain("Google's Firebase Cloud Messaging delivers each push, on iPhone and on Android.");
-    expect(src('lib/push/fcm.ts')).toContain('Firebase Cloud Messaging HTTP v1 sender (one sender for iOS and Android)');
-    expect(deps).toContain('@capacitor-firebase/messaging');
-    // Push content: count and city in the title, the public signal title in the body.
-    expect(text).toContain('A push shows the city and the title of a public record');
-    expect(src('lib/push/notify.ts')).toContain('return { title, body: truncate(topTitle), data };');
-    expect(text).toContain("Turn pushes off with the switch in the app's Settings, or in your phone's settings.");
-    expect(src('mobile/src/screens/Settings.tsx')).toContain('label="Push notifications"');
-    expect(text).toContain("Signing out removes that phone's token.");
-    expect(src('mobile/src/state/AppContext.tsx')).toContain('await releaseMember({ push,');
-    expect(src('mobile/src/state/member.ts')).toContain('await deps.push.unregister()');
-  });
-
-  it('sign in with Apple and Google: what Holler gets', async () => {
-    const { text } = await renderLegal('privacy');
-    expect(text).toContain('In the app you can also sign in with Apple, or with Google where the app offers it.');
-    expect(text).toContain('Then we get your email address and an ID that Apple or Google uses for you. Apple or Google may also share your name.');
-    const social = src('mobile/src/auth/social.ts');
-    expect(social).toContain('scopes: [SignInScope.Email, SignInScope.FullName]');
-    expect(social).toContain("signInWithOAuth");
-    expect(text).toContain('Holler does not show your name or use it.');
-    // The web app never reads the name the provider sends.
-    for (const f of ['lib/auth/profile.ts', 'lib/mobile/account.ts', 'app/api/m/me/route.ts']) expect(src(f)).not.toMatch(/full_name|user_metadata/);
-  });
-
-  it('store purchases: Apple or Google bills, RevenueCat records, no card, no name or email to RevenueCat', async () => {
-    const { text } = await renderLegal('privacy');
-    expect(text).toContain('In the app, Apple or Google handles payment, under its own terms. RevenueCat records the purchase for us.');
-    expect(text).toContain('We give RevenueCat your Holler account number. We do not give it your name or email.');
-    const purchases = src('mobile/src/purchases/purchases.ts');
-    expect(purchases).toContain('appUserID: userId');
-    expect(purchases).not.toMatch(/setEmail|setDisplayName|setAttributes/);
-    expect(text).toContain('From RevenueCat we keep the store, the product, the price, and the purchase and renewal dates.');
-    const rc = src('lib/storebilling/revenuecat.ts');
-    for (const k of ["'store'", "'product_id'", "'price'", "'purchased_at_ms'", "'expiration_at_ms'"]) expect(rc).toContain(k);
-    expect(rc).toContain('no subscriber attributes, aliases, emails, country, or transaction ids');
+    expect(text).toContain('This policy covers localholler.com and the emails Holler sends.');
+    for (const gone of [
+      'the Holler app for iPhone and Android',
+      'The app keeps your sign-in session in its own storage on your phone',
+      'In the app you can also sign in with Apple',
+      'In the app, Apple or Google handles payment',
+      'RevenueCat',
+      'Firebase',
+      'push token',
+    ]) expect(text).not.toContain(gone);
+    expect(text).not.toMatch(/iPhone|Android|App Store|Google Play|push notification/i);
   });
 });
 
@@ -206,11 +155,11 @@ describe('privacy: outcomes, archive and deletion', () => {
     expect(src('app/app/settings/actions.ts')).toContain('await deleteHollerAccount({ admin, userId: user.id, stripe: getStripe(), profile })');
     expect(text).toContain(
       // Review r3 P0: "visit and step counts" became "account steps" (visit counts carry no account number and age out).
-      'It also deletes your feature picks, your feedback and answers, your alert log, your account steps, your source tag, your trial email record and your push tokens.',
+      // Round 24: the push tokens left the list with the app sections (the deletion still removes any, migration 0020).
+      'It also deletes your feature picks, your feedback and answers, your alert log, your account steps, your source tag and your trial email record.',
     );
-    expect(text).toContain('App store billing events: kept as billing records. When you delete your account, we remove your account number from them.');
-    expect(text).toContain('We cannot cancel a plan you bought in the app. Cancel it in your Apple ID or Google Play subscription settings.');
-    expect(src('lib/mobile/account.ts')).toContain('A live App Store or Google Play plan cannot be canceled from here');
+    expect(text).not.toContain('App store billing events');
+    expect(text).not.toContain('a plan you bought in the app');
     expect(text).toContain('Named in a record? Write to support@localholler.com with the link to the page.');
     expect(text).toContain('not directed to children under 13');
   });
@@ -234,26 +183,26 @@ describe('privacy: emails', () => {
 });
 
 describe('terms: round 7', () => {
-  it('plans from constants, web and store billing, AI notes, push consent, app store clauses', async () => {
+  it('plans from constants, web billing, AI notes; round 24: no store billing, no push and no app store clauses', async () => {
     const { text } = await renderLegal('terms');
-    expect(text).toContain(`A new account gets a ${TRIAL_DAYS}-day free trial, on the website or in the app.`);
-    expect(text).toContain('If you buy a plan in the app during your trial, Apple or Google charges you when you buy it.');
-    expect(text).toContain('Manage it where you bought it.');
-    expect(text).toContain('While a plan bought on the website is active, the app does not sell you a second one.');
-    expect(MIG('0020_holler_mobile.sql')).toContain("v_result := 'other_store';");
-    expect(text).toContain('Cancel in your Apple ID or Google Play subscription settings. Deleting your Holler account does not cancel it.');
-    expect(text).toContain('Refunds for plans bought in the app are handled by Apple or Google, under their rules. We cannot issue them, so ask the store that billed you.');
+    expect(text).toContain(`A new account gets a ${TRIAL_DAYS}-day free trial. No card is needed to start.`);
+    expect(text).toContain('These terms cover localholler.com.');
+    for (const gone of [
+      'If you buy a plan in the app',
+      'Manage it where you bought it.',
+      'Plans bought in the app.',
+      'Refunds for plans bought in the app',
+      'Push notifications',
+      'These terms are between you and us. They are not with Apple or Google.',
+      'Apple and its subsidiaries may enforce these terms',
+    ]) expect(text).not.toContain(gone);
+    expect(text).not.toMatch(/iPhone|Android|App Store|Google Play|push notification|RevenueCat|Firebase/i);
+    // The one general clause of the old app store section is kept, word for word, under "Who can use Holler".
+    expect(text).toContain('You confirm that you are not in a country under a US government embargo, and that you are not on a US government list of barred people.');
     expect(text).toContain('It is not a lead or a customer request.');
     expect(text).toContain('The sorting and the notes are guesses from the public record. They can be wrong.');
     expect(text).toContain('Respect no-soliciting signs, do-not-knock lists and local rules on door-to-door sales.');
     expect(text).toContain('National Do Not Call Registry');
-    expect(text).toContain('We send at most one an hour.');
-    expect(src('lib/push/notify.ts')).toContain('at most one per member per hour');
-    expect(text).toContain("To stop them, turn off Push notifications in the app's Settings");
-    expect(text).toContain('These terms are between you and us. They are not with Apple or Google.');
-    expect(text).toContain('Apple and Google have no duty to give support or upkeep for the app.');
-    expect(text).toContain('on an Apple or Android device you own or control');
-    expect(text).toContain('Apple and its subsidiaries may enforce these terms against you as third-party beneficiaries.');
     expect(text).toContain('Holler does not promise you any job, customer or income.');
   });
 });

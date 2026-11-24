@@ -290,7 +290,7 @@ describe('P1 Cobb County: matched across the county, labelled as approximate, ne
   it('the label is plain, has no distance, and shows on the web card, the check line and the app place line', () => {
     const note = approxLocationNote({ city: 'Cobb County' });
     // verify-v1 decision 4: the card prints the street address, so the note says what is missing (a map point)
-    expect(note).toBe("In Cobb County. The county's feed has a street address but no map point, so no distance is shown.");
+    expect(note).toBe("In Cobb County. The county's record has a street address but no map point, so no distance is shown.");
     expect(placeLine({ source: 'arcgis-cobb-commercial-permits', place: 'Cobb County, GA' })).toBe(note);
     expect(placeLine({ source: 'arcgis-dekalb-permits', place: 'DeKalb County, GA' })).toBe('DeKalb County, GA');
     const item: FeedItem = {

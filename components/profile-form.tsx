@@ -1,17 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useState } from 'react';
-import { Button } from './button';
+import { useActionState, useEffect, useState } from 'react';
+import { Button, ButtonLink } from './button';
 import { Chip } from './chip';
 import { Input } from './input';
 import { Notice } from './notice';
 import { Slider } from './slider';
 import type { ProfileFormState } from '@/lib/auth/profile-types';
 import { KEYWORD_MAX_LENGTH, KEYWORD_MIN_LENGTH, PLAN_LIMITS, type Tier } from '@/lib/plan/limits';
-import { groupCategories, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
+import { COMING_SOON_GROUP_KEY, groupCategories, MARKETED_GROUP_KEY, toggleTrade, tradeLimitView, type ChipCategory } from './profile-form-groups';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { planNameEs } from '@/lib/plan/price-copy-es';
+import type { ProfileCoverage } from '@/lib/check/profile-coverage';
+import { profileCoverageAction } from '@/lib/check/profile-coverage-action';
 
 export interface ProfileDefaults {
   business_name: string;
@@ -41,6 +44,8 @@ export function ProfileForm({
   tier = 'starter',
   upgradeHref = '/pricing',
   lang = 'en',
+  initialCoverage = null,
+  inSettings = false,
 }: {
   action: (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
   categories: ChipCategory[];
@@ -57,6 +62,16 @@ export function ProfileForm({
    * form, so the save's answers are Spanish too. English (the default) is the form as it always was. Trade labels come in `categories`.
    */
   lang?: Lang;
+  /**
+   * Round 24 FIX2 (review D2): the /check answer for the saved ZIP and trades, computed on the server (Settings), so it shows on the first
+   * paint. As the member edits the ZIP or the trades the form asks profileCoverageAction (the same coverageFor answer, no database).
+   */
+  initialCoverage?: ProfileCoverage | null;
+  /**
+   * Round 24 FIX3 (review-FIX2 F6): the form is in Settings. With every picked trade waitlist the save button keeps its own label
+   * (submitLabel) and the notice says "save your settings as they are"; only onboarding says "Continue anyway".
+   */
+  inSettings?: boolean;
 }) {
   const es = lang !== 'en';
   const w = (key: DictKey, en: string, vars?: Record<string, string | number>) => (es ? t(lang, key, { pro: planNameEs('pro'), ...vars }) : en);
@@ -70,13 +85,98 @@ export function ProfileForm({
   const [alertEmail, setAlertEmail] = useState(defaults.alert_email);
   const [extraZips, setExtraZips] = useState<string[]>(slots(defaults.extra_zips, PRO.extraAreas));
   const [keywords, setKeywords] = useState<string[]>(slots(defaults.keywords, PRO.keywords));
+  const [coverage, setCoverage] = useState<ProfileCoverage | null>(initialCoverage);
+  const pickedKey = picked.join(',');
+  // The answer shown is the one for the ZIP and trades on screen now; a stale answer (an older ZIP or pick) is never shown.
+  const shownCoverage = coverage && coverage.zip === zip && coverage.lines.map((l) => l.trade).join(',') === pickedKey ? coverage : null;
+  useEffect(() => {
+    if (!/^\d{5}$/.test(zip) || pickedKey === '') return;
+    let live = true;
+    const id = setTimeout(() => {
+      profileCoverageAction(zip, pickedKey.split(','), lang)
+        .then((c) => {
+          if (live) setCoverage(c);
+        })
+        .catch(() => {});
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [zip, pickedKey, lang]);
 
   const isPro = tier === 'pro';
   const max = PLAN_LIMITS[tier].trades;
   const view = tradeLimitView(picked, max);
+  /**
+   * The composite "Pressure washing" chip (lib/plan/profile-categories.ts): it is selected when BOTH house cleaning and siding and
+   * gutters are picked, turning it on adds both, turning it off removes both. Its own id is never in `picked`, so nothing is submitted
+   * for it and no other code has to know about it. It takes two of the plan's trade slots, so it is only offered when two are free.
+   */
+  const pwOn = PRESSURE_WASHING_PARTS.every((id) => picked.includes(id));
+  const togglePressureWashing = () =>
+    setPicked((cur) => {
+      if (PRESSURE_WASHING_PARTS.every((id) => cur.includes(id))) return cur.filter((id) => !PRESSURE_WASHING_PARTS.includes(id));
+      const add = PRESSURE_WASHING_PARTS.filter((id) => !cur.includes(id));
+      return cur.length + add.length > max ? cur : [...cur, ...add];
+    });
   const label = (id: string) => categories.find((c) => c.id === id)?.label ?? id;
   const fe = state.fieldErrors ?? {};
   const groups = groupCategories(categories, lang);
+  const rest = groups.filter((g) => g.key !== MARKETED_GROUP_KEY && g.key !== COMING_SOON_GROUP_KEY);
+  // Round 24: the trades sign-up does not take yet, in their own group after "More trades", never pickable.
+  const soon = groups.filter((g) => g.key === COMING_SOON_GROUP_KEY);
+  // Open "More trades" when there is no marketed group at all (a deployment where none of them can be picked), or when a trade the
+  // member already saved lives inside it: a saved pick must never be hidden from the person who saved it.
+  const openRest = groups.every((g) => g.key !== MARKETED_GROUP_KEY) || rest.some((g) => g.items.some((c) => picked.includes(c.id)));
+
+  /** One group's chips. A plain function, not a component, so the chips are not remounted on every keystroke in the form. */
+  function renderGroup(g: (typeof groups)[number]) {
+    return (
+      <div key={g.key} role="group" aria-label={g.label ?? undefined}>
+        {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {g.items.map((c) => {
+            if (c.comingSoon) {
+              return (
+                <Chip key={c.id} selected={false} disabled aria-disabled="true">
+                  {c.label}
+                  {c.closed ? null : <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>}
+                </Chip>
+              );
+            }
+            if (c.id === PRESSURE_WASHING_ID) {
+              return (
+                <Chip
+                  key={c.id}
+                  selected={pwOn}
+                  disabled={!pwOn && picked.length + PRESSURE_WASHING_PARTS.filter((id) => !picked.includes(id)).length > max}
+                  aria-describedby="pf-pw-hint"
+                  onClick={togglePressureWashing}
+                >
+                  {c.label}
+                </Chip>
+              );
+            }
+            const selected = picked.includes(c.id);
+            return (
+              <Chip key={c.id} selected={selected} disabled={!selected && view.full} onClick={() => setPicked((cur) => toggleTrade(cur, c.id, max))}>
+                {c.label}
+              </Chip>
+            );
+          })}
+        </div>
+        {g.items.some((c) => c.id === PRESSURE_WASHING_ID) ? (
+          <p id="pf-pw-hint" className="mt-2 text-sm text-muted">
+            {w(
+              'pf.trade.pressure_washing_hint',
+              'Counts as two trades: house cleaning, and siding and gutters. That is where pressure washing work shows up, in new-home and roof permits.',
+            )}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
   const savedExtras = (defaults.extra_zips ?? []).filter(Boolean);
   const savedKeywords = (defaults.keywords ?? []).filter(Boolean);
 
@@ -121,30 +221,27 @@ export function ProfileForm({
             )}
           </div>
         ) : null}
+        {/* Round 23: the trades Holler is marketed for are the first group and are always open; the other 30-odd sit behind one
+            disclosure, so the form opens on six chips instead of 37. <details> needs no JavaScript, so it works on a first paint and
+            with the keyboard. A saved trade from the hidden part stays saved and stays counted; only the chips are folded away. */}
         <div className="mt-3 flex flex-col gap-5">
-          {groups.map((g) => (
-            <div key={g.key} role="group" aria-label={g.label ?? undefined}>
-              {g.label ? <p className="mb-2 text-sm font-medium text-muted">{g.label}</p> : null}
-              <div className="flex flex-wrap gap-2">
-                {g.items.map((c) => {
-                  if (c.comingSoon) {
-                    return (
-                      <Chip key={c.id} selected={false} disabled aria-disabled="true">
-                        {c.label}
-                        <span className="ml-2 text-xs font-normal">{c.noLiveSource ? w('pf.no_source', 'No live source yet') : w('pf.soon', 'Coming soon')}</span>
-                      </Chip>
-                    );
-                  }
-                  const selected = picked.includes(c.id);
-                  return (
-                    <Chip key={c.id} selected={selected} disabled={!selected && view.full} onClick={() => setPicked((cur) => toggleTrade(cur, c.id, max))}>
-                      {c.label}
-                    </Chip>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+          {groups.filter((g) => g.key === MARKETED_GROUP_KEY).map(renderGroup)}
+          {rest.length > 0 ? (
+            <details className="rounded-card border border-line p-4" open={openRest}>
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-ink">{w('pf.more_trades', 'More trades')}</summary>
+              <p className="mt-1 text-sm text-muted">
+                {w('pf.more_trades_hint', 'Holler has records for these too, but fewer of them in the cities it covers today.')}
+              </p>
+              <div className="mt-3 flex flex-col gap-5">{rest.map(renderGroup)}</div>
+            </details>
+          ) : null}
+          {soon.length > 0 ? (
+            <details className="rounded-card border border-line p-4">
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-ink">{t(lang, 'group.coming-soon')}</summary>
+              <p className="mt-1 text-sm text-muted">{t(lang, 'pf.coming_soon_hint')}</p>
+              <div className="mt-3 flex flex-col gap-5">{soon.map((g) => renderGroup({ ...g, label: null }))}</div>
+            </details>
+          ) : null}
         </div>
         {picked.map((id) => (
           <input key={id} type="hidden" name="categories" value={id} />
@@ -183,6 +280,24 @@ export function ProfileForm({
           unit=" mi"
           hint={isPro ? w('pf.radius_hint_pro', 'Alerts only come from inside this radius of each ZIP.') : w('pf.radius_hint', 'Alerts only come from inside this radius.')}
         />
+        {/* Round 24 FIX2 (review D2): the /check answer per picked trade at this ZIP. Inside this grid (its last cell, full width), not as a
+            new child of the form, so the generated ids of the fields after it do not shift. */}
+        {shownCoverage ? (
+          <section aria-labelledby="pf-cov-h" className="rounded-card border border-line p-4 sm:col-span-2 sm:p-5" data-testid="trade-coverage">
+            <h3 id="pf-cov-h" className="text-sm font-semibold text-ink">
+              {t(lang, 'pf.cov.h', { place: shownCoverage.place })}
+            </h3>
+            <ul className="mt-2 flex flex-col gap-2">
+              {shownCoverage.lines.map((l) => (
+                <li key={l.trade} className="text-sm" data-answer={l.answer}>
+                  <span className="font-semibold text-ink">{label(l.trade)}</span>
+                  <span className="ml-2 rounded-chip bg-sand px-2 py-0.5 font-mono text-xs uppercase text-ink">{l.tag}</span>
+                  <span className="mt-0.5 block text-muted">{l.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </div>
       {fe.radius ? (
         <p role="alert" className="-mt-4 text-sm font-medium text-danger">
@@ -302,9 +417,26 @@ export function ProfileForm({
         {state.ok && state.message ? <Notice tone="success">{state.message}</Notice> : null}
       </div>
 
-      <Button type="submit" size="lg" disabled={pending} className="self-start max-sm:w-full">
-        {pending ? w('pf.saving', 'Saving...') : submitLabel}
-      </Button>
+      {shownCoverage?.allWaitlist && shownCoverage.joinHref ? (
+        <>
+          {/* Every picked trade is waitlist here: a calm note (not an error), "Join the list" first, and saving is still allowed. */}
+          <Notice tone="info" role="status">
+            {t(lang, inSettings ? 'pf.cov.all_wait_settings' : 'pf.cov.all_wait', { trades: shownCoverage.lines.map((l) => (es ? label(l.trade) : label(l.trade).toLowerCase())).join(', '), place: shownCoverage.place })}
+          </Notice>
+          <div className="flex flex-wrap items-center gap-3">
+            <ButtonLink href={shownCoverage.joinHref} size="lg" className="max-sm:w-full">
+              {t(lang, 'pf.cov.join', { place: shownCoverage.place })}
+            </ButtonLink>
+            <Button type="submit" variant="secondary" size="lg" disabled={pending} className="max-sm:w-full">
+              {pending ? w('pf.saving', 'Saving...') : inSettings ? submitLabel : t(lang, 'pf.cov.continue')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <Button type="submit" size="lg" disabled={pending} className="self-start max-sm:w-full">
+          {pending ? w('pf.saving', 'Saving...') : submitLabel}
+        </Button>
+      )}
     </form>
   );
 }

@@ -5,8 +5,8 @@ import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 export const dataSources: Guide = {
   slug: 'free-public-data-sources-for-local-leads',
-  title: 'Free public data sources for local leads',
-  metaTitle: 'Free Public Data Sources for Local Leads | Holler',
+  title: 'Free public data sources for local work',
+  metaTitle: 'Free Public Data Sources for Local Work | Holler',
   description:
     'A reference table of free government data that points to local work: who publishes each source, how fresh it is, which trades it suits and where to open it.',
   directAnswer:

@@ -94,7 +94,9 @@ describe('footer', () => {
       return hrefs(footer.slice(start, footer.indexOf('</ul>', start)));
     };
     expect(group('Product')).toEqual(['/check', '/pricing', '/#how', '/storms', '/request', '/es']);
-    expect(group('Trades')).toEqual(['/for/roofing', '/for/plumbing', '/for/hvac', '/for/electrical', '/for/tree-service', '/for/restoration', '/for']);
+    // Round 24 (review P1-3, decision e): the launch trades first. R25 check fix (review R25CHECK P3-7): pressure washing opens the check
+    // with that option picked; cleaning keeps /for/cleaning.
+    expect(group('Trades')).toEqual(['/for/landscaping', '/for/lawn-care', '/for/siding-gutters', '/check?trade=pressure-washing', '/for/fencing', '/for/painting', '/for/cleaning', '/for']);
     expect(group('Learn')).toEqual(['/local', '/guides', '/faq', '/data', '/about']);
     expect(group('Company')).toEqual(['mailto:support@localholler.com', '/privacy', '/terms', '/delete-account']);
   });

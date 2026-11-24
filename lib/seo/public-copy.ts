@@ -4,7 +4,6 @@ import { TIER_NAMES } from '@/lib/plan/limits';
 import { FROM_MONTHLY, namedPlanPrices } from '@/lib/plan/price-copy';
 import { priceLabel } from '@/lib/stripe/plans';
 import { TRIAL_PHRASE } from '@/lib/plan/price-copy';
-import { PUSH_CAP } from './home-cadence';
 
 /**
  * Every sentence on the home page, /about, /faq and /llms.txt that depends on an optional key lives here, built from the keys that are
@@ -97,11 +96,16 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
 
   // Key-independent: no optional source is named in the home FAQ, so its word budget is the same whatever keys are set. The
   // key-gated sources are named on /about, /faq and /llms.txt.
-  const dataAnswer = 'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its source.';
+  const dataAnswer = 'City open-data portals, the National Weather Service, NOAA storm reports and 311 systems. Each alert links to its public source.';
 
   return {
-    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and sends a short alert when something nearby fits what you do. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
-    heroLead: 'Alerts when hail, a permit or a 311 request near you fits your trade. Each one links to its public source.',
+    // Round 23: the meta/OG description and the lead say the same thing as the h1 ("See where the work is near you this week.") and name
+    // the trades Holler is marketed for: landscaping, lawn care, gutters and pressure washing. The lead also names the two things a
+    // member gets besides the alert, because they are the strongest part for this audience: the weekly address list and the printable
+    // door hanger. Nothing here promises a job or a customer.
+    metaDescription: `Holler watches public data${f.ask ? ' and local posts' : ''} and shows landscaping, lawn care, gutter and pressure washing crews where the work is near them each week. Plans from ${FROM_MONTHLY} a month after a ${TRIAL_PHRASE}. No card to start.`,
+    heroLead:
+      'New-home and new-roof permits near you, each with the street address and a link to its public source. Holler puts those addresses on a list and a door hanger you can print, so you know where to hang and flyer this week. Built for landscaping, lawn care, gutter and pressure washing crews.',
     steps: [
       { title: 'What happened', body: 'In plain words, matched to the trades you picked.' },
       { title: 'How far from you', body: 'Only records inside the radius you drive.' },
@@ -121,39 +125,43 @@ export function homeCopy(has: Has = hasEnv): HomeCopy {
         ],
       },
       {
+        // Round 23: the trades named here are the ones Holler is marketed for. Most of the value measured in the four launch cities is
+        // new-build and re-roof permits with an exact street address, which is what landscaping, lawn care, gutter and pressure washing
+        // crews can act on. "pressure washing" links to the house cleaning page because that is the category it sits in today.
         id: 'permit',
         tag: 'PERMITS',
-        title: 'New building permits',
-        from: 'From cities and counties that publish them.',
+        title: 'New-build and re-roof permits',
+        from: 'From cities and counties that publish them, with the street address.',
         goodFor: [
-          { label: 'plumbing', id: 'plumbing' },
-          { label: 'HVAC', id: 'hvac' },
-          { label: 'electrical', id: 'electrical' },
-          { label: 'windows and doors', id: 'windows-doors' },
+          { label: 'landscaping', id: 'landscaping' },
+          { label: 'lawn care', id: 'lawn-care' },
+          { label: 'gutters and siding', id: 'siding-gutters' },
+          { label: 'pressure washing', id: 'cleaning' },
         ],
       },
       {
         id: 'civic',
         tag: '311 AND CODE',
         title: 'City requests and code cases',
-        from: 'Fallen trees, dumping, rats and repair orders.',
+        from: 'Overgrown yards, fallen trees, dumping and repair orders, by block.',
         goodFor: [
-          { label: 'tree service', id: 'tree-service' },
-          { label: 'handyman', id: 'handyman' },
+          { label: 'lawn care', id: 'lawn-care' },
+          { label: 'landscaping', id: 'landscaping' },
           { label: 'junk removal', id: 'junk-removal' },
-          { label: 'pest control', id: 'pest-control' },
+          { label: 'tree service', id: 'tree-service' },
         ],
       },
     ],
     faqs: [
       {
-        q: 'Is this a lead list?',
-        a: 'No. Holler shows public records that point to work. It does not promise a job or a customer.',
+        q: 'Is this a list of people to call?',
+        a: 'No. Holler shows public records that point to work, so you know where to hang and flyer. It does not promise a job or a customer, and you never get a resident’s name.',
       },
       { q: 'Where does it come from?', a: dataAnswer },
       {
+        // Round 23: Holler is a website. Alerts go by email and to the feed on this site; there is no app and no push.
         q: 'How do alerts reach me?',
-        a: `By email today. iPhone and Android apps are coming, and push will be capped at ${PUSH_CAP}.`,
+        a: 'By email, at most one an hour, and on your matches page when you log in. There is nothing to install.',
       },
       {
         q: 'Does it cover my area?',
@@ -209,10 +217,10 @@ export function aboutCopy(has: Has = hasEnv): AboutCopy {
   ];
 
   const opener =
-    'A storm rolls through, and the roofers who hear about it first get the calls. A health inspection fails and a cleaning crew could help.';
+    'A new house gets its permit, and by the time it is finished the yard is bare dirt. A city cites an overgrown lot, and the owner gets a deadline.';
   const third = f.ask
-    ? ' When a neighbor posts "anyone recommend a plumber?" the first useful reply often wins the job.'
-    : ' A new building permit is filed, and the fence builders and junk haulers nearby can call first.';
+    ? ' When a neighbor posts "anyone recommend a lawn service?", a quick, useful reply gets noticed.'
+    : ' Both are public records, and both point to work for a crew nearby.';
 
   return {
     metaDescription:
@@ -220,13 +228,13 @@ export function aboutCopy(has: Has = hasEnv): AboutCopy {
     sources,
     whatItIs: [
       `${opener}${third}`,
-      'Holler watches for moments like these in public data. You tell us what you do and where you work, and when something nearby matches, you get a short alert with a link to the source. That, plus a free page where residents can ask local businesses for help, is the whole product.',
+      'Holler watches for moments like these in public data. You tell us what you do and where you work, and when something nearby matches, you get a short alert with a link to the public source. Permitted addresses also go on a list and a door hanger you can print. There is a free page, too, where residents can ask local businesses for help.',
       `There are two plans. ${TIER_NAMES.starter} is ${priceLabel('starter', 'monthly')} a month, or ${priceLabel('starter', 'annual')} a year, for one service area and up to five trades. ${TIER_NAMES.pro} is ${priceLabel('pro', 'monthly')} a month, or ${priceLabel('pro', 'annual')} a year, for up to three areas and 15 trades. Both start with a ${TRIAL_PHRASE} that needs no card. Cancel from Settings whenever you like.`,
       'Holler is new, so judge it on the records and the source links, not on a customer count.',
     ],
     dataIntro: `Everything comes from official APIs and open data${f.search ? ' and licensed search APIs' : ''}, and each alert links to the page or dataset it came from.`,
     coverage:
-      'Coverage is uneven. Weather, disasters and federal contracts cover the whole US, and airport status covers 40 major airports. Permits, 311 and inspections come only from the cities we have connected so far, such as Chicago, New York and Austin, so a town we have not connected still gets the national alerts but not its own city records. Some sources run late. A few will be wrong. Check the source before you act.',
+      'Coverage is uneven. Weather, disasters and federal contracts cover the whole US, and airport status covers 40 major airports. Permits, 311 and inspections come only from the cities we have connected so far, such as Atlanta, Austin, Charlotte and Raleigh, so a town we have not connected still gets the national alerts but not its own city records. Some sources run late. A few will be wrong. Check the source before you act.',
     cadence: cadenceFor(f),
     postsNote: f.ask
       ? `When we find a public post where someone is asking for help, we keep ${askKeeps(f)}. If you ask for a draft reply, you get text to edit and post yourself.`
@@ -279,7 +287,7 @@ export function llmsText(input: LlmsInput, has: Has = hasEnv): string {
   return [
     '# Holler',
     '',
-    "> Holler tells local businesses when their area needs them. It watches public data and sends a short alert when something nearby matches what a business does. It never posts for the user and never touches anyone's social accounts.",
+    "> Holler shows local businesses the public records near them that point to work. It watches public data and sends a short alert when something nearby matches what a business does. It never posts for the user and never touches anyone's social accounts.",
     '',
     '## What the public pages contain',
     '',

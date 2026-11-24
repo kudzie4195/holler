@@ -75,6 +75,8 @@ export function planFeaturesEs(tier: Tier): string[] {
         `Hasta ${P.starter.trades} oficios`,
         'Alertas por correo, como máximo una por hora',
         'Su lista de coincidencias',
+        'Listas de direcciones, para los oficios que las tienen: dónde colgar y repartir volantes esta semana',
+        'Un colgante de puerta para imprimir con su nombre y su teléfono',
         'Respuestas a solicitudes de vecinos a través de Holler',
       ]
     : [
@@ -83,6 +85,8 @@ export function planFeaturesEs(tier: Tier): string[] {
         `Hasta ${P.pro.keywords} palabras clave vigiladas, como "retiro de árboles"`,
         'Alertas por correo, como máximo una por hora',
         'Su lista de coincidencias',
+        'Listas de direcciones, para los oficios que las tienen: dónde colgar y repartir volantes esta semana',
+        'Un colgante de puerta para imprimir con su nombre y su teléfono',
         'Respuestas a solicitudes de vecinos a través de Holler',
       ];
 }

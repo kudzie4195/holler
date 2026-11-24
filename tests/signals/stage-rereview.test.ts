@@ -81,7 +81,8 @@ describe('re-review P1-A: a brand-new project whose second listing is already fi
     expect(mine.size).toBe(N);
     const items = db.tables.holler_signals.filter((s) => mine.has(s.id)).map((s) => ({ kind: s.kind, title: s.title, occurredAt: s.occurred_at, permitStage: s.data?.permitStage, permitStageAt: s.data?.permitStageAt, permitStageUpdate: s.data?.permitStageUpdate }));
     expect(items.filter((i) => isStageUpdate(i as any))).toHaveLength(0);
-    expect(digestSubject(items as any, items.length)).toBe('8 new things near you');
+    // Round 23: the subject names the strongest card and counts the rest. No address or place on these rows, so the title carries it.
+    expect(digestSubject(items as any, items.length)).toBe('New construction permit in Norfolk (+7 more)');
     // Nothing of it counts as an update sent today (P2-C): no emitted history row.
     expect(db.tables.holler_permit_stages.filter((h) => h.emitted)).toHaveLength(0);
   });

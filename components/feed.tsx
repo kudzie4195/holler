@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { hardNavigate } from './format';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Badge, StatusBadge } from './badge';
 import { Button, ButtonLink } from './button';
 import { Card } from './card';
@@ -91,6 +91,55 @@ export interface FeedItem {
 
 type Filter = 'all' | 'ask' | 'signals';
 
+/** The match id an alert email links to (`/app#card-<match id>`, lib/email/templates.ts digestAction), or null for any other hash. */
+export function cardIdFromHash(hash: string): number | null {
+  const m = /^#card-(\d{1,15})$/.exec(hash);
+  if (!m) return null;
+  const id = Number(m[1]);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+/** What the browser needs to act on an email's deep link. Injected, so the test can drive it without a DOM. */
+export interface CardLinkEnv {
+  hash: () => string;
+  /** Tick "Show done and dismissed": the card was closed, so the feed hides it until then. */
+  showClosed: () => void;
+  scrollTo: (id: number) => void;
+  /** The card id the email named when it is not among the loaded cards (null clears the notice). */
+  setMissing: (id: number | null) => void;
+  nextFrame: (fn: () => void) => void;
+}
+
+/**
+ * The feed's answer to `/app#card-<match id>` (round 24, review P1-2). /app streams its list behind a Suspense boundary, so the browser's
+ * own jump to the anchor usually runs before the card exists (the reviewer's probe: 0 of 10 loads at 50 to 300 ms). This handler runs
+ * whenever the list it is given changes, until it has found the card once:
+ *  - card in the list: a closed card first ticks "show closed"; then, two frames later (after React has painted it), it is scrolled to;
+ *  - card not in the list (older than the newest 100, or a request that has closed and left the feed): the notice says so, and the
+ *    handler keeps listening, so a list that arrives later and does hold the card still scrolls to it;
+ *  - no card hash: nothing, ever.
+ */
+export function createCardLinkHandler(env: CardLinkEnv): (items: readonly Pick<FeedItem, 'id' | 'status'>[]) => void {
+  let done = false;
+  return (items) => {
+    if (done) return;
+    const id = cardIdFromHash(env.hash());
+    if (id === null) {
+      done = true;
+      return;
+    }
+    const hit = items.find((i) => i.id === id);
+    if (!hit) {
+      env.setMissing(id);
+      return;
+    }
+    done = true;
+    env.setMissing(null);
+    if (hit.status === 'done' || hit.status === 'dismissed') env.showClosed();
+    env.nextFrame(() => env.nextFrame(() => env.scrollTo(id)));
+  };
+}
+
 /** Source id of resident requests made on Holler (/request). Matches lib/requests/constants.ts REQUEST_SOURCE. */
 export const REQUEST_SOURCE = 'holler-request';
 
@@ -113,6 +162,30 @@ export function Feed({
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [replyStates, setReplyStates] = useState<Record<number, RequestReplyState>>({});
+  // Round 24 (review P1-2): the card an alert email links to (#card-<match id>). Runs on the list as it arrives, never on the server.
+  const [missingCard, setMissingCard] = useState<number | null>(null);
+  const cardLink = useRef<ReturnType<typeof createCardLinkHandler> | null>(null);
+  useEffect(() => {
+    cardLink.current ??= createCardLinkHandler({
+      hash: () => window.location.hash,
+      showClosed: () => setShowClosed(true),
+      scrollTo: (id) => document.getElementById(`card-${id}`)?.scrollIntoView({ block: 'start' }),
+      setMissing: setMissingCard,
+      // A frame, or 60 ms when the browser draws no frame (a background tab, a headless check): whichever comes first, once.
+      nextFrame: (fn) => {
+        let ran = false;
+        const once = () => {
+          if (!ran) {
+            ran = true;
+            fn();
+          }
+        };
+        requestAnimationFrame(once);
+        setTimeout(once, 60);
+      },
+    });
+    cardLink.current(initial);
+  }, [initial]);
 
   // Resident requests: ask the server which ones this business already answered (or that are closed). page.tsx does not pass this.
   const requestIds = initial.filter((i) => i.source === REQUEST_SOURCE).map((i) => i.id);
@@ -164,8 +237,18 @@ export function Feed({
     setItems((cur) => cur.map((i) => (i.id === id ? { ...i, draft } : i)));
   }
 
+  // One plain sentence at the top of the feed when the email's card is not in this list (the "show closed" box stays where it is).
+  const missingNotice =
+    missingCard !== null ? (
+      <p role="status" className="mb-4 text-sm text-ink" data-testid="card-link-missing">
+        {t(lang, 'card.link_missing')}
+      </p>
+    ) : null;
+
   if (items.length === 0) {
     return (
+      <>
+      {missingNotice}
       <EmptyState
         title={t(lang, 'card.empty.title')}
         action={
@@ -180,6 +263,7 @@ export function Feed({
           {lang === 'en' ? CADENCE_SHORT : t(lang, 'cadence.short')} {t(lang, 'card.empty.body')}
         </p>
       </EmptyState>
+      </>
     );
   }
 
@@ -191,10 +275,16 @@ export function Feed({
 
   return (
     <div>
-      {firstRun ? (
-        <p className="mb-4 text-muted">
-          {t(lang, 'card.first_run')}
-        </p>
+      {/* The notice shares the first-run slot, so the children after it keep their place (and their React ids) when there is none. */}
+      {firstRun || missingNotice ? (
+        <>
+          {missingNotice}
+          {firstRun ? (
+            <p className="mb-4 text-muted">
+              {t(lang, 'card.first_run')}
+            </p>
+          ) : null}
+        </>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label={t(lang, 'card.filter.aria')} className="flex flex-wrap gap-2">
@@ -239,7 +329,9 @@ export function Feed({
       ) : (
         <ul className="mt-6 flex flex-col gap-4">
           {visible.map((item) => (
-            <li key={item.id}>
+            // The anchor the alert email links to (round 23): /app#card-<match id> (holler_matches.id, the same id the email's action
+            // carries) opens the feed at this card. scroll-mt keeps the card clear of the sticky header once the feed scrolls to it.
+            <li key={item.id} id={`card-${item.id}`} className="scroll-mt-24">
               <MatchCard
                 item={item}
                 onStatus={update}

@@ -6,8 +6,9 @@ import { isConfirmType } from '@/lib/auth/otp';
 import { cleanCitySlug, safeNext } from '@/lib/auth/redirect';
 import { getUser } from '@/lib/auth/session';
 import { cityBySlug } from '@/lib/geo';
+import { cityOffer } from '@/lib/seo/city-offer';
 import { t, type DictKey, type Lang } from '@/lib/i18n';
-import { TRIAL_HEADLINE, TRIAL_MONTHS } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE_KEY, TRIAL_MONTHS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
 
 /**
  * The bodies of the sign-up, log-in and password pages, shared by the English pages (app/(auth)/...) and their Spanish twins (/es/...).
@@ -20,32 +21,86 @@ const words = (lang: Lang) => (key: DictKey, en: string) => (lang === 'en' ? en 
 const path = (lang: Lang, p: string) => (lang === 'en' ? p : `/es${p}`);
 const switchLink = 'inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline';
 
+/** The sign-up city is a waitlist city for every trade (lib/seo/city-offer.ts cityOffer, the city page's own answer). */
+export function signupCityWaitlist(city: NonNullable<ReturnType<typeof cityBySlug>>): boolean {
+  return cityOffer(city).state === 'waitlist';
+}
+
+/** The sign-up page title and description for a ?city= value: the waitlist wording for a waitlist city, otherwise null (the defaults). */
+export function signupWaitMeta(rawCity: unknown, lang: Lang): { title: string; description: string } | null {
+  const slug = cleanCitySlug(typeof rawCity === 'string' ? rawCity : null);
+  const city = slug ? cityBySlug(slug) : null;
+  if (!city || !signupCityWaitlist(city)) return null;
+  const name = `${city.name}, ${city.state}`;
+  return { title: t(lang, 'auth.signup.wait_h', { city: name }), description: t(lang, 'auth.signup.wait_sub', { city: name }) };
+}
+
+/**
+ * Round 24 FIX3 (review-FIX2 F5): the share preview of a waitlist-city sign-up page. og and twitter are set in full (title, description,
+ * image and its alt) so nothing with a price or a trial is inherited from the layout or the Spanish auth defaults.
+ */
+export function signupWaitShare(wait: { title: string; description: string }, url: string, locale?: string) {
+  return {
+    openGraph: {
+      type: 'website' as const,
+      siteName: 'Holler',
+      ...(locale ? { locale } : {}),
+      title: wait.title,
+      description: wait.description,
+      url,
+      images: [{ url: '/og.png', width: 1200, height: 630, alt: wait.title }],
+    },
+    twitter: { card: 'summary_large_image' as const, title: wait.title, description: wait.description, images: ['/og.png'] },
+  };
+}
+
 export async function SignupBody({ searchParams, lang = 'en' }: { searchParams: SP; lang?: Lang }) {
   const w = words(lang);
   const sp = await searchParams;
   const citySlug = cleanCitySlug(typeof sp.city === 'string' ? sp.city : null);
   const city = citySlug ? cityBySlug(citySlug) : null;
+  const haveAccount = (
+    <>
+      {w('auth.signup.have', 'Already have an account?')}{' '}
+      <Link href={path(lang, '/login')} className={switchLink}>
+        {w('auth.login', 'Log in')}
+      </Link>
+    </>
+  );
+  // Round 24 FIX2 (review D2): a city the ZIP check calls waitlist gets no trial pitch. Old shared and indexed links still open (200): the
+  // page says Holler is not ready there and links to the ZIP check. The account form stays, for an owner who works somewhere else.
+  if (city && signupCityWaitlist(city)) {
+    const name = `${city.name}, ${city.state}`;
+    return (
+      <AuthCard
+        title={t(lang, 'auth.signup.wait_h', { city: name })}
+        subtitle={t(lang, 'auth.signup.wait_sub', { city: name })}
+        note={
+          <Link href={path(lang, '/check')} className={switchLink}>
+            {t(lang, 'auth.signup.wait_link')}
+          </Link>
+        }
+        footer={haveAccount}
+      >
+        <SignupForm city={null} lang={lang} />
+      </AuthCard>
+    );
+  }
   const subtitle =
     lang === 'en'
       ? city
         ? `Alerts for ${city.name}, ${city.state} and the towns around it. No card needed.`
-        : `${TRIAL_HEADLINE}, no card. Takes about a minute.`
+        : `${TRIAL_PHRASE.charAt(0).toUpperCase() + TRIAL_PHRASE.slice(1)}, no card. Takes about a minute.`
       : city
         ? t(lang, 'auth.signup.sub_city', { city: `${city.name}, ${city.state}` })
-        : // Round 18 integration: the 2-month headline, as in English (r18 trial), from the 'land.trial' template and TRIAL_MONTHS.
-          t(lang, 'auth.signup.sub', { free: t(lang, 'land.trial', { months: TRIAL_MONTHS }) });
+        : // Round 18 integration: the same headline as in English (r18 trial), from the 'land.trial' templates and TRIAL_MONTHS.
+          // Round 23: one month, so the key is the singular one (lib/plan/price-copy.ts TRIAL_HEADLINE_KEY).
+          t(lang, 'auth.signup.sub', { free: t(lang, TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS }) });
   return (
     <AuthCard
       title={w('auth.signup.h', 'Start your free trial')}
       subtitle={subtitle}
-      footer={
-        <>
-          {w('auth.signup.have', 'Already have an account?')}{' '}
-          <Link href={path(lang, '/login')} className={switchLink}>
-            {w('auth.login', 'Log in')}
-          </Link>
-        </>
-      }
+      footer={haveAccount}
     >
       <SignupForm city={city ? citySlug : null} lang={lang} />
     </AuthCard>

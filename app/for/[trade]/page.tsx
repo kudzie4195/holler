@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { absoluteUrl } from '@/lib/seo/canonical';
+import { socialMeta } from '@/lib/seo/social';
 import { breadcrumbLd, faqLd } from '@/lib/seo/jsonld';
 import { sourceInfo } from '@/lib/seo/sources';
 import { loadTradeSignals, isTradeIndexable, type TradeSignalItem } from '@/lib/seo/trade-data';
@@ -11,8 +12,10 @@ import {
   serviceLd,
   tradeDescription,
   tradeEntry,
-  tradeHeadline,
-  tradeLead,
+  tradePageHeadline,
+  tradePageLead,
+  tradeOffer,
+  tradeListsLine,
   tradeFaq,
   tradePath,
   tradeTitle,
@@ -23,6 +26,8 @@ import { fmtDateTime, fmtItemTime } from '@/lib/seo/view';
 import { JsonLd } from '../../local/_components/jsonld';
 import { Aside, ClosingBand, FamilyDot, H2, Ledger, Page, PageHeader, PrimaryLink, SecondaryLink, linkClass, PublicRecordsNote, type Family } from '../../local/_components/ui';
 import { kindFamily } from '@/components/signal-meta';
+import { t as tr } from '@/lib/i18n';
+import { tradeHasStormCells } from '@/lib/check/cells';
 
 type Props = { params: Promise<{ trade: string }> };
 
@@ -43,8 +48,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical: absoluteUrl(path) },
     robots: isTradeIndexable(live.items.length) ? { index: true, follow: true } : { index: false, follow: true },
-    openGraph: { title, description, url: absoluteUrl(path), siteName: 'Holler', type: 'website' },
-    twitter: { card: 'summary', title, description },
+    // Round 23: a shared trade link showed no picture either (no og:image, twitter card 'summary').
+    ...socialMeta({ title, description, path }),
   };
 }
 
@@ -57,7 +62,7 @@ function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
       <div className="min-w-0">
         <p className="font-medium leading-snug">
           {item.url ? (
-            <a href={item.url} target="_blank" rel={item.kind === 'ask' ? 'nofollow ugc noopener' : 'noopener'} className={linkClass}>
+            <a href={item.url} target="_blank" rel={item.kind === 'ask' ? 'nofollow ugc noopener' : 'noopener'} className={`${linkClass} -my-3 inline-block py-3`}>
               {item.title}
             </a>
           ) : (
@@ -70,7 +75,7 @@ function LiveRow({ item, asOf }: { item: TradeSignalItem; asOf: string }) {
           </time>
           {place ? <span>{place}</span> : null}
           <span>
-            Source:{' '}
+            Public source:{' '}
             {src.homeUrl ? (
               <a href={src.homeUrl} target="_blank" rel="noopener" className={`${linkClass} inline-flex min-h-11 items-center`}>
                 {src.label}
@@ -95,26 +100,46 @@ export default async function TradePage({ params }: Props) {
   const caveat = cityRecordsCaveat(signals);
   const path = tradePath(t.id);
   const checkHref = `/check?trade=${encodeURIComponent(t.id)}`;
+  // Round 24 (review P1-3, decision d): the offer follows the measured cells. Only a trade live in some centre gets "Start free" and the
+  // price line; the others get "Check your ZIP" as the only button, and a closed trade (waitlist) shows no price and no trial anywhere.
+  const offer = tradeOffer(t.id);
+  const listsLine = tradeListsLine(t.id);
+  const tradeWord = t.label.toLowerCase();
 
   return (
     <Page
       withAside
+      showStart={offer !== 'waitlist'}
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'By trade', href: '/for' }, { name: t.label }]}
-          title={tradeHeadline(t)}
+          title={tradePageHeadline(t)}
           size="md"
-          lead={<p className="leading-relaxed">{tradeLead(t)}</p>}
+          lead={<p className="leading-relaxed">{tradePageLead(t)}</p>}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <PrimaryLink href="/signup" onBrand>
-              Start free
-            </PrimaryLink>
-            <SecondaryLink href={checkHref} onBrand>
-              Check your area
-            </SecondaryLink>
-          </div>
-          <p className="mt-3 text-sm text-on-brand-muted">{TRADE_PRICE_LINE}</p>
+          {offer === 'live' ? (
+            <>
+              <div className="flex flex-wrap items-center gap-3">
+                <PrimaryLink href="/signup" onBrand>
+                  Start free
+                </PrimaryLink>
+                <SecondaryLink href={checkHref} onBrand>
+                  Check your area
+                </SecondaryLink>
+              </div>
+              <p className="mt-3 text-sm text-on-brand-muted">{TRADE_PRICE_LINE}</p>
+            </>
+          ) : (
+            <>
+              <PrimaryLink href={checkHref} onBrand>
+                {tr('en', 'tp.cta.check')}
+              </PrimaryLink>
+              <p className="mt-3 text-sm text-on-brand-muted">
+                {tr('en', offer === 'waitlist' ? 'tp.waitlist.line' : 'tp.limited.line', { trade: tradeWord })}
+                {offer === 'limited' && tradeHasStormCells(t.id) ? ` ${tr('en', 'chk.storm', { trade: tradeWord })}` : ''}
+              </p>
+            </>
+          )}
         </PageHeader>
       }
     >
@@ -131,7 +156,7 @@ export default async function TradePage({ params }: Props) {
       />
       <div className="flex flex-col gap-14">
         <section aria-labelledby="what-you-get">
-          <H2 id="what-you-get">What Holler sends {t.facts.noun}</H2>
+          <H2 id="what-you-get">{offer === 'waitlist' ? `Records that can point to ${tradeWord} work` : `What Holler sends ${t.facts.noun}`}</H2>
           {signals.length === 0 ? (
             <p className="mt-4 text-muted">Nothing yet. The sources behind this trade are not switched on for this launch.</p>
           ) : (
@@ -148,14 +173,15 @@ export default async function TradePage({ params }: Props) {
             </Ledger>
           )}
           {caveat ? <p className="mt-4 text-sm text-muted">{caveat}</p> : null}
+          {listsLine ? <p className="mt-4 text-muted">{listsLine}</p> : null}
         </section>
 
         {live.items.length > 0 ? (
           <section aria-labelledby="latest">
-            <H2 id="latest">Latest signals for {t.label.toLowerCase()}</H2>
+            <H2 id="latest">Latest records for {t.label.toLowerCase()}</H2>
             <p className="mt-2 text-muted">
-              The newest matching records across the country, each linked to its source. Your alerts are limited to
-              your own area.
+              The newest matching records across the country, each linked to its public source.
+              {offer === 'waitlist' ? null : ' Your alerts are limited to your own area.'}
             </p>
             <Ledger className="mt-4">
               {live.items.map((it) => (
@@ -195,13 +221,23 @@ export default async function TradePage({ params }: Props) {
         </section>
 
         <Aside>
-          <ClosingBand line="See what is happening near you today.">
-            <PrimaryLink href="/signup" onBrand>
-              Start free
-            </PrimaryLink>
-            <SecondaryLink href={checkHref} onBrand>
-              Check your area
-            </SecondaryLink>
+          <ClosingBand
+            line={offer === 'live' ? 'See what is happening near you today.' : offer === 'waitlist' ? tr('en', 'tp.aside.waitlist', { trade: tradeWord }) : tr('en', 'tp.aside.limited')}
+          >
+            {offer === 'live' ? (
+              <>
+                <PrimaryLink href="/signup" onBrand>
+                  Start free
+                </PrimaryLink>
+                <SecondaryLink href={checkHref} onBrand>
+                  Check your area
+                </SecondaryLink>
+              </>
+            ) : (
+              <PrimaryLink href={checkHref} onBrand>
+                {tr('en', 'tp.cta.check')}
+              </PrimaryLink>
+            )}
           </ClosingBand>
         </Aside>
       </div>

@@ -3,9 +3,12 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AreaWaitlist } from '../../components/area-waitlist';
+import { checkTradeGroups } from '../../components/check-form';
 import { WAITLIST } from '../../lib/waitlist/copy';
 
-const html = renderToStaticMarkup(createElement(AreaWaitlist, { zip: '59001', trade: 'roofing', placeLabel: 'Absarokee, MT' }));
+// Round 23: the trade options come from the server, from the same builder the check form uses (so the two lists cannot drift apart).
+const groups = checkTradeGroups('roofing');
+const html = renderToStaticMarkup(createElement(AreaWaitlist, { zip: '59001', trade: 'roofing', placeLabel: 'Absarokee, MT', groups }));
 const text = html.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&apos;/g, "'").replace(/\s+/g, ' ');
 
 describe('server render', () => {
@@ -51,7 +54,8 @@ describe('copy rules', () => {
     expect(WAITLIST.intro).toBe("Leave your email and we'll tell you when it does.");
   });
   it('the weather note matches what the app does: hazards are national, permits and city requests need a local feed', () => {
-    expect(WAITLIST.note).toMatch(/Storm reports and weather alerts reach every ZIP/);
+    // INT2: "warnings", not "alerts": a zone-only advisory is not placed by county (lib/signals/adapters/nws.ts COUNTY_MIN_SEVERITY).
+    expect(WAITLIST.note).toMatch(/Storm reports and weather warnings reach every ZIP/);
     expect(WAITLIST.note).toMatch(/Permits and city requests need a local source/);
   });
 });

@@ -6,14 +6,21 @@ import { Logo } from './logo';
 
 type FooterLink = { href: string; label: string; /** Set on a link to a page in another language: the label is read in that language and the link says what it points to. */ lang?: string; hrefLang?: string };
 
-/** Trade pages linked from the footer, by category id in lib/signals/categories.ts. */
+/**
+ * Trade pages linked from the footer, by category id in lib/signals/categories.ts. Round 24 (review P1-3, decision e): the trades the
+ * launch markets come first (landscaping, lawn care, gutters and siding, pressure washing), then fencing, painting and cleaning. Pressure
+ * washing is not a category and has no trade page: it links the check with that option picked.
+ */
 export const FOOTER_TRADES: FooterLink[] = [
-  { href: '/for/roofing', label: 'Roofing' },
-  { href: '/for/plumbing', label: 'Plumbing' },
-  { href: '/for/hvac', label: 'HVAC' },
-  { href: '/for/electrical', label: 'Electrical' },
-  { href: '/for/tree-service', label: 'Tree service' },
-  { href: '/for/restoration', label: 'Restoration' },
+  { href: '/for/landscaping', label: 'Landscaping' },
+  { href: '/for/lawn-care', label: 'Lawn care' },
+  { href: '/for/siding-gutters', label: 'Gutters and siding' },
+  // R25 check fix (review R25CHECK P3-7): the check with Pressure washing picked (the sign-up chip: cleaning AND siding-gutters), the same
+  // option the check form lists on its own, not the House cleaning page.
+  { href: '/check?trade=pressure-washing', label: 'Pressure washing' },
+  { href: '/for/fencing', label: 'Fencing' },
+  { href: '/for/painting', label: 'Painting' },
+  { href: '/for/cleaning', label: 'Cleaning' },
   { href: '/for', label: 'All trades' },
 ];
 
@@ -66,7 +73,7 @@ export function Footer({ spanishHref = '/es' }: { spanishHref?: string } = {}) {
       <div className={`${PAGE_BOX} grid gap-10 pb-8 pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] lg:gap-12`}>
         <div className="flex max-w-sm flex-col gap-3">
           <Logo size={34} className="self-start" />
-          <p className="text-balance text-[0.9375rem] text-on-brand-faint">Public records near you, sorted for your trade.</p>
+          <p className="text-balance text-[0.9375rem] text-on-brand-faint">See where the work is near you this week.</p>
         </div>
         <nav aria-label="Footer" className="grid grid-cols-1 gap-x-5 gap-y-8 min-[18rem]:grid-cols-2 md:grid-cols-4">
           {groups(contact, spanishHref).map((g) => (
@@ -74,7 +81,7 @@ export function Footer({ spanishHref = '/es' }: { spanishHref?: string } = {}) {
               <h2 className="eyebrow">{g.title}</h2>
               <ul className="mt-1 flex flex-col">
                 {g.links.map((l) => (
-                  <li key={l.href}>
+                  <li key={`${l.href} ${l.label}`}>
                     {l.href.startsWith('mailto:') ? (
                       <a href={l.href} className="h-link text-[0.9375rem] text-on-brand">
                         {l.label}

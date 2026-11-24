@@ -48,6 +48,7 @@ export const ENV_KEYS = [
   'HOLLER_LOOKUP_MAX_PER_DAY',
   'HOLLER_LOOKUP_DRY_RUN',
   'HOLLER_PREVIEW_FIXTURES',
+  'HOLLER_QUIET_WEEK_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -113,6 +114,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_LOOKUP_DRY_RUN: process.env.HOLLER_LOOKUP_DRY_RUN,
   // Local only (lib/seo/home-live.ts previewFixturesEnabled): ignored whenever VERCEL is set.
   HOLLER_PREVIEW_FIXTURES: process.env.HOLLER_PREVIEW_FIXTURES,
+  // Round 24: the quiet-week email (lib/email/quiet-week.ts). Read again at call time there; listed here so .env.example and LAUNCH.md name it.
+  HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

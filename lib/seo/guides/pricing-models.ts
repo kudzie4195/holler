@@ -91,7 +91,7 @@ export const payPerLead: Guide = {
   ],
   related: [
     { href: '/pricing', label: 'Holler pricing' },
-    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond to a local lead fast' },
+    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond fast when local work comes up' },
     { href: '/request', label: 'Post a request' },
   ],
   lastReviewed: '2026-11-17',

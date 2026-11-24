@@ -60,9 +60,10 @@ describe('a stage-update email keeps the AI note and the stage line', () => {
 
   it('shows "Why it may matter" and "Stage update", with update wording', () => {
     expect(mail.subject).toBe('Update: final inspection on a permit near you');
-    expect(mail.text).toContain(`Why it may matter: ${note}`);
+    // Round 23: a stage update's reason row is the stage line itself (the news), and the AI note is no longer labelled.
+    expect(mail.text).toContain(note);
     expect(mail.text).toContain('Stage update: final inspection, listed by the public source on Nov 22, 2026.');
-    expect(mail.html).toContain('Why it may matter');
+    expect(mail.html).toContain(note);
     expect(mail.text).not.toMatch(/\d+ days? ago/i);
   });
 

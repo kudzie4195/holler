@@ -10,8 +10,10 @@ import { faqLd } from '@/lib/seo/jsonld';
 import { jsonLdString } from '@/lib/seo/serialize';
 import { socialMeta } from '@/lib/seo/social';
 import { TIER_NAMES } from '@/lib/plan/limits';
-import { COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_INTRO, PRICING_TITLE, YEARLY_NOTE, pricingLd } from '@/lib/plan/pricing-page';
+import { CARD_OPTIONAL_OFFER, COMPARISON, PRICING_DESCRIPTION, PRICING_FAQ, PRICING_INTRO, PRICING_TITLE, YEARLY_NOTE, pricingLd } from '@/lib/plan/pricing-page';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import { t } from '@/lib/i18n';
+import { addressListTradeNames } from '@/lib/plan/list-trades';
 
 const PAIR = ES_PAIRS[2];
 
@@ -42,6 +44,8 @@ export default function PricingPage() {
             </h2>
             <Pricing />
             {YEARLY_NOTE ? <p className="mt-4 text-sm text-muted">{YEARLY_NOTE}</p> : null}
+            {/* Round 23: the card-optional offer. Checkout already defers the first charge to the trial end, so this needs no build. */}
+            <p className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">{CARD_OPTIONAL_OFFER}</p>
           </div>
         </section>
 
@@ -78,6 +82,7 @@ export default function PricingPage() {
                   ))}
                 </tbody>
               </table>
+              <p className="mt-4 text-sm text-muted">{t('en', 'pricing.lists_note', { trades: addressListTradeNames('en') })}</p>
             </div>
           </div>
         </section>

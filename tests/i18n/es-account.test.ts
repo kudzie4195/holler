@@ -20,7 +20,11 @@ afterEach(() => {
 });
 
 const SPANISH_PAGES = ['/es/pricing', '/es/signup', '/es/login', '/es/forgot', '/es/reset'] as const;
-const metaOf = async (p: string): Promise<Metadata> => (await import(`@/app${p}/page`)).metadata as Metadata;
+// Round 24 FIX2: /es/signup's metadata is generateMetadata now (a waitlist city changes its title); with no query it is the same object.
+const metaOf = async (p: string): Promise<Metadata> => {
+  const mod = await import(`@/app${p}/page`);
+  return (mod.metadata ?? (await mod.generateMetadata({ params: Promise.resolve({}), searchParams: Promise.resolve({}) }))) as Metadata;
+};
 
 describe('the Spanish pages: titles, canonical, hreflang, robots and sitemap', () => {
   it('each has its own Spanish title and description, its own canonical, and the hreflang pair with x-default English', async () => {
@@ -45,11 +49,14 @@ describe('the Spanish pages: titles, canonical, hreflang, robots and sitemap', (
     }
   });
 
-  it('robots: pricing, sign-up, log-in and forgot are indexed; /es/reset (works only from an emailed link) and /es/confirm are not', async () => {
-    for (const p of ['/es/pricing', '/es/signup', '/es/login', '/es/forgot']) {
-      const r = (await metaOf(p)).robots as { index?: boolean } | undefined;
-      expect(r?.index ?? true, p).toBe(true);
-    }
+  // Round 24 FIX2 (review P3-7, the one allowed indexing change): /es/signup, /es/login and /es/forgot now match their English twins
+  // (noindex, nofollow, app/(auth)/layout.tsx). /es/pricing stays indexed.
+  it('robots: pricing is indexed; sign-up, log-in and forgot match their English twins (noindex, nofollow); /es/reset and /es/confirm are not indexed', async () => {
+    const r = (await metaOf('/es/pricing')).robots as { index?: boolean } | undefined;
+    expect(r?.index ?? true, '/es/pricing').toBe(true);
+    const en = (await import('@/app/(auth)/layout')).metadata.robots;
+    expect(en).toEqual({ index: false, follow: false });
+    for (const p of ['/es/signup', '/es/login', '/es/forgot']) expect((await metaOf(p)).robots, p).toEqual(en);
     expect(((await metaOf('/es/reset')).robots as { index: boolean }).index).toBe(false);
     expect(((await metaOf('/es/confirm')).robots as { index: boolean }).index).toBe(false);
     // The Spanish layout sets no robots of its own, so nothing under /es is noindexed by accident.
@@ -59,7 +66,8 @@ describe('the Spanish pages: titles, canonical, hreflang, robots and sitemap', (
   it('the English twins carry the pair back: /pricing keeps its canonical; the noindex account pages get hreflang only, no new canonical', async () => {
     expect((await import('@/app/pricing/page')).metadata.alternates).toEqual({ canonical: '/pricing', languages: { en: '/pricing', es: '/es/pricing', 'x-default': '/pricing' } });
     for (const p of ['signup', 'login', 'forgot', 'reset']) {
-      const m = (await import(`@/app/(auth)/${p}/page`)).metadata as Metadata;
+      const mod = await import(`@/app/(auth)/${p}/page`);
+      const m = (mod.metadata ?? (await mod.generateMetadata({ params: Promise.resolve({}), searchParams: Promise.resolve({}) }))) as Metadata;
       expect(m.alternates, p).toEqual({ languages: { en: `/${p}`, es: `/es/${p}`, 'x-default': `/${p}` } });
     }
   });

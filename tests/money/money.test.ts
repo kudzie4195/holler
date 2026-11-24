@@ -54,7 +54,8 @@ describe('templates', () => {
     expect(digest.html).toContain('https://holler.example/app');
     expect(digest.html).toContain('unsubscribe?t=abc');
     expect(digest.text).toContain('Plus 3 more');
-    expect(digest.subject).toBe('5 new things near you');
+    // Round 24 (review P2-7): a town is "in", never "at" (that reads as an address).
+    expect(digest.subject).toBe('Weather alert in Marietta, GA (+4 more)');
   });
 });
 

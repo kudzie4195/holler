@@ -37,11 +37,11 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   roofing: {
     noun: 'roofers',
     headline: 'Storm and hail alerts for roofers',
-    lead: 'Hail and wind do the selling for a roofer. Holler tells you which towns just took a hit, while the homeowners are still looking at the ceiling stain.',
+    lead: 'Hail and wind reports tell a roofer where to look. Holler shows you which towns just had one, with a link to the public report.',
     signals: [
-      { signal: 'Hail reports', type: 'storm-report', why: 'A report of quarter-size hail in a town usually means a whole neighborhood of roofs to inspect within days.' },
+      { signal: 'Hail reports', type: 'storm-report', why: 'Quarter-size hail in a town is worth a drive: owners nearby may want their roofs looked at. The report does not confirm damage.' },
       { signal: 'Wind and tornado reports', type: 'storm-report', why: 'Shingles lift and flashing tears long before anyone sees a leak, so a damaging-wind report is an early sign that roofs nearby may need a look.' },
-      { signal: 'Severe thunderstorm and tornado warnings', type: 'weather-alert', why: 'A warning tells you which ZIP codes to canvass first once the storm clears.' },
+      { signal: 'Severe thunderstorm and tornado warnings', type: 'weather-alert', why: 'A warning tells you which ZIP codes to watch once the storm clears.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Insured storm claims flow after a declaration, and homeowners start calling roofers the same week.' },
       { signal: 'People asking for a roofer', type: 'ask', why: 'Someone posted publicly that they need a recommendation. Reply fast and you may be the only quote they get.' },
     ],
@@ -55,13 +55,13 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
       { signal: 'Winter storm and hard freeze warnings', type: 'weather-alert', why: 'Furnaces that were fine in October quit under a cold snap, and no-heat calls cannot wait.' },
       { signal: 'Storm and wind reports', type: 'storm-report', why: 'Lightning and power surges during a damaging storm burn out control boards and condensers, which is a repair order for you.' },
       { signal: 'Building permits for new construction and remodels', type: 'permit', why: 'A permit for a new house or addition means a system will be sized, bid and installed.' },
-      { signal: 'People asking for AC or heating help', type: 'ask', why: 'A public post saying the AC died is about as warm as a lead gets.' },
+      { signal: 'People asking for AC or heating help', type: 'ask', why: 'A public post saying the AC died is someone asking for help right now.' },
     ],
   },
   plumbing: {
     noun: 'plumbers',
     headline: 'Freeze and flood alerts for plumbers',
-    lead: 'Burst pipes, backed-up sewers and water heaters that quit all follow the weather. Holler warns you before the phone starts ringing.',
+    lead: 'Burst pipes, backed-up sewers and water heaters that quit all follow the weather. Holler watches freeze and flood warnings near you and links each one to its public source.',
     signals: [
       { signal: 'Freeze warnings and winter storms', type: 'weather-alert', why: 'Pipes in unheated crawl spaces split overnight, and the calls come in the morning when the thaw starts.' },
       { signal: 'Flood and flash flood warnings', type: 'weather-alert', why: 'Sump pumps fail and sewer lines back up when the ground is saturated.' },
@@ -76,7 +76,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     lead: 'Storms knock out service drops, and new construction needs wiring. Holler watches both sides of your calendar.',
     signals: [
       { signal: 'Severe storm and wind reports', type: 'storm-report', why: 'Torn-off service masts and fallen limbs on lines leave homeowners who cannot get power restored until an electrician signs off.' },
-      { signal: 'Building permits for panel upgrades, EV chargers and remodels', type: 'permit', why: 'The permit already says electrical work is coming, and the owner often has not hired anyone yet.' },
+      { signal: 'Building permits for panel upgrades, EV chargers and remodels', type: 'permit', why: 'The permit already says electrical work is coming. It does not say who will do it.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Rebuilding after a declared disaster means weeks of rewiring and inspections.' },
       { signal: 'New business licenses', type: 'business', why: 'A shop or office opening nearby needs lighting, outlets and signage wired before the doors open.' },
       { signal: 'Code violations', type: 'violation', why: 'A cited electrical hazard has a deadline, and the owner needs a licensed fix.' },
@@ -87,7 +87,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     headline: 'Wind and storm alerts for tree service crews',
     lead: 'The best days in your business follow the worst weather. Holler tells you where the limbs came down.',
     signals: [
-      { signal: 'Damaging wind and tornado reports', type: 'storm-report', why: 'Each report is a town with trees on roofs, fences and driveways, and nobody wants to wait a week.' },
+      { signal: 'Damaging wind and tornado reports', type: 'storm-report', why: 'A damaging-wind report marks where limbs may be down. Nobody with a tree on the driveway wants to wait a week.' },
       { signal: 'High wind and ice storm warnings', type: 'weather-alert', why: 'Ice-loaded limbs fail a day or two later, so the second wave of calls is predictable.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Debris removal after a declared storm runs for weeks and often involves reimbursed cleanup contracts.' },
       { signal: '311 downed tree and hazard requests', type: '311', why: 'Residents report trees across property lines to the city, and the private side needs a crew.' },
@@ -97,25 +97,29 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   landscaping: {
     noun: 'landscapers',
     headline: 'Permit and code violation alerts for landscapers',
-    lead: 'New homes need grass, beds and walls, and cited yards need a fix. Holler finds the permits and violations while the job is still open.',
+    lead: 'A new house is finished with bare dirt around it. Holler shows you new-home permits near you, with the street address, and the yards a city has cited.',
     signals: [
-      { signal: 'Building permits for new homes and additions', type: 'permit', why: 'A finished house with bare dirt around it is a design and install job that starts when the permit closes.' },
+      { signal: 'Building permits for new homes and additions', type: 'permit', why: 'When the build is done, the yard still needs sod, beds or a lawn. Hang a flyer while the crews are finishing.' },
       { signal: 'New business licenses', type: 'business', why: 'A new restaurant or office with a patio usually wants planting and irrigation before opening day.' },
-      { signal: 'Code violations for overgrowth and drainage', type: 'violation', why: 'A cited yard has a deadline, and the owner needs someone who can fix grading or clear growth.' },
+      { signal: 'Code violations for overgrowth and drainage', type: 'violation', why: 'A cited yard comes with a deadline. Some owners fix it themselves; others want a crew that can clear growth or fix grading.' },
       { signal: 'Flood and heavy rain warnings', type: 'weather-alert', why: 'Washouts and failed drainage lead to retaining walls, French drains and regrading calls.' },
       { signal: 'People asking for a landscaper', type: 'ask', why: 'Public requests for design or hardscape quotes show up every spring, and the first reply gets noticed.' },
     ],
   },
+  // Round 23: this page promised "code violations for tall grass and weeds" and "311 overgrown lot complaints" everywhere. Measured
+  // over 14 days of live records, 61 of the 65 named grass violations in the whole dataset are Austin and 4 are Chicago; Atlanta,
+  // Charlotte and Raleigh have none, and most of what a lawn-care member really gets is new-home permits. The page now leads with the
+  // permits, says where the named violations exist, and says what a new-home permit means for timing.
   'lawn-care': {
     noun: 'lawn care pros',
-    headline: 'Code violation and 311 alerts for lawn care pros',
-    lead: 'Recurring mowing routes grow one house at a time. Holler points you at cited yards and overgrown-lot complaints.',
+    headline: 'New-home permit and code violation alerts for lawn care pros',
+    lead: 'Recurring mowing routes grow one house at a time. Holler points you at new yards going in near you, and at cited yards where the city names the problem.',
     signals: [
-      { signal: 'Building permits for new homes', type: 'permit', why: 'A new house means a new owner with a fresh lawn and no mowing service yet.' },
-      { signal: 'Code violations for tall grass and weeds', type: 'violation', why: 'The city already told the owner to fix it. A weekly mowing contract solves the problem for good.' },
-      { signal: 'Severe storm and wind reports', type: 'storm-report', why: 'Limbs and leaves on lawns turn into one-time cleanup jobs that often convert to routes.' },
-      { signal: '311 overgrown lot complaints', type: '311', why: 'Neighbors reporting a lot to the city often means the owner needs help quickly.' },
-      { signal: 'People asking for a lawn guy', type: 'ask', why: 'Someone just posted that their mower guy quit. That is a route stop for the next reply.' },
+      { signal: 'Building permits for new homes', type: 'permit', why: 'A new house means a new owner with a fresh lawn and no mowing service yet. The yard goes in when the house is done, so this is a spring list, not a job this week.' },
+      { signal: 'Code violations on a property', type: 'violation', why: 'The city has told an owner to fix something. Where the record names tall grass or an overgrown yard, Holler says so. Many counties write only "property violation", and Holler shows those words as they are.' },
+      { signal: 'Severe storm and wind reports', type: 'storm-report', why: 'After a strong storm, limbs and leaves on lawns can mean one-time cleanups. A good cleanup can turn into a regular stop.' },
+      { signal: '311 requests about yards and lots', type: '311', why: 'Where a city publishes overgrown-lot requests, Holler shows them by block. Not every city does.' },
+      { signal: 'People asking for a lawn guy', type: 'ask', why: 'Someone posted that their mower guy quit. A quick, plain reply can turn into a weekly stop.' },
     ],
   },
   'snow-removal': {
@@ -143,15 +147,15 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
     ],
   },
   cleaning: {
-    noun: 'house cleaners',
-    headline: 'New-home and request alerts for house cleaners',
+    noun: 'house cleaners and pressure washers',
+    headline: 'New-home and request alerts for cleaners and pressure washers',
     lead: 'Most cleaning work comes from people asking a neighbor for a name. Holler shows you who asked, and where new homes are permitted.',
-    keyless: { headline: 'New-home and remodel alerts for house cleaners', lead: 'A finished build or a remodel needs a first clean. Holler shows you the new-home and remodel permits nearby.' },
+    keyless: { headline: 'New-home and remodel alerts for cleaners and pressure washers', lead: 'A finished build needs a first clean, inside and out. Holler shows you new-home and remodel permits near you, with the street address.' },
     signals: [
-      { signal: 'People asking for a cleaner', type: 'ask', why: 'Someone posted for a recurring or move-out clean. A good reply in the first hour often wins it.' },
+      { signal: 'People asking for a cleaner', type: 'ask', why: 'Someone posted for a recurring or move-out clean. A good reply in the first hour gets read first.' },
       { signal: 'Building permits for new homes', type: 'permit', why: 'A finished build needs a post-construction clean before the owners move in.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'Households recovering from smoke or water damage need deep cleaning after the restoration crew leaves.' },
-      { signal: 'New business licenses', type: 'business', why: 'A new salon or small office needs regular cleaning, and the owner is picking a vendor right now.' },
+      { signal: 'New business licenses', type: 'business', why: 'A new salon or small office will need regular cleaning, and the license says it is opening.' },
       { signal: 'Severe storm reports', type: 'storm-report', why: 'Dust, mud and debris from a storm lead to one-time cleaning calls.' },
     ],
   },
@@ -170,7 +174,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'general-contractor': {
     noun: 'general contractors',
     headline: 'Building permit alerts for general contractors',
-    lead: 'A permit filed is a project that is real, funded and often still looking for a builder. Holler lists them as the city publishes them.',
+    lead: 'A permit means a project is real enough to file. Holler lists them as the city publishes them, with the address and the permit type.',
     signals: [
       { signal: 'Building permits for remodels and additions', type: 'permit', why: 'Owner-filed permits sometimes have no contractor named, which means the project is open to a bid.' },
       { signal: 'Code violations', type: 'violation', why: 'A cited property has a deadline and a budget, and the owner needs a builder to meet it.' },
@@ -218,7 +222,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'auto-glass': {
     noun: 'auto glass shops',
     headline: 'Hail and storm alerts for auto glass shops',
-    lead: 'One hailstorm cracks thousands of windshields. Holler tells you which town it hit before the claims come in.',
+    lead: 'Big hail and windshields do not mix. Holler tells you which towns had a hail report, often before the claims come in.',
     signals: [
       { signal: 'Hail reports', type: 'storm-report', why: 'Quarter-size hail cracks windshields on every parked car in its path, and insurers often cover glass fully.' },
       { signal: 'High wind and tornado reports', type: 'storm-report', why: 'Flying debris chips and breaks glass, and mobile repair is what drivers search for next.' },
@@ -405,7 +409,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'janitorial-commercial': {
     noun: 'commercial cleaning companies',
     headline: 'New-business and inspection alerts for commercial cleaners',
-    lead: 'Commercial cleaning contracts run for years. Holler finds the buildings that are opening and the owners still choosing.',
+    lead: 'Commercial cleaning contracts run for years. Holler shows the new businesses and build-outs near you, before they open.',
     signals: [
       { signal: 'New business licenses', type: 'business', why: 'A business that just registered at an address needs a cleaning vendor before it opens.' },
       { signal: 'Building permits for commercial build-outs', type: 'permit', why: 'A build-out ends with a post-construction clean and then a recurring contract.' },
@@ -465,13 +469,13 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'siding-gutters': {
     noun: 'siding and gutter crews',
     headline: 'Permit and code violation alerts for siding and gutter crews',
-    lead: 'A re-siding permit is a job already in motion, and a cited exterior has a deadline. Holler lists both.',
+    lead: 'A new roof often brings new gutters. Holler shows you the roof and new-home permits near you, with the street address, and the exteriors a city has cited.',
     signals: [
-      { signal: 'Hail reports', type: 'storm-report', why: 'Dented gutters and cracked siding are easy for owners to spot and easy for insurers to approve.' },
-      { signal: 'High wind and tornado reports', type: 'storm-report', why: 'Siding panels peel and gutters pull away, and the owner needs a fix before the next rain.' },
-      { signal: 'Building permits for remodels and re-siding', type: 'permit', why: 'A siding permit is a job in progress, and gutters nearly always get replaced at the same time.' },
-      { signal: 'Federal disaster declarations', type: 'disaster', why: 'Large claim volume means more homeowners and fewer available crews.' },
-      { signal: 'Code violations for exterior repair', type: 'violation', why: 'Cited exteriors have a cure date, and a quote request is next.' },
+      { signal: 'Hail reports', type: 'storm-report', why: 'Hail can dent gutters and crack siding. The report does not confirm damage, but owners nearby may want a look.' },
+      { signal: 'High wind and tornado reports', type: 'storm-report', why: 'Strong wind can peel siding and pull gutters loose. A report marks the area, not the damage.' },
+      { signal: 'Building permits for remodels and re-siding', type: 'permit', why: 'A siding or roof permit means the outside of the house is being worked on, and gutters often come up at the same time.' },
+      { signal: 'Federal disaster declarations', type: 'disaster', why: 'After a declared disaster, owners may wait weeks for a crew, so local help can matter.' },
+      { signal: 'Code violations for exterior repair', type: 'violation', why: 'A cited exterior comes with a date to fix it by.' },
     ],
   },
   flooring: {
@@ -526,7 +530,7 @@ export const TRADE_FACTS: Record<string, TradeFacts> = {
   'public-adjuster': {
     noun: 'public adjusters',
     headline: 'Storm and disaster alerts for public adjusters',
-    lead: 'Policyholders hire a public adjuster after a loss. Holler tells you where the losses just happened.',
+    lead: 'Policyholders hire a public adjuster after a loss. Holler tells you where storms and disasters were just reported.',
     signals: [
       { signal: 'Hail and wind reports', type: 'storm-report', why: 'Roof and exterior damage over a wide area means many insured homeowners who are about to meet their carrier.' },
       { signal: 'Federal disaster declarations', type: 'disaster', why: 'A declaration marks the start of a long claim season with disputes over scope and value.' },

@@ -48,10 +48,10 @@ export function Anatomy({ map, steps }: { map: HomeMap; steps: { title: string; 
                     rel="noopener noreferrer"
                     className="inline-flex min-h-11 items-center rounded-control bg-brand px-[18px] py-3 text-base font-semibold text-on-brand transition-[background-color] duration-150 hover:bg-ink"
                   >
-                    Open the source
+                    Open the public source
                   </a>
                 ) : (
-                  <span className="inline-flex min-h-11 items-center font-mono text-[0.8125rem] uppercase text-muted">Each alert links to its source</span>
+                  <span className="inline-flex min-h-11 items-center font-mono text-[0.8125rem] uppercase text-muted">Each alert links to its public source</span>
                 )}
               </span>
               <span aria-hidden="true" className={MARK}>

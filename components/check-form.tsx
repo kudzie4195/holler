@@ -1,9 +1,36 @@
 import { Button } from './button';
 import { Input } from './input';
 import { Select } from './select';
-import { tradeGroups } from '@/lib/check/trades';
+import { tradeGroups, tradeLabel } from '@/lib/check/trades';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
+import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { t, type Lang } from '@/lib/i18n';
+
+/**
+ * The trade options of the check form and of the waitlist card, built on the server. Exported so components/area-waitlist.tsx (a client
+ * component) is given the same list instead of building its own.
+ */
+export function checkTradeGroups(trade = '', lang: Lang = 'en') {
+  const pickable = (id: string) => !tradeComingSoon(id) && !tradeNoLiveSource(id);
+  // Round 25: "Pressure washing" is its own option, the composite sign-up chip (cleaning AND siding-gutters, lib/plan/composite-trades.ts),
+  // listed just before House cleaning when both parts can be picked. With it there, House cleaning is labelled as itself.
+  const pw = trade === PRESSURE_WASHING_ID || PRESSURE_WASHING_PARTS.every(pickable);
+  return tradeGroups(lang)
+    .map((g) => ({
+      ...g,
+      options: g.options
+        .filter((o) => o.id === trade || pickable(o.id))
+        .flatMap((o) =>
+          o.id !== 'cleaning'
+            ? [o]
+            : pw
+              ? [{ id: PRESSURE_WASHING_ID, label: tradeLabel(PRESSURE_WASHING_ID, lang) }, o]
+              : [{ ...o, label: t(lang, 'chk.trade.cleaning') }],
+        ),
+    }))
+    .filter((g) => g.options.length > 0);
+}
 
 /** Plain GET form to /check. No client JS needed, so it works in the landing hero too. */
 export function CheckForm({
@@ -29,9 +56,11 @@ export function CheckForm({
 }) {
   // A trade that no record type can reach on this deployment (childcare and beauty without a people-asking key) is left out, as onboarding
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
-  const groups = tradeGroups(lang)
-    .map((g) => ({ ...g, options: g.options.filter((o) => o.id === trade || !tradeComingSoon(o.id)) }))
-    .filter((g) => g.options.length > 0);
+  // Round 23: a trade no live source reaches (Locksmith, "Bookkeeping, payroll and IT setup") is left out too. It was pickable here and
+  // refused at sign-up, so a visitor could check it, get "nothing matched", and then not find it on the form.
+  // Round 25: "Pressure washing" is its own option (checkTradeGroups above), the sign-up chip's two trades, so House cleaning is labelled as
+  // itself whenever that option is listed (lib/plan/composite-trades.ts PRESSURE_WASHING_PARTS).
+  const groups = checkTradeGroups(trade, lang);
   return (
     // Layout follows the width of the box the form sits in (container queries), not the screen: the home hero column is about
     // 520px on a desktop, /check is wider, phones are narrow. Narrow: one column. From 24rem: ZIP and trade side by side, button on its

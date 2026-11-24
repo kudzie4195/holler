@@ -29,7 +29,7 @@ export default function OnboardingPreviewPage() {
           <Preview />
         </Suspense>
         <ButtonLink href="/app" size="lg" className="mt-8">
-          Continue to my feed
+          See my matches
         </ButtonLink>
         </div>
       </main>

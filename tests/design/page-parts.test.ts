@@ -254,7 +254,7 @@ describe('small shell rules from the round 9 reviews', () => {
     expect(footer).toContain("{ href: '/data', label: 'Local public records in numbers' }");
     // Final review B P2-9: the legal line does not leave "you act." alone on a line.
     expect(footer).toMatch(/<p className="text-pretty">\s*Data comes from public government records/);
-    expect(footer).toMatch(/text-balance[^"]*">Public records near you, sorted for your trade\.<\/p>/);
+    expect(footer).toMatch(/text-balance[^"]*">See where the work is near you this week\.<\/p>/);
   });
   it('the guides list has no decorative icon tiles (review 2 P2-16)', () => {
     expect(read('app/guides/page.tsx')).not.toMatch(/Icon\b|GUIDE_ICON/);
@@ -325,7 +325,8 @@ describe('fix wave 2: wide-screen aside, one body size, one reading h1, 44 px ta
     // Round 18 ES: the login, signup and forgot bodies are shared with /es (components/auth-pages.tsx); every switch link uses switchLink.
     const bodies = read('components/auth-pages.tsx');
     expect(bodies).toContain("const switchLink = 'inline-flex min-h-11 min-w-11 items-center font-semibold text-brand-text underline';");
-    expect(bodies.match(/className=\{switchLink\}/g)).toHaveLength(3);
+    // Round 24 FIX2 (review D2): a fourth switch link, "Check your ZIP" on a sign-up from a waitlist city, uses the same 44 by 44 class.
+    expect(bodies.match(/className=\{switchLink\}/g)).toHaveLength(4);
   });
 
   it('a large browser text size cannot push a page sideways: labels wrap under 22.5rem, long words break (review 2b P2-7)', () => {

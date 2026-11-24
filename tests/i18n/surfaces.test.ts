@@ -10,7 +10,7 @@ vi.mock('@/app/app/actions', () => ({ setMatchStatus: async () => ({ ok: true })
 vi.mock('server-only', () => ({}));
 
 import { Feed, LockedFeed } from '@/components/feed';
-import { renderDigest } from '@/lib/email/templates';
+import { digestHonesty, escapeHtml, renderDigest } from '@/lib/email/templates';
 import { NOTE_KINDS, renderNote } from '@/lib/outreach/templates';
 import { fallbackDraft, violatesDraftRules } from '@/lib/ai/fallback';
 import { coverageNotice } from '@/lib/check/coverage-notice';
@@ -56,13 +56,17 @@ describe('Spanish digest', () => {
     const cases = await shipCases();
     const mail = renderDigest({ businessName: 'Taller Los Pinos', items: cases.map(esDigestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW, lang: 'es' });
     expect(mail.html).toContain('lang="es"');
-    for (const phrase of [es['brief.h.why'], es['brief.h.next'], es['brief.h.source'], es['brief.h.uncertain']]) expect(mail.html).toContain(phrase);
-    expect(mail.subject).toMatch(/novedades/);
+    // Round 23: the digest card has no labelled rows. What must be Spanish is the chip, the reason, the action and the honesty line.
+    // Round 24 (review P1-4): the closing honesty line is built from the kinds of card in the email, in the member's language.
+    const honesty = digestHonesty(cases.map(esDigestItem), 'es');
+    expect(honesty).toContain(es['email.honesty.permit']);
+    for (const phrase of [es['chip.act_now'], es['email.source_link'], escapeHtml(honesty), es['email.act.hanger'], es['email.open_feed']]) expect(mail.html).toContain(phrase);
+    expect(mail.subject).toMatch(/más\)$/);
     expect(mail.text).toMatch(/Holler/);
     // source data stays as is
     for (const c of cases.slice(0, 3)) expect(mail.text).toContain(localizeTitle(c.signal.title, 'es', c.signal.source).replace(/\s+/g, ' ').slice(0, 20));
     // none of the English chrome is left
-    for (const english of [en['brief.h.why'], en['brief.h.next'], en['brief.h.uncertain'], 'Unsubscribe', 'Open Holler']) expect(chrome(cases, mail.html)).not.toContain(english);
+    for (const english of [en['brief.h.why'], en['brief.h.next'], en['brief.h.uncertain'], en['email.honesty.opening'], en['email.honesty.opening_mixed'], en['email.honesty.permit'], en['email.act.hanger'], 'Unsubscribe', 'Open Holler']) expect(chrome(cases, mail.html)).not.toContain(english);
     expect(spanishProblems(chrome(cases, mail.html))).toEqual([]);
     expect(spanishProblems(chrome(cases, mail.text))).toEqual([]);
   });

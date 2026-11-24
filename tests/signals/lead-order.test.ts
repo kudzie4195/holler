@@ -159,18 +159,20 @@ describe('renderDigest: Act Now first, with its deadline line', () => {
   it('keeps the caller order inside a label', () => {
     expect(out.text.indexOf('No heat in a building')).toBeLessThan(out.text.indexOf('Janitorial services bid'));
   });
-  it('shows the published deadline or "No deadline published" on Act Now, and nothing on Coming soon', () => {
-    expect(out.text).toContain('Act now. Deadline: Dec 5, 2026');
-    expect(out.text).toContain('Act now. No deadline published');
-    expect(out.text).toContain('Coming soon');
+  // Round 23: the chip carries the deadline only when the record published one. "No deadline published" was a row on every Act Now
+  // card that told the member nothing, so it is gone from the digest (it stays on the web card, which has room for it).
+  it('shows the published deadline on the Act Now chip, and nothing on Work may follow or on an Act Now without one', () => {
+    expect(out.text).toContain('[Act now \u00b7 Deadline: Dec 5, 2026]');
+    expect(out.text).toContain('[Act now]');
+    expect(out.text).toContain('[Work may follow]');
     const coming = out.text.split('\n\n').find((b) => b.includes('Flash Flood Warning'))!;
     expect(coming).not.toContain('Deadline');
     expect(coming).not.toContain(NO_DEADLINE_TEXT);
-    expect(out.html).toContain('No deadline published');
+    expect(out.html + out.text).not.toContain(NO_DEADLINE_TEXT);
   });
   it('an item with no label (older caller) shows no chip', () => {
     const o = renderDigest({ businessName: 'A', items: [{ kind: 'alert', title: 'X', occurredAt: T(1) }], appUrl: 'https://x.example', unsubscribeUrl: 'https://x.example/u', now: new Date(NOW) });
-    expect(o.text).not.toMatch(/Act now|Coming soon|Market insight/);
+    expect(o.text).not.toMatch(/Act now|Work may follow|Coming soon|Market insight/);
   });
   it('the cron orders by label, filters non-alert matches and marks them notified without a mail', () => {
     const src = readFileSync('app/api/cron/notify/route.ts', 'utf8');
@@ -262,8 +264,8 @@ describe('Act Now cards render the deadline or "No deadline published" (acceptan
       expect(h).toContain('No deadline published');
     }
   });
-  it('Coming soon and Market insight show a chip and no deadline line', () => {
-    expect(html('coming_soon', null)).toContain('Coming soon');
+  it('Work may follow and Market insight show a chip and no deadline line', () => {
+    expect(html('coming_soon', null)).toContain('Work may follow');
     expect(html('coming_soon', null)).not.toMatch(/deadline/i);
     expect(html('market_insight', null)).toContain('Market insight');
   });
@@ -354,7 +356,7 @@ describe('market_insight: kept in the feed, last, never pushed and never emailed
   it('the card says "Market insight" and not an alert', () => {
     const h = renderToStaticMarkup(createElement(OpportunityChip, { label: 'market_insight', deadline: null }));
     expect(h).toContain('Market insight');
-    expect(h).not.toMatch(/Act now|Coming soon|deadline/i);
+    expect(h).not.toMatch(/Act now|Work may follow|Coming soon|deadline/i);
   });
 });
 
@@ -370,7 +372,9 @@ describe('trades with no live source yet (review P0-2)', () => {
     for (const f of ['lib/plan/profile-categories.ts', 'app/app/settings/page.tsx']) expect(readFileSync(f, 'utf8'), f).toMatch(/noLiveSource: tradeNoLiveSource\(c\.id\)/);
     expect(readFileSync('components/profile-form.tsx', 'utf8')).toContain('No live source yet');
     expect(readFileSync('lib/auth/profile.ts', 'utf8')).toMatch(/!tradeNoLiveSource\(c\)/);
-    expect(readFileSync('lib/mobile/config.ts', 'utf8')).toMatch(/!tradeNoLiveSource\(c\.id\)/);
+    // INT2: the mobile config filters with tradeSignupPickable, which includes !tradeNoLiveSource (and the closed-trade rule).
+    expect(readFileSync('lib/mobile/config.ts', 'utf8')).toMatch(/\.filter\(\(c\) => tradeSignupPickable\(c\.id\)\)/);
+    expect(readFileSync('lib/plan/profile-categories.ts', 'utf8')).toMatch(/return !tradeComingSoon\(id\) && !tradeNoLiveSource\(id\) && !tradeSignupClosed\(id\);/);
   });
   it('the mobile config no longer lists them', async () => {
     const { configBody } = await import('@/lib/mobile/config');

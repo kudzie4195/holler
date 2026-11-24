@@ -1,5 +1,5 @@
-// Owner decisions: the free trial is 60 days, shown as "2 months free" (headline) or "60-day free trial" (precise), both built from
-// TRIAL_DAYS (round 18; it was 14 days). The yearly saving is ALWAYS a percent ("save 16%"), never "months free", so the two are never
+// Owner decisions: the free trial is 30 days, shown as "1 month free" (headline) or "30-day free trial" (precise), both built from
+// TRIAL_DAYS (round 23; it was 60 in round 18 and 14 before that). The yearly saving is ALWAYS a percent ("save 16%"), never "months free", so the two are never
 // confused. So "months free" may appear ONLY as the trial phrase generated from the constants, and never next to a yearly price.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -12,7 +12,7 @@ vi.mock('next/server', async (orig) => ({ ...(await orig<typeof import('next/ser
 import { TRIAL_DAYS } from '@/lib/auth/membership';
 import { Pricing } from '@/components/pricing';
 import { PRICING_FAQ, YEARLY_NOTE, PRICING_DESCRIPTION } from '@/lib/plan/pricing-page';
-import { TRIAL_HEADLINE, TRIAL_MONTHS, TRIAL_PHRASE, cityCtaLabel, stormCtaLabel } from '@/lib/plan/price-copy';
+import { TRIAL_HEADLINE, TRIAL_HEADLINE_KEY, TRIAL_MONTHS, TRIAL_PHRASE, cityCtaLabel, stormCtaLabel } from '@/lib/plan/price-copy';
 import { PUBLIC_PRICES } from '@/lib/plan/public-prices';
 import { TRADE_PRICE_LINE } from '@/lib/seo/trade-view';
 import { annualSavingLabel, annualSavingSentence } from '@/lib/stripe/plans';
@@ -38,6 +38,9 @@ const SKIP = new Set(['node_modules', '.next', '.git', '.gen', 'screenshots']);
 const ALLOWED_LINES: { file: string; line: RegExp }[] = [
   { file: 'lib/i18n/en.ts', line: /^\s*'land\.trial': '\{months\} months free',$/ },
   { file: 'lib/i18n/es.ts', line: /^\s*'land\.trial': '\{months\} meses gratis',$/ },
+  // Round 23: the trial is one month, so each language also carries the singular template (price-copy.ts TRIAL_HEADLINE_KEY picks).
+  { file: 'lib/i18n/en.ts', line: /^\s*'land\.trial_one': '\{months\} month free',$/ },
+  { file: 'lib/i18n/es.ts', line: /^\s*'land\.trial_one': '\{months\} mes gratis',$/ },
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -127,11 +130,11 @@ describe('"months free" only as the generated trial phrase', () => {
       expect(s, s).not.toMatch(/about\s+\S+\s+months?\s+free/i);
     }
     // The headline really is used, and only where it means the trial.
-    expect(cityCtaLabel('Austin')).toBe('Get alerts for Austin from $7.99/mo, 2 months free');
-    expect(stormCtaLabel()).toBe('Get alerts from $7.99/mo, 2 months free');
+    expect(cityCtaLabel('Austin')).toBe('Get alerts for Austin from $7.99/mo, 1 month free');
+    expect(stormCtaLabel()).toBe('Get alerts from $7.99/mo, 1 month free');
     // Next to a yearly price, the precise form is used instead (trade pages): no "months free" there.
     expect(TRADE_PRICE_LINE).toContain('$79.99 a year');
-    expect(TRADE_PRICE_LINE).toContain('60-day free trial');
+    expect(TRADE_PRICE_LINE).toContain('30-day free trial');
     expect(TRADE_PRICE_LINE).not.toMatch(BANNED);
   });
 
@@ -142,37 +145,37 @@ describe('"months free" only as the generated trial phrase', () => {
     expect('2 months free when you pay annually').toMatch(YEARLY_AND_MONTHS);
     expect(onlyTheTrialHeadline('pay yearly and get about 2 months free')).toBe(false);
     expect(onlyTheTrialHeadline('3 months free')).toBe(false);
-    expect(onlyTheTrialHeadline('From $7.99/mo after 2 months free. No card.')).toBe(true);
+    expect(onlyTheTrialHeadline('From $7.99/mo after 1 month free. No card.')).toBe(true);
     expect(`Every plan starts with a ${TRIAL_PHRASE}. No card needed.`).not.toMatch(BANNED);
   });
 });
 
-describe('the 60-day trial wording (round 18) comes from TRIAL_DAYS', () => {
-  it('TRIAL_DAYS is 60, a whole number of 30-day months, and both phrases are built from it', () => {
-    expect(TRIAL_DAYS).toBe(60);
+describe('the 30-day trial wording (round 23) comes from TRIAL_DAYS', () => {
+  it('TRIAL_DAYS is 30, a whole number of 30-day months, and both phrases are built from it', () => {
+    expect(TRIAL_DAYS).toBe(30);
     expect(TRIAL_DAYS % 30).toBe(0);
-    expect(TRIAL_MONTHS).toBe(2);
-    expect(TRIAL_HEADLINE).toBe('2 months free');
-    expect(TRIAL_PHRASE).toBe('60-day free trial');
-    expect(PUBLIC_PRICES.trialDays).toBe(60);
+    expect(TRIAL_MONTHS).toBe(1);
+    expect(TRIAL_HEADLINE).toBe('1 month free');
+    expect(TRIAL_PHRASE).toBe('30-day free trial');
+    expect(PUBLIC_PRICES.trialDays).toBe(30);
     expect(PUBLIC_PRICES.trialHeadline).toBe(TRIAL_HEADLINE);
     expect(PUBLIC_PRICES.trialPhrase).toBe(TRIAL_PHRASE);
   });
 
-  it('Spanish: "2 meses gratis" and "prueba gratis de 60 días", filled from the same constants', () => {
-    expect(t('es', 'land.trial', { months: TRIAL_MONTHS })).toBe('2 meses gratis');
-    expect(t('es', 'land.description', { from: '$7.99', days: TRIAL_DAYS })).toContain('prueba gratis de 60 días');
-    expect(t('en', 'land.trial', { months: TRIAL_MONTHS })).toBe(TRIAL_HEADLINE);
+  it('Spanish: "1 mes gratis" and "prueba gratis de 30 días", filled from the same constants', () => {
+    expect(t('es', TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS })).toBe('1 mes gratis');
+    expect(t('es', 'land.description', { from: '$7.99', days: TRIAL_DAYS })).toContain('prueba gratis de 30 días');
+    expect(t('en', TRIAL_HEADLINE_KEY, { months: TRIAL_MONTHS })).toBe(TRIAL_HEADLINE);
     expect(t('en', 'land.description', { from: '$7.99', days: TRIAL_DAYS })).toContain(`a ${TRIAL_PHRASE}`);
   });
 
   it('pricing fine print and the Solo button use the precise form (the card shows a yearly price)', () => {
     const text = renderToStaticMarkup(createElement(Pricing)).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-    expect(text).toContain('Every plan starts with a 60-day free trial. No card needed.');
-    expect(text).toContain('Start your 60-day free trial');
+    expect(text).toContain('Every plan starts with a 30-day free trial. No card needed.');
+    expect(text).toContain('Start your 30-day free trial');
     expect(text).not.toMatch(BANNED);
     expect(text).toContain('The trial uses Solo limits. Move to Pro in Settings, or cancel, any time.');
-    expect(text).not.toMatch(/\b14[- ]day|\b14 days/);
+    expect(text).not.toMatch(/\b14[- ]day|\b14 days|\b60[- ]day|\b60 days/);
   });
 });
 
@@ -258,15 +261,15 @@ describe('never the 2-month headline in a card or block with a yearly price (rev
       }
     }
     const en = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0) } as Parameters<typeof CheckResults>[0]));
-    expect(plain(en)).toContain('Get these by email. 60-day free trial, no card');
+    expect(plain(en)).toContain('Get alerts by email. 30-day free trial, no card');
     const es = renderToStaticMarkup(createElement(CheckResults, { items: [], mode: 'limited', checkedAt: '2026-11-17T11:55:00.000Z', placeLabel: 'X', trade: 'roofing', tradeLabel: 'Roofing', citySlug: null, watches: watchList('roofing', null), now: Date.UTC(2026, 10, 17, 12, 0), lang: 'es' } as Parameters<typeof CheckResults>[0]));
-    expect(plain(es)).toContain('Reciba estas alertas por correo. Prueba gratis de 60 días, sin tarjeta');
+    expect(plain(es)).toContain('Reciba alertas por correo. Prueba gratis de 30 días, sin tarjeta');
   });
 
-  it('/es home: the price section uses "Prueba gratis de 60 días"; the hero (monthly price only) keeps "2 meses gratis"; no section holds both', () => {
+  it('/es home: the price section uses "Prueba gratis de 30 días"; the hero (monthly price only) keeps "1 mes gratis"; no section holds both', () => {
     const html = renderToStaticMarkup(HomeEs());
     expect(offending(html)).toEqual([]);
-    expect(plain(html)).toContain('Prueba gratis de 60 días. Luego, un precio mensual fijo.');
-    expect(plain(html)).toContain('después de 2 meses gratis');
+    expect(plain(html)).toContain('Prueba gratis de 30 días. Luego, un precio mensual fijo.');
+    expect(plain(html)).toContain('después de 1 mes gratis');
   });
 });

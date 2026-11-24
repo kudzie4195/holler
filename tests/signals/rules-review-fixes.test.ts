@@ -402,7 +402,9 @@ describe('P3 item 8: a feed-only hail card has no inspection step', () => {
     expect(briefFor({ ...input, label: 'market_insight', trade: 'auto-glass' }).next).not.toMatch(/offer inspections/);
     expect(briefForLang({ ...input, label: 'market_insight', trade: 'auto-glass' }, 'es').next).not.toMatch(/inspecciones/);
     expect(labelFor(input, 'siding-gutters')).toBe('act_now');
-    expect(briefFor({ ...input, label: 'act_now', trade: 'siding-gutters' }).next).toMatch(/offer inspections/);
+    // INT2 copy round: the hail reason's step no longer offers inspections to every trade; siding still gets the reason's own step.
+    expect(briefFor({ ...input, label: 'act_now', trade: 'siding-gutters' }).next).toBe('Check the area on a map before you offer anyone a visit.');
+    expect(briefFor({ ...input, label: 'market_insight', trade: 'auto-glass' }).next).not.toBe('Check the area on a map before you offer anyone a visit.');
   });
 });
 

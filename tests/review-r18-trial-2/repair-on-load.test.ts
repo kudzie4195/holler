@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it } from 'vitest';
 import { applyTrialRules, mayExtendTrial, neverPaid, repairShortTrial, trialStartOf, REVIVE_MIN_LEFT_MS, type TrialRow } from '../../lib/auth/trial';
-import { TRIAL_DAYS, trialEndFromStart, trialStartedAt } from '../../lib/auth/membership';
+import { TRIAL_DAYS, TRIAL_MAX_DAYS, trialEndFromStart, trialStartedAt } from '../../lib/auth/membership';
 import { selectLifecycle, staleTrialSends, type LifecycleProfile, type SendRow } from '../../lib/lifecycle/select';
 
 const HOUR = 3_600_000;
@@ -81,17 +81,18 @@ describe('REV2 repair on page load: cost when nothing needs repair', () => {
   it('a row that is already right never builds the admin client and makes no call (every healthy state)', async () => {
     const healthy: [string, Row | null, Record<string, unknown>][] = [
       ['no profile', null, {}],
-      ['new member after 0028 (60 days, microseconds)', { ...trialing(T0, T0 + 60 * DAY), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2027-01-21T12:00:00.123456+00:00' }, { holler_trial_started_at: '2026-11-22T12:00:00.123456+00:00' }],
-      ['app-set end (whole ms) on a microsecond start', { ...trialing(T0, T0 + 60 * DAY), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2027-01-21T12:00:00.123Z' }, {}],
-      ['day 30 of 60', trialing(T0 - 30 * DAY, T0 + 30 * DAY), { holler_trial_started_at: iso(T0 - 30 * DAY) }],
-      ['60-day trial ended yesterday', trialing(T0 - 61 * DAY, T0 - DAY), { holler_trial_started_at: iso(T0 - 61 * DAY) }],
-      ['14-day trial, start 58 days back (under 72 h would be left)', trialing(T0 - 58 * DAY, T0 - 44 * DAY), {}],
+      ['new member after the trial migration (TRIAL_DAYS, microseconds)', { ...trialing(T0, T0 + 30 * DAY), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2026-12-22T12:00:00.123456+00:00' }, { holler_trial_started_at: '2026-11-22T12:00:00.123456+00:00' }],
+      ['app-set end (whole ms) on a microsecond start', { ...trialing(T0, T0 + 30 * DAY), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2026-12-22T12:00:00.123Z' }, {}],
+      ['day 15 of 30', trialing(T0 - 15 * DAY, T0 + 15 * DAY), { holler_trial_started_at: iso(T0 - 15 * DAY) }],
+      ['a round-18 member still holding 60 days: left alone, never cut to 30', trialing(T0 - 10 * DAY, T0 + 50 * DAY), { holler_trial_started_at: iso(T0 - 10 * DAY) }],
+      ['trial ended yesterday', trialing(T0 - 31 * DAY, T0 - DAY), { holler_trial_started_at: iso(T0 - 31 * DAY) }],
+      ['14-day trial, start 28 days back (under 72 h would be left)', trialing(T0 - 28 * DAY, T0 - 14 * DAY), {}],
       ['paying', trialing(T0 - 5 * DAY, T0 + 9 * DAY, { subscription_status: 'active', stripe_subscription_id: 'sub_1', plan_source: 'stripe' }), {}],
       ['past_due', trialing(T0 - 5 * DAY, T0 + 9 * DAY, { subscription_status: 'past_due', stripe_subscription_id: 'sub_1', plan_source: 'stripe' }), {}],
       ['canceled', trialing(T0 - 5 * DAY, T0 + 9 * DAY, { subscription_status: 'canceled' }), {}],
       ['checkout started (trialing + sub id)', trialing(T0 - 5 * DAY, T0 + 9 * DAY, { stripe_subscription_id: 'sub_1' }), {}],
       ['store plan', trialing(T0 - 5 * DAY, T0 + 9 * DAY, { subscription_status: 'active', plan_source: 'apple' }), {}],
-      ['returning member, row cut to stamp + 60', trialing(T0, T0 + 20 * DAY), { holler_trial_started_at: iso(T0 - 40 * DAY) }],
+      ['returning member, row cut to stamp + TRIAL_DAYS', trialing(T0, T0 + 10 * DAY), { holler_trial_started_at: iso(T0 - 20 * DAY) }],
     ];
     for (const [name, row, meta] of healthy) {
       const w = world(row, meta);
@@ -102,21 +103,21 @@ describe('REV2 repair on page load: cost when nothing needs repair', () => {
 
   it('a short row costs getUserById + select + one UPDATE + one ledger DELETE once, and the next load costs nothing', async () => {
     const w = world(trialing(T0 - 5 * DAY, T0 + 9 * DAY), { holler_trial_started_at: iso(T0 - 5 * DAY) });
-    expect(await load(w, T0)).toBe(iso(T0 + 55 * DAY));
+    expect(await load(w, T0)).toBe(iso(T0 + 25 * DAY));
     expect(w.calls).toEqual({ getUser: 1, stampWrite: 0, select: 1, update: 1, updateHit: 1, ledgerDelete: 1, factory: 1 });
     expect(await load(w, T0 + HOUR)).toBeNull();
     expect(w.calls.factory).toBe(1);
   });
 });
 
-describe('REV2 mayExtendTrial: exhaustive grid (never past start + 60 days, never a paid row, never a short revival)', () => {
+describe('REV2 mayExtendTrial: exhaustive grid (never past start + TRIAL_DAYS, never a paid row, never a short revival)', () => {
   it('holds for every combination of status, ids, source, start, stamp and current end', () => {
     const statuses = ['trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused', 'incomplete', ''];
     const subs = [null, 'sub_1', ''];
     const sources = [undefined, null, 'none', 'stripe', 'apple', 'google'];
-    const startsH = [0, 1, 24, 13 * 24, 14 * 24, 15 * 24, 40 * 24, 56 * 24 + 23, 57 * 24 - 1, 57 * 24, 57 * 24 + 1, 59 * 24, 60 * 24 - 1, 60 * 24, 60 * 24 + 1, 61 * 24, 400 * 24];
+    const startsH = [0, 1, 24, 13 * 24, 14 * 24, 15 * 24, 20 * 24, 26 * 24 + 23, 27 * 24 - 1, 27 * 24, 27 * 24 + 1, 29 * 24, 30 * 24 - 1, 30 * 24, 30 * 24 + 1, 31 * 24, 400 * 24];
     const stampDeltaH: (number | null)[] = [null, 0, -24 * 30, 24 * 3]; // stamp relative to created_at: none, same, 30 days EARLIER, 3 days LATER
-    const endsH = [-60 * 24, -47 * 24, -46 * 24, -1, 0, 1, 71, 72, 73, 14 * 24, 59 * 24, 60 * 24, 61 * 24];
+    const endsH = [-30 * 24, -17 * 24, -16 * 24, -1, 0, 1, 71, 72, 73, 14 * 24, 29 * 24, 30 * 24, 31 * 24, 60 * 24];
     let trues = 0; let n = 0;
     for (const status of statuses) for (const sub of subs) for (const source of sources) for (const sh of startsH) for (const sd of stampDeltaH) for (const eh of endsH) {
       n++;
@@ -137,7 +138,7 @@ describe('REV2 mayExtendTrial: exhaustive grid (never past start + 60 days, neve
       expect(target).toBeGreaterThan(T0);
       expect(T0 + eh * HOUR).toBeLessThan(target - 1000 + 1);
       if (eh <= 0) expect(target).toBeGreaterThan(T0 + REVIVE_MIN_LEFT_MS); // an ENDED trial: only with more than 72 hours left
-      expect(Date.parse(trialEndFromStart(start))).toBe(target); // the write target is never later than earliest start + 60 days
+      expect(Date.parse(trialEndFromStart(start))).toBe(target); // the write target is never later than earliest start + TRIAL_DAYS
     }
     expect(n).toBeGreaterThan(50_000);
     expect(trues).toBeGreaterThan(100);
@@ -145,16 +146,16 @@ describe('REV2 mayExtendTrial: exhaustive grid (never past start + 60 days, neve
 
   it('boundaries to the millisecond: 72 h exactly is NOT revived, 72 h + 1 ms is; an end 1 ms in the future counts as running', () => {
     const mk = (startMs: number, endMs: number): [TrialRow, string] => [{ created_at: iso(startMs), trial_ends_at: iso(endMs), subscription_status: 'trialing', stripe_subscription_id: null }, iso(startMs)];
-    const s72 = T0 + 72 * HOUR - 60 * DAY;
+    const s72 = T0 + 72 * HOUR - TRIAL_DAYS * DAY;
     expect(mayExtendTrial(...mk(s72, s72 + 14 * DAY), T0)).toBe(false);
     expect(mayExtendTrial(...mk(s72 + 1, s72 + 1 + 14 * DAY), T0)).toBe(true);
     // ended exactly now (end == now) counts as ended
     expect(mayExtendTrial(...mk(s72, T0), T0)).toBe(false);
-    // still running by 1 ms, with only 1 hour of the 60 days left: extended (a running trial is always extended)
-    const s1 = T0 + HOUR - 60 * DAY;
+    // still running by 1 ms, with only 1 hour of the trial left: extended (a running trial is always extended)
+    const s1 = T0 + HOUR - TRIAL_DAYS * DAY;
     expect(mayExtendTrial(...mk(s1, T0 + 1), T0)).toBe(true);
-    // start exactly 60 days back: target == now: never
-    expect(mayExtendTrial(...mk(T0 - 60 * DAY, T0 - 46 * DAY), T0)).toBe(false);
+    // start exactly TRIAL_DAYS back: target == now: never
+    expect(mayExtendTrial(...mk(T0 - TRIAL_DAYS * DAY, T0 - 16 * DAY), T0)).toBe(false);
   });
 });
 
@@ -198,26 +199,26 @@ describe('REV2 repair on page load: who is touched', () => {
     }
   });
 
-  it('RACE: two page loads at once end at the same start + 60, never further', async () => {
+  it('RACE: two page loads at once end at the same start + TRIAL_DAYS, never further', async () => {
     const w = world(trialing(T0 - 5 * DAY, T0 + 9 * DAY), { holler_trial_started_at: iso(T0 - 5 * DAY) });
     const [a, b] = await Promise.all([load(w, T0), load(w, T0 + 3)]);
-    expect(w.row!.trial_ends_at).toBe(iso(T0 + 55 * DAY));
+    expect(w.row!.trial_ends_at).toBe(iso(T0 + 25 * DAY));
     expect(w.calls.updateHit).toBe(1); // the second guarded UPDATE matches nothing
     // Review r3 D1b: the load that lost the race is told the end the row now holds too (it must not go on with the short end it read).
-    expect([a, b]).toEqual([iso(T0 + 55 * DAY), iso(T0 + 55 * DAY)]);
+    expect([a, b]).toEqual([iso(T0 + 25 * DAY), iso(T0 + 25 * DAY)]);
     expect(w.calls.ledgerDelete).toBe(1);
   });
 
-  it('a stamp LATER than created_at (hand-edited) never pushes the end past created_at + 60', async () => {
+  it('a stamp LATER than created_at (hand-edited) never pushes the end past created_at + TRIAL_DAYS', async () => {
     const w = world(trialing(T0 - 20 * DAY, T0 - 6 * DAY), { holler_trial_started_at: iso(T0 - 2 * DAY) });
     await load(w, T0);
-    expect(w.row!.trial_ends_at).toBe(iso(T0 + 40 * DAY));
+    expect(w.row!.trial_ends_at).toBe(iso(T0 + 10 * DAY));
   });
 
-  it('revival bounds: start 57 d back minus 1 h is revived for 73 h; 57 d exactly, 58 d, 60 d and 61 d stay ended with no call', async () => {
-    const a = world(trialing(T0 - 57 * DAY + HOUR, T0 - 43 * DAY + HOUR), {});
+  it('revival bounds: start 27 d back minus 1 h is revived for 73 h; 27 d exactly, 28 d, 30 d and 31 d stay ended with no call', async () => {
+    const a = world(trialing(T0 - 27 * DAY + HOUR, T0 - 13 * DAY + HOUR), {});
     expect(await load(a, T0)).toBe(iso(T0 + 73 * HOUR));
-    for (const d of [57, 58, 60, 61]) {
+    for (const d of [27, 28, 30, 31]) {
       const w = world(trialing(T0 - d * DAY, T0 - (d - 14) * DAY), {});
       expect(await load(w, T0)).toBeNull();
       expect(w.calls.factory).toBe(0);
@@ -228,14 +229,14 @@ describe('REV2 repair on page load: who is touched', () => {
 // ---- the one-trial world: database default, stamp trigger, delete account; random member-reachable sequences ----------------------
 function mulberry32(a: number) { return () => { let t = (a += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
-describe('REV2 random sequences: delete and re-create, pay, cancel, load, in any order, before and after 0028', () => {
-  it('no state gives a never-paid row an end later than the FIRST start + 60 days; repair never raises a paid row; an ended trial is never revived for 72 h or less', async () => {
+describe('REV2 random sequences: delete and re-create, pay, cancel, load, in any order, on an old and a new database', () => {
+  it('no state gives a never-paid row an end later than the FIRST start + TRIAL_MAX_DAYS; repair never raises a paid row; an ended trial is never revived for 72 h or less', async () => {
     const violations: string[] = [];
     let extensions = 0; let revivals = 0; let secondRows = 0;
     for (let seed = 1; seed <= 400; seed++) {
       const rnd = mulberry32(seed);
       let now = T0;
-      let db: 14 | 60 = rnd() < 0.5 ? 14 : 60;
+      let db: 14 | 30 = rnd() < 0.5 ? 14 : 30;
       const w = world(null, {});
       let firstStart: number | null = null;
       const trace: string[] = [];
@@ -255,7 +256,7 @@ describe('REV2 random sequences: delete and re-create, pay, cancel, load, in any
         const wasNeverPaid = w.row ? neverPaid(w.row) : false;
         if (r < 0.22) { now += Math.floor(rnd() * 20 * DAY); trace.push('wait'); continue; }
         if (r < 0.27) { now += Math.floor(rnd() * 6 * HOUR); trace.push('wait-h'); continue; }
-        if (r < 0.30 && db === 14) { db = 60; trace.push('0028 default/trigger'); continue; }
+        if (r < 0.30 && db === 14) { db = 30; trace.push('trial migration default/trigger'); continue; }
         if (!w.row) {
           if (r < 0.75) { insertRow(true); await applyTrialRules(adminOf(w), 'u1', new Date(now)); }   // onboarding through the app
           else insertRow(false);                                                                       // own JWT straight to PostgREST: no server step
@@ -283,7 +284,9 @@ describe('REV2 random sequences: delete and re-create, pay, cancel, load, in any
         else { w.row.subscription_status = 'canceled'; w.row.plan_source = 'apple'; trace.push('store-revoke'); }
         if (w.row && firstStart !== null && w.row.subscription_status === 'trialing') {
           const end = Date.parse(w.row.trial_ends_at);
-          if (end > firstStart + TRIAL_DAYS * DAY + 1000) violations.push(`seed ${seed}: end ${(end - firstStart) / DAY} days after the first start: ${trace.join(' ')}`);
+          // Round 23: the bound is TRIAL_MAX_DAYS, the cap the cut-back enforces (lib/auth/trial.ts). A row BETWEEN start + TRIAL_DAYS
+          // and the cap is left where it is, because no trial already granted is ever shortened; nothing ever goes past the cap.
+          if (end > firstStart + TRIAL_MAX_DAYS * DAY + 1000) violations.push(`seed ${seed}: end ${(end - firstStart) / DAY} days after the first start: ${trace.join(' ')}`);
         }
       }
     }
@@ -297,13 +300,13 @@ describe('REV2 random sequences: delete and re-create, pay, cancel, load, in any
 
 describe('REV2 findings in the repair path, fixed (review r2 R3, R4)', () => {
   it('R3 fixed: the ledger DELETE fails after the end moved: retried in the call, and the cron then treats the rows as stale for the new end, so the reminder and the ended email still go, each once', async () => {
-    const w = world(trialing(T0 - 30 * DAY, T0 - 16 * DAY), { holler_trial_started_at: iso(T0 - 30 * DAY) });
+    const w = world(trialing(T0 - 20 * DAY, T0 - 6 * DAY), { holler_trial_started_at: iso(T0 - 20 * DAY) });
     w.failLedgerDelete = true;
     const errors: string[] = [];
     const orig = console.error;
     console.error = (...a: unknown[]) => void errors.push(a.join(' '));
     try {
-      expect(await load(w, T0)).toBe(iso(T0 + 30 * DAY)); // the trial IS revived
+      expect(await load(w, T0)).toBe(iso(T0 + 10 * DAY)); // the trial IS revived
     } finally {
       console.error = orig;
     }
@@ -311,9 +314,9 @@ describe('REV2 findings in the repair path, fixed (review r2 R3, R4)', () => {
     expect(errors.join('\n')).toContain('the lifecycle cron clears stale rows');
     expect([...w.ledger].sort()).toEqual(['trial_ended', 'trial_ending', 'welcome']); // still in the table
     // The rows as the table holds them: written for the OLD end (reminder about 84 h before it, ended a day after it).
-    const oldEnd = T0 - 16 * DAY;
+    const oldEnd = T0 - 6 * DAY;
     const ledger: SendRow[] = [
-      { user_id: 'u1', kind: 'welcome', sent_at: iso(T0 - 29 * DAY) },
+      { user_id: 'u1', kind: 'welcome', sent_at: iso(T0 - 19 * DAY) },
       { user_id: 'u1', kind: 'trial_ending', sent_at: iso(oldEnd - 83 * HOUR) },
       { user_id: 'u1', kind: 'trial_ended', sent_at: iso(oldEnd + 20 * HOUR) },
     ];
@@ -348,7 +351,7 @@ describe('REV2 findings in the repair path, fixed (review r2 R3, R4)', () => {
     const w = world(trialing(T0 - 5 * DAY, T0 + 9 * DAY), { holler_trial_started_at: iso(T0 - 5 * DAY) });
     const out = await load(w, T0);
     expect(out).toBe(w.row!.trial_ends_at);
-    expect(out).toBe(iso(T0 + 55 * DAY));
+    expect(out).toBe(iso(T0 + 25 * DAY));
   });
 
   it('NOTE: the stamp write fails: no extension, and EVERY later load repeats getUserById + select + updateUserById (3 calls a load) until it works', async () => {

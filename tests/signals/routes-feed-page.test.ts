@@ -72,7 +72,7 @@ describe('/app feed with feed-only cards', () => {
     expect(selects[0]).toContain('alert_hold');
     expect(t).toContain('Background');
     expect(t).toContain('This permit names no business and no site address, so it was not sent as an alert.');
-    expect(t).toContain('Coming soon');
+    expect(t).toContain('Work may follow');
     expect(t.indexOf('New home permit in Decatur')).toBeLessThan(t.indexOf('New home permit in DeKalb County'));
   });
   it('migration 0027 NOT applied: the read is made again without alert_hold, both cards show as before', async () => {

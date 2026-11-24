@@ -2,8 +2,8 @@ import type { Guide } from './types';
 
 export const storms: Guide = {
   slug: 'storm-damage-leads-from-weather-alerts-and-storm-reports',
-  title: 'Storm damage leads from weather alerts and storm reports',
-  metaTitle: 'Storm Damage Leads From Weather Alerts | Holler',
+  title: 'Storm work from weather alerts and storm reports',
+  metaTitle: 'Storm Work From Weather Alerts and Reports | Holler',
   description:
     'Free federal feeds show where a storm hit: NWS warnings, preliminary storm reports and FEMA declarations. The thresholds, timing and contact rules for each.',
   directAnswer:
@@ -85,7 +85,7 @@ export const storms: Guide = {
   related: [
     { href: '/for/roofing', label: 'Storm alerts for roofers' },
     { href: '/check', label: 'Check your area' },
-    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond to a local lead fast' },
+    { href: '/guides/how-to-respond-to-a-local-lead-fast', label: 'How to respond fast when local work comes up' },
   ],
   lastReviewed: '2026-11-17',
 };

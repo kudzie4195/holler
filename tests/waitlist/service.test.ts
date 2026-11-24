@@ -62,7 +62,8 @@ describe('invalid input is rejected before anything is counted or written', () =
   });
   it('a ZIP Holler already serves is refused (60614): the list is for places with no alerts', async () => {
     const f = fakeWaitlist();
-    expect(await joinWaitlist(f.deps, { ...base, zip: SERVED_ZIP })).toEqual({ code: 'invalid', field: 'zip' });
+    // Round 24 (review P2-3): the refusal names the trade field (the trade is not on this ZIP's list), so the card can say what is wrong.
+    expect(await joinWaitlist(f.deps, { ...base, zip: SERVED_ZIP })).toEqual({ code: 'invalid', field: 'trade' });
     expect(f.writes).toHaveLength(0);
   });
 });

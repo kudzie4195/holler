@@ -36,7 +36,7 @@ describe('feed: resident requests', () => {
     const html = renderToStaticMarkup(
       createElement(Feed, { items: [{ ...base, id: 2, source: 'websearch', url: 'https://example.com/post' }], cityPage: null }),
     );
-    expect(html).toContain('Open the source');
+    expect(html).toContain('Open the public source');
     expect(html).toContain('Draft reply');
     expect(html).not.toContain('>Reply<');
   });

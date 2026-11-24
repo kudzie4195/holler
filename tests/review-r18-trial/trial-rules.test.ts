@@ -54,55 +54,62 @@ function fake(init: { meta?: Record<string, unknown>; profile: Record<string, un
 const trialing = (created: number, ends: number, extra: Record<string, unknown> = {}) => ({ user_id: 'u1', created_at: at(created), trial_ends_at: at(ends), subscription_status: 'trialing', stripe_subscription_id: null, ...extra });
 
 describe('REV applyTrialRules: who gets how many days', () => {
-  it('new signup BEFORE 0028 (row has 14 days): moved to exactly created_at + 60 days, and 5 more calls change nothing', async () => {
+  it('new signup on a database still at 14 days: moved to exactly created_at + TRIAL_DAYS, and 5 more calls change nothing', async () => {
     const { admin, state } = fake({ profile: trialing(0, 14) });
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('first');
-    expect(state.profile!.trial_ends_at).toBe(at(60));
+    expect(state.profile!.trial_ends_at).toBe(at(30));
     for (let i = 0; i < 5; i++) expect(await applyTrialRules(admin, 'u1', new Date(NOW.getTime() + i * 10 * DAY))).toBe('unchanged');
-    expect(state.profile!.trial_ends_at).toBe(at(60));
+    expect(state.profile!.trial_ends_at).toBe(at(30));
     expect(state.updates).toBe(1);
     expect(state.stampWrites).toBe(1);
   });
 
-  it('new signup AFTER 0028 (row has created_at + 60 days with microseconds): no write, no ledger reset (no double extension)', async () => {
-    const { admin, state } = fake({ profile: { ...trialing(0, 60), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2027-01-21T12:00:00.123456+00:00' } });
+  it('new signup AFTER the trial migration (row has created_at + TRIAL_DAYS with microseconds): no write, no ledger reset (no double extension)', async () => {
+    const { admin, state } = fake({ profile: { ...trialing(0, 30), created_at: '2026-11-22T12:00:00.123456+00:00', trial_ends_at: '2026-12-22T12:00:00.123456+00:00' } });
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('first');
     expect(state.updates).toBe(0);
     expect(state.sendDeletes).toBe(0);
-    expect(state.profile!.trial_ends_at).toBe('2027-01-21T12:00:00.123456+00:00');
+    expect(state.profile!.trial_ends_at).toBe('2026-12-22T12:00:00.123456+00:00');
   });
 
-  it('member mid-trial BEFORE 0028 (day 10 of 14) who re-submits onboarding: gets the rest of 60 days from the ORIGINAL start, not more', async () => {
+  it('member mid-trial on a 14-day row (day 10 of 14) who re-submits onboarding: gets the rest of TRIAL_DAYS from the ORIGINAL start, not more', async () => {
     const { admin, state } = fake({ meta: { holler_trial_started_at: at(-10) }, profile: trialing(-10, 4) });
     await applyTrialRules(admin, 'u1', NOW);
-    expect(state.profile!.trial_ends_at).toBe(at(50)); // 60 days from the start
+    expect(state.profile!.trial_ends_at).toBe(at(20)); // 30 days from the start
   });
 
-  it('14-day trial ended 20 days ago, never paid (start 34 d ago): re-submitting onboarding revives it to start + 60 (26 more days)', async () => {
-    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-34) }, profile: trialing(-34, -20) });
+  it('14-day trial ended 6 days ago, never paid (start 20 d ago): re-submitting onboarding revives it to start + TRIAL_DAYS (10 more days)', async () => {
+    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-20) }, profile: trialing(-20, -6) });
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('returning');
-    expect(state.profile!.trial_ends_at).toBe(at(26));
+    expect(state.profile!.trial_ends_at).toBe(at(10));
     expect(state.sends).toEqual(['welcome', 'optout']); // trial_ending and trial_ended can be sent again; opt-out kept
   });
 
-  it('start 61 days ago: never revived', async () => {
-    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-61) }, profile: trialing(-61, -47) });
+  it('start 31 days ago (more than TRIAL_DAYS): never revived', async () => {
+    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-31) }, profile: trialing(-31, -17) });
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('unchanged');
     expect(state.updates).toBe(0);
   });
 
-  it('deleted the account and came back (first start 40 d ago, new row today): 20 days left, never a second 60', async () => {
-    // after 0028 the insert trigger already cut the row to stamp + 60
-    const a = fake({ meta: { holler_trial_started_at: at(-40) }, profile: trialing(0, 20) });
+  it('deleted the account and came back (first start 20 d ago, new row today): 10 days left, never a second full trial', async () => {
+    // the insert trigger already cut the row to stamp + TRIAL_DAYS
+    const a = fake({ meta: { holler_trial_started_at: at(-20) }, profile: trialing(0, 10) });
     expect(await applyTrialRules(a.admin, 'u1', NOW)).toBe('unchanged');
-    // a row that somehow carries a fresh 60 (trigger missing) is cut back
-    const b = fake({ meta: { holler_trial_started_at: at(-40) }, profile: trialing(0, 60) });
+    // A row beyond stamp + TRIAL_MAX_DAYS (bad data, or the insert trigger missing) is still cut back, to that cap.
+    const b = fake({ meta: { holler_trial_started_at: at(-20) }, profile: trialing(0, 70) });
     expect(await applyTrialRules(b.admin, 'u1', NOW)).toBe('returning');
-    expect(b.state.profile!.trial_ends_at).toBe(at(20));
-    // before 0028 the old trigger cut it to stamp + 14 (26 days ago): the code gives the remainder of 60
-    const c = fake({ meta: { holler_trial_started_at: at(-40) }, profile: trialing(0, -26) });
+    expect(b.state.profile!.trial_ends_at).toBe(at(40)); // stamp + TRIAL_MAX_DAYS
+    // Round 23: between stamp + TRIAL_DAYS and the cap the row is LEFT ALONE. The cut-back measures against TRIAL_MAX_DAYS so that
+    // dropping TRIAL_DAYS from 60 to 30 cannot shorten a trial anybody already holds; the price is that a returning person whose row
+    // escaped the database trigger can keep up to the old 60 days. The database trigger is the first guard and still cuts to
+    // stamp + TRIAL_DAYS on insert.
+    const d = fake({ meta: { holler_trial_started_at: at(-20) }, profile: trialing(0, 30) });
+    expect(await applyTrialRules(d.admin, 'u1', NOW)).toBe('unchanged');
+    expect(d.state.profile!.trial_ends_at).toBe(at(30));
+    // an old trigger that cut it to stamp + 14 (6 days ago): the code gives the remainder of TRIAL_DAYS
+    const c = fake({ meta: { holler_trial_started_at: at(-20) }, profile: trialing(0, -6) });
     await applyTrialRules(c.admin, 'u1', NOW);
-    expect(c.state.profile!.trial_ends_at).toBe(at(20));
+    expect(c.state.profile!.trial_ends_at).toBe(at(10));
   });
 
   it('paying, past_due, canceled, or a Stripe subscription id on a trialing row: never lengthened', async () => {
@@ -116,7 +123,7 @@ describe('REV applyTrialRules: who gets how many days', () => {
 });
 
 describe('REV applyTrialRules: failure and edge behaviour (review findings, fixed)', () => {
-  it('F5 fixed: a refused write leaves 14 days, and on the next signed-in load (repairShortTrial) moves the row to start + 60', async () => {
+  it('F5 fixed: a refused write leaves 14 days, and on the next signed-in load (repairShortTrial) moves the row to start + TRIAL_DAYS', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { admin, state } = fake({ profile: trialing(0, 14), updateError: { code: '42501', message: 'holler_billing_guard: billing fields are set by the server only' } });
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('error');
@@ -127,8 +134,8 @@ describe('REV applyTrialRules: failure and edge behaviour (review findings, fixe
     const next = fake({ meta: { ...state.meta }, profile: { ...state.profile! } });
     const later = new Date(NOW.getTime() + DAY);
     const end = await repairShortTrial({ id: 'u1', app_metadata: next.state.meta }, next.state.profile as never, () => next.admin, later);
-    expect(end).toBe(at(60));
-    expect(next.state.profile!.trial_ends_at).toBe(at(60));
+    expect(end).toBe(at(30));
+    expect(next.state.profile!.trial_ends_at).toBe(at(30));
     // A row that is already right costs no admin call at all.
     let called = 0;
     expect(await repairShortTrial({ id: 'u1', app_metadata: next.state.meta }, next.state.profile as never, () => { called++; return next.admin; }, later)).toBeNull();
@@ -142,12 +149,13 @@ describe('REV applyTrialRules: failure and edge behaviour (review findings, fixe
       expect(await repairShortTrial({ id: 'u1', app_metadata: { holler_trial_started_at: at(-10) } }, row as never, () => { called++; return {} as never; }, NOW)).toBeNull();
       expect(called, JSON.stringify(extra)).toBe(0);
     }
-    for (const startDaysAgo of [57.5, 58, 59, 59.9]) {
+    // Round 23: the same boundary, measured against TRIAL_DAYS = 30. An ended trial whose start + 30 is 72 h away or less stays ended.
+    for (const startDaysAgo of [27.5, 28, 29, 29.9]) {
       const row = trialing(-startDaysAgo, 14 - startDaysAgo);
       expect(mayExtendTrial(row as never, at(-startDaysAgo), NOW.getTime()), `start ${startDaysAgo} d ago`).toBe(false);
     }
-    expect(mayExtendTrial(trialing(-56, -42) as never, at(-56), NOW.getTime())).toBe(true); // 96 h left: revived, the reminder comes first
-    expect(mayExtendTrial(trialing(-46, -32) as never, at(-46), NOW.getTime())).toBe(true);
+    expect(mayExtendTrial(trialing(-26, -12) as never, at(-26), NOW.getTime())).toBe(true); // 96 h left: revived, the reminder comes first
+    expect(mayExtendTrial(trialing(-16, -2) as never, at(-16), NOW.getTime())).toBe(true);
   });
 
   it('F1 parity with 0028: onboarding does not revive an ended trial with 72 hours or less left', async () => {
@@ -157,10 +165,10 @@ describe('REV applyTrialRules: failure and edge behaviour (review findings, fixe
     expect(state.sendDeletes).toBe(0);
   });
 
-  it('F8 fixed: a stamp LATER than created_at never pushes the start later; the code agrees with 0028 (created_at + 60)', async () => {
-    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-2) }, profile: trialing(-20, 40) }); // 0028 sets created + 60 = +40
+  it('F8 fixed: a stamp LATER than created_at never pushes the start later; the code agrees with the migration (created_at + TRIAL_DAYS)', async () => {
+    const { admin, state } = fake({ meta: { holler_trial_started_at: at(-2) }, profile: trialing(-20, 10) }); // the migration sets created + 30 = +10
     expect(await applyTrialRules(admin, 'u1', NOW)).toBe('unchanged');
-    expect(state.profile!.trial_ends_at).toBe(at(40));
+    expect(state.profile!.trial_ends_at).toBe(at(10));
     expect(state.updates).toBe(0);
   });
 
@@ -173,8 +181,8 @@ describe('REV applyTrialRules: failure and edge behaviour (review findings, fixe
   });
 
   it('the code writes whole milliseconds: created_at .123456 becomes an end of .123 (what probe 01 fixture 18 feeds to 0028)', () => {
-    expect(trialEndFromStart('2026-11-01T12:00:00.123456+00:00')).toBe('2026-12-31T12:00:00.123Z');
-    expect(TRIAL_DAYS).toBe(60);
+    expect(trialEndFromStart('2026-11-01T12:00:00.123456+00:00')).toBe('2026-12-01T12:00:00.123Z');
+    expect(TRIAL_DAYS).toBe(30);
   });
 });
 

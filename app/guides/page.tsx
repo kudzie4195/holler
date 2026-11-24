@@ -40,7 +40,7 @@ export default function GuidesHubPage() {
             <article>
               <div className="min-w-0">
                 <h2 className="h-plain text-xl text-ink">
-                  <Link href={guidePath(g.slug)} className="decoration-1 underline-offset-4 hover:underline">
+                  <Link href={guidePath(g.slug)} className="-my-3 inline-block py-3 decoration-1 underline-offset-4 hover:underline">
                     {g.title}
                   </Link>
                 </h2>

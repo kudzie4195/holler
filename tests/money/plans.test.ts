@@ -100,17 +100,17 @@ describe('trial rules are plan independent', () => {
   it('charges now only when the trial is over', () => {
     expect(trialParams('2026-11-10T00:00:00Z', now)).toEqual({});
   });
-  it('round 18: a full 60-day trial passes as the exact trial_end (Stripe: at least 48 h ahead, a trial at most 730 days)', () => {
+  it('round 23: a full TRIAL_DAYS trial passes as the exact trial_end (Stripe: at least 48 h ahead, a trial at most 730 days)', () => {
     const day = 86_400_000;
     const full = new Date(now + TRIAL_DAYS * day).toISOString();
-    expect(TRIAL_DAYS).toBe(60);
-    expect(trialParams(full, now)).toEqual({ trial_end: Math.ceil((now + 60 * day) / 1000) });
-    // 59 days 23 hours left, and just over 48 hours left: still the exact end
+    expect(TRIAL_DAYS).toBe(30);
+    expect(trialParams(full, now)).toEqual({ trial_end: Math.ceil((now + TRIAL_DAYS * day) / 1000) });
+    // a round-18 member still holding 60 days, and just over 48 hours left: still the exact end
     expect(trialParams(new Date(now + 60 * day - 3_600_000).toISOString(), now)).toEqual({ trial_end: Math.ceil((now + 60 * day - 3_600_000) / 1000) });
     expect(trialParams(new Date(now + 2 * day + 6 * 60_000).toISOString(), now)).toEqual({ trial_end: Math.ceil((now + 2 * day + 6 * 60_000) / 1000) });
     // under 48 hours: whole days, never a charge inside the trial
     expect(trialParams(new Date(now + 30 * 3_600_000).toISOString(), now)).toEqual({ trial_period_days: 2 });
-    // bad data beyond the trial length is cut back to now + TRIAL_DAYS, never sent to Stripe as is
+    // bad data beyond TRIAL_MAX_DAYS is cut back, never sent to Stripe as is
     expect(trialParams(new Date(now + 400 * day).toISOString(), now)).toEqual({ trial_end: Math.ceil((now + MAX_TRIAL_MS) / 1000) });
     expect(MAX_TRIAL_MS).toBeLessThanOrEqual(730 * day);
   });

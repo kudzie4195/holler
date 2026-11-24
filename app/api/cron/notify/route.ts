@@ -11,6 +11,7 @@ import {
   type DigestItem,
 } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
+import { MAX_ITEMS_IN_DIGEST } from '@/lib/email/digest-cap';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
@@ -33,11 +34,11 @@ import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMembe
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { parseLang, type Lang } from '@/lib/i18n';
 import { holdOf, missingHoldColumn } from '@/lib/signals/alert-gate';
+import { quietWeekEnabled, sendQuietWeek, type QuietWeekCounts } from '@/lib/email/quiet-week';
 
 export const maxDuration = 60;
 
 const MAX_USERS_PER_RUN = 150;
-const MAX_ITEMS_IN_DIGEST = 10;
 // PostgREST caps a response at 1000 rows, so read in pages of 1000 and stop after MAX_PAGES (newest first).
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 15;
@@ -139,6 +140,9 @@ export async function GET(req: Request) {
     if (rows.length < PAGE_SIZE) break;
   }
 
+  // Round 24: every member with an un-notified match, before any filter, so the quiet-week step (off by default) never writes to them.
+  const pendingUsers = new Set(matches.map((m) => m.user_id));
+
   // City bids are never emailed while HOLLER_BIDS_ENABLED is off, including matches stored while it was on, and a bid whose due date has
   // passed is never emailed at all (review P2-14). They are left unnotified (not stamped), so turning the flag back on resumes the open ones.
   matches = dropHiddenBids(matches, undefined, now.getTime());
@@ -151,8 +155,32 @@ export async function GET(req: Request) {
   }
   const userIds = [...byUser.keys()];
   counts.users_considered = userIds.length;
+  // Round 24 (review P1-5): the quiet-week email, only while HOLLER_QUIET_WEEK_ENABLED is exactly "1" (lib/email/quiet-week.ts). Off,
+  // this is never called and the run, its database calls and its JSON are exactly what they were before round 24.
+  const emailedThisRun = new Set<string>();
+  const quietWeek = (): Promise<QuietWeekCounts> =>
+    sendQuietWeek({
+      db: admin,
+      now,
+      siteUrl,
+      secret: env.CRON_SECRET!,
+      emailOf: async (id) => {
+        const { data, error } = await admin.auth.admin.getUserById(id);
+        return error ? null : (data?.user?.email ?? null);
+      },
+      send: (m) => sendEmail(m),
+      skip: new Set([...pendingUsers, ...emailedThisRun]),
+      cap: MAX_USERS_PER_RUN,
+      outOfTime: () => Date.now() - started > 50_000,
+    });
+
   if (userIds.length === 0) {
     // Nothing to email, but push keeps its own record (holler_matches.pushed_at), so it still runs.
+    if (quietWeekEnabled()) {
+      const quiet = await quietWeek();
+      const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
+      return Response.json({ ok: true, ...counts, quiet, push, ms: Date.now() - started });
+    }
     const push = await pushNewMatches(admin, { now, deadline: started + 56_000 });
     return Response.json({ ok: true, ...counts, push, ms: Date.now() - started });
   }
@@ -313,8 +341,10 @@ export async function GET(req: Request) {
           cardContacts = contacts;
         }
       }
-      const items: DigestItem[] = shown.map(({ s }) => ({
+      const items: DigestItem[] = shown.map(({ m, s }) => ({
         kind: s.kind,
+        // Round 23: the card's own action deep-links to this card in the feed (/app#card-<match id>, the anchor the feed renders).
+        matchId: typeof m.id === 'number' ? m.id : null,
         source: s.source ?? null,
         subtype: s.subtype ?? null,
         title: s.title,
@@ -379,6 +409,7 @@ export async function GET(req: Request) {
       // Outcome log (migration 0015): stamp emailed_at on this member's alert log rows. Best effort, never throws.
       await markAlertsEmailed(admin, p.user_id, rows.map((r) => r.s.id).filter((n): n is number => typeof n === 'number'), now);
       counts.emailed++;
+      emailedThisRun.add(p.user_id);
       // Funnel (migration 0017): the member's first digest. `p` was read before this send, so last_notified_at is null only for
       // the first one; the unique index drops any repeat. Never throws, waits at most 1.5 s.
       if (!p.last_notified_at) await track('first_alert', { userId: p.user_id });
@@ -389,6 +420,8 @@ export async function GET(req: Request) {
     }
   }
 
+  const quiet = quietWeekEnabled() ? await quietWeek() : null;
+
   // Push (migration 0020): independent of the email above. It reads its own never-pushed matches (holler_matches.pushed_at), so a
   // member with email alerts off or an unconfirmed address still gets one, at most one per member per hour, counting only matches
   // new since the last push. Never throws; not_configured without FIREBASE_SERVICE_ACCOUNT_JSON, not_ready before migration 0020.
@@ -397,5 +430,5 @@ export async function GET(req: Request) {
   // `refused` counts why answers were not attached (truncated, ambiguous, closed, address_mismatch ...); `breaker` is the owner line when the
   // daily circuit breaker stopped lookups ("Business lookups returned no usable match today (N tried). Run the lookup probe.").
   const lookup = { calls: lookupBudget.calls, found: lookupBudget.found, notFound: lookupBudget.notFound, cacheHits: lookupBudget.cacheHits, timedOut: lookupBudget.timedOut, spentUsd: lookupBudget.spentUsd, msLeft: lookupBudget.msLeft, skipped: lookupBudget.skipped, refused: lookupBudget.refused, breaker: lookupBudget.breaker };
-  return Response.json({ ok: true, ...counts, push, lookup, ms: Date.now() - started });
+  return Response.json({ ok: true, ...counts, ...(quiet ? { quiet } : {}), push, lookup, ms: Date.now() - started });
 }

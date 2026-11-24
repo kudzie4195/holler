@@ -91,7 +91,8 @@ describe('home page, Version 3', () => {
     expect(html.match(/<h1[\s>]/g)?.length).toBe(1);
     expect(html).toMatch(/<main id="main"[ >]/);
     expect(html.match(/<main[ >]/g)).toHaveLength(1);
-    const order = ['id="top"', 'id="how"', 'id="feeds-h"', 'id="app-h"', 'id="pricing"', 'id="faq"', 'id="check"'];
+    // Round 23: the app band ('id="app-h"', "THE APP · COMING SOON" and the phone mock-up) is gone. Holler is a website.
+    const order = ['id="top"', 'id="how"', 'id="feeds-h"', 'id="pricing"', 'id="faq"', 'id="check"'];
     const at = order.map((s) => live.indexOf(s));
     expect(at.every((x) => x > 0)).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
@@ -133,15 +134,13 @@ describe('home page, Version 3', () => {
       expect(text).toContain(p);
     }
     expect(text).toContain(`From ${priceLabel('starter', 'monthly')}/mo after ${TRIAL_HEADLINE}. No card.`);
-    expect(text).toContain('after 2 months free. No card.'); // round 18: the headline form of the 60-day trial
-    expect(text).toContain('60-day free trial. Then a flat monthly price.'); // round 18 review F2: precise form beside the yearly prices
+    expect(text).toContain('after 1 month free. No card.'); // round 23: the headline form of the 30-day trial
+    expect(text).toContain('30-day free trial. Then a flat monthly price.'); // round 18 review F2: precise form beside the yearly prices
     expect(text).not.toContain('Starter');
     expect(html).toContain('aria-label="Plans"');
     expect(html.match(/data-price="/g)?.length).toBe(4);
-    // Both cards say push comes with the app; alerts by email today.
-    expect(text.split('Push arrives with the app.').length - 1).toBe(2);
-    expect(text).toContain('Until then, alerts come by email.');
-    expect(text).toContain('THE APP · COMING SOON');
+    // Round 23: both short cards say how alerts really arrive. They used to say "Push arrives with the app." twice.
+    expect(text.split('Alerts come by email.').length - 1).toBe(2);
   });
 
   it('no endorsement wording, no banned words, no em dashes, no invented proof', () => {
@@ -201,26 +200,36 @@ describe('home page, Version 3', () => {
       expect(t).not.toMatch(/official record|its record|source record/i);
       expect(t).not.toMatch(/Real alerts|LATEST NEAR/);
     }
-    expect(text).toContain('Each one links to its public source.');
-    expect(text).toContain('Each alert links to its source.');
-    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('Open the source');
+    expect(text).toContain('each with the street address and a link to its public source.');
+    expect(text).toContain('Each alert links to its public source.');
+    expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('Open the public source');
     expect(toText(between(live, 'id="how"', 'id="feeds-h"'))).toContain('The source One tap to the city or weather service page it came from.');
   });
 
-  it('the push cap is built from the constant the push sender uses', () => {
+  // Round 23 (website-only launch): the home page promises no app and no push. It used to say "THE APP · COMING SOON", "A push when a
+  // record fits." and "Push arrives with the app." on both plan cards, the most direct contradiction of a website-only launch.
+  // capPhrase itself is still the push sender's own wording and is checked here; nothing on the page uses it.
+  it('names no app and no push anywhere, and says how alerts really arrive', () => {
     expect(PUSH_CAP).toBe(capPhrase(PUSH_INTERVAL_MS));
     expect(capPhrase(3_600_000)).toBe('one an hour');
     expect(capPhrase(7_200_000)).toBe('one every 2 hours');
     expect(capPhrase(1_800_000)).toBe('one every 30 minutes');
-    expect(text).toContain(`At most ${PUSH_CAP}, only for your trades and your radius.`);
-    expect(text).toContain(`push will be capped at ${PUSH_CAP}.`);
+    for (const t of [text, liveText]) {
+      expect(t).not.toMatch(/\bpush\b/i);
+      expect(t).not.toMatch(/iPhone|Android|App Store|Google Play/i);
+      expect(t).not.toMatch(/COMING SOON/i);
+    }
+    expect(text).toContain('By email, at most one an hour, and on your matches page when you log in.');
+    expect(text).toContain('Alerts come by email.');
   });
 
   it('FAQ: the four questions, open, and the visible text equals the FAQPage JSON-LD exactly', () => {
     const faq = between(html, 'id="faq"', 'id="check"');
     const qs = [...faq.matchAll(/<h3[^>]*>([^<]+)<\/h3>/g)].map((m) => toText(m[1]).trim());
     const as = [...faq.matchAll(/<h3[^>]*>[^<]+<\/h3><p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => toText(m[1]).trim());
-    expect(qs).toEqual(['Is this a lead list?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
+    expect(qs).toEqual(['Is this a list of people to call?', 'Where does it come from?', 'How do alerts reach me?', 'Does it cover my area?']);
+    // INT2: the house rules ban "lead" as a noun; the old question must not come back.
+    expect(faq).not.toMatch(/Is this a lead list\?|\blead list\b/i);
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
     expect(ld['@type']).toBe('FAQPage');
     expect(ld.mainEntity.map((q: { name: string }) => q.name)).toEqual(qs);
@@ -235,7 +244,7 @@ describe('home page, Version 3', () => {
   it('internal links: /check, /pricing, /signup, /faq, /guides, /data, /for and at least nine /for/<id> pages inside <main>', () => {
     for (const page of [html, live]) {
       for (const href of ['/check', '/pricing', '/signup', '/faq', '/guides', '/data', '/for']) expect(page, href).toMatch(new RegExp(`(href|action)="${href}"`));
-      const ledger = between(page, 'id="feeds-h"', 'id="app-h"');
+      const ledger = between(page, 'id="feeds-h"', 'id="pricing"');
       // The ledger sentences name trades as plain text: no link anywhere in the rows.
       const rows = ledger.slice(0, ledger.indexOf('<nav'));
       expect(rows).toContain('Good for');
@@ -255,7 +264,9 @@ describe('home page, Version 3', () => {
       const main = between(page, '<main', '</main>');
       const forLinks = new Set([...main.matchAll(/href="(\/for\/[a-z-]+)"/g)].map((m) => m[1]));
       expect(forLinks.size).toBeGreaterThanOrEqual(9);
-      for (const id of ['roofing', 'plumbing', 'hvac', 'tree-service', 'auto-glass', 'handyman', 'junk-removal', 'pest-control', 'windows-doors']) {
+      // Round 23: the ledger names the trades Holler is marketed for (landscaping, lawn care, gutters, pressure washing) beside the
+      // weather trades, instead of plumbing, HVAC, electrical, handyman and pest control.
+      for (const id of ['roofing', 'tree-service', 'restoration', 'auto-glass', 'landscaping', 'lawn-care', 'siding-gutters', 'cleaning', 'junk-removal']) {
         expect(forLinks).toContain(`/for/${id}`);
       }
     }
@@ -285,14 +296,10 @@ describe('no live data', () => {
     const card = between(html, 'id="how"', 'id="feeds-h"');
     expect(toText(card)).toContain('EXAMPLE');
     expect(card).not.toMatch(/<a [^>]*href="http/);
-    expect(toText(card)).toContain('Each alert links to its source');
+    expect(toText(card)).toContain('Each alert links to its public source');
     expect(card).not.toContain('border-dashed');
     // Ledger: no example lines without data.
-    expect(toText(between(html, 'id="feeds-h"', 'id="app-h"'))).not.toContain('EXAMPLE');
-    expect(html).toContain('aria-label="Preview of the Holler app, with example records:');
-    // A sighted visitor sees it too: an EXAMPLE tag in the app band, outside the picture.
-    const band = between(html, 'id="app-h"', 'id="pricing"');
-    expect(dropElements(band, /<div role="img"[^>]*>/)).toMatch(/>EXAMPLE</);
+    expect(toText(between(html, 'id="feeds-h"', 'id="pricing"'))).not.toContain('EXAMPLE');
   });
 });
 
@@ -308,8 +315,8 @@ describe('live data (preview fixture)', () => {
     expect(band).not.toContain('·');
     const proof = toText(between(live, 'aria-label="What Holler reads"', '</section>'));
     expect(proof).toContain(`records dated in the last 7 days ${fixture.proof!.total7.toLocaleString('en-US')}`);
-    expect(proof).toContain(`city, county and weather feeds checked ${fixture.proof!.feeds}`);
-    expect(proof).toContain('to the public source, on every record alert 1 TAP');
+    expect(proof).toContain(`city, county and weather sources checked ${fixture.proof!.feeds}`);
+    expect(proof).toContain('to the public source, on every alert 1 TAP');
     expect(proof).toMatch(/RECORD COUNT FROM HOLLER'S OWN DATA, [A-Z][a-z]{2} \d{1,2}, \d{4}/i);
     // Every dot on the map is a picked record, labelled with its distance.
     for (const r of m.records) expect(live).toContain(`${r.label} ${r.mi.toFixed(1)} MI`);
@@ -325,13 +332,7 @@ describe('live data (preview fixture)', () => {
     expect(fixture.weather!.title).toContain('1.00 inch');
     expect(ledger).toContain(tidyInches(fixture.weather!.title));
     expect(ledger).not.toContain('1.00 inch');
-    expect(live).toContain('aria-label="Preview of the Holler app: a push saying New alert near Chicago,');
-    // The picture's label names the three cards a sighted visitor sees, and no EXAMPLE tag is shown with live data.
-    const aria = /aria-label="(Preview of the Holler app[^"]*)"/.exec(live)![1];
-    const cardTitles = [...between(live, 'id="app-h"', 'id="pricing"').matchAll(/<span class="line-clamp-2 text-base[^"]*">([^<]+)<\/span>/g)].map((x) => x[1]);
-    expect(cardTitles).toHaveLength(3);
-    for (const t of cardTitles) expect(aria).toContain(t);
-    expect(dropElements(between(live, 'id="app-h"', 'id="pricing"'), /<div role="img"[^>]*>/)).not.toMatch(/>EXAMPLE</);
+    // Round 23: the phone mock-up went with the app band; the live ledger rows above are what is checked now.
   });
 });
 

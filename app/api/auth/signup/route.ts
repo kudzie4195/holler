@@ -6,12 +6,15 @@ import { authMessage, friendlyAuthError, isConfigError, isEmailTaken, jsonError,
 import { clientIp, hit, LIMITS, RATE_LIMIT_MESSAGE } from '@/lib/auth/ratelimit';
 import { sendVerifyEmail } from '@/lib/auth/verification';
 import { SIGNUP_LANG_KEY } from '@/lib/auth/signup-lang';
+import { STATS_CONSENT_KEY, STATS_CONSENT_VERSION } from '@/lib/auth/stats-consent';
 import { t, type Lang } from '@/lib/i18n';
 import { setLangCookie } from '@/lib/auth/lang-cookie';
 
 const body = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address.')),
   password: z.string().min(8, 'Use at least 8 characters.').max(72, 'Keep the password under 72 characters.'),
+  // Round 23: the optional, unticked data-use box on the sign-up form. Absent or false stores nothing (lib/auth/stats-consent.ts).
+  statsConsent: z.boolean().optional(),
 });
 
 /** The same rules with the messages in the form's language. English is `body` itself. */
@@ -20,6 +23,7 @@ function bodyFor(lang: Lang) {
   return z.object({
     email: z.string().trim().toLowerCase().pipe(z.email(t(lang, 'api.email_invalid'))),
     password: z.string().min(8, t(lang, 'api.password_short')).max(72, t(lang, 'api.password_long')),
+    statsConsent: z.boolean().optional(),
   });
 }
 
@@ -38,7 +42,7 @@ function bodyFor(lang: Lang) {
 export async function POST(request: Request) {
   const input = await readJsonLang(request, bodyFor);
   if (!input.ok) return input.response;
-  const { email, password } = input.data;
+  const { email, password, statsConsent } = input.data;
   const lang = input.lang;
   const msg = (key: Parameters<typeof t>[1], en: string) => authMessage(lang, key, en);
 
@@ -52,7 +56,13 @@ export async function POST(request: Request) {
       email,
       password,
       email_confirm: true,
-      app_metadata: lang === 'en' ? { products: ['holler'] } : { products: ['holler'], [SIGNUP_LANG_KEY]: lang },
+      // The consent record is written with the account, so the version and the time are the ones the member actually saw. An
+      // unticked box adds nothing at all, so the metadata of a member who said no is exactly what it was before round 23.
+      app_metadata: {
+        products: ['holler'],
+        ...(lang === 'en' ? {} : { [SIGNUP_LANG_KEY]: lang }),
+        ...(statsConsent === true ? { [STATS_CONSENT_KEY]: { version: STATS_CONSENT_VERSION, at: new Date().toISOString() } } : {}),
+      },
     });
     if (created.error) {
       if (isEmailTaken(created.error)) {

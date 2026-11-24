@@ -19,7 +19,8 @@ describe('request emails', () => {
     const s = h.db.rows('holler_signals')[0];
     const mail = renderDigest({
       businessName: 'Acme Roofing',
-      items: [{ kind: s.kind, title: s.title, place: `${s.city}, ${s.state}`, occurredAt: s.occurred_at, sourceUrl: s.url }],
+      // Round 24 (review P3): the shape the notify route sends, source included (without it the card read as a public post).
+      items: [{ kind: s.kind, source: s.source, title: s.title, place: `${s.city}, ${s.state}`, occurredAt: s.occurred_at, sourceUrl: s.url }],
       appUrl: 'https://holler.test/app',
       unsubscribeUrl: 'https://holler.test/u',
     });
@@ -27,7 +28,11 @@ describe('request emails', () => {
     expect(all).not.toContain(RESIDENT);
     expect(all).not.toContain('404-555-1212');
     expect(all).not.toContain('Sarah');
-    expect(mail.subject).toContain('Service request in Atlanta: Roofing');
+    // Round 24 (review P3, P1-3): the request's own title names Atlanta, so it heads the card and is the subject (it was baselined as
+    // "Public post at Atlanta, GA", from a fixture without its source).
+    expect(s.source).toBe('holler-request');
+    expect(mail.subject).toBe('Service request in Atlanta: Roofing');
+    expect(mail.text).toContain('Service request in Atlanta: Roofing');
   });
 
   it('reply: subject, message, business name and city, close link, report mailto; business text is escaped', () => {

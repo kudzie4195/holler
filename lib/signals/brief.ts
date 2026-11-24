@@ -543,8 +543,8 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   },
   'spc-wind-damage': { why: 'A wind damage report was filed nearby; {work} may be needed.', next: 'Check the area and offer help to owners on affected streets.' },
   // Review P3 item 8: the inspection step only on an alert; a feed-only hail card (auto glass and body under 1.75 inch) keeps the family's step.
-  'spc-hail': { labels: ['act_now', 'coming_soon'], next: 'Check the area and offer inspections to owners nearby.' },
-  'act-storm-report': { next: 'Check the area and offer inspections to owners nearby.' },
+  'spc-hail': { labels: ['act_now', 'coming_soon'], next: 'Check the area on a map before you offer anyone a visit.' },
+  'act-storm-report': { next: 'Check the area on a map before you offer anyone a visit.' },
   'soon-storm-gust': { next: 'Watch for reports of trees or limbs down nearby.' },
   'mi-airport-delay': { why: 'An airport delay was listed nearby; it changes when arrivals land.', next: 'Watch the airport status if you work airport pickups.' },
   'soon-bid-not-open': { why: 'A federal notice for {work} was posted; it may not be open yet.', next: "Check the notice type and the buyer's page." },
@@ -590,14 +590,14 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   quake: { base: { confidence: 'High', known: 'it was recorded', unknown: 'damage is not confirmed' } },
   airport: { base: { confidence: 'High', known: 'the delay is listed', unknown: 'its length is not known' } },
   permit: {
-    base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' },
+    base: { confidence: 'High', known: 'the permit was filed', unknown: 'who will do the work is not known' },
     byLabel: { market_insight: { unknown: 'the work may already be hired out' } },
   },
   '311': { base: { confidence: 'Medium', known: 'it was filed', unknown: 'the record does not show the city confirmed it' } },
-  violation: { base: { confidence: 'High', known: 'the violation was recorded', unknown: 'hiring is not known' } },
-  inspection: { base: { confidence: 'High', known: 'the inspection result is on file', unknown: 'hiring is not known' } },
+  violation: { base: { confidence: 'High', known: 'the violation was recorded', unknown: 'who will do the work is not known' } },
+  inspection: { base: { confidence: 'High', known: 'the inspection result is on file', unknown: 'who will do the work is not known' } },
   business: { base: { confidence: 'High', known: 'the license was filed', unknown: 'the need is not known' } },
-  'event-permit': { base: { confidence: 'High', known: 'the permit was filed', unknown: 'hiring is not known' } },
+  'event-permit': { base: { confidence: 'High', known: 'the permit was filed', unknown: 'who will do the work is not known' } },
   'big-event': { base: { confidence: 'Medium', known: 'the event is listed', unknown: 'dates and demand can change' } },
   'federal-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'your eligibility is not known' } },
   'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids' } },
@@ -652,7 +652,7 @@ export interface Brief {
   /** Part 3: one action. */
   next: string;
   confidence: Confidence;
-  /** Part 5: "High confidence the inspection failed; whether the owner is hiring is not known." */
+  /** Part 5: "High confidence the inspection failed; whether the owner is who will do the work is not known." */
   uncertain: string;
 }
 
@@ -757,7 +757,7 @@ export function briefSource(input: { source: string; url?: string | null; occurr
   return {
     label: request ? 'Request made on Holler' : (meta?.label ?? String(input.source ?? '').replace(/[_:-]+/g, ' ')),
     href: own ?? home,
-    linkText: request ? 'Open the request form' : own ? bidSourceLinkLabel(input.source) : 'Open the source home page',
+    linkText: request ? 'Open the request form' : own ? bidSourceLinkLabel(input.source) : 'Open the public source home page',
     recordLink: !!own,
     dateText: formatRecordDate(input.occurredAt ?? null, input.source),
   };

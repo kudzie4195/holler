@@ -97,7 +97,7 @@ describe('GET /api/cron/notify with the lookup', () => {
     expect(lookupCalls(fetch)).toHaveLength(1);
     expect(body.lookup).toMatchObject({ calls: 1, found: 1, cacheHits: 0 });
     expect(sent).toHaveLength(1);
-    expect(sent[0].text).toContain('Contact: Peachtree Roofing LLC (Named on this permit)\nPhone: 404-555-0123\nWebsite: https://www.peachtreeroofing.example/');
+    expect(sent[0].text).toContain('Contact: Peachtree Roofing LLC (Named on this permit) \u00b7 Phone: 404-555-0123 \u00b7 Website: https://www.peachtreeroofing.example/');
     expect(sent[0].html).toContain('rel="noopener noreferrer nofollow"');
     expect(store.tables.holler_dataforseo_spend).toEqual([expect.objectContaining({ endpoint: '/v3/business_data/business_listings/search/live', status: 'ok' })]);
     expect(store.tables.holler_business_lookup).toEqual([expect.objectContaining({ status: 'found', phone: '404-555-0123' })]);

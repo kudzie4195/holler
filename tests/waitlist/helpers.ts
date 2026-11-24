@@ -8,26 +8,41 @@ type Err = { code?: string; message?: string } | null;
  * reads a row back by (email, zip), and records the confirmation emails it would send. `existing` stamps a row as already confirmed or
  * unsubscribed; `missingTable` answers the upsert with the real Postgres missing-table error; `sendOk: false` makes the provider refuse.
  */
-export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: string; sendOk?: boolean } = {}) {
+// Round 24 FIX2 (review D8): `uniqueTrade` stands for migration 0039 (unique (email, zip, trade)); without it the fake is the live table
+// before 0039: an ON CONFLICT on (email, zip, trade) is refused with 42P10 and the service retries on (email, zip). Only a write that
+// succeeds is recorded in `writes`.
+// `bothIndexes` stands for 0039 applied while the old (email, zip) index is still there (dropped by hand later): a second trade for the
+// same email and ZIP is refused with 23505.
+export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: string; sendOk?: boolean; uniqueTrade?: boolean; bothIndexes?: boolean } = {}) {
   const rows: Record<string, unknown>[] = [];
   const writes: { row: Record<string, unknown>; opts: unknown }[] = [];
   const hits: Limit[][] = [];
-  const sent: { to: string; confirmUrl: string; place: string }[] = [];
+  const sent: { to: string; confirmUrl: string; place: string; trade?: string | null }[] = [];
+  const already: { to: string; place: string; storedTrade: string | null; newTrade: string; confirmUrl: string | null }[] = [];
   const stamps = new Map<string, { confirmed_at: string | null; unsubscribed_at: string | null }>();
   let hitResult: 'allowed' | 'limited' | 'error' = 'allowed';
   const missing: Err = { code: opts.missingCode ?? '42P01', message: 'relation "public.holler_zip_waitlist" does not exist' };
-  const idOf = (email: unknown, zip: unknown) => `00000000-0000-4000-8000-${String(rows.findIndex((r) => r.email === email && r.zip === zip) + 1).padStart(12, '0')}`;
+  const same = (r: Record<string, unknown>, email: unknown, zip: unknown, trade?: unknown) => r.email === email && r.zip === zip && (trade === undefined || (r.trade ?? null) === trade);
+  const idOf = (row: Record<string, unknown>) => `00000000-0000-4000-8000-${String(rows.indexOf(row) + 1).padStart(12, '0')}`;
   const db: WaitlistDb = {
-    upsert: async (row) => {
-      writes.push({ row: { ...row }, opts: { onConflict: 'email,zip', ignoreDuplicates: true } });
+    upsert: async (row, onConflict = 'email,zip') => {
       if (opts.missingTable) return { error: missing };
-      if (!rows.some((r) => r.email === row.email && r.zip === row.zip)) rows.push({ ...row });
+      if (onConflict === 'email,zip,trade' && opts.bothIndexes) {
+        if (rows.some((r) => same(r, row.email, row.zip) && (r.trade ?? null) !== (row.trade ?? null))) {
+          return { error: { code: '23505', message: 'duplicate key value violates unique constraint "holler_zip_waitlist_email_zip_idx"' } };
+        }
+      } else if (onConflict === 'email,zip,trade' && !opts.uniqueTrade) {
+        return { error: { code: '42P10', message: 'there is no unique or exclusion constraint matching the ON CONFLICT specification' } };
+      }
+      writes.push({ row: { ...row }, opts: { onConflict: opts.uniqueTrade || opts.bothIndexes ? onConflict : 'email,zip', ignoreDuplicates: true } });
+      if (!rows.some((r) => same(r, row.email, row.zip, opts.uniqueTrade ? row.trade : undefined))) rows.push({ ...row });
       return { error: null };
     },
-    find: async (email, zip) => {
-      if (!rows.some((r) => r.email === email && r.zip === zip)) return { data: null, error: null };
+    find: async (email, zip, trade) => {
+      const row = rows.find((r) => same(r, email, zip, trade));
+      if (!row) return { data: null, error: null };
       const st = stamps.get(`${email}|${zip}`) ?? { confirmed_at: null, unsubscribed_at: null };
-      return { data: { id: idOf(email, zip), ...st }, error: null };
+      return { data: { id: idOf(row), ...st, trade: (row.trade as string | null) ?? null }, error: null };
     },
   };
   const deps: WaitlistDeps = {
@@ -41,6 +56,10 @@ export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: strin
       sent.push(m);
       return opts.sendOk !== false;
     },
+    sendAlready: async (m) => {
+      already.push(m);
+      return opts.sendOk !== false;
+    },
     siteUrl: 'https://localholler.com/',
   };
   return {
@@ -49,6 +68,7 @@ export function fakeWaitlist(opts: { missingTable?: boolean; missingCode?: strin
     writes,
     hits,
     sent,
+    already,
     setHit: (r: 'allowed' | 'limited' | 'error') => (hitResult = r),
     stamp: (email: string, zip: string, st: { confirmed_at?: string | null; unsubscribed_at?: string | null }) =>
       stamps.set(`${email}|${zip}`, { confirmed_at: st.confirmed_at ?? null, unsubscribed_at: st.unsubscribed_at ?? null }),

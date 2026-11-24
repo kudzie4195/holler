@@ -65,9 +65,9 @@ export function approxReachMi(radiusMi: number): number {
  * prints the street address the county gives, so the wording says what is missing (a map point), not that the location is unknown
  * (commander decision 4, verify-v1 finding 9).
  */
-export const APPROX_LOCATION_REASON = "The county's feed has a street address but no map point, so no distance is shown.";
+export const APPROX_LOCATION_REASON = "The county's record has a street address but no map point, so no distance is shown.";
 
-/** The whole note for a Cobb County row: "In Cobb County. The county's feed has a street address but no map point, so no distance is shown." */
+/** The whole note for a Cobb County row: "In Cobb County. The county's record has a street address but no map point, so no distance is shown." */
 export const COBB_APPROX_NOTE = `In Cobb County. ${APPROX_LOCATION_REASON}`;
 
 /**

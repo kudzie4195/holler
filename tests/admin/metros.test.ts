@@ -167,7 +167,7 @@ describe('buildMetroReport', () => {
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
     expect(html).not.toMatch(/<script/i);
     for (const m of METROS) expect(html).toContain(`<h2 id="${m.id}">`);
-    expect(html).toContain('<th>Act now</th><th>Coming soon</th><th>Market insight</th><th>Context</th>');
+    expect(html).toContain('<th>Act now</th><th>Work may follow</th><th>Market insight</th><th>Context</th>');
     expect(html).toContain('carto-phl-permits: 120 sample rows');
     expect(html).not.toMatch(/\bleads?\b(?!-rules)|guaranteed|official record/i);
     expect(html).toContain('Dallas–Fort Worth');

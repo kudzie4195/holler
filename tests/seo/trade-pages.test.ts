@@ -78,13 +78,17 @@ describe('trade page builders', () => {
     expect(faq[0].a.toLowerCase()).toContain('hail reports');
     expect(faq[1].a).toContain('$7.99 a month or $79.99 a year');
     expect(faqLd(faq)['@type']).toBe('FAQPage');
-    const svc = serviceLd(t);
+    expect(serviceLd(t)['@type']).toBe('Service');
+    // Round 24 (review P1-3): roofing is live in no measured centre, so its Service carries no price and no trial.
+    expect(serviceLd(t).offers).toBeUndefined();
+    expect(JSON.stringify(serviceLd(t))).not.toMatch(/free trial|7\.99/);
+    const svc = serviceLd(tradeEntry('landscaping')!);
     expect(svc['@type']).toBe('Service');
     // Offers priced from lib/stripe/plans.ts, not typed (they said '5' and '48' before round 7).
     expect((svc.offers as { price: string; description: string }[]).map((o) => [o.price, o.description])).toEqual([
       // Round 18: the precise trial form in JSON-LD, never "months free" next to a yearly price.
-      ['7.99', 'Monthly plan, 60-day free trial'],
-      ['79.99', 'Annual plan, 60-day free trial'],
+      ['7.99', 'Monthly plan, 30-day free trial'],
+      ['79.99', 'Annual plan, 30-day free trial'],
     ]);
     expect(JSON.stringify(svc)).not.toMatch(/[—–]/);
   });

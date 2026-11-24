@@ -37,7 +37,8 @@ export const BANNED: [string, RegExp][] = [
  * TRIAL_DAYS. The i18n template for it is the ONE string literal allowed to say so (tests/plan/no-months-free.test.ts owns the full rule:
  * never "about N months free", never next to a yearly price).
  */
-const ALLOWED_LITERALS: Record<string, string[]> = { 'free months': ['{months} months free'] };
+// Round 23: the trial is one month, so the dictionary carries a singular template beside the plural one (lib/plan/price-copy.ts TRIAL_HEADLINE_KEY).
+const ALLOWED_LITERALS: Record<string, string[]> = { 'free months': ['{months} months free', '{months} month free'] };
 
 const ROOT = process.cwd();
 const walk = (p: string): string[] => (statSync(join(ROOT, p)).isFile() ? [p] : readdirSync(join(ROOT, p)).flatMap((f) => walk(join(p, f))));

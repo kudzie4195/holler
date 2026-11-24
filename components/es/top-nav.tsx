@@ -12,7 +12,7 @@ const linkCls = 'h-link shrink-0 whitespace-nowrap px-1 text-[0.9375rem] font-me
  * sign-up link to their Spanish pages (round 18); the language link goes to the English counterpart of the page the visitor is on
  * (`englishHref`).
  */
-export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
+export function TopNavEs({ englishHref = '/', showStart = true }: { englishHref?: string; /** Round 24: false on a page whose answer is waitlist. */ showStart?: boolean }) {
   const links = [
     { href: '/es/check', label: t(L, 'nav.check'), english: false },
     { href: '/es#how', label: t(L, 'nav.how'), english: false },
@@ -47,9 +47,11 @@ export function TopNavEs({ englishHref = '/' }: { englishHref?: string }) {
             <Link href="/es/login" className={`${linkCls} hidden min-[28rem]:inline-flex`}>
               {t(L, 'nav.login')}
             </Link>
-            <ButtonLink href="/es/signup" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
-              {t(L, 'nav.start')}
-            </ButtonLink>
+            {showStart ? (
+              <ButtonLink href="/es/signup" variant="outline-signal" className="shrink-0 max-[22.5rem]:px-4">
+                {t(L, 'nav.start')}
+              </ButtonLink>
+            ) : null}
           </div>
         </div>
       </header>

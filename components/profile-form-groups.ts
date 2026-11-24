@@ -11,6 +11,8 @@ export interface ChipCategory {
   comingSoon?: boolean;
   /** With comingSoon: the reason is that no live source reaches this trade yet (lib/signals/lead-rules.ts tradeNoLiveSource), not a missing key. */
   noLiveSource?: boolean;
+  /** Round 24: sign-up does not take this trade yet (lib/check/cells.ts tradeSignupClosed). Always with comingSoon, in the "Coming soon" group. */
+  closed?: boolean;
 }
 
 export interface ChipGroup {
@@ -20,8 +22,21 @@ export interface ChipGroup {
   items: ChipCategory[];
 }
 
-/** Display order and heading for each known group. One source: CATEGORY_GROUPS in lib/signals/categories.ts. */
-export const GROUP_ORDER: { key: string; label: string }[] = CATEGORY_GROUPS.map((g) => ({ key: g.id, label: g.label }));
+/**
+ * Round 23: the trades Holler is marketed for sit in their own group at the top of the form (lib/plan/profile-categories.ts puts them
+ * there). It is not a CATEGORY_GROUPS value, because nothing in matching or scoring knows about it: it exists only to order the chips.
+ */
+export const MARKETED_GROUP_KEY = 'marketed';
+
+/** Round 24: the trades sign-up does not take yet, shown last and disabled (lib/plan/profile-categories.ts applySignupClosed). */
+export const COMING_SOON_GROUP_KEY = 'coming-soon';
+
+/** Display order and heading for each known group. One source: CATEGORY_GROUPS in lib/signals/categories.ts, plus the marketed group. */
+export const GROUP_ORDER: { key: string; label: string }[] = [
+  { key: MARKETED_GROUP_KEY, label: 'What Holler covers best' },
+  ...CATEGORY_GROUPS.map((g) => ({ key: g.id, label: g.label })),
+  { key: COMING_SOON_GROUP_KEY, label: 'Coming soon' },
+];
 
 const KNOWN = new Set(GROUP_ORDER.map((g) => g.key));
 

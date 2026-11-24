@@ -6,6 +6,7 @@ import { TRIAL_DAYS, TRIAL_PHRASE } from './price-copy';
 import { absoluteUrl } from '@/lib/seo/canonical';
 import { annualSavingsPercent, priceDecimal, priceLabel } from '@/lib/stripe/plans';
 import { PLAN_FEATURES } from './copy';
+import { t } from '@/lib/i18n';
 import { PLAN_LIMITS, TIER_NAMES, TIERS, type Tier } from './limits';
 
 const S = PLAN_LIMITS.starter;
@@ -24,7 +25,7 @@ export const PRICING_DESCRIPTION = `${SOLO} is ${m('starter')} a month or ${y('s
  * The one sentence in the green band (app/pricing/page.tsx). Final review B P2-1: the paragraph that restated each plan's price and
  * limits under the cards is gone; the cards and the table already say it, and the prices were shown three times in a row.
  */
-export const PRICING_INTRO = ['Holler has two plans, and you can pay for either one by the month or by the year.'];
+export const PRICING_INTRO = ['Solo covers one service area and Pro covers up to three, with more trades and keyword watches. Pay for either one by the month or by the year.'];
 
 /** Rows for the comparison table: [label, Solo, Pro]. */
 export const COMPARISON: [string, string, string][] = [
@@ -34,9 +35,21 @@ export const COMPARISON: [string, string, string][] = [
   ['Trades', `Up to ${S.trades}`, `Up to ${P.trades}`],
   ['Keyword watches', 'None', `Up to ${P.keywords}`],
   ['Email alerts', 'Yes', 'Yes'],
-  ['Feed of matches', 'Yes', 'Yes'],
+  ['Matches page', 'Yes', 'Yes'],
+  // Round 23: both have been in /app since round 18 and were on neither card nor this table.
+  // Round 24 FIX2 (review P3-9): only some trades have a neighborhood list; the page names them under the table.
+  ['Address lists (trades that have one) and door hanger', 'Yes', 'Yes'],
   ['Replies to resident requests', 'Yes', 'Yes'],
 ];
+
+/**
+ * Round 23, the card-optional offer. Stripe Checkout already sets the subscription's trial end to the member's own trial end
+ * (app/api/stripe/checkout/route.ts trialParams), so adding a card during the trial really does charge nothing until the trial ends.
+ * Round 24 (review P2-7): the "first 100 keep $79.99 a year" sentence is gone. Nothing in the code counted to 100, named a plan or ended
+ * the offer, so the page promised something no code kept. The owner can bring back a counted offer later. Words from the dictionary
+ * (pricing.card_offer), so /es/pricing says the same.
+ */
+export const CARD_OPTIONAL_OFFER = t('en', 'pricing.card_offer', { days: TRIAL_DAYS });
 
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
@@ -45,7 +58,7 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What happens when the trial ends?',
-    a: 'Your feed locks unless you subscribe. We never charge you just because a trial ended, and if you subscribe on the website during the trial, the first charge comes when it ends. A plan you buy in the app is charged by Apple or Google when you buy it.',
+    a: 'Your alerts and address lists pause until you pick a plan. We never charge you just because a trial ended, and if you added a card during the trial, the first charge comes on the day it ends.',
   },
   {
     q: 'Can I cancel any time?',

@@ -1,3 +1,4 @@
+import { statsConsentGiven, statsConsentPatch } from './stats-consent';
 /**
  * Holler shares auth.users with other products, so "has a Holler account" is explicit:
  * app_metadata.products contains 'holler' (set at signup), or a holler_profiles row exists (legacy accounts).
@@ -29,12 +30,24 @@ export function hasLeftHoller(appMetadata: unknown): boolean {
 }
 
 /**
- * Free trial length in days. THE single source: code, copy, emails, JSON-LD, the mobile payloads and lib/plan/public-prices.ts read it,
- * and lib/plan/price-copy.ts builds every trial phrase from it (TRIAL_HEADLINE, the 2-month headline, and TRIAL_PHRASE, "60-day free trial"). Owner decision (round 18): 60 days
- * (2 months), no card; it was 14 (migration 0019). Migration 0028 sets the database to the same 60, and lib/auth/trial.ts brings a new
- * member's row to start + TRIAL_DAYS even before 0028 is applied, so the site never promises more than the database gives.
+ * Free trial length in days for a NEW trial. THE single source: code, copy, emails, JSON-LD, the mobile payloads and
+ * lib/plan/public-prices.ts read it, and lib/plan/price-copy.ts builds every trial phrase from it (TRIAL_HEADLINE, the 1-month headline,
+ * and TRIAL_PHRASE, "30-day free trial"). Owner decision (round 23, launch): 30 days, no card; it was 60 (migration 0028) and 14 before
+ * that (migration 0019). Migration 0038 sets the database default, the one-trial cap and the member-insert guard to the same 30 days, and
+ * lib/auth/trial.ts brings a new member's row to start + TRIAL_DAYS, so the site never promises more than the database gives.
  */
-export const TRIAL_DAYS = 60;
+export const TRIAL_DAYS = 30;
+
+/**
+ * The longest trial any person may hold: the length of the longest trial Holler ever granted (60 days, migration 0028). It is NOT
+ * advertised anywhere and no new trial is ever set to it. It exists so that moving TRIAL_DAYS down can never shorten a trial somebody
+ * already holds (owner decision, round 23: "every existing trial keeps its current end date"):
+ *   - a row that ends at or before start + TRIAL_MAX_DAYS is left exactly as it is, so a running 60-day trial keeps its day;
+ *   - only a row beyond that cap (which no Holler code ever wrote) is cut back, and then to the cap, never to start + TRIAL_DAYS.
+ * Drop it, and the cap branch in lib/auth/trial.ts with it, once no profile can still hold a trial longer than TRIAL_DAYS: that is
+ * TRIAL_MAX_DAYS after the round 23 deploy (so from late January 2027), when every 60-day trial has ended.
+ */
+export const TRIAL_MAX_DAYS = 60;
 
 /** When this person's one free trial started (ISO), recorded in app_metadata so deleting the account cannot reset it. */
 export function trialStartedAt(appMetadata: unknown): string | null {
@@ -42,9 +55,17 @@ export function trialStartedAt(appMetadata: unknown): string | null {
   return typeof at === 'string' && Number.isFinite(Date.parse(at)) ? at : null;
 }
 
-/** The only trial end this person can ever have: start + TRIAL_DAYS. */
+/** The end a NEW trial gets: start + TRIAL_DAYS. Also the target a short never-paid row is moved out to. */
 export function trialEndFromStart(startedAt: string): string {
   return new Date(Date.parse(startedAt) + TRIAL_DAYS * 86_400_000).toISOString();
+}
+
+/**
+ * The latest end a trial may hold: start + TRIAL_MAX_DAYS. A stored end at or under this is never touched (so a 60-day trial granted
+ * before round 23 keeps its day); only an end beyond it is cut back, and only to here.
+ */
+export function trialCapFromStart(startedAt: string): string {
+  return new Date(Date.parse(startedAt) + TRIAL_MAX_DAYS * 86_400_000).toISOString();
 }
 
 /**
@@ -55,6 +76,9 @@ export function trialEndFromStart(startedAt: string): string {
 export function leaveHollerPatch(appMetadata: unknown, now: Date, profileCreatedAt?: string | null): Record<string, unknown> {
   const patch: Record<string, unknown> = { products: withoutHoller(appMetadata), holler_email_verified_at: null, holler_left_at: now.toISOString() };
   if (!trialStartedAt(appMetadata) && profileCreatedAt && Number.isFinite(Date.parse(profileCreatedAt))) patch.holler_trial_started_at = profileCreatedAt;
+  // Round 24 (review P2-5): deleting the account withdraws the statistics consent (revoked_at today), so a person who comes back through
+  // log-in is not treated as consenting without seeing the box again.
+  if (statsConsentGiven(appMetadata)) Object.assign(patch, statsConsentPatch(appMetadata, false, now));
   return patch;
 }
 

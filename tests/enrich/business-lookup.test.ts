@@ -464,8 +464,10 @@ describe('display: card and email, English and Spanish', () => {
     const mail = renderDigest({ businessName: 'Acme', items: [{ ...item0, contact }], appUrl: 'https://x.test/app', unsubscribeUrl: 'https://x.test/u', now: NOW });
     expect(mail.html).toContain('Phone: 404-555-0123');
     expect(mail.html).toContain('Website: <a href="https://www.peachtreeroofing.example/" rel="noopener noreferrer nofollow"');
-    expect(mail.html).toContain('Phone and website from the business&#39;s public listing');
-    expect(mail.text).toContain('Contact: Peachtree Roofing LLC (Named on this permit)\nPhone: 404-555-0123\nWebsite: https://www.peachtreeroofing.example/\nPhone and website from');
+    // Round 23: the listing's own caveat is said once, at the end of the email, instead of under every card that has a listing.
+    expect(mail.html).toContain("comes from the business&#39;s own public listing, not from the public record");
+    expect(mail.html.match(/own public listing/g)).toHaveLength(1);
+    expect(mail.text).toContain('Contact: Peachtree Roofing LLC (Named on this permit) \u00b7 Phone: 404-555-0123 \u00b7 Website: https://www.peachtreeroofing.example/');
     const esContact = emailContact(signal, [{ role: 'contractor', name: 'Peachtree Roofing LLC', listing }], 'es');
     const esMail = renderDigest({ businessName: 'Acme', items: [{ ...item0, contact: esContact }], appUrl: 'https://x.test/app', unsubscribeUrl: 'https://x.test/u', now: NOW, lang: 'es' });
     expect(esMail.text).toContain('Teléfono: 404-555-0123');
@@ -473,6 +475,7 @@ describe('display: card and email, English and Spanish', () => {
     expect(emailContact(signal, [{ role: 'contractor', name: 'Peachtree Roofing LLC' }], 'en')).toEqual({ name: 'Peachtree Roofing LLC', role: 'Named on this permit' });
     const plain = renderDigest({ businessName: 'Acme', items: [{ ...item0, contact: { name: 'Peachtree Roofing LLC', role: 'Named on this permit' } }], appUrl: 'https://x.test/app', unsubscribeUrl: 'https://x.test/u', now: NOW });
     expect(plain.html).not.toContain('public listing');
+    expect(plain.html).toContain('Contact: Peachtree Roofing LLC (Named on this permit)');
     expect(plain.text).not.toContain('Phone:');
   });
 

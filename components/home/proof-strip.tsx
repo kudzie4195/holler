@@ -6,7 +6,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 /**
  * Three figures: records dated in the last PROOF_WINDOW_DAYS days (the /data loader, counted by record date, read at render time),
- * city, county and weather feeds checked (lib/seo/home-live.ts feedCount: the switched-on adapters in the code, not a database
+ * city, county and weather sources checked (lib/seo/home-live.ts feedCount: the switched-on adapters in the code, not a database
  * figure), and one tap to the public source. The caption names only the record count as Holler's own data. Not rendered without
  * live data. Under 768 px the strip is one column of rows: the label takes the free width and the number sits in a fixed 132 px
  * box at the right (a six-digit count at 44 px fits in it), so the three numbers share one left edge whatever the label length.
@@ -14,8 +14,8 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 export function ProofStrip({ proof }: { proof: HomeProof }) {
   const stats = [
     { n: fmt(proof.total7), label: `records dated in the last ${PROOF_WINDOW_DAYS}\u00a0days` },
-    { n: fmt(proof.feeds), label: 'city, county and weather feeds checked' },
-    { n: '1 TAP', label: 'to the public source, on every record alert' },
+    { n: fmt(proof.feeds), label: 'city, county and weather sources checked' },
+    { n: '1 TAP', label: 'to the public source, on every alert' },
   ];
   return (
     <section aria-label="What Holler reads" className="bg-background">

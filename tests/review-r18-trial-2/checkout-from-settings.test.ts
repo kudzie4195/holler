@@ -1,6 +1,6 @@
 // Review r2 R1 + R4 (r18 TRIAL): code live, migration 0028 NOT applied. A member on day 11 of an old 14-day row clicks the trial email's
 // button (/app/settings#billing-h) and subscribes WITHOUT ever opening /app. POST /api/stripe/checkout must give Stripe a trial that ends
-// on day 60 (start + TRIAL_DAYS, as stored in the row by the repair), not day 14. The route runs for real; Supabase, the session and
+// on day 30 (start + TRIAL_DAYS, as stored in the row by the repair), not day 14. The route runs for real; Supabase, the session and
 // Stripe are in-memory fakes that apply the PostgREST filters at write time (assumed shapes, from our own call sites).
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { readFileSync } from 'node:fs';
@@ -94,36 +94,36 @@ afterEach(() => {
 });
 
 describe('R1: subscribing from Settings before 0028, without opening /app', () => {
-  it('day 11 of an old 14-day row: Stripe gets trial_end = day 60 (start + 60), the value the row now holds, not day 14', async () => {
+  it('day 11 of an old 14-day row: Stripe gets trial_end = day 30 (start + TRIAL_DAYS), the value the row now holds, not day 14', async () => {
     const w = member(11, 14);
     const res = await checkoutFor(w);
     expect(res.status).toBe(200);
     const start = NOW - 11 * DAY;
-    expect(w.row.trial_ends_at).toBe(iso(start + 60 * DAY)); // the repair moved the stored row first
+    expect(w.row.trial_ends_at).toBe(iso(start + 30 * DAY)); // the repair moved the stored row first
     expect(w.sessions).toHaveLength(1);
     const trialEnd = w.sessions[0].subscription_data.trial_end;
-    expect(trialEnd * 1000).toBe(start + 60 * DAY); // day 60
+    expect(trialEnd * 1000).toBe(start + 30 * DAY); // day 30
     expect(trialEnd * 1000).not.toBe(start + 14 * DAY); // not day 14
     expect(trialEnd * 1000).toBe(Date.parse(w.row.trial_ends_at)); // R4: only a stored value reaches Stripe
     expect(w.ledger).toEqual(['welcome']); // the reminder can go again for the new end
   });
 
-  it('a 14-day trial that ended 6 days ago (start 20 days back): Stripe gets a trial to day 60, not a charge today', async () => {
+  it('a 14-day trial that ended 6 days ago (start 20 days back): Stripe gets a trial to day 30, not a charge today', async () => {
     const w = member(20, 14);
     const res = await checkoutFor(w);
     expect(res.status).toBe(200);
-    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW - 20 * DAY + 60 * DAY);
+    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW - 20 * DAY + 30 * DAY);
   });
 
-  it('never more than the stored row: a member already at start + 60 is passed through unchanged, with no write', async () => {
-    const w = member(5, 60);
+  it('never more than the stored row: a member already at start + TRIAL_DAYS is passed through unchanged, with no write', async () => {
+    const w = member(5, 30);
     await checkoutFor(w);
     expect(w.writes).toBe(0);
-    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 55 * DAY);
+    expect(w.sessions[0].subscription_data.trial_end * 1000).toBe(NOW + 25 * DAY);
   });
 
-  it('a start 58 days back whose 14-day trial ended (2 days would be left): not revived, charged now, as before', async () => {
-    const w = member(58, 14);
+  it('a start 28 days back whose 14-day trial ended (2 days would be left): not revived, charged now, as before', async () => {
+    const w = member(28, 14);
     await checkoutFor(w);
     expect(w.writes).toBe(0);
     expect(w.sessions[0].subscription_data.trial_end).toBeUndefined();

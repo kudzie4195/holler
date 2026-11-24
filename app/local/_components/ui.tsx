@@ -27,15 +27,18 @@ export function Page({
   children,
   width = 'base',
   withAside = false,
+  showStart = true,
 }: {
   header?: ReactNode;
   children: ReactNode;
   width?: Width;
   withAside?: boolean;
+  /** Round 24: false on a waitlist page, which carries no sign-up link anywhere (lib/check/cells.ts). */
+  showStart?: boolean;
 }) {
   return (
     <>
-      <TopNav />
+      <TopNav showStart={showStart} />
       <main id="main" className={`w-full flex-1 ${BODY_TEXT} text-ink`}>
         {header}
         <div className={`${PAGE_BOX} pb-20 pt-10 md:pt-14`}>

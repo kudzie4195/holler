@@ -21,7 +21,7 @@ vi.mock('@/app/app/actions', () => ({
 }));
 
 import { Feed, type FeedItem } from '@/components/feed';
-import { renderDigest, type DigestItem } from '@/lib/email/templates';
+import { digestOrder, renderDigest, type DigestItem } from '@/lib/email/templates';
 import { buildAlerts, type MatchRow } from '@/lib/mobile/feed';
 import { MAX_WHY, briefFamilyOf, briefFor, permitTypeOf, tradeForRecord, workFor } from '@/lib/signals/brief';
 import { BANNED } from './banned';
@@ -107,18 +107,31 @@ describe('brief cards over 243 real stored rows', () => {
     for (let k = 0; k < CASES.length; k += 25) {
       const batch = CASES.slice(k, k + 25);
       const d = renderDigest({ businessName: 'Fuzz', items: batch.map(digestItem), appUrl: 'https://localholler.com/app', unsubscribeUrl: 'https://localholler.com/u', now: NOW });
-      const lis = d.html.split('<li ').slice(1);
+      // Round 24 (review P2-9): role="listitem" blocks instead of <li>; each ends with its card table.
+      const lis = d.html.split('<div role="listitem"').slice(1).map((x) => x.slice(0, x.lastIndexOf('</table></div>') + '</table></div>'.length));
       // digest orders by label: count parts per li, not by index
       if (lis.length !== batch.length) problems.push(`digest li ${lis.length} != ${batch.length}`);
-      for (const li of lis) {
-        for (const p of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) if (!li.includes(p)) problems.push(`digest li missing ${p}`);
-        if (!/<a href="https?:\/\/[^"]+"/.test(li)) problems.push(`digest li missing link: ${strip(li).slice(0, 80)}`);
+      // Round 23: a card is a heading, a reason, a public-source link and one action. The labelled rows are gone.
+      const fams = digestOrder(batch.map(digestItem)).map((it) => briefFamilyOf({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary }));
+      for (const [i, li] of lis.entries()) {
+        if (!/class="h-head"[^>]*>[^<]+</.test(li)) problems.push(`digest li no heading: ${strip(li).slice(0, 80)}`);
+        if (!/class="h-why"[^>]*>.{20,}?</.test(li)) problems.push(`digest li no reason: ${strip(li).slice(0, 80)}`);
+        if (!/<a class="h-link" href="https?:\/\/[^"]+" style="color:#2E5A41">public source<\/a>/.test(li)) problems.push(`digest li no public source: ${strip(li).slice(0, 80)}`);
+        const acts = (li.match(/<td class="h-btn" style="[^"]*padding:13px 20px[^"]*"><a href=/g) ?? []).length;
+        // Round 24 (review P1-4): a non-permit card says on the card what is uncertain; a permit card leaves it to the closing line.
+        const permitCard = fams[i] === 'permit';
+        if (permitCard && /confidence/.test(li)) problems.push(`digest permit li repeats its caveat: ${strip(li).slice(0, 80)}`);
+        if (!permitCard && !/<div class="h-small"[^>]*>(High|Medium|Low) confidence [^<]+;[^<]+<\/div>/.test(li)) problems.push(`digest li no uncertainty line: ${strip(li).slice(0, 80)}`);
+        if (acts !== 1) problems.push(`digest li ${acts} actions: ${strip(li).slice(0, 80)}`);
+        for (const p of ['Why it matters:', 'Next step:', 'Source:', 'What is uncertain:']) if (li.includes(p)) problems.push(`digest li still has ${p}`);
       }
-      const texts = d.text.split('\n\n');
-      const n = (d.text.match(/What is uncertain: /g) ?? []).length;
-      if (n !== batch.length) problems.push(`digest text uncertain count ${n} != ${batch.length}`);
-      const links = (d.text.match(/\n(Open the source|Open the source home page|Open the bid portal|Open the request): https?:\/\//g) ?? []).length;
-      if (links !== batch.length) problems.push(`digest text link count ${links} != ${batch.length} (${texts.length})`);
+      const cards = (d.text.match(/^\d+\. /gm) ?? []).length;
+      if (cards !== batch.length) problems.push(`digest text card count ${cards} != ${batch.length}`);
+      const links = (d.text.match(/\n {3}public source: https?:\/\//g) ?? []).length;
+      if (links !== batch.length) problems.push(`digest text link count ${links} != ${batch.length}`);
+      // Round 24 (review P1-4): the permit sentence is in the closing line once when a permit card is in the email, and not otherwise.
+      const permits = batch.some((c) => briefFamilyOf({ source: c.row.source, kind: c.row.kind, subtype: c.row.sub, title: c.row.title }) === 'permit');
+      if ((d.text.match(/A permit does not tell you whether the owner has hired anyone/g) ?? []).length !== (permits ? 1 : 0)) problems.push('digest text permit honesty sentence not once');
     }
 
     for (const locked of [false, true]) {

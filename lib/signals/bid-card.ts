@@ -1,5 +1,5 @@
 /**
- * Wording for an open city bid card: "Open bid", the buyer, the due date with the days left, and the "Open the source" link (the link
+ * Wording for an open city bid card: "Open bid", the buyer, the due date with the days left, and the "Open the public source" link (the link
  * itself is drawn by the feed). Pure and client-safe.
  *
  * The card says what the record says: a solicitation is open and has a due date. It never says the member can win it, may bid on it,
@@ -8,17 +8,17 @@
 import { localizeDate, t, type Lang } from '@/lib/i18n';
 
 export const BID_LABEL = 'Open bid';
-export const BID_SOURCE_LINK_LABEL = 'Open the source';
+export const BID_SOURCE_LINK_LABEL = 'Open the public source';
 /** Baton Rouge rows link to the City-Parish bid portal, not to a page for that solicitation, so the link says so. */
 export const BID_PORTAL_LINK_LABEL = 'Open the bid portal';
 const PORTAL_LINK_SOURCES = new Set(['bids-batonrouge']);
 /**
  * Rockdale's page has no link per solicitation, so every row links to the county's OWN list page (not a portal): "Open the agency's bid
- * list". The other Firecrawl agency pages link to a bid document or, when a row has none, to their own list page; "Open the source" fits both.
+ * list". The other Firecrawl agency pages link to a bid document or, when a row has none, to their own list page; "Open the public source" fits both.
  */
 export const BID_LIST_LINK_LABEL = "Open the agency's bid list";
 const LIST_LINK_SOURCES = new Set(['bids-rockdale']);
-/** Text of the source link on a bid card: "Open the bid portal" where the link is a portal, "Open the agency's bid list" where it is the agency's own list page, otherwise "Open the source". */
+/** Text of the source link on a bid card: "Open the bid portal" where the link is a portal, "Open the agency's bid list" where it is the agency's own list page, otherwise "Open the public source". */
 export function bidSourceLinkLabel(source: string | null | undefined): string {
   if (source && PORTAL_LINK_SOURCES.has(source)) return BID_PORTAL_LINK_LABEL;
   if (source && LIST_LINK_SOURCES.has(source)) return BID_LIST_LINK_LABEL;

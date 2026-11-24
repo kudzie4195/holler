@@ -8,6 +8,7 @@ import { breadcrumbLd, itemListLd } from '@/lib/seo/jsonld';
 import { WINDOW_DAYS } from '@/lib/seo/threshold';
 import { JsonLd } from '../_components/jsonld';
 import { Ledger, Page, PageHeader, rowLinkClass } from '../_components/ui';
+import { stateCoverage } from '@/lib/storms/offer';
 
 type Props = { params: Promise<{ state: string }> };
 
@@ -42,6 +43,8 @@ export default async function StatePage({ params }: Props) {
 
   return (
     <Page
+      // Round 24 FIX2 (review P3-16): a state where every city is waitlist (the city pages' own answer) has no "Start free" in the header.
+      showStart={stateCoverage(st.code) !== 'waitlist'}
       header={
         <PageHeader
           crumbs={[{ name: 'Home', href: '/' }, { name: 'Local', href: '/local' }, { name: st.name }]}

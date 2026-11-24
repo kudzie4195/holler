@@ -101,9 +101,9 @@ export const PUBLIC_PRICES = {
   trialDays: TRIAL_DAYS,
   /** ISO 8601 trial period for a store introductory offer, computed from TRIAL_DAYS (P60D today). */
   trialPeriod: `P${TRIAL_DAYS}D`,
-  /** Headline form for listings and the app: TRIAL_HEADLINE (lib/plan/price-copy.ts), the 2-month headline. */
+  /** Headline form for listings and the app: TRIAL_HEADLINE (lib/plan/price-copy.ts), the month headline. */
   trialHeadline: TRIAL_HEADLINE,
-  /** Precise form for listings and the app: "60-day free trial" (lib/plan/price-copy.ts). */
+  /** Precise form for listings and the app: "30-day free trial" (lib/plan/price-copy.ts). */
   trialPhrase: TRIAL_PHRASE,
   plans: { solo: plan('solo'), pro: plan('pro') } as Record<Entitlement, PublicPlan>,
 } as const;

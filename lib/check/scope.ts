@@ -14,6 +14,11 @@ export const CHECK_RADIUS_MI = 25;
  * centre. The page therefore says "within about 25 to 50 miles" and shows each record's real distance from the ZIP, never a flat "40".
  */
 export const CHECK_SEARCH_RADIUS_MI = 38;
+/**
+ * Round 24 FIX2 (review D1): the radius of the LIST on /check. The page lists only what a member at the ZIP with the default area
+ * (CHECK_RADIUS_MI) would have in their feed (lib/check/delivery.ts memberItems), so the list is "within 25 miles", not the read radius.
+ */
+export const CHECK_LIST_RADIUS_LABEL = `${CHECK_RADIUS_MI} miles`;
 /** The honest wording for the radius above ("<trade> within about 25 to 50 miles of <ZIP place>"). */
 export const CHECK_RADIUS_LABEL = 'about 25 to 50 miles';
 /** Distance from a cell centre to its farthest corner: sqrt(2) * 0.125 degrees * 69.09 mi, at the equator where degrees are widest. */

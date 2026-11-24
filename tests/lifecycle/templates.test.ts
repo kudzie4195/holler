@@ -133,8 +133,8 @@ describe('day 1', () => {
     expect(lines).toHaveLength(5);
     expect(m.text).toContain('Hail report: 1.25 inch hail near Marietta (Marietta, GA, Nov 17, Might need work)');
     expect(m.text).toContain('Residential re-roof permit, 2300 sq ft, Roswell Rd (Atlanta, GA, Nov 18, Money being spent)');
-    expect(m.text).toContain('Open your feed: https://localholler.com/app');
-    expect(m.text).toContain('The rest are in your feed.');
+    expect(m.text).toContain('See all your matches: https://localholler.com/app');
+    expect(m.text).toContain('The rest are in your account.');
   });
 
   it('never shows more than 5 items even when given more, and says "the rest" only when there are more', () => {
@@ -157,7 +157,7 @@ describe('day 1', () => {
     expect(m.text).toContain('nothing has matched your trades and area yet');
     expect(m.text).toContain('in the last 90 days, 34 public records');
     expect(m.text).toContain('building permits (19), 311 requests (8), storm reports (5) and code violations (2)');
-    expect(m.text).toContain('add a trade or widen your radius in settings');
+    expect(m.text).toContain('add a trade or widen your radius in Settings');
     const nums = (m.text.replace(/https?:\S+/g, '').replace(/2535 Dallas Highway SW STE B #1036, Marietta, GA 30064/, '').match(/\d+/g) ?? []).map(Number).sort((a, b) => a - b);
     expect(nums).toEqual([2, 5, 8, 19, 34, 90, 311]);
   });
@@ -239,7 +239,8 @@ describe('day 5', () => {
 
   it('says the trial ends and alerts stop, which is what the matcher does', () => {
     expect(m.text).toContain('your alerts stop unless you pick a plan');
-    expect(m.text).toContain('Both renew until you cancel in Settings.');
+    expect(m.text).toContain('If you added a card, your plan starts when the trial ends and renews until you cancel in Settings. If not, nothing is charged.');
+    expect(m.text).not.toContain('Otherwise, you do not need to do anything');
   });
 });
 

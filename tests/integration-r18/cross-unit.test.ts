@@ -163,10 +163,10 @@ describe('the trial length is read from the constants everywhere', () => {
       return statSync(p).isDirectory() ? files(p) : /\.(ts|tsx)$/.test(p) ? [p] : [];
     });
   }
-  it('the constants say 60 days', () => {
-    expect(TRIAL_DAYS).toBe(60);
-    expect(TRIAL_PHRASE).toBe('60-day free trial');
-    expect(TRIAL_HEADLINE).toBe('2 months free');
+  it('the constants say 30 days', () => {
+    expect(TRIAL_DAYS).toBe(30);
+    expect(TRIAL_PHRASE).toBe('30-day free trial');
+    expect(TRIAL_HEADLINE).toBe('1 month free');
   });
   it('no source file (any unit) types a trial length in a string; the dictionaries use {days} and {months}', () => {
     const TYPED = /['"`][^'"`\n]*(?:\b\d+[- ]day free trial|\b\d+ days free|\bfree for \d+ days|\b\d+ months free|\bprueba gratis de \d+|\b\d+ (?:días|meses) gratis|\b\d+[- ]day trial)[^'"`\n]*['"`]/i;

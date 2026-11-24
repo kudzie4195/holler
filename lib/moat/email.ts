@@ -76,10 +76,14 @@ function renderFollowUpLang(opts: { businessName: string; items: FollowUpItem[];
   const text =
     `${eyebrow}\n\n${subject}\n\n${intro}\n\n` +
     items.map((it) => `${meta(it)}\n${title(it)}\n${yes}: ${it.yesUrl}\n${no}: ${it.noUrl}`).join('\n\n') +
-    `\n\n${outro}\n\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contact ? `${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${contact}\n` : ''}\n${postalFooterText(lang)}\n`;
+    `\n\n${outro}\n\n${t(lang, 'email.footer.why')}\n${t(lang, 'email.footer.off')}: ${opts.unsubscribeUrl}\n${contact ? `${t(lang, 'email.questions')} ${t(lang, 'email.contact_us')}: ${contact}\n` : ''}\n${postalFooterText(lang)}\n`;
   return { subject, html, text };
 }
 
+/**
+ * The outcome question. CAN-SPAM (round 24, FIXLIST row 17): the plain-text part now carries the reason line the HTML always had, next to
+ * the opt-out link and the postal address.
+ */
 export function renderFollowUp(opts: { businessName: string; items: FollowUpItem[]; unsubscribeUrl: string; now?: Date; lang?: Lang }): Rendered {
   if (opts.lang && opts.lang !== 'en') return renderFollowUpLang(opts, opts.lang);
   const now = opts.now ?? new Date();
@@ -113,6 +117,6 @@ export function renderFollowUp(opts: { businessName: string; items: FollowUpItem
           `${[kindLabel(it.kind), it.place ? noDash(it.place) : null, timeAgo(it.occurredAt, now)].filter(Boolean).join(' | ')}\n${noDash(it.title)}\nYes: ${it.yesUrl}\nNo: ${it.noUrl}`,
       )
       .join('\n\n') +
-    `\n\n${FOLLOWUP_OUTRO.join(' ')}\n\nTurn off email alerts: ${opts.unsubscribeUrl}\n${contact ? `Questions? Contact us: ${contact}\n` : ''}\n${postalFooterText()}\n`;
+    `\n\n${FOLLOWUP_OUTRO.join(' ')}\n\nYou get this because email alerts are on for your Holler account.\nTurn off email alerts: ${opts.unsubscribeUrl}\n${contact ? `Questions? Contact us: ${contact}\n` : ''}\n${postalFooterText()}\n`;
   return { subject: FOLLOWUP_SUBJECT, html, text };
 }

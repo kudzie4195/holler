@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { Suspense, type ReactNode } from 'react';
+import { AreaWaitlist } from '@/components/area-waitlist';
 import { CheckForm } from '@/components/check-form';
 import { CheckResults } from '@/components/check-results';
 import { FooterEs } from '@/components/es/footer';
@@ -13,8 +13,15 @@ import { FamilyDot, Ledger, type Family } from '@/components/page-header';
 import { eventContext, trackVisitorStep } from '@/lib/analytics/request';
 import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
+import { coverageFor } from '@/lib/check/cells';
+import { checkAnswer } from '@/lib/check/answer';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
+import { alertTotals, memberItems } from '@/lib/check/delivery';
+import { checkVerdict } from '@/lib/check/verdict';
+import { areaCheckPath } from '@/lib/check/funnel';
+import { checkReads } from '@/lib/check/reads';
+import { checkCityLinkWithRecords } from '@/lib/check/city-link';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
@@ -22,8 +29,11 @@ import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
 import { loadSourceStateSnapshot } from '@/lib/signals/source-state-snapshot';
 import { lookupZip, nearestCity } from '@/lib/geo';
-import { t } from '@/lib/i18n';
+import { lowerFirst, t } from '@/lib/i18n';
 import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
+import type { WaitlistCardWords } from '@/lib/waitlist/copy';
+import { waitlistAccepts, waitlistTradeGroups } from '@/lib/waitlist/trades';
+import { PRESSURE_WASHING_ID, expandTradeIds } from '@/lib/plan/composite-trades';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[1];
@@ -47,6 +57,9 @@ export async function generateMetadata(props: PageProps<'/es/check'>): Promise<M
       url: PAIR.es,
       images: [{ url: '/og.png', width: 1200, height: 630, alt: title }],
     },
+    // Round 24: its own card text. Without it the page inherited the root layout's English twitter description, which names a price,
+    // onto every /es/check answer, the waitlist ones included.
+    twitter: { card: 'summary_large_image', title, description, images: ['/og.png'] },
     robots: variant ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
@@ -54,7 +67,10 @@ export async function generateMetadata(props: PageProps<'/es/check'>): Promise<M
 export default function CheckPageEs(props: PageProps<'/es/check'>) {
   return (
     <>
-      <TopNavEs englishHref={PAIR.en} />
+      {/* Round 24 (review P3-7): no "Empezar gratis" in the header on a waitlist answer; the fallback has none either. */}
+      <Suspense fallback={<TopNavEs englishHref={PAIR.en} showStart={false} />}>
+        <CheckNavEs sp={props.searchParams} />
+      </Suspense>
       <main id="main" className={`w-full flex-1 ${BODY_TEXT}`}>
         <div className="on-brand bg-brand">
           <div className={`${PAGE_BOX} pb-24 pt-6 md:pb-28 md:pt-10`}>
@@ -80,6 +96,11 @@ export default function CheckPageEs(props: PageProps<'/es/check'>) {
 function zipMessage(raw: string, known: 'unknown' | 'bad' | 'missing'): string {
   void raw;
   return t(L, known === 'unknown' ? 'chk.err.zip_unknown' : known === 'bad' ? 'chk.err.zip_bad' : 'chk.err.zip_missing');
+}
+
+async function CheckNavEs({ sp }: { sp: PageProps<'/es/check'>['searchParams'] }) {
+  const q = await sp;
+  return <TopNavEs englishHref={PAIR.en} showStart={checkAnswer(q.zip, q.trade)?.state !== 'waitlist'} />;
 }
 
 async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['searchParams'] }) {
@@ -146,11 +167,38 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     watches: watchList(params.trade, city?.slug ?? null, undefined, L),
     now,
     origin: { lat: place.lat, lon: place.lon },
+    // Round 25: the local feeds Holler reads near the ZIP. (The free city records link is set with the answer below.)
+    reads: checkReads(place, params.zip, L),
     lang: L,
   };
 
-  // A ZIP with no local source within reach: say so, and point to the English waitlist card (the waitlist form is English only).
-  const uncoveredNote = isServedZip(place) ? null : <Waitlist placeLabel={placeLabel} zip={params.zip} trade={params.trade} />;
+  // Round 23: coverage is per city AND per trade (lib/check/cells.ts), as on the English page. 'waitlist' means this trade has nothing
+  // here an owner could act on: say so, and show the waitlist card. Round 24 INT2: the card is on this page, in Spanish, and posts lang
+  // 'es', so the confirmation email and the confirm page are Spanish too (it used to send Spanish visitors to the English page). The
+  // results block then shows no trial offer and no "Holler is watching near X" list.
+  const served = isServedZip(place);
+  const answer = coverageFor(place, params.trade, served);
+  const coverageState = answer.state;
+  // Round 25: the free city records page next to the trial on a limited cell. R25 check fix (review R25CHECK P2-5): the nearest city within
+  // 25 miles whose city page has records (lib/check/city-link.ts), or no link, never a link to an empty page.
+  const cityLink = coverageState === 'limited' ? await checkCityLinkWithRecords(place, L) : null;
+  const gate = { coverageState, measured: answer.measured, storm: answer.storm, cityLink };
+  // Round 25: the waitlist takes real trades only (lib/waitlist/trades.ts). For the composite "Pressure washing" answer the card preselects
+  // the first of its two trades that the waitlist takes here, or none.
+  const cardTrade =
+    params.trade === PRESSURE_WASHING_ID ? (expandTradeIds([params.trade]).find((tr) => waitlistAccepts(place, served, tr)) ?? '') : params.trade;
+  // Round 24 (review P2-6): a ZIP Holler reads gets the per-trade wording, as in English; only an unserved ZIP hears "not covered".
+  const uncoveredNote =
+    coverageState === 'waitlist' ? (
+      <AreaWaitlist
+        zip={params.zip}
+        trade={cardTrade}
+        placeLabel={placeLabel}
+        groups={waitlistTradeGroups(place, served, L)}
+        tradeLabel={served ? tradeLabel(params.trade, L) : null}
+        words={waitlistWordsEs(placeLabel, served ? lowerFirst(tradeLabel(params.trade, L)) : null, answer.closed)}
+      />
+    ) : null;
 
   if (!scope.covered) {
     return (
@@ -164,28 +212,34 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   }
 
   const h = await headers();
-  const gate = await gateCheck(clientIp(new Request('https://holler.invalid/es/check', { headers: h })), hit);
-  if (gate === 'limited') {
+  const limit = await gateCheck(clientIp(new Request('https://holler.invalid/es/check', { headers: h })), hit);
+  if (limit === 'limited') {
     return (
       <>
         <FormBand>
           <CheckForm lang={L} zip={params.zip} trade={params.trade} />
         </FormBand>
         {uncoveredNote}
-        <CheckResults {...common} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
+        <CheckResults {...common} {...gate} mode="limited" items={[]} checkedAt={new Date(now).toISOString()} />
       </>
     );
   }
 
-  // Funnel step: one area check. Path only, never the ZIP or the trade. Runs after the response; skipped for privacy signals and bots.
+  // Funnel step: one area check. Path only, never the ZIP or the trade. Round 25: the path is the answer given (lib/check/funnel.ts). Runs after the response; skipped for privacy signals and bots.
   const ctx = await eventContext().catch(() => null);
-  if (ctx) after(() => trackVisitorStep('area_check', ctx, '/es/check'));
+  if (ctx) after(() => trackVisitorStep('area_check', ctx, areaCheckPath(coverageState, L)));
 
   const [data, snapshot] = await Promise.all([
     loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
     loadSourceStateSnapshot().catch(() => null),
   ]);
-  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now, lang: L });
+  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: expandTradeIds([params.trade]), states: snapshot?.states, now, lang: L });
+
+  // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
+  // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.
+  const member = memberItems(data.items, place, params.trade);
+  const totals = data.ok ? alertTotals(member, data.clipped === true) : null;
+  const verdict = totals ? checkVerdict(coverageState, totals, { tradeLabel: common.tradeLabel, zip: params.zip, lang: L }) : null;
 
   return (
     <>
@@ -193,24 +247,35 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} mode={data.ok ? 'results' : 'unreadable'} items={data.items} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }
 
-/** "Holler does not cover X yet", and a link to the English page that has the waitlist form. */
-function Waitlist({ placeLabel, zip, trade }: { placeLabel: string; zip: string; trade: string }) {
-  const href = `/check?zip=${encodeURIComponent(zip)}&trade=${encodeURIComponent(trade)}`;
-  return (
-    <section aria-labelledby="es-waitlist-h" className="mt-10">
-      <h2 id="es-waitlist-h" className="text-3xl text-ink md:text-4xl">{t(L, 'chk.h.uncovered', { place: placeLabel })}</h2>
-      <p className="mt-3 max-w-2xl text-muted">{t(L, 'chk.empty.uncovered', { place: placeLabel })}</p>
-      <p className="mt-3 max-w-2xl text-muted">{t(L, 'chk.uncovered.cta')}</p>
-      <p className="mt-2">
-        <Link href={href} hrefLang="en" className="inline-flex min-h-11 items-center font-semibold text-brand-text underline">{t(L, 'chk.uncovered.link')}</Link>
-      </p>
-    </section>
-  );
+/** The waitlist card's words in Spanish, finished on the server (the place and the trade filled in). */
+function waitlistWordsEs(placeLabel: string, tradeWord: string | null, closed = false): WaitlistCardWords {
+  return {
+    eyebrow: t(L, 'wl.card.eyebrow'),
+    heading: tradeWord ? `${t(L, 'chk.h.trade_wait', { trade: tradeWord, place: placeLabel })}.` : t(L, 'wl.card.heading', { place: placeLabel }),
+    // Round 24 FIX2 (review P3-1, P3-2): "cuando lo haya" under the trade heading; the closed wording for a closed trade.
+    intro: t(L, tradeWord ? 'wl.card.intro_trade' : 'wl.card.intro'),
+    note: tradeWord ? (closed ? t(L, 'chk.empty.trade_closed', { trade: tradeWord }) : t(L, 'chk.empty.trade_wait')) : t(L, 'wl.card.note'),
+    emailLabel: t(L, 'wl.card.email'),
+    tradeLabel: t(L, 'wl.card.trade'),
+    button: t(L, 'wl.card.button'),
+    sending: t(L, 'wl.card.sending'),
+    privacy: t(L, 'wl.card.privacy'),
+    thanks: t(L, 'wl.card.thanks', { place: placeLabel }),
+    errors: {
+      email: t(L, 'wl.err.email'),
+      invalid: t(L, 'wl.err.invalid'),
+      trade: t(L, 'wl.err.trade'),
+      zip: t(L, 'wl.err.zip'),
+      limited: t(L, 'wl.err.limited'),
+      unavailable: t(L, 'wl.err.unavailable'),
+      network: t(L, 'wl.err.network'),
+    },
+  };
 }
 
 function FormBand({ children }: { children: ReactNode }) {
@@ -239,7 +304,7 @@ function CheckPreview() {
           </li>
         ))}
       </Ledger>
-      <p className="mt-4 text-muted">{t(L, 'chk.preview.foot', { days: CHECK_WINDOW_DAYS, radius: t(L, 'chk.radius') })}</p>
+      <p className="mt-4 text-muted">{t(L, 'chk.preview.foot', { days: CHECK_WINDOW_DAYS, radius: t(L, 'chk.radius_list') })}</p>
     </section>
   );
 }
