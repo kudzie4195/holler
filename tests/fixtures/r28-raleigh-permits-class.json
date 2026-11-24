@@ -1,0 +1,101 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "permitnum": "BLDNR-026392-2025",
+        "permittype": "Building",
+        "permittypemapped": "Building",
+        "workclass": "New Building ",
+        "workclassmapped": "Existing",
+        "permitclass": null,
+        "permitclassmapped": "Non-Residential",
+        "proposeduse": " FIVE OR MORE FAMILY BUILDING",
+        "description": "****HIGHRISE TEAM****The Life Time Living Residential project is a 20-story mixed-use building",
+        "estprojectcost": 115241263.5,
+        "issueddate": 1793282358287,
+        "originaladdress1": "1110 Oculus Dr",
+        "originalzip": "27609",
+        "latitude_perm": 35.83068350318703,
+        "longitude_perm": -78.62208087055271,
+        "contractorcompanyname": "Consigli Construction"
+      },
+      "geometry": {
+        "x": -78.62208087055271,
+        "y": 35.83068350318703
+      }
+    },
+    {
+      "attributes": {
+        "permitnum": "BLDNR-042817-2026",
+        "permittype": "Building",
+        "permittypemapped": "Building",
+        "workclass": "Alteration/Repairs ",
+        "workclassmapped": "Existing",
+        "permitclass": null,
+        "permitclassmapped": "Non-Residential",
+        "proposeduse": "ADDITION/ALTERATION NONRESIDENTIAL BLDG",
+        "description": "5317 SF B OCC BUILDING IS 3 STORY 2-B CONST 80816 SF B OCC NO SPRINKLERS The project is located in a",
+        "estprojectcost": 639900.95,
+        "issueddate": 1793646025863,
+        "originaladdress1": "3600 Glenwood Ave 200",
+        "originalzip": "27612",
+        "latitude_perm": 35.829266670008934,
+        "longitude_perm": -78.6651990438726,
+        "contractorcompanyname": "PLD Construction Group, LLC"
+      },
+      "geometry": {
+        "x": -78.6651990438726,
+        "y": 35.829266670008934
+      }
+    },
+    {
+      "attributes": {
+        "permitnum": "BLDR-029526-2026",
+        "permittype": "Building",
+        "permittypemapped": "Building",
+        "workclass": "New Residential Dwelling",
+        "workclassmapped": "New",
+        "permitclass": null,
+        "permitclassmapped": "Residential",
+        "proposeduse": "DETACHED SINGLE FAMILY DWELLING",
+        "description": "North Hills lot 14 ; Construction of a new single family dwelling\nCustom",
+        "estprojectcost": 1238952,
+        "issueddate": 1793198120967,
+        "originaladdress1": "900 Currituck Dr",
+        "originalzip": "27609",
+        "latitude_perm": 35.83867493481278,
+        "longitude_perm": -78.65378968404643,
+        "contractorcompanyname": "ICG HOMES, LLC"
+      },
+      "geometry": {
+        "x": -78.65378968404643,
+        "y": 35.83867493481278
+      }
+    },
+    {
+      "attributes": {
+        "permitnum": "BLDR-046368-2026",
+        "permittype": "Building",
+        "permittypemapped": "Building",
+        "workclass": "New Residential Dwelling",
+        "workclassmapped": "New",
+        "permitclass": null,
+        "permitclassmapped": "Residential",
+        "proposeduse": "DETACHED SINGLE FAMILY DWELLING",
+        "description": "New SFD\nBuffaloe Reserve SFD Lot 278\nSlab on Grade\nRear Screen Porch",
+        "estprojectcost": 502706.82,
+        "issueddate": 1793631018007,
+        "originaladdress1": "5875 Fallowfield Ln",
+        "originalzip": "27616",
+        "latitude_perm": 35.851254195081225,
+        "longitude_perm": -78.54153952154724,
+        "contractorcompanyname": "Jane Q Example"
+      },
+      "geometry": {
+        "x": -78.54153952154724,
+        "y": 35.851254195081225
+      }
+    }
+  ],
+  "exceededTransferLimit": false
+}
