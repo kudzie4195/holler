@@ -1,7 +1,8 @@
 import { Button } from './button';
 import { Input } from './input';
 import { Select } from './select';
-import { tradeGroups } from '@/lib/check/trades';
+import { tradeGroups, tradeLabel } from '@/lib/check/trades';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { tradeComingSoon } from '@/lib/seo/signal-types';
 import { tradeNoLiveSource } from '@/lib/signals/lead-rules';
 import { t, type Lang } from '@/lib/i18n';
@@ -11,12 +12,22 @@ import { t, type Lang } from '@/lib/i18n';
  * component) is given the same list instead of building its own.
  */
 export function checkTradeGroups(trade = '', lang: Lang = 'en') {
+  const pickable = (id: string) => !tradeComingSoon(id) && !tradeNoLiveSource(id);
+  // Round 25: "Pressure washing" is its own option, the composite sign-up chip (cleaning AND siding-gutters, lib/plan/composite-trades.ts),
+  // listed just before House cleaning when both parts can be picked. With it there, House cleaning is labelled as itself.
+  const pw = trade === PRESSURE_WASHING_ID || PRESSURE_WASHING_PARTS.every(pickable);
   return tradeGroups(lang)
     .map((g) => ({
       ...g,
       options: g.options
-        .filter((o) => o.id === trade || (!tradeComingSoon(o.id) && !tradeNoLiveSource(o.id)))
-        .map((o) => (o.id === 'cleaning' ? { ...o, label: t(lang, 'chk.trade.cleaning') } : o)),
+        .filter((o) => o.id === trade || pickable(o.id))
+        .flatMap((o) =>
+          o.id !== 'cleaning'
+            ? [o]
+            : pw
+              ? [{ id: PRESSURE_WASHING_ID, label: tradeLabel(PRESSURE_WASHING_ID, lang) }, o]
+              : [{ ...o, label: t(lang, 'chk.trade.cleaning') }],
+        ),
     }))
     .filter((g) => g.options.length > 0);
 }
@@ -47,8 +58,8 @@ export function CheckForm({
   // disables it; one that arrives in the URL stays so the visitor's own choice still shows. Groups left empty are dropped.
   // Round 23: a trade no live source reaches (Locksmith, "Bookkeeping, payroll and IT setup") is left out too. It was pickable here and
   // refused at sign-up, so a visitor could check it, get "nothing matched", and then not find it on the form.
-  // House cleaning also says "and pressure washing": that category is where the pressure-washing keywords live, so a washer picking by
-  // name now finds it instead of guessing (lib/signals/categories.ts, lib/plan/profile-categories.ts PRESSURE_WASHING_PARTS).
+  // Round 25: "Pressure washing" is its own option (checkTradeGroups above), the sign-up chip's two trades, so House cleaning is labelled as
+  // itself whenever that option is listed (lib/plan/composite-trades.ts PRESSURE_WASHING_PARTS).
   const groups = checkTradeGroups(trade, lang);
   return (
     // Layout follows the width of the box the form sits in (container queries), not the screen: the home hero column is about

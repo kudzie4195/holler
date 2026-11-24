@@ -11,6 +11,7 @@ import {
   type DigestItem,
 } from '@/lib/email';
 import { isCronAuthorized } from '@/lib/email/cron-auth';
+import { MAX_ITEMS_IN_DIGEST } from '@/lib/email/digest-cap';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { requestTextByPublicId } from '@/lib/requests/details';
 import { loadMemberContacts } from '@/lib/outreach/loader';
@@ -38,7 +39,6 @@ import { quietWeekEnabled, sendQuietWeek, type QuietWeekCounts } from '@/lib/ema
 export const maxDuration = 60;
 
 const MAX_USERS_PER_RUN = 150;
-const MAX_ITEMS_IN_DIGEST = 10;
 // PostgREST caps a response at 1000 rows, so read in pages of 1000 and stop after MAX_PAGES (newest first).
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 15;

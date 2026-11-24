@@ -1,6 +1,7 @@
 import { cityBySlug, haversineMi } from '@/lib/geo';
 import { METROS } from '@/lib/geo/metros';
-import { CELL_TABLE, MEASURED_CENTRE_IDS, MEASURED_TRADE_IDS, type CellValue } from './cells-data';
+import { CELL_TABLE, COMPOSITE_CELL_TABLE, MEASURED_CENTRE_IDS, MEASURED_TRADE_IDS, type CellValue } from './cells-data';
+import { PRESSURE_WASHING_ID, PRESSURE_WASHING_PARTS } from '@/lib/plan/composite-trades';
 import { CHECK_RADIUS_MI } from './scope';
 
 /**
@@ -108,19 +109,23 @@ export function nearestMeasuredCentre(lat: number, lon: number, maxMi: number = 
   return best;
 }
 
-/** The stored value of one cell ('live', 'limited', 'waitlist' or 'storm'), or null when the centre or the trade was never measured. */
+/**
+ * The stored value of one cell ('live', 'limited', 'waitlist' or 'storm'), or null when the centre or the trade was never measured.
+ * Round 25: the composite "Pressure washing" chip (cleaning AND siding-gutters, lib/plan/composite-trades.ts) reads its own measured
+ * cell, the measurement's "pw" rollup (COMPOSITE_CELL_TABLE), never one of its parts.
+ */
 export function measuredCell(centreId: string, trade: string): CellValue | null {
-  return CELL_TABLE[centreId]?.[trade] ?? null;
+  return CELL_TABLE[centreId]?.[trade] ?? COMPOSITE_CELL_TABLE[centreId]?.[trade] ?? null;
 }
 
 /** True when at least one measured centre has this trade live. */
 export function tradeLiveAnywhere(trade: string): boolean {
-  return MEASURED_CENTRE_IDS.some((c) => CELL_TABLE[c]?.[trade] === 'live');
+  return MEASURED_CENTRE_IDS.some((c) => measuredCell(c, trade) === 'live');
 }
 
 /** True when at least one measured centre has a storm-alerts cell for this trade. */
 export function tradeHasStormCells(trade: string): boolean {
-  return MEASURED_CENTRE_IDS.some((c) => CELL_TABLE[c]?.[trade] === 'storm');
+  return MEASURED_CENTRE_IDS.some((c) => measuredCell(c, trade) === 'storm');
 }
 
 /**
@@ -129,6 +134,9 @@ export function tradeHasStormCells(trade: string): boolean {
  * A trade id that is not in the table at all is closed too.
  */
 export function tradeSignupClosed(trade: string): boolean {
+  // Round 25: the composite chip is offered at sign-up only when both of its trades are (lib/plan/profile-categories.ts), so it is closed
+  // when either part is.
+  if (trade === PRESSURE_WASHING_ID) return PRESSURE_WASHING_PARTS.some((p) => tradeSignupClosed(p));
   if (!MEASURED_TRADE_IDS.includes(trade)) return true;
   return !tradeLiveAnywhere(trade) && !tradeHasStormCells(trade);
 }

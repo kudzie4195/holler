@@ -149,7 +149,9 @@ describe('/es/check', () => {
     expect(t).toContain('Fuente pública: Reportes de tormenta del Centro de Predicción de Tormentas de NOAA');
     expect(t).toContain('Fuente pública: Datos abiertos de Atlanta: permisos de construcción');
     expect(t).toMatch(/hace 3 h|hace 3 horas/);
-    expect(t).toContain(es['chk.cta.intro']);
+    // R27 (review FIXR25 note 2): this page's verdict count is 0, so the offer line under the results is the matches-page one, not the email one.
+    expect(t).toContain(es['chk.cta.intro_feed']);
+    expect(t).not.toContain(es['chk.cta.intro']);
     // Round 23: the Spanish CTA goes to the Spanish sign-up. It used to build '/signup?city=...' and ignore `lang`, so every /es
     // conversion landed on the English page.
     expect(html).toContain('href="/es/signup?city=');

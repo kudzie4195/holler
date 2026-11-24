@@ -7,8 +7,10 @@ import { kindFamily, sourceLabel } from './signal-meta';
 import { distanceFrom, groupItems, placeLine, safeUrl, type CheckItem } from '@/lib/check/group';
 import { CHECK_LIST_RADIUS_LABEL, CHECK_WINDOW_DAYS } from '@/lib/check/scope';
 import { FROM_MONTHLY, FROM_YEARLY, TRIAL_DAYS, TRIAL_PHRASE } from '@/lib/plan/price-copy';
-import { lowerFirst, t, type Lang } from '@/lib/i18n';
+import { t, type Lang } from '@/lib/i18n';
 import type { CoverageState } from '@/lib/check/cells';
+import type { CheckVerdict } from '@/lib/check/verdict';
+import { tradeInSentence } from '@/lib/check/trades';
 
 const upperFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 import { localizeTitle } from '@/lib/signals/title-i18n';
@@ -19,7 +21,7 @@ import { withoutZeroCity } from '@/lib/email/templates';
  * list, or a list with at least one record marked "Emailed as an alert"). 'trial': the trial alone, for a list where no record would be
  * emailed (the records are on the matches page only).
  */
-function Cta({ citySlug, children, lang, promise = 'email' }: { citySlug: string | null; children?: React.ReactNode; lang: Lang; promise?: 'email' | 'trial' }) {
+function Cta({ citySlug, children, lang, promise = 'email', cityLink = null }: { citySlug: string | null; children?: React.ReactNode; lang: Lang; promise?: 'email' | 'trial'; cityLink?: CityLink | null }) {
   // Round 23: a Spanish visitor goes to the Spanish sign-up. The old line built '/signup?city=' for both languages, so every /es
   // conversion landed on the English page.
   const base = lang === 'en' ? '/signup' : `/${lang}/signup`;
@@ -39,20 +41,66 @@ function Cta({ citySlug, children, lang, promise = 'email' }: { citySlug: string
       <p className="mt-3 text-sm text-on-brand-muted">
         {lang === 'en' ? `Then from ${FROM_MONTHLY} a month or ${FROM_YEARLY} a year. Holler never posts for you.` : t(lang, 'chk.cta.then', { monthly: FROM_MONTHLY, yearly: FROM_YEARLY })}
       </p>
+      {/* Round 25: on a limited cell, the free city records page sits next to the trial offer, so a visitor can look before signing up. */}
+      {cityLink ? (
+        <p className="mt-4">
+          <a href={cityLink.href} className="inline-flex min-h-11 items-center font-semibold text-on-brand underline decoration-1 underline-offset-4" data-testid="check-city-link">
+            {cityLink.label}
+          </a>
+        </p>
+      ) : null}
     </div>
   );
 }
 
-/** The counted sentence above the list: from the listed rows only (each row's delivery), never an estimate. */
+/** Round 25: the free city records page (/local/<state>/<city>), offered next to the trial on a limited cell. */
+export interface CityLink {
+  href: string;
+  label: string;
+}
+
+/** Round 25: the verdict and the counted sentence, above the results (lib/check/verdict.ts). */
+function VerdictBlock({ verdict }: { verdict: CheckVerdict | null }) {
+  if (!verdict) return null;
+  return (
+    <div className="mb-8 max-w-2xl rounded-card border-2 border-ink bg-surface p-5" data-testid="check-verdict" data-verdict={verdict.state}>
+      <p className="font-display text-3xl text-ink">{verdict.head}</p>
+      {verdict.count ? <p className="mt-2 text-lg text-ink" data-testid="check-verdict-count">{verdict.count}</p> : null}
+    </div>
+  );
+}
+
+/** Round 25: "What Holler reads near you", the local feeds near the ZIP (lib/check/coverage.ts localSourcesNear), shown whenever there are results. */
+function ReadsNear({ reads, lang }: { reads: { labels: string[]; note: string } | null; lang: Lang }) {
+  if (!reads || reads.labels.length === 0) return null;
+  return (
+    <div className="mt-10" data-testid="check-reads">
+      <h3 className="text-xl text-ink">{t(lang, 'chk.reads_h')}</h3>
+      <ul className="mt-3 border-t-2 border-ink">
+        {reads.labels.map((l) => (
+          <li key={l} className="border-b border-line py-3 text-ink">
+            {l}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-muted">{reads.note}</p>
+    </div>
+  );
+}
+
+/**
+ * The counted sentence above the list: from the listed rows only (each row's delivery), never an estimate. R25 check fix (review R25CHECK
+ * P1-1): it says so ("Of the 8 shown here, ..."), so it can never read as a second answer next to the verdict's count of every record.
+ */
 export function deliveryCountLine(listed: readonly CheckItem[], lang: Lang): string | null {
   const marked = listed.filter((i) => i.delivery === 'email' || i.delivery === 'feed');
   if (marked.length === 0 || marked.length !== listed.length) return null;
   const n = marked.filter((i) => i.delivery === 'email').length;
   const total = marked.length;
-  if (total === 1) return t(lang, n === 1 ? 'chk.count.one_email' : 'chk.count.one_feed');
-  if (n === 0) return t(lang, 'chk.count.none', { total });
-  if (n === total) return t(lang, 'chk.count.all', { total });
-  return t(lang, 'chk.count.some', { n, total });
+  if (total === 1) return t(lang, n === 1 ? 'chk.shown.one_email' : 'chk.shown.one_feed');
+  if (n === 0) return t(lang, 'chk.shown.none', { total });
+  if (n === total) return t(lang, 'chk.shown.all', { total });
+  return t(lang, n === 1 ? 'chk.shown.some_one' : 'chk.shown.some', { n, total });
 }
 
 /** The plain mark under each listed record: emailed as an alert, or on the matches page (no email). */
@@ -83,6 +131,10 @@ export function CheckResults({
   measured = true,
   storm = false,
   lang = 'en',
+  verdict = null,
+  cityLink = null,
+  reads = null,
+  emailedTotal = null,
 }: {
   items: CheckItem[];
   mode: CheckMode;
@@ -115,26 +167,41 @@ export function CheckResults({
   storm?: boolean;
   /** 'es' writes headings, sentences and source labels in Spanish from the dictionary. English (the default) is unchanged. */
   lang?: Lang;
+  /** Round 25: the verdict and counted sentence above the results (lib/check/verdict.ts). Null: no block (waitlist, or no count known). */
+  verdict?: CheckVerdict | null;
+  /** Round 25: the free city records page, shown next to the trial offer on a limited cell only. */
+  cityLink?: CityLink | null;
+  /** Round 25: the local feeds Holler reads near the ZIP, with the line under them. Shown whenever the page has an answer. */
+  reads?: { labels: string[]; note: string } | null;
+  /**
+   * R25 check fix (review R25CHECK P1-1): the verdict's count of every record a member here would be emailed (lib/check/delivery.ts
+   * alertTotals). When given, the offer promises email from this count, not from the listed rows. Null: the listed rows decide, as before.
+   */
+  emailedTotal?: number | null;
 }) {
   const groups = mode === 'results' ? groupItems(items, now, origin, lang) : [];
   const shown = groups.reduce((n, g) => n + g.items.length, 0);
   const listed = groups.flatMap((g) => g.items);
   const countLine = deliveryCountLine(listed, lang);
-  // The sentence above the button and the button promise email only when a listed record would be emailed (review D1).
-  const anyEmailed = listed.some((i) => i.delivery === 'email');
-  const promise: 'email' | 'trial' = listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
+  // The sentence above the button and the button promise email only when a record would be emailed (review D1). R25 check fix (review
+  // R25CHECK P1-1): with the verdict's count given, that count decides, so the offer can never say "no email" under "15 alerts".
+  const anyEmailed = typeof emailedTotal === 'number' ? emailedTotal > 0 : listed.some((i) => i.delivery === 'email');
+  // R27 (review FIXR25 P3 note 2): a verdict count of 0 means nothing would be emailed, so the button never promises email, listed rows or not.
+  const promise: 'email' | 'trial' = emailedTotal === 0 || listed.length > 0 && listed.every((i) => i.delivery === 'email' || i.delivery === 'feed') && !anyEmailed ? 'trial' : 'email';
   // Round 23. 'waitlist': the waitlist card above IS the answer, so this block shows no "Holler is watching near X" heading and no
   // trial offer. 'limited': sign-up is still offered, under a line that says in plain words how little there is.
   const hideOffer = coverageState === 'waitlist';
-  const tradeWord = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
+  const limitedCityLink = coverageState === 'limited' ? cityLink : null;
+  // R25 check fix (review R25CHECK P3-4): acronyms keep their capitals ("heating and air (HVAC)").
+  const tradeWord = tradeInSentence(tradeLabel);
   const limitedLine =
     coverageState !== 'limited'
       ? null
       : !measured
         ? t(lang, 'chk.unmeasured', { trade: tradeWord, place: placeLabel })
         : lang === 'en'
-          ? `Few ${tradeLabel.toLowerCase()} records near here so far, and some weeks bring none. The trial is free and needs no card, so you can judge it before you pay.`
-          : t(lang, 'chk.limited', { trade: lowerFirst(tradeLabel) });
+          ? `Few ${tradeWord} records near here so far, and some weeks bring none. The trial is free and needs no card, so you can judge it before you pay.`
+          : t(lang, 'chk.limited', { trade: tradeWord });
   const stormLine = coverageState === 'limited' && storm ? t(lang, 'chk.storm', { trade: tradeWord }) : null;
   const LimitedNote = limitedLine ? (
     <div className="mt-4 max-w-2xl rounded-card border border-line bg-surface p-4 text-muted">
@@ -144,7 +211,7 @@ export function CheckResults({
   ) : null;
 
   if (shown === 0) {
-    const trade = lang === 'en' ? tradeLabel.toLowerCase() : lowerFirst(tradeLabel);
+    const trade = tradeWord;
     const days = CHECK_WINDOW_DAYS;
     const ago = timeAgo(checkedAt, now, lang);
     const within = t(lang, 'chk.within', { place: placeLabel });
@@ -173,6 +240,7 @@ export function CheckResults({
             : lang === 'en' ? `Holler is watching near ${placeLabel} for ${trade} work` : t(lang, 'chk.h.watching', { place: placeLabel, trade })}
         </h2>
         <p className="mt-3 max-w-2xl text-muted">{intro[mode]}</p>
+        {mode === 'results' ? <div className="mt-6"><VerdictBlock verdict={verdict} /></div> : null}
         {LimitedNote}
         {mode === 'results' ? <div className="mt-4 max-w-2xl empty:hidden"><CoverageNoticeLine line={coverage} /></div> : null}
         {mode !== 'uncovered' ? (
@@ -192,13 +260,15 @@ export function CheckResults({
             <p className="mt-4 text-muted">{t(lang, 'chk.quiet')}</p>
           </div>
         ) : null}
-        {mode !== 'uncovered' ? <Cta citySlug={citySlug} lang={lang} /> : null}
+        {mode === 'results' ? <ReadsNear reads={reads} lang={lang} /> : null}
+        {mode !== 'uncovered' ? <Cta citySlug={citySlug} lang={lang} promise={promise} cityLink={limitedCityLink} /> : null}
       </section>
     );
   }
 
   return (
     <section aria-labelledby="check-heading" className="mt-10">
+      <VerdictBlock verdict={hideOffer ? null : verdict} />
       <h2 id="check-heading" className="text-3xl text-ink md:text-4xl">
         {lang === 'en'
           ? `${tradeLabel} within ${CHECK_LIST_RADIUS_LABEL} of ${placeLabel}, last ${CHECK_WINDOW_DAYS} days`
@@ -262,8 +332,9 @@ export function CheckResults({
           </div>
         ))}
       </div>
+      {hideOffer ? null : <ReadsNear reads={reads} lang={lang} />}
       {hideOffer ? null : (
-        <Cta citySlug={citySlug} lang={lang} promise={promise}>
+        <Cta citySlug={citySlug} lang={lang} promise={promise} cityLink={limitedCityLink}>
           <p className="mb-5 font-display text-3xl text-on-brand">{t(lang, promise === 'trial' ? 'chk.cta.intro_feed' : 'chk.cta.intro')}</p>
         </Cta>
       )}

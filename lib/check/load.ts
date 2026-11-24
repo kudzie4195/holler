@@ -6,13 +6,20 @@ import type { CheckItem } from './group';
 import { withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { REQUEST_CACHE_LIFE, REQUEST_CACHE_TAG, hasRequestRows, withoutEndedRequests } from '@/lib/signals/request-visibility';
 import { expandCategoriesForRouting } from '@/lib/signals/permit-routing';
-import { deliveryFor, type CheckSignal } from './delivery';
+import { deliveryFor, memberTrades, type CheckSignal } from './delivery';
 
 const DAY = 86_400_000;
 const WINDOW_DAYS = CHECK_WINDOW_DAYS;
-const ROW_LIMIT = 100;
-/** The close-to-home read (within 25 miles of every ZIP in the cell): the records a 25 mile subscription would actually send. */
-const CORE_LIMIT = 30;
+/**
+ * Round 25: 500 (was 100), the most holler_signals_near returns (it clamps p_limit to 1..500). The page now counts every record a member at
+ * the ZIP would have been emailed, not only the 20 listed, so the reads must hold the whole recent window where they can. Measured on the
+ * 14-day export (tests/r25/check-verdict.test.ts): with 100/30 the Charlotte landscaping count read 22 of 91; with 500/200 every marketed
+ * cell but Austin landscaping and lawn care is read in full, and those two say "at least". The query plan does not change with the limit
+ * (the distance test and the sort run on every row in the box either way); what grows is the transfer, at about 0.6 KB a row.
+ */
+const ROW_LIMIT = 500;
+/** The close-to-home read (within 25 miles of every ZIP in the cell): the records a 25 mile subscription would actually send. Round 25: 200 (was 30). */
+const CORE_LIMIT = 200;
 /** Severity 2 and 3 records inside the whole search radius: warnings with a coordinate (polygon centroids) and hail or wind reports. */
 const SEVERE_LIMIT = 20;
 /** State-level rows (no coordinates, severity 2+): their own small query so they can never be crowded out by a dense metro feed. */
@@ -24,9 +31,11 @@ const UPCOMING_LIMIT = 12;
  * permits matching routes to it, lib/signals/permit-routing.ts expandCategoriesForRouting). Their own two reads, so the trade's own records
  * and the routed ones cannot crowd each other out. A fixed number of reads per cell, never one per row.
  */
-const ROUTED_LIMIT = 100;
-const ROUTED_CORE_LIMIT = 30;
+const ROUTED_LIMIT = 500;
+const ROUTED_CORE_LIMIT = 200;
 const QUERY_TIMEOUT_MS: number = 8000;
+/** A failed read, or an entry built with one read missing: kept a minute only (R25 check fix, review R25CHECK P2-4). */
+const PARTIAL_CACHE_LIFE = { stale: 60, revalidate: 60, expire: 300 };
 // summary, categories and data are read for the member view only (lib/check/delivery.ts: matching, the label and the contact gate). They are
 // never rendered: the page keeps the fields it showed before.
 const COLUMNS = 'id,source,kind,title,summary,url,city,state,lat,lon,severity,occurred_at,expires_at,categories,data';
@@ -37,6 +46,12 @@ export interface CheckData {
   items: CheckItem[];
   /** ISO time this entry was built (at most one hour old). */
   checkedAt: string;
+  /**
+   * Round 25: true when at least one read returned as many rows as its limit, so older matching records may exist that were not read. The
+   * page then says "at least N" (lib/check/delivery.ts alertTotals). Absent on entries cached before this field existed: read as false.
+   * R25 check fix (review R25CHECK P2-4): also true when an extra read failed (its rows are missing).
+   */
+  clipped?: boolean;
 }
 
 /** One record as the check reads it. */
@@ -80,7 +95,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
   const checkedAt = now.toISOString();
   // A failed read is cached for a minute only, so a blip does not pin an empty page for an hour.
   const fail = (): CheckData => {
-    cacheLife({ stale: 60, revalidate: 60, expire: 300 });
+    cacheLife(PARTIAL_CACHE_LIFE);
     return { ok: false, items: [], checkedAt };
   };
 
@@ -98,9 +113,12 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
   }
   try {
     const since = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
+    // Round 25: the member's trades. One trade is itself; 'pressure-washing' is the two trades sign-up saves for that chip
+    // (lib/plan/composite-trades.ts), so the reads, the delivery marks and the count are those of that member.
+    const own = memberTrades(trade);
     // The trades whose records this trade sees, besides its own (the same expansion matching uses for its reads). Empty for most trades.
-    const routed = expandCategoriesForRouting([trade]).filter((c) => c !== trade);
-    const near = (from: string, until: string, limit: number, soonestFirst: boolean, radiusMi: number = CHECK_SEARCH_RADIUS_MI, minSeverity = 1, categories: string[] = [trade]) =>
+    const routed = expandCategoriesForRouting(own).filter((c) => !own.includes(c));
+    const near = (from: string, until: string, limit: number, soonestFirst: boolean, radiusMi: number = CHECK_SEARCH_RADIUS_MI, minSeverity = 1, categories: string[] = own) =>
       sb
         .rpc('holler_signals_near', {
           p_lat: cellLat,
@@ -129,7 +147,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
         .is('lat', null)
         .eq('state', state)
         .gte('severity', 2)
-        .overlaps('categories', [trade])
+        .overlaps('categories', own)
         .or(`expires_at.is.null,expires_at.gt.${checkedAt}`)
         .gte('occurred_at', since)
         .lte('occurred_at', checkedAt)
@@ -151,36 +169,91 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
     if (routedRecent.error) console.error('[check] routed read failed:', routedRecent.error.code ?? routedRecent.error.message);
     if (routedCore.error) console.error('[check] routed close-to-home read failed:', routedCore.error.code ?? routedCore.error.message);
     const rowsOf = (r: { error: unknown; data: unknown }): CheckRow[] => (r.error || !Array.isArray(r.data) ? [] : (r.data as CheckRow[]));
-    // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
-    // City bids: every stored bid is left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
-    const data: CheckRow[] = withoutHiddenBids(
-      withoutEndedRequests(
-        [...rowsOf(upcoming), ...rowsOf(stateLevel), ...rowsOf(severe), ...rowsOf(core), ...rowsOf(recent), ...rowsOf(routedCore), ...rowsOf(routedRecent)],
-        now.getTime(),
-      ),
+    // R25 check fix (review R25CHECK P2-4): a read that failed (or answered no rows array) leaves out rows that may exist, so the entry is a
+    // lower bound like a read that stopped at its limit: it is marked clipped (the page says "at least", or at zero prints the head only)
+    // and cached for a minute only, so one blip does not pin a wrong answer on the whole grid cell for an hour.
+    const partial = [core, severe, upcoming, stateLevel, routedRecent, routedCore].some((r) => r.error || !Array.isArray(r.data));
+    const { items, clipped, data } = assembleCheck(
+      {
+        upcoming: [rowsOf(upcoming), UPCOMING_LIMIT],
+        stateLevel: [rowsOf(stateLevel), STATE_LIMIT],
+        severe: [rowsOf(severe), SEVERE_LIMIT],
+        core: [rowsOf(core), CORE_LIMIT],
+        recent: [rowsOf(recent), ROW_LIMIT],
+        routedCore: [rowsOf(routedCore), ROUTED_CORE_LIMIT],
+        routedRecent: [rowsOf(routedRecent), ROUTED_LIMIT],
+      },
+      trade,
       now.getTime(),
     );
-
-    const seen = new Set<number>();
-    const items: CheckItem[] = [];
-    for (const r of data) {
-      if (seen.has(r.id)) continue;
-      seen.add(r.id);
-      const item = checkItemFor(r, trade, now.getTime());
-      if (item) items.push(item);
-    }
     // A live resident request in the list: tag the entry and keep it 15 minutes at most, so a closed request leaves /check promptly.
     if (hasRequestRows(data)) cacheTag(REQUEST_CACHE_TAG);
     cacheLife(
-      hasRequestRows(data)
-        ? REQUEST_CACHE_LIFE
-        : { stale: 300, revalidate: 3600, expire: 7200 },
+      partial
+        ? PARTIAL_CACHE_LIFE
+        : hasRequestRows(data)
+          ? REQUEST_CACHE_LIFE
+          : { stale: 300, revalidate: 3600, expire: 7200 },
     );
-    return { ok: true, items, checkedAt };
+    return { ok: true, items, checkedAt, clipped: clipped || partial };
   } catch (e) {
     console.error('[check] loadCheck failed:', e instanceof Error ? e.message : 'unknown');
     return fail();
   }
+}
+
+/** The row limit of each read (exported for the export-based tests, which run the same reads on the 14-day export). */
+export const CHECK_READ_LIMITS = {
+  upcoming: UPCOMING_LIMIT,
+  stateLevel: STATE_LIMIT,
+  severe: SEVERE_LIMIT,
+  core: CORE_LIMIT,
+  recent: ROW_LIMIT,
+  routedCore: ROUTED_CORE_LIMIT,
+  routedRecent: ROUTED_LIMIT,
+} as const;
+
+export type CheckReadName = keyof typeof CHECK_READ_LIMITS;
+
+/**
+ * R25 check fix (review R25CHECK P3-2): the reads whose limit can hide a row the count would include. The close-to-home and severe reads
+ * ask for a subset of what the recent read asks for (same window and trades, a smaller radius or a higher severity), and the routed
+ * close-to-home read a subset of the routed read: when the wider read did not stop at its limit it already returned every row the subset
+ * could have, and when it did, the count is a lower bound anyway. So only these four decide "at least", and only when a read returned
+ * exactly its limit (the database clamps the limit, so a full read returns exactly that many rows).
+ */
+const WIDE_READS: readonly CheckReadName[] = ['recent', 'routedRecent', 'upcoming', 'stateLevel'];
+
+/**
+ * The rows of loadCheck's reads as check items, in the order loadCheck has always merged them (upcoming, state level, severe, close to home,
+ * recent, then the routed reads). Pure, so the export-based tests run exactly this on their simulated reads. `clipped` is true when one of
+ * WIDE_READS returned exactly its limit: rows past the limit may exist, so a count from these items is a lower bound.
+ */
+export function assembleCheck(
+  reads: Record<CheckReadName, [rows: CheckRow[], limit: number]>,
+  trade: string,
+  nowMs: number,
+): { items: CheckItem[]; clipped: boolean; data: CheckRow[] } {
+  const order: CheckReadName[] = ['upcoming', 'stateLevel', 'severe', 'core', 'recent', 'routedCore', 'routedRecent'];
+  const clipped = WIDE_READS.some((k) => reads[k][0].length === reads[k][1]);
+  // holler_signals_near and the state read already drop expired rows; this guards resident requests again on the rows themselves.
+  // City bids: every stored bid is left out while HOLLER_BIDS_ENABLED is off, and a closed bid always (review P2-13, P2-14).
+  const data: CheckRow[] = withoutHiddenBids(
+    withoutEndedRequests(
+      order.flatMap((k) => reads[k][0]),
+      nowMs,
+    ),
+    nowMs,
+  );
+  const seen = new Set<number>();
+  const items: CheckItem[] = [];
+  for (const r of data) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    const item = checkItemFor(r, trade, nowMs);
+    if (item) items.push(item);
+  }
+  return { items, clipped, data };
 }
 
 /**
@@ -188,7 +261,7 @@ export async function loadCheck(cellLat: number, cellLon: number, state: string,
  * member's feed (lib/check/delivery.ts deliveryFor: context, a record the trade does not see, a follower, a probation source). Otherwise
  * the item carries its delivery ('email' or 'feed') and the record fields the page needs for its ZIP area test (memberItems).
  */
-export function checkItemFor(r: CheckRow, trade: string, nowMs: number): CheckItem | null {
+export function checkItemFor(r: CheckRow, trade: string | readonly string[], nowMs: number): CheckItem | null {
   const signal: CheckSignal = {
     id: r.id,
     source: r.source,

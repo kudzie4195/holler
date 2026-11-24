@@ -15,12 +15,17 @@ import { clientIp, hit } from '@/lib/auth/ratelimit';
 import { isServedZip } from '@/lib/check/coverage';
 import { coverageFor } from '@/lib/check/cells';
 import { checkAnswer } from '@/lib/check/answer';
-import { waitlistTradeGroups } from '@/lib/waitlist/trades';
+import { waitlistAccepts, waitlistTradeGroups } from '@/lib/waitlist/trades';
+import { PRESSURE_WASHING_ID, expandTradeIds } from '@/lib/plan/composite-trades';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_LIST_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
-import { memberItems } from '@/lib/check/delivery';
+import { alertTotals, memberItems } from '@/lib/check/delivery';
+import { checkVerdict } from '@/lib/check/verdict';
+import { areaCheckPath } from '@/lib/check/funnel';
+import { checkReads } from '@/lib/check/reads';
+import { checkCityLinkWithRecords } from '@/lib/check/city-link';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
@@ -156,6 +161,8 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     watches: watchList(params.trade, city?.slug ?? null),
     now,
     origin: { lat: place.lat, lon: place.lon },
+    // Round 25: the local feeds Holler reads near the ZIP. (The free city records link is set with the answer below.)
+    reads: checkReads(place, params.zip, 'en'),
   };
 
   // Round 23: coverage is per city AND per trade (lib/check/cells.ts), not per ZIP. 'waitlist' means this trade has nothing here an
@@ -166,12 +173,19 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const served = isServedZip(place);
   const answer = coverageFor(place, params.trade, served);
   const coverageState = answer.state;
-  const gate = { coverageState, measured: answer.measured, storm: answer.storm };
+  // Round 25: the free city records page next to the trial on a limited cell. R25 check fix (review R25CHECK P2-5): the nearest city within
+  // 25 miles whose city page has records (lib/check/city-link.ts), or no link, never a link to an empty page.
+  const cityLink = coverageState === 'limited' ? await checkCityLinkWithRecords(place, 'en') : null;
+  const gate = { coverageState, measured: answer.measured, storm: answer.storm, cityLink };
+  // Round 25: the waitlist takes real trades only (lib/waitlist/trades.ts). For the composite "Pressure washing" answer the card preselects
+  // the first of its two trades that the waitlist takes here, or none.
+  const cardTrade =
+    params.trade === PRESSURE_WASHING_ID ? (expandTradeIds([params.trade]).find((tr) => waitlistAccepts(place, served, tr)) ?? '') : params.trade;
   const waitlist =
     coverageState === 'waitlist' ? (
       <AreaWaitlist
         zip={params.zip}
-        trade={params.trade}
+        trade={cardTrade}
         placeLabel={placeLabel}
         groups={waitlistTradeGroups(place, served)}
         tradeLabel={served ? tradeLabel(params.trade) : null}
@@ -205,17 +219,23 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     );
   }
 
-  // Funnel step: one area check. Path only, never the ZIP or the trade. Runs after the response; skipped for privacy signals and bots.
+  // Funnel step: one area check. Path only, never the ZIP or the trade. Round 25: the path is the answer given (lib/check/funnel.ts). Runs after the response; skipped for privacy signals and bots.
   const ctx = await eventContext().catch(() => null);
-  if (ctx) after(() => trackVisitorStep('area_check', ctx, '/check'));
+  if (ctx) after(() => trackVisitorStep('area_check', ctx, areaCheckPath(coverageState)));
 
   const [data, snapshot] = await Promise.all([
     loadCheck(scope.cellLat, scope.cellLon, scope.state, params.trade),
     // Source states (lib/signals/source-state.ts): when a source covering this ZIP and trade is behind, the results say so.
     loadSourceStateSnapshot().catch(() => null),
   ]);
-  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: [params.trade], states: snapshot?.states, now });
+  const coverage = coverageNotice({ lat: place.lat, lon: place.lon, radiusMi: CHECK_RADIUS_MI, trades: expandTradeIds([params.trade]), states: snapshot?.states, now });
   // No trim here: holler_signals_near already applied the distance test in SQL before its row limit (see lib/check/load.ts).
+
+  // Round 25: every record a member with this trade at this ZIP would have (not only the listed 20), and the counted verdict above the list.
+  // The verdict word is coverageState (coverageFor above), so the block can never disagree with the offer or the waitlist card.
+  const member = memberItems(data.items, place, params.trade);
+  const totals = data.ok ? alertTotals(member, data.clipped === true) : null;
+  const verdict = totals ? checkVerdict(coverageState, totals, { tradeLabel: common.tradeLabel, zip: params.zip, lang: 'en' }) : null;
 
   return (
     <>
@@ -223,7 +243,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} {...gate} mode={data.ok ? 'results' : 'unreadable'} items={memberItems(data.items, place, params.trade)} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

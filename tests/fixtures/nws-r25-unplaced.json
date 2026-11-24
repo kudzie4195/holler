@@ -1,0 +1,258 @@
+{
+ "_source": "Round 25. NWS /alerts/active features in the documented shape (weather.gov/documentation/services-web-api; properties id, @id, areaDesc, geocode {SAME, UGC}, affectedZones, sent, effective, onset, expires, ends, status, messageType, severity, certainty, urgency, event, senderName, headline, description), built from export rows 139787, 139788, 20 and 6468 of gates/r19/data/signals-14d.json (event, areaDesc, senderName, NWS severity/certainty/urgency, url, onset, summary). Codes: the Tornado Watch UGC county codes are the FIPS county numbers of the counties its areaDesc and text name (Palm Beach 12099; Indian River 12061, Martin 12085, Okeechobee 12093, St. Lucie 12111); the zone alerts UGC zone numbers are placeholders in the documented format (zones are never mapped to counties by the code). Variants: -same carries SAME, -nosame has no SAME key.",
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1",
+    "areaDesc": "Palm Beach, FL",
+    "geocode": {
+     "UGC": [
+      "FLC099"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/FLC099"
+    ],
+    "references": [],
+    "sent": "2026-11-21T23:25:00+00:00",
+    "effective": "2026-11-21T23:25:00+00:00",
+    "onset": "2026-11-21T23:25:00+00:00",
+    "expires": "2026-11-22T03:00:00+00:00",
+    "ends": "2026-11-22T03:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Extreme",
+    "certainty": "Possible",
+    "urgency": "Future",
+    "event": "Tornado Watch",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Miami FL",
+    "headline": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Miami FL",
+    "description": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Miami FL. THE NATIONAL WEATHER SERVICE HAS ISSUED TORNADO WATCH 706 IN EFFECT UNTIL 10 PM EST THIS EVENING FOR THE FOLLOWING AREAS IN FLORIDA THIS WATCH INCLUDES 1 COUNTY IN SOUTHEAST FLORIDA PALM BEACH THIS INCLUDES THE CITIES OF B\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2e48559ebe7aaafcb6cd1e3e928432556d0e4227.001.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2e48559ebe7aaafcb6cd1e3e928432556d0e4227.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.2e48559ebe7aaafcb6cd1e3e928432556d0e4227.001.1",
+    "areaDesc": "Indian River, FL; Martin, FL; Okeechobee, FL; St. Lucie, FL",
+    "geocode": {
+     "UGC": [
+      "FLC061",
+      "FLC085",
+      "FLC093",
+      "FLC111"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/FLC061",
+     "https://api.weather.gov/zones/county/FLC085",
+     "https://api.weather.gov/zones/county/FLC093",
+     "https://api.weather.gov/zones/county/FLC111"
+    ],
+    "references": [],
+    "sent": "2026-11-21T23:25:00+00:00",
+    "effective": "2026-11-21T23:25:00+00:00",
+    "onset": "2026-11-21T23:25:00+00:00",
+    "expires": "2026-11-22T03:00:00+00:00",
+    "ends": "2026-11-22T03:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Extreme",
+    "certainty": "Possible",
+    "urgency": "Future",
+    "event": "Tornado Watch",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Melbourne FL",
+    "headline": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Melbourne FL",
+    "description": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Melbourne FL. THE NATIONAL WEATHER SERVICE HAS ISSUED TORNADO WATCH 706 IN EFFECT UNTIL 10 PM EST THIS EVENING FOR THE FOLLOWING AREAS IN FLORIDA THIS WATCH INCLUDES 4 COUNTIES IN EAST CENTRAL FLORIDA INDIAN RIVER MARTIN OKEECHOBEE\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1-same",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1-same",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.bc2448dd1a1c540f7353251c819504d60a79c54c.001.1-same",
+    "areaDesc": "Palm Beach, FL",
+    "geocode": {
+     "SAME": [
+      "012099"
+     ],
+     "UGC": [
+      "FLC099"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/FLC099"
+    ],
+    "references": [],
+    "sent": "2026-11-21T23:25:00+00:00",
+    "effective": "2026-11-21T23:25:00+00:00",
+    "onset": "2026-11-21T23:25:00+00:00",
+    "expires": "2026-11-22T03:00:00+00:00",
+    "ends": "2026-11-22T03:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Extreme",
+    "certainty": "Possible",
+    "urgency": "Future",
+    "event": "Tornado Watch",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Miami FL",
+    "headline": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Miami FL",
+    "description": "Tornado Watch issued November 21 at 6:23PM EST until November 21 at 10:00PM EST by NWS Miami FL. THE NATIONAL WEATHER SERVICE HAS ISSUED TORNADO WATCH 706 IN EFFECT UNTIL 10 PM EST THIS EVENING FOR THE FOLLOWING AREAS IN FLORIDA THIS WATCH INCLUDES 1 COUNTY IN SOUTHEAST FLORIDA PALM BEACH THIS INCLUDES THE CITIES OF B\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-same",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-same",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-same",
+    "areaDesc": "Natrona County Lower Elevations; Casper Mountain",
+    "geocode": {
+     "SAME": [
+      "056025"
+     ],
+     "UGC": [
+      "WYZ001",
+      "WYZ002"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/WYZ001",
+     "https://api.weather.gov/zones/forecast/WYZ002"
+    ],
+    "references": [],
+    "sent": "2026-11-18T04:00:00+00:00",
+    "effective": "2026-11-18T04:00:00+00:00",
+    "onset": "2026-11-18T04:00:00+00:00",
+    "expires": "2026-11-18T21:00:00+00:00",
+    "ends": "2026-11-18T21:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Severe",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "High Wind Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Riverton WY",
+    "headline": "High Wind Warning issued November 17 at 1:47AM MST until November 18 at 2:00PM MST by NWS Riverton WY",
+    "description": "High Wind Warning issued November 17 at 1:47AM MST until November 18 at 2:00PM MST by NWS Riverton WY. * WHAT...Southwest winds 30 to 40 mph with gusts of 50 to 60 mph expected. Gusts of 60 to 70 mph are expected across the south side of Casper toward Casper Mountain. * WHERE...Casper Mountain and Natrona County Lower\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-nosame",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-nosame",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.5e993c0cd8e887dbebdb846923439d88473be0b0.002.1-nosame",
+    "areaDesc": "Natrona County Lower Elevations; Casper Mountain",
+    "geocode": {
+     "UGC": [
+      "WYZ001",
+      "WYZ002"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/WYZ001",
+     "https://api.weather.gov/zones/forecast/WYZ002"
+    ],
+    "references": [],
+    "sent": "2026-11-18T04:00:00+00:00",
+    "effective": "2026-11-18T04:00:00+00:00",
+    "onset": "2026-11-18T04:00:00+00:00",
+    "expires": "2026-11-18T21:00:00+00:00",
+    "ends": "2026-11-18T21:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Severe",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "High Wind Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Riverton WY",
+    "headline": "High Wind Warning issued November 17 at 1:47AM MST until November 18 at 2:00PM MST by NWS Riverton WY",
+    "description": "High Wind Warning issued November 17 at 1:47AM MST until November 18 at 2:00PM MST by NWS Riverton WY. * WHAT...Southwest winds 30 to 40 mph with gusts of 50 to 60 mph expected. Gusts of 60 to 70 mph are expected across the south side of Casper toward Casper Mountain. * WHERE...Casper Mountain and Natrona County Lower\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fe495178e774565be0b6c985892faa41a1abf3b7.001.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fe495178e774565be0b6c985892faa41a1abf3b7.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.fe495178e774565be0b6c985892faa41a1abf3b7.001.1",
+    "areaDesc": "Eastern Panhandle/Crescent Lake NWR; Sandhills/Valentine NWR/Nebraska National Forest; Niobrara Valley/Fort Niobrara NWR/Samuel R McKelvie National Forest; Loup Rivers Basin; Frenchman Basin; Loess Plains",
+    "geocode": {
+     "UGC": [
+      "NEZ001",
+      "NEZ002"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/NEZ001",
+     "https://api.weather.gov/zones/forecast/NEZ002"
+    ],
+    "references": [],
+    "sent": "2026-11-18T17:00:00+00:00",
+    "effective": "2026-11-18T17:00:00+00:00",
+    "onset": "2026-11-18T17:00:00+00:00",
+    "expires": "2026-11-19T00:00:00+00:00",
+    "ends": "2026-11-19T00:00:00+00:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Severe",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Red Flag Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS North Platte NE",
+    "headline": "Red Flag Warning issued November 17 at 12:40PM CST until November 18 at 6:00PM CST by NWS North Platte NE",
+    "description": "Red Flag Warning issued November 17 at 12:40PM CST until November 18 at 6:00PM CST by NWS North Platte NE. The National Weather Service in North Platte has issued a Red Flag Warning for low humidity overlapping with strong westerly winds, which is in effect from 11 AM CST /10 AM MST/ to 6 PM CST /5 PM MST/ Wednesday.\u2026",
+    "instruction": null,
+    "response": "Monitor",
+    "parameters": {}
+   }
+  }
+ ]
+}
