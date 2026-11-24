@@ -129,6 +129,42 @@ export function activeSeasons(input: ActiveSeasonInput): SeasonRow[] {
     .slice(0, MAX_SEASON_LINES);
 }
 
+/** The calendar a season centre lives in (UTC for an unknown id). */
+export function centreTimeZone(centre: string): string {
+  return CENTRE_TZ[centre] ?? 'UTC';
+}
+
+/** The wall-clock time of instant `t` in `tz`, written as if it were UTC (epoch ms). */
+function wallClockMs(t: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(t));
+  const n = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'), n('second'));
+}
+
+/**
+ * Monday 00:00 of `now`'s week in time zone `tz`, as epoch ms (review D3). The reviewer's Monday step, done on the metro's own wall
+ * clock and then turned back into an instant (two passes cover a DST change between now and Monday).
+ */
+export function weekStartMs(now: Date, tz: string): number {
+  const weekStart = new Date(wallClockMs(now.getTime(), tz));
+  weekStart.setUTCHours(0, 0, 0, 0);
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  const target = weekStart.getTime();
+  let t = target;
+  for (let i = 0; i < 2; i++) t = target - (wallClockMs(t, tz) - t);
+  return t;
+}
+
+/**
+ * Review D3: the alert digest carries the season line only on the member's first digest of the week, so the same paragraph does not
+ * ride on every hourly alert. True when the member was never notified, or last notified before Monday 00:00 in the metro's time zone.
+ */
+export function firstDigestThisWeek(lastNotifiedAt: string | null | undefined, now: Date, tz: string): boolean {
+  return !lastNotifiedAt || Date.parse(lastNotifiedAt) < weekStartMs(now, tz);
+}
+
 /** What a surface prints for one row: the line in the reader's language and its public source. */
 export interface SeasonLine {
   id: string;

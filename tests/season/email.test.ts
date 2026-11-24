@@ -236,6 +236,37 @@ describe('the notify cron', () => {
     expect(r.sent).toEqual(base.sent);
   });
 
+  it('review D3: the line rides only on the member\'s first digest of the week; a second digest that week carries none', async () => {
+    const db = seed(DEC1.getTime());
+    const first = await runNotify(db, { nowMs: DEC1.getTime(), season: '1' });
+    expect(first.sent.map((m) => m.to)).toEqual(['pending@shop.test']);
+    expect(first.sent[0].html).toContain(`<strong>${en['season.h']}:</strong> ${GUTTERS.en}`);
+    // a new match an hour later; the next run two hours later (past the 60-minute gap), same week, same database
+    const later = DEC1.getTime() + 2 * 3_600_000;
+    const sig = (db.tables.holler_matches as { id: number; signal: Record<string, unknown> | null }[]).find((m) => m.id === 701)!.signal!;
+    db.tables.holler_matches.push({ id: 703, user_id: ID.pending, created_at: iso(later - 1_800_000), notified: false, status: 'new', signal: { ...sig, id: 9103, external_id: 'x3', occurred_at: iso(later - 3_600_000) } });
+    const second = await runNotify(db, { nowMs: later, season: '1' });
+    expect(second.sent.map((m) => m.to)).toEqual(['pending@shop.test']);
+    expect(second.sent[0].html).not.toContain('data-season=');
+    expect(second.sent[0].text).not.toContain(en['season.h']);
+  });
+
+  it('review D3: the week starts Monday 00:00 in the metro\'s own time zone (Charlotte: 05:00 UTC on Nov 30 2026)', async () => {
+    const run = async (last: string) => {
+      const db = seed(DEC1.getTime());
+      (db.tables.holler_profiles as { user_id: string; last_notified_at: string | null }[]).find((r) => r.user_id === ID.pending)!.last_notified_at = last;
+      const r = await runNotify(db, { nowMs: DEC1.getTime(), season: '1' });
+      expect(r.sent.map((m) => m.to), last).toEqual(['pending@shop.test']);
+      return r.sent[0].html.includes('data-season="gutters-charlotte"');
+    };
+    // Sunday 11:30 pm in Charlotte (already Monday in UTC): last week, so this digest is the first of the week
+    expect(await run('2026-11-30T04:30:00.000Z')).toBe(true);
+    expect(await run('2026-11-23T15:00:00.000Z')).toBe(true);
+    // Monday 12:30 am and Monday 10 am in Charlotte: this week already had a digest
+    expect(await run('2026-11-30T05:30:00.000Z')).toBe(false);
+    expect(await run('2026-11-30T15:00:00.000Z')).toBe(false);
+  });
+
   it('review D7: a throw in the season code leaves the line out; the digest still goes out and nothing counts as failed', async () => {
     const base = await runNotify(seed(DEC1.getTime()), { nowMs: DEC1.getTime() });
     const db = seed(DEC1.getTime());

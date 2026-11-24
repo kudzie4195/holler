@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SEASON_TABLE, type SeasonRow } from '@/lib/season/table';
-import { activeSeasons, dayOfYear, inWindow, MAX_SEASON_LINES, monthDayOf, seasonEmailEnabled, seasonLines } from '@/lib/season/active';
+import { activeSeasons, centreTimeZone, dayOfYear, firstDigestThisWeek, inWindow, MAX_SEASON_LINES, monthDayOf, seasonEmailEnabled, seasonLines, weekStartMs } from '@/lib/season/active';
 import { measuredCentres } from '@/lib/check/cells';
 import { CATEGORIES } from '@/lib/signals/categories';
 import { haversineMi, lookupZip } from '@/lib/geo';
@@ -389,6 +389,33 @@ describe('December 1 2026 (launch week)', () => {
     for (const c of CENTRE.values()) {
       expect(activeSeasons({ lat: c.lat, lon: c.lon, trades: CATEGORIES.map((x) => x.id), date: '2026-07-01' }), c.id).toEqual([]);
     }
+  });
+});
+
+describe('the week a digest belongs to (review D3)', () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  it('Monday 00:00 in the metro\'s own time zone, across DST', () => {
+    expect(iso(weekStartMs(new Date('2026-12-01T14:07:00Z'), 'America/New_York'))).toBe('2026-11-30T05:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-12-01T14:07:00Z'), 'America/Chicago'))).toBe('2026-11-30T06:00:00.000Z');
+    // Sunday 11 pm in New York (Monday 04:00 UTC) still belongs to the week before
+    expect(iso(weekStartMs(new Date('2026-11-30T04:00:00Z'), 'America/New_York'))).toBe('2026-11-23T05:00:00.000Z');
+    // a Monday right at midnight is its own week
+    expect(iso(weekStartMs(new Date('2026-11-30T05:00:00Z'), 'America/New_York'))).toBe('2026-11-30T05:00:00.000Z');
+    // DST ended Sun Nov 1 2026 and starts Sun Mar 8 2026: Monday midnight is EST then EDT
+    expect(iso(weekStartMs(new Date('2026-11-04T12:00:00Z'), 'America/New_York'))).toBe('2026-11-02T05:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-03-11T12:00:00Z'), 'America/New_York'))).toBe('2026-03-09T04:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-03-08T12:00:00Z'), 'America/New_York'))).toBe('2026-03-02T05:00:00.000Z');
+  });
+  it('first digest of the week: never notified, or last notified before that Monday', () => {
+    const now = new Date('2026-12-01T14:07:00Z');
+    const tz = centreTimeZone('charlotte');
+    expect(tz).toBe('America/New_York');
+    expect(centreTimeZone('austin')).toBe('America/Chicago');
+    expect(firstDigestThisWeek(null, now, tz)).toBe(true);
+    expect(firstDigestThisWeek(undefined, now, tz)).toBe(true);
+    expect(firstDigestThisWeek('2026-11-30T04:59:59.000Z', now, tz)).toBe(true);
+    expect(firstDigestThisWeek('2026-11-30T05:00:00.000Z', now, tz)).toBe(false);
+    expect(firstDigestThisWeek('2026-12-01T13:00:00.000Z', now, tz)).toBe(false);
   });
 });
 
