@@ -116,12 +116,14 @@ describe('season table: every row', () => {
   });
 
   // Round 30 review D1, D2: a window Holler builds itself is told as Holler's estimate, in the words the customer reads, EN and ES.
-  const SERVICE_WINDOW_EN = /\b(?:booked|booking|scheduled|prepped|applied)\b/i;
-  const SERVICE_WINDOW_ES = /(?:programar|programan|se preparan|se suele aplicar)/i;
-  it('every estimate row whose line states a booking or service window says "Holler estimates" / "Holler estima"', () => {
-    const estimates = SEASON_TABLE.filter((r) => r.confidence === 'estimate');
-    expect(estimates.length).toBeGreaterThan(0);
-    for (const r of estimates) {
+  // Applies to every row, 'checked' or 'estimate': a source that gives only the anchor date (a freeze date, a pollen peak) does not state when
+  // work is booked or done. "applied" and "se suele aplicar" are left out: they only appear in a sentence the cited source itself states.
+  const SERVICE_WINDOW_EN = /\b(?:booked|booking|scheduled|prepped)\b/i;
+  const SERVICE_WINDOW_ES = /(?:programar|programan|se preparan)/i;
+  it('every row whose line states a booking or service window says "Holler estimates" / "Holler estima", whatever its confidence', () => {
+    expect(SEASON_TABLE.filter((r) => r.confidence === 'estimate').length).toBeGreaterThan(0);
+    expect(SEASON_TABLE.filter((r) => r.confidence === 'checked').length).toBeGreaterThan(0);
+    for (const r of SEASON_TABLE) {
       expect(SERVICE_WINDOW_EN.test(r.en), `${r.id} en states a window`).toBe(SERVICE_WINDOW_ES.test(r.es));
       if (SERVICE_WINDOW_EN.test(r.en)) {
         expect(r.en, r.id).toMatch(/Holler estimates that /);
