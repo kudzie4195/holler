@@ -20,7 +20,8 @@ import { loadCheck } from '@/lib/check/load';
 import { alertTotals, memberItems } from '@/lib/check/delivery';
 import { checkVerdict } from '@/lib/check/verdict';
 import { areaCheckPath } from '@/lib/check/funnel';
-import { checkCityLink, checkReads } from '@/lib/check/reads';
+import { checkReads } from '@/lib/check/reads';
+import { checkCityLinkWithRecords } from '@/lib/check/city-link';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
@@ -166,8 +167,7 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     watches: watchList(params.trade, city?.slug ?? null, undefined, L),
     now,
     origin: { lat: place.lat, lon: place.lon },
-    // Round 25: the free city records page next to the trial on a limited cell, and the local feeds Holler reads near the ZIP.
-    cityLink: checkCityLink(city, L),
+    // Round 25: the local feeds Holler reads near the ZIP. (The free city records link is set with the answer below.)
     reads: checkReads(place, params.zip, L),
     lang: L,
   };
@@ -179,7 +179,10 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   const served = isServedZip(place);
   const answer = coverageFor(place, params.trade, served);
   const coverageState = answer.state;
-  const gate = { coverageState, measured: answer.measured, storm: answer.storm };
+  // Round 25: the free city records page next to the trial on a limited cell. R25 check fix (review R25CHECK P2-5): the nearest city within
+  // 25 miles whose city page has records (lib/check/city-link.ts), or no link, never a link to an empty page.
+  const cityLink = coverageState === 'limited' ? await checkCityLinkWithRecords(place, L) : null;
+  const gate = { coverageState, measured: answer.measured, storm: answer.storm, cityLink };
   // Round 25: the waitlist takes real trades only (lib/waitlist/trades.ts). For the composite "Pressure washing" answer the card preselects
   // the first of its two trades that the waitlist takes here, or none.
   const cardTrade =
