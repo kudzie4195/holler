@@ -3,15 +3,15 @@
  * other city (permit-routing.ts applyRecordClass: new build and remodel go to the fit-out row) and never to movers, pools or lawn care.
  *
  * Fixture provenance (no network in tests):
- * - tests/fixtures/r28-austin-permits-class.json: field names and values of data.austintexas.gov 3syk-w9eu rows read with the SODA API on
+ * - tests/signals/fixtures/r28-austin-permits-class.json: field names and values of data.austintexas.gov 3syk-w9eu rows read with the SODA API on
  *   2026-11-24. 2026-084222 BP is Holler record 67557 (the $60M airport concourse at 10113 MAINTAINERS DR). 2026-066698 BP and 2026-146952 BP
  *   are real rows; their total_job_valuation was 0 on the portal and is set to a round amount here. 2026-900001 BP is a copy of a real
  *   R-101 row (4521 TUMALO DR) with a made-up person name in contractor_company_name to prove the sole-proprietor guard still holds;
  *   contractor_full_name ("Pat Q Example") is made up and is never read.
- * - tests/fixtures/r28-raleigh-permits-class.json: attributes of live features of the City of Raleigh Building_Permits FeatureServer layer 0
+ * - tests/signals/fixtures/r28-raleigh-permits-class.json: attributes of live features of the City of Raleigh Building_Permits FeatureServer layer 0
  *   read on 2026-11-24 (permitclassmapped is "Residential" or "Non-Residential"; permitclass is null on them). Descriptions are cut short.
  *   BLDR-046368-2026 has a made-up person name in contractorcompanyname (the real row names a home builder).
- * - tests/fixtures/r28-other-city-route-snapshot.json: 229 permit rows of the other cities from the 14-day export with the route and label
+ * - tests/signals/fixtures/r28-other-city-route-snapshot.json: 229 permit rows of the other cities from the 14-day export with the route and label
  *   results the code gave at 45a6079, before this change.
  */
 import { describe, expect, it } from 'vitest';
@@ -27,7 +27,7 @@ import { recordPropertyOf } from '@/lib/signals/work-profile';
 import { CATEGORY_IDS, type CategoryId } from '@/lib/signals/categories';
 import type { SignalInput } from '@/lib/signals/types';
 
-const fx = (n: string): unknown => JSON.parse(readFileSync(join(__dirname, '../fixtures', n), 'utf8'));
+const fx = (n: string): unknown => JSON.parse(readFileSync(join(__dirname, 'fixtures', n), 'utf8'));
 const austinDs = SOCRATA_DATASETS.find((d) => d.id === 'socrata-austin-permits')!;
 const raleighDs = ARCGIS_DATASETS.find((d) => d.id === 'arcgis-raleigh-permits')!;
 const austin = parseSocrata(fx('r28-austin-permits-class.json'), austinDs);
