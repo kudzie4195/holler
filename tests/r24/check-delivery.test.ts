@@ -21,7 +21,8 @@ import { contactPathOf } from '@/lib/signals/alert-gate';
 import { isPermitRecord } from '@/lib/signals/permit-routing';
 import { CheckResults, deliveryCountLine } from '@/components/check-results';
 
-const EXPORT = '/home/claude/gates/r19/data/signals-14d.json';
+// Round 24 FIX3 (review-FIX2 F10): HOLLER_D1_EXPORT only exists so tests/r24/check-delivery-skip.test.ts can prove the skip is visible.
+const EXPORT = process.env.HOLLER_D1_EXPORT || '/home/claude/gates/r19/data/signals-14d.json';
 const NOW = new Date('2026-11-23T12:00:00.000Z');
 const have = existsSync(EXPORT);
 type ExportRow = CheckRow & { categories: string[]; data: Record<string, unknown> | null; summary: string | null };
@@ -137,6 +138,12 @@ async function emailedByNotify(matches: ReturnType<typeof scanMatches>, trade: s
   return new Set(marked.filter((m) => m.afterSend).flatMap((m) => m.ids).map((id) => id - 10_000_000));
 }
 
+// Round 24 FIX3 (review-FIX2 F10): without the export the D1 cases are skipped by name, never silently.
+if (!have) {
+  describe('D1: /check marks match what the notify route really emails (14-day export)', () => {
+    it.skip(`NEEDS the 14-day export at ${EXPORT} (not found, so NOT RUN): every D1 case on real records`, () => {});
+  });
+}
 describe.skipIf(!have)('D1: /check marks match what the notify route really emails (14-day export)', () => {
   beforeAll(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
