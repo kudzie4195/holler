@@ -14,6 +14,13 @@ const TRADE_IDS = new Set<string>(CATEGORIES.map((c) => c.id));
 const CENTRE = new Map(measuredCentres().map((c) => [c.id, c]));
 const row = (id: string): SeasonRow => SEASON_TABLE.find((r) => r.id === id)!;
 const ids = (rows: SeasonRow[]) => rows.map((r) => r.id);
+/** 'MM-DD' names a day that exists in a non-leap year (review D8): Date.UTC rolls Apr 31 over to May 1, so the month changes. */
+const isRealMonthDay = (md: string): boolean => {
+  const m = /^(\d{2})-(\d{2})$/.exec(md);
+  if (!m) return false;
+  const month = Number(m[1]);
+  return new Date(Date.UTC(2025, month - 1, Number(m[2]))).getUTCMonth() === month - 1;
+};
 
 /** The house list (tests/signals/ship-banned-words.test.ts BANNED, copied: importing a test file would run its tests here), plus the two this unit adds. */
 const BANNED: [string, RegExp][] = [
@@ -52,9 +59,16 @@ describe('season table: every row', () => {
       for (const d of [r.start, r.end, ...(r.peak ? [r.peak] : [])]) {
         expect(d, r.id).toMatch(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
         expect(Number.isFinite(dayOfYear(d)), r.id).toBe(true);
+        expect(isRealMonthDay(d), `${r.id} ${d} is a real calendar day`).toBe(true);
       }
       if (r.peak) expect(inWindow(r.peak, r.start, r.end), r.id).toBe(true);
     }
+  });
+
+  it('the calendar-day check rejects impossible month-days (review D8): Apr 31 would read as May 1', () => {
+    expect(dayOfYear('04-31')).toBe(dayOfYear('05-01'));
+    for (const d of ['02-30', '02-31', '04-31', '06-31', '09-31', '11-31', '02-29']) expect(isRealMonthDay(d), d).toBe(false);
+    for (const d of ['01-31', '02-28', '03-31', '04-30', '06-30', '09-30', '11-30', '12-31']) expect(isRealMonthDay(d), d).toBe(true);
   });
 
   it('carries a public https source and a verifiedOn date, and a confidence', () => {
