@@ -19,6 +19,7 @@ import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { alertTotals, memberItems } from '@/lib/check/delivery';
 import { checkVerdict } from '@/lib/check/verdict';
+import { checkCityLink, checkReads } from '@/lib/check/reads';
 import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_WINDOW_DAYS, CHECK_RADIUS_MI, deriveScope } from '@/lib/check/scope';
 import { tradeLabel } from '@/lib/check/trades';
@@ -164,6 +165,9 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
     watches: watchList(params.trade, city?.slug ?? null, undefined, L),
     now,
     origin: { lat: place.lat, lon: place.lon },
+    // Round 25: the free city records page next to the trial on a limited cell, and the local feeds Holler reads near the ZIP.
+    cityLink: checkCityLink(city, L),
+    reads: checkReads(place, params.zip, L),
     lang: L,
   };
 

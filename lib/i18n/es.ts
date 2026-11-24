@@ -1392,6 +1392,7 @@ export const es: Record<DictKey, string> = {
   'chk.city_link': 'Vea gratis los registros públicos de {city} (página en inglés)',
   'chk.reads_h': 'Lo que Holler lee cerca de usted',
   'chk.reads_note': 'Fuentes públicas locales con sede a menos de {mi} millas de {zip}. Los avisos del tiempo y los reportes de tormentas se leen para todo el país.',
+  'chk.reads_county': 'del condado de {county}',
   'chk.trade.pressure_washing': 'Lavado a presión',
   // Ronda 18, unidad ES: precios, registro, la aplicación web, Configuración, pagos y los correos de la cuenta (lib/i18n/es-account.ts).
   ...ES_ACCOUNT,

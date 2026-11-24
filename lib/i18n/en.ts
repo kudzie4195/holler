@@ -1435,6 +1435,7 @@ export const en = {
   'chk.city_link': 'See the free public records for {city}',
   'chk.reads_h': 'What Holler reads near you',
   'chk.reads_note': 'Local public feeds based within {mi} miles of {zip}. Weather alerts and storm reports are read for the whole country.',
+  'chk.reads_county': 'of {county} County',
   'chk.trade.pressure_washing': 'Pressure washing',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,

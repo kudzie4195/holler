@@ -23,6 +23,7 @@ import { parseCheckParams } from '@/lib/check/params';
 import { CHECK_LIST_RADIUS_LABEL, CHECK_RADIUS_MI, CHECK_WINDOW_DAYS, deriveScope } from '@/lib/check/scope';
 import { alertTotals, memberItems } from '@/lib/check/delivery';
 import { checkVerdict } from '@/lib/check/verdict';
+import { checkCityLink, checkReads } from '@/lib/check/reads';
 import { tradeLabel } from '@/lib/check/trades';
 import { watchList } from '@/lib/check/watch';
 import { coverageNotice } from '@/lib/check/coverage-notice';
@@ -158,6 +159,9 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
     watches: watchList(params.trade, city?.slug ?? null),
     now,
     origin: { lat: place.lat, lon: place.lon },
+    // Round 25: the free city records page next to the trial on a limited cell, and the local feeds Holler reads near the ZIP.
+    cityLink: checkCityLink(city, 'en'),
+    reads: checkReads(place, params.zip, 'en'),
   };
 
   // Round 23: coverage is per city AND per trade (lib/check/cells.ts), not per ZIP. 'waitlist' means this trade has nothing here an
