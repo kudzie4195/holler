@@ -332,12 +332,30 @@ function isBareState(s: string): boolean {
  * Round 24 FIX2 (review D4): a number right before a street word ("EAST 147 STREET between ..."), a number after a hyphen (the end of a
  * range, "1801-2011 N. Clark St.", is read with its first number: the 1800 block), and a span through "km", "mi", "between", "and" or "of" ("19 km SW of Toms Place") are not a house.
  */
+// Round 24 FIX3 (review-FIX2 F1): only a NUMBERED street is skipped, that is a street word followed by a stop word, punctuation or the end
+// ("147 STREET between ..."). "350 ST NICHOLAS AVENUE", "25 COURT STREET" and "88 ST MARKS PLACE" are houses and become blocks.
+// F7: a house number never starts with 0 ("Great Lawn 02 Ditmars Blvd" is a lawn), and the part after a hyphen is captured so a Queens
+// house number ("33-15") is read as such (houseBlock).
 const HOUSE_ADDRESS_RE =
-  /(?<![-\d])\b(\d{1,6})(?:-\d{1,6})?\s+(?!block\b)(?!(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE)\b)((?:[NSEW]\.?\s+)?(?:(?!(?:km|mi|between|and|of)\b)[A-Za-z][A-Za-z'.-]*\s+){1,4}(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|CIR|CIRCLE|TER|TERRACE))\b/gi;
+  /(?<![-\d])\b([1-9]\d{0,5})(?:-(\d{1,6}))?\s+(?!block\b)(?!(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE)\b(?:\s*$|\s*[,;:)]|\s+(?:between|and|of|at|from|to|near)\b))((?:[NSEW]\.?\s+)?(?:(?!(?:km|mi|between|and|of)\b)[A-Za-z][A-Za-z'.-]*\s+){1,4}(?:ST|STREET|AVE|AVENUE|RD|ROAD|DR|DRIVE|BLVD|BOULEVARD|CT|COURT|LN|LANE|WAY|PL|PLACE|PKWY|PARKWAY|HWY|HIGHWAY|CIR|CIRCLE|TER|TERRACE))\b/gi;
 /** Round 24 FIX2 (review D4): families whose titles name a distance or a street span, never a house: their title is never rewritten. */
 // Event permits are NOT skipped (the reviewer suggested it): their titles do name house addresses ("33-15 DITMARS BOULEVARD"), and the
 // rewrite is what keeps those off a non-permit card. The three guards above fix the garbled event titles instead.
 const NO_BLOCK_REWRITE: readonly BriefFamily[] = ['quake'];
+/** Round 24 FIX3 (review-FIX2 F1): a house number before a numbered street ("841 58 STREET"). */
+const HOUSE_ON_NUMBERED_STREET_RE = /(?<![-\d])\b([1-9]\d{0,5})\s+(\d{1,3}(?:ST|ND|RD|TH)?\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|PL|PLACE|DR|DRIVE))\b/gi;
+
+/**
+ * The block a house number is printed as. A plain number is its hundred-block ("350" is the 300 block, "25" the 0-99 block). A range
+ * ("1801-2011") is read with its first number. Round 24 FIX3 (review-FIX2 F7): a New York City number whose part after the hyphen has
+ * two digits and is not above the first part ("33-15") is a Queens house number: the cross street, then the house. It is the "33-00"
+ * block, never the house and never "0-99".
+ */
+function houseBlock(num: string, after: string | undefined, nyc: boolean): string {
+  if (after && nyc && /^\d{2}$/.test(after) && num.length <= 3 && Number(after) <= Number(num)) return `${num}-00`;
+  const hundred = Math.floor(Number(num) / 100) * 100;
+  return hundred > 0 ? String(hundred) : '0-99';
+}
 
 /**
  * A title some feeds stored cut short ("...; Western Putnam; S…"): cut back to the last whole item or word, so a heading never ends
@@ -360,17 +378,19 @@ function displayTitle(it: DigestItem, lang: Lang): string {
   let title = withoutZeroCity(tidyCutTitle(noDash(localizeTitle(it.title, lang, it.source)).replace(/_+/g, ' ').replace(/ {2,}/g, ' ')));
   const fam = familyOf(it);
   if (fam !== 'permit' && !NO_BLOCK_REWRITE.includes(fam)) {
-    title = title.replace(HOUSE_ADDRESS_RE, (_m, num: string, street: string) => {
-      const hundred = Math.floor(Number(num) / 100) * 100;
-      return t(lang, 'sum.sale_block', { n: hundred > 0 ? String(hundred) : '0-99', street: street.trim() });
-    });
+    const nyc = /nyc/i.test(it.source ?? '') || /^New York City\b/i.test(it.place ?? '');
+    title = title
+      .replace(HOUSE_ON_NUMBERED_STREET_RE, (_m, num: string, street: string) => t(lang, 'sum.sale_block', { n: houseBlock(num, undefined, nyc), street: street.trim() }))
+      .replace(HOUSE_ADDRESS_RE, (_m, num: string, after: string | undefined, street: string) =>
+        t(lang, 'sum.sale_block', { n: houseBlock(num, after, nyc), street: street.trim() }));
   }
   return title;
 }
 
 /** Round 24 FIX2 (review P3-6): "Federal bid in 0, MI: ..." (a city stored as "0") reads "Federal bid in MI: ...". */
+// Round 24 FIX3 (review-FIX2 F8): any city that is only a number ("in 76525, MI", "in 3772, SC") is not a place either.
 export function withoutZeroCity(title: string): string {
-  return title.replace(/\b(in|en) 0, ([A-Z]{2})\b/g, '$1 $2');
+  return title.replace(/\b(in|en) \d+, ([A-Z]{2})\b/g, '$1 $2');
 }
 
 /** "7800 block of S AVALON AVE" in English, "cuadra 7800 de S AVALON AVE" in Spanish. Null when the part is not a hundred-block. */
