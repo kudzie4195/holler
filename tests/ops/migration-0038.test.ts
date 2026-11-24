@@ -4,9 +4,14 @@
 // the point of the whole migration — NOT ONE EXISTING PROFILE IS TOUCHED. Every trial_ends_at and every holler_lifecycle_sends row is
 // compared byte for byte before and after, with 60-day, 14-day and 7-day trials, running and ended, paying, store-billed and returning
 // members in the set. The app side of the same promise (lib/auth/trial.ts never cuts a 60-day trial back to 30) is checked here too.
-// Skips when PGlite is not installed.
+// Round 24 FIX2 (review D6): PGlite is not a dependency of this repo, so these cases are SKIPPED here, visibly: each case's name says it
+// needs PGlite. No dependency was added. The real check is the owner's: LAUNCH.md (NEEDS KUDZI, step 0038) has the two check queries.
 import fs from 'node:fs';
 import { expect, it } from 'vitest';
+
+/** A case that needs PGlite: runs when it is installed, otherwise is listed as skipped with a name that says why. */
+const pgCase = (name: string, fn: () => Promise<void>, timeout?: number) =>
+  hasPglite ? it(name, fn, timeout) : it.skip(`NEEDS PGlite (not installed, so NOT RUN): ${name}`, fn, timeout);
 import { bootDb, hasPglite } from '../moat/pg';
 import { TRIAL_DAYS, TRIAL_MAX_DAYS, trialCapFromStart, trialEndFromStart } from '../../lib/auth/membership';
 import { mayExtendTrial } from '../../lib/auth/trial';
@@ -31,7 +36,7 @@ async function sends(db: any): Promise<unknown[]> {
   return (await db.query(`select user_id::text u, kind from holler_lifecycle_sends order by 1, 2`)).rows;
 }
 
-it.skipIf(!hasPglite)('0038: 30 days in all three places, and every trial that already exists keeps its exact end date', async () => {
+pgCase('0038: 30 days in all three places, and every trial that already exists keeps its exact end date', async () => {
   const db = await bootDb('0037_zzz'); // the database as it is in production today (0028 applied: 60-day trials)
 
   // [n, stamp days ago | null | 'bad', created days ago, ends in days from now, extra columns]
@@ -131,7 +136,7 @@ it.skipIf(!hasPglite)('0038: 30 days in all three places, and every trial that a
   expect((await db.query(`select public.holler_trial_db_check() c`)).rows[0].c).toEqual({ default_days: 60, stamp_cap_days: 60, guard_cap_days: 60 });
 }, 90_000);
 
-it.skipIf(!hasPglite)('0038: a member inserting their own profile gets 30 days and cannot ask for more', async () => {
+pgCase('0038: a member inserting their own profile gets 30 days and cannot ask for more', async () => {
   const db = await bootDb('0038_zzz');
   const uid = id(30);
   await db.exec(`insert into auth.users (id, email) values ('${uid}', 'u30@example.test')`);

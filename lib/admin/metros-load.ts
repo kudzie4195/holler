@@ -82,20 +82,22 @@ async function readSampleCounts(db: Db, ids: readonly string[], now: Date): Prom
 async function readWaitlistZips(
   build: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>,
   maxPages: number,
-): Promise<{ zips: string[] | 'missing' | null; status: SectionStatus }> {
+): Promise<{ zips: string[] | 'missing' | null; trades: (string | null)[] | null; status: SectionStatus }> {
   try {
     // readPagesCapped throws the message only; keep the first error object to tell a missing table from a failure.
     let firstError: { code?: string; message: string } | null = null;
-    const r = await readPagesCapped<{ zip: string }>(async (from, to) => {
+    const r = await readPagesCapped<{ zip: string; trade?: string | null }>(async (from, to) => {
       const res = await build(from, to);
       if (res.error && !firstError) firstError = res.error;
       return res;
     }, maxPages).catch(() => null);
     const err = firstError as { code?: string; message: string } | null;
-    if (!r) return { zips: err && isSamplesTableMissing(err) ? 'missing' : null, status: 'unavailable' };
-    return { zips: r.rows.map((x) => x.zip).filter((z): z is string => typeof z === 'string'), status: r.partial ? 'partial' : 'ok' };
+    if (!r) return { zips: err && isSamplesTableMissing(err) ? 'missing' : null, trades: null, status: 'unavailable' };
+    const rows = r.rows.filter((x) => typeof x.zip === 'string');
+    // Round 24 FIX2 (review D8): the trade of each row, parallel to the ZIPs, so the admin view shows who waits for what.
+    return { zips: rows.map((x) => x.zip), trades: rows.map((x) => (typeof x.trade === 'string' ? x.trade : null)), status: r.partial ? 'partial' : 'ok' };
   } catch {
-    return { zips: null, status: 'unavailable' };
+    return { zips: null, trades: null, status: 'unavailable' };
   }
 }
 
@@ -166,7 +168,7 @@ export async function loadMetroReport(
   );
   const zip = await readWaitlistZips(
     (from, to) =>
-      db.from('holler_zip_waitlist').select('zip').not('confirmed_at', 'is', null).is('unsubscribed_at', null).order('id', { ascending: true }).range(from, to),
+      db.from('holler_zip_waitlist').select('zip,trade').not('confirmed_at', 'is', null).is('unsubscribed_at', null).order('id', { ascending: true }).range(from, to),
     maxPages,
   );
   status.areaWaitlist = area.status;
@@ -182,6 +184,7 @@ export async function loadMetroReport(
     samples,
     areaWaitlistZips: area.zips,
     zipWaitlistZips: zip.zips,
+    zipWaitlistTrades: zip.trades,
     status,
   });
 }

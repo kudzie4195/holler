@@ -87,6 +87,44 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    set it to `1` in Production and redeploy. Why: off, the notify cron sends exactly what it did before; on, a member with nothing to
    alert on for 7 days gets one short email (at most 150 a run, `last_notified_at` stamped), and nothing about it has been seen in a
    real inbox yet.
+7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
+   No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
+   when it is missing). An independent run executed 0038 twice on a database built from the live migration set
+   (gates log `PHASEA-rev-mig-live.log`). Copy-paste:
+   ```sql
+   -- 1. BEFORE 0038. Expected: {"default_days": 60, "guard_cap_days": 60, "stamp_cap_days": 60}
+   select public.holler_trial_db_check();
+   -- 2. BEFORE 0038: note each profile's trial end (expected today: 1 row, trialing, a 60-day trial).
+   select user_id, subscription_status, created_at, trial_ends_at from holler_profiles order by created_at;
+   -- run 0038_holler_trial_30.sql, then:
+   -- 3. AFTER 0038. Expected: {"default_days": 30, "guard_cap_days": 30, "stamp_cap_days": 30} (new rows get 30 days)
+   select public.holler_trial_db_check();
+   -- 4. AFTER 0038: the same rows as query 2, with trial_ends_at byte for byte unchanged (the one existing profile keeps its 60-day end).
+   select user_id, subscription_status, created_at, trial_ends_at from holler_profiles order by created_at;
+   -- 5. AFTER 0038: nobody was shortened. Expected: 0 (except someone who came back after deleting an account).
+   select count(*) from holler_profiles
+    where subscription_status = 'trialing' and stripe_subscription_id is null and trial_ends_at < created_at + interval '29 days';
+   ```
+8. NEEDS KUDZI (round 24 FIX2, review D8): run `0039_holler_zip_waitlist_trade.sql` any time (before or after the deploy; the code works
+   with and without it). Why: before it, the ZIP waitlist keeps one row per email and ZIP, so a second trade for the same ZIP is not
+   stored (the person gets an email saying they are already on the list for that ZIP, for the first trade). After it, each trade is its
+   own row. Check: `select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;` shows
+   `holler_zip_waitlist_email_zip_trade_idx` and no `holler_zip_waitlist_email_zip_idx`.
+9. NEEDS KUDZI (round 24 FIX2, review D8): nothing sends the "Holler is ready in your area" email. The waitlist pages and emails say "we
+   will email you" / "we will tell you"; that email is yours to send by hand when a place or a trade opens (no sender was built). Who is
+   waiting, by ZIP and trade (read only, Supabase SQL editor, copy-paste):
+   ```sql
+   select zip, state, coalesce(trade, '(no trade)') as trade, count(*) as waiting,
+          min(confirmed_at) as first_confirmed, max(confirmed_at) as last_confirmed
+     from holler_zip_waitlist
+    where confirmed_at is not null and unsubscribed_at is null and notified_at is null
+    group by zip, state, trade
+    order by waiting desc, zip, trade;
+   ```
+   The addresses for one ZIP and trade, when you send: `select email from holler_zip_waitlist where zip = '75201' and trade = 'lawn-care'
+   and confirmed_at is not null and unsubscribed_at is null and notified_at is null;` After sending, stamp them yourself:
+   `update holler_zip_waitlist set notified_at = now() where zip = '75201' and trade = 'lawn-care' and confirmed_at is not null and unsubscribed_at is null and notified_at is null;`
+   (the last one writes; run it only after the email went out).
 
 **Round 20 order** (one block for the four round 20 units: the would-pay scorecard, violation and inspection feeds with the NYC heat block contact, property sales, and known companies with licence files. Main e3a4fcc with rounds 18 and 19 is already live; their own block below still lists 0026 and 0027.)
 
@@ -284,6 +322,7 @@ _Round 20 page watch_ (owner items, unit WATCH: public bid and solicitation page
 - [ ] Run `supabase/migrations/0036_holler_contractor_licenses.sql` (round 20 LIC, optional; one new service-role-only table, `holler_contractor_licenses`: company contractor licensees loaded from state licence files, keyed by state and licence number, with the source and `fetched_at`; RLS on with no policy, nothing granted to anon or authenticated; safe to run twice and safe before or after the code deploy). Until it is applied the licence sync answers `table_missing` and writes nothing, and the permit lookup attaches nothing (no error). Person licensees are never written: the app drops every row whose licence holder does not pass the company rules before it sends anything. Check: `select count(*) from holler_contractor_licenses;` returns 0 or more with no error, and as the anon key the same query is denied. Rollback: `drop table holler_contractor_licenses;`.
 - [ ] Run `supabase/migrations/0037_holler_round_311_points.sql` (round 20 final review P2-1, optional one-time data fix, no schema change: rounds `lat` and `lon` of the rows of the 14 311 sources in `holler_signals` to 3 decimals, as the scan now stores every new 311 row; no other column or row is touched, nothing is granted; safe to run twice). Any time after the deploy, best 9 days after it (Round 20 order, step 10): a NYC heat complaint stored before the deploy then no longer needs its exact point for the per-building count. The code never needs it. Check: the query at the top of the file returns 0. Rollback: none needed (the exact points of old 311 rows are not kept; the public source still has them).
 - [ ] Run `supabase/migrations/0038_holler_trial_30.sql` (round 23, free trial 30 days: the `holler_profiles.trial_ends_at` column default, the stamp trigger `holler_profiles_trial_from_stamp` and the member-insert guard `holler_profiles_billing_guard` all move from 60 days to 30, and `holler_trial_db_check()` is re-created unchanged. It has NO extension block: unlike 0028 it reads and writes NOT ONE existing row, because every trial already running keeps its current end date (owner decision, round 23). The app side of the same promise is `TRIAL_MAX_DAYS` in `lib/auth/membership.ts`: the cut-back in `lib/auth/trial.ts` and the Stripe cap in `lib/stripe/scope.ts` are measured against 60 days, so a member still holding a 60-day trial is neither cut back on a page load nor charged early at Checkout. Safe to run twice. Run it BEFORE the round 23 deploy: until it runs the column default is still 60 days, so a brand-new member gets up to 60 days while the site says 30, which is more than promised and never less. If 0019 or 0028 is ever re-run, re-run 0038 right after it. Check: `select public.holler_trial_db_check();` shows 30 in all three places, and `select count(*) from holler_profiles where subscription_status = 'trialing' and stripe_subscription_id is null and trial_ends_at < created_at + interval '29 days';` is 0 except people who came back after deleting an account. Rollback: run 0028 again.)
+- [ ] Run `supabase/migrations/0039_holler_zip_waitlist_trade.sql` (round 24 FIX2, review D8: the ZIP waitlist becomes one row per (email, ZIP, trade), with rows that have no trade still one per (email, ZIP) through NULLS NOT DISTINCT; the new unique index is built first, then the old (email, zip) one is dropped. No row is read or changed. Safe before or after the deploy and safe to run twice: before it the code retries its insert on (email, zip) when Postgres answers 42P10. Check: `select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;` lists `holler_zip_waitlist_email_zip_trade_idx` and not `holler_zip_waitlist_email_zip_idx`. Rollback, only while no email has two rows for one ZIP: `create unique index holler_zip_waitlist_email_zip_idx on public.holler_zip_waitlist (email, zip); drop index public.holler_zip_waitlist_email_zip_trade_idx;`.)
 - [ ] Check right after running 0007, both must return 0: `select count(*) from holler_signals where right(source,12)='-inspections' and (summary is not null or title not like '%: food establishment');` and `select count(*) from holler_signals where source='usaspending' and summary like 'Awarded to %';`
 - [ ] After 0007, redeploy or expire the page cache: public pages are cached for up to 48 hours, so old names can stay visible until then.
 - [ ] Owner check after the feedback migration: run this report in the Supabase SQL editor (read only, last 30 days). Keep its intent mapping in step with `lib/signals/intent.ts` (`intentOf`).

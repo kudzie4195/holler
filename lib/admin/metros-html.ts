@@ -40,10 +40,17 @@ function metroBlock(m: MetroScore): string {
     : '';
   return (
     `<h2 id="${esc(m.id)}">${esc(m.label)}</h2>` +
-    `<p>${sourcesLine(m.sources)} Waitlist: ${num(m.waitlist.area)} on this site's list, ${num(m.waitlist.zipConfirmed)} confirmed on the earlier list.</p>` +
+    `<p>${sourcesLine(m.sources)} Waitlist: ${num(m.waitlist.area)} on this site's list, ${num(m.waitlist.zipConfirmed)} confirmed on the earlier list.${byTrade(m.waitlist.zipByTrade)}</p>` +
     probation +
     `<table><thead>${head}</thead><tbody><tr class="all"><th scope="row">All trades</th>${cells(m.cards)}</tr>${rows}</tbody></table>`
   );
+}
+
+/** Round 24 FIX2 (review D8): " By trade: lawn-care 2, plumbing 1." for the confirmed ZIP waitlist; nothing when it was not read. */
+function byTrade(rec: Record<string, number> | null | undefined): string {
+  if (!rec) return '';
+  const parts = Object.entries(rec).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([t, n]) => `${esc(t)} ${n}`);
+  return parts.length ? ` By trade: ${parts.join(', ')}.` : '';
 }
 
 export function renderMetrosHtml(r: MetroReport): string {

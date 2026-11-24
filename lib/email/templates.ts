@@ -906,6 +906,33 @@ export function renderVerifyEmail(opts: { verifyUrl: string; appUrl: string; tri
  * for that ZIP and trade is 'waitlist' while the ZIP is served). Then the email says the trade ("tell me when Holler has lawn care work
  * near Dallas, TX"), because "when Holler reaches Dallas" would be untrue: Holler is already there. Without it, the round 19 text.
  */
+/**
+ * Round 24 FIX2 (review D8): the email for a second sign-up with another trade for the same email and ZIP while the list keeps one row per
+ * (email, ZIP) (before migration 0039). It says the person is already on the list for that ZIP and for which trade, that the new trade was
+ * not added, and carries the stored row's confirm link when it is not confirmed yet. It never names the new trade as being on the list.
+ */
+export function renderWaitlistAlready(opts: { place: string; storedTrade: string | null; newTrade: string; confirmUrl: string | null; lang?: Lang }): Rendered {
+  const lang = opts.lang ?? 'en';
+  const place = noDash(opts.place);
+  const stored = opts.storedTrade ? tradeWords(opts.storedTrade, lang) : null;
+  const added = tradeWords(opts.newTrade, lang);
+  const subject = t(lang, 'wl.already.subject', { place });
+  const h = t(lang, 'wl.already.h', { place });
+  const body = stored ? t(lang, 'wl.already.body_trade', { place, stored, added }) : t(lang, 'wl.already.body', { place, added });
+  const button1 = t(lang, 'wl.confirm.button');
+  const note = t(lang, 'wl.email.note');
+  const html =
+    (lang === 'en' ? WRAP_OPEN : wrapOpen(560, lang)) +
+    `<h1 style="${S.h1};margin:0 0 12px 0">${escapeHtml(h)}</h1>` +
+    `<p>${escapeHtml(body)}</p>` +
+    (opts.confirmUrl ? button(opts.confirmUrl, button1) + `<p style="${S.muted}">${escapeHtml(note)}${contactHtml(lang)}</p>` : `<p style="${S.muted}">${contactHtml(lang).replace(/^\s+/, '')}</p>`) +
+    cardClose() +
+    postalFooterHtml(lang) +
+    WRAP_CLOSE;
+  const text = `${h}\n\n${body}\n\n${opts.confirmUrl ? `${button1}: ${opts.confirmUrl}\n\n${note}\n` : ''}${contactText(lang)}\n${postalFooterText(lang)}\n`;
+  return { subject, html, text };
+}
+
 export function renderWaitlistConfirm(opts: { confirmUrl: string; place: string; lang?: Lang; trade?: string | null }): Rendered {
   // Round 19 integration: words from lib/i18n (wl.email.*); English is the round 19 text unchanged, Spanish only when asked for.
   const lang = opts.lang ?? 'en';
