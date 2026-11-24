@@ -105,16 +105,23 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    select count(*) from holler_profiles
     where subscription_status = 'trialing' and stripe_subscription_id is null and trial_ends_at < created_at + interval '29 days';
    ```
-8. NEEDS KUDZI (round 24 FIX2, review D8): run `0039_holler_zip_waitlist_trade.sql` any time (before or after the deploy; the code works
-   in every state below), THEN drop the old index by hand. 0039 only ADDS the unique (email, zip, trade) index: migrations in this
-   repo never drop an index (tests/signals/core/migration.test.ts), so the old unique (email, zip) index is yours to drop. Until it is
-   dropped the ZIP waitlist keeps one row per email and ZIP: a second trade for the same ZIP is not stored, and the person gets an
-   email saying they are already on the list for that ZIP and for which trade. After the drop each trade is its own row. Copy-paste,
-   after 0039:
+8. NEEDS KUDZI (round 24 FIX2, review D8; FIX3, review F2): run `0039_holler_zip_waitlist_trade.sql` any time (before or after the
+   deploy; the code works with 0039 applied and the old index still there). 0039 only ADDS the unique (email, zip, trade) index:
+   migrations in this repo never drop an index (tests/signals/core/migration.test.ts), so the old unique (email, zip) index is yours to
+   drop. Until it is dropped the ZIP waitlist keeps one row per email and ZIP: a second trade for the same ZIP is not stored, and the
+   person gets an email saying they are already on the list for that ZIP and for which trade. After the drop each trade is its own row.
+   **Drop the old index only when BOTH are true: 0039 is applied AND this deploy is live in production.** The code that is live today
+   saves on (email, zip); without the old index every sign-up fails and the form answers "unavailable". The same happens if the drop
+   runs before 0039. **If you roll the deploy back after the drop, the waitlist form stops saving until you redeploy this branch.** The
+   block below refuses to drop when 0039 is missing; it cannot see which deploy is live, so check that yourself first. Copy-paste:
    ```sql
    -- expected before: holler_zip_waitlist_email_zip_idx and holler_zip_waitlist_email_zip_trade_idx both listed
    select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;
-   drop index if exists public.holler_zip_waitlist_email_zip_idx;
+   do $$ begin
+     if not exists (select 1 from pg_indexes where schemaname = 'public' and indexname = 'holler_zip_waitlist_email_zip_trade_idx')
+     then raise exception 'Run 0039 first'; end if;
+     drop index if exists public.holler_zip_waitlist_email_zip_idx;
+   end $$;
    -- expected after: holler_zip_waitlist_email_zip_trade_idx listed, holler_zip_waitlist_email_zip_idx gone
    select indexname from pg_indexes where tablename = 'holler_zip_waitlist' order by 1;
    ```
@@ -130,9 +137,14 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
     order by waiting desc, zip, trade;
    ```
    The addresses for one ZIP and trade, when you send: `select email from holler_zip_waitlist where zip = '75201' and trade = 'lawn-care'
-   and confirmed_at is not null and unsubscribed_at is null and notified_at is null;` After sending, stamp them yourself:
+   and confirmed_at is not null and unsubscribed_at is null and notified_at is null;` People who joined without a trade wait for the whole
+   ZIP; the query above does not return them (FIX3, review F9). When the ZIP opens for any trade, also read them:
+   `select email from holler_zip_waitlist where zip = '75201' and trade is null and confirmed_at is not null and unsubscribed_at is null and notified_at is null;`
+   After sending, stamp them yourself:
    `update holler_zip_waitlist set notified_at = now() where zip = '75201' and trade = 'lawn-care' and confirmed_at is not null and unsubscribed_at is null and notified_at is null;`
-   (the last one writes; run it only after the email went out).
+   and, if you wrote to the whole-ZIP people too:
+   `update holler_zip_waitlist set notified_at = now() where zip = '75201' and trade is null and confirmed_at is not null and unsubscribed_at is null and notified_at is null;`
+   (the two updates write; run them only after the email went out).
 
 **Round 20 order** (one block for the four round 20 units: the would-pay scorecard, violation and inspection feeds with the NYC heat block contact, property sales, and known companies with licence files. Main e3a4fcc with rounds 18 and 19 is already live; their own block below still lists 0026 and 0027.)
 
