@@ -200,7 +200,7 @@ export function categorize(ds: Pick<SocrataDataset, 'subtype'> & { extraRules?: 
  * of its text and title columns are descriptions (read, never printed). Returns the trades and the fixed title label together.
  */
 export function classifyPermitRow(
-  ds: { city: string; textFields: string[]; titleFields: string[]; mixedTextFields?: string[] },
+  ds: { id?: string; city: string; textFields: string[]; titleFields: string[]; mixedTextFields?: string[] },
   get: (field: string) => string,
 ): { categories: CategoryId[]; label: string | null } {
   const fields = [...new Set([...ds.textFields, ...ds.titleFields])];
@@ -209,7 +209,7 @@ export function classifyPermitRow(
   const free = fields.filter((f) => !isStructuredField(f) && !mixedSet.has(f)).map(get).filter(Boolean);
   // Columns that mix a street address, a description and a name: only unambiguous work phrases count (lib/signals/mapping/permit.ts).
   const mixed = fields.filter((f) => mixedSet.has(f)).map(get).filter(Boolean);
-  const c = classifyPermit({ structured, free, mixed }, ds.city);
+  const c = classifyPermit({ structured, free, mixed, source: ds.id }, ds.city);
   return { categories: c.categories, label: c.label };
 }
 

@@ -212,6 +212,18 @@ export const isFireProtectionPermit = (sig: LabelInput) => sumParts(sig.summary)
 const SUB_PERMIT_LABELS = ['hvac', 'plumbing', 'electrical', 'water heater'];
 /** Line 56: a summary that states a residential class. */
 const RESIDENTIAL_CLASS_RE = /\bresidential\b|single[\s-]?family|\bduplex\b|\btownho(?:me|use)s?\b|\bdwelling\b|\(r\)/i;
+/**
+ * Round 28 review: Austin (permit_class_mapped) and Raleigh (permitclassmapped) print a bare "Residential" on EVERY residential permit, a
+ * pool, carport, retaining wall or porch included (Austin permit classes R-329, R-330 and R-438: 69 of the 250 new residential building
+ * permits issued in the 30 days to 2026-11-24). On these sources that bare part does not state a new home; a part that names a dwelling
+ * ("New Residential Dwelling") still does. "Non-Residential" never states one.
+ */
+const MAPPED_CLASS_SOURCES: ReadonlySet<string> = new Set(['socrata-austin-permits', 'arcgis-raleigh-permits']);
+const BARE_MAPPED_CLASS_RE = /^(?:non[\s-]?)?residential$/i;
+const statesResidentialClass = (s: LabelInput) =>
+  MAPPED_CLASS_SOURCES.has(s.source ?? '')
+    ? sumParts(s.summary).some((p) => !BARE_MAPPED_CLASS_RE.test(p) && RESIDENTIAL_CLASS_RE.test(p))
+    : RESIDENTIAL_CLASS_RE.test(s.summary ?? '');
 /** Line 61: a pool permit whose structured type is site grading is not a pool build (live row 2482, a $92 grading permit). */
 const NOT_A_POOL_PART_RE = /^(?:grading|engineering|earth\s?work|site\s?work)$/i;
 
@@ -1011,7 +1023,7 @@ export const RULES: readonly LabelRule[] = [
     routes: ['new-build'],
     when: (s) => {
       const f = permitFacts(s);
-      return f.labels.includes('new construction') && !f.labels.includes('new home') && !RESIDENTIAL_CLASS_RE.test(s.summary ?? '');
+      return f.labels.includes('new construction') && !f.labels.includes('new home') && !statesResidentialClass(s);
     },
     downstream: true,
     line: 56,

@@ -820,8 +820,9 @@ export const SOCRATA_DATASETS: SocrataDataset[] = [
     id: 'socrata-austin-permits', city: 'Austin', state: 'TX', tz: 'America/Chicago', domain: 'data.austintexas.gov', datasetId: '3syk-w9eu',
     kind: 'permit', subtype: 'permit', idField: 'permit_number', dateField: 'issue_date', latField: 'latitude', lonField: 'longitude',
     titleFields: ['description', 'permit_type_desc'], textFields: ['description', 'permit_type_desc', 'work_class', 'permit_class_mapped'],
-    summaryFields: ['permit_type_desc', 'work_class', 'total_job_valuation'], addressFields: ['original_address1'], zipField: 'original_zip',
+    summaryFields: ['permit_type_desc', 'work_class', 'permit_class_mapped', 'total_job_valuation'], addressFields: ['original_address1'], zipField: 'original_zip',
     cadenceMinutes: 360, verified: true, verifiedUrl: D('data.austintexas.gov', '3syk-w9eu'), fieldSource: 'sourced',
+    note: 'Round 28: permit_class_mapped (only "Commercial" or "Residential" in the 30 days to 2026-11-24, read from the SODA API $group query) is a summary part, so routing (permit-routing.ts applyRecordClass) and the property filter (work-profile.ts) see the class. Before, it was classifier text only and a $60M commercial build routed to movers and lawn care.',
   },
   {
     id: 'socrata-austin-311', city: 'Austin', state: 'TX', tz: 'America/Chicago', domain: 'data.austintexas.gov', datasetId: 'xwdj-i9he',

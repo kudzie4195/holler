@@ -174,8 +174,11 @@ export function summaryParts(summary: string | null | undefined): string[] {
 /** Sources whose every row is a commercial permit (the Cobb commercial feed carries no use column, the dataset itself is the class). */
 const COMMERCIAL_SOURCES: ReadonlySet<string> = new Set(['arcgis-cobb-commercial-permits']);
 
-/** A part that names a building that is not a home: commercial, industrial, office, retail, warehouse, apartments, mixed use, "(C)". */
-const NON_RESIDENTIAL_PART_RE = /\bcommercial\b|\bindustrial\b|\(c\)|\bbusiness\b|\boffice\b|\bmercantile\b|\bretail\b|\bwarehouse\b|multi[\s-]?family|\bapartments?\b|\bmixed[\s-]use\b/i;
+/**
+ * A part that names a building that is not a home: commercial, industrial, office, retail, warehouse, apartments, mixed use, "(C)", and
+ * Raleigh's permitclassmapped value "Non-Residential" (round 28; work-profile.ts reads the same value as a business property).
+ */
+const NON_RESIDENTIAL_PART_RE = /\bnon[\s-]?residential\b|\bcommercial\b|\bindustrial\b|\(c\)|\bbusiness\b|\boffice\b|\bmercantile\b|\bretail\b|\bwarehouse\b|multi[\s-]?family|\bapartments?\b|\bmixed[\s-]use\b/i;
 const ALTER_PART_RE = /\b(?:addition|alterations?|alter|remodel\w*|renovation|repairs?)\b/i;
 const ACCESSORY_PART_RE = /\baccessory\b/i;
 const MASONRY_PART_RE = /\bmasonry\b|\btuck\s?point/i;
