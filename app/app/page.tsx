@@ -300,7 +300,7 @@ async function loadDashboard() {
       managerName: s.managerName ?? null,
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : null,
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, new Date(now), lang) : null,
     };
     const storm = stormLinks.get(s.id);
     if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);

@@ -2,6 +2,7 @@ import type { CategoryId } from './categories';
 import { formatRecordDate, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { isPaperworkOrder } from './carry';
 import { bidSourceLinkLabel } from './bid-card';
+import { ERATE_SOURCE_ID } from './bid-sources';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
@@ -49,6 +50,7 @@ export type BriefFamily =
   | 'federal-bid'
   | 'federal-award'
   | 'city-bid'
+  | 'school-bid'
   | 'public-post'
   | 'resident-request'
   | 'sale'
@@ -70,6 +72,7 @@ export const BRIEF_FAMILIES: readonly BriefFamily[] = [
   'federal-bid',
   'federal-award',
   'city-bid',
+  'school-bid',
   'public-post',
   'resident-request',
   'sale',
@@ -127,6 +130,8 @@ const SUBTYPE_FAMILY: Record<string, BriefFamily> = {
 export function briefFamilyOf(sig: BriefInput): BriefFamily {
   const source = norm(sig.source);
   if (SOURCE_FAMILY[source]) return SOURCE_FAMILY[source];
+  // Round 33: an E-Rate request is a school or library asking for bids, not a city (lib/signals/adapters/erate.ts).
+  if (source === ERATE_SOURCE_ID) return 'school-bid';
   if (source.startsWith('bids-')) return 'city-bid';
   // Socrata, ArcGIS and Carto ids end in what the dataset is: socrata-chicago-311, arcgis-dekalb-violations, carto-phl-business ...
   const tail = source.replace(/^(?:socrata|arcgis|carto)-.*?-(permits|311|violations|inspections|business|events|sales)$/, '$1');
@@ -397,6 +402,10 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'city-bid': {
     act_now: (w) => `A city bid matching ${w} is open; nothing is awarded.`,
   },
+  // Round 33 (E-Rate): names the work the request is about (cabling), not the member's trade, and never who may bid.
+  'school-bid': {
+    act_now: () => 'A school or library is asking for bids on cabling; nothing is awarded.',
+  },
   'public-post': {
     act_now: (w) => `Someone posted publicly asking for ${w} nearby.`,
   },
@@ -602,6 +611,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   'federal-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'your eligibility is not known' } },
   'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids' } },
   'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'who may respond is not known' } },
+  'school-bid': { base: { confidence: 'High', known: 'the request is listed', unknown: 'who may respond is not known' } },
   'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'the author is unchecked' } },
   'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'details are unchecked' } },
   sale: { base: { confidence: 'High', known: 'the sale was recorded', unknown: 'the need is not known' } },
@@ -628,6 +638,7 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'federal-bid': "Check the due date and the buyer's bid page.",
   'federal-award': 'Check who won and how large the contract is.',
   'city-bid': "Check the due date and the buyer's bid page.",
+  'school-bid': "Check the deadline and the request's public page.",
   'public-post': 'Read the whole post before you reply.',
   'resident-request': 'Reply through Holler if it fits what you do.',
   // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.
@@ -901,6 +912,7 @@ function sourceOfFamily(f: BriefFamily): string {
     business: 'socrata-chicago-business',
     'event-permit': 'socrata-chicago-events',
     'city-bid': 'bids-sf',
+    'school-bid': 'bids-erate',
   };
   return bySubtype[f] ?? 'unknown-source';
 }

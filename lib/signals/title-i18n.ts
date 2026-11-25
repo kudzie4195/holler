@@ -1,6 +1,7 @@
 import { PAGE_WATCH_DATASETS } from './adapters/page-watch-datasets';
 import { t, hasKey, type DictKey, type Lang } from '@/lib/i18n';
 import { CATEGORIES } from '@/lib/signals/categories';
+import { ERATE_WHO_EN, ERATE_WORK_EN, type ErateWho, type ErateWork } from './adapters/erate-config';
 
 /**
  * Record titles in the member's language (round 17, unit ES, redo 1).
@@ -231,6 +232,13 @@ const FREE_TEXT_SOURCES = /^(?:bluesky|websearch)/i;
 
 const lc = (s: string) => s.toLowerCase();
 
+const ERATE_WHO_IDS = Object.keys(ERATE_WHO_EN) as ErateWho[];
+const ERATE_WORK_IDS = Object.keys(ERATE_WORK_EN) as ErateWork[];
+/** The English E-Rate title (erateTitle): who, place, work. */
+const ERATE_TITLE = new RegExp(
+  `^A (${Object.values(ERATE_WHO_EN).join('|')}) in (.+?) is asking for bids on (${Object.values(ERATE_WORK_EN).join('|')})$`,
+);
+
 /** The template a title was built from, with its fields. `lang` decides only how Holler's own words inside the fields are said. */
 /** Agencies of the page-watch sources, longest first (their names may hold brackets). */
 const PAGE_WATCH_AGENCIES: readonly string[] = [...new Set(PAGE_WATCH_DATASETS.map((d) => d.agency))].sort((a, b) => b.length - a.length);
@@ -251,6 +259,14 @@ function parse(title: string, lang: Lang, source: string | null | undefined): Pa
   }
   if ((m = /^Federal bid in (.+?): (.*)$/.exec(title))) return { key: 'title.fed_bid', vars: { place: m[1], text: m[2] } };
   if ((m = /^Open bid in (.+?): (.*)$/.exec(title))) return { key: 'title.open_bid', vars: { place: placeLang(m[1], lang), text: m[2] } };
+  // Round 33 E-Rate (lib/signals/adapters/erate-config.ts erateTitle): "A school in Astoria is asking for bids on network cabling". The who and the
+  // work are Holler's own words, said with the dictionary; the place is the institution's own city.
+  const erate = ERATE_TITLE.exec(title);
+  if (erate) {
+    const who = ERATE_WHO_IDS.find((id) => ERATE_WHO_EN[id] === erate[1]);
+    const work = ERATE_WORK_IDS.find((id) => ERATE_WORK_EN[id] === erate[3]);
+    if (who && work) return { key: 'title.erate', vars: { who: t(lang, `erate.who.${who}` as DictKey), place: erate[2], work: t(lang, `erate.work.${work}` as DictKey) } };
+  }
   // Round 20 page watch: "Bid: <title> (<agency>)". The title and the agency's name are the agency's own words and stay as printed.
   if (title.startsWith('Bid: ') && title.endsWith(')')) {
     // The agency's name may hold brackets of its own ("Dallas Area Rapid Transit (DART)"): match a known page-watch agency first.

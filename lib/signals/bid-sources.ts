@@ -15,6 +15,14 @@ export const BIDS_FLAG = 'HOLLER_BIDS_ENABLED';
  * needed: HOLLER_BIDS_ENABLED, HOLLER_LOCAL_BIDS_ENABLED and FIRECRAWL_API_KEY.
  */
 export const LOCAL_BIDS_FLAG = 'HOLLER_LOCAL_BIDS_ENABLED';
+/**
+ * Round 33: the E-Rate school and library network bids (lib/signals/adapters/erate.ts) have their OWN switch on top of HOLLER_BIDS_ENABLED,
+ * like the Firecrawl agency feeds: the adapter runs only with both on, and its rows are hidden from members while HOLLER_BIDS_ENABLED is
+ * off (they are bid rows like any other). Default off.
+ */
+export const ERATE_FLAG = 'HOLLER_ERATE_ENABLED';
+/** The E-Rate source id (starts with "bids-", so every bid rule in this file applies to it). */
+export const ERATE_SOURCE_ID = 'bids-erate';
 
 /** Every city-bid source id the code knows. A source can be configured here and still be disabled (see city-bids.ts `verified`). */
 export const BID_SOURCE_IDS: readonly string[] = [
@@ -27,6 +35,8 @@ export const BID_SOURCE_IDS: readonly string[] = [
   'bids-rockdale',
   'bids-tucker',
   'bids-dunwoody',
+  // Round 33: USAC E-Rate FCC Form 470 requests from schools and libraries (lib/signals/adapters/erate.ts).
+  ERATE_SOURCE_ID,
   // Round 20 page watch (lib/signals/adapters/page-watch-datasets.ts): public bid pages read with a plain fetch, on probation.
   ...PAGE_WATCH_IDS,
 ];
@@ -43,6 +53,11 @@ export function bidsEnabled(value: string | undefined = process.env[BIDS_FLAG]):
 
 /** The Firecrawl agency feeds' own switch, same on-values as the bids flag. Read at call time. */
 export function localBidsEnabled(value: string | undefined = process.env[LOCAL_BIDS_FLAG]): boolean {
+  return ON.has((value ?? '').trim().toLowerCase());
+}
+
+/** The E-Rate switch, same on-values as the bids flag. Read at call time. */
+export function erateEnabled(value: string | undefined = process.env[ERATE_FLAG]): boolean {
   return ON.has((value ?? '').trim().toLowerCase());
 }
 

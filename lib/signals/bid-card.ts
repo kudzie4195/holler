@@ -6,6 +6,7 @@
  * is eligible, or is being chosen: a source can name a bid without saying who is allowed to answer it.
  */
 import { localizeDate, t, type Lang } from '@/lib/i18n';
+import { ERATE_SOURCE_ID } from './bid-sources';
 
 export const BID_LABEL = 'Open bid';
 export const BID_SOURCE_LINK_LABEL = 'Open the public source';
@@ -49,16 +50,19 @@ export function daysLeftText(expiresAt: string | null | undefined, now: Date, la
   return days === 1 ? t(lang, 'bid.day_left') : t(lang, 'bid.days_left', { n: days });
 }
 
-/** "Due Dec 10, 2026, 19 days left" or "No due date published". */
-export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en'): string {
+/**
+ * "Due Dec 10, 2026, 19 days left" or "No due date published". An E-Rate request (`until`) says "Bids accepted until Dec 10, 2026, 19 days
+ * left": its date is the earliest day a contract may be signed, not a due time, so the words say what the date is.
+ */
+export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en', until = false): string {
   const date = formatDueDate(b.dueDate, lang);
   const left = daysLeftText(b.expiresAt, now, lang);
   if (!date && !left) return t(lang, 'bid.none');
-  return [date ? t(lang, 'bid.due', { date }) : null, left].filter((p) => p).join(', ');
+  return [date ? t(lang, until ? 'bid.until' : 'bid.due', { date }) : null, left].filter((p) => p).join(', ');
 }
 
 /** The one line under the label on a bid card: "Buyer: Water & Power. Due Dec 10, 2026, 19 days left." */
-export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en'): string {
+export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null; source?: string | null }, now: Date, lang: Lang = 'en'): string {
   const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `${t(lang, 'bid.buyer', { buyer: b.buyer.trim() })} ` : '';
-  return `${buyer}${bidDueText(b, now, lang)}.`;
+  return `${buyer}${bidDueText(b, now, lang, b.source === ERATE_SOURCE_ID)}.`;
 }

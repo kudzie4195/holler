@@ -382,7 +382,7 @@ export async function GET(req: Request) {
         permitStage: s.permitStage ?? null,
         permitStageAt: s.permitStageAt ?? null,
         permitStageUpdate: isStageUpdate(s),
-        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : null,
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, now, lang) : null,
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,
       }));

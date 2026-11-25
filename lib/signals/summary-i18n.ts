@@ -1,6 +1,7 @@
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { naicsSectorLang, permitLabelLang } from '@/lib/signals/title-i18n';
 import { ALSO_CITED_PREFIX, HEAT_MARK } from '@/lib/signals/carry';
+import { ERATE_SUMMARY_KIND } from './adapters/erate-config';
 
 /**
  * Record summaries in the member's language (round 17, unit ES, redo 2). Same approach as title-i18n.ts.
@@ -134,6 +135,9 @@ function partLang(part: string, lang: Lang, source: string): string {
   if ((m = /^responses due (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.resp_due', { date: dayEs(m[1]) });
   if ((m = /^due (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.due', { date: dayEs(m[1]) });
   if (part === 'no due date published') return t(lang, 'sum.no_due');
+  // Round 33 E-Rate (lib/signals/adapters/erate-config.ts): Holler's own two parts; the institution's name, the other part, is kept as written.
+  if ((m = /^bids accepted until (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.until', { date: dayEs(m[1]) });
+  if (part === ERATE_SUMMARY_KIND) return t(lang, 'sum.erate_kind');
   // Round 19 RULES (lib/signals/repeat-marks.ts): the per-building heat count and the other orders of one code-violation visit. The orders
   // are the records' own words and stay as written.
   if (part === HEAT_MARK) return t(lang, 'sum.heat_building');
