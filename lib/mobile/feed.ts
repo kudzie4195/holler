@@ -24,6 +24,7 @@ import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { VALUE_SELECT, jobValueOf } from '@/lib/signals/permit-value';
 import { STAGE_SELECT } from '@/lib/signals/stage';
+import { WEATHER_SELECT, weatherCardFields, weatherFactsOf } from '@/lib/signals/weather-hazard';
 import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type MatchStatus } from './types';
 
 /**
@@ -34,7 +35,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},${WEATHER_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`;
 
 /** MATCH_SELECT without alert_hold, for a database without migration 0027. */
 export const MATCH_SELECT_BEFORE_0027 = MATCH_SELECT.replace('alert_hold,', '');
@@ -80,6 +81,9 @@ export interface SignalRow {
   /** Permits: data.permitStage and data.permitStageAt (STAGE_SELECT, migration 0025 feature). Absent before it and on rows with no stage update. */
   permitStage?: string | null;
   permitStageAt?: string | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's CAP hail size and gust, text form). Read only while HOLLER_HAIL_ROUTING_ENABLED is on. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
 }
 
 export interface MatchRow {
@@ -172,8 +176,8 @@ export function areaContactParts(s: { source: string; kind: string }, list: Cont
  * title and summary (part 1); a locked member's brief is built WITHOUT the record's text (the alert's own title and summary are masked for them, and the brief must not leak a permit type, a contract's work or storm remarks). The link is the record's page, else the dataset's home page; a locked member gets the home page only.
  */
 function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): BriefDto {
-  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, deps.trades ?? []);
-  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue, permitStage: deps.locked ? null : s.permitStage, permitStageAt: deps.locked ? null : s.permitStageAt });
+  const trade = tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, weather: weatherFactsOf(s) }, s.categories, deps.trades ?? []);
+  const b = cardBrief({ source: s.source, kind: s.kind, subtype: s.subtype, title: deps.locked ? null : s.title, summary: deps.locked ? null : s.summary, label, trade, url: deps.locked ? null : s.url, occurredAt: s.occurred_at, base: deps.siteUrl, managerName: deps.locked ? null : s.managerName, managerRole: deps.locked ? null : s.managerRole, jobValue: deps.locked ? null : s.jobValue, permitStage: deps.locked ? null : s.permitStage, permitStageAt: deps.locked ? null : s.permitStageAt, ...(deps.locked ? { alertHailIn: null, alertGustMph: null } : weatherCardFields(s)) });
   return {
     why: b.why,
     next: b.next,
@@ -183,6 +187,7 @@ function briefDto(s: SignalRow, label: OpportunityLabel, deps: BuildDeps): Brief
     ...(b.managedBy ? { managedBy: b.managedBy } : {}),
     valueLine: b.valueLine,
     ...(b.stageLine ? { stageLine: b.stageLine } : {}),
+    ...(b.alertLine ? { alertLine: b.alertLine } : {}),
   };
 }
 
@@ -226,7 +231,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
   }
   return live.map((m) => {
     const s = signalOf(m)!;
-    const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+    const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) }, { subtype: s.subtype });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
     const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source, summary: s.summary, setAside: s.samSetAside };
@@ -262,7 +267,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s, m.status), deps),
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, deps.lang ?? 'en'),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, new Date(deps.now)) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, deps.lang ?? 'en'),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,

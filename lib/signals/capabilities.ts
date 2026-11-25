@@ -21,6 +21,8 @@ import {
 import { ARCGIS_DATASETS } from './adapters/arcgis-datasets';
 import { DOWNSTREAM } from './permit-routing';
 import { NO_LIVE_SOURCE_TRADES } from './lead-rules';
+import { BUSINESS_FIX_TRADES } from './mapping/business';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 /**
  * What Holler can really deliver, derived from the adapters' own rule tables and dataset configs (imported, never copied).
@@ -81,7 +83,9 @@ const TAGGED: Record<SignalTypeId, CategoryId[]> = {
   permit: [...fromRules(PERMIT_RULES), ...ROUTED_PERMIT_TRADES],
   '311': fromRules(CIVIC_RULES),
   inspection: fromRules(INSPECTION_RULES),
-  business: fromRules(BUSINESS_RULES),
+  // Round 33: with HOLLER_BUSINESS_TAG_FIX_ENABLED on (read when this module loads, as every other env switch of a deployment), a licence is
+  // tagged by its own type, so only these trades can come from one; locksmith, insurance, business-services, cleaning and hvac cannot.
+  business: businessTagFixEnabled() ? [...BUSINESS_FIX_TRADES] : fromRules(BUSINESS_RULES),
   violation: fromRules(VIOLATION_RULES),
   event: TICKETMASTER_TRADES,
   'event-permit': fromRules(EVENT_RULES),

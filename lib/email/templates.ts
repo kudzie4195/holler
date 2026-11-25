@@ -82,6 +82,9 @@ export interface DigestItem {
   permitStageAt?: string | null;
   /** Permits: data.permitStageUpdate, true on a record whose stage changed after it was stored. The item then reads "Stage update", never "new". */
   permitStageUpdate?: unknown;
+  /** Round 33: the hail size (inches) and gust (mph) an NWS alert names, for the alert line (brief.ts alertLineFor). Null while the switch is off. */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
 }
 
 export interface Rendered {
@@ -141,7 +144,7 @@ export function digestLinkLabel(it: Pick<DigestItem, 'source' | 'sourceUrl'>, ba
 
 /** The brief (parts 2 to 5) for a digest item. The link is the record's own page, else the dataset's home page: never no link. */
 export function digestBrief(it: DigestItem, base: string = siteUrl, lang: Lang = 'en'): CardBrief & { href: string | null; linkText: string } {
-  const b = cardBriefLang({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, managerName: it.managerName, managerRole: it.managerRole, jobValue: it.jobValue, permitStage: it.permitStage, permitStageAt: it.permitStageAt }, lang);
+  const b = cardBriefLang({ source: it.source ?? '', kind: it.kind, subtype: it.subtype, title: it.title, summary: it.summary, label: it.label, trade: it.trade, url: it.sourceUrl, occurredAt: it.occurredAt, base, managerName: it.managerName, managerRole: it.managerRole, jobValue: it.jobValue, permitStage: it.permitStage, permitStageAt: it.permitStageAt, alertHailIn: it.alertHailIn, alertGustMph: it.alertGustMph }, lang);
   const own = safeUrl(it.sourceUrl);
   // The link label keeps the digest's own rule: "Open the request form" for a resident request (known by source or by its /request link).
   return { ...b, href: safeUrl(b.source.href), linkText: own ? digestLinkLabel(it, base, lang) : b.source.linkText };
@@ -477,6 +480,7 @@ export function digestWhat(it: DigestItem, lang: Lang = 'en'): string {
     'big-event': 'email.what.event',
     'federal-bid': 'email.what.bid',
     'city-bid': 'email.what.bid',
+    'school-bid': 'email.what.bid',
     'federal-award': 'email.what.award',
     'public-post': 'email.what.post',
     'resident-request': 'email.what.request',
@@ -537,6 +541,8 @@ export function digestAction(it: DigestItem, appUrl: string, lang: Lang = 'en'):
 function digestReasons(it: DigestItem, br: CardBrief, lang: Lang): string[] {
   const stage = isUpdateItem(it) ? stageUpdateLine(it.permitStage, it.permitStageAt, lang) : br.stageLine;
   const why = it.note && lang === 'en' ? noDash(it.note) : quotedOrderLang(noDash(br.why), lang);
+  // Round 33: an NWS alert's own hail size and gust go first (HOLLER_HAIL_ROUTING_ENABLED; null otherwise).
+  if (br.alertLine) return [noDash(br.alertLine), why];
   return stage ? [noDash(stage), why] : [why];
 }
 
@@ -564,7 +570,7 @@ const HONESTY_KINDS: readonly { key: DictKey; families: readonly BriefFamily[] }
   { key: 'email.honesty.permit', families: ['permit'] },
   { key: 'email.honesty.violation', families: ['violation', 'inspection'] },
   { key: 'email.honesty.311', families: ['311'] },
-  { key: 'email.honesty.bid', families: ['federal-bid', 'city-bid', 'federal-award'] },
+  { key: 'email.honesty.bid', families: ['federal-bid', 'city-bid', 'school-bid', 'federal-award'] },
   { key: 'email.honesty.business', families: ['business', 'sale'] },
   { key: 'email.honesty.request', families: ['resident-request', 'public-post'] },
   { key: 'email.honesty.weather', families: ['weather-alert', 'storm-report', 'disaster', 'quake'] },

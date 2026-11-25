@@ -14,7 +14,9 @@
  * orders of one code-violation visit) are applied to the rows first, with the same pure functions the scan calls, as if every row arrived
  * in time order. The heat count is also run in three other arrival orders (review P2-5) to show it gives the same buildings.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { parseSocrataReport } from '../lib/signals/adapters/socrata';
+import { SOCRATA_DATASETS } from '../lib/signals/adapters/socrata-datasets';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { CATEGORY_IDS, type CategoryId } from '../lib/signals/categories';
 import { cannotBeDelivered, isAlertLabel, labelFor, RULES, ruleFor, SOURCE_DEFAULTS, type LabelInput, type OpportunityLabel } from '../lib/signals/lead-rules';
@@ -38,7 +40,9 @@ import {
   withAlsoCited,
   type TimelineRow,
 } from '../lib/signals/repeat-marks';
+import { businessTagFixEnabled, retagStoredBusinessRow } from '../lib/signals/mapping/business';
 import { RULE_CHOICE_QUESTIONS, RULE_CHOICES, withRuleChoices } from '../lib/signals/rule-choices';
+import { weatherFactsOf } from '../lib/signals/weather-hazard';
 
 const ROWS = process.argv[2] ?? '/home/claude/gates/r19/data/signals-14d.json';
 const OUT = process.argv[3] ?? '/home/claude/gates/r19/logs/RULES-replay.txt';
@@ -69,7 +73,30 @@ const LEVEL_OF: Record<OpportunityLabel, Level> = { act_now: 'urgent', coming_so
 const isAlert = (l: Level) => l === 'urgent' || l === 'heads-up';
 const TRADES = CATEGORY_IDS as readonly CategoryId[];
 
-const rows = JSON.parse(readFileSync(ROWS, 'utf8')) as Row[];
+const rowsRaw = JSON.parse(readFileSync(ROWS, 'utf8')) as Row[];
+// Round 33: with HOLLER_BUSINESS_TAG_FIX_ENABLED on, the new-business rows are first re-tagged by their own licence type and the ones outside
+// their city's area get no trade: this is the state the owner's re-tag SQL (round 33 report) leaves the stored rows in. Row count and order
+// are kept (engine-compare.jsonl is aligned by row). Off (the default), nothing changes and the anchor numbers must hold.
+const BUSINESS_FIX = businessTagFixEnabled();
+// Side data the export lacks (read-only SELECTs of 2026-11-25, project ksctghdtklufgxblueqp): the stored ZIP of the rows whose point is not
+// believable (lat = lon) or sits at the New York City Hall stand-in, and the ids of business rows that have a named business contact.
+// Override with HOLLER_REPLAY_BUSINESS_SIDE=<path>.
+// Default: the copy kept in the repo (tests/signals/__data__/business-replay-side.json, row ids and ZIPs only, no names or addresses).
+const SIDE_PATH = process.env.HOLLER_REPLAY_BUSINESS_SIDE ?? join(process.cwd(), 'tests/signals/__data__/business-replay-side.json');
+const SIDE: { zips: Record<string, string>; businessContactIds: string[] } = BUSINESS_FIX && existsSync(SIDE_PATH) ? JSON.parse(readFileSync(SIDE_PATH, 'utf8')) : { zips: {}, businessContactIds: [] };
+if (BUSINESS_FIX && !existsSync(SIDE_PATH)) console.error(`WARNING: replay side file not found (${SIDE_PATH}): ZIPs and business contacts are unknown, so the switch-on numbers differ from the report.`);
+const BUSINESS_CONTACT = new Set(SIDE.businessContactIds);
+let businessRetagged = 0;
+const rows: Row[] = BUSINESS_FIX
+  ? rowsRaw.map((r) => {
+      if (subtypeOfRaw(r) !== 'business') return r;
+      const next = retagStoredBusinessRow({ ...r, zip: SIDE.zips[String(r.id)] ?? null });
+      if (next.length === (r.categories ?? []).length && next.every((c) => (r.categories ?? []).includes(c))) return r;
+      businessRetagged++;
+      return { ...r, categories: next };
+    })
+  : rowsRaw;
+function subtypeOfRaw(r: Row) { return typeof r.data?.subtype === 'string' && r.data.subtype ? (r.data.subtype as string) : null; }
 const subtypeOf = (r: Row) => (typeof r.data?.subtype === 'string' && r.data.subtype ? (r.data.subtype as string) : null);
 
 // ---- 1. ingest marks ------------------------------------------------------------------------------------------------------------
@@ -107,7 +134,9 @@ interface Opts {
   labelsOnly?: boolean;
 }
 function inputOf(r: Row, labelsOnly: boolean): LabelInput {
-  const base: LabelInput = { source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary };
+  // Round 33: the hail size and gust (null unless HOLLER_HAIL_ROUTING_ENABLED is on for this run; the anchor runs with it off).
+  const weather = weatherFactsOf({ source: r.source, title: r.title, summary: r.summary, data: r.data });
+  const base: LabelInput = { source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary, ...(weather ? { weather } : {}) };
   return labelsOnly ? base : { ...base, lat: r.lat, lon: r.lon, state: r.state, severity: r.severity };
 }
 interface PairOut {
@@ -117,7 +146,7 @@ interface PairOut {
 function runEngine(src: Row[], opts: Opts = {}): PairOut[] {
   return src.map((r) => {
     const input = inputOf(r, !!opts.labelsOnly);
-    const carried = carriedTrades({ source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary }, r.categories);
+    const carried = carriedTrades({ source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary, weather: input.weather }, r.categories);
     const lvl: PairOut['lvl'] = {};
     const rule: PairOut['rule'] = {};
     for (const tr of TRADES) {
@@ -126,7 +155,9 @@ function runEngine(src: Row[], opts: Opts = {}): PairOut[] {
         rule[tr] = r.source === 'nws' ? 'nws-repeat (follower, repeat-marks.ts)' : r.source === 'spc' ? 'spc-repeat (follower, repeat-marks.ts)' : 'violation-visit (follower, repeat-marks.ts)';
         continue;
       }
-      const l = LEVEL_OF[labelFor(input, tr)];
+      let l = LEVEL_OF[labelFor(input, tr)];
+      // Round 33 (switch on): a licence with no named business is feed only (alert-gate.ts alertHoldFor, hold 'background').
+      if (BUSINESS_FIX && !process.env.HOLLER_REPLAY_NO_LICENCE_HOLD && subtypeOf(r) === 'business' && isAlert(l) && !BUSINESS_CONTACT.has(String(r.id))) l = 'background';
       rule[tr] = ruleFor(input, tr)?.id ?? `default:${r.source}`;
       if (l !== 'none') lvl[tr] = l;
     }
@@ -190,6 +221,43 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 P('RULES replay: this engine (lib/signals/lead-rules.ts) over the live export');
 P(`Rows: ${fmt(rows.length)} from ${ROWS}. Trades: ${TRADES.length}. Pairs: ${fmt(rows.length * TRADES.length)}.`);
+P(`Business tag fix (HOLLER_BUSINESS_TAG_FIX_ENABLED): ${BUSINESS_FIX ? `ON, ${fmt(businessRetagged)} stored business rows re-tagged by licence type before the engine runs` : 'OFF, stored tags used as they are (the anchor)'}.`);
+
+// Round 33 (review P1-1): the live INGEST path, run on the repo's fixtures with the switch off and on, so a re-tag of stored rows cannot hide
+// a feed that stores nothing. Switch off: the first two columns only. The SF live-shape rows are the 2026-11-16 capture's own shape (no type
+// text, only self_reported_naics_code) with retail, food service, hotel and nonstore codes.
+const ingestLines: string[] = [];
+const ingestFailures: string[] = [];
+{
+  const fx = (f: string) => JSON.parse(readFileSync(join(REPO, 'tests', 'fixtures', f), 'utf8')) as Record<string, unknown>[];
+  const sfLive = fx('socrata-sf-business-live-2026-11-16.json');
+  const liveShape = (code: string, id: string) => ({ ...sfLive[0], uniqueid: id, self_reported_naics_code: code });
+  const sets: Array<[string, Record<string, unknown>[]]> = [
+    ['socrata-chicago-business', fx('socrata-chicago-business.json')],
+    ['socrata-la-business', fx('socrata-la-business.json')],
+    ['socrata-nyc-business', fx('socrata-nyc-business.json')],
+    ['socrata-orlando-business', fx('socrata-orlando-business.json')],
+    ['socrata-sf-business', fx('socrata-sf-business.json')],
+    ['socrata-sf-business (live capture 2026-11-16)', sfLive],
+    ['socrata-sf-business (live shape, NAICS 448140 retail, 722511 food, 721110 hotel, 454110 nonstore)', [liveShape('448140', 'ls-1'), liveShape('722511', 'ls-2'), liveShape('721110', 'ls-3'), liveShape('454110', 'ls-4')]],
+  ];
+  for (const [label, data] of sets) {
+    const id = label.split(' ')[0];
+    const d = SOCRATA_DATASETS.find((x) => x.id === id);
+    if (!d) continue;
+    const off = parseSocrataReport(data, d, { businessTagFix: false }).items;
+    const on = parseSocrataReport(data, d, { businessTagFix: true }).items;
+    ingestLines.push(`| ${label} | ${data.length} | ${off.length} | ${on.length} | ${on.map((i) => [...i.categories].sort().join('+')).filter((x, k, a) => a.indexOf(x) === k).join(' ; ') || '(none)'} |`);
+    if (label.includes('live shape') && on.length !== 2) ingestFailures.push(`SF live-shape ingest stores ${on.length} of 2 expected rows with the switch on`);
+  }
+}
+if (BUSINESS_FIX) {
+  P('Live ingest of the repo fixtures, switch on (src/lib parseSocrataReport, the scan path): rows stored with the switch off and on');
+  P('| fixture | rows | stored off | stored on | trade sets stored on |');
+  P('|---|---|---|---|---|');
+  ingestLines.forEach((l) => P(l));
+  P();
+}
 P(`Ingest marks applied first (lib/signals/repeat-marks.ts): ${heatHit.size} NYC whole-building heat rows marked (building = point to 4 decimals, a 48 h window holding 3 complaints, one per building per 7 days); ${nwsRep.size} NWS rows marked as repeats of an alert less than 24 h from the first (same data.event, data.areaDesc and place: county, else point to 0.1 degree, else state); ${spcRep.size} storm reports marked as the second listing of a report (same type, value, point, clock time and remark, within ${SPC_REPEAT_HOURS} h); ${visits.followerOf.size} code-violation orders stored as followers of ${new Set(visits.followerOf.values()).size} visit cards (same source, point to 3 decimals, same day, and the same meaning for every trade: repeat-marks.ts orderMeaning).`);
 P();
 
@@ -569,6 +637,7 @@ P();
 P(`Worst urgent rate across all ${TRADES.length} trades in the four metros: ${worst.metro} ${worst.trade}, ${worst.urgent} urgent cards, ${f1(worst.perDay)} a day (ceiling 10).`);
 P(`Worst heads-up rate across all ${TRADES.length} trades in the four metros: ${worstHeads.metro} ${worstHeads.trade}, ${worstHeads.heads} heads-up cards, ${f1(worstHeads.perDay)} a day (ceiling 25, review P2-7).`);
 P(`New York commercial cleaning, signs and security (cards by source; review P2-7): ${nyHeads.join('; ')}.`);
+ingestFailures.forEach((f) => failures.push(f));
 if (worst.perDay > 10) failures.push('volume ceiling');
 if (worstHeads.perDay > 25) failures.push('heads-up ceiling');
 P(`New York HVAC urgent cards after the heat rule: ${nyHvacUrgent} (audit: about 38 in 5.1 days of NYC 311).`);

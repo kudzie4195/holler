@@ -61,6 +61,9 @@ export interface FeedItem {
   /** data.permitStage and data.permitStageAt of a permit (stage update). */
   permitStage?: string | null;
   permitStageAt?: string | null;
+  /** Round 33: the hail size (inches) and gust (mph) an NWS alert names, for the alert line (brief.ts alertLineFor). Null while the switch is off. */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */
@@ -393,7 +396,7 @@ function MatchCard({
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
-      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} />
+      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} isLicense={item.subtype === 'business'} />
       {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">

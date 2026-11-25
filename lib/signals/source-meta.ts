@@ -14,6 +14,7 @@ export interface SourceMeta {
 export const SOURCE_META: Record<string, SourceMeta> = {
   "nws": { id: "nws", label: "National Weather Service alerts", sourceUrl: "https://www.weather.gov/alerts" },
   "spc": { id: "spc", label: "NOAA Storm Prediction Center storm reports", sourceUrl: "https://www.spc.noaa.gov/climo/reports/" },
+  "lsr": { id: "lsr", label: "NWS local storm reports", sourceUrl: "https://mesonet.agron.iastate.edu/lsr/" },
   "fema": { id: "fema", label: "FEMA disaster declarations", sourceUrl: "https://www.fema.gov/disaster/declarations" },
   "usgs": { id: "usgs", label: "USGS earthquakes", sourceUrl: "https://earthquake.usgs.gov/earthquakes/map/" },
   "faa": { id: "faa", label: "FAA airport status", sourceUrl: "https://nasstatus.faa.gov/" },
@@ -94,6 +95,7 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "bids-rockdale": { id: "bids-rockdale", label: "Rockdale County procurement: current bids, RFPs and RFQs", sourceUrl: "https://www.rockdalecountyga.gov/current-bids-rfp-rfq" },
   "bids-tucker": { id: "bids-tucker", label: "City of Tucker procurement: bids and RFPs", sourceUrl: "https://www.tuckerga.gov/business-and-development/bids/" },
   "bids-dunwoody": { id: "bids-dunwoody", label: "City of Dunwoody procurement: current opportunities", sourceUrl: "https://www.dunwoodyga.gov/business/doing-business-with-the-city/procurement-opportunities" },
+  "bids-erate": { id: "bids-erate", label: "E-Rate school and library network bids (USAC FCC Form 470)", sourceUrl: "https://opendata.usac.org/d/jt8s-3q52" },
   // Round 20 page watch (ON PROBATION: samples only, never shown to members until promoted).
   "bids-pw-dallas-isd": { id: "bids-pw-dallas-isd", label: "Dallas ISD procurement: open bids", sourceUrl: "https://www.dallasisd.org/fs/pages/160334" },
   "bids-pw-houston-metro": { id: "bids-pw-houston-metro", label: "Houston METRO procurement: open solicitations", sourceUrl: "https://www.ridemetro.org/about/business-to-business/procurement-opportunities" },

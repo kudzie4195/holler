@@ -31,6 +31,7 @@ import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
 import { VALUE_SELECT } from '@/lib/signals/permit-value';
 import { isStageUpdate, STAGE_SELECT } from '@/lib/signals/stage';
+import { WEATHER_SELECT, weatherCardFields, weatherFactsOf } from '@/lib/signals/weather-hazard';
 import { DEADLINE_SELECT, deadlineOf, demoteExpired, isAlertLabel, labelForMember, recordLabelInput, type OpportunityLabel } from '@/lib/signals/lead-rules';
 import { feedScoreFor, hasNamedContact, orderByLabelScore } from '@/lib/signals/score';
 import { parseLang, type Lang } from '@/lib/i18n';
@@ -83,6 +84,9 @@ interface SignalRow {
   permitStage?: string | null;
   permitStageAt?: string | null;
   permitStageUpdate?: string | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's CAP hail size and gust, text form). Read only while HOLLER_HAIL_ROUTING_ENABLED is on. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
   dueDate?: string | null;
   fixBy?: string | null;
   responseDeadline?: string | null;
@@ -127,7 +131,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const readPage = () => admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, lat, lon, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${SAM_SELECT}, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, lat, lon, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, ${WEATHER_SELECT}, bidBuyer:data->>buyer, ${SAM_SELECT}, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -379,13 +383,15 @@ export async function GET(req: Request) {
         contact: typeof s.id === 'number' ? emailContact({ source: s.source ?? '', kind: s.kind }, cardContacts.get(s.id), lang) : null,
         note: typeof s.id === 'number' ? (aiNotes.get(s.id) ?? null) : null,
         label: labelOf(s),
-        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, trades),
+        trade: tradeForRecord({ source: s.source ?? '', kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, weather: weatherFactsOf(s) }, s.categories, trades),
         deadline: deadlineOf(s),
         jobValue: s.jobValue ?? null,
         permitStage: s.permitStage ?? null,
         permitStageAt: s.permitStageAt ?? null,
         permitStageUpdate: isStageUpdate(s),
-        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
+        // Round 33: what an NWS alert names, for the alert line. Nulls while HOLLER_HAIL_ROUTING_ENABLED is off.
+        ...weatherCardFields(s),
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
         hasSetAside: hasSetAsideLine(s.source, s.samSetAside, lang),
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,

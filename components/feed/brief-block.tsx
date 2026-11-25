@@ -21,6 +21,9 @@ export interface BriefBlockItem {
   jobValue?: number | null;
   permitStage?: string | null;
   permitStageAt?: string | null;
+  /** Round 33: the hail size (inches) and gust (mph) an NWS alert names, for the alert line (brief.ts alertLineFor). Null while the switch is off. */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
 }
 
 /** The brief for a feed item (parts 2 to 5). Pure; the web card, the tests and the screenshots all call it. */
@@ -40,6 +43,8 @@ export function briefOfItem(item: BriefBlockItem, lang: Lang = 'en'): CardBrief 
     jobValue: item.jobValue,
     permitStage: item.permitStage,
     permitStageAt: item.permitStageAt,
+    alertHailIn: item.alertHailIn,
+    alertGustMph: item.alertGustMph,
   }, lang);
 }
 
@@ -62,6 +67,11 @@ export function BriefBlock({ item, lang = 'en' }: { item: BriefBlockItem; lang?:
       {b.stageLine ? (
         <p className={ROW} data-testid="brief-stage">
           {b.stageLine}
+        </p>
+      ) : null}
+      {b.alertLine ? (
+        <p className={ROW} data-testid="brief-alert">
+          {b.alertLine}
         </p>
       ) : null}
       <p className={ROW} data-testid="brief-why">

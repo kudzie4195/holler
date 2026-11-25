@@ -91,6 +91,49 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    sends the same bytes as before. Set it to `1` (Preview first, one real-inbox test, then Production) to add the "This week in your
    area" line (lib/season/table.ts) to the alert digest and, with the quiet-week switch also on, to the quiet-week email. For the
    December 1 launch week it must be `1` by the Dec 1 cron run. /check shows the line without any switch.
+   NEEDS KUDZI (round 33 business licences): `HOLLER_BUSINESS_TAG_FIX_ENABLED` stays empty at the deploy. Off, the scan tags every new-business
+   licence with the same fixed trade set as before. Set it to `1` (Production, after reading gates/r33/r33-la-business/REPORT.md) to tag a
+   licence only by its own type (a shop, a restaurant, a parking lot or a storage facility; every other licence gets no trade and is not
+   stored), to drop Los Angeles rows farther than 30 miles and New York rows farther than 22 miles from the city centre, or whose ZIP is
+   outside that radius or in another state (a radius, not a city line: Santa Monica and Yonkers rows stay, titled with the dataset's city),
+   and to make every licence feed only (never emailed or pushed) unless the row names a business. The feed-only rule works with or
+   without migration 0027: such a match is stored as already handled (notified, pushed_at set), so no email and no push is ever sent; with 0027 it
+   also carries the "Background" label and a licence sentence on the card (without it the card shows as a plain card). Stored rows keep their old tags until you
+   run the re-tag in the report (OWNER MUST RUN after review).
+   NEEDS KUDZI (round 33 E-Rate, USAC FCC Form 470 school and library cabling bids): `HOLLER_ERATE_ENABLED` stays empty at the deploy.
+   Production already has `HOLLER_BIDS_ENABLED=1` (live bids-sf, bids-la and bids-batonrouge rows), so in Production this switch is the
+   only one left to turn. Off, the scan does not request anything from opendata.usac.org, and any stored `bids-erate` row is hidden from
+   every feed, email, push and public page (lib/signals/bid-sources.ts `erateHidden`). Order: (a) FIRST ON A PREVIEW DEPLOYMENT, because the
+   dry scan is skipped while either switch is off (lib/signals/run.ts `missingEnvFor`, dry runs included), so there is no way to look at the
+   first read in Production without turning the source on: in the Preview environment set `HOLLER_BIDS_ENABLED=1` and
+   `HOLLER_ERATE_ENABLED=1`, redeploy that preview, then call
+   `GET <preview url>/api/cron/scan?dry=1&source=bids-erate` with the cron bearer secret. It makes the one (paged) request to the public
+   USAC SODA endpoint, keeps only schools and libraries in served areas with an Internal Connections cabling installation line and an
+   allowable contract date at least two days away, and writes nothing. A dry scan shows only the counts in the log, the HTTP status and
+   THREE titles per source (lib/signals/run.ts), no summary and no link, so it cannot show what a stored card holds. Read from it: no
+   "error: bids-erate HTTP 400" (the combined SoQL query was never run against the live portal by the people who wrote it, so a 400
+   means the query needs a fix), the page and kept counts, no "WARNING page limit reached" or "WARNING time budget reached", and three
+   titles of the form "A school (or library, district ...) in <city> is asking for bids on network cabling". The card never prints the
+   institution's name or the city the applicant typed; the city is the ZIP table's. THEN, still on Preview, run a real (not dry) scan,
+   `GET <preview url>/api/cron/scan?source=bids-erate`, and read the first stored cards in the Preview feed or in `holler_signals`
+   (`source = 'bids-erate'`): title, summary ("E-Rate request (FCC Form 470) | contract may be signed from <date>"), link (USAC's own
+   `publicdata.usac.org` form page, no query string) and the card line. They must show no person, phone, email or street address. If
+   Preview uses the Production database, those rows stay hidden in Production while its switch is empty.
+   (b) When the sample reads right: set `HOLLER_ERATE_ENABLED=1` in Production and redeploy (env changes reach new deployments only). The
+   cards are a heads-up, not an Act now: the record has no bid deadline (its one date is the EARLIEST day a contract may be signed), and
+   only providers registered with USAC (a SPIN) can be paid. Rollback: empty the variable and redeploy; stored `bids-erate` cards
+   disappear at once, the other bid sources stay. A stored card whose form USAC later lists as Canceled is closed on the next run.
+   NEEDS KUDZI (round 33 hail): `HOLLER_HAIL_ROUTING_ENABLED` stays empty at the deploy. Off, every label, carried trade and card is
+   exactly as before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1). On: an NWS alert that names hail of 1 inch or more also
+   reaches siding and gutters and roofing, and gusts of 58 mph or more (an alert, or an SPC or LSR gust report) also reach tree service
+   and siding and gutters (the NWS severe criteria); a warning gives them a heads-up, a watch or advisory feed only. NWS weather cards
+   then show "The weather service warned of hail up to 1.75 inches in this area. Nothing is confirmed for any property." (EN and ES).
+   Replay with it on (14-day export): +10 heads-up pairs, all siding and gutters on SPC gusts of 58 to 69 mph; Los Angeles siding and
+   gutters 21.1 to 21.5 heads-up a day (ceiling 25). The CAP numbers are stored on every new alert from the deploy on, switch or not.
+   NEEDS KUDZI (round 33 LSR): `HOLLER_LSR_ENABLED` stays empty at the deploy; off, no request is made. On: hourly, one request to the
+   Iowa Environmental Mesonet LSR GeoJSON for seven NWS offices (Atlanta, Austin, Charlotte, Raleigh, New York, Chicago, Los Angeles),
+   storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
+   never stored. Turn on after one look at a scan's `lsr` row in the health email.
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set
@@ -608,6 +651,7 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 - [ ] `HOLLER_STAGE_UPDATES_ENABLED` (round 17 construction stage updates; off unless `1`, `true`, `on` or `yes`; leave empty at first). The owner turns it on AFTER ONE DRY CHECK per source: `GET /api/admin/stage-probe?source=<id>` with `Authorization: Bearer <CRON_SECRET>` (Bearer only; ids are listed when `source` is left out). It runs the stage query once for that source, writes nothing, and returns `rowCount`, `sampleStatuses` (the portal's own status text) and `dateColumnAccepted`. Turn the flag on only for a source where `dateColumnAccepted` is true and the sample statuses look like permit statuses. The date columns (SF `status_date`, the others `:updated_at`) are not in this repo's fixtures, so this check is the live proof. Redeploy after setting it (env changes apply to new deployments only). Rollback: empty the variable and redeploy.
 - [ ] `HOLLER_VIOLATION_OWNERS_ENABLED` (round 18 owner companies on code-violation cards; off unless `1`, `true`, `on` or `yes`; leave empty). With it off no owner column is read, stored or shown. Two things must be true before it is set: the owner has decided that naming a property's owner beside a code violation is acceptable, and the two owner columns are confirmed on the live portals (Chicago 22u3-xenr `property_owner`, Austin 6wtj-zbtb `owner_name`; both are only in hand-written fixtures; `scripts/check-contact-columns.ts` lists a portal's columns). Until the columns are confirmed the feature shows nothing even when on. Needs migration 0030. Rollback: empty it and redeploy.
 - [ ] `HOLLER_LOCAL_BIDS_ENABLED` (Atlanta-area agency bid pages read with Firecrawl; off unless `1`, `true`, `on` or `yes`). Separate from `HOLLER_BIDS_ENABLED` on purpose: turning on the city bids does not start Firecrawl spend. Leave it empty for now; the "Round 16 order" block in step 1 says when to set it (steps 4 and 5: after the deploy and the probes).
+- [ ] `HOLLER_ERATE_ENABLED` (round 33 E-Rate school and library network cabling bids from the public USAC open data portal, no key or token; off unless `1`, `true`, `on` or `yes`; leave empty at first; also needs `HOLLER_BIDS_ENABLED`, which Production already has; emptying this one hides every stored E-Rate card at once; try it on a Preview deployment first, because the dry scan does not run while the switch is off; see the "round 33 E-Rate" item in the round 24 order above)
 - [ ] `FIRECRAWL_API_KEY` (Firecrawl; Production already has it). For the four Atlanta agency pages Firecrawl runs only when `HOLLER_BIDS_ENABLED`, `HOLLER_LOCAL_BIDS_ENABLED` and this key are ALL set; with any one missing there is no Firecrawl call. The round 20 page-watch pages that use Firecrawl (none registered today) need `HOLLER_PAGE_WATCH_ENABLED`, their own recorded terms check, `HOLLER_LOCAL_BIDS_ENABLED` and this key, and not `HOLLER_BIDS_ENABLED` while on probation (samples only). Since round 20 every Firecrawl page is also skipped when its robots.txt answers 401, 403, 429, an HTML page or a redirect to another host, or when its Crawl-delay is not met (before, only a 5xx skipped it) (the owner probe, `/api/admin/firecrawl-probe`, needs only the key and the Bearer secret). Before turning it on, check each source with `GET /api/admin/firecrawl-probe?source=bids-gwinnett` and `Authorization: Bearer <CRON_SECRET>` (a dry run, about 5 credits, writes no signals; its spend is counted and capped at `FIRECRAWL_PROBE_DAILY_CAP`, default 25 a day). Optional credit caps: `FIRECRAWL_RUN_CREDIT_CAP` (24), `FIRECRAWL_DAILY_CREDIT_CAP` (30), `FIRECRAWL_MONTHLY_CREDIT_CAP` (500), `FIRECRAWL_MIN_REMAINING` (100), `FIRECRAWL_PROBE_DAILY_CAP` (25).
 - [ ] `SAM_API_KEY` (federal bids), `TICKETMASTER_API_KEY` (events), `SOCRATA_APP_TOKEN` (city data rate limits)
 - [ ] `HOLLER_SAM_BACKFILL_ENABLED` (round 33, OFF unless `1`, `true`, `on` or `yes`; leave empty). Only the owner's one-off `npm run sam:backfill -- --run` reads it; no cron or page does. See "SAM.gov backfill and notice labels (round 33)" below for the exact commands.

@@ -24,6 +24,7 @@ const SUBTYPE_INTENT: Record<string, Intent> = {
 const FIXED: Record<string, Intent> = {
   nws: 'demand',
   spc: 'demand',
+  lsr: 'demand', // round 33: NWS local storm reports (kind report)
   fema: 'demand',
   usgs: 'demand',
   faa: 'demand',
@@ -36,6 +37,7 @@ const FIXED: Record<string, Intent> = {
   'bids-rockdale': 'spending',
   'bids-tucker': 'spending',
   'bids-dunwoody': 'spending',
+  'bids-erate': 'spending',
   // Round 20 page watch: public bid pages (kind contract, subtype bid), like every bid source.
   ...Object.fromEntries(PAGE_WATCH_IDS.map((id) => [id, 'spending'])),
   ticketmaster: 'demand',

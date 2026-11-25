@@ -1,0 +1,118 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d50725ff744e2a6b5502390e44a35025f4851208.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -97.56,
+       34.38
+      ],
+      [
+       -97.13,
+       34.38
+      ],
+      [
+       -97.19,
+       34.1599999
+      ],
+      [
+       -97.3,
+       34.03
+      ],
+      [
+       -97.56,
+       34.03
+      ],
+      [
+       -97.56,
+       34.38
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.d50725ff744e2a6b5502390e44a35025f4851208.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.d50725ff744e2a6b5502390e44a35025f4851208.001.1",
+    "areaDesc": "Carter, OK; Love, OK",
+    "geocode": {
+     "SAME": [
+      "040019",
+      "040085"
+     ],
+     "UGC": [
+      "OKC019",
+      "OKC085"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/OKC019",
+     "https://api.weather.gov/zones/county/OKC085"
+    ],
+    "references": [],
+    "sent": "2025-04-19T20:55:00-05:00",
+    "effective": "2025-04-19T20:55:00-05:00",
+    "onset": "2025-04-19T20:55:00-05:00",
+    "expires": "2025-04-19T21:45:00-05:00",
+    "ends": "2025-04-19T21:45:00-05:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Extreme",
+    "certainty": "Observed",
+    "urgency": "Immediate",
+    "event": "Tornado Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Norman OK",
+    "headline": "Tornado Warning issued April 19 at 8:55PM CDT until April 19 at 9:45PM CDT by NWS Norman OK",
+    "description": "TOROUN\n\nThe National Weather Service in Norman has issued a\n\n* Tornado Warning for...\nNorthwestern Love County in southern Oklahoma...\nSouthwestern Carter County in southern Oklahoma...\n\n* Until 945 PM CDT.\n\n* At 855 PM CDT, a confirmed tornado was located 4 miles south of\nWilson, moving northeast at 20 mph.\n\nHAZARD...Damaging tornado and golf ball size hail.\n\nSOURCE...Weather spotters confirmed tornado.\n\nIMPACT...Flying debris will be dangerous to those caught without\nshelter. Mobile homes will be damaged or destroyed.\nDamage to roofs, windows, and vehicles will occur.  Tree\ndamage is likely.\n\n* Locations impacted include...\nWest Ardmore, Lone Grove, Healdton, Wilson, Springer, Graham,\nMilo, and Fox.\n\nThis includes Interstate 35 between mile markers 38 and 46.",
+    "instruction": "To repeat, a tornado is on the ground. TAKE COVER NOW! Move to a\nstorm shelter, safe room or an interior room on the lowest floor of a\nsturdy building. Avoid windows. If you are outdoors, in a mobile\nhome, or in a vehicle, move to the closest substantial shelter and\nprotect yourself from flying debris.\n\nTornadoes are extremely difficult to see and confirm at night. Do not\nwait to see or hear the tornado. TAKE COVER NOW!",
+    "response": "Shelter",
+    "parameters": {
+     "AWIPSidentifier": [
+      "TOROUN"
+     ],
+     "WMOidentifier": [
+      "WFUS54 KOUN 200155"
+     ],
+     "eventMotionDescription": [
+      "2025-04-20T01:55:00-00:00...storm...212DEG...19KT...34.11,-97.4"
+     ],
+     "maxHailSize": [
+      "1.75"
+     ],
+     "tornadoDetection": [
+      "OBSERVED"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM"
+     ],
+     "EAS-ORG": [
+      "WXR"
+     ],
+     "VTEC": [
+      "/O.NEW.KOUN.TO.W.0015.250420T0155Z-250420T0245Z/"
+     ],
+     "eventEndingTime": [
+      "2025-04-20T02:45:00+00:00"
+     ],
+     "WEAHandling": [
+      "Imminent Threat"
+     ],
+     "CMAMtext": [
+      "NWS: TORNADO WARNING in this area til 9:45 PM CDT. Take shelter now. Check media."
+     ],
+     "CMAMlongtext": [
+      "National Weather Service: TORNADO WARNING in this area until 9:45 PM CDT. Take shelter now in a basement or an interior room on the lowest floor of a sturdy building. If you are outdoors, in a mobile home, or in a vehicle, move to the closest substantial shelter and protect yourself from flying debris. Check media."
+     ]
+    }
+   }
+  }
+ ]
+}

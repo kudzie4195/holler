@@ -3,13 +3,15 @@ import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { stormFactsOf } from './wind-damage';
-import { bidsEnabled, isBidSignal } from './bid-sources';
+import { weatherFactsOf } from './weather-hazard';
+import { bidsEnabled, erateHidden, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
 import type { CategoryId } from './categories';
 import { alertHoldFor, type AlertHold, type ContactPath, type GateInput } from './alert-gate';
 import { propertyDrops, workTypeDrops, workProfileOf, type WorkColumns, type WorkProfile } from './work-profile';
 import { isProbationSource } from './probation';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -54,7 +56,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown; setAside?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown; setAside?: unknown; maxHailSizeIn?: unknown; maxWindGustMph?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -136,6 +138,8 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
   summary: signal.summary ?? null,
   // An SPC report's own fields decide its storm label when the row carries its data (round 18 integration).
   storm: stormFactsOf(signal.source, signal.data),
+  // Round 33: an alert's hail size and gust (null while HOLLER_HAIL_ROUTING_ENABLED is off, so nothing changes then).
+  weather: weatherFactsOf({ source: signal.source, title: signal.title, summary: signal.summary, data: signal.data as Record<string, unknown> | null | undefined }),
   permitStage: signal.data?.permitStage,
   // Federal notices (round 33): a sole-source set-aside is a heads-up, read only while HOLLER_SAM_LABELS_ENABLED is on.
   ...(typeof signal.data?.setAside === 'string' ? { setAside: signal.data.setAside } : {}),
@@ -151,7 +155,8 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
  * (lib/signals/permit-routing.ts, PLAN-2.0 item 1.1). Computed once per record per scan.
  */
 function seenBy(signal: MatchSignal): readonly string[] {
-  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title, summary: signal.summary }, signal.categories);
+  const weather = weatherFactsOf({ source: signal.source, title: signal.title, summary: signal.summary, data: signal.data as Record<string, unknown> | null | undefined });
+  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title, summary: signal.summary, weather }, signal.categories);
 }
 
 /**
@@ -250,7 +255,7 @@ export function withoutWorkProfile<P extends MatchProfile>(profile: P): P {
 function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
   // City bids (HOLLER_BIDS_ENABLED, lib/signals/bid-sources.ts): with the flag off no bid row matches anyone, whether it was just fetched
   // or stored earlier. First test, before any area or text work.
-  if (!bidsOn && isBidSignal(signal)) return null;
+  if (isBidSignal(signal) && (!bidsOn || erateHidden(signal))) return null;
   if (hasCoords(signal.lat, signal.lon)) {
     // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
     // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.
@@ -341,7 +346,7 @@ function rankTime(iso: string, nowMs: number): number {
 }
 
 /**
- * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest). What is CUT at `cap` goes by: a severe
+ * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest; with HOLLER_BUSINESS_TAG_FIX_ENABLED on, rows that go out as alerts before feed-only ones). What is CUT at `cap` goes by: a severe
  * (3+) alert first, then Act Now, Coming soon, Market insight, then the score (item 2.7, high first), then most severe, newest (future
  * dates clamped to now). What is KEPT is returned Act Now first (item 0.3), then Coming soon, Market insight, score, most severe, newest. So 25 heat complaints never push a
  * severity-3 warning out of the cap, and market_insight rows are the first to go.
@@ -359,11 +364,16 @@ export function pickHits(hitsIn: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USE
     return true;
   });
   const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
+  // Round 33 (review 3, P2-1): with the switch on, a feed-only licence (hold) never takes one of the business places from a licence that
+  // names a business and goes out as an alert: un-held rows come first, then nearest, then newest. Switch off: nearest first, as before.
+  const holdLast = businessTagFixEnabled();
   const biz = hits
     .filter(isBiz)
     .sort(
       (a, b) =>
-        (a.distance_mi ?? Infinity) - (b.distance_mi ?? Infinity) || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs),
+        (holdLast ? Number(!!a.hold) - Number(!!b.hold) : 0) ||
+        (a.distance_mi ?? Infinity) - (b.distance_mi ?? Infinity) ||
+        rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs),
     )
     .slice(0, maxBusiness);
   const keep = [...hits.filter((h) => !isBiz(h)), ...biz];

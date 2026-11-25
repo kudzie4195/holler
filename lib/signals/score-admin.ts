@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { matchScope } from '@/lib/plan';
 import { demoteExpired, deadlineOf, DEADLINE_SELECT, labelForMember, LABEL_RANK, recordLabelInput, type OpportunityLabel } from './lead-rules';
 import { STAGE_SELECT } from './stage';
+import { WEATHER_SELECT } from './weather-hazard';
 import { membersOfTrade, type MatchSignal } from './match';
 import { tradeForRecord } from './brief';
 import { isExactTradeFit, scoreOf, valueUsdOf, type ScoreParts } from './score';
@@ -41,6 +42,9 @@ interface SignalRow {
   responseDeadline?: string | null;
   /** data->>permitStage (STAGE_SELECT): passed to the labeller only. */
   permitStage?: string | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's hail size and gust), passed to the labeller only. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
 }
 
 interface MatchRowIn {
@@ -81,7 +85,7 @@ export async function buildScoreReport(db: Db, now: Date, opts: { days?: number;
   const { data, error } = await db
     .from('holler_matches')
     .select(
-      `id,user_id,signal:holler_signals(id,source,kind,title,summary,occurred_at,expires_at,categories,lat,lon,state,severity,subtype:data->>subtype,${DEADLINE_SELECT},${STAGE_SELECT})`,
+      `id,user_id,signal:holler_signals(id,source,kind,title,summary,occurred_at,expires_at,categories,lat,lon,state,severity,subtype:data->>subtype,${DEADLINE_SELECT},${STAGE_SELECT},${WEATHER_SELECT})`,
     )
     .gte('created_at', since)
     .order('created_at', { ascending: false })

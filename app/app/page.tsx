@@ -42,6 +42,7 @@ import { LOCAL_COVERAGE_RADIUS_MI } from '@/lib/check/coverage';
 import { VALUE_SELECT, jobValueOf, parseMoney } from '@/lib/signals/permit-value';
 import { readWorkProfile } from '@/lib/auth/work-profile';
 import { STAGE_SELECT } from '@/lib/signals/stage';
+import { WEATHER_SELECT, weatherCardFields, weatherFactsOf } from '@/lib/signals/weather-hazard';
 import { langOfProfile, t, type Lang } from '@/lib/i18n';
 import { BuildersPanel } from '@/components/builders/builders-panel';
 import { builderScopeOf } from '@/lib/builders/cached';
@@ -96,6 +97,9 @@ interface SignalRow {
   /** Permits: data.permitStage and data.permitStageAt (STAGE_SELECT), written by a stage update (migration 0025). */
   permitStage?: string | null;
   permitStageAt?: string | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's CAP hail size and gust, text form). Read only while HOLLER_HAIL_ROUTING_ENABLED is on. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
 }
 
 interface MatchRow {
@@ -130,7 +134,7 @@ async function loadDashboard() {
   const readFeed = (holdCol: string) => supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},${WEATHER_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -232,7 +236,7 @@ async function loadDashboard() {
   }
   const holdShown = (m: MatchRow) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
-    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) }, { subtype: s.subtype });
   };
   const ordered = orderByLabelScore(
     ranked,
@@ -290,11 +294,13 @@ async function loadDashboard() {
       label: labelOf(s, m.status),
       ...(holdShown(m) ? { hold: holdShown(m) } : {}),
       // The member's trade this record is shown under: the brief's "Why it matters" line is written for it.
-      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary }, s.categories, memberTrades),
+      trade: tradeForRecord({ source: s.source, kind: s.kind, subtype: s.subtype, title: s.title, summary: s.summary, weather: weatherFactsOf(s) }, s.categories, memberTrades),
       deadline: deadlineOf(s),
       jobValue: parseMoney(s.jobValue),
       permitStage: s.permitStage ?? null,
       permitStageAt: s.permitStageAt ?? null,
+      // Round 33: what an NWS alert names (hail size, gust), for the card's alert line. Nulls while HOLLER_HAIL_ROUTING_ENABLED is off.
+      ...weatherCardFields(s),
       signalId: s.id,
       feedback: feedbackBySignal.get(s.id) ?? null,
       // The AI note is written in English by the model, so a Spanish member does not get it (no machine translation, no second model call).
@@ -304,7 +310,7 @@ async function loadDashboard() {
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       // Open city bids: buyer and due date. Federal notices: the early-notice and set-aside words (lib/signals/sam-notice.ts), from the notice's own fields.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
     };
     const storm = stormLinks.get(s.id);
     if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);
@@ -316,7 +322,7 @@ async function loadDashboard() {
       });
     // Locked: ship placeholders only, never the real text, link or draft.
     return access.locked
-      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, managerName: null, managerRole: null, listLink: null }
+      ? { ...base, title: maskText(s.title), summary: s.summary ? maskText(s.summary) : null, url: null, draft: null, county: null, zip: null, aiNote: null, bidLine: null, jobValue: null, permitStage: null, permitStageAt: null, alertHailIn: null, alertGustMph: null, managerName: null, managerRole: null, listLink: null }
       : base;
   });
 

@@ -2,6 +2,7 @@ import type { CategoryId } from './categories';
 import { formatRecordDate, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { isPaperworkOrder } from './carry';
 import { bidSourceLinkLabel } from './bid-card';
+import { ERATE_SOURCE_ID } from './bid-sources';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
 import { getSourceMeta } from './source-meta';
 import { isResidentialHeatTitle, managedByLineFrom } from './managed-by';
@@ -49,6 +50,7 @@ export type BriefFamily =
   | 'federal-bid'
   | 'federal-award'
   | 'city-bid'
+  | 'school-bid'
   | 'public-post'
   | 'resident-request'
   | 'sale'
@@ -70,6 +72,7 @@ export const BRIEF_FAMILIES: readonly BriefFamily[] = [
   'federal-bid',
   'federal-award',
   'city-bid',
+  'school-bid',
   'public-post',
   'resident-request',
   'sale',
@@ -97,6 +100,8 @@ const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim()
 const SOURCE_FAMILY: Record<string, BriefFamily> = {
   'nws': 'weather-alert',
   'spc': 'storm-report',
+  // Round 33: NWS local storm reports (HOLLER_LSR_ENABLED), the same kind of record as an SPC report.
+  'lsr': 'storm-report',
   'fema': 'disaster',
   'usgs': 'quake',
   'faa': 'airport',
@@ -127,6 +132,8 @@ const SUBTYPE_FAMILY: Record<string, BriefFamily> = {
 export function briefFamilyOf(sig: BriefInput): BriefFamily {
   const source = norm(sig.source);
   if (SOURCE_FAMILY[source]) return SOURCE_FAMILY[source];
+  // Round 33: an E-Rate request is a school or library asking for bids, not a city (lib/signals/adapters/erate.ts).
+  if (source === ERATE_SOURCE_ID) return 'school-bid';
   if (source.startsWith('bids-')) return 'city-bid';
   // Socrata, ArcGIS and Carto ids end in what the dataset is: socrata-chicago-311, arcgis-dekalb-violations, carto-phl-business ...
   const tail = source.replace(/^(?:socrata|arcgis|carto)-.*?-(permits|311|violations|inspections|business|events|sales)$/, '$1');
@@ -397,6 +404,11 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'city-bid': {
     act_now: (w) => `A city bid matching ${w} is open; nothing is awarded.`,
   },
+  // Round 33 (E-Rate): names the work the request is about (cabling), not the member's trade, and never who may bid. A heads-up: the record has
+  // no bid deadline (lead-rules.ts: bids-erate is coming_soon).
+  'school-bid': {
+    coming_soon: () => 'A school or library is asking for bids on cabling; nothing is awarded.',
+  },
   'public-post': {
     act_now: (w) => `Someone posted publicly asking for ${w} nearby.`,
   },
@@ -602,6 +614,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   'federal-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'your eligibility is not known' } },
   'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids' } },
   'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'who may respond is not known' } },
+  'school-bid': { base: { confidence: 'High', known: 'the request is listed', unknown: 'only USAC-registered providers (a SPIN) are paid' } },
   'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'the author is unchecked' } },
   'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'details are unchecked' } },
   sale: { base: { confidence: 'High', known: 'the sale was recorded', unknown: 'the need is not known' } },
@@ -628,6 +641,7 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'federal-bid': "Check the due date and the buyer's bid page.",
   'federal-award': 'Check who won and how large the contract is.',
   'city-bid': "Check the due date and the buyer's bid page.",
+  'school-bid': 'Read the whole request; it may cover more than cabling.',
   'public-post': 'Read the whole post before you reply.',
   'resident-request': 'Reply through Holler if it fits what you do.',
   // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.
@@ -787,6 +801,11 @@ export interface CardBrief extends Brief {
    * building may be ready soon." Timing only. Null for every other record, and for a stage that is not a trigger. Needs migration 0025.
    */
   stageLine: string | null;
+  /**
+   * Round 33 (HAIL), NWS weather alerts only, while HOLLER_HAIL_ROUTING_ENABLED is on: what the alert itself names, "The weather service
+   * warned of hail up to 1.75 inches in this area. Nothing is confirmed for any property." Never says damage happened. Null otherwise.
+   */
+  alertLine: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -803,7 +822,34 @@ export interface CardBriefInput extends BriefInput {
   /** data.permitStage and data.permitStageAt of the record (migration 0025 feature). Pass null for a locked member. */
   permitStage?: unknown;
   permitStageAt?: string | null;
+  /**
+   * Round 33: the hail size (inches) and gust (mph) an NWS alert names, from lib/signals/weather-hazard.ts weatherCardFields, which gives
+   * nulls while HOLLER_HAIL_ROUTING_ENABLED is off. The surface computes them on the server. Pass null for a locked member.
+   */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
 }
+
+/** "1.75" and "1.00": two decimals, the way the weather service writes hail sizes. */
+export function hailInchesText(n: number): string {
+  return n.toFixed(2);
+}
+
+/**
+ * Round 33: the line saying what an NWS alert names, in English (brief-i18n.ts alertLineLang for other languages). Only for the weather-alert
+ * family and only when a size or gust is given. It quotes the alert; it never says a property was hit.
+ */
+export function alertLineFor(input: Pick<CardBriefInput, 'source' | 'kind' | 'subtype' | 'alertHailIn' | 'alertGustMph'>): string | null {
+  if (briefFamilyOf(input) !== 'weather-alert') return null;
+  const hail = typeof input.alertHailIn === 'number' && input.alertHailIn > 0 ? hailInchesText(input.alertHailIn) : null;
+  const gust = typeof input.alertGustMph === 'number' && input.alertGustMph > 0 ? String(Math.round(input.alertGustMph)) : null;
+  if (!hail && !gust) return null;
+  const what = hail && gust ? `hail up to ${hail} inches and wind gusts up to ${gust} mph` : hail ? `hail up to ${hail} inches` : `wind gusts up to ${gust} mph`;
+  return `The weather service warned of ${what} in this area. ${ALERT_LINE_NOTE}`;
+}
+
+/** The second sentence of the alert line: the alert is a warning, not a report about any property. */
+export const ALERT_LINE_NOTE = 'Nothing is confirmed for any property.';
 
 /**
  * The record's summary as a card prints it (part 1): the same summary, minus the "$N job value" part when the card also prints the
@@ -830,6 +876,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
     managedBy: briefFamilyOf(input) === '311' && isResidentialHeatTitle(input.title) ? managedByLineFrom(input.managerName, input.managerRole) : null,
     valueLine: briefFamilyOf(input) === 'permit' ? jobValueLine({ jobValue: input.jobValue, summary: input.summary }) : null,
     stageLine: briefFamilyOf(input) === 'permit' ? stageLine(input.permitStage, input.permitStageAt) : null,
+    alertLine: alertLineFor(input),
   };
 }
 
@@ -901,6 +948,7 @@ function sourceOfFamily(f: BriefFamily): string {
     business: 'socrata-chicago-business',
     'event-permit': 'socrata-chicago-events',
     'city-bid': 'bids-sf',
+    'school-bid': 'bids-erate',
   };
   return bySubtype[f] ?? 'unknown-source';
 }
