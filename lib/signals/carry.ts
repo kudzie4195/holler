@@ -393,14 +393,14 @@ export const ROAD_TREE_PHRASE = 'it names a street or freeway';
  */
 const TOK = "[a-z0-9'’-]+";
 const PLACE_STOP = 'near|between|along|of|from|at|block|blocks|miles?|mi|area|vicinity|or|vehicles?|cars?|trucks?|vans?|wires?|poles?|power|lines?';
-const GAP1 = `(?:\\s+(?!(?:${PLACE_STOP})\\b)${TOK}){0,4}`;
-const GAP2 = `(?:\\s+(?!(?:${PLACE_STOP}|by)\\b)${TOK}){0,4}`;
+const GAP1 = `(?:\\s+(?!(?:${PLACE_STOP}|in|into|inside|on|onto|across|over|blocking|blocks|blocked|covering|closing|closed)\\b)${TOK}){0,4}`;
+const GAP2 = `(?:\\s+(?!(?:${PLACE_STOP}|by|on|onto|in|into|inside|behind|beside|outside|against|several|many|numerous|multiple|various)\\b)${TOK}){0,4}`;
 const NOT_A_NAME = 'of|in|at|near|to|from|the|a|an|by|and|or|on|onto|for|with|into|across|along|off|over|under|between|see|call|called|mr|mrs|ms|about|than|is|was|are|were|my|our|your|his|her|their|this|that|these|those|no|not|blocking|blocks|blocked|covering|closing|closed';
 const AFTER_ST =
   '(?=\\.?(?:$|\\s*[,;:)/&\\-]|\\s+(?:and|near|at|in|on|between|by|to|from|just|for|with|blocking|blocked|across|closed|due|was|were|is|are|after|cross|crossing|intersection|north|south|east|west|n|s|e|w|ne|nw|se|sw|\\d+|zip|down|downed|damaged|reported)\\b))';
 const PLACE_NOUN = '(?!\\s+(?:park|estates?|village|mall|plaza|inn|motel|hotel|center|centre|school|church|baptist|elementary|academy|apartments?|md|lake|creek|farm|ranch|market|store|club|restaurant|maria|community|bowling|alley)\\b)';
 const NAMED_ROAD =
-  `\\b(?:blvd|boulevards?|streets?|rd|ave|avenues?|pkwy|parkways?|free-?ways?|fwys?|interchanges?|overpass(?:es)?|us-\\d{1,3}|us ?\\d{2,3}(?! ?(?:mi|miles?|min|mins|minutes?|ft|feet|yards?|yds?|mph|kts?|inch|inches|in)\\b)|sr[- ]?\\d{1,4})\\b${PLACE_NOUN}(?!\\s+of\\b)` +
+  `\\b(?:blvd|boulevard|street|rd|ave|avenue|pkwy|parkway|free-?ways?|fwys?|interchanges?|overpass(?:es)?|us-\\d{1,3}|us ?\\d{2,3}(?! ?(?:mi|miles?|min|mins|minutes?|ft|feet|yards?|yds?|mph|kts?|inch|inches|in|sec|secs|seconds?|hours?|hrs?|days?|times)\\b)|sr[- ]?\\d{1,4})\\b${PLACE_NOUN}(?!\\s+(?:of|from|across|throughout|district|heights|hills|gardens)\\b)` +
   `|(?<=\\b(?!(?:${NOT_A_NAME})\\b)[a-z0-9]+ )st\\b${AFTER_ST}`;
 const RAMP = '(?<!boat |wheelchair |handicap |handicapped |loading |skate |ada )\\bramps?\\b(?!\\s+(?:creek|lake|park|river)\\b)';
 const FILLER = '(?:the|a|an|all|both|two|three|four|five|\\d+|right|left|center|middle|slow|fast|travel|traffic|turn|entire|multiple|several|one|any)';
@@ -417,9 +417,14 @@ const TIED_ROAD_RE = new RegExp(
   ].join('|'),
   'i',
 );
-/** A report that also names private property or a thing a tree fell on: the street is its address, not where the tree is. */
+/**
+ * A report that also names private property or a thing a tree fell on (a home, a yard, a camper, an RV, a car, a boat, a driveway, a pool, a roof, shingles ...): the street is
+ * its address, not where the tree is, so the report is not read as a tree on a road. Shingles and gutters are here too: a roof word next to a street means a building was
+ * hit, and the tree service alert stays (main would have dropped it to feed only for a base road word; the new words never do). A second "on, onto, into or through" in
+ * one sentence ("tree down on Oak Ave, landed on a minivan") means the tree is also on some other thing, named or not: not read as a tree on a road.
+ */
 const NOT_ON_A_ROAD_RE =
-  /home|house|yard|residen|apartment|complex|duplex|triplex|townhome|townhouse|condo|trailer|dwelling|cabin|cottage|church|chapel|temple|mosque|synagogue|business|\bstores?\b|\bshops?\b|school|\bsheds?\b|barn|warehouse|restaurant|hotel|motel|\boffices?\b|\bmall\b|campus|propert|neighborhood|subdivision|(?<!p)roof|siding|garage|carport|porch|structure|building|\bdecks?\b|\bfences?\b|\bvehicles?\b|\bcars?\b|\btrucks?\b|\bvans?\b|power line|\bwires?\b|\bpoles?\b/;
+  /home|house|yard|residen|apartment|complex|duplex|triplex|townhome|townhouse|condo|trailer|dwelling|cabin|cottage|church|chapel|temple|mosque|synagogue|business|\bstores?\b|\bshops?\b|school|\bsheds?\b|barn|warehouse|restaurant|hotel|motel|\boffices?\b|\bmall\b|campus|propert|neighborhood|subdivision|(?<!p)roof|siding|shingle|gutter|driveway|parking lot|patio|\bsuvs?\b|\brvs?\b|pickup|camper|motorhome|\bboats?\b|\bpools?\b|gazebo|playground|greenhouse|garage|carport|porch|structure|building|\bdecks?\b|\bfences?\b|\bvehicles?\b|\bcars?\b|\btrucks?\b|\bvans?\b|power line|\bwires?\b|\bpoles?\b|\b(?:on|onto|into|through)\b[^.;!?]*\b(?:on|onto|into|through)\b/;
 
 /**
  * Round 34: a tree tied to a street or freeway by a NEW road word (not main's), read from a remark or from the stored LSR phrase. Independent

@@ -163,7 +163,8 @@ export function scanLsr(raw: unknown): LsrScan {
       data.treeDown = f.trees;
       data.powerLines = f.powerLines;
       data.blocksRoad = f.road;
-      data.treeOnRoad = f.roadTree;
+      // A tree tied to a street or freeway by a word main's road pattern does not know (carry.ts treeOnRoadWordsOf). NOT "a tree on a road": it is false for "tree down on Highway 9" (blocksRoad).
+      data.treeOnStreetWord = f.roadTree;
       data.roofNamed = f.roofOrSiding || f.shinglesOrGutters;
       data.onStructure = f.roofOrSiding || f.home || f.building;
       data.homeOrYard = f.home || f.yard;

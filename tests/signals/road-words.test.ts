@@ -480,7 +480,7 @@ describe('the card line for a tree on a road (EN and ES)', () => {
   });
   it('a tree on a road with a roof named (feed only) says it too; a tree on a home, another trade, no tree, or a street that only describes an area does not', () => {
     on();
-    const roof = spcRow('Tree down blocking Oak St, shingles blown off.');
+    const roof = spcRow('Tree down on Highway 9. Shingles blown off.'); // main's own road word: main already makes this feed only
     expect(labelFor(roof, 'tree-service')).toBe('market_insight');
     expect(cardBriefLang({ ...roof, label: 'market_insight', trade: 'tree-service' }, 'en').why).toBe(EN);
     const home = spcRow('Tree fell on a house on Oak St.');
@@ -497,12 +497,14 @@ describe('the card line for a tree on a road (EN and ES)', () => {
     const item = { ...spcRow('Tree down in lanes on the 605 freeway.'), occurredAt: '2025-01-08T10:00:00Z', label: 'coming_soon' as const, trade: 'tree-service' };
     on();
     const html = (lang: 'en' | 'es') => renderToStaticMarkup(createElement(BriefBlock, { item, lang }));
-    const serverEn = html('en');
-    expect(html('en')).toBe(serverEn);
-    expect(serverEn).toContain(EN);
+    const htmlOn = html('en');
+    expect(htmlOn).toContain(EN);
     expect(html('es')).toContain(ES);
     off();
-    expect(html('en')).not.toContain(EN);
+    // The same props with the other switch value give a different card (main's line), so a browser holding a different value than the server would mismatch.
+    const htmlOff = html('en');
+    expect(htmlOff).not.toContain(EN);
+    expect(htmlOff).not.toBe(htmlOn);
   });
   it('fits the card: at most 80 characters in English, 112 in Spanish, and the dictionary has both', () => {
     expect(REASON_COPY['spc-wind-damage-road'].why).toBe(EN);
@@ -515,5 +517,106 @@ describe('the card line for a tree on a road (EN and ES)', () => {
     expect(allBriefStrings().some((s) => s === EN)).toBe(true);
     expect(typeof en['sum.lsr_road_tree']).toBe('string');
     expect(typeof es['sum.lsr_road_tree']).toBe('string');
+  });
+});
+
+describe('review 2 of PR 25', () => {
+  // P2-1: a tree on ANY private thing, named or not, with a street after it.
+  const THINGS = [
+    'a camper', 'an RV', 'a motorhome', 'an SUV', 'a pickup', 'a boat', 'a pool', 'a patio', 'a gazebo', 'a playground', 'a driveway', 'a parking lot', 'a fence', 'a shed', 'a deck', 'a greenhouse',
+    'a minivan', 'a jeep', 'a sedan', 'a motorcycle', 'a tractor', 'a pergola', 'a pavilion', 'a swing set', 'a trampoline', 'a kennel', 'a chicken coop', 'a stable', 'a silo', 'a grain bin', 'a lawn', 'a garden',
+  ];
+  const FORMS = [
+    (x: string) => `Tree fell on ${x} on Elm St.`,
+    (x: string) => `Large tree fell onto ${x} on Maple Ave.`,
+    (x: string) => `Tree down on ${x} on Sunset Blvd, no injuries.`,
+    (x: string) => `Tree blocking ${x} on Old Mill Rd.`,
+    (x: string) => `Tree down on Oak Ave, landed on ${x}.`,
+    (x: string) => `Tree fell on ${x} at 1200 Elm St.`,
+  ];
+  it('a tree on a camper, RV, car, SUV, pickup, truck, boat, trailer, patio, driveway, parking lot, fence, shed, deck, pool (named or not) at a street stays act now: 0 of 192 lowered', () => {
+    on();
+    let n = 0;
+    for (const x of THINGS) for (const f of FORMS) {
+      const r = f(x);
+      expect(treeOnRoadWordsOf(r), r).toBe(false);
+      expect(treeLabel(r), r).toBe('act_now');
+      n++;
+    }
+    expect(n).toBe(THINGS.length * FORMS.length);
+    for (const r of ['Tree fell on a camper on Elm St.', 'Tree on a truck on Elm St.', 'Tree fell on a trailer on Main Street', 'Tree blocking driveway on Oak Ave', 'Tree down in parking lot on Main St']) expect(treeLabel(r), r).toBe('act_now');
+  });
+  it('a tree blocking a road and nothing else is still lowered', () => {
+    on();
+    for (const r of ['Tree blocking Elm St.', 'Tree down on Oak Ave.', 'Large tree fell on Maple Ave in Azusa.']) expect(treeLabel(r), r).toBe('coming_soon');
+  });
+
+  // P2-2: shingles or gutters next to a street never take the alert away.
+  it('shingles or gutters in the same remark as a tied street: tree service stays act now, never feed only', () => {
+    on();
+    for (const r of ['Tree down blocking Oak St, shingles blown off.', 'Tree down blocking Oak St, gutters torn off.', 'Tree down blocking Oak St, roof damage.', 'Tree down blocking Oak St, siding torn off.']) {
+      expect(treeOnRoadWordsOf(r), r).toBe(false);
+      expect(treeLabel(r), r).toBe('act_now');
+      expect(RANK[treeLabel(r)], r).toBeLessThanOrEqual(RANK.coming_soon);
+    }
+    expect(treeLabel('Tree down blocking Oak St.')).toBe('coming_soon');
+    // main's own road words keep main's reading (feed only), the switch does not change it
+    expect(treeLabel('Tree down on Highway 9. Shingles blown off.')).toBe('market_insight');
+  });
+
+  // P2-3: area-wide wording and place names are not a road.
+  it('"numerous trees down on streets across ...", "on several streets in <town>", "across the street from", "Boulevard Heights", "us 30 seconds" are not a road', () => {
+    on();
+    for (const r of [
+      'Numerous trees down on streets across the west side of town.', 'Trees down on several streets in Decatur.', 'Many trees down across the avenues district.', 'Tree down across the street from the fire station.',
+      'Trees down on Boulevard Heights.', 'Tree fell on us 30 seconds after we parked.', 'Trees down on many streets', 'Tree down on multiple avenues', 'Tree fell on us 2 hours ago', 'Tree down on Parkway Gardens',
+    ]) {
+      expect(treeOnRoadWordsOf(r), r).toBe(false);
+      expect(treeLabel(r), r).toBe('act_now');
+    }
+  });
+
+  // P3-2: the mutants that survived, each pinned by one case.
+  it('M14: a road word followed by a place noun is a name ("Street MD", "Parkway Village", "Overpass Park", "Boulevard Mall")', () => {
+    on();
+    for (const r of ['Tree blocking Street MD', 'Tree on Parkway Village', 'Tree blocking Overpass Park', 'Tree on Boulevard Mall', 'Tree on the Avenue School']) expect(treeOnRoadWordsOf(r), r).toBe(false);
+    expect(treeOnRoadWordsOf('Tree blocking Parkway')).toBe(true);
+  });
+  it('M15: "us" followed by a number and a unit is the word us, not US-n', () => {
+    on();
+    for (const r of ['Tree fell on us 20 minutes ago', 'Tree fell on us 30 seconds later', 'Tree fell on us 50 feet away']) expect(treeOnRoadWordsOf(r), r).toBe(false);
+    expect(treeOnRoadWordsOf('Tree blocking US 41')).toBe(true);
+    expect(treeOnRoadWordsOf('Tree blocking US-30')).toBe(true);
+  });
+  it('M19: a report main already reads as a road stores only main\'s road phrase, not both', () => {
+    for (const set of [off, on]) {
+      set();
+      const row = lsrRow('Tree blocking lanes on Highway 101.');
+      expect(row.summary).toBe('The report names trees or limbs down | It names a road');
+    }
+  });
+  it('M20: the tree and the road are at most four words apart', () => {
+    on();
+    expect(treeOnRoadWordsOf('Tree blocking big old gray Elm St')).toBe(true);
+    expect(treeOnRoadWordsOf('Tree blocking big old gray metal garden gate Elm St')).toBe(false);
+    expect(treeOnRoadWordsOf('Tree that was very old and gray and tall fell onto Elm St')).toBe(false);
+  });
+  it('M21: a period, comma or semicolon between the tree and the road ends the tie', () => {
+    on();
+    for (const r of ['Tree down. Backed up traffic on Elm St.', 'Tree down, traffic stopped on Elm St', 'Tree down; crews working on Elm St', 'Large tree fell. Elm St closed to traffic']) expect(treeOnRoadWordsOf(r), r).toBe(false);
+    expect(treeOnRoadWordsOf('Tree down on Elm St and crews working')).toBe(true);
+  });
+  it('P3-3: the stored flag says what it is (a street word main does not read), not "a tree on a road"', () => {
+    on();
+    const row = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { wfo: 'LOX', typetext: 'NON-TSTM WND DMG', magnitude: '', unit: null, county: 'Los Angeles', state: 'CA', city: '2 N BURBANK', valid: '2025-01-08T10:00:00Z', lat: 34.18, lon: -118.31, product_id: 'x', remark: 'Tree down on Highway 9.' } }] })[0];
+    expect(row.data?.blocksRoad).toBe(true);
+    expect(row.data?.treeOnStreetWord).toBe(false);
+    expect(row.data).not.toHaveProperty('treeOnRoad');
+  });
+  it('LAUNCH.md says what a roof word, an instant rollback and the LSR summary do', () => {
+    const l = read('LAUNCH.md');
+    expect(l).toMatch(/shingles or gutters/);
+    expect(l).toMatch(/instant rollback|Instant Rollback/);
+    expect(l).toMatch(/LSR summar/);
   });
 });
