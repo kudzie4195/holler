@@ -58,6 +58,7 @@ export const ENV_KEYS = [
   'HOLLER_LSR_ENABLED',
   'HOLLER_MANUAL_BIDS_ENABLED',
   'HOLLER_OWNER_USER_ID',
+  'HOLLER_ROAD_WORDS_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -144,6 +145,8 @@ export const env: Record<EnvKey, string | undefined> = {
   // Round 33 review P1-1: the Supabase user id (UUID) of the owner's own account; the only account that can open /app/owner/bids. Read
   // at call time in lib/signals/manual-bids/owner-id.ts. Empty or not a UUID: nobody.
   HOLLER_OWNER_USER_ID: process.env.HOLLER_OWNER_USER_ID,
+  // Round 34: more road words (freeway, lanes, ramp, Blvd, St, Rd, Ave, I-5 ...) in the wind damage rule and the LSR adapter (lib/signals/carry.ts roadWordsEnabled). Read again at call time there.
+  HOLLER_ROAD_WORDS_ENABLED: process.env.HOLLER_ROAD_WORDS_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

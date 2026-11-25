@@ -1,4 +1,4 @@
-import { WIND_DAMAGE_PATTERNS } from '../carry';
+import { treeOnRoadWordsOf, WIND_DAMAGE_PATTERNS } from '../carry';
 
 /**
  * Round 33: the fixed summary parts the LSR adapter (adapters/lsr.ts) writes in place of the report's remark, which is never stored.
@@ -19,6 +19,9 @@ import { WIND_DAMAGE_PATTERNS } from '../carry';
 export const LSR_TREE_PART = 'The report names trees or limbs down';
 export const LSR_POWER_PART = 'It names power lines or poles';
 export const LSR_ROAD_PART = 'It names a road';
+// Round 34: a tree tied to a street or freeway by the new road words (carry.ts treeOnRoadWordsOf). A neutral fact, stored whatever the switch says;
+// the label code reads it only while HOLLER_ROAD_WORDS_ENABLED is on, so the switch works at once in both directions. No word of main's road pattern.
+export const LSR_ROAD_TREE_PART = 'It names a street or freeway';
 export const LSR_ROOF_PART = 'It names a roof or siding';
 export const LSR_GUTTER_PART = 'It names shingles or gutters';
 export const LSR_HOME_PART = 'It names a home';
@@ -26,13 +29,15 @@ export const LSR_YARD_PART = 'It names a yard';
 export const LSR_BUILDING_PART = 'It names a building';
 export const LSR_DAMAGE_PART = 'The report names wind damage, not confirmed';
 
-export const LSR_PARTS: readonly string[] = [LSR_TREE_PART, LSR_POWER_PART, LSR_ROAD_PART, LSR_ROOF_PART, LSR_GUTTER_PART, LSR_HOME_PART, LSR_YARD_PART, LSR_BUILDING_PART, LSR_DAMAGE_PART];
+export const LSR_PARTS: readonly string[] = [LSR_TREE_PART, LSR_POWER_PART, LSR_ROAD_PART, LSR_ROAD_TREE_PART, LSR_ROOF_PART, LSR_GUTTER_PART, LSR_HOME_PART, LSR_YARD_PART, LSR_BUILDING_PART, LSR_DAMAGE_PART];
 
 /** What a remark names, word by word (read in memory; the remark is never stored). */
 export interface LsrFacts {
   trees: boolean;
   powerLines: boolean;
   road: boolean;
+  /** Round 34: a tree tied to a street or freeway by a road word main does not read (switch independent; used only while the switch is on). */
+  roadTree: boolean;
   /** "roof" or "siding" (the rule reads both as a roof and a structure). */
   roofOrSiding: boolean;
   /** "shingles" or "gutters" (the rule reads both as a roof, not a structure). */
@@ -57,8 +62,9 @@ export function lsrFactsOf(remark: string | null | undefined): LsrFacts {
   return {
     trees: treeWords || treeVerbs,
     powerLines,
-    // Shared with the line 39 rule (never fewer road or roof words than SPC reads).
+    // Shared with the line 39 rule (never fewer road or roof words than SPC reads). Main's road words only; the new ones are `roadTree`.
     road: WIND_DAMAGE_PATTERNS.road.test(c),
+    roadTree: treeOnRoadWordsOf(c),
     roofOrSiding: WIND_DAMAGE_PATTERNS.roofOrSiding.test(c),
     shinglesOrGutters: WIND_DAMAGE_PATTERNS.shinglesOrGutters.test(c),
     home: /\bhomes?\b|\bhouses?\b|\bresidences?\b|\bresidential\b/.test(c),
@@ -73,6 +79,7 @@ export function lsrSummaryOf(f: LsrFacts): string {
   if (f.trees) parts.push(LSR_TREE_PART);
   if (f.powerLines) parts.push(LSR_POWER_PART);
   if (f.road) parts.push(LSR_ROAD_PART);
+  else if (f.roadTree) parts.push(LSR_ROAD_TREE_PART);
   if (f.roofOrSiding) parts.push(LSR_ROOF_PART);
   if (f.shinglesOrGutters) parts.push(LSR_GUTTER_PART);
   if (f.home) parts.push(LSR_HOME_PART);

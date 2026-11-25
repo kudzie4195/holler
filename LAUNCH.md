@@ -134,6 +134,26 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    Iowa Environmental Mesonet LSR GeoJSON for seven NWS offices (Atlanta, Austin, Charlotte, Raleigh, New York, Chicago, Los Angeles),
    storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
    never stored. Turn on after one look at a scan's `lsr` row in the health email.
+   NEEDS KUDZI (round 34 road words): `HOLLER_ROAD_WORDS_ENABLED` stays empty at the deploy; off, every label and every card line is exactly as
+   before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1); the one stored difference is the LSR summary line below, and LSR is off. On:
+   in a wind damage report (SPC, and LSR when it is on) a tree tied to a road by freeway, fwy, lanes, ramp, Blvd, boulevard, St, street, Rd, Ave,
+   avenue, Pkwy, parkway, interchange, overpass, US-n or SR n ("tree down on ...", "blocking ...", "in lanes", "<road> blocked by trees") is the road
+   crew's job: tree service gets a heads-up, not Act now, and the card says "The report names a road; the road crew usually clears trees there.
+   Good to know." (EN and ES). The change only ever LOWERS tree service (never raises any label; roofing, restoration and every other trade never
+   move). Not read as a road: a street that only describes an area ("between Western Avenue and ...", "along US 270", "near Oak St and Elm St",
+   "on the 800 block of ...", "on several streets in <town>", "across the street from ..."), plural streets and avenues, a place name ("Boulevard
+   Heights", "Parkway Village"), and any report that also names private property or a thing the tree fell on: a home, yard, apartment, duplex, trailer,
+   condo, church, business, school, roof, shingles or gutters, siding, garage, camper, RV, car, SUV, pickup, truck, boat, driveway, parking lot,
+   patio, pool, fence, shed, deck, a vehicle or power lines, a hit verb between the tree and the street ("tree crushed a minivan on Elm St": crushed, hit, struck, damaged, smashed, landed on and similar, which ends the tie whatever the thing is), or a second "on / onto / into" in the same sentence ("down on Oak Ave, landed on ...").
+   A report with shingles or gutters next to a street therefore keeps Act now (it never drops to feed only). "St" counts only as a street suffix
+   ("Elm St", not "St. Louis"); "lane" alone, "Dr" and "Drive" do not count. Real Los Angeles wind remarks of Jan 7 to 9 2025 (124): tree service
+   Act now 63 to 37. The switch is inlined at build (next.config.ts `env`), so the feed card in the browser and the server agree: it takes effect with
+   the next deployment, on or off, and a Vercel Instant Rollback or a promote of an older build brings back THAT build's value whatever the dashboard
+   variable says. LSR rows store a neutral fixed phrase for a tree tied to a street or freeway whatever the switch says and the label reads it at read
+   time, so turning the switch off restores main's labels for every stored row at once, and turning it on applies to rows stored before as well (rows
+   stored before this deploy have no phrase and keep their old label; 0 LSR rows are stored while `HOLLER_LSR_ENABLED` is empty). With
+   `HOLLER_LSR_ENABLED` on, the LSR summary line "It names a street or freeway" appears on those reports (about 1 in 5 real wind damage remarks)
+   whatever this switch says; labels and the card line do not change. Rollback: empty the variable and redeploy; nothing to clean up.
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

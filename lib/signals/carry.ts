@@ -351,6 +351,90 @@ export interface WindDamageFacts {
   homeOrYard: boolean;
 }
 
+// ---- road words (round 34, HOLLER_ROAD_WORDS_ENABLED) --------------------------------------------------------------------------------
+
+export const ROAD_WORDS_FLAG = 'HOLLER_ROAD_WORDS_ENABLED';
+
+/**
+ * The wider road reading is ON only when the switch is "1", "true", "on" or "yes" (any case). Unset: off, and every label is what it was.
+ *
+ * This runs in the browser too (the feed card builds its text there), so the default reads `process.env.HOLLER_ROAD_WORDS_ENABLED` as a plain
+ * member expression: next.config.ts lists the variable under `env`, so Next replaces it with the build's value in the server AND the browser
+ * bundle and the two always agree (a variable without NEXT_PUBLIC_ is otherwise undefined in the browser). Outside Next (tests, the replay)
+ * it is the real environment variable. An environment change reaches new deployments only, as for every switch here.
+ */
+export function roadWordsEnabled(value: string | undefined = typeof process !== 'undefined' ? process.env.HOLLER_ROAD_WORDS_ENABLED : undefined): boolean {
+  return typeof value === 'string' && /^(?:1|true|on|yes)$/i.test(value.trim());
+}
+
+/** The road words main has always read (switch off, and still read with it on). Never edit: the replay anchor depends on it. */
+export const ROAD_WORDS_BASE = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/;
+
+/**
+ * The stored phrase an LSR row carries when its remark puts a tree on a street or freeway by one of the NEW road words (adapters/lsr-parts.ts
+ * LSR_ROAD_TREE_PART). It must not contain a word of ROAD_WORDS_BASE ("road", "highway"): main reads the summary too.
+ */
+export const ROAD_TREE_PHRASE = 'it names a street or freeway';
+
+/*
+ * Round 34 (review r33-hail-2 R4-2: 24 of 63 urgent tree service reports in the January 2025 Los Angeles wind event were trees on freeways or in
+ * traffic lanes). The new road words count only where a tree is TIED to the road in the same clause, never where a street only describes an
+ * area ("between Western Avenue and ...", "along US 270", "2 mi N of Main St", "near Kenwood St and Oak St", "on the 800 block of Fairview St"):
+ *   <tree words> <up to 4 words, none a place word> <on|onto|across|over|blocking|blocks|blocked|covering|closing|closed> <up to 4 words> <road word>
+ *   <tree words> in <the, two, left ...> lanes
+ *   <road word> <up to 3 words> blocked|closed|covered by <up to 3 words> <tree words>
+ * New road words, whole words, lower case: freeway(s), fwy, ramp(s) (not boat, wheelchair, loading, skate ramps, nor "Ramp Creek"), lanes,
+ * "<slow|left|travel|traffic ...> lane", "blocking a lane", boulevard, blvd, street(s), rd, avenue, ave (not "Ave Maria"), parkway, pkwy,
+ * interchange, overpass, US-n, SR n, and "St" as a street suffix only (after a name word, before the end, a punctuation mark, a number or a
+ * joining word: never "Port St Lucie", "of St Louis"). Not on the list: "lane" alone ("Penny Lane Farm"), "Dr", "drive", "way", plurals of road.
+ * A road word followed by a place noun ("Street MD", "Parkway Village", "Overpass Park") is a name. A report that also names a home, yard,
+ * apartment, duplex, trailer, condo, church, business, school, a roof, garage or building, a vehicle or power lines is not read as a tree on a
+ * road (main did not read these words at all, so this only ever lowers LESS). Main's own road words (ROAD_WORDS_BASE) keep main's reading.
+ */
+const TOK = "[a-z0-9'’-]+";
+const PLACE_STOP = 'near|between|along|of|from|at|block|blocks|miles?|mi|area|vicinity|or|vehicles?|cars?|trucks?|vans?|wires?|poles?|power|lines?';
+const GAP1 = `(?:\\s+(?!(?:${PLACE_STOP}|in|into|inside|on|onto|across|over|blocking|blocks|blocked|covering|closing|closed|(?:crush|smash|hit|struck|strik|damag|destroy|pinn|total|land|squash|flatten)[a-z]*)\\b)${TOK}){0,4}`;
+const GAP2 = `(?:\\s+(?!(?:${PLACE_STOP}|by|on|onto|in|into|inside|behind|beside|outside|against|several|many|numerous|multiple|various)\\b)${TOK}){0,4}`;
+const NOT_A_NAME = 'of|in|at|near|to|from|the|a|an|by|and|or|on|onto|for|with|into|across|along|off|over|under|between|see|call|called|mr|mrs|ms|about|than|is|was|are|were|my|our|your|his|her|their|this|that|these|those|no|not|blocking|blocks|blocked|covering|closing|closed';
+const AFTER_ST =
+  '(?=\\.?(?:$|\\s*[,;:)/&\\-]|\\s+(?:and|near|at|in|on|between|by|to|from|just|for|with|blocking|blocked|across|closed|due|was|were|is|are|after|cross|crossing|intersection|north|south|east|west|n|s|e|w|ne|nw|se|sw|\\d+|zip|down|downed|damaged|reported)\\b))';
+const PLACE_NOUN = '(?!\\s+(?:park|estates?|village|mall|plaza|inn|motel|hotel|center|centre|school|church|baptist|elementary|academy|apartments?|md|lake|creek|farm|ranch|market|store|club|restaurant|maria|community|bowling|alley)\\b)';
+const NAMED_ROAD =
+  `\\b(?:blvd|boulevard|street|rd|ave|avenue|pkwy|parkway|free-?ways?|fwys?|interchanges?|overpass(?:es)?|us-\\d{1,3}|us ?\\d{2,3}(?! ?(?:mi|miles?|min|mins|minutes?|ft|feet|yards?|yds?|mph|kts?|inch|inches|in|sec|secs|seconds?|hours?|hrs?|days?|times)\\b)|sr[- ]?\\d{1,4})\\b${PLACE_NOUN}(?!\\s+(?:of|from|across|throughout|district|heights|hills|gardens)\\b)` +
+  `|(?<=\\b(?!(?:${NOT_A_NAME})\\b)[a-z0-9]+ )st\\b${AFTER_ST}`;
+const RAMP = '(?<!boat |wheelchair |handicap |handicapped |loading |skate |ada )\\bramps?\\b(?!\\s+(?:creek|lake|park|river)\\b)';
+const FILLER = '(?:the|a|an|all|both|two|three|four|five|\\d+|right|left|center|middle|slow|fast|travel|traffic|turn|entire|multiple|several|one|any)';
+const LANE_MODS = '(?:traffic|travel|slow|fast|turn|bike|bus|hov|carpool|left|right|center|middle|inside|outside|express|passing)';
+const LANES = `(?:(?:\\s+${FILLER}){0,3}\\s+lanes\\b|(?:\\s+${FILLER}){0,2}\\s+${LANE_MODS} lane\\b|\\s+lane(?= of traffic\\b))${PLACE_NOUN}`;
+const TREE_WORDS = '(?:trees?|limbs?|branch(?:es)?)';
+const CONNECT = '(?:on|onto|across|over|blocking|blocks|blocked|covering|closing|closed)';
+const TIED_ROAD_RE = new RegExp(
+  [
+    `\\b${TREE_WORDS}\\b${GAP1}\\s+${CONNECT}\\b(?:${GAP2}\\s+(?:${NAMED_ROAD})|(?:\\s+${FILLER}){0,3}\\s+${RAMP}|${LANES})`,
+    `\\b${TREE_WORDS}\\b${GAP1}\\s+in\\b${LANES}`,
+    `\\b${TREE_WORDS}\\b${GAP1}\\s+blocking (?:an? |one )lane\\b`,
+    `\\b(?:${NAMED_ROAD}|${RAMP}|lanes\\b)(?:\\s+${TOK}){0,3}\\s+(?:blocked|closed|covered|obstructed|shut)\\s+(?:by|with)(?:\\s+${TOK}){0,3}\\s+${TREE_WORDS}\\b`,
+  ].join('|'),
+  'i',
+);
+/**
+ * A report that also names private property or a thing a tree fell on (a home, a yard, a camper, an RV, a car, a boat, a driveway, a pool, a roof, shingles ...): the street is
+ * its address, not where the tree is, so the report is not read as a tree on a road. Shingles and gutters are here too: a roof word next to a street means a building was
+ * hit, and the tree service alert stays (main would have dropped it to feed only for a base road word; the new words never do). A second "on, onto, into or through" in
+ * one sentence ("tree down on Oak Ave, landed on a minivan") means the tree is also on some other thing, named or not: not read as a tree on a road.
+ */
+const NOT_ON_A_ROAD_RE =
+  /home|house|yard|residen|apartment|complex|duplex|triplex|townhome|townhouse|condo|trailer|dwelling|cabin|cottage|church|chapel|temple|mosque|synagogue|business|\bstores?\b|\bshops?\b|school|\bsheds?\b|barn|warehouse|restaurant|hotel|motel|\boffices?\b|\bmall\b|campus|propert|neighborhood|subdivision|(?<!p)roof|siding|shingle|gutter|driveway|parking lot|patio|\bsuvs?\b|\brvs?\b|pickup|camper|motorhome|\bboats?\b|\bpools?\b|gazebo|playground|greenhouse|garage|carport|porch|structure|building|\bdecks?\b|\bfences?\b|\bvehicles?\b|\bcars?\b|\btrucks?\b|\bvans?\b|power line|\bwires?\b|\bpoles?\b|\b(?:on|onto|into|through)\b[^.;!?]*\b(?:on|onto|into|through)\b/;
+
+/**
+ * Round 34: a tree tied to a street or freeway by a NEW road word (not main's), read from a remark or from the stored LSR phrase. Independent
+ * of the switch, so the LSR adapter can store it as a neutral fact and the label code decides at read time whether to use it.
+ */
+export function treeOnRoadWordsOf(text: string | null | undefined): boolean {
+  const c = lower(text);
+  return c.includes(ROAD_TREE_PHRASE) || (!NOT_ON_A_ROAD_RE.test(c) && TIED_ROAD_RE.test(c));
+}
+
 /**
  * The line 39 rule's own word patterns, shared (not copied) with the LSR adapter (adapters/lsr-parts.ts, review 3 R3-1): the LSR row takes
  * its road and roof facts from these same patterns, so it can never read fewer road or roof words than an SPC row with the same remark.
@@ -358,7 +442,7 @@ export interface WindDamageFacts {
  */
 export const WIND_DAMAGE_PATTERNS = {
   trees: /\btrees?\b|limb|branch|uproot|snapped|felled/,
-  road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/,
+  road: ROAD_WORDS_BASE,
   // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
   // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
   roofOrSiding: /(?<!p)roof|siding/,
@@ -372,7 +456,8 @@ export function windDamageFactsOf(text: string | null | undefined): WindDamageFa
   const P = WIND_DAMAGE_PATTERNS;
   return {
     trees: P.trees.test(c),
-    road: P.road.test(c),
+    // Main's road words always; round 34, switch on: also a tree tied to a street or freeway by the new words (treeOnRoadWordsOf).
+    road: P.road.test(c) || (roadWordsEnabled() && treeOnRoadWordsOf(c)),
     roof: P.roofOrSiding.test(c) || P.shinglesOrGutters.test(c),
     structure: P.structure.test(c),
     homeOrYard: P.homeOrYard.test(c),
@@ -380,11 +465,19 @@ export function windDamageFactsOf(text: string | null | undefined): WindDamageFa
 }
 
 /**
+ * A tree on a road, not on a home: the road crew's job, so the report is not act now for tree service (line 39's road exception, main's
+ * rule). Round 34 only adds road readings (treeOnRoadWordsOf), so with the switch on a label is never higher than main's.
+ */
+export function treeOnRoad(f: WindDamageFacts): boolean {
+  return f.trees && f.road && !f.homeOrYard;
+}
+
+/**
  * Line 39: engine B's stormReportRule for a wind damage report, per trade, read from the report's own remark (the summary). A tree across
  * a highway, ramp or road is a road crew's job, not a homeowner's.
  */
 export function windDamageLevelOf(f: WindDamageFacts, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
-  const trees = f.trees && !(f.road && !f.homeOrYard);
+  const trees = f.trees && !treeOnRoad(f);
   if (trade === 'tree-service') return trees ? 'act_now' : f.roof ? 'market_insight' : 'coming_soon';
   if (trade === 'roofing') return f.roof ? 'act_now' : 'coming_soon';
   return f.structure ? 'act_now' : 'coming_soon';

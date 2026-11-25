@@ -1,6 +1,6 @@
 import type { CategoryId } from './categories';
 import { formatRecordDate, labelFor, ruleFor, type LabelInput, type OpportunityLabel } from './lead-rules';
-import { isPaperworkOrder } from './carry';
+import { isPaperworkOrder, roadWordsEnabled, treeOnRoad, windDamageFactsOf } from './carry';
 import { bidSourceLinkLabel } from './bid-card';
 import { ERATE_SOURCE_ID } from './bid-sources';
 import { carriedTrades, PERMIT_NOUNS, ROUTE_WHY, routeWhyFor } from './permit-routing';
@@ -554,6 +554,13 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
     unknown: 'damage is not confirmed, and it may not reach you',
   },
   'spc-wind-damage': { why: 'A wind damage report was filed nearby; {work} may be needed.', next: 'Check the area and offer help to owners on affected streets.' },
+  // Round 34 (HOLLER_ROAD_WORDS_ENABLED): tree service on a report that puts the tree on a road and names no home or yard. A heads-up (or feed only
+  // with a roof named), honest about why: the road crew clears it. Chosen by reasonCopyFor, never by a label rule, so no label depends on it.
+  'spc-wind-damage-road': {
+    labels: ['coming_soon', 'market_insight'],
+    why: 'The report names a road; the road crew usually clears trees there. Good to know.',
+    next: 'Watch for reports of trees on homes or yards nearby.',
+  },
   // Review P3 item 8: the inspection step only on an alert; a feed-only hail card (auto glass and body under 1.75 inch) keeps the family's step.
   'spc-hail': { labels: ['act_now', 'coming_soon'], next: 'Check the area on a map before you offer anyone a visit.' },
   'act-storm-report': { next: 'Check the area on a map before you offer anyone a visit.' },
@@ -572,12 +579,14 @@ export function reasonCopyFor(input: BriefInput & { label: BriefLabel; trade?: s
   const sig = { source: input.source, kind: input.kind, subtype: input.subtype, title: input.title, summary: input.summary };
   const trade = (input.trade ?? null) as CategoryId | null;
   const rule = ruleFor(sig, trade);
-  const copy = rule ? REASON_COPY[rule.id] : undefined;
-  if (!rule || !copy || (copy.labels && !copy.labels.includes(input.label))) return null;
+  // Round 34 (switch on): a wind damage report whose remark puts a tree on a road, for tree service, says so plainly (REASON_COPY cell above).
+  const id = rule && rule.id === 'spc-wind-damage' && trade === 'tree-service' && roadWordsEnabled() && treeOnRoad(windDamageFactsOf(input.summary)) ? 'spc-wind-damage-road' : rule?.id;
+  const copy = id ? REASON_COPY[id] : undefined;
+  if (!rule || !id || !copy || (copy.labels && !copy.labels.includes(input.label))) return null;
   // The card's label can differ from what this rule gives (a passed deadline, a stage update, another trade's label): then the family's
   // sentences fit the card better than this rule's.
   if (labelFor(sig, trade) !== input.label) return null;
-  return { id: rule.id, copy };
+  return { id, copy };
 }
 
 interface Uncertainty {

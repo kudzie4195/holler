@@ -1,0 +1,146 @@
+# Real NWS non-thunderstorm wind damage remarks (public NWS products) read from the Iowa Environmental Mesonet LSR GeoJSON on 2026-11-25 (round 33 review r33-hail-2, iem/SOURCE.txt):
+# lines 1-124: NWS Los Angeles (LOX), 2025-01-07 12Z to 2025-01-09 12Z; 125-140: GSP, FFC, RAH, LOT, EWX 2025-03-04/06; 141-143: FFC 2024-01-09/10.
+# A transcription (a few remarks are cut at about 125 characters). No names of private persons. One remark per line; lines starting with # are not remarks.
+Tree down in lanes on the 605 freeway near Valley Blvd.
+Large tree blocking the onramp of the 210 freeway near Pennsylvania Avenue.
+Large tree blocking entire freeway ramp on the 210.
+Freeway sign downed by winds on Interstate 5 near Magic Mountain Parkway.
+Many trees down near the insection of Chandler Blvd and Keystone St in Burbank.
+City of Walnut reported 10 trees down across the city the next morning. Two caused minimal damage to properties.
+Tree down in lanes across Highway 134 mear Pacific Avenue/.
+Large tree branch in lanes of 10 freeway near Fairplex Dr.
+Corrects previous tstm wnd dmg report from 2 SW Glendale. Multiple trees down on Ventura Freeway.
+Tree blocking slow lane of the 210 freeway near Azusa Ave.
+Palm tree down in lanes on westbound Highway 60 at Lorena St.
+large tree downed blocking street. time estimated.
+Freeway sign downed by winds on 210 freeway near Hill Avenue.
+Wires down near Glenoaks Blvd and Birmingham Rd in Burbank.
+NB 405 and Western Offramp - Downed trees partly blocking lanes.
+tree fell on vehicle on north michigan ave.
+Multiple large trees down at Ralph Foy Park in Burbank.
+Large palm trees downed by winds on the 1200 block of Galbreth Road in Altadena.
+Wires down near intersection of Clark Ave and Niagara St in Burbank.
+large tree down, power line down. time estimated.
+tree down blocking entire roadway.
+Report from mPING: 1-inch tree limbs broken; Shingles blown off.
+Large tree branches down on 210 freeway near Arroyo St.
+Large tree downed by winds on 2700 block of E Sierra Madre Blvd in Pasadena.
+Wires down on 800 block of N Pass Ave in Burbank.
+Large tree downed by gusty winds on Thousand Oaks Blvd near Caspian Ct.
+Tree down in lanes on 134 freeway near Vineland Avenue.
+Large tree branch blocking offramp on Highway 134 to Orange Grove Blvd.
+Downed tree blocking traffic near Inspiration Point.
+Tree down by winds near Pioneer Park in Azusa.
+Large tree branch blocking Central Ave offramp on 134 freeway.
+Large tree downed by winds near Badillo St and Virgina Ave in Baldwin Park.
+Foothill Transit reported a disruption to transit service on Baldwin Park Blvd due to a downed power line.
+Large tree blocking entire intersection on the 134.
+Foothill Transit reported power lines down in Pomona area causing disruptions to bus service.
+Tree down on onramp to Interstate 5 near Riverside Drive.
+Tree branch blocking lanes on McAndrew Road near Grand Avenue.
+Large tree down on 800 block of Fairview St in Burbank.
+Metro Los Angeles reported overhead wires damaged by high winds on the A Line between Montecito Heights and Pasadena.
+Large tree downed by gusty winds on Medea Creek Road.
+Large tree fell on vehicle on the 600 block of N Madison St in Pasadena.
+Large tree fell and blocking ramp to the 10 freeway.
+Tree blocking road.
+Large tree branch down on the 210 freeway.
+Tree and power lines down in roadway on Shields Street near Canyonside Road.
+Power lines downed at Victory Blvd and Parish Lane in Burbank.
+Large tree down near Kenwood St and Oak St.
+Tree and light pole down on 800 block of Niagara Street in Burbank.
+Large tree down on 4300 block of Sarah St in Burbank.
+Foothill Transit reported a disruption of transit service in Irwindale due to downed power line.
+Tree down in lanes at the 134 and 210 freeway connector.
+Large tree downed by winds on Sierra Madre Avenue in Azusa.
+tree fallen on house and blocking street. time estimated.
+Tree blocking slow lane of 210 freeway near Orange Grove Blvd.
+Large freeway sign down on 134 freeway near Harvey Drive.
+Large tree downed by winds on 1300 block of N Mentor Ave in Altadena.
+Tree blocking offramp to Wilshire Blvd on the 405 freeway.
+Wires down on 2300 block of Fairview St in Burbank.
+Tree down on Fairview St between Empire Ave and Thornton Ave.
+Tree blocking all lanes of Highway 101 near Coldwater Canyon Avenue.
+Tree blocking road west of intersection of Interstates 710 and 10.
+Wires down on 200 block of N Screenland in Burbank.
+Wires down on 4300 block of Magnolia Blvd in Burbank.
+Pole down on Melrose offramp on southbound 101.
+Large tree down and blocking the Pasadena Freeway.
+Wires down at 6th St and Angeleno Ave.
+Large tree branches downed on Circle Seven Drive in front of ABC-7 studios.
+Large tree down on Chandler Blvd near Buena Vista St in Burbank.
+Corrects previous tstm wnd dmg report from 2 SW Glendale. Tree down at intersection of the I-5 and 134 freeways.
+Tree down on vehicle with wires down near Glenoaks Blvd and Irving Drive in Burbank.
+Tree blocking Highway 134 and 210 connector.
+Large tree branch downed on power lines on the 4700 block of Baldwin Park Blvd.
+Large tree blocking the offramp of Highway 134 at Glendale Avenue.
+Tree down in lanes of California Avenue near Maydee Street.
+Two downed trees on the 5900 block of Golden West Avenue in Temple City.
+tree fell on car. time estimated.
+Large tree down on Interstate 5 near Hollywood Way.
+Large tree uprooted and lamp post downed by winds on the 100 block of Pamela Rd.
+Large tree branch down in lanes on Highway 170 near Victory Blvd.
+Large tree downed on 1100 block of Orchard Dr in Burbank.
+Tree down in right two lanes of the 210 freeway near the 605 freeway connector.
+Large tree downed on 4100 block of Kling St in Burbank.
+Very large tree blocking the onramp to the 118 freeway at San Fernando Rd.
+Large tree blocking 57 and 71 freeway connectors.
+Tree Down and blocking street on Beverlywil Dr. between Cisco St. and Beverlywood St. zip code 90034.
+Very large pine tree downed on N Crystal Lake Rd.
+Several trees downed and uprooted at Temple City City Hall.
+Large tree branch down on 210 freeway near Hill Ave.
+Tree down in lanes.
+Tree down blocking Harvard Rd.
+Power pole downed by winds on Nordhoff St between Wilbur and Vanalden.
+City of South Pasadena reports more than 100 downed tree in the city.
+Power pole sheared off near the intersection of Victory Blvd and Reese Place in Burbank.
+Foothill Transit reported a disruption of transit service in Arcadia due to downed power line near Myrtle Avenue.
+Light pole downed by winds on the corner of Oak Grove Drive and Foothill Blvd in La Canada Flintridge.
+Wires down on 400 block of W Magnolia Blvd in Burbank.
+Tree blocking right two lanes of the 110 freeway near Tunnel 1.
+Corrects previous non-tstm wnd dmg report from 1 WNW Burbank. Large tree down near Kenwood St and Oak St.
+Wires down on 2000 block of Rosita Ave in Burbank.
+Power lines downed across Victory Blvd near Cypress Ave. Victory Blvd closed in both directions.
+Large tree downed on the 1300 block of E Colorado St in Glendale.
+Large tree branch on Interstate 5 near Los Feliz Blvd.
+Very large tree downed by wind on 4400 block of Oak Grove Dr in La Canada Flintridge.
+Tree down in lanes on 134 freeway near Forest Lawn Drive.
+Wires down on 200 block on N Kenneth Rd in Burbank.
+Report from mPING: 3-inch tree limbs broken; Power poles broken.
+Tree down on Highway 101 near Parkway Calabasas.
+Tree blocking offramp on Interstate 210 at Fair Oaks Ave.
+Wires down on 3500 block of Magnolia Blvd in Burbank.
+Large tree down on 200 block of W Magnolia Blvd.
+Wires down at Glenoaks Blvd and Cedar Ave in Burbank.
+Tree blocking lanes of Highway 60 near Soto Street.
+Large tree blocking Covina Blvd near Hollenbeck Ave.
+Large tree downed on the 3400 block of Honolulu Avenue in Glendale.
+Large tree downed on 600 block of N Parish Pl in Burbank.
+Metal sign downed in lanes of Highway 2 near Mountain St.
+Tree down in lanes of Highway near Buena Vista.
+Poles ar De Bell Golf Club range downed on Lockheed View Rd and resting on power lines.
+Several power poles sheered in half on the 800 block of Allen Ave in Glendale.
+Tree down on 600 block of Glenoaks Blvd in Burbank.
+Tree blocking lane of I-10.
+Wires down on 1500 block of Ontario Street in Burbank.
+Road sign down in slow lane.
+Tree down on Huntington Drive near San Gabriel Blvd.
+Outages due to fallen limbs/trees/lines west of Cashiers.
+A tree and power lines were downed on Sardis Circle near the intersection of Reinhardt College Parkway.
+Corrects previous tstm wnd dmg report from 3 ENE Lagrange. Report of at least two power lines down near the intersection
+Report of trees and power lines down 7 miles ENE of Jasper.
+Report of trees down and blocking Darnell Rd, 2 miles west of Jasper.
+Corrects previous tstm wnd dmg report from 5 SE Four Oaks. Duke energy reported outage caused by fallen trees or limbs
+Pockets of power outages due to fallen trees and/or utility lines from around Franklin to Otto and from Franklin
+Outages due to tree and/or utility line damage.
+A tree was downed onto a house 1 mile east of Tate.
+A tree fell across Darnell Road.
+Pockets of power outages due to downed trees and utility lines along the Hwy 19/74 corridors.
+Numerous reports of tree and utility line damage countywide.
+Power outages along Roaring Fork Rd from fallen limbs/trees/utility lines.
+Report of a partial tree fall on power line on 8th street in Gibson City. Personal weather stations were reporting wind
+Power outages due to fallen limbs/trees/lines.
+12 inch diameter tree trunk snapped on Oakclaire Drive.
+Corrects previous non-tstm wnd dmg report from 2 W Fairplay. One tree down at the intersection of Tyree Rd and Hwy 166.
+Tree down near intersection of Dean Hill Road and Monroe Jersey Rd.
+One tree blocking Dixon Grove Rd, south of Tennille.
