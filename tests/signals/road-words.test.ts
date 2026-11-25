@@ -19,6 +19,7 @@ import { allBriefStrings, MAX_WHY, REASON_COPY, reasonCopyFor } from '@/lib/sign
 import { cardBriefLang, MAX_WHY_BY_LANG } from '@/lib/signals/brief-i18n';
 import { localizeSummary } from '@/lib/signals/summary-i18n';
 import { ENV_KEYS } from '@/lib/env';
+import { INLINED_SWITCHES } from '@/lib/build-switches';
 import { en } from '@/lib/i18n/en';
 import { es } from '@/lib/i18n/es';
 import type { CategoryId } from '@/lib/signals/categories';
@@ -124,8 +125,10 @@ describe('the switch', () => {
   });
   it('reaches the browser: next.config.ts inlines it, and the code reads it as a plain member expression Next can replace', () => {
     // A variable without NEXT_PUBLIC_ is undefined in the browser. Listing it under `env` makes Next replace process.env.HOLLER_ROAD_WORDS_ENABLED
-    // with the build's value in the server and the browser bundle (verified on a build with the switch on: gates log client-chunk-switch.txt).
-    expect(read('next.config.ts')).toMatch(/env:\s*\{\s*HOLLER_ROAD_WORDS_ENABLED:\s*process\.env\.HOLLER_ROAD_WORDS_ENABLED/);
+    // with the build's value in the server and the browser bundle. Round 34 switch audit: the name is in lib/build-switches.ts INLINED_SWITCHES,
+    // which next.config.ts passes through normalizeSwitchEnv (so the browser holds "1" or "", never the raw text).
+    expect(INLINED_SWITCHES).toContain('HOLLER_ROAD_WORDS_ENABLED');
+    expect(read('next.config.ts')).toContain('normalizeSwitchEnv(');
     const src = read('lib', 'signals', 'carry.ts');
     expect(src).toContain('process.env.HOLLER_ROAD_WORDS_ENABLED : undefined');
     expect(src).not.toMatch(/process\.env\?\.HOLLER_ROAD_WORDS_ENABLED/);

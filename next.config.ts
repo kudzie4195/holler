@@ -6,9 +6,6 @@ import { inlinedSwitchEnv, normalizeSwitchEnv } from "./lib/build-switches";
 const nextConfig: NextConfig = {
   /* config options here */
   poweredByHeader: false,
-  // Round 34: the road-words switch (lib/signals/carry.ts roadWordsEnabled) is read by label code that runs in the server AND the browser (the feed card).
-  // Listing it here makes Next replace process.env.HOLLER_ROAD_WORDS_ENABLED with the build's value in both bundles, so they cannot disagree.
-  env: { HOLLER_ROAD_WORDS_ENABLED: process.env.HOLLER_ROAD_WORDS_ENABLED ?? '' },
   // Security pass r16 SEC-1: clickjacking, nosniff, referrer and permissions headers on every path (lib/security-headers.ts).
   async headers() {
     // Global hardening first, then Referrer-Policy: no-referrer on token pages (the later entry wins for the same key).
@@ -27,9 +24,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-// Round 34 switch audit: the switches the browser reads (lib/build-switches.ts INLINED_SWITCHES) are inlined at build, so the server and the
-// browser bundle hold the same value. Merged into any `env` the object above declares (another switch added there is kept), and every entry
-// is normalized to "1" or "": a name that is not a HOLLER_..._ENABLED switch stops the build, so no key or secret is ever inlined.
+// Round 34 switch audit: the switches the browser reads (lib/build-switches.ts INLINED_SWITCHES: SAM labels, business tag fix, road words) are
+// inlined at build, so the server and the browser bundle hold the same value (the feed card builds its text in both). Merged into any `env`
+// the object above declares (another switch added there is kept), and every entry is normalized to its parsed answer ("1" or ""): a name that
+// is not an on/off switch stops the build, so no key or secret is ever inlined.
 nextConfig.env = normalizeSwitchEnv({ ...nextConfig.env, ...inlinedSwitchEnv(process.env) });
 
 export default nextConfig;

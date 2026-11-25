@@ -696,13 +696,24 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 
 - [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
-- [ ] Know this (round 34 switch audit): every switch listed in next.config.ts `env` is baked in at build time too, as "1" or empty, never
-  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED` and
-  `HOLLER_BUSINESS_TAG_FIX_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
-  one, redeploy. An instant rollback serves that deployment's own value; promoting a Preview deployment rebuilds it with the Production
-  variables. `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`: the build FAILS if a browser
-  chunk reads any server variable at runtime (any env read except `NODE_ENV` and `NEXT_PUBLIC_*`, listed in `lib/env.ts` or not). So a
-  switch that is not in `env` is read by server code only. A message that only names a variable is a warning, not a failure.
+- [ ] Know this (round 34 switch audit): every switch listed in next.config.ts `env` is baked in at build time too, as its parsed answer ("1"
+  or empty, never its raw text; a default-on switch as "1" or "0"), and a name that is not an on/off switch stops the build. The list is
+  `INLINED_SWITCHES` in `lib/build-switches.ts`: `HOLLER_SAM_LABELS_ENABLED`, `HOLLER_BUSINESS_TAG_FIX_ENABLED` and
+  `HOLLER_ROAD_WORDS_ENABLED`. Another change may list its own switch there and says so in its note. Change one, redeploy. An instant
+  rollback (or a staged Production promote) serves that deployment's own value; promoting a Preview deployment rebuilds it with the
+  Production variables. A switch must be read in code the browser runs as a plain `process.env.NAME` (not `process.env?.NAME`, not
+  `process.env[name]`).
+- [ ] Know this: `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`. It FAILS the build when
+  (1) a browser chunk reads any server variable at runtime (any env read except `NODE_ENV`, `NEXT_PUBLIC_*` and the names in
+  `CLIENT_ENV_ALLOW`, listed in `lib/env.ts` or not), (2) the value of a secret variable of the build (any name holding SECRET, TOKEN,
+  PASSWORD, KEY, LOGIN or JSON, in any case) sits in a browser chunk, or (3) a server bundle still reads an inlined name in a form Next
+  does not replace (`process.env?.NAME`). A message that only names a variable is a warning. The log prints names only, never a value.
+  If a build stops on a name a LIBRARY reads (a package name, a public config string): open that library's published file, confirm the value
+  is public by nature, and add the name to `CLIENT_ENV_ALLOW` in `scripts/check-client-switches.mjs` with a comment naming the library and
+  why it is safe. Allowed today: `npm_package_name` and `npm_package_version` (npm; `@supabase/ssr` reads the name), the two
+  `REACT_APP_VERCEL_OBSERVABILITY_*` names (`@vercel/analytics`, `@vercel/speed-insights`) and `POSTHOG_RELEASE_ID` (`posthog-js`). Never
+  add a `HOLLER_*` name, a secret or a name of `lib/env.ts`: the check refuses such a list. A switch the browser needs goes to
+  `INLINED_SWITCHES` instead. Run it alone on the last build: `npm run check:client-switches`.
 - [ ] Confirm the build is green and `<SITE>` loads.
 - [ ] Know this: `REQUESTS_ENABLED` is the off switch for new resident requests. Leave it unset (on). Set it to `0` if the form is abused: the API answers 503 at once, and the `/request` page shows "Requests are paused" after the next deploy. Requests already made keep working. On top of that, at most 300 confirmation emails go out per day site-wide.
 - [ ] Know this: adding or removing an optional key (Brave, Serper, Bluesky, Ticketmaster, SAM) needs a redeploy before the public pages change. The home page, /about and /llms.txt are built at deploy time and name a source only when its key was set then. Onboarding and Settings read the keys on each request, so off Vercel they can disagree with the home page until you rebuild.
