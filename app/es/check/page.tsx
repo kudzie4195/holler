@@ -34,6 +34,7 @@ import { ES_PAIRS, pairAlternates } from '@/lib/i18n/seo';
 import type { WaitlistCardWords } from '@/lib/waitlist/copy';
 import { waitlistAccepts, waitlistTradeGroups } from '@/lib/waitlist/trades';
 import { PRESSURE_WASHING_ID, expandTradeIds } from '@/lib/plan/composite-trades';
+import { activeSeasons, seasonLines } from '@/lib/season/active';
 
 const L = 'es' as const;
 const PAIR = ES_PAIRS[1];
@@ -241,13 +242,16 @@ async function Check({ searchParams }: { searchParams: PageProps<'/es/check'>['s
   const totals = data.ok ? alertTotals(member, data.clipped === true) : null;
   const verdict = totals ? checkVerdict(coverageState, totals, { tradeLabel: common.tradeLabel, zip: params.zip, lang: L }) : null;
 
+  // Round 30: "This week in your area" (lib/season), under the verdict on a live or limited answer only, never on a waitlist page.
+  const season = coverageState === 'waitlist' ? [] : seasonLines(activeSeasons({ lat: place.lat, lon: place.lon, trades: [params.trade], date: new Date(now) }), 'es');
+
   return (
     <>
       <FormBand>
         <CheckForm lang={L} zip={params.zip} trade={params.trade} />
       </FormBand>
       {uncoveredNote}
-      <CheckResults {...common} {...gate} verdict={verdict} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} season={season} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

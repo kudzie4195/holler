@@ -17,6 +17,7 @@ import { coverageFor } from '@/lib/check/cells';
 import { checkAnswer } from '@/lib/check/answer';
 import { waitlistAccepts, waitlistTradeGroups } from '@/lib/waitlist/trades';
 import { PRESSURE_WASHING_ID, expandTradeIds } from '@/lib/plan/composite-trades';
+import { activeSeasons, seasonLines } from '@/lib/season/active';
 import { gateCheck } from '@/lib/check/limit';
 import { loadCheck } from '@/lib/check/load';
 import { parseCheckParams } from '@/lib/check/params';
@@ -237,13 +238,16 @@ async function Check({ searchParams }: { searchParams: PageProps<'/check'>['sear
   const totals = data.ok ? alertTotals(member, data.clipped === true) : null;
   const verdict = totals ? checkVerdict(coverageState, totals, { tradeLabel: common.tradeLabel, zip: params.zip, lang: 'en' }) : null;
 
+  // Round 30: "This week in your area" (lib/season), under the verdict on a live or limited answer only, never on a waitlist page.
+  const season = coverageState === 'waitlist' ? [] : seasonLines(activeSeasons({ lat: place.lat, lon: place.lon, trades: [params.trade], date: new Date(now) }), 'en');
+
   return (
     <>
       <FormBand>
         <CheckForm zip={params.zip} trade={params.trade} />
       </FormBand>
       {waitlist}
-      <CheckResults {...common} {...gate} verdict={verdict} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
+      <CheckResults {...common} {...gate} verdict={verdict} season={season} emailedTotal={totals?.count ?? null} mode={data.ok ? 'results' : 'unreadable'} items={member} checkedAt={data.checkedAt} coverage={coverage?.line ?? null} coverageKnown={snapshot !== null} />
     </>
   );
 }

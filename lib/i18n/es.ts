@@ -451,6 +451,8 @@ export const es: Record<DictKey, string> = {
   'email.act.storm_hanger': 'Imprimir un colgante de puerta para tormenta',
   'email.act.lists': 'Abrir sus listas de direcciones',
   'email.source_link': 'fuente pública',
+  'season.h': 'Esta semana en su zona',
+  'season.source': 'Fuente pública',
   'email.honesty.listing': 'Si arriba aparece un teléfono o un sitio web, viene de la ficha pública del negocio, no del registro público.',
   'email.empty.h': 'Esta semana nada coincidió cerca de usted',
   'email.empty.body':

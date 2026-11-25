@@ -87,6 +87,10 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    set it to `1` in Production and redeploy. Why: off, the notify cron sends exactly what it did before; on, a member with nothing to
    alert on for 7 days gets one short email (at most 150 a run, `last_notified_at` stamped), and nothing about it has been seen in a
    real inbox yet.
+   NEEDS KUDZI (round 30 season): `HOLLER_SEASON_ENABLED` stays empty at the deploy. Off, the notify cron makes the same calls and
+   sends the same bytes as before. Set it to `1` (Preview first, one real-inbox test, then Production) to add the "This week in your
+   area" line (lib/season/table.ts) to the alert digest and, with the quiet-week switch also on, to the quiet-week email. For the
+   December 1 launch week it must be `1` by the Dec 1 cron run. /check shows the line without any switch.
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

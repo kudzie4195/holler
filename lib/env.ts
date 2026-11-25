@@ -49,6 +49,7 @@ export const ENV_KEYS = [
   'HOLLER_LOOKUP_DRY_RUN',
   'HOLLER_PREVIEW_FIXTURES',
   'HOLLER_QUIET_WEEK_ENABLED',
+  'HOLLER_SEASON_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -116,6 +117,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_PREVIEW_FIXTURES: process.env.HOLLER_PREVIEW_FIXTURES,
   // Round 24: the quiet-week email (lib/email/quiet-week.ts). Read again at call time there; listed here so .env.example and LAUNCH.md name it.
   HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
+  // Round 30: the season line in the alert and quiet-week emails (lib/season/active.ts seasonEmailEnabled). Read again at call time there.
+  HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

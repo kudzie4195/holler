@@ -1,0 +1,429 @@
+/**
+ * Round 30: the hand-kept season table (lib/season/table.ts) and the rows that apply to a place, trades and day (lib/season/active.ts).
+ * Every row: valid dates, a source URL and a verifiedOn date, EN and ES twins, the wording rules, real trade ids and a real centre.
+ */
+import { describe, expect, it } from 'vitest';
+import { SEASON_TABLE, type SeasonRow } from '@/lib/season/table';
+import { activeSeasons, centreTimeZone, dayOfYear, firstDigestThisWeek, inWindow, MAX_SEASON_LINES, monthDayOf, seasonEmailEnabled, seasonLines, weekStartMs } from '@/lib/season/active';
+import { measuredCentres } from '@/lib/check/cells';
+import { CATEGORIES } from '@/lib/signals/categories';
+import { haversineMi, lookupZip } from '@/lib/geo';
+import { spanishProblems } from '@/lib/i18n/rules';
+
+const TRADE_IDS = new Set<string>(CATEGORIES.map((c) => c.id));
+const CENTRE = new Map(measuredCentres().map((c) => [c.id, c]));
+const row = (id: string): SeasonRow => SEASON_TABLE.find((r) => r.id === id)!;
+const ids = (rows: SeasonRow[]) => rows.map((r) => r.id);
+/** 'MM-DD' names a day that exists in a non-leap year (review D8): Date.UTC rolls Apr 31 over to May 1, so the month changes. */
+const isRealMonthDay = (md: string): boolean => {
+  const m = /^(\d{2})-(\d{2})$/.exec(md);
+  if (!m) return false;
+  const month = Number(m[1]);
+  return new Date(Date.UTC(2025, month - 1, Number(m[2]))).getUTCMonth() === month - 1;
+};
+
+/** The house list (tests/signals/ship-banned-words.test.ts BANNED, copied: importing a test file would run its tests here), plus the two this unit adds. */
+const BANNED: [string, RegExp][] = [
+  ['lead', /\bleads?\b/i],
+  ['they need you', /they need you/i],
+  ['you will win', /you(?:'ll| will) win/i],
+  ['guaranteed', /guarantee[ds]?\b/i],
+  ['official record', /official records?\b/i],
+];
+const EN_BANNED: [string, RegExp][] = [...BANNED, ['knock doors', /knock(?:ing)? (?:on )?doors?/i], ['em dash', /—/]];
+/** Damage stated as fact: a weather or pest line may only say "can" or "may". */
+const DAMAGE_FACT = /\b(?:damaged|destroyed|ruined|will (?:damage|break|burst|crack|kill))\b/i;
+/** Typical timing words: every line must carry one, so a window is never told as a fact about a property. */
+const TYPICAL_EN = /\b(?:usually|typically|typical|often|average|can shift|points to)\b/i;
+const TYPICAL_ES = /(?:suele|suelen|normalmente|promedio|a menudo|pueden cambiar|puede cambiar|señala|indica)/i;
+
+describe('season table: every row', () => {
+  it('has the seven topics the brief asked for, in the four marketed centres only', () => {
+    expect(new Set(SEASON_TABLE.map((r) => r.topic))).toEqual(
+      new Set(['gutters', 'leaf-cleanup', 'irrigation-winterize', 'pre-emergent', 'pollen', 'fescue-seeding', 'listing-prep']),
+    );
+    expect(new Set(SEASON_TABLE.map((r) => r.centre))).toEqual(new Set(['atlanta', 'austin', 'charlotte', 'raleigh']));
+  });
+
+  it('has a unique id named <topic>-<centre>', () => {
+    expect(new Set(SEASON_TABLE.map((r) => r.id)).size).toBe(SEASON_TABLE.length);
+    for (const r of SEASON_TABLE) expect(r.id).toBe(`${r.topic}-${r.centre}`);
+  });
+
+  it('sits on a measured centre whose coordinates the coverage gate already has (none typed in the table)', () => {
+    for (const r of SEASON_TABLE) expect(CENTRE.has(r.centre), r.id).toBe(true);
+  });
+
+  it('has valid month-day dates; the peak sits inside the window', () => {
+    for (const r of SEASON_TABLE) {
+      for (const d of [r.start, r.end, ...(r.peak ? [r.peak] : [])]) {
+        expect(d, r.id).toMatch(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+        expect(Number.isFinite(dayOfYear(d)), r.id).toBe(true);
+        expect(isRealMonthDay(d), `${r.id} ${d} is a real calendar day`).toBe(true);
+      }
+      if (r.peak) expect(inWindow(r.peak, r.start, r.end), r.id).toBe(true);
+    }
+  });
+
+  it('the calendar-day check rejects impossible month-days (review D8): Apr 31 would read as May 1', () => {
+    expect(dayOfYear('04-31')).toBe(dayOfYear('05-01'));
+    for (const d of ['02-30', '02-31', '04-31', '06-31', '09-31', '11-31', '02-29']) expect(isRealMonthDay(d), d).toBe(false);
+    for (const d of ['01-31', '02-28', '03-31', '04-30', '06-30', '09-30', '11-30', '12-31']) expect(isRealMonthDay(d), d).toBe(true);
+  });
+
+  it('carries a public https source and a verifiedOn date, and a confidence', () => {
+    for (const r of SEASON_TABLE) {
+      expect(r.source, r.id).toMatch(/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\//i);
+      expect(r.verifiedOn, r.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isFinite(Date.parse(r.verifiedOn)), r.id).toBe(true);
+      expect(['checked', 'estimate'], r.id).toContain(r.confidence);
+    }
+  });
+
+  it('names only real Holler trade ids', () => {
+    for (const r of SEASON_TABLE) {
+      expect(r.trades.length, r.id).toBeGreaterThan(0);
+      for (const t of r.trades) expect(TRADE_IDS.has(t), `${r.id} ${t}`).toBe(true);
+    }
+  });
+
+  it('has English and Spanish twins, both non-empty and different', () => {
+    for (const r of SEASON_TABLE) {
+      expect(r.en.trim().length, r.id).toBeGreaterThan(40);
+      expect(r.es.trim().length, r.id).toBeGreaterThan(40);
+      expect(r.es, r.id).not.toBe(r.en);
+      // the same numbers in both (dates, temperatures, years)
+      const nums = (s: string) => (s.match(/\d+/g) ?? []).sort();
+      expect(nums(r.es), r.id).toEqual(nums(r.en));
+    }
+  });
+
+  it('English: no banned word, no em dash, no damage as fact, typical timing words', () => {
+    for (const r of SEASON_TABLE) {
+      for (const [name, re] of EN_BANNED) expect(re.test(r.en), `${r.id}: ${name}`).toBe(false);
+      expect(DAMAGE_FACT.test(r.en), r.id).toBe(false);
+      expect(TYPICAL_EN.test(r.en), r.id).toBe(true);
+    }
+  });
+
+  it('Spanish: the house Spanish rules (usted, no garantizado, no leads, no em dash, no damage words), typical timing words', () => {
+    for (const r of SEASON_TABLE) {
+      expect(spanishProblems(r.es), r.id).toEqual([]);
+      expect(/—/.test(r.es), r.id).toBe(false);
+      expect(/tocar puertas/i.test(r.es), r.id).toBe(false);
+      expect(TYPICAL_ES.test(r.es), r.id).toBe(true);
+    }
+  });
+
+  // Round 30 review D1, D2: a window Holler builds itself is told as Holler's estimate, in the words the customer reads, EN and ES.
+  // Applies to every row, 'checked' or 'estimate': a source that gives only the anchor date (a freeze date, a pollen peak) does not state when
+  // work is booked or done. "applied" and "se suele aplicar" are left out: they only appear in a sentence the cited source itself states.
+  const SERVICE_WINDOW_EN = /\b(?:booked|booking|scheduled|prepped)\b/i;
+  const SERVICE_WINDOW_ES = /(?:programar|programan|se preparan)/i;
+  it('every row whose line states a booking or service window says "Holler estimates" / "Holler estima", whatever its confidence', () => {
+    expect(SEASON_TABLE.filter((r) => r.confidence === 'estimate').length).toBeGreaterThan(0);
+    expect(SEASON_TABLE.filter((r) => r.confidence === 'checked').length).toBeGreaterThan(0);
+    for (const r of SEASON_TABLE) {
+      expect(SERVICE_WINDOW_EN.test(r.en), `${r.id} en states a window`).toBe(SERVICE_WINDOW_ES.test(r.es));
+      if (SERVICE_WINDOW_EN.test(r.en)) {
+        expect(r.en, r.id).toMatch(/Holler estimates that /);
+        expect(r.es, r.id).toMatch(/Holler estima que/);
+      }
+    }
+    // the launch-week rows themselves
+    for (const c of ['atlanta', 'charlotte', 'raleigh']) {
+      for (const id of [`gutters-${c}`, `leaf-cleanup-${c}`]) {
+        expect(row(id).confidence, id).toBe('estimate');
+        expect(row(id).en, id).toContain('Holler estimates that');
+        expect(row(id).es, id).toContain('Holler estima que');
+      }
+    }
+  });
+  it('the review\'s exact gutter and leaf lines (review D1, D2); no "leaves keep falling into December" anywhere', () => {
+    const city = { atlanta: 'Atlanta', charlotte: 'Charlotte', raleigh: 'Raleigh' } as const;
+    for (const [c, name] of Object.entries(city)) {
+      expect(row(`gutters-${c}`).en).toContain(`Holler estimates that around ${name}, gutter clean-outs are usually booked from mid-November to mid-January.`);
+      expect(row(`gutters-${c}`).es).toContain(`Holler estima que, en la zona de ${name}, las limpiezas de canaletas se suelen programar desde mediados de noviembre hasta mediados de enero.`);
+    }
+    expect(row('leaf-cleanup-atlanta').en).toMatch(/in the first two weeks of November\. Holler estimates that leaf clean-ups around Atlanta are typically booked from November to mid-December\.$/);
+    expect(row('leaf-cleanup-atlanta').es).toMatch(/en las dos primeras semanas de noviembre\. Holler estima que, en la zona de Atlanta, las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre\.$/);
+    expect(row('leaf-cleanup-charlotte').en).toMatch(/in early to mid-November\. Holler estimates that leaf clean-ups are typically booked from November to mid-December\.$/);
+    expect(row('leaf-cleanup-charlotte').es).toMatch(/de principios a mediados de noviembre\. Holler estima que las limpiezas de hojas se suelen programar de noviembre a mediados de diciembre\.$/);
+    expect(row('leaf-cleanup-raleigh').en).toMatch(/from late October to early November\. Holler estimates that leaf clean-ups around Raleigh are typically booked from late October to early December\.$/);
+    expect(row('leaf-cleanup-raleigh').es).toMatch(/de fines de octubre a principios de noviembre\. Holler estima que, en la zona de Raleigh, las limpiezas de hojas se suelen programar de fines de octubre a principios de diciembre\.$/);
+    for (const r of SEASON_TABLE) {
+      expect(r.en, r.id).not.toMatch(/leaves keep falling/i);
+      expect(r.es, r.id).not.toMatch(/siguen cayendo/i);
+    }
+  });
+
+  it('each row reaches exactly the trades the brief gave it', () => {
+    const want: Record<string, string[]> = {
+      gutters: ['siding-gutters'],
+      'leaf-cleanup': ['landscaping', 'lawn-care'],
+      'irrigation-winterize': ['landscaping'],
+      'pre-emergent': ['lawn-care', 'landscaping'],
+      pollen: ['cleaning', 'siding-gutters'],
+      'fescue-seeding': ['lawn-care', 'landscaping'],
+      'listing-prep': ['landscaping', 'cleaning'],
+    };
+    for (const r of SEASON_TABLE) {
+      if (r.id === 'pollen-austin') expect([...r.trades]).toEqual(['cleaning']);
+      else expect([...r.trades].sort(), r.id).toEqual([...want[r.topic]].sort());
+    }
+  });
+
+  it('the windows the brief gave, as corrected by the date check (review/VERIFY.md)', () => {
+    const w = (id: string) => [row(id).start, row(id).end];
+    for (const c of ['atlanta', 'charlotte', 'raleigh']) {
+      expect(w(`gutters-${c}`)).toEqual(['11-15', '01-15']);
+      expect(row(`gutters-${c}`).confidence).toBe('estimate');
+      expect(w(`pollen-${c}`)).toEqual(['03-15', '04-25']);
+    }
+    expect(w('leaf-cleanup-atlanta')).toEqual(['11-01', '12-15']);
+    expect(w('leaf-cleanup-charlotte')).toEqual(['11-01', '12-15']);
+    expect(w('leaf-cleanup-raleigh')).toEqual(['10-25', '12-10']);
+    expect(w('fescue-seeding-charlotte')).toEqual(['09-01', '10-01']);
+    expect(w('fescue-seeding-raleigh')).toEqual(['09-01', '10-01']);
+    expect(w('fescue-seeding-atlanta')).toEqual(['09-01', '10-31']);
+    for (const r of SEASON_TABLE.filter((x) => x.topic === 'fescue-seeding')) expect(r.en, r.id).not.toMatch(/mid-October/);
+    expect(row('pre-emergent-raleigh').end).toBe('02-28');
+    expect(row('pre-emergent-atlanta').peak).toBe('03-01');
+    expect(row('pre-emergent-charlotte').peak).toBe('03-01');
+    expect(row('pre-emergent-austin').end).toBe('02-15');
+    expect(row('irrigation-winterize-charlotte').peak).toBe('11-05');
+    expect(row('irrigation-winterize-atlanta').peak).toBe('11-13');
+    expect(row('irrigation-winterize-raleigh').peak).toBe('10-30');
+    expect(row('irrigation-winterize-austin').peak).toBe('12-01');
+    for (const r of SEASON_TABLE) expect(r.en, r.id).not.toMatch(/mostly down by late November/);
+    expect(w('pollen-austin')).toEqual(['12-15', '03-01']);
+    expect(w('listing-prep-atlanta')).toEqual(['04-15', '05-15']);
+    expect(w('listing-prep-charlotte')).toEqual(['04-15', '05-15']);
+    expect(w('listing-prep-austin')).toEqual(['03-01', '03-31']);
+    for (const c of ['atlanta', 'austin', 'charlotte', 'raleigh']) {
+      expect(row(`irrigation-winterize-${c}`)).toBeTruthy();
+      expect(row(`pre-emergent-${c}`)).toBeTruthy();
+    }
+    expect(SEASON_TABLE.filter((r) => r.topic === 'gutters').map((r) => r.centre).sort()).toEqual(['atlanta', 'charlotte', 'raleigh']);
+    expect(SEASON_TABLE.filter((r) => r.topic === 'listing-prep').map((r) => r.centre).sort()).toEqual(['atlanta', 'austin', 'charlotte']);
+  });
+});
+
+describe('Spanish says what the English says (review D5)', () => {
+  it('"Freezing temperatures" is "Las heladas", "through April" is "a fines de abril", tall fescue is "festuca alta"', () => {
+    for (const r of SEASON_TABLE) {
+      expect(r.es, r.id).not.toMatch(/bajo cero/);
+      expect(r.es, r.id).not.toMatch(/hasta abril/);
+      if (/Freezing temperatures can affect/.test(r.en)) expect(r.es, r.id).toContain('Las heladas pueden afectar las partes expuestas del riego');
+      if (/from mid-March through April/.test(r.en)) expect(r.es, r.id).toContain('de mediados de marzo a fines de abril');
+      if (/tall fescue/.test(r.en)) expect(r.es, r.id).toContain('festuca alta (tall fescue)');
+      expect(r.es.replace(/festuca alta \(tall fescue\)/g, ''), r.id).not.toMatch(/tall fescue/);
+    }
+    expect(SEASON_TABLE.filter((r) => r.es.includes('Las heladas pueden afectar')).length).toBe(4);
+    expect(SEASON_TABLE.filter((r) => r.es.includes('de mediados de marzo a fines de abril')).length).toBe(3);
+    expect(SEASON_TABLE.filter((r) => r.es.includes('festuca alta (tall fescue)')).length).toBe(3);
+  });
+});
+
+describe('confidence: one rule (review D6)', () => {
+  it('checked only where the source states the anchor date for the metro or a region it names; every row listed', () => {
+    const want: Record<string, 'checked' | 'estimate'> = {
+      // built by Holler on an undated event or one year's data
+      'gutters-atlanta': 'estimate', 'gutters-charlotte': 'estimate', 'gutters-raleigh': 'estimate',
+      'leaf-cleanup-atlanta': 'estimate', 'leaf-cleanup-charlotte': 'estimate', 'leaf-cleanup-raleigh': 'estimate',
+      'listing-prep-atlanta': 'estimate', 'listing-prep-charlotte': 'estimate', 'listing-prep-austin': 'estimate',
+      // anchor date stated by the source for the metro's station or a named region
+      'irrigation-winterize-atlanta': 'checked', 'irrigation-winterize-charlotte': 'checked', 'irrigation-winterize-raleigh': 'checked', 'irrigation-winterize-austin': 'checked',
+      'pre-emergent-atlanta': 'checked', 'pre-emergent-charlotte': 'checked', 'pre-emergent-raleigh': 'checked', 'pre-emergent-austin': 'checked',
+      'pollen-atlanta': 'checked', 'pollen-charlotte': 'checked', 'pollen-raleigh': 'checked', 'pollen-austin': 'checked',
+      'fescue-seeding-atlanta': 'checked', 'fescue-seeding-charlotte': 'checked', 'fescue-seeding-raleigh': 'checked',
+    };
+    expect(Object.fromEntries(SEASON_TABLE.map((r) => [r.id, r.confidence]))).toEqual(want);
+  });
+  it('pre-emergent-atlanta names its source for what it is (a UGA climate blog post), EN and ES', () => {
+    expect(row('pre-emergent-atlanta').en).toMatch(/^A University of Georgia climate blog post puts /);
+    expect(row('pre-emergent-atlanta').es).toMatch(/^Una publicación del blog de clima de la Universidad de Georgia ubica /);
+    expect(row('pre-emergent-atlanta').en).not.toMatch(/guidance/);
+  });
+});
+
+describe('windows and the year wrap', () => {
+  it('a plain window is inclusive at both ends', () => {
+    expect(inWindow('11-01', '11-01', '12-15')).toBe(true);
+    expect(inWindow('12-15', '11-01', '12-15')).toBe(true);
+    expect(inWindow('10-31', '11-01', '12-15')).toBe(false);
+    expect(inWindow('12-16', '11-01', '12-15')).toBe(false);
+  });
+  it('a window that runs over New Year (Nov 15 to Jan 15)', () => {
+    for (const d of ['11-15', '12-01', '12-31', '01-01', '01-15']) expect(inWindow(d, '11-15', '01-15'), d).toBe(true);
+    for (const d of ['11-14', '01-16', '06-01', '10-01']) expect(inWindow(d, '11-15', '01-15'), d).toBe(false);
+  });
+  it('Feb 29 counts as Feb 28', () => {
+    expect(dayOfYear('02-29')).toBe(dayOfYear('02-28'));
+  });
+  it('the gutter row in Charlotte on Dec 31 2026 and Jan 10 2027 (both sides of New Year), not on Jan 20', () => {
+    const clt = lookupZip('28202')!;
+    for (const date of ['2026-12-31', '2027-01-10']) expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date })), date).toEqual(['gutters-charlotte']);
+    expect(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: '2027-01-20' })).toEqual([]);
+  });
+  it('Austin cedar (Dec 15 to Mar 1) wraps too (pressure washers: cleaning and siding-gutters, review D4)', () => {
+    const aus = lookupZip('78701')!;
+    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2027-01-15' }))).toEqual(['pollen-austin']);
+    expect(ids(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2026-12-20' }))).toEqual(['pollen-austin']);
+    expect(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: ['pressure-washing'], date: '2026-12-14' })).toEqual([]);
+  });
+  it('a Date is read in the metro\'s own calendar: 9 pm Nov 30 in Charlotte is still Nov 30 there (UTC already says Dec 1)', () => {
+    expect(monthDayOf(new Date('2026-12-01T02:00:00Z'), 'America/New_York')).toBe('11-30');
+    expect(monthDayOf(new Date('2026-12-01T02:00:00Z'), 'UTC')).toBe('12-01');
+    expect(monthDayOf('2026-12-01')).toBe('12-01');
+    // Nov 14 at 11 pm in Charlotte: gutters (from Nov 15) not yet, though UTC is already Nov 15
+    const clt = lookupZip('28202')!;
+    expect(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: new Date('2026-11-15T04:00:00Z') })).toEqual([]);
+    expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: new Date('2026-11-15T06:00:00Z') }))).toEqual(['gutters-charlotte']);
+  });
+});
+
+describe('the 25-mile radius', () => {
+  const clt = CENTRE.get('charlotte')!;
+  // due north of the centre, by latitude only: 1 degree of latitude is about 69.09 miles
+  const north = (mi: number) => ({ lat: clt.lat + mi / 69.09, lon: clt.lon });
+  it('in at 24.5 miles, out at 25.5 miles from the Charlotte centre', () => {
+    const inside = north(24.5);
+    const outside = north(25.5);
+    expect(haversineMi(inside.lat, inside.lon, clt.lat, clt.lon)).toBeLessThan(25);
+    expect(haversineMi(outside.lat, outside.lon, clt.lat, clt.lon)).toBeGreaterThan(25);
+    expect(ids(activeSeasons({ ...inside, trades: ['siding-gutters'], date: '2026-12-01' }))).toEqual(['gutters-charlotte']);
+    expect(activeSeasons({ ...outside, trades: ['siding-gutters'], date: '2026-12-01' })).toEqual([]);
+  });
+  it('a place far from every centre (Denver) gets nothing, in any season', () => {
+    const den = lookupZip('80202')!;
+    for (const date of ['2026-12-01', '2027-03-20', '2027-09-15']) {
+      expect(activeSeasons({ lat: den.lat, lon: den.lon, trades: ['siding-gutters', 'landscaping', 'lawn-care', 'cleaning'], date })).toEqual([]);
+    }
+  });
+  it('no point or no trade: nothing', () => {
+    expect(activeSeasons({ lat: null, lon: null, trades: ['landscaping'], date: '2026-12-01' })).toEqual([]);
+    expect(activeSeasons({ lat: 35.2, lon: -80.8, trades: [], date: '2026-12-01' })).toEqual([]);
+    expect(activeSeasons({ lat: 35.2, lon: -80.8, trades: null, date: '2026-12-01' })).toEqual([]);
+  });
+});
+
+describe('trades, dedupe, order, cap', () => {
+  const clt = lookupZip('28202')!;
+  const at = (trades: string[], date: string) => ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades, date }));
+
+  it('each row is reached by each of its own trades alone (unless the AND rule holds it back) and by no other trade', () => {
+    const others = CATEGORIES.map((c) => c.id);
+    for (const r of SEASON_TABLE) {
+      const c = CENTRE.get(r.centre)!;
+      const date = `2027-${r.peak ?? r.start}`;
+      for (const t of others) {
+        const got = activeSeasons({ lat: c.lat, lon: c.lon, trades: [t], date }).some((x) => x.id === r.id);
+        expect(got, `${r.id} via ${t}`).toBe(r.trades.includes(t) && !(r.allTrades ?? []).includes(t));
+      }
+      // and with every id of allTrades held, the row is reached
+      if (r.allTrades) expect(activeSeasons({ lat: c.lat, lon: c.lon, trades: [...r.allTrades], date }).some((x) => x.id === r.id), r.id).toBe(true);
+    }
+  });
+  it('review D4: pollen and listing-prep wash lines reach pressure washers (cleaning AND siding-gutters), never cleaning alone', () => {
+    const at = (zip: string, trades: string[], date: string) => {
+      const p = lookupZip(zip)!;
+      return ids(activeSeasons({ lat: p.lat, lon: p.lon, trades, date }));
+    };
+    // pollen, all four metros
+    for (const [zip, id, date] of [['30303', 'pollen-atlanta', '2027-03-31'], ['28202', 'pollen-charlotte', '2027-03-31'], ['27601', 'pollen-raleigh', '2027-03-31'], ['78701', 'pollen-austin', '2027-01-15']]) {
+      expect(at(zip, ['cleaning'], date), `${id} cleaning only`).toEqual([]);
+      expect(at(zip, ['siding-gutters'], date), `${id} siding-gutters only`).not.toContain(id);
+      expect(at(zip, ['pressure-washing'], date), `${id} pressure washing`).toEqual([id]);
+      expect(at(zip, ['cleaning', 'siding-gutters'], date), `${id} both`).toEqual([id]);
+    }
+    // listing prep: landscaping alone still reaches it; cleaning only with siding-gutters
+    for (const [zip, id, date] of [['30303', 'listing-prep-atlanta', '2027-05-01'], ['28202', 'listing-prep-charlotte', '2027-05-01'], ['78701', 'listing-prep-austin', '2027-03-20']]) {
+      expect(at(zip, ['cleaning'], date), `${id} cleaning only`).toEqual([]);
+      expect(at(zip, ['landscaping'], date), `${id} landscaping`).toContain(id);
+      expect(at(zip, ['pressure-washing'], date), `${id} pressure washing`).toContain(id);
+    }
+    for (const r of SEASON_TABLE.filter((x) => x.topic === 'pollen' || x.topic === 'listing-prep')) expect(r.allTrades, r.id).toEqual(['cleaning', 'siding-gutters']);
+    for (const r of SEASON_TABLE.filter((x) => x.topic !== 'pollen' && x.topic !== 'listing-prep')) expect(r.allTrades, r.id).toBeUndefined();
+  });
+  it('the Pressure washing chip reaches gutters through siding-gutters and pollen through both parts', () => {
+    expect(at(['pressure-washing'], '2026-12-01')).toEqual(['gutters-charlotte']);
+    expect(at(['pressure-washing'], '2027-03-31')).toEqual(['pollen-charlotte']);
+  });
+  it('one line per row even when two of the member\'s trades reach it', () => {
+    expect(at(['landscaping', 'lawn-care'], '2026-12-01')).toEqual(['leaf-cleanup-charlotte']);
+    expect(at(['cleaning', 'siding-gutters'], '2027-04-01')).toEqual(['pollen-charlotte']);
+  });
+  it('at most two, ordered by closeness to the peak', () => {
+    // Atlanta, Nov 15: gutters (peak Dec 1, 16 days), leaf clean-up (peak Nov 20, 5 days), irrigation (peak Nov 13, 2 days): three apply
+    const atl = lookupZip('30303')!;
+    const r = ids(activeSeasons({ lat: atl.lat, lon: atl.lon, trades: ['siding-gutters', 'landscaping'], date: '2026-11-15' }));
+    expect(r).toHaveLength(MAX_SEASON_LINES);
+    expect(r).toEqual(['irrigation-winterize-atlanta', 'leaf-cleanup-atlanta']);
+    // Dec 1: gutters (peak today) before leaf clean-up (11 days)
+    expect(at(['landscaping', 'siding-gutters'], '2026-12-01')).toEqual(['gutters-charlotte', 'leaf-cleanup-charlotte']);
+  });
+  it('seasonLines picks the reader\'s language and keeps the source', () => {
+    const rows = activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: '2026-12-01' });
+    expect(seasonLines(rows, 'en')).toEqual([{ id: 'gutters-charlotte', text: row('gutters-charlotte').en, source: row('gutters-charlotte').source }]);
+    expect(seasonLines(rows, 'es')[0].text).toBe(row('gutters-charlotte').es);
+  });
+});
+
+describe('December 1 2026 (launch week)', () => {
+  it('Charlotte 28202: siding-gutters gets the gutter line, landscaping the leaf clean-up line', () => {
+    const clt = lookupZip('28202')!;
+    expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['siding-gutters'], date: '2026-12-01' }))).toEqual(['gutters-charlotte']);
+    expect(ids(activeSeasons({ lat: clt.lat, lon: clt.lon, trades: ['landscaping'], date: '2026-12-01' }))).toEqual(['leaf-cleanup-charlotte']);
+    expect(row('gutters-charlotte').en).toContain('gutter clean-outs are usually booked from mid-November to mid-January.');
+  });
+  it('Austin 78701: nothing for gutters (and nothing for pressure washing or cleaning before Dec 15)', () => {
+    const aus = lookupZip('78701')!;
+    for (const t of ['siding-gutters', 'pressure-washing', 'cleaning']) expect(activeSeasons({ lat: aus.lat, lon: aus.lon, trades: [t], date: '2026-12-01' }), t).toEqual([]);
+  });
+  it('Atlanta and Raleigh gutters too', () => {
+    for (const [zip, id] of [['30303', 'gutters-atlanta'], ['27601', 'gutters-raleigh']]) {
+      const p = lookupZip(zip)!;
+      expect(ids(activeSeasons({ lat: p.lat, lon: p.lon, trades: ['siding-gutters'], date: '2026-12-01' })), zip).toEqual([id]);
+    }
+  });
+  it('a summer day (Jul 1) has no row anywhere for any trade', () => {
+    for (const c of CENTRE.values()) {
+      expect(activeSeasons({ lat: c.lat, lon: c.lon, trades: CATEGORIES.map((x) => x.id), date: '2026-07-01' }), c.id).toEqual([]);
+    }
+  });
+});
+
+describe('the week a digest belongs to (review D3)', () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  it('Monday 00:00 in the metro\'s own time zone, across DST', () => {
+    expect(iso(weekStartMs(new Date('2026-12-01T14:07:00Z'), 'America/New_York'))).toBe('2026-11-30T05:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-12-01T14:07:00Z'), 'America/Chicago'))).toBe('2026-11-30T06:00:00.000Z');
+    // Sunday 11 pm in New York (Monday 04:00 UTC) still belongs to the week before
+    expect(iso(weekStartMs(new Date('2026-11-30T04:00:00Z'), 'America/New_York'))).toBe('2026-11-23T05:00:00.000Z');
+    // a Monday right at midnight is its own week
+    expect(iso(weekStartMs(new Date('2026-11-30T05:00:00Z'), 'America/New_York'))).toBe('2026-11-30T05:00:00.000Z');
+    // DST ended Sun Nov 1 2026 and starts Sun Mar 8 2026: Monday midnight is EST then EDT
+    expect(iso(weekStartMs(new Date('2026-11-04T12:00:00Z'), 'America/New_York'))).toBe('2026-11-02T05:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-03-11T12:00:00Z'), 'America/New_York'))).toBe('2026-03-09T04:00:00.000Z');
+    expect(iso(weekStartMs(new Date('2026-03-08T12:00:00Z'), 'America/New_York'))).toBe('2026-03-02T05:00:00.000Z');
+  });
+  it('first digest of the week: never notified, or last notified before that Monday', () => {
+    const now = new Date('2026-12-01T14:07:00Z');
+    const tz = centreTimeZone('charlotte');
+    expect(tz).toBe('America/New_York');
+    expect(centreTimeZone('austin')).toBe('America/Chicago');
+    expect(firstDigestThisWeek(null, now, tz)).toBe(true);
+    expect(firstDigestThisWeek(undefined, now, tz)).toBe(true);
+    expect(firstDigestThisWeek('2026-11-30T04:59:59.000Z', now, tz)).toBe(true);
+    expect(firstDigestThisWeek('2026-11-30T05:00:00.000Z', now, tz)).toBe(false);
+    expect(firstDigestThisWeek('2026-12-01T13:00:00.000Z', now, tz)).toBe(false);
+  });
+});
+
+describe('the email switch', () => {
+  it('is on only for exactly "1"', () => {
+    expect(seasonEmailEnabled('1')).toBe(true);
+    for (const v of [undefined, '', '0', 'true', 'yes', ' 1', '1 ']) expect(seasonEmailEnabled(v), String(v)).toBe(false);
+  });
+});

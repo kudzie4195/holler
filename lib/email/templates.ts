@@ -18,6 +18,7 @@ import { TRIAL_DAYS } from '../auth/membership';
 import { trialPhraseEs } from '../plan/price-copy-es';
 import { expandTradeIds } from '../plan/composite-trades';
 import { tradeSignupClosed, type CoverageState } from '../check/cells';
+import type { SeasonLine } from '../season/active';
 import {
   EMAIL_COLORS,
   EMAIL_FONTS,
@@ -647,8 +648,17 @@ export function renderDigest(opts: {
    * counted) says only that no new alert came.
    */
   matchedLastWeek?: number | null;
+  /**
+   * Round 30: the season lines for this member's area, trades and day (lib/season/active.ts activeSeasons, then seasonLines). Shown as one
+   * "This week in your area" block above the cards (and under the quiet-week sentence). Absent, null or empty: the email is byte-identical
+   * to the one without it.
+   */
+  season?: readonly SeasonLine[] | null;
 }): Rendered {
   const lang: Lang = opts.lang ?? 'en';
+  const season = (opts.season ?? []).filter((l) => !!l && typeof l.text === 'string' && l.text.length > 0);
+  const seasonHtml = digestSeasonHtml(season, lang);
+  const seasonText = digestSeasonText(season, lang);
   const now = opts.now ?? new Date();
   const total = opts.totalCount ?? opts.items.length;
   const more = Math.max(0, total - opts.items.length);
@@ -677,6 +687,7 @@ export function renderDigest(opts: {
       eyebrow +
       h1(quietHeading) +
       `<p class="h-why" style="font-size:15px;margin:0 0 10px 0;color:${EMAIL_COLORS.ink}">${escapeHtml(quietBody)}</p>` +
+      seasonHtml +
       `<p class="h-meta" style="${S.muted};margin:0">${escapeHtml(t(lang, 'email.empty.next'))}</p>` +
       cardButtonHtml(escapeHtml(`${base}/lists/door-hanger`), escapeHtml(t(lang, 'email.act.hanger'))) +
       `<p style="margin:14px 0 0 0"><a class="h-link" href="${escapeHtml(`${base}/lists`)}" style="${S.link};font-size:15px">${escapeHtml(t(lang, 'email.act.lists'))}</a></p>` +
@@ -686,7 +697,7 @@ export function renderDigest(opts: {
       WRAP_CLOSE;
     const text =
       `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${quietHeading}\n\n` +
-      `${quietBody}\n\n${t(lang, 'email.empty.next')}\n\n` +
+      `${quietBody}\n\n${seasonText}${t(lang, 'email.empty.next')}\n\n` +
       `${t(lang, 'email.act.hanger')}: ${base}/lists/door-hanger\n${t(lang, 'email.act.lists')}: ${base}/lists\n\n${legalText}`;
     return { subject, html, text };
   }
@@ -777,6 +788,7 @@ export function renderDigest(opts: {
     open +
     eyebrow +
     h1(subject) +
+    seasonHtml +
     `<div role="list" style="margin:0;padding:0">${htmlItems}</div>` +
     (more > 0 ? `<p class="h-meta" style="${S.muted};margin:0 0 4px 0">${escapeHtml(t(lang, 'email.plus_more', { n: more }))}</p>` : '') +
     buttonHtml(escapeHtml(opts.appUrl), escapeHtml(t(lang, 'email.open_feed')), true) +
@@ -805,11 +817,45 @@ export function renderDigest(opts: {
     .join('\n\n');
 
   const text =
-    `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${subject}\n\n${textItems}\n\n` +
+    `${t(lang, 'email.eyebrow', { name: noDash(opts.businessName) })}\n\n${subject}\n\n${seasonText}${textItems}\n\n` +
     (more > 0 ? `${t(lang, 'email.plus_more', { n: more })}\n\n` : '') +
     `${honesty}\n\n${t(lang, 'email.open_feed')}: ${opts.appUrl}\n\n${legalText}`;
 
   return { subject, html, text };
+}
+
+/**
+ * Round 30: the "This week in your area" block (lib/season). One short paragraph per line, the label on the first, each with its public
+ * source link. Empty string for no lines, so the email is byte-identical without a season.
+ */
+function digestSeasonHtml(lines: readonly SeasonLine[], lang: Lang): string {
+  if (lines.length === 0) return '';
+  const body = lines
+    .map((l, i) => {
+      const href = safeUrl(l.source);
+      return (
+        `<p class="h-why" style="font-size:15px;line-height:1.5;margin:0 0 ${i === lines.length - 1 ? 14 : 6}px 0;color:${EMAIL_COLORS.ink}" data-season="${escapeHtml(l.id)}">` +
+        (i === 0 ? `<strong>${escapeHtml(t(lang, 'season.h'))}:</strong> ` : '') +
+        escapeHtml(noDash(l.text)) +
+        (href ? ` <a class="h-link" href="${escapeHtml(href)}" style="${S.link}">${escapeHtml(t(lang, 'season.source'))}</a>` : '') +
+        '</p>'
+      );
+    })
+    .join('');
+  return `<div style="margin:0;padding:0">${body}</div>`;
+}
+
+/** The same block in the plain-text part: "This week in your area: <line> Public source: <url>", one per line, then a blank line. */
+function digestSeasonText(lines: readonly SeasonLine[], lang: Lang): string {
+  if (lines.length === 0) return '';
+  return (
+    lines
+      .map((l, i) => {
+        const href = safeUrl(l.source);
+        return `${i === 0 ? `${t(lang, 'season.h')}: ` : ''}${noDash(l.text)}${href ? ` ${t(lang, 'season.source')}: ${href}` : ''}`;
+      })
+      .join('\n') + '\n\n'
+  );
 }
 
 /** How long a verify link works (lib/email/token.ts signs it for 7 days). Said in the verify emails. */
