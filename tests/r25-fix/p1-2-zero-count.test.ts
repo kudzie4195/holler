@@ -55,13 +55,14 @@ describe.skipIf(!HAVE_EXPORT)('P1-2 and P3-1 on the 14-day export (the review ca
     const trade = 'lawn-care';
     const place = lookupZip(zip)!;
     const cov = coverageFor(place, trade, isServedZip(place));
-    expect(cov.state).toBe('live');
+    // R31: this cell was downgraded to limited after a hand read; the live branch is still exercised below with the real counts.
+    expect(cov.state).toBe('limited');
     const { totals } = checkFromExport(zip, trade);
     expect(totals).toMatchObject({ count: 0, atLeast: false });
     expect(unlimitedEmailed(zip, trade).count).toBe(0);
-    const en = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade), zip, lang: 'en' })!;
+    const en = checkVerdict('live', totals, { tradeLabel: tradeLabel(trade), zip, lang: 'en' })!;
     expect(en).toEqual({ state: 'limited', head: 'Too early to say here.', count: 'Recently, no alerts would have been emailed to a lawn care business within 25 miles of 91724.' });
-    const es = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, 'es'), zip, lang: 'es' })!;
+    const es = checkVerdict('live', totals, { tradeLabel: tradeLabel(trade, 'es'), zip, lang: 'es' })!;
     expect(es.head).toBe('Todavía es pronto para saberlo aquí.');
   });
 
@@ -70,13 +71,14 @@ describe.skipIf(!HAVE_EXPORT)('P1-2 and P3-1 on the 14-day export (the review ca
     const trade = 'landscaping';
     const place = lookupZip(zip)!;
     const cov = coverageFor(place, trade, isServedZip(place));
-    expect(cov.state).toBe('live');
+    // R31: this cell was downgraded to limited after a hand read; the live branch is still exercised below with the real counts.
+    expect(cov.state).toBe('limited');
     const { totals, clippedReads } = checkFromExport(zip, trade);
     expect(totals).toMatchObject({ count: 0, atLeast: true });
     expect(clippedReads).toContain('routedRecent');
     expect(unlimitedEmailed(zip, trade).count).toBe(1);
     for (const lang of ['en', 'es'] as const) {
-      const v = checkVerdict(cov.state, totals, { tradeLabel: tradeLabel(trade, lang), zip, lang })!;
+      const v = checkVerdict('live', totals, { tradeLabel: tradeLabel(trade, lang), zip, lang })!;
       // The zero is a lower bound, so the page makes no zero claim at all (P2-4, P3-1): the head alone.
       expect(v.count).toBeNull();
       expect(v.state).toBe('limited');
