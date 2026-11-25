@@ -24,6 +24,7 @@ import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
+import { SAM_SELECT, samCardLine } from '@/lib/signals/sam-notice';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
@@ -68,6 +69,9 @@ interface SignalRow {
   deadline?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** Federal notices only: data.setAside and data.setAsideDescription (lib/signals/sam-notice.ts SAM_SELECT). */
+  samSetAside?: string | null;
+  samSetAsideDesc?: string | null;
   /** NYC no-heat rows only: data.managerName and data.managerRole (company names only). */
   managerName?: string | null;
   managerRole?: string | null;
@@ -124,7 +128,7 @@ export async function GET(req: Request) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const readPage = () => admin
       .from('holler_matches')
-      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, lat, lon, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${MANAGER_SELECT})`)
+      .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, source, external_id, expires_at, kind, title, summary, url, city, state, lat, lon, occurred_at, severity, categories, subtype:data->>subtype, approxLocation:data->>approxLocation, loc:data->>loc, alertId:data->>alertId, ${DEADLINE_SELECT}, ${VALUE_SELECT}, ${STAGE_SELECT}, bidBuyer:data->>buyer, ${SAM_SELECT}, ${MANAGER_SELECT})`)
       .eq('notified', false)
       .eq('status', 'new')
       .order('created_at', { ascending: false })
@@ -382,7 +386,7 @@ export async function GET(req: Request) {
         permitStage: s.permitStage ?? null,
         permitStageAt: s.permitStageAt ?? null,
         permitStageUpdate: isStageUpdate(s),
-        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : null,
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside, setAsideDescription: s.samSetAsideDesc }, lang),
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,
       }));

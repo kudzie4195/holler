@@ -323,7 +323,7 @@ const quakeMagnitude = (title: string | null | undefined) => {
 };
 
 /** Line 44: SAM.gov notices that are not yet a solicitation (the notice type is the summary's first part). */
-const NOT_YET_BID_RE = /presolicitation|sources?\s+sought|special\s+notice|intent\s+to\s+bundle/i;
+export const NOT_YET_BID_RE = /pre-?\s?solicitation|sources?\s+sought|special\s+notice|intent\s+to\s+bundle/i;
 /** A bid whose place of performance has a real city name before the state ("Federal bid in Denver, CO: ..."). "0, MI" is not a city. */
 const PLACED_BID_RE = /^Federal bid in (?!0,)[^,:]*[A-Za-z][^,:]*, [A-Z]{2}:/;
 /** Round 19 UNIFY review, defect 2: a notice that names a state and no city ("Federal bid in GA: ..."). */

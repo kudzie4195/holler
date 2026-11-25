@@ -13,6 +13,7 @@ import { requestTextForMember } from '@/lib/requests/details';
 import { intentLabel, intentLine, intentLineKey } from '@/lib/signals/intent';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { bidCardLine } from '@/lib/signals/bid-card';
+import { SAM_SELECT, samCardLine } from '@/lib/signals/sam-notice';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
 import { getSourceMeta } from '@/lib/signals/source-meta';
@@ -33,7 +34,7 @@ import { FEED_PAGE_SIZE, type AlertDto, type BriefDto, type ContactDto, type Mat
  */
 
 export const MATCH_SELECT =
-  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`;
+  `id,status,distance_mi,draft,created_at,alert_hold,signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,severity,categories,occurred_at,expires_at,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`;
 
 /** MATCH_SELECT without alert_hold, for a database without migration 0027. */
 export const MATCH_SELECT_BEFORE_0027 = MATCH_SELECT.replace('alert_hold,', '');
@@ -66,6 +67,9 @@ export interface SignalRow {
   dueDate?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
+  /** Federal notices only: data.setAside and data.setAsideDescription (lib/signals/sam-notice.ts SAM_SELECT). */
+  samSetAside?: string | null;
+  samSetAsideDesc?: string | null;
   /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; a page shows it once). */
   loc?: string | null;
   alertId?: string | null;
@@ -226,7 +230,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
-    const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source };
+    const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source, summary: s.summary };
     // A permit prints its value once: the brief's valueLine, so the summary's "$N job value" part is left out of the alert's summary (display only).
     const summary = isRequest
       ? (requestText[m.id] ?? null)
@@ -259,7 +263,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s, m.status), deps),
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : null,
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside, setAsideDescription: s.samSetAsideDesc }, deps.lang ?? 'en'),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,

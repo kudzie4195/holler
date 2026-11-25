@@ -3,6 +3,7 @@ import { classifyText } from '@/lib/signals/categories';
 import type { Adapter, AdapterContext, SignalInput } from '@/lib/signals/types';
 import { env } from '@/lib/env';
 import { findCity, naicsToCategories, normalizeState } from './usaspending';
+import { storedSetAside } from '@/lib/signals/sam-notice';
 
 /**
  * SAM.gov Get Opportunities Public API v2.
@@ -16,8 +17,15 @@ import { findCity, naicsToCategories, normalizeState } from './usaspending';
  *    officeAddress{zipcode,city (string),countryCode,state (string)}, placeOfPerformance{city{code,name},state{code},country{code},streetAddress,zip}
  *    (null when absent), additionalInfoLink, uiLink, links. A second documented example uses fullParentPathName/fullParentPathCode/resourceLinks instead.
  *  - errors: 400 (bad dates/limit), 401, 403 (invalid or missing api_key), 404 "No Data found", 500. 429 is not documented.
- *  - daily quota by role (sharedcontext.ai/skills/external/1102tools/sam-gov-api): 10 per day without a SAM role, 1,000 with one. This adapter
- *    makes at most 3 calls per run and runs twice a day, so a key with no role (10/day) is enough; a role is not needed.
+ *  - daily quota by role, from the official API page https://open.gsa.gov/api/entity-api ("Default API Daily Rate Limit", checked 2026-11-25):
+ *    non-federal user with no SAM.gov role 10 requests/day, with a role 1,000/day, federal user 1,000/day, non-federal system account 1,000/day,
+ *    federal system account 10,000/day. The Get Opportunities page itself gives no number ("Request per day are limited based on the federal or
+ *    non-federal or general roles"). This adapter makes at most 3 calls per run and runs twice a day, so a key with no role (10/day) is enough
+ *    for the steady state. The one-off backfill (lib/signals/sam-backfill.ts) keeps its own daily budget under that limit.
+ *  - round 33 (checked 2026-11-25): rdlfrom / rdlto (response deadline, MM/dd/yyyy, "if response date From & To is provided, then the date range is
+ *    1 year"), ptype (one code per call: u p a r s o g k i), state (place of performance state) and typeOfSetAside are optional request parameters.
+ *    Set-aside in the response: the examples use typeOfSetAside + typeOfSetAsideDescription, the field table lists setAsideCode + setAside; both
+ *    are read. The 18 documented codes are in lib/signals/sam-notice.ts.
  * Not confirmed: whether `offset` really is a page index in production (the docs say so; one third-party note calls it a record skip for another SAM API).
  * The "reponseDeadLine" typo in the request table is request-side only; the response key is read as responseDeadLine, with the typo as a fallback.
  */
@@ -89,6 +97,9 @@ export function parseSam(raw: unknown): SignalInput[] {
         const zip = str(pop.zip).slice(0, 5) || null;
         const posted = isoFromPosted(item.postedDate);
         const deadline = isoFromPosted(item.responseDeadLine ?? item.reponseDeadLine, '12:00:00');
+        // Set-aside (round 33): the documented code, else the code its description names, else none. Stored in data, so no column is needed.
+        const asideDesc = (str(item.typeOfSetAsideDescription) || str(item.setAside)).slice(0, 120);
+        const setAside = storedSetAside(str(item.typeOfSetAside) || str(item.setAsideCode), asideDesc);
         const agency = str(item.fullParentPathName).split('.').filter(Boolean).slice(0, 2).join(' / ');
 
         out.push({
@@ -111,7 +122,12 @@ export function parseSam(raw: unknown): SignalInput[] {
           severity: 2,
           occurredAt: posted ?? new Date().toISOString(),
           expiresAt: deadline,
-          data: { solicitationNumber: str(item.solicitationNumber) || null, naics: naics || null, type: type || null },
+          data: {
+            solicitationNumber: str(item.solicitationNumber) || null,
+            naics: naics || null,
+            type: type || null,
+            ...(setAside ? { setAside, setAsideDescription: asideDesc || null } : {}),
+          },
         });
       } catch {
         // skip malformed notice
