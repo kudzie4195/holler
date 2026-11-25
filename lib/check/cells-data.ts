@@ -223,7 +223,7 @@ export const CELL_TABLE: Readonly<Record<string, Readonly<Record<string, CellVal
     'siding-gutters': 'live',
     'flooring': 'waitlist',
     'handyman': 'waitlist',
-    'signs-printing': 'live',
+    'signs-printing': 'limited',
     'business-services': 'waitlist',
     'public-adjuster': 'waitlist',
   },
@@ -1020,4 +1020,5 @@ export const CELL_OVERRIDES: readonly { cell: string; engine: string; state: str
   { cell: 'chicago|fencing', engine: 'live', state: 'limited', note: 'r31: outdoor season, March' },
   { cell: 'new-york|siding-gutters', engine: 'live', state: 'limited', note: 'r31 hand read 2/10 actionable (sidewalk sheds, antennas, large jobs)' },
   { cell: 'san-francisco|siding-gutters', engine: 'live', state: 'limited', note: 'r31 hand read 4/10' },
+  { cell: 'los-angeles|signs-printing', engine: 'live', state: 'limited', note: 'r33: LA business-license rows carry 6-9 trade tags each with no name or address; 0/10 contactable on the shared rows' },
 ];
