@@ -4,7 +4,7 @@ import { rematchSignals } from '@/lib/signals/rematch';
 import { BID_SOURCE_PREFIX } from '@/lib/signals/bid-sources';
 import type { Adapter, SignalInput } from '@/lib/signals/types';
 import { MANUAL_BID_SOURCE } from './flag';
-import { normalizeUrl, type ManualBidKeys } from './record';
+import { normalizeUrl, titleKeyOf, type ManualBidKeys } from './record';
 
 /**
  * Database side of the hand-added bids (round 33). Two functions:
@@ -27,6 +27,8 @@ export interface ExistingCandidate {
 const CHUNK = 100;
 /** Solicitation numbers asked about in one query (each is one ilike term of an or filter). */
 const SOL_PER_QUERY = 20;
+/** Links asked about in one query (each is one ilike term of an or filter). */
+const URL_PER_QUERY = 20;
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 /** A solicitation number without case, spaces or punctuation: "RP-026-26", "rp 026 26" and "RP02626" are one number. */
 export const solKeyOf = (s: string): string => norm(s).slice(0, 60);
@@ -41,18 +43,22 @@ function chunks<T>(arr: T[], n = CHUNK): T[][] {
   return out;
 }
 
-/** Spellings a stored row's link may have for the same page: as given, with and without a trailing slash and "www.". */
-function urlVariants(url: string): string[] {
-  const out = new Set<string>([url]);
+/**
+ * The stored-side pattern for a link (review 2 P2-D): any stored URL whose text holds the host (with or without "www.") and the path
+ * (any case, with or without a trailing slash, any query after it). The rows it returns are then normalized exactly like the typed link
+ * (normalizeUrl: tracking parameters, query-name case, "www.", trailing slash) and compared. "*" is the like wildcard inside an or filter;
+ * the value is double-quoted so commas and brackets in a path cannot break the filter.
+ */
+export function urlPattern(url: string): string | null {
   try {
     const u = new URL(url);
-    const bases = [u.hostname, u.hostname.startsWith('www.') ? u.hostname.slice(4) : `www.${u.hostname}`];
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
     const path = u.pathname.replace(/\/+$/, '');
-    for (const h of bases) for (const p of [path, `${path}/`]) out.add(`https://${h}${p || '/'}${u.search}`);
+    const pat = `*${host}${path}*`.replace(/["\\]/g, '');
+    return `"${pat}"`;
   } catch {
-    /* keep the raw one */
+    return null;
   }
-  return [...out];
 }
 
 /** Agency names match when one contains the other after normalizing ("Gwinnett County Purchasing" and "Gwinnett County"). */
@@ -65,7 +71,7 @@ function sameAgency(a: string, b: string): boolean {
 
 /**
  * External ids of the candidates already stored. Reads only (selects); throws on a read error so the caller can say so instead of
- * guessing. A list-page link (keys.urlKey null) is never compared by link: many bids share it.
+ * guessing. A duplicate is the same external id, the same link with the same title, or the same agency with the same solicitation number.
  */
 export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidate[]): Promise<Set<string>> {
   const dupes = new Set<string>();
@@ -78,16 +84,23 @@ export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidat
     for (const r of (data ?? []) as Array<{ external_id?: string | null }>) if (r.external_id) dupes.add(r.external_id);
   }
 
-  // 2. Same link, from any source.
-  const byUrlKey = new Map<string, string[]>();
-  for (const c of cands) if (c.keys.urlKey) byUrlKey.set(c.keys.urlKey, [...(byUrlKey.get(c.keys.urlKey) ?? []), c.externalId]);
-  const variants = [...new Set(cands.filter((c) => c.keys.urlKey).flatMap((c) => urlVariants(c.url)))];
-  for (const part of chunks(variants)) {
-    const { data, error } = await db.from('holler_signals').select('url').in('url', part);
+  // 2. Same link AND same title, from any source (review 2 P2-D). A link alone is not one bid: an agency's list page on any portal can
+  // carry many. Stored links are matched in any spelling (see urlPattern) and normalized before the compare.
+  const byKey = new Map<string, string[]>();
+  for (const c of cands) {
+    const k = `${c.keys.urlKey}\u0000${c.keys.titleKey}`;
+    byKey.set(k, [...(byKey.get(k) ?? []), c.externalId]);
+  }
+  const patterns = [...new Set(cands.map((c) => urlPattern(c.url)).filter((p): p is string => !!p))];
+  for (const part of chunks(patterns, URL_PER_QUERY)) {
+    const { data, error } = await db
+      .from('holler_signals')
+      .select('url, title')
+      .or(part.map((p) => `url.ilike.${p}`).join(','));
     if (error) throw new Error('existing-record read failed');
-    for (const r of (data ?? []) as Array<{ url: string | null }>) {
-      if (!r.url) continue;
-      for (const id of byUrlKey.get(normalizeUrl(r.url)) ?? []) dupes.add(id);
+    for (const r of (data ?? []) as Array<{ url: string | null; title: string | null }>) {
+      if (!r.url || !r.title) continue;
+      for (const id of byKey.get(`${normalizeUrl(r.url)}\u0000${titleKeyOf(r.title)}`) ?? []) dupes.add(id);
     }
   }
 
@@ -138,4 +151,58 @@ export async function publishManualBids(db: Db, items: SignalInput[], now: Date)
   if (ids.length === 0) return { inserted: 0, matched: 0 };
   const res = await rematchSignals(db, ids, { now, log: () => {} });
   return { inserted: ids.length, matched: res.created, ...(res.error ? { error: 'matching failed' } : {}) };
+}
+
+export interface ManualBidListing {
+  id: number;
+  title: string;
+  url: string | null;
+  buyer: string | null;
+  dueDate: string | null;
+  expiresAt: string | null;
+  createdAt: string | null;
+}
+
+/** The open hand-added bids, newest first (at most 50). Read only. */
+export async function listManualBids(db: Pick<Db, 'from'>, now: Date): Promise<ManualBidListing[]> {
+  const { data, error } = await db
+    .from('holler_signals')
+    .select('id, title, url, created_at, expires_at, buyer:data->>buyer, dueDate:data->>dueDate')
+    .eq('source', MANUAL_BID_SOURCE)
+    .gt('expires_at', now.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error('manual bids read failed');
+  return ((data ?? []) as Array<{ id: number; title: string; url: string | null; created_at: string | null; expires_at: string | null; buyer: string | null; dueDate: string | null }>).map((r) => ({
+    id: r.id,
+    title: r.title,
+    url: r.url,
+    buyer: r.buyer,
+    dueDate: r.dueDate,
+    expiresAt: r.expires_at,
+    createdAt: r.created_at,
+  }));
+}
+
+export type RetireOutcome = { status: 'retired'; title: string } | { status: 'not_found' } | { status: 'already_closed' };
+
+/**
+ * Retires a hand-added bid added by mistake: its expires_at becomes now and data.retiredAt is stamped. Every member-facing reader drops a
+ * bid whose expires_at has passed (lib/signals/bid-sources.ts bidHidden: web feed, app feed, e-mail digest, push), so it leaves them at
+ * once; its existing matches stay as history. Only rows of the manual source can be touched (the filter is on the update itself).
+ */
+export async function retireManualBid(db: Pick<Db, 'from'>, id: number, now: Date): Promise<RetireOutcome> {
+  const { data, error } = await db.from('holler_signals').select('id, title, expires_at, data').eq('source', MANUAL_BID_SOURCE).eq('id', id).limit(1);
+  if (error) throw new Error('manual bid read failed');
+  const row = ((data ?? []) as Array<{ id: number; title: string; expires_at: string | null; data: Record<string, unknown> | null }>)[0];
+  if (!row) return { status: 'not_found' };
+  if (row.expires_at && Date.parse(row.expires_at) <= now.getTime()) return { status: 'already_closed' };
+  const at = now.toISOString();
+  const { error: upErr } = await db
+    .from('holler_signals')
+    .update({ expires_at: at, data: { ...(row.data ?? {}), retiredAt: at } })
+    .eq('source', MANUAL_BID_SOURCE)
+    .eq('id', id);
+  if (upErr) throw new Error('manual bid retire failed');
+  return { status: 'retired', title: row.title };
 }

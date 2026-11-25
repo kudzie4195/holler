@@ -4,9 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 vi.mock('server-only', () => ({}));
-const h = vi.hoisted(() => ({ sub: null as string | null }));
+const h = vi.hoisted(() => ({ sub: null as string | null, refresh: false }));
 vi.mock('@supabase/ssr', () => ({
-  createServerClient: () => ({ auth: { getClaims: async () => ({ data: h.sub ? { claims: { sub: h.sub } } : null }) } }),
+  createServerClient: (_u: string, _k: string, opts: { cookies: { setAll: (c: Array<{ name: string; value: string; options: object }>, h?: object) => void } }) => ({
+    auth: {
+      getClaims: async () => {
+        // A session refresh sets new cookies through setAll, as @supabase/ssr does.
+        if (h.refresh) opts.cookies.setAll([{ name: 'sb-test-auth-token', value: 'refreshed', options: { path: '/' } }], {});
+        return { data: h.sub ? { claims: { sub: h.sub } } : null };
+      },
+    },
+  }),
 }));
 
 const OWNER_ID = '6f1c2d3e-4a5b-4c6d-8e7f-0123456789ab';
@@ -18,12 +26,15 @@ beforeEach(() => {
   vi.stubEnv('HOLLER_MANUAL_BIDS_ENABLED', '1');
   vi.stubEnv('HOLLER_OWNER_USER_ID', OWNER_ID);
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  h.refresh = false;
+});
 
-async function statusFor(path: string): Promise<{ status: number; rewrite: string | null; location: string | null }> {
+async function statusFor(path: string): Promise<{ status: number; rewrite: string | null; location: string | null; cookie: string | undefined }> {
   const { updateSession } = await import('@/lib/supabase/proxy');
   const res = await updateSession(new NextRequest(`https://localholler.com${path}`));
-  return { status: res.status, rewrite: res.headers.get('x-middleware-rewrite'), location: res.headers.get('location') };
+  return { status: res.status, rewrite: res.headers.get('x-middleware-rewrite'), location: res.headers.get('location'), cookie: res.cookies.get('sb-test-auth-token')?.value };
 }
 
 describe('/app/owner/* status codes', () => {
@@ -49,5 +60,13 @@ describe('/app/owner/* status codes', () => {
     const r = await statusFor('/app/settings');
     expect(r.status).toBe(307);
     expect(r.location).toMatch(/\/login\?next=%2Fapp%2Fsettings$/);
+  });
+
+  it('the 404 keeps the cookies a session refresh just set (review 2 P2-E)', async () => {
+    h.refresh = true;
+    h.sub = MEMBER_ID;
+    expect(await statusFor('/app/owner/bids')).toMatchObject({ status: 404, cookie: 'refreshed' });
+    h.sub = OWNER_ID;
+    expect(await statusFor('/app/owner/bids')).toMatchObject({ status: 200, cookie: 'refreshed' });
   });
 });

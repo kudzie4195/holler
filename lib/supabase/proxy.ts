@@ -68,10 +68,13 @@ export async function updateSession(request: NextRequest) {
   };
 
   // Round 33: the owner's hand-added bid pages. Anyone but the owner (signed out too, and everyone while HOLLER_MANUAL_BIDS_ENABLED is
-  // off) gets a real 404 status here, before any page shell is streamed, so the pages do not reveal that they exist. The pages and
-  // actions check again on the server (lib/signals/manual-bids/owner.ts).
+  // off) gets a real 404 status here, before any page shell is streamed, so the pages do not reveal that they exist. A signed-out visitor
+  // also gets the 404, not the log-in redirect (on purpose: the redirect would say the page exists; the owner signs in at /login first).
+  // The cookies a session refresh just set are carried onto the 404 like onto a redirect (review 2 P2-E). The pages and actions check
+  // again on the server (lib/signals/manual-bids/owner.ts).
   if (matches(pathname, [OWNER_PATH]) && !ownerPathAllowed(sub)) {
     const notFound = NextResponse.rewrite(new URL('/_holler-not-found', request.url), { status: 404 });
+    response.cookies.getAll().forEach((c) => notFound.cookies.set(c));
     notFound.headers.set('x-robots-tag', 'noindex');
     return notFound;
   }

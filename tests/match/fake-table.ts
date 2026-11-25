@@ -20,10 +20,12 @@ function splitTop(s: string): string[] {
   const out: string[] = [];
   let depth = 0;
   let cur = '';
+  let quoted = false;
   for (const ch of s) {
-    if (ch === '(') depth++;
-    if (ch === ')') depth--;
-    if (ch === ',' && depth === 0) {
+    if (ch === '"') quoted = !quoted;
+    if (!quoted && ch === '(') depth++;
+    if (!quoted && ch === ')') depth--;
+    if (ch === ',' && depth === 0 && !quoted) {
       out.push(cur);
       cur = '';
     } else cur += ch;
@@ -37,7 +39,9 @@ function term(t: string, r: Row): boolean {
   if (t.startsWith('and(') && t.endsWith(')')) return splitTop(t.slice(4, -1)).every((x) => term(x, r));
   const m = /^([a-z_]+(?:->>[a-zA-Z_]+)?)\.([a-z]+)\.(.*)$/.exec(t);
   if (!m) throw new Error(`fake cannot parse ${t}`);
-  const [, col, op, val] = m;
+  const [, col, op, rawVal] = m;
+  // A double-quoted value (PostgREST lets commas and brackets sit inside quotes).
+  const val = /^".*"$/.test(rawVal) ? rawVal.slice(1, -1) : rawVal;
   const v = colVal(r, col);
   switch (op) {
     case 'is':

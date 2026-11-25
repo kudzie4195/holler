@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CELL_MAX, CSV_FORMATS, csvFormat, parseCsv, readCsv } from '@/lib/signals/manual-bids/csv';
-import { buildManualBid, cleanUrl, isListPage, linkHost, normalizeUrl, parseManualDue, resolvePlace, scrubPublic, servedPlace } from '@/lib/signals/manual-bids/record';
+import { buildManualBid, cleanUrl, contactFound, isListPage, linkHost, normalizeUrl, parseManualDue, resolvePlace, servedPlace } from '@/lib/signals/manual-bids/record';
 import { checklistKey, readChecked, writeChecked } from '@/lib/signals/manual-bids/checklist-store';
 import { MANUAL_PORTALS } from '@/lib/signals/manual-bids/portals';
 
@@ -120,12 +120,11 @@ describe('one hand-added bid becomes a normal bid record', () => {
     for (const z of ['30269', '77002']) expect(buildManualBid({ ...base, place: z }, { now: NOW })).toEqual({ ok: false, problem: 'outside_area' });
   });
 
-  it('keeps contact details out of the title and never stores the description', () => {
-    const r = buildManualBid({ ...base, title: 'Roof repair, questions to buyer@city.gov or https://city.gov/q', description: 'Contact Jane Doe 555-0100' }, { now: NOW, served });
+  it('never stores the description (it is read only to pick the trade)', () => {
+    const r = buildManualBid({ ...base, description: 'Contact Jane Doe 555-0100, jane@example.com' }, { now: NOW, served });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.signal.title).toBe('Open bid in Marietta: Roof repair, questions to or');
-    expect(JSON.stringify(r.signal)).not.toMatch(/Jane|555-0100|buyer@/);
+    expect(JSON.stringify(r.signal)).not.toMatch(/Jane|555-0100|jane@/);
   });
 
   it('a CivicPlus category list (Bids.aspx?CatID=17) is a list page too; tracking parameters and query case do not split one link', () => {
@@ -134,38 +133,57 @@ describe('one hand-added bid becomes a normal bid record', () => {
     expect(normalizeUrl('https://city.gov/b?BidID=9&utm_source=x&fbclid=y')).toBe(normalizeUrl('https://www.city.gov/b?bidid=9'));
   });
 
-  it('an agency list page is not used as the identity of one bid', () => {
+  it('a link alone is not one bid: the key is the normalized link plus the title, so a list page can carry many bids', () => {
     expect(isListPage('https://www.mariettaga.gov/Bids.aspx')).toBe(true);
-    expect(isListPage('https://roswellgov.bonfirehub.com/portal/?tab=openOpportunities')).toBe(true);
     expect(isListPage('https://mariettaga.gov/Bids.aspx?bidID=412')).toBe(false);
     const a = buildManualBid({ ...base, url: 'https://mariettaga.gov/Bids.aspx' }, { now: NOW, served });
-    expect(a.ok && a.keys.urlKey).toBeNull();
+    const b = buildManualBid({ ...base, url: 'https://mariettaga.gov/Bids.aspx', title: 'HVAC replacement at City Hall' }, { now: NOW, served });
     expect(a.ok && a.signal.data?.linkKind).toBe('list');
+    expect(a.ok && b.ok && a.keys.urlKey === b.keys.urlKey && a.keys.titleKey !== b.keys.titleKey && a.signal.externalId !== b.signal.externalId).toBe(true);
     expect(normalizeUrl('https://WWW.City.gov/Bids/?x=1')).toBe('city.gov/bids?x=1');
   });
 });
 
 describe('review fixes: privacy, length, formulas, link hosts', () => {
-  it('strips phone numbers, street addresses and names after "contact" from title and agency, and stores none of them', () => {
-    const r = buildManualBid(
-      { ...base, title: 'Roof repair at 1423 Oak Hollow Dr - contact John Q. Smith (404) 555-0147', agency: 'City of Marietta, 88 Pine St, phone 770-555-0199' },
-      { now: NOW, served },
-    );
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    const stored = JSON.stringify(r.signal);
-    for (const bit of ['1423', 'Oak Hollow', '555-0147', '404', 'John', 'Smith', '88 Pine', '770-555-0199']) expect(stored, bit).not.toContain(bit);
-    expect(r.signal.title).toBe('Open bid in Marietta: Roof repair');
-    // The scrub errs on the safe side: words right before a phone number go too ("City of"); the owner sees this in the preview.
-    expect(r.view.agency.startsWith('City of')).toBe(true);
-    // A number right before a street word is not an address: kept.
-    expect(scrubPublic('Fire Station 3 Road Improvements')).toBe('Fire Station 3 Road Improvements');
+  it('refuses (never edits) a title, agency or solicitation number holding a phone, e-mail, link, street address or a name after "contact"', () => {
+    const cases: Array<[Record<string, string>, string, string]> = [
+      [{ title: 'Roof repair, call (404) 555-0147' }, 'contact_title', 'The title looks like it contains a phone number, please remove it.'],
+      [{ title: 'Roof repair, questions to buyer@city.gov' }, 'contact_title', 'The title looks like it contains an e-mail address, please remove it.'],
+      [{ title: 'Roof repair, see https://city.gov/q' }, 'contact_title', 'The title looks like it contains a link, please remove it.'],
+      [{ title: 'Roof repair at 1423 Oak Hollow Dr' }, 'contact_title', 'The title looks like it contains a street address, please remove it.'],
+      [{ title: 'Roof repair, contact John Q. Smith' }, 'contact_title', "The title looks like it contains a person's name, please remove it."],
+      [{ agency: 'City of Marietta, 88 Pine St' }, 'contact_agency', 'The agency looks like it contains a street address, please remove it.'],
+      [{ agency: 'City of Marietta (770) 794-5530' }, 'contact_agency', 'The agency looks like it contains a phone number, please remove it.'],
+      [{ agency: 'City of Marietta, PO Box 609' }, 'contact_agency', 'The agency looks like it contains a street address, please remove it.'],
+      [{ solicitationId: 'jsmith@gmail.com' }, 'contact_sol', 'The solicitation number looks like it contains an e-mail address, please remove it.'],
+      [{ solicitationId: 'John Smith 404-555-0147' }, 'contact_sol', 'The solicitation number looks like it contains a phone number, please remove it.'],
+      [{ solicitationId: '1423 Oak Hollow Dr' }, 'contact_sol', 'The solicitation number looks like it contains a street address, please remove it.'],
+      [{ title: 'Roof repair, phone 555-0147' }, 'contact_title', 'The title looks like it contains a phone number, please remove it.'],
+    ];
+    for (const [over, problem, detail] of cases) {
+      expect(buildManualBid({ ...base, ...over }, { now: NOW, served }), JSON.stringify(over)).toEqual({ ok: false, problem, detail });
+    }
+  });
+
+  it('words after "for", "owner", "call" are never read, and road names, years and bid numbers are not addresses or phones', () => {
+    for (const title of [
+      'Call for Artists - 26-08', 'Emergency Repair Services for Water and Sewer Mains on an Annual Contract', 'Owner Controlled Insurance Program Roof Work',
+      'McHOST ROAD IMPRV 2 (LA Hwy 64 Port Hudson Pride Rd) 20-EN-HC-0107', '2026 Main Street Sidewalk Repair', 'ITB 2026-08 Whitlock Avenue Sidewalk Improvements',
+      'SR 92 Bridge Road Widening', 'Phase 2 Cobb Parkway Lighting', 'Install 40 LED Fixtures at Parkway Place', 'Fire Station 3 Road Improvements', 'Contact Center HVAC Replacement',
+      'Roof Replacement for Marietta Fire Station 4', 'Janitorial Services for Public Library', 'RFP 26-014 Elm Street Water Main Replacement',
+    ]) {
+      expect(contactFound(title), title).toBeNull();
+      const r = buildManualBid({ ...base, title, trade: 'roofing' }, { now: NOW, served });
+      expect(r.ok && r.view.title, title).toBe(title);
+    }
   });
 
   it('refuses a title or an agency that is only a person-like name', () => {
     expect(buildManualBid({ ...base, title: 'John Q. Smith' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
     expect(buildManualBid({ ...base, agency: 'Maria Gonzalez', trade: 'roofing' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
     expect(buildManualBid({ ...base, title: 'SMITH, JOHN' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
+    // With a trade picked by the owner the title is not tested as a name.
+    expect(buildManualBid({ ...base, title: 'Laurel Park Restroom', trade: 'plumbing' }, { now: NOW, served }).ok).toBe(true);
     for (const title of ['Brookhaven Park Lighting', 'Kenner Drainage Pump Repair', 'Mary Ann Park Restroom Renovation']) {
       const r = buildManualBid({ ...base, title }, { now: NOW, served });
       expect(r.ok || r.problem !== 'person_name', title).toBe(true);
@@ -186,7 +204,7 @@ describe('review fixes: privacy, length, formulas, link hosts', () => {
   });
 
   it('removes a leading = + - @ from every stored text (spreadsheet formulas)', () => {
-    for (const lead of ['=', '+', '-', '@', '\t=', ' =+']) {
+    for (const lead of ['=', '+', '-', '@', '\t=', ' =+', '|=', ';=', ',=', ': =', '& =', "'="]) {
       const r = buildManualBid({ ...base, title: `${lead}SUM(1+1) Roof replacement`, agency: `${lead}City of Marietta`, solicitationId: `${lead}1+1` }, { now: NOW, served });
       expect(r.ok, JSON.stringify(lead)).toBe(true);
       if (!r.ok) continue;

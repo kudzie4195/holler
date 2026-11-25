@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
 import { cityBySlug, lookupPlaceByName, lookupZip } from '@/lib/geo';
 import { isServedZip } from '@/lib/check/coverage';
-import { scrubText } from '@/lib/signals/adapters/permit-privacy';
 import { looksLikeFullPersonName } from '@/lib/contacts/org';
 import { zoneFor } from '@/lib/storms/zones';
 import { parseDue } from '@/lib/firecrawl/extract';
 import { bidTrades } from '@/lib/signals/bid-trades';
-import { cleanText, localDay, tidyBuyer } from '@/lib/signals/adapters/city-bids';
+import { cleanText, localDay } from '@/lib/signals/adapters/city-bids';
 import { normalizeState } from '@/lib/signals/adapters/usaspending';
 import { isCategoryId, type CategoryId } from '@/lib/signals/categories';
 import type { SignalInput } from '@/lib/signals/types';
@@ -20,12 +19,13 @@ import { manualPortalUrls } from './portals';
  * marked data.loc = 'approx', and the record link the agency's own public page.
  *
  * Privacy: the position is the centroid of the ZIP or city the owner typed, rounded to 3 decimals (about a block), never a street address.
- * The description is read only to pick the trade and is never stored. Title and agency go through the permit text scrub (e-mails, links,
- * phone numbers, names after "contact", "attn" ...; lib/signals/adapters/permit-privacy.ts scrubText) after street addresses are cut, and
- * a title or agency that is only a person-like name is refused (review P2-2).
+ * The description is read only to pick the trade and is never stored. Title, agency and solicitation number are stored exactly as typed
+ * (spaces tidied): a field that looks like it holds a phone number, an e-mail address, a link, a street address or a person's name after
+ * "contact" / "attn" is REFUSED with a plain reason, never edited (review 2 P1-1), and a title or agency that is only a person-like name
+ * is refused (review P2-2).
  *
  * Every field is cut to its maximum length BEFORE any pattern runs (review P2-4), and a leading = + - @ (a spreadsheet formula) is
- * removed from every stored text (review P2-5).
+ * removed from every stored text as the LAST step (review P2-5, review 2 P2-A).
  */
 
 export interface ManualBidFields {
@@ -59,7 +59,11 @@ export type ManualBidProblem =
   | 'no_trade'
   | 'person_name'
   | 'short_link'
-  | 'terms_host';
+  | 'terms_host'
+  | 'too_long'
+  | 'contact_title'
+  | 'contact_agency'
+  | 'contact_sol';
 
 export const PROBLEM_TEXT: Record<ManualBidProblem | 'duplicate_in_file' | 'already_in_holler', string> = {
   bad_url: 'Link must be a full https:// address',
@@ -74,18 +78,27 @@ export const PROBLEM_TEXT: Record<ManualBidProblem | 'duplicate_in_file' | 'alre
   bad_trade: 'Unknown trade',
   no_trade: 'No trade matched the title (pick a trade to add it anyway)',
   person_name: 'Title or agency reads like a private person\'s name, not a bid and a government buyer',
+  too_long: 'Title is over 200 characters or agency over 120: shorten it',
+  contact_title: 'The title looks like it contains contact details, please remove them',
+  contact_agency: 'The agency looks like it contains contact details, please remove them',
+  contact_sol: 'The solicitation number looks like it contains contact details, please remove them',
   short_link: 'Link shorteners are not accepted: paste the agency\'s own page',
   terms_host: 'This portal\'s terms ban commercial use: check it by hand only, do not enter its bids',
   duplicate_in_file: 'Duplicate of an earlier row in this file',
-  already_in_holler: 'Already in Holler (same link, or same agency and solicitation number)',
+  already_in_holler: 'Already in Holler (same link and title, or same agency and solicitation number)',
 };
 
 /** More than this far ahead is a placeholder date, as for the city bid feeds. */
 export const MAX_DUE_DAYS = 365;
 
 export interface ManualBidKeys {
-  /** The link, normalized; null when the link is an agency's list page (many bids share it, so it does not identify one). */
-  urlKey: string | null;
+  /**
+   * The link, normalized, plus the title: one bid. The link alone is not used (review 2: many bids can share an agency's list page, on
+   * any portal), so a second bid from the same page with another title is a new bid.
+   */
+  urlKey: string;
+  /** The title, normalized (letters and digits only). */
+  titleKey: string;
   /** agency + solicitation number, normalized; null without a number. */
   solKey: string | null;
 }
@@ -98,7 +111,7 @@ export interface ManualBidReady {
   view: { title: string; agency: string; dueDate: string; place: string; trades: CategoryId[]; solicitationId: string | null; url: string; host: string };
 }
 
-export type ManualBidResult = ManualBidReady | { ok: false; problem: ManualBidProblem };
+export type ManualBidResult = ManualBidReady | { ok: false; problem: ManualBidProblem; detail?: string };
 
 export interface PlaceFound {
   zip: string | null;
@@ -148,35 +161,73 @@ export function capFields(f: ManualBidFields): ManualBidFields {
   return out;
 }
 
-/** A leading = + - @ (or tab / CR before one) makes a spreadsheet run the cell as a formula when the text is exported later: removed. */
+/**
+ * A leading = + - @ (or space, tab, CR or separator before one) makes a spreadsheet run the cell as a formula when the text is exported
+ * later: removed. Run LAST on every stored text field, after all other processing (review 2 P2-A).
+ */
 export function defuseFormula(text: string): string {
-  return text.replace(/^[\s=+\-@]+/, '');
+  return text.replace(/^[\s=+\-@|;,:&'"]+/, '');
 }
 
-// A street number, one to four words, then a street suffix: "1423 Oak Hollow Dr", "88 Pine St". A number directly followed by the
-// suffix ("Station 3 Road Improvements") is not an address and is kept.
-const STREET_RE =
-  /\b\d{1,6}[A-Za-z]?\s+(?:[NSEW]\.?\s+)?(?:[A-Za-z0-9'.-]+\s+){1,4}(?:street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|way|place|pl|highway|hwy|parkway|pkwy|circle|cir|terrace|ter|trail|trl|pike|square|sq)\b\.?/gi;
+// ---- Contact details: refused, never edited (review 2 P1-1) ---------------------------------------------------------------------
+// The owner types or pastes these fields, so nothing is rewritten. A field that looks like it holds a phone number, an e-mail address,
+// a link, a street address or a person's name after "contact" / "attn" is refused with what was found, and the owner retypes it. Bid
+// titles are full of "for", "owner", "call" ("Call for Artists", "Services for Water and Sewer Mains"): those words are never read.
 
-/** Street addresses cut, then the shared scrub (e-mails, links, phones, names after trigger words), on text already capped. */
-export function scrubPublic(text: string): string {
-  return scrubText(defuseFormula(text).replace(STREET_RE, ' ').replace(/\s+/g, ' ').trim());
+const EMAIL_RE = /[\w.+'-]+@[\w-]+(?:\.[\w-]+)+/;
+const LINK_RE = /\bhttps?:\/\/|\bwww\./i;
+// 10 digits with any of ( ) space . - between the groups ("(404) 555-0147", "404.555.0147", "+1 404 555 0147").
+const PHONE10_RE = /(?<![\w-])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.\u2010-\u2015-]*\d{3}[\s.\u2010-\u2015-]*\d{4}(?![\w-])/;
+// 7 digits written as a local phone ("555-0147"), only after a phone word: bid numbers such as "026-2600" are not phones.
+const PHONE7_RE = /\b(?:ph|phone|tel|telephone|cell|mobile|fax)\b[\s.:#]*\d{3}[\s.-]\d{4}(?![\w-])/i;
+const STREET_WORDS = 'street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|way|place|pl|parkway|pkwy|circle|cir|terrace|ter|trail|trl|pike|square|sq';
+// A house number (not a year, not after Hwy / Route / SR / Phase / No. / a dash), one to three name words (no "at", "of", "and"), then a
+// street word: "1423 Oak Hollow Dr", "88 Pine St". "LA Hwy 64 Port Hudson Pride Rd", "2026 Main Street", "ITB 2026-08 Whitlock Avenue"
+// and "40 LED Fixtures at Parkway Place" are not addresses.
+const STREET_RE = new RegExp(
+  `(?<!\\b(?:hwy|highway|route|rte|sr|us|i|la|ga|tx|nc|fm|cr|phase|package|no|station|lot|unit|building|bldg|suite|ste|lots?|number|#)\\.?[\\s-]*)(?<![\\w-])(?!(?:19|20)\\d\\d\\b)\\d{1,6}[A-Za-z]?\\s+(?:[NSEW]\\.?\\s+)?(?:(?!(?:at|of|and|the|for|to|in|on|with|from|&)\\b)[A-Za-z0-9'.]+\\s+){1,3}(?:${STREET_WORDS})\\b`,
+  'i',
+);
+const PO_BOX_RE = /\bP\.?\s?O\.?\s+Box\s+\d+/i;
+// "contact John Smith", "Attn: Mary Jones", "c/o J. Doe", "POC Robert Brown": a person's name right after the word.
+const NAME_TRIGGER_RE = /\b(?:[Cc]ontact|CONTACT|[Aa]ttn|ATTN|[Aa]ttention|ATTENTION|[Cc]\/[Oo]|POC|[Pp]oc)\b[\s.:-]*((?:[A-Z][A-Za-z'.-]*\s*){2,4})/g;
+
+export type ContactKind = 'phone number' | 'e-mail address' | 'link' | 'street address' | "person's name";
+
+/** What contact detail the text seems to hold, or null. Never edits anything. Run on text already capped (FIELD_MAX). */
+export function contactFound(text: string): ContactKind | null {
+  if (!text) return null;
+  if (EMAIL_RE.test(text)) return 'e-mail address';
+  if (LINK_RE.test(text)) return 'link';
+  if (PHONE10_RE.test(text) || PHONE7_RE.test(text)) return 'phone number';
+  if (STREET_RE.test(text) || PO_BOX_RE.test(text)) return 'street address';
+  for (const m of text.matchAll(NAME_TRIGGER_RE)) if (looksLikeFullPersonName(m[1].trim())) return "person's name";
+  return null;
 }
 
-const GOVERNMENT_WORD = /\b(?:city|county|town|township|village|parish|borough|state|department|dept|authority|district|schools?|board|commission|government|agency|purchasing|procurement|office|port|transit|housing|university|college|metro|utilities|water)\b/i;
+/** The plain reason shown to the owner: "The title looks like it contains a phone number, please remove it." */
+export function contactText(field: 'title' | 'agency' | 'solicitation number', kind: ContactKind): string {
+  return `The ${field} looks like it contains ${kind === 'e-mail address' ? 'an' : 'a'} ${kind}, please remove it.`;
+}
+
+/** Words that make a name-shaped text a public body, a place or a thing, not a private person (review 2: "Georgia DOT", "Jackson EMC"). */
+const PUBLIC_WORD =
+  /\b(?:city|county|town|township|village|parish|borough|state|department|dept|dot|isd|emc|authority|district|schools?|board|commission|government|agency|purchasing|procurement|office|port|ports|transit|housing|university|college|institute|tech|metro|utilities|utility|water|energy|power|electric|gas|parks?|recreation|airport|aviation|hospital|health|medical|library|libraries|conservancy|center|centre|museum|zoo|garden|gardens|greenway|trail|bridge|street|road|avenue|highway|mountain|lake|river|beltline|works|services|police|fire|sheriff|court|courts|jail|corrections|restroom|concert|series|festival|stadium|arena|plaza|square|hall|building|campus|station)\b/i;
 
 /**
- * Text that is only a private person's name (review P2-2): two to four words, every word capitalized, holding a given name or an initial
- * (lib/contacts/org.ts looksLikeFullPersonName), and naming no trade (a title) or no government word (an agency). "John Q. Smith" and
- * "SMITH, JOHN" are; "Brookhaven Park Lighting" (a trade), "Town of Manor" and "Roswell" (one word) are not.
+ * Text that is only a private person's name (review P2-2, narrowed in review 2): two to four words, every word capitalized, holding a
+ * given name or an initial (lib/contacts/org.ts looksLikeFullPersonName), with no public-body or place word, and (a title) naming no
+ * trade. "John Q. Smith" and "SMITH, JOHN" are; "Georgia DOT", "Jackson EMC", "Raleigh Parks", "Laurel Park Restroom" are not. A title
+ * is not tested when the owner picked a trade himself.
  */
 export function onlyPersonName(text: string, kind: 'title' | 'agency'): boolean {
   const words = text.split(/[\s,]+/).filter(Boolean);
   if (words.length < 2 || words.length > 4) return false;
   if (!words.every((w) => /^[A-Z]/.test(w))) return false;
+  if (PUBLIC_WORD.test(text)) return false;
   if (!looksLikeFullPersonName(text)) return false;
   if (kind === 'title') return bidTrades({ title: text }).length === 0;
-  return !GOVERNMENT_WORD.test(text);
+  return true;
 }
 
 /** Hosts that only redirect somewhere else: the owner must paste the agency's own page. */
@@ -200,10 +251,6 @@ export function linkHost(url: string): string {
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-
-function noContactBits(t: string): string {
-  return t.replace(/https?:\/\/\S+/gi, ' ').replace(/\bwww\.\S+/gi, ' ').replace(/\S+@\S+\.\S+/g, ' ').replace(/\s+/g, ' ').trim();
-}
 
 function trunc(text: string, max: number): string {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -307,6 +354,15 @@ export function parseManualDue(raw: string, state: string): { iso: string; day: 
   return { iso: due.iso, day };
 }
 
+/** Longest title and agency accepted; longer ones are refused, not cut (nothing is rewritten). */
+export const MAX_TITLE = 200;
+export const MAX_AGENCY = 120;
+
+/** A title compared without case, spaces or punctuation, and without a feed's "Open bid in <place>: " prefix. */
+export function titleKeyOf(title: string): string {
+  return norm(title.replace(/^Open bid in [^:]{1,80}: /, '')).slice(0, 120);
+}
+
 function idPart(s: string): string {
   return createHash('sha1').update(s).digest('hex').slice(0, 16);
 }
@@ -320,11 +376,26 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
   const host = linkHost(url);
   if (SHORTENER_HOSTS.has(host)) return { ok: false, problem: 'short_link' };
   if (TERMS_BARRED_HOSTS.some((b) => onHost(host, b))) return { ok: false, problem: 'terms_host' };
-  const title = trunc(scrubPublic(noContactBits(cleanText(f.title ?? ''))), 140);
+  // Text is kept exactly as typed (spaces tidied); a field with contact details is refused, never edited (review 2 P1-1).
+  const titleText = cleanText(f.title ?? '');
+  const agencyText = cleanText(f.agency ?? '');
+  const solText = cleanText(f.solicitationId ?? '');
+  if (titleText.length > MAX_TITLE || agencyText.length > MAX_AGENCY) return { ok: false, problem: 'too_long' };
+  for (const [field, text, problem] of [
+    ['title', titleText, 'contact_title'],
+    ['agency', agencyText, 'contact_agency'],
+    ['solicitation number', solText, 'contact_sol'],
+  ] as const) {
+    const kind = contactFound(text);
+    if (kind) return { ok: false, problem, detail: contactText(field, kind) };
+  }
+  // The formula strip runs last, after every other step (review 2 P2-A).
+  const title = defuseFormula(titleText);
   if (title.length < 4) return { ok: false, problem: 'no_title' };
-  const agency = trunc(tidyBuyer(scrubPublic(noContactBits(cleanText(f.agency ?? '')))), 120);
+  const agency = defuseFormula(agencyText);
   if (agency.length < 2) return { ok: false, problem: 'no_agency' };
-  if (onlyPersonName(title, 'title') || onlyPersonName(agency, 'agency')) return { ok: false, problem: 'person_name' };
+  const hint = (f.trade ?? '').trim();
+  if ((!hint && onlyPersonName(title, 'title')) || onlyPersonName(agency, 'agency')) return { ok: false, problem: 'person_name' };
   const dueRaw = (f.dueDate ?? '').trim();
   if (!dueRaw) return { ok: false, problem: 'no_due' };
   const place = resolvePlace(f);
@@ -337,7 +408,6 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
   const served = deps.served ?? servedPlace;
   if (!served({ lat: place.lat, lon: place.lon, state: place.state })) return { ok: false, problem: 'outside_area' };
 
-  const hint = (f.trade ?? '').trim();
   let trades: CategoryId[];
   if (hint) {
     if (!isCategoryId(hint)) return { ok: false, problem: 'bad_trade' };
@@ -348,16 +418,13 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
     if (trades.length === 0) return { ok: false, problem: 'no_trade' };
   }
 
-  const solicitationId = trunc(defuseFormula(cleanText(f.solicitationId ?? '')), 60) || null;
+  const solicitationId = defuseFormula(solText).slice(0, 60) || null;
   const list = isListPage(url);
-  const urlKey = list ? null : normalizeUrl(url);
+  const urlKey = normalizeUrl(url);
+  const titleKey = titleKeyOf(title);
   const agencyKey = norm(agency).slice(0, 60);
   const solKey = solicitationId && norm(solicitationId).length >= 2 ? `${agencyKey}|${norm(solicitationId)}` : null;
-  const externalId = solKey
-    ? `manual:${agencyKey}:${norm(solicitationId as string).slice(0, 60)}`
-    : urlKey
-      ? `manual:u:${idPart(urlKey)}`
-      : `manual:l:${idPart(`${normalizeUrl(url)}|${norm(title)}|${due.day}`)}`;
+  const externalId = solKey ? `manual:${agencyKey}:${norm(solicitationId as string).slice(0, 60)}` : `manual:t:${idPart(`${urlKey}|${titleKey}`)}`;
   const tz = zoneFor(place.state) ?? 'America/New_York';
   const summary = trunc([agency, solicitationId ?? '', `due ${due.day}`].filter(Boolean).join(' | '), 280);
   const signal: SignalInput = {
@@ -395,7 +462,7 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
   return {
     ok: true,
     signal,
-    keys: { urlKey, solKey },
+    keys: { urlKey, titleKey, solKey },
     view: { title, agency, dueDate: due.day, place: `${place.city}, ${place.state}${place.zip ? ` ${place.zip}` : ''}`, trades, solicitationId, url, host },
   };
 }
