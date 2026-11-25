@@ -4,6 +4,7 @@
  * Derived from the adapter configs on 2026-11-17; tests/signals/core/source-meta.test.ts fails if it drifts from ALL_ADAPTERS.
  * One entry is not an adapter: 'holler-request', the public record of a resident request made on Holler (lib/requests). It needs no
  * key and reads nothing outside Holler; its link is the /request page on this site (a relative URL, so this file stays client-safe).
+ * Round 33 adds 'bids-manual': open bids the owner enters by hand (lib/signals/manual-bids), no adapter.
  */
 export interface SourceMeta {
   id: string;
@@ -114,6 +115,9 @@ export const SOURCE_META: Record<string, SourceMeta> = {
   "websearch-brave": { id: "websearch-brave", label: "People asking for recommendations (web search)", sourceUrl: "https://search.brave.com/" },
   "websearch-serper": { id: "websearch-serper", label: "People asking for recommendations (web search)", sourceUrl: "https://serper.dev/" },
   "holler-request": { id: "holler-request", label: "Requests made on Holler", sourceUrl: "/request" },
+  // Round 33: open bids the owner copies by hand from government bid pages Holler does not read (lib/signals/manual-bids). Each record
+  // links to the agency's own page; the home link is Holler's data page (relative, so this file stays client-safe).
+  "bids-manual": { id: "bids-manual", label: "Government bid pages checked by Holler", sourceUrl: "/data" },
   // Round 20 NEXT (on probation): new-business feeds, Houston permit report, certificates of occupancy.
   "socrata-txsales-dallas-business": { id: "socrata-txsales-dallas-business", label: "Texas open data: new sales tax permits", sourceUrl: "https://data.texas.gov/d/jrea-zgmq" },
   "socrata-txsales-houston-business": { id: "socrata-txsales-houston-business", label: "Texas open data: new sales tax permits", sourceUrl: "https://data.texas.gov/d/jrea-zgmq" },
@@ -128,7 +132,7 @@ export const SOURCE_META: Record<string, SourceMeta> = {
 };
 
 /** Source ids in SOURCE_META that are not adapters (Holler's own records). */
-export const NON_ADAPTER_SOURCES = ['holler-request'] as const;
+export const NON_ADAPTER_SOURCES = ['holler-request', 'bids-manual'] as const;
 
 export function getSourceMeta(sourceId: string): SourceMeta | undefined {
   return SOURCE_META[(sourceId ?? '').toLowerCase()];
