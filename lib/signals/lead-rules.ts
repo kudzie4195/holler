@@ -1290,6 +1290,8 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   // bid deadline (its one date is the earliest day a contract may be signed, stored as data.contractFrom, not dueDate), and only firms
   // registered with USAC can be paid. Same flags, plus HOLLER_ERATE_ENABLED.
   'bids-erate': 'coming_soon',
+  // Round 33: open bids the owner adds by hand (lib/signals/manual-bids): a solicitation with a due date in the future, like every bid.
+  'bids-manual': 'act_now',
   'ticketmaster': 'coming_soon',
   // People asking (act_now: someone asked)
   'bluesky': 'act_now',

@@ -888,6 +888,7 @@ export const es: Record<DictKey, string> = {
   'srcl.fixed.bluesky': 'Personas que piden recomendaciones en Bluesky',
   'srcl.fixed.websearch': 'Personas que piden recomendaciones (búsqueda en la web)',
   'srcl.fixed.holler-request': 'Solicitudes hechas en Holler',
+  'srcl.fixed.bids-manual': 'Páginas de licitaciones del gobierno revisadas por Holler',
   'srcl.fixed.bids-gwinnett': 'Compras del condado de Gwinnett: licitaciones abiertas',
   'srcl.fixed.bids-rockdale': 'Compras del condado de Rockdale: licitaciones, RFP y RFQ vigentes',
   'srcl.fixed.bids-tucker': 'Compras de la ciudad de Tucker: licitaciones y RFP',

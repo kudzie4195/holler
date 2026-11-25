@@ -1,4 +1,5 @@
 import { PAGE_WATCH_IDS } from './adapters/page-watch-datasets';
+import { MANUAL_BID_SOURCE } from './manual-bids/flag';
 
 /**
  * City open bids (kind 'contract', data.subtype 'bid'): source ids, the feature flag and the one test for "is this a bid".
@@ -40,6 +41,8 @@ export const BID_SOURCE_IDS: readonly string[] = [
   ERATE_SOURCE_ID,
   // Round 20 page watch (lib/signals/adapters/page-watch-datasets.ts): public bid pages read with a plain fetch, on probation.
   ...PAGE_WATCH_IDS,
+  // Round 33: bids the owner adds by hand from pages Holler does not read (lib/signals/manual-bids). Not an adapter: no scan runs it.
+  MANUAL_BID_SOURCE,
 ];
 
 /** Prefix of every city-bid source id. */
