@@ -45,6 +45,8 @@ const FIXED: Record<string, Intent> = {
   'websearch-brave': 'asking',
   'websearch-serper': 'asking',
   'holler-request': 'asking',
+  // Round 33: hand-added open bids (kind contract, subtype bid), like every bid source.
+  'bids-manual': 'spending',
   'arcgis-johnscreek-permits': 'spending',  // COVERAGE round 7: a dedicated adapter (kind permit), not in the dataset tables
   // Round 20 SALES: a recorded property sale (kind civic, data.subtype 'sale'): a home changing hands may create a need, the most cautious reading.
   'socrata-nyc-acris-sales': 'demand',
@@ -75,7 +77,9 @@ describe('intentOf: every registered source', () => {
       expect(expected, `expectation for ${a.id}`).toBeDefined();
       expect(intentOf({ kind: a.kind, subtype, source: a.id }), `${a.id} (${a.kind}/${subtype})`).toBe(expected);
     }
-    for (const id of NON_ADAPTER_SOURCES) expect(intentOf({ kind: 'ask', source: id })).toBe(FIXED[id]);
+    // Each non-adapter source with the kind and subtype its records carry (round 33: hand-added bids are contract/bid).
+    const NON_ADAPTER_SHAPE: Record<string, { kind: string; subtype: string | null }> = { 'holler-request': { kind: 'ask', subtype: null }, 'bids-manual': { kind: 'contract', subtype: 'bid' } };
+    for (const id of NON_ADAPTER_SOURCES) expect(intentOf({ ...NON_ADAPTER_SHAPE[id], source: id }), id).toBe(FIXED[id]);
     // the subtype a sale record actually carries reads the same
     expect(intentOf({ kind: 'civic', subtype: 'sale', source: 'carto-phl-sales' })).toBe('demand');
   });

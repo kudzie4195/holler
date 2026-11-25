@@ -56,6 +56,8 @@ export const ENV_KEYS = [
   'HOLLER_ERATE_ENABLED',
   'HOLLER_HAIL_ROUTING_ENABLED',
   'HOLLER_LSR_ENABLED',
+  'HOLLER_MANUAL_BIDS_ENABLED',
+  'HOLLER_OWNER_USER_ID',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -137,6 +139,11 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_HAIL_ROUTING_ENABLED: process.env.HOLLER_HAIL_ROUTING_ENABLED,
   // Round 33: NWS local storm reports from the Iowa Environmental Mesonet (lib/signals/adapters/lsr.ts lsrEnabled). Read again at call time there.
   HOLLER_LSR_ENABLED: process.env.HOLLER_LSR_ENABLED,
+  // Round 33: the owner's hand-added bid pages (/app/owner/bids, lib/signals/manual-bids/flag.ts reads it again at call time).
+  HOLLER_MANUAL_BIDS_ENABLED: process.env.HOLLER_MANUAL_BIDS_ENABLED,
+  // Round 33 review P1-1: the Supabase user id (UUID) of the owner's own account; the only account that can open /app/owner/bids. Read
+  // at call time in lib/signals/manual-bids/owner-id.ts. Empty or not a UUID: nobody.
+  HOLLER_OWNER_USER_ID: process.env.HOLLER_OWNER_USER_ID,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {
