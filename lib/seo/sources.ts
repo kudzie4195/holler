@@ -1,4 +1,5 @@
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
+import { getSourceMeta } from '@/lib/signals/source-meta';
 
 /**
  * Citation info per adapter id, taken from the real adapters in lib/signals/registry.ts ALL_ADAPTERS
@@ -12,9 +13,12 @@ export interface SourceInfo {
   homeUrl?: string;
 }
 
-const SOURCES: Record<string, SourceInfo> = Object.fromEntries(
-  ALL_ADAPTERS.map((a) => [a.id.toLowerCase(), { label: a.label, homeUrl: a.sourceUrl } satisfies SourceInfo]),
-);
+const SOURCES: Record<string, SourceInfo> = Object.fromEntries([
+  ...ALL_ADAPTERS.map((a) => [a.id.toLowerCase(), { label: a.label, homeUrl: a.sourceUrl } satisfies SourceInfo] as const),
+  // Round 33: hand-added bids have no adapter; their label comes from the static source table. The home link is left out (it is a
+  // relative Holler page); the record's own link is the agency's public page.
+  ...(['bids-manual'] as const).map((id) => [id, { label: getSourceMeta(id)?.label ?? id } satisfies SourceInfo] as const),
+]);
 
 function prettify(id: string): string {
   return id

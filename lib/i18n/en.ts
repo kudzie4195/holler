@@ -891,6 +891,7 @@ export const en = {
   'srcl.fixed.bluesky': 'People asking on Bluesky',
   'srcl.fixed.websearch': 'People asking for recommendations (web search)',
   'srcl.fixed.holler-request': 'Requests made on Holler',
+  'srcl.fixed.bids-manual': 'Government bid pages checked by Holler',
   'srcl.fixed.bids-gwinnett': 'Gwinnett County purchasing: open solicitations',
   'srcl.fixed.bids-rockdale': 'Rockdale County procurement: current bids, RFPs and RFQs',
   'srcl.fixed.bids-tucker': 'City of Tucker procurement: bids and RFPs',

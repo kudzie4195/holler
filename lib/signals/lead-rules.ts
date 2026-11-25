@@ -1213,6 +1213,8 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'bids-rockdale': 'act_now',
   'bids-tucker': 'act_now',
   'bids-dunwoody': 'act_now',
+  // Round 33: open bids the owner adds by hand (lib/signals/manual-bids): a solicitation with a due date in the future, like every bid.
+  'bids-manual': 'act_now',
   'ticketmaster': 'coming_soon',
   // People asking (act_now: someone asked)
   'bluesky': 'act_now',
