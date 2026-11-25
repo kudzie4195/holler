@@ -402,9 +402,10 @@ const WHY: Record<BriefFamily, Partial<Record<BriefLabel, WhyFn>>> = {
   'city-bid': {
     act_now: (w) => `A city bid matching ${w} is open; nothing is awarded.`,
   },
-  // Round 33 (E-Rate): names the work the request is about (cabling), not the member's trade, and never who may bid.
+  // Round 33 (E-Rate): names the work the request is about (cabling), not the member's trade, and never who may bid. A heads-up: the record has
+  // no bid deadline (lead-rules.ts: bids-erate is coming_soon).
   'school-bid': {
-    act_now: () => 'A school or library is asking for bids on cabling; nothing is awarded.',
+    coming_soon: () => 'A school or library is asking for bids on cabling; nothing is awarded.',
   },
   'public-post': {
     act_now: (w) => `Someone posted publicly asking for ${w} nearby.`,
@@ -611,7 +612,7 @@ const UNCERTAIN: Record<BriefFamily, { base: Uncertainty; byLabel?: Partial<Reco
   'federal-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'your eligibility is not known' } },
   'federal-award': { base: { confidence: 'High', known: 'the award was made', unknown: 'it is closed to bids' } },
   'city-bid': { base: { confidence: 'High', known: 'the bid is listed', unknown: 'who may respond is not known' } },
-  'school-bid': { base: { confidence: 'High', known: 'the request is listed', unknown: 'who may respond is not known' } },
+  'school-bid': { base: { confidence: 'High', known: 'the request is listed', unknown: 'only USAC-registered providers (a SPIN) are paid' } },
   'public-post': { base: { confidence: 'Low', known: 'a post asked for this', unknown: 'the author is unchecked' } },
   'resident-request': { base: { confidence: 'Medium', known: 'a resident asked on Holler', unknown: 'details are unchecked' } },
   sale: { base: { confidence: 'High', known: 'the sale was recorded', unknown: 'the need is not known' } },
@@ -638,7 +639,7 @@ export const NEXT_STEP: Record<BriefFamily, string> = {
   'federal-bid': "Check the due date and the buyer's bid page.",
   'federal-award': 'Check who won and how large the contract is.',
   'city-bid': "Check the due date and the buyer's bid page.",
-  'school-bid': "Check the deadline and the request's public page.",
+  'school-bid': 'Read the whole request; it may cover more than cabling.',
   'public-post': 'Read the whole post before you reply.',
   'resident-request': 'Reply through Holler if it fits what you do.',
   // Review P1-2: never "check the address" (a residential sale has none, only its block), never a claim about a person.

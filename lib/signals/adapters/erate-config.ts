@@ -5,7 +5,7 @@ import type { CategoryId } from '@/lib/signals/categories';
  * read it. The reader is lib/signals/adapters/erate.ts.
  *
  * WHAT IT IS. Schools and libraries that want E-Rate money post an FCC Form 470 to ask for bids on network services. They may not sign a
- * contract before the "allowable contract date" (28 days after they certify the form), so bids are open until that date. USAC publishes the
+ * contract before the "allowable contract date" (28 days after they certify the form). USAC publishes the
  * forms as open data. Holler shows the cabling requests as bid-style cards for electrical and low-voltage firms.
  *
  * SOURCE (all read on 2026-11-25 through WebFetch; the shell had no outbound network, so every figure below was read through that tool):
@@ -23,13 +23,25 @@ import type { CategoryId } from '@/lib/signals/categories';
  *                or empty checkbox may be missing from the JSON), plus narrative text (category_one_description, category_two_description,
  *                state_or_local_restrictions_1, other_function) and contact columns.
  *
+ * THE DATE. allowable_contract_date is the EARLIEST day the applicant may sign a contract (28 days after it certifies the form). It is NOT a
+ * bid deadline: the applicant may pick a provider on that day, and may set a later bid deadline of its own in the form or the RFP. So the card
+ * never says "due", "deadline" or "bids accepted until". It says what the record says: a contract may be signed from that day, and the member
+ * should ask the school or library for its bid deadline. The date is stored under data.contractFrom (never data.dueDate, which the deadline
+ * chip reads), the card is a heads-up (coming_soon), never urgent, and it closes at the start of that day with no grace.
+ *
+ * WHO CAN BE PAID. E-Rate pays only service providers registered with USAC (a 498 ID, "SPIN"). Many electricians are not. The card says so in
+ * one plain line (bid.erate_spin) and in the confidence line, and it says the request may cover more than cabling.
+ *
  * PRIVACY. The contact columns hold named people, direct phone numbers and personal email addresses (a live row held a gmail address).
  * The narrative columns hold them too: a live row's "state or local restrictions" text named a procurement officer with a phone number and
  * an email. So the reader asks the portal for the ERATE_FIELDS columns only (a SoQL $select), copies only those keys out of every row it
- * receives (a second guard in case the portal ever ignores $select), and never reads a narrative column. Nothing the reader keeps can hold a
- * contact: the record carries the institution's name (a school, library or district, checked against the person-name rules), its public
- * city, state and ZIP, the dates, and the public link. The street address is never selected. tests/signals/adapters/erate.test.ts proves it
- * with rows that carry contact values.
+ * receives (a second guard in case the portal ever ignores $select), and never reads a narrative column. Three of the allowed columns are
+ * still free text typed by an applicant, so none is printed as written (review P1-3): the institution name is printed only when it ends in a
+ * strong institution noun (School, Library, District ...), holds no role word, contact shape, punctuation or stray digit and does not open
+ * with a personal name, else the card prints no name ("A school in <city>"); the city is printed only when it reads as a city name, else the
+ * ZIP table's city is used; the link is rebuilt from host and path. applicant_type and funding_year are stored only as mapped values.
+ * The street address is never selected. tests/signals/adapters/erate.test.ts proves it with rows that carry contact values in the columns
+ * the reader requests, not only in the ones it never reads.
  */
 
 export const ERATE_ID = 'bids-erate';
@@ -42,14 +54,20 @@ export const ERATE_PAGE_URL = `https://${ERATE_DOMAIN}/d/${ERATE_DATASET_ID}`;
 export const ERATE_LABEL = 'E-Rate school and library network bids (USAC FCC Form 470)';
 /** Cadence: the form data changes daily and a request stays open 28 days, so twice a day is plenty. */
 export const ERATE_CADENCE_MINUTES = 720;
-/** One page. About 2,000 cabling lines are open across the whole country today; the page holds 2.5 times as many. */
-export const ERATE_ROW_CAP = 5000;
+/** One page of the portal. About 1,300 installation cabling lines are open across the whole country today. */
+export const ERATE_PAGE_SIZE = 5000;
+/** The scan reads at most this many pages (newest request first), so a busy filing season is never cut quietly; it logs when it stops here. */
+export const ERATE_MAX_PAGES = 4;
+/** The portal's robots.txt Crawl-delay: the gap between two pages of one run. */
+export const ERATE_PAGE_PAUSE_MS = 1000;
 /** The portal's own robots.txt asks for a 1 second gap between requests; the scan makes one request. */
 export const ERATE_ACCESS = {
   robotsUrl: `https://${ERATE_DOMAIN}/robots.txt`,
   robotsCheckedOn: '2026-11-25',
   crawlDelaySeconds: 1,
   requestsPerRun: 1,
+  /** Only when a page comes back full: the rest of the rows, one request per page, a second apart. */
+  maxRequestsPerRun: ERATE_MAX_PAGES,
 } as const;
 
 /**
@@ -94,8 +112,8 @@ export const ERATE_NEVER_READ: readonly string[] = [
   'rfp_documents', 'form_nickname',
 ];
 
-/** What a request is about, as the card says it. Two kinds only. */
-export type ErateWork = 'cabling' | 'cabling_upkeep';
+/** What a request is about, as the card says it. One kind: installing network cabling. */
+export type ErateWork = 'cabling';
 
 export interface ErateRoute {
   /** service_type, exactly as the portal writes it. */
@@ -126,8 +144,9 @@ export interface ErateRoute {
  *   Internal Connections + Cabling + installation_initial true  -> electrical, "network cabling". Pulling and terminating low-voltage cable is
  *       an electrician's or a cabler's job. A cabling line with installation_initial false buys cable or a service with no installation, so it is
  *       not shown (146 of the 1279 open lines).
- *   Basic Maintenance of Internal Connections + Cabling        -> electrical, "maintenance of network cabling": repair and upkeep of cable.
  * NOT mapped, and why:
+ *   Basic Maintenance of Internal Connections + Cabling (722 open lines): an upkeep contract on cable already in place, usually bundled with
+ *       equipment support. A weak fit for an electrician, so it routes to nothing (round 33 review P1-4); it is not even requested.
  *   Antennas/Connectors, Racks, UPS: equipment lines. They say what is bought, not that anyone must install it, and the buyers are IT resellers.
  *   Switches, access points, firewalls, routers, controllers, caching, managed broadband, internet access, fiber, cellular: network gear and
  *       carrier services done by IT integrators and carriers. Not electrical work. Basic Maintenance of those functions is equipment support, not
@@ -137,7 +156,6 @@ export interface ErateRoute {
  */
 export const ERATE_ROUTES: readonly ErateRoute[] = [
   { serviceType: 'Internal Connections', functionName: 'Cabling', trades: ['electrical'], work: 'cabling', requires: 'installation_initial' },
-  { serviceType: 'Basic Maintenance of Internal Connections', functionName: 'Cabling', trades: ['electrical'], work: 'cabling_upkeep' },
 ];
 
 /** The route a line takes, or null when it takes none. `line` holds the portal's own values. */
@@ -177,7 +195,6 @@ export function whoFor(applicantType: unknown): ErateWho {
 
 export const ERATE_WORK_EN: Record<ErateWork, string> = {
   cabling: 'network cabling',
-  cabling_upkeep: 'maintenance of network cabling',
 };
 
 /** The English title of a card. title-i18n.ts reads this exact shape back to say it in Spanish. */
@@ -187,6 +204,13 @@ export function erateTitle(who: ErateWho, place: string, work: ErateWork): strin
 
 /** The summary parts Holler writes itself (summary-i18n.ts says them in Spanish). The buyer's name, when shown, is the other part. */
 export const ERATE_SUMMARY_KIND = 'E-Rate request (FCC Form 470)';
-export function erateUntilPart(day: string): string {
-  return `bids accepted until ${day}`;
+/** The allowable contract date is the earliest day a contract may be signed; it is not a deadline, so the summary never says "due" or "until". */
+export function erateFromPart(day: string): string {
+  return `contract may be signed from ${day}`;
+}
+
+/** The funding year as stored: a four-digit year, or null. The portal's own text is never stored. */
+export function fundingYearOf(raw: unknown): string | null {
+  const v = typeof raw === 'string' ? raw.trim() : typeof raw === 'number' ? String(raw) : '';
+  return /^20\d{2}$/.test(v) ? v : null;
 }

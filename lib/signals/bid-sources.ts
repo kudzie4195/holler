@@ -17,8 +17,9 @@ export const BIDS_FLAG = 'HOLLER_BIDS_ENABLED';
 export const LOCAL_BIDS_FLAG = 'HOLLER_LOCAL_BIDS_ENABLED';
 /**
  * Round 33: the E-Rate school and library network bids (lib/signals/adapters/erate.ts) have their OWN switch on top of HOLLER_BIDS_ENABLED,
- * like the Firecrawl agency feeds: the adapter runs only with both on, and its rows are hidden from members while HOLLER_BIDS_ENABLED is
- * off (they are bid rows like any other). Default off.
+ * like the Firecrawl agency feeds: the adapter runs only with both on. Its stored rows are hidden when EITHER is off (bidHidden, matching,
+ * the public-page filters and the count subtraction all read erateHidden below), so emptying HOLLER_ERATE_ENABLED takes the cards out of feeds,
+ * emails, push and public pages at once while the other city bids stay. Default off.
  */
 export const ERATE_FLAG = 'HOLLER_ERATE_ENABLED';
 /** The E-Rate source id (starts with "bids-", so every bid rule in this file applies to it). */
@@ -59,6 +60,14 @@ export function localBidsEnabled(value: string | undefined = process.env[LOCAL_B
 /** The E-Rate switch, same on-values as the bids flag. Read at call time. */
 export function erateEnabled(value: string | undefined = process.env[ERATE_FLAG]): boolean {
   return ON.has((value ?? '').trim().toLowerCase());
+}
+
+/**
+ * True for an E-Rate row (source bids-erate) while HOLLER_ERATE_ENABLED is off. Only that source: every other bid source ignores this switch.
+ * Read by bidHidden, the matcher and the public-page filters, so a rollback by emptying the switch hides stored rows at once.
+ */
+export function erateHidden(s: { source?: string | null } | null | undefined, erateOn: boolean = erateEnabled()): boolean {
+  return !!s && s.source === ERATE_SOURCE_ID && !erateOn;
 }
 
 /** True for a stored or fresh signal that is a city bid: data.subtype 'bid' or one of the bid sources. Accepts a feed row, a match row or a SignalInput. */
@@ -122,16 +131,16 @@ export function federalBidClosed(s: BidRowLike | null | undefined, nowMs: number
  * bids members already have, and a closed bid leaves at once. A federal bid past its response date leaves too (federalBidClosed). Pass
  * `on` and `nowMs` in tests; by default both are read at call time.
  */
-export function bidHidden(s: BidRowLike | null | undefined, on: boolean = bidsEnabled(), nowMs: number = Date.now()): boolean {
+export function bidHidden(s: BidRowLike | null | undefined, on: boolean = bidsEnabled(), nowMs: number = Date.now(), erateOn: boolean = erateEnabled()): boolean {
   if (!isBidSignal(s)) return federalBidClosed(s, nowMs);
-  return !on || bidClosed(s, nowMs);
+  return !on || bidClosed(s, nowMs) || erateHidden(s, erateOn);
 }
 
 /** The matches whose signal is not a hidden city bid: what a member-facing read keeps. `signal` may be an object, a one-item array or null. */
-export function dropHiddenBids<T extends { signal: unknown }>(matches: T[], on: boolean = bidsEnabled(), nowMs: number = Date.now()): T[] {
+export function dropHiddenBids<T extends { signal: unknown }>(matches: T[], on: boolean = bidsEnabled(), nowMs: number = Date.now(), erateOn: boolean = erateEnabled()): T[] {
   return matches.filter((m) => {
     const s = Array.isArray(m.signal) ? m.signal[0] : m.signal;
-    return !bidHidden(s as Parameters<typeof bidHidden>[0], on, nowMs);
+    return !bidHidden(s as Parameters<typeof bidHidden>[0], on, nowMs, erateOn);
   });
 }
 
@@ -140,16 +149,19 @@ export function dropHiddenBids<T extends { signal: unknown }>(matches: T[], on: 
  * every bid row while the flag is off (review P2-13: rows stored while it was on stay in holler_signals until their due date), and any
  * bid whose due date has passed. Rows of every other source are untouched. Pure; pass `on` and `nowMs` in tests.
  */
-export function withoutHiddenBids<T extends BidRowLike>(rows: T[], nowMs: number = Date.now(), on: boolean = bidsEnabled()): T[] {
-  return rows.filter((r) => !bidHidden(r, on, nowMs));
+export function withoutHiddenBids<T extends BidRowLike>(rows: T[], nowMs: number = Date.now(), on: boolean = bidsEnabled(), erateOn: boolean = erateEnabled()): T[] {
+  return rows.filter((r) => !bidHidden(r, on, nowMs, erateOn));
 }
 
 /**
- * Keeps hidden bids out of a PostgREST count or list query while the flag is off: `source NOT LIKE 'bids-%'`. A query builder from
- * supabase-js has `.not`; anything else (a test double without it) is returned unchanged, and the row filters above still apply.
+ * Keeps hidden bids out of a PostgREST count or list query: `source NOT LIKE 'bids-%'` while HOLLER_BIDS_ENABLED is off, and
+ * `source <> 'bids-erate'` while only HOLLER_ERATE_ENABLED is off. A query builder from supabase-js has `.not`; anything else (a test double
+ * without it) is returned unchanged, and the row filters above still apply.
  */
-export function excludeBidsInQuery<Q>(q: Q, on: boolean = bidsEnabled()): Q {
-  if (on) return q;
+export function excludeBidsInQuery<Q>(q: Q, on: boolean = bidsEnabled(), erateOn: boolean = erateEnabled()): Q {
   const b = q as unknown as { not?: (col: string, op: string, v: string) => Q };
-  return typeof b.not === 'function' ? b.not('source', 'like', `${BID_SOURCE_PREFIX}%`) : q;
+  if (typeof b.not !== 'function') return q;
+  if (!on) return b.not('source', 'like', `${BID_SOURCE_PREFIX}%`);
+  if (!erateOn) return b.not('source', 'eq', ERATE_SOURCE_ID);
+  return q;
 }

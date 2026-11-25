@@ -136,7 +136,7 @@ function partLang(part: string, lang: Lang, source: string): string {
   if ((m = /^due (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.due', { date: dayEs(m[1]) });
   if (part === 'no due date published') return t(lang, 'sum.no_due');
   // Round 33 E-Rate (lib/signals/adapters/erate-config.ts): Holler's own two parts; the institution's name, the other part, is kept as written.
-  if ((m = /^bids accepted until (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.until', { date: dayEs(m[1]) });
+  if ((m = /^contract may be signed from (\d{4}-\d{2}-\d{2})$/.exec(part))) return t(lang, 'sum.erate_from', { date: dayEs(m[1]) });
   if (part === ERATE_SUMMARY_KIND) return t(lang, 'sum.erate_kind');
   // Round 19 RULES (lib/signals/repeat-marks.ts): the per-building heat count and the other orders of one code-violation visit. The orders
   // are the records' own words and stay as written.

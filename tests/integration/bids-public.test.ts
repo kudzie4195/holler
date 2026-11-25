@@ -102,9 +102,10 @@ describe('helpers', () => {
   it('excludeBidsInQuery adds `source not like bids-%` only while the flag is off, and leaves a builder without .not alone', () => {
     const calls: unknown[][] = [];
     const q = { not: (...a: unknown[]) => (calls.push(a), q) };
-    excludeBidsInQuery(q, true);
+    // the third argument is the E-Rate switch (round 33); with it on, only the bids flag decides here
+    excludeBidsInQuery(q, true, true);
     expect(calls).toEqual([]);
-    excludeBidsInQuery(q, false);
+    excludeBidsInQuery(q, false, true);
     expect(calls).toEqual([['source', 'like', 'bids-%']]);
     const plain = {};
     expect(excludeBidsInQuery(plain, false)).toBe(plain);

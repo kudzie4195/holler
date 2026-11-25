@@ -14,47 +14,109 @@ import fixture from '../__data__/erate-470-rows.json';
 import {
   ERATE_FIELDS,
   ERATE_NEVER_READ,
+  ERATE_PAGE_SIZE,
   ERATE_ROUTES,
   erateTitle,
   routeFor,
   whoFor,
 } from '@/lib/signals/adapters/erate-config';
-import { adapters, buildErateQuery, closesAt, formLink, institutionName, parseErate, pickAllowed, tidyPlace } from '@/lib/signals/adapters/erate';
+import {
+  adapters,
+  buildErateQuery,
+  cityName,
+  closesAt,
+  formLink,
+  institutionName,
+  parseErate,
+  pickAllowed,
+  retireCancelled,
+  tidyPlace,
+} from '@/lib/signals/adapters/erate';
 import { ALL_ADAPTERS } from '@/lib/signals/registry';
 import { missingEnvFor } from '@/lib/signals/run';
-import { BIDS_FLAG, ERATE_FLAG, bidHidden, isBidSignal } from '@/lib/signals/bid-sources';
+import { BIDS_FLAG, ERATE_FLAG, bidClosed, bidHidden, dropHiddenBids, erateHidden, excludeBidsInQuery, isBidSignal, withoutHiddenBids } from '@/lib/signals/bid-sources';
 import { bidCardLine } from '@/lib/signals/bid-card';
 import { localizeTitle } from '@/lib/signals/title-i18n';
 import { localizeSummary } from '@/lib/signals/summary-i18n';
 import { briefFamilyOf, briefFor, cardBrief } from '@/lib/signals/brief';
 import { briefForLang, cardBriefLang } from '@/lib/signals/brief-i18n';
-import { labelFor } from '@/lib/signals/lead-rules';
+import { deadlineOf, labelFor } from '@/lib/signals/lead-rules';
+import { matchOne, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
+import { bidCountsByPlace } from '@/lib/seo/bid-counts';
 import { metroFor } from '@/lib/geo/metros';
 import { lookupZip } from '@/lib/geo';
+import { FakeDb } from '../../ops/fakedb';
 import { BANNED } from '../banned';
+import type { Db } from '@/lib/signals/store';
 import type { AdapterContext } from '@/lib/signals/types';
 
 const ROWS = fixture as Array<Record<string, unknown>>;
 const NOW = new Date('2026-11-25T18:00:00Z');
 const byApp = (id: string) => ROWS.filter((r) => r.application_number === id);
-const one = (rows: Array<Record<string, unknown>>, now = NOW) => {
-  const rep = parseErate(rows, { now });
-  return rep;
-};
+const one = (rows: Array<Record<string, unknown>>, now = NOW) => parseErate(rows, { now });
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
+
+/**
+ * A stand-in for the portal that reads the SAME query string the adapter sends (decoded, so +, %27 and %24 are exercised) and answers like
+ * SODA 2: it filters on the clauses the adapter uses (col in(...), col>='...'), orders, pages ($limit, $offset) and projects $select. It answers
+ * 400 for anything it does not understand or any column the dataset does not have, so a malformed query fails a test. It is not the portal:
+ * whether the live portal accepts the combined query is stated in the PR, not proved here.
+ */
+function fakePortal(rows: Array<Record<string, unknown>>, seen: URLSearchParams[] = []): typeof fetch {
+  const columns = new Set<string>([...ERATE_FIELDS, ...ERATE_NEVER_READ]);
+  return (async (input: RequestInfo | URL) => {
+    const u = new URL(String(input));
+    if (u.origin + u.pathname !== 'https://opendata.usac.org/resource/jt8s-3q52.json') return new Response('not found', { status: 404 });
+    const q = u.searchParams;
+    seen.push(q);
+    const bad = (why: string) => new Response(JSON.stringify({ error: true, message: why }), { status: 400 });
+    const select = (q.get('$select') ?? '').split(',').filter(Boolean);
+    if (select.length === 0 || select.some((c) => !columns.has(c))) return bad('select');
+    let out = rows.slice();
+    for (const clause of (q.get('$where') ?? '').split(' AND ')) {
+      let m: RegExpExecArray | null;
+      if ((m = /^(\w+) in\((.+)\)$/.exec(clause))) {
+        if (!columns.has(m[1])) return bad('column');
+        const set = new Set([...m[2].matchAll(/'((?:[^']|'')*)'/g)].map((x) => x[1].replace(/''/g, "'")));
+        out = out.filter((r) => set.has(String(r[m![1]])));
+      } else if ((m = /^(\w+)>='([^']+)'$/.exec(clause))) {
+        if (!columns.has(m[1])) return bad('column');
+        out = out.filter((r) => typeof r[m![1]] === 'string' && (r[m![1]] as string) >= m![2]);
+      } else return bad(`where: ${clause}`);
+    }
+    const order = (q.get('$order') ?? '').split(',').filter(Boolean).map((x) => x.trim().split(/\s+/));
+    for (const [col] of order) if (!columns.has(col)) return bad('order');
+    out.sort((a, b) => {
+      for (const [col, dir] of order) {
+        const x = String(a[col] ?? '');
+        const y = String(b[col] ?? '');
+        if (x !== y) return (x < y ? -1 : 1) * (dir?.toUpperCase() === 'DESC' ? -1 : 1);
+      }
+      return 0;
+    });
+    const offset = Number(q.get('$offset') ?? 0);
+    const limit = Number(q.get('$limit') ?? 1000);
+    out = out.slice(offset, offset + limit).map((r) => Object.fromEntries(select.filter((c) => c in r).map((c) => [c, r[c]])));
+    return new Response(JSON.stringify(out), { status: 200 });
+  }) as unknown as typeof fetch;
+}
 
 describe('field mapping on real rows', () => {
   const rep = one(ROWS);
 
-  it('keeps the five open, served, cabling requests and nothing else', () => {
+  it('keeps the four open, served, cabling-installation requests and nothing else', () => {
     expect(rep.rows).toBe(18);
     expect(rep.applications).toBe(9);
-    expect(rep.items.map((i) => i.externalId).sort()).toEqual(['270001007', '270002974', '270003493', '270004329', '270005737']);
-    // dropped: 4 closed (2015, 2017, two libraries in spring 2026)
+    expect(rep.items.map((i) => i.externalId).sort()).toEqual(['270002974', '270003493', '270004329', '270005737']);
+    // dropped: 4 whose date has passed (2015, 2017, two libraries in spring 2026) and Evanston, whose only routed line was maintenance
     expect(rep.closed).toBe(4);
-    expect(rep.noTrade).toBe(0);
+    expect(rep.noTrade).toBe(1);
     expect(rep.notServed).toBe(0);
+    expect(rep.cancelled).toEqual([]);
   });
 
   it('maps a school with a cabling installation line', () => {
@@ -63,7 +125,7 @@ describe('field mapping on real rows', () => {
       source: 'bids-erate',
       kind: 'contract',
       title: 'A school in Astoria is asking for bids on network cabling',
-      summary: 'St Joseph Catholic Academy | E-Rate request (FCC Form 470) | bids accepted until 2026-12-01',
+      summary: 'St Joseph Catholic Academy | E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01',
       url: 'https://publicdata.usac.org/EPC/Prd/Form470/270003493/11475/22877131-USAC_FCC_FORM_470_APPLICATION_270003493_CERTIFIED.pdf',
       city: 'Astoria',
       state: 'NY',
@@ -71,8 +133,8 @@ describe('field mapping on real rows', () => {
       categories: ['electrical'],
       severity: 2,
       occurredAt: '2026-11-03T15:12:24.000Z',
-      // the end of Dec 1 in the latest US zone (UTC-10): 34 hours after 00:00Z
-      expiresAt: '2026-12-02T10:00:00.000Z',
+      // the START of Dec 1 (00:00 UTC): from that day a contract may be signed, so the heads-up window is over. No grace hours.
+      expiresAt: '2026-12-01T00:00:00.000Z',
     });
     expect(i.data).toMatchObject({
       subtype: 'bid',
@@ -80,10 +142,10 @@ describe('field mapping on real rows', () => {
       solicitationId: '270003493',
       buyer: 'St Joseph Catholic Academy',
       bidType: 'E-Rate Form 470',
-      applicantType: 'School',
+      who: 'school',
       work: 'cabling',
-      dueDate: '2026-12-01',
-      noDueDate: false,
+      fundingYear: '2027',
+      contractFrom: '2026-12-01',
       loc: 'approx',
       approxLocation: true,
     });
@@ -91,21 +153,27 @@ describe('field mapping on real rows', () => {
     expect([i.lat, i.lon]).toEqual([z.lat, z.lon]);
   });
 
-  it('says "maintenance" when only the maintenance cabling line routes (Evanston: the install line buys cable with no installation)', () => {
-    const i = rep.items.find((x) => x.externalId === '270001007')!;
-    expect(i.title).toBe('A school district in Evanston is asking for bids on maintenance of network cabling');
-    expect((i.data as { work: string }).work).toBe('cabling_upkeep');
-    expect(i.summary).toBe('Evanston Township High School District 202 | E-Rate request (FCC Form 470) | bids accepted until 2026-12-07');
+  it('stores only mapped values: the who the card says and a four-digit year, never the portal text', () => {
+    for (const i of rep.items) {
+      const d = i.data as Record<string, unknown>;
+      expect(d).not.toHaveProperty('applicantType');
+      expect(['school', 'school-district', 'library', 'library-system', 'consortium', 'either']).toContain(d.who);
+      expect(d.fundingYear).toMatch(/^20\d{2}$/);
+    }
+  });
+
+  it('drops Evanston (cabling bought without installation; its maintenance line no longer routes) and says so in the counts', () => {
+    expect(rep.items.find((x) => x.externalId === '270001007')).toBeUndefined();
   });
 
   it('prints a consortium and a district without a usable name', () => {
     expect(rep.items.find((x) => x.externalId === '270004329')!.title).toBe('A group of schools and libraries in Harrison is asking for bids on network cabling');
     const chi = rep.items.find((x) => x.externalId === '270002974')!;
-    expect(chi.summary).toBe('E-Rate request (FCC Form 470) | bids accepted until 2026-12-14');
+    expect(chi.summary).toBe('E-Rate request (FCC Form 470) | contract may be signed from 2026-12-14');
     expect((chi.data as { buyer: unknown }).buyer).toBeNull();
   });
 
-  it('links to the form on USAC\'s own host, else to the dataset page', () => {
+  it("links to the form on USAC's own host, else to the dataset page", () => {
     expect(formLink('https://publicdata.usac.org/EPC/Prd/Form470/1/2/x.pdf')).toBe('https://publicdata.usac.org/EPC/Prd/Form470/1/2/x.pdf');
     expect(formLink('http://publicdata.usac.org/x.pdf')).toBeNull();
     expect(formLink('https://evil.example.com/usac.org/x.pdf')).toBeNull();
@@ -120,68 +188,99 @@ describe('field mapping on real rows', () => {
   it('is a bid row for every bid rule, with its own switch name', () => {
     const i = rep.items.find((x) => x.externalId === '270003493')!;
     expect(isBidSignal({ source: i.source, data: i.data as { subtype?: unknown } })).toBe(true);
-    expect(bidHidden({ source: i.source, subtype: 'bid', expires_at: i.expiresAt }, false, NOW.getTime())).toBe(true);
-    expect(bidHidden({ source: i.source, subtype: 'bid', expires_at: i.expiresAt }, true, NOW.getTime())).toBe(false);
-    // closes: hidden once the end of its allowable date has passed
-    expect(bidHidden({ source: i.source, subtype: 'bid', expires_at: i.expiresAt }, true, Date.parse('2026-12-02T10:00:01Z'))).toBe(true);
+    const row = { source: i.source, subtype: 'bid', expires_at: i.expiresAt };
+    expect(bidHidden(row, false, NOW.getTime(), true)).toBe(true);
+    expect(bidHidden(row, true, NOW.getTime(), true)).toBe(false);
+    // closes at the start of its allowable date, with no grace
+    expect(bidHidden(row, true, Date.parse('2026-11-30T23:59:59Z'), true)).toBe(false);
+    expect(bidHidden(row, true, Date.parse('2026-12-01T00:00:00Z'), true)).toBe(true);
   });
 
   it('places the card at the ZIP centre and the metro follows', () => {
-    const el = rep.items.find((x) => x.externalId === '270001007')!;
-    expect(metroFor(el.lat!, el.lon!, el.state)).toBe('chicago');
     const ny = rep.items.find((x) => x.externalId === '270003493')!;
     expect(metroFor(ny.lat!, ny.lon!, ny.state)).toBe('new-york');
     const plano = rep.items.find((x) => x.externalId === '270005737')!;
     expect(metroFor(plano.lat!, plano.lon!, plano.state)).toBe('dallas-fort-worth');
-  });
-
-  it('labels it Act Now by source (lead-rules SOURCE_DEFAULTS) for the electrical trade', () => {
-    const i = rep.items[0];
-    expect(labelFor({ source: i.source, kind: i.kind, subtype: 'bid', title: i.title, summary: i.summary }, 'electrical')).toBe('act_now');
+    const chi = rep.items.find((x) => x.externalId === '270002974')!;
+    expect(metroFor(chi.lat!, chi.lon!, chi.state)).toBe('chicago');
   });
 });
 
-describe('date filter: only requests whose allowable contract date has not passed', () => {
-  const open = (now: string) => one(ROWS, new Date(now)).items.map((i) => i.externalId).sort();
+describe('the allowable contract date is the earliest contract day, not a deadline (review P1-1)', () => {
+  const rep = one(ROWS);
+  const ny = rep.items.find((x) => x.externalId === '270003493')!;
+  const open = (now: string) => one(ROWS, new Date(now)).items.map((i) => i.externalId);
 
-  it('keeps a request through the end of its allowable day and drops it after', () => {
-    expect(open('2026-12-02T09:59:00Z')).toContain('270003493'); // allowable Dec 1: open until the end of Dec 1 in UTC-10
-    expect(open('2026-12-02T10:00:00Z')).not.toContain('270003493');
-    expect(open('2026-12-02T10:00:00Z')).toContain('270001007'); // Dec 7
-    expect(open('2026-12-08T10:00:00Z')).not.toContain('270001007');
+  it('is never stored as dueDate, so no deadline reads it', () => {
+    for (const i of rep.items) {
+      const d = i.data as Record<string, unknown>;
+      expect(d).not.toHaveProperty('dueDate');
+      expect(d.contractFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(deadlineOf({ source: i.source, data: d, expires_at: i.expiresAt })).toBeNull();
+    }
+  });
+
+  it('is a heads-up, never act now, for the electrical trade', () => {
+    expect(labelFor({ source: ny.source, kind: ny.kind, subtype: 'bid', title: ny.title, summary: ny.summary }, 'electrical')).toBe('coming_soon');
+  });
+
+  it('never says due, deadline-as-fact, days left or closes within 24 hours, on any day up to the date', () => {
+    for (const now of ['2026-11-25T18:00:00Z', '2026-11-30T12:00:00Z', '2026-11-30T23:30:00Z']) {
+      for (const lang of ['en', 'es'] as const) {
+        const line = bidCardLine({ buyer: 'X School', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, new Date(now), lang);
+        expect(line).not.toMatch(/\bDue\b|vence|days? left|faltan?|closes within|cierra en menos|Bids accepted|Se aceptan ofertas/i);
+        expect(line).toContain(lang === 'en' ? 'ask the school or library for its bid deadline' : 'pregunte a la escuela o biblioteca por su fecha límite para ofertas');
+      }
+    }
+  });
+
+  it('drops a request whose date is today or past, and keeps one that starts tomorrow', () => {
+    const withDate = (d: string) => byApp('270003493').map((r) => ({ ...r, allowable_contract_date: `${d}T00:00:00.000` }));
+    expect(one(withDate('2026-11-24')).items).toEqual([]);
+    expect(one(withDate('2026-11-25')).items).toEqual([]); // today
+    expect(one(withDate('2026-11-26')).items).toHaveLength(1); // tomorrow, 6 hours from NOW
+    // the same on the edge: 00:00:00Z on the date itself is already today
+    expect(one(withDate('2026-11-26'), new Date('2026-11-26T00:00:00Z')).items).toEqual([]);
+    expect(one(withDate('2026-11-26'), new Date('2026-11-25T23:59:59Z')).items).toHaveLength(1);
+  });
+
+  it('a stored row closes at the start of its date', () => {
+    expect(open('2026-11-30T23:59:00Z')).toContain('270003493');
+    expect(open('2026-12-01T00:00:00Z')).not.toContain('270003493');
+    expect(open('2026-12-14T00:00:00Z')).not.toContain('270002974');
+    expect(bidClosed({ source: ny.source, subtype: 'bid', expires_at: ny.expiresAt }, Date.parse('2026-12-01T00:00:00Z'))).toBe(true);
+    expect(bidClosed({ source: ny.source, subtype: 'bid', expires_at: ny.expiresAt }, Date.parse('2026-11-30T23:59:59Z'))).toBe(false);
   });
 
   it('drops past requests from the live fixture (2015, 2017, spring 2026)', () => {
-    const rep = one(ROWS);
     for (const gone of ['160003906', '170063985', '260026114', '260024231']) expect(rep.items.map((i) => i.externalId)).not.toContain(gone);
     expect(rep.closed).toBe(4);
   });
 
-  it('drops a cancelled form (one real row with only its status changed) and a missing date', () => {
-    const cancelled = byApp('270003493').map((r) => ({ ...r, fcc_form_470_status: 'Canceled' }));
-    const rep = one(cancelled);
-    expect(rep.items).toEqual([]);
-    expect(rep.notOpen).toBe(1);
+  it('drops a missing date and one more than 120 days out (not a real 28 day window)', () => {
     const nodate = byApp('270003493').map((r) => ({ ...r, allowable_contract_date: undefined }));
     expect(one(nodate).items).toEqual([]);
-    // a date more than 120 days out is not a 28 day window
     const far = byApp('270003493').map((r) => ({ ...r, allowable_contract_date: '2027-12-01T00:00:00.000' }));
     expect(one(far).items).toEqual([]);
   });
 
-  it('asks the portal for open requests only, with a day of slack the parser then settles', () => {
+  it('asks the portal for requests from today on, newest date first, in pages', () => {
     const q = buildErateQuery(NOW);
-    expect(q.get('$where')).toContain("allowable_contract_date>='2026-11-24T00:00:00'");
-    expect(q.get('$where')).toContain("fcc_form_470_status='Certified'");
-    expect(closesAt('2026-12-01')).toBe(Date.parse('2026-12-02T10:00:00Z'));
+    expect(q.get('$where')).toContain("allowable_contract_date>='2026-11-25T00:00:00'");
+    expect(q.get('$where')).toContain("fcc_form_470_status in('Certified','Canceled')");
+    expect(q.get('$where')).toContain("service_type in('Internal Connections')");
+    expect(q.get('$order')).toBe('allowable_contract_date DESC,application_number DESC');
+    expect(q.get('$limit')).toBe(String(ERATE_PAGE_SIZE));
+    expect(q.has('$offset')).toBe(false);
+    expect(buildErateQuery(NOW, 5000).get('$offset')).toBe('5000');
+    expect(closesAt('2026-12-01')).toBe(Date.parse('2026-12-01T00:00:00Z'));
   });
 });
 
 describe('served-area filter', () => {
   it('keeps ZIPs in a served area (the real isServedZip) and counts the rest', () => {
     const rep = one(ROWS);
-    // Mount Vernon NY, Pearl River NY etc. are closed; the open ones are Evanston IL, Astoria NY, Plano TX, Harrison NY, Chicago IL
-    expect(rep.items.map((i) => i.state).sort()).toEqual(['IL', 'IL', 'NY', 'NY', 'TX']);
+    expect(rep.items.map((i) => i.state).sort()).toEqual(['IL', 'NY', 'NY', 'TX']);
   });
 
   it('drops a real row moved to a ZIP outside every served area (one field changed: Bloomington IL 61701) and counts it', () => {
@@ -202,9 +301,9 @@ describe('served-area filter', () => {
   it('uses the served test it is given', () => {
     const none = parseErate(ROWS, { now: NOW, served: () => false });
     expect(none.items).toEqual([]);
-    expect(none.notServed).toBe(5);
+    expect(none.notServed).toBe(4);
     const all = parseErate(ROWS, { now: NOW, served: () => true });
-    expect(all.items).toHaveLength(5);
+    expect(all.items).toHaveLength(4);
   });
 
   it('accepts a ZIP+4 and uses the first five digits', () => {
@@ -227,17 +326,13 @@ describe('trade routing (documented in erate-config.ts)', () => {
     'Cellular Data Plan/Air Card Service',
   ];
 
-  it('routes exactly two service/function pairs, both to electrical, and nothing to security or general-contractor', () => {
+  it('routes exactly one service/function pair, installation cabling, to electrical; Basic Maintenance routes to nothing', () => {
     const hits: string[] = [];
     for (const st of SERVICE_TYPES) for (const fn of FUNCTIONS) for (const inst of [true, false]) {
       const r = routeFor({ service_type: st, function: fn, installation_initial: inst });
       if (r) hits.push(`${st} | ${fn} | ${inst}`);
     }
-    expect(hits).toEqual([
-      'Internal Connections | Cabling | true',
-      'Basic Maintenance of Internal Connections | Cabling | true',
-      'Basic Maintenance of Internal Connections | Cabling | false',
-    ]);
+    expect(hits).toEqual(['Internal Connections | Cabling | true']);
     for (const r of ERATE_ROUTES) {
       expect(r.trades).toEqual(['electrical']);
       expect(r.trades).not.toContain('security');
@@ -245,9 +340,14 @@ describe('trade routing (documented in erate-config.ts)', () => {
     }
   });
 
-  it('a cabling line with no installation (Evanston, 5300 feet of cable) alone routes nowhere', () => {
-    const only = byApp('270001007').filter((r) => !(r.service_type === 'Basic Maintenance of Internal Connections' && r.function === 'Cabling'));
-    const rep = one(only);
+  it('the query asks only for the one service type', () => {
+    const where = buildErateQuery(NOW).get('$where') ?? '';
+    expect(where).toContain("service_type in('Internal Connections')");
+    expect(where).not.toContain('Basic Maintenance');
+  });
+
+  it('a maintenance-only application (Evanston: its install line buys cable with no installation) routes nowhere', () => {
+    const rep = one(byApp('270001007'));
     expect(rep.items).toEqual([]);
     expect(rep.noTrade).toBe(1);
   });
@@ -265,7 +365,7 @@ describe('trade routing (documented in erate-config.ts)', () => {
   });
 });
 
-describe('contact fields never survive ingest', () => {
+describe('contact fields and free text never survive ingest (review P1-3)', () => {
   // MADE-UP values, flagged so they can be searched for. They sit in the columns the portal really has (contact, technical contact,
   // authorized person, billed entity email and phone, street address, consulting firm, narrative text).
   const SECRETS = [
@@ -291,11 +391,10 @@ describe('contact fields never survive ingest', () => {
     expect(Object.keys(picked).some((k) => ERATE_NEVER_READ.includes(k))).toBe(false);
   });
 
-  it('no stored record, summary, title, link or data field holds a contact value', () => {
+  it('no stored record, summary, title, link or data field holds a contact value (contact columns on every row)', () => {
     const rep = parseErate(ROWS.map(withContacts), { now: NOW });
-    expect(rep.items).toHaveLength(5);
+    expect(rep.items).toHaveLength(4);
     const blob = JSON.stringify(rep);
-    for (const s of SECRETS) expect(blob).not.toContain(s);
     for (const s of SECRETS) expect(blob.toLowerCase()).not.toContain(s.toLowerCase());
     expect(blob).not.toMatch(/@/);
     expect(blob).not.toMatch(/\d{3}[-. )]+\d{3}[-. ]\d{4}/);
@@ -318,18 +417,89 @@ describe('contact fields never survive ingest', () => {
     for (const f of ERATE_FIELDS) expect(ERATE_NEVER_READ).not.toContain(f);
   });
 
-  it('an institution name that holds a phone, an email, a link or reads as a person is left off the card, which still stands', () => {
-    for (const bad of ['Maria Lopez', 'John Smith', 'Eastside School 404-555-0142', 'help@school.example.org Academy', 'Academy www.example.org', 'ACME WIDGETS INC', '']) {
-      expect(institutionName(bad)).toBeNull();
-    }
+  // The review's attack names. Each is typed into billed_entity_name, a column the reader REQUESTS, and goes through the portal stand-in
+  // (which returns only the selected columns) and the real adapter, so what survives is what a live run would store.
+  const ATTACK_NAMES = [
+    'Maria Lopez Home Day Care', 'Jane Doe Family Day Care', 'Jane Doe Learning Center', 'John Smith Education Consultant', 'J Smith Learning', 'Saoirse Day',
+    'Nguyen Day', 'Jane Public', 'Lincoln High School attn John Smith', 'Lincoln High School c/o John Smith', 'Lincoln High School care of John Smith',
+    'Lincoln Elementary School John Smith Principal', 'Lincoln Public Library, Jane Doe Director', 'Astoria Charter School Attn: Maria Gonzalez Tech Coord',
+    'Lincoln School jsmith at gmail dot com', 'Lincoln School jsmith@gmail.com', 'Lincoln School 404-555-0142', 'Lincoln School 212 555 0199',
+    'Lincoln Academy 4045550142', 'Lincoln School (Jane Doe)', 'Lincoln School: Jane Doe', 'Lincoln School / Jane Doe', 'Lincoln School Contact Jane Doe',
+    'Maria Lopez School', 'Jane Doe School', 'Maria Lopez Home School', 'Pat Quillfeather 404-555-0142', 'Lincoln School Ext 123',
+  ];
+
+  it.each(ATTACK_NAMES)('leaves %s off the card and the card still stands', async (name) => {
+    expect(institutionName(name)).toBeNull();
+    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_name: name }));
+    const logs: string[] = [];
+    const out = await adapters[0].fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' }, fakePortal(rows), logs));
+    expect(out).toHaveLength(1);
+    expect(out[0].summary).toBe('E-Rate request (FCC Form 470) | contract may be signed from 2026-12-01');
+    expect((out[0].data as { buyer: unknown }).buyer).toBeNull();
+    const blob = JSON.stringify(out);
+    for (const part of name.split(/\s+/).filter((w) => /^(?:Jane|Maria|John|Doe|Lopez|Smith|jsmith|Gonzalez|Quillfeather|Pat|Saoirse|Nguyen|404-555-0142|4045550142|555)$/.test(w))) expect(blob).not.toContain(part);
+  });
+
+  it('prints real institution names, including person-named schools and public bodies', () => {
     expect(institutionName('ST JOSEPH CATHOLIC ACADEMY')).toBe('St Joseph Catholic Academy');
     expect(institutionName('SOUTHERN WESTCHESTER BOCES')).toBe('Southern Westchester BOCES');
     expect(institutionName('Prince of Peace Catholic School')).toBe('Prince of Peace Catholic School');
-    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_name: 'Pat Quillfeather 404-555-0142' }));
+    expect(institutionName('Evanston Township High School District 202')).toBe('Evanston Township High School District 202');
+    expect(institutionName('Dallas ISD')).toBe('Dallas ISD');
+    expect(institutionName('Mount Vernon Public Library')).toBe('Mount Vernon Public Library');
+    expect(institutionName('Abraham Lincoln High School')).toBe('Abraham Lincoln High School');
+    expect(institutionName("St. John's Lutheran School")).toBe("St. John's Lutheran School");
+    expect(institutionName('')).toBeNull();
+    expect(institutionName('ACME WIDGETS INC')).toBeNull();
+  });
+
+  const ATTACK_CITIES = [
+    'Astoria call Jane Doe 212-555-0199', 'jane.doe@gmail.com', 'Astoria Jane Doe', 'x'.repeat(60), 'Astoria (call Pat)', 'Astoria 11103', 'Astoria, attn Pat Quillfeather',
+    'Astoria https://x.example',
+  ];
+  it.each(ATTACK_CITIES)('uses the ZIP table city when the portal city is %j', async (city) => {
+    expect(cityName(city, 'Astoria')).toBe('Astoria');
+    const rows = byApp('270003493').map((r) => ({ ...r, billed_entity_city: city }));
+    const out = await adapters[0].fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' }, fakePortal(rows)));
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe('A school in Astoria is asking for bids on network cabling');
+    expect(out[0].city).toBe('Astoria');
+    expect(JSON.stringify(out)).not.toMatch(/Jane|Pat|Quillfeather|@|555|x{10}|example/);
+  });
+
+  it('keeps a plain city name as the portal writes it', () => {
+    expect(cityName('MOUNT VERNON', 'Z')).toBe('Mount Vernon');
+    expect(cityName("O'FALLON", 'Z')).toBe("O'Fallon");
+    expect(cityName('Fort Worth', 'Z')).toBe('Fort Worth');
+    // a city that reads like a personal name (Winston-Salem: given name and surname) is not printed from the portal; the ZIP table's city stands in
+    expect(cityName('WINSTON-SALEM', 'Winston-Salem')).toBe('Winston-Salem');
+    expect(cityName('Astoria\nNew', 'Z')).toBe('Astoria New');
+    expect(cityName(undefined, 'ASTORIA')).toBe('Astoria');
+  });
+
+  it('stores applicant_type and funding_year only as mapped values', async () => {
+    const rows = byApp('270003493').map((r) => ({ ...r, applicant_type: 'School call Jane Doe 212-555-0199', funding_year: '2027 call Jane Doe' }));
+    const out = await adapters[0].fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' }, fakePortal(rows)));
+    const d = out[0].data as Record<string, unknown>;
+    expect(d.who).toBe('either');
+    expect(d.fundingYear).toBeNull();
+    expect(out[0].title).toBe('A school or library in Astoria is asking for bids on network cabling');
+    expect(JSON.stringify(out)).not.toMatch(/Jane|555/);
+  });
+
+  it('rebuilds the form link from host and path: no user info, query, fragment or port, https only', () => {
+    expect(formLink('https://jane.doe%40gmail.com@publicdata.usac.org/EPC/x.pdf?tel=212-555-0199#frag')).toBe('https://publicdata.usac.org/EPC/x.pdf');
+    expect(formLink('https://user:pass@publicdata.usac.org/EPC/x.pdf')).toBe('https://publicdata.usac.org/EPC/x.pdf');
+    expect(formLink('https://publicdata.usac.org/EPC/x.pdf?a=b')).toBe('https://publicdata.usac.org/EPC/x.pdf');
+    expect(formLink('https://publicdata.usac.org:8443/EPC/x.pdf')).toBeNull();
+    expect(formLink('http://publicdata.usac.org/EPC/x.pdf')).toBeNull();
+    expect(formLink('https://publicdata.usac.org/EPC/jane@gmail.com.pdf')).toBeNull();
+    expect(formLink('https://publicdata.usac.org/EPC/%0d%0aX.pdf')).toBeNull();
+    expect(formLink('https://publicdata.usac.org/')).toBeNull();
+    const rows = byApp('270003493').map((r) => ({ ...r, form_pdf: { url: 'https://jane.doe%40gmail.com@publicdata.usac.org/EPC/x.pdf?tel=212-555-0199' } }));
     const rep = one(rows);
-    expect(rep.items).toHaveLength(1);
-    expect(rep.items[0].summary).toBe('E-Rate request (FCC Form 470) | bids accepted until 2026-12-01');
-    expect(JSON.stringify(rep.items[0])).not.toContain('Quillfeather');
+    expect(rep.items[0].url).toBe('https://publicdata.usac.org/EPC/x.pdf');
+    expect(JSON.stringify(rep)).not.toMatch(/gmail|555|tel=/);
   });
 
   it('the fixture itself holds no contact column', () => {
@@ -341,45 +511,50 @@ describe('contact fields never survive ingest', () => {
 describe('card copy in English and Spanish', () => {
   const rep = parseErate(ROWS, { now: NOW });
   const ny = rep.items.find((x) => x.externalId === '270003493')!;
-  const evanston = rep.items.find((x) => x.externalId === '270001007')!;
+  const chi = rep.items.find((x) => x.externalId === '270002974')!;
+  const brief = { source: ny.source, kind: ny.kind, subtype: 'bid', title: ny.title, summary: ny.summary, label: 'coming_soon' as const, trade: 'electrical', url: ny.url, occurredAt: ny.occurredAt };
 
   it('says in plain words what it is, in English', () => {
     expect(ny.title).toBe('A school in Astoria is asking for bids on network cabling');
     expect(erateTitle('library', 'Mount Vernon', 'cabling')).toBe('A library in Mount Vernon is asking for bids on network cabling');
-    const card = cardBrief({ source: ny.source, kind: ny.kind, subtype: 'bid', title: ny.title, summary: ny.summary, label: 'act_now', trade: 'electrical', url: ny.url, occurredAt: ny.occurredAt });
+    const card = cardBrief(brief);
     expect(card.family).toBe('school-bid');
     expect(card.why).toBe('A school or library is asking for bids on cabling; nothing is awarded.');
     expect(card.why.length).toBeLessThanOrEqual(80);
-    expect(card.uncertain).toBe('High confidence the request is listed; who may respond is not known.');
-    expect(card.next).toBe("Check the deadline and the request's public page.");
+    expect(card.uncertain).toBe('High confidence the request is listed; only USAC-registered providers (a SPIN) are paid.');
+    expect(card.uncertain.length).toBeLessThanOrEqual(88);
+    expect(card.next).toBe('Read the whole request; it may cover more than cabling.');
     expect(card.source.label).toBe('E-Rate school and library network bids (USAC FCC Form 470)');
     expect(card.source.linkText).toBe('Open the public source');
     expect(card.source.recordLink).toBe(true);
   });
 
-  it('shows the deadline as "bids accepted until <allowable contract date>", with the days left', () => {
-    const now = new Date('2026-11-25T18:00:00Z');
-    expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: '2026-12-01', expiresAt: ny.expiresAt, source: 'bids-erate' }, now, 'en')).toBe(
-      'Buyer: St Joseph Catholic Academy. Bids accepted until Dec 1, 2026, 7 days left.',
+  it('the card line gives the earliest contract day, sends the member to the school for the bid deadline, and says who can be paid', () => {
+    expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, NOW, 'en')).toBe(
+      'Buyer: St Joseph Catholic Academy. A contract may be signed from Dec 1, 2026; ask the school or library for its bid deadline. Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
+    );
+    expect(bidCardLine({ dueDate: null, expiresAt: chi.expiresAt, source: 'bids-erate' }, NOW, 'en')).toBe(
+      'A contract may be signed from Dec 14, 2026; ask the school or library for its bid deadline. Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
     );
     // other bids keep their wording
-    expect(bidCardLine({ buyer: 'Water & Power', dueDate: '2026-12-01', expiresAt: ny.expiresAt, source: 'bids-la' }, now, 'en')).toBe('Buyer: Water & Power. Due Dec 1, 2026, 7 days left.');
+    expect(bidCardLine({ buyer: 'Water & Power', dueDate: '2026-12-01', expiresAt: '2026-12-02T10:00:00.000Z', source: 'bids-la' }, NOW, 'en')).toBe('Buyer: Water & Power. Due Dec 1, 2026, 7 days left.');
   });
 
-  it('says the same in Spanish: title, summary, deadline line, brief and source', () => {
+  it('says the same in Spanish: title, summary, line, brief and source', () => {
     expect(localizeTitle(ny.title, 'es', ny.source)).toBe('Una escuela en Astoria pide ofertas para cableado de red');
-    expect(localizeTitle(evanston.title, 'es', evanston.source)).toBe('Un distrito escolar en Evanston pide ofertas para mantenimiento del cableado de red');
+    expect(localizeTitle(chi.title, 'es', chi.source)).toBe('Un distrito escolar en Chicago pide ofertas para cableado de red');
     expect(localizeTitle(rep.items.find((x) => x.externalId === '270004329')!.title, 'es', 'bids-erate')).toBe(
       'Un grupo de escuelas y bibliotecas en Harrison pide ofertas para cableado de red',
     );
-    expect(localizeSummary(ny.summary, 'es', ny.source)).toBe('St Joseph Catholic Academy | Solicitud E-Rate (formulario 470 de la FCC) | se aceptan ofertas hasta el 1 dic 2026');
-    expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: '2026-12-01', expiresAt: ny.expiresAt, source: 'bids-erate' }, new Date('2026-11-25T18:00:00Z'), 'es')).toMatch(
-      /^Comprador: St Joseph Catholic Academy\. Se aceptan ofertas hasta el 1 dic 2026, faltan 7 días\.$/,
+    expect(localizeSummary(ny.summary, 'es', ny.source)).toBe('St Joseph Catholic Academy | Solicitud E-Rate (formulario 470 de la FCC) | se puede firmar un contrato a partir del 1 dic 2026');
+    expect(bidCardLine({ buyer: 'St Joseph Catholic Academy', dueDate: null, expiresAt: ny.expiresAt, source: 'bids-erate' }, NOW, 'es')).toBe(
+      'Comprador: St Joseph Catholic Academy. Se puede firmar un contrato a partir del 1 dic 2026; pregunte a la escuela o biblioteca por su fecha límite para ofertas. Solo se paga por trabajo de E-Rate a proveedores registrados en USAC (con un SPIN).',
     );
-    const card = cardBriefLang({ source: ny.source, kind: ny.kind, subtype: 'bid', title: ny.title, summary: ny.summary, label: 'act_now', trade: 'electrical', url: ny.url, occurredAt: ny.occurredAt }, 'es');
+    const card = cardBriefLang(brief, 'es');
     expect(card.why).toBe('Una escuela o biblioteca pide ofertas para cableado; aún no se ha adjudicado.');
     expect(card.uncertain).toContain('la solicitud está publicada');
-    expect(card.uncertain).toContain('no se sabe quién puede responder');
+    expect(card.uncertain).toContain('solo se paga a proveedores registrados en USAC (un SPIN)');
+    expect(card.next).toBe('Lea toda la solicitud; puede incluir más que cableado.');
     expect(card.source.label).toBe('Ofertas de red de escuelas y bibliotecas (E-Rate, formulario 470 de USAC)');
     expect(card.source.linkText).toBe('Abrir la fuente pública');
   });
@@ -388,7 +563,7 @@ describe('card copy in English and Spanish', () => {
     expect(localizeTitle(ny.title, 'en', ny.source)).toBe(ny.title);
     expect(briefFamilyOf({ source: 'bids-la' })).toBe('city-bid');
     expect(briefFamilyOf({ source: 'bids-erate' })).toBe('school-bid');
-    expect(briefForLang({ source: 'bids-erate', label: 'act_now', trade: 'electrical' }, 'en')).toEqual(briefFor({ source: 'bids-erate', label: 'act_now', trade: 'electrical' }));
+    expect(briefForLang({ source: 'bids-erate', label: 'coming_soon', trade: 'electrical' }, 'en')).toEqual(briefFor({ source: 'bids-erate', label: 'coming_soon', trade: 'electrical' }));
   });
 
   it('follows the copy rules in both languages: no banned words, no em-dash, no claim about who wins or who may bid', () => {
@@ -396,39 +571,197 @@ describe('card copy in English and Spanish', () => {
     for (const i of rep.items) {
       for (const lang of ['en', 'es'] as const) {
         texts.push(localizeTitle(i.title, lang, i.source), localizeSummary(i.summary, lang, i.source) ?? '');
-        texts.push(bidCardLine({ buyer: (i.data as { buyer: string | null }).buyer, dueDate: (i.data as { dueDate: string }).dueDate, expiresAt: i.expiresAt, source: i.source }, NOW, lang));
-        const c = cardBriefLang({ source: i.source, subtype: 'bid', title: i.title, summary: i.summary, label: 'act_now', trade: 'electrical', url: i.url, occurredAt: i.occurredAt }, lang);
-        texts.push(c.why, c.next, c.uncertain, c.source.label, c.source.linkText);
+        texts.push(bidCardLine({ buyer: (i.data as { buyer: string | null }).buyer, expiresAt: i.expiresAt, source: i.source }, NOW, lang));
+        for (const label of ['coming_soon', 'act_now'] as const) {
+          const c = cardBriefLang({ source: i.source, subtype: 'bid', title: i.title, summary: i.summary, label, trade: 'electrical', url: i.url, occurredAt: i.occurredAt }, lang);
+          texts.push(c.why, c.next, c.uncertain, c.source.label, c.source.linkText);
+        }
       }
     }
-    for (const who of ['school', 'school-district', 'library', 'library-system', 'consortium', 'either'] as const) {
-      for (const work of ['cabling', 'cabling_upkeep'] as const) texts.push(localizeTitle(erateTitle(who, 'X', work), 'es', 'bids-erate'));
-    }
+    for (const who of ['school', 'school-district', 'library', 'library-system', 'consortium', 'either'] as const) texts.push(localizeTitle(erateTitle(who, 'X', 'cabling'), 'es', 'bids-erate'));
     for (const text of texts) {
       expect(text.length).toBeGreaterThan(0);
       for (const re of BANNED) expect(text, text).not.toMatch(re);
       expect(text).not.toMatch(/\b(?:cliente potencial|garantizad[oa]|canvass|knock)\b/i);
     }
-    // the Spanish twin of every English title is not English
     for (const who of ['school', 'school-district', 'library', 'library-system', 'consortium', 'either'] as const) {
       expect(localizeTitle(erateTitle(who, 'X', 'cabling'), 'es', 'bids-erate')).toMatch(/ en X pide ofertas para cableado de red$/);
     }
   });
 
-  it('keeps a rows whose title is not an E-Rate title as it is', () => {
+  it('keeps a row whose title is not an E-Rate title as it is', () => {
     expect(localizeTitle('A school in Astoria is asking for bids on lunch trays', 'es', 'bids-erate')).toBe('A school in Astoria is asking for bids on lunch trays');
+  });
+});
+
+describe('HOLLER_ERATE_ENABLED hides stored rows at once (review P1-2)', () => {
+  const ny = parseErate(ROWS, { now: NOW }).items.find((x) => x.externalId === '270003493')!;
+  const row = { source: ny.source, subtype: 'bid', expires_at: ny.expiresAt };
+  const la = { source: 'bids-la', subtype: 'bid', expires_at: '2026-12-20T00:00:00.000Z' };
+  const permit = { source: 'socrata-chicago-permits', subtype: 'permit', expires_at: null };
+  const nowMs = NOW.getTime();
+
+  it('erateHidden reads only the E-Rate source', () => {
+    expect(erateHidden(row, false)).toBe(true);
+    expect(erateHidden(row, true)).toBe(false);
+    expect(erateHidden(la, false)).toBe(false);
+    expect(erateHidden(null, false)).toBe(false);
+  });
+
+  it('bidHidden: bids on and E-Rate off hides only the E-Rate row; both on shows it; bids off hides every bid', () => {
+    expect(bidHidden(row, true, nowMs, false)).toBe(true);
+    expect(bidHidden(la, true, nowMs, false)).toBe(false);
+    expect(bidHidden(row, true, nowMs, true)).toBe(false);
+    expect(bidHidden(la, false, nowMs, true)).toBe(true);
+    expect(bidHidden(permit, true, nowMs, false)).toBe(false);
+  });
+
+  it('with the real env: empty switch hides, a set switch shows (the default reads at call time)', () => {
+    vi.stubEnv(BIDS_FLAG, '1');
+    vi.stubEnv(ERATE_FLAG, '');
+    expect(bidHidden(row, undefined, nowMs)).toBe(true);
+    expect(bidHidden(la, undefined, nowMs)).toBe(false);
+    vi.stubEnv(ERATE_FLAG, '1');
+    expect(bidHidden(row, undefined, nowMs)).toBe(false);
+  });
+
+  it('public pages (withoutHiddenBids), member reads (dropHiddenBids) and the match path drop the row', () => {
+    expect(withoutHiddenBids([row, la, permit], nowMs, true, false)).toEqual([la, permit]);
+    expect(withoutHiddenBids([row, la, permit], nowMs, true, true)).toEqual([row, la, permit]);
+    const matches = [{ signal: row }, { signal: [la] }, { signal: permit }, { signal: null }];
+    expect(dropHiddenBids(matches, true, nowMs, false).map((m) => m.signal)).toEqual([[la], permit, null]);
+    const profile: MatchProfile = { user_id: 'u', categories: ['electrical'], lat: ny.lat!, lon: ny.lon!, state: 'NY', radius_mi: 25 };
+    const sig: MatchSignal = { id: 1, source: ny.source, kind: ny.kind, title: ny.title, summary: ny.summary, categories: ny.categories, lat: ny.lat ?? null, lon: ny.lon ?? null, state: ny.state ?? null, severity: 2, occurred_at: ny.occurredAt, data: ny.data };
+    vi.stubEnv(ERATE_FLAG, '1');
+    expect(matchOne(sig, profile, true, nowMs)).not.toBeNull();
+    expect(matchOne(sig, profile, true, nowMs)?.label).toBe('coming_soon');
+    vi.stubEnv(ERATE_FLAG, '');
+    expect(matchOne(sig, profile, true, nowMs)).toBeNull();
+  });
+
+  it('query filters: E-Rate rows are excluded in SQL while only that switch is off', () => {
+    const calls: string[][] = [];
+    const q = { not(col: string, op: string, v: string) { calls.push([col, op, v]); return q; } };
+    excludeBidsInQuery(q, true, true);
+    expect(calls).toEqual([]);
+    excludeBidsInQuery(q, true, false);
+    expect(calls).toEqual([['source', 'eq', 'bids-erate']]);
+    calls.length = 0;
+    excludeBidsInQuery(q, false, true);
+    expect(calls).toEqual([['source', 'like', 'bids-%']]);
+    expect(excludeBidsInQuery({ nope: 1 }, true, false)).toEqual({ nope: 1 });
+  });
+
+  it('place counts subtract the stored E-Rate rows while only that switch is off', async () => {
+    const seen: string[] = [];
+    const builder = (): Record<string, unknown> => {
+      const b: Record<string, unknown> = {
+        like: (c: string, v: string) => (seen.push(`like ${c} ${v}`), b),
+        eq: (c: string, v: string) => (seen.push(`eq ${c} ${v}`), b),
+        gt: () => b,
+        lte: () => b,
+        limit: async () => ({ data: [{ place_slug: 'astoria-ny' }], error: null }),
+      };
+      return b;
+    };
+    const sb = { from: () => ({ select: () => builder() }) };
+    expect(await bidCountsByPlace(sb, nowMs, true, true)).toEqual({});
+    expect(await bidCountsByPlace(sb, nowMs, true, false)).toEqual({ 'astoria-ny': 1 });
+    expect(seen).toEqual(['eq source bids-erate']);
+    seen.length = 0;
+    expect(await bidCountsByPlace(sb, nowMs, false, true)).toEqual({ 'astoria-ny': 1 });
+    expect(seen).toEqual(['like source bids-%']);
+  });
+});
+
+function ctx(env: Record<string, string | undefined>, fetchImpl: typeof fetch, logs: string[] = [], extra: Partial<AdapterContext> = {}): AdapterContext {
+  return { since: new Date(0), now: NOW, fetch: fetchImpl, env, log: (m) => logs.push(m), ...extra };
+}
+
+describe('cancelled forms and the row limit (review P2-6, P2-7)', () => {
+  const adapter = adapters[0];
+  const on = { [BIDS_FLAG]: '1', [ERATE_FLAG]: '1' };
+  const cancelledRows = (id: string) => byApp(id).map((r) => ({ ...r, fcc_form_470_status: 'Canceled' }));
+
+  it('a Canceled form is not a card and its number is reported', () => {
+    const rep = one(cancelledRows('270003493'));
+    expect(rep.items).toEqual([]);
+    expect(rep.notOpen).toBe(1);
+    expect(rep.cancelled).toEqual(['270003493']);
+  });
+
+  it('closes the stored card of a cancelled form (expires_at = now) and leaves every other row alone', async () => {
+    const db = new FakeDb({
+      holler_signals: [
+        { id: 1, source: 'bids-erate', external_id: '270003493', expires_at: '2026-12-01T00:00:00.000Z' },
+        { id: 2, source: 'bids-erate', external_id: '270005737', expires_at: '2026-12-21T00:00:00.000Z' },
+        { id: 3, source: 'bids-la', external_id: '270003493', expires_at: '2026-12-01T00:00:00.000Z' },
+      ],
+    });
+    const logs: string[] = [];
+    const rows = [...cancelledRows('270003493'), ...byApp('270005737')];
+    const out = await adapter.fetch(ctx(on, fakePortal(rows), logs, { db: db as unknown as Db }));
+    expect(out.map((i) => i.externalId)).toEqual(['270005737']);
+    const t = db.tables.holler_signals;
+    expect(t[0].expires_at).toBe(NOW.toISOString());
+    expect(t[1].expires_at).toBe('2026-12-21T00:00:00.000Z');
+    expect(t[2].expires_at).toBe('2026-12-01T00:00:00.000Z');
+    expect(logs.join('\n')).toContain('closed stored cards for 1 cancelled form');
+    // and the stored row is now hidden everywhere the bid rules are read
+    expect(bidClosed({ source: 'bids-erate', subtype: 'bid', expires_at: t[0].expires_at }, NOW.getTime())).toBe(true);
+    expect(bidHidden({ source: 'bids-erate', subtype: 'bid', expires_at: t[0].expires_at }, true, NOW.getTime(), true)).toBe(true);
+  });
+
+  it('writes nothing on a dry scan, without a client, or when nothing was cancelled; a write error is logged, not thrown', async () => {
+    const mk = () => new FakeDb({ holler_signals: [{ id: 1, source: 'bids-erate', external_id: '270003493', expires_at: '2026-12-01T00:00:00.000Z' }] });
+    const logs: string[] = [];
+    const dry = mk();
+    await adapter.fetch(ctx(on, fakePortal(cancelledRows('270003493')), logs, { db: dry as unknown as Db, dry: true }));
+    expect(dry.calls).toEqual([]);
+    await adapter.fetch(ctx(on, fakePortal(cancelledRows('270003493')), logs));
+    const none = mk();
+    await adapter.fetch(ctx(on, fakePortal(byApp('270005737')), logs, { db: none as unknown as Db }));
+    expect(none.calls).toEqual([]);
+    const failing = mk();
+    failing.failOn['holler_signals.update'] = 'permission denied';
+    const l2: string[] = [];
+    expect(await retireCancelled({ db: failing as unknown as Db, log: (m) => l2.push(m) }, ['270003493'], NOW)).toBe(0);
+    expect(l2.join(' ')).toContain('could not close cancelled forms');
+  });
+
+  it('a full page asks for the next page, a second apart, newest date first, and stops at a short page', async () => {
+    vi.useFakeTimers();
+    const filler = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ ...byApp('270003493')[0], application_number: String(300000000 + i), allowable_contract_date: '2026-12-01T00:00:00.000' }));
+    const seen: URLSearchParams[] = [];
+    const logs: string[] = [];
+    // 5000 filler rows + 3 real ones: page 1 is full, page 2 holds the rest
+    const rows = [...filler(ERATE_PAGE_SIZE), ...byApp('270005737')];
+    const p = adapter.fetch(ctx(on, fakePortal(rows, seen), logs));
+    await vi.runAllTimersAsync();
+    const out = await p;
+    expect(seen.map((q) => q.get('$offset'))).toEqual([null, '5000']);
+    expect(seen.every((q) => q.get('$order') === 'allowable_contract_date DESC,application_number DESC')).toBe(true);
+    expect(out.length).toBe(ERATE_PAGE_SIZE + 1);
+    expect(logs.join('\n')).toContain('in 2 pages');
+    expect(logs.join('\n')).not.toContain('WARNING');
+  });
+
+  it('logs a warning when the page limit is reached with rows still to read', async () => {
+    vi.useFakeTimers();
+    const rows = Array.from({ length: ERATE_PAGE_SIZE * 4 + 10 }, (_, i) => ({ ...byApp('270003493')[0], application_number: String(300000000 + i) }));
+    const seen: URLSearchParams[] = [];
+    const logs: string[] = [];
+    const p = adapter.fetch(ctx(on, fakePortal(rows, seen), logs));
+    await vi.runAllTimersAsync();
+    await p;
+    expect(seen).toHaveLength(4);
+    expect(logs.join('\n')).toMatch(/WARNING page limit reached \(4 pages of 5000 rows\)/);
   });
 });
 
 describe('switches and the registered adapter', () => {
   const adapter = adapters[0];
-  const ctx = (env: Record<string, string | undefined>, fetchImpl: typeof fetch, logs: string[] = []): AdapterContext => ({
-    since: new Date(0),
-    now: NOW,
-    fetch: fetchImpl,
-    env,
-    log: (m) => logs.push(m),
-  });
 
   it('is registered after the other bid sources and is off by default', () => {
     expect(ALL_ADAPTERS.find((a) => a.id === 'bids-erate')).toBe(adapter);
@@ -458,19 +791,32 @@ describe('switches and the registered adapter', () => {
     }
   });
 
-  it('with both on: one request to the public SODA path, no token, the Holler agent, and cards back', async () => {
-    const f = vi.fn(async () => new Response(JSON.stringify(ROWS), { status: 200 }));
+  it('with both on: the real query, parsed by the portal stand-in, gives cards from the real parse path; one request, no token, the Holler agent', async () => {
+    const seen: URLSearchParams[] = [];
+    const calls: Array<[string, RequestInit]> = [];
+    const portal = fakePortal(ROWS.map((r) => ({ ...r, contact_email: 'pquillfeather@example.org', contact_name: 'Pat Quillfeather' })), seen);
+    const f = vi.fn(async (url: string, init: RequestInit) => (calls.push([url, init]), portal(url, init)));
     const logs: string[] = [];
     const out = await adapter.fetch(ctx({ [BIDS_FLAG]: '1', [ERATE_FLAG]: 'true', SOCRATA_APP_TOKEN: 'should-not-be-sent' }, f as unknown as typeof fetch, logs));
-    expect(out).toHaveLength(5);
+    // the stand-in applied the query: Certified/Canceled, Cabling, Internal Connections, date from today. The Evanston application (maintenance only) has an
+    // Internal Connections cabling line with no installation, so it reaches the parser and routes nowhere.
+    expect(out.map((i) => i.externalId).sort()).toEqual(['270002974', '270003493', '270004329', '270005737']);
     expect(f).toHaveBeenCalledTimes(1);
-    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(seen).toHaveLength(1);
+    expect(seen[0].get('$select')).toBe(ERATE_FIELDS.join(','));
+    const [url, init] = calls[0];
     expect(url.startsWith('https://opendata.usac.org/resource/jt8s-3q52.json?')).toBe(true);
     expect(url).not.toMatch(/contact|email|phone|authorized|address|description/i);
     const headers = init.headers as Record<string, string>;
     expect(headers['User-Agent']).toMatch(/^Holler\//);
     expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain('x-app-token');
-    expect(logs.join(' ')).toContain('5 kept');
+    expect(logs.join(' ')).toContain('4 kept');
+    expect(JSON.stringify(out)).not.toMatch(/Quillfeather|pquillfeather|@/);
+  });
+
+  it('the stand-in refuses a query with a column the dataset does not have, so a typo fails here', async () => {
+    const res = await fakePortal(ROWS)('https://opendata.usac.org/resource/jt8s-3q52.json?%24select=nope');
+    expect(res.status).toBe(400);
   });
 
   it('a failed or odd response gives nothing and a log line without request detail', async () => {

@@ -1213,8 +1213,10 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'bids-rockdale': 'act_now',
   'bids-tucker': 'act_now',
   'bids-dunwoody': 'act_now',
-  // Round 33: USAC E-Rate Form 470 (lib/signals/adapters/erate.ts): a school or library asks for bids, open until the allowable contract date. Same flags.
-  'bids-erate': 'act_now',
+  // Round 33: USAC E-Rate Form 470 (lib/signals/adapters/erate.ts): a school or library asks for bids. A heads-up, never act now: the record has no
+  // bid deadline (its one date is the earliest day a contract may be signed, stored as data.contractFrom, not dueDate), and only firms
+  // registered with USAC can be paid. Same flags, plus HOLLER_ERATE_ENABLED.
+  'bids-erate': 'coming_soon',
   'ticketmaster': 'coming_soon',
   // People asking (act_now: someone asked)
   'bluesky': 'act_now',

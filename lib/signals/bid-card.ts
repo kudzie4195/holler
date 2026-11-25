@@ -50,19 +50,30 @@ export function daysLeftText(expiresAt: string | null | undefined, now: Date, la
   return days === 1 ? t(lang, 'bid.day_left') : t(lang, 'bid.days_left', { n: days });
 }
 
-/**
- * "Due Dec 10, 2026, 19 days left" or "No due date published". An E-Rate request (`until`) says "Bids accepted until Dec 10, 2026, 19 days
- * left": its date is the earliest day a contract may be signed, not a due time, so the words say what the date is.
- */
-export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en', until = false): string {
+/** "Due Dec 10, 2026, 19 days left" or "No due date published". */
+export function bidDueText(b: { dueDate?: string | null; expiresAt?: string | null }, now: Date, lang: Lang = 'en'): string {
   const date = formatDueDate(b.dueDate, lang);
   const left = daysLeftText(b.expiresAt, now, lang);
   if (!date && !left) return t(lang, 'bid.none');
-  return [date ? t(lang, until ? 'bid.until' : 'bid.due', { date }) : null, left].filter((p) => p).join(', ');
+  return [date ? t(lang, 'bid.due', { date }) : null, left].filter((p) => p).join(', ');
 }
 
-/** The one line under the label on a bid card: "Buyer: Water & Power. Due Dec 10, 2026, 19 days left." */
-export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null; source?: string | null }, now: Date, lang: Lang = 'en'): string {
+/**
+ * An E-Rate request (lib/signals/adapters/erate.ts) has no bid deadline in the record. Its one date is the earliest day a contract may be
+ * signed, and the card closes at the start of that day (expires_at), so the day is read from expiresAt. The line says what the date is, that
+ * the bid deadline is the school's or library's to give, and that only providers registered with USAC (a SPIN) can be paid. It never says
+ * "due", "deadline" as a fact of the record, or "days left".
+ */
+export function erateCardLine(b: { buyer?: string | null; expiresAt?: string | null; contractFrom?: string | null }, lang: Lang = 'en'): string {
   const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `${t(lang, 'bid.buyer', { buyer: b.buyer.trim() })} ` : '';
-  return `${buyer}${bidDueText(b, now, lang, b.source === ERATE_SOURCE_ID)}.`;
+  const day = typeof b.contractFrom === 'string' && /^\d{4}-\d{2}-\d{2}/.test(b.contractFrom) ? b.contractFrom.slice(0, 10) : typeof b.expiresAt === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(b.expiresAt) ? b.expiresAt.slice(0, 10) : null;
+  const date = formatDueDate(day, lang);
+  return `${buyer}${date ? `${t(lang, 'bid.erate_from', { date })} ` : ''}${t(lang, 'bid.erate_spin')}`;
+}
+
+/** The one line under the label on a bid card: "Buyer: Water & Power. Due Dec 10, 2026, 19 days left." An E-Rate card gets erateCardLine. */
+export function bidCardLine(b: { buyer?: string | null; dueDate?: string | null; expiresAt?: string | null; source?: string | null }, now: Date, lang: Lang = 'en'): string {
+  if (b.source === ERATE_SOURCE_ID) return erateCardLine(b, lang);
+  const buyer = typeof b.buyer === 'string' && b.buyer.trim() ? `${t(lang, 'bid.buyer', { buyer: b.buyer.trim() })} ` : '';
+  return `${buyer}${bidDueText(b, now, lang)}.`;
 }
