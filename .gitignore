@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Python bytecode (review P3-5)
 __pycache__/
+
+# SAM.gov backfill resume file (round 33)
+sam-backfill-state.json*

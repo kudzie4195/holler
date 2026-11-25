@@ -1,5 +1,5 @@
 import type { CategoryId } from './categories';
-import { CARRY_CARRIER_TAGS, extraCarried } from './carry';
+import { CARRY_CARRIER_TAGS, extraCarried, type CarryInput } from './carry';
 import { ruleChoice } from './rule-choices';
 
 /**
@@ -284,6 +284,8 @@ export interface RoutedRecord {
   title?: string | null;
   /** The permit's summary (structured type, class, use). Optional: without it the title alone decides. */
   summary?: string | null;
+  /** Round 33: an alert's or report's hail size and gust (lib/signals/carry.ts HAZARD_ROUTES). Null while the switch is off. */
+  weather?: CarryInput['weather'];
 }
 
 const lower = (v: string | null | undefined) => (typeof v === 'string' ? v.trim().toLowerCase() : '');

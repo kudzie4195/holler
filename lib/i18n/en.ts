@@ -5,6 +5,7 @@
  * here, and the existing tests prove the English output did not change by a byte.
  */
 import { EN_ACCOUNT } from './en-account';
+import { EN_SAM } from './en-sam';
 
 export const en = {
   // ---- language names (shown in the Settings picker, always in their own language) ----
@@ -36,6 +37,7 @@ export const en = {
   'hold.background.chip': 'Background',
   'hold.below_min.chip': 'Below your minimum',
   'hold.background.note': 'This permit names no business and no site address, so it was not sent as an alert.',
+  'hold.background.license.note': 'This license record names no business contact, so Holler shows it in your feed only.',
   'hold.below_min.note': 'The job value on this permit is below the minimum in your settings, so it was not sent as an alert.',
   'hold.held.note': 'We are still checking this kind of record for your trade, so it was not emailed to you.',
 
@@ -54,6 +56,8 @@ export const en = {
   'bid.day_left': '1 day left',
   'bid.closes_24': 'closes within 24 hours',
   'bid.closed': 'closed',
+  'bid.erate_from': 'A contract may be signed from {date}; ask the school or library for its bid deadline.',
+  'bid.erate_spin': 'Only providers registered with USAC (a SPIN) can be paid for E-Rate work.',
 
   // ---- places without a map point ----
   'approx.bid': 'Buyer in {where}. A bid names the buyer, not a job site, so no distance is shown.',
@@ -100,6 +104,19 @@ export const en = {
   'brief.record_date_none': 'Record date not published.',
   'brief.source_line': 'Source: {label}. {date}',
   'brief.request_label': 'Request made on Holler',
+  'sum.lsr_trees': 'The report names trees or limbs down',
+  'sum.lsr_damage': 'The report names wind damage, not confirmed',
+  'sum.lsr_road': 'It names a road',
+  'sum.lsr_roof': 'It names a roof or siding',
+  'sum.lsr_gutter': 'It names shingles or gutters',
+  'sum.lsr_power': 'It names power lines or poles',
+  'sum.lsr_home': 'It names a home',
+  'sum.lsr_yard': 'It names a yard',
+  'sum.lsr_building': 'It names a building',
+  'brief.alert.hail': 'The weather service warned of hail up to {inches} inches in this area.',
+  'brief.alert.gust': 'The weather service warned of wind gusts up to {mph} mph in this area.',
+  'brief.alert.both': 'The weather service warned of hail up to {inches} inches and wind gusts up to {mph} mph in this area.',
+  'brief.alert.note': 'Nothing is confirmed for any property.',
   'brief.job_value': 'Job value on the permit: {amount}',
   'brief.managed.agent': 'Managed by',
   'brief.managed.owner': 'Owner company',
@@ -201,6 +218,7 @@ export const en = {
   'brief.why.federal-award.market_insight_named': 'A federal contract was awarded for {work}; it is closed.',
   'brief.why.federal-award.market_insight': 'A federal contract was awarded; it is closed to bids.',
   'brief.why.city-bid.act_now': 'A city bid matching {work} is open; nothing is awarded.',
+  'brief.why.school-bid.coming_soon': 'A school or library is asking for bids on cabling; nothing is awarded.',
   'brief.why.public-post.act_now': 'Someone posted publicly asking for {work} nearby.',
   'brief.why.resident-request.act_now': 'A resident asked on Holler for {work} nearby.',
   'brief.why.fallback.act_now': 'This record matches {work} and may need action soon.',
@@ -237,6 +255,7 @@ export const en = {
   'brief.known.federal-bid': 'the bid is listed',
   'brief.known.federal-award': 'the award was made',
   'brief.known.city-bid': 'the bid is listed',
+  'brief.known.school-bid': 'the request is listed',
   'brief.known.public-post': 'a post asked for this',
   'brief.known.resident-request': 'a resident asked on Holler',
   'brief.known.other': 'a public record exists',
@@ -257,6 +276,7 @@ export const en = {
   'brief.unknown.federal-bid': 'your eligibility is not known',
   'brief.unknown.federal-award': 'it is closed to bids',
   'brief.unknown.city-bid': 'who may respond is not known',
+  'brief.unknown.school-bid': 'only USAC-registered providers (a SPIN) are paid',
   'brief.unknown.public-post': 'the author is unchecked',
   'brief.unknown.resident-request': 'details are unchecked',
   'brief.unknown.other': 'the need is not known',
@@ -278,6 +298,7 @@ export const en = {
   'brief.next.federal-bid': "Check the due date and the buyer's bid page.",
   'brief.next.federal-award': 'Check who won and how large the contract is.',
   'brief.next.city-bid': "Check the due date and the buyer's bid page.",
+  'brief.next.school-bid': 'Read the whole request; it may cover more than cabling.',
   'brief.next.public-post': 'Read the whole post before you reply.',
   'brief.next.resident-request': 'Reply through Holler if it fits what you do.',
   'brief.next.other': 'Check the address.',
@@ -882,6 +903,7 @@ export const en = {
   'srcl.fixed.html-houston-permits': 'City of Houston: weekly permit activity report',
   'srcl.fixed.nws': 'National Weather Service alerts',
   'srcl.fixed.spc': 'NOAA Storm Prediction Center storm reports',
+  'srcl.fixed.lsr': 'NWS local storm reports',
   'srcl.fixed.fema': 'FEMA disaster declarations',
   'srcl.fixed.usgs': 'USGS earthquakes',
   'srcl.fixed.faa': 'FAA airport status',
@@ -896,6 +918,7 @@ export const en = {
   'srcl.fixed.bids-rockdale': 'Rockdale County procurement: current bids, RFPs and RFQs',
   'srcl.fixed.bids-tucker': 'City of Tucker procurement: bids and RFPs',
   'srcl.fixed.bids-dunwoody': 'City of Dunwoody procurement: current opportunities',
+  'srcl.fixed.bids-erate': 'E-Rate school and library network bids (USAC FCC Form 470)',
   'srcl.fixed.bids-pw-dallas-isd': 'Dallas ISD procurement: open bids',
   'srcl.fixed.bids-pw-houston-metro': 'Houston METRO procurement: open solicitations',
   'srcl.fixed.bids-pw-hha': 'Houston Housing Authority procurement: solicitations',
@@ -943,6 +966,14 @@ export const en = {
   'title.permit_plain': 'Permit in {city}',
   'title.permit_other': '{label} permit in {city}',
   'title.fed_bid': 'Federal bid in {place}: {text}',
+  'title.erate': 'A {who} in {place} is asking for bids on {work}',
+  'erate.who.school': 'school',
+  'erate.who.school-district': 'school district',
+  'erate.who.library': 'library',
+  'erate.who.library-system': 'library system',
+  'erate.who.consortium': 'group of schools and libraries',
+  'erate.who.either': 'school or library',
+  'erate.work.cabling': 'network cabling',
   'title.fed_contract': 'Federal contract in {place}: {label}',
   'title.fed_contract_amount': 'Federal contract ({amount}) in {place}: {label}',
   'title.award_label': '{label} (NAICS {code})',
@@ -1069,6 +1100,8 @@ export const en = {
   'sum.resp_due': 'responses due {date}',
   'sum.due': 'due {date}',
   'sum.no_due': 'no due date published',
+  'sum.erate_kind': 'E-Rate request (FCC Form 470)',
+  'sum.erate_from': 'contract may be signed from {date}',
   'sum.by': 'by {agency}',
   'sum.starts_local': 'starts {date} {time} local time',
   'sum.starts': 'starts {date}',
@@ -1444,6 +1477,8 @@ export const en = {
   'chk.shown.one_feed': 'The one record shown here would not have been emailed to you. It would be on your matches page.',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,
+  // Round 33 (SAM): early-notice and set-aside labels on a federal notice card (lib/i18n/en-sam.ts).
+  ...EN_SAM,
 } as const;
 
 export type DictKey = keyof typeof en;

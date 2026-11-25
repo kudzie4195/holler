@@ -202,6 +202,9 @@ const CASES: Case[] = [
   { name: 'NWS flood advisory for restoration (line 32: feed only)', sig: { source: 'nws', kind: 'alert', title: 'Flood Advisory' }, trade: 'restoration', want: 'market_insight' },
   { name: 'NWS wind advisory for a tree service (line 34: feed only)', sig: { source: 'nws', kind: 'alert', title: 'Wind Advisory' }, trade: 'tree-service', want: 'market_insight' },
   { name: 'NWS high wind warning for a tree service', sig: { source: 'nws', kind: 'alert', title: 'High Wind Warning: Laramie' }, trade: 'tree-service', want: 'coming_soon' },
+  // Round 33 (HOLLER_HAIL_ROUTING_ENABLED): the facts arrive only with the switch on (weatherFactsOf); here they are given directly.
+  { name: 'NWS high wind watch naming 60 mph gusts, siding and gutters (hazard-route: feed only, a watch)', sig: { source: 'nws', kind: 'alert', title: 'High Wind Watch: Central Laramie County', weather: { hailInches: null, gustMph: 60 } }, trade: 'siding-gutters', want: 'market_insight' },
+  { name: 'NWS severe thunderstorm warning naming 1.75 inch hail, roofing (hazard-route: heads-up)', sig: { source: 'nws', kind: 'alert', title: 'Severe Thunderstorm Warning: Seward, NE', weather: { hailInches: 1.75, gustMph: null } }, trade: 'roofing', want: 'coming_soon' },
   { name: 'a new home permit for a mover (downstream)', sig: permit('New home permit in X'), trade: 'moving', want: 'coming_soon' },
   { name: 'a new home permit for real estate (downstream)', sig: permit('New home permit in X'), trade: 'real-estate', want: 'coming_soon' },
   { name: 'a demolition permit for junk removal (line 53: the demolition contractor hauls)', sig: permit('Demolition permit in X'), trade: 'junk-removal', want: 'market_insight' },
@@ -313,8 +316,11 @@ describe('the label is pure and deterministic', () => {
     const src = readFileSync('lib/signals/lead-rules.ts', 'utf8');
     const imports = [...src.matchAll(/^import [^;]*? from '([^']+)'/gm)].map((m) => m[1]);
     // each of these is pure too: no server import, no clock (permit-routing.ts: tests/signals/permit-routing.test.ts; the others below)
-    expect(imports).toEqual(['./categories', './carry', './permit-routing', './permit-value', './rule-choices']);
-    for (const f of ['carry', 'rule-choices', 'permit-value']) {
+    expect(imports).toEqual(['./categories', './carry', './permit-routing', './permit-value', './rule-choices', './sam-labels-switch', './mapping/business-flag', './weather-hazard']);
+    // round 33: the licence switch reader has no imports at all
+    expect(readFileSync('lib/signals/mapping/business-flag.ts', 'utf8')).not.toMatch(/^import /m);
+    // Round 33: weather-hazard.ts reads HOLLER_HAIL_ROUTING_ENABLED at call time (hailRoutingEnabled); nothing else in it is impure.
+    for (const f of ['carry', 'rule-choices', 'permit-value', 'sam-labels-switch', 'weather-hazard']) {
       const dep = readFileSync(`lib/signals/${f}.ts`, 'utf8');
       expect([...dep.matchAll(/^import (?!type ).* from '([^']+)'/gm)].map((m) => m[1]).filter((m) => !m.startsWith('./')), f).toEqual([]);
       expect(dep, f).not.toMatch(/server-only|Date\.now|new Date\(\)|Math\.random/);

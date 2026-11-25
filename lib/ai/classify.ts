@@ -494,7 +494,7 @@ export async function pendingRematch(db: Db, now: Date): Promise<number[]> {
  * Resident requests (HOLLER_REQUEST_SOURCE, not a registry adapter) are skipped too: the resident already picked the trade, and a
  * request row never reaches the model.
  */
-export const SKIP_SOURCES: ReadonlySet<string> = new Set(['nws', 'spc', 'fema', 'usgs', 'faa', HOLLER_REQUEST_SOURCE]);
+export const SKIP_SOURCES: ReadonlySet<string> = new Set(['nws', 'spc', 'lsr', 'fema', 'usgs', 'faa', HOLLER_REQUEST_SOURCE]);
 
 /** Version of the cache key scheme. 2: the whole record text (round 7 review r3). Nothing stored under version 1 is reused. */
 export const CACHE_KEY_V = 2;

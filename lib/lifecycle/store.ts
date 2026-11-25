@@ -3,6 +3,7 @@ import { chunk } from '../email/notify-logic';
 import { HOLLER_REQUEST_SOURCE } from '../signals/request-visibility';
 import { isFeedLabel, keptMatchLabel, labelForMember, recordLabelInput } from '../signals/lead-rules';
 import { STAGE_SELECT } from '../signals/stage';
+import { WEATHER_SELECT } from '../signals/weather-hazard';
 import { recentPreviewFor, typeLabel, PREVIEW_DAYS, type PreviewProfile } from '../preview/recent';
 import { trialStartedAt as readTrialStamp } from '../auth/membership';
 import { missedSince } from './missed';
@@ -97,6 +98,9 @@ interface SignalEmbed {
   lon?: number | null;
   /** data->>permitStage (STAGE_SELECT), passed to the labeller only. */
   permitStage?: string | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's hail size and gust), passed to the labeller only. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
 }
 
 export function createStore(db: Db): LifecycleStore {
@@ -176,7 +180,7 @@ export function createStore(db: Db): LifecycleStore {
     async matchesOf(userId, trades) {
       const { data, error } = await db
         .from('holler_matches')
-        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT})`)
+        .select(`status, signal:holler_signals(id, source, kind, title, summary, categories, city, state, lat, lon, severity, occurred_at, subtype:data->>subtype, ${STAGE_SELECT}, ${WEATHER_SELECT})`)
         .eq('user_id', userId)
         .neq('status', 'dismissed')
         .order('created_at', { ascending: false })

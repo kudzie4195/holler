@@ -2,6 +2,7 @@ import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 import { countiesFromSame, countiesFromUgc } from '@/lib/geo/county';
+import { capHazardOf } from '../weather-hazard';
 
 /**
  * National Weather Service active alerts.
@@ -227,6 +228,13 @@ export function parseNws(raw: unknown): SignalInput[] {
       occurredAt,
       expiresAt,
     };
+    // Round 33 (HAIL): the alert's own hail size, gust and threat tags (CAP parameters; the description text when it has none). Stored on
+    // every alert; read by the routing only while HOLLER_HAIL_ROUTING_ENABLED is on (lib/signals/weather-hazard.ts). Null numbers and tags
+    // are not written; data.hazardFrom is always written ('cap', 'text', 'cap+text' or 'none'), so a later read never re-reads the text
+    // (review P1-2: a CAP "0.00" stays none).
+    const hz = capHazardOf(p.parameters, `${headline}. ${description}`, event);
+    const hazard: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(hz)) if (v !== null) hazard[k] = v;
     const data = {
       event,
       nwsSeverity: p.severity ?? null,
@@ -236,6 +244,7 @@ export function parseNws(raw: unknown): SignalInput[] {
       senderName: p.senderName ?? null,
       states,
       hasGeometry: !!centroid,
+      ...hazard,
     };
 
     if (centroid) {

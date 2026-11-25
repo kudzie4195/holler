@@ -7,6 +7,7 @@ import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName, stripActor } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
+import { businessTagFixEnabled, businessTradesForText, hasBusinessTypeList, trustedPoint, zipVerdict } from '@/lib/signals/mapping/business';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
 import { haversineMi, lookupZip } from '@/lib/geo';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
@@ -62,9 +63,14 @@ function validLatLon(lat: number | null, lon: number | null): { lat: number; lon
 }
 
 /** Socrata `location` / `point` values come as {latitude, longitude} strings or GeoJSON Points. */
-export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon: number; approx: boolean } | null {
+export function extractLatLon(row: Row, ds: SocrataDataset, guarded = false): { lat: number; lon: number; approx: boolean } | null {
+  // Round 33 (guarded = the switch is on and the dataset has an areaGuard): a point the feed cannot be believed about (longitude equal to
+  // latitude, or outside the source's state) is skipped, and a row with no point is NEVER put at fallbackCenter: it gets its in-area ZIP's
+  // centroid (flagged approximate) or no point.
+  const g = guarded ? ds.areaGuard : undefined;
+  const ok = (p: { lat: number; lon: number } | null) => (p && (!g || trustedPoint(p.lat, p.lon, g)) ? p : null);
   if (ds.latField && ds.lonField) {
-    const p = validLatLon(num(row[ds.latField]), num(row[ds.lonField]));
+    const p = ok(validLatLon(num(row[ds.latField]), num(row[ds.lonField])));
     if (p) return { ...p, approx: false };
   }
   if (ds.locationField) {
@@ -72,10 +78,10 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
     if (v && typeof v === 'object') {
       const o = v as Record<string, unknown>;
       if (Array.isArray(o.coordinates) && o.coordinates.length >= 2) {
-        const p = validLatLon(num(o.coordinates[1]), num(o.coordinates[0]));
+        const p = ok(validLatLon(num(o.coordinates[1]), num(o.coordinates[0])));
         if (p) return { ...p, approx: false };
       }
-      const p = validLatLon(num(o.latitude), num(o.longitude));
+      const p = ok(validLatLon(num(o.latitude), num(o.longitude)));
       if (p) return { ...p, approx: false };
     }
   }
@@ -86,9 +92,17 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
       let a = Number(m[1]);
       let b = Number(m[2]);
       if (a < 0 && b > 0) [a, b] = [b, a]; // "lon, lat" order guard for US coordinates
-      const p = validLatLon(a, b);
+      const p = ok(validLatLon(a, b));
       if (p) return { ...p, approx: false };
     }
+  }
+  if (g) {
+    if (ds.zipField && zipVerdict(s(row, ds.zipField), g, ds.state) === 'in') {
+      const z = lookupZip(s(row, ds.zipField));
+      const p = z ? validLatLon(z.lat, z.lon) : null;
+      if (p) return { ...p, approx: true };
+    }
+    return null;
   }
   if (ds.zipCentroid && ds.zipField) {
     // Round 19 coverage (Dallas): no coordinates in the feed, so the ZIP centroid, only when the ZIP is in the dataset's own state AND
@@ -102,6 +116,21 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
   }
   if (ds.fallbackCenter) return { ...ds.fallbackCenter, approx: true };
   return null;
+}
+
+/**
+ * Round 33: the area guard of a dataset that lists businesses a city licenses wherever they are (Los Angeles: ZIPs in Gilroy, Las Vegas and
+ * Washington; NYC: out-of-state and Long Island addresses). True when the row's own evidence puts it outside `ds.areaGuard.maxMi` of
+ * `near`: a believable point (not lat = lon, inside the state box) farther away, or a 5 digit ZIP whose centroid is, that is unknown, or
+ * that is in another state. A row with no believable point and no 5 digit ZIP ("7102", "N/A", none) says nothing against the area and is
+ * kept WITHOUT a point (extractLatLon never puts it at the fallback centre), so no member is matched to it by place.
+ */
+export function outsideAreaGuard(row: Row, ds: Pick<SocrataDataset, 'areaGuard' | 'latField' | 'lonField' | 'locationField' | 'latLonTextField' | 'zipField' | 'state'>): boolean {
+  const g = ds.areaGuard;
+  if (!g) return false;
+  const p = extractLatLon(row, { ...ds, zipCentroid: undefined, fallbackCenter: undefined } as SocrataDataset, true);
+  if (p && !p.approx && haversineMi(g.near.lat, g.near.lon, p.lat, p.lon) > g.maxMi) return true;
+  return !!ds.zipField && zipVerdict(s(row, ds.zipField), g, ds.state) === 'out';
 }
 
 /**
@@ -177,13 +206,21 @@ export function toIso(v: unknown, tz?: string): string | null {
   return new Date(guess).toISOString();
 }
 
-export function categorize(ds: Pick<SocrataDataset, 'subtype'> & { extraRules?: SocrataDataset['extraRules'] }, text: string): { categories: CategoryId[]; severity: Severity } {
+export function categorize(
+  ds: Pick<SocrataDataset, 'subtype'> & { id?: string; extraRules?: SocrataDataset['extraRules'] },
+  text: string,
+  opts: { businessTagFix?: boolean } = {},
+): { categories: CategoryId[]; severity: Severity } {
   // Permits: one classification for trades and title (lib/signals/mapping/permit.ts). Plain text is read as description values.
   if (ds.subtype === 'permit') return { categories: classifyPermit({ structured: [], free: text.split(' | ') }).categories, severity: 1 };
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
   // Round 20 (NEXT): a dataset's own extra rules run after the subtype's (a liquor licence layer that is all restaurants; NYC HPD order wording).
-  for (const rule of [...RULES_BY_SUBTYPE[ds.subtype], ...(ds.extraRules ?? [])]) {
+  // Round 33 (switch HOLLER_BUSINESS_TAG_FIX_ENABLED, off by default): a licence of a source that has a licence-type list is tagged by its own
+  // type (lib/signals/mapping/business.ts) and not by the blanket BUSINESS_RULES set. Other business feeds (probation) are unchanged.
+  const typeTagged = ds.subtype === 'business' && (opts.businessTagFix ?? businessTagFixEnabled()) && hasBusinessTypeList(ds.id);
+  if (typeTagged) businessTradesForText(ds.id, text).forEach((c) => set.add(c));
+  for (const rule of [...(typeTagged ? [] : RULES_BY_SUBTYPE[ds.subtype]), ...(ds.extraRules ?? [])]) {
     if (rule.re.test(text) && !rule.unless?.test(text)) {
       rule.add.forEach((c) => set.add(c));
       if (rule.severity && rule.severity > severity) severity = rule.severity;
@@ -466,7 +503,8 @@ function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: str
  * `shapeOk` counts rows that look like the configured shape before any trade filtering, so the adapter can tell
  * "columns changed" (shapeOk 0) from "nothing relevant today". Never throws: malformed input returns an empty report.
  */
-export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date } = {}): ParseReport {
+export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date; businessTagFix?: boolean } = {}): ParseReport {
+  const businessTagFix = opts.businessTagFix ?? businessTagFixEnabled();
   const report: ParseReport = { items: [], rows: 0, shapeOk: 0 };
   // Round 19 coverage: with a query column other than the record date, an old record touched again is dropped by its own date.
   // Applied only when the caller passes `now` (the adapter and the probe do), so a pure parse of fixture rows does not depend on the clock.
@@ -497,6 +535,11 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         report.keptOut = (report.keptOut ?? 0) + 1;
         continue;
       }
+      // Round 33 (same switch): a business licence whose own coordinates or ZIP lie outside the dataset's area is not placed in its city.
+      if (businessTagFix && ds.subtype === 'business' && outsideAreaGuard(row, ds)) {
+        report.keptOut = (report.keptOut ?? 0) + 1;
+        continue;
+      }
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
@@ -505,7 +548,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       if (seen.has(externalId)) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (f) => s(row, f)) : null;
-      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text);
+      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text, { businessTagFix });
       // Round 20 (NEXT): a certificate of occupancy is a heads-up for the trades that work on a finished, newly occupied building.
       const categories = ds.occupancy && ds.subtype === 'permit' ? [...new Set([...classified.categories, ...OCCUPANCY_TRADES])] : classified.categories;
       const severity = classified.severity;
@@ -581,7 +624,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         ? businessSummary(summaryParts, address)
         : publicSummary(summaryParts, { minChars: ds.subtype === 'permit' ? 15 : undefined });
 
-      const exactPos = extractLatLon(row, ds);
+      const exactPos = extractLatLon(row, ds, businessTagFix && ds.subtype === 'business');
       const pos = privatePosition(exactPos, ds.subtype);
       // Final review P2-1: the building of a NYC whole-building heat complaint, as a keyed hash of its exact point (building-ref.ts).
       const bref = isWholeBuildingHeat({ source: ds.id, title }) ? buildingRefOf(exactPos?.lat, exactPos?.lon) : null;

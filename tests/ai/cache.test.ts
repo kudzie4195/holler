@@ -47,7 +47,8 @@ describe('skipped sources', () => {
     const { HOLLER_REQUEST_SOURCE } = await import('../../lib/signals/request-visibility');
     const ids = new Set(ALL_ADAPTERS.map((a) => a.id));
     for (const s of SKIP_SOURCES) if (s !== HOLLER_REQUEST_SOURCE) expect(ids.has(s), s).toBe(true);
-    expect([...SKIP_SOURCES].sort()).toEqual(['faa', 'fema', 'holler-request', 'nws', 'spc', 'usgs']);
+    // Round 33: NWS local storm reports (lsr) are weather, like spc.
+    expect([...SKIP_SOURCES].sort()).toEqual(['faa', 'fema', 'holler-request', 'lsr', 'nws', 'spc', 'usgs']);
   });
 
   it('a resident request never goes to the model', async () => {

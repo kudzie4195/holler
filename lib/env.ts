@@ -50,6 +50,12 @@ export const ENV_KEYS = [
   'HOLLER_PREVIEW_FIXTURES',
   'HOLLER_QUIET_WEEK_ENABLED',
   'HOLLER_SEASON_ENABLED',
+  'HOLLER_SAM_BACKFILL_ENABLED',
+  'HOLLER_SAM_LABELS_ENABLED',
+  'HOLLER_BUSINESS_TAG_FIX_ENABLED',
+  'HOLLER_ERATE_ENABLED',
+  'HOLLER_HAIL_ROUTING_ENABLED',
+  'HOLLER_LSR_ENABLED',
   'HOLLER_MANUAL_BIDS_ENABLED',
   'HOLLER_OWNER_USER_ID',
 ] as const;
@@ -121,6 +127,18 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
   // Round 30: the season line in the alert and quiet-week emails (lib/season/active.ts seasonEmailEnabled). Read again at call time there.
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
+  // Round 33: the one-off SAM.gov backfill (scripts/sam-backfill.ts, lib/signals/sam-backfill.ts). Read at call time there; no cron or page reads it.
+  HOLLER_SAM_BACKFILL_ENABLED: process.env.HOLLER_SAM_BACKFILL_ENABLED,
+  // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Read again at call time there. Off unless 1, true, on or yes.
+  HOLLER_SAM_LABELS_ENABLED: process.env.HOLLER_SAM_LABELS_ENABLED,
+  // Round 33: new-business licences tagged by their own type, and rows outside the source's area dropped (lib/signals/mapping/business.ts). Read again at call time there.
+  HOLLER_BUSINESS_TAG_FIX_ENABLED: process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED,
+  // Round 33: E-Rate school and library network bids (lib/signals/adapters/erate.ts); read at call time in lib/signals/bid-sources.ts. Off unless 1, true, on or yes.
+  HOLLER_ERATE_ENABLED: process.env.HOLLER_ERATE_ENABLED,
+  // Round 33: hail size and gust routing plus the alert line on weather cards (lib/signals/weather-hazard.ts hailRoutingEnabled). Read again at call time there.
+  HOLLER_HAIL_ROUTING_ENABLED: process.env.HOLLER_HAIL_ROUTING_ENABLED,
+  // Round 33: NWS local storm reports from the Iowa Environmental Mesonet (lib/signals/adapters/lsr.ts lsrEnabled). Read again at call time there.
+  HOLLER_LSR_ENABLED: process.env.HOLLER_LSR_ENABLED,
   // Round 33: the owner's hand-added bid pages (/app/owner/bids, lib/signals/manual-bids/flag.ts reads it again at call time).
   HOLLER_MANUAL_BIDS_ENABLED: process.env.HOLLER_MANUAL_BIDS_ENABLED,
   // Round 33 review P1-1: the Supabase user id (UUID) of the owner's own account; the only account that can open /app/owner/bids. Read

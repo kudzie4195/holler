@@ -1,6 +1,7 @@
 import type { Adapter } from './types';
 import { adapters as nws } from './adapters/nws';
 import { adapters as spc } from './adapters/spc';
+import { adapters as lsr } from './adapters/lsr';
 import { adapters as fema } from './adapters/fema';
 import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
@@ -15,6 +16,7 @@ import { adapters as usaspending } from './adapters/usaspending';
 import { adapters as sam } from './adapters/sam';
 import { adapters as cityBids } from './adapters/city-bids';
 import { adapters as localBids } from './adapters/bids-local';
+import { adapters as erate } from './adapters/erate';
 import { adapters as pageWatch } from './adapters/page-watch';
 import { adapters as ticketmaster } from './adapters/ticketmaster';
 import { adapters as bluesky } from './adapters/bluesky';
@@ -24,6 +26,8 @@ import { adapters as houstonPermits } from './adapters/houston-permits';
 export const ALL_ADAPTERS: Adapter[] = [
   ...nws,
   ...spc,
+  // Round 33: NWS local storm reports SPC does not carry (non-thunderstorm wind). Off unless HOLLER_LSR_ENABLED is on.
+  ...lsr,
   ...fema,
   ...usgs,
   ...faa,
@@ -45,6 +49,8 @@ export const ALL_ADAPTERS: Adapter[] = [
   ...cityBids,
   // Atlanta-area county and city bid pages read with Firecrawl: on only with HOLLER_BIDS_ENABLED and FIRECRAWL_API_KEY both set.
   ...localBids,
+  // Round 33: USAC E-Rate Form 470 requests (schools and libraries, network cabling): on only with HOLLER_ERATE_ENABLED and HOLLER_BIDS_ENABLED both set.
+  ...erate,
   // Round 20 page watch: public bid pages read with a plain fetch (Firecrawl only where a page needs a browser). All on probation.
   ...pageWatch,
   ...ticketmaster,
