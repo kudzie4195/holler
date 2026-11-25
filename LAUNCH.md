@@ -101,8 +101,10 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    also carries the "Background" label and a licence sentence on the card (without it the card shows as a plain card). Stored rows keep their old tags until you
    run the re-tag in the report (OWNER MUST RUN after review).
    Round 34 switch audit: this switch is INLINED AT BUILD (next.config.ts `env`, lib/build-switches.ts), because the feed card in the
-   browser reads it too. Changing it in Vercel does nothing until you redeploy. An instant rollback, or promoting an earlier deployment,
-   brings back the value THAT build was made with, whatever Vercel shows now. Off again: empty it and redeploy.
+   browser reads it too. Changing it in Vercel does nothing until you redeploy. An instant rollback (or promoting an earlier Production
+   deployment) serves that build as it is, with the value it was built with, whatever Vercel shows now. Promoting a Preview deployment to
+   Production is a new build with the Production variables, so a value set only in Preview comes out as Production has it (empty: off).
+   Off again: empty it and redeploy.
    NEEDS KUDZI (round 33 E-Rate, USAC FCC Form 470 school and library cabling bids): `HOLLER_ERATE_ENABLED` stays empty at the deploy.
    Production already has `HOLLER_BIDS_ENABLED=1` (live bids-sf, bids-la and bids-batonrouge rows), so in Production this switch is the
    only one left to turn. Off, the scan does not request anything from opendata.usac.org, and any stored `bids-erate` row is hidden from
@@ -673,10 +675,13 @@ Optional data sources. Each missing key shows up as "skipped(env)" in the scan t
 
 - [ ] Run `npm run typecheck` once and fix anything it reports. It runs `next typegen` first, then the TypeScript check; a bare `tsc --noEmit` on a fresh checkout fails on the generated page types.
 - [ ] Push to the production branch (or `vercel --prod`). `NEXT_PUBLIC_*` values are baked in at build time, so change one, redeploy.
-- [ ] Know this (round 34 switch audit): `HOLLER_SAM_LABELS_ENABLED` and `HOLLER_BUSINESS_TAG_FIX_ENABLED` are baked in at build time too
-  (next.config.ts `env`; the list is lib/build-switches.ts), as "1" or empty, never their raw text. Change one, redeploy. A rollback or a
-  promote serves that deployment's own value. Every other switch is read by server code only. After a build, `npm run check:client-switches`
-  fails if any browser chunk still reads a server variable (any `lib/env.ts` name except `NEXT_PUBLIC_*`) at runtime.
+- [ ] Know this (round 34 switch audit): every switch listed in next.config.ts `env` is baked in at build time too, as "1" or empty, never
+  its raw text (a name that is not a `HOLLER_..._ENABLED` switch stops the build). This change lists `HOLLER_SAM_LABELS_ENABLED` and
+  `HOLLER_BUSINESS_TAG_FIX_ENABLED` (lib/build-switches.ts); another change may list its own switch there and says so in its note. Change
+  one, redeploy. An instant rollback serves that deployment's own value; promoting a Preview deployment rebuilds it with the Production
+  variables. `npm run build`, and so every Vercel build, ends with `node scripts/check-client-switches.mjs`: the build FAILS if a browser
+  chunk reads any server variable at runtime (any env read except `NODE_ENV` and `NEXT_PUBLIC_*`, listed in `lib/env.ts` or not). So a
+  switch that is not in `env` is read by server code only. A message that only names a variable is a warning, not a failure.
 - [ ] Confirm the build is green and `<SITE>` loads.
 - [ ] Know this: `REQUESTS_ENABLED` is the off switch for new resident requests. Leave it unset (on). Set it to `0` if the form is abused: the API answers 503 at once, and the `/request` page shows "Requests are paused" after the next deploy. Requests already made keep working. On top of that, at most 300 confirmation emails go out per day site-wide.
 - [ ] Know this: adding or removing an optional key (Brave, Serper, Bluesky, Ticketmaster, SAM) needs a redeploy before the public pages change. The home page, /about and /llms.txt are built at deploy time and name a source only when its key was set then. Onboarding and Settings read the keys on each request, so off Vercel they can disagree with the home page until you rebuild.
@@ -872,8 +877,9 @@ NEEDS KUDZI. Nothing here has been run against production. Two switches, both OF
    migration, nothing shown); notices stored before this change have none, so a card with no set-aside line is not proof of an open competition.
    Round 34 switch audit: this switch is INLINED AT BUILD (next.config.ts `env`, lib/build-switches.ts), because the feed card in the browser
    reads it too (before, the browser never saw it and the card's reason line flipped back after the page loaded). Changing it in Vercel does
-   nothing until you redeploy. An instant rollback, or promoting an earlier deployment, brings back the value THAT build was made with,
-   whatever Vercel shows now. Off again: empty it and redeploy.
+   nothing until you redeploy. An instant rollback (or promoting an earlier Production deployment) serves that build as it is, with the
+   value it was built with, whatever Vercel shows now. Promoting the Preview deployment you read the wording on is a new build with the
+   Production variables: set the switch in Production before you promote, or it comes out off. Off again: empty it and redeploy.
 2. `HOLLER_SAM_BACKFILL_ENABLED` (off unless `1`, `true`, `on` or `yes`; only the owner's script reads it). The backfill reads still-open
    notices posted in the last 90 days, one request per state and procurement type (GA, TX, NC, SC, AZ, CA, DC, DE, FL, IL, MD, NJ, NY, PA, VA;
    types o, k, r, p: 60 tasks, more when a state has over 1,000). Documented limit (`open.gsa.gov/api/entity-api`): 10 requests a day for a

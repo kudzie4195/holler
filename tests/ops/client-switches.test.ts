@@ -10,7 +10,8 @@
  * this change) must disagree with the server when the switch is on, so the test can tell the difference.
  */
 import { createRequire } from 'node:module';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
@@ -18,8 +19,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { rolldown } from 'rolldown';
 import { BriefBlock, type BriefBlockItem } from '@/components/feed/brief-block';
 import { labelFor, storefrontKindOfName } from '@/lib/signals/lead-rules';
-import { INLINED_SWITCHES, inlinedSwitchEnv, switchOn, type InlinedSwitch } from '@/lib/build-switches';
-import { chunkHits, serverEnvNames } from '@/lib/build-switch-check';
+import { INLINED_SWITCHES, inlinedSwitchEnv, normalizeSwitchEnv, switchOn, type InlinedSwitch } from '@/lib/build-switches';
+import { envKeysFromSource, main as checkMain, scanChunk, secretValues } from '@/scripts/check-client-switches.mjs';
 import { ENV_KEYS } from '@/lib/env';
 import type { CategoryId } from '@/lib/signals/categories';
 
@@ -132,13 +133,24 @@ describe('the switches the browser reads are inlined at build', () => {
     for (const v of [undefined, null, '', '0', 'false', 'off', 'no', '2']) expect(switchOn(v)).toBe(false);
   });
 
-  it('next.config.ts puts them in `env` (so Next replaces them in both bundles) and keeps any other `env` entry', async () => {
+  it('next.config.ts puts them in `env` (so Next replaces them in both bundles); every entry is a switch holding "1" or ""', async () => {
     expect(await nextConfigEnv({})).toMatchObject({ HOLLER_SAM_LABELS_ENABLED: '', HOLLER_BUSINESS_TAG_FIX_ENABLED: '' });
-    expect(await nextConfigEnv({ HOLLER_SAM_LABELS_ENABLED: 'on', HOLLER_BUSINESS_TAG_FIX_ENABLED: '1' })).toMatchObject({
-      HOLLER_SAM_LABELS_ENABLED: '1',
-      HOLLER_BUSINESS_TAG_FIX_ENABLED: '1',
-    });
-    expect(readFileSync(join(ROOT, 'next.config.ts'), 'utf8')).toContain('nextConfig.env = { ...nextConfig.env, ...inlinedSwitchEnv(process.env) };');
+    const on = await nextConfigEnv({ HOLLER_SAM_LABELS_ENABLED: 'on', HOLLER_BUSINESS_TAG_FIX_ENABLED: '1' });
+    expect(on).toMatchObject({ HOLLER_SAM_LABELS_ENABLED: '1', HOLLER_BUSINESS_TAG_FIX_ENABLED: '1' });
+    // Every key (also one another change adds to the object literal) is an on/off switch, and every value is "1" or "".
+    for (const [k, v] of Object.entries(on)) {
+      expect(k).toMatch(/^HOLLER_[A-Z0-9_]+_ENABLED$/);
+      expect(['1', '']).toContain(v);
+    }
+    expect(readFileSync(join(ROOT, 'next.config.ts'), 'utf8')).toContain('nextConfig.env = normalizeSwitchEnv({ ...nextConfig.env, ...inlinedSwitchEnv(process.env) });');
+  });
+
+  it('normalizeSwitchEnv inlines any switch as "1" or "" and stops the build on a name that is not a switch', () => {
+    expect(normalizeSwitchEnv({ HOLLER_OTHER_ENABLED: ' TRUE ', HOLLER_SAM_LABELS_ENABLED: 'sk_live_raw_text' })).toEqual({ HOLLER_OTHER_ENABLED: '1', HOLLER_SAM_LABELS_ENABLED: '' });
+    expect(normalizeSwitchEnv(undefined)).toEqual({});
+    for (const bad of ['CRON_SECRET', 'HOLLER_BUILDING_REF_SECRET', 'STRIPE_SECRET_KEY', 'NEXT_PUBLIC_SITE_URL', 'HOLLER_LOOKUP_MAX_PER_RUN']) {
+      expect(() => normalizeSwitchEnv({ [bad]: '1' }), bad).toThrow(/not an on\/off switch/);
+    }
   });
 
   it('every reader uses the plain member expression Next can replace (no `?.`, no computed lookup) in app code', () => {
@@ -207,33 +219,88 @@ describe('client-rendered card equals server-rendered card, switch on and off', 
   }, 60_000);
 });
 
-describe('scripts/check-client-switches.ts (the build-chunk check)', () => {
-  const names = serverEnvNames();
-  it('checks every ENV_KEYS name except NEXT_PUBLIC_*, so every switch and every secret is covered', () => {
-    expect(names).toContain('HOLLER_SAM_LABELS_ENABLED');
-    expect(names).toContain('HOLLER_BUSINESS_TAG_FIX_ENABLED');
-    expect(names).toContain('HOLLER_HAIL_ROUTING_ENABLED');
-    expect(names).toContain('CRON_SECRET');
-    expect(names.some((n) => n.startsWith('NEXT_PUBLIC_'))).toBe(false);
-    expect(names.length).toBe(ENV_KEYS.length - ENV_KEYS.filter((k) => k.startsWith('NEXT_PUBLIC_')).length);
+describe('scripts/check-client-switches.mjs (the build-chunk check, run by npm run build)', () => {
+  const envKeys = envKeysFromSource(readFileSync(join(ROOT, 'lib/env.ts'), 'utf8'));
+  const reads = (text: string, secrets: Record<string, string> = {}) => scanChunk('a.js', text, { envKeys, secrets }).reads;
+  const readNames = (text: string) => reads(text).map((r) => `${r.rule}:${r.name ?? ''}`);
+
+  it('reads ENV_KEYS from lib/env.ts', () => {
+    expect(envKeys).toContain('HOLLER_SAM_LABELS_ENABLED');
+    expect(envKeys).toContain('CRON_SECRET');
+    expect(envKeys.length).toBeGreaterThan(50);
   });
 
-  it('flags the runtime reads seen in main\'s browser chunk, in every form', () => {
+  it('fails on the runtime reads seen in main\'s browser chunk', () => {
     const mainChunk = 'n=function(e=void 0!==nD.default?nD.default.env?.HOLLER_SAM_LABELS_ENABLED:void 0){return"string"==typeof e}';
-    expect(chunkHits('a.js', mainChunk, names)).toEqual([expect.objectContaining({ file: 'a.js', name: 'HOLLER_SAM_LABELS_ENABLED', envRead: true })]);
-    expect(chunkHits('b.js', 'x=process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED', names)[0]).toMatchObject({ name: 'HOLLER_BUSINESS_TAG_FIX_ENABLED', envRead: true });
-    expect(chunkHits('c.js', 'x=e.env["HOLLER_ERATE_ENABLED"]', names)[0]).toMatchObject({ envRead: true });
-    expect(chunkHits('d.js', 'let F="HOLLER_STAGE_UPDATES_ENABLED";y=e.env[F]', names)[0]).toMatchObject({ name: 'HOLLER_STAGE_UPDATES_ENABLED', envRead: false });
+    expect(readNames(mainChunk)).toEqual(['env-member:HOLLER_SAM_LABELS_ENABLED']);
   });
 
-  it('passes an inlined chunk and does not match a longer name or NEXT_PUBLIC_*', () => {
-    const inlined = 'n=function(e=void 0!==nD.default?"1":void 0){return"string"==typeof e}';
-    expect(chunkHits('a.js', inlined, names)).toEqual([]);
-    expect(chunkHits('a.js', 'x=y.HOLLER_SAM_LABELS_ENABLED_V2+z.NEXT_PUBLIC_SUPABASE_URL', names)).toEqual([]);
+  it('fails on every form of a read: member, literal, dynamic, destructuring, alias, unlisted names and secrets', () => {
+    expect(readNames('x=process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED')).toEqual(['env-member:HOLLER_BUSINESS_TAG_FIX_ENABLED']);
+    expect(readNames('x=e.env["HOLLER_ERATE_ENABLED"]')).toEqual(['env-literal:HOLLER_ERATE_ENABLED']);
+    expect(readNames('x=e.env?.["HOLLER_ERATE_ENABLED"]')).toEqual(['env-literal:HOLLER_ERATE_ENABLED']);
+    expect(readNames('let F="HOLLER_STAGE_UPDATES_ENABLED";y=e.env[F]')).toEqual(['env-dynamic:']);
+    expect(readNames('let{HOLLER_BIDS_ENABLED:a,CRON_SECRET:b}=n.default.env;')).toEqual(['env-destructure:HOLLER_BIDS_ENABLED', 'env-destructure:CRON_SECRET']);
+    expect(readNames('const { HOLLER_LSR_ENABLED } = process.env;')).toEqual(['env-destructure:HOLLER_LSR_ENABLED']);
+    expect(readNames('let t=n.default.env;f(t.HOLLER_HAIL_ROUTING_ENABLED)')).toEqual(['env-alias:', 'watched-member:HOLLER_HAIL_ROUTING_ENABLED']);
+    // Names that are not in ENV_KEYS: the building-reference secret and the Vercel alias of the Resend key.
+    expect(readNames('k=process.env.HOLLER_BUILDING_REF_SECRET||""')).toEqual(['env-member:HOLLER_BUILDING_REF_SECRET']);
+    expect(readNames('k=process.env.resend_api_key_holler')).toEqual(['env-member:resend_api_key_holler']);
+    expect(readNames('k=process.env.SOME_NEW_API_KEY')).toEqual(['env-member:SOME_NEW_API_KEY']);
+    expect(readNames('k=o.HOLLER_NEW_THING_ENABLED')).toEqual(['watched-member:HOLLER_NEW_THING_ENABLED']);
+    expect(readNames('k=o["STRIPE_WEBHOOK_SECRET"]')).toEqual(['watched-member:STRIPE_WEBHOOK_SECRET']);
+    const hit = reads('let a="whsec_0123456789abcdef";', { STRIPE_WEBHOOK_SECRET: 'whsec_0123456789abcdef' });
+    expect(hit).toEqual([{ file: 'a.js', rule: 'secret-value', name: 'STRIPE_WEBHOOK_SECRET', context: '(value not printed)' }]);
   });
 
-  it('is wired as npm run check:client-switches', () => {
-    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
-    expect(pkg.scripts['check:client-switches']).toContain('scripts/check-client-switches.ts');
+  it('does not fail on text that names a variable (PR 18 owner message), inlined values, NEXT_PUBLIC_, NODE_ENV or framework constants', () => {
+    const pr18 = 'children:"HOLLER_BIDS_ENABLED is off, so no bid reaches a member until the owner turns it on."';
+    const r = scanChunk('a.js', pr18, { envKeys });
+    expect(r.reads).toEqual([]);
+    expect(r.mentions.map((m) => m.name)).toEqual(['HOLLER_BIDS_ENABLED']);
+    expect(scanChunk('a.js', 'let F="HOLLER_STAGE_UPDATES_ENABLED";', { envKeys }).reads).toEqual([]);
+    for (const ok of [
+      'n=function(e=void 0!==nD.default?"1":void 0){return"string"==typeof e}',
+      'u=process.env.NEXT_PUBLIC_SUPABASE_URL,v=n.env.NODE_ENV,w=e.env?.["NEXT_PUBLIC_SITE_URL"]',
+      // Next's process polyfill, verbatim from a browser chunk.
+      'exports=(null==(n=e.g.process)?void 0:n.env)&&"object"==typeof(null==(u=e.g.process)?void 0:u.env)?e.g.process:e.r(35451)',
+      'u.title="browser",u.browser=!0,u.env={},u.argv=[]',
+      'e===i.PAGE_SEGMENT_KEY||t===g.HEAD_REQUEST_KEY||r.requestKey===g.ROOT_SEGMENT_REQUEST_KEY',
+      '"verify.done_p":"Holler se lo envía por correo.","a":"envío"',
+    ]) {
+      expect(reads(ok), ok).toEqual([]);
+    }
+  });
+
+  it('only compares secret-like variables, never NEXT_PUBLIC_ ones', () => {
+    expect(Object.keys(secretValues({ CRON_SECRET: 'x', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'y', EMAIL_FROM: 'z', DATAFORSEO_LOGIN: 'l', FIREBASE_SERVICE_ACCOUNT_JSON: 'j' })).sort()).toEqual([
+      'CRON_SECRET',
+      'DATAFORSEO_LOGIN',
+      'FIREBASE_SERVICE_ACCOUNT_JSON',
+    ]);
+  });
+
+  it('exits 0 on a clean build folder, 1 on a planted read, 2 when there is no build', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'r34-check-'));
+    try {
+      mkdirSync(join(dir, 'chunks'));
+      writeFileSync(join(dir, 'chunks', 'a.js'), 'n=function(e=void 0!==nD.default?"1":void 0){return e};t="HOLLER_BIDS_ENABLED is off"');
+      const log: string[] = [];
+      expect(checkMain([dir], (l: string) => log.push(l))).toBe(0);
+      expect(log.some((l) => l.startsWith('WARN HOLLER_BIDS_ENABLED'))).toBe(true);
+      writeFileSync(join(dir, 'chunks', 'b.js'), 'x=nD.default.env?.HOLLER_HAIL_ROUTING_ENABLED');
+      expect(checkMain([dir], () => {})).toBe(1);
+      expect(checkMain([join(dir, 'missing')], () => {})).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('runs inside npm run build (so a Vercel build fails), and rolldown is a pinned devDependency', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string>; devDependencies: Record<string, string> };
+    expect(pkg.scripts.build).toBe('next build && node scripts/check-client-switches.mjs');
+    expect(pkg.scripts['check:client-switches']).toBe('node scripts/check-client-switches.mjs');
+    const vite = JSON.parse(readFileSync(join(ROOT, 'node_modules/rolldown/package.json'), 'utf8')) as { version: string };
+    expect(pkg.devDependencies.rolldown).toBe(vite.version);
   });
 });
