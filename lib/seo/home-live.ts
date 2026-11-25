@@ -59,11 +59,13 @@ export const NO_LIVE: HomeLive = { proof: null, map: null, weather: null };
 /**
  * The feeds figure: adapters in lib/signals/registry.ts ALL_ADAPTERS that read city or county open data (ids "socrata-*" and
  * "arcgis-*") or weather (kinds 'alert' and 'report': the National Weather Service and the NOAA Storm Prediction Center), and whose
- * required keys are set in this environment (the same test runScan uses, lib/signals/run.ts missingEnvFor). Exact, not a sample.
+ * required keys are set in this environment (the same test runScan uses, lib/signals/run.ts missingEnvFor). A source whose switch is off (`enabled()` false, e.g. HOLLER_LSR_ENABLED) is not counted. Exact, not a sample.
  */
-export function feedCount(adapters: Pick<Adapter, 'id' | 'kind' | 'requiresEnv' | 'probation'>[], env: Record<string, string | undefined>): number {
+export function feedCount(adapters: Pick<Adapter, 'id' | 'kind' | 'requiresEnv' | 'probation' | 'enabled'>[], env: Record<string, string | undefined>): number {
   return adapters.filter((a) => {
     if (a.probation) return false; // a source on probation is not live
+    // Round 33 review P1-1: a source behind a switch that is off (HOLLER_LSR_ENABLED) is not being checked, so it is not counted.
+    if (a.enabled && !a.enabled()) return false;
     const cityOrCounty = a.id.startsWith('socrata-') || a.id.startsWith('arcgis-');
     const weather = a.kind === 'alert' || a.kind === 'report';
     return (cityOrCounty || weather) && (a.requiresEnv ?? []).every((k) => !!env[k]);

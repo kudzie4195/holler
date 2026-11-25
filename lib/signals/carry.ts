@@ -300,6 +300,24 @@ export function strongestWeatherCell(row: (typeof WEATHER_EVENTS)[number] | null
   return cells.includes('coming_soon') ? 'coming_soon' : cells.length ? 'market_insight' : null;
 }
 
+/** Event rows the hail and gust routing never uses: floods and coastal products (a flood product's numbers are water, not roofs or trees). */
+const HAZARD_ROUTE_SKIPPED_ROWS: ReadonlySet<string> = new Set(['minor', 'coastal-flood-warning', 'coastal', 'flood-warning', 'flood-advisory-watch']);
+
+/**
+ * The level the hail and gust routing gives its trades on an NWS alert (review P2-1): a WARNING (or emergency) gets the strongest level its
+ * event row gives any trade; a WATCH, ADVISORY or statement gets feed only (market_insight), whatever its row gives snow removal; flood,
+ * coastal and no-cell rows route nothing (null).
+ */
+export function hazardRouteLevel(title: string | null | undefined): WeatherCell | null {
+  const row = weatherRowFor(title);
+  if (!row || HAZARD_ROUTE_SKIPPED_ROWS.has(row.id)) return null;
+  const strongest = strongestWeatherCell(row);
+  if (!strongest) return null;
+  const event = nwsEventOf(title);
+  const warning = /\b(?:warning|emergency)\b/.test(event) && !/\b(?:watch|advisory|statement)\b/.test(event);
+  return warning ? strongest : 'market_insight';
+}
+
 // ---- storm reports (lines 38 to 41) --------------------------------------------------------------------------------------------
 
 /** "1.75 inch hail reported near ..." gives 1.75; null when the title does not give a size. */
@@ -316,20 +334,49 @@ export const isWindDamageReport = (title: string | null | undefined) => /^wind d
 export const isTornadoReport = (title: string | null | undefined) => /^tornado/i.test((title ?? '').trim());
 
 /**
+ * Round 33 (review P1-3): the five facts the wind damage rule reads from a remark, as flags. The LSR adapter computes them from the remark in
+ * memory, stores the flags (never the remark) and writes a summary of fixed phrases (lsrSummaryOf) from which these same five facts are read
+ * back, so an LSR report and an SPC report with the same remark get the same label for every trade.
+ */
+export interface WindDamageFacts {
+  /** Trees, limbs or branches named (before the road exception). */
+  trees: boolean;
+  /** A road, highway, ramp or a blocked street or lane named. */
+  road: boolean;
+  /** A roof, shingles, siding or gutters named. */
+  roof: boolean;
+  /** A home, house, residence, garage, carport, porch, structure or building (or a roof) named. */
+  structure: boolean;
+  /** A home, house, yard or residence named (the road exception's "but at a home" test). */
+  homeOrYard: boolean;
+}
+
+export function windDamageFactsOf(text: string | null | undefined): WindDamageFacts {
+  const c = lower(text);
+  return {
+    trees: /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c),
+    road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c),
+    // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
+    // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
+    roof: /(?<!p)roof|shingle|siding|gutter/.test(c),
+    structure: /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/.test(c),
+    homeOrYard: /home|house|yard|residen/.test(c),
+  };
+}
+
+/**
  * Line 39: engine B's stormReportRule for a wind damage report, per trade, read from the report's own remark (the summary). A tree across
  * a highway, ramp or road is a road crew's job, not a homeowner's.
  */
+export function windDamageLevelOf(f: WindDamageFacts, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
+  const trees = f.trees && !(f.road && !f.homeOrYard);
+  if (trade === 'tree-service') return trees ? 'act_now' : f.roof ? 'market_insight' : 'coming_soon';
+  if (trade === 'roofing') return f.roof ? 'act_now' : 'coming_soon';
+  return f.structure ? 'act_now' : 'coming_soon';
+}
+
 export function windDamageLevel(summary: string | null | undefined, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
-  const c = lower(summary);
-  const road = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c);
-  const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c) && !(road && !/home|house|yard|residen/.test(c));
-  // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
-  // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
-  const roof = /(?<!p)roof|shingle|siding|gutter/.test(c);
-  const homeDamage = /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/.test(c);
-  if (trade === 'tree-service') return trees ? 'act_now' : roof ? 'market_insight' : 'coming_soon';
-  if (trade === 'roofing') return roof ? 'act_now' : 'coming_soon';
-  return homeDamage ? 'act_now' : 'coming_soon';
+  return windDamageLevelOf(windDamageFactsOf(summary), trade);
 }
 
 // ---- permit stages (criterion 6: stage updates unchanged) --------------------------------------------------------------------------
@@ -383,7 +430,7 @@ export function extraCarried(sig: CarryInput): CategoryId[] {
   if (source === 'nws' || kind === 'alert') {
     const row = weatherRowFor(sig.title);
     const base = [...(row?.carry ?? [])];
-    return source === 'nws' && strongestWeatherCell(row) ? plus(base) : base;
+    return source === 'nws' && hazardRouteLevel(sig.title) ? plus(base) : base;
   }
   if (source === 'spc' && isHailReport(sig.title)) {
     const inches = hailInchesOf(sig.title);

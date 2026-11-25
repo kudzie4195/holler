@@ -2,7 +2,8 @@ import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 import { WIND_CATS } from './spc';
-import { LSR_DAMAGE_PART, LSR_TREE_PART } from './lsr-parts';
+import { LSR_DAMAGE_PART, LSR_TREE_PART, lsrSummaryOf } from './lsr-parts';
+import { windDamageFactsOf } from '../carry';
 
 /**
  * Round 33 (HAIL): National Weather Service Local Storm Reports (LSRs), the reports SPC's preliminary storm reports do NOT carry.
@@ -19,8 +20,11 @@ import { LSR_DAMAGE_PART, LSR_TREE_PART } from './lsr-parts';
  * never lists are the wind damage and gusts NOT caused by a thunderstorm (winter storms, ice, strong gradient wind), which is where many
  * "tree down" reports come from. LSR_TYPES below lists every type and says why it is or is not kept; changing `keep` is a one-line change.
  *
- * Privacy: the remark is free text and can name a street or a person, so it is NEVER stored. It is read in memory only, to set two flags
- * (data.windDamage, data.treeDown). The point is rounded to 3 decimals (about a city block); LSR points are usually given to 2 decimals.
+ * Privacy: the remark is free text and can name a street or a person, so it is NEVER stored. It is read in memory only, for the five facts
+ * the wind damage rule reads (carry.ts windDamageFactsOf: trees, road, roof, structure, home or yard), stored as flags (data.treeDown,
+ * blocksRoad, roofNamed, onStructure, homeOrYard) and written back as fixed phrases (lsr-parts.ts lsrSummaryOf), so an LSR report gets the
+ * label an SPC report with the same remark gets (review P1-3). The place must look like "N DIR PLACE" or a plain place name, else the county
+ * is used (review P2-4). The point is rounded to 3 decimals (about a city block); LSR points are usually given to 2 decimals.
  *
  * Behind HOLLER_LSR_ENABLED (default off): the scan skips the adapter while it is off (no request at all).
  */
@@ -43,6 +47,13 @@ export const LSR_WFOS: readonly string[] = ['FFC', 'EWX', 'GSP', 'RAH', 'OKX', '
 /** How far back each run reads (the reports of a day keep arriving for hours; the store keeps one row per report). */
 export const LSR_LOOKBACK_HOURS = 36;
 
+/**
+ * Review P2-5: the window is longer than 24 hours, so one answer with no features at all means no report of ANY kind (snow, rain, wind,
+ * hail) from seven offices for more than a day. That is far more likely a request the feed no longer honours than quiet weather, so it is
+ * logged as an error: the run shows as failed in the health email, and after 24 hours the monitor's source_silent alert fires.
+ */
+export const LSR_EMPTY_LOG = `error: lsr returned 0 reports of any kind from ${LSR_WFOS.length} NWS offices over ${LSR_LOOKBACK_HOURS} hours; the request format may no longer work (check one busy day by hand)`;
+
 export const LSR_TYPES: ReadonlyArray<{ typetext: string; keep: boolean; kind: 'damage' | 'gust' | 'other'; why: string }> = [
   { typetext: 'NON-TSTM WND DMG', keep: true, kind: 'damage', why: 'Wind damage not from a thunderstorm (tree and limb reports in winter and gradient wind); SPC never lists it.' },
   { typetext: 'NON-TSTM WND GST', keep: true, kind: 'gust', why: 'A measured gust not from a thunderstorm; SPC never lists it. Kept from 50 mph, like SPC gusts.' },
@@ -50,13 +61,14 @@ export const LSR_TYPES: ReadonlyArray<{ typetext: string; keep: boolean; kind: '
   { typetext: 'TSTM WND DMG', keep: false, kind: 'other', why: 'Already stored from SPC: a second copy would be a duplicate card.' },
   { typetext: 'TSTM WND GST', keep: false, kind: 'other', why: 'Already stored from SPC: a second copy would be a duplicate card.' },
   { typetext: 'TORNADO', keep: false, kind: 'other', why: 'Already stored from SPC.' },
+  { typetext: 'SNOW/ICE DMG', keep: false, kind: 'other', why: 'Not wind: it needs its own title and card wording (ice on limbs), a later round.' },
 ];
 
 /** Gusts below this are not kept (the SPC adapter's floor). */
 export const LSR_MIN_GUST_MPH = 50;
 
 /** Summary parts Holler writes (fixed words, translated in lib/signals/summary-i18n.ts). The remark itself is never stored. */
-export { LSR_DAMAGE_PART, LSR_TREE_PART };
+export { LSR_DAMAGE_PART, LSR_TREE_PART, lsrSummaryOf };
 
 const TREE_RE = /\btrees?\b|\blimbs?\b|\bbranch(?:es)?\b|uproot|snapped/i;
 
@@ -69,10 +81,24 @@ function titleCase(s: string): string {
   return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
 }
 
-/** "1 W CHOKIO" gives "Chokio" (the place; the distance and bearing are dropped, as SPC's placeName does). */
+/**
+ * "1 W CHOKIO" gives "Chokio" (the place; the distance and bearing are dropped, as SPC's placeName does). Anything that is not a plain place
+ * name (digits, an "@", more than 40 characters, odd punctuation) gives null, so a free-text location never reaches a title.
+ */
 export function lsrPlace(city: string | null | undefined): string | null {
   const c = (city ?? '').replace(/^\d+(?:\.\d+)?\s+[NSEW]{1,3}\s+/i, '').trim();
-  return c ? titleCase(c) : null;
+  if (!c || c.length > 40 || !/^[a-z][a-z .'-]*$/i.test(c)) return null;
+  return titleCase(c);
+}
+
+/** A gust magnitude in mph from the feature's magnitude and unit (review P2-4). Knots are converted; an unknown unit gives null. */
+export function lsrGustMph(magnitude: unknown, unit: unknown): number | null {
+  const n = parseFloat(str(magnitude));
+  if (!Number.isFinite(n)) return null;
+  const u = str(unit).toUpperCase();
+  if (!u || u === 'MPH') return Math.round(n);
+  if (u === 'KT' || u === 'KTS' || u === 'KNOTS' || u === 'KNOT') return Math.round(n * 1.15078);
+  return null;
 }
 
 function str(v: unknown): string {
@@ -104,7 +130,8 @@ export function scanLsr(raw: unknown): LsrScan {
     const state = str(p.state || p.st).toUpperCase() || null;
     const county = str(p.county) ? titleCase(str(p.county)) : null;
     const city = lsrPlace(str(p.city));
-    const where = [city, state].filter(Boolean).join(', ') || [county, state].filter(Boolean).join(', ');
+    const where = [city ?? county, state].filter(Boolean).join(', ');
+    if (!city && !county) continue;
     if (!where) continue;
     const remark = str(p.remark);
     const occurredAt = new Date(valid).toISOString();
@@ -117,20 +144,24 @@ export function scanLsr(raw: unknown): LsrScan {
     let summary: string | null = null;
     let severity: Severity;
     if (type.kind === 'gust') {
-      const mph = Math.round(parseFloat(str(p.magnitude)));
-      if (!Number.isFinite(mph) || mph < LSR_MIN_GUST_MPH || mph > 250) continue;
+      const mph = lsrGustMph(p.magnitude, p.unit);
+      if (mph === null || mph < LSR_MIN_GUST_MPH || mph > 250) continue;
       title = `${mph} mph wind gust reported near ${where}`;
       severity = mph >= 75 ? 3 : mph >= 58 ? 2 : 1;
       data.windMph = mph;
       data.windDamage = false;
     } else {
       // A non-thunderstorm wind damage report: the type itself says damage. The flags say what the remark names; the remark is not kept.
-      const trees = remarkNamesTrees(remark);
+      const f = windDamageFactsOf(remark);
       title = `Wind damage reported near ${where}`;
-      summary = trees ? LSR_TREE_PART : LSR_DAMAGE_PART;
+      summary = lsrSummaryOf(f);
       severity = 2;
       data.windDamage = true;
-      data.treeDown = trees;
+      data.treeDown = f.trees;
+      data.blocksRoad = f.road;
+      data.roofNamed = f.roof;
+      data.onStructure = f.structure;
+      data.homeOrYard = f.homeOrYard;
     }
     // One row per report: the same report is often repeated in a later summary product, so the id leaves the product out.
     const externalId = `${typetext}:${occurredAt}:${la.toFixed(2)}:${lo.toFixed(2)}:${str(p.magnitude)}`;
@@ -194,6 +225,7 @@ export const lsrAdapter: Adapter = {
       }
       const scan = scanLsr(json);
       if (!Array.isArray((json as { features?: unknown } | null)?.features)) ctx.log('error: lsr response has no features array, wrapper may have changed');
+      else if (scan.rows === 0) ctx.log(LSR_EMPTY_LOG);
       else if (scan.rows > 0 && scan.usable === 0) ctx.log(`error: lsr parsed 0 of ${scan.rows} rows, shape may have changed`);
       return scan.signals;
     } catch (e) {

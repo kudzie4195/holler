@@ -15,7 +15,7 @@ import {
   kcPropertyTrades,
   nwsEventOf,
   orderText,
-  strongestWeatherCell,
+  hazardRouteLevel,
   titleBodyOf,
   violationTradeRoles,
   violationTrades,
@@ -830,7 +830,7 @@ export const RULES: readonly LabelRule[] = [
   // ---- weather, quakes, travel (lines 29 to 37, 42, 43) ----------------------------------------------------------------------------
   {
     // Round 33 (HAIL), behind HOLLER_HAIL_ROUTING_ENABLED: a hail size or gust at or above carry.ts HAZARD_ROUTES reaches its trades at the
-    // strongest level the event row already gives any trade (a warning: heads-up; a watch or advisory: feed only). Never weaker than the
+    // strongest level a WARNING's event row gives any trade; any watch, advisory or statement: feed only (carry.ts hazardRouteLevel). Never weaker than the
     // trade's own cell. Without facts (switch off) the rule does not fit and weather-table decides exactly as before.
     id: 'hazard-route',
     label: 'context',
@@ -838,11 +838,11 @@ export const RULES: readonly LabelRule[] = [
     needsTrade: true,
     when: (s, t) => !!t && hazardRouteTrades(s.weather).includes(t),
     pick: (s, t) => {
-      const row = weatherRowFor(s.title);
-      const strongest = strongestWeatherCell(row);
-      if (!row || !strongest) return null;
-      const own = t ? row.cells[t] : undefined;
-      return own === 'coming_soon' || strongest === 'coming_soon' ? 'coming_soon' : 'market_insight';
+      // A warning: the strongest level its row gives any trade; a watch, advisory or statement: feed only; flood and no-cell rows: nothing.
+      const level = hazardRouteLevel(s.title);
+      if (!level) return null;
+      const own = t ? weatherRowFor(s.title)?.cells[t] : undefined;
+      return own === 'coming_soon' || level === 'coming_soon' ? 'coming_soon' : 'market_insight';
     },
     why: 'The alert names hail of 1 inch or more (siding and gutters, roofing) or gusts of 58 mph or more (tree service, siding and gutters): the NWS severe criteria. It is a forecast, not damage.',
   },

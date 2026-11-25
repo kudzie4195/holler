@@ -26,8 +26,8 @@ export interface CapHazard {
   tornadoDetection: string | null;
   thunderstormDamageThreat: string | null;
   tornadoDamageThreat: string | null;
-  /** Where the two numbers came from: the CAP parameters, the alert text, or nowhere. */
-  hazardFrom: 'cap' | 'text' | null;
+  /** Where the two numbers came from: the CAP parameters, the alert text, both, or neither ('none'). Always set at ingest. */
+  hazardFrom: 'cap' | 'text' | 'cap+text' | 'none';
 }
 
 /** The facts the routing reads. */
@@ -80,83 +80,120 @@ function threat(v: unknown): string | null {
 }
 
 /**
- * Hail size words the National Weather Service uses, in inches. Source: NWS Fort Worth hail size guide (weather.gov/fwd/hailsizeguide,
- * checked 2026-11-25). That guide lists half dollar with ping pong ball at 1.50; here half dollar is 1.25, because that is what the weather
- * service's own alert says for it (NWS Tulsa, 2025-05-18: "HAZARD...Half dollar size hail" with CAP maxHailSize 1.25, fixture
- * tests/fixtures/nws-cap/tulsa-svr-2025-05-18-upto-50mph.json). Only used when an alert has no CAP size.
+ * Hail size words the National Weather Service uses, in inches, read only as "<word> size hail" or "<word> sized hail". Source: NWS Fort Worth
+ * hail size guide (weather.gov/fwd/hailsizeguide, checked 2026-11-25). That guide lists half dollar with ping pong ball at 1.50; here half
+ * dollar is 1.25, because that is what the weather service's own alert says for it (NWS Tulsa, 2025-05-18: "HAZARD...Half dollar size hail"
+ * with CAP maxHailSize 1.25, fixture tests/fixtures/nws-cap/tulsa-svr-2025-05-18-upto-50mph.json). Only used when an alert has no CAP size.
  */
-export const HAIL_SIZE_WORDS: ReadonlyArray<{ re: RegExp; inches: number }> = [
-  { re: /\bpea\b/, inches: 0.25 },
-  { re: /\bmarble\b/, inches: 0.5 },
-  { re: /\bpenny\b/, inches: 0.75 },
-  { re: /\bnickel\b/, inches: 0.88 },
-  { re: /\bquarter\b/, inches: 1.0 },
-  { re: /\bhalf dollar\b/, inches: 1.25 },
-  { re: /\bping pong\b/, inches: 1.5 },
-  { re: /\bgolf ?ball\b/, inches: 1.75 },
-  { re: /\bhen egg\b|\begg\b/, inches: 2.0 },
-  { re: /\btennis ball\b/, inches: 2.5 },
-  { re: /\bbaseball\b/, inches: 2.75 },
-  { re: /\bgrapefruit\b/, inches: 4.0 },
-  { re: /\bsoftball\b/, inches: 4.5 },
-];
+export const HAIL_SIZE_WORDS: Readonly<Record<string, number>> = {
+  pea: 0.25,
+  marble: 0.5,
+  penny: 0.75,
+  nickel: 0.88,
+  quarter: 1.0,
+  'half dollar': 1.25,
+  'ping pong ball': 1.5,
+  'ping pong': 1.5,
+  'golf ball': 1.75,
+  'hen egg': 2.0,
+  egg: 2.0,
+  'tennis ball': 2.5,
+  baseball: 2.75,
+  'tea cup': 3.0,
+  grapefruit: 4.0,
+  softball: 4.5,
+};
+
+/** A sentence that takes back what it names ("no longer expected", "not expected"): nothing in it is read. */
+const NEGATED = /\bno longer\b|\bnot (?:expected|anticipated|likely|forecast)\b|\bunlikely\b|\bno (?:large |severe )?hail\b|\b(?:is|are|will|was|were) not\b|\bhas ended\b|\bhave ended\b|\bdiminish/;
+
+/** Products whose text may name a hail size the routing reads: severe thunderstorm and tornado products (and their statements). */
+export const HAIL_TEXT_EVENTS = /severe thunderstorm|tornado/i;
+
+const SIZE_WORD_RE = new RegExp(`\\b(${Object.keys(HAIL_SIZE_WORDS).sort((a, b) => b.length - a.length).join('|')})[- ]size(?:d)? hail\\b`, 'g');
 
 /**
- * The largest hail and gust an alert's own TEXT names. For products without CAP parameters (High Wind Warning, Wind Advisory: "gusts up to
- * 75 mph expected") and rows stored before round 33. Reads only "N mph" next to "gust", and "N inch" or a size word next to "hail".
+ * The largest hail and gust an alert's own TEXT names, read ONLY in the exact NWS phrasings, sentence by sentence, skipping any sentence that
+ * takes it back. For products without CAP parameters (High Wind Warning: "gusts up to 75 mph expected") and rows stored before round 33.
+ *   gust: "gusts up to N mph", "gusts of N to M mph", "gusts to N mph", "wind gusts of N mph", "winds gusting as high as N mph",
+ *         "winds will gust as high as N mph", the HAZARD line "N mph wind gusts" (knots converted)
+ *   hail: "hail up to N inch(es)" (never "... inches deep"), "N inch hail", "two inch hail", "<size word> size hail" (HAIL_SIZE_WORDS),
+ *         and only when `event` is a severe thunderstorm or tornado product (a flood or winter product's "inches" is never hail).
+ * A town or road named Hail ("in Hailey", "Hail Creek"), rain or snow totals, storm motion and temperatures read nothing.
  */
-export function hazardFromText(text: string | null | undefined): WeatherFacts {
-  const t = (text ?? '').toLowerCase().replace(/\s+/g, ' ');
+export function hazardFromText(text: string | null | undefined, event?: string | null): WeatherFacts {
+  const hailAllowed = event === undefined || event === null ? true : HAIL_TEXT_EVENTS.test(event);
   let gust: number | null = null;
-  const bump = (n: number) => {
-    if (Number.isFinite(n) && n >= 1 && n <= 250 && (gust === null || n > gust)) gust = n;
-  };
-  // "gusts up to 75 mph", "gusts of 50 to 60 mph", "gusts to 70 mph", "gusts up to 70 to 75 mph", "gusts 50 to 60 mph"
-  for (const m of t.matchAll(/gusts?(?: (?:up to|of|to|as high as|near|around|over|in excess of))? (\d{2,3})(?: (?:to|-) (\d{2,3}))? mph/g)) {
-    bump(Number(m[1]));
-    if (m[2]) bump(Number(m[2]));
-  }
-  // The severe thunderstorm HAZARD line: "60 mph wind gusts and quarter size hail".
-  for (const m of t.matchAll(/(\d{2,3}) mph (?:wind )?gusts?/g)) bump(Number(m[1]));
   let hail: number | null = null;
-  const bumpHail = (n: number) => {
-    if (Number.isFinite(n) && n > 0 && n <= 8 && (hail === null || n > hail)) hail = n;
+  const bumpGust = (n: number) => {
+    if (Number.isFinite(n) && n >= 1 && n <= 250 && (gust === null || n > gust)) gust = Math.round(n);
   };
-  for (const m of t.matchAll(/(\d*\.\d+|\d+) ?(?:inch|in\.?)(?:es)? (?:diameter )?hail/g)) bumpHail(parseFloat(m[1]));
-  // "Two inch hail" (the HAZARD line spells whole inches out).
-  const WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
-  for (const m of t.matchAll(/\b(one|two|three|four) inch(?:es)? hail/g)) bumpHail(WORDS[m[1]]);
-  for (const m of t.matchAll(/hail (?:up to |of |to )?(\d*\.\d+|\d+) ?(?:inch|in\b)/g)) bumpHail(parseFloat(m[1]));
-  for (const m of t.matchAll(/([a-z ]{3,20}?) size hail/g)) for (const w of HAIL_SIZE_WORDS) if (w.re.test(m[1])) bumpHail(w.inches);
+  const bumpHail = (n: number) => {
+    if (Number.isFinite(n) && n > 0 && n <= 8 && (hail === null || n > hail)) hail = Math.round(n * 100) / 100;
+  };
+  const sentences = (text ?? '').toLowerCase().replace(/\s+/g, ' ').split(/\.{3}|\*|[.!?;](?=\s|$)/);
+  for (const sent of sentences) {
+    if (!sent.trim() || NEGATED.test(sent)) continue;
+    for (const m of sent.matchAll(/\bgust(?:s|ing)? (?:up to |of |to |as high as |near |around |in excess of )?(\d{2,3})(?: to (\d{2,3}))? (mph|kts?|knots)\b/g)) {
+      const k = m[3] === 'mph' ? 1 : 1.15078;
+      bumpGust(Number(m[1]) * k);
+      if (m[2]) bumpGust(Number(m[2]) * k);
+    }
+    for (const m of sent.matchAll(/\bwind gusts of (\d{2,3})(?: to (\d{2,3}))? mph\b/g)) {
+      bumpGust(Number(m[1]));
+      if (m[2]) bumpGust(Number(m[2]));
+    }
+    for (const m of sent.matchAll(/\b(\d{2,3}) mph wind gusts\b/g)) bumpGust(Number(m[1]));
+    if (!hailAllowed) continue;
+    for (const m of sent.matchAll(/\bhail (?:up to |of up to |of |to )(\d*\.\d+|\d+) inch(?:es)?\b(?! deep)(?! of (?:accumulation|ice))/g)) bumpHail(parseFloat(m[1]));
+    for (const m of sent.matchAll(/(?<![\d.])(\d*\.\d+|\d+)[- ]inch(?:es)? (?:diameter )?hail\b/g)) bumpHail(parseFloat(m[1]));
+    const WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    for (const m of sent.matchAll(/\b(one|two|three|four)[- ]inch(?:es)? hail\b/g)) bumpHail(WORDS[m[1]]);
+    for (const m of sent.matchAll(SIZE_WORD_RE)) bumpHail(HAIL_SIZE_WORDS[m[1]]);
+  }
   return { hailInches: hail, gustMph: gust };
 }
 
-/** CAP parameters to the stored fields; falls back to the alert text when the parameters name neither number. */
-export function capHazardOf(parameters: unknown, text?: string | null): CapHazard {
-  const p = (parameters && typeof parameters === 'object' ? parameters : {}) as Record<string, unknown>;
-  const hail = parseHailSize(p.maxHailSize);
-  const gust = parseWindGust(p.maxWindGust);
-  const base = {
+/**
+ * CAP parameters to the stored fields. Per number: when the CAP parameter is present the CAP value wins (also "0.00", which means none) and
+ * the text is never read for it; when it is absent the alert's own text is read (hazardFromText, hail only on severe thunderstorm and
+ * tornado products). hazardFrom is always set, so a later read of the row knows ingest already decided and never reads the text again.
+ */
+export function capHazardOf(parameters: unknown, text?: string | null, event?: string | null): CapHazard {
+  const p = (parameters && typeof parameters === 'object' && !Array.isArray(parameters) ? parameters : {}) as Record<string, unknown>;
+  const hailCap = p.maxHailSize !== undefined;
+  const gustCap = p.maxWindGust !== undefined;
+  const fromText = !hailCap || !gustCap ? hazardFromText(text, event ?? '') : { hailInches: null, gustMph: null };
+  const maxHailSizeIn = hailCap ? parseHailSize(p.maxHailSize) : fromText.hailInches;
+  const maxWindGustMph = gustCap ? parseWindGust(p.maxWindGust) : fromText.gustMph;
+  const usedText = (!hailCap && maxHailSizeIn !== null) || (!gustCap && maxWindGustMph !== null);
+  const usedCap = hailCap || gustCap;
+  return {
+    maxHailSizeIn,
+    maxWindGustMph,
     hailThreat: threat(p.hailThreat),
     windThreat: threat(p.windThreat),
     tornadoDetection: threat(p.tornadoDetection),
     thunderstormDamageThreat: threat(p.thunderstormDamageThreat),
     tornadoDamageThreat: threat(p.tornadoDamageThreat),
+    hazardFrom: usedCap && usedText ? 'cap+text' : usedCap ? 'cap' : usedText ? 'text' : 'none',
   };
-  if (hail !== null || gust !== null || p.maxHailSize !== undefined || p.maxWindGust !== undefined) {
-    return { ...base, maxHailSizeIn: hail, maxWindGustMph: gust, hazardFrom: hail !== null || gust !== null ? 'cap' : null };
-  }
-  const t = hazardFromText(text);
-  return { ...base, maxHailSizeIn: t.hailInches, maxWindGustMph: t.gustMph, hazardFrom: t.hailInches !== null || t.gustMph !== null ? 'text' : null };
 }
 
 /** PostgREST select aliases for the two stored numbers (the pattern of STAGE_SELECT). Added to every read that labels or draws a card. */
-export const WEATHER_SELECT = 'maxHailSizeIn:data->>maxHailSizeIn,maxWindGustMph:data->>maxWindGustMph';
+export const WEATHER_SELECT = 'maxHailSizeIn:data->>maxHailSizeIn,maxWindGustMph:data->>maxWindGustMph,hazardFrom:data->>hazardFrom';
 
 /** A stored or flat-selected number ("1.75" from data->>, 1.75 from data). */
 function storedNum(v: unknown): number | null {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** The NWS event of an alert title ("Severe Thunderstorm Warning: Seward, NE" gives "Severe Thunderstorm Warning"). */
+function eventOfTitle(title: string | null | undefined): string {
+  const t = title ?? '';
+  const at = t.indexOf(':');
+  return at >= 0 ? t.slice(0, at) : t;
 }
 
 /** The source families whose records carry hail or gust facts. */
@@ -182,6 +219,8 @@ export interface WeatherRow {
   /** Flat aliases from WEATHER_SELECT. */
   maxHailSizeIn?: unknown;
   maxWindGustMph?: unknown;
+  /** Set on every alert stored since round 33: ingest already decided, so the text is never read again. */
+  hazardFrom?: unknown;
   /** Or the whole data object (the matcher, the replay). */
   data?: Record<string, unknown> | null;
 }
@@ -197,7 +236,9 @@ export function weatherFactsOf(row: WeatherRow | null | undefined, enabled: bool
   if (source === 'nws') {
     const hail = storedNum(row.maxHailSizeIn ?? row.data?.maxHailSizeIn);
     const gust = storedNum(row.maxWindGustMph ?? row.data?.maxWindGustMph);
-    facts = hail !== null || gust !== null ? { hailInches: hail, gustMph: gust } : hazardFromText(row.summary);
+    const decided = typeof (row.hazardFrom ?? row.data?.hazardFrom) === 'string' || hail !== null || gust !== null;
+    // A row stored before round 33 has no hazardFrom: its summary text is read, hail only for severe thunderstorm and tornado products.
+    facts = decided ? { hailInches: hail, gustMph: gust } : hazardFromText(row.summary, eventOfTitle(row.title));
   } else if (STORM_SOURCES.has(source)) {
     facts = { hailInches: hailOfTitle(row.title), gustMph: gustMphOfTitle(row.title) };
   } else return null;
@@ -209,9 +250,4 @@ export function weatherCardFields(row: WeatherRow | null | undefined, enabled: b
   const source = (row?.source ?? '').trim().toLowerCase();
   const f = source === 'nws' ? weatherFactsOf(row, enabled) : null;
   return { alertHailIn: f?.hailInches ?? null, alertGustMph: f?.gustMph ?? null };
-}
-
-/** "1.75", "1", "0.88": the size as the alert writes it, without trailing zeros past the hundredths. */
-export function inchesText(n: number): string {
-  return String(Math.round(n * 100) / 100);
 }

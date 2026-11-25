@@ -42,7 +42,8 @@ describe('proof strip figures', () => {
   it('feeds: city and county open data adapters plus weather, keys set, counted exactly from the registry', () => {
     const n = feedCount(ALL_ADAPTERS, {});
     const expected = ALL_ADAPTERS.filter(
-      (a) => (/^(socrata|arcgis)-/.test(a.id) || a.kind === 'alert' || a.kind === 'report') && !(a.requiresEnv ?? []).length && !a.probation,
+      // Round 33 review P1-1: a source whose switch is off (enabled() false) is not counted.
+      (a) => (/^(socrata|arcgis)-/.test(a.id) || a.kind === 'alert' || a.kind === 'report') && !(a.requiresEnv ?? []).length && !a.probation && (!a.enabled || a.enabled()),
     ).length;
     expect(n).toBe(expected);
     expect(n).toBeGreaterThan(0);

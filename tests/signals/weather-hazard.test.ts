@@ -13,7 +13,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseNws } from '@/lib/signals/adapters/nws';
-import { LSR_DAMAGE_PART, LSR_TREE_PART, LSR_TYPES, lsrAdapter, lsrEnabled, lsrUrl, parseLsr, remarkNamesTrees, scanLsr } from '@/lib/signals/adapters/lsr';
+import { LSR_DAMAGE_PART, LSR_EMPTY_LOG, LSR_LOOKBACK_HOURS, LSR_TREE_PART, LSR_TYPES, LSR_WFOS, lsrAdapter, lsrEnabled, lsrGustMph, lsrPlace, lsrUrl, parseLsr, remarkNamesTrees, scanLsr } from '@/lib/signals/adapters/lsr';
+import { LSR_PARTS, lsrSummaryOf } from '@/lib/signals/adapters/lsr-parts';
+import { SKIP_SOURCES } from '@/lib/ai/classify';
+import { feedCount } from '@/lib/seo/home-live';
 import {
   capHazardOf,
   hailRoutingEnabled,
@@ -24,7 +27,7 @@ import {
   weatherFactsOf,
   WEATHER_SELECT,
 } from '@/lib/signals/weather-hazard';
-import { GUST_ROUTE_MIN_MPH, HAIL_ROUTE_MIN_INCHES, HAZARD_ROUTES, hazardRouteTrades } from '@/lib/signals/carry';
+import { GUST_ROUTE_MIN_MPH, HAIL_ROUTE_MIN_INCHES, HAZARD_ROUTES, hazardRouteTrades, windDamageFactsOf, windDamageLevelOf } from '@/lib/signals/carry';
 import { labelFor, labelForMember, recordLabelInput, ruleFor, SOURCE_DEFAULTS, type LabelInput } from '@/lib/signals/lead-rules';
 import { carriedTrades } from '@/lib/signals/permit-routing';
 import { alertLineFor, ALERT_LINE_NOTE, briefFamilyOf, cardBrief } from '@/lib/signals/brief';
@@ -120,7 +123,7 @@ describe('CAP parameters on real alerts', () => {
       expect(hazardFromText(hz), name).toEqual(want);
     }
     expect(capHazardOf({}, 'gusts up to 65 mph').hazardFrom).toBe('text');
-    expect(capHazardOf({}, 'Flooding of streets.')).toMatchObject({ maxHailSizeIn: null, maxWindGustMph: null, hazardFrom: null });
+    expect(capHazardOf({}, 'Flooding of streets.')).toMatchObject({ maxHailSizeIn: null, maxWindGustMph: null, hazardFrom: 'none' });
     expect(hazardFromText('Downtown streets near Hailey Road. 40 mph winds.')).toEqual({ hailInches: null, gustMph: null });
   });
 });
@@ -161,7 +164,7 @@ describe('the switch', () => {
     expect(weatherFactsOf(row)).toEqual({ hailInches: 2, gustMph: 60 });
     expect(weatherCardFields(row)).toEqual({ alertHailIn: 2, alertGustMph: 60 });
     expect(recordLabelInput(row).weather).toEqual({ hailInches: 2, gustMph: 60 });
-    expect(WEATHER_SELECT).toBe('maxHailSizeIn:data->>maxHailSizeIn,maxWindGustMph:data->>maxWindGustMph');
+    expect(WEATHER_SELECT).toBe('maxHailSizeIn:data->>maxHailSizeIn,maxWindGustMph:data->>maxWindGustMph,hazardFrom:data->>hazardFrom');
   });
 });
 
@@ -349,7 +352,7 @@ describe('NWS local storm reports (IEM GeoJSON), behind HOLLER_LSR_ENABLED', () 
     const tree = lsrFixture();
     tree.features = tree.features.filter((f: { id: string }) => f.id === '32').map((f: { properties: Record<string, unknown> }) => ({ ...f, properties: { ...f.properties, typetext: 'NON-TSTM WND DMG', type: 'O' } }));
     const [row] = parseLsr(tree);
-    expect(row.summary).toBe(LSR_TREE_PART);
+    expect(row.summary).toBe(`${LSR_TREE_PART} | It names a home`);
     expect(row.data?.treeDown).toBe(true);
   });
 
@@ -408,5 +411,189 @@ describe('NWS local storm reports (IEM GeoJSON), behind HOLLER_LSR_ENABLED', () 
   it('is registered with a source label', () => {
     expect(ALL_ADAPTERS.map((a) => a.id)).toContain('lsr');
     expect(getSourceMeta('lsr')?.label).toBe('NWS local storm reports');
+  });
+});
+
+// ---- Review fixes (round 33 review of PR 21) ---------------------------------------------------------------------------------------------
+
+describe('review P1-2: the text fallback reads only the exact NWS phrasing', () => {
+  // Every text of the reviewer's table (gates/r33/review/r33-hail/scripts/parser-table.ts), with the product it is read for.
+  const SVR = 'Severe Thunderstorm Warning';
+  const CASES: Array<[string, string, string, { hailInches: number | null; gustMph: number | null }]> = [
+    ['rain totals', 'Flood Watch', 'Rain totals up to 2 inches are expected. Additional rainfall of 1 to 2 inches possible.', { hailInches: null, gustMph: null }],
+    ['knots, below the line', 'Gale Warning', 'Northwest winds 20 to 30 knots with gusts up to 40 knots.', { hailInches: null, gustMph: 46 }],
+    ['knots', 'High Wind Warning', 'gusts up to 55 kt expected', { hailInches: null, gustMph: 63 }],
+    ['knots with mph in brackets', 'High Wind Warning', 'gusts up to 50 knots (58 mph)', { hailInches: null, gustMph: 58 }],
+    ['real High Wind Warning', 'High Wind Warning', 'West winds 35 to 45 mph with gusts up to 75 mph expected.', { hailInches: null, gustMph: 75 }],
+    ['gusting as high as', 'High Wind Warning', 'Winds gusting as high as 65 mph.', { hailInches: null, gustMph: 65 }],
+    ['could gust as high as', 'High Wind Warning', 'Winds could gust as high as 65 mph.', { hailInches: null, gustMph: 65 }],
+    ['negated gust', 'High Wind Warning', 'Gusts up to 60 mph are no longer expected, but gusts up to 45 mph will continue.', { hailInches: null, gustMph: null }],
+    ['negated gust, next sentence kept', 'High Wind Warning', 'Gusts up to 60 mph are no longer expected. Gusts up to 45 mph will continue.', { hailInches: null, gustMph: 45 }],
+    ['not expected', 'High Wind Watch', 'Gusts up to 70 mph are not expected.', { hailInches: null, gustMph: null }],
+    ['storm motion then gusty', SVR, 'moving east at 60 mph gusty winds and small hail are possible', { hailInches: null, gustMph: null }],
+    ['storm motion with a period', SVR, 'moving east at 60 mph. Gusty winds of 40 mph.', { hailInches: null, gustMph: null }],
+    ['sustained then mph gusts', 'Wind Advisory', 'sustained winds of 40 mph gusts to 55', { hailInches: null, gustMph: null }],
+    ['hail depth', SVR, 'Accumulating hail up to 3 inches deep was covering roads.', { hailInches: null, gustMph: null }],
+    ['hail depth, flash flood product', 'Flash Flood Warning', 'Accumulating hail up to 3 inches deep was covering roads.', { hailInches: null, gustMph: null }],
+    ['hail depth 2', SVR, 'pea size hail 2 inches deep on Interstate 25', { hailInches: 0.25, gustMph: null }],
+    ['hail accumulations', SVR, 'hail accumulations of 2 inches', { hailInches: null, gustMph: null }],
+    ['town named Hailey', 'Winter Storm Warning', 'Total snow accumulations of 3 to 5 inches in the valley, 5 to 8 in Hailey and Ketchum.', { hailInches: null, gustMph: null }],
+    ['town named Hailey, severe product', SVR, 'Total snow accumulations of 3 to 5 inches in the valley, 5 to 8 in Hailey and Ketchum.', { hailInches: null, gustMph: null }],
+    ['town named Hailey with inches', 'Winter Storm Warning', 'Total snow accumulations of 5 to 8 inches in Hailey.', { hailInches: null, gustMph: null }],
+    ['Hail Creek road', SVR, 'flooding on Highway 6 in Hail Creek', { hailInches: null, gustMph: null }],
+    ['snow then hail not expected', SVR, 'snow totals of 4 inches hail is not expected', { hailInches: null, gustMph: null }],
+    ['watch text', 'Severe Thunderstorm Watch', 'isolated very large hail events to 2 inches in diameter possible, scattered damaging wind gusts to 70 mph likely', { hailInches: null, gustMph: 70 }],
+    ['HAZARD line', SVR, 'HAZARD...60 mph wind gusts and quarter size hail.', { hailInches: 1, gustMph: 60 }],
+    ['HAZARD words', SVR, 'HAZARD...Two inch hail and 70 mph wind gusts.', { hailInches: 2, gustMph: 70 }],
+    ['golf ball sized', SVR, 'golf ball sized hail was reported', { hailInches: 1.75, gustMph: null }],
+    ['half dollar', SVR, 'HAZARD...Half dollar size hail.', { hailInches: 1.25, gustMph: null }],
+    ['penny to quarter', SVR, 'penny to quarter size hail', { hailInches: 1, gustMph: null }],
+    ['tea cup', SVR, 'tea cup size hail', { hailInches: 3, gustMph: null }],
+    ['no hail expected', SVR, 'quarter size hail is no longer expected with this storm', { hailInches: null, gustMph: null }],
+    ['temperature', SVR, 'temperatures of 60 mph gusts', { hailInches: null, gustMph: null }],
+    ['km/h', 'High Wind Warning', 'gusts up to 100 km/h', { hailInches: null, gustMph: null }],
+    ['hail up to N inches', SVR, 'Hail up to 1.75 inches in diameter is possible.', { hailInches: 1.75, gustMph: null }],
+    ['N inch hail on a winter product', 'Winter Storm Warning', 'HAZARD...Two inch hail and 70 mph wind gusts.', { hailInches: null, gustMph: 70 }],
+    ['wind gusts of N mph', 'Special Weather Statement', 'HAZARD...Wind gusts of 50 to 55 mph.', { hailInches: null, gustMph: 55 }],
+  ];
+  for (const [name, event, text, want] of CASES) {
+    it(name, () => expect(hazardFromText(text, event)).toEqual(want));
+  }
+
+  it('a CAP parameter that is present wins, including 0.00, and the text is never read for it', () => {
+    // A real Tornado Warning whose CAP says maxHailSize 0.00, with a sentence about another storm's hail in its text.
+    const tor = capHazardOf({ maxHailSize: ['0.00'], tornadoDetection: ['RADAR INDICATED'] }, 'HAZARD...Tornado. A storm to the north produced quarter size hail.', 'Tornado Warning');
+    expect(tor).toMatchObject({ maxHailSizeIn: null, maxWindGustMph: null, hazardFrom: 'cap' });
+    // CAP hail present, gust absent: the gust may come from the text.
+    expect(capHazardOf({ maxHailSize: ['1.75'] }, 'HAZARD...70 mph wind gusts.', 'Tornado Warning')).toMatchObject({ maxHailSizeIn: 1.75, maxWindGustMph: 70, hazardFrom: 'cap+text' });
+    expect(capHazardOf({}, 'Nothing here.', 'High Wind Warning').hazardFrom).toBe('none');
+    // The stored row says ingest decided: the read never falls back to the summary text.
+    const row = { source: 'nws', title: 'Tornado Warning: Seward, NE', summary: 'Quarter size hail fell north of here. 70 mph wind gusts.', data: { hazardFrom: 'cap' } };
+    expect(weatherFactsOf(row, true)).toBeNull();
+    expect(weatherFactsOf({ ...row, data: null, hazardFrom: 'none' }, true)).toBeNull();
+    // A row stored before round 33 (no hazardFrom) is read from its summary.
+    expect(weatherFactsOf({ ...row, data: null }, true)).toEqual({ hailInches: 1, gustMph: 70 });
+  });
+
+  it('parseNws stores hazardFrom on every alert, and a CAP 0.00 alert stores no hail', () => {
+    const sws = parseNws(cap('midland-sws-2026-09-30'));
+    expect(sws).toEqual([]); // a Special Weather Statement is not ingested
+    const p = cap('norman-tor-2025-04-19-observed');
+    p.features[0].properties.parameters.maxHailSize = ['0.00'];
+    const [tor] = parseNws(p);
+    expect(tor.data).toMatchObject({ hazardFrom: 'cap', tornadoDetection: 'OBSERVED' });
+    expect(tor.data).not.toHaveProperty('maxHailSizeIn');
+    expect(WEATHER_SELECT).toContain('hazardFrom:data->>hazardFrom');
+  });
+});
+
+describe('review P2-1: any watch or advisory naming 58+ mph gusts is feed only', () => {
+  const at = (title: string) => ({ source: 'nws', kind: 'alert', title, summary: 's', categories: ['snow-removal', 'tree-service', 'roofing'], lat: 33.7, lon: -84.4, state: 'GA', severity: 2, maxWindGustMph: '60', hazardFrom: 'text' });
+  it('watches, advisories and statements: feed only; warnings: the row level; floods: nothing', () => {
+    vi.stubEnv('HOLLER_HAIL_ROUTING_ENABLED', '1');
+    for (const ev of ['Winter Weather Advisory', 'Winter Storm Watch', 'Wind Advisory', 'High Wind Watch', 'Freeze Warning']) {
+      const want = ev === 'Freeze Warning' ? 'market_insight' : 'market_insight';
+      expect(memberLabel(at(`${ev}: Fulton, GA`), 'tree-service'), ev).toBe(want);
+      expect(memberLabel(at(`${ev}: Fulton, GA`), 'siding-gutters'), ev).toBe(want);
+    }
+    for (const ev of ['Winter Storm Warning', 'Blizzard Warning', 'High Wind Warning']) {
+      expect(memberLabel(at(`${ev}: Fulton, GA`), 'tree-service'), ev).toBe('coming_soon');
+      expect(memberLabel(at(`${ev}: Fulton, GA`), 'siding-gutters'), ev).toBe('coming_soon');
+    }
+    for (const ev of ['Coastal Flood Warning', 'Flash Flood Warning', 'Flood Advisory']) {
+      expect(memberLabel({ ...at(`${ev}: Fulton, GA`), categories: ['restoration'] }, 'siding-gutters'), ev).toBe('not carried');
+    }
+    // The winter advisory row gives snow removal a heads-up; that does not lift the routed trades.
+    expect(memberLabel(at('Winter Weather Advisory: Fulton, GA'), 'snow-removal')).toBe('coming_soon');
+  });
+});
+
+describe('review P1-3: an LSR report routes exactly like the SPC report with the same remark', () => {
+  // The reviewer's remarks (lsr-probe.ts) plus real SPC remark wordings; never stored, read in memory only.
+  const REMARKS = [
+    'TREE DOWN BLOCKING HIGHWAY 9 NEAR MILE MARKER 4.',
+    'TREE FELL ON HOME.',
+    'TREE DOWN ON HOUSE.',
+    'SHINGLES AND SIDING BLOWN OFF A HOUSE.',
+    'STREET SIGN BLOWN DOWN.',
+    'POWER LINES DOWN.',
+    'TREES DOWN IN YARD ON MAIN ROAD.',
+    'LARGE LIMB ON CAR IN DRIVEWAY.',
+    'GARAGE DOOR BLOWN IN.',
+    'TREE ACROSS INTERSTATE 75 RAMP.',
+    'ROOF BLOWN OFF BARN AND TREES UPROOTED.',
+    'WATERPROOF TARP BLOWN AWAY.',
+  ];
+  const TRADES = ['tree-service', 'roofing', 'restoration'] as const;
+  it('every one of the 32 fact combinations is read back identically from the stored phrases', () => {
+    for (let mask = 0; mask < 32; mask++) {
+      const f = { trees: !!(mask & 1), road: !!(mask & 2), roof: !!(mask & 4), structure: !!(mask & 8) || !!(mask & 4), homeOrYard: !!(mask & 16) };
+      const back = windDamageFactsOf(lsrSummaryOf(f));
+      for (const t of TRADES) expect(windDamageLevelOf(back, t), `${mask} ${t}`).toBe(windDamageLevelOf(f, t));
+    }
+  });
+  it('labels match SPC for every trade, and the remark is not stored', () => {
+    for (const remark of REMARKS) {
+      const lsr = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: null, properties: { wfo: 'FFC', type: 'O', typetext: 'NON-TSTM WND DMG', magnitude: '', unit: null, county: 'FULTON', state: 'GA', city: '2 NW ATLANTA', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, product_id: 'P', remark } }] })[0];
+      expect(JSON.stringify(lsr), remark).not.toContain(remark);
+      const spc = { source: 'spc', kind: 'report', title: 'Wind damage reported near Atlanta, GA', summary: remark };
+      for (const t of ['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster', 'siding-gutters'] as CategoryId[]) {
+        expect(labelFor({ source: 'lsr', kind: 'report', title: lsr.title, summary: lsr.summary }, t), `${remark} ${t}`).toBe(labelFor(spc, t));
+      }
+    }
+    // Tree across a road: the road crew's job (line 39), as SPC: a heads-up, not act now. On a home: restoration act now, as SPC.
+    const road = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { typetext: 'NON-TSTM WND DMG', county: 'FULTON', state: 'GA', city: 'ATLANTA', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, remark: REMARKS[0] } }] })[0];
+    expect(road.data).toMatchObject({ treeDown: true, blocksRoad: true, onStructure: false });
+    expect(labelFor({ source: 'lsr', title: road.title, summary: road.summary }, 'tree-service')).toBe('coming_soon');
+    const home = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { typetext: 'NON-TSTM WND DMG', county: 'FULTON', state: 'GA', city: 'ATLANTA', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, remark: REMARKS[1] } }] })[0];
+    expect(labelFor({ source: 'lsr', title: home.title, summary: home.summary }, 'restoration')).toBe('act_now');
+    expect(labelFor({ source: 'lsr', title: home.title, summary: home.summary }, 'tree-service')).toBe('act_now');
+    // Every part has a Spanish twin.
+    for (const part of LSR_PARTS) expect(localizeSummary(part, 'es', 'lsr'), part).not.toBe(part);
+  });
+});
+
+describe('review P2-4 and P2-5: LSR unit, place, AI and the empty answer', () => {
+  it('a gust in knots is converted; an unknown unit is skipped', () => {
+    expect(lsrGustMph('62', 'MPH')).toBe(62);
+    expect(lsrGustMph('50', 'KTS')).toBe(58);
+    expect(lsrGustMph('50', 'KT')).toBe(58);
+    expect(lsrGustMph('60', null)).toBe(60);
+    expect(lsrGustMph('60', 'M/S')).toBeNull();
+  });
+  it('a free-text location never reaches the title; the county is used instead', () => {
+    expect(lsrPlace('1 W CHOKIO')).toBe('Chokio');
+    expect(lsrPlace('JOHN Q PUBLIC RESIDENCE 123 MAPLE ST')).toBeNull();
+    const [row] = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { typetext: 'NON-TSTM WND DMG', county: 'FULTON', state: 'GA', city: 'JOHN Q PUBLIC RESIDENCE 123 MAPLE ST', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, remark: 'TREE DOWN.' } }] });
+    expect(row.title).toBe('Wind damage reported near Fulton, GA');
+    expect(JSON.stringify(row)).not.toMatch(/JOHN|MAPLE/);
+  });
+  it('lsr is not sent to the AI classifier, like the other weather sources', () => {
+    expect(SKIP_SOURCES.has('lsr')).toBe(true);
+    expect(SKIP_SOURCES.has('spc')).toBe(true);
+  });
+  it('an answer with no features at all is logged as an error (more than 24 hours with no report of any kind)', async () => {
+    const now = new Date('2026-11-25T12:00:00Z');
+    const logs: string[] = [];
+    const empty = vi.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 }));
+    expect(await lsrAdapter.fetch({ since: now, now, fetch: empty as unknown as typeof globalThis.fetch, env: { HOLLER_LSR_ENABLED: '1' }, log: (m) => logs.push(m) })).toEqual([]);
+    expect(logs).toEqual([LSR_EMPTY_LOG]);
+    expect(LSR_EMPTY_LOG).toMatch(/^error: lsr returned 0 reports of any kind from 7 NWS offices over 36 hours/);
+    expect(LSR_LOOKBACK_HOURS).toBeGreaterThan(24);
+  });
+  it('the saved real IEM response (lsr.geojson capture) parses with the adapter; the request is the form checked live', () => {
+    // Checked live 2026-11-25 (fetch tool): this exact form with wfos=FFC,EWX,GSP,RAH,OKX,LOT,LOX&sts=2026-01-24T12:00Z&ets=2026-01-26T00:00Z
+    // answered 210+ features, every one inside the window (2026-01-24T14:00Z to 2026-01-26T00:00Z) and only from the listed offices.
+    expect(lsrUrl(new Date('2026-01-26T00:00:00Z'), LSR_WFOS, 36)).toBe('https://mesonet.agron.iastate.edu/geojson/lsr.geojson?wfos=FFC,EWX,GSP,RAH,OKX,LOT,LOX&sts=2026-01-24T12:00Z&ets=2026-01-26T00:00Z');
+    const scan = scanLsr(lsrFixture());
+    expect(scan.usable).toBe(scan.rows);
+  });
+});
+
+describe('review P1-1: the home page source count does not change while the new switches are off', () => {
+  it('counts 48 sources with every round 33 switch off (main counts 48), and 49 with HOLLER_LSR_ENABLED on', () => {
+    expect(feedCount(ALL_ADAPTERS, {})).toBe(48);
+    vi.stubEnv('HOLLER_LSR_ENABLED', '1');
+    expect(feedCount(ALL_ADAPTERS, {})).toBe(49);
   });
 });
