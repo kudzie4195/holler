@@ -331,7 +331,7 @@ export const NOT_YET_BID_RE = /presolicitation|sources?\s+sought|special\s+notic
  * Round 33 (only with HOLLER_SAM_LABELS_ENABLED on): the hyphenated spelling of a presolicitation, and a sole-source notice (the agency names
  * the one business it means to buy from, so it is not open for offers). Both are heads-ups. Off, the rule is exactly what it was.
  */
-const EARLY_VARIANT_RE = /pre-\s?solicitation/i;
+const EARLY_VARIANT_RE = /pre[-\s]+solicitation/i;
 const notYetBid = (s: LabelInput) =>
   NOT_YET_BID_RE.test(sumParts(s.summary)[0] ?? '') || (samLabelsEnabled() && (EARLY_VARIANT_RE.test(sumParts(s.summary)[0] ?? '') || isSoleSourceSetAside(s.setAside)));
 /** A bid whose place of performance has a real city name before the state ("Federal bid in Denver, CO: ..."). "0, MI" is not a city. */

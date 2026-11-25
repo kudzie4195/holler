@@ -349,6 +349,60 @@ describe('runBackfill: the key never leaves on an error path', () => {
   });
 });
 
+describe('runBackfill: a store error does not trip the offset guard on the retry (review 2 N1)', () => {
+  it('page 1 fails to store, the next run asks for page 1 again and carries on to the end', async () => {
+    const answer = (u: URL) => {
+      const off = Number(u.searchParams.get('offset'));
+      if (u.searchParams.get('state') === 'GA' && u.searchParams.get('ptype') === 'o') return { body: pageIndexAnswer('ga-o', off, 2500) };
+      return { body: page([`${u.searchParams.get('state')}-${u.searchParams.get('ptype')}-1`], 1) };
+    };
+    const h = harness(answer);
+    const realInsert = h.deps.insert!;
+    let boom = true;
+    h.deps.insert = async (rows) => {
+      if (boom && rows.some((r) => r.externalId.includes('ga-o-1000'))) {
+        boom = false;
+        throw new Error('store is down');
+      }
+      return realInsert(rows);
+    };
+    const state = newState(NOW);
+    const first = await runBackfill(state, { apiKey: KEY, dailyBudget: 50, tasks: TWO }, h.deps);
+    expect(first.stopped).toBe('error');
+    expect(first.error).toContain('insert failed');
+    expect(state.tasks['GA:o'].nextPage).toBe(1); // page 0 stored, page 1 not
+    expect(state.tasks['GA:o'].status).not.toBe('done');
+    // second run: the same page is asked again; it must not be compared with itself
+    const second = await runBackfill(state, { apiKey: KEY, dailyBudget: 50, tasks: TWO }, h.deps);
+    expect(second.error ?? '').not.toMatch(/offset is not a page index/i);
+    expect(second.stopped).toBe('finished');
+    expect(state.tasks['GA:o'].status).toBe('done');
+    expect(state.tasks['GA:o'].inserted).toBe(2500);
+    const ga = h.calls.filter((c) => c.includes('state=GA') && c.includes('ptype=o')).map((c) => new URL(c).searchParams.get('offset'));
+    expect(ga).toEqual(['0', '1', '1', '2']); // page 1 was requested twice, never skipped
+  });
+});
+
+describe('runBackfill: a key straddling the 120-character cut (review 2)', () => {
+  it('the key is scrubbed from the whole body before it is cut, not after', async () => {
+    const KEY3 = 'straddle-KEY-abcdefghijklmnop-0123456789';
+    for (const lead of [100, 110, 118, 119, 120]) {
+      const body = `${'x'.repeat(lead)}${KEY3}${'y'.repeat(40)}`;
+      const h = harness(() => ({ status: 500, body }));
+      const logs: string[] = [];
+      h.deps.log = (m) => logs.push(m);
+      const state = newState(NOW);
+      const rep = await runBackfill(state, { apiKey: KEY3, dailyBudget: 50, tasks: TWO }, h.deps);
+      expect(rep.stopped).toBe('error');
+      for (const hay of [JSON.stringify(h.saves), JSON.stringify(state), logs.join('\n'), JSON.stringify(rep)]) {
+        // neither the key nor any start of it long enough to identify it
+        expect(hay).not.toContain(KEY3);
+        expect(hay).not.toContain(KEY3.slice(0, 12));
+      }
+    }
+  });
+});
+
 describe('runBackfill: budget and resume', () => {
   it('stops at the daily budget with tasks left, and a second run the next UTC day continues where it stopped', async () => {
     const h = harness((u) => ({ body: page([`${u.searchParams.get('state')}-${u.searchParams.get('ptype')}`], 1) }));

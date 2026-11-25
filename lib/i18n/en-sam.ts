@@ -34,5 +34,6 @@ export const EN_SAM = {
   // The mobile app's one plain line under the label for an early notice (lib/signals/intent.ts), and the email's closing line for a bid
   // that carries a set-aside (it replaces "A bid listing does not show who may respond ...", which a set-aside line contradicts).
   'sam.early.intent_line': 'This is an early notice. Nothing is open for offers yet.',
+  'sam.sole.intent_line': 'This is a planned sole source. Nothing is open for offers.',
   'sam.email.honesty_bid_setaside': 'A bid listing does not show who will be chosen. A set-aside limits who may respond: read the notice for the rules.',
 } as const;

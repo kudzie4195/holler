@@ -85,7 +85,34 @@ function saveState(file: string, s: BackfillState): void {
   renameSync(tmp, file);
 }
 
+/** Every option the script knows. A name not in this list is refused, so a mistyped --dry can never turn into a real run. */
+export const FLAG_OPTIONS = ['--plan', '--run', '--dry', '--no-match'] as const;
+export const VALUE_OPTIONS = ['--state', '--daily-budget', '--max-requests'] as const;
+
+/** Null when every argument is a known option (value options are followed by their value); otherwise the message to print. */
+export function unknownOptions(argv: string[]): string | null {
+  const bad: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if ((FLAG_OPTIONS as readonly string[]).includes(a)) continue;
+    if ((VALUE_OPTIONS as readonly string[]).includes(a)) {
+      const v = argv[i + 1];
+      if (v === undefined || v.startsWith('--')) bad.push(`${a} needs a value`);
+      else i++;
+      continue;
+    }
+    bad.push(`unknown option "${a}"`);
+  }
+  if (bad.length === 0) return null;
+  return `${bad.join('; ')}. Valid options: ${[...FLAG_OPTIONS, ...VALUE_OPTIONS.map((o) => `${o} <value>`)].join(' ')}. Nothing was run.`;
+}
+
 export async function runCli(argv: string[], io: CliIo): Promise<number> {
+  const badArgs = unknownOptions(argv);
+  if (badArgs) {
+    io.err(badArgs);
+    return 2;
+  }
   const has = (n: string) => argv.includes(n);
   const opt = (n: string): string | undefined => {
     const i = argv.indexOf(n);

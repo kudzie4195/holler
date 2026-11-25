@@ -8,7 +8,7 @@
  * Mapping is checked against every registered source by tests/feedback/intent.test.ts.
  */
 import { isEarlyNoticeType, samTypeOf } from './sam-notice';
-import { samLabelsEnabled } from './sam-labels-switch';
+import { isSoleSourceSetAside, samLabelsEnabled } from './sam-labels-switch';
 import { t, type Lang } from '@/lib/i18n';
 
 export type Intent = 'demand' | 'spending' | 'asking';
@@ -21,6 +21,8 @@ export interface IntentInput {
   source: string;
   /** Federal notices: the summary, whose first part is the notice type (round 33: an early notice is not "out for bid"). Optional. */
   summary?: string | null;
+  /** Federal notices: data.setAside (round 33). A sole-source notice is not out for bid either. Optional. */
+  setAside?: string | null;
 }
 
 /** Sources whose rows are people asking, regardless of kind. 'holler-request' is a resident request made on Holler. */
@@ -98,6 +100,9 @@ const LINE_BY_KEY: Record<IntentLineKey, string> = {
 export function intentLine(signal: IntentInput, lang: Lang = 'en'): string {
   const key = intentLineKey(signal);
   // Round 33: a Sources Sought or Presolicitation notice is not out for bid yet. The key stays 'open-bid' (older mobile builds read it).
-  if (key === 'open-bid' && samLabelsEnabled() && norm(signal.source) === 'sam-gov' && isEarlyNoticeType(samTypeOf(signal.summary))) return t(lang, 'sam.early.intent_line');
+  if (key === 'open-bid' && samLabelsEnabled() && norm(signal.source) === 'sam-gov') {
+    if (isEarlyNoticeType(samTypeOf(signal.summary))) return t(lang, 'sam.early.intent_line');
+    if (isSoleSourceSetAside(signal.setAside)) return t(lang, 'sam.sole.intent_line');
+  }
   return LINE_BY_KEY[key];
 }

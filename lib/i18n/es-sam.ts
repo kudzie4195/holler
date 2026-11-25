@@ -30,5 +30,6 @@ export const ES_SAM: Record<keyof typeof EN_SAM, string> = {
   'sam.setaside.other': 'Reservado para ciertas empresas. Vea en el aviso quién puede responder',
 
   'sam.early.intent_line': 'Este es un aviso anticipado. Todavía no se piden ofertas.',
+  'sam.sole.intent_line': 'Esta es una contratación directa planeada. No está abierto a ofertas.',
   'sam.email.honesty_bid_setaside': 'Una licitación publicada no muestra a quién van a elegir. Una reserva limita quién puede responder: lea el aviso para ver las reglas.',
 };

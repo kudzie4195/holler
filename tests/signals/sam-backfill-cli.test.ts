@@ -127,6 +127,44 @@ describe('option validation', () => {
   });
 });
 
+describe('unknown options are refused (review 2 N2)', () => {
+  const typos = ['--dry-run', '--dryrun', '-dry', '--DRY', '--dry=true', '--Dry', '--nomatch', '--no_match', '--Run', '--plan=1', '-run', 'dry', '--max-request', '--state=x'];
+  for (const typo of typos) {
+    it(`${typo} with --run: exit 2, the valid options are listed, no request, no state file`, async () => {
+      const r = rig(ON);
+      expect(await runCli(['--run', typo, '--state', file], r.io)).toBe(2);
+      expect(r.calls).toHaveLength(0);
+      expect(existsSync(file)).toBe(false);
+      const msg = r.err.join(' ');
+      expect(msg).toContain(`"${typo}"`);
+      for (const valid of ['--plan', '--run', '--dry', '--no-match', '--state', '--daily-budget', '--max-requests']) expect(msg).toContain(valid);
+      expect(r.inserted).toHaveLength(0);
+    });
+  }
+  it('a typo of --dry never turns a rehearsal into a real run, even with the state file already there', async () => {
+    const r1 = rig(ON);
+    expect(await runCli(['--run', '--dry', '--state', file], r1.io)).toBe(0);
+    const before = readFileSync(file, 'utf8');
+    const r2 = rig(ON);
+    expect(await runCli(['--run', '--dry-run', '--state', file], r2.io)).toBe(2);
+    expect(r2.calls).toHaveLength(0);
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  });
+  it('a value option without its value is refused too', async () => {
+    for (const args of [['--run', '--state'], ['--run', '--max-requests'], ['--run', '--state', '--dry']]) {
+      const r = rig(ON);
+      expect(await runCli(args, r.io)).toBe(2);
+      expect(r.calls).toHaveLength(0);
+      expect(r.err.join(' ')).toMatch(/needs a value/);
+    }
+  });
+  it('every valid option still works together', async () => {
+    const r = rig(ON);
+    expect(await runCli(['--run', '--dry', '--no-match', '--state', file, '--daily-budget', '5', '--max-requests', '2'], r.io)).toBe(0);
+    expect(r.calls.length).toBeGreaterThan(0);
+  });
+});
+
 describe('the documented sequence: --run --dry, then --run', () => {
   it('the dry run stores nothing and marks no task done; the real run then reads and stores the same tasks', async () => {
     const r = rig(ON);

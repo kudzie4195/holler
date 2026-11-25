@@ -168,7 +168,7 @@ describe('the card line', () => {
   });
   it('copy rules: no em dash, no banned words, no promise, in both languages, for every string the card can print', () => {
     const all = Object.entries(en).filter(([k]) => k.startsWith('sam.'));
-    expect(all.length).toBe(3 + 19 + 2);
+    expect(all.length).toBe(3 + 19 + 3); // + the sole-source intent line
     for (const [k, v] of all) {
       expect(v, k).not.toMatch(/—/);
       expect(v, k).not.toMatch(/\blead(s)?\b|guarantee|you will win|they need you|canvass|knock/i);
@@ -321,5 +321,64 @@ describe('review fixes: no set-aside, local area, sole source', () => {
   }
   it('Pre-solicitation (hyphenated) is a heads-up, like Presolicitation', () => {
     expect(labelFor({ ...base, summary: 'Pre-solicitation | GSA' }, 'janitorial-commercial')).toBe('coming_soon');
+  });
+  // review 2: any spacing or hyphen between "pre" and "solicitation"
+  for (const spelling of ['Pre solicitation', 'Pre-solicitation', 'Pre - solicitation', 'Pre  solicitation', 'pre-  solicitation', 'PRE SOLICITATION', 'Pre\tsolicitation', 'Presolicitation']) {
+    it(`"${spelling}" is a heads-up, an early notice, and gets the early-notice line and intent line`, () => {
+      const summary = `${spelling} | GSA | NAICS 561720 | responses due 2026-11-27`;
+      expect(labelFor({ ...base, summary }, 'janitorial-commercial')).toBe('coming_soon');
+      expect(samNoticeKind(summary)).toBe('presolicitation');
+      expect(isEarlyNoticeType(samTypeOf(summary))).toBe(true);
+      expect(samCardLine({ source: 'sam-gov', summary }, 'en')).toBe(earlyNoticeLine('presolicitation', 'en'));
+      expect(intentLine({ source: 'sam-gov', summary, kind: 'contract', title: base.title, severity: 2, state: 'CO' } as never, 'en')).not.toMatch(/out for bid/i);
+    });
+  }
+  it('"Pre solicitation" with the labels OFF is routed exactly as on main (the switch gates it)', () => {
+    vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '');
+    try {
+      expect(labelFor({ ...base, summary: 'Pre solicitation | GSA' }, 'janitorial-commercial')).toBe('act_now');
+      expect(labelFor({ ...base, summary: 'Pre-solicitation | GSA' }, 'janitorial-commercial')).toBe('act_now');
+    } finally {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+    }
+  });
+});
+
+describe('the app intent line on a sole-source card never says "out for bid" (review 2)', () => {
+  const sig = (setAside: string | null, summary = 'Solicitation | GSA | NAICS 561720') =>
+    ({ source: 'sam-gov', kind: 'contract', title: 'Federal bid in Denver, CO: Janitorial services', summary, severity: 2, state: 'CO', ...(setAside ? { setAside } : {}) }) as never;
+  for (const code of ['8AN', 'HZS', 'SDVOSBS', 'WOSBSS', 'EDWOSBSS', 'VSS']) {
+    it(`${code}: EN and ES say nothing is open for offers`, () => {
+      expect(intentLine(sig(code), 'en')).toBe(t('en', 'sam.sole.intent_line'));
+      expect(intentLine(sig(code), 'en')).not.toMatch(/out for bid/i);
+      expect(intentLine(sig(code), 'es')).toBe(t('es', 'sam.sole.intent_line'));
+      expect(intentLine(sig(code), 'es')).not.toMatch(/licitaci[oó]n abierta|a licitaci/i);
+      expect(spanishProblems(t('es', 'sam.sole.intent_line'))).toEqual([]);
+    });
+  }
+  it('an open set-aside bid and a plain bid keep the out-for-bid line', () => {
+    for (const code of ['SBA', '8A', 'WOSB', 'LAS', null]) expect(intentLine(sig(code), 'en')).toMatch(/out for bid/i);
+  });
+  it('an early notice keeps its own line even when it also names a sole-source code', () => {
+    expect(intentLine(sig('8AN', 'Sources Sought | VA'), 'en')).toBe(t('en', 'sam.early.intent_line'));
+  });
+  it('with the labels OFF the sole-source card has the old line', () => {
+    vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '');
+    try {
+      expect(intentLine(sig('8AN'), 'en')).toMatch(/out for bid/i);
+    } finally {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+    }
+  });
+  it('the app feed passes the stored set-aside to the intent line', async () => {
+    const row = {
+      id: 1, status: 'new', distance_mi: 3, draft: null, created_at: '2026-11-25T14:00:00Z',
+      signal: { id: 1, source: 'sam-gov', kind: 'contract', subtype: null, title: 'Federal bid in Atlanta, GA: Grounds maintenance', summary: 'Solicitation | GSA | NAICS 561730',
+        url: 'https://sam.gov/opp/x/view', city: 'Atlanta', state: 'GA', county: null, zip: null, lat: 33.749, lon: -84.388, severity: 2, categories: ['landscaping'],
+        occurred_at: '2026-11-24T00:00:00.000Z', expires_at: '2026-12-15T12:00:00.000Z', samSetAside: '8AN' },
+    } as unknown as MatchRow;
+    const [a] = await buildAlerts([row], { userId: 'u1', locked: false, db: {} as never, admin: null, siteUrl: 'https://localholler.com', now: Date.parse('2026-11-25T15:00:00Z'), trades: ['landscaping'], lang: 'en' });
+    expect(a.intent.line).toBe(t('en', 'sam.sole.intent_line'));
+    expect(a.intent.line).not.toMatch(/out for bid/i);
   });
 });

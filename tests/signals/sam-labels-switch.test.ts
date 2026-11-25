@@ -8,7 +8,7 @@ import { en } from '@/lib/i18n/en';
 import { labelFor } from '@/lib/signals/lead-rules';
 import { intentLine } from '@/lib/signals/intent';
 import { samLabelsEnabled, SAM_LABELS_FLAG } from '@/lib/signals/sam-labels-switch';
-import { samCardLine } from '@/lib/signals/sam-notice';
+import { hasSetAsideLine, samCardLine } from '@/lib/signals/sam-notice';
 import { buildAlerts, type MatchRow } from '@/lib/mobile/feed';
 import { digestHonesty, renderDigest, type DigestItem } from '@/lib/email/templates';
 import { ENV_KEYS } from '@/lib/env';
@@ -83,5 +83,34 @@ describe('switch ON: the closing email line changes only when a set-aside line i
     expect(text).not.toContain('does not show who may respond');
     expect(text).toContain('A set-aside limits who may respond');
     expect(digestHonesty([withAside], 'es')).toContain('Una reserva limita quién puede responder');
+  });
+});
+
+describe('the email closing line follows the switch (app/api/cron/notify/route.ts, hasSetAside)', () => {
+  const route = readFileSync(join(__dirname, '../../app/api/cron/notify/route.ts'), 'utf8');
+  it('the route decides hasSetAside through hasSetAsideLine, and passes nothing that would override the switch', () => {
+    const m = route.match(/hasSetAside:\s*([^\n]+)/);
+    expect(m, 'hasSetAside is set in the notify route').not.toBeNull();
+    // exactly the helper, three arguments (source, stored code, language); a fourth argument would be an "on" override
+    expect(m![1].trim()).toBe('hasSetAsideLine(s.source, s.samSetAside, lang),');
+  });
+  it('hasSetAsideLine is false with the switch off for every code, true with it on for a federal notice only', () => {
+    for (const code of ['SBA', '8AN', 'LAS', 'OTHER']) {
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '');
+      expect(hasSetAsideLine('sam-gov', code, 'en')).toBe(false);
+      expect(hasSetAsideLine('sam-gov', code, 'es')).toBe(false);
+      vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+      expect(hasSetAsideLine('sam-gov', code, 'en')).toBe(true);
+      expect(hasSetAsideLine('sam-gov', code, 'es')).toBe(true);
+      expect(hasSetAsideLine('permits', code, 'en')).toBe(false);
+    }
+    vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+    expect(hasSetAsideLine('sam-gov', null, 'en')).toBe(false);
+    expect(hasSetAsideLine('sam-gov', 'NONE', 'en')).toBe(false);
+  });
+  it('the helper reads the switch itself by default (a source check: dropping samLabelsEnabled() there fails this)', () => {
+    const src = readFileSync(join(__dirname, '../../lib/signals/sam-notice.ts'), 'utf8');
+    const fn = src.slice(src.indexOf('export function hasSetAsideLine'));
+    expect(fn.slice(0, fn.indexOf('\n}\n'))).toMatch(/on: boolean = samLabelsEnabled\(\)[\s\S]*return on && source === 'sam-gov'/);
   });
 });

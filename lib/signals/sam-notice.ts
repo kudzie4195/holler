@@ -128,7 +128,7 @@ export function samNoticeKind(type: unknown): SamNoticeKind {
   const s = text(type);
   if (!s) return 'other';
   if (/sources?\s+sought/i.test(s)) return 'sources-sought';
-  if (/pre-?\s?solicitation/i.test(s)) return 'presolicitation';
+  if (/pre[-\s]*solicitation/i.test(s)) return 'presolicitation';
   if (/intent\s+to\s+bundle/i.test(s)) return 'bundle';
   if (/solicitation|synopsis/i.test(s)) return 'bid';
   return 'other';
@@ -187,3 +187,11 @@ export function samCardLine(s: SamCardInput, lang: Lang = 'en', on: boolean = sa
 
 /** PostgREST select alias for the stored set-aside code (holler_signals.data.setAside). A missing key reads as null, so no migration is involved. */
 export const SAM_SELECT = 'samSetAside:data->>setAside';
+
+/**
+ * True when an alert email card names a set-aside (the email's closing line then changes). Always false while HOLLER_SAM_LABELS_ENABLED is
+ * off: app/api/cron/notify/route.ts calls this, and tests/signals/sam-labels-switch.test.ts fails if the switch is dropped here or there.
+ */
+export function hasSetAsideLine(source: string | null | undefined, stored: unknown, lang: Lang = 'en', on: boolean = samLabelsEnabled()): boolean {
+  return on && source === 'sam-gov' && setAsideLabel(stored, null, lang) !== null;
+}

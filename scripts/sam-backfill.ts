@@ -8,7 +8,7 @@
  *                                                         (needs the switch and SAM_API_KEY; the requests still count against the daily limit)
  *   HOLLER_SAM_BACKFILL_ENABLED=1 npm run sam:backfill -- --run          store the notices (+ NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
  *
- * Options:
+ * Options (any other option, such as --dry-run or --dryrun, is refused with exit 2 and the list below; nothing is requested or written):
  *   --state <file>         resume file (default ./sam-backfill-state.json, git-ignored). Delete it to start over.
  *   --daily-budget <n>     whole number of requests allowed per UTC day (default 1; the cron already uses up to 6 of a no-role key's 10).
  *                          For a key with a SAM role (1,000/day) use e.g. 150. Above 400 is cut to 400. Anything not a whole number is refused.

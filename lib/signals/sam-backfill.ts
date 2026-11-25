@@ -304,7 +304,8 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, r
         }
         if (!res.ok) {
           const hint = res.status === 401 || res.status === 403 ? ' (api_key invalid, missing or not allowed)' : '';
-          const detail = /^\s*</.test(body) ? '' : ` ${body.replace(/\s+/g, ' ').slice(0, 120)}`;
+          // Scrub the WHOLE body first, then cut: a key straddling the 120-character mark would no longer match afterwards.
+          const detail = /^\s*</.test(body) ? '' : ` ${scrubKey(body.replace(/\s+/g, ' '), opts.apiKey).slice(0, 120)}`;
           return finish(fail(state, report, 'error', `${key}: HTTP ${res.status}${hint}${detail}`, deps, opts.apiKey));
         }
         let json: unknown;
@@ -334,7 +335,6 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, r
         if (moreExpected && stats.rows < PAGE_LIMIT) {
           return finish(fail(state, report, 'error', `${key}: page ${page} has ${stats.rows} rows but totalRecords is ${total0} and the limit is ${PAGE_LIMIT}; paging is not as documented, stop and check`, deps, opts.apiKey));
         }
-        ts.lastIds = ids;
         if (stats.rows > 0 && stats.usable === 0) return finish(fail(state, report, 'error', `${key}: ${stats.rows} rows and none with an id and a title, the response shape may have changed`, deps, opts.apiKey));
         const parsed = filterOpen(normalizeSignals(adapter, parseSam(json), deps.now()), deps.now());
         let inserted = 0;
@@ -354,6 +354,9 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, r
         const total = Number((json as { totalRecords?: unknown }).totalRecords);
         ts.totalRecords = Number.isFinite(total) ? total : ts.totalRecords;
         const more = Number.isFinite(total) && (page + 1) * PAGE_LIMIT < total && stats.rows > 0;
+        // The ids of this page become "the page before" only once it is stored: a failed insert asks for the same page again, and it must
+        // not be compared with itself.
+        ts.lastIds = ids;
         ts.nextPage = more ? page + 1 : page;
         ts.status = more ? 'partial' : 'done';
         state.lastError = null;

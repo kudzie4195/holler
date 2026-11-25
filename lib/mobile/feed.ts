@@ -229,7 +229,7 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
     const hold = shownHold(holdOf(m), contacts.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
     const meta = getSourceMeta(s.source);
     const isRequest = s.source === HOLLER_REQUEST_SOURCE;
-    const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source, summary: s.summary };
+    const intentIn = { kind: s.kind, subtype: s.subtype ?? null, source: s.source, summary: s.summary, setAside: s.samSetAside };
     // A permit prints its value once: the brief's valueLine, so the summary's "$N job value" part is left out of the alert's summary (display only).
     const summary = isRequest
       ? (requestText[m.id] ?? null)
