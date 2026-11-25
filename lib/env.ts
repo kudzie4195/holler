@@ -130,9 +130,9 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
   // Round 33: the one-off SAM.gov backfill (scripts/sam-backfill.ts, lib/signals/sam-backfill.ts). Read at call time there; no cron or page reads it.
   HOLLER_SAM_BACKFILL_ENABLED: process.env.HOLLER_SAM_BACKFILL_ENABLED,
-  // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Read again at call time there. Off unless 1, true, on or yes.
+  // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Off unless 1, true, on or yes. Round 34: inlined at build (lib/build-switches.ts).
   HOLLER_SAM_LABELS_ENABLED: process.env.HOLLER_SAM_LABELS_ENABLED,
-  // Round 33: new-business licences tagged by their own type, and rows outside the source's area dropped (lib/signals/mapping/business.ts). Read again at call time there.
+  // Round 33: new-business licences tagged by their own type, and rows outside the source's area dropped (lib/signals/mapping/business.ts). Round 34: inlined at build (lib/build-switches.ts).
   HOLLER_BUSINESS_TAG_FIX_ENABLED: process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED,
   // Round 33: E-Rate school and library network bids (lib/signals/adapters/erate.ts); read at call time in lib/signals/bid-sources.ts. Off unless 1, true, on or yes.
   HOLLER_ERATE_ENABLED: process.env.HOLLER_ERATE_ENABLED,
