@@ -75,7 +75,16 @@ export function QuickAddForm({ trades }: { trades: Array<{ id: string; label: st
             <dd>{preview.preview.trades.join(', ')}</dd>
             <dt className="text-muted">Link host</dt>
             <dd className="font-mono">{preview.preview.host}</dd>
+            <dt className="text-muted">Link</dt>
+            <dd className="break-all font-mono text-xs">{preview.preview.url}</dd>
           </dl>
+          {preview.preview.notes.length ? (
+            <ul className="mt-2 list-disc pl-5 font-medium text-warn-ink">
+              {preview.preview.notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          ) : null}
           <input type="hidden" name="confirmKey" value={preview.confirmKey} />
           {!preview.bidsOn ? <p className="mt-2 font-medium text-warn-ink">HOLLER_BIDS_ENABLED is off: publishing will be refused.</p> : null}
           <p className="mt-2 text-muted">Changed a field? Press Preview again: a changed bid cannot be published from the old preview.</p>

@@ -32,6 +32,8 @@ export interface RowOutcome {
   url: string;
   /** The link's host, shown in the preview so the owner sees where each record will point before confirming. */
   host: string;
+  /** What the check changed or wants looked at (leading formula characters removed, an agency that reads like a name). */
+  notes: string[];
 }
 
 export interface CsvAnalysis {

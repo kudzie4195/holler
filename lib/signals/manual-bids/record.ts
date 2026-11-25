@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import zipcodes from 'zipcodes';
 import { cityBySlug, lookupPlaceByName, lookupZip } from '@/lib/geo';
 import { isServedZip } from '@/lib/check/coverage';
 import { looksLikeFullPersonName } from '@/lib/contacts/org';
@@ -108,7 +109,7 @@ export interface ManualBidReady {
   signal: SignalInput;
   keys: ManualBidKeys;
   /** For the preview table. */
-  view: { title: string; agency: string; dueDate: string; place: string; trades: CategoryId[]; solicitationId: string | null; url: string; host: string };
+  view: { title: string; agency: string; dueDate: string; place: string; trades: CategoryId[]; solicitationId: string | null; url: string; host: string; notes: string[] };
 }
 
 export type ManualBidResult = ManualBidReady | { ok: false; problem: ManualBidProblem; detail?: string };
@@ -180,7 +181,10 @@ const LINK_RE = /\bhttps?:\/\/|\bwww\./i;
 const PHONE10_RE = /(?<![\w-])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.\u2010-\u2015-]*\d{3}[\s.\u2010-\u2015-]*\d{4}(?![\w-])/;
 // 7 digits written as a local phone ("555-0147"), only after a phone word: bid numbers such as "026-2600" are not phones.
 const PHONE7_RE = /\b(?:ph|phone|tel|telephone|cell|mobile|fax)\b[\s.:#]*\d{3}[\s.-]\d{4}(?![\w-])/i;
-const STREET_WORDS = 'street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|way|place|pl|parkway|pkwy|circle|cir|terrace|ter|trail|trl|pike|square|sq';
+// The solicitation number field: a phone only when written like one, with a separator or brackets ("404-555-0147", "(404) 5550147").
+// A 10-digit bid id ("4400012345", "SFGOV~0000007082", "RFP 2026000123") is not a phone (review 3 P2-2).
+const PHONE10_FORMATTED_RE = /(?<![\w~-])(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s*\d{3}[\s.\u2010-\u2015-]?\d{4}|\d{3}[\s.\u2010-\u2015/-]+\d{3}[\s.\u2010-\u2015-]+\d{4})(?![\w~-])/;
+const STREET_WORDS = 'street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|way|place|pl|parkway|pkwy|circle|cir|terrace|ter|trail|trl|pike|square|sq|crossing|xing|cove|loop';
 // A house number (not a year, not after Hwy / Route / SR / Phase / No. / a dash), one to three name words (no "at", "of", "and"), then a
 // street word: "1423 Oak Hollow Dr", "88 Pine St". "LA Hwy 64 Port Hudson Pride Rd", "2026 Main Street", "ITB 2026-08 Whitlock Avenue"
 // and "40 LED Fixtures at Parkway Place" are not addresses.
@@ -188,19 +192,27 @@ const STREET_RE = new RegExp(
   `(?<!\\b(?:hwy|highway|route|rte|sr|us|i|la|ga|tx|nc|fm|cr|phase|package|no|station|lot|unit|building|bldg|suite|ste|lots?|number|#)\\.?[\\s-]*)(?<![\\w-])(?!(?:19|20)\\d\\d\\b)\\d{1,6}[A-Za-z]?\\s+(?:[NSEW]\\.?\\s+)?(?:(?!(?:at|of|and|the|for|to|in|on|with|from|&)\\b)[A-Za-z0-9'.]+\\s+){1,3}(?:${STREET_WORDS})\\b`,
   'i',
 );
-const PO_BOX_RE = /\bP\.?\s?O\.?\s+Box\s+\d+/i;
+// A house number from 1900 to 2099 looks like a year, so it counts only when the street phrase ends the text or is followed by a comma,
+// bracket, dash or unit word: "2015 Oak Hollow Dr" and "at 2015 Oak Hollow Dr, Marietta" are addresses; "2026 LMIG Road Resurfacing" and
+// "FY 2027 Street Resurfacing Program" are not (review 3).
+const YEAR_STREET_RE = new RegExp(
+  `(?<![\\w-])(?:19|20)\\d\\d\\s+(?:[NSEW]\\.?\\s+)?(?:(?!(?:at|of|and|the|for|to|in|on|with|from|&)\\b)[A-Za-z0-9'.]+\\s+){1,3}(?:${STREET_WORDS})\\b\\.?(?=\\s*(?:$|[,;()\\u2013-]|(?:apt|unit|suite|ste)\\b))`,
+  'i',
+);
+// "PO Box 12", "P.O. Box 12", "P.O.Box 12", "POB 12", "Post Office Box 12" (review 3).
+const PO_BOX_RE = /\b(?:P\.?\s*O\.?\s*Box|POB|Post\s+Office\s+Box)\s*#?\s*\d+/i;
 // "contact John Smith", "Attn: Mary Jones", "c/o J. Doe", "POC Robert Brown": a person's name right after the word.
 const NAME_TRIGGER_RE = /\b(?:[Cc]ontact|CONTACT|[Aa]ttn|ATTN|[Aa]ttention|ATTENTION|[Cc]\/[Oo]|POC|[Pp]oc)\b[\s.:-]*((?:[A-Z][A-Za-z'.-]*\s*){2,4})/g;
 
 export type ContactKind = 'phone number' | 'e-mail address' | 'link' | 'street address' | "person's name";
 
 /** What contact detail the text seems to hold, or null. Never edits anything. Run on text already capped (FIELD_MAX). */
-export function contactFound(text: string): ContactKind | null {
+export function contactFound(text: string, opts: { numberField?: boolean } = {}): ContactKind | null {
   if (!text) return null;
   if (EMAIL_RE.test(text)) return 'e-mail address';
   if (LINK_RE.test(text)) return 'link';
-  if (PHONE10_RE.test(text) || PHONE7_RE.test(text)) return 'phone number';
-  if (STREET_RE.test(text) || PO_BOX_RE.test(text)) return 'street address';
+  if (opts.numberField ? PHONE10_FORMATTED_RE.test(text) || PHONE7_RE.test(text) : PHONE10_RE.test(text) || PHONE7_RE.test(text)) return 'phone number';
+  if (STREET_RE.test(text) || YEAR_STREET_RE.test(text) || PO_BOX_RE.test(text)) return 'street address';
   for (const m of text.matchAll(NAME_TRIGGER_RE)) if (looksLikeFullPersonName(m[1].trim())) return "person's name";
   return null;
 }
@@ -210,9 +222,29 @@ export function contactText(field: 'title' | 'agency' | 'solicitation number', k
   return `The ${field} looks like it contains ${kind === 'e-mail address' ? 'an' : 'a'} ${kind}, please remove it.`;
 }
 
+const placeKey = (t: string) =>
+  t
+    .toLowerCase()
+    .replace(/\b(?:st|ste)\.?\s+/g, 'saint ')
+    .replace(/\bft\.?\s+/g, 'fort ')
+    .replace(/\bmt\.?\s+/g, 'mount ')
+    .replace(/[^a-z ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+let placeNames: Set<string> | null = null;
+/**
+ * A bare place name the app's geo data knows (every town in the ZIP dataset, any state), optionally followed by a state code or the word
+ * County / Parish: "Chapel Hill", "Wake Forest", "Villa Rica", "St. George", "Marietta GA" (review 3 P2-1). Never a person.
+ */
+export function knownPlaceName(text: string): boolean {
+  placeNames ??= new Set(Object.values(zipcodes.codes).map((r) => placeKey(r.city)));
+  const k = placeKey(text.replace(/,?\s+(?:[A-Z]{2})$/, '').replace(/\s+(?:county|parish|city|town|village)$/i, ''));
+  return k.length > 0 && placeNames.has(k);
+}
+
 /** Words that make a name-shaped text a public body, a place or a thing, not a private person (review 2: "Georgia DOT", "Jackson EMC"). */
 const PUBLIC_WORD =
-  /\b(?:city|county|town|township|village|parish|borough|state|department|dept|dot|isd|emc|authority|district|schools?|board|commission|government|agency|purchasing|procurement|office|port|ports|transit|housing|university|college|institute|tech|metro|utilities|utility|water|energy|power|electric|gas|parks?|recreation|airport|aviation|hospital|health|medical|library|libraries|conservancy|center|centre|museum|zoo|garden|gardens|greenway|trail|bridge|street|road|avenue|highway|mountain|lake|river|beltline|works|services|police|fire|sheriff|court|courts|jail|corrections|restroom|concert|series|festival|stadium|arena|plaza|square|hall|building|campus|station)\b/i;
+  /\b(?:city|county|town|township|village|parish|borough|state|department|dept|dot|isd|emc|authority|district|schools?|board|commission|government|agency|purchasing|procurement|office|port|ports|transit|housing|university|college|institute|tech|metro|utilities|utility|water|energy|power|electric|gas|parks?|recreation|airport|aviation|hospital|health|medical|library|libraries|conservancy|center|centre|museum|zoo|garden|gardens|greenway|trail|bridge|street|road|avenue|highway|mountain|lake|river|beltline|works|services|police|fire|sheriff|court|courts|jail|corrections|restroom|concert|series|festival|stadium|arena|plaza|square|hall|building|campus|station|courthouse|terminal|tollway|field|cids?|biomedical|springs|hills|beach|grove|branch|estates|forest|cave)\b|^(?:san|santa|saint|st\.?)\s/i;
 
 /**
  * Text that is only a private person's name (review P2-2, narrowed in review 2): two to four words, every word capitalized, holding a
@@ -221,6 +253,7 @@ const PUBLIC_WORD =
  * is not tested when the owner picked a trade himself.
  */
 export function onlyPersonName(text: string, kind: 'title' | 'agency'): boolean {
+  if (knownPlaceName(text)) return false;
   const words = text.split(/[\s,]+/).filter(Boolean);
   if (words.length < 2 || words.length > 4) return false;
   if (!words.every((w) => /^[A-Z]/.test(w))) return false;
@@ -357,6 +390,7 @@ export function parseManualDue(raw: string, state: string): { iso: string; day: 
 /** Longest title and agency accepted; longer ones are refused, not cut (nothing is rewritten). */
 export const MAX_TITLE = 200;
 export const MAX_AGENCY = 120;
+export const MAX_SOL = 60;
 
 /** A title compared without case, spaces or punctuation, and without a feed's "Open bid in <place>: " prefix. */
 export function titleKeyOf(title: string): string {
@@ -386,16 +420,27 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
     ['agency', agencyText, 'contact_agency'],
     ['solicitation number', solText, 'contact_sol'],
   ] as const) {
-    const kind = contactFound(text);
+    const kind = contactFound(text, { numberField: field === 'solicitation number' });
     if (kind) return { ok: false, problem, detail: contactText(field, kind) };
   }
-  // The formula strip runs last, after every other step (review 2 P2-A).
-  const title = defuseFormula(titleText);
+  if (solText.length > MAX_SOL) return { ok: false, problem: 'too_long', detail: `The solicitation number is over ${MAX_SOL} characters: shorten it.` };
+  // The formula strip runs last, after every other step (review 2 P2-A). Whatever it removes is listed in `notes`, which the preview
+  // shows: nothing is changed silently (review 3 P2-4).
+  const notes: string[] = [];
+  const strip = (label: string, text: string): string => {
+    const out = defuseFormula(text);
+    if (out !== text) notes.push(`${label}: leading "${text.slice(0, text.length - out.length).trim()}" removed (spreadsheet formula characters).`);
+    return out;
+  };
+  const title = strip('Title', titleText);
   if (title.length < 4) return { ok: false, problem: 'no_title' };
-  const agency = defuseFormula(agencyText);
+  const agency = strip('Agency', agencyText);
   if (agency.length < 2) return { ok: false, problem: 'no_agency' };
   const hint = (f.trade ?? '').trim();
-  if ((!hint && onlyPersonName(title, 'title')) || onlyPersonName(agency, 'agency')) return { ok: false, problem: 'person_name' };
+  if (!hint && onlyPersonName(title, 'title')) return { ok: false, problem: 'person_name' };
+  // An agency that reads like a person's name is a warning in the preview, not a refusal: real public bodies are often named after
+  // people ("Ben Taub", "Lyndon B. Johnson Hospital") (review 3 P2-1).
+  if (onlyPersonName(agency, 'agency')) notes.push('Agency reads like a person\'s name: check it is the government buyer.');
   const dueRaw = (f.dueDate ?? '').trim();
   if (!dueRaw) return { ok: false, problem: 'no_due' };
   const place = resolvePlace(f);
@@ -418,7 +463,7 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
     if (trades.length === 0) return { ok: false, problem: 'no_trade' };
   }
 
-  const solicitationId = defuseFormula(solText).slice(0, 60) || null;
+  const solicitationId = strip('Solicitation number', solText) || null;
   const list = isListPage(url);
   const urlKey = normalizeUrl(url);
   const titleKey = titleKeyOf(title);
@@ -463,6 +508,6 @@ export function buildManualBid(input: ManualBidFields, deps: RecordDeps): Manual
     ok: true,
     signal,
     keys: { urlKey, titleKey, solKey },
-    view: { title, agency, dueDate: due.day, place: `${place.city}, ${place.state}${place.zip ? ` ${place.zip}` : ''}`, trades, solicitationId, url, host },
+    view: { title, agency, dueDate: due.day, place: `${place.city}, ${place.state}${place.zip ? ` ${place.zip}` : ''}`, trades, solicitationId, url, host, notes },
   };
 }

@@ -180,7 +180,9 @@ describe('review fixes: privacy, length, formulas, link hosts', () => {
 
   it('refuses a title or an agency that is only a person-like name', () => {
     expect(buildManualBid({ ...base, title: 'John Q. Smith' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
-    expect(buildManualBid({ ...base, agency: 'Maria Gonzalez', trade: 'roofing' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
+    // An agency that reads like a person's name is a warning in the preview, not a refusal (review 3 P2-1).
+    const named = buildManualBid({ ...base, agency: 'Maria Gonzalez', trade: 'roofing' }, { now: NOW, served });
+    expect(named.ok && named.view.notes).toEqual(["Agency reads like a person's name: check it is the government buyer."]);
     expect(buildManualBid({ ...base, title: 'SMITH, JOHN' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
     // With a trade picked by the owner the title is not tested as a name.
     expect(buildManualBid({ ...base, title: 'Laurel Park Restroom', trade: 'plumbing' }, { now: NOW, served }).ok).toBe(true);

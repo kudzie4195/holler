@@ -79,9 +79,9 @@ export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidat
 
   // 1. Same external id already stored as a manual bid.
   for (const part of chunks(cands.map((c) => c.externalId))) {
-    const { data, error } = await db.from('holler_signals').select('external_id').eq('source', MANUAL_BID_SOURCE).in('external_id', part);
+    const { data, error } = await db.from('holler_signals').select('external_id, retired:data->>retiredAt').eq('source', MANUAL_BID_SOURCE).in('external_id', part);
     if (error) throw new Error('existing-record read failed');
-    for (const r of (data ?? []) as Array<{ external_id?: string | null }>) if (r.external_id) dupes.add(r.external_id);
+    for (const r of (data ?? []) as Array<{ external_id?: string | null; retired?: string | null }>) if (r.external_id && !r.retired) dupes.add(r.external_id);
   }
 
   // 2. Same link AND same title, from any source (review 2 P2-D). A link alone is not one bid: an agency's list page on any portal can
@@ -95,11 +95,12 @@ export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidat
   for (const part of chunks(patterns, URL_PER_QUERY)) {
     const { data, error } = await db
       .from('holler_signals')
-      .select('url, title')
+      .select('url, title, retired:data->>retiredAt')
       .or(part.map((p) => `url.ilike.${p}`).join(','));
     if (error) throw new Error('existing-record read failed');
-    for (const r of (data ?? []) as Array<{ url: string | null; title: string | null }>) {
-      if (!r.url || !r.title) continue;
+    for (const r of (data ?? []) as Array<{ url: string | null; title: string | null; retired?: string | null }>) {
+      // A bid the owner retired never blocks its corrected version (review 3 P1-1).
+      if (!r.url || !r.title || r.retired) continue;
       for (const id of byKey.get(`${normalizeUrl(r.url)}\u0000${titleKeyOf(r.title)}`) ?? []) dupes.add(id);
     }
   }
@@ -112,12 +113,12 @@ export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidat
   for (const part of chunks(keys, SOL_PER_QUERY)) {
     const { data, error } = await db
       .from('holler_signals')
-      .select('source, sol:data->>solicitationId, buyer:data->>buyer')
+      .select('source, sol:data->>solicitationId, buyer:data->>buyer, retired:data->>retiredAt')
       .like('source', `${BID_SOURCE_PREFIX}%`)
       .or(part.map((k) => `data->>solicitationId.ilike.${solPattern(k)}`).join(','));
     if (error) throw new Error('existing-record read failed');
-    for (const r of (data ?? []) as Array<{ sol: string | null; buyer: string | null }>) {
-      if (!r.sol) continue;
+    for (const r of (data ?? []) as Array<{ sol: string | null; buyer: string | null; retired?: string | null }>) {
+      if (!r.sol || r.retired) continue;
       const key = solKeyOf(r.sol);
       for (const c of withSol) if (solKeyOf(c.solicitationId as string) === key && sameAgency(c.agency, r.buyer ?? '')) dupes.add(c.externalId);
     }
@@ -189,18 +190,21 @@ export type RetireOutcome = { status: 'retired'; title: string } | { status: 'no
 /**
  * Retires a hand-added bid added by mistake: its expires_at becomes now and data.retiredAt is stamped. Every member-facing reader drops a
  * bid whose expires_at has passed (lib/signals/bid-sources.ts bidHidden: web feed, app feed, e-mail digest, push), so it leaves them at
- * once; its existing matches stay as history. Only rows of the manual source can be touched (the filter is on the update itself).
+ * once; its existing matches stay as history. Its external id gets ":retired:<ms>" and every duplicate check skips retired rows, so the
+ * corrected bid can be added. Only rows of the manual source can be touched (the filter is on the update itself).
  */
 export async function retireManualBid(db: Pick<Db, 'from'>, id: number, now: Date): Promise<RetireOutcome> {
-  const { data, error } = await db.from('holler_signals').select('id, title, expires_at, data').eq('source', MANUAL_BID_SOURCE).eq('id', id).limit(1);
+  const { data, error } = await db.from('holler_signals').select('id, title, external_id, expires_at, data').eq('source', MANUAL_BID_SOURCE).eq('id', id).limit(1);
   if (error) throw new Error('manual bid read failed');
-  const row = ((data ?? []) as Array<{ id: number; title: string; expires_at: string | null; data: Record<string, unknown> | null }>)[0];
+  const row = ((data ?? []) as Array<{ id: number; title: string; external_id: string; expires_at: string | null; data: Record<string, unknown> | null }>)[0];
   if (!row) return { status: 'not_found' };
   if (row.expires_at && Date.parse(row.expires_at) <= now.getTime()) return { status: 'already_closed' };
   const at = now.toISOString();
   const { error: upErr } = await db
     .from('holler_signals')
-    .update({ expires_at: at, data: { ...(row.data ?? {}), retiredAt: at } })
+    // The id is renamed too, so the corrected bid (same agency and number, same link and title) can be added again: the unique
+    // (source, external_id) key and the duplicate check both let it through (review 3 P1-1).
+    .update({ expires_at: at, external_id: `${row.external_id}:retired:${now.getTime()}`, data: { ...(row.data ?? {}), retiredAt: at } })
     .eq('source', MANUAL_BID_SOURCE)
     .eq('id', id);
   if (upErr) throw new Error('manual bid retire failed');

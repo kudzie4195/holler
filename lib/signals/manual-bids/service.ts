@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Db } from '@/lib/signals/store';
 import type { CategoryId } from '@/lib/signals/categories';
 import type { SignalInput } from '@/lib/signals/types';
@@ -48,6 +48,7 @@ export interface QuickPreview {
   solicitationId: string | null;
   url: string;
   host: string;
+  notes: string[];
 }
 
 export type QuickAddResult =
@@ -72,11 +73,43 @@ function candidate(r: ManualBidReady): ExistingCandidate {
   };
 }
 
-/** Ties a confirmation to the exact fields that were previewed. */
-export function confirmKeyOf(fields: ManualBidFields, externalId: string): string {
+/** How long a quick-add preview can be confirmed. */
+export const CONFIRM_TTL_MS = 6 * 3_600_000;
+
+let processSecret: string | null = null;
+/**
+ * The key the confirm token is signed with (review 3 P2-7): derived from CRON_SECRET (a server-only secret every deployment has), never
+ * CRON_SECRET itself. Without it, a random secret for this server process (a preview then has to be confirmed on the same instance, or
+ * previewed again). The browser never sees it, so a token cannot be made without a preview from this server.
+ */
+export function confirmSecret(): string {
+  const cron = process.env.CRON_SECRET;
+  if (cron) return createHash('sha256').update(`holler-manual-bids-confirm\u0000${cron}`).digest('hex');
+  processSecret ??= randomBytes(32).toString('hex');
+  return processSecret;
+}
+
+function fieldsDigest(fields: ManualBidFields, externalId: string): string {
   const f = capFields(fields);
   const ordered = Object.keys(f).sort().map((k) => [k, (f as Record<string, string>)[k]]);
-  return createHash('sha256').update(JSON.stringify([ordered, externalId])).digest('hex').slice(0, 32);
+  return JSON.stringify([ordered, externalId]);
+}
+
+/** Ties a confirmation to the exact fields that were previewed and to the time of that preview: "<issued ms>.<HMAC>". */
+export function confirmKeyOf(fields: ManualBidFields, externalId: string, issuedAt: Date, secret: string = confirmSecret()): string {
+  const t = String(issuedAt.getTime());
+  const mac = createHmac('sha256', secret).update(`${t}\u0000${fieldsDigest(fields, externalId)}`).digest('hex').slice(0, 40);
+  return `${t}.${mac}`;
+}
+
+/** True when `key` was made by this server for these exact fields, less than CONFIRM_TTL_MS ago. Constant-time compare. */
+export function confirmKeyValid(key: string, fields: ManualBidFields, externalId: string, now: Date, secret: string = confirmSecret()): boolean {
+  const m = /^(\d{10,16})\.([0-9a-f]{40})$/.exec(key);
+  if (!m) return false;
+  const issued = Number(m[1]);
+  if (!Number.isSafeInteger(issued) || issued > now.getTime() + 60_000 || now.getTime() - issued > CONFIRM_TTL_MS) return false;
+  const want = confirmKeyOf(fields, externalId, new Date(issued), secret).split('.')[1];
+  return timingSafeEqual(Buffer.from(want), Buffer.from(m[2]));
 }
 
 export async function quickAdd(deps: ServiceDeps, fields: ManualBidFields, confirm?: string): Promise<QuickAddResult> {
@@ -85,10 +118,9 @@ export async function quickAdd(deps: ServiceDeps, fields: ManualBidFields, confi
   const now = deps.now();
   const built = buildManualBid(fields, { now, served: deps.served });
   if (!built.ok) return { ok: false, error: built.detail ?? PROBLEM_TEXT[built.problem], field: built.problem };
-  const key = confirmKeyOf(fields, built.signal.externalId);
   const confirming = typeof confirm === 'string' && confirm.length > 0;
-  if (confirming && confirm !== key) {
-    return { ok: false, error: 'The fields changed after the preview. Check the new preview, then confirm.', field: 'changed' };
+  if (confirming && !confirmKeyValid(confirm, fields, built.signal.externalId, now)) {
+    return { ok: false, error: 'The fields changed after the preview, or the preview is too old. Check the new preview, then confirm.', field: 'changed' };
   }
   if (confirming && !deps.bidsOn()) return { ok: false, error: SERVICE_ERROR_TEXT.bids_off };
   const db = deps.db();
@@ -104,8 +136,8 @@ export async function quickAdd(deps: ServiceDeps, fields: ManualBidFields, confi
     return {
       ok: true,
       step: 'preview',
-      preview: { storedTitle: built.signal.title, title: v.title, agency: v.agency, dueDate: v.dueDate, place: v.place, trades: v.trades, solicitationId: v.solicitationId, url: v.url, host: v.host },
-      confirmKey: key,
+      preview: { storedTitle: built.signal.title, title: v.title, agency: v.agency, dueDate: v.dueDate, place: v.place, trades: v.trades, solicitationId: v.solicitationId, url: v.url, host: v.host, notes: v.notes },
+      confirmKey: confirmKeyOf(fields, built.signal.externalId, now),
       bidsOn: deps.bidsOn(),
     };
   }
@@ -188,10 +220,10 @@ async function analyze(deps: ServiceDeps, text: string, formatId: unknown): Prom
     if (!built.ok) {
       // What is echoed back for a skipped row is cut short too (review P2-4).
       const url = (f.url ?? '').slice(0, 300);
-      rows.push({ line: rec.line, action: 'skip', reason: built.detail ?? PROBLEM_TEXT[built.problem], title: (f.title ?? '').slice(0, 140), agency: (f.agency ?? '').slice(0, 120), dueDate: (f.dueDate ?? '').slice(0, 40), place: [f.city, f.state, f.zip].filter(Boolean).join(' ').slice(0, 120), trades: [], url, host: linkHost(url) });
+      rows.push({ line: rec.line, action: 'skip', reason: built.detail ?? PROBLEM_TEXT[built.problem], title: (f.title ?? '').slice(0, 140), agency: (f.agency ?? '').slice(0, 120), dueDate: (f.dueDate ?? '').slice(0, 40), place: [f.city, f.state, f.zip].filter(Boolean).join(' ').slice(0, 120), trades: [], url, host: linkHost(url), notes: [] });
       continue;
     }
-    const row: RowOutcome = { line: rec.line, action: 'add', reason: null, title: built.view.title, agency: built.view.agency, dueDate: built.view.dueDate, place: built.view.place, trades: built.view.trades, url: built.view.url, host: built.view.host };
+    const row: RowOutcome = { line: rec.line, action: 'add', reason: null, title: built.view.title, agency: built.view.agency, dueDate: built.view.dueDate, place: built.view.place, trades: built.view.trades, url: built.view.url, host: built.view.host, notes: built.view.notes };
     // One bid = the same link AND title, or the same agency AND solicitation number (a list page can carry many bids).
     const { solKey } = built.keys;
     const urlKey = `${built.keys.urlKey}|${built.keys.titleKey}`;

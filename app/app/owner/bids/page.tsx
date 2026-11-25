@@ -44,7 +44,7 @@ export default async function OwnerBidsPage() {
         <h2 id="open-manual-bids" className="font-display text-xl font-semibold text-ink">
           Open bids you added
         </h2>
-        <p className="mt-1 text-sm text-muted">Added one by mistake? Retire it: it closes now and leaves every member&apos;s feed, e-mail and push.</p>
+        <p className="mt-1 text-sm text-muted">Added one by mistake? Retire it: it closes now, leaves members&apos; feeds and is in no new alert e-mail or push. Then add the corrected bid.</p>
         {open.length === 0 ? (
           <p className="mt-3 text-sm text-muted">None open.</p>
         ) : (

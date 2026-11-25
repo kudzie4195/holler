@@ -50,7 +50,9 @@ function Rows({ a }: { a: CsvAnalysis }) {
           {a.rows.map((r) => (
             <tr key={r.line} className="border-b border-line align-top">
               <td className="py-2 pr-3 font-mono">{r.line}</td>
-              <td className={`py-2 pr-3 ${r.action === 'add' ? 'font-semibold text-success-ink' : 'text-muted'}`}>{r.action === 'add' ? 'Add' : `Skip: ${r.reason ?? ''}`}</td>
+              <td className={`py-2 pr-3 ${r.action === 'add' ? 'font-semibold text-success-ink' : 'text-muted'}`}>{r.action === 'add' ? 'Add' : `Skip: ${r.reason ?? ''}`}
+                {r.notes.length ? <span className="block font-normal text-warn-ink">{r.notes.join(' ')}</span> : null}
+              </td>
               <td className="py-2 pr-3">{r.title}</td>
               <td className="py-2 pr-3">{r.agency}</td>
               <td className="py-2 pr-3 whitespace-nowrap">{r.dueDate}</td>
