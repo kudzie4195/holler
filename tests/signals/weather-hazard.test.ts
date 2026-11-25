@@ -13,8 +13,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseNws } from '@/lib/signals/adapters/nws';
-import { LSR_DAMAGE_PART, LSR_EMPTY_LOG, LSR_LOOKBACK_HOURS, LSR_TREE_PART, LSR_TYPES, LSR_WFOS, lsrAdapter, lsrEnabled, lsrGustMph, lsrPlace, lsrUrl, parseLsr, remarkNamesTrees, scanLsr } from '@/lib/signals/adapters/lsr';
-import { LSR_PARTS, lsrSummaryOf } from '@/lib/signals/adapters/lsr-parts';
+import { LSR_DAMAGE_PART, LSR_EMPTY_WEEK_LOG, LSR_LOOKBACK_HOURS, LSR_TREE_PART, LSR_TYPES, LSR_WFOS, lsrAdapter, lsrEnabled, lsrGustMph, lsrPlace, lsrUrl, parseLsr, remarkNamesTrees, scanLsr } from '@/lib/signals/adapters/lsr';
+import { LSR_PARTS, lsrFactsOf, lsrSummaryOf } from '@/lib/signals/adapters/lsr-parts';
+import { normalGapDays } from '@/lib/signals/health';
 import { SKIP_SOURCES } from '@/lib/ai/classify';
 import { feedCount } from '@/lib/seo/home-live';
 import {
@@ -331,10 +332,10 @@ describe('NWS local storm reports (IEM GeoJSON), behind HOLLER_LSR_ENABLED', () 
     // Hail, thunderstorm wind damage and thunderstorm gusts come from SPC already (spc.ts): skipped here.
     expect(scan.signals.map((s) => s.data?.lsrType)).toEqual(['NON-TSTM WND DMG', 'NON-TSTM WND DMG']);
     const s = scan.signals[0];
-    expect(s).toMatchObject({ source: 'lsr', kind: 'report', title: 'Wind damage reported near Chokio, MN', summary: LSR_DAMAGE_PART, city: 'Chokio', county: 'Stevens', state: 'MN', lat: 45.57, lon: -96.19, severity: 2 });
+    expect(s).toMatchObject({ source: 'lsr', kind: 'report', title: 'Wind damage reported near Chokio, MN', summary: 'It names power lines or poles', city: 'Chokio', county: 'Stevens', state: 'MN', lat: 45.57, lon: -96.19, severity: 2 });
     expect(s.categories).toEqual(['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster']);
     expect(s.url).toBe('https://mesonet.agron.iastate.edu/p.php?pid=202205130002-KMPX-NWUS53-LSRMPX');
-    expect(s.data).toMatchObject({ type: 'wind', windDamage: true, treeDown: false, wfo: 'MPX' });
+    expect(s.data).toMatchObject({ type: 'wind', windDamage: true, treeDown: false, powerLines: true, wfo: 'MPX' });
     const stored = JSON.stringify(scan.signals);
     for (const f of lsrFixture().features) {
       const remark = String(f.properties.remark ?? '');
@@ -525,11 +526,53 @@ describe('review P1-3: an LSR report routes exactly like the SPC report with the
     'WATERPROOF TARP BLOWN AWAY.',
   ];
   const TRADES = ['tree-service', 'roofing', 'restoration'] as const;
-  it('every one of the 32 fact combinations is read back identically from the stored phrases', () => {
+  it("every one of the 32 combinations of the rule's five facts survives the stored phrases (no shortcut: roof without structure included)", () => {
+    // One remark per combination, from real words: roof alone is "shingles", structure alone "garage", home-or-yard alone "yard".
     for (let mask = 0; mask < 32; mask++) {
-      const f = { trees: !!(mask & 1), road: !!(mask & 2), roof: !!(mask & 4), structure: !!(mask & 8) || !!(mask & 4), homeOrYard: !!(mask & 16) };
-      const back = windDamageFactsOf(lsrSummaryOf(f));
-      for (const t of TRADES) expect(windDamageLevelOf(back, t), `${mask} ${t}`).toBe(windDamageLevelOf(f, t));
+      const want = { trees: !!(mask & 1), road: !!(mask & 2), roof: !!(mask & 4), structure: !!(mask & 8), homeOrYard: !!(mask & 16) };
+      const words: string[] = [];
+      if (want.trees) words.push('TREE DOWN');
+      if (want.road) words.push('ON A ROAD');
+      if (want.roof && want.structure) words.push('ROOF OFF');
+      else if (want.roof) words.push('SHINGLES OFF');
+      if (want.structure && want.homeOrYard) words.push('AT A HOME');
+      else if (want.homeOrYard) words.push('IN A YARD');
+      else if (want.structure && !want.roof) words.push('GARAGE HIT');
+      const remark = words.join(', ') || 'FENCE DOWN';
+      expect(windDamageFactsOf(remark), remark).toEqual(want);
+      const back = windDamageFactsOf(lsrSummaryOf(lsrFactsOf(remark)));
+      expect(back, remark).toEqual(want);
+      for (const t of TRADES) expect(windDamageLevelOf(back, t), `${remark} ${t}`).toBe(windDamageLevelOf(want, t));
+    }
+  });
+  it('review 2: shingles or gutters alone route as SPC does (restoration heads-up, not act now)', () => {
+    for (const remark of ['SHINGLES BLOWN OFF', 'GUTTERS TORN FROM A STORE', 'TREE DOWN ON SHINGLE ROAD', 'TREE FELL ONTO GUTTERS OF A SHOP']) {
+      const lsr = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { typetext: 'NON-TSTM WND DMG', county: 'FULTON', state: 'GA', city: 'ATLANTA', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, remark } }] })[0];
+      const spc = { source: 'spc', kind: 'report', title: 'Wind damage reported near Atlanta, GA', summary: remark };
+      expect(labelFor(spc, 'restoration'), remark).toBe('coming_soon');
+      for (const t of ['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster'] as CategoryId[]) {
+        expect(labelFor({ source: 'lsr', kind: 'report', title: lsr.title, summary: lsr.summary }, t), `${remark} ${t}`).toBe(labelFor(spc, t));
+      }
+    }
+  });
+  it('review 2: the phrases say only what the remark says (EN and ES)', () => {
+    const say = (r: string) => lsrSummaryOf(lsrFactsOf(r));
+    expect(say('POWER POLES SNAPPED')).toBe('It names power lines or poles');
+    expect(say('POWER LINES DOWN IN FLOWERY BRANCH')).toBe('It names power lines or poles');
+    expect(say('SIGN BLOWN DOWN AT A WAREHOUSE')).toBe(LSR_DAMAGE_PART);
+    expect(say('RESIDENT REPORTED A FENCE DOWN')).toBe(LSR_DAMAGE_PART);
+    expect(say('DAMAGE AT A LUMBERYARD')).toBe(LSR_DAMAGE_PART);
+    expect(say('CLIMBING WALL TIPPED OVER AT COURTHOUSE')).toBe(LSR_DAMAGE_PART);
+    expect(say('TREE FELL ON GARAGE IN BACK YARD')).toBe('The report names trees or limbs down | It names a yard | It names a building');
+    expect(say('TREE DOWN ON SHINGLE ROAD')).toBe('The report names trees or limbs down | It names a road | It names shingles or gutters');
+    expect(say('ROOF OF A HOME DAMAGED BY A FALLEN TREE')).toBe('The report names trees or limbs down | It names a roof or siding | It names a home');
+    expect(say('LARGE TREE FELL ON HOME')).toBe('The report names trees or limbs down | It names a home');
+    expect(localizeSummary(say('POWER POLES SNAPPED'), 'es', 'lsr')).toBe('Menciona tendido o postes eléctricos');
+    // Where the SPC rule reads inside a longer word or reads snapped poles as trees, the LSR row reads less, never more.
+    for (const remark of ['POWER POLES SNAPPED', 'SIGN BLOWN DOWN AT A WAREHOUSE', 'CLIMBING WALL TIPPED OVER AT COURTHOUSE', 'DAMAGE AT A LUMBERYARD']) {
+      const f = windDamageFactsOf(say(remark));
+      const spc = windDamageFactsOf(remark);
+      for (const k of Object.keys(f) as (keyof typeof f)[]) if (f[k]) expect(spc[k], `${remark} ${k}`).toBe(true);
     }
   });
   it('labels match SPC for every trade, and the remark is not stored', () => {
@@ -572,14 +615,33 @@ describe('review P2-4 and P2-5: LSR unit, place, AI and the empty answer', () =>
     expect(SKIP_SOURCES.has('lsr')).toBe(true);
     expect(SKIP_SOURCES.has('spc')).toBe(true);
   });
-  it('an answer with no features at all is logged as an error (more than 24 hours with no report of any kind)', async () => {
-    const now = new Date('2026-11-25T12:00:00Z');
-    const logs: string[] = [];
-    const empty = vi.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 }));
-    expect(await lsrAdapter.fetch({ since: now, now, fetch: empty as unknown as typeof globalThis.fetch, env: { HOLLER_LSR_ENABLED: '1' }, log: (m) => logs.push(m) })).toEqual([]);
-    expect(logs).toEqual([LSR_EMPTY_LOG]);
-    expect(LSR_EMPTY_LOG).toMatch(/^error: lsr returned 0 reports of any kind from 7 NWS offices over 36 hours/);
-    expect(LSR_LOOKBACK_HOURS).toBeGreaterThan(24);
+  it('review 2: quiet weather is a healthy run; only 7 empty days (checked once a day) are logged', async () => {
+    const run = async (iso: string, weekFeatures: unknown[]) => {
+      const now = new Date(iso);
+      const logs: string[] = [];
+      const urls: string[] = [];
+      const f = vi.fn(async (u: string) => {
+        urls.push(u);
+        return new Response(JSON.stringify({ type: 'FeatureCollection', features: u.includes('sts=2026-11-18T12:00Z') ? weekFeatures : [] }), { status: 200 });
+      });
+      const out = await lsrAdapter.fetch({ since: now, now, fetch: f as unknown as typeof globalThis.fetch, env: { HOLLER_LSR_ENABLED: '1' }, log: (m) => logs.push(m) });
+      return { out, logs, urls };
+    };
+    // A quiet hour: one request, no log, nothing returned (a healthy run, never an error).
+    const quiet = await run('2026-11-25T09:00:00Z', []);
+    expect(quiet).toEqual({ out: [], logs: [], urls: [lsrUrl(new Date('2026-11-25T09:00:00Z'))] });
+    // The daily check, the week had reports: no log.
+    const weekOk = await run('2026-11-25T12:00:00Z', lsrFixture().features);
+    expect(weekOk.logs).toEqual([]);
+    expect(weekOk.urls).toHaveLength(2);
+    expect(weekOk.urls[1]).toBe('https://mesonet.agron.iastate.edu/geojson/lsr.geojson?wfos=FFC,EWX,GSP,RAH,OKX,LOT,LOX&sts=2026-11-18T12:00Z&ets=2026-11-25T12:00Z');
+    // The daily check, nothing for 7 days: one error log.
+    const weekEmpty = await run('2026-11-25T12:00:00Z', []);
+    expect(weekEmpty.logs).toEqual([LSR_EMPTY_WEEK_LOG]);
+    expect(LSR_EMPTY_WEEK_LOG).toMatch(/^error: lsr returned 0 reports of any kind from 7 NWS offices for 7 days/);
+    expect(LSR_LOOKBACK_HOURS).toBe(36);
+    // Weeks without a new non-thunderstorm wind row are not a break.
+    expect(normalGapDays('lsr')).toBe(30);
   });
   it('the saved real IEM response (lsr.geojson capture) parses with the adapter; the request is the form checked live', () => {
     // Checked live 2026-11-25 (fetch tool): this exact form with wfos=FFC,EWX,GSP,RAH,OKX,LOT,LOX&sts=2026-01-24T12:00Z&ets=2026-01-26T00:00Z
@@ -595,5 +657,57 @@ describe('review P1-1: the home page source count does not change while the new 
     expect(feedCount(ALL_ADAPTERS, {})).toBe(48);
     vi.stubEnv('HOLLER_LSR_ENABLED', '1');
     expect(feedCount(ALL_ADAPTERS, {})).toBe(49);
+  });
+});
+
+describe('review 2 P2-4: the 35 new parser strings (gates/r33/review/r33-hail/r2/parser-attack.txt)', () => {
+  const SVR = 'Severe Thunderstorm Warning';
+  const HWW = 'High Wind Warning';
+  const N = (hail: number | null, gust: number | null) => ({ hailInches: hail, gustMph: gust });
+  const CASES: Array<[string, string, string, ReturnType<typeof N>]> = [
+    ['N01', SVR, 'Quarter size hail is not expected.', N(null, null)],
+    ['N02', SVR, 'Hail up to 1 inch possible tomorrow in the Hail Valley area.', N(1, null)],
+    ['N02b', 'Special Weather Statement', 'Hail up to 1 inch possible tomorrow in the Hail Valley area.', N(null, null)],
+    ['N03', HWW, 'The last event of this strength brought 60 mph gusts in 2019.', N(null, null)],
+    ['N03b', HWW, 'The October 2019 storm produced gusts up to 80 mph. This storm will be weaker with winds of 20 to 30 mph.', N(null, null)],
+    ['N04', HWW, 'Gusts up to 50 kt.', N(null, 58)],
+    ['N04b', HWW, 'Gusts up to 49 kt.', N(null, 56)],
+    ['N04c', HWW, 'West winds 30 to 40 kt with gusts to 60 kt.', N(null, 69)],
+    ['N05', HWW, 'Southwest winds 30 to 40 mph with gusts to 60 mph.', N(null, 60)],
+    ['N05b', HWW, 'Southwest winds 30 to 40 mph with gusts to 60.', N(null, null)],
+    ['N06', SVR, 'HAZARD...50 mph wind gusts and 3/4 inch hail.', N(0.75, 50)],
+    ['N07', SVR, 'Expect 1/2 inch hail with this storm.', N(0.5, null)],
+    ['N08', SVR, '1 1/2 inch hail is possible.', N(1.5, null)],
+    ['N09', HWW, 'The earlier forecast of gusts up to 70 mph has been lowered to 45 mph.', N(null, null)],
+    ['N10', SVR, 'The storm that produced quarter size hail has moved out of the warned area.', N(null, null)],
+    ['N11', HWW, 'Gusts to 60 mph ended at 5 PM.', N(null, null)],
+    ['N12', SVR, 'Hail will remain smaller than quarter size hail criteria. Gusts below 58 mph.', N(null, null)],
+    ['N13', SVR, 'Hail up to 3 inches in depth was reported on Highway 34.', N(null, null)],
+    ['N14', SVR, 'Plows cleared a 6 inch hail drift from Interstate 80.', N(null, null)],
+    ['N15', HWW, "Gusts up to 60 mph aren't expected until Friday, if at all.", N(null, null)],
+    ['N15b', HWW, "Gusts up to 60 mph won't be expected today.", N(null, null)],
+    ['N15c', SVR, "Quarter size hail isn't expected.", N(null, null)],
+    ['N16', HWW, 'There is no threat of gusts to 60 mph today.', N(null, null)],
+    ['N17', SVR, 'The Severe Thunderstorm Warning is cancelled. The storm which prompted the warning, with 60 mph wind gusts and quarter size hail, has weakened below severe limits.', N(null, null)],
+    ['N18', SVR, 'Golf ball size hail was reported in the next county over. Locally expect penny size hail.', N(0.75, null)],
+    ['N19', HWW, 'Winds 60 mph. Gust front arriving 60 mph ahead.', N(null, null)],
+    ['N20', SVR, 'Warnings are issued when storms produce 58 mph wind gusts or quarter size hail.', N(null, null)],
+    ['N21', 'Severe Thunderstorm Watch', 'A severe thunderstorm watch means conditions are favorable for storms with one inch hail or wind gusts of 58 mph.', N(null, null)],
+    ['N22', HWW, 'Gusts up to 90 mph above 9000 feet; gusts up to 40 mph in the valleys.', N(null, 90)],
+    ['N23', 'Winter Storm Warning', 'Snow 6 to 10 inches. Wind chills as low as 20 below. Gusts 35 mph.', N(null, 35)],
+    ['N24', SVR, 'Hail up to 1. 75 inches was reported.', N(null, null)],
+    ['N25', SVR, 'Rainfall of 2 to 4 inches, hail, and frequent lightning.', N(null, null)],
+    ['N26', SVR, 'Rainfall rates of 2 to 4 inch hail possible.', N(null, null)],
+    ['N27', SVR, 'Hail the size of golf balls.', N(null, null)],
+    ['N28', SVR, 'Rafagas de hasta 60 mph y granizo de 1 pulgada.', N(null, null)],
+    ['N29', HWW, 'Expect 70 mph gusts along the ridges.', N(null, null)],
+    ['N30', HWW, 'Call 555 gusts up to 911 mph.', N(null, null)],
+  ];
+  for (const [id, event, text, want] of CASES) it(`${id}: ${text}`, () => expect(hazardFromText(text, event)).toEqual(want));
+});
+
+describe('review 2 P2-5: the owner metro report reads hazardFrom, so CAP none is respected there too', () => {
+  it('selects hazardFrom', () => {
+    expect(readFileSync(join(ROOT, 'lib', 'admin', 'metros-load.ts'), 'utf8')).toMatch(/hazardFrom:data->>hazardFrom/);
   });
 });

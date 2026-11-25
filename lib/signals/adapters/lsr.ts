@@ -2,8 +2,7 @@ import { HOLLER_UA } from '@/lib/user-agent';
 import type { CategoryId } from '../categories';
 import type { Adapter, AdapterContext, Severity, SignalInput } from '../types';
 import { WIND_CATS } from './spc';
-import { LSR_DAMAGE_PART, LSR_TREE_PART, lsrSummaryOf } from './lsr-parts';
-import { windDamageFactsOf } from '../carry';
+import { LSR_DAMAGE_PART, LSR_TREE_PART, lsrFactsOf, lsrSummaryOf } from './lsr-parts';
 
 /**
  * Round 33 (HAIL): National Weather Service Local Storm Reports (LSRs), the reports SPC's preliminary storm reports do NOT carry.
@@ -20,10 +19,10 @@ import { windDamageFactsOf } from '../carry';
  * never lists are the wind damage and gusts NOT caused by a thunderstorm (winter storms, ice, strong gradient wind), which is where many
  * "tree down" reports come from. LSR_TYPES below lists every type and says why it is or is not kept; changing `keep` is a one-line change.
  *
- * Privacy: the remark is free text and can name a street or a person, so it is NEVER stored. It is read in memory only, for the five facts
- * the wind damage rule reads (carry.ts windDamageFactsOf: trees, road, roof, structure, home or yard), stored as flags (data.treeDown,
- * blocksRoad, roofNamed, onStructure, homeOrYard) and written back as fixed phrases (lsr-parts.ts lsrSummaryOf), so an LSR report gets the
- * label an SPC report with the same remark gets (review P1-3). The place must look like "N DIR PLACE" or a plain place name, else the county
+ * Privacy: the remark is free text and can name a street or a person, so it is NEVER stored. It is read in memory only, word by word
+ * (lsr-parts.ts lsrFactsOf: trees, power lines, road, roof or siding, shingles or gutters, home, yard, building), stored as flags
+ * (data.treeDown, powerLines, blocksRoad, roofNamed, onStructure, homeOrYard) and written back as fixed phrases (lsrSummaryOf) from which the
+ * wind damage rule reads the label an SPC report with the same words gets (reviews 1 P1-3 and 2 P2-2, P2-3). The place must look like "N DIR PLACE" or a plain place name, else the county
  * is used (review P2-4). The point is rounded to 3 decimals (about a city block); LSR points are usually given to 2 decimals.
  *
  * Behind HOLLER_LSR_ENABLED (default off): the scan skips the adapter while it is off (no request at all).
@@ -48,11 +47,15 @@ export const LSR_WFOS: readonly string[] = ['FFC', 'EWX', 'GSP', 'RAH', 'OKX', '
 export const LSR_LOOKBACK_HOURS = 36;
 
 /**
- * Review P2-5: the window is longer than 24 hours, so one answer with no features at all means no report of ANY kind (snow, rain, wind,
- * hail) from seven offices for more than a day. That is far more likely a request the feed no longer honours than quiet weather, so it is
- * logged as an error: the run shows as failed in the health email, and after 24 hours the monitor's source_silent alert fires.
+ * Review 2 P2-1: quiet weather is normal. The live feed for these seven offices had reports on only three bursts of days in a two-week
+ * window, so an answer with 0 features is a healthy run: nothing is logged and the source is never marked unavailable for it. The only
+ * check: once a day (the run in hour LSR_WEEK_PROBE_UTC_HOUR), when the normal answer is empty, one more request reads the last 7 days.
+ * If that is empty too (no report of any kind, snow, rain, wind or hail, from seven offices for a week), the request format has most
+ * likely stopped working, and that one run logs LSR_EMPTY_WEEK_LOG as an error (the monitor's scan_error email names it the same hour).
  */
-export const LSR_EMPTY_LOG = `error: lsr returned 0 reports of any kind from ${LSR_WFOS.length} NWS offices over ${LSR_LOOKBACK_HOURS} hours; the request format may no longer work (check one busy day by hand)`;
+export const LSR_WEEK_PROBE_UTC_HOUR = 12;
+export const LSR_WEEK_HOURS = 7 * 24;
+export const LSR_EMPTY_WEEK_LOG = `error: lsr returned 0 reports of any kind from ${LSR_WFOS.length} NWS offices for 7 days; the request format may no longer work (check one busy day by hand)`;
 
 export const LSR_TYPES: ReadonlyArray<{ typetext: string; keep: boolean; kind: 'damage' | 'gust' | 'other'; why: string }> = [
   { typetext: 'NON-TSTM WND DMG', keep: true, kind: 'damage', why: 'Wind damage not from a thunderstorm (tree and limb reports in winter and gradient wind); SPC never lists it.' },
@@ -68,7 +71,7 @@ export const LSR_TYPES: ReadonlyArray<{ typetext: string; keep: boolean; kind: '
 export const LSR_MIN_GUST_MPH = 50;
 
 /** Summary parts Holler writes (fixed words, translated in lib/signals/summary-i18n.ts). The remark itself is never stored. */
-export { LSR_DAMAGE_PART, LSR_TREE_PART, lsrSummaryOf };
+export { LSR_DAMAGE_PART, LSR_TREE_PART, lsrFactsOf, lsrSummaryOf };
 
 const TREE_RE = /\btrees?\b|\blimbs?\b|\bbranch(?:es)?\b|uproot|snapped/i;
 
@@ -152,16 +155,17 @@ export function scanLsr(raw: unknown): LsrScan {
       data.windDamage = false;
     } else {
       // A non-thunderstorm wind damage report: the type itself says damage. The flags say what the remark names; the remark is not kept.
-      const f = windDamageFactsOf(remark);
+      const f = lsrFactsOf(remark);
       title = `Wind damage reported near ${where}`;
       summary = lsrSummaryOf(f);
       severity = 2;
       data.windDamage = true;
       data.treeDown = f.trees;
+      data.powerLines = f.powerLines;
       data.blocksRoad = f.road;
-      data.roofNamed = f.roof;
-      data.onStructure = f.structure;
-      data.homeOrYard = f.homeOrYard;
+      data.roofNamed = f.roofOrSiding || f.shinglesOrGutters;
+      data.onStructure = f.roofOrSiding || f.home || f.building;
+      data.homeOrYard = f.home || f.yard;
     }
     // One row per report: the same report is often repeated in a later summary product, so the id leaves the product out.
     const externalId = `${typetext}:${occurredAt}:${la.toFixed(2)}:${lo.toFixed(2)}:${str(p.magnitude)}`;
@@ -225,7 +229,14 @@ export const lsrAdapter: Adapter = {
       }
       const scan = scanLsr(json);
       if (!Array.isArray((json as { features?: unknown } | null)?.features)) ctx.log('error: lsr response has no features array, wrapper may have changed');
-      else if (scan.rows === 0) ctx.log(LSR_EMPTY_LOG);
+      else if (scan.rows === 0) {
+        const now = ctx.now ?? new Date();
+        if (now.getUTCHours() === LSR_WEEK_PROBE_UTC_HOUR) {
+          const week = await ctx.fetch(lsrUrl(now, LSR_WFOS, LSR_WEEK_HOURS), { headers: { 'User-Agent': HOLLER_UA, Accept: 'application/geo+json, application/json' }, signal: AbortSignal.timeout(20000) });
+          const body = week.ok ? ((JSON.parse(await week.text()) as { features?: unknown[] } | null)?.features ?? null) : null;
+          if (Array.isArray(body) && body.length === 0) ctx.log(LSR_EMPTY_WEEK_LOG);
+        }
+      }
       else if (scan.rows > 0 && scan.usable === 0) ctx.log(`error: lsr parsed 0 of ${scan.rows} rows, shape may have changed`);
       return scan.signals;
     } catch (e) {

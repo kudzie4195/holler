@@ -1,7 +1,7 @@
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { naicsSectorLang, permitLabelLang } from '@/lib/signals/title-i18n';
 import { ALSO_CITED_PREFIX, HEAT_MARK } from '@/lib/signals/carry';
-import { LSR_BUILDING_PART, LSR_DAMAGE_PART, LSR_HOME_PART, LSR_ROAD_PART, LSR_ROOF_PART, LSR_TREE_PART, LSR_YARD_PART } from '@/lib/signals/adapters/lsr-parts';
+import { LSR_BUILDING_PART, LSR_DAMAGE_PART, LSR_GUTTER_PART, LSR_HOME_PART, LSR_POWER_PART, LSR_ROAD_PART, LSR_ROOF_PART, LSR_TREE_PART, LSR_YARD_PART } from '@/lib/signals/adapters/lsr-parts';
 
 /**
  * Record summaries in the member's language (round 17, unit ES, redo 2). Same approach as title-i18n.ts.
@@ -143,6 +143,8 @@ function partLang(part: string, lang: Lang, source: string): string {
   if (part === LSR_DAMAGE_PART) return t(lang, 'sum.lsr_damage');
   if (part === LSR_ROAD_PART) return t(lang, 'sum.lsr_road');
   if (part === LSR_ROOF_PART) return t(lang, 'sum.lsr_roof');
+  if (part === LSR_GUTTER_PART) return t(lang, 'sum.lsr_gutter');
+  if (part === LSR_POWER_PART) return t(lang, 'sum.lsr_power');
   if (part === LSR_HOME_PART) return t(lang, 'sum.lsr_home');
   if (part === LSR_YARD_PART) return t(lang, 'sum.lsr_yard');
   if (part === LSR_BUILDING_PART) return t(lang, 'sum.lsr_building');

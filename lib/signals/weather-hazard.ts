@@ -105,7 +105,19 @@ export const HAIL_SIZE_WORDS: Readonly<Record<string, number>> = {
 };
 
 /** A sentence that takes back what it names ("no longer expected", "not expected"): nothing in it is read. */
-const NEGATED = /\bno longer\b|\bnot (?:expected|anticipated|likely|forecast)\b|\bunlikely\b|\bno (?:large |severe )?hail\b|\b(?:is|are|will|was|were) not\b|\bhas ended\b|\bhave ended\b|\bdiminish/;
+const NEGATED = new RegExp(
+  [
+    // taken back or past: "no longer expected", "not expected", "aren't expected", "won't be", "has ended", "ended at 5 PM"
+    String.raw`\bno longer\b|\bnot (?:be )?(?:expected|anticipated|likely|forecast)\b|\bunlikely\b|\bno (?:large |severe )?hail\b`,
+    String.raw`\b(?:is|are|will|was|were) not\b|\b(?:aren|isn|won|weren|wasn|don|doesn)['’]?t\b|\bno threat\b|\bended\b|\bdiminish`,
+    // lowered, cancelled, weakened, moved out
+    String.raw`\blowered\b|\breduced\b|\bdowngraded\b|\bcancel|\bweakened\b|\bbelow severe\b|\bmoved out\b|\bhas moved\b|\bhave moved\b`,
+    // somewhere else, or a definition rather than a warning for this area
+    String.raw`\bnext county\b|\banother county\b|\bneighboring\b|\belsewhere\b|\bare issued when\b|\bwhen storms produce\b|\bmeans conditions\b|\bfavorable for\b`,
+    // a size compared with a threshold, a past year
+    String.raw`\bsmaller than\b|\bcriteria\b|\b(?:19|20)\d{2}\b`,
+  ].join('|'),
+);
 
 /** Products whose text may name a hail size the routing reads: severe thunderstorm and tornado products (and their statements). */
 export const HAIL_TEXT_EVENTS = /severe thunderstorm|tornado/i;
@@ -145,8 +157,14 @@ export function hazardFromText(text: string | null | undefined, event?: string |
     }
     for (const m of sent.matchAll(/\b(\d{2,3}) mph wind gusts\b/g)) bumpGust(Number(m[1]));
     if (!hailAllowed) continue;
-    for (const m of sent.matchAll(/\bhail (?:up to |of up to |of |to )(\d*\.\d+|\d+) inch(?:es)?\b(?! deep)(?! of (?:accumulation|ice))/g)) bumpHail(parseFloat(m[1]));
-    for (const m of sent.matchAll(/(?<![\d.])(\d*\.\d+|\d+)[- ]inch(?:es)? (?:diameter )?hail\b/g)) bumpHail(parseFloat(m[1]));
+    // Never a depth or a drift: "hail up to 3 inches deep", "in depth", "a 6 inch hail drift".
+    for (const m of sent.matchAll(/\bhail (?:up to |of up to |of |to )(\d*\.\d+|\d+) inch(?:es)?\b(?! deep| in depth| of (?:accumulation|ice)| on the ground)/g)) bumpHail(parseFloat(m[1]));
+    // Fractions: "3/4 inch hail" is 0.75, "1 1/2 inch hail" is 1.50.
+    for (const m of sent.matchAll(/(?<![\d./])(?:(\d) )?(\d)\/(\d{1,2})[- ]inch(?:es)? (?:diameter )?hail\b(?! drifts?| accumulation| depth| on the ground)/g)) {
+      bumpHail((m[1] ? Number(m[1]) : 0) + Number(m[2]) / Number(m[3]));
+    }
+    // "1.75 inch hail": not a fraction's denominator ("3/4"), not the top of a range ("2 to 4 inch hail"), not a drift or a depth.
+    for (const m of sent.matchAll(/(?<![\d./])(?<!\d to )(?<!\d-)(\d*\.\d+|\d+)[- ]inch(?:es)? (?:diameter )?hail\b(?! drifts?| accumulation| depth| on the ground)/g)) bumpHail(parseFloat(m[1]));
     const WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
     for (const m of sent.matchAll(/\b(one|two|three|four)[- ]inch(?:es)? hail\b/g)) bumpHail(WORDS[m[1]]);
     for (const m of sent.matchAll(SIZE_WORD_RE)) bumpHail(HAIL_SIZE_WORDS[m[1]]);
