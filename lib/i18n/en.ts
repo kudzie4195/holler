@@ -107,6 +107,7 @@ export const en = {
   'sum.lsr_trees': 'The report names trees or limbs down',
   'sum.lsr_damage': 'The report names wind damage, not confirmed',
   'sum.lsr_road': 'It names a road',
+  'sum.lsr_road_tree': 'It names a street or freeway',
   'sum.lsr_roof': 'It names a roof or siding',
   'sum.lsr_gutter': 'It names shingles or gutters',
   'sum.lsr_power': 'It names power lines or poles',

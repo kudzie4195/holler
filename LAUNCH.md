@@ -135,14 +135,20 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
    never stored. Turn on after one look at a scan's `lsr` row in the health email.
    NEEDS KUDZI (round 34 road words): `HOLLER_ROAD_WORDS_ENABLED` stays empty at the deploy; off, every label and card is exactly as before
-   (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1). On: the wind damage rule (SPC and LSR reports) reads freeway, fwy, lanes, ramp,
-   Blvd, boulevard, St, street, Rd, road, Ave, avenue, Pkwy, parkway, Dr, interchange, overpass, I-5, US-41, SR 400 and Hwy as a road.
-   A tree on a road is the road crew's job: tree service gets a heads-up, not Act now, and the card says "The report names a road; the road
-   crew usually clears trees there. Good to know." (EN and ES). A tree on a home or yard, or on a roof, garage, porch or building, stays
-   Act now; restoration and roofing never move. "St" and "Dr" count only as a street suffix ("Oak St", not "St. Louis" or "Dr. Smith");
-   "lane" alone does not ("Penny Lane Farm"). Real Los Angeles wind remarks of Jan 7 to 9 2025 (124): tree service Act now 63 to 13.
-   An LSR row stores its road phrase at ingest, so rows stored before the switch is turned on keep their old label (a 14-day tail); turn
-   it on before a windy day, not during one. Rollback: empty the variable and redeploy.
+   (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1). On: in a wind damage report (SPC, and LSR when it is on) a tree tied to a road
+   by freeway, fwy, lanes, ramp, Blvd, boulevard, St, street, Rd, Ave, avenue, Pkwy, parkway, interchange, overpass, US-n or SR n ("tree down
+   on ...", "blocking ...", "in lanes", "<road> blocked by trees") is the road crew's job: tree service gets a heads-up, not Act now, and the
+   card says "The report names a road; the road crew usually clears trees there. Good to know." (EN and ES). The change only ever LOWERS tree
+   service (never raises any label; roofing, restoration and every other trade never move). A street that only describes an area ("between
+   Western Avenue and ...", "along US 270", "near Oak St and Elm St", "on the 800 block of ...") is not read, nor is a report that also names a
+   home, yard, apartment, duplex, trailer, condo, church, business, school, roof, garage, building, vehicle or power line. "St" counts only as
+   a street suffix ("Elm St", not "St. Louis"); "lane" alone, "Dr" and "Drive" do not count. Real Los Angeles wind remarks of Jan 7 to 9 2025
+   (124): tree service Act now 63 to 37. The switch is inlined at build (next.config.ts `env`), so the feed card in the browser and the server
+   agree: it takes effect with the next deployment, on or off. LSR rows store a neutral fixed phrase for the tree on a street or freeway
+   whatever the switch says and the label reads it at read time, so turning the switch off restores main's labels for every stored row at
+   once, and turning it on applies to rows stored before as well (rows stored before this deploy have no phrase and keep their old label; 0 LSR
+   rows are stored while `HOLLER_LSR_ENABLED` is empty). Stored LSR rows show the line "It names a street or freeway" in their summary
+   whatever the switch says. Rollback: empty the variable and redeploy; nothing to clean up.
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

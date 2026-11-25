@@ -101,6 +101,7 @@ export const es: Record<DictKey, string> = {
   'sum.lsr_trees': 'El reporte menciona árboles o ramas caídos',
   'sum.lsr_damage': 'El reporte menciona daños por viento, no confirmado',
   'sum.lsr_road': 'Menciona una calle o carretera',
+  'sum.lsr_road_tree': 'Menciona una calle o autopista',
   'sum.lsr_roof': 'Menciona un techo o revestimiento',
   'sum.lsr_gutter': 'Menciona tejas o canaletas',
   'sum.lsr_power': 'Menciona tendido o postes eléctricos',

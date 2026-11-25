@@ -163,6 +163,7 @@ export function scanLsr(raw: unknown): LsrScan {
       data.treeDown = f.trees;
       data.powerLines = f.powerLines;
       data.blocksRoad = f.road;
+      data.treeOnRoad = f.roadTree;
       data.roofNamed = f.roofOrSiding || f.shinglesOrGutters;
       data.onStructure = f.roofOrSiding || f.home || f.building;
       data.homeOrYard = f.home || f.yard;
