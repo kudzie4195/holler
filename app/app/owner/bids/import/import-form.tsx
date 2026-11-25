@@ -43,6 +43,7 @@ function Rows({ a }: { a: CsvAnalysis }) {
             <th scope="col" className="py-2 pr-3">Due</th>
             <th scope="col" className="py-2 pr-3">Place</th>
             <th scope="col" className="py-2 pr-3">Trades</th>
+            <th scope="col" className="py-2 pr-3">Link host</th>
           </tr>
         </thead>
         <tbody>
@@ -55,6 +56,7 @@ function Rows({ a }: { a: CsvAnalysis }) {
               <td className="py-2 pr-3 whitespace-nowrap">{r.dueDate}</td>
               <td className="py-2 pr-3">{r.place}</td>
               <td className="py-2 pr-3">{r.trades.join(', ')}</td>
+              <td className="py-2 pr-3 font-mono">{r.host}</td>
             </tr>
           ))}
         </tbody>

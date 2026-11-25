@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { sessionCookieOptions } from './cookie-options';
 import { LANG_COOKIE } from '@/lib/auth/lang-cookie';
+import { OWNER_PATH, ownerPathAllowed } from '@/lib/signals/manual-bids/owner-id';
 
 const PROTECTED = ['/app', '/onboarding', '/es/onboarding'];
 const GUEST_ONLY = ['/login', '/signup', '/forgot', '/es/login', '/es/signup', '/es/forgot'];
@@ -32,6 +33,7 @@ export async function updateSession(request: NextRequest) {
 
   let response = NextResponse.next({ request });
   let signedIn = false;
+  let sub: string | null = null;
 
   if (url && anon) {
     const supabase = createServerClient(url, anon, {
@@ -51,7 +53,8 @@ export async function updateSession(request: NextRequest) {
     try {
       // getClaims verifies the JWT signature, so a forged cookie does not pass.
       const { data } = await supabase.auth.getClaims();
-      signedIn = Boolean(data?.claims?.sub);
+      sub = typeof data?.claims?.sub === 'string' ? data.claims.sub : null;
+      signedIn = Boolean(sub);
     } catch {
       signedIn = false;
     }
@@ -63,6 +66,15 @@ export async function updateSession(request: NextRequest) {
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;
   };
+
+  // Round 33: the owner's hand-added bid pages. Anyone but the owner (signed out too, and everyone while HOLLER_MANUAL_BIDS_ENABLED is
+  // off) gets a real 404 status here, before any page shell is streamed, so the pages do not reveal that they exist. The pages and
+  // actions check again on the server (lib/signals/manual-bids/owner.ts).
+  if (matches(pathname, [OWNER_PATH]) && !ownerPathAllowed(sub)) {
+    const notFound = NextResponse.rewrite(new URL('/_holler-not-found', request.url), { status: 404 });
+    notFound.headers.set('x-robots-tag', 'noindex');
+    return notFound;
+  }
 
   if (!signedIn && matches(pathname, PROTECTED)) {
     const target = request.nextUrl.clone();

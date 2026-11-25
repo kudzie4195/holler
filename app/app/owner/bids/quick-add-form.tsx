@@ -9,6 +9,8 @@ import { addManualBidAction, type QuickAddState } from './actions';
 
 const FIELD_OF: Record<string, string> = {
   bad_url: 'url',
+  short_link: 'url',
+  terms_host: 'url',
   no_title: 'title',
   no_agency: 'agency',
   no_due: 'dueDate',
@@ -51,7 +53,7 @@ export function QuickAddForm({ trades }: { trades: Array<{ id: string; label: st
       ) : null}
       {state && state.ok ? (
         <Notice tone="success" role="status">
-          Added &ldquo;{state.title}&rdquo; ({state.trades.join(', ')}). Matched to {state.matched} member{state.matched === 1 ? '' : 's'}.
+          Added &ldquo;{state.title}&rdquo; ({state.trades.join(', ')}), linking to {state.host}. Matched to {state.matched} member{state.matched === 1 ? '' : 's'}.
           {state.note ? ` ${state.note}` : ''}
         </Notice>
       ) : null}

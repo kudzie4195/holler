@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CSV_FORMATS, csvFormat, parseCsv, readCsv } from '@/lib/signals/manual-bids/csv';
-import { buildManualBid, cleanUrl, isListPage, normalizeUrl, parseManualDue, resolvePlace, servedPlace } from '@/lib/signals/manual-bids/record';
+import { CELL_MAX, CSV_FORMATS, csvFormat, parseCsv, readCsv } from '@/lib/signals/manual-bids/csv';
+import { buildManualBid, cleanUrl, isListPage, linkHost, normalizeUrl, parseManualDue, resolvePlace, scrubPublic, servedPlace } from '@/lib/signals/manual-bids/record';
 import { checklistKey, readChecked, writeChecked } from '@/lib/signals/manual-bids/checklist-store';
 import { MANUAL_PORTALS } from '@/lib/signals/manual-bids/portals';
 
@@ -113,10 +113,11 @@ describe('one hand-added bid becomes a normal bid record', () => {
     expect(resolvePlace({ place: 'Nowhereville, ZZ' })).toBeNull();
     expect(buildManualBid({ ...base, place: 'Nowhereville, ZZ' }, { now: NOW, served })).toEqual({ ok: false, problem: 'no_place' });
     expect(buildManualBid({ ...base, place: '30060' }, { now: NOW, served: () => false })).toEqual({ ok: false, problem: 'outside_area' });
-    // The real coverage test: Marietta is served; Peachtree City is inside the Atlanta metro; rural Montana is neither.
+    // The site's own served test only (review P2-1): Marietta is served; Peachtree City (Atlanta metro rim), Carrboro and the centres of
+    // Houston, Philadelphia, Miami and Phoenix are not, exactly as /check and the waitlist say.
     expect(servedPlace(resolvePlace({ place: '30060' })!)).toBe(true);
-    expect(servedPlace(resolvePlace({ place: '30269' })!)).toBe(true);
-    expect(servedPlace(resolvePlace({ place: '59001' })!)).toBe(false);
+    for (const z of ['30269', '27510', '59001', '77002', '19107', '33130', '85004']) expect(servedPlace(resolvePlace({ place: z })!), z).toBe(false);
+    for (const z of ['30269', '77002']) expect(buildManualBid({ ...base, place: z }, { now: NOW })).toEqual({ ok: false, problem: 'outside_area' });
   });
 
   it('keeps contact details out of the title and never stores the description', () => {
@@ -125,6 +126,12 @@ describe('one hand-added bid becomes a normal bid record', () => {
     if (!r.ok) return;
     expect(r.signal.title).toBe('Open bid in Marietta: Roof repair, questions to or');
     expect(JSON.stringify(r.signal)).not.toMatch(/Jane|555-0100|buyer@/);
+  });
+
+  it('a CivicPlus category list (Bids.aspx?CatID=17) is a list page too; tracking parameters and query case do not split one link', () => {
+    expect(isListPage('https://mariettaga.gov/Bids.aspx?CatID=17')).toBe(true);
+    expect(isListPage('https://mariettaga.gov/Bids.aspx?CatID=17&BidID=9')).toBe(false);
+    expect(normalizeUrl('https://city.gov/b?BidID=9&utm_source=x&fbclid=y')).toBe(normalizeUrl('https://www.city.gov/b?bidid=9'));
   });
 
   it('an agency list page is not used as the identity of one bid', () => {
@@ -138,11 +145,88 @@ describe('one hand-added bid becomes a normal bid record', () => {
   });
 });
 
+describe('review fixes: privacy, length, formulas, link hosts', () => {
+  it('strips phone numbers, street addresses and names after "contact" from title and agency, and stores none of them', () => {
+    const r = buildManualBid(
+      { ...base, title: 'Roof repair at 1423 Oak Hollow Dr - contact John Q. Smith (404) 555-0147', agency: 'City of Marietta, 88 Pine St, phone 770-555-0199' },
+      { now: NOW, served },
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const stored = JSON.stringify(r.signal);
+    for (const bit of ['1423', 'Oak Hollow', '555-0147', '404', 'John', 'Smith', '88 Pine', '770-555-0199']) expect(stored, bit).not.toContain(bit);
+    expect(r.signal.title).toBe('Open bid in Marietta: Roof repair');
+    // The scrub errs on the safe side: words right before a phone number go too ("City of"); the owner sees this in the preview.
+    expect(r.view.agency.startsWith('City of')).toBe(true);
+    // A number right before a street word is not an address: kept.
+    expect(scrubPublic('Fire Station 3 Road Improvements')).toBe('Fire Station 3 Road Improvements');
+  });
+
+  it('refuses a title or an agency that is only a person-like name', () => {
+    expect(buildManualBid({ ...base, title: 'John Q. Smith' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
+    expect(buildManualBid({ ...base, agency: 'Maria Gonzalez', trade: 'roofing' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
+    expect(buildManualBid({ ...base, title: 'SMITH, JOHN' }, { now: NOW, served })).toEqual({ ok: false, problem: 'person_name' });
+    for (const title of ['Brookhaven Park Lighting', 'Kenner Drainage Pump Repair', 'Mary Ann Park Restroom Renovation']) {
+      const r = buildManualBid({ ...base, title }, { now: NOW, served });
+      expect(r.ok || r.problem !== 'person_name', title).toBe(true);
+    }
+    for (const agency of ['City of Marietta', 'Gwinnett County Purchasing', 'St. Bernard Parish Government', 'Town of Manor', 'Atlanta Public Schools', 'Roswell', 'Lilburn']) {
+      expect(buildManualBid({ ...base, agency }, { now: NOW, served }).ok, agency).toBe(true);
+    }
+  });
+
+  it('cuts every field before any pattern runs: a 500,000-character cell finishes fast', () => {
+    const huge = 'a'.repeat(500_000);
+    const t0 = Date.now();
+    buildManualBid({ ...base, title: `${huge}@b.c`, agency: huge, description: huge, solicitationId: huge, place: huge, dueDate: huge }, { now: NOW, served });
+    buildManualBid({ ...base, title: `Roof ${'x'.repeat(500_000)}` }, { now: NOW, served });
+    const csv = readCsv(`title,agency,due_date,url\n${huge},${huge},2026-12-15,https://x.gov/1\n`, CSV_FORMATS.generic);
+    expect(Date.now() - t0).toBeLessThan(1500);
+    expect(csv.ok && csv.records[0].fields.title?.length).toBe(CELL_MAX);
+  });
+
+  it('removes a leading = + - @ from every stored text (spreadsheet formulas)', () => {
+    for (const lead of ['=', '+', '-', '@', '\t=', ' =+']) {
+      const r = buildManualBid({ ...base, title: `${lead}SUM(1+1) Roof replacement`, agency: `${lead}City of Marietta`, solicitationId: `${lead}1+1` }, { now: NOW, served });
+      expect(r.ok, JSON.stringify(lead)).toBe(true);
+      if (!r.ok) continue;
+      const d = r.signal.data as { buyer: string; solicitationId: string };
+      for (const v of [r.view.title, d.buyer, d.solicitationId, r.signal.summary ?? '']) expect(v, JSON.stringify(lead)).not.toMatch(/^[=+\-@\t]/);
+    }
+  });
+
+  it('refuses link shorteners, portals whose terms ban commercial use, odd ports and punycode hosts; reports the host', () => {
+    for (const u of ['https://bit.ly/3abc', 'https://tinyurl.com/x', 'https://t.co/x', 'https://goo.gl/x', 'https://ow.ly/x']) {
+      expect(buildManualBid({ ...base, url: u }, { now: NOW, served }), u).toEqual({ ok: false, problem: 'short_link' });
+    }
+    expect(buildManualBid({ ...base, url: 'https://roswellgov.bonfirehub.com/portal/?tab=openOpportunities' }, { now: NOW, served })).toEqual({ ok: false, problem: 'terms_host' });
+    expect(cleanUrl('https://city.gov:8443/bids')).toBeNull();
+    expect(cleanUrl('https://xn--mariettga-9za.gov/bids')).toBeNull();
+    const r = buildManualBid({ ...base, url: 'https://www.MariettaGA.gov/Bids.aspx?bidID=412' }, { now: NOW, served });
+    expect(r.ok && r.view.host).toBe('mariettaga.gov');
+    expect(linkHost('not a url')).toBe('');
+  });
+});
+
 describe('the manual list data and the browser-only check boxes', () => {
-  it('copies the round 32 manual list: 28 governments in 6 metros, round 32 warnings kept', () => {
+  it('copies the round 32 manual list: 28 governments in 6 metros, each status matching the site rules', () => {
     expect(MANUAL_PORTALS.map((m) => m.metro)).toEqual(['Atlanta GA', 'Austin TX', 'Charlotte NC', 'Raleigh NC', 'New Orleans LA', 'Baton Rouge LA']);
-    expect(MANUAL_PORTALS.reduce((n, m) => n + m.portals.length, 0)).toBe(28);
-    expect(MANUAL_PORTALS.flatMap((m) => m.portals).filter((p) => p.flag).map((p) => p.government)).toEqual(['Carrboro', 'Baker']);
+    const all = MANUAL_PORTALS.flatMap((m) => m.portals);
+    expect(all).toHaveLength(28);
+    // Every 'enter' and 'terms' row's seat ZIP passes the site's served test; every 'outside_area' row fails it.
+    for (const p of all) {
+      const place = resolvePlace({ place: p.zip });
+      expect(place, p.government).not.toBeNull();
+      if (p.status === 'outside_area') expect(servedPlace(place!), p.government).toBe(false);
+      if (p.status === 'enter' || p.status === 'terms') expect(servedPlace(place!), p.government).toBe(true);
+    }
+    expect(all.filter((p) => p.status === 'outside_area').map((p) => p.government)).toEqual(['Peachtree City', 'Orange County', 'Carrboro']);
+    // Bonfire rows: hand-check only, never entered (quick add refuses their host too).
+    expect(all.filter((p) => p.family === 'Bonfire/Euna').every((p) => p.status === 'terms' && /do not enter/.test(p.note ?? ''))).toBe(true);
+    // Baker: the listed URL is a Tennessee town's; no link at all.
+    const baker = all.find((p) => p.government === 'Baker')!;
+    expect(baker).toMatchObject({ status: 'bad_url', url: null });
+    expect(JSON.stringify(MANUAL_PORTALS)).not.toContain('lawrenceburgtn');
   });
 
   it('keys the week by its Monday and survives storage that throws', () => {

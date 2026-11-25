@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { importCsv, previewCsv, quickAdd, type ServiceDeps } from '@/lib/signals/manual-bids/service';
 import { findExisting, type ExistingCandidate } from '@/lib/signals/manual-bids/store';
 import type { Db } from '@/lib/signals/store';
+import { fakeTables } from '@/tests/match/fake-table';
 
 const NOW = new Date('2026-11-25T15:00:00Z');
 const OWNER = async () => ({ ok: true as const, userId: 'owner' });
@@ -99,8 +100,9 @@ describe('quick add', () => {
 
 describe('CSV preview and import', () => {
   it('preview: lists what will be added and why the rest is skipped, and writes nothing (read-only database, publish never called)', async () => {
-    const { db, calls } = readOnlyDb({ holler_signals: [{ url: 'https://mariettaga.gov/Bids.aspx?bidID=416' }] });
-    const d = deps({ db: vi.fn(() => db), findExisting, served: (p) => p.state === 'GA' });
+    // A database double that honours every filter and logs every request: the preview may only select.
+    const fdb = fakeTables({ holler_signals: [{ id: 1, source: 'bids-pw-x', external_id: 'x1', url: 'https://mariettaga.gov/Bids.aspx?bidID=416', data: { subtype: 'bid' } }] });
+    const d = deps({ db: vi.fn(() => fdb as unknown as Db), findExisting, served: (p) => p.state === 'GA' });
     const r = await previewCsv(d, CSV, 'generic');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -118,13 +120,14 @@ describe('CSV preview and import', () => {
     expect(r.analysis).toMatchObject({ add: 2, skip: 6 });
     expect(r.analysis.rows.find((x) => x.line === 3)?.trades).toEqual(['janitorial-commercial', 'cleaning']);
     expect(d.publish).not.toHaveBeenCalled();
-    expect(calls.length).toBeGreaterThan(0);
-    expect(calls.every((c) => /\.(select|eq|in|like|order|range)\(/.test(c))).toBe(true);
+    expect(fdb.log.length).toBeGreaterThan(0);
+    expect(fdb.log.every((l: string) => l.startsWith('holler_signals:select:'))).toBe(true);
+    expect(r.analysis.rows.find((x) => x.line === 2)?.host).toBe('mariettaga.gov');
   });
 
   it('import re-reads the file from scratch and publishes only the rows marked add', async () => {
-    const { db } = readOnlyDb({ holler_signals: [{ url: 'https://mariettaga.gov/Bids.aspx?bidID=416' }] });
-    const d = deps({ db: vi.fn(() => db), findExisting, served: (p) => p.state === 'GA' });
+    const fdb = fakeTables({ holler_signals: [{ id: 1, source: 'bids-pw-x', external_id: 'x1', url: 'https://mariettaga.gov/Bids.aspx?bidID=416', data: { subtype: 'bid' } }] });
+    const d = deps({ db: vi.fn(() => fdb as unknown as Db), findExisting, served: (p) => p.state === 'GA' });
     const r = await importCsv(d, CSV, 'generic');
     expect(r).toMatchObject({ ok: true, inserted: 2, matched: 3 });
     const items = d.publish.mock.calls[0][1] as Array<{ title: string }>;
@@ -156,15 +159,27 @@ describe('findExisting (read only)', () => {
   });
 
   it('matches the same page under another spelling of its link, from any source', async () => {
-    const { db } = readOnlyDb({ holler_signals: [{ url: 'https://city.gov/bids/1/' }] });
+    const db = fakeTables({ holler_signals: [{ id: 1, source: 'socrata-x', external_id: 'a', url: 'https://city.gov/bids/1/', data: {} }] }) as unknown as Db;
     expect(await findExisting(db, [cand({})])).toEqual(new Set(['manual:x:1']));
+    expect(await findExisting(db, [cand({ url: 'https://www.city.gov/bids/2', keys: { urlKey: 'city.gov/bids/2', solKey: null } })])).toEqual(new Set());
   });
 
-  it('matches the same agency and solicitation number from another bid source', async () => {
-    const { db } = readOnlyDb({ holler_signals: [{ source: 'bids-gwinnett', sol: 'BL153-26', buyer: 'Gwinnett County Purchasing' }] });
-    const hit = cand({ externalId: 'manual:g:1', keys: { urlKey: null, solKey: 'x' }, solicitationId: 'BL153-26', agency: 'Gwinnett County' });
-    const other = cand({ externalId: 'manual:h:1', keys: { urlKey: null, solKey: 'y' }, solicitationId: 'BL153-26', agency: 'City of Tucker' });
-    expect(await findExisting(db, [hit, other])).toEqual(new Set(['manual:g:1']));
+  it('matches the same agency and solicitation number from another bid source, whatever the case, spaces or dashes (review P2-3a)', async () => {
+    const db = fakeTables({
+      holler_signals: [
+        { id: 1, source: 'bids-gwinnett', external_id: 'g1', url: 'https://gwinnett.example/doc/1.pdf', data: { subtype: 'bid', solicitationId: 'RP-026-26', buyer: 'Gwinnett County' } },
+        // Same number, but not a bid source: never compared.
+        { id: 2, source: 'socrata-x', external_id: 's1', url: null, data: { solicitationId: 'RP-026-26', buyer: 'City of Tucker' } },
+      ],
+    }) as unknown as Db;
+    for (const sol of ['RP-026-26', 'RP 026-26', 'rp-026-26', 'RP026-26', ' rp 026 26 ']) {
+      const hit = cand({ externalId: `manual:g:${sol}`, keys: { urlKey: null, solKey: 'x' }, solicitationId: sol, agency: 'Gwinnett County Purchasing' });
+      expect(await findExisting(db, [hit]), sol).toEqual(new Set([hit.externalId]));
+    }
+    const otherAgency = cand({ externalId: 'manual:t:1', keys: { urlKey: null, solKey: 'y' }, solicitationId: 'RP-026-26', agency: 'City of Tucker' });
+    const otherNumber = cand({ externalId: 'manual:g:2', keys: { urlKey: null, solKey: 'z' }, solicitationId: 'RP-026-27', agency: 'Gwinnett County' });
+    const extraChars = cand({ externalId: 'manual:g:3', keys: { urlKey: null, solKey: 'w' }, solicitationId: 'XRP-026-26', agency: 'Gwinnett County' });
+    expect(await findExisting(db, [otherAgency, otherNumber, extraChars])).toEqual(new Set());
   });
 
   it('throws on a read error, so the caller says so instead of guessing', async () => {

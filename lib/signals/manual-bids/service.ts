@@ -2,7 +2,7 @@ import type { Db } from '@/lib/signals/store';
 import type { CategoryId } from '@/lib/signals/categories';
 import type { SignalInput } from '@/lib/signals/types';
 import { csvFormat, readCsv, type CsvRecord } from './csv';
-import { buildManualBid, PROBLEM_TEXT, type ManualBidFields, type ManualBidProblem, type ManualBidReady, type RecordDeps } from './record';
+import { buildManualBid, capFields, linkHost, PROBLEM_TEXT, type ManualBidFields, type ManualBidProblem, type ManualBidReady, type RecordDeps } from './record';
 import type { ExistingCandidate, PublishResult } from './store';
 import type { OwnerGate } from './owner';
 import { MAX_CSV_CHARS, MAX_CSV_ROWS, SERVICE_ERROR_TEXT, type CsvAnalysis, type RowOutcome, type ServiceError } from './service-text';
@@ -30,7 +30,7 @@ export interface ServiceDeps {
 export { MAX_CSV_CHARS, MAX_CSV_ROWS, SERVICE_ERROR_TEXT, type CsvAnalysis, type RowOutcome, type ServiceError } from './service-text';
 
 export type QuickAddResult =
-  | { ok: true; inserted: number; matched: number; title: string; trades: CategoryId[]; note?: string }
+  | { ok: true; inserted: number; matched: number; title: string; trades: CategoryId[]; host: string; note?: string }
   | { ok: false; error: string; field?: ManualBidProblem | 'duplicate' };
 
 export type PreviewResult = { ok: true; analysis: CsvAnalysis; bidsOn: boolean } | { ok: false; error: ServiceError; missing?: string[] };
@@ -70,6 +70,7 @@ export async function quickAdd(deps: ServiceDeps, fields: ManualBidFields): Prom
     inserted: res.inserted,
     matched: res.matched,
     title: built.view.title,
+    host: built.view.host,
     trades: built.view.trades,
     ...(res.error ? { note: 'Saved, but matching to members failed. It will be retried by the next re-match.' } : {}),
   };
@@ -108,13 +109,15 @@ async function analyze(deps: ServiceDeps, text: string, formatId: unknown): Prom
   const seenSol = new Set<string>();
   const seenId = new Set<string>();
   for (const rec of read.records) {
-    const f = recordFields(rec);
+    const f = capFields(recordFields(rec));
     const built = buildManualBid(f, { now, served: deps.served });
     if (!built.ok) {
-      rows.push({ line: rec.line, action: 'skip', reason: PROBLEM_TEXT[built.problem], title: (f.title ?? '').slice(0, 140), agency: (f.agency ?? '').slice(0, 120), dueDate: f.dueDate ?? '', place: [f.city, f.state, f.zip].filter(Boolean).join(' '), trades: [], url: (f.url ?? '').slice(0, 300) });
+      // What is echoed back for a skipped row is cut short too (review P2-4).
+      const url = (f.url ?? '').slice(0, 300);
+      rows.push({ line: rec.line, action: 'skip', reason: PROBLEM_TEXT[built.problem], title: (f.title ?? '').slice(0, 140), agency: (f.agency ?? '').slice(0, 120), dueDate: (f.dueDate ?? '').slice(0, 40), place: [f.city, f.state, f.zip].filter(Boolean).join(' ').slice(0, 120), trades: [], url, host: linkHost(url) });
       continue;
     }
-    const row: RowOutcome = { line: rec.line, action: 'add', reason: null, title: built.view.title, agency: built.view.agency, dueDate: built.view.dueDate, place: built.view.place, trades: built.view.trades, url: built.view.url };
+    const row: RowOutcome = { line: rec.line, action: 'add', reason: null, title: built.view.title, agency: built.view.agency, dueDate: built.view.dueDate, place: built.view.place, trades: built.view.trades, url: built.view.url, host: built.view.host };
     const { urlKey, solKey } = built.keys;
     if ((urlKey && seenUrl.has(urlKey)) || (solKey && seenSol.has(solKey)) || seenId.has(built.signal.externalId)) {
       row.action = 'skip';

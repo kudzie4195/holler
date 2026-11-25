@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { cityBySlug, lookupPlaceByName, lookupZip } from '@/lib/geo';
 import { isServedZip } from '@/lib/check/coverage';
-import { metroFor } from '@/lib/geo/metros';
+import { scrubText } from '@/lib/signals/adapters/permit-privacy';
+import { looksLikeFullPersonName } from '@/lib/contacts/org';
 import { zoneFor } from '@/lib/storms/zones';
 import { parseDue } from '@/lib/firecrawl/extract';
 import { bidTrades } from '@/lib/signals/bid-trades';
@@ -19,7 +20,12 @@ import { manualPortalUrls } from './portals';
  * marked data.loc = 'approx', and the record link the agency's own public page.
  *
  * Privacy: the position is the centroid of the ZIP or city the owner typed, rounded to 3 decimals (about a block), never a street address.
- * The description is read only to pick the trade and is never stored. E-mail addresses and links are removed from the title.
+ * The description is read only to pick the trade and is never stored. Title and agency go through the permit text scrub (e-mails, links,
+ * phone numbers, names after "contact", "attn" ...; lib/signals/adapters/permit-privacy.ts scrubText) after street addresses are cut, and
+ * a title or agency that is only a person-like name is refused (review P2-2).
+ *
+ * Every field is cut to its maximum length BEFORE any pattern runs (review P2-4), and a leading = + - @ (a spreadsheet formula) is
+ * removed from every stored text (review P2-5).
  */
 
 export interface ManualBidFields {
@@ -50,7 +56,10 @@ export type ManualBidProblem =
   | 'no_place'
   | 'outside_area'
   | 'bad_trade'
-  | 'no_trade';
+  | 'no_trade'
+  | 'person_name'
+  | 'short_link'
+  | 'terms_host';
 
 export const PROBLEM_TEXT: Record<ManualBidProblem | 'duplicate_in_file' | 'already_in_holler', string> = {
   bad_url: 'Link must be a full https:// address',
@@ -64,6 +73,9 @@ export const PROBLEM_TEXT: Record<ManualBidProblem | 'duplicate_in_file' | 'alre
   outside_area: 'Outside the areas Holler serves',
   bad_trade: 'Unknown trade',
   no_trade: 'No trade matched the title (pick a trade to add it anyway)',
+  person_name: 'Title or agency reads like a private person\'s name, not a bid and a government buyer',
+  short_link: 'Link shorteners are not accepted: paste the agency\'s own page',
+  terms_host: 'This portal\'s terms ban commercial use: check it by hand only, do not enter its bids',
   duplicate_in_file: 'Duplicate of an earlier row in this file',
   already_in_holler: 'Already in Holler (same link, or same agency and solicitation number)',
 };
@@ -83,7 +95,7 @@ export interface ManualBidReady {
   signal: SignalInput;
   keys: ManualBidKeys;
   /** For the preview table. */
-  view: { title: string; agency: string; dueDate: string; place: string; trades: CategoryId[]; solicitationId: string | null; url: string };
+  view: { title: string; agency: string; dueDate: string; place: string; trades: CategoryId[]; solicitationId: string | null; url: string; host: string };
 }
 
 export type ManualBidResult = ManualBidReady | { ok: false; problem: ManualBidProblem };
@@ -103,12 +115,88 @@ export interface RecordDeps {
 }
 
 /**
- * "Inside the areas Holler serves": the app's own coverage test (lib/check/coverage.ts isServedZip: a local feed within 25 miles), or
- * inside one of Holler's metros (lib/geo/metros.ts). The metro part keeps a suburb such as Peachtree City, GA (on the owner's manual
- * list, inside the Atlanta metro, but more than 25 miles from a local feed's centre) from being refused.
+ * "Inside the areas Holler serves": exactly the site's own test (lib/check/coverage.ts isServedZip: an enabled local feed within 25 miles),
+ * the one /check, the waitlist and the city pages use. A place it refuses is "coming to your area" everywhere else, so no bid goes there
+ * either (review P2-1: the metro circles are a scorecard grouping, not coverage).
  */
 export function servedPlace(p: { lat: number; lon: number; state: string }): boolean {
-  return isServedZip(p) || metroFor(p.lat, p.lon, p.state) !== null;
+  return isServedZip(p);
+}
+
+/** Longest text read from each field. Applied before any pattern runs, so one huge cell cannot hold the request (review P2-4). */
+export const FIELD_MAX = {
+  url: 600,
+  title: 300,
+  agency: 200,
+  dueDate: 40,
+  place: 80,
+  zip: 10,
+  city: 80,
+  state: 40,
+  solicitationId: 80,
+  description: 2000,
+  trade: 40,
+} as const;
+
+/** Every field cut to its maximum, first thing. */
+export function capFields(f: ManualBidFields): ManualBidFields {
+  const out: ManualBidFields = {};
+  for (const k of Object.keys(FIELD_MAX) as Array<keyof typeof FIELD_MAX>) {
+    const v = f[k];
+    if (typeof v === 'string') out[k] = v.slice(0, FIELD_MAX[k]);
+  }
+  return out;
+}
+
+/** A leading = + - @ (or tab / CR before one) makes a spreadsheet run the cell as a formula when the text is exported later: removed. */
+export function defuseFormula(text: string): string {
+  return text.replace(/^[\s=+\-@]+/, '');
+}
+
+// A street number, one to four words, then a street suffix: "1423 Oak Hollow Dr", "88 Pine St". A number directly followed by the
+// suffix ("Station 3 Road Improvements") is not an address and is kept.
+const STREET_RE =
+  /\b\d{1,6}[A-Za-z]?\s+(?:[NSEW]\.?\s+)?(?:[A-Za-z0-9'.-]+\s+){1,4}(?:street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|court|ct|way|place|pl|highway|hwy|parkway|pkwy|circle|cir|terrace|ter|trail|trl|pike|square|sq)\b\.?/gi;
+
+/** Street addresses cut, then the shared scrub (e-mails, links, phones, names after trigger words), on text already capped. */
+export function scrubPublic(text: string): string {
+  return scrubText(defuseFormula(text).replace(STREET_RE, ' ').replace(/\s+/g, ' ').trim());
+}
+
+const GOVERNMENT_WORD = /\b(?:city|county|town|township|village|parish|borough|state|department|dept|authority|district|schools?|board|commission|government|agency|purchasing|procurement|office|port|transit|housing|university|college|metro|utilities|water)\b/i;
+
+/**
+ * Text that is only a private person's name (review P2-2): two to four words, every word capitalized, holding a given name or an initial
+ * (lib/contacts/org.ts looksLikeFullPersonName), and naming no trade (a title) or no government word (an agency). "John Q. Smith" and
+ * "SMITH, JOHN" are; "Brookhaven Park Lighting" (a trade), "Town of Manor" and "Roswell" (one word) are not.
+ */
+export function onlyPersonName(text: string, kind: 'title' | 'agency'): boolean {
+  const words = text.split(/[\s,]+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return false;
+  if (!words.every((w) => /^[A-Z]/.test(w))) return false;
+  if (!looksLikeFullPersonName(text)) return false;
+  if (kind === 'title') return bidTrades({ title: text }).length === 0;
+  return !GOVERNMENT_WORD.test(text);
+}
+
+/** Hosts that only redirect somewhere else: the owner must paste the agency's own page. */
+export const SHORTENER_HOSTS: ReadonlySet<string> = new Set([
+  'bit.ly', 'bitly.com', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'v.gd', 'buff.ly', 'rebrand.ly', 'cutt.ly', 'shorturl.at',
+  'tiny.cc', 'rb.gy', 't.ly', 'bl.ink', 'lnkd.in', 's.id', 'tiny.one', 'shorte.st', 'adf.ly', 'qrco.de', 'urlz.fr', 'x.co', 'trib.al',
+]);
+
+/** Portal families whose terms ban commercial use (gates/r32/PORTALS.md: Bonfire/Euna, IonWave, DemandStar): hand-check only, never entered. */
+export const TERMS_BARRED_HOSTS: readonly string[] = ['bonfirehub.com', 'ionwave.net', 'demandstar.com'];
+
+const onHost = (host: string, base: string) => host === base || host.endsWith(`.${base}`);
+
+/** The host a link points to, for the preview ("mariettaga.gov"). */
+export function linkHost(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -132,7 +220,9 @@ export function cleanUrl(raw: string | undefined): string | null {
   } catch {
     return null;
   }
-  if (u.protocol !== 'https:' || u.username || u.password || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname)) return null;
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname)) return null;
+  // Punycode look-alike hosts are refused: a government page is not on one.
+  if (/(?:^|\.)xn--/i.test(u.hostname)) return null;
   u.hash = '';
   return u.toString();
 }
@@ -143,7 +233,13 @@ export function normalizeUrl(raw: string): string {
     const u = new URL(raw.trim());
     const host = u.hostname.toLowerCase().replace(/^www\./, '');
     const path = u.pathname.replace(/\/+$/, '').toLowerCase();
-    return `${host}${path}${u.search}`;
+    // Tracking parameters are dropped and the rest sorted with lower-case names, so two spellings of one link compare equal (review P2-3c).
+    const params = [...u.searchParams.entries()]
+      .filter(([k]) => !/^(?:utm_.*|fbclid|gclid|mc_cid|mc_eid|_ga)$/i.test(k))
+      .map(([k, v]) => [k.toLowerCase(), v] as const)
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : 1));
+    const q = params.length ? `?${params.map(([k, v]) => `${k}=${v}`).join('&')}` : '';
+    return `${host}${path}${q}`;
   } catch {
     return raw.trim().toLowerCase();
   }
@@ -157,7 +253,9 @@ export function isListPage(url: string): boolean {
   if (listPages.has(n)) return true;
   try {
     const u = new URL(url);
-    return /\/bids\.aspx$/i.test(u.pathname) && !u.search;
+    // A CivicPlus bid list: Bids.aspx with no bid id (bare, or a category list such as ?CatID=17). One bid's page carries bidID.
+    if (!/\/bids\.aspx$/i.test(u.pathname)) return false;
+    return ![...u.searchParams.keys()].some((k) => k.toLowerCase() === 'bidid');
   } catch {
     return false;
   }
@@ -214,14 +312,19 @@ function idPart(s: string): string {
 }
 
 /** Checks one hand-added bid and builds its signal. Pure apart from the geo lookup and the coverage test. */
-export function buildManualBid(f: ManualBidFields, deps: RecordDeps): ManualBidResult {
+export function buildManualBid(input: ManualBidFields, deps: RecordDeps): ManualBidResult {
   const now = deps.now;
+  const f = capFields(input);
   const url = cleanUrl(f.url);
   if (!url) return { ok: false, problem: 'bad_url' };
-  const title = trunc(noContactBits(cleanText(f.title ?? '')), 140);
+  const host = linkHost(url);
+  if (SHORTENER_HOSTS.has(host)) return { ok: false, problem: 'short_link' };
+  if (TERMS_BARRED_HOSTS.some((b) => onHost(host, b))) return { ok: false, problem: 'terms_host' };
+  const title = trunc(scrubPublic(noContactBits(cleanText(f.title ?? ''))), 140);
   if (title.length < 4) return { ok: false, problem: 'no_title' };
-  const agency = trunc(tidyBuyer(noContactBits(f.agency ?? '')), 120);
+  const agency = trunc(tidyBuyer(scrubPublic(noContactBits(cleanText(f.agency ?? '')))), 120);
   if (agency.length < 2) return { ok: false, problem: 'no_agency' };
+  if (onlyPersonName(title, 'title') || onlyPersonName(agency, 'agency')) return { ok: false, problem: 'person_name' };
   const dueRaw = (f.dueDate ?? '').trim();
   if (!dueRaw) return { ok: false, problem: 'no_due' };
   const place = resolvePlace(f);
@@ -245,7 +348,7 @@ export function buildManualBid(f: ManualBidFields, deps: RecordDeps): ManualBidR
     if (trades.length === 0) return { ok: false, problem: 'no_trade' };
   }
 
-  const solicitationId = trunc(cleanText(f.solicitationId ?? ''), 60) || null;
+  const solicitationId = trunc(defuseFormula(cleanText(f.solicitationId ?? '')), 60) || null;
   const list = isListPage(url);
   const urlKey = list ? null : normalizeUrl(url);
   const agencyKey = norm(agency).slice(0, 60);
@@ -293,6 +396,6 @@ export function buildManualBid(f: ManualBidFields, deps: RecordDeps): ManualBidR
     ok: true,
     signal,
     keys: { urlKey, solKey },
-    view: { title, agency, dueDate: due.day, place: `${place.city}, ${place.state}${place.zip ? ` ${place.zip}` : ''}`, trades, solicitationId, url },
+    view: { title, agency, dueDate: due.day, place: `${place.city}, ${place.state}${place.zip ? ` ${place.zip}` : ''}`, trades, solicitationId, url, host },
   };
 }

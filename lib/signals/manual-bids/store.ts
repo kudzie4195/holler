@@ -25,7 +25,15 @@ export interface ExistingCandidate {
 }
 
 const CHUNK = 100;
+/** Solicitation numbers asked about in one query (each is one ilike term of an or filter). */
+const SOL_PER_QUERY = 20;
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+/** A solicitation number without case, spaces or punctuation: "RP-026-26", "rp 026 26" and "RP02626" are one number. */
+export const solKeyOf = (s: string): string => norm(s).slice(0, 60);
+/** PostgREST like pattern ("*" is the wildcard inside an or filter) matching any spelling of the key: "rp02626" -> "*r*p*0*2*6*2*6*". */
+export function solPattern(key: string): string {
+  return `*${key.split('').join('*')}*`;
+}
 
 function chunks<T>(arr: T[], n = CHUNK): T[][] {
   const out: T[][] = [];
@@ -83,19 +91,22 @@ export async function findExisting(db: Pick<Db, 'from'>, cands: ExistingCandidat
     }
   }
 
-  // 3. Same agency and solicitation number, from any bid source.
-  const withSol = cands.filter((c) => c.solicitationId);
-  const sols = [...new Set(withSol.map((c) => c.solicitationId as string))];
-  for (const part of chunks(sols)) {
+  // 3. Same agency and solicitation number, from any bid source. Numbers are compared without case, spaces or punctuation (review
+  // P2-3a: "RP 026-26" and "rp026-26" are the stored "RP-026-26"): the query asks for every number whose letters and digits come in the
+  // same order (ilike with a wildcard between characters), then the normalized compare decides exactly.
+  const withSol = cands.filter((c) => c.solicitationId && solKeyOf(c.solicitationId).length >= 2);
+  const keys = [...new Set(withSol.map((c) => solKeyOf(c.solicitationId as string)))];
+  for (const part of chunks(keys, SOL_PER_QUERY)) {
     const { data, error } = await db
       .from('holler_signals')
       .select('source, sol:data->>solicitationId, buyer:data->>buyer')
       .like('source', `${BID_SOURCE_PREFIX}%`)
-      .in('data->>solicitationId', part);
+      .or(part.map((k) => `data->>solicitationId.ilike.${solPattern(k)}`).join(','));
     if (error) throw new Error('existing-record read failed');
     for (const r of (data ?? []) as Array<{ sol: string | null; buyer: string | null }>) {
       if (!r.sol) continue;
-      for (const c of withSol) if (norm(c.solicitationId as string) === norm(r.sol) && sameAgency(c.agency, r.buyer ?? '')) dupes.add(c.externalId);
+      const key = solKeyOf(r.sol);
+      for (const c of withSol) if (solKeyOf(c.solicitationId as string) === key && sameAgency(c.agency, r.buyer ?? '')) dupes.add(c.externalId);
     }
   }
   return dupes;

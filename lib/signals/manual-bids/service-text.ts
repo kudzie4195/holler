@@ -30,6 +30,8 @@ export interface RowOutcome {
   place: string;
   trades: CategoryId[];
   url: string;
+  /** The link's host, shown in the preview so the owner sees where each record will point before confirming. */
+  host: string;
 }
 
 export interface CsvAnalysis {

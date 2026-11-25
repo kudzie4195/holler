@@ -31,8 +31,9 @@ export function Checklist({ metros }: { metros: readonly ManualMetro[] }) {
     for (const l of listeners) l();
   }
 
-  const total = metros.reduce((n, m) => n + m.portals.length, 0);
-  const done = metros.reduce((n, m) => n + m.portals.filter((p) => checked[`${p.state}:${p.government}`]).length, 0);
+  const checkable = metros.flatMap((m) => m.portals).filter((p) => p.status === 'enter' || p.status === 'terms');
+  const total = checkable.length;
+  const done = checkable.filter((p) => checked[`${p.state}:${p.government}`]).length;
 
   return (
     <div className="mt-6">
@@ -46,20 +47,37 @@ export function Checklist({ metros }: { metros: readonly ManualMetro[] }) {
             {m.portals.map((p) => {
               const id = `${p.state}:${p.government}`;
               const boxId = `chk-${id.replace(/[^a-z0-9]+/gi, '-')}`;
+              // Only a page the owner may look at gets a box: outside the served area and wrong-URL rows are information only.
+              const checkable = p.status === 'enter' || p.status === 'terms';
+              const tone = p.status === 'enter' ? 'text-muted' : 'font-medium text-warn-ink';
               return (
                 <li key={id} className="flex items-start gap-3 px-4 py-3">
-                  <input id={boxId} type="checkbox" className="mt-1 size-5" checked={!!checked[id]} onChange={(e) => toggle(id, e.target.checked)} />
+                  {checkable ? (
+                    <input id={boxId} type="checkbox" className="mt-1 size-5" checked={!!checked[id]} onChange={(e) => toggle(id, e.target.checked)} />
+                  ) : (
+                    <span aria-hidden="true" className="mt-1 inline-block size-5" />
+                  )}
                   <div className="min-w-0 flex-1">
-                    <label htmlFor={boxId} className="font-semibold text-ink">
-                      {p.government}, {p.state}
-                    </label>
-                    <span className="ml-2 text-xs text-muted">{p.family}</span>
-                    <p className="truncate text-sm">
-                      <a href={p.url} target="_blank" rel="noopener noreferrer nofollow" className="text-ink underline underline-offset-2">
-                        {p.url}
-                      </a>
-                    </p>
-                    {p.flag ? <p className="mt-1 text-sm font-medium text-warn-ink">{p.flag}</p> : null}
+                    {checkable ? (
+                      <label htmlFor={boxId} className="font-semibold text-ink">
+                        {p.government}, {p.state}
+                      </label>
+                    ) : (
+                      <span className="font-semibold text-muted">
+                        {p.government}, {p.state}
+                      </span>
+                    )}
+                    <span className="ml-2 text-xs text-muted">
+                      {p.family}, ZIP {p.zip}
+                    </span>
+                    {p.url && p.status !== 'bad_url' ? (
+                      <p className="truncate text-sm">
+                        <a href={p.url} target="_blank" rel="noopener noreferrer nofollow" className="text-ink underline underline-offset-2">
+                          {p.url}
+                        </a>
+                      </p>
+                    ) : null}
+                    {p.note ? <p className={`mt-1 text-sm ${tone}`}>{p.note}</p> : null}
                   </div>
                 </li>
               );

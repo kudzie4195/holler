@@ -115,6 +115,9 @@ export interface CsvRecord {
   fields: Partial<Record<CsvField, string>>;
 }
 
+/** Longest cell kept (review P2-4): anything past it is cut before the row is looked at. */
+export const CELL_MAX = 2000;
+
 export type CsvReadResult = { ok: true; records: CsvRecord[] } | { ok: false; error: 'empty' | 'missing_columns'; missing?: string[] };
 
 const headerKey = (h: string) => h.trim().toLowerCase();
@@ -138,7 +141,7 @@ export function readCsv(text: string, format: CsvFormat): CsvReadResult {
     const fields: Partial<Record<CsvField, string>> = {};
     for (const f of CSV_FIELDS) {
       const at = index.get(f);
-      const v = at === undefined ? '' : (rows[r][at] ?? '').trim();
+      const v = at === undefined ? '' : (rows[r][at] ?? '').slice(0, CELL_MAX).trim();
       const d = format.defaults?.[f];
       if (v) fields[f] = v;
       else if (d) fields[f] = d;
