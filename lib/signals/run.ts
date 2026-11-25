@@ -562,7 +562,7 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         // A held row is stored as already handled (notified, pushed_at): the email and push runs never read it again (review P3-4). If
         // 0027 turns out to be missing, insertMatches drops all three keys and the card is stored exactly as before round 18.
         for (const r of rows) if (r.alert_hold) Object.assign(r, { notified: true, pushed_at: now.toISOString() });
-        await insertMatches(db, rows);
+        await insertMatches(db, rows, { licenceIds: new Set(storedAll.filter((s) => licenceGateApplies({ subtype: s.subtype ?? null })).map((s) => s.id)) });
         if (rearm.size) await rearmStageAlerts(db, [...rearm].map(([signalId, userIds]) => ({ signalId, userIds })), (m, signalId) => { const src = stageSignals.find((x) => x.id === signalId)?.source; liveFetched.find((x) => x.adapter.id === src)?.result.logs.push(m); });
         // Outcome log (migration 0015): one coarse row per new alert. Never throws; returns 0 before the migration.
         const alertSignals = stageSignals.length ? [...storedAll, ...stageSignals] : storedAll;

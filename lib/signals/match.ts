@@ -10,6 +10,7 @@ import type { CategoryId } from './categories';
 import { alertHoldFor, type AlertHold, type ContactPath, type GateInput } from './alert-gate';
 import { propertyDrops, workTypeDrops, workProfileOf, type WorkColumns, type WorkProfile } from './work-profile';
 import { isProbationSource } from './probation';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 export const MAX_MATCHES_PER_USER = 25;
 /**
@@ -339,7 +340,7 @@ function rankTime(iso: string, nowMs: number): number {
 }
 
 /**
- * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest). What is CUT at `cap` goes by: a severe
+ * Pick one user's rows: business rows are limited to `maxBusiness` (closest first, then newest; with HOLLER_BUSINESS_TAG_FIX_ENABLED on, rows that go out as alerts before feed-only ones). What is CUT at `cap` goes by: a severe
  * (3+) alert first, then Act Now, Coming soon, Market insight, then the score (item 2.7, high first), then most severe, newest (future
  * dates clamped to now). What is KEPT is returned Act Now first (item 0.3), then Coming soon, Market insight, score, most severe, newest. So 25 heat complaints never push a
  * severity-3 warning out of the cap, and market_insight rows are the first to go.
@@ -357,11 +358,16 @@ export function pickHits(hitsIn: Hit[], nowMs: number, cap = MAX_MATCHES_PER_USE
     return true;
   });
   const isBiz = (h: Hit) => subtypeOf(h.s) === 'business';
+  // Round 33 (review 3, P2-1): with the switch on, a feed-only licence (hold) never takes one of the business places from a licence that
+  // names a business and goes out as an alert: un-held rows come first, then nearest, then newest. Switch off: nearest first, as before.
+  const holdLast = businessTagFixEnabled();
   const biz = hits
     .filter(isBiz)
     .sort(
       (a, b) =>
-        (a.distance_mi ?? Infinity) - (b.distance_mi ?? Infinity) || rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs),
+        (holdLast ? Number(!!a.hold) - Number(!!b.hold) : 0) ||
+        (a.distance_mi ?? Infinity) - (b.distance_mi ?? Infinity) ||
+        rankTime(b.s.occurred_at, nowMs) - rankTime(a.s.occurred_at, nowMs),
     )
     .slice(0, maxBusiness);
   const keep = [...hits.filter((h) => !isBiz(h)), ...biz];

@@ -654,7 +654,12 @@ export async function contactGateOn(db: Pick<Db, 'from'>): Promise<boolean> {
  * plain row in a mixed batch would get notified = null. Before 0027 the column is missing: the held batch is retried without the three
  * keys, so those cards are stored exactly as before (and go out as alerts as before).
  */
-export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
+export async function insertMatches(
+  db: Db,
+  rows: MatchRow[],
+  /** Signals that are new-business licences (switch on). Only their held rows stay "already handled" when alert_hold is not a column. */
+  opts: { licenceIds?: ReadonlySet<number> } = {},
+): Promise<number> {
   let n = 0;
   const send = (list: MatchRow[]) => db.from('holler_matches').upsert(list, { onConflict: 'user_id,signal_id', ignoreDuplicates: true }).select('id');
   for (const part of chunks(rows, 500)) {
@@ -664,19 +669,28 @@ export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
       if (group.length === 0) continue;
       let { data, error } = await send(group);
       if (error && missingHoldColumn(error) && group === held) {
-        if (businessTagFixEnabled()) {
-          // Round 33 (review 2, P1-1): with the switch on, a held row can only be a new-business licence (the permit gate is off before 0027).
-          // It must stay "already handled" without the column: the hold key goes, notified and pushed_at stay, so no email and no push is
-          // ever sent. The caller's rows keep alert_hold so the card is still not logged as an alert.
-          ({ data, error } = await send(withoutHold(group)));
-        } else {
-          // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
-          for (const r of group) {
-            delete r.alert_hold;
-            delete r.notified;
-            delete r.pushed_at;
+        // Round 33 (review 3, P2-2): only a new-business licence (switch on) stays "already handled" without the column: its hold key goes,
+        // notified and pushed_at stay, so no email and no push is ever sent, and the caller's row keeps alert_hold so the card is still not
+        // logged as an alert. Any other held row (a permit while PostgREST still has the old schema cache) is stored as before round 33: the
+        // caller's row loses the hold too, so the card is stored and logged as the plain alert it is. The two groups go in separate upserts
+        // (a mixed batch would give the rows without notified a null).
+        const licences = businessTagFixEnabled() && opts.licenceIds ? group.filter((r) => opts.licenceIds?.has(r.signal_id)) : [];
+        const others = licences.length ? group.filter((r) => !licences.includes(r)) : group;
+        for (const r of others) {
+          delete r.alert_hold;
+          delete r.notified;
+          delete r.pushed_at;
+        }
+        const retries = [...(licences.length ? [withoutHold(licences)] : []), ...(others.length ? [others] : [])];
+        data = [];
+        error = null;
+        for (const list of retries) {
+          const res = await send(list);
+          if (res.error) {
+            error = res.error;
+            break;
           }
-          ({ data, error } = await send(group));
+          data = [...(data ?? []), ...(res.data ?? [])];
         }
       }
       if (error) throw new Error(`matches upsert failed: ${error.message}`);

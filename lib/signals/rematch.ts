@@ -3,6 +3,7 @@ import { MAX_MATCHES_PER_USER, matchSignals, withoutWorkProfile, type MatchProfi
 import { contactGateOn, loadProfiles, markStoredContactPaths, readAllPages, type Db } from './store';
 import { alertLogRowsFor, logAlerts } from '@/lib/moat/log';
 import { missingPushedAtColumn, upsertMatchRows, type MatchInsertRow } from './quiet-matches';
+import { licenceGateApplies } from './alert-gate';
 
 /** A signal that happened longer ago than this is matched quietly (notified = true): no email for old news, like the backfill. */
 export const REMATCH_QUIET_AFTER_MS = 3 * 86_400_000;
@@ -93,6 +94,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
     }
 
     const rows: MatchInsertRow[] = [];
+    // The new-business licences among these signals (switch on): only their rows keep "already handled" when alert_hold is not a column.
+    const licenceIds = new Set(signals.filter((s) => licenceGateApplies({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) })).map((s) => s.id));
     const nowIso = now.toISOString();
     const byId = new Map(signals.map((s) => [s.id, s]));
     for (const p of profiles) {
@@ -108,8 +111,9 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
         const t = s ? Date.parse(s.occurred_at) : NaN;
         const quiet = opts.quiet === true || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
-        // A feed-only card is stored as already handled (like the scan): the email and push runs never read it.
-        const handled = quiet || !!r.alert_hold;
+        // Round 33 (review 3, P2-2): a feed-only NEW-BUSINESS LICENCE is stored as already handled (like the scan), switch on only: the email and
+        // push runs never read it. Any other held card (a permit) and every card with the switch off is stored as before: handled only when quiet.
+        const handled = quiet || (!!r.alert_hold && !!s && licenceGateApplies({ subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
         rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: handled, pushed_at: handled ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
     }
@@ -118,7 +122,7 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
     let created = 0;
     for (const part of chunks(rows, 500)) {
       try {
-        created += await upsertMatchRows(db, part, { count: true });
+        created += await upsertMatchRows(db, part, { count: true, licenceIds });
       } catch (e) {
         throw new Error(`matches upsert failed: ${e instanceof Error ? e.message : String(e)}`);
       }
