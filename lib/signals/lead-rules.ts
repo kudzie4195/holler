@@ -302,10 +302,15 @@ export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: Re
 /** The licence name a business row carries: the title body ("New business license in Chicago: Tobacco" gives "Tobacco"). */
 const licenceName = (sig: LabelInput) => titleBodyOf(sig.title).trim();
 
+/** The storefront kind a licence NAME has in this source's list, or null. The ingest tag fix reads the same list (lib/signals/mapping/business.ts). */
+export function storefrontKindOfName(source: string | null | undefined, name: string): StorefrontKind | null {
+  const list = STOREFRONT_LICENCES[lc(source)] ?? [];
+  const n = name.trim();
+  return list.find((e) => e.re.test(n))?.kind ?? null;
+}
+
 export function storefrontKindOf(sig: LabelInput): StorefrontKind | null {
-  const list = STOREFRONT_LICENCES[lc(sig.source)] ?? [];
-  const name = licenceName(sig);
-  return list.find((e) => e.re.test(name))?.kind ?? null;
+  return storefrontKindOfName(sig.source, licenceName(sig));
 }
 
 /** Line 24: a food premises a pest-control company can serve. Shared kitchens, liquor-only, event liquor and mobile licences are not. */

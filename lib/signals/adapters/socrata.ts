@@ -7,6 +7,7 @@ import { STREET_SUFFIX_WORDS, foldName } from '@/lib/contacts/org';
 import { moneyFields, publicSummary, scrubText, summaryPart, civicLabel, cutAfterStreetSuffix, looksLikeProse, categoryValueHasName, stripActor } from './permit-privacy';
 import { classifyPermit, isStructuredField, permitTitleFor } from '@/lib/signals/mapping/permit';
 import { CAT_V } from '@/lib/signals/mapping/version';
+import { businessTagFixEnabled, businessTradesForText, hasBusinessTypeList } from '@/lib/signals/mapping/business';
 import { isTriggerStage, permitStageOf, STAGE_STATUS_FRAGMENTS } from '@/lib/signals/stage';
 import { haversineMi, lookupZip } from '@/lib/geo';
 import { readJsonBody, schemaMismatchLog, schemaProblem, UNVERIFIED_REQUEST_TIMEOUT_MS } from '@/lib/signals/schema-check';
@@ -105,6 +106,28 @@ export function extractLatLon(row: Row, ds: SocrataDataset): { lat: number; lon:
 }
 
 /**
+ * Round 33: the area guard of a dataset that lists businesses licensed by a city but located anywhere (Los Angeles: ZIPs in Gilroy,
+ * Las Vegas and Washington; NYC: out-of-state addresses). True when the row's own evidence puts it outside `ds.areaGuard.maxMi` of
+ * `near`: its real coordinates (not a fallback centre) are farther away, or its ZIP's centroid is, or the ZIP is not in the dataset's
+ * state. Same shape as zipCentroid (review P3-H: an El Paso ZIP on a Dallas row is not placed in El Paso). A row with neither coordinates
+ * nor a ZIP says nothing against the area and is kept (it has no point, so no member can match it).
+ */
+export function outsideAreaGuard(row: Row, ds: Pick<SocrataDataset, 'areaGuard' | 'latField' | 'lonField' | 'locationField' | 'latLonTextField' | 'zipField' | 'state'>): boolean {
+  const g = ds.areaGuard;
+  if (!g) return false;
+  const p = extractLatLon(row, { ...ds, zipCentroid: undefined, fallbackCenter: undefined } as SocrataDataset);
+  if (p && !p.approx && haversineMi(g.near.lat, g.near.lon, p.lat, p.lon) > g.maxMi) return true;
+  const zipText = ds.zipField ? s(row, ds.zipField).slice(0, 5) : '';
+  if (/^\d{5}$/.test(zipText)) {
+    const z = lookupZip(zipText);
+    if (!z) return true;
+    if (z.state !== ds.state) return true;
+    if (haversineMi(g.near.lat, g.near.lon, z.lat, z.lon) > g.maxMi) return true;
+  }
+  return false;
+}
+
+/**
  * "11/16/26" or "11/16/2026" (month/day/year, a local calendar day) as a floating timestamp "2026-11-16T00:00:00", else null. A two-digit
  * year is 20xx (the feeds read here start long after 2000). An impossible day ("02/30/26") is null.
  */
@@ -177,13 +200,21 @@ export function toIso(v: unknown, tz?: string): string | null {
   return new Date(guess).toISOString();
 }
 
-export function categorize(ds: Pick<SocrataDataset, 'subtype'> & { extraRules?: SocrataDataset['extraRules'] }, text: string): { categories: CategoryId[]; severity: Severity } {
+export function categorize(
+  ds: Pick<SocrataDataset, 'subtype'> & { id?: string; extraRules?: SocrataDataset['extraRules'] },
+  text: string,
+  opts: { businessTagFix?: boolean } = {},
+): { categories: CategoryId[]; severity: Severity } {
   // Permits: one classification for trades and title (lib/signals/mapping/permit.ts). Plain text is read as description values.
   if (ds.subtype === 'permit') return { categories: classifyPermit({ structured: [], free: text.split(' | ') }).categories, severity: 1 };
   const set = new Set<CategoryId>();
   let severity: Severity = ds.subtype === 'inspection' ? 2 : 1;
   // Round 20 (NEXT): a dataset's own extra rules run after the subtype's (a liquor licence layer that is all restaurants; NYC HPD order wording).
-  for (const rule of [...RULES_BY_SUBTYPE[ds.subtype], ...(ds.extraRules ?? [])]) {
+  // Round 33 (switch HOLLER_BUSINESS_TAG_FIX_ENABLED, off by default): a licence of a source that has a licence-type list is tagged by its own
+  // type (lib/signals/mapping/business.ts) and not by the blanket BUSINESS_RULES set. Other business feeds (probation) are unchanged.
+  const typeTagged = ds.subtype === 'business' && (opts.businessTagFix ?? businessTagFixEnabled()) && hasBusinessTypeList(ds.id);
+  if (typeTagged) businessTradesForText(ds.id, text).forEach((c) => set.add(c));
+  for (const rule of [...(typeTagged ? [] : RULES_BY_SUBTYPE[ds.subtype]), ...(ds.extraRules ?? [])]) {
     if (rule.re.test(text) && !rule.unless?.test(text)) {
       rule.add.forEach((c) => set.add(c));
       if (rule.severity && rule.severity > severity) severity = rule.severity;
@@ -466,7 +497,8 @@ function buildTitle(ds: SocrataDataset, titleBitsRaw: string[], summaryBits: str
  * `shapeOk` counts rows that look like the configured shape before any trade filtering, so the adapter can tell
  * "columns changed" (shapeOk 0) from "nothing relevant today". Never throws: malformed input returns an empty report.
  */
-export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date } = {}): ParseReport {
+export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now?: Date; businessTagFix?: boolean } = {}): ParseReport {
+  const businessTagFix = opts.businessTagFix ?? businessTagFixEnabled();
   const report: ParseReport = { items: [], rows: 0, shapeOk: 0 };
   // Round 19 coverage: with a query column other than the record date, an old record touched again is dropped by its own date.
   // Applied only when the caller passes `now` (the adapter and the probe do), so a pure parse of fixture rows does not depend on the clock.
@@ -497,6 +529,11 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
         report.keptOut = (report.keptOut ?? 0) + 1;
         continue;
       }
+      // Round 33 (same switch): a business licence whose own coordinates or ZIP lie outside the dataset's area is not placed in its city.
+      if (businessTagFix && ds.subtype === 'business' && outsideAreaGuard(row, ds)) {
+        report.keptOut = (report.keptOut ?? 0) + 1;
+        continue;
+      }
       if (ds.subtype === 'inspection' && ds.isFailure && !ds.isFailure(row)) continue;
 
       // review4 P2-4: an inspection id is kept only when it is a plain id, and the date half comes from the parsed date, never raw text.
@@ -505,7 +542,7 @@ export function parseSocrataReport(raw: unknown, ds: SocrataDataset, opts: { now
       if (seen.has(externalId)) continue;
 
       const permitClass = ds.subtype === 'permit' ? classifyPermitRow(ds, (f) => s(row, f)) : null;
-      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text);
+      const classified = permitClass ? { categories: permitClass.categories, severity: 1 as Severity } : categorize(ds, text, { businessTagFix });
       // Round 20 (NEXT): a certificate of occupancy is a heads-up for the trades that work on a finished, newly occupied building.
       const categories = ds.occupancy && ds.subtype === 'permit' ? [...new Set([...classified.categories, ...OCCUPANCY_TRADES])] : classified.categories;
       const severity = classified.severity;

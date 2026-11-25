@@ -50,6 +50,7 @@ export const ENV_KEYS = [
   'HOLLER_PREVIEW_FIXTURES',
   'HOLLER_QUIET_WEEK_ENABLED',
   'HOLLER_SEASON_ENABLED',
+  'HOLLER_BUSINESS_TAG_FIX_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -119,6 +120,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
   // Round 30: the season line in the alert and quiet-week emails (lib/season/active.ts seasonEmailEnabled). Read again at call time there.
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
+  // Round 33: new-business licences tagged by their own type, and rows outside the source's area dropped (lib/signals/mapping/business.ts). Read again at call time there.
+  HOLLER_BUSINESS_TAG_FIX_ENABLED: process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

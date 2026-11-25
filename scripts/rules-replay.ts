@@ -38,6 +38,7 @@ import {
   withAlsoCited,
   type TimelineRow,
 } from '../lib/signals/repeat-marks';
+import { businessTagFixEnabled, retagStoredBusinessRow } from '../lib/signals/mapping/business';
 import { RULE_CHOICE_QUESTIONS, RULE_CHOICES, withRuleChoices } from '../lib/signals/rule-choices';
 
 const ROWS = process.argv[2] ?? '/home/claude/gates/r19/data/signals-14d.json';
@@ -69,7 +70,22 @@ const LEVEL_OF: Record<OpportunityLabel, Level> = { act_now: 'urgent', coming_so
 const isAlert = (l: Level) => l === 'urgent' || l === 'heads-up';
 const TRADES = CATEGORY_IDS as readonly CategoryId[];
 
-const rows = JSON.parse(readFileSync(ROWS, 'utf8')) as Row[];
+const rowsRaw = JSON.parse(readFileSync(ROWS, 'utf8')) as Row[];
+// Round 33: with HOLLER_BUSINESS_TAG_FIX_ENABLED on, the new-business rows are first re-tagged by their own licence type and the ones outside
+// their city's area get no trade: this is the state the owner's re-tag SQL (round 33 report) leaves the stored rows in. Row count and order
+// are kept (engine-compare.jsonl is aligned by row). Off (the default), nothing changes and the anchor numbers must hold.
+const BUSINESS_FIX = businessTagFixEnabled();
+let businessRetagged = 0;
+const rows: Row[] = BUSINESS_FIX
+  ? rowsRaw.map((r) => {
+      if (subtypeOfRaw(r) !== 'business') return r;
+      const next = retagStoredBusinessRow(r);
+      if (next.length === (r.categories ?? []).length && next.every((c) => (r.categories ?? []).includes(c))) return r;
+      businessRetagged++;
+      return { ...r, categories: next };
+    })
+  : rowsRaw;
+function subtypeOfRaw(r: Row) { return typeof r.data?.subtype === 'string' && r.data.subtype ? (r.data.subtype as string) : null; }
 const subtypeOf = (r: Row) => (typeof r.data?.subtype === 'string' && r.data.subtype ? (r.data.subtype as string) : null);
 
 // ---- 1. ingest marks ------------------------------------------------------------------------------------------------------------
@@ -190,6 +206,7 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 
 P('RULES replay: this engine (lib/signals/lead-rules.ts) over the live export');
 P(`Rows: ${fmt(rows.length)} from ${ROWS}. Trades: ${TRADES.length}. Pairs: ${fmt(rows.length * TRADES.length)}.`);
+P(`Business tag fix (HOLLER_BUSINESS_TAG_FIX_ENABLED): ${BUSINESS_FIX ? `ON, ${fmt(businessRetagged)} stored business rows re-tagged by licence type before the engine runs` : 'OFF, stored tags used as they are (the anchor)'}.`);
 P(`Ingest marks applied first (lib/signals/repeat-marks.ts): ${heatHit.size} NYC whole-building heat rows marked (building = point to 4 decimals, a 48 h window holding 3 complaints, one per building per 7 days); ${nwsRep.size} NWS rows marked as repeats of an alert less than 24 h from the first (same data.event, data.areaDesc and place: county, else point to 0.1 degree, else state); ${spcRep.size} storm reports marked as the second listing of a report (same type, value, point, clock time and remark, within ${SPC_REPEAT_HOURS} h); ${visits.followerOf.size} code-violation orders stored as followers of ${new Set(visits.followerOf.values()).size} visit cards (same source, point to 3 decimals, same day, and the same meaning for every trade: repeat-marks.ts orderMeaning).`);
 P();
 
