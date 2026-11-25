@@ -3,6 +3,7 @@ import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { stormFactsOf } from './wind-damage';
+import { weatherFactsOf } from './weather-hazard';
 import { bidsEnabled, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
@@ -54,7 +55,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown; maxHailSizeIn?: unknown; maxWindGustMph?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -136,6 +137,8 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
   summary: signal.summary ?? null,
   // An SPC report's own fields decide its storm label when the row carries its data (round 18 integration).
   storm: stormFactsOf(signal.source, signal.data),
+  // Round 33: an alert's hail size and gust (null while HOLLER_HAIL_ROUTING_ENABLED is off, so nothing changes then).
+  weather: weatherFactsOf({ source: signal.source, title: signal.title, summary: signal.summary, data: signal.data as Record<string, unknown> | null | undefined }),
   permitStage: signal.data?.permitStage,
   // Where the record is (review P3 item 18: a federal bid with no point is feed only): the same rules decide here as on every surface.
   lat: signal.lat,
@@ -149,7 +152,8 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
  * (lib/signals/permit-routing.ts, PLAN-2.0 item 1.1). Computed once per record per scan.
  */
 function seenBy(signal: MatchSignal): readonly string[] {
-  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title, summary: signal.summary }, signal.categories);
+  const weather = weatherFactsOf({ source: signal.source, title: signal.title, summary: signal.summary, data: signal.data as Record<string, unknown> | null | undefined });
+  return carriedTrades({ source: signal.source, kind: signal.kind, subtype: subtypeOf(signal), title: signal.title, summary: signal.summary, weather }, signal.categories);
 }
 
 /**

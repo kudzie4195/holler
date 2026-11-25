@@ -39,6 +39,7 @@ import {
   type TimelineRow,
 } from '../lib/signals/repeat-marks';
 import { RULE_CHOICE_QUESTIONS, RULE_CHOICES, withRuleChoices } from '../lib/signals/rule-choices';
+import { weatherFactsOf } from '../lib/signals/weather-hazard';
 
 const ROWS = process.argv[2] ?? '/home/claude/gates/r19/data/signals-14d.json';
 const OUT = process.argv[3] ?? '/home/claude/gates/r19/logs/RULES-replay.txt';
@@ -107,7 +108,9 @@ interface Opts {
   labelsOnly?: boolean;
 }
 function inputOf(r: Row, labelsOnly: boolean): LabelInput {
-  const base: LabelInput = { source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary };
+  // Round 33: the hail size and gust (null unless HOLLER_HAIL_ROUTING_ENABLED is on for this run; the anchor runs with it off).
+  const weather = weatherFactsOf({ source: r.source, title: r.title, summary: r.summary, data: r.data });
+  const base: LabelInput = { source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary, ...(weather ? { weather } : {}) };
   return labelsOnly ? base : { ...base, lat: r.lat, lon: r.lon, state: r.state, severity: r.severity };
 }
 interface PairOut {
@@ -117,7 +120,7 @@ interface PairOut {
 function runEngine(src: Row[], opts: Opts = {}): PairOut[] {
   return src.map((r) => {
     const input = inputOf(r, !!opts.labelsOnly);
-    const carried = carriedTrades({ source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary }, r.categories);
+    const carried = carriedTrades({ source: r.source, kind: r.kind, subtype: subtypeOf(r), title: r.title, summary: r.summary, weather: input.weather }, r.categories);
     const lvl: PairOut['lvl'] = {};
     const rule: PairOut['rule'] = {};
     for (const tr of TRADES) {

@@ -42,7 +42,7 @@ function chunks<T>(arr: readonly T[], n: number): T[][] {
   return out;
 }
 
-const SIGNAL_COLUMNS = 'id, source, kind, title, summary, lat, lon, state, city, severity, subtype:data->>subtype, permitStage:data->>permitStage, managerName:data->>managerName, managerRole:data->>managerRole';
+const SIGNAL_COLUMNS = 'id, source, kind, title, summary, lat, lon, state, city, severity, subtype:data->>subtype, permitStage:data->>permitStage, managerName:data->>managerName, managerRole:data->>managerRole, maxHailSizeIn:data->>maxHailSizeIn, maxWindGustMph:data->>maxWindGustMph';
 
 async function readSignals(db: Db, ids: readonly number[]): Promise<MetroSignalLite[]> {
   const out: MetroSignalLite[] = [];

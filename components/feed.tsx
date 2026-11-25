@@ -61,6 +61,9 @@ export interface FeedItem {
   /** data.permitStage and data.permitStageAt of a permit (stage update). */
   permitStage?: string | null;
   permitStageAt?: string | null;
+  /** Round 33: the hail size (inches) and gust (mph) an NWS alert names, for the alert line (brief.ts alertLineFor). Null while the switch is off. */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
   /** Id of the signal behind this match. Feedback is saved per signal; without it the feedback buttons are not shown. */
   signalId?: number;
   /** This member's saved feedback answer for the signal, if any. */

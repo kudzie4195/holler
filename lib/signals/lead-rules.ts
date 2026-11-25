@@ -7,6 +7,7 @@ import {
   hasHeatMark,
   SEWAGE_BACKUP_RE,
   hailInchesOf,
+  hazardRouteTrades,
   isHailReport,
   isPaperworkOrder,
   isTornadoReport,
@@ -14,6 +15,7 @@ import {
   kcPropertyTrades,
   nwsEventOf,
   orderText,
+  strongestWeatherCell,
   titleBodyOf,
   violationTradeRoles,
   violationTrades,
@@ -23,6 +25,7 @@ import {
 import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, type RouteKind } from './permit-routing';
 import { jobValueOf } from './permit-value';
 import { ruleChoice, type RuleChoices } from './rule-choices';
+import { weatherFactsOf, type WeatherFacts } from './weather-hazard';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -112,6 +115,11 @@ export interface LabelInput {
    */
   storm?: StormFacts | null;
   /**
+   * Round 33 (HAIL): the hail size and gust the record names (lib/signals/weather-hazard.ts weatherFactsOf). Null or absent while
+   * HOLLER_HAIL_ROUTING_ENABLED is off, so the rule hazard-route never fires and every label is what it was.
+   */
+  weather?: WeatherFacts | null;
+  /**
    * Where the record is, for the one question a label must agree with delivery on: can ANY member ever receive it (cannotBeDelivered)?
    * Pass all four from a stored row (the replay, the matcher). Leave them out (undefined) when the caller already holds a delivered match:
    * the check is then skipped, because a delivered record was deliverable.
@@ -184,6 +192,8 @@ export interface LabelRule {
 }
 
 const PUBLIC_POSTS = ['bluesky', 'websearch-brave', 'websearch-serper'] as const;
+/** Point storm reports: SPC's preliminary reports and (round 33, HOLLER_LSR_ENABLED) the NWS local storm reports SPC does not carry. */
+const STORM_REPORT_SOURCES = ['spc', 'lsr'] as const;
 
 // ---- record facts the rules read ------------------------------------------------------------------------------------------------
 
@@ -411,7 +421,7 @@ export const RULES: readonly LabelRule[] = [
   {
     id: 'spc-insurance',
     label: 'market_insight',
-    sources: ['spc'],
+    sources: STORM_REPORT_SOURCES,
     trades: ['insurance', 'public-adjuster'],
     pick: (s) => {
       if (isWindDamageReport(s.title) || isTornadoReport(s.title)) return 'market_insight';
@@ -424,7 +434,7 @@ export const RULES: readonly LabelRule[] = [
   {
     id: 'spc-hail',
     label: 'act_now',
-    sources: ['spc'],
+    sources: STORM_REPORT_SOURCES,
     trades: ['auto-body', 'auto-glass', 'restoration', 'siding-gutters'],
     when: (s) => isHailReport(s.title),
     pick: (s, t) => {
@@ -439,7 +449,7 @@ export const RULES: readonly LabelRule[] = [
   {
     id: 'spc-gust',
     label: 'market_insight',
-    sources: ['spc'],
+    sources: STORM_REPORT_SOURCES,
     trades: ['roofing', 'restoration'],
     when: (s) => /wind gust/i.test(s.title ?? ''),
     line: 40,
@@ -448,7 +458,7 @@ export const RULES: readonly LabelRule[] = [
   {
     id: 'spc-wind-damage',
     label: 'act_now',
-    sources: ['spc'],
+    sources: STORM_REPORT_SOURCES,
     trades: ['roofing', 'restoration', 'tree-service'],
     when: (s) => isWindDamageReport(s.title),
     pick: (s, t) => windDamageLevel(s.summary, t as 'roofing' | 'restoration' | 'tree-service'),
@@ -458,11 +468,11 @@ export const RULES: readonly LabelRule[] = [
   {
     id: 'act-storm-report',
     label: 'act_now',
-    sources: ['spc'],
+    sources: STORM_REPORT_SOURCES,
     storm: true,
     why: 'A storm report that names damage, hail or a tornado is on record. Damage to a specific property is not confirmed.',
   },
-  { id: 'soon-storm-gust', label: 'coming_soon', sources: ['spc'], why: 'A measured wind gust. No damage is reported (a gust never proves damage).' },
+  { id: 'soon-storm-gust', label: 'coming_soon', sources: STORM_REPORT_SOURCES, why: 'A measured wind gust. No damage is reported (a gust never proves damage).' },
 
   // ---- people asking ---------------------------------------------------------------------------------------------------------------
   { id: 'act-resident-request', label: 'act_now', sources: ['holler-request'], why: 'A resident asked for this service on Holler.' },
@@ -819,6 +829,24 @@ export const RULES: readonly LabelRule[] = [
 
   // ---- weather, quakes, travel (lines 29 to 37, 42, 43) ----------------------------------------------------------------------------
   {
+    // Round 33 (HAIL), behind HOLLER_HAIL_ROUTING_ENABLED: a hail size or gust at or above carry.ts HAZARD_ROUTES reaches its trades at the
+    // strongest level the event row already gives any trade (a warning: heads-up; a watch or advisory: feed only). Never weaker than the
+    // trade's own cell. Without facts (switch off) the rule does not fit and weather-table decides exactly as before.
+    id: 'hazard-route',
+    label: 'context',
+    sources: ['nws'],
+    needsTrade: true,
+    when: (s, t) => !!t && hazardRouteTrades(s.weather).includes(t),
+    pick: (s, t) => {
+      const row = weatherRowFor(s.title);
+      const strongest = strongestWeatherCell(row);
+      if (!row || !strongest) return null;
+      const own = t ? row.cells[t] : undefined;
+      return own === 'coming_soon' || strongest === 'coming_soon' ? 'coming_soon' : 'market_insight';
+    },
+    why: 'The alert names hail of 1 inch or more (siding and gutters, roofing) or gusts of 58 mph or more (tree service, siding and gutters): the NWS severe criteria. It is a forecast, not damage.',
+  },
+  {
     id: 'weather-table',
     label: 'context',
     sources: ['nws'],
@@ -1140,6 +1168,8 @@ export const SOURCE_DEFAULTS: Readonly<Record<string, OpportunityLabel>> = {
   'faa': 'coming_soon',
   // Storm reports (act_now: a hail or wind report is on record; damage is not confirmed)
   'spc': 'act_now',
+  // Round 33: NWS local storm reports (non-thunderstorm wind damage and gusts), the same storm rules as SPC.
+  'lsr': 'act_now',
   // Building permits (coming_soon only when no trade is known; with a trade, the own-trade rule makes it market_insight first)
   'socrata-chicago-permits': 'coming_soon',
   'socrata-nyc-permits': 'coming_soon',
@@ -1338,8 +1368,14 @@ export function recordLabelInput(s: {
   lon?: number | null;
   state?: string | null;
   severity?: number | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's CAP hail size and gust). Read only while HOLLER_HAIL_ROUTING_ENABLED is on. */
+  maxHailSizeIn?: unknown;
+  maxWindGustMph?: unknown;
+  /** Or the whole data object, when the surface read it (the /check delivery test). */
+  data?: Record<string, unknown> | null;
 }): LabelInput {
-  const base: LabelInput = { source: s.source ?? '', kind: s.kind ?? null, subtype: s.subtype ?? null, title: s.title ?? null, summary: s.summary ?? null, permitStage: s.permitStage };
+  const weather = weatherFactsOf(s);
+  const base: LabelInput = { source: s.source ?? '', kind: s.kind ?? null, subtype: s.subtype ?? null, title: s.title ?? null, summary: s.summary ?? null, permitStage: s.permitStage, ...(weather ? { weather } : {}) };
   return s.lat === undefined || s.severity === undefined ? base : { ...base, lat: s.lat ?? null, lon: s.lon ?? null, state: s.state ?? null, severity: s.severity ?? null };
 }
 

@@ -298,6 +298,8 @@ export interface BriefDto {
   valueLine?: string | null;
   /** A permit whose stage changed (final inspection, finished, certificate of occupancy): one timing sentence. Absent otherwise and for a locked member. Additive. */
   stageLine?: string;
+  /** Round 33 (HOLLER_HAIL_ROUTING_ENABLED): an NWS alert's own hail size and gust, "The weather service warned of hail up to 1.75 inches in this area. ...". Absent otherwise and for a locked member. Additive. */
+  alertLine?: string;
 }
 
 export interface AlertDto {

@@ -1,6 +1,7 @@
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { naicsSectorLang, permitLabelLang } from '@/lib/signals/title-i18n';
 import { ALSO_CITED_PREFIX, HEAT_MARK } from '@/lib/signals/carry';
+import { LSR_DAMAGE_PART, LSR_TREE_PART } from '@/lib/signals/adapters/lsr-parts';
 
 /**
  * Record summaries in the member's language (round 17, unit ES, redo 2). Same approach as title-i18n.ts.
@@ -137,6 +138,9 @@ function partLang(part: string, lang: Lang, source: string): string {
   // Round 19 RULES (lib/signals/repeat-marks.ts): the per-building heat count and the other orders of one code-violation visit. The orders
   // are the records' own words and stay as written.
   if (part === HEAT_MARK) return t(lang, 'sum.heat_building');
+  // Round 33: the two fixed parts the LSR adapter writes (the remark itself is never stored).
+  if (part === LSR_TREE_PART) return t(lang, 'sum.lsr_trees');
+  if (part === LSR_DAMAGE_PART) return t(lang, 'sum.lsr_damage');
   if (part.startsWith(ALSO_CITED_PREFIX)) return t(lang, 'sum.also_cited', { orders: part.slice(ALSO_CITED_PREFIX.length) });
   // Round 20 SALES (lib/signals/adapters/sales.ts saleSummary): "Price band: $250k–$500k | Single-family home".
   if ((m = /^Price band: (.+)$/.exec(part))) return t(lang, 'sum.sale_band', { band: saleBandLang(m[1], lang) });

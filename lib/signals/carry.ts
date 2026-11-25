@@ -1,4 +1,5 @@
 import type { CategoryId } from './categories';
+import type { WeatherFacts } from './weather-hazard';
 
 /**
  * Record vocabulary shared by the label rules (lib/signals/lead-rules.ts) and the trades a record reaches (lib/signals/permit-routing.ts
@@ -258,6 +259,47 @@ export function weatherRowFor(title: string | null | undefined): (typeof WEATHER
   return WEATHER_EVENTS.find((w) => w.re.test(e)) ?? null;
 }
 
+// ---- hail size and wind gust routing (round 33, HOLLER_HAIL_ROUTING_ENABLED) --------------------------------------------------------
+
+/**
+ * Round 33 (HAIL): the trades a hail size or a wind gust reaches, read from what the record itself says (the NWS alert's CAP maxHailSize and
+ * maxWindGust, or its text; the size or gust in an SPC or LSR report title). The facts arrive only while HOLLER_HAIL_ROUTING_ENABLED is on
+ * (lib/signals/weather-hazard.ts weatherFactsOf), so with the switch off nothing below changes a label or a carried trade.
+ *
+ * Thresholds are the National Weather Service severe thunderstorm criteria: "hail of 1 inch (quarter) diameter or greater, and/or wind gusts
+ * of 50 knots (58 mph) or greater" (weather.gov/dtx/convective_defs, checked 2026-11-25). The 1 inch hail line is also the one the r30 WX
+ * research kept (gates/r30/WX.md section 2.2) and the one spc-hail already uses for siding and gutters (line 41).
+ *
+ * The routed trades are ADDED to the record's own routing, never removed. For an NWS alert the routed trade gets the strongest level the
+ * alert's WEATHER_EVENTS row already gives any trade (a warning: heads-up; a watch or advisory: feed only, as line 34 decided); an event row
+ * with no cells (statements, marine) routes nothing. For a storm report the existing storm rules decide the label.
+ */
+export const HAIL_ROUTE_MIN_INCHES = 1;
+export const GUST_ROUTE_MIN_MPH = 58;
+
+export const HAZARD_ROUTES: ReadonlyArray<{ id: 'hail' | 'gust'; min: number; trades: readonly CategoryId[]; why: string }> = [
+  { id: 'hail', min: HAIL_ROUTE_MIN_INCHES, trades: ['siding-gutters', 'roofing'], why: 'Hail of 1 inch (quarter) or more is the NWS severe line; it is the size that dents gutters, siding and roofs.' },
+  { id: 'gust', min: GUST_ROUTE_MIN_MPH, trades: ['tree-service', 'siding-gutters'], why: 'Gusts of 58 mph (50 knots) or more are the NWS severe line; they bring down limbs and pull gutters and siding loose.' },
+];
+
+/** The trades the record's hail size and gust reach (empty without facts, below the thresholds, or with the switch off). */
+export function hazardRouteTrades(facts: WeatherFacts | null | undefined): CategoryId[] {
+  if (!facts) return [];
+  const out: CategoryId[] = [];
+  for (const r of HAZARD_ROUTES) {
+    const v = r.id === 'hail' ? facts.hailInches : facts.gustMph;
+    if (typeof v === 'number' && v >= r.min) for (const t of r.trades) if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** The strongest level an NWS event row gives any trade, or null for a row with no cells (it alerts nobody, so it routes nobody). */
+export function strongestWeatherCell(row: (typeof WEATHER_EVENTS)[number] | null): WeatherCell | null {
+  if (!row) return null;
+  const cells = Object.values(row.cells);
+  return cells.includes('coming_soon') ? 'coming_soon' : cells.length ? 'market_insight' : null;
+}
+
 // ---- storm reports (lines 38 to 41) --------------------------------------------------------------------------------------------
 
 /** "1.75 inch hail reported near ..." gives 1.75; null when the title does not give a size. */
@@ -309,6 +351,8 @@ export interface CarryInput {
   subtype?: string | null;
   title?: string | null;
   summary?: string | null;
+  /** Round 33: hail size and gust (lib/signals/weather-hazard.ts weatherFactsOf; null while HOLLER_HAIL_ROUTING_ENABLED is off). */
+  weather?: WeatherFacts | null;
 }
 
 /**
@@ -317,7 +361,8 @@ export interface CarryInput {
  *  - a Kansas City property violation reaches the trades its subtype names (line 9);
  *  - a code violation reaches the repair trades its order names (line 13);
  *  - a High Wind, Severe Thunderstorm or Tornado Warning reaches siding and gutters (line 37);
- *  - a hail report of 1 inch or more reaches siding and gutters (line 41).
+ *  - a hail report of 1 inch or more reaches siding and gutters (line 41);
+ *  - round 33, switch on: a hail size or gust at or above HAZARD_ROUTES reaches its trades (an NWS alert only when its event row has cells).
  * Building permits are not handled here: their downstream trades come from permit-routing.ts.
  */
 export function extraCarried(sig: CarryInput): CategoryId[] {
@@ -333,11 +378,18 @@ export function extraCarried(sig: CarryInput): CategoryId[] {
     if (ABATEMENT_RE.test(orderText(sig.title))) return [];
     return violationTrades(sig.title, sig.summary);
   }
-  if (source === 'nws' || kind === 'alert') return [...(weatherRowFor(sig.title)?.carry ?? [])];
+  const hazard = hazardRouteTrades(sig.weather);
+  const plus = (base: readonly CategoryId[]) => [...base, ...hazard.filter((t) => !base.includes(t))];
+  if (source === 'nws' || kind === 'alert') {
+    const row = weatherRowFor(sig.title);
+    const base = [...(row?.carry ?? [])];
+    return source === 'nws' && strongestWeatherCell(row) ? plus(base) : base;
+  }
   if (source === 'spc' && isHailReport(sig.title)) {
     const inches = hailInchesOf(sig.title);
-    return inches !== null && inches >= 1 ? ['siding-gutters'] : [];
+    return plus(inches !== null && inches >= 1 ? ['siding-gutters'] : []);
   }
+  if (source === 'spc' || source === 'lsr') return plus([]);
   return [];
 }
 

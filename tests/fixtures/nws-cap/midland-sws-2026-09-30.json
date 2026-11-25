@@ -1,0 +1,143 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.91d5f8cc69bba9ea25f1f88d739036463918df0f.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -102.04,
+       32.54
+      ],
+      [
+       -102.11,
+       32.09
+      ],
+      [
+       -102.55,
+       31.94
+      ],
+      [
+       -102.98,
+       31.88
+      ],
+      [
+       -102.7,
+       32.36
+      ],
+      [
+       -102.54,
+       32.96
+      ],
+      [
+       -102.1,
+       32.96
+      ],
+      [
+       -102.04,
+       32.54
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.91d5f8cc69bba9ea25f1f88d739036463918df0f.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.91d5f8cc69bba9ea25f1f88d739036463918df0f.001.1",
+    "areaDesc": "Gaines; Dawson; Andrews; Martin; Winkler; Ector; Midland",
+    "geocode": {
+     "SAME": [
+      "048165",
+      "048115",
+      "048003",
+      "048317",
+      "048495",
+      "048135",
+      "048329"
+     ],
+     "UGC": [
+      "TXZ045",
+      "TXZ046",
+      "TXZ050",
+      "TXZ051",
+      "TXZ060",
+      "TXZ061",
+      "TXZ062"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/TXZ045",
+     "https://api.weather.gov/zones/forecast/TXZ046",
+     "https://api.weather.gov/zones/forecast/TXZ050",
+     "https://api.weather.gov/zones/forecast/TXZ051",
+     "https://api.weather.gov/zones/forecast/TXZ060",
+     "https://api.weather.gov/zones/forecast/TXZ061",
+     "https://api.weather.gov/zones/forecast/TXZ062"
+    ],
+    "references": [],
+    "sent": "2026-09-30T17:13:00-05:00",
+    "effective": "2026-09-30T17:13:00-05:00",
+    "onset": "2026-09-30T17:13:00-05:00",
+    "expires": "2026-09-30T17:45:00-05:00",
+    "ends": null,
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Moderate",
+    "certainty": "Observed",
+    "urgency": "Expected",
+    "event": "Special Weather Statement",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Midland/Odessa TX",
+    "headline": "Special Weather Statement issued September 30 at 5:13PM CDT by NWS Midland/Odessa TX",
+    "description": "At 513 PM CDT, Doppler radar was tracking strong thunderstorms along\na line extending from 13 miles east of Gaines County Airport to\nAndrews to 10 miles west of Goldsmith. Movement was northeast at 45\nmph.\n\nHAZARD...Wind gusts of 50 to 55 mph.\n\nSOURCE...Radar indicated.\n\nIMPACT...Gusty winds could knock down tree limbs and blow around\nunsecured objects.\n\nLocations impacted include...\nAndrews, Goldsmith, Seagraves Airport, Welch, Loop, Notrees, Florey,\nMcKenzie Lake, and Andrews County Airport.",
+    "instruction": "If outdoors, consider seeking shelter inside a building.\n\nA Severe Thunderstorm Watch remains in effect until midnight CDT for\nwestern Texas.",
+    "response": "Execute",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "SPSMAF"
+     ],
+     "WMOidentifier": [
+      "WWUS84 KMAF 302213"
+     ],
+     "NWSheadline": [
+      "STRONG THUNDERSTORMS WILL IMPACT NORTHERN ECTOR...ANDREWS... NORTHWESTERN MIDLAND...EASTERN GAINES...NORTHEASTERN WINKLER... WESTERN MARTIN AND WESTERN DAWSON COUNTIES THROUGH 545 PM CDT"
+     ],
+     "eventMotionDescription": [
+      "2026-09-30T22:13:00-00:00...storm...238DEG...41KT...32.67,-102.41 32.32,-102.51 31.98,-102.8"
+     ],
+     "maxWindGust": [
+      "55 MPH"
+     ],
+     "maxHailSize": [
+      "0.00"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "EAS-ORG": [
+      "WXR"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "SPS"
+     ],
+     "NationalWeatherService": [
+      "SPS"
+     ]
+    }
+   }
+  }
+ ]
+}

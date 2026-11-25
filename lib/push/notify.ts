@@ -28,6 +28,7 @@ import { matchScope } from '@/lib/plan/scope';
 import type { PushData } from '@/lib/mobile/types';
 import { isFcmConfigured, sendPush, type PushMessage, type SendResult } from './fcm';
 import { isStageUpdate, stageName, STAGE_SELECT } from '@/lib/signals/stage';
+import { WEATHER_SELECT } from '@/lib/signals/weather-hazard';
 import { parseLang, t, type Lang } from '@/lib/i18n';
 import { localizeTitle } from '@/lib/signals/title-i18n';
 import { allActiveTokens, disableTokens, isMissingTable, type ActiveToken } from './tokens';
@@ -154,6 +155,9 @@ interface SignalLike {
   permitStage?: string | null;
   permitStageAt?: string | null;
   permitStageUpdate?: string | boolean | null;
+  /** Round 33: WEATHER_SELECT aliases (an NWS alert's hail size and gust), for the label. */
+  maxHailSizeIn?: string | null;
+  maxWindGustMph?: string | null;
 }
 
 interface MatchLike {
@@ -247,7 +251,7 @@ async function unpushedMatches(db: Db, userIds: string[], since: string, before?
       const build = () => {
         let q = db
           .from('holler_matches')
-          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, state, lat, lon, severity, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT})`)
+          .select(`id, user_id, created_at, ${holdCol}signal:holler_signals(id, title, city, state, lat, lon, severity, source, expires_at, occurred_at, kind, summary, categories, subtype:data->>subtype, alertId:data->>alertId, ${STAGE_SELECT}, ${WEATHER_SELECT})`)
           .in('user_id', ids)
           .eq('status', 'new')
           .is('pushed_at', null)

@@ -50,6 +50,8 @@ export const ENV_KEYS = [
   'HOLLER_PREVIEW_FIXTURES',
   'HOLLER_QUIET_WEEK_ENABLED',
   'HOLLER_SEASON_ENABLED',
+  'HOLLER_HAIL_ROUTING_ENABLED',
+  'HOLLER_LSR_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -119,6 +121,10 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_QUIET_WEEK_ENABLED: process.env.HOLLER_QUIET_WEEK_ENABLED,
   // Round 30: the season line in the alert and quiet-week emails (lib/season/active.ts seasonEmailEnabled). Read again at call time there.
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
+  // Round 33: hail size and gust routing plus the alert line on weather cards (lib/signals/weather-hazard.ts hailRoutingEnabled). Read again at call time there.
+  HOLLER_HAIL_ROUTING_ENABLED: process.env.HOLLER_HAIL_ROUTING_ENABLED,
+  // Round 33: NWS local storm reports from the Iowa Environmental Mesonet (lib/signals/adapters/lsr.ts lsrEnabled). Read again at call time there.
+  HOLLER_LSR_ENABLED: process.env.HOLLER_LSR_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

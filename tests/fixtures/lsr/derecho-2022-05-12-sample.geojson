@@ -1,0 +1,215 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "0",
+   "type": "Feature",
+   "properties": {
+    "wfo": "DMX",
+    "type": "D",
+    "magf": null,
+    "county": "PALO ALTO",
+    "typetext": "TSTM WND DMG",
+    "state": "IA",
+    "remark": "MEDIUM SIZE TREE BRANCH DOWN IN GRAETTINGER. REPORT FROM SOCIAL MEDIA.",
+    "city": "GRAETTINGER",
+    "source": "PUBLIC",
+    "unit": null,
+    "valid": "2022-05-13T01:40:00Z",
+    "lon": -94.76,
+    "lat": 43.24,
+    "qualifier": null,
+    "product_id": "202205130214-KDMX-NWUS53-LSRDMX",
+    "st": "IA",
+    "magnitude": ""
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -94.76,
+     43.24
+    ]
+   }
+  },
+  {
+   "id": "32",
+   "type": "Feature",
+   "properties": {
+    "wfo": "FSD",
+    "type": "D",
+    "magf": null,
+    "county": "MINNEHAHA",
+    "typetext": "TSTM WND DMG",
+    "state": "SD",
+    "remark": "TREE DOWN ON HOUSE.",
+    "city": "1 SSE SIOUX FALLS",
+    "source": "EMERGENCY MNGR",
+    "unit": null,
+    "valid": "2022-05-12T22:02:00Z",
+    "lon": -96.72,
+    "lat": 43.53,
+    "qualifier": null,
+    "product_id": "202205132022-KFSD-NWUS53-LSRFSD",
+    "st": "SD",
+    "magnitude": ""
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.72,
+     43.53
+    ]
+   }
+  },
+  {
+   "id": "49",
+   "type": "Feature",
+   "properties": {
+    "wfo": "FSD",
+    "type": "G",
+    "magf": 58.0,
+    "county": "DAVISON",
+    "typetext": "TSTM WND GST",
+    "state": "SD",
+    "remark": "MESONET STATION FW9779 MITCHELL.",
+    "city": "4 SSE MITCHELL",
+    "source": "MESONET",
+    "unit": "MPH",
+    "valid": "2022-05-12T21:32:00Z",
+    "lon": -98.02,
+    "lat": 43.68,
+    "qualifier": "M",
+    "product_id": "202205132022-KFSD-NWUS53-LSRFSD",
+    "st": "SD",
+    "magnitude": "58"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.02,
+     43.68
+    ]
+   }
+  },
+  {
+   "id": "59",
+   "type": "Feature",
+   "properties": {
+    "wfo": "FSD",
+    "type": "G",
+    "magf": 60.0,
+    "county": "UNION",
+    "typetext": "TSTM WND GST",
+    "state": "SD",
+    "remark": "ALSO REPORT PEA SIZE HAIL.",
+    "city": "5 S ELK POINT",
+    "source": "PUBLIC",
+    "unit": "MPH",
+    "valid": "2022-05-13T00:24:00Z",
+    "lon": -96.68,
+    "lat": 42.6,
+    "qualifier": "E",
+    "product_id": "202205130027-KFSD-NWUS53-LSRFSD",
+    "st": "SD",
+    "magnitude": "60"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.68,
+     42.6
+    ]
+   }
+  },
+  {
+   "id": "127",
+   "type": "Feature",
+   "properties": {
+    "wfo": "FSD",
+    "type": "H",
+    "magf": 1.0,
+    "county": "BEADLE",
+    "typetext": "HAIL",
+    "state": "SD",
+    "remark": null,
+    "city": "HURON",
+    "source": "PUBLIC",
+    "unit": "INCH",
+    "valid": "2022-05-12T22:00:00Z",
+    "lon": -98.22,
+    "lat": 44.36,
+    "qualifier": "E",
+    "product_id": "202205132022-KFSD-NWUS53-LSRFSD",
+    "st": "SD",
+    "magnitude": "1"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.22,
+     44.36
+    ]
+   }
+  },
+  {
+   "id": "200",
+   "type": "Feature",
+   "properties": {
+    "wfo": "MPX",
+    "type": "O",
+    "magf": null,
+    "county": "STEVENS",
+    "typetext": "NON-TSTM WND DMG",
+    "state": "MN",
+    "remark": "POWER LINES PUSHED DOWN NEAR COUNTY RD 12.",
+    "city": "1 W CHOKIO",
+    "source": "TRAINED SPOTTER",
+    "unit": null,
+    "valid": "2022-05-13T00:00:00Z",
+    "lon": -96.19,
+    "lat": 45.57,
+    "qualifier": null,
+    "product_id": "202205130002-KMPX-NWUS53-LSRMPX",
+    "st": "MN",
+    "magnitude": ""
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -96.19,
+     45.57
+    ]
+   }
+  },
+  {
+   "id": "282",
+   "type": "Feature",
+   "properties": {
+    "wfo": "OAX",
+    "type": "O",
+    "magf": null,
+    "county": "BOONE",
+    "typetext": "NON-TSTM WND DMG",
+    "state": "NE",
+    "remark": "POWER LINES DOWN.",
+    "city": "5 W ALBION",
+    "source": "PUBLIC",
+    "unit": null,
+    "valid": "2022-05-12T20:25:00Z",
+    "lon": -98.1,
+    "lat": 41.68,
+    "qualifier": null,
+    "product_id": "202205122036-KOAX-NWUS53-LSROAX",
+    "st": "NE",
+    "magnitude": ""
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     -98.1,
+     41.68
+    ]
+   }
+  }
+ ]
+}
