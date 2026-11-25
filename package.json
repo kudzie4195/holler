@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
+    "check:client-switches": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/check-client-switches.ts",
     "replay:labels": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts",
     "replay:trades": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-trades.ts",
     "replay:rules": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/rules-replay.ts",

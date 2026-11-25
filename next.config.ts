@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { securityHeaderRules } from "./lib/security-headers";
 import { contentLanguageRules } from "./lib/i18n/seo";
+import { inlinedSwitchEnv } from "./lib/build-switches";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -22,5 +23,9 @@ const nextConfig: NextConfig = {
     },
   },
 };
+
+// Round 34 switch audit: the switches the browser reads (lib/build-switches.ts INLINED_SWITCHES) are inlined at build, so the server and the
+// browser bundle hold the same value ("1" or ""). Merged into any `env` the object above declares, so another switch added there is kept.
+nextConfig.env = { ...nextConfig.env, ...inlinedSwitchEnv(process.env) };
 
 export default nextConfig;
