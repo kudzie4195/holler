@@ -3,7 +3,7 @@ import { matchScope, phraseIndex, searchText, type MatchScope } from '@/lib/plan
 import { approxReachMi, hasApproxLocation, hasApproxReach } from './approx-location';
 import { cannotBeDelivered, deadlineOf, isAlertLabel, isFeedLabel, labelFor, LABEL_RANK, STATE_LEVEL_MIN_SEVERITY, type LabelInput, type OpportunityLabel } from './lead-rules';
 import { stormFactsOf } from './wind-damage';
-import { bidsEnabled, isBidSignal } from './bid-sources';
+import { bidsEnabled, erateHidden, isBidSignal } from './bid-sources';
 import { carriedTrades } from './permit-routing';
 import { isExactTradeFit, scoreOf, valueUsdOf } from './score';
 import type { CategoryId } from './categories';
@@ -251,7 +251,7 @@ export function withoutWorkProfile<P extends MatchProfile>(profile: P): P {
 function areaMatch(signal: MatchSignal, profile: MatchProfile, scope: MatchScope, bidsOn: boolean): { distance_mi: number | null } | null {
   // City bids (HOLLER_BIDS_ENABLED, lib/signals/bid-sources.ts): with the flag off no bid row matches anyone, whether it was just fetched
   // or stored earlier. First test, before any area or text work.
-  if (!bidsOn && isBidSignal(signal)) return null;
+  if (isBidSignal(signal) && (!bidsOn || erateHidden(signal))) return null;
   if (hasCoords(signal.lat, signal.lon)) {
     // A stand-in position (Cobb County rows sit at the county seat): the real site can be up to APPROX_MATCH_SLACK_MI from it, so the
     // record matches a member within radius + that slack. No distance is kept for it: there is no real distance to show.

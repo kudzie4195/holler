@@ -304,7 +304,7 @@ async function loadDashboard() {
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       // Open city bids: buyer and due date. Federal notices: the early-notice and set-aside words (lib/signals/sam-notice.ts), from the notice's own fields.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at, source: s.source }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
     };
     const storm = stormLinks.get(s.id);
     if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);

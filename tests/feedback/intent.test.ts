@@ -36,6 +36,7 @@ const FIXED: Record<string, Intent> = {
   'bids-rockdale': 'spending',
   'bids-tucker': 'spending',
   'bids-dunwoody': 'spending',
+  'bids-erate': 'spending',
   // Round 20 page watch: public bid pages (kind contract, subtype bid), like every bid source.
   ...Object.fromEntries(PAGE_WATCH_IDS.map((id) => [id, 'spending'])),
   ticketmaster: 'demand',

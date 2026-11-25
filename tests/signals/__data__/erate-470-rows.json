@@ -1,0 +1,361 @@
+[
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 1",
+  "service_type": "Data Transmission and/or Internet Access",
+  "function": "Internet Access and Data Transmission Service",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Wireless Access Points and Necessary Software and Licenses",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Basic Maintenance of Internal Connections",
+  "function": "Wireless Access Points",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Firewall Service, Components, and Necessary Software and Licenses",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Basic Maintenance of Internal Connections",
+  "function": "Firewall Service and Components",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270001007",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270001007/69128/22907195-USAC_FCC_FORM_470_APPLICATION_270001007_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-07T00:00:00.000",
+  "certified_date_time": "2026-11-09T11:22:44.000",
+  "billed_entity_number": "69128",
+  "billed_entity_name": "Evanston Township High School District 202",
+  "applicant_type": "School District",
+  "billed_entity_city": "Evanston",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60201",
+  "service_category": "Category 2",
+  "service_type": "Basic Maintenance of Internal Connections",
+  "function": "Cabling",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270003493",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270003493/11475/22877131-USAC_FCC_FORM_470_APPLICATION_270003493_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-01T00:00:00.000",
+  "certified_date_time": "2026-11-03T15:12:24.000",
+  "billed_entity_number": "11475",
+  "billed_entity_name": "ST JOSEPH CATHOLIC ACADEMY",
+  "applicant_type": "School",
+  "billed_entity_city": "ASTORIA",
+  "billed_entity_state": "NY",
+  "billed_entity_zip": "11103",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270003493",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270003493/11475/22877131-USAC_FCC_FORM_470_APPLICATION_270003493_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-01T00:00:00.000",
+  "certified_date_time": "2026-11-03T15:12:24.000",
+  "billed_entity_number": "11475",
+  "billed_entity_name": "ST JOSEPH CATHOLIC ACADEMY",
+  "applicant_type": "School",
+  "billed_entity_city": "ASTORIA",
+  "billed_entity_state": "NY",
+  "billed_entity_zip": "11103",
+  "service_category": "Category 2",
+  "service_type": "Basic Maintenance of Internal Connections",
+  "function": "Cabling",
+  "installation_initial": false
+ },
+ {
+  "application_number": "270005737",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270005737/85810/22971436-USAC_FCC_FORM_470_APPLICATION_270005737_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-21T00:00:00.000",
+  "certified_date_time": "2026-11-23T16:14:07.000",
+  "billed_entity_number": "85810",
+  "billed_entity_name": "Prince of Peace Catholic School",
+  "applicant_type": "School",
+  "billed_entity_city": "PLANO",
+  "billed_entity_state": "TX",
+  "billed_entity_zip": "75093",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270004329",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270004329/123677/22967592-USAC_FCC_FORM_470_APPLICATION_270004329_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-20T00:00:00.000",
+  "certified_date_time": "2026-11-22T16:13:21.000",
+  "billed_entity_number": "123677",
+  "billed_entity_name": "SOUTHERN WESTCHESTER BOCES",
+  "applicant_type": "Consortium",
+  "billed_entity_city": "HARRISON",
+  "billed_entity_state": "NY",
+  "billed_entity_zip": "10528",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270002974",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270002974/16034169/22969122-USAC_FCC_FORM_470_APPLICATION_270002974_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-14T00:00:00.000",
+  "certified_date_time": "2026-11-16T12:45:32.000",
+  "billed_entity_number": "16034169",
+  "applicant_type": "School District",
+  "billed_entity_city": "CHICAGO",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60603",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Routers and Necessary Software and Licenses",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270002974",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270002974/16034169/22969122-USAC_FCC_FORM_470_APPLICATION_270002974_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-14T00:00:00.000",
+  "certified_date_time": "2026-11-16T12:45:32.000",
+  "billed_entity_number": "16034169",
+  "applicant_type": "School District",
+  "billed_entity_city": "CHICAGO",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60603",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Antennas, Connectors, and Related Components",
+  "installation_initial": true
+ },
+ {
+  "application_number": "270002974",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/270002974/16034169/22969122-USAC_FCC_FORM_470_APPLICATION_270002974_CERTIFIED.pdf"
+  },
+  "funding_year": "2027",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-12-14T00:00:00.000",
+  "certified_date_time": "2026-11-16T12:45:32.000",
+  "billed_entity_number": "16034169",
+  "applicant_type": "School District",
+  "billed_entity_city": "CHICAGO",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60603",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "260026114",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/260026114/123664/21367907-USAC_FCC_FORM_470_APPLICATION_260026114_CERTIFIED.pdf"
+  },
+  "funding_year": "2026",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-04-08T00:00:00.000",
+  "certified_date_time": "2026-03-11T12:02:22.000",
+  "billed_entity_number": "123664",
+  "billed_entity_name": "MOUNT VERNON PUBLIC LIBRARY",
+  "applicant_type": "Library",
+  "billed_entity_city": "MOUNT VERNON",
+  "billed_entity_state": "NY",
+  "billed_entity_zip": "10550",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "260024231",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/EPC/Prd/Form470/260024231/123750/21423998-USAC_FCC_FORM_470_APPLICATION_260024231_CERTIFIED.pdf"
+  },
+  "funding_year": "2026",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2026-03-27T00:00:00.000",
+  "certified_date_time": "2026-02-27T19:38:12.000",
+  "billed_entity_number": "123750",
+  "billed_entity_name": "PEARL RIVER PUBLIC LIBRARY",
+  "applicant_type": "Library",
+  "billed_entity_city": "PEARL RIVER",
+  "billed_entity_state": "NY",
+  "billed_entity_zip": "10965",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true
+ },
+ {
+  "application_number": "160003906",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/SL/Prd/Form470/400901/160003906/Current/USAC_FCC_FORM_470_APPLICATION_160003906_CERTIFIED.pdf"
+  },
+  "funding_year": "2016",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2015-12-22T00:00:00.000",
+  "certified_date_time": "2015-11-24T15:18:01.000",
+  "billed_entity_number": "228310",
+  "billed_entity_name": "CHICAGO CHARTER SCHOOLS FOUNDATION",
+  "applicant_type": "School District",
+  "billed_entity_city": "CHICAGO",
+  "billed_entity_state": "IL",
+  "billed_entity_zip": "60603",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true,
+  "maintenance_technical_support": false
+ },
+ {
+  "application_number": "170063985",
+  "form_pdf": {
+   "url": "https://publicdata.usac.org/SL/Prd/Form470/296217/170063985/Original/USAC_FCC_FORM_470_APPLICATION_170063985_CERTIFIED.pdf"
+  },
+  "funding_year": "2017",
+  "fcc_form_470_status": "Certified",
+  "allowable_contract_date": "2017-03-02T00:00:00.000",
+  "certified_date_time": "2017-02-02T17:32:05.000",
+  "billed_entity_number": "85810",
+  "billed_entity_name": "Prince of Peace Catholic School",
+  "applicant_type": "School",
+  "billed_entity_city": "PLANO",
+  "billed_entity_state": "TX",
+  "billed_entity_zip": "75093",
+  "service_category": "Category 2",
+  "service_type": "Internal Connections",
+  "function": "Cabling",
+  "installation_initial": true,
+  "maintenance_technical_support": false
+ }
+]

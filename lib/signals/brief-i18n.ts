@@ -344,6 +344,7 @@ const FAMILY_SOURCE: Partial<Record<BriefFamily, string>> = {
   'federal-bid': 'sam-gov',
   'federal-award': 'usaspending',
   'city-bid': 'bids-sf',
+  'school-bid': 'bids-erate',
   'public-post': 'bluesky',
   'resident-request': 'holler-request',
   sale: 'carto-phl-sales',
