@@ -157,8 +157,9 @@ export function hazardFromText(text: string | null | undefined, event?: string |
     }
     for (const m of sent.matchAll(/\b(\d{2,3}) mph wind gusts\b/g)) bumpGust(Number(m[1]));
     if (!hailAllowed) continue;
-    // Never a depth or a drift: "hail up to 3 inches deep", "in depth", "a 6 inch hail drift".
-    for (const m of sent.matchAll(/\bhail (?:up to |of up to |of |to )(\d*\.\d+|\d+) inch(?:es)?\b(?! deep| in depth| of (?:accumulation|ice)| on the ground)/g)) bumpHail(parseFloat(m[1]));
+    // Review 3 R3-2: "hail up to N inch(es)" counts only as a size: followed by "in diameter", "possible", "expected" or "likely", a
+    // comma or the end of the sentence. A depth ("deep", "thick", "covering roads", "on roads", "of accumulation") reads nothing.
+    for (const m of sent.matchAll(/\bhail (?:up to |of up to |of |to )(\d*\.\d+|\d+) inch(?:es)?\b(?= in diameter\b| (?:are |is )?(?:possible|expected|likely)\b|\s*,|\s*$)/g)) bumpHail(parseFloat(m[1]));
     // Fractions: "3/4 inch hail" is 0.75, "1 1/2 inch hail" is 1.50.
     for (const m of sent.matchAll(/(?<![\d./])(?:(\d) )?(\d)\/(\d{1,2})[- ]inch(?:es)? (?:diameter )?hail\b(?! drifts?| accumulation| depth| on the ground)/g)) {
       bumpHail((m[1] ? Number(m[1]) : 0) + Number(m[2]) / Number(m[3]));

@@ -1,3 +1,5 @@
+import { WIND_DAMAGE_PATTERNS } from '../carry';
+
 /**
  * Round 33: the fixed summary parts the LSR adapter (adapters/lsr.ts) writes in place of the report's remark, which is never stored.
  * Kept in their own client-safe module so lib/signals/summary-i18n.ts can translate them without importing the adapter.
@@ -8,9 +10,11 @@
  *  - Labels (review 2, P2-2): the wind damage rule (carry.ts windDamageFactsOf, line 39) reads its five facts back from these phrases, and
  *    each phrase carries exactly the facts its word carries in that rule: "a roof or siding" gives roof and structure, "shingles or gutters"
  *    gives roof only, "a home" structure and home-or-yard, "a yard" home-or-yard only, "a building" structure only, "power lines or poles"
- *    nothing. So for a remark whose words are real words, the LSR row gets the label the SPC row with the same remark gets. Where the SPC
- *    rule matches inside a longer word (warehouse, courthouse, climbing, lumberyard) or reads "snapped" on power poles as trees, the LSR row
- *    reads less, never more.
+ *    nothing.
+ *  - Never more than SPC (review 3 R3-1): the rule is not monotone. Reading FEWER tree, home, yard or building words can only lower a
+ *    label, but reading fewer ROAD or ROOF words can raise tree service (a road removes the tree act-now; a roof turns tree service to feed
+ *    only). So road, roof-or-siding and shingles-or-gutters come from carry.ts WIND_DAMAGE_PATTERNS itself (shared, not copied), and only
+ *    trees, home, yard and building use the stricter word-bounded patterns. A sweep test checks the LSR label is never above the SPC label.
  */
 export const LSR_TREE_PART = 'The report names trees or limbs down';
 export const LSR_POWER_PART = 'It names power lines or poles';
@@ -40,20 +44,23 @@ export interface LsrFacts {
   building: boolean;
 }
 
-const POWER_RE = /\bpower\b|\b(?:power|utility|electric) ?(?:lines?|poles?)\b|\bpoles?\b|\blines? down\b|\btransformers?\b/;
+// Review 3 R3-3: power lines or poles only when the words say so ("POWER OUTAGE", "FLAG POLE", "TREE LINE DOWN" are not).
+const POWER_RE = /\bpower (?:lines?|poles?)\b|\butility (?:lines?|poles?)\b|\belectric(?:al)? (?:lines?|poles?)\b/;
+const LINES_DOWN_WITH_POWER = (c: string) => /\blines? (?:are |were )?down\b/.test(c) && /\bpower\b|\butility\b|\belectric/.test(c);
 
 export function lsrFactsOf(remark: string | null | undefined): LsrFacts {
   const c = (remark ?? '').toLowerCase();
-  const powerLines = POWER_RE.test(c);
+  const powerLines = POWER_RE.test(c) || LINES_DOWN_WITH_POWER(c);
   const treeWords = /\btrees?\b|\blimbs?\b|\bbranches\b|\bbranch (?:down|fell|broke|broken|snapped|on|onto|across|blocking)\b/.test(c);
   // "snapped", "uprooted" and "felled" are trees only when no power line or pole is named (review 2: "POWER POLES SNAPPED").
   const treeVerbs = /\bsnapped\b|\buproot(?:ed|ing|s)?\b|\bfelled\b/.test(c) && !powerLines;
   return {
     trees: treeWords || treeVerbs,
     powerLines,
-    road: /\binterstate\b|\bhighway\b|\bhwy\b|\bon.?ramp\b|\boff.?ramp\b|\bi-\d|\broad(?:way)?s?\b|blocking (?:the )?(?:street|lane)/.test(c),
-    roofOrSiding: /\broofs?\b|\broofing\b|\brooftops?\b|\bsiding\b/.test(c),
-    shinglesOrGutters: /\bshingles?\b|\bgutters?\b/.test(c),
+    // Shared with the line 39 rule (never fewer road or roof words than SPC reads).
+    road: WIND_DAMAGE_PATTERNS.road.test(c),
+    roofOrSiding: WIND_DAMAGE_PATTERNS.roofOrSiding.test(c),
+    shinglesOrGutters: WIND_DAMAGE_PATTERNS.shinglesOrGutters.test(c),
     home: /\bhomes?\b|\bhouses?\b|\bresidences?\b|\bresidential\b/.test(c),
     yard: /\b(?:back|front)?yards?\b/.test(c),
     building: /\bgarages?\b|\bcarports?\b|\bporch(?:es)?\b|\bstructures?\b|\bbuildings?\b/.test(c),

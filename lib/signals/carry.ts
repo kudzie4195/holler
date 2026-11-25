@@ -351,16 +351,31 @@ export interface WindDamageFacts {
   homeOrYard: boolean;
 }
 
+/**
+ * The line 39 rule's own word patterns, shared (not copied) with the LSR adapter (adapters/lsr-parts.ts, review 3 R3-1): the LSR row takes
+ * its road and roof facts from these same patterns, so it can never read fewer road or roof words than an SPC row with the same remark.
+ * `roof` is the union of roofOrSiding (which the rule also reads as a structure) and shinglesOrGutters (which it does not).
+ */
+export const WIND_DAMAGE_PATTERNS = {
+  trees: /\btrees?\b|limb|branch|uproot|snapped|felled/,
+  road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/,
+  // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
+  // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
+  roofOrSiding: /(?<!p)roof|siding/,
+  shinglesOrGutters: /shingle|gutter/,
+  structure: /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/,
+  homeOrYard: /home|house|yard|residen/,
+} as const;
+
 export function windDamageFactsOf(text: string | null | undefined): WindDamageFacts {
   const c = lower(text);
+  const P = WIND_DAMAGE_PATTERNS;
   return {
-    trees: /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c),
-    road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c),
-    // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
-    // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
-    roof: /(?<!p)roof|shingle|siding|gutter/.test(c),
-    structure: /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/.test(c),
-    homeOrYard: /home|house|yard|residen/.test(c),
+    trees: P.trees.test(c),
+    road: P.road.test(c),
+    roof: P.roofOrSiding.test(c) || P.shinglesOrGutters.test(c),
+    structure: P.structure.test(c),
+    homeOrYard: P.homeOrYard.test(c),
   };
 }
 

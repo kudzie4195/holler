@@ -28,7 +28,7 @@ import {
   weatherFactsOf,
   WEATHER_SELECT,
 } from '@/lib/signals/weather-hazard';
-import { GUST_ROUTE_MIN_MPH, HAIL_ROUTE_MIN_INCHES, HAZARD_ROUTES, hazardRouteTrades, windDamageFactsOf, windDamageLevelOf } from '@/lib/signals/carry';
+import { GUST_ROUTE_MIN_MPH, HAIL_ROUTE_MIN_INCHES, HAZARD_ROUTES, hazardRouteTrades, windDamageFactsOf, windDamageLevel, windDamageLevelOf } from '@/lib/signals/carry';
 import { labelFor, labelForMember, recordLabelInput, ruleFor, SOURCE_DEFAULTS, type LabelInput } from '@/lib/signals/lead-rules';
 import { carriedTrades } from '@/lib/signals/permit-routing';
 import { alertLineFor, ALERT_LINE_NOTE, briefFamilyOf, cardBrief } from '@/lib/signals/brief';
@@ -709,5 +709,73 @@ describe('review 2 P2-4: the 35 new parser strings (gates/r33/review/r33-hail/r2
 describe('review 2 P2-5: the owner metro report reads hazardFrom, so CAP none is respected there too', () => {
   it('selects hazardFrom', () => {
     expect(readFileSync(join(ROOT, 'lib', 'admin', 'metros-load.ts'), 'utf8')).toMatch(/hazardFrom:data->>hazardFrom/);
+  });
+});
+
+const TRADES = ['tree-service', 'roofing', 'restoration'] as const;
+
+describe('review 3 R3-1: an LSR row never routes above the SPC row with the same remark', () => {
+  const RANK = { act_now: 0, coming_soon: 1, market_insight: 2, context: 3 } as const;
+  const lsrSummary = (remark: string) => lsrSummaryOf(lsrFactsOf(remark));
+  it('the reviewer examples route no higher than SPC, end to end, for every trade', () => {
+    for (const remark of ['TREE DOWN ACROSS HIGHWAYS 9 AND 20', 'TREES DOWN ON INTERSTATES', 'SEVERAL LARGE TREES DOWN ON INTERSTATES NEAR TOWN', 'ROOFLINE DAMAGED ON A BARN']) {
+      const lsr = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { typetext: 'NON-TSTM WND DMG', county: 'FULTON', state: 'GA', city: 'ATLANTA', valid: '2026-11-25T10:00:00Z', lat: 33.77, lon: -84.42, remark } }] })[0];
+      const spc = { source: 'spc', kind: 'report', title: 'Wind damage reported near Atlanta, GA', summary: remark };
+      for (const t of ['tree-service', 'roofing', 'restoration', 'insurance', 'public-adjuster', 'siding-gutters'] as CategoryId[]) {
+        const l = labelFor({ source: 'lsr', kind: 'report', title: lsr.title, summary: lsr.summary }, t);
+        expect(RANK[l], `${remark} ${t}: lsr ${l} spc ${labelFor(spc, t)}`).toBeGreaterThanOrEqual(RANK[labelFor(spc, t)]);
+      }
+      // These are road or roof words exactly as SPC reads them, so the label is the same.
+      expect(labelFor({ source: 'lsr', title: lsr.title, summary: lsr.summary }, 'tree-service'), remark).toBe(labelFor(spc, 'tree-service'));
+    }
+  });
+  it('property: over every 1 to 3 token remark of a 44-token vocabulary (plurals, substrings, place names), LSR is never above SPC for any trade', () => {
+    const TOKENS = [
+      'TREE', 'TREES', 'LIMB', 'LIMBS', 'BRANCH', 'BRANCHES', 'FLOWERY BRANCH', 'CLIMBING', 'UPROOTED', 'SNAPPED', 'FELLED',
+      'ROAD', 'ROADS', 'ROADWAY', 'HIGHWAY', 'HIGHWAYS', 'INTERSTATE', 'INTERSTATES', 'HWY 9', 'ON RAMP', 'OFF RAMPS', 'I-75', 'BLOCKING THE STREET',
+      'ROOF', 'ROOFS', 'ROOFLINE', 'REROOF', 'WATERPROOF', 'SIDING', 'SIDINGS', 'SHINGLES', 'GUTTER', 'GUTTERING',
+      'HOME', 'HOUSE', 'WAREHOUSE', 'RESIDENT', 'YARD', 'LUMBERYARD', 'GARAGE', 'BUILDINGS', 'POWER POLES', 'POWER OUTAGE', 'FENCE',
+    ];
+    let checked = 0;
+    const check = (remark: string) => {
+      const back = lsrSummary(remark);
+      for (const t of TRADES) {
+        const l = windDamageLevel(back, t);
+        const s = windDamageLevel(remark, t);
+        if (RANK[l] < RANK[s]) throw new Error(`${remark} ${t}: lsr ${l} above spc ${s}`);
+      }
+      checked++;
+    };
+    for (const a of TOKENS) {
+      check(a);
+      for (const b of TOKENS) {
+        check(`${a} ${b}`);
+        for (const c of TOKENS) check(`${a} ON ${b} NEAR ${c}`);
+      }
+    }
+    expect(checked).toBe(44 + 44 * 44 + 44 * 44 * 44);
+  });
+});
+
+describe('review 3 R3-2 and R3-3', () => {
+  const SVR = 'Severe Thunderstorm Warning';
+  for (const text of [
+    'Hail up to 2 inches thick covered Highway 6.',
+    'Hail to 4 inches covering roads near Golden.',
+    'Hail of 2 inches on roads was reported by spotters.',
+    'Hail up to 3 inches deep was covering roads.',
+    'Hail up to 2 inches of accumulation on roads.',
+    'Hail of 3 inches accumulation was reported.',
+  ]) it(`a hail depth reads nothing: ${text}`, () => expect(hazardFromText(text, SVR)).toEqual({ hailInches: null, gustMph: null }));
+  for (const [text, want] of [
+    ['Hail up to 1.75 inches in diameter is possible.', 1.75],
+    ['Hail up to 2 inches possible.', 2],
+    ['Hail up to 1 inch.', 1],
+    ['Damaging winds and hail up to 1.5 inches, along with heavy rain.', 1.5],
+  ] as const) it(`a hail size reads: ${text}`, () => expect(hazardFromText(text, SVR).hailInches).toBe(want));
+  it('the power lines phrase only for power or utility lines or poles', () => {
+    const say = (r: string) => lsrSummaryOf(lsrFactsOf(r));
+    for (const r of ['POWER OUTAGE', 'FLAG POLE', 'TREE LINE DOWN', 'POWER OUTAGE AFTER FLAG POLE FELL']) expect(say(r), r).not.toContain('power lines');
+    for (const r of ['POWER POLES SNAPPED', 'POWER LINES DOWN', 'UTILITY POLE BROKEN', 'LINES DOWN, POWER OUT']) expect(say(r), r).toContain('It names power lines or poles');
   });
 });
