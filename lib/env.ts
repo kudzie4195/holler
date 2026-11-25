@@ -56,6 +56,7 @@ export const ENV_KEYS = [
   'HOLLER_ERATE_ENABLED',
   'HOLLER_HAIL_ROUTING_ENABLED',
   'HOLLER_LSR_ENABLED',
+  'HOLLER_ROAD_WORDS_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -137,6 +138,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_HAIL_ROUTING_ENABLED: process.env.HOLLER_HAIL_ROUTING_ENABLED,
   // Round 33: NWS local storm reports from the Iowa Environmental Mesonet (lib/signals/adapters/lsr.ts lsrEnabled). Read again at call time there.
   HOLLER_LSR_ENABLED: process.env.HOLLER_LSR_ENABLED,
+  // Round 34: more road words (freeway, lanes, ramp, Blvd, St, Rd, Ave, I-5 ...) in the wind damage rule and the LSR adapter (lib/signals/carry.ts roadWordsEnabled). Read again at call time there.
+  HOLLER_ROAD_WORDS_ENABLED: process.env.HOLLER_ROAD_WORDS_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

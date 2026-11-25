@@ -355,6 +355,8 @@ export const es: Record<DictKey, string> = {
   'brief.reason.weather-table.unknown': 'daño no confirmado, y puede que no llegue a su zona',
   'brief.reason.spc-wind-damage.why': 'Se presentó cerca un reporte de viento fuerte (daño no confirmado); puede hacer falta {work}.',
   'brief.reason.spc-wind-damage.next': 'Revise la zona y ofrezca ayuda a los dueños de las calles afectadas.',
+  'brief.reason.spc-wind-damage-road.why': 'El reporte menciona una calle o carretera; el equipo vial suele despejar los árboles. Es bueno saberlo.',
+  'brief.reason.spc-wind-damage-road.next': 'Esté atento a reportes de árboles sobre viviendas o patios cercanos.',
   'brief.reason.spc-hail.next': 'Revise la zona en un mapa antes de ofrecerle una visita a alguien.',
   'brief.reason.act-storm-report.next': 'Revise la zona en un mapa antes de ofrecerle una visita a alguien.',
   'brief.reason.soon-storm-gust.next': 'Esté atento a reportes de árboles o ramas caídas cerca.',

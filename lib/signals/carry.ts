@@ -351,6 +351,49 @@ export interface WindDamageFacts {
   homeOrYard: boolean;
 }
 
+// ---- road words (round 34, HOLLER_ROAD_WORDS_ENABLED) --------------------------------------------------------------------------------
+
+export const ROAD_WORDS_FLAG = 'HOLLER_ROAD_WORDS_ENABLED';
+
+/** The wider road words are ON only when the switch is "1", "true", "on" or "yes" (any case). Unset: off, and every label is what it was. */
+export function roadWordsEnabled(value: string | undefined = typeof process !== 'undefined' ? process.env?.HOLLER_ROAD_WORDS_ENABLED : undefined): boolean {
+  return typeof value === 'string' && /^(?:1|true|on|yes)$/i.test(value.trim());
+}
+
+/** The road words main has always read (switch off). Never edit: the replay anchor depends on it. */
+export const ROAD_WORDS_BASE = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/;
+
+/**
+ * Round 34 (review r33-hail-2 R4-2: 24 of 63 urgent tree service reports in the January 2025 Los Angeles wind event were trees on freeways or
+ * in traffic lanes). Read on lower case text, whole words, no `g` or `y` flag (the SPC rule and the LSR adapter share it). In addition to
+ * ROAD_WORDS_BASE:
+ *  - plain words: freeway(s), fwy, ramp(s) (not a wheelchair, loading or skate ramp), lanes, "lane(s) of traffic", a lane named by what it is
+ *    for (traffic, travel, slow, turn, bike, left, right ... lane), "blocking a lane", boulevard, blvd, street(s), road(s), roadway(s), rd,
+ *    avenue, ave, parkway, pkwy, interchange, overpass, I-<number> (already in the base), US-<number>, SR <number>;
+ *  - "lane" alone is NOT a road word ("Penny Lane Farm"), nor is "drive" or "way" alone;
+ *  - the abbreviation "St" and "Dr" (and the spelled out "Drive") only as a street suffix: after a name word or number (not "of St Louis",
+ *    not at the start) AND before the end, a punctuation mark, a number or a joining word (near, and, at, in, blocking ...). "St. Louis",
+ *    "St Paul", "Dr. Smith" and "see Dr Martin" are never roads.
+ */
+const NOT_A_NAME = 'of|in|at|near|to|from|the|a|an|by|and|or|on|for|with|into|onto|across|along|off|over|under|between|see|call|called|mr|mrs|ms|about|than|is|was|are|were|my|our|your|his|her|their|this|that|these|those|no|not';
+const AFTER_SUFFIX =
+  '(?=\\.?(?:$|\\s*[,;:)/&\\-]|\\s+(?:and|near|at|in|on|between|by|to|from|just|for|with|blocking|blocked|across|closed|due|was|were|is|are|after|cross|crossing|intersection|block|area|corridor|north|south|east|west|n|s|e|w|ne|nw|se|sw|\\d+|zip|down|downed|damaged|reported|trees?|limbs?|branch(?:es)?|power|wires?|lines?|poles?|sign|signs)\\b))';
+const SUFFIX_AFTER_NAME = `(?<=\\b(?!(?:${NOT_A_NAME})\\b)[a-z0-9]+\\s+)(?:st|dr|drive)\\b${AFTER_SUFFIX}`;
+export const ROAD_WORDS_WIDE = new RegExp(
+  [
+    ROAD_WORDS_BASE.source,
+    '\\bfree-?ways?\\b|\\bfwys?\\b',
+    '(?<!wheelchair |handicap |handicapped |loading |skate |ada )\\bramps?\\b',
+    '\\blanes\\b|\\blanes? of traffic\\b|\\b(?:traffic|travel|slow|fast|turn|bike|bus|hov|carpool|left|right|center|middle|inside|outside|express|passing) lane\\b|blocking (?:an? |one )lane',
+    '\\bblvd\\b|\\bboulevards?\\b|\\bstreets?\\b|\\broads\\b|\\broadways\\b|\\brds?\\b|\\bave\\b|\\bavenues?\\b|\\bpkwy\\b|\\bparkways?\\b',
+    '\\binterchanges?\\b|\\boverpass(?:es)?\\b',
+    '\\bus-\\d{1,3}\\b|\\bu\\.s\\. ?\\d{1,3}\\b|\\bus ?\\d{2,3}\\b(?! ?(?:mi|miles?|min|mins|minutes?|ft|feet|yards?|yds?|mph|kts?|inch|inches|in)\\b)',
+    '\\bsr[- ]?\\d{1,4}\\b',
+    SUFFIX_AFTER_NAME,
+  ].join('|'),
+  'i',
+);
+
 /**
  * The line 39 rule's own word patterns, shared (not copied) with the LSR adapter (adapters/lsr-parts.ts, review 3 R3-1): the LSR row takes
  * its road and roof facts from these same patterns, so it can never read fewer road or roof words than an SPC row with the same remark.
@@ -358,7 +401,10 @@ export interface WindDamageFacts {
  */
 export const WIND_DAMAGE_PATTERNS = {
   trees: /\btrees?\b|limb|branch|uproot|snapped|felled/,
-  road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/,
+  // Round 34: a getter, so the switch is read when the pattern is used. Off: exactly ROAD_WORDS_BASE (the pattern main has always had).
+  get road(): RegExp {
+    return roadWordsEnabled() ? ROAD_WORDS_WIDE : ROAD_WORDS_BASE;
+  },
   // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
   // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
   roofOrSiding: /(?<!p)roof|siding/,
@@ -380,11 +426,22 @@ export function windDamageFactsOf(text: string | null | undefined): WindDamageFa
 }
 
 /**
+ * A tree on a road, not on a home: the road crew's job, so the report is not act now for tree service (line 39's road exception). Off, the
+ * exception is main's: a road word, no home, house, yard or residence. Round 34 (HOLLER_ROAD_WORDS_ENABLED on): a street name is common in
+ * an address, so a report that also names a roof, garage, porch or building ("tree on the roof of a house at 12 Elm St") keeps its tree
+ * service act now, the same as a tree on a home. Reading a structure can only raise tree service, so an LSR row (which reads the same road
+ * and roof words and a stricter structure) is still never above SPC.
+ */
+export function treeOnRoad(f: WindDamageFacts): boolean {
+  return f.trees && f.road && !f.homeOrYard && !(roadWordsEnabled() && f.structure);
+}
+
+/**
  * Line 39: engine B's stormReportRule for a wind damage report, per trade, read from the report's own remark (the summary). A tree across
  * a highway, ramp or road is a road crew's job, not a homeowner's.
  */
 export function windDamageLevelOf(f: WindDamageFacts, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
-  const trees = f.trees && !(f.road && !f.homeOrYard);
+  const trees = f.trees && !treeOnRoad(f);
   if (trade === 'tree-service') return trees ? 'act_now' : f.roof ? 'market_insight' : 'coming_soon';
   if (trade === 'roofing') return f.roof ? 'act_now' : 'coming_soon';
   return f.structure ? 'act_now' : 'coming_soon';

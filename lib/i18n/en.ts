@@ -367,6 +367,8 @@ export const en = {
   'brief.reason.weather-table.unknown': 'damage is not confirmed, and it may not reach you',
   'brief.reason.spc-wind-damage.why': 'A wind damage report was filed nearby; {work} may be needed.',
   'brief.reason.spc-wind-damage.next': 'Check the area and offer help to owners on affected streets.',
+  'brief.reason.spc-wind-damage-road.why': 'The report names a road; the road crew usually clears trees there. Good to know.',
+  'brief.reason.spc-wind-damage-road.next': 'Watch for reports of trees on homes or yards nearby.',
   'brief.reason.spc-hail.next': 'Check the area on a map before you offer anyone a visit.',
   'brief.reason.act-storm-report.next': 'Check the area on a map before you offer anyone a visit.',
   'brief.reason.soon-storm-gust.next': 'Watch for reports of trees or limbs down nearby.',
