@@ -14,7 +14,7 @@ const CHIP_CLASS: Record<OpportunityLabel, string> = {
  * The opportunity label chip ("Act now", "Coming soon", "Market insight") and, for Act Now, the deadline line: the date the record
  * publishes, or "No deadline published". Context is never shown as an alert, so it renders nothing. Pure view of lib/signals/lead-rules.
  */
-export function OpportunityChip({ label, deadline, lang = 'en', hold }: { label?: OpportunityLabel | null; deadline?: string | null; lang?: Lang; hold?: AlertHold | null }) {
+export function OpportunityChip({ label, deadline, lang = 'en', hold, isLicense = false }: { label?: OpportunityLabel | null; deadline?: string | null; lang?: Lang; hold?: AlertHold | null; isLicense?: boolean }) {
   if (!label || label === 'context') return null;
   // A feed-only card (round 18): it was not sent as an alert, so it carries no alert chip. The chip and one line say why.
   if (hold) {
@@ -27,7 +27,7 @@ export function OpportunityChip({ label, deadline, lang = 'en', hold }: { label?
           {t(lang, hold === 'below_min' ? 'hold.below_min.chip' : 'hold.background.chip')}
         </span>
         <span data-testid="hold-note" className="text-sm text-muted">
-          {t(lang, `hold.${hold}.note`)}
+          {t(lang, hold === 'background' && isLicense ? 'hold.background.license.note' : `hold.${hold}.note`)}
         </span>
       </div>
     );

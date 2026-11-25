@@ -9,7 +9,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseSocrataReport, categorize, outsideAreaGuard } from '@/lib/signals/adapters/socrata';
 import { SOCRATA_DATASETS, type SocrataDataset } from '@/lib/signals/adapters/socrata-datasets';
-import { alertHoldFor } from '@/lib/signals/alert-gate';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createElement } from 'react';
+import { OpportunityChip } from '@/components/feed/opportunity-chip';
+import { en } from '@/lib/i18n/en';
+import { es } from '@/lib/i18n/es';
+import { alertHoldFor, shownHold } from '@/lib/signals/alert-gate';
 import { storefrontKindOfName } from '@/lib/signals/lead-rules';
 import { businessTagFixEnabled, businessTradesForType, naicsTypePhrase, retagStoredBusinessRow } from '@/lib/signals/mapping/business';
 
@@ -198,6 +203,16 @@ describe('San Francisco, live shape (NAICS code only, no type text)', () => {
     for (const id of ['f', 'g', 'h', 'i']) expect(by.has(id)).toBe(false);
     expect(run(rows, sf, false).items).toHaveLength(8); // the row with no code has no text: never stored
   });
+  it('no premises: caterers, food service contractors and mobile food (7223), vending machine operators (445132) and fuel dealers (4572) get no trade', () => {
+    const rows = [live('722330', 'm'), live('722320', 'n'), live('722310', 'o'), live('445132', 'p'), live('457210', 'q'), live('4572', 'r'), live('722410', 's'), live('445110', 't')];
+    const by = new Map(run(rows, sf, true).items.map((i) => [i.externalId, [...i.categories].sort()]));
+    for (const id of ['m', 'n', 'o', 'p', 'q', 'r']) expect(by.has(id), id).toBe(false);
+    // a bar (722410) and a grocery (445110) are premises
+    expect(by.get('s')).toEqual(['janitorial-commercial', 'pest-control', 'security', 'signs-printing']);
+    expect(by.get('t')).toEqual(['janitorial-commercial', 'security', 'signs-printing']);
+    expect(naicsTypePhrase('722330')).not.toBe('Food service and lodging');
+    expect(businessTradesForType('socrata-sf-business', naicsTypePhrase('445132') ?? '')).toEqual([]);
+  });
   it('a row with restaurant licence text is food too', () => {
     const r = { ...live('722511', 'j'), lic_code_description: 'RESTAURANT LESS THAN 1,000 SQFT', lic_code_descriptions_list: 'RESTAURANT LESS THAN 1,000 SQFT' };
     expect(tags([r], sf, true)[0]).toEqual(['janitorial-commercial', 'pest-control', 'security', 'signs-printing']);
@@ -355,5 +370,26 @@ describe('capabilities follow the switch', () => {
     const on = await import('@/lib/signals/capabilities');
     expect([...on.SIGNAL_TRADES.business].sort()).toEqual(['janitorial-commercial', 'pest-control', 'security', 'signs-printing']);
     for (const tr of ['locksmith', 'insurance', 'business-services', 'hvac', 'cleaning'] as const) expect(on.TRADE_SIGNALS[tr]).not.toContain('business');
+  });
+});
+
+describe('the held licence card words itself for a licence (review 2, P2-2)', () => {
+  it('a licence says licence, EN and ES, never permit; a permit keeps its own sentence', () => {
+    const lic = renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon', hold: 'background', isLicense: true }));
+    expect(lic).toContain('This license record names no business contact, so Holler shows it in your feed only.');
+    expect(lic).not.toMatch(/permit/i);
+    const licEs = renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon', hold: 'background', isLicense: true, lang: 'es' }));
+    expect(licEs).toContain(es['hold.background.license.note']);
+    expect(licEs).not.toMatch(/permiso/i);
+    expect(renderToStaticMarkup(createElement(OpportunityChip, { label: 'coming_soon', hold: 'background' }))).toContain(en['hold.background.note']);
+    for (const k of ['hold.background.license.note'] as const) expect(`${en[k]}${es[k]}`).not.toMatch(/\u2014|\blead/i);
+  });
+  it('a licence keeps its hold unless a named business is on file (a site address does not release it)', () => {
+    vi.stubEnv('HOLLER_BUSINESS_TAG_FIX_ENABLED', '1');
+    const site = [{ role: 'site', name: '', address: '2150 N DAMEN' }];
+    const biz = [{ role: 'business', name: 'Lakeview Pantry LLC' }];
+    expect(shownHold('background', site, 'Retail Food Establishment', undefined, { subtype: 'business' })).toBe('background');
+    expect(shownHold('background', biz, 'Retail Food Establishment', undefined, { subtype: 'business' })).toBeNull();
+    expect(shownHold('background', site, 'Retail Food Establishment', undefined, { subtype: 'permit' })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { missingHoldColumn, withoutHold, type AlertHold } from './alert-gate';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 type Db = Pick<SupabaseClient, 'from'>;
 
@@ -52,8 +53,10 @@ export async function upsertMatchRows(db: Db, rows: MatchInsertRow[], opts: { co
   // pushed_at before 0020. The database may name either first.
   for (let i = 0; i < 2 && r.error; i++) {
     if (missingHoldColumn(r.error) && list.some((x) => 'alert_hold' in x)) {
-      // The caller's rows lose the hold too: before 0027 the card is stored, and logged, as the plain match it is.
-      for (const x of rows) delete x.alert_hold;
+      // Switch on (round 33): a held row is a new-business licence and stays handled (notified, pushed_at stay); the caller's rows keep the hold
+      // so the card is still not logged as an alert. Switch off: the caller's rows lose the hold too, as before round 33 (the card is stored,
+      // and logged, as the plain match it is).
+      if (!businessTagFixEnabled()) for (const x of rows) delete x.alert_hold;
       list = withoutHold(list);
     }
     else if (missingPushedAtColumn(r.error.message) && list.some((x) => 'pushed_at' in x)) list = list.map(({ pushed_at: _p, ...rest }) => (void _p, rest));

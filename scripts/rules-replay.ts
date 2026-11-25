@@ -80,8 +80,10 @@ const BUSINESS_FIX = businessTagFixEnabled();
 // Side data the export lacks (read-only SELECTs of 2026-11-25, project ksctghdtklufgxblueqp): the stored ZIP of the rows whose point is not
 // believable (lat = lon) or sits at the New York City Hall stand-in, and the ids of business rows that have a named business contact.
 // Override with HOLLER_REPLAY_BUSINESS_SIDE=<path>.
-const SIDE_PATH = process.env.HOLLER_REPLAY_BUSINESS_SIDE ?? '/home/claude/gates/r33/r33-la-business/replay-side.json';
+// Default: the copy kept in the repo (tests/signals/__data__/business-replay-side.json, row ids and ZIPs only, no names or addresses).
+const SIDE_PATH = process.env.HOLLER_REPLAY_BUSINESS_SIDE ?? join(process.cwd(), 'tests/signals/__data__/business-replay-side.json');
 const SIDE: { zips: Record<string, string>; businessContactIds: string[] } = BUSINESS_FIX && existsSync(SIDE_PATH) ? JSON.parse(readFileSync(SIDE_PATH, 'utf8')) : { zips: {}, businessContactIds: [] };
+if (BUSINESS_FIX && !existsSync(SIDE_PATH)) console.error(`WARNING: replay side file not found (${SIDE_PATH}): ZIPs and business contacts are unknown, so the switch-on numbers differ from the report.`);
 const BUSINESS_CONTACT = new Set(SIDE.businessContactIds);
 let businessRetagged = 0;
 const rows: Row[] = BUSINESS_FIX

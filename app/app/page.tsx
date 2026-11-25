@@ -229,7 +229,7 @@ async function loadDashboard() {
   }
   const holdShown = (m: MatchRow) => {
     const s = (Array.isArray(m.signal) ? m.signal[0] : m.signal) as SignalRow;
-    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) });
+    return shownHold(holdOf(m), contactsBySignal.get(s.id), s.summary, { minValue: minNow, jobValue: jobValueOf({ jobValue: s.jobValue, summary: s.summary }) }, { subtype: s.subtype });
   };
   const ordered = orderByLabelScore(
     ranked,

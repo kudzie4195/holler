@@ -61,6 +61,11 @@ export function naicsTypePhrase(code: string): string | null {
   const m = /^(\d{2,6})(?:\s*-\s*\d{2,6})?$/.exec(code.trim());
   if (!m) return null;
   const d = m[1];
+  // Review 2, P2-3: caterers and food service contractors (7223: 722310 contractors, 722320 caterers, 722330 mobile food services) have no
+  // premises, like the Los Angeles types "Mobile Food Services" and "Special food services": no tag. Vending machine operators (445132) and
+  // fuel dealers (4572xx, NAICS 2022) sit under 44 and 45 but sell from no shop: no tag either.
+  if (d.startsWith('7223')) return 'Mobile food and catering';
+  if (d.startsWith('445132') || d.startsWith('4572')) return 'Vending and fuel dealers';
   if (d.startsWith('722')) return 'Food service and lodging';
   if (d.startsWith('721')) return 'Accommodation';
   if (d.startsWith('454')) return 'Nonstore retail';

@@ -70,7 +70,8 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
     }
     if (signals.length === 0) return { created: 0 };
     // The contact gate applies here too: a permit with no business and no site address is feed-only whoever it is matched to, and whenever.
-    if (await contactGateOn(db)) await markStoredContactPaths(db, signals);
+    // Round 33 (review 2, P1-2): a new-business licence is read too (switch on), with or without 0027.
+    await markStoredContactPaths(db, signals, { permits: await contactGateOn(db) });
 
     const profiles =
       typeof opts.profiles === 'function' ? await opts.profiles() : (opts.profiles ?? (await loadProfiles(db, now)));
@@ -107,7 +108,9 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
         const t = s ? Date.parse(s.occurred_at) : NaN;
         const quiet = opts.quiet === true || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
-        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
+        // A feed-only card is stored as already handled (like the scan): the email and push runs never read it.
+        const handled = quiet || !!r.alert_hold;
+        rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: handled, pushed_at: handled ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
     }
     if (rows.length === 0) return { created: 0 };

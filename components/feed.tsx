@@ -393,7 +393,7 @@ function MatchCard({
 
       {item.approxNote ? <p className="mt-2 text-sm text-muted" data-testid="approx-note">{item.approxNote}</p> : null}
       {/* The old intent block ("Might need work ...") is gone: the brief's Source and What is uncertain lines carry it. */}
-      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} />
+      <OpportunityChip label={item.label} deadline={item.deadline} lang={lang} hold={item.hold} isLicense={item.subtype === 'business'} />
       {item.bidLine ? <p className="mt-1 text-sm font-medium text-ink" data-testid="bid-line">{item.bidLine}</p> : null}
       {item.aiNote ? (
         <p className="mt-1 break-words text-sm text-ink">

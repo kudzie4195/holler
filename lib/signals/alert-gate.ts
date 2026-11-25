@@ -291,8 +291,12 @@ export function shownHold(
    * card is shown without the chip once the member clears or lowers the minimum below that value (review P3-2).
    */
   now?: { minValue?: number | null; jobValue?: number | null },
+  /** Round 33: the card is a new-business licence. Its hold stays shown unless a named business is on file (a site address is not enough). */
+  record?: { subtype?: string | null },
 ): AlertHold | null {
-  if (hold === 'background' && contactPathOf(contacts, summary) !== null) return null;
+  if (hold === 'background' && record && licenceGateApplies(record)) {
+    if (contactPathOf(contacts, summary) === 'business') return null;
+  } else if (hold === 'background' && contactPathOf(contacts, summary) !== null) return null;
   if (hold === 'below_min' && now && now.minValue !== undefined) {
     if (now.minValue === null) return null;
     if (typeof now.jobValue === 'number' && now.jobValue >= now.minValue) return null;

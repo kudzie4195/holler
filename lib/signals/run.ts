@@ -477,7 +477,8 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
         const profiles = await loadProfiles(db, now);
         // The contact gate runs only with migration 0027 applied; before it, no card is held anywhere (review 2, P1-1).
         const gateOn = [...storedAll, ...stageSignals].some((s) => isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? null }) || licenceGateApplies({ subtype: s.subtype ?? null })) ? await contactGateOn(db) : false;
-        if (!gateOn) for (const s of storedAll) s.contactPath = undefined;
+        // The permit gate needs 0027; the licence hold (switch on) does not: a held licence is stored as already handled either way.
+        if (!gateOn) for (const s of storedAll) if (!licenceGateApplies({ subtype: s.subtype ?? null })) s.contactPath = undefined;
         const rows: MatchRow[] = matchSignals(storedAll, profiles, undefined, now);
         // A stage update (final inspection, finished, certificate of occupancy): the project row is matched again, for the stage trades
         // only (a member's own trades, inside the plan's limit). A member with no card for it gets one new card; a member who already
@@ -506,7 +507,9 @@ export async function runScan(opts: RunOptions = {}, db?: Db | null): Promise<Sc
               existing = await read('user_id, signal_id, status');
               // Migration 0027 is not applied after all: no card is feed-only. Every card of this scan is stored as a plain alert (insertMatches
               // drops the hold too) and every stage update goes out exactly as before round 18.
-              for (const r of rows) delete r.alert_hold;
+              // A held new-business licence (round 33) keeps its hold here: insertMatches stores it as already handled without the column.
+              const licenceIds = new Set(storedAll.filter((s) => licenceGateApplies({ subtype: s.subtype ?? null })).map((s) => s.id));
+              for (const r of rows) if (!licenceIds.has(r.signal_id)) delete r.alert_hold;
               for (const sig of stageSignals) sig.contactPath = undefined;
             }
             for (const m of existing) {

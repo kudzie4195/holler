@@ -10,7 +10,8 @@ import { archiveAndPrune } from '@/lib/moat/prune';
 import { hasNamedContact } from './score';
 import { isPaidNow } from '@/lib/auth/access';
 import { missingStoreColumn, STORE_PROFILE_COLUMNS } from '@/lib/storebilling/source';
-import { contactPathOf, missingHoldColumn, type ContactLike } from './alert-gate';
+import { contactPathOf, licenceGateApplies, missingHoldColumn, withoutHold, type ContactLike } from './alert-gate';
+import { businessTagFixEnabled } from './mapping/business-flag';
 import { isPermitRecord } from './permit-routing';
 import { WORK_PROFILE_COLUMNS, workProfileOf, type WorkColumns } from './work-profile';
 
@@ -583,12 +584,28 @@ export async function loadWorkProfiles(db: Pick<Db, 'from'>, userIds: readonly s
 
 /**
  * Contact paths for permit rows READ BACK from the database (the rematch, a stage update): the stored contacts (holler_signal_contacts)
- * and the public summary, by the same rule as the scan (alert-gate.ts contactPathOf). Sets `contactPath` on each permit row. Never
- * throws: on any failed read the rows stay "not known" and are never held.
+ * and the public summary, by the same rule as the scan (alert-gate.ts contactPathOf). Sets `contactPath` on each permit row (and, with
+ * HOLLER_BUSINESS_TAG_FIX_ENABLED on, each new-business licence row). Never throws: on a failed read a permit stays "not known" and is
+ * never held; a licence gets no contact path (feed only).
  */
-export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Array<MatchSignal & { id: number }>): Promise<void> {
-  const permits = signals.filter((s) => s.contactPath === undefined && isPermitRecord({ kind: s.kind ?? null, subtype: s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null) }));
+export async function markStoredContactPaths(
+  db: Pick<Db, 'from'>,
+  signals: Array<MatchSignal & { id: number }>,
+  /** permits: false = the contact gate (migration 0027) is off, so only the licence hold (round 33, switch on) reads contacts. */
+  opts: { permits?: boolean } = {},
+): Promise<void> {
+  const subtypeOf = (s: MatchSignal) => s.subtype ?? (typeof s.data?.subtype === 'string' ? s.data.subtype : null);
+  const isLicence = (s: MatchSignal) => licenceGateApplies({ subtype: subtypeOf(s) });
+  const wantPermits = opts.permits !== false;
+  const permits = signals.filter(
+    (s) => s.contactPath === undefined && ((wantPermits && isPermitRecord({ kind: s.kind ?? null, subtype: subtypeOf(s) })) || isLicence(s)),
+  );
   if (permits.length === 0) return;
+  // Round 33 (review 2, P1-2): a licence whose contacts cannot be read is treated as having none (feed only), never as unknown: "never emailed"
+  // must not depend on a read that succeeded. A permit keeps the old rule (not read: not known, never held).
+  const noRead = () => {
+    for (const s of permits) if (isLicence(s)) s.contactPath = null;
+  };
   try {
     const by = new Map<number, ContactLike[]>();
     // A row read without its summary (the backfill's RPC read) gets it here: the card's own text is part of the answer, so the same
@@ -597,21 +614,24 @@ export async function markStoredContactPaths(db: Pick<Db, 'from'>, signals: Arra
     const noSummary = permits.filter((s) => s.summary === undefined).map((s) => s.id);
     for (const part of chunks(noSummary, 150)) {
       const { data, error } = await db.from('holler_signals').select('id, summary').in('id', part);
-      if (error) return;
+      if (error) return noRead();
       for (const r of (data ?? []) as Array<{ id: number; summary: string | null }>) summaries.set(r.id, r.summary ?? null);
     }
     for (const part of chunks(permits.map((s) => s.id), 150)) {
       const { data, error } = await db.from('holler_signal_contacts').select('signal_id, role, name, address').in('signal_id', part);
-      if (error) return;
+      if (error) return noRead();
       for (const c of (data ?? []) as Array<ContactLike & { signal_id: number }>) by.set(c.signal_id, [...(by.get(c.signal_id) ?? []), c]);
     }
     for (const s of permits) {
       const summary = s.summary !== undefined ? s.summary : summaries.has(s.id) ? summaries.get(s.id) : undefined;
-      if (summary === undefined) continue; // not read: not known, never held
+      if (summary === undefined) {
+        if (isLicence(s)) s.contactPath = null;
+        continue; // not read: not known, never held (a permit)
+      }
       s.contactPath = contactPathOf(by.get(s.id), summary ?? null);
     }
   } catch {
-    /* not known: never held */
+    noRead();
   }
 }
 
@@ -644,13 +664,20 @@ export async function insertMatches(db: Db, rows: MatchRow[]): Promise<number> {
       if (group.length === 0) continue;
       let { data, error } = await send(group);
       if (error && missingHoldColumn(error) && group === held) {
-        // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
-        for (const r of group) {
-          delete r.alert_hold;
-          delete r.notified;
-          delete r.pushed_at;
+        if (businessTagFixEnabled()) {
+          // Round 33 (review 2, P1-1): with the switch on, a held row can only be a new-business licence (the permit gate is off before 0027).
+          // It must stay "already handled" without the column: the hold key goes, notified and pushed_at stay, so no email and no push is
+          // ever sent. The caller's rows keep alert_hold so the card is still not logged as an alert.
+          ({ data, error } = await send(withoutHold(group)));
+        } else {
+          // Before 0027 the card is stored as a plain alert: the caller's rows lose the hold too, so the card is logged as the alert it is.
+          for (const r of group) {
+            delete r.alert_hold;
+            delete r.notified;
+            delete r.pushed_at;
+          }
+          ({ data, error } = await send(group));
         }
-        ({ data, error } = await send(group));
       }
       if (error) throw new Error(`matches upsert failed: ${error.message}`);
       n += data?.length ?? 0;
