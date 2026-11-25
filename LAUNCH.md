@@ -91,6 +91,15 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    sends the same bytes as before. Set it to `1` (Preview first, one real-inbox test, then Production) to add the "This week in your
    area" line (lib/season/table.ts) to the alert digest and, with the quiet-week switch also on, to the quiet-week email. For the
    December 1 launch week it must be `1` by the Dec 1 cron run. /check shows the line without any switch.
+   NEEDS KUDZI (round 33 business licences): `HOLLER_BUSINESS_TAG_FIX_ENABLED` stays empty at the deploy. Off, the scan tags every new-business
+   licence with the same fixed trade set as before. Set it to `1` (Production, after reading gates/r33/r33-la-business/REPORT.md) to tag a
+   licence only by its own type (a shop, a restaurant, a parking lot or a storage facility; every other licence gets no trade and is not
+   stored), to drop Los Angeles rows farther than 30 miles and New York rows farther than 22 miles from the city centre, or whose ZIP is
+   outside that radius or in another state (a radius, not a city line: Santa Monica and Yonkers rows stay, titled with the dataset's city),
+   and to make every licence feed only (never emailed or pushed) unless the row names a business. The feed-only rule works with or
+   without migration 0027: such a match is stored as already handled (notified, pushed_at set), so no email and no push is ever sent; with 0027 it
+   also carries the "Background" label and a licence sentence on the card (without it the card shows as a plain card). Stored rows keep their old tags until you
+   run the re-tag in the report (OWNER MUST RUN after review).
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

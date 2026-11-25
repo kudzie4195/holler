@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { missingHoldColumn, withoutHold, type AlertHold } from './alert-gate';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 type Db = Pick<SupabaseClient, 'from'>;
 
@@ -35,7 +36,12 @@ export function historyRow(r: Omit<MatchInsertRow, 'notified' | 'pushed_at'>, no
  * Upsert match rows (ignore duplicates on user_id, signal_id). With `count`, returns how many rows were inserted (`.select('id')`).
  * Retries once without pushed_at when the column is missing. Throws on any other error.
  */
-export async function upsertMatchRows(db: Db, rows: MatchInsertRow[], opts: { count?: boolean } = {}): Promise<number> {
+export async function upsertMatchRows(
+  db: Db,
+  rows: MatchInsertRow[],
+  /** licenceIds: signals that are new-business licences (switch on). Only their held rows keep the hold in the caller's rows when the column is missing. */
+  opts: { count?: boolean; licenceIds?: ReadonlySet<number> } = {},
+): Promise<number> {
   if (rows.length === 0) return 0;
   const send = async (part: Record<string, unknown>[]) => {
     const q = db.from('holler_matches').upsert(part, { onConflict: 'user_id,signal_id', ignoreDuplicates: true });
@@ -52,8 +58,11 @@ export async function upsertMatchRows(db: Db, rows: MatchInsertRow[], opts: { co
   // pushed_at before 0020. The database may name either first.
   for (let i = 0; i < 2 && r.error; i++) {
     if (missingHoldColumn(r.error) && list.some((x) => 'alert_hold' in x)) {
-      // The caller's rows lose the hold too: before 0027 the card is stored, and logged, as the plain match it is.
-      for (const x of rows) delete x.alert_hold;
+      // Switch on (round 33): the hold of a new-business licence goes from the stored row only; the caller's row keeps it so the card is still
+      // not logged as an alert (its notified and pushed_at are already set by the caller). Every other held row, and every row with the switch
+      // off, loses the hold in the caller's rows too, as before round 33 (the card is stored, and logged, as the plain match it is).
+      const keep = businessTagFixEnabled() ? opts.licenceIds : undefined;
+      for (const x of rows) if (!keep?.has(x.signal_id)) delete x.alert_hold;
       list = withoutHold(list);
     }
     else if (missingPushedAtColumn(r.error.message) && list.some((x) => 'pushed_at' in x)) list = list.map(({ pushed_at: _p, ...rest }) => (void _p, rest));

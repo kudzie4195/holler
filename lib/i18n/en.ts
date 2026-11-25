@@ -37,6 +37,7 @@ export const en = {
   'hold.background.chip': 'Background',
   'hold.below_min.chip': 'Below your minimum',
   'hold.background.note': 'This permit names no business and no site address, so it was not sent as an alert.',
+  'hold.background.license.note': 'This license record names no business contact, so Holler shows it in your feed only.',
   'hold.below_min.note': 'The job value on this permit is below the minimum in your settings, so it was not sent as an alert.',
   'hold.held.note': 'We are still checking this kind of record for your trade, so it was not emailed to you.',
 

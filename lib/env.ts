@@ -52,6 +52,7 @@ export const ENV_KEYS = [
   'HOLLER_SEASON_ENABLED',
   'HOLLER_SAM_BACKFILL_ENABLED',
   'HOLLER_SAM_LABELS_ENABLED',
+  'HOLLER_BUSINESS_TAG_FIX_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -125,6 +126,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_SAM_BACKFILL_ENABLED: process.env.HOLLER_SAM_BACKFILL_ENABLED,
   // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Read again at call time there. Off unless 1, true, on or yes.
   HOLLER_SAM_LABELS_ENABLED: process.env.HOLLER_SAM_LABELS_ENABLED,
+  // Round 33: new-business licences tagged by their own type, and rows outside the source's area dropped (lib/signals/mapping/business.ts). Read again at call time there.
+  HOLLER_BUSINESS_TAG_FIX_ENABLED: process.env.HOLLER_BUSINESS_TAG_FIX_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

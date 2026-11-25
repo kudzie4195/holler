@@ -313,7 +313,9 @@ describe('the label is pure and deterministic', () => {
     const src = readFileSync('lib/signals/lead-rules.ts', 'utf8');
     const imports = [...src.matchAll(/^import [^;]*? from '([^']+)'/gm)].map((m) => m[1]);
     // each of these is pure too: no server import, no clock (permit-routing.ts: tests/signals/permit-routing.test.ts; the others below)
-    expect(imports).toEqual(['./categories', './carry', './permit-routing', './permit-value', './rule-choices', './sam-labels-switch']);
+    expect(imports).toEqual(['./categories', './carry', './permit-routing', './permit-value', './rule-choices', './sam-labels-switch', './mapping/business-flag']);
+    // round 33: the licence switch reader has no imports at all
+    expect(readFileSync('lib/signals/mapping/business-flag.ts', 'utf8')).not.toMatch(/^import /m);
     for (const f of ['carry', 'rule-choices', 'permit-value', 'sam-labels-switch']) {
       const dep = readFileSync(`lib/signals/${f}.ts`, 'utf8');
       expect([...dep.matchAll(/^import (?!type ).* from '([^']+)'/gm)].map((m) => m[1]).filter((m) => !m.startsWith('./')), f).toEqual([]);

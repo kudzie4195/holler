@@ -24,6 +24,7 @@ import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, type RouteKind }
 import { jobValueOf } from './permit-value';
 import { ruleChoice, type RuleChoices } from './rule-choices';
 import { isSoleSourceSetAside, samLabelsEnabled } from './sam-labels-switch';
+import { businessTagFixEnabled } from './mapping/business-flag';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -305,10 +306,42 @@ export const STOREFRONT_LICENCES: Readonly<Record<string, ReadonlyArray<{ re: Re
 /** The licence name a business row carries: the title body ("New business license in Chicago: Tobacco" gives "Tobacco"). */
 const licenceName = (sig: LabelInput) => titleBodyOf(sig.title).trim();
 
+/**
+ * Round 33 (switch HOLLER_BUSINESS_TAG_FIX_ENABLED): licence names the base list above misses, and names that are never a premises. Read only
+ * with the switch on, so every label with it off is exactly as before. Live names seen 2026-11-25 (Los Angeles "Retail Bakeries" 1,
+ * "Limited-service eating places" 3, "Meat markets" 1, "Florists" 1; Orlando "RETAIL AUTO PARTS", "BAR/PACKAGE SALES"; San Francisco
+ * restaurant licence text, when a row has it).
+ */
+export const STOREFRONT_LICENCES_FIX: Readonly<Record<string, ReadonlyArray<{ re: RegExp; kind: StorefrontKind }>>> = {
+  'socrata-la-business': [
+    { re: /^retail bakeries$/i, kind: 'food' },
+    { re: /\beating places\b/i, kind: 'food' },
+    { re: /^(?:meat|fish|seafood) markets?$|^florists?$/i, kind: 'shop' },
+  ],
+  'socrata-orlando-business': [
+    { re: /^retail [\w &/-]+$/i, kind: 'shop' },
+    { re: /^bar\/package sales$/i, kind: 'shop' },
+  ],
+  'socrata-sf-business': [{ re: /\brestaurants?\b/i, kind: 'food' }],
+};
+
+/** A licence that is never a premises a sign, guard or cleaning company serves: a factory, a mail-order seller, a cannabis dispensary. */
+export const NOT_A_PREMISES_RE = /\bmfg\b|manufactur|nonstore|electronic shopping|mail.?order|marijuana|cannabis|dispensar/i;
+
+/** The storefront kind a licence NAME has in this source's list, or null. The ingest tag fix reads the same list (lib/signals/mapping/business.ts). */
+export function storefrontKindOfName(source: string | null | undefined, name: string, fix: boolean = businessTagFixEnabled()): StorefrontKind | null {
+  const n = name.trim();
+  if (fix) {
+    if (NOT_A_PREMISES_RE.test(n)) return null;
+    const extra = (STOREFRONT_LICENCES_FIX[lc(source)] ?? []).find((e) => e.re.test(n));
+    if (extra) return extra.kind;
+  }
+  const list = STOREFRONT_LICENCES[lc(source)] ?? [];
+  return list.find((e) => e.re.test(n))?.kind ?? null;
+}
+
 export function storefrontKindOf(sig: LabelInput): StorefrontKind | null {
-  const list = STOREFRONT_LICENCES[lc(sig.source)] ?? [];
-  const name = licenceName(sig);
-  return list.find((e) => e.re.test(name))?.kind ?? null;
+  return storefrontKindOfName(sig.source, licenceName(sig));
 }
 
 /** Line 24: a food premises a pest-control company can serve. Shared kitchens, liquor-only, event liquor and mobile licences are not. */

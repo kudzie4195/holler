@@ -1,7 +1,7 @@
 import { matchArea, matchOne, type MatchProfile, type MatchSignal } from '@/lib/signals/match';
 import { matchScope } from '@/lib/plan';
 import { expandTradeIds } from '@/lib/plan/composite-trades';
-import { contactPathOf } from '@/lib/signals/alert-gate';
+import { contactPathOf, licenceGateApplies } from '@/lib/signals/alert-gate';
 import { isPermitRecord } from '@/lib/signals/permit-routing';
 import { deadlineOf, demoteExpired, isAlertLabel, labelForMember, recordLabelInput } from '@/lib/signals/lead-rules';
 import { CHECK_RADIUS_MI } from './scope';
@@ -59,7 +59,7 @@ function asMatchSignal(s: CheckSignal): MatchSignal {
     kind: s.kind,
   };
   // The contact gate input, as the scan sets it (lib/signals/run.ts contactPathOf(contacts, summary)), with the contacts unknown (see above).
-  return isPermitRecord({ source: s.source, kind: s.kind, subtype: sub }) ? { ...base, contactPath: contactPathOf([], s.summary) } : base;
+  return isPermitRecord({ source: s.source, kind: s.kind, subtype: sub }) || licenceGateApplies({ subtype: sub }) ? { ...base, contactPath: contactPathOf([], s.summary) } : base;
 }
 
 /**

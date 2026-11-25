@@ -36,6 +36,7 @@ export const es: Record<DictKey, string> = {
   'hold.background.chip': 'Referencia',
   'hold.below_min.chip': 'Por debajo de su mínimo',
   'hold.background.note': 'Este permiso no indica ninguna empresa ni dirección de obra, así que no se envió como alerta.',
+  'hold.background.license.note': 'Este registro de licencia no indica ningún contacto de la empresa, así que Holler lo muestra solo en su lista.',
   'hold.below_min.note': 'El valor de obra de este permiso está por debajo del mínimo de su configuración, así que no se envió como alerta.',
   'hold.held.note': 'Todavía estamos revisando este tipo de registro para su oficio, así que no se le envió por correo.',
 
