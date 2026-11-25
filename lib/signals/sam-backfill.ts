@@ -16,9 +16,15 @@
  * (https://open.gsa.gov/api/entity-api, checked 2026-11-25) says: non-federal user without a SAM.gov role 10 requests/day, non-federal user
  * with a role 1,000/day, federal user 1,000/day, non-federal system account 1,000/day, federal system account 10,000/day. A request over the
  * limit gets HTTP 429 (https://api.sam.gov/docs/rate-limits). The same key also serves the steady-state adapter (lib/signals/adapters/sam.ts:
- * up to 3 pages x 2 runs = 6 requests a day), so this module counts every request it makes per UTC day in its state file and stops at a daily
- * budget: DEFAULT_DAILY_BUDGET (3) fits a key with no role next to the adapter; the owner raises it only for a key that has a role, and it can
- * never exceed MAX_DAILY_BUDGET (400, 40% of the 1,000 role limit), whatever is asked.
+ * it runs twice a day and may make up to 3 requests each time, so the CRON ALREADY USES UP TO 6 OF THE 10), so this module counts every
+ * request it makes per UTC day in its state file and stops at a daily budget: DEFAULT_DAILY_BUDGET is 1, which keeps a key with no role at 7
+ * of 10 a day even when a run lands either side of midnight UTC (the docs do not say where the day resets). The owner raises it only for a
+ * key that has a role, and it can never exceed MAX_DAILY_BUDGET (400, 40% of the 1,000 role limit), whatever is asked.
+ * The dry run never changes task progress (scripts/sam-backfill.ts, lib/signals/sam-backfill-cli.ts); it only adds to the request count.
+ * PAGING. offset is documented as a page index. The run checks that it behaves like one: a page that shares any notice with the previous
+ * page (a record offset would), or a page shorter than the limit while totalRecords promises more, stops the run with the task unfinished.
+ * KNOWN GAP. rdlfrom very likely leaves out a notice with no response date (about 11% of stored Presolicitations have none); a second pass
+ * without rdlfrom for ptype p and r would cost 30 more requests and is not part of the default budget.
  *
  * RESUME. State is a small JSON file (no database, no schema): the frozen date window, per task its next page or done, and today's request
  * count. It is written before each request (the request is counted even if the process dies) and after each answer, so a re-run continues
@@ -45,8 +51,8 @@ export const PAGE_LIMIT = 1000;
 /** Documented daily limits (see the header). */
 export const DOCUMENTED_LIMIT_NO_ROLE = 10;
 export const DOCUMENTED_LIMIT_WITH_ROLE = 1000;
-/** Fits a key with no role (10/day) next to the steady-state adapter (up to 6 requests a day). */
-export const DEFAULT_DAILY_BUDGET = 3;
+/** The cron adapter already uses up to 6 of a no-role key's 10 a day; 1 more leaves room for midnight-UTC edge cases. */
+export const DEFAULT_DAILY_BUDGET = 1;
 /** Hard ceiling: 40% of the role limit, so the adapter and any other use of the key always have room. */
 export const MAX_DAILY_BUDGET = 400;
 /** Procurement types, in the order they are worked: real bids first (o Solicitation, k Combined Synopsis/Solicitation), then early notices (r Sources Sought, p Presolicitation). */
@@ -132,6 +138,8 @@ export interface TaskState {
   totalRecords: number | null;
   /** Notice id that opened page 0: a later page that opens with the same id means offset is not a page index. */
   firstId: string | null;
+  /** Notice ids of the last page read (the next page must share none of them). */
+  lastIds: string[];
   rows: number;
   parsed: number;
   inserted: number;
@@ -154,7 +162,7 @@ export function newState(now: Date): BackfillState {
   return { version: 1, createdAt: now.toISOString(), window: backfillWindow(now), tasks: {}, requests: { day: utcDay(now), count: 0 }, totalRequests: 0, lastError: null };
 }
 
-const emptyTask = (): TaskState => ({ status: 'pending', nextPage: 0, totalRecords: null, firstId: null, rows: 0, parsed: 0, inserted: 0 });
+const emptyTask = (): TaskState => ({ status: 'pending', nextPage: 0, totalRecords: null, firstId: null, lastIds: [], rows: 0, parsed: 0, inserted: 0 });
 
 /** A budget the owner asked for, clamped to 1..MAX_DAILY_BUDGET. A missing or invalid value is the default. */
 export function clampBudget(v: unknown): number {
@@ -214,22 +222,37 @@ export interface BackfillReport {
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-function fail(state: BackfillState, report: BackfillReport, stopped: BackfillStop, msg: string, deps: BackfillDeps): BackfillReport {
-  state.lastError = msg.slice(0, 300);
+/** Removes the key (plain and URL-encoded) and any `api_key=...` pair from a text, so no error path can write the key to the state file or a log. */
+export function scrubKey(text: string, apiKey?: string): string {
+  let out = String(text).replace(/(api_key=)[^&\s"']*/gi, '$1REDACTED');
+  if (apiKey) {
+    for (const k of new Set([apiKey, encodeURIComponent(apiKey)])) out = out.split(k).join('REDACTED');
+  }
+  return out;
+}
+
+function fail(state: BackfillState, report: BackfillReport, stopped: BackfillStop, msg: string, deps: BackfillDeps, apiKey?: string): BackfillReport {
+  const clean = scrubKey(msg, apiKey);
+  state.lastError = clean.slice(0, 300);
   deps.save(state);
-  deps.log(`stopped: ${msg}`);
-  return { ...report, stopped, error: msg };
+  deps.log(`stopped: ${clean}`);
+  return { ...report, stopped, error: clean };
 }
 
 /**
  * Works the pending tasks until the daily budget, the per-run cap or the end of the list, writing the state as it goes. Never throws.
  * `state` is mutated in place (the caller loads it from the file, or uses newState).
  */
-export async function runBackfill(state: BackfillState, opts: BackfillOptions, deps: BackfillDeps): Promise<BackfillReport> {
+export async function runBackfill(state: BackfillState, opts: BackfillOptions, rawDeps: BackfillDeps): Promise<BackfillReport> {
+  // Every line the run logs goes through scrubKey, so no message can carry the key out.
+  const deps: BackfillDeps = { ...rawDeps, log: (m) => rawDeps.log(scrubKey(m, opts.apiKey)) };
   const sleep = deps.sleep ?? defaultSleep;
   const tasks = opts.tasks ?? backfillTasks();
   const adapter = samAdapters[0];
   const dailyBudget = clampBudget(opts.dailyBudget);
+  if (opts.maxRequests !== undefined && !(Number.isInteger(opts.maxRequests) && opts.maxRequests >= 1)) {
+    return { stopped: 'error', requestsThisRun: 0, requestsToday: 0, dailyBudget, tasksDone: 0, tasksLeft: pendingTasks(state, tasks).length, rows: 0, parsed: 0, inserted: 0, error: 'maxRequests must be a whole number of 1 or more' };
+  }
   const report: BackfillReport = { stopped: 'finished', requestsThisRun: 0, requestsToday: 0, dailyBudget, tasksDone: 0, tasksLeft: 0, rows: 0, parsed: 0, inserted: 0, error: null };
   const finish = (r: BackfillReport): BackfillReport => {
     const now = deps.now();
@@ -265,7 +288,7 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, d
           res = await deps.fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'Holler/1.0 (+https://localholler.com)' }, signal: AbortSignal.timeout(30_000) });
           body = await res.text();
         } catch (e) {
-          return finish(fail(state, report, 'error', `${key} page ${page}: ${e instanceof Error ? e.message : String(e)}`, deps));
+          return finish(fail(state, report, 'error', `${key} page ${page}: ${e instanceof Error ? e.message : String(e)}`, deps, opts.apiKey));
         }
         if (res.status === 404 && /no data found/i.test(body)) {
           Object.assign(ts, { status: 'done', nextPage: page });
@@ -277,35 +300,49 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, d
         if (res.status === 429) {
           // The day's allowance is spent whatever our own count says: block the rest of the UTC day.
           state.requests.count = Math.max(state.requests.count, dailyBudget);
-          return finish(fail(state, report, 'rate-limit', `${key}: HTTP 429, the key's daily request limit is used up; nothing was lost, run again tomorrow`, deps));
+          return finish(fail(state, report, 'rate-limit', `${key}: HTTP 429, the key's daily request limit is used up; nothing was lost, run again tomorrow`, deps, opts.apiKey));
         }
         if (!res.ok) {
           const hint = res.status === 401 || res.status === 403 ? ' (api_key invalid, missing or not allowed)' : '';
           const detail = /^\s*</.test(body) ? '' : ` ${body.replace(/\s+/g, ' ').slice(0, 120)}`;
-          return finish(fail(state, report, 'error', `${key}: HTTP ${res.status}${hint}${detail}`, deps));
+          return finish(fail(state, report, 'error', `${key}: HTTP ${res.status}${hint}${detail}`, deps, opts.apiKey));
         }
         let json: unknown;
         try {
           json = JSON.parse(body);
         } catch {
-          return finish(fail(state, report, 'error', `${key}: ${/^\s*</.test(body) ? 'an HTML page instead of JSON' : 'non-JSON text'}`, deps));
+          return finish(fail(state, report, 'error', `${key}: ${/^\s*</.test(body) ? 'an HTML page instead of JSON' : 'non-JSON text'}`, deps, opts.apiKey));
         }
         const stats = samRowStats(json);
-        if (!stats) return finish(fail(state, report, 'error', `${key}: no opportunitiesData array, the response shape may have changed`, deps));
+        if (!stats) return finish(fail(state, report, 'error', `${key}: no opportunitiesData array, the response shape may have changed`, deps, opts.apiKey));
         const data = (json as { opportunitiesData: unknown[]; totalRecords?: unknown }).opportunitiesData;
-        const firstId = firstNoticeId(data);
+        const ids = noticeIds(data);
+        const firstId = ids[0] ?? null;
+        const total0 = Number((json as { totalRecords?: unknown }).totalRecords);
+        const moreExpected = Number.isFinite(total0) && (page + 1) * PAGE_LIMIT < total0;
         if (page === 0) ts.firstId = firstId;
-        else if (firstId && ts.firstId && firstId === ts.firstId) {
-          return finish(fail(state, report, 'error', `${key}: page ${page} opens with the same notice as page 0, so offset is not a page index; stop and check the docs`, deps));
+        else {
+          // offset is documented as a page index. A record offset (offset=1 starts at the second record) or an API that ignores offset
+          // returns a page that shares notices with the one before; so does a repeat of page 0.
+          const prev = new Set(ts.lastIds);
+          const overlap = ids.filter((i) => prev.has(i)).length;
+          if ((firstId && ts.firstId && firstId === ts.firstId) || overlap > 0) {
+            return finish(fail(state, report, 'error', `${key}: page ${page} shares ${overlap || 1} notice(s) with the page before it, so offset is not a page index; stop and check the docs`, deps, opts.apiKey));
+          }
         }
-        if (stats.rows > 0 && stats.usable === 0) return finish(fail(state, report, 'error', `${key}: ${stats.rows} rows and none with an id and a title, the response shape may have changed`, deps));
+        // totalRecords promises more pages, so a page must be full: a short page means the limit is capped or the paging is not what the docs say.
+        if (moreExpected && stats.rows < PAGE_LIMIT) {
+          return finish(fail(state, report, 'error', `${key}: page ${page} has ${stats.rows} rows but totalRecords is ${total0} and the limit is ${PAGE_LIMIT}; paging is not as documented, stop and check`, deps, opts.apiKey));
+        }
+        ts.lastIds = ids;
+        if (stats.rows > 0 && stats.usable === 0) return finish(fail(state, report, 'error', `${key}: ${stats.rows} rows and none with an id and a title, the response shape may have changed`, deps, opts.apiKey));
         const parsed = filterOpen(normalizeSignals(adapter, parseSam(json), deps.now()), deps.now());
         let inserted = 0;
         if (deps.insert && parsed.length) {
           try {
             inserted = await deps.insert(parsed);
           } catch (e) {
-            return finish(fail(state, report, 'error', `${key} page ${page}: insert failed: ${e instanceof Error ? e.message : String(e)}`, deps));
+            return finish(fail(state, report, 'error', `${key} page ${page}: insert failed: ${e instanceof Error ? e.message : String(e)}`, deps, opts.apiKey));
           }
         }
         ts.rows += stats.rows;
@@ -329,18 +366,19 @@ export async function runBackfill(state: BackfillState, opts: BackfillOptions, d
     }
     return finish({ ...report, stopped: 'finished' });
   } catch (e) {
-    return finish(fail(state, report, 'error', e instanceof Error ? e.message : String(e), deps));
+    return finish(fail(state, report, 'error', e instanceof Error ? e.message : String(e), deps, opts.apiKey));
   }
 }
 
-function firstNoticeId(data: unknown[]): string | null {
+function noticeIds(data: unknown[]): string[] {
+  const out: string[] = [];
   for (const it of data) {
     if (it && typeof it === 'object' && !Array.isArray(it)) {
       const id = (it as { noticeId?: unknown }).noticeId;
-      if (typeof id === 'string' && id.trim()) return id.trim();
+      if (typeof id === 'string' && id.trim()) out.push(id.trim());
     }
   }
-  return null;
+  return out;
 }
 
 /** Drops a notice whose response deadline is already behind us (the frozen window can be a few days old). A notice with no deadline is kept. */

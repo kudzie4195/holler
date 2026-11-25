@@ -28,6 +28,7 @@ import {
   pendingTasks,
   redactUrl,
   requestsLeftToday,
+  scrubKey,
   runBackfill,
   samBackfillEnabled,
   taskKey,
@@ -98,7 +99,8 @@ describe('daily limit', () => {
   it('uses the documented numbers and keeps the default under the no-role limit with room for the cron adapter', () => {
     expect(DOCUMENTED_LIMIT_NO_ROLE).toBe(10);
     expect(DOCUMENTED_LIMIT_WITH_ROLE).toBe(1000);
-    expect(DEFAULT_DAILY_BUDGET + 6).toBeLessThan(DOCUMENTED_LIMIT_NO_ROLE);
+    expect(DEFAULT_DAILY_BUDGET).toBe(1);
+    expect(DEFAULT_DAILY_BUDGET + 6).toBeLessThan(DOCUMENTED_LIMIT_NO_ROLE - 1); // the cron already uses up to 6 of the 10
     expect(MAX_DAILY_BUDGET).toBeLessThanOrEqual(DOCUMENTED_LIMIT_WITH_ROLE * 0.4);
   });
   it('clampBudget: default for junk, never above the ceiling, never below 1', () => {
@@ -152,6 +154,17 @@ const notice = (id: string, extra: Record<string, unknown> = {}) => ({
 });
 const page = (ids: string[], total: number, extra: Record<string, unknown> = {}) => ({ totalRecords: total, limit: 1000, offset: 0, opportunitiesData: ids.map((i) => notice(i, extra)) });
 
+/** What the API answers for page `off` of a `total`-record result when offset IS a page index: full pages of 1000, then the rest. */
+const pageIndexAnswer = (prefix: string, off: number, total: number) => {
+  const n = Math.max(0, Math.min(1000, total - off * 1000));
+  return page(Array.from({ length: n }, (_, i) => `${prefix}-${off * 1000 + i}`), total);
+};
+/** What it would answer if offset were a RECORD offset: records offset..offset+999. */
+const recordOffsetAnswer = (prefix: string, off: number, total: number) => {
+  const n = Math.max(0, Math.min(1000, total - off));
+  return page(Array.from({ length: n }, (_, i) => `${prefix}-${off + i}`), total);
+};
+
 interface Harness {
   deps: BackfillDeps;
   calls: string[];
@@ -201,7 +214,7 @@ describe('runBackfill: paging', () => {
     const h = harness((u) => {
       const st = u.searchParams.get('state');
       const off = Number(u.searchParams.get('offset'));
-      if (st === 'GA' && u.searchParams.get('ptype') === 'o') return { body: page([`ga-o-p${off}-1`, `ga-o-p${off}-2`], 2500) };
+      if (st === 'GA' && u.searchParams.get('ptype') === 'o') return { body: pageIndexAnswer('ga-o', off, 2500) };
       return { body: page([`${st}-${u.searchParams.get('ptype')}-1`], 1) };
     });
     const state = newState(NOW);
@@ -211,7 +224,7 @@ describe('runBackfill: paging', () => {
     expect(ga.map((c) => new URL(c).searchParams.get('offset'))).toEqual(['0', '1', '2']); // 2500 rows = pages 0, 1, 2
     expect(h.calls).toHaveLength(3 + 3); // GA:o x3 pages, TX:o, GA:k, TX:k
     expect(rep.tasksLeft).toBe(0);
-    expect(rep.inserted).toBe(3 * 2 + 3);
+    expect(rep.inserted).toBe(2500 + 3);
     expect(state.tasks['GA:o'].status).toBe('done');
   });
   it('every call uses the frozen window and the documented parameters', async () => {
@@ -250,13 +263,89 @@ describe('runBackfill: paging', () => {
     // the stored row carries the set-aside
     expect(h.inserted[0][0].data).toMatchObject({ setAside: 'SBA' });
   });
-  it('stops with a clear error when page 1 opens with the same notice as page 0 (offset is not a page index)', async () => {
-    const h = harness(() => ({ body: page(['same-1', 'same-2'], 3000) }));
+  it('stops when an API ignores offset and repeats page 0', async () => {
+    const h = harness(() => ({ body: pageIndexAnswer('same', 0, 2500) }));
     const state = newState(NOW);
     const rep = await runBackfill(state, { apiKey: KEY, dailyBudget: 50, tasks: TWO }, h.deps);
     expect(rep.stopped).toBe('error');
     expect(rep.error).toMatch(/offset is not a page index/);
     expect(h.calls).toHaveLength(2);
+    expect(state.tasks['GA:o'].status).not.toBe('done');
+  });
+  it('stops when offset is a RECORD offset (offset=1 returns records 1 to 1000): page 1 overlaps page 0, nothing is marked done', async () => {
+    const h = harness((u) => ({ body: recordOffsetAnswer('rec', Number(u.searchParams.get('offset')), 2500) }));
+    const state = newState(NOW);
+    const rep = await runBackfill(state, { apiKey: KEY, dailyBudget: 50, tasks: TWO }, h.deps);
+    expect(rep.stopped).toBe('error');
+    expect(rep.error).toMatch(/shares \d+ notice\(s\) with the page before it, so offset is not a page index/);
+    expect(h.calls).toHaveLength(2); // page 0, then page 1 which is refused
+    expect(state.tasks['GA:o'].status).not.toBe('done');
+    expect(rep.inserted).toBe(1000); // only page 0 was stored; page 1 was not
+  });
+  it('stops on a short page when totalRecords promises more (a capped limit or other paging)', async () => {
+    const h = harness(() => ({ body: page(Array.from({ length: 500 }, (_, i) => `s-${i}`), 2500) }));
+    const rep = await runBackfill(newState(NOW), { apiKey: KEY, dailyBudget: 50, tasks: TWO }, h.deps);
+    expect(rep.stopped).toBe('error');
+    expect(rep.error).toMatch(/has 500 rows but totalRecords is 2500/);
+    expect(h.calls).toHaveLength(1);
+  });
+  it('the overlap check also works across a resume (the last page ids are kept in the state)', async () => {
+    const h = harness((u) => ({ body: u.searchParams.get('offset') === '0' ? pageIndexAnswer('x', 0, 2500) : recordOffsetAnswer('x', 1, 2500) }));
+    const state = newState(NOW);
+    await runBackfill(state, { apiKey: KEY, dailyBudget: 50, maxRequests: 1, tasks: TWO.slice(0, 1) }, h.deps);
+    const reloaded = JSON.parse(JSON.stringify(h.saves[h.saves.length - 1])) as BackfillState;
+    expect(reloaded.tasks['GA:o'].lastIds).toHaveLength(1000);
+    const rep = await runBackfill(reloaded, { apiKey: KEY, dailyBudget: 50, tasks: TWO.slice(0, 1) }, h.deps);
+    expect(rep.stopped).toBe('error');
+  });
+});
+
+describe('runBackfill: the key never leaves on an error path', () => {
+  const echo = (msg: string) => () => ({ status: 500, body: msg });
+  const textsWith = (key: string) => [
+    `upstream said: GET /opportunities/v2/search?api_key=${key}&postedFrom=x failed`,
+    `bad key ${key}`,
+    `encoded ${encodeURIComponent(key)}`,
+  ];
+  const KEY2 = 'ab/cd+ef=gh-KEY-9876543210';
+  for (const body of textsWith(KEY2)) {
+    it(`an error body that echoes the key is scrubbed from the state, the log and the report: ${body.slice(0, 30)}`, async () => {
+      const h = harness(echo(body));
+      const logs: string[] = [];
+      h.deps.log = (m) => logs.push(m);
+      const state = newState(NOW);
+      const rep = await runBackfill(state, { apiKey: KEY2, dailyBudget: 50, tasks: TWO }, h.deps);
+      expect(rep.stopped).toBe('error');
+      for (const hay of [JSON.stringify(h.saves), JSON.stringify(state), logs.join('\n'), JSON.stringify(rep)]) {
+        expect(hay).not.toContain(KEY2);
+        expect(hay).not.toContain(encodeURIComponent(KEY2));
+      }
+    });
+  }
+  it('a thrown network error that carries the URL is scrubbed too', async () => {
+    const h = harness(() => ({ body: {} }));
+    h.deps.fetch = (async (input: RequestInfo | URL) => {
+      throw new Error(`fetch failed for ${String(input)}`);
+    }) as typeof fetch;
+    const state = newState(NOW);
+    const rep = await runBackfill(state, { apiKey: KEY2, dailyBudget: 50, tasks: TWO }, h.deps);
+    expect(rep.error).toContain('api_key=REDACTED');
+    expect(JSON.stringify([h.saves, state, rep])).not.toContain(KEY2);
+  });
+  it('scrubKey removes api_key pairs and the key itself', () => {
+    expect(scrubKey('x api_key=SECRET&y=1', 'SECRET')).toBe('x api_key=REDACTED&y=1');
+    expect(scrubKey('plain SECRET text', 'SECRET')).toBe('plain REDACTED text');
+  });
+  it('the state file name is git-ignored', () => {
+    expect(readFileSync(join(__dirname, '../../.gitignore'), 'utf8')).toMatch(/^sam-backfill-state\.json/m);
+  });
+  it('maxRequests must be a whole number of 1 or more', async () => {
+    for (const bad of [Number.NaN, 0, -1, 1.5]) {
+      const h = harness(() => ({ body: page(['x'], 1) }));
+      const rep = await runBackfill(newState(NOW), { apiKey: KEY, dailyBudget: 50, maxRequests: bad, tasks: TWO }, h.deps);
+      expect(rep.stopped).toBe('error');
+      expect(h.calls).toHaveLength(0);
+    }
   });
 });
 
@@ -283,15 +372,7 @@ describe('runBackfill: budget and resume', () => {
     expect(new Set(h.calls).size).toBe(4); // no request was repeated
   });
   it('resumes in the middle of a task: a stored next page is requested, finished pages are not', async () => {
-    let first = true;
-    const h = harness((u) => {
-      const off = Number(u.searchParams.get('offset'));
-      if (first) {
-        first = false;
-        return { body: page(['p0-a'], 2500) };
-      }
-      return { body: page([`p${off}-a`], 2500) };
-    });
+    const h = harness((u) => ({ body: pageIndexAnswer('r', Number(u.searchParams.get('offset')), 2500) }));
     const state = newState(NOW);
     const a = await runBackfill(state, { apiKey: KEY, dailyBudget: 50, maxRequests: 1, tasks: TWO.slice(0, 1) }, h.deps);
     expect(a.stopped).toBe('budget');
@@ -378,11 +459,11 @@ describe('runBackfill: budget and resume', () => {
     expect(logs.join('\n')).not.toContain(KEY);
     expect(logs.some((l) => l.startsWith('GET ') && l.includes('api_key=REDACTED'))).toBe(true);
   });
-  it('a full list at the default budget needs about 20 days and the plan says so', () => {
+  it('a full list at the default budget needs about 60 days and the plan says so', () => {
     const state = newState(NOW);
     expect(pendingTasks(state)).toHaveLength(60);
     const plan = describePlan(state, NOW, DEFAULT_DAILY_BUDGET).join('\n');
-    expect(plan).toMatch(/days to finish at this budget: about 20/);
+    expect(plan).toMatch(/days to finish at this budget: about 60/);
     expect(plan).toMatch(/10\/day with no SAM role, 1000\/day with one/);
   });
 });

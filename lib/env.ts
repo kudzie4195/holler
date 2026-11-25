@@ -51,6 +51,7 @@ export const ENV_KEYS = [
   'HOLLER_QUIET_WEEK_ENABLED',
   'HOLLER_SEASON_ENABLED',
   'HOLLER_SAM_BACKFILL_ENABLED',
+  'HOLLER_SAM_LABELS_ENABLED',
 ] as const;
 
 export type EnvKey = (typeof ENV_KEYS)[number];
@@ -122,6 +123,8 @@ export const env: Record<EnvKey, string | undefined> = {
   HOLLER_SEASON_ENABLED: process.env.HOLLER_SEASON_ENABLED,
   // Round 33: the one-off SAM.gov backfill (scripts/sam-backfill.ts, lib/signals/sam-backfill.ts). Read at call time there; no cron or page reads it.
   HOLLER_SAM_BACKFILL_ENABLED: process.env.HOLLER_SAM_BACKFILL_ENABLED,
+  // Round 33 review: the SAM.gov notice labels (lib/signals/sam-labels-switch.ts). Read again at call time there. Off unless 1, true, on or yes.
+  HOLLER_SAM_LABELS_ENABLED: process.env.HOLLER_SAM_LABELS_ENABLED,
 };
 
 export function hasEnv(...k: EnvKey[]): boolean {

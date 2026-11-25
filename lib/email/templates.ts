@@ -68,6 +68,8 @@ export interface DigestItem {
   deadline?: string | null;
   /** An open city bid only: "Buyer: X. Due Dec 10, 2026, 19 days left." (lib/signals/bid-card.ts bidCardLine). */
   bidLine?: string | null;
+  /** A federal notice whose card line names a set-aside (HOLLER_SAM_LABELS_ENABLED on): the closing line then does not say a listing shows nobody's eligibility. */
+  hasSetAside?: boolean;
   /** The member's trade this record is shown under (lib/signals/brief.ts tradeForRecord). Makes "Why it matters" trade-specific. */
   trade?: string | null;
   /** NYC no-heat items only: data.managerName / data.managerRole (company names only, checked again by cardBrief). */
@@ -574,7 +576,7 @@ export function digestHonesty(items: readonly DigestItem[], lang: Lang = 'en'): 
   const anyListing = items.some((it) => it.contact?.listing && (it.contact.listing.phone || httpsSite(it.contact.listing)));
   return [
     t(lang, lead),
-    ...HONESTY_KINDS.filter((k) => k.families.some((f) => present.has(f))).map((k) => t(lang, k.key)),
+    ...HONESTY_KINDS.filter((k) => k.families.some((f) => present.has(f))).map((k) => t(lang, k.key === 'email.honesty.bid' && items.some((it) => it.hasSetAside) ? 'sam.email.honesty_bid_setaside' : k.key)),
     anyListing ? t(lang, 'email.honesty.listing') : null,
   ]
     .filter(Boolean)

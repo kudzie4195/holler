@@ -8,6 +8,8 @@
  * Mapping is checked against every registered source by tests/feedback/intent.test.ts.
  */
 import { isEarlyNoticeType, samTypeOf } from './sam-notice';
+import { samLabelsEnabled } from './sam-labels-switch';
+import { t, type Lang } from '@/lib/i18n';
 
 export type Intent = 'demand' | 'spending' | 'asking';
 
@@ -83,9 +85,6 @@ export const INTENT_NOTE: Record<Intent, string> = {
   asking: 'A resident asked for this service.',
 };
 
-/** The intent line of a federal early notice (Sources Sought, Presolicitation, Intent to Bundle). */
-export const EARLY_NOTICE_LINE = 'This is an early notice. Nothing is open for offers yet.';
-
 const LINE_BY_KEY: Record<IntentLineKey, string> = {
   demand: INTENT_NOTE.demand,
   spending: INTENT_NOTE.spending,
@@ -96,9 +95,9 @@ const LINE_BY_KEY: Record<IntentLineKey, string> = {
 };
 
 /** The one plain line under the label for this signal. The label still comes from INTENT_LABEL[intentOf(signal)]. */
-export function intentLine(signal: IntentInput): string {
+export function intentLine(signal: IntentInput, lang: Lang = 'en'): string {
   const key = intentLineKey(signal);
   // Round 33: a Sources Sought or Presolicitation notice is not out for bid yet. The key stays 'open-bid' (older mobile builds read it).
-  if (key === 'open-bid' && norm(signal.source) === 'sam-gov' && isEarlyNoticeType(samTypeOf(signal.summary))) return EARLY_NOTICE_LINE;
+  if (key === 'open-bid' && samLabelsEnabled() && norm(signal.source) === 'sam-gov' && isEarlyNoticeType(samTypeOf(signal.summary))) return t(lang, 'sam.early.intent_line');
   return LINE_BY_KEY[key];
 }

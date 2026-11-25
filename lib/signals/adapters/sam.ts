@@ -126,7 +126,8 @@ export function parseSam(raw: unknown): SignalInput[] {
             solicitationNumber: str(item.solicitationNumber) || null,
             naics: naics || null,
             type: type || null,
-            ...(setAside ? { setAside, setAsideDescription: asideDesc || null } : {}),
+            // Only the code is kept: the API's own description text is not stored.
+            ...(setAside ? { setAside } : {}),
           },
         });
       } catch {

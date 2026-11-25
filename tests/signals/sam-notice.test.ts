@@ -2,7 +2,7 @@
  * Round 33 (SAM): set-aside labels, early-notice labels and routing. The 18 codes come from the API page
  * https://open.gsa.gov/api/get-opportunities-public-api/ (typeOfSetAside table, checked 2026-11-25); their descriptions are the page's own words.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildAlerts, MATCH_SELECT, type MatchRow } from '@/lib/mobile/feed';
 import { SAM_SELECT } from '@/lib/signals/sam-notice';
 import { en } from '@/lib/i18n/en';
@@ -10,7 +10,7 @@ import { es } from '@/lib/i18n/es';
 import { t } from '@/lib/i18n';
 import { spanishProblems } from '@/lib/i18n/rules';
 import { labelFor, NOT_YET_BID_RE } from '@/lib/signals/lead-rules';
-import { intentLine, intentLineKey, EARLY_NOTICE_LINE } from '@/lib/signals/intent';
+import { intentLine, intentLineKey } from '@/lib/signals/intent';
 import {
   SAM_SET_ASIDE_CODES,
   earlyNoticeLine,
@@ -28,26 +28,34 @@ import { parseSam } from '@/lib/signals/adapters/sam';
 
 vi.mock('server-only', () => ({}));
 
+// The labels are behind HOLLER_SAM_LABELS_ENABLED; this file tests them ON. tests/signals/sam-labels-switch.test.ts tests them OFF.
+beforeAll(() => {
+  vi.stubEnv('HOLLER_SAM_LABELS_ENABLED', '1');
+});
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
+
 /** code, the API page's description, English words. */
 const DOCUMENTED: [string, string, string][] = [
   ['SBA', 'Total Small Business Set-Aside (FAR 19.5)', 'Set aside for small businesses'],
   ['SBP', 'Partial Small Business Set-Aside (FAR 19.5)', 'Partly set aside for small businesses'],
   ['8A', '8(a) Set-Aside (FAR 19.8)', 'Set aside for 8(a) small businesses'],
-  ['8AN', '8(a) Sole Source (FAR 19.8)', 'Sole source to one 8(a) business'],
+  ['8AN', '8(a) Sole Source (FAR 19.8)', 'Planned sole source to one 8(a) business. Not open for offers'],
   ['HZC', 'HUBZone Set-Aside (FAR 19.13)', 'Set aside for HUBZone small businesses'],
-  ['HZS', 'HUBZone Sole Source (FAR 19.13)', 'Sole source to one HUBZone business'],
+  ['HZS', 'HUBZone Sole Source (FAR 19.13)', 'Planned sole source to one HUBZone business. Not open for offers'],
   ['SDVOSBC', 'Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)', 'Set aside for service-disabled veteran-owned small businesses'],
-  ['SDVOSBS', 'Service-Disabled Veteran-Owned Small Business (SDVOSB) Sole Source (FAR 19.14)', 'Sole source to one service-disabled veteran-owned small business'],
+  ['SDVOSBS', 'Service-Disabled Veteran-Owned Small Business (SDVOSB) Sole Source (FAR 19.14)', 'Planned sole source to one service-disabled veteran-owned small business. Not open for offers'],
   ['WOSB', 'Women-Owned Small Business (WOSB) Program Set-Aside (FAR 19.15)', 'Set aside for women-owned small businesses'],
-  ['WOSBSS', 'Women-Owned Small Business (WOSB) Program Sole Source (FAR 19.15)', 'Sole source to one women-owned small business'],
+  ['WOSBSS', 'Women-Owned Small Business (WOSB) Program Sole Source (FAR 19.15)', 'Planned sole source to one women-owned small business. Not open for offers'],
   ['EDWOSB', 'Economically Disadvantaged WOSB (EDWOSB) Program Set-Aside (FAR 19.15)', 'Set aside for economically disadvantaged women-owned small businesses'],
-  ['EDWOSBSS', 'Economically Disadvantaged WOSB (EDWOSB) Program Sole Source (FAR 19.15)', 'Sole source to one economically disadvantaged women-owned small business'],
-  ['LAS', 'Local Area Set-Aside (FAR 26.2)', 'Set aside for local area businesses'],
+  ['EDWOSBSS', 'Economically Disadvantaged WOSB (EDWOSB) Program Sole Source (FAR 19.15)', 'Planned sole source to one economically disadvantaged women-owned small business. Not open for offers'],
+  ['LAS', 'Local Area Set-Aside (FAR 26.2)', 'Set aside for businesses in a declared disaster or emergency area'],
   ['IEE', 'Indian Economic Enterprise (IEE) Set-Aside (specific to Department of Interior)', 'Set aside for Indian economic enterprises (Department of the Interior)'],
   ['ISBEE', 'Indian Small Business Economic Enterprise (ISBEE) Set-Aside (specific to Department of Interior)', 'Set aside for Indian small business economic enterprises (Department of the Interior)'],
   ['BICiv', 'Buy Indian Set-Aside (Specific to Indian Health Services)', 'Buy Indian set-aside (Indian Health Service)'],
   ['VSA', 'Veteran-Owned Small Business Set-Aside (specific to Department of Veterans Affairs)', 'Set aside for veteran-owned small businesses (Department of Veterans Affairs)'],
-  ['VSS', 'Veteran-Owned Small Business Sole source (specific to Department of Veterans Affairs)', 'Sole source to one veteran-owned small business (Department of Veterans Affairs)'],
+  ['VSS', 'Veteran-Owned Small Business Sole source (specific to Department of Veterans Affairs)', 'Planned sole source to one veteran-owned small business (Department of Veterans Affairs). Not open for offers'],
 ];
 
 describe('set-aside codes', () => {
@@ -64,6 +72,8 @@ describe('set-aside codes', () => {
       expect(setAsideLabel(code.toLowerCase(), null, 'en')).toBe(words);
       expect(setAsideLabel(null, desc, 'en')).toBe(words);
       expect(storedSetAside(code, desc)).toBe(code);
+      // the stored row keeps the code only, and the code alone labels it
+      expect(setAsideLabel(storedSetAside(code, desc), null, 'en')).toBe(words);
     });
     it(`${code}: has an English and a Spanish dictionary entry, the Spanish one is real Spanish and passes the wording rules`, () => {
       const key = setAsideKey(code, null)!;
@@ -111,7 +121,8 @@ describe('early notices', () => {
     it(`"${type}" is an early notice (${kind}) in both languages, and routing agrees`, () => {
       expect(samNoticeKind(type)).toBe(kind);
       expect(isEarlyNoticeType(type)).toBe(true);
-      expect(NOT_YET_BID_RE.test(type)).toBe(true);
+      // routing: the original regex covers every spelling but the hyphenated one, which the labels switch adds (tested below)
+      if (!/-/.test(type)) expect(NOT_YET_BID_RE.test(type)).toBe(true);
       expect(earlyNoticeLine(type, 'en')).toMatch(/^Early notice: /);
       expect(earlyNoticeLine(type, 'es')).toMatch(/^Aviso anticipado: /);
     });
@@ -157,7 +168,7 @@ describe('the card line', () => {
   });
   it('copy rules: no em dash, no banned words, no promise, in both languages, for every string the card can print', () => {
     const all = Object.entries(en).filter(([k]) => k.startsWith('sam.'));
-    expect(all.length).toBe(3 + 19);
+    expect(all.length).toBe(3 + 19 + 2);
     for (const [k, v] of all) {
       expect(v, k).not.toMatch(/—/);
       expect(v, k).not.toMatch(/\blead(s)?\b|guarantee|you will win|they need you|canvass|knock/i);
@@ -191,7 +202,8 @@ describe('routing: an early notice is a heads-up, never urgent', () => {
   it('the mobile intent line does not call an early notice "out for bid"', () => {
     const early = { kind: 'contract', source: 'sam-gov', subtype: null, summary: 'Sources Sought | GSA' };
     expect(intentLineKey(early)).toBe('open-bid'); // the key is unchanged: older app builds read it
-    expect(intentLine(early)).toBe(EARLY_NOTICE_LINE);
+    expect(intentLine(early)).toBe('This is an early notice. Nothing is open for offers yet.');
+    expect(intentLine(early, 'es')).toBe('Este es un aviso anticipado. Todavía no se piden ofertas.');
     expect(intentLine({ ...early, summary: 'Solicitation | GSA' })).toBe('This work is out for bid. No contract has been awarded yet.');
     expect(intentLine({ kind: 'contract', source: 'sam-gov' })).toBe('This work is out for bid. No contract has been awarded yet.');
   });
@@ -214,7 +226,8 @@ describe('the adapter stores the set-aside in data (no column needed)', () => {
   });
   it('typeOfSetAside + typeOfSetAsideDescription (the docs examples)', () => {
     const [r] = parseSam(item({ typeOfSetAside: 'SBA', typeOfSetAsideDescription: 'Total Small Business Set-Aside (FAR 19.5)' }));
-    expect(r.data).toMatchObject({ setAside: 'SBA', setAsideDescription: 'Total Small Business Set-Aside (FAR 19.5)', type: 'Combined Synopsis/Solicitation' });
+    expect(r.data).toMatchObject({ setAside: 'SBA', type: 'Combined Synopsis/Solicitation' });
+    expect(r.data).not.toHaveProperty('setAsideDescription'); // only the code is kept
   });
   it('setAsideCode + setAside (the docs field table)', () => {
     const [r] = parseSam(item({ setAsideCode: '8A', setAside: '8(a) Set-Aside (FAR 19.8)' }));
@@ -232,8 +245,8 @@ describe('the adapter stores the set-aside in data (no column needed)', () => {
   });
   it('the stored row labels end to end', () => {
     const [r] = parseSam(item({ typeOfSetAside: 'WOSB' }));
-    const d = r.data as { setAside?: string; setAsideDescription?: string | null };
-    expect(samCardLine({ source: r.source, summary: r.summary, setAside: d.setAside, setAsideDescription: d.setAsideDescription }, 'es')).toBe('Reservado para pequeñas empresas de mujeres.');
+    const d = r.data as { setAside?: string };
+    expect(samCardLine({ source: r.source, summary: r.summary, setAside: d.setAside }, 'es')).toBe('Reservado para pequeñas empresas de mujeres.');
   });
 });
 
@@ -249,7 +262,7 @@ describe('the app feed card line (lib/mobile/feed.ts buildAlerts) and the select
 
   it('the feed selects ask for the two stored fields', () => {
     expect(MATCH_SELECT).toContain(SAM_SELECT);
-    expect(SAM_SELECT).toBe('samSetAside:data->>setAside,samSetAsideDesc:data->>setAsideDescription');
+    expect(SAM_SELECT).toBe('samSetAside:data->>setAside');
   });
   it('a small-business bid: the set-aside line, label act_now, no early-notice words', async () => {
     const [a] = await buildAlerts([row(1, sam(1, 'Combined Synopsis/Solicitation | ARMY | NAICS 561730', { samSetAside: 'SBA' }))], deps);
@@ -262,7 +275,7 @@ describe('the app feed card line (lib/mobile/feed.ts buildAlerts) and the select
       'Aviso anticipado: la agencia está preguntando quién podría hacer este trabajo. Todavía no se piden ofertas. Reservado para pequeñas empresas de veteranos con discapacidad relacionada con el servicio.',
     );
     expect(a.label).toBe('coming_soon');
-    expect(a.intent.line).toBe(EARLY_NOTICE_LINE);
+    expect(a.intent.line).toBe('Este es un aviso anticipado. Todavía no se piden ofertas.');
   });
   it('a row stored before this change (no set-aside keys) still builds, with no set-aside line', async () => {
     const [a] = await buildAlerts([row(3, sam(3, 'Solicitation | GSA | NAICS 561730'))], deps);
@@ -271,5 +284,42 @@ describe('the app feed card line (lib/mobile/feed.ts buildAlerts) and the select
   it('a locked member gets no line', async () => {
     const [a] = await buildAlerts([row(4, sam(4, 'Sources Sought | VA', { samSetAside: 'SBA' }))], { ...deps, locked: true });
     expect(a.bidLine).toBeNull();
+  });
+});
+
+describe('review fixes: no set-aside, local area, sole source', () => {
+  const NONE_PHRASES = ['NONE', 'None', 'No Set aside used', 'No Set-Aside Used', 'Full and Open Competition', 'Full & Open Competition', 'Unrestricted', 'Not Applicable', 'N/A', 'null'];
+  for (const phrase of NONE_PHRASES) {
+    it(`"${phrase}" as a code, as a description, or both renders no set-aside line`, () => {
+      expect(storedSetAside(phrase, null)).toBeNull();
+      expect(storedSetAside(null, phrase)).toBeNull();
+      expect(storedSetAside('NONE', phrase)).toBeNull();
+      expect(setAsideLabel(phrase, phrase, 'en')).toBeNull();
+      expect(samCardLine({ source: 'sam-gov', summary: 'Solicitation | GSA', setAside: phrase, setAsideDescription: phrase }, 'en')).toBeNull();
+    });
+  }
+  it('a description that does not say set-aside or sole source never becomes a restriction', () => {
+    expect(storedSetAside(null, 'Open to all responsible sources')).toBeNull();
+    expect(storedSetAside(null, 'Brand New Program Set-Aside')).toBe('OTHER');
+  });
+  it('the local area set-aside says what it is: a declared disaster or emergency area (FAR 26.2)', () => {
+    expect(setAsideLabel('LAS', null, 'en')).toBe('Set aside for businesses in a declared disaster or emergency area');
+    expect(setAsideLabel('LAS', null, 'es')).toBe('Reservado para empresas en un área de desastre o emergencia declarada');
+  });
+  const base = { source: 'sam-gov', kind: 'contract', title: 'Federal bid in Denver, CO: Janitorial services', summary: 'Solicitation | GSA | NAICS 561720', state: 'CO', lat: 39.7, lon: -104.9 };
+  for (const code of ['8AN', 'HZS', 'SDVOSBS', 'WOSBSS', 'EDWOSBSS', 'VSS']) {
+    it(`${code} (sole source) is a heads-up with "Not open for offers" wording, never act_now`, () => {
+      expect(labelFor({ ...base, setAside: code }, 'janitorial-commercial')).toBe('coming_soon');
+      expect(setAsideLabel(code, null, 'en')).toMatch(/Not open for offers$/);
+      expect(setAsideLabel(code, null, 'es')).toMatch(/No está abierto a ofertas$/);
+    });
+  }
+  for (const code of ['SBA', 'SBP', '8A', 'HZC', 'SDVOSBC', 'WOSB', 'EDWOSB', 'LAS', 'VSA', null]) {
+    it(`${code} (a set-aside bid that is open) stays act_now`, () => {
+      expect(labelFor({ ...base, ...(code ? { setAside: code } : {}) }, 'janitorial-commercial')).toBe('act_now');
+    });
+  }
+  it('Pre-solicitation (hyphenated) is a heads-up, like Presolicitation', () => {
+    expect(labelFor({ ...base, summary: 'Pre-solicitation | GSA' }, 'janitorial-commercial')).toBe('coming_soon');
   });
 });

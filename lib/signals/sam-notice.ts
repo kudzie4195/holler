@@ -2,18 +2,19 @@
  * Round 33 (SAM): what a stored SAM.gov notice says about itself, in plain words. Pure and client-safe (it imports only the dictionary).
  *
  * Two things are labelled, and only from fields the notice itself carries:
+ *  The whole line is behind HOLLER_SAM_LABELS_ENABLED (sam-labels-switch.ts): off, samCardLine returns null.
  *  - EARLY NOTICE. Sources Sought and Presolicitation (and Intent to Bundle) notices are not bids yet: the agency is asking who could do the
  *    work, or says offers will be asked for later. The card says so. Routing already files them as a heads-up (lead-rules.ts rule
  *    soon-bid-not-open reads NOT_YET_BID_RE (re-exported below), so that rule and this label can never disagree); they are never "act now".
  *    Combined Synopsis/Solicitation and Solicitation are the actual bids and get no early-notice line.
- *  - SET-ASIDE. The notice's typeOfSetAside code (stored by the adapter as data.setAside, with the API's own words in
- *    data.setAsideDescription). Every code the API documents has its own plain wording in EN and ES (lib/i18n/en-sam.ts, es-sam.ts).
+ *  - SET-ASIDE. The notice's typeOfSetAside code (stored by the adapter as data.setAside; only the code is kept). Every code the API documents has its own plain wording in EN and ES (lib/i18n/en-sam.ts, es-sam.ts).
  *
  * The line describes the notice. It never says the member is eligible, may bid, or will be chosen: a set-aside limits who can respond and
  * the notice, not Holler, says who that is.
  */
 import { t, type DictKey, type Lang } from '@/lib/i18n';
 import { NOT_YET_BID_RE } from './lead-rules';
+import { isSoleSourceSetAside, samLabelsEnabled } from './sam-labels-switch';
 
 /** Notice types that are not yet open for offers: the one regex routing uses (lead-rules.ts rule soon-bid-not-open). Re-exported so tests can tie the label to it. */
 export { NOT_YET_BID_RE };
@@ -42,7 +43,11 @@ export const SAM_SET_ASIDE_CODES = [
 export type SamSetAsideCode = (typeof SAM_SET_ASIDE_CODES)[number];
 
 const CODE_BY_UPPER = new Map<string, SamSetAsideCode>(SAM_SET_ASIDE_CODES.map((c) => [c.toUpperCase(), c]));
-const NONE_RE = /^(none|n\/?a|null|undefined|no set[- ]?aside|-+)$/i;
+/**
+ * A value that says there is NO set-aside: none, n/a, "No Set aside used", "Full and Open Competition", "Unrestricted", "Not Applicable".
+ * Matched anywhere in the text, so the API's own phrasing for an open competition never becomes a restriction on a card.
+ */
+const NONE_RE = /^(?:none|n\/?a|null|undefined|-+)$|no\s+set[- ]?aside|full\s+(?:and|&)\s+open|unrestricted|not\s+applicable|open\s+(?:market|competition)|no\s+restriction/i;
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
 
@@ -94,11 +99,12 @@ export function storedSetAside(rawCode: unknown, rawDesc: unknown): string | nul
   const code = text(rawCode);
   if (code && !isNoSetAside(code)) return code.toUpperCase().slice(0, 12);
   const desc = text(rawDesc);
-  if (desc && !isNoSetAside(desc)) return 'OTHER';
+  // A description alone must say it is a set-aside or a sole source before it becomes a restriction on a card.
+  if (desc && !isNoSetAside(desc) && /set[- ]?aside|sole[\s-]*source|restricted/i.test(desc)) return 'OTHER';
   return null;
 }
 
-/** Dictionary key for a stored set-aside (data.setAside, data.setAsideDescription), or null when the notice has none. */
+/** Dictionary key for a stored set-aside (data.setAside; a description is a fallback for a caller that has one), or null when the notice has none. */
 export function setAsideKey(stored: unknown, description?: unknown): DictKey | null {
   const s = text(stored);
   if (isNoSetAside(s) && isNoSetAside(description)) return null;
@@ -112,6 +118,8 @@ export function setAsideLabel(stored: unknown, description: unknown, lang: Lang 
   const key = setAsideKey(stored, description);
   return key ? t(lang, key) : null;
 }
+
+export { isSoleSourceSetAside };
 
 export type SamNoticeKind = 'sources-sought' | 'presolicitation' | 'bundle' | 'bid' | 'other';
 
@@ -160,7 +168,7 @@ export interface SamCardInput {
   type?: unknown;
   /** data.setAside */
   setAside?: unknown;
-  /** data.setAsideDescription */
+  /** The API's description text, for a caller that has it (the stored row keeps only the code). */
   setAsideDescription?: unknown;
 }
 
@@ -168,13 +176,14 @@ export interface SamCardInput {
  * The line a federal notice card carries under its label: the early-notice sentence, then the set-aside sentence. Null for any other source
  * and for a notice with neither. The card, the mobile feed and the alert email all print this one string.
  */
-export function samCardLine(s: SamCardInput, lang: Lang = 'en'): string | null {
-  if (s.source !== 'sam-gov') return null;
+export function samCardLine(s: SamCardInput, lang: Lang = 'en', on: boolean = samLabelsEnabled()): string | null {
+  // Switch off (HOLLER_SAM_LABELS_ENABLED unset): no line, so every card and email is what it was before round 33.
+  if (!on || s.source !== 'sam-gov') return null;
   const early = earlyNoticeLine(samTypeOf(s.summary, s.type), lang);
   const aside = setAsideLabel(s.setAside, s.setAsideDescription, lang);
   const parts = [early, aside ? `${aside}.` : null].filter((p): p is string => !!p);
   return parts.length ? parts.join(' ') : null;
 }
 
-/** PostgREST select aliases for the two stored set-aside fields (holler_signals.data). Missing keys read as null, so no migration is involved. */
-export const SAM_SELECT = 'samSetAside:data->>setAside,samSetAsideDesc:data->>setAsideDescription';
+/** PostgREST select alias for the stored set-aside code (holler_signals.data.setAside). A missing key reads as null, so no migration is involved. */
+export const SAM_SELECT = 'samSetAside:data->>setAside';

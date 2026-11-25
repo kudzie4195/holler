@@ -24,7 +24,8 @@ import { pushNewMatches } from '@/lib/push/notify';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
-import { SAM_SELECT, samCardLine } from '@/lib/signals/sam-notice';
+import { SAM_SELECT, samCardLine, setAsideLabel } from '@/lib/signals/sam-notice';
+import { samLabelsEnabled } from '@/lib/signals/sam-labels-switch';
 import { dropHiddenBids } from '@/lib/signals/bid-sources';
 import { tradeForRecord } from '@/lib/signals/brief';
 import { dedupeByAlert } from '@/lib/signals/alert-dedupe';
@@ -69,9 +70,8 @@ interface SignalRow {
   deadline?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
-  /** Federal notices only: data.setAside and data.setAsideDescription (lib/signals/sam-notice.ts SAM_SELECT). */
+  /** Federal notices only: data.setAside (lib/signals/sam-notice.ts SAM_SELECT). */
   samSetAside?: string | null;
-  samSetAsideDesc?: string | null;
   /** NYC no-heat rows only: data.managerName and data.managerRole (company names only). */
   managerName?: string | null;
   managerRole?: string | null;
@@ -386,7 +386,8 @@ export async function GET(req: Request) {
         permitStage: s.permitStage ?? null,
         permitStageAt: s.permitStageAt ?? null,
         permitStageUpdate: isStageUpdate(s),
-        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside, setAsideDescription: s.samSetAsideDesc }, lang),
+        bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, now, lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
+        hasSetAside: s.source === 'sam-gov' && samLabelsEnabled() && setAsideLabel(s.samSetAside, null, lang) !== null,
         managerName: s.managerName ?? null,
         managerRole: s.managerRole ?? null,
       }));

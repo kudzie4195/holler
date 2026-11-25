@@ -83,9 +83,8 @@ interface SignalRow {
   dueDate?: string | null;
   /** City open bids only (data.buyer): the buyer. The due day comes from dueDate above. */
   bidBuyer?: string | null;
-  /** Federal notices only (data.setAside, data.setAsideDescription): the set-aside the notice carries. */
+  /** Federal notices only (data.setAside): the set-aside the notice carries. */
   samSetAside?: string | null;
-  samSetAsideDesc?: string | null;
   /** NYC no-heat rows only (data.managerName, data.managerRole): the company the city's building registration names. */
   managerName?: string | null;
   managerRole?: string | null;
@@ -305,7 +304,7 @@ async function loadDashboard() {
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
       // Open city bids: buyer and due date. Federal notices: the early-notice and set-aside words (lib/signals/sam-notice.ts), from the notice's own fields.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside, setAsideDescription: s.samSetAsideDesc }, lang),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
     };
     const storm = stormLinks.get(s.id);
     if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);

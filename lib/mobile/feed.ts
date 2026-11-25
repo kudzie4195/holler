@@ -67,9 +67,8 @@ export interface SignalRow {
   dueDate?: string | null;
   /** City open bids only: data.buyer. */
   bidBuyer?: string | null;
-  /** Federal notices only: data.setAside and data.setAsideDescription (lib/signals/sam-notice.ts SAM_SELECT). */
+  /** Federal notices only: data.setAside (lib/signals/sam-notice.ts SAM_SELECT). */
   samSetAside?: string | null;
-  samSetAsideDesc?: string | null;
   /** County-level weather alerts: data.loc and data.alertId (one alert is stored once per county; a page shows it once). */
   loc?: string | null;
   alertId?: string | null;
@@ -258,12 +257,12 @@ export async function buildAlerts(rows: MatchRow[], deps: BuildDeps): Promise<Al
       occurredAt: s.occurred_at,
       expiresAt: s.expires_at,
       severity: typeof s.severity === 'number' ? s.severity : 1,
-      intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn) },
+      intent: { key: intentLineKey(intentIn), label: intentLabel(intentIn), line: intentLine(intentIn, deps.lang ?? 'en') },
       label: labelOf(s, m.status) as AlertDto['label'],
       ...(hold ? { hold: hold as AlertHold } : {}),
       deadline: deadlineOf(s),
       brief: briefDto(s, labelOf(s, m.status), deps),
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside, setAsideDescription: s.samSetAsideDesc }, deps.lang ?? 'en'),
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(deps.now)) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, deps.lang ?? 'en'),
       distanceMi: hasApproxLocation(s) ? null : (typeof m.distance_mi === 'number' && Number.isFinite(m.distance_mi) ? Math.round(m.distance_mi * 10) / 10 : null),
       distanceLabel: hasApproxLocation(s) ? null : formatDistance(m.distance_mi),
       feedback: feedback.get(s.id) ?? null,

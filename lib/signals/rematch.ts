@@ -105,7 +105,9 @@ export async function rematchSignals(db: Db, signalIds: number[], opts: RematchO
       for (const r of matchSignals(fresh, [p], MAX_MATCHES_PER_USER, now)) {
         const s = byId.get(r.signal_id);
         const t = s ? Date.parse(s.occurred_at) : NaN;
-        const quiet = opts.quiet === true || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
+        // A row the SAM backfill stored (data.backfill) is history whoever rematches it and whenever: the hourly AI step must never email one.
+        const backfilled = (s?.data as { backfill?: unknown } | null | undefined)?.backfill === true;
+        const quiet = opts.quiet === true || backfilled || !Number.isFinite(t) || now.getTime() - t > REMATCH_QUIET_AFTER_MS;
         // History is never pushed either: pushed_at is set at insert (verify-v1 decision 2).
         rows.push({ user_id: r.user_id, signal_id: r.signal_id, distance_mi: r.distance_mi, notified: quiet, pushed_at: quiet ? nowIso : null, ...(r.alert_hold ? { alert_hold: r.alert_hold } : {}) });
       }
