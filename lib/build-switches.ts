@@ -12,11 +12,15 @@
  * only (as for every variable on Vercel), and an instant rollback restores the value that build was made with (LAUNCH.md).
  *
  * Only on/off switches belong here, never a key or a secret: inlinedSwitchEnv inlines "1" or "" (the parsed answer), never the raw text.
- * next.config.ts passes the whole `env` block through normalizeSwitchEnv, so ANY entry (one added by another change too) is inlined as "1"
- * or "", and a name that is not an on/off switch (HOLLER_..._ENABLED) stops the build. `npm run build` then runs
- * scripts/check-client-switches.mjs, which fails the build if a browser chunk still reads a server variable at runtime.
+ * next.config.ts passes the whole `env` block through normalizeSwitchEnv, so ANY entry (one added by another change too) is inlined as the
+ * parsed answer, and a name that is not an on/off switch stops the build. `npm run build` then runs scripts/check-client-switches.mjs,
+ * which fails the build if a browser chunk still reads a server variable at runtime, or if a server bundle still reads an inlined name
+ * in a form Next does not replace (`process.env?.NAME`).
+ *
+ * Which names normalizeSwitchEnv accepts: every HOLLER_<WORDS>_ENABLED, and the five older on/off switches in OTHER_SWITCHES below, by name
+ * (never "any name"). They are read by different rules, so each is inlined by ITS rule (see SwitchReading).
  */
-export const INLINED_SWITCHES = ['HOLLER_SAM_LABELS_ENABLED', 'HOLLER_BUSINESS_TAG_FIX_ENABLED'] as const;
+export const INLINED_SWITCHES = ['HOLLER_SAM_LABELS_ENABLED', 'HOLLER_BUSINESS_TAG_FIX_ENABLED', 'HOLLER_ROAD_WORDS_ENABLED'] as const;
 
 export type InlinedSwitch = (typeof INLINED_SWITCHES)[number];
 
@@ -32,18 +36,60 @@ export function inlinedSwitchEnv(source: Record<string, string | undefined> = pr
   return out;
 }
 
-/** An on/off switch name: HOLLER_<WORDS>_ENABLED. Nothing else may be inlined into the bundles. */
+/**
+ * How a server reader turns the variable into on or off. The inlined text must give the browser reader the same answer:
+ *  - 'on-words': off unless 1, true, on or yes (switchOn). Inlined "1" or "".
+ *  - 'default-on': ON unless 0, false, off or no, so an unset variable is ON. Inlined "1" (on) or "0" (off), never "". A reader that
+ *    got "" for an off switch would turn it on again; that is why these are not folded into the on-words rule.
+ *  - 'one': on only when it is exactly "1" after trim (REVENUECAT_ALLOW_SANDBOX). Inlined "1" or "".
+ *  - 'one-raw': on only when it is exactly "1", no trim (HOLLER_PREVIEW_FIXTURES). Inlined "1" or "".
+ */
+export type SwitchReading = 'on-words' | 'default-on' | 'one' | 'one-raw';
+
+/** The on/off switches whose names are not HOLLER_<WORDS>_ENABLED. Nothing else may be inlined; add a name here only with its reading. */
+export const OTHER_SWITCHES: Readonly<Record<string, SwitchReading>> = {
+  REQUESTS_ENABLED: 'default-on', // lib/requests/enabled.ts requestsEnabled
+  HOLLER_PROBATION_FETCH: 'default-on', // lib/signals/probation-fetch.ts probationFetchOn
+  HOLLER_LOOKUP_DRY_RUN: 'on-words', // lib/enrich/business-lookup.ts lookupSettings
+  HOLLER_PREVIEW_FIXTURES: 'one-raw', // lib/seo/home-live.ts previewFixturesEnabled
+  REVENUECAT_ALLOW_SANDBOX: 'one', // lib/storebilling/revenuecat.ts
+};
+
+/** An on/off switch name: HOLLER_<WORDS>_ENABLED, or one of OTHER_SWITCHES. Nothing else may be inlined into the bundles. */
 export const SWITCH_NAME = /^HOLLER_[A-Z0-9_]+_ENABLED$/;
 
+export function isSwitchName(name: string): boolean {
+  return SWITCH_NAME.test(name) || Object.prototype.hasOwnProperty.call(OTHER_SWITCHES, name);
+}
+
+function readingOf(name: string): SwitchReading {
+  return Object.prototype.hasOwnProperty.call(OTHER_SWITCHES, name) ? OTHER_SWITCHES[name] : 'on-words';
+}
+
+/** The value inlined for one switch under its reading ("1", "0" or ""), never the raw text. */
+export function inlinedSwitchValue(name: string, raw: string | undefined | null): '1' | '0' | '' {
+  const text = typeof raw === 'string' ? raw : '';
+  switch (readingOf(name)) {
+    case 'default-on':
+      return /^\s*(?:0|false|off|no)\s*$/i.test(text) ? '0' : '1';
+    case 'one':
+      return text.trim() === '1' ? '1' : '';
+    case 'one-raw':
+      return text === '1' ? '1' : '';
+    default:
+      return switchOn(text) ? '1' : '';
+  }
+}
+
 /**
- * The final `env` block: every entry as "1" or "" (the parsed answer, never the raw text). Throws on a name that is not an on/off switch,
- * so a key or a secret can never be inlined into a browser bundle through next.config.ts.
+ * The final `env` block: every entry as the parsed answer ("1" or "", or "0" for a default-on switch), never the raw text. Throws on a name
+ * that is not an on/off switch, so a key or a secret can never be inlined into a browser bundle through next.config.ts.
  */
-export function normalizeSwitchEnv(env: Record<string, string | undefined> | undefined): Record<string, '1' | ''> {
-  const out: Record<string, '1' | ''> = {};
+export function normalizeSwitchEnv(env: Record<string, string | undefined> | undefined): Record<string, '1' | '0' | ''> {
+  const out: Record<string, '1' | '0' | ''> = {};
   for (const [name, value] of Object.entries(env ?? {})) {
-    if (!SWITCH_NAME.test(name)) throw new Error(`next.config.ts env: ${name} is not an on/off switch (HOLLER_..._ENABLED); only switches may be inlined.`);
-    out[name] = switchOn(value) ? '1' : '';
+    if (!isSwitchName(name)) throw new Error(`next.config.ts env: ${name} is not an on/off switch (HOLLER_..._ENABLED or one listed in lib/build-switches.ts OTHER_SWITCHES); only switches may be inlined.`);
+    out[name] = inlinedSwitchValue(name, value);
   }
   return out;
 }
