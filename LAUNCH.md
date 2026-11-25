@@ -144,7 +144,7 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    "on the 800 block of ...", "on several streets in <town>", "across the street from ..."), plural streets and avenues, a place name ("Boulevard
    Heights", "Parkway Village"), and any report that also names private property or a thing the tree fell on: a home, yard, apartment, duplex, trailer,
    condo, church, business, school, roof, shingles or gutters, siding, garage, camper, RV, car, SUV, pickup, truck, boat, driveway, parking lot,
-   patio, pool, fence, shed, deck, a vehicle or power lines, or a second "on / onto / into" in the same sentence ("down on Oak Ave, landed on ...").
+   patio, pool, fence, shed, deck, a vehicle or power lines, a hit verb between the tree and the street ("tree crushed a minivan on Elm St": crushed, hit, struck, damaged, smashed, landed on and similar, which ends the tie whatever the thing is), or a second "on / onto / into" in the same sentence ("down on Oak Ave, landed on ...").
    A report with shingles or gutters next to a street therefore keeps Act now (it never drops to feed only). "St" counts only as a street suffix
    ("Elm St", not "St. Louis"); "lane" alone, "Dr" and "Drive" do not count. Real Los Angeles wind remarks of Jan 7 to 9 2025 (124): tree service
    Act now 63 to 37. The switch is inlined at build (next.config.ts `env`), so the feed card in the browser and the server agree: it takes effect with

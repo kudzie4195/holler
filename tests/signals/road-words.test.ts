@@ -606,6 +606,32 @@ describe('review 2 of PR 25', () => {
     for (const r of ['Tree down. Backed up traffic on Elm St.', 'Tree down, traffic stopped on Elm St', 'Tree down; crews working on Elm St', 'Large tree fell. Elm St closed to traffic']) expect(treeOnRoadWordsOf(r), r).toBe(false);
     expect(treeOnRoadWordsOf('Tree down on Elm St and crews working')).toBe(true);
   });
+  it('review 3: a tree that hit, crushed or landed on a private thing is not "a tree on a road" (the verb ends the tie)', () => {
+    on();
+    const verbs = ['crushed', 'hit', 'struck', 'damaged', 'smashed', 'destroyed', 'pinned', 'totaled', 'landed on', 'fell on', 'squashed', 'flattened', 'hits', 'strikes'];
+    const things = ['a minivan', 'a jeep', 'a sedan', 'a tractor', 'a tent', 'a mailbox', 'a hot tub', 'a bus'];
+    for (const v of verbs) for (const t of things) {
+      const r = `Tree ${v} ${t} on Elm St.`;
+      expect(treeOnRoadWordsOf(r), r).toBe(false);
+    }
+    for (const r of ['Tree crushed a minivan on Elm St.', 'Tree hit a jeep on Maple Ave.', 'Tree smashed a sedan parked on Oak Ave.']) {
+      expect(treeOnRoadWordsOf(r), r).toBe(false);
+      expect(treeLabel(r), r).toBe('act_now');
+      expect(labelFor(lsrRow(r), 'tree-service'), r).toBe('act_now');
+    }
+    // Still a road when no hit verb sits between the tree and the road.
+    expect(treeOnRoadWordsOf('Tree down on Elm St.')).toBe(true);
+    expect(treeOnRoadWordsOf('Large tree fell across Maple Ave.')).toBe(true);
+  });
+  it('M24: "several", "many", "numerous" before the road word is an area, even for one singular road word', () => {
+    on();
+    for (const r of ['Trees down on several county roads including Oak St.', 'Trees down on many neighborhood side Elm St', 'Trees down on numerous county Maple Ave']) expect(treeOnRoadWordsOf(r), r).toBe(false);
+  });
+  it('M25: plural streets and avenues are an area, not one road', () => {
+    on();
+    for (const r of ['Trees down on streets in Marietta and Smyrna.', 'Trees down on avenues in Decatur.', 'Tree limbs down on boulevards in town.']) expect(treeOnRoadWordsOf(r), r).toBe(false);
+    expect(treeOnRoadWordsOf('Trees down on Elm Street in Marietta.')).toBe(true);
+  });
   it('P3-3: the stored flag says what it is (a street word main does not read), not "a tree on a road"', () => {
     on();
     const row = parseLsr({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { wfo: 'LOX', typetext: 'NON-TSTM WND DMG', magnitude: '', unit: null, county: 'Los Angeles', state: 'CA', city: '2 N BURBANK', valid: '2025-01-08T10:00:00Z', lat: 34.18, lon: -118.31, product_id: 'x', remark: 'Tree down on Highway 9.' } }] })[0];

@@ -393,7 +393,7 @@ export const ROAD_TREE_PHRASE = 'it names a street or freeway';
  */
 const TOK = "[a-z0-9'’-]+";
 const PLACE_STOP = 'near|between|along|of|from|at|block|blocks|miles?|mi|area|vicinity|or|vehicles?|cars?|trucks?|vans?|wires?|poles?|power|lines?';
-const GAP1 = `(?:\\s+(?!(?:${PLACE_STOP}|in|into|inside|on|onto|across|over|blocking|blocks|blocked|covering|closing|closed)\\b)${TOK}){0,4}`;
+const GAP1 = `(?:\\s+(?!(?:${PLACE_STOP}|in|into|inside|on|onto|across|over|blocking|blocks|blocked|covering|closing|closed|(?:crush|smash|hit|struck|strik|damag|destroy|pinn|total|land|squash|flatten)[a-z]*)\\b)${TOK}){0,4}`;
 const GAP2 = `(?:\\s+(?!(?:${PLACE_STOP}|by|on|onto|in|into|inside|behind|beside|outside|against|several|many|numerous|multiple|various)\\b)${TOK}){0,4}`;
 const NOT_A_NAME = 'of|in|at|near|to|from|the|a|an|by|and|or|on|onto|for|with|into|across|along|off|over|under|between|see|call|called|mr|mrs|ms|about|than|is|was|are|were|my|our|your|his|her|their|this|that|these|those|no|not|blocking|blocks|blocked|covering|closing|closed';
 const AFTER_ST =
