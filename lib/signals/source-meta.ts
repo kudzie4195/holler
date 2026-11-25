@@ -14,6 +14,7 @@ export interface SourceMeta {
 export const SOURCE_META: Record<string, SourceMeta> = {
   "nws": { id: "nws", label: "National Weather Service alerts", sourceUrl: "https://www.weather.gov/alerts" },
   "spc": { id: "spc", label: "NOAA Storm Prediction Center storm reports", sourceUrl: "https://www.spc.noaa.gov/climo/reports/" },
+  "lsr": { id: "lsr", label: "NWS local storm reports", sourceUrl: "https://mesonet.agron.iastate.edu/lsr/" },
   "fema": { id: "fema", label: "FEMA disaster declarations", sourceUrl: "https://www.fema.gov/disaster/declarations" },
   "usgs": { id: "usgs", label: "USGS earthquakes", sourceUrl: "https://earthquake.usgs.gov/earthquakes/map/" },
   "faa": { id: "faa", label: "FAA airport status", sourceUrl: "https://nasstatus.faa.gov/" },

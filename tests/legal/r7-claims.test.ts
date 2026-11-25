@@ -50,7 +50,8 @@ describe('privacy: AI processing', () => {
     } as Parameters<typeof toRecord>[0]);
     expect(Object.keys(r).sort()).toEqual(['city', 'id', 'kind', 'rule', 'source', 'state', 'subtype', 'summary', 'title']);
     expect(text).toContain('Weather alerts, storm reports, disaster declarations, earthquakes and airport delays are not sent at all.');
-    expect([...SKIP_SOURCES].sort()).toEqual(['faa', 'fema', 'holler-request', 'nws', 'spc', 'usgs']);
+    // Round 33: NWS local storm reports (lsr) are storm reports, so the sentence above covers them.
+    expect([...SKIP_SOURCES].sort()).toEqual(['faa', 'fema', 'holler-request', 'lsr', 'nws', 'spc', 'usgs']);
     // Review r3 P2 (d): requests are skipped entirely (SKIP_SOURCES), so nothing from one reaches the model.
     expect(text).toContain('Resident requests are not sent either. Nothing from a request reaches the model.');
     expect(text).toContain('It runs on a schedule, not when you open a page. Its sorting can be wrong. So can its notes.');

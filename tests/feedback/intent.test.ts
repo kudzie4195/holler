@@ -24,6 +24,7 @@ const SUBTYPE_INTENT: Record<string, Intent> = {
 const FIXED: Record<string, Intent> = {
   nws: 'demand',
   spc: 'demand',
+  lsr: 'demand', // round 33: NWS local storm reports (kind report)
   fema: 'demand',
   usgs: 'demand',
   faa: 'demand',

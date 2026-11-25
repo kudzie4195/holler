@@ -235,7 +235,7 @@ export function sourcePlaces(): Map<string, string | null> {
 }
 
 /** Registered sources that cover the whole country (no place of their own). tests/admin/metros.test.ts fails when an adapter is in neither list. */
-export const NATIONAL_SOURCES: readonly string[] = ['nws', 'spc', 'fema', 'usgs', 'faa', 'usaspending', 'sam-gov', 'bids-erate', 'ticketmaster', 'bluesky', 'websearch-brave', 'websearch-serper'];
+export const NATIONAL_SOURCES: readonly string[] = ['nws', 'spc', 'lsr', 'fema', 'usgs', 'faa', 'usaspending', 'sam-gov', 'bids-erate', 'ticketmaster', 'bluesky', 'websearch-brave', 'websearch-serper'];
 
 // ---- where a card is ------------------------------------------------------------------------------------------------------------------
 

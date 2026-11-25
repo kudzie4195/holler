@@ -1,4 +1,5 @@
 import type { CategoryId } from './categories';
+import type { WeatherFacts } from './weather-hazard';
 
 /**
  * Record vocabulary shared by the label rules (lib/signals/lead-rules.ts) and the trades a record reaches (lib/signals/permit-routing.ts
@@ -258,6 +259,65 @@ export function weatherRowFor(title: string | null | undefined): (typeof WEATHER
   return WEATHER_EVENTS.find((w) => w.re.test(e)) ?? null;
 }
 
+// ---- hail size and wind gust routing (round 33, HOLLER_HAIL_ROUTING_ENABLED) --------------------------------------------------------
+
+/**
+ * Round 33 (HAIL): the trades a hail size or a wind gust reaches, read from what the record itself says (the NWS alert's CAP maxHailSize and
+ * maxWindGust, or its text; the size or gust in an SPC or LSR report title). The facts arrive only while HOLLER_HAIL_ROUTING_ENABLED is on
+ * (lib/signals/weather-hazard.ts weatherFactsOf), so with the switch off nothing below changes a label or a carried trade.
+ *
+ * Thresholds are the National Weather Service severe thunderstorm criteria: "hail of 1 inch (quarter) diameter or greater, and/or wind gusts
+ * of 50 knots (58 mph) or greater" (weather.gov/dtx/convective_defs, checked 2026-11-25). The 1 inch hail line is also the one the r30 WX
+ * research kept (gates/r30/WX.md section 2.2) and the one spc-hail already uses for siding and gutters (line 41).
+ *
+ * The routed trades are ADDED to the record's own routing, never removed. For an NWS alert the routed trade gets the strongest level the
+ * alert's WEATHER_EVENTS row already gives any trade (a warning: heads-up; a watch or advisory: feed only, as line 34 decided); an event row
+ * with no cells (statements, marine) routes nothing. For a storm report the existing storm rules decide the label.
+ */
+export const HAIL_ROUTE_MIN_INCHES = 1;
+export const GUST_ROUTE_MIN_MPH = 58;
+
+export const HAZARD_ROUTES: ReadonlyArray<{ id: 'hail' | 'gust'; min: number; trades: readonly CategoryId[]; why: string }> = [
+  { id: 'hail', min: HAIL_ROUTE_MIN_INCHES, trades: ['siding-gutters', 'roofing'], why: 'Hail of 1 inch (quarter) or more is the NWS severe line; it is the size that dents gutters, siding and roofs.' },
+  { id: 'gust', min: GUST_ROUTE_MIN_MPH, trades: ['tree-service', 'siding-gutters'], why: 'Gusts of 58 mph (50 knots) or more are the NWS severe line; they bring down limbs and pull gutters and siding loose.' },
+];
+
+/** The trades the record's hail size and gust reach (empty without facts, below the thresholds, or with the switch off). */
+export function hazardRouteTrades(facts: WeatherFacts | null | undefined): CategoryId[] {
+  if (!facts) return [];
+  const out: CategoryId[] = [];
+  for (const r of HAZARD_ROUTES) {
+    const v = r.id === 'hail' ? facts.hailInches : facts.gustMph;
+    if (typeof v === 'number' && v >= r.min) for (const t of r.trades) if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+/** The strongest level an NWS event row gives any trade, or null for a row with no cells (it alerts nobody, so it routes nobody). */
+export function strongestWeatherCell(row: (typeof WEATHER_EVENTS)[number] | null): WeatherCell | null {
+  if (!row) return null;
+  const cells = Object.values(row.cells);
+  return cells.includes('coming_soon') ? 'coming_soon' : cells.length ? 'market_insight' : null;
+}
+
+/** Event rows the hail and gust routing never uses: floods and coastal products (a flood product's numbers are water, not roofs or trees). */
+const HAZARD_ROUTE_SKIPPED_ROWS: ReadonlySet<string> = new Set(['minor', 'coastal-flood-warning', 'coastal', 'flood-warning', 'flood-advisory-watch']);
+
+/**
+ * The level the hail and gust routing gives its trades on an NWS alert (review P2-1): a WARNING (or emergency) gets the strongest level its
+ * event row gives any trade; a WATCH, ADVISORY or statement gets feed only (market_insight), whatever its row gives snow removal; flood,
+ * coastal and no-cell rows route nothing (null).
+ */
+export function hazardRouteLevel(title: string | null | undefined): WeatherCell | null {
+  const row = weatherRowFor(title);
+  if (!row || HAZARD_ROUTE_SKIPPED_ROWS.has(row.id)) return null;
+  const strongest = strongestWeatherCell(row);
+  if (!strongest) return null;
+  const event = nwsEventOf(title);
+  const warning = /\b(?:warning|emergency)\b/.test(event) && !/\b(?:watch|advisory|statement)\b/.test(event);
+  return warning ? strongest : 'market_insight';
+}
+
 // ---- storm reports (lines 38 to 41) --------------------------------------------------------------------------------------------
 
 /** "1.75 inch hail reported near ..." gives 1.75; null when the title does not give a size. */
@@ -274,20 +334,64 @@ export const isWindDamageReport = (title: string | null | undefined) => /^wind d
 export const isTornadoReport = (title: string | null | undefined) => /^tornado/i.test((title ?? '').trim());
 
 /**
+ * Round 33 (review P1-3): the five facts the wind damage rule reads from a remark, as flags. The LSR adapter computes them from the remark in
+ * memory, stores the flags (never the remark) and writes a summary of fixed phrases (lsrSummaryOf) from which these same five facts are read
+ * back, so an LSR report and an SPC report with the same remark get the same label for every trade.
+ */
+export interface WindDamageFacts {
+  /** Trees, limbs or branches named (before the road exception). */
+  trees: boolean;
+  /** A road, highway, ramp or a blocked street or lane named. */
+  road: boolean;
+  /** A roof, shingles, siding or gutters named. */
+  roof: boolean;
+  /** A home, house, residence, garage, carport, porch, structure or building (or a roof) named. */
+  structure: boolean;
+  /** A home, house, yard or residence named (the road exception's "but at a home" test). */
+  homeOrYard: boolean;
+}
+
+/**
+ * The line 39 rule's own word patterns, shared (not copied) with the LSR adapter (adapters/lsr-parts.ts, review 3 R3-1): the LSR row takes
+ * its road and roof facts from these same patterns, so it can never read fewer road or roof words than an SPC row with the same remark.
+ * `roof` is the union of roofOrSiding (which the rule also reads as a structure) and shinglesOrGutters (which it does not).
+ */
+export const WIND_DAMAGE_PATTERNS = {
+  trees: /\btrees?\b|limb|branch|uproot|snapped|felled/,
+  road: /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/,
+  // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
+  // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
+  roofOrSiding: /(?<!p)roof|siding/,
+  shinglesOrGutters: /shingle|gutter/,
+  structure: /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/,
+  homeOrYard: /home|house|yard|residen/,
+} as const;
+
+export function windDamageFactsOf(text: string | null | undefined): WindDamageFacts {
+  const c = lower(text);
+  const P = WIND_DAMAGE_PATTERNS;
+  return {
+    trees: P.trees.test(c),
+    road: P.road.test(c),
+    roof: P.roofOrSiding.test(c) || P.shinglesOrGutters.test(c),
+    structure: P.structure.test(c),
+    homeOrYard: P.homeOrYard.test(c),
+  };
+}
+
+/**
  * Line 39: engine B's stormReportRule for a wind damage report, per trade, read from the report's own remark (the summary). A tree across
  * a highway, ramp or road is a road crew's job, not a homeowner's.
  */
+export function windDamageLevelOf(f: WindDamageFacts, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
+  const trees = f.trees && !(f.road && !f.homeOrYard);
+  if (trade === 'tree-service') return trees ? 'act_now' : f.roof ? 'market_insight' : 'coming_soon';
+  if (trade === 'roofing') return f.roof ? 'act_now' : 'coming_soon';
+  return f.structure ? 'act_now' : 'coming_soon';
+}
+
 export function windDamageLevel(summary: string | null | undefined, trade: 'roofing' | 'restoration' | 'tree-service'): 'act_now' | 'coming_soon' | 'market_insight' {
-  const c = lower(summary);
-  const road = /interstate|highway|\bhwy\b|on.?ramp|off.?ramp|\bi-\d|\broad(?:way)?\b|blocking (?:the )?(?:street|lane)/.test(c);
-  const trees = /\btrees?\b|limb|branch|uproot|snapped|felled/.test(c) && !(road && !/home|house|yard|residen/.test(c));
-  // "tarp" alone is not roof work (review P3 item 6, rows 81317 and 90466: a tarp blown off the ground)
-  // Round 24 (cells report data bug): "roof" never matches inside "proof" ("WATERPROOF", "FIREPROOF"); "reroof" still counts.
-  const roof = /(?<!p)roof|shingle|siding|gutter/.test(c);
-  const homeDamage = /home|house|residen|(?<!p)roof|siding|garage|carport|porch|structure|building/.test(c);
-  if (trade === 'tree-service') return trees ? 'act_now' : roof ? 'market_insight' : 'coming_soon';
-  if (trade === 'roofing') return roof ? 'act_now' : 'coming_soon';
-  return homeDamage ? 'act_now' : 'coming_soon';
+  return windDamageLevelOf(windDamageFactsOf(summary), trade);
 }
 
 // ---- permit stages (criterion 6: stage updates unchanged) --------------------------------------------------------------------------
@@ -309,6 +413,8 @@ export interface CarryInput {
   subtype?: string | null;
   title?: string | null;
   summary?: string | null;
+  /** Round 33: hail size and gust (lib/signals/weather-hazard.ts weatherFactsOf; null while HOLLER_HAIL_ROUTING_ENABLED is off). */
+  weather?: WeatherFacts | null;
 }
 
 /**
@@ -317,7 +423,8 @@ export interface CarryInput {
  *  - a Kansas City property violation reaches the trades its subtype names (line 9);
  *  - a code violation reaches the repair trades its order names (line 13);
  *  - a High Wind, Severe Thunderstorm or Tornado Warning reaches siding and gutters (line 37);
- *  - a hail report of 1 inch or more reaches siding and gutters (line 41).
+ *  - a hail report of 1 inch or more reaches siding and gutters (line 41);
+ *  - round 33, switch on: a hail size or gust at or above HAZARD_ROUTES reaches its trades (an NWS alert only when its event row has cells).
  * Building permits are not handled here: their downstream trades come from permit-routing.ts.
  */
 export function extraCarried(sig: CarryInput): CategoryId[] {
@@ -333,11 +440,18 @@ export function extraCarried(sig: CarryInput): CategoryId[] {
     if (ABATEMENT_RE.test(orderText(sig.title))) return [];
     return violationTrades(sig.title, sig.summary);
   }
-  if (source === 'nws' || kind === 'alert') return [...(weatherRowFor(sig.title)?.carry ?? [])];
+  const hazard = hazardRouteTrades(sig.weather);
+  const plus = (base: readonly CategoryId[]) => [...base, ...hazard.filter((t) => !base.includes(t))];
+  if (source === 'nws' || kind === 'alert') {
+    const row = weatherRowFor(sig.title);
+    const base = [...(row?.carry ?? [])];
+    return source === 'nws' && hazardRouteLevel(sig.title) ? plus(base) : base;
+  }
   if (source === 'spc' && isHailReport(sig.title)) {
     const inches = hailInchesOf(sig.title);
-    return inches !== null && inches >= 1 ? ['siding-gutters'] : [];
+    return plus(inches !== null && inches >= 1 ? ['siding-gutters'] : []);
   }
+  if (source === 'spc' || source === 'lsr') return plus([]);
   return [];
 }
 

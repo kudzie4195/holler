@@ -100,6 +100,8 @@ const norm = (v: string | null | undefined) => (typeof v === 'string' ? v.trim()
 const SOURCE_FAMILY: Record<string, BriefFamily> = {
   'nws': 'weather-alert',
   'spc': 'storm-report',
+  // Round 33: NWS local storm reports (HOLLER_LSR_ENABLED), the same kind of record as an SPC report.
+  'lsr': 'storm-report',
   'fema': 'disaster',
   'usgs': 'quake',
   'faa': 'airport',
@@ -799,6 +801,11 @@ export interface CardBrief extends Brief {
    * building may be ready soon." Timing only. Null for every other record, and for a stage that is not a trigger. Needs migration 0025.
    */
   stageLine: string | null;
+  /**
+   * Round 33 (HAIL), NWS weather alerts only, while HOLLER_HAIL_ROUTING_ENABLED is on: what the alert itself names, "The weather service
+   * warned of hail up to 1.75 inches in this area. Nothing is confirmed for any property." Never says damage happened. Null otherwise.
+   */
+  alertLine: string | null;
 }
 
 export interface CardBriefInput extends BriefInput {
@@ -815,7 +822,34 @@ export interface CardBriefInput extends BriefInput {
   /** data.permitStage and data.permitStageAt of the record (migration 0025 feature). Pass null for a locked member. */
   permitStage?: unknown;
   permitStageAt?: string | null;
+  /**
+   * Round 33: the hail size (inches) and gust (mph) an NWS alert names, from lib/signals/weather-hazard.ts weatherCardFields, which gives
+   * nulls while HOLLER_HAIL_ROUTING_ENABLED is off. The surface computes them on the server. Pass null for a locked member.
+   */
+  alertHailIn?: number | null;
+  alertGustMph?: number | null;
 }
+
+/** "1.75" and "1.00": two decimals, the way the weather service writes hail sizes. */
+export function hailInchesText(n: number): string {
+  return n.toFixed(2);
+}
+
+/**
+ * Round 33: the line saying what an NWS alert names, in English (brief-i18n.ts alertLineLang for other languages). Only for the weather-alert
+ * family and only when a size or gust is given. It quotes the alert; it never says a property was hit.
+ */
+export function alertLineFor(input: Pick<CardBriefInput, 'source' | 'kind' | 'subtype' | 'alertHailIn' | 'alertGustMph'>): string | null {
+  if (briefFamilyOf(input) !== 'weather-alert') return null;
+  const hail = typeof input.alertHailIn === 'number' && input.alertHailIn > 0 ? hailInchesText(input.alertHailIn) : null;
+  const gust = typeof input.alertGustMph === 'number' && input.alertGustMph > 0 ? String(Math.round(input.alertGustMph)) : null;
+  if (!hail && !gust) return null;
+  const what = hail && gust ? `hail up to ${hail} inches and wind gusts up to ${gust} mph` : hail ? `hail up to ${hail} inches` : `wind gusts up to ${gust} mph`;
+  return `The weather service warned of ${what} in this area. ${ALERT_LINE_NOTE}`;
+}
+
+/** The second sentence of the alert line: the alert is a warning, not a report about any property. */
+export const ALERT_LINE_NOTE = 'Nothing is confirmed for any property.';
 
 /**
  * The record's summary as a card prints it (part 1): the same summary, minus the "$N job value" part when the card also prints the
@@ -842,6 +876,7 @@ export function cardBrief(input: CardBriefInput): CardBrief {
     managedBy: briefFamilyOf(input) === '311' && isResidentialHeatTitle(input.title) ? managedByLineFrom(input.managerName, input.managerRole) : null,
     valueLine: briefFamilyOf(input) === 'permit' ? jobValueLine({ jobValue: input.jobValue, summary: input.summary }) : null,
     stageLine: briefFamilyOf(input) === 'permit' ? stageLine(input.permitStage, input.permitStageAt) : null,
+    alertLine: alertLineFor(input),
   };
 }
 

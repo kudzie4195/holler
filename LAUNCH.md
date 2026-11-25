@@ -123,6 +123,17 @@ sign-up trade list, the data-use consent box, the lists and door hanger on the p
    cards are a heads-up, not an Act now: the record has no bid deadline (its one date is the EARLIEST day a contract may be signed), and
    only providers registered with USAC (a SPIN) can be paid. Rollback: empty the variable and redeploy; stored `bids-erate` cards
    disappear at once, the other bid sources stay. A stored card whose form USAC later lists as Canceled is closed on the next run.
+   NEEDS KUDZI (round 33 hail): `HOLLER_HAIL_ROUTING_ENABLED` stays empty at the deploy. Off, every label, carried trade and card is
+   exactly as before (replay anchor unchanged: 4,985 / 3,949 / 9.0 / 21.1). On: an NWS alert that names hail of 1 inch or more also
+   reaches siding and gutters and roofing, and gusts of 58 mph or more (an alert, or an SPC or LSR gust report) also reach tree service
+   and siding and gutters (the NWS severe criteria); a warning gives them a heads-up, a watch or advisory feed only. NWS weather cards
+   then show "The weather service warned of hail up to 1.75 inches in this area. Nothing is confirmed for any property." (EN and ES).
+   Replay with it on (14-day export): +10 heads-up pairs, all siding and gutters on SPC gusts of 58 to 69 mph; Los Angeles siding and
+   gutters 21.1 to 21.5 heads-up a day (ceiling 25). The CAP numbers are stored on every new alert from the deploy on, switch or not.
+   NEEDS KUDZI (round 33 LSR): `HOLLER_LSR_ENABLED` stays empty at the deploy; off, no request is made. On: hourly, one request to the
+   Iowa Environmental Mesonet LSR GeoJSON for seven NWS offices (Atlanta, Austin, Charlotte, Raleigh, New York, Chicago, Los Angeles),
+   storing only non-thunderstorm wind damage and gust reports (SPC already carries hail and thunderstorm wind). The report's remark is
+   never stored. Turn on after one look at a scan's `lsr` row in the health email.
 7. NEEDS KUDZI (round 24 FIX2, review D6), next to step 1 (0038): the two checks to run in the Supabase SQL editor, BEFORE and AFTER 0038.
    No test in the repo can run 0038 without PGlite (`tests/ops/migration-0038.test.ts` lists its cases as "NEEDS PGlite ... NOT RUN"
    when it is missing). An independent run executed 0038 twice on a database built from the live migration set

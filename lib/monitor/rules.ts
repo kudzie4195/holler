@@ -39,7 +39,7 @@ export const SCAN_LOOKBACK_MS = DAY;
  * Bluesky only searches since the last run). They still alert when the fetch itself is failing. Only nws is left: the national active
  * alert list is never empty for a day, so zero rows there is a break.
  */
-export const ZERO_ROWS_IS_NORMAL = new Set(['spc', 'usgs', 'faa', 'bluesky']);
+export const ZERO_ROWS_IS_NORMAL = new Set(['spc', 'lsr', 'usgs', 'faa', 'bluesky']);
 
 export type ConditionCode = 'scan_stale' | 'scan_error' | 'feed_silent' | 'source_silent' | 'source_down';
 

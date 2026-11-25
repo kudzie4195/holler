@@ -44,6 +44,9 @@ const EXACT_GAP_DAYS: Record<string, number> = {
   usgs: NORMAL_GAP_DAYS.weather,
   faa: NORMAL_GAP_DAYS.weather,
   bluesky: NORMAL_GAP_DAYS.weather,
+  // Round 33 (review 2 P2-1): NWS local storm reports keep only non-thunderstorm wind damage and gusts, which can be absent for weeks in
+  // quiet weather, so a month without a new row is not a break (a request that stops working is flagged by the adapter's weekly check).
+  lsr: NORMAL_GAP_DAYS.federal,
   usaspending: NORMAL_GAP_DAYS.federal,
   'sam-gov': NORMAL_GAP_DAYS.federal,
   fema: NORMAL_GAP_DAYS.federal,

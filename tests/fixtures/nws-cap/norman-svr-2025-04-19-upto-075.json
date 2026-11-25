@@ -1,0 +1,151 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4ebc09077b33ece65371299c58a261577a62273b.001.1",
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -96.01,
+       35.14
+      ],
+      [
+       -96.01,
+       35.12
+      ],
+      [
+       -96.03,
+       35.12
+      ],
+      [
+       -96.06,
+       35.089999999999996
+      ],
+      [
+       -96.0699999,
+       35.059999999999995
+      ],
+      [
+       -96.09,
+       35.05
+      ],
+      [
+       -96.09,
+       34.979999899999996
+      ],
+      [
+       -96.22,
+       34.979999899999996
+      ],
+      [
+       -96.17,
+       35.15
+      ],
+      [
+       -96.44,
+       35.28
+      ],
+      [
+       -96.44,
+       35.29
+      ],
+      [
+       -95.98,
+       35.29
+      ],
+      [
+       -95.98,
+       35.15
+      ],
+      [
+       -96.01,
+       35.14
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4ebc09077b33ece65371299c58a261577a62273b.001.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.4ebc09077b33ece65371299c58a261577a62273b.001.1",
+    "areaDesc": "Hughes, OK",
+    "geocode": {
+     "SAME": [
+      "040063"
+     ],
+     "UGC": [
+      "OKC063"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/county/OKC063"
+    ],
+    "references": [],
+    "sent": "2025-04-19T23:07:00-05:00",
+    "effective": "2025-04-19T23:07:00-05:00",
+    "onset": "2025-04-19T23:07:00-05:00",
+    "expires": "2025-04-19T23:30:00-05:00",
+    "ends": "2025-04-19T23:30:00-05:00",
+    "status": "Actual",
+    "messageType": "Alert",
+    "category": "Met",
+    "severity": "Severe",
+    "certainty": "Observed",
+    "urgency": "Immediate",
+    "event": "Severe Thunderstorm Warning",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS Norman OK",
+    "headline": "Severe Thunderstorm Warning issued April 19 at 11:07PM CDT until April 19 at 11:30PM CDT by NWS Norman OK",
+    "description": "SVROUN\n\nThe National Weather Service in Norman has issued a\n\n* Severe Thunderstorm Warning for...\nNortheastern Hughes County in southeastern Oklahoma...\n\n* Until 1130 PM CDT.\n\n* At 1107 PM CDT, severe thunderstorms were located along a line\nextending from 3 miles southeast of Bearden to 6 miles north of\nLamar to 5 miles east of Calvin, moving northeast at 40 mph.\n\nHAZARD...70 mph wind gusts.\n\nSOURCE...Radar indicated.\n\nIMPACT...Expect considerable tree damage. Damage is likely to\nmobile homes, roofs, and outbuildings.\n\n* Locations impacted include...\nWetumka, Dustin, and Lamar.",
+    "instruction": "Remain alert for a possible tornado! Tornadoes can develop quickly\nfrom severe thunderstorms. If you spot a tornado go at once into the\nbasement or small central room in a sturdy structure.\n\nFor your protection move to an interior room on the lowest floor of a\nbuilding.\n\nA Tornado Watch remains in effect for the warned area.",
+    "response": "Shelter",
+    "parameters": {
+     "AWIPSidentifier": [
+      "SVROUN"
+     ],
+     "WMOidentifier": [
+      "WUUS54 KOUN 200407"
+     ],
+     "eventMotionDescription": [
+      "2025-04-20T04:07:00-00:00...storm...230DEG...34KT...35.31,-96.35 35.19,-96.11 34.98,-96.15"
+     ],
+     "windThreat": [
+      "RADAR INDICATED"
+     ],
+     "maxWindGust": [
+      "70 MPH"
+     ],
+     "hailThreat": [
+      "RADAR INDICATED"
+     ],
+     "maxHailSize": [
+      "Up to .75"
+     ],
+     "thunderstormDamageThreat": [
+      "CONSIDERABLE"
+     ],
+     "tornadoDetection": [
+      "POSSIBLE"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "EAS-ORG": [
+      "WXR"
+     ],
+     "VTEC": [
+      "/O.NEW.KOUN.SV.W.0129.250420T0407Z-250420T0430Z/"
+     ],
+     "eventEndingTime": [
+      "2025-04-20T04:30:00+00:00"
+     ]
+    }
+   }
+  }
+ ]
+}

@@ -3,7 +3,9 @@ import { fixedTextLang, permitLabelLang, tradeIdFromEnglishLabel } from './title
 import { hasKey, t, localizeDate, type Lang, type DictKey } from '@/lib/i18n';
 import {
   BRIEF_FAMILIES,
+  alertLineFor,
   briefFamilyOf,
+  hailInchesText,
   briefFor,
   briefSource,
   awardWorkOf,
@@ -285,7 +287,19 @@ export function cardBriefLang(input: CardBriefInput, lang: Lang): CardBrief {
     managedBy: family === '311' && isResidentialHeatTitle(input.title) ? managedByLineFromLang(input.managerName, input.managerRole, lang) : null,
     valueLine: family === 'permit' ? jobValueLineLang({ jobValue: input.jobValue, summary: input.summary }, lang) : null,
     stageLine: family === 'permit' ? stageLine(input.permitStage, input.permitStageAt, lang) : null,
+    alertLine: alertLineLang(input, lang),
   };
+}
+
+/** Round 33: the alert line (brief.ts alertLineFor) in `lang`. English is alertLineFor, byte for byte. */
+export function alertLineLang(input: Pick<CardBriefInput, 'source' | 'kind' | 'subtype' | 'alertHailIn' | 'alertGustMph'>, lang: Lang): string | null {
+  if (lang === 'en') return alertLineFor(input);
+  if (briefFamilyOf(input) !== 'weather-alert') return null;
+  const inches = typeof input.alertHailIn === 'number' && input.alertHailIn > 0 ? hailInchesText(input.alertHailIn) : null;
+  const mph = typeof input.alertGustMph === 'number' && input.alertGustMph > 0 ? String(Math.round(input.alertGustMph)) : null;
+  if (!inches && !mph) return null;
+  const head = inches && mph ? t(lang, 'brief.alert.both', { inches, mph }) : inches ? t(lang, 'brief.alert.hail', { inches }) : t(lang, 'brief.alert.gust', { mph: mph as string });
+  return `${head} ${t(lang, 'brief.alert.note')}`;
 }
 
 /**

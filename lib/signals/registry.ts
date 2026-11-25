@@ -1,6 +1,7 @@
 import type { Adapter } from './types';
 import { adapters as nws } from './adapters/nws';
 import { adapters as spc } from './adapters/spc';
+import { adapters as lsr } from './adapters/lsr';
 import { adapters as fema } from './adapters/fema';
 import { adapters as usgs } from './adapters/usgs';
 import { adapters as faa } from './adapters/faa';
@@ -25,6 +26,8 @@ import { adapters as houstonPermits } from './adapters/houston-permits';
 export const ALL_ADAPTERS: Adapter[] = [
   ...nws,
   ...spc,
+  // Round 33: NWS local storm reports SPC does not carry (non-thunderstorm wind). Off unless HOLLER_LSR_ENABLED is on.
+  ...lsr,
   ...fema,
   ...usgs,
   ...faa,
