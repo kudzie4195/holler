@@ -54,7 +54,7 @@ export interface MatchSignal {
   occurred_at: string;
   /** data.subtype of the record ('business', 'permit', ...). Either this or data.subtype may be present. */
   subtype?: string | null;
-  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown } | null;
+  data?: { subtype?: unknown; loc?: unknown; approxLocation?: unknown; alertId?: unknown; projectOf?: unknown; type?: unknown; hailInches?: unknown; windDamage?: unknown; comments?: unknown; permitStage?: unknown; setAside?: unknown } | null;
   /** Source id: a source listed in APPROX_LOCATION_SOURCES has a stand-in position (lib/signals/approx-location.ts). */
   source?: string | null;
   /**
@@ -137,6 +137,8 @@ const labelInputOf = (signal: MatchSignal): LabelInput => ({
   // An SPC report's own fields decide its storm label when the row carries its data (round 18 integration).
   storm: stormFactsOf(signal.source, signal.data),
   permitStage: signal.data?.permitStage,
+  // Federal notices (round 33): a sole-source set-aside is a heads-up, read only while HOLLER_SAM_LABELS_ENABLED is on.
+  ...(typeof signal.data?.setAside === 'string' ? { setAside: signal.data.setAside } : {}),
   // Where the record is (review P3 item 18: a federal bid with no point is feed only): the same rules decide here as on every surface.
   lat: signal.lat,
   lon: signal.lon,

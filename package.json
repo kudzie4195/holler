@@ -12,6 +12,7 @@
     "replay:labels": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-labels.ts",
     "replay:trades": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/replay-trades.ts",
     "replay:rules": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/rules-replay.ts",
+    "sam:backfill": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/sam-backfill.ts",
     "score:trades": "JITI_TSCONFIG_PATHS=1 node node_modules/jiti/lib/jiti-cli.mjs scripts/trade-coverage.ts"
   },
   "dependencies": {

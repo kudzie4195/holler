@@ -23,6 +23,7 @@ import {
 import { carriedTrades, permitLabelsOf, routeFor, routeKindsOf, type RouteKind } from './permit-routing';
 import { jobValueOf } from './permit-value';
 import { ruleChoice, type RuleChoices } from './rule-choices';
+import { isSoleSourceSetAside, samLabelsEnabled } from './sam-labels-switch';
 
 /**
  * Opportunity labels (PLAN-2.0 section 3, items 0.1 to 0.3). Every (signal, trade) pair gets exactly one label, and the label decides
@@ -106,6 +107,8 @@ export interface LabelInput {
   title?: string | null;
   /** The record's summary. A permit's holds its structured type and class, which routing reads (permit-routing.ts). Optional. */
   summary?: string | null;
+  /** Federal notices: data.setAside (round 33). Read only with HOLLER_SAM_LABELS_ENABLED on: a sole-source notice is a heads-up. Optional. */
+  setAside?: string | null;
   /**
    * An SPC storm report's own structured fields (lib/signals/wind-damage.ts stormFactsOf, from data.type, data.hailInches and the wind
    * damage flag). When present the storm rule reads only these; absent (a row read without its data), it falls back to the title.
@@ -323,7 +326,14 @@ const quakeMagnitude = (title: string | null | undefined) => {
 };
 
 /** Line 44: SAM.gov notices that are not yet a solicitation (the notice type is the summary's first part). */
-const NOT_YET_BID_RE = /presolicitation|sources?\s+sought|special\s+notice|intent\s+to\s+bundle/i;
+export const NOT_YET_BID_RE = /presolicitation|sources?\s+sought|special\s+notice|intent\s+to\s+bundle/i;
+/**
+ * Round 33 (only with HOLLER_SAM_LABELS_ENABLED on): the hyphenated spelling of a presolicitation, and a sole-source notice (the agency names
+ * the one business it means to buy from, so it is not open for offers). Both are heads-ups. Off, the rule is exactly what it was.
+ */
+const EARLY_VARIANT_RE = /pre[-\s]+solicitation/i;
+const notYetBid = (s: LabelInput) =>
+  NOT_YET_BID_RE.test(sumParts(s.summary)[0] ?? '') || (samLabelsEnabled() && (EARLY_VARIANT_RE.test(sumParts(s.summary)[0] ?? '') || isSoleSourceSetAside(s.setAside)));
 /** A bid whose place of performance has a real city name before the state ("Federal bid in Denver, CO: ..."). "0, MI" is not a city. */
 const PLACED_BID_RE = /^Federal bid in (?!0,)[^,:]*[A-Za-z][^,:]*, [A-Z]{2}:/;
 /** Round 19 UNIFY review, defect 2: a notice that names a state and no city ("Federal bid in GA: ..."). */
@@ -401,7 +411,7 @@ export const RULES: readonly LabelRule[] = [
     id: 'soon-bid-not-open',
     label: 'coming_soon',
     sources: ['sam-gov'],
-    when: (s) => NOT_YET_BID_RE.test(sumParts(s.summary)[0] ?? '') || !PLACED_BID_RE.test(s.title ?? ''),
+    when: (s) => notYetBid(s) || !PLACED_BID_RE.test(s.title ?? ''),
     line: 44,
     why: 'A presolicitation, sources sought, special notice or intent to bundle is not yet open for offers, and a bid with no city of performance cannot be placed: a heads-up, not act now.',
   },
@@ -1333,13 +1343,15 @@ export function recordLabelInput(s: {
   subtype?: string | null;
   title?: string | null;
   summary?: string | null;
+  /** data.setAside of a federal notice (the feed's samSetAside alias). */
+  samSetAside?: string | null;
   permitStage?: unknown;
   lat?: number | null;
   lon?: number | null;
   state?: string | null;
   severity?: number | null;
 }): LabelInput {
-  const base: LabelInput = { source: s.source ?? '', kind: s.kind ?? null, subtype: s.subtype ?? null, title: s.title ?? null, summary: s.summary ?? null, permitStage: s.permitStage };
+  const base: LabelInput = { source: s.source ?? '', kind: s.kind ?? null, subtype: s.subtype ?? null, title: s.title ?? null, summary: s.summary ?? null, permitStage: s.permitStage, ...(s.samSetAside ? { setAside: s.samSetAside } : {}) };
   return s.lat === undefined || s.severity === undefined ? base : { ...base, lat: s.lat ?? null, lon: s.lon ?? null, state: s.state ?? null, severity: s.severity ?? null };
 }
 

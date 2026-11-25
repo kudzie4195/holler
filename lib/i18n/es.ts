@@ -1,5 +1,6 @@
 import type { DictKey } from './en';
 import { ES_ACCOUNT } from './es-account';
+import { ES_SAM } from './es-sam';
 
 /**
  * Latin American business Spanish: "usted", short sentences, plain words. The brand name stays "Holler". Wording rules are in
@@ -1399,4 +1400,6 @@ export const es: Record<DictKey, string> = {
   'chk.shown.one_feed': 'El registro que se muestra aquí no se le habría enviado por correo. Estaría en su página de coincidencias.',
   // Ronda 18, unidad ES: precios, registro, la aplicación web, Configuración, pagos y los correos de la cuenta (lib/i18n/es-account.ts).
   ...ES_ACCOUNT,
+  // Ronda 33 (SAM): etiquetas de aviso anticipado y de reserva en un aviso federal (lib/i18n/es-sam.ts).
+  ...ES_SAM,
 };

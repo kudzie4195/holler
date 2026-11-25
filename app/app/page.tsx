@@ -19,6 +19,7 @@ import { priceLabel, renewalNote, TIER_LABEL } from '@/lib/stripe/plans';
 import { approxLocationNote, hasApproxLocation } from '@/lib/signals/approx-location';
 import { MANAGER_SELECT } from '@/lib/signals/managed-by';
 import { bidCardLine } from '@/lib/signals/bid-card';
+import { SAM_SELECT, samCardLine } from '@/lib/signals/sam-notice';
 import { bidHidden } from '@/lib/signals/bid-sources';
 import { matchScope } from '@/lib/plan/scope';
 import { HOLLER_REQUEST_SOURCE, isEndedRequest } from '@/lib/signals/request-visibility';
@@ -82,6 +83,8 @@ interface SignalRow {
   dueDate?: string | null;
   /** City open bids only (data.buyer): the buyer. The due day comes from dueDate above. */
   bidBuyer?: string | null;
+  /** Federal notices only (data.setAside): the set-aside the notice carries. */
+  samSetAside?: string | null;
   /** NYC no-heat rows only (data.managerName, data.managerRole): the company the city's building registration names. */
   managerName?: string | null;
   managerRole?: string | null;
@@ -127,7 +130,7 @@ async function loadDashboard() {
   const readFeed = (holdCol: string) => supabase
     .from('holler_matches')
     .select(
-      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${MANAGER_SELECT})`,
+      `id,status,distance_mi,draft,created_at,${holdCol}signal:holler_signals(id,source,kind,title,summary,url,city,state,county,zip,lat,lon,occurred_at,expires_at,severity,categories,subtype:data->>subtype,approxLocation:data->>approxLocation,loc:data->>loc,alertId:data->>alertId,${DEADLINE_SELECT},${VALUE_SELECT},${STAGE_SELECT},bidBuyer:data->>buyer,${SAM_SELECT},${MANAGER_SELECT})`,
     )
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -300,7 +303,8 @@ async function loadDashboard() {
       managerName: s.managerName ?? null,
       managerRole: s.managerRole ?? null,
       // Open city bids: buyer and due date with days left, worked out on the server at request time.
-      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : null,
+      // Open city bids: buyer and due date. Federal notices: the early-notice and set-aside words (lib/signals/sam-notice.ts), from the notice's own fields.
+      bidLine: s.subtype === 'bid' ? bidCardLine({ buyer: s.bidBuyer, dueDate: s.dueDate, expiresAt: s.expires_at }, new Date(now), lang) : samCardLine({ source: s.source, summary: s.summary, setAside: s.samSetAside }, lang),
     };
     const storm = stormLinks.get(s.id);
     if (storm) base.listLink = listLinkFor(s.id, storm.kind, storm.count, lang);

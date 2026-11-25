@@ -5,6 +5,7 @@
  * here, and the existing tests prove the English output did not change by a byte.
  */
 import { EN_ACCOUNT } from './en-account';
+import { EN_SAM } from './en-sam';
 
 export const en = {
   // ---- language names (shown in the Settings picker, always in their own language) ----
@@ -1443,6 +1444,8 @@ export const en = {
   'chk.shown.one_feed': 'The one record shown here would not have been emailed to you. It would be on your matches page.',
   // Round 18, unit ES: pricing, sign-up, the signed-in app, Settings, billing and the account emails (lib/i18n/en-account.ts).
   ...EN_ACCOUNT,
+  // Round 33 (SAM): early-notice and set-aside labels on a federal notice card (lib/i18n/en-sam.ts).
+  ...EN_SAM,
 } as const;
 
 export type DictKey = keyof typeof en;
